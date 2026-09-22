@@ -267,10 +267,10 @@ export default function ManagementOverviewTab() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
+          <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
               <CardTitle className="text-base">Management overview</CardTitle>
-              <CardDescription>
+              <CardDescription className="break-words">
                 One view of tenants and agents, using the same figures as the top-up eligibility and
                 registration control reports.
                 {rules
@@ -282,13 +282,13 @@ export default function ManagementOverviewTab() {
                 {asOf ? ` As at ${new Date(asOf).toLocaleString()}.` : ''}
               </CardDescription>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="grid grid-cols-1 gap-2 min-[380px]:grid-cols-2 sm:flex sm:shrink-0 sm:flex-wrap sm:justify-end">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => void handleGeneratePdf()}
                 disabled={isLoading || generatingPdf}
-                className="gap-1.5"
+                className="w-full gap-1.5 sm:w-auto"
               >
                 {generatingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
                 Professional PDF
@@ -298,7 +298,7 @@ export default function ManagementOverviewTab() {
                 size="sm"
                 onClick={() => void handleExportXlsx()}
                 disabled={isLoading || generatingXlsx}
-                className="gap-1.5"
+                className="w-full gap-1.5 sm:w-auto"
               >
                 {generatingXlsx ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileSpreadsheet className="h-4 w-4" />}
                 Export Excel
@@ -339,9 +339,9 @@ export default function ManagementOverviewTab() {
       </Card>
 
       <Tabs defaultValue="tenants">
-        <TabsList>
-          <TabsTrigger value="tenants">Tenants</TabsTrigger>
-          <TabsTrigger value="agents">Agents</TabsTrigger>
+        <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1.5 rounded-xl border border-border bg-muted/30 p-1.5">
+          <TabsTrigger value="tenants" className="h-9 shrink-0 whitespace-nowrap rounded-lg px-2.5 text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">Tenants</TabsTrigger>
+          <TabsTrigger value="agents" className="h-9 shrink-0 whitespace-nowrap rounded-lg px-2.5 text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">Agents</TabsTrigger>
         </TabsList>
 
         <TabsContent value="tenants" className="mt-3 space-y-4">
@@ -391,7 +391,7 @@ export default function ManagementOverviewTab() {
               <CardDescription>
                 Rent, dues, payments, arrears, cycle position and what each tenant can access now.
               </CardDescription>
-              <div className="mt-3 grid gap-2 md:grid-cols-3 lg:grid-cols-5">
+              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
                 <Input
                   placeholder="Search tenant name or phone"
                   value={search}
@@ -424,7 +424,7 @@ export default function ManagementOverviewTab() {
                     ))}
                   </SelectContent>
                 </Select>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:col-span-2 md:col-span-1">
                   <Select value={arrears} onValueChange={(v) => setArrears(v as ArrearsFilter)}>
                     <SelectTrigger><SelectValue placeholder="Arrears" /></SelectTrigger>
                     <SelectContent>
@@ -609,12 +609,12 @@ export default function ManagementOverviewTab() {
                 </>
               )}
               {!isLoading && visibleTenants.length > 0 && (
-                <div className="mt-3 flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                <div className="mt-3 flex flex-col items-stretch gap-2 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                   <span>
                     Showing {Math.min(shownTenants, visibleTenants.length)} of {visibleTenants.length} tenants
                   </span>
                   {shownTenants < visibleTenants.length && (
-                    <Button variant="outline" size="sm" onClick={() => setShownTenants((n) => n + 150)}>
+                    <Button className="w-full sm:w-auto" variant="outline" size="sm" onClick={() => setShownTenants((n) => n + 150)}>
                       Show more
                     </Button>
                   )}
@@ -672,7 +672,7 @@ export default function ManagementOverviewTab() {
                 Totals built from each agent's own tenants above, with last month's performance and
                 registration standing.
               </CardDescription>
-              <div className="mt-3 grid gap-2 md:grid-cols-3">
+              <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3">
                 <Input
                   placeholder="Search agent name"
                   value={agentSearch}

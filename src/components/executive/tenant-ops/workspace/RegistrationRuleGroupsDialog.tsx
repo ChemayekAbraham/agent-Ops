@@ -64,7 +64,7 @@ function ChipPicker({
             <Badge
               key={v}
               variant={on ? 'default' : 'outline'}
-              className="cursor-pointer"
+              className="max-w-full cursor-pointer whitespace-normal break-words text-left"
               onClick={() => onToggle(v)}
             >
               {v}
@@ -136,7 +136,7 @@ export default function RegistrationRuleGroupsDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="flex max-h-[calc(100dvh-1rem)] max-w-3xl flex-col overflow-hidden p-4 sm:max-h-[calc(100dvh-2rem)] sm:p-6">
         <DialogHeader>
           <DialogTitle>Registration rules</DialogTitle>
           <DialogDescription>
@@ -145,30 +145,30 @@ export default function RegistrationRuleGroupsDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex items-center justify-between rounded-lg border p-3">
-          <div>
+        <div className="flex items-start justify-between gap-3 rounded-lg border p-3">
+          <div className="min-w-0">
             <div className="text-sm font-medium">Restriction switched on</div>
             <div className="text-xs text-muted-foreground">
               Turn this off and no agent is ever stopped from registering.
             </div>
           </div>
-          <Switch checked={enabled} onCheckedChange={setEnabled} />
+          <Switch className="shrink-0" checked={enabled} onCheckedChange={setEnabled} />
         </div>
 
-        <ScrollArea className="max-h-[52vh] pr-3">
+        <ScrollArea className="min-h-0 flex-1 pr-2 sm:pr-3">
           <div className="space-y-4">
             {groups.map((g, i) => (
               <div key={g.id} className="space-y-3 rounded-xl border p-3">
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                   <Input
                     value={g.label}
                     onChange={(e) => patch(i, { label: e.target.value })}
-                    className="max-w-[16rem]"
+                    className="w-full sm:max-w-[16rem]"
                     placeholder="Rule name"
                   />
-                  <div className="ml-auto flex items-center gap-1">
+                  <div className="flex w-full flex-wrap items-center justify-between gap-1 sm:ml-auto sm:w-auto sm:flex-nowrap sm:justify-start">
                     <Switch checked={g.active} onCheckedChange={(v) => patch(i, { active: v })} />
-                    <span className="mr-2 text-xs text-muted-foreground">{g.active ? 'Active' : 'Paused'}</span>
+                    <span className="mr-auto text-xs text-muted-foreground sm:mr-2">{g.active ? 'Active' : 'Paused'}</span>
                     <Button size="icon" variant="ghost" onClick={() => move(i, -1)} disabled={i === 0}>
                       <ArrowUp className="h-4 w-4" />
                     </Button>
@@ -252,7 +252,7 @@ export default function RegistrationRuleGroupsDialog({
                     value={agentSearch}
                     onChange={(e) => setAgentSearch(e.target.value)}
                     placeholder="Search an agent by name"
-                    className="mt-1 max-w-sm"
+                    className="mt-1 w-full sm:max-w-sm"
                   />
                   <div className="mt-2 flex flex-wrap gap-1">
                     {agentMatches.map((a) => {
@@ -261,7 +261,7 @@ export default function RegistrationRuleGroupsDialog({
                         <Badge
                           key={a.id}
                           variant={on ? 'default' : 'outline'}
-                          className="cursor-pointer"
+                          className="max-w-full cursor-pointer whitespace-normal break-words text-left"
                           onClick={() => toggleIn(i, 'agent_ids', a.id)}
                         >
                           {a.full_name ?? 'Unnamed agent'}
@@ -289,17 +289,17 @@ export default function RegistrationRuleGroupsDialog({
         <Button
           variant="outline"
           size="sm"
-          className="self-start"
+          className="w-full shrink-0 sm:w-auto sm:self-start"
           onClick={() => setGroups((prev) => [...prev, emptyGroup(prev.length)])}
         >
           <Plus className="mr-2 h-4 w-4" /> Add a rule
         </Button>
 
-        <DialogFooter>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
+        <DialogFooter className="shrink-0 flex-col-reverse gap-2 sm:flex-row">
+          <Button variant="ghost" className="w-full sm:w-auto" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={() => onSave({ enabled, groups })} disabled={saving}>
+          <Button className="w-full sm:w-auto" onClick={() => onSave({ enabled, groups })} disabled={saving}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Save rules
           </Button>
