@@ -7,12 +7,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import { format, subDays, startOfDay } from 'date-fns';
 import { Activity, TrendingUp, TrendingDown, Users, UserPlus } from 'lucide-react';
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 
-// Same definition as the overview card: active = collected rent in the window
-// (agent_collections, non-reversed), via get_agent_ops_overview. One call with a
-// 7-day range returns both the current week and the previous week (the RPC's
-// built-in previous-window), so the modal and the card can never disagree.
+// Active = collected rent in the window, reported as two disjoint groups by
+// get_agent_active_breakdown:
+//   Agents     — primary agents who collected themselves OR whose sub-agents collected
+//   Sub-agents — sub-agents who collected themselves
+// so the two rows add up to a true distinct headcount (no sub-agent counted twice).
 
 function fmtNum(n: number): string {
   return Number(n || 0).toLocaleString();
@@ -33,38 +34,42 @@ export function ActiveAgentsBreakdownDialog({ open, onOpenChange }: Props) {
   const prevWeekStart = useMemo(() => startOfDay(subDays(new Date(), 14)), []);
 
   const { data, isLoading, isError } = useQuery({
-    queryKey: ['agent-ops-active-breakdown', weekStart.toISOString()],
+    queryKey: ['agent-ops-active-breakdown-v2', weekStart.toISOString()],
     enabled: open,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_agent_ops_overview' as any, {
+      const { data, error } = await supabase.rpc('get_agent_active_breakdown' as any, {
         p_range_start: weekStart.toISOString(),
         p_range_end: new Date().toISOString(),
       });
       if (error) throw error;
       return data as unknown as {
-        kpis: Record<string, number>;
-        trend: Array<{ day: string; active_agents: number }>;
+        agents_curr: number;
+        agents_prev: number;
+        subagents_curr: number;
+        subagents_prev: number;
+        total_curr: number;
+        total_prev: number;
+        trend: Array<{ day: string; agents: number; subagents: number }>;
       };
     },
     staleTime: 60_000,
   });
 
-  const k = data?.kpis || {};
+  const currAgents = data?.agents_curr || 0;
+  const currSubs = data?.subagents_curr || 0;
+  const prevAgents = data?.agents_prev || 0;
+  const prevSubs = data?.subagents_prev || 0;
 
-  const currAgents = k.active_agents_curr || 0;
-  const currSubs = k.active_subagents_curr || 0;
-  const prevAgents = k.active_agents_prev || 0;
-  const prevSubs = k.active_subagents_prev || 0;
-
-  const currTotal = currAgents + currSubs;
-  const prevTotal = prevAgents + prevSubs;
+  const currTotal = data?.total_curr ?? currAgents + currSubs;
+  const prevTotal = data?.total_prev ?? prevAgents + prevSubs;
   const net = currTotal - prevTotal;
   const pct = pctDelta(currTotal, prevTotal);
   const up = net >= 0;
 
   const daily = (data?.trend || []).map((t) => ({
     label: format(new Date(t.day), 'EEE d'),
-    active: t.active_agents,
+    agents: Number(t.agents || 0),
+    subagents: Number(t.subagents || 0),
   }));
 
   return (
@@ -77,7 +82,8 @@ export function ActiveAgentsBreakdownDialog({ open, onOpenChange }: Props) {
           </DialogTitle>
           <DialogDescription className="text-xs">
             {format(weekStart, 'dd MMM')} → {format(new Date(), 'dd MMM yyyy')} compared with{' '}
-            {format(prevWeekStart, 'dd MMM')} → {format(weekStart, 'dd MMM')}. Active = collected rent at least once in the week.
+            {format(prevWeekStart, 'dd MMM')} → {format(weekStart, 'dd MMM')}. Active = rent collected at
+            least once in the week, by the agent or by one of their sub-agents.
           </DialogDescription>
         </DialogHeader>
 
@@ -143,18 +149,20 @@ export function ActiveAgentsBreakdownDialog({ open, onOpenChange }: Props) {
               </div>
             </div>
 
-            {/* Daily active trend for the current week */}
+            {/* Daily active trend for the current week, split by group */}
             {daily.length > 0 && (
               <div>
-                <p className="text-[11px] font-medium text-muted-foreground mb-1.5">Daily active agents — this week</p>
-                <div className="h-36">
+                <p className="text-[11px] font-medium text-muted-foreground mb-1.5">Daily active — this week</p>
+                <div className="h-40">
                   <ResponsiveContainer width="100%" height="100%">
                     <BarChart data={daily} margin={{ top: 4, right: 4, bottom: 0, left: -18 }}>
                       <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
                       <XAxis dataKey="label" tick={{ fontSize: 10 }} />
                       <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
                       <Tooltip contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-                      <Bar dataKey="active" name="Active" fill="hsl(160 84% 39%)" radius={[4, 4, 0, 0]} />
+                      <Legend wrapperStyle={{ fontSize: 11 }} />
+                      <Bar dataKey="agents" name="Agents" fill="hsl(160 84% 39%)" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="subagents" name="Sub-agents" fill="hsl(262 83% 58%)" radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
