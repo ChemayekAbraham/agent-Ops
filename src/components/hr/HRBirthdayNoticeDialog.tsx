@@ -1,16 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { Cake } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import {
-  AlertDialog,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 
 type PendingNotice = {
   notice_id: string;
@@ -97,33 +91,54 @@ export default function HRBirthdayNoticeDialog() {
   };
 
   return (
-    <AlertDialog open>
-      {/* AlertDialog never closes on outside click; Escape is blocked explicitly below. */}
-      <AlertDialogContent onEscapeKeyDown={(e) => e.preventDefault()}>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Staff birthday notice</AlertDialogTitle>
-          <AlertDialogDescription asChild>
-            <div className="space-y-1 text-sm">
-              <p className="font-medium text-foreground">
-                {current.full_name ?? 'Staff member'}
-                {current.staff_ref ? ` · ${current.staff_ref}` : ''}
-              </p>
-              <p>Turning {current.turning_age ?? '—'}</p>
-              <p>{formatDate(current.birthday_on)}</p>
-              {pending.length > 1 && (
-                <p className="text-xs text-muted-foreground">
-                  {pending.length - 1} more notice{pending.length - 1 === 1 ? '' : 's'} after this one.
-                </p>
-              )}
-            </div>
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <Button onClick={() => void acknowledge()} disabled={busy}>
+    // Same primitives as the staff loan approval notice: Radix Dialog (portals to
+    // document.body, overlay in the z-50 band, body scroll locked while open),
+    // close control hidden, escape / outside interaction prevented.
+    <Dialog open onOpenChange={() => { /* cannot be dismissed */ }}>
+      <DialogContent
+        className="left-0 top-0 h-screen w-screen max-w-none translate-x-0 translate-y-0 gap-0 overflow-y-auto rounded-none border-0 p-0 sm:max-w-none [&>button]:hidden"
+        onEscapeKeyDown={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onInteractOutside={(e) => e.preventDefault()}
+      >
+        <div className="flex min-h-screen flex-col items-center justify-center px-6 py-12 text-center">
+          <span className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
+            <Cake className="h-8 w-8" aria-hidden />
+          </span>
+
+          <DialogTitle className="mt-6 text-lg font-semibold uppercase tracking-wide text-muted-foreground">
+            Staff birthday
+          </DialogTitle>
+
+          <DialogDescription className="sr-only">
+            A staff birthday notice that must be acknowledged before continuing.
+          </DialogDescription>
+
+          <p className="mt-4 text-4xl font-bold leading-tight tracking-tight sm:text-5xl">
+            {current.full_name ?? 'Staff member'}
+          </p>
+
+          {current.staff_ref && (
+            <p className="mt-2 text-xl font-medium text-muted-foreground sm:text-2xl">{current.staff_ref}</p>
+          )}
+
+          <p className="mt-6 text-2xl font-semibold sm:text-3xl">
+            Turning {current.turning_age ?? '—'}
+          </p>
+
+          <p className="mt-2 text-lg text-muted-foreground sm:text-xl">{formatDate(current.birthday_on)}</p>
+
+          {pending.length > 1 && (
+            <p className="mt-6 text-sm text-muted-foreground">
+              {pending.length - 1} more notice{pending.length - 1 === 1 ? '' : 's'} after this one.
+            </p>
+          )}
+
+          <Button size="lg" className="mt-10 h-14 w-full max-w-sm text-base" onClick={() => void acknowledge()} disabled={busy}>
             Acknowledge
           </Button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
