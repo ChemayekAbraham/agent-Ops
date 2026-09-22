@@ -4,6 +4,7 @@ import HRPlaceholderPage from './HRPlaceholderPage';
 import StaffDirectory from '../components/StaffDirectory';
 import PayrollEnrollment from '@/hr/pay/PayrollEnrollment';
 import Contracts from '@/hr/contracts/Contracts';
+import HRBirthdayRegister from '@/components/hr/HRBirthdayRegister';
 
 const TABS = [
   { value: 'directory', label: 'Directory' },
