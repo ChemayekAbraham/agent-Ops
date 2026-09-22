@@ -56854,6 +56854,10 @@ export type Database = {
           verified: boolean
         }[]
       }
+      get_agent_tenant_repayments: {
+        Args: { p_tenant_id: string }
+        Returns: Json
+      }
       get_agent_tenants_overview: {
         Args: { p_today_start?: string }
         Returns: {
