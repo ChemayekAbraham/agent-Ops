@@ -97,12 +97,12 @@ export function FunderNewFilterChips({
         </Select>
       ) : null}
 
-      {districts.length > 0 ? (
+      {districts.length > 0 ? field('District',
         <Select
           value={filters.location.trim() === '' ? 'all' : filters.location}
           onValueChange={(value) => onChange({ location: value === 'all' ? '' : value })}
         >
-          <SelectTrigger className={CHIP} aria-label="District">
+          <SelectTrigger className={chip} aria-label="District">
             <MapPin className="mr-1 h-3 w-3 flex-none" aria-hidden />
             <SelectValue placeholder="All districts" />
           </SelectTrigger>
