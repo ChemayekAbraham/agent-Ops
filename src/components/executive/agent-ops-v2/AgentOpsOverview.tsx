@@ -158,6 +158,28 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
     staleTime: 60_000,
   });
 
+  // Active agents, counted as two disjoint groups: primary agents (who collected
+  // themselves OR whose sub-agents collected) and sub-agents who collected. The
+  // overview RPC's active_agents_curr counts every collector including
+  // sub-agents, so adding it to active_subagents_curr double-counted them and
+  // left team-only primary agents out.
+  const { data: activeBreakdown } = useQuery({
+    queryKey: ['agent-ops-overview', 'active-breakdown', startIso, endIso],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_agent_active_breakdown' as any, {
+        p_range_start: startIso,
+        p_range_end: endIso,
+      });
+      if (error) throw error;
+      return data as unknown as {
+        agents_curr: number; agents_prev: number;
+        subagents_curr: number; subagents_prev: number;
+        total_curr: number; total_prev: number;
+      };
+    },
+    staleTime: 60_000,
+  });
+
   // Daily series for the charts — same RPC, daily buckets over the last 30 days.
   const { data: trendPayload } = useQuery({
     queryKey: ['agent-ops-overview', 'daily-trend', trendStart, endIso],
