@@ -27,7 +27,6 @@ import {
 import { EmptyHouseDetailSheet } from '@/components/agent/EmptyHouseDetailSheet';
 import DepositFlow from '@/components/payments/DepositFlow';
 
-import { EmptyHouseTrendPanel } from './EmptyHouseTrendPanel';
 import { useEmptyHouseTotalRentNeeded } from '@/hooks/useEmptyHouseTotalRentNeeded';
 import { HouseCompareDialog } from './HouseCompareDialog';
 import { FundHouseTooltip } from './FundHouseTooltip';
@@ -1071,13 +1070,6 @@ export function SelfPortfolioFundingCard({
         </div>
       )}
 
-      {feedOrder === 'houses' && houses.length > 0 && (
-        <EmptyHouseTrendPanel
-          district={houseDistrict !== 'all' ? houseDistrict : null}
-          minRent={houseRentMin.trim() !== '' && Number.isFinite(rentMinBound) ? rentMinBound : null}
-          maxRent={houseRentMax.trim() !== '' && Number.isFinite(rentMaxBound) ? rentMaxBound : null}
-        />
-      )}
 
       <Card className="p-3 sm:p-4 rounded-xl sm:rounded-2xl">
         <div className="flex items-center justify-between gap-3">
