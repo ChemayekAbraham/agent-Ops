@@ -41,7 +41,7 @@ type FeedOrder = 'rent' | 'houses';
 // Configurable service/access fee on empty-house funding (rate on one-month funding).
 const EMPTY_HOUSE_SERVICE_FEE_RATE = 0;
 
-// Steps shown in the collapsible "How it works" explainer on Support Tenants Directly.
+// Steps shown in the collapsible "How it works" explainer on Fund these houses.
 const MANAGED_FUNDING_STEPS: HowItWorksStep[] = [
   {
     title: 'Sign your tenant-support contract',
@@ -785,7 +785,7 @@ export function FunderCapitalOpportunities({
   if (view === 'direct') {
     return ( <TooltipProvider delayDuration={150}>
       <DetailShell
-        title="Support Tenants Directly"
+        title="Fund these houses."
         subtitle="Fund approved tenant rent plans from your balance"
         onBack={embedded ? undefined : () => setView('menu')}
         compactMobile
