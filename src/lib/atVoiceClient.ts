@@ -62,34 +62,7 @@ let client: RawClient | null = null;
 let clientToken: string | null = null;
 const listeners = new Map<AtVoiceEvent, Set<Listener>>();
 
-/**
- * Whether the SDK is currently REGISTERED and able to place a call.
- *
- * This lives at module level, beside the client it describes, because the
- * client does. It used to live in a `useRef` inside `useCrmVoiceCall`, which
- * had two consequences and both cost real calls:
- *
- *   * the ref reset to `false` on every remount while the client stayed
- *     registered, and `ready` is emitted once per registration with no replay -
- *     so the hook waited for an event that would never come again, timed out,
- *     and dialled anyway;
- *   * a second hook instance had its own ref and disagreed with the first.
- *
- * Readiness is a property of the connection, not of whoever is looking at it.
- */
-let registered = false;
-
-/** Is the voice client registered right now? */
-export function isVoiceClientReady(): boolean {
-  return registered && client !== null;
-}
-
 function emit(event: AtVoiceEvent, payload: unknown) {
-  // Registration state is tracked HERE rather than by each subscriber, so it
-  // cannot drift from the events that drive it.
-  if (event === 'ready') registered = true;
-  if (event === 'notready' || event === 'offline' || event === 'closed') registered = false;
-
   listeners.get(event)?.forEach((fn) => {
     try {
       fn(payload);
@@ -97,28 +70,6 @@ function emit(event: AtVoiceEvent, payload: unknown) {
       console.error(`[atVoice] listener for "${event}" threw`, err);
     }
   });
-}
-
-/**
- * Throw the current client away so the next `getVoiceClient` builds a fresh one.
- *
- * Needed because a client whose registration has dropped is indistinguishable
- * from a healthy one by token alone: `getVoiceClient` hands back the cached
- * instance whenever the token string matches, and the token is good for an
- * hour. Without this, one dropped registration made every call for the rest of
- * that hour dial into nothing.
- */
-export function resetVoiceClient(): void {
-  if (client) {
-    try {
-      client.hangup();
-    } catch {
-      // Already gone. Nothing to salvage, and the point is to discard it.
-    }
-  }
-  client = null;
-  clientToken = null;
-  registered = false;
 }
 
 /**
