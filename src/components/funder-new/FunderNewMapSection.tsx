@@ -2,10 +2,11 @@ import { Suspense, lazy, useCallback, useMemo, useState } from 'react';
 import { AlertTriangle, Crosshair, Loader2, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useEmptyHouseMapCells, type MapViewport } from '@/hooks/useEmptyHouseMapCells';
 import type { FunderNewEmptyHouse, FunderNewFilters, FunderNewOrigin } from './types';
-import type { FunderNewViewport } from './FunderNewRouteMap';
+import type { FunderNewMapCell, FunderNewViewport } from './FunderNewRouteMap';
 import type { FunderNewLocationController } from './useFunderNewLocation';
-import { FUNDER_NEW_MAP_LIMIT, useFunderNewMapHouses } from './useFunderNewOpportunities';
+import { amountRange } from './utils';
 
 const LazyRouteMap = lazy(() => import('./FunderNewRouteMap').then((module) => ({ default: module.FunderNewRouteMap })));
 
@@ -43,31 +44,58 @@ export function FunderNewMapSection({
   const [resetToken, setResetToken] = useState(0);
 
   const device = location.coords;
-  // The map reads the area it is showing, which is not the same thing as the
-  // user's origin used for distance labels.
-  const mapCentre = useMemo(() => {
-    if (viewport) return { lat: viewport.lat, lng: viewport.lng };
-    if (device) return { lat: device.lat, lng: device.lng };
-    return null;
-  }, [viewport, device]);
 
-  const mapQuery = useFunderNewMapHouses(filters, mapCentre, viewport?.radiusKm ?? null, true);
-  const houses = mapQuery.data?.items ?? [];
-  const total = mapQuery.data?.total ?? 0;
+  // Every home in the visible area, aggregated by the database and streamed in
+  // per tile — the same read path the established funding map uses, so the map
+  // is never limited to one page of listings.
+  const cellViewport = useMemo<MapViewport | null>(
+    () =>
+      viewport
+        ? {
+            minLat: viewport.minLat,
+            minLng: viewport.minLng,
+            maxLat: viewport.maxLat,
+            maxLng: viewport.maxLng,
+            zoom: viewport.zoom,
+          }
+        : null,
+    [viewport],
+  );
+
+  const range = amountRange(filters.amount);
+  const cellQuery = useEmptyHouseMapCells(cellViewport, {
+    search: filters.search.trim() || undefined,
+    district: filters.location.trim() || undefined,
+    minRent: range.min,
+    maxRent: range.max,
+  });
+
+  const cells = useMemo<FunderNewMapCell[]>(
+    () =>
+      (cellQuery.data?.cells ?? []).map((cell) => ({
+        key: cell.key,
+        count: cell.count,
+        lat: cell.latitude,
+        lng: cell.longitude,
+        amount: cell.minRent,
+        house: (cell.house as unknown as FunderNewEmptyHouse | null) ?? null,
+      })),
+    [cellQuery.data],
+  );
+
+  const housesInView = cellQuery.data?.housesInView ?? 0;
 
   const awaitingDeviceFix = location.permission === 'granted' && !device && location.status !== 'error';
 
   const heading = device ? 'Homes near you' : origin?.source === 'area' ? 'Homes in this area' : 'Explore homes by area';
 
   const loadedNote = useMemo(() => {
-    if (mapQuery.isLoading) return 'Loading homes in this view\u2026';
-    if (mapQuery.error) return 'Homes could not be loaded on the map.';
-    if (houses.length === 0) return 'No mapped homes in this view.';
-    if (total > houses.length) {
-      return `Showing ${houses.length} of ${total.toLocaleString()} mapped homes in this view (up to ${FUNDER_NEW_MAP_LIMIT}).`;
-    }
-    return `Showing ${houses.length} mapped ${houses.length === 1 ? 'home' : 'homes'} in this view. Prices in UGX.`;
-  }, [mapQuery.isLoading, mapQuery.error, houses.length, total]);
+    if (!cellQuery.data && cellQuery.isFetching) return 'Loading homes in this view\u2026';
+    if (cellQuery.isError) return 'Homes could not be loaded on the map.';
+    if (housesInView === 0) return 'No mapped homes in this view.';
+    const suffix = cellQuery.isFetching ? ' Still loading more\u2026' : ' Prices in UGX.';
+    return `Showing ${housesInView.toLocaleString()} mapped ${housesInView === 1 ? 'home' : 'homes'} in this view.${suffix}`;
+  }, [cellQuery.data, cellQuery.isFetching, cellQuery.isError, housesInView]);
 
   const handleReset = useCallback(() => {
     setViewport(null);
@@ -110,7 +138,7 @@ export function FunderNewMapSection({
         <Suspense fallback={<Skeleton className="h-full w-full rounded-2xl" />}>
           <LazyRouteMap
             key={resetToken}
-            houses={houses}
+            cells={cells}
             selectedIds={selectedIds}
             savedIds={savedIds}
             activeId={activeId}

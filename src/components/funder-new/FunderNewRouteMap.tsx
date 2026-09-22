@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { formatDynamicCompact } from '@/lib/currencyFormat';
 import { cn } from '@/lib/utils';
 import type { FunderNewEmptyHouse } from './types';
-import { emptyHouseTitle, itemAmount, itemCoordinates } from './utils';
+import { emptyHouseTitle, itemAmount } from './utils';
 
 /** Uganda-wide fallback view. Never presented as the user's position. */
 const SERVICE_AREA_CENTRE: [number, number] = [1.3733, 32.2903];
@@ -21,22 +21,50 @@ export interface FunderNewViewport {
   lat: number;
   lng: number;
   radiusKm: number;
+  /** Visible bounds + zoom, so the database can aggregate exactly this view. */
+  minLat: number;
+  minLng: number;
+  maxLat: number;
+  maxLng: number;
+  zoom: number;
 }
 
-interface MapPoint {
-  id: string;
+/**
+ * One aggregated grid cell from the database. A cell holding a single house
+ * carries that house, so it renders as a price pin; a busier cell renders as a
+ * counted cluster.
+ */
+export interface FunderNewMapCell {
+  key: string;
+  count: number;
   lat: number;
   lng: number;
-  title: string;
   amount: number;
-  house: FunderNewEmptyHouse;
+  house: FunderNewEmptyHouse | null;
 }
+
 
 function radiusKmOf(map: L.Map): number {
   const bounds = map.getBounds();
   const centre = bounds.getCenter();
   const metres = centre.distanceTo(bounds.getNorthEast());
   return Math.max(1, Math.round(metres / 1000));
+}
+
+/** Centre, radius, bounds and zoom of the current view in one reading. */
+function viewportOf(map: L.Map): FunderNewViewport {
+  const bounds = map.getBounds();
+  const centre = bounds.getCenter();
+  return {
+    lat: centre.lat,
+    lng: centre.lng,
+    radiusKm: radiusKmOf(map),
+    minLat: bounds.getSouth(),
+    minLng: bounds.getWest(),
+    maxLat: bounds.getNorth(),
+    maxLng: bounds.getEast(),
+    zoom: Math.round(map.getZoom()),
+  };
 }
 
 function priceIcon(label: string, active: boolean, saved: boolean): L.DivIcon {
@@ -80,7 +108,7 @@ function InitialView({
   awaitingDeviceFix,
 }: {
   device: { lat: number; lng: number } | null;
-  points: MapPoint[];
+  points: { lat: number; lng: number }[];
   awaitingDeviceFix: boolean;
 }) {
   const map = useMap();
@@ -121,8 +149,7 @@ function ViewportReporter({
 
   const report = useCallback(
     (fromUser: boolean) => {
-      const centre = map.getCenter();
-      const viewport: FunderNewViewport = { lat: centre.lat, lng: centre.lng, radiusKm: radiusKmOf(map) };
+      const viewport = viewportOf(map);
       if (timer.current) window.clearTimeout(timer.current);
       timer.current = window.setTimeout(() => {
         onChange(viewport);
@@ -138,8 +165,7 @@ function ViewportReporter({
   });
 
   useEffect(() => {
-    const centre = map.getCenter();
-    onChange({ lat: centre.lat, lng: centre.lng, radiusKm: radiusKmOf(map) });
+    onChange(viewportOf(map));
     return () => {
       if (timer.current) window.clearTimeout(timer.current);
     };
@@ -150,15 +176,18 @@ function ViewportReporter({
   return null;
 }
 
-/** Collision-conscious grid clustering computed in screen space. */
-function HouseLayer({
-  points,
+/**
+ * Renders the database's aggregated cells, then merges any that would still
+ * collide on screen so pins never stack on top of each other.
+ */
+function CellLayer({
+  cells,
   selectedIds,
   savedIds,
   activeId,
   onOpenHouse,
 }: {
-  points: MapPoint[];
+  cells: FunderNewMapCell[];
   selectedIds: string[];
   savedIds: string[];
   activeId: string | null;
@@ -174,40 +203,45 @@ function HouseLayer({
   });
 
   const groups = useMemo(() => {
-    const cells = new Map<string, MapPoint[]>();
-    points.forEach((point) => {
-      let key = 'x';
+    const buckets = new Map<string, FunderNewMapCell[]>();
+    cells.forEach((cell) => {
+      let key = cell.key;
       try {
-        const pixel = map.latLngToContainerPoint([point.lat, point.lng]);
+        const pixel = map.latLngToContainerPoint([cell.lat, cell.lng]);
         key = `${Math.floor(pixel.x / CLUSTER_CELL_PX)}:${Math.floor(pixel.y / CLUSTER_CELL_PX)}`;
       } catch {
-        key = `${point.lat.toFixed(2)}:${point.lng.toFixed(2)}`;
+        key = `${cell.lat.toFixed(2)}:${cell.lng.toFixed(2)}`;
       }
-      const bucket = cells.get(key);
-      if (bucket) bucket.push(point);
-      else cells.set(key, [point]);
+      const bucket = buckets.get(key);
+      if (bucket) bucket.push(cell);
+      else buckets.set(key, [cell]);
     });
-    return [...cells.values()];
+    return [...buckets.values()];
     // Recomputed on every pan/zoom tick.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, points, setTick]);
+  }, [map, cells, setTick]);
 
   return (
     <>
       {groups.map((group) => {
-        const active = group.find((point) => point.id === activeId);
-        // A group holding the active house always renders as individual pins so
-        // the selected home stays visible.
-        if (group.length > 1 && !active) {
-          const lat = group.reduce((sum, point) => sum + point.lat, 0) / group.length;
-          const lng = group.reduce((sum, point) => sum + point.lng, 0) / group.length;
+        const houses = group
+          .map((cell) => (cell.house ? { cell, house: cell.house } : null))
+          .filter((entry): entry is { cell: FunderNewMapCell; house: FunderNewEmptyHouse } => entry !== null);
+        const total = group.reduce((sum, cell) => sum + Math.max(1, cell.count), 0);
+        const activeEntry = houses.find((entry) => entry.house.house_id === activeId);
+
+        // A bucket that holds the open home always shows individual pins, so the
+        // selected home stays visible.
+        if (total > 1 && !activeEntry) {
+          const lat = group.reduce((sum, cell) => sum + cell.lat, 0) / group.length;
+          const lng = group.reduce((sum, cell) => sum + cell.lng, 0) / group.length;
           return (
             <Marker
-              key={`cluster:${group[0].id}:${group.length}`}
+              key={`cluster:${group[0].key}:${total}`}
               position={[lat, lng]}
-              icon={clusterIcon(group.length)}
+              icon={clusterIcon(total)}
               keyboard
-              alt={`${group.length} homes in this area. Zoom in to see each one.`}
+              alt={`${total} homes in this area. Zoom in to see each one.`}
               eventHandlers={{
                 click: () => map.setView([lat, lng], Math.min(map.getZoom() + 2, 17), { animate: true }),
                 keypress: () => map.setView([lat, lng], Math.min(map.getZoom() + 2, 17), { animate: true }),
@@ -215,23 +249,28 @@ function HouseLayer({
             />
           );
         }
-        return group.map((point) => (
-          <Marker
-            key={point.id}
-            position={[point.lat, point.lng]}
-            icon={priceIcon(
-              formatDynamicCompact(point.amount),
-              selectedIds.includes(point.id) || activeId === point.id,
-              savedIds.includes(point.id),
-            )}
-            keyboard
-            alt={`${point.title}. ${formatDynamicCompact(point.amount)} to support. Open details.`}
-            eventHandlers={{
-              click: () => onOpenHouse(point.house),
-              keypress: () => onOpenHouse(point.house),
-            }}
-          />
-        ));
+
+        return houses.map(({ cell, house }) => {
+          const id = house.house_id;
+          const amount = cell.amount || itemAmount('empty', house);
+          return (
+            <Marker
+              key={id}
+              position={[cell.lat, cell.lng]}
+              icon={priceIcon(
+                formatDynamicCompact(amount),
+                selectedIds.includes(id) || activeId === id,
+                savedIds.includes(id),
+              )}
+              keyboard
+              alt={`${emptyHouseTitle(house)}. ${formatDynamicCompact(amount)} to support. Open details.`}
+              eventHandlers={{
+                click: () => onOpenHouse(house),
+                keypress: () => onOpenHouse(house),
+              }}
+            />
+          );
+        });
       })}
     </>
   );
@@ -247,7 +286,7 @@ function Resizer({ token }: { token: unknown }) {
 }
 
 export function FunderNewRouteMap({
-  houses,
+  cells,
   selectedIds,
   savedIds,
   activeId,
@@ -264,7 +303,7 @@ export function FunderNewRouteMap({
   onReset,
   loadedNote,
 }: {
-  houses: FunderNewEmptyHouse[];
+  cells: FunderNewMapCell[];
   selectedIds: string[];
   savedIds: string[];
   activeId: string | null;
@@ -286,24 +325,7 @@ export function FunderNewRouteMap({
   const expandRef = useRef<HTMLButtonElement | null>(null);
   const closeRef = useRef<HTMLButtonElement | null>(null);
 
-  const points = useMemo<MapPoint[]>(
-    () =>
-      houses
-        .map((house) => {
-          const coords = itemCoordinates(house, 'empty');
-          if (!coords) return null;
-          return {
-            id: house.house_id,
-            lat: coords.lat,
-            lng: coords.lng,
-            title: emptyHouseTitle(house),
-            amount: itemAmount('empty', house),
-            house,
-          } satisfies MapPoint;
-        })
-        .filter((point): point is MapPoint => point !== null),
-    [houses],
-  );
+  const points = useMemo(() => cells.map((cell) => ({ lat: cell.lat, lng: cell.lng })), [cells]);
 
   // Escape closes full screen; focus is moved in and restored on close.
   useEffect(() => {
@@ -455,8 +477,8 @@ export function FunderNewRouteMap({
           </>
         ) : null}
 
-        <HouseLayer
-          points={points}
+        <CellLayer
+          cells={cells}
           selectedIds={selectedIds}
           savedIds={savedIds}
           activeId={activeId}
