@@ -222,7 +222,9 @@ export default function FunderDashboardNew() {
 
   const filteredTotal = (emptyQuery.data?.pages?.[0]?.total ?? 0) + (readyQuery.data?.pages?.[0]?.total ?? 0);
 
-  const availableBalance = wallet.isLoading || wallet.error ? null : wallet.withdrawable;
+  // Spendable capacity for funding = withdrawable balance + current operational float.
+  const availableBalance =
+    wallet.isLoading || wallet.error ? null : wallet.withdrawable + wallet.floatBalance;
 
   /**
    * District chip lists every district in the whole market (from the summary
