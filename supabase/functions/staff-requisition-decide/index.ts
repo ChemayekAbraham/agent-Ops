@@ -125,7 +125,7 @@ Deno.serve(async (req) => {
 
     // ── Reject ───────────────────────────────────────────────────────────────
     if (action === "reject") {
-      const { data: updated } = await admin
+      const { data: updated } = await writer
         .from("staff_requisitions")
         .update({
           ...decisionCols,
@@ -146,7 +146,7 @@ Deno.serve(async (req) => {
 
     // ── Send back for more information ───────────────────────────────────────
     if (action === "return_info") {
-      const { data: updated } = await admin
+      const { data: updated } = await writer
         .from("staff_requisitions")
         .update({
           ...decisionCols,
@@ -179,7 +179,7 @@ Deno.serve(async (req) => {
         : stageKey === "ceo" && row.final_stage === "cfo"
         ? "cfo"
         : row.final_stage;
-      const { data: updated } = await admin
+      const { data: updated } = await writer
         .from("staff_requisitions")
         .update({
           ...decisionCols,
@@ -206,7 +206,7 @@ Deno.serve(async (req) => {
 
     const finalAmount = approvedAmount ?? Number(row.approved_amount ?? row.amount);
 
-    const { data: approvedRow, error: apprErr } = await admin
+    const { data: approvedRow, error: apprErr } = await writer
       .from("staff_requisitions")
       .update({
         ...decisionCols,
@@ -241,7 +241,7 @@ Deno.serve(async (req) => {
 
     if (!credit.ok) {
       // No approved-but-uncredited limbo: roll the stage back to this approver.
-      await admin
+      await writer
         .from("staff_requisitions")
         .update({
           stage: stageKey,
