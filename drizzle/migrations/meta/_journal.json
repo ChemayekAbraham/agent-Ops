@@ -2031,6 +2031,13 @@
       "when": 1790063898972,
       "tag": "0289_crm_call_centre_five_overlapping_queues",
       "breakpoints": true
+    },
+    {
+      "idx": 290,
+      "version": "7",
+      "when": 1790064428198,
+      "tag": "0290_agent_active_breakdown",
+      "breakpoints": true
     }
   ]
 }
