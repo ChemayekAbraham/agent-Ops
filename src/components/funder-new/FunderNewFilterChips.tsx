@@ -58,19 +58,30 @@ export function FunderNewFilterChips({
     filters.radiusKm !== 'all' ||
     filters.withinFloat;
 
+  const chip = stacked ? CHIP_STACKED : CHIP;
+  const field = (label: string, node: React.ReactNode, wide = false) =>
+    stacked ? (
+      <div className={wide ? 'sm:col-span-2 min-w-0' : 'min-w-0'}>
+        <span className="mb-1 block text-[11px] font-medium text-muted-foreground">{label}</span>
+        {node}
+      </div>
+    ) : (
+      node
+    );
+
   return (
     <div
       className={
         stacked
-          ? 'flex flex-wrap items-center gap-2'
+          ? 'grid grid-cols-1 gap-3 sm:grid-cols-2'
           : 'flex items-center gap-2 overflow-x-auto px-1 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
       }
       aria-label="Filter homes"
     >
 
-      {supportsSort ? (
+      {supportsSort ? field('Sort by',
         <Select value={filters.sort} onValueChange={(value) => onSortChange(value as FunderNewSort)}>
-          <SelectTrigger className={CHIP} aria-label="Sort">
+          <SelectTrigger className={chip} aria-label="Sort">
             <ArrowUpDown className="mr-1 h-3 w-3 flex-none" aria-hidden />
             <SelectValue />
           </SelectTrigger>
