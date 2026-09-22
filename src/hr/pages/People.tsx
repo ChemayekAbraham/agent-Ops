@@ -11,6 +11,7 @@ const TABS = [
   { value: 'enrollment', label: 'Pay setup' },
   { value: 'contracts', label: 'Contracts' },
   { value: 'documents', label: 'Documents' },
+  { value: 'birthdays', label: 'Birthdays' },
 ] as const;
 
 export default function PeoplePage() {
@@ -38,9 +39,8 @@ export default function PeoplePage() {
           ))}
         </TabsList>
 
-        <TabsContent value="directory" className="space-y-6">
+        <TabsContent value="directory">
           <StaffDirectory />
-          <HRBirthdayRegister />
         </TabsContent>
 
         <TabsContent value="enrollment">
@@ -58,6 +58,10 @@ export default function PeoplePage() {
               Not built yet. Contracts of employment, certificates and identity documents arrive here.
             </p>
           </div>
+        </TabsContent>
+
+        <TabsContent value="birthdays">
+          <HRBirthdayRegister />
         </TabsContent>
       </Tabs>
     </HRPlaceholderPage>

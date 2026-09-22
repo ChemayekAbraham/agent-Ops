@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -37,6 +38,7 @@ function formatDate(value: string | null) {
 }
 
 export default function HRBirthdayRegister() {
+  const { roles } = useAuth();
   const [rows, setRows] = useState<BirthdayRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [blocked, setBlocked] = useState(false);
@@ -44,6 +46,14 @@ export default function HRBirthdayRegister() {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [savingId, setSavingId] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState<BirthdayRow | null>(null);
+
+  // Write capability is known up front, so read-only viewers never see controls
+  // that would fail on click. The post-failure readOnly flag stays as a backstop.
+  const canWrite = useMemo(
+    () => (roles ?? []).some((r) => ['hr', 'ceo', 'super_admin'].includes(r as string)),
+    [roles],
+  );
+  const showActions = canWrite && !readOnly;
 
   const load = useCallback(async () => {
     const { data, error } = await supabase.rpc('hr_list_staff_birthdays' as never);
@@ -136,10 +146,10 @@ export default function HRBirthdayRegister() {
             <TableRow>
               <TableHead>Employee</TableHead>
               <TableHead>Date of birth</TableHead>
-              <TableHead>Age</TableHead>
+              <TableHead>Turning</TableHead>
               <TableHead>Next birthday</TableHead>
               <TableHead>Days until</TableHead>
-              {!readOnly && <TableHead className="text-right">Action</TableHead>}
+              {showActions && <TableHead className="text-right">Action</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -159,7 +169,7 @@ export default function HRBirthdayRegister() {
                   <TableCell>{row.turning_age ?? '—'}</TableCell>
                   <TableCell>{notSet ? '—' : formatDate(row.next_birthday)}</TableCell>
                   <TableCell>{notSet ? '—' : (row.days_until ?? '—')}</TableCell>
-                  {!readOnly && (
+                  {showActions && (
                     <TableCell>
                       <div className="flex flex-wrap items-center justify-end gap-2">
                         <Input
