@@ -1,12 +1,13 @@
-import { Suspense, lazy, useState } from 'react';
-import { Expand, Loader2, MapPin, RotateCcw } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Suspense, lazy } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDynamic, formatDynamicCompact } from '@/lib/currencyFormat';
-import type { FunderNewCategory, FunderNewEmptyHouse, FunderNewMarketSummary, FunderNewReadyPlan } from './types';
+import type { SupportableHouse } from '@/components/partner/SelfSupportHousesSection';
+import type { FunderNewEmptyHouse, FunderNewFilters, FunderNewMarketSummary } from './types';
+import { amountRange } from './utils';
 
-const LazyFunderNewMap = lazy(() => import('./FunderNewMap'));
+const LazyEmptyHouseMapBrowser = lazy(() =>
+  import('@/components/partner/EmptyHouseMapBrowser').then((module) => ({ default: module.EmptyHouseMapBrowser })),
+);
 
 function MapFallback() {
   return <Skeleton className="h-full w-full rounded-2xl" />;
@@ -26,38 +27,25 @@ function Chip({ label, value }: { label: string; value: string }) {
  * Never requests browser location on mount — location is opt-in via the control.
  */
 export function FunderNewMapSection({
-  category,
-  items,
+  houses,
+  filters,
   summary,
-  selectedCount,
-  onOpenDetail,
-  userPoint,
-  locationStatus,
-  onRequestLocation,
+  selectedIds,
+  availableBalance,
+  onSearchChange,
+  onOpenHouse,
+  onHousesDiscovered,
 }: {
-  category: FunderNewCategory;
-  items: Array<FunderNewEmptyHouse | FunderNewReadyPlan>;
+  houses: FunderNewEmptyHouse[];
+  filters: FunderNewFilters;
   summary: FunderNewMarketSummary | undefined;
-  selectedCount: number;
-  onOpenDetail: (id: string) => void;
-  userPoint: { lat: number; lng: number } | null;
-  locationStatus: 'idle' | 'loading' | 'denied' | 'unsupported';
-  onRequestLocation: () => void;
+  selectedIds: string[];
+  availableBalance: number;
+  onSearchChange: (value: string) => void;
+  onOpenHouse: (house: FunderNewEmptyHouse) => void;
+  onHousesDiscovered: (houses: FunderNewEmptyHouse[]) => void;
 }) {
-  const [viewKey, setViewKey] = useState(0);
-  const [expanded, setExpanded] = useState(false);
-
-  const map = (
-    <Suspense fallback={<MapFallback />}>
-      <LazyFunderNewMap
-        key={viewKey}
-        category={category}
-        items={items}
-        onOpenDetail={onOpenDetail}
-        userPoint={userPoint}
-      />
-    </Suspense>
-  );
+  const range = amountRange(filters.amount);
 
   return (
     <section id="funder-new-map" className="scroll-mt-24 space-y-4">
@@ -69,62 +57,32 @@ export function FunderNewMapSection({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" className="h-11 rounded-full" onClick={() => setExpanded(true)}>
-            <Expand className="h-4 w-4" />
-            Expand map
-          </Button>
-          <Button
-            variant="soft"
-            className="h-11 rounded-full"
-            onClick={onRequestLocation}
-            disabled={locationStatus === 'loading'}
-          >
-            {locationStatus === 'loading' ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <MapPin className="h-4 w-4" />
-            )}
-            Use my location
-          </Button>
-          <Button variant="ghost" className="h-11 rounded-full" onClick={() => setViewKey((key) => key + 1)}>
-            <RotateCcw className="h-4 w-4" />
-            Reset view
-          </Button>
+          {summary ? <Chip label="Houses" value={summary.houseCount.toLocaleString()} /> : null}
+          {summary ? <Chip label="Rent needed" value={formatDynamicCompact(summary.totalRentNeeded)} /> : null}
+          {summary?.houseCount ? <Chip label="Avg / house" value={formatDynamic(Math.round(summary.avgMonthlyRent))} /> : null}
+          {selectedIds.length > 0 ? <Chip label="Selected" value={`${selectedIds.length}`} /> : null}
         </div>
       </div>
 
-      <div className="relative overflow-hidden rounded-3xl border bg-card p-2 shadow-sm sm:p-3">
-        <div className="h-[280px] overflow-hidden rounded-2xl sm:h-[360px] lg:h-[460px]">{map}</div>
-
-        <div className="pointer-events-none absolute inset-x-4 top-5 flex flex-wrap gap-2 sm:inset-x-6">
-          {summary ? (
-            <>
-              <Chip label="Houses" value={summary.houseCount.toLocaleString()} />
-              <Chip label="Rent needed" value={formatDynamicCompact(summary.totalRentNeeded)} />
-              {summary.houseCount > 0 ? (
-                <Chip label="Avg / house" value={formatDynamic(Math.round(summary.avgMonthlyRent))} />
-              ) : null}
-            </>
-          ) : null}
-          {selectedCount > 0 ? <Chip label="Selected" value={`${selectedCount}`} /> : null}
-        </div>
+      <div className="overflow-hidden rounded-3xl border bg-card p-2 shadow-sm sm:p-3">
+        <Suspense fallback={<MapFallback />}>
+          <LazyEmptyHouseMapBrowser
+            houses={houses as SupportableHouse[]}
+            selectedIds={selectedIds}
+            searchQuery={filters.search}
+            remaining={availableBalance}
+            busy={false}
+            minRent={range.min}
+            maxRent={range.max}
+            district={filters.location.trim() || null}
+            onSearchQueryChange={onSearchChange}
+            onOpenHouse={(house) => onOpenHouse(house as FunderNewEmptyHouse)}
+            onFundHouse={() => undefined}
+            onHousesDiscovered={(discovered) => onHousesDiscovered(discovered as FunderNewEmptyHouse[])}
+            requestLocationOnMount={false}
+          />
+        </Suspense>
       </div>
-
-      {locationStatus === 'denied' || locationStatus === 'unsupported' ? (
-        <p className="rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground">
-          Location is not available, and that is fine — keep using the filters and house cards. The map still shows homes
-          that already have saved coordinates.
-        </p>
-      ) : null}
-
-      <Dialog open={expanded} onOpenChange={setExpanded}>
-        <DialogContent className="h-[92vh] max-w-[96vw] rounded-2xl p-4 sm:p-6">
-          <DialogHeader>
-            <DialogTitle>Explore opportunities by location</DialogTitle>
-          </DialogHeader>
-          <div className="h-[calc(92vh-7rem)] overflow-hidden rounded-2xl border">{expanded ? map : null}</div>
-        </DialogContent>
-      </Dialog>
     </section>
   );
 }

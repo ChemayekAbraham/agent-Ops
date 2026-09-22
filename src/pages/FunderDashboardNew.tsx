@@ -202,8 +202,7 @@ export default function FunderDashboardNew() {
   const [detailHouse, setDetailHouse] = useState<FunderNewEmptyHouse | null>(null);
   const [detailPlan, setDetailPlan] = useState<FunderNewReadyPlan | null>(null);
   const [listItems, setListItems] = useState<Array<FunderNewEmptyHouse | FunderNewReadyPlan>>([]);
-  const [userPoint, setUserPoint] = useState<{ lat: number; lng: number } | null>(null);
-  const [locationStatus, setLocationStatus] = useState<'idle' | 'loading' | 'denied' | 'unsupported'>('idle');
+  const [mapHouses, setMapHouses] = useState<FunderNewEmptyHouse[]>([]);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [calculatorOpen, setCalculatorOpen] = useState(false);
   const [howOpen, setHowOpen] = useState(false);
@@ -265,22 +264,6 @@ export default function FunderDashboardNew() {
     if (found) openDetail(tab, found);
   };
 
-  const requestLocation = () => {
-    if (!('geolocation' in navigator)) {
-      setLocationStatus('unsupported');
-      return;
-    }
-    setLocationStatus('loading');
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setUserPoint({ lat: position.coords.latitude, lng: position.coords.longitude });
-        setLocationStatus('idle');
-      },
-      () => setLocationStatus('denied'),
-      { enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60 * 1000 },
-    );
-  };
-
   const scrollToMap = useCallback(() => {
     document.getElementById('funder-new-map')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }, []);
@@ -328,14 +311,20 @@ export default function FunderDashboardNew() {
         />
 
         <FunderNewMapSection
-          category={tab}
-          items={listItems}
+          houses={mapHouses}
+          filters={filters}
           summary={summary.data}
-          selectedCount={selectedItems.length}
-          onOpenDetail={openDetailById}
-          userPoint={userPoint}
-          locationStatus={locationStatus}
-          onRequestLocation={requestLocation}
+          selectedIds={selectedItems.filter((item) => item.category === 'empty').map((item) => item.id)}
+          availableBalance={availableBalance ?? 0}
+          onSearchChange={(search) => setFilters((current) => ({ ...current, search }))}
+          onOpenHouse={(house) => openDetail('empty', house)}
+          onHousesDiscovered={(houses) => {
+            setMapHouses((current) => {
+              const merged = new Map(current.map((house) => [house.house_id, house]));
+              houses.forEach((house) => merged.set(house.house_id, house));
+              return [...merged.values()];
+            });
+          }}
         />
 
         <section className="space-y-5">

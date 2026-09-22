@@ -46,6 +46,8 @@ interface EmptyHouseMapBrowserProps {
    * page) so the parent can keep selection totals and funding accurate.
    */
   onHousesDiscovered?: (houses: SupportableHouse[]) => void;
+  /** Keep false on review surfaces that must not request device location until the user taps the location control. */
+  requestLocationOnMount?: boolean;
 }
 
 const KAMPALA: [number, number] = [0.3476, 32.5825];
@@ -162,6 +164,7 @@ export function EmptyHouseMapBrowser({
   onFundHouse,
   onActiveHouseChange,
   onHousesDiscovered,
+  requestLocationOnMount = true,
 }: EmptyHouseMapBrowserProps) {
   const [activeHouse, setActiveHouse] = useState<SupportableHouse | null>(null);
   const [viewport, setViewport] = useState<MapViewport | null>(null);
@@ -298,7 +301,7 @@ export function EmptyHouseMapBrowser({
    * refused, the loaded-houses fit below takes over.
    */
   useEffect(() => {
-    if (!mapInstance || initialFitDone.current || locationPreviouslyGranted || initialLocateStarted.current) return;
+    if (!requestLocationOnMount || !mapInstance || initialFitDone.current || locationPreviouslyGranted || initialLocateStarted.current) return;
     initialLocateStarted.current = true;
     if (!navigator.geolocation) {
       setGeoStatus('unsupported');
@@ -337,7 +340,7 @@ export function EmptyHouseMapBrowser({
     return () => {
       cancelled = true;
     };
-  }, [mapInstance, locationPreviouslyGranted]);
+  }, [mapInstance, locationPreviouslyGranted, requestLocationOnMount]);
 
   /** Retry after the browser said no (or the funder dismissed the prompt and tapped again). */
   const retryLocate = useCallback(() => {
@@ -425,7 +428,7 @@ export function EmptyHouseMapBrowser({
    * area if one was saved; otherwise show the gate again.
    */
   useEffect(() => {
-    if (!mapInstance || !locationPreviouslyGranted || userPosition || manualAreaRestored.current || initialLocateStarted.current) return;
+    if (!requestLocationOnMount || !mapInstance || !locationPreviouslyGranted || userPosition || manualAreaRestored.current || initialLocateStarted.current) return;
     initialLocateStarted.current = true;
     if (!navigator.geolocation) {
       manualAreaRestored.current = true;
@@ -464,7 +467,7 @@ export function EmptyHouseMapBrowser({
     return () => {
       cancelled = true;
     };
-  }, [mapInstance, locationPreviouslyGranted, userPosition, chooseManualArea]);
+  }, [mapInstance, locationPreviouslyGranted, userPosition, chooseManualArea, requestLocationOnMount]);
 
   // Fallback: open the map over the first loaded houses, then leave the view under the funder's control.
   useEffect(() => {
@@ -725,7 +728,7 @@ export function EmptyHouseMapBrowser({
       </MapContainer>
 
       {/* Location gate: houses are shown for the funder's own area, so the map stays covered until we know where they are. Only show it when location has not been approved before. */}
-      {!userPosition && !locationPreviouslyGranted && (
+      {requestLocationOnMount && !userPosition && !locationPreviouslyGranted && (
         <div
           role="dialog"
           aria-label="Share your location to see empty houses near you"
