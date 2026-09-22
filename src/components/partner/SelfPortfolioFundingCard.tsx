@@ -980,9 +980,23 @@ export function SelfPortfolioFundingCard({
     setReferencePoint(null);
   }, []);
 
+  // Number of non-default filters — drives the badge on the collapsible Filters tab.
+  const activeFilterCount =
+    (houseOccupancy !== 'all' ? 1 : 0) +
+    (houseDistrict !== 'all' ? 1 : 0) +
+    (houseSubCounty !== 'all' ? 1 : 0) +
+    (houseRentMin.trim() !== '' ? 1 : 0) +
+    (houseRentMax.trim() !== '' ? 1 : 0) +
+    (houseRadiusKm !== 'all' ? 1 : 0) +
+    (houseCountry !== 'all' ? 1 : 0) +
+    (houseListingAge !== 'all' ? 1 : 0) +
+    (houseFundingStatus !== 'all' ? 1 : 0) +
+    (houseWithinFloat ? 1 : 0) +
+    (showSavedReadyOnly ? 1 : 0);
+
   useEffect(() => {
     setPage(0);
-  }, [houseSort, houseDistrict, houseSubCounty, houseSearch, houseRentMin, houseRentMax, houseFundingStatus, houseWithinFloat, showSavedReadyOnly, houseCountry, houseListingAge, houseRadiusKm, feedOrder]);
+  }, [houseSort, houseOccupancy, houseDistrict, houseSubCounty, houseSearch, houseRentMin, houseRentMax, houseFundingStatus, houseWithinFloat, showSavedReadyOnly, houseCountry, houseListingAge, houseRadiusKm, feedOrder]);
 
   const pageCount = Math.max(1, Math.ceil(feed.length / PLANS_PER_PAGE));
   const pageStart = page * PLANS_PER_PAGE;
