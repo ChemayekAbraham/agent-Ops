@@ -1035,6 +1035,35 @@ export function AgentMonitoring() {
                             <div><Label className="text-[10px] text-muted-foreground">Paid ahead</Label><p className="font-semibold tabular-nums">{formatUGX(schedule.aheadAmount)}{schedule.periodsAhead > 0 ? ` · ${schedule.periodsAhead} ${unit}${schedule.periodsAhead === 1 ? '' : 's'}` : ''}</p></div>
                             <div><Label className="text-[10px] text-muted-foreground">Outstanding plan</Label><p className="font-semibold tabular-nums">{formatUGX(schedule.outstandingPlan)}</p></div>
                           </div>
+                          {/* Percentage paid and what is left on this tenant's own plan. */}
+                          {(() => {
+                            const planned = Number(request.total_repayment ?? 0);
+                            const planPercent = planned > 0 ? Math.min(100, (schedule.paidToDate / planned) * 100) : null;
+                            const schedulePercent = schedule.scheduledToDate > 0
+                              ? Math.min(100, (schedule.paidToDate / schedule.scheduledToDate) * 100)
+                              : null;
+                            return (
+                              <div className="mt-3 space-y-1.5 rounded-md bg-muted/40 p-2.5">
+                                <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs">
+                                  <span className="font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+                                    {planPercent === null ? '—' : `${planPercent.toFixed(1)}% of plan paid`}
+                                  </span>
+                                  <span className="tabular-nums text-muted-foreground">
+                                    {formatUGX(schedule.paidToDate)} of {formatUGX(planned)}
+                                  </span>
+                                </div>
+                                <Progress value={planPercent ?? 0} className="h-1.5" />
+                                <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-muted-foreground">
+                                  <span className="font-medium tabular-nums text-destructive">
+                                    {formatUGX(schedule.outstandingPlan)} left to pay
+                                  </span>
+                                  <span className="tabular-nums">
+                                    {schedulePercent === null ? '—' : `${schedulePercent.toFixed(1)}%`} of {formatUGX(schedule.scheduledToDate)} due so far ({unit === 'week' ? 'weekly' : 'daily'} plan)
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })()}
                           <Separator className="my-3" />
                           <TenantPaymentHistory
                             payments={paymentHistory?.get(request.id) ?? []}
