@@ -164,6 +164,7 @@ const MyRequisitions = () => {
   const [usageReports, setUsageReports] = useState<Record<string, UsageReport>>({});
   const [kind, setKind] = useState<RequestKind>('requisition');
   const [months, setMonths] = useState(3);
+  const [scheduleAccepted, setScheduleAccepted] = useState(false);
   const [loanInfo, setLoanInfo] = useState<LoanEligibility | null>(null);
   const [loans, setLoans] = useState<StaffLoan[]>([]);
   // Facilitation is for Platform Sales Officers only. If the check fails we
@@ -278,6 +279,7 @@ const MyRequisitions = () => {
     setResubmitId(null);
     setKind(nextKind);
     setMonths(3);
+    setScheduleAccepted(false);
     setForm(EMPTY_FORM);
     setSelectedFiles([]);
     setOpen(true);
@@ -287,6 +289,7 @@ const MyRequisitions = () => {
     setResubmitId(row.id);
     setKind(row.request_kind === 'staff_loan' ? 'staff_loan' : 'requisition');
     setMonths(row.loan_months ?? 3);
+    setScheduleAccepted(false);
     setSelectedFiles([]);
     setForm({
       title: row.title,
