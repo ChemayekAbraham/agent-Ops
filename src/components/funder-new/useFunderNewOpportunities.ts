@@ -8,7 +8,7 @@ import type {
   FunderNewOrigin,
   FunderNewReadyPlan,
 } from './types';
-import { amountRange, matchesReadyPlanSearch, toNumber } from './utils';
+import { amountRange, matchesReadyPlanSearch, placeCase, toNumber } from './utils';
 
 const asRecord = (value: unknown): Record<string, unknown> =>
   value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
