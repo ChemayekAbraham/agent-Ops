@@ -84,10 +84,11 @@ export function emptyHouseTitle(house: FunderNewEmptyHouse): string {
 export function emptyHousePlace(house: FunderNewEmptyHouse): string {
   const local = [house.village, house.sub_county].map((part) => placeCase(part)).filter(Boolean)[0];
   const district = placeCase(house.district);
-  const parts = [local, district].filter(Boolean).filter((part, index, all) => all.indexOf(part) === index);
+  const parts = [district, local].filter(Boolean).filter((part, index, all) => all.indexOf(part) === index);
   if (parts.length) return parts.join(', ');
   return placeCase(house.region) || 'Location on file';
 }
+
 
 export function readyPlanTitle(plan: FunderNewReadyPlan): string {
   return formatHouseCategory(plan.house_category) || 'Rent Plan';
@@ -96,9 +97,10 @@ export function readyPlanTitle(plan: FunderNewReadyPlan): string {
 export function readyPlanPlace(plan: FunderNewReadyPlan): string {
   const local = plan.tenant_location ? prettyName(plan.tenant_location) : '';
   const city = plan.request_city ? prettyName(plan.request_city) : '';
-  const parts = [local, city].filter(Boolean).filter((part, index, all) => all.indexOf(part) === index);
+  const parts = [city, local].filter(Boolean).filter((part, index, all) => all.indexOf(part) === index);
   return parts.join(', ') || 'Location on file';
 }
+
 
 export function readyPlanTerm(plan: FunderNewReadyPlan): string {
   if (plan.duration_days && plan.duration_days > 0) {
