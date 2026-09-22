@@ -7,7 +7,6 @@ import {
   emptyHousePlace,
   emptyHouseTitle,
   firstPhoto,
-  isHouseVerified,
   itemAmount,
   itemMonthlyReturn,
   readyPlanPlace,
