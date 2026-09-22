@@ -1084,7 +1084,7 @@ export function SelfPortfolioFundingCard({
               {formatDynamic(remaining)} left to fund
             </p>
             <p className="text-[10px] font-semibold text-primary mt-1">
-              {formatDynamic(marketRentNeeded)} rent needed by empty houses
+              {formatDynamic(marketRentNeeded)} rent needed by  houses
             </p>
           </div>
           <Button variant="ghost" size="sm" onClick={() => void load()} disabled={busy}>
