@@ -63556,6 +63556,10 @@ export type Database = {
         Args: { p_dry_run?: boolean; p_reason: string }
         Returns: Json
       }
+      restate_rent_plan_receivables_tagged: {
+        Args: { p_dry_run?: boolean; p_reason: string; p_tag: string }
+        Returns: Json
+      }
       restore_campaign_attribution: { Args: { p_token: string }; Returns: Json }
       resubmit_rejected_deposit: {
         Args: { p_id: string; p_payload: Json }
