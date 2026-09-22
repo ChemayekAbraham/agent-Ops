@@ -313,14 +313,14 @@ export default function FunderDashboardNew() {
               onChange={(event) => setFilters({ ...filters, location: event.target.value })}
               placeholder="District"
               aria-label="Filter by district"
-              className="h-11 flex-1 rounded-xl text-sm sm:max-w-[9.5rem]"
+              className="h-11 min-w-0 basis-[calc(50%-0.25rem)] rounded-xl text-sm sm:flex-1 sm:basis-auto sm:max-w-[9.5rem]"
             />
 
             <Select
               value={filters.amount}
               onValueChange={(value: AmountBucket) => setFilters({ ...filters, amount: value })}
             >
-              <SelectTrigger className="h-11 flex-1 rounded-xl text-sm sm:max-w-[11rem]" aria-label="Filter by amount">
+              <SelectTrigger className="h-11 min-w-0 basis-[calc(50%-0.25rem)] rounded-xl text-sm sm:flex-1 sm:basis-auto sm:max-w-[11rem]" aria-label="Filter by amount">
                 <SlidersHorizontal className="mr-1.5 h-4 w-4 text-muted-foreground" aria-hidden />
                 <SelectValue placeholder="Any amount" />
               </SelectTrigger>
@@ -334,7 +334,7 @@ export default function FunderDashboardNew() {
 
             {tab === 'empty' ? (
               <Select value={filters.sort} onValueChange={(value) => changeSort(value as FunderNewSort)}>
-                <SelectTrigger className="h-11 flex-1 rounded-xl text-sm sm:max-w-[10.5rem]" aria-label="Sort homes">
+                <SelectTrigger className="h-11 min-w-0 basis-[calc(50%-0.25rem)] rounded-xl text-sm sm:flex-1 sm:basis-auto sm:max-w-[10.5rem]" aria-label="Sort homes">
                   <SelectValue placeholder="Sort" />
                 </SelectTrigger>
                 <SelectContent>
@@ -349,7 +349,11 @@ export default function FunderDashboardNew() {
               </Select>
             ) : null}
 
-            <Button variant="soft" className="h-11 flex-1 rounded-xl text-sm sm:flex-none" onClick={() => setCalculatorOpen(true)}>
+            <Button
+              variant="soft"
+              className="h-11 min-w-0 basis-[calc(50%-0.25rem)] rounded-xl text-sm sm:flex-none sm:basis-auto"
+              onClick={() => setCalculatorOpen(true)}
+            >
               <Calculator className="h-4 w-4" aria-hidden />
               Calculator
             </Button>
@@ -357,7 +361,7 @@ export default function FunderDashboardNew() {
             {filtersActive ? (
               <Button
                 variant="ghost"
-                className="h-11 flex-1 rounded-xl text-sm sm:flex-none"
+                className="h-11 min-w-0 basis-full rounded-xl text-sm sm:flex-none sm:basis-auto"
                 onClick={() => {
                   setSearchInput('');
                   setFilters({ search: '', location: '', amount: 'all', sort: filters.sort });
