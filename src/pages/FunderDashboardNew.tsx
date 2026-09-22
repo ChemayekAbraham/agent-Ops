@@ -34,9 +34,11 @@ import type {
   FunderNewSelectionItem,
   FunderNewSort,
 } from '@/components/funder-new/types';
-import { itemId, sortLabel, toSelectionItem } from '@/components/funder-new/utils';
+import { itemAmount, itemId, placeCase, sortLabel, toSelectionItem } from '@/components/funder-new/utils';
 import { ROAD_TIME_UNAVAILABLE_REASON, straightLineDistance } from '@/components/funder-new/distance';
 import { itemCoordinates } from '@/components/funder-new/utils';
+import { FunderNewFilterChips } from '@/components/funder-new/FunderNewFilterChips';
+
 import { formatDynamic } from '@/lib/currencyFormat';
 
 const SAVED_KEY = 'rentflow:funder-new:saved:v1';
