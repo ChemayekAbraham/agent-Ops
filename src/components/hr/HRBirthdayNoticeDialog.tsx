@@ -23,6 +23,12 @@ type PendingNotice = {
 
 const POLL_MS = 10 * 60 * 1000;
 
+const INTERNAL_STAFF_ROLES = [
+  'hr', 'ceo', 'coo', 'cfo', 'cto', 'cmo', 'crm', 'employee', 'manager',
+  'operations', 'super_admin', 'admin', 'access_admin',
+  'tenant_ops', 'landlord_ops', 'agent_ops', 'financial_ops', 'partner_ops',
+] as const;
+
 function formatDate(value: string | null) {
   if (!value) return '—';
   const parsed = new Date(`${value}T00:00:00`);
