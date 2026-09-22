@@ -42,6 +42,17 @@ Deno.serve(async (req) => {
     if (authErr || !userData?.user) return json({ error: "Not authenticated" }, 401);
     const actor = userData.user;
 
+    // Facilitation and staff-loan rows are protected by database guards that read
+    // auth.uid() — a service-key write has no identity and is refused outright.
+    // Those writes must go through a client carrying the approver's own session.
+    const asActor = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: `Bearer ${token}` } } },
+    );
+    const GATED_KINDS = new Set(["facilitation", "staff_loan"]);
+
+
     const body = await req.json().catch(() => ({}));
     const requisitionId = String(body.requisition_id || "");
     const action = String(body.action || "");
