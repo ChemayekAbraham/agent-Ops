@@ -53974,6 +53974,23 @@ export type Database = {
         }
         Returns: Json
       }
+      cc_concern_handling_report: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          completed_at: string
+          created_at: string
+          cycle_row_id: string
+          due_at: string
+          due_is_custom: boolean
+          forwarded_to_name: string
+          id: string
+          reassigned_count: number
+          received_call_id: string
+          reviewer_names: string[]
+          source_kind: string
+          status: string
+        }[]
+      }
       cc_concern_participants_text: {
         Args: { p_concern_id: string }
         Returns: string
