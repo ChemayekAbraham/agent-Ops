@@ -977,6 +977,7 @@ const App = () => {
                           <ForceResetPasswordGate />
                           <GlobalOnboardingGates />
                           <NationalIdUnlinkNoticeDialog />
+                          <HRBirthdayNoticeDialog />
                           <CreditLoadingDebugPanel />
                         </Suspense>
                       </DeferredErrorBoundary>
