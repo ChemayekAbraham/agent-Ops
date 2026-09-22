@@ -55490,6 +55490,10 @@ export type Database = {
         }
         Returns: string
       }
+      derecognise_partner_receivable: {
+        Args: { p_note_id: string; p_reason: string }
+        Returns: Json
+      }
       derive_deposit_guardrail_source: {
         Args: {
           p_deposit: Database["public"]["Tables"]["deposit_requests"]["Row"]
