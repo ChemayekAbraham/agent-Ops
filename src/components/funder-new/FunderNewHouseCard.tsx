@@ -13,7 +13,6 @@ import {
   readyPlanPlace,
   readyPlanTitle,
 } from './utils';
-import { FunderNewVerifiedBadge } from './FunderNewVerifiedBadge';
 import { STRAIGHT_LINE_EXPLANATION } from './distance';
 
 /** Photo-led listing for /dashboard/funder-new. */
