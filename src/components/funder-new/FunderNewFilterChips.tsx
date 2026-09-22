@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { ArrowUpDown, MapPin, Wallet, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
