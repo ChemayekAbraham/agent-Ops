@@ -52,7 +52,10 @@ export function AgentLandlordPayoutDialog({ open, onOpenChange, property, onSucc
 
   // form
   const [landlordName, setLandlordName] = useState('');
-  const [landlordPhone, setLandlordPhone] = useState('');
+  // Never agent-editable — this must always be the number Landlord Ops has
+  // on file, not something typed into this form. A blank prefill here once
+  // let an agent type in a number, which would misdirect a real payout.
+  const landlordPhone = (property?.mobile_money_number ?? property?.phone ?? '').trim();
   const [tenantName, setTenantName] = useState('');
   const [tenantPhone, setTenantPhone] = useState('');
   const [amount, setAmount] = useState('');
@@ -72,7 +75,6 @@ export function AgentLandlordPayoutDialog({ open, onOpenChange, property, onSucc
   const resetAll = () => {
     setStep('form');
     setLandlordName(property?.name ?? '');
-    setLandlordPhone(property?.mobile_money_number ?? property?.phone ?? '');
     setTenantName('');
     setTenantPhone('');
     setAmount(property?.monthly_rent ? String(property.monthly_rent) : '');
@@ -88,7 +90,6 @@ export function AgentLandlordPayoutDialog({ open, onOpenChange, property, onSucc
   useEffect(() => {
     if (open && property) {
       setLandlordName(property.name ?? '');
-      setLandlordPhone(property.mobile_money_number ?? property.phone ?? '');
       setAmount(property.monthly_rent ? String(property.monthly_rent) : '');
     }
   }, [open, property]);
@@ -115,7 +116,8 @@ export function AgentLandlordPayoutDialog({ open, onOpenChange, property, onSucc
 
   const validateForm = (): string | null => {
     if (!landlordName.trim()) return 'Landlord name is required';
-    if (!/^\+?\d{9,15}$/.test(landlordPhone.replace(/\s|-/g, ''))) return 'Invalid landlord phone';
+    if (!landlordPhone) return 'No phone number on file for this landlord — ask Landlord Ops to add one before paying.';
+    if (!/^\+?\d{9,15}$/.test(landlordPhone.replace(/\s|-/g, ''))) return 'The landlord\'s number on file looks invalid — ask Landlord Ops to correct it.';
     if (!tenantName.trim()) return 'Tenant name is required';
     if (!/^\+?\d{9,15}$/.test(tenantPhone.replace(/\s|-/g, ''))) return 'Invalid tenant phone';
     const amt = parseFloat(amount);
@@ -252,7 +254,15 @@ export function AgentLandlordPayoutDialog({ open, onOpenChange, property, onSucc
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs flex items-center gap-1"><Phone className="h-3 w-3" /> Landlord Phone *</Label>
-                  <Input value={landlordPhone} onChange={(e) => setLandlordPhone(e.target.value)} placeholder="0772…" className="h-10" />
+                  <Input
+                    value={landlordPhone || 'No number on file'}
+                    readOnly
+                    disabled
+                    className="h-10 bg-muted/60 text-muted-foreground cursor-not-allowed"
+                  />
+                  {!landlordPhone && (
+                    <p className="text-[11px] text-destructive">Ask Landlord Ops to add a number before paying.</p>
+                  )}
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs flex items-center gap-1"><User className="h-3 w-3" /> Tenant Name *</Label>
@@ -287,7 +297,7 @@ export function AgentLandlordPayoutDialog({ open, onOpenChange, property, onSucc
                 </div>
               </div>
 
-              <Button onClick={handleSendOtp} className="w-full h-12 rounded-xl gap-2" disabled={otpLoading}>
+              <Button onClick={handleSendOtp} className="w-full h-12 rounded-xl gap-2" disabled={otpLoading || !landlordPhone}>
                 {otpLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
                 Send OTP to Landlord
               </Button>

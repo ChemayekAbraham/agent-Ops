@@ -334,7 +334,7 @@ Deno.serve(async (req) => {
     const {
       landlord_id,
       landlord_name,
-      landlord_phone,
+      // landlord_phone deliberately NOT read from the client — see resolvedPhone below.
       tenant_id,
       tenant_name,
       tenant_phone,
@@ -416,7 +416,7 @@ Deno.serve(async (req) => {
     }
 
     // Validation
-    if (!landlord_id || !landlord_name || !landlord_phone || !amount || !mobile_money_provider) {
+    if (!landlord_id || !landlord_name || !amount || !mobile_money_provider) {
       return json({ error: "Missing required fields" }, 400);
     }
     const amt = Number(amount);
@@ -424,8 +424,27 @@ Deno.serve(async (req) => {
     if (!["MTN", "Airtel"].includes(mobile_money_provider)) {
       return json({ error: "Invalid provider" }, 400);
     }
-    if (!/^\+?\d{9,15}$/.test(String(landlord_phone).replace(/\s|-/g, ""))) {
-      return json({ error: "Invalid landlord phone" }, 400);
+
+    // The landlord's phone is NEVER taken from the client — a caller-supplied
+    // number would let anyone retarget the OTP (and the eventual MoMo payout)
+    // to a phone they control. Always re-derive from the `landlords` table,
+    // the same source of truth the payout UI displays. Fixing a wrong/missing
+    // number goes through Landlord Ops (landlord_verification_requests), not
+    // this endpoint.
+    const { data: landlordRow, error: landlordErr } = await admin
+      .from("landlords")
+      .select("mobile_money_number, phone")
+      .eq("id", landlord_id)
+      .maybeSingle();
+    if (landlordErr) {
+      return json({ error: landlordErr.message }, 400);
+    }
+    const resolvedPhone = (landlordRow?.mobile_money_number || landlordRow?.phone || "").trim();
+    if (!resolvedPhone) {
+      return json({ error: "No phone number on file for this landlord. Ask Landlord Ops to add one before this payout can proceed." }, 400);
+    }
+    if (!/^\+?\d{9,15}$/.test(resolvedPhone.replace(/\s|-/g, ""))) {
+      return json({ error: "The landlord's number on file is invalid. Ask Landlord Ops to correct it." }, 400);
     }
 
     // Eligibility check (float, cutoff, landlord status) — same gate as final insert
@@ -461,7 +480,7 @@ Deno.serve(async (req) => {
         rent_request_id: rent_request_id ?? null,
         amount: amt,
         landlord_name,
-        landlord_phone,
+        landlord_phone: resolvedPhone,
         tenant_name: tenant_name ?? null,
         tenant_phone: tenant_phone ?? null,
         mobile_money_provider,
@@ -480,69 +499,7 @@ Deno.serve(async (req) => {
       return json({ error: insErr?.message ?? "Could not create challenge" }, 500);
     }
 
-    // Persist the (possibly edited) landlord phone back to the landlord record so
-    // the corrected mobile money number is saved for future payouts. The agent
-    // edits this number on the form; we update it here (frontend stays "dumb").
-    // Non-critical: a failure here must not block the OTP send.
-    //
-    // This write goes through the service-role client, so the guard_landlord_
-    // agreement_backed_changes trigger on `landlords` sees no auth.uid() and
-    // logs the resulting landlord_material_change_applied row with a null
-    // actor -- even though the real actor (the agent running this OTP flow)
-    // is known right here as `agentId`. Explicitly attribute it: this edge
-    // function is the actual trust boundary that received the real inbound
-    // request, so the IP captured from req.headers here is trustworthy,
-    // unlike the internal service-role call to Postgres that follows it.
-    try {
-      const { data: existingLandlord } = await admin
-        .from("landlords")
-        .select("mobile_money_number, phone")
-        .eq("id", landlord_id)
-        .maybeSingle();
-      const currentMoMo = existingLandlord?.mobile_money_number ?? null;
-      if (existingLandlord && currentMoMo !== landlord_phone) {
-        const update: Record<string, unknown> = { mobile_money_number: landlord_phone };
-        // If the landlord has no primary phone on record, seed it too.
-        if (!existingLandlord.phone) update.phone = landlord_phone;
-        const { error: updErr } = await admin
-          .from("landlords")
-          .update(update)
-          .eq("id", landlord_id);
-        if (updErr) {
-          console.warn("[issue-landlord-payout-otp] landlord phone update failed (non-critical):", updErr.message);
-        } else {
-          const clientIp =
-            (req.headers.get("x-forwarded-for") || "").split(",")[0].trim() ||
-            req.headers.get("cf-connecting-ip") ||
-            null;
-          const userAgent = req.headers.get("user-agent") || null;
-          try {
-            await admin.from("audit_logs").insert({
-              user_id: agentId,
-              action_type: "landlord_momo_number_corrected_by_agent",
-              table_name: "landlords",
-              record_id: landlord_id,
-              ip_address: clientIp,
-              user_agent: userAgent,
-              old_values: { mobile_money_number: currentMoMo },
-              new_values: { mobile_money_number: landlord_phone },
-              metadata: {
-                actor_type: "agent",
-                reason: "agent edited landlord MoMo number on the payout OTP form; persisted for future payouts",
-                source: "issue-landlord-payout-otp",
-                challenge_id: challenge.id,
-              },
-            });
-          } catch (auditErr) {
-            console.warn("[issue-landlord-payout-otp] audit log insert failed (non-critical):", auditErr);
-          }
-        }
-      }
-    } catch (e) {
-      console.warn("[issue-landlord-payout-otp] landlord phone persist error (non-critical):", e);
-    }
-
-    const phone = normalizePhone(landlord_phone);
+    const phone = normalizePhone(resolvedPhone);
     const sent = await sendOtpWithFallback(
       phone,
       `Welile: You are receiving UGX ${amt.toLocaleString()} as rent${tenant_name ? ` from ${tenant_name}` : ""}. OTP: ${otp}. Valid 1 hour. Share with the agent ONLY if you want to receive this money.`,
@@ -554,7 +511,7 @@ Deno.serve(async (req) => {
       agent_id: agentId,
       landlord_id,
       event_type: "sent",
-      landlord_phone,
+      landlord_phone: resolvedPhone,
       amount: amt,
       otp_expires_at,
       detail: normalizedTrigger === "auto"

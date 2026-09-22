@@ -21,6 +21,16 @@ name: Deploy Edge Function (manual, one at a time)
 # never succeeds, and ~95% of OTP sends were failing. The checked-in version
 # only requires gateway acceptance and has no such wait.
 #
+# issue-landlord-payout-otp / landlord-payout-disburse added 2026-09-22:
+# production trusted whatever landlord_phone string the CLIENT sent — an
+# agent-editable phone field, silently persisted into landlords.
+# mobile_money_number, and never re-checked against the number the OTP was
+# actually verified against. Fixed to derive the phone server-side (from
+# `landlords` for the OTP send, from the verified challenge row for the
+# actual disbursement) so agents can no longer redirect a landlord payout by
+# typing a different number. Deploy issue-landlord-payout-otp first — it is
+# the source of the phone that landlord-payout-disburse now trusts.
+#
 # ORDERING REQUIREMENT (accounting, not convenience)
 # Applies to the two money functions ONLY:
 # fund-agent-landlord-float MUST be deployed and verified BEFORE tenant-pay-rent.
@@ -64,6 +74,8 @@ on:
           - password-reset-sms
           - issue-wallet-withdrawal-otp
           - weekly-messaging-usage-report
+          - issue-landlord-payout-otp
+          - landlord-payout-disburse
       confirm:
         description: 'Type DEPLOY to confirm you intend to change production'
         required: true

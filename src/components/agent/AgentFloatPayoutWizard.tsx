@@ -127,7 +127,6 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
   const [otpCode, setOtpCode] = useState('');
   const [resendCooldown, setResendCooldown] = useState(0);
   const [amountInput, setAmountInput] = useState<string>('');
-  const [phoneOverride, setPhoneOverride] = useState<string>('');
   // Inline, always-visible reason the "Send OTP to Landlord" step failed.
   const [sendOtpError, setSendOtpError] = useState<string | null>(null);
   // GPS capture happens before the OTP request. Track that preparation phase
@@ -290,7 +289,6 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
     setOtpCode('');
     setResendCooldown(0);
     setAmountInput('');
-    setPhoneOverride('');
     setSendOtpError(null);
     setPreparingOtp(false);
     setShowPhoneChangeReq(false);
@@ -313,14 +311,14 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
 
   const defaultLandlordPhone =
     selectedRequest?.landlord?.mobile_money_number || selectedRequest?.landlord?.phone || '';
-  // A landlord verified by Landlord Ops has a locked number — agents can't
-  // override it inline; they must send a change request back to Landlord Ops.
   const landlordVerified =
     selectedRequest?.landlord?.verification_status === 'verified' ||
     selectedRequest?.landlord?.verified === true;
-  const landlordPhone = (
-    landlordVerified ? defaultLandlordPhone : (phoneOverride.trim() || defaultLandlordPhone)
-  ).trim();
+  // The landlord's MoMo number is never agent-editable here — a wrong or
+  // agent-retargeted number misdirects real money. It is always the number
+  // on file; a missing/wrong number goes through Landlord Ops via the
+  // change-request flow below, never by typing over it in this form.
+  const landlordPhone = defaultLandlordPhone.trim();
 
   const parsedAmount = Number((amountInput || '').toString().replace(/[^\d.]/g, ''));
   const effectiveAmount =
@@ -344,8 +342,11 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
   const handleSendOtp = async (source: 'auto' | 'manual' = 'manual') => {
     setSendOtpError(null);
     if (!phoneValid) {
-      toast.error('Enter a valid landlord phone number');
-      setSendOtpError('Enter a valid landlord phone number');
+      const msg = defaultLandlordPhone
+        ? 'The landlord\'s number on file looks invalid. Ask Landlord Ops to correct it.'
+        : 'No phone number on file for this landlord. Ask Landlord Ops to add one first.';
+      toast.error(msg);
+      setSendOtpError(msg);
       return;
     }
     if (!amountValid) {
@@ -437,8 +438,10 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
     }
   };
 
-  const sendBlockedReason = !phoneValid
-    ? 'Enter a valid landlord phone number to enable the OTP.'
+  const sendBlockedReason = !defaultLandlordPhone
+    ? 'No phone number on file for this landlord. Ask Landlord Ops to add one before paying.'
+    : !phoneValid
+    ? 'The landlord\'s number on file looks invalid. Ask Landlord Ops to correct it.'
     : effectiveAmount <= 0
       ? 'Enter an amount greater than 0.'
       : !withinRent
@@ -1088,84 +1091,90 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
                   <Label htmlFor="payout-phone" className="text-xs">
                     Landlord MoMo number
                   </Label>
+                  {/*
+                    Never agent-editable — a boss once hit a blank prefill here
+                    and typed a number in, which would have misdirected a real
+                    payout. The number on file is the only source of truth;
+                    fixing it always goes through Landlord Ops below.
+                  */}
                   <Input
                     id="payout-phone"
                     inputMode="tel"
-                    readOnly={landlordVerified}
-                    value={landlordVerified ? defaultLandlordPhone : (phoneOverride || defaultLandlordPhone)}
-                    onChange={(e) => { if (!landlordVerified) setPhoneOverride(e.target.value); }}
-                    placeholder="07XXXXXXXX"
-                    className={`h-9 font-mono ${landlordVerified ? 'bg-muted/60 cursor-not-allowed text-muted-foreground' : ''}`}
+                    readOnly
+                    value={defaultLandlordPhone}
+                    placeholder="No number on file"
+                    className="h-9 font-mono bg-muted/60 cursor-not-allowed text-muted-foreground"
                   />
-                  {landlordVerified ? (
-                    <div className="space-y-1.5">
+                  <div className="space-y-1.5">
+                    {defaultLandlordPhone ? (
                       <p className="text-[11px] text-muted-foreground flex items-center gap-1">
-                        <ShieldCheck className="h-3 w-3 text-success shrink-0" />
-                        Verified by Landlord Ops — number locked.
+                        {landlordVerified ? (
+                          <>
+                            <ShieldCheck className="h-3 w-3 text-success shrink-0" />
+                            Verified by Landlord Ops — number locked.
+                          </>
+                        ) : (
+                          'Number on file — locked. Payouts only go to the number Landlord Ops has on record.'
+                        )}
                       </p>
-                      {!showPhoneChangeReq ? (
-                        <button
-                          type="button"
-                          onClick={() => setShowPhoneChangeReq(true)}
-                          className="text-[11px] text-chart-4 font-medium inline-flex items-center gap-1 hover:underline"
-                        >
-                          <RefreshCw className="h-3 w-3" /> Request change from Landlord Ops
-                        </button>
-                      ) : (
-                        <div className="space-y-2 rounded-lg border p-2 bg-muted/30">
-                          <Input
-                            value={newPhoneReq}
-                            onChange={(e) => setNewPhoneReq(e.target.value)}
-                            placeholder="New number e.g. 07XXXXXXXX"
-                            inputMode="tel"
-                            className="h-8 font-mono text-xs"
-                          />
-                          <Textarea
-                            value={phoneReqNote}
-                            onChange={(e) => setPhoneReqNote(e.target.value)}
-                            placeholder="Reason for the change (required)"
-                            rows={2}
-                            className="text-xs"
-                          />
-                          <div className="flex gap-2">
-                            <Button
-                              type="button"
-                              size="sm"
-                              className="flex-1 h-7 text-xs"
-                              disabled={
-                                submittingPhoneReq ||
-                                !/^(?:\+?256|0)?\d{9}$/.test(newPhoneReq.replace(/\s+/g, '')) ||
-                                phoneReqNote.trim().length < 5
-                              }
-                              onClick={submitPhoneChangeRequest}
-                            >
-                              {submittingPhoneReq ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Send to Landlord Ops'}
-                            </Button>
-                            <Button
-                              type="button"
-                              size="sm"
-                              variant="ghost"
-                              className="h-7 text-xs"
-                              onClick={() => setShowPhoneChangeReq(false)}
-                            >
-                              Cancel
-                            </Button>
-                          </div>
+                    ) : (
+                      <p className="text-[11px] text-destructive flex items-center gap-1">
+                        <AlertTriangle className="h-3 w-3 shrink-0" />
+                        No phone number on file for this landlord — Landlord Ops must add one before you can pay.
+                      </p>
+                    )}
+                    {!showPhoneChangeReq ? (
+                      <button
+                        type="button"
+                        onClick={() => setShowPhoneChangeReq(true)}
+                        className="text-[11px] text-chart-4 font-medium inline-flex items-center gap-1 hover:underline"
+                      >
+                        <RefreshCw className="h-3 w-3" />
+                        {defaultLandlordPhone ? 'Request change from Landlord Ops' : 'Ask Landlord Ops to add a number'}
+                      </button>
+                    ) : (
+                      <div className="space-y-2 rounded-lg border p-2 bg-muted/30">
+                        <Input
+                          value={newPhoneReq}
+                          onChange={(e) => setNewPhoneReq(e.target.value)}
+                          placeholder="New number e.g. 07XXXXXXXX"
+                          inputMode="tel"
+                          className="h-8 font-mono text-xs"
+                        />
+                        <Textarea
+                          value={phoneReqNote}
+                          onChange={(e) => setPhoneReqNote(e.target.value)}
+                          placeholder="Reason for the change (required)"
+                          rows={2}
+                          className="text-xs"
+                        />
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="flex-1 h-7 text-xs"
+                            disabled={
+                              submittingPhoneReq ||
+                              !/^(?:\+?256|0)?\d{9}$/.test(newPhoneReq.replace(/\s+/g, '')) ||
+                              phoneReqNote.trim().length < 5
+                            }
+                            onClick={submitPhoneChangeRequest}
+                          >
+                            {submittingPhoneReq ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Send to Landlord Ops'}
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 text-xs"
+                            onClick={() => setShowPhoneChangeReq(false)}
+                          >
+                            Cancel
+                          </Button>
                         </div>
-                      )}
-                    </div>
-                  ) : (
-                    <>
-                      <p className="text-[11px] text-muted-foreground">
-                        {phoneOverride.trim() && phoneOverride.trim() !== defaultLandlordPhone
-                          ? 'Using overridden number — original on file: ' + (defaultLandlordPhone || 'none')
-                          : 'Edit if the number on file is wrong or out of service.'}
-                      </p>
-                      {!phoneValid && (
-                        <p className="text-[11px] text-destructive">Enter a valid Ugandan phone number.</p>
-                      )}
-                    </>
-                  )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 

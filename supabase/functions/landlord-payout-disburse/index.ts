@@ -44,8 +44,10 @@ Deno.serve(async (req) => {
       landlord_id,
       tenant_id,
       amount,
-      landlord_phone,
-      landlord_name,
+      // landlord_phone/landlord_name deliberately NOT trusted from the client —
+      // see verifiedChallenge.landlord_phone below. Taking the client's value
+      // here would let a payout be sent to a DIFFERENT number than the one the
+      // landlord actually OTP-verified.
       mobile_money_provider,
       otp_verified_at,
       agent_latitude,
@@ -56,7 +58,7 @@ Deno.serve(async (req) => {
       gps_match,
     } = body ?? {};
 
-    if (!rent_request_id || !landlord_id || !amount || !landlord_phone || !mobile_money_provider) {
+    if (!rent_request_id || !landlord_id || !amount || !mobile_money_provider) {
       return new Response(JSON.stringify({ error: "Missing required fields" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -68,9 +70,13 @@ Deno.serve(async (req) => {
     // had verified by the landlord. Previously `otp_verified_at` was trusted
     // from the request body and silently defaulted to `now()`, so a caller
     // could disburse landlord float with no OTP at all.
+    //
+    // `landlord_phone`/`landlord_name` are pulled from THIS row, not the
+    // request body — it's the number the OTP was actually sent to and
+    // verified against, and money must go to that exact number.
     const { data: verifiedChallenge, error: chErr } = await adminClient
       .from("landlord_payout_otp_challenges")
-      .select("id, verified_at, amount, landlord_id, rent_request_id")
+      .select("id, verified_at, amount, landlord_id, rent_request_id, landlord_phone, landlord_name")
       .eq("agent_id", agentId)
       .eq("landlord_id", landlord_id)
       .eq("status", "verified")
@@ -105,6 +111,15 @@ Deno.serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+
+    const verifiedPhone = (verifiedChallenge.landlord_phone || "").trim();
+    if (!verifiedPhone) {
+      return new Response(
+        JSON.stringify({ error: "The verified OTP challenge has no landlord phone on record. Re-verify." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+    const verifiedName = verifiedChallenge.landlord_name || "Landlord";
 
     // Duplicate guard (app-level): block a second payout for the same rent request
     // when one already exists in any non-failed state. This prevents paying the
@@ -161,8 +176,8 @@ Deno.serve(async (req) => {
         tenant_id: tenant_id ?? null,
         rent_request_id,
         amount,
-        landlord_phone,
-        landlord_name: landlord_name ?? "Landlord",
+        landlord_phone: verifiedPhone,
+        landlord_name: verifiedName,
         mobile_money_provider,
         otp_verified_at: new Date(otpTime).toISOString(),
         status: "otp_verified",
@@ -201,7 +216,7 @@ Deno.serve(async (req) => {
     // FinOps rejects, nothing needs to be refunded because nothing left the
     // ring-fenced bucket.
     const payoutReason =
-      `Landlord float payout — ${landlord_name ?? "Landlord"} (${landlord_phone})`;
+      `Landlord float payout — ${verifiedName} (${verifiedPhone})`;
     const { data: wrRow, error: wrErr } = await adminClient
       .from("withdrawal_requests")
       .insert({
@@ -210,8 +225,8 @@ Deno.serve(async (req) => {
         status: "pending",
         payout_method: "mobile_money",
         mobile_money_provider,
-        mobile_money_number: landlord_phone,
-        mobile_money_name: landlord_name ?? "Landlord",
+        mobile_money_number: verifiedPhone,
+        mobile_money_name: verifiedName,
         reason: payoutReason,
         landlord_payout_id: payout.id,
       } as any)
@@ -243,7 +258,7 @@ Deno.serve(async (req) => {
       agentId,
       "landlord_payout",
       payout.id,
-      { amount, landlord_id, landlord_phone, mobile_money_provider, withdrawal_request_id: wrRow.id },
+      { amount, landlord_id, landlord_phone: verifiedPhone, mobile_money_provider, withdrawal_request_id: wrRow.id },
     );
 
     // Notify agent that the request is now in the merchant payout queue (best-effort)
@@ -252,7 +267,7 @@ Deno.serve(async (req) => {
         user_id: agentId,
         type: "landlord_payout_pending_merchant",
         title: "Sent to merchant payout queue",
-        message: `Your landlord payout of UGX ${Number(amount).toLocaleString()} for ${landlord_name ?? "landlord"} is now in the Cash, Mobile Money & Bank payout queue for a merchant agent to fulfil.`,
+        message: `Your landlord payout of UGX ${Number(amount).toLocaleString()} for ${verifiedName} is now in the Cash, Mobile Money & Bank payout queue for a merchant agent to fulfil.`,
         metadata: { payout_id: payout.id, amount, withdrawal_request_id: wrRow.id },
       });
     } catch { /* non-blocking */ }
