@@ -1082,13 +1082,6 @@ export function FunderCapitalOpportunities({
             );
           })()}
 
-          {/* Mini breakdown: where the biggest opportunities are */}
-          <BiggestOpportunitiesPanel
-            districts={emptyHouseSummary?.districts ?? []}
-            landlords={emptyHouseSummary?.landlords ?? []}
-            formatAmountCompact={formatAmountCompact}
-            onExportPdf={exportRankingPdf}
-          />
 
           <FunderBookedHousesPanel />
 
