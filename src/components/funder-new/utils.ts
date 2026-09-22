@@ -54,7 +54,7 @@ export function compactParts(amount: number): { prefix: string; figure: string }
  * Route-local place casing. Field data arrives in mixed case, often SHOUTED
  * ("NALYAMAGONJA"), and the shared prettyName only upper-cases first letters.
  */
-function placeCase(raw?: string | null): string {
+export function placeCase(raw?: string | null): string {
   const cleaned = (raw ?? '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
   if (!cleaned) return '';
   return cleaned
