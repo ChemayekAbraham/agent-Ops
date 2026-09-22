@@ -1,4 +1,4 @@
-import { Bookmark, Check, Home, MapPin, Navigation } from 'lucide-react';
+import { Bookmark, Check, Home, Navigation } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { cn } from '@/lib/utils';
