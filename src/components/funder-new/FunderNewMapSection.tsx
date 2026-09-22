@@ -195,7 +195,16 @@ export function FunderNewMapSection({
         </p>
       ) : null}
 
-      <div className={`overflow-hidden rounded-2xl border bg-card shadow-sm ${MAP_BOX}`}>
+      <div
+        ref={mapBoxRef}
+        style={{
+          marginLeft: `-${bleed}px`,
+          marginRight: `-${bleed}px`,
+          borderRadius: `${Math.max(0, 16 - bleed)}px`,
+        }}
+        className={`relative z-0 overflow-hidden border bg-card shadow-sm ${MAP_BOX}`}
+      >
+
         <Suspense fallback={<Skeleton className="h-full w-full rounded-2xl" />}>
           <LazyRouteMap
             key={resetToken}
