@@ -2017,6 +2017,13 @@
       "when": 1790019996190,
       "tag": "0287_restrict_tenant_support_contacts_read",
       "breakpoints": true
+    },
+    {
+      "idx": 288,
+      "version": "7",
+      "when": 1790059239560,
+      "tag": "0288_agent_collection_quality_from_daily_settlements",
+      "breakpoints": true
     }
   ]
 }
