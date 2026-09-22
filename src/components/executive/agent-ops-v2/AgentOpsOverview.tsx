@@ -312,7 +312,7 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
           icon={Activity}
           accent="bg-emerald-600"
           spark={trendData.map((t) => t.activeAgents)}
-          onClick={() => onOpenSection('directory')}
+          onClick={() => setActiveBreakdownOpen(true)}
           loading={isLoading}
         />
         <KpiTile
@@ -475,6 +475,8 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
 
       {/* Agent performance for rent collection */}
       <AgentRentCapacityPanel defaultLimit={25} />
+
+      <ActiveAgentsBreakdownDialog open={activeBreakdownOpen} onOpenChange={setActiveBreakdownOpen} />
 
     </div>
   );
