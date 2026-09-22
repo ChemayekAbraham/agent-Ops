@@ -100,6 +100,9 @@ export function FunderNewMapSection({
 }) {
   const [viewport, setViewport] = useState<FunderNewViewport | null>(null);
   const [resetToken, setResetToken] = useState(0);
+  const mapBoxRef = useRef<HTMLDivElement>(null);
+  const bleed = useScrollWidening(mapBoxRef);
+
 
   const device = location.coords;
 
