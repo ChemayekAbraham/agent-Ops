@@ -443,10 +443,11 @@ export function WeeklyStaffForwardingReport() {
               <Skeleton className="h-8 w-full" />
               <Skeleton className="h-8 w-2/3" />
             </div>
-          ) : !report.staffRows.length ? (
+          ) : !report.staffRows.length && !report.resolvedRows.length ? (
             <div className="p-8 text-center text-xs text-muted-foreground">
-              No concern was forwarded to any staff member in this week.
+              No concern was forwarded and no call was closed at the call center in this week.
             </div>
+
           ) : (
             <table className="w-full min-w-[820px] text-xs">
               <thead>
