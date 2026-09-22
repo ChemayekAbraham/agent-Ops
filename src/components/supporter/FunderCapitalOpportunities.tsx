@@ -1085,11 +1085,6 @@ export function FunderCapitalOpportunities({
 
           <FunderBookedHousesPanel />
 
-          <p className="text-[12px] leading-relaxed text-muted-foreground">
-            Browse empty houses with photos, landlord contact, and GPS location. Fund the ones you want
-            straight away, or book them and promise a funding date — you earn{' '}
-            <span className="font-bold text-success">15% of the rent every month for 12 months</span>.
-          </p>
 
           <Button
             variant="outline"
