@@ -485,6 +485,48 @@ export function WeeklyStaffForwardingReport() {
                   ))}
                   <td className="p-2.5 text-center text-primary">{report.grandTotal}</td>
                 </tr>
+                <tr className="border-t bg-primary/5">
+                  <td
+                    className="p-2.5 text-[10px] font-bold uppercase tracking-wide text-primary"
+                    colSpan={report.dayLabels.length + 2}
+                  >
+                    Resolved by call center — not forwarded
+                  </td>
+                </tr>
+                {report.resolvedRows.length ? (
+                  report.resolvedRows.map((r) => (
+                    <tr key={`resolved-${r.name}`} className="border-b border-border/50 hover:bg-muted/40">
+                      <td className="p-2.5 font-semibold">{r.name}</td>
+                      {r.perDay.map((n, i) => (
+                        <td
+                          key={`resolved-${r.name}-${i}`}
+                          className={n ? 'p-2.5 text-center font-semibold' : 'p-2.5 text-center text-muted-foreground'}
+                        >
+                          {n || '—'}
+                        </td>
+                      ))}
+                      <td className="p-2.5 text-center font-bold text-primary">{r.total}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr className="border-b border-border/50">
+                    <td
+                      className="p-2.5 text-center text-muted-foreground"
+                      colSpan={report.dayLabels.length + 2}
+                    >
+                      No call was closed without a forward in this week.
+                    </td>
+                  </tr>
+                )}
+                <tr className="border-t bg-muted/40 font-bold">
+                  <td className="p-2.5">Daily total — resolved by call center</td>
+                  {report.resolvedDailyTotals.map((n, i) => (
+                    <td key={`resolved-daily-${i}`} className="p-2.5 text-center">
+                      {n}
+                    </td>
+                  ))}
+                  <td className="p-2.5 text-center text-primary">{report.resolvedGrandTotal}</td>
+                </tr>
                 <tr className="border-t bg-primary/10 font-bold">
                   <td className="p-2.5">Grand total — whole week</td>
                   <td className="p-2.5 text-center text-muted-foreground" colSpan={report.dayLabels.length}>
@@ -492,6 +534,16 @@ export function WeeklyStaffForwardingReport() {
                   </td>
                   <td className="p-2.5 text-center text-primary">{report.grandTotal}</td>
                 </tr>
+                <tr className="border-t bg-primary/15 font-bold">
+                  <td className="p-2.5">Grand total — forwarded + resolved</td>
+                  {report.combinedDailyTotals.map((n, i) => (
+                    <td key={`combined-${i}`} className="p-2.5 text-center">
+                      {n}
+                    </td>
+                  ))}
+                  <td className="p-2.5 text-center text-primary">{report.combinedGrandTotal}</td>
+                </tr>
+
               </tbody>
             </table>
           )}
