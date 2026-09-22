@@ -2536,7 +2536,7 @@ export default function DepositFlow({ open, onOpenChange, defaultPurpose, allowe
           <a
             href={
               momoProvider === 'mtn'
-                ? `tel:*165*3*${amount}%23`
+                ? `tel:*165*3*${MERCHANT_CODES.mtn}*${amount}%23`
                 : `tel:*185*9%23`
             }
             // Native anchor — iOS Safari (and most Android in-app

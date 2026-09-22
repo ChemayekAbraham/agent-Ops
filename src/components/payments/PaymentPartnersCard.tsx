@@ -28,7 +28,7 @@ const PROVIDERS = {
       'Enter Merchant ID: 090777',
       'Enter amount & confirm with PIN',
     ],
-    buildDial: (amount: string) => `tel:*165*3*${amount}%23`,
+    buildDial: (amount: string) => `tel:*165*3*090777*${amount}%23`,
   },
   airtel: {
     name: 'Airtel Money',
