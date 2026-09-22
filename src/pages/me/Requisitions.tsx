@@ -47,6 +47,17 @@ interface StaffLoan {
   due_on: string | null;
 }
 
+interface LoanInstalment {
+  id: string;
+  loan_id: string;
+  seq: number;
+  due_on: string;
+  amount_due: number;
+  amount_paid: number;
+  status: string;
+}
+
+
 interface Requisition {
   id: string;
   requisition_code: string;
@@ -167,6 +178,8 @@ const MyRequisitions = () => {
   const [scheduleAccepted, setScheduleAccepted] = useState(false);
   const [loanInfo, setLoanInfo] = useState<LoanEligibility | null>(null);
   const [loans, setLoans] = useState<StaffLoan[]>([]);
+  const [instalments, setInstalments] = useState<Record<string, LoanInstalment[]>>({});
+
   // Facilitation is for Platform Sales Officers only. If the check fails we
   // hide the entry point — fail closed.
   const [isOfficer, setIsOfficer] = useState(false);
@@ -223,8 +236,24 @@ const MyRequisitions = () => {
       .from('staff_loans')
       .select('id, requisition_id, principal, months, monthly_rate, outstanding_principal, accrued_interest, total_repaid, status, started_on, due_on')
       .order('created_at', { ascending: false });
-    setLoans((loanRows || []) as unknown as StaffLoan[]);
+    const list = (loanRows || []) as unknown as StaffLoan[];
+    setLoans(list);
+    if (list.length) {
+      const { data: instRows } = await supabase
+        .from('staff_loan_instalments')
+        .select('id, loan_id, seq, due_on, amount_due, amount_paid, status')
+        .in('loan_id', list.map((l) => l.id))
+        .order('seq', { ascending: true });
+      const map: Record<string, LoanInstalment[]> = {};
+      for (const row of (instRows || []) as unknown as LoanInstalment[]) {
+        (map[row.loan_id] ||= []).push(row);
+      }
+      setInstalments(map);
+    } else {
+      setInstalments({});
+    }
   }, []);
+
 
   useEffect(() => { void fetchLoans(); }, [fetchLoans]);
 
@@ -632,33 +661,77 @@ const MyRequisitions = () => {
               <Landmark className="h-4 w-4 text-primary" /> Your loans
             </p>
             <div className="mt-3 space-y-2">
-              {loans.map((l) => (
-                <div key={l.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border p-3 text-sm">
-                  <div>
-                    <p className="font-medium">
-                      {formatUGX(Number(l.principal))} over {l.months} {l.months === 1 ? 'month' : 'months'}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      Started {fmtDate(l.started_on)} • repaid {formatUGX(Number(l.total_repaid))}
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    {l.status === 'completed' ? (
-                      <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-700">Cleared</Badge>
-                    ) : (
-                      <>
-                        <p className="font-semibold">
-                          {formatUGX(Number(l.outstanding_principal) + Number(l.accrued_interest))}
+              {loans.map((l) => {
+                const list = instalments[l.id] || [];
+                const next = list.find((i) => i.status !== 'paid');
+                return (
+                  <div key={l.id} className="rounded-xl border p-3 text-sm">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="font-medium">
+                          {formatUGX(Number(l.principal))} over {l.months} {l.months === 1 ? 'month' : 'months'}
                         </p>
-                        <p className="text-xs text-muted-foreground">still owing</p>
-                      </>
+                        <p className="text-xs text-muted-foreground">
+                          Started {fmtDate(l.started_on)} • repaid {formatUGX(Number(l.total_repaid))}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        {l.status === 'completed' ? (
+                          <Badge variant="outline" className="border-emerald-500/30 bg-emerald-500/10 text-emerald-700">Cleared</Badge>
+                        ) : (
+                          <>
+                            <p className="font-semibold">
+                              {formatUGX(Number(l.outstanding_principal) + Number(l.accrued_interest))}
+                            </p>
+                            <p className="text-xs text-muted-foreground">still owing</p>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {list.length > 0 && (
+                      <div className="mt-3 space-y-2">
+                        {next && (
+                          <p className="text-xs font-medium">
+                            Next instalment {fmtDate(next.due_on)} • {formatUGX(Number(next.amount_due) - Number(next.amount_paid))}
+                          </p>
+                        )}
+                        <div className="overflow-hidden rounded-lg border">
+                          <table className="w-full text-xs">
+                            <thead className="bg-muted/50 text-muted-foreground">
+                              <tr>
+                                <th className="px-2 py-1.5 text-left">#</th>
+                                <th className="px-2 py-1.5 text-left">Due on</th>
+                                <th className="px-2 py-1.5 text-right">Due</th>
+                                <th className="px-2 py-1.5 text-right">Paid</th>
+                                <th className="px-2 py-1.5 text-right">Status</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {list.map((i) => (
+                                <tr key={i.id} className="border-t">
+                                  <td className="px-2 py-1.5">{i.seq}</td>
+                                  <td className="px-2 py-1.5">{fmtDate(i.due_on)}</td>
+                                  <td className="px-2 py-1.5 text-right">{formatUGX(Number(i.amount_due))}</td>
+                                  <td className="px-2 py-1.5 text-right">{formatUGX(Number(i.amount_paid))}</td>
+                                  <td className="px-2 py-1.5 text-right capitalize">{i.status}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                          Instalments are taken automatically from your wallet on each due date.
+                        </p>
+                      </div>
                     )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </Card>
         )}
+
 
         {loading ? (
           <div className="flex items-center gap-2 p-6 text-sm text-muted-foreground">
