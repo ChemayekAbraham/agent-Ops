@@ -55053,6 +55053,7 @@ export type Database = {
           p_search?: string
           p_sort?: string
           p_status?: string
+          p_subtype?: string
         }
         Returns: {
           avatar_url: string
