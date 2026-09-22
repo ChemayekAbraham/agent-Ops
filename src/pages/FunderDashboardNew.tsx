@@ -39,7 +39,7 @@ import type {
   FunderNewSelectionItem,
   FunderNewSort,
 } from '@/components/funder-new/types';
-import { itemAmount, itemId, placeCase, sortLabel, toSelectionItem } from '@/components/funder-new/utils';
+import { itemAmount, itemId, placeCase, toSelectionItem } from '@/components/funder-new/utils';
 import { ROAD_TIME_UNAVAILABLE_REASON, straightLineDistance } from '@/components/funder-new/distance';
 import { itemCoordinates } from '@/components/funder-new/utils';
 import { FunderNewFilterDrawer } from '@/components/funder-new/FunderNewFilterDrawer';
@@ -471,25 +471,6 @@ export default function FunderDashboardNew() {
           ) : null}
 
 
-          {/* Applied context: what is loaded, and by which order */}
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">{sortLabel(effectiveSort)}</span>
-            <span>Houses first, then Rent Plans</span>
-            {feedLoading ? (
-              <span>Loading…</span>
-            ) : (
-              <span>
-                Showing {items.length} of {filteredTotal.toLocaleString()} matching{' '}
-                {filteredTotal === 1 ? 'home' : 'homes'}
-              </span>
-            )}
-            {effectiveSort === 'nearest' && origin ? (
-              <span>
-                Within {origin.radiusKm} km of {origin.label}
-              </span>
-            ) : null}
-            {filters.sort === 'nearest' && !origin ? <span>Nearest needs your location</span> : null}
-          </div>
 
           {/* Listings — houses first, then Rent Plans */}
           {feedLoading ? (
