@@ -467,8 +467,8 @@ export function SelfPortfolioFundingCard({
     if (!sharedPlanId || plans.length === 0) return;
     const index = plans.findIndex((p) => p.rent_request_id === sharedPlanId);
     if (index < 0) return;
-    onFeedOrderChange('rent');
-    setPage(Math.floor(index / PLANS_PER_PAGE));
+    // Plans sit after the houses in the merged feed.
+    setPage(Math.floor((houses.length + index) / PLANS_PER_PAGE));
 
     setDetailPlan(plans[index]);
     setSharedPlanId(null);
@@ -477,7 +477,7 @@ export function SelfPortfolioFundingCard({
         .querySelector(`[data-plan-id="${sharedPlanId}"]`)
         ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 250);
-  }, [sharedPlanId, plans]);
+  }, [sharedPlanId, plans, houses]);
 
   const total = useMemo(
     () =>
@@ -560,7 +560,6 @@ export function SelfPortfolioFundingCard({
   const jumpToHouse = useCallback(
     (target: string) => {
       if (!target) return;
-      onFeedOrderChange('houses');
       setHouseDistrict('all');
       setHouseWithinFloat(false);
       setHouseSort('return_desc');
@@ -939,11 +938,11 @@ export function SelfPortfolioFundingCard({
       id: house.house_id,
       house,
     }));
-    return feedOrder === 'houses' ? houseItems : planItems;
+    // One merged list: empty houses first, then rent plans with ready tenants.
+    return [...houseItems, ...planItems];
   }, [
     plans,
     houses,
-    feedOrder,
     houseSort,
     referencePoint,
     userPoint,
