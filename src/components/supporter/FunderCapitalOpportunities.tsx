@@ -792,47 +792,18 @@ export function FunderCapitalOpportunities({
         compactMobile
       >
 
-        {/* Tenant rent plans awaiting funding — stacked cards with bulk selection */}
+        {/* One merged list: empty houses and houses with ready tenants */}
         <div className="space-y-2.5 sm:pt-2 sm:space-y-3">
-          <ToggleGroup
-            type="single"
-            size="sm"
-            value={feedOrder}
-            onValueChange={(value) => value && setFeedOrder(value as FeedOrder)}
-            className="w-full"
-          >
-            <ToggleGroupItem
-              value="houses"
-              className="flex-1 px-2 text-[11px] sm:text-xs font-bold min-h-11 h-auto py-2 leading-tight data-[state=on]:!bg-success data-[state=on]:!text-white data-[state=off]:bg-muted/40 data-[state=off]:text-muted-foreground"
-            >
-              Empty houses without tenants yet
-            </ToggleGroupItem>
-            <ToggleGroupItem
-              value="rent"
-              className="flex-1 px-2 text-[11px] sm:text-xs font-bold min-h-11 h-auto py-2 leading-tight data-[state=on]:!bg-success data-[state=on]:!text-white data-[state=off]:bg-muted/40 data-[state=off]:text-muted-foreground"
-            >
-              Houses with ready tenants
-            </ToggleGroupItem>
-          </ToggleGroup>
+          <div className="w-full rounded-md bg-success px-2 py-2 text-center text-[11px] sm:text-xs font-bold leading-tight text-white min-h-11 flex items-center justify-center">
+            Houses to fund
+          </div>
 
-          {feedOrder !== 'houses' && (
-            <>
-              <div className="flex items-center gap-2">
-                <div className="w-1 h-5 rounded-full bg-primary" />
-                <h4 className="text-xs font-black text-foreground tracking-tight">
-                  Ready to fund rentals
-                </h4>
-              </div>
-
-              {user?.id
-                ? <SelfPortfolioFundingCard partnerId={user.id} feedOrder={feedOrder} onFeedOrderChange={setFeedOrder} />
-                : <p className="text-[11px] text-muted-foreground">Sign in to view tenant plans.</p>}
-            </>
-          )}
+          {user?.id
+            ? <SelfPortfolioFundingCard partnerId={user.id} feedOrder={feedOrder} onFeedOrderChange={setFeedOrder} />
+            : <p className="text-[11px] text-muted-foreground">Sign in to view houses to fund.</p>}
         </div>
 
-        {/* Empty houses you can support — browse, pick, and create your promissory note */}
-        {feedOrder === 'houses' && (
+        {/* Empty-house extras: how it works, return calculator, saved picks */}
         <div className="pt-2 space-y-3">
           <div className="flex min-w-0 items-center gap-2">
             <div className="h-5 w-1 shrink-0 rounded-full bg-primary" />
