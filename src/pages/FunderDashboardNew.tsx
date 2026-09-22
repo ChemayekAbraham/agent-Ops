@@ -321,8 +321,12 @@ export default function FunderDashboardNew() {
           onHousesDiscovered={(houses) => {
             setMapHouses((current) => {
               const merged = new Map(current.map((house) => [house.house_id, house]));
+              let changed = false;
               houses.forEach((house) => merged.set(house.house_id, house));
-              return [...merged.values()];
+              houses.forEach((house) => {
+                if (!current.some((item) => item.house_id === house.house_id)) changed = true;
+              });
+              return changed ? [...merged.values()] : current;
             });
           }}
         />
