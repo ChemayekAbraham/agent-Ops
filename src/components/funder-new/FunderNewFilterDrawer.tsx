@@ -75,7 +75,11 @@ export function FunderNewFilterDrawer({
           />
 
           <div className="flex gap-2 pb-2">
-            <Button variant="outline" className="flex-1 rounded-xl" onClick={onReset}>
+            <Button
+              variant="outline"
+              className="flex-1 rounded-xl border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
+              onClick={onReset}
+            >
               Reset
             </Button>
             <Button className="flex-1 rounded-xl" onClick={() => onOpenChange(false)}>
