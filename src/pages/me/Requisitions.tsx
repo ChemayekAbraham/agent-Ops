@@ -18,7 +18,7 @@ import {
   Landmark, MapPin,
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { staffLoanSchedule, MONTH_WORDS, STAFF_LOAN_MAX_MONTHS } from '@/lib/staffLoanSchedule';
+import { staffLoanSchedule, MONTH_WORDS } from '@/lib/staffLoanSchedule';
 import FacilitationRequestDialog from '@/components/requisitions/FacilitationRequestDialog';
 import FacilitationAccountabilityDialog from '@/components/requisitions/FacilitationAccountabilityDialog';
 
@@ -28,6 +28,7 @@ interface LoanEligibility {
   eligible: boolean;
   monthly_rate?: number;
   max_months?: number;
+  interest_method?: 'flat' | 'compound';
   active_loans?: number;
   outstanding?: number;
 }
