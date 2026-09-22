@@ -1,92 +1,50 @@
-# A2 (Cash at Hand — Float with Agents): accounting discrepancy found
+# A2 (Agent Float) accounting check — findings and proposed correction
 
-Read-only investigation. Nothing was posted, reversed or changed.
+Read-only verification of how "agent pays a tenant's rent from float" lands on the Book of Accounts line A2. Nothing was changed: no wallets, no tenant repayments, no collections, no operational records.
 
-## What A2 should do when an agent pays a tenant's rent
+## What should happen
 
-When an agent settles a tenant's rent from float, the agent is holding less cash, so
-A2 must go **down** by exactly the float used. In the ledger that is the wallet-scope
-`agent_float_used_for_rent` leg, posted as `cash_out`, which the Book of Accounts must
-read as a **credit** to A2.
+When an agent settles a tenant's rent out of float, the float asset (A2) must go **down** by exactly the float used. The money leaves the float and becomes a tenant repayment.
 
-## Finding 1 — since 8 September, float spent on rent *increases* A2 instead of reducing it
+## What actually happens
 
-The raw ledger is correct: 7,112 production legs, **UGX 218,279,518**, all `cash_out`.
-The Book of Accounts mis-signs a large block of them.
+Live float movements recorded as "agent float used for rent" (reportable entries only):
 
-| Treatment in the Book of Accounts | Groups | Amount |
-| --- | --- | --- |
-| Float spent, A2 reduced (correct) | 4,702 | UGX 165,216,681 |
-| Float spent, **A2 increased (wrong sign)** | 2,410 | **UGX 53,062,837** |
+| | Count | Amount (UGX) |
+|---|---|---|
+| Float spent (should reduce A2) | 7,119 | 218,383,518 |
+| Float returned/reversed (should increase A2) | 30 | 6,541,236 |
+| **Expected net A2 reduction** | | **211,842,282** |
+| **Actual net A2 reduction on the statement** | | **105,676,608** |
+| **Shortfall — A2 overstated** | | **106,165,674** |
 
-Effect on A2: the 2,410 transactions should have reduced A2 by UGX 53,062,837 and
-instead added it, so A2 is overstated by **UGX 106,125,674** from this alone.
+### Where the reduction is lost
 
-The split is not random. Correctly credited groups are the old collection shape whose
-counterpart leg is `rent_receivable_created` (bridge). The mis-signed groups are the
-**current** shape, whose counterpart is platform `tenant_repayment_collected` /
-`tenant_repayment`. Daily evidence of the cutover:
+1. **2,417 entries, UGX 53,166,837** — float spent, but the balance sheet *adds* it to A2 instead of subtracting it. Because a wrong-signed entry counts twice, this alone overstates A2 by **UGX 106,333,674**.
+   - Cause: the reporting rule that says "a float entry in a group that also contains a tenant-repayment entry is cash *received*". That rule is right for collections, but these groups are float being *spent*, so the sign is inverted.
+   - Concentration: 2,288 entries / UGX 49,047,477 in September 2026; the rest April–May 2026.
+2. **6 entries, UGX 84,000** — float returns treated as reductions instead of increases (understates A2 by UGX 168,000). Net of item 1, the overstatement is UGX 106,165,674.
 
-```text
- 07 Sep   credit 3,489,067   debit         0     correct
- 08 Sep   credit   347,960   debit 3,452,667     cutover day
- 09 Sep   credit         0   debit 3,479,638     wrong from here on
- ...
- 22 Sep   credit         0   debit 1,769,487
-```
+### A separate source-level problem (not a reporting rule)
 
-Cause: in `sofp_ledger_legs`, when a group contains a platform repayment leg the
-platform leg is sign-flipped to keep the group balanced, and the wallet A2 leg is then
-left on its raw direction — which turns a `cash_out` float leg into a debit. Every
-collection recorded from 8 September onwards follows that path.
+**24 entries, UGX 6,457,236** were written as float *coming in* when the agent was in fact spending float. Mostly 10 and 21 September 2026 — JAMES KATONGOLE (UGX ~5.9m across 11 entries), IAN MUHWEZI, DAVID KANYESIGYE, Akandwanaho Wycliffe, Thomas Hawahka, plus one April entry (Akampurira Onesmus, UGX 300,000). No later entry reverses them.
 
-## Finding 2 — 18 collections were posted with the wrong direction at source
+### An offsetting posting that props A2 back up
 
-18 wallet legs, **UGX 6,373,236**, carry `cash_in` on `agent_float_used_for_rent`
-(they should be `cash_out`). 16 of them are on 10 Sep 2026 — JAMES KATONGOLE
-UGX 5,897,368 (10 legs), Saka Homi Melvin UGX 93,668 (5), Akandwanaho Wycliffe
-UGX 73,000 (1) — with the whole group sign-flipped (`platform cash_out
-tenant_repayment_collected`). The remaining 2 legs (UGX 84,000, April) came in via
-`wallet_deposits`. These add a further **UGX 6,373,236** of overstatement, and no
-later posting reverses them.
+The 21 September receivable correction created **10,794 offset entries totalling UGX 274,680,914** that land as an *increase* to A2. These are accounting-only counterparts, not real float, so they inflate A2 further on top of the figures above.
 
-## Finding 3 — the 21 September A3 correction also debits A2
+## Proposed correction (nothing applied yet)
 
-The 10,794 A3 reversal legs posted on 21 Sep use platform `agent_float_cash_offset`
-with `cash_in`, and that category maps to **A2 as a debit**. So a correction intended
-to clear the Rent Access Receivable also **increased A2 by UGX 274,680,914**. The A3
-side is right; the counterpart landed on the wrong account.
+1. **Fix the reporting rule only** (recommended first step): restrict the "float in a repayment group is cash received" rule so it never applies to `agent_float_used_for_rent`. This is a reporting-definition change; no ledger row is touched, no wallet moves. Effect: A2 falls by UGX 106,165,674 to its true position.
+2. **Reverse the 24 wrong-direction source entries** with balanced correcting entries (accounting-only, classification `admin_correction`, with written basis). Effect: a further UGX 6,457,236 removed from A2.
+3. **Re-map the 10,794 offset counterparts** off A2 to the correct counterpart account so the September receivable correction stops inflating float.
 
-## Legitimate items — not part of the discrepancy
+Each step is separable and each needs your explicit approval. Step 1 alone already removes the bulk of the misstatement.
 
-- 46 admin_correction legs (UGX 1,260,000, 21 Sep) voiding collections with no deposit
-  evidence: correctly excluded from the statement.
-- 2 genuine float-return reversals (UGX 300,000 and UGX 9,200).
+## Technical notes
 
-## Total A2 discrepancy
-
-| Item | A2 overstatement |
-| --- | --- |
-| 2,410 mis-signed collection groups (8 Sep onward) | 106,125,674 |
-| 18 wrong-direction source legs | 6,373,236 |
-| A3 correction counterpart landing on A2 | 274,680,914 |
-| **Total** | **387,179,824** |
-
-## Proposed correction — accounting only, nothing yet
-
-1. Fix the statement rule so a wallet `agent_float_used_for_rent` leg is always read as
-   a credit to A2, whatever its counterpart category. Reporting logic only — no ledger
-   rows touched, so all 2,410 groups correct themselves the moment it is fixed.
-2. Post a same-amount, opposite-direction accounting reversal for each of the 18
-   wrong-direction legs, each naming the leg it reverses, idempotent by leg id.
-3. Re-map the A3 correction counterpart off A2 (or reclassify those 10,794 legs to the
-   intended account) so clearing a receivable no longer inflates agent float.
-4. Re-verify: A2 equals float genuinely held by agents, zero remaining wrong-direction
-   legs, and no reversal larger than its original.
-
-Wallets, tenant repayment behaviour, collections and operational transactions stay
-untouched throughout.
-
-## Confirm before I act
-
-Whether to do step 1 only (reporting fix), or steps 1–3 together.
+- Resolver: `public.sofp_ledger_legs(as_at)` → `get_statement_of_financial_position`. The inverting branch is the `wallet` / `A2` case gated on `n_repay > 0 OR n_land_recv > 0`.
+- Correct shape (4,702 groups): wallet `A2` credit + bridge `A3 rent_receivable_created` debit + commission legs.
+- Wrong shape (2,417 groups): wallet `A2` debit + platform `A3 tenant_repayment` / `tenant_repayment_collected` credit.
+- Offset legs: `platform.agent_float_cash_offset`, `cash_in`, source `agent_collections`, 10,794 legs / UGX 274,680,914, mapped to `A2` debit.
+- Any fix stays in the resolver/account map per the standing rule: never edit `general_ledger` rows to make the balance sheet agree.
