@@ -533,7 +533,7 @@ export function EmptyHouseMapBrowser({
       style={isExpanded ? { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 } : undefined}
     >
       {/* ── Top bar: search (left) + action buttons (right) ─── */}
-      <div className={`absolute top-3 z-[1000] ${isExpanded ? 'inset-x-3' : 'inset-x-3 sm:right-auto sm:w-[22rem]'}`}>
+      <div className={`absolute top-3 z-[1300] ${isExpanded ? 'inset-x-3' : 'inset-x-3 sm:right-auto sm:w-[22rem]'}`}>
         <div className="flex items-center gap-2">
           {/* Search bar */}
           <div className="relative flex-1">
