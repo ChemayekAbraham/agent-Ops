@@ -135,8 +135,52 @@ export function CombinedCallingCenterReportButton({
         if (c.received_call_id && !concernByCall.has(c.received_call_id)) concernByCall.set(c.received_call_id, c);
       });
 
+      // ---------------------------------- Every forwarded concern in the period
+      // `cc_forwarded_concerns` is row-scoped: an officer only sees concerns they
+      // raised, ones sent to them, ones they review, or all of them if they are an
+      // overseer. That left the Staff Concern Handling Summary counting only the
+      // concerns the officer running the report had raised, so concerns forwarded
+      // from calls that came in (raised by other officers) were reported as "not
+      // forwarded". This read-only reporting function returns the summary fields for
+      // every concern in the window, so the staff table is complete.
+      type CcReportRow = {
+        id: string;
+        source_kind: string;
+        received_call_id: string | null;
+        cycle_row_id: string | null;
+        forwarded_to_name: string | null;
+        status: string;
+        created_at: string;
+        completed_at: string | null;
+        due_at: string | null;
+        due_is_custom: boolean | null;
+        reassigned_count: number | null;
+        reviewer_names: string[] | null;
+      };
+      const { data: reportData, error: reportError } = await anyDb.rpc('cc_concern_handling_report', {
+        p_from: fromIso,
+        p_to: toIso,
+      });
+      if (reportError) throw new Error(reportError.message);
+      const reportRows = ((reportData ?? []) as CcReportRow[]).length
+        ? (reportData as CcReportRow[])
+        : (concerns as unknown as CcReportRow[]);
+
+      const reportByCall = new Map<string, CcReportRow>();
+      reportRows.forEach((r) => {
+        if (r.received_call_id && !reportByCall.has(r.received_call_id)) reportByCall.set(r.received_call_id, r);
+      });
+      const reportRowIds = new Set(reportRows.map((r) => r.cycle_row_id).filter(Boolean) as string[]);
+      const reportReceiverMap = new Map<string, CcReportRow[]>();
+      reportRows.forEach((r) => {
+        const k = r.forwarded_to_name ?? 'Staff member';
+        reportReceiverMap.set(k, [...(reportReceiverMap.get(k) ?? []), r]);
+      });
+      const asConcern = (r: CcReportRow) => r as unknown as ForwardedConcern;
+
       const receivedRows: ReceivedCallPdfRow[] = calls.map((r) => {
         const concern = concernByCall.get(r.id);
+        const reported = reportByCall.get(r.id);
         return {
           when: stamp(r.called_at),
           caller: r.caller_name,
@@ -148,11 +192,20 @@ export function CombinedCallingCenterReportButton({
           status: RECEIVED_STATUS_LABEL[r.status as ReceivedCallStatus] ?? r.status,
           followUp: r.follow_up_at ? stamp(r.follow_up_at) : '—',
           officer: r.recorded_by_name ?? '—',
+          // Names come from the reporting read when the concern itself is not
+          // visible to the person running the report, so no forwarded call is
+          // shown as un-forwarded.
           forwardedTo: concern
             ? (anyReviewerNames.get(concern.id) ?? [concern.forwarded_to_name ?? 'Staff member']).join(', ')
-            : '—',
+            : reported
+              ? (reported.reviewer_names?.length
+                  ? reported.reviewer_names
+                  : [reported.forwarded_to_name ?? 'Staff member']
+                ).join(', ')
+              : '—',
         };
       });
+
 
       const rPct = (n: number) => (calls.length ? Math.round((n / calls.length) * 100) : 0);
       const receivedByStatus = (Object.keys(RECEIVED_STATUS_LABEL) as ReceivedCallStatus[]).map((s) => {
@@ -260,16 +313,18 @@ export function CombinedCallingCenterReportButton({
           if (r.subject_type === 'tenant') tenantRowIds.add(r.id);
         });
       }
-      const concernRowIds = new Set(concerns.map((c) => c.cycle_row_id).filter(Boolean) as string[]);
+      // Forwarded / not forwarded is decided against every concern in the period
+      // (the reporting read), not only the ones visible to this officer.
+      const concernRowIds = reportRowIds;
       const madeCalls = attempts.filter((a) => tenantRowIds.has(a.cycle_row_id));
       const madeForwardedCalls = madeCalls.filter((a) => concernRowIds.has(a.cycle_row_id));
       const madeNotForwardedCalls = madeCalls.filter((a) => !concernRowIds.has(a.cycle_row_id));
       const madeForwarded = madeForwardedCalls.length;
       const madeNotForwarded = madeNotForwardedCalls.length;
-      const receivedNotForwardedCalls = calls.filter((c) => !concernByCall.has(c.id));
+      const receivedNotForwardedCalls = calls.filter((c) => !reportByCall.has(c.id));
       const receivedNotForwarded = receivedNotForwardedCalls.length;
       const totalNotForwarded = madeNotForwarded + receivedNotForwarded;
-      const grandTotal = concerns.length + totalNotForwarded;
+      const grandTotal = reportRows.length + totalNotForwarded;
       const gPct = (n: number) => (grandTotal ? `${Math.round((n / grandTotal) * 100)}%` : '0%');
 
       // How much of the never-forwarded work is already dealt with, using the
@@ -286,7 +341,9 @@ export function CombinedCallingCenterReportButton({
       // Same grouping the Issues Review uses (the person it was forwarded to),
       // so the staff rows add up exactly to the forwarded total — a concern is
       // never counted twice even when more people were added as reviewers.
-      const staffHandlingRows = Array.from(receiverMap.entries())
+      // Built from the period-wide reporting read, so staff who were forwarded
+      // concerns from calls that came in appear here too.
+      const staffHandlingRows = Array.from(reportReceiverMap.entries())
         .map(([name, list]) => {
           const done = list.filter((c) => c.status === 'completed' && c.completed_at);
           const avg =
@@ -305,13 +362,12 @@ export function CombinedCallingCenterReportButton({
             fromReceived: list.filter((c) => c.source_kind === 'received_call').length,
             completed: done.length,
             open: list.length - done.length,
-            overdue: list.filter(isConcernOverdue).length,
-            onTime: done.filter((c) => concernOverdueHours(c) === 0).length,
+            overdue: list.filter((c) => isConcernOverdue(asConcern(c))).length,
+            onTime: done.filter((c) => concernOverdueHours(asConcern(c)) === 0).length,
             avgHours: avg == null ? '—' : `${avg.toFixed(1)} hours`,
-            alsoReviewer: concerns.filter(
+            alsoReviewer: reportRows.filter(
               (c) =>
-                (c.forwarded_to_name ?? 'Staff member') !== name &&
-                (anyReviewerNames.get(c.id) ?? []).includes(name),
+                (c.forwarded_to_name ?? 'Staff member') !== name && (c.reviewer_names ?? []).includes(name),
             ).length,
           };
         })
@@ -336,13 +392,13 @@ export function CombinedCallingCenterReportButton({
        * Counted as distinct concerns, not as a sum of the staff column: one
        * concern with three extra reviewers is still one concern here.
        */
-      const concernsWithExtraReviewer = concerns.filter((c) => {
+      const concernsWithExtraReviewer = reportRows.filter((c) => {
         const primary = c.forwarded_to_name ?? 'Staff member';
-        return (anyReviewerNames.get(c.id) ?? []).some((n) => n !== primary);
+        return (c.reviewer_names ?? []).some((n) => n !== primary);
       }).length;
 
       /** Overall average completion time — same formula as the per-staff column. */
-      const allDone = concerns.filter((c) => c.status === 'completed' && c.completed_at);
+      const allDone = reportRows.filter((c) => c.status === 'completed' && c.completed_at);
       const overallAvgHours =
         allDone.length > 0
           ? `${(
@@ -396,8 +452,8 @@ export function CombinedCallingCenterReportButton({
         reconciliation: [
           {
             label: 'Total forwarded — concerns sent to at least one staff member',
-            count: concerns.length,
-            share: gPct(concerns.length),
+            count: reportRows.length,
+            share: gPct(reportRows.length),
           },
           {
             label: 'Not forwarded / no staff assigned — calls we made',
