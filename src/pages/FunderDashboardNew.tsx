@@ -179,7 +179,7 @@ export default function FunderDashboardNew() {
   const districtOptions = useMemo(() => {
     const counts = new Map<string, { label: string; count: number }>();
     loadedItems.forEach((item) => {
-      const raw = (item as Record<string, unknown>).district;
+      const raw = (item as unknown as Record<string, unknown>).district;
       const value = typeof raw === 'string' ? raw.trim() : '';
       if (!value) return;
       const existing = counts.get(value);
