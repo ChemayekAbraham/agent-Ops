@@ -54,9 +54,22 @@ export function FunderNewHouseCard({
       <div className="relative aspect-[16/10] w-full bg-muted">
         {isEmpty ? (
           <div className="absolute left-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-full bg-card/95 px-2.5 py-1 text-[11px] font-semibold text-foreground shadow-sm ring-1 ring-border backdrop-blur">
-            <span className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-success text-success-foreground">
-              <Check className="h-2.5 w-2.5" strokeWidth={4} aria-hidden />
-            </span>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="#8024D1"
+              stroke="#8024D1"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className="h-3.5 w-3.5"
+              aria-hidden
+            >
+              <path d="M3.85 8.62a4 4 0 0 1 4.78-4.77 4 4 0 0 1 6.74 0 4 4 0 0 1 4.78 4.78 4 4 0 0 1 0 6.74 4 4 0 0 1-4.77 4.78 4 4 0 0 1-6.75 0 4 4 0 0 1-4.78-4.77 4 4 0 0 1 0-6.76Z" />
+              <path d="m9 12 2 2 4-4" stroke="white" />
+            </svg>
             Empty house
           </div>
         ) : null}
