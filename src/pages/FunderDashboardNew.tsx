@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, Calculator, Fingerprint, HelpCircle, Info, ListFilter, Loader2, Search, SlidersHorizontal, Wallet, X } from 'lucide-react';
+import { AlertTriangle, Calculator, Fingerprint, HelpCircle, ListFilter, Loader2, Search, SlidersHorizontal, Wallet, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { AppRole, useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
@@ -10,7 +10,6 @@ import { roleToSlug } from '@/lib/roleRoutes';
 import { generateWelileAiId } from '@/lib/welileAiId';
 import { useWalletBalance } from '@/hooks/wallet/useWalletBalance';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -102,7 +101,6 @@ export default function FunderDashboardNew() {
   const summary = useFunderNewMarketSummary();
   const location = useFunderNewLocation();
 
-  const [tab, setTab] = useState<FunderNewCategory>('empty');
   const [searchInput, setSearchInput] = useState('');
   const [filters, setFilters] = useState<FunderNewFilters>({
     search: '',
@@ -181,8 +179,12 @@ export default function FunderDashboardNew() {
     setFilters((current) => ({ ...current, sort: 'nearest' }));
   }, [origin, sortTouched]);
 
-  const emptyQuery = useFunderNewEmptyHouses(filters, origin, tab === 'empty');
-  const readyQuery = useFunderNewReadyPlans(filters, tab === 'ready');
+  /**
+   * Single combined feed: every empty house first, then every tenant-ready
+   * Rent Plan. Both reads run together; there is no tab switch.
+   */
+  const emptyQuery = useFunderNewEmptyHouses(filters, origin, true);
+  const readyQuery = useFunderNewReadyPlans(filters, true);
 
   const emptyItems = useMemo(
     () => (emptyQuery.data?.pages ?? []).flatMap((page) => page.items),
@@ -190,10 +192,35 @@ export default function FunderDashboardNew() {
   );
   const readyItems = useMemo(() => (readyQuery.data?.pages ?? []).flatMap((page) => page.items), [readyQuery.data]);
 
-  const activeQuery = tab === 'empty' ? emptyQuery : readyQuery;
-  const loadedItems: Array<FunderNewEmptyHouse | FunderNewReadyPlan> = tab === 'empty' ? emptyItems : readyItems;
-  const filteredTotal = activeQuery.data?.pages?.[0]?.total ?? 0;
-  const readyLimitation = readyQuery.data?.pages?.[0]?.limitation ?? null;
+  interface FeedEntry {
+    category: FunderNewCategory;
+    item: FunderNewEmptyHouse | FunderNewReadyPlan;
+  }
+
+  /** Houses first, Rent Plans last. Each entry carries its own category. */
+  const loadedItems = useMemo<FeedEntry[]>(
+    () => [
+      ...emptyItems.map((item): FeedEntry => ({ category: 'empty', item })),
+      ...readyItems.map((item): FeedEntry => ({ category: 'ready', item })),
+    ],
+    [emptyItems, readyItems],
+  );
+
+  const feedLoading = emptyQuery.isLoading || readyQuery.isLoading;
+  const feedError = emptyQuery.error || readyQuery.error;
+  const feedFetching = emptyQuery.isFetching || readyQuery.isFetching;
+  const feedFetchingNext = emptyQuery.isFetchingNextPage || readyQuery.isFetchingNextPage;
+  const feedHasNext = !!emptyQuery.hasNextPage || !!readyQuery.hasNextPage;
+  const refetchFeed = () => {
+    emptyQuery.refetch();
+    readyQuery.refetch();
+  };
+  const fetchNextFeed = () => {
+    if (emptyQuery.hasNextPage && !emptyQuery.isFetchingNextPage) emptyQuery.fetchNextPage();
+    if (readyQuery.hasNextPage && !readyQuery.isFetchingNextPage) readyQuery.fetchNextPage();
+  };
+
+  const filteredTotal = (emptyQuery.data?.pages?.[0]?.total ?? 0) + (readyQuery.data?.pages?.[0]?.total ?? 0);
 
   const availableBalance = wallet.isLoading || wallet.error ? null : wallet.withdrawable;
 
@@ -208,7 +235,7 @@ export default function FunderDashboardNew() {
     (summary.data?.districts ?? []).forEach((item) => {
       counts.set(item.value, { label: item.label, count: item.count });
     });
-    loadedItems.forEach((item) => {
+    loadedItems.forEach(({ item }) => {
       const raw = (item as unknown as Record<string, unknown>).district;
       const value = typeof raw === 'string' ? raw.trim() : '';
       if (!value || counts.has(value)) return;
@@ -225,18 +252,13 @@ export default function FunderDashboardNew() {
    */
   const items = useMemo(() => {
     if (!filters.withinFloat || availableBalance === null) return loadedItems;
-    return loadedItems.filter((item) => {
-      const amount = itemAmount(tab, item);
+    return loadedItems.filter((entry) => {
+      const amount = itemAmount(entry.category, entry.item);
       return amount > 0 && amount <= availableBalance;
     });
-  }, [loadedItems, filters.withinFloat, availableBalance, tab]);
+  }, [loadedItems, filters.withinFloat, availableBalance]);
 
   const effectiveSort: FunderNewSort = filters.sort === 'nearest' && !origin ? 'recommended' : filters.sort;
-
-  const activeSelectedIds = useMemo(
-    () => selectedItems.filter((item) => item.category === tab).map((item) => item.id),
-    [selectedItems, tab],
-  );
   const selectedEmptyIds = useMemo(
     () => selectedItems.filter((item) => item.category === 'empty').map((item) => item.id),
     [selectedItems],
@@ -303,8 +325,8 @@ export default function FunderDashboardNew() {
   }, []);
 
   const openDetailById = (id: string) => {
-    const found = items.find((item) => itemId(tab, item) === id);
-    if (found) openDetail(tab, found);
+    const found = items.find((entry) => itemId(entry.category, entry.item) === id);
+    if (found) openDetail(found.category, found.item);
   };
 
   /** Applying a map area changes the list; simply panning does not. */
@@ -444,7 +466,7 @@ export default function FunderDashboardNew() {
             onOpenChange={setFiltersOpen}
             filters={filters}
             districts={districtOptions}
-            supportsSort={tab === 'empty'}
+            supportsSort
             hasOrigin={!!origin}
             availableBalance={availableBalance}
             onChange={(next) => setFilters((current) => ({ ...current, ...next }))}
@@ -459,23 +481,11 @@ export default function FunderDashboardNew() {
           ) : null}
 
 
-          <Tabs value={tab} onValueChange={(value) => setTab(value as FunderNewCategory)}>
-            <TabsList className="h-auto w-full flex-wrap justify-start gap-1 rounded-xl p-1 sm:w-fit">
-              <TabsTrigger value="empty" className="rounded-lg px-4 py-2 text-sm">
-                Empty homes
-              </TabsTrigger>
-              <TabsTrigger value="ready" className="rounded-lg px-4 py-2 text-sm">
-                Tenant ready
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-
           {/* Applied context: what is loaded, and by which order */}
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">
-              {tab === 'empty' ? sortLabel(effectiveSort) : 'Order from the tenant-ready service'}
-            </span>
-            {activeQuery.isLoading ? (
+            <span className="font-medium text-foreground">{sortLabel(effectiveSort)}</span>
+            <span>Houses first, then Rent Plans</span>
+            {feedLoading ? (
               <span>Loading…</span>
             ) : (
               <span>
@@ -491,31 +501,20 @@ export default function FunderDashboardNew() {
             {filters.sort === 'nearest' && !origin ? <span>Nearest needs your location</span> : null}
           </div>
 
-          {tab === 'ready' ? (
-            <p className="flex items-start gap-2 rounded-xl bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-              <Info className="mt-0.5 h-3.5 w-3.5 flex-none" aria-hidden />
-              <span>
-                Tenant-ready homes cannot be ordered by distance: the read service supports district and amount only, so
-                this list is not a nearest-first search. Distances are still shown where a home has a map pin.
-                {readyLimitation ? ` ${readyLimitation}` : ''}
-              </span>
-            </p>
-          ) : null}
-
-          {/* Listings */}
-          {activeQuery.isLoading ? (
+          {/* Listings — houses first, then Rent Plans */}
+          {feedLoading ? (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {Array.from({ length: 6 }).map((_, index) => (
                 <Skeleton key={index} className="h-40 rounded-2xl" />
               ))}
             </div>
-          ) : activeQuery.error ? (
+          ) : feedError ? (
             <Alert variant="warning" className="rounded-2xl border-warning/40 bg-warning/10">
               <AlertTriangle className="h-4 w-4" />
               <AlertTitle>These homes could not be loaded</AlertTitle>
               <AlertDescription>
                 Nothing has been replaced with a zero. Check your connection and try again.
-                <Button variant="link" className="h-auto px-1 py-0" onClick={() => activeQuery.refetch()}>
+                <Button variant="link" className="h-auto px-1 py-0" onClick={refetchFeed}>
                   Retry
                 </Button>
               </AlertDescription>
@@ -543,42 +542,44 @@ export default function FunderDashboardNew() {
             <div className="space-y-4">
               <div
                 className={
-                  activeQuery.isFetching && !activeQuery.isFetchingNextPage
+                  feedFetching && !feedFetchingNext
                     ? 'grid gap-0 opacity-70 transition-opacity sm:grid-cols-2 sm:gap-3 lg:grid-cols-3'
                     : 'grid gap-0 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3'
                 }
               >
-                {items.map((item) => {
-                  const id = itemId(tab, item);
-                  const coords = itemCoordinates(item, tab);
+                {items.map((entry) => {
+                  const id = itemId(entry.category, entry.item);
+                  const coords = itemCoordinates(entry.item, entry.category);
                   return (
                     <FunderNewHouseCard
-                      key={id}
-                      category={tab}
-                      item={item}
-                      saved={saved[tab].includes(id)}
-                      selected={selectedCategory === tab && activeSelectedIds.includes(id)}
+                      key={`${entry.category}:${id}`}
+                      category={entry.category}
+                      item={entry.item}
+                      saved={saved[entry.category].includes(id)}
+                      selected={selectedItems.some(
+                        (selected) => selected.category === entry.category && selected.id === id,
+                      )}
                       distance={coords ? straightLineDistance(deviceOrigin, coords) : null}
-                      onSave={() => toggleSave(tab, id)}
-                      onSelect={() => toggleSelect(tab, item)}
-                      onDetail={() => openDetail(tab, item)}
+                      onSave={() => toggleSave(entry.category, id)}
+                      onSelect={() => toggleSelect(entry.category, entry.item)}
+                      onDetail={() => openDetail(entry.category, entry.item)}
                     />
                   );
                 })}
               </div>
 
-              {activeQuery.hasNextPage ? (
+              {feedHasNext ? (
                 <div className="flex justify-center">
                   <Button
                     variant="outline"
                     className="h-11 rounded-full px-6"
-                    onClick={() => activeQuery.fetchNextPage()}
-                    disabled={activeQuery.isFetchingNextPage}
+                    onClick={fetchNextFeed}
+                    disabled={feedFetchingNext}
                   >
-                    {activeQuery.isFetchingNextPage ? (
+                    {feedFetchingNext ? (
                       <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
                     ) : null}
-                    {activeQuery.isFetchingNextPage
+                    {feedFetchingNext
                       ? 'Loading'
                       : `Show more homes${remaining > 0 ? ` (${remaining.toLocaleString()} left)` : ''}`}
                   </Button>
