@@ -466,9 +466,12 @@ export function FunderNewRouteMap({
 
       {controls}
 
-      <p className="pointer-events-none absolute bottom-1 left-2 z-[500] max-w-[62%] text-[11px] leading-tight text-muted-foreground">
+      {/* Readable caption chip: plain text over tiles collided with the
+          attribution line and was hard to read. */}
+      <p className="pointer-events-none absolute bottom-6 left-2 right-2 z-[500] w-fit max-w-[92%] rounded-md bg-card/90 px-2 py-1 text-[11px] leading-tight text-muted-foreground shadow-sm">
         {loadedNote}
       </p>
+
     </div>
   );
 }
