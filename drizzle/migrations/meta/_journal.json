@@ -2094,6 +2094,13 @@
       "when": 1790080807427,
       "tag": "0298_hr_staff_birthdays_and_forceful_notice",
       "breakpoints": true
+    },
+    {
+      "idx": 299,
+      "version": "7",
+      "when": 1790080984530,
+      "tag": "0299_loan_auth_named_position_holders",
+      "breakpoints": true
     }
   ]
 }

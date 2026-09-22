@@ -39816,6 +39816,30 @@ export type Database = {
           },
         ]
       }
+      staff_loan_authorities: {
+        Row: {
+          added_at: string
+          authority: string
+          enabled: boolean
+          note: string | null
+          user_id: string
+        }
+        Insert: {
+          added_at?: string
+          authority: string
+          enabled?: boolean
+          note?: string | null
+          user_id: string
+        }
+        Update: {
+          added_at?: string
+          authority?: string
+          enabled?: boolean
+          note?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       staff_loan_instalments: {
         Row: {
           amount_due: number
@@ -63965,6 +63989,10 @@ export type Database = {
           interest_charged: number
           loans_charged: number
         }[]
+      }
+      staff_loan_has_authority: {
+        Args: { _authority: string; _user_id: string }
+        Returns: boolean
       }
       staff_loan_policy_confirm: {
         Args: {
