@@ -7,7 +7,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useOffline } from '@/contexts/OfflineContext';
 import { Button } from '@/components/ui/button';
 import { Calculator, BadgeCheck, MapPin, Wallet } from 'lucide-react';
-import { MapBottomSheet } from '@/components/supporter/MapBottomSheet';
 import { formatUGX as _formatUGX } from '@/lib/rentCalculations';
 import { useToast } from '@/hooks/use-toast';
 import { AppRole } from '@/hooks/useAuth';
@@ -113,8 +112,6 @@ export default function SupporterDashboard({
   const [showCalculator, setShowCalculator] = useState(false);
   const [showMap, setShowMap] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [mapExpanded, setMapExpanded] = useState(false);
-  console.log('[SupporterDashboard] mapExpanded =', mapExpanded);
   const [selectedHouse, setSelectedHouse] = useState<VirtualHouse | null>(null);
   const [showHouseDetails, setShowHouseDetails] = useState(false);
   const [selectedPackageCategory, setSelectedPackageCategory] = useState<RentCategory | null>(null);
@@ -533,71 +530,33 @@ export default function SupporterDashboard({
                 onSearchQueryChange={() => {}}
                 onOpenHouse={() => {}}
                 onFundHouse={() => {}}
-                onExpandedChange={setMapExpanded}
               />
             </Suspense>
           </div>
 
           {/* ═══ SECTION: OPPORTUNITIES ═══ */}
-          {/* When map is expanded (fullscreen), render inside a draggable bottom sheet.
-              Otherwise, render inline in the normal scroll flow. */}
 
-          {mapExpanded ? (
-            <MapBottomSheet
-              defaultSnap="half"
-              header={
-                <div className="flex items-center justify-between">
-                  <p className="text-[15px] font-bold text-foreground">
-                    houses <span className="text-xs font-normal text-muted-foreground">ⓘ</span>
-                  </p>
+          <div id="opportunities" className="relative scroll-mt-4 space-y-2.5 sm:space-y-4">
+            {!effectiveHasAccepted && <LockedOverlay onAcceptClick={() => setShowAgreementModal(true)} />}
+            <WidgetErrorBoundary label="Capital opportunities">
+              {loading && virtualHouses.length === 0 ? (
+                <div className="space-y-3">
+                  <WidgetCardSkeleton />
+                  <WidgetCardSkeleton />
                 </div>
-              }
-            >
-              <div id="opportunities" className="relative space-y-2.5">
-                {!effectiveHasAccepted && <LockedOverlay onAcceptClick={() => setShowAgreementModal(true)} />}
-                <WidgetErrorBoundary label="Capital opportunities">
-                  {loading && virtualHouses.length === 0 ? (
-                    <div className="space-y-3">
-                      <WidgetCardSkeleton />
-                      <WidgetCardSkeleton />
-                    </div>
-                  ) : (
-                    <>
-                      <FunderApprovalBanner className="mb-3" />
-                      <FunderCapitalOpportunities
-                        key={`${capitalView}-${capitalFeedOrder}`}
-                        initialView={capitalView}
-                        initialFeedOrder={capitalFeedOrder}
-                        embedded
-                      />
-                    </>
-                  )}
-                </WidgetErrorBoundary>
-              </div>
-            </MapBottomSheet>
-          ) : (
-            <div id="opportunities" className="relative scroll-mt-4 space-y-2.5 sm:space-y-4">
-              {!effectiveHasAccepted && <LockedOverlay onAcceptClick={() => setShowAgreementModal(true)} />}
-              <WidgetErrorBoundary label="Capital opportunities">
-                {loading && virtualHouses.length === 0 ? (
-                  <div className="space-y-3">
-                    <WidgetCardSkeleton />
-                    <WidgetCardSkeleton />
-                  </div>
-                ) : (
-                  <>
-                    <FunderApprovalBanner className="mb-3" />
-                    <FunderCapitalOpportunities
-                      key={`${capitalView}-${capitalFeedOrder}`}
-                      initialView={capitalView}
-                      initialFeedOrder={capitalFeedOrder}
-                      embedded
-                    />
-                  </>
-                )}
-              </WidgetErrorBoundary>
-            </div>
-          )}
+              ) : (
+                <>
+                  <FunderApprovalBanner className="mb-3" />
+                  <FunderCapitalOpportunities
+                    key={`${capitalView}-${capitalFeedOrder}`}
+                    initialView={capitalView}
+                    initialFeedOrder={capitalFeedOrder}
+                    embedded
+                  />
+                </>
+              )}
+            </WidgetErrorBoundary>
+          </div>
 
         </main>
       </div>

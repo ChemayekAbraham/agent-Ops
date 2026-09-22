@@ -35,23 +35,18 @@ function useScrollWidening(ref: React.RefObject<HTMLDivElement>) {
       frame = 0;
       const node = ref.current;
       if (!node) return;
-      // Only widen once the user has actually scrolled — otherwise the map
-      // bleeds out of the page gutters on first paint and looks broken next to
-      // the still-inset cards.
-      if (window.scrollY <= 0) return;
       const rect = node.getBoundingClientRect();
       const viewportH = window.innerHeight || 1;
-      // Starts once the map's top crosses the middle of the screen, completes
-      // by the time it has travelled up to roughly a sixth of the screen height.
-      const start = viewportH * 0.55;
-      const end = viewportH * 0.15;
+      // Starts as the map enters the lower part of the screen, completes once its
+      // top has travelled up to roughly a quarter of the screen height.
+      const start = viewportH * 0.85;
+      const end = viewportH * 0.25;
       const raw = (start - rect.top) / Math.max(1, start - end);
       const next = Math.min(1, Math.max(progressRef.current, raw));
       if (next === progressRef.current) return;
       progressRef.current = next;
 
-      const parentWidth = node.parentElement?.clientWidth || rect.width;
-      if (parentWidth <= 1) return;
+      const parentWidth = node.parentElement?.clientWidth ?? rect.width;
       const full = document.documentElement.clientWidth || window.innerWidth;
       const gutter = Math.max(0, (full - parentWidth) / 2);
       setBleed(Number((gutter * next).toFixed(2)));
