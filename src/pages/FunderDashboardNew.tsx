@@ -374,46 +374,17 @@ export default function FunderDashboardNew() {
               />
             </label>
 
-            <Input
-              value={filters.location}
-              onChange={(event) => setFilters({ ...filters, location: event.target.value })}
-              placeholder="District"
-              aria-label="Filter by district"
-              className="h-11 min-w-0 basis-[calc(50%-0.25rem)] rounded-xl text-sm sm:flex-1 sm:basis-auto sm:max-w-[9.5rem]"
-            />
-
-            <Select
-              value={filters.amount}
-              onValueChange={(value: AmountBucket) => setFilters({ ...filters, amount: value })}
+            <Button
+              variant="outline"
+              className="relative h-11 min-w-0 basis-[calc(50%-0.25rem)] rounded-xl text-sm sm:flex-none sm:basis-auto"
+              onClick={() => setFiltersOpen(true)}
             >
-              <SelectTrigger className="h-11 min-w-0 basis-[calc(50%-0.25rem)] rounded-xl text-sm sm:flex-1 sm:basis-auto sm:max-w-[11rem]" aria-label="Filter by amount">
-                <SlidersHorizontal className="mr-1.5 h-4 w-4 text-muted-foreground" aria-hidden />
-                <SelectValue placeholder="Any amount" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Any amount</SelectItem>
-                <SelectItem value="under_300k">Under UGX 300,000</SelectItem>
-                <SelectItem value="300k_600k">UGX 300,000–600,000</SelectItem>
-                <SelectItem value="over_600k">Above UGX 600,000</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {tab === 'empty' ? (
-              <Select value={filters.sort} onValueChange={(value) => changeSort(value as FunderNewSort)}>
-                <SelectTrigger className="h-11 min-w-0 basis-[calc(50%-0.25rem)] rounded-xl text-sm sm:flex-1 sm:basis-auto sm:max-w-[10.5rem]" aria-label="Sort homes">
-                  <SelectValue placeholder="Sort" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="nearest" disabled={!origin}>
-                    Nearest first
-                  </SelectItem>
-                  <SelectItem value="rent_low">Lowest amount</SelectItem>
-                  <SelectItem value="rent_high">Highest amount</SelectItem>
-                  <SelectItem value="newest">Newest first</SelectItem>
-                  <SelectItem value="recommended">Recommended</SelectItem>
-                </SelectContent>
-              </Select>
-            ) : null}
+              <ListFilter className="h-4 w-4" aria-hidden />
+              Filters
+              {filtersActive ? (
+                <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-primary" aria-hidden />
+              ) : null}
+            </Button>
 
             <Button
               variant="soft"
@@ -424,20 +395,11 @@ export default function FunderDashboardNew() {
               Calculator
             </Button>
 
-            {filtersActive ? (
-              <Button
-                variant="ghost"
-                className="h-11 min-w-0 basis-full rounded-xl text-sm sm:flex-none sm:basis-auto"
-                onClick={resetFilters}
-              >
-                <X className="h-4 w-4" aria-hidden />
-                Clear
-              </Button>
-            ) : null}
           </div>
 
-          {/* Chip filters, matching the current funding dashboard */}
-          <FunderNewFilterChips
+          <FunderNewFilterDrawer
+            open={filtersOpen}
+            onOpenChange={setFiltersOpen}
             filters={filters}
             districts={districtOptions}
             supportsSort={tab === 'empty'}
@@ -447,6 +409,7 @@ export default function FunderDashboardNew() {
             onSortChange={changeSort}
             onReset={resetFilters}
           />
+
           {filters.withinFloat && availableBalance !== null ? (
             <p className="px-1 text-xs text-muted-foreground">
               Within-balance is applied to the homes already loaded, because the read service has no balance filter.
