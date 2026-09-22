@@ -315,7 +315,11 @@ export function WeeklyStaffForwardingReport() {
               label: 'Forwarded from calls that came in',
               value: `${report.fromReceived} (${pct(report.fromReceived)})`,
             },
+            { label: 'Resolved by call center (nothing forwarded)', value: String(report.resolvedGrandTotal) },
+            { label: 'People who resolved calls at the call center', value: String(report.resolvedRows.length) },
+            { label: 'Forwarded + resolved for the week', value: String(report.combinedGrandTotal) },
           ],
+
           perDayBreakdown: report.dayLabels.map((day, i) => ({
             day,
             made: report.dailyMade[i],
