@@ -180,6 +180,7 @@ export function CombinedCallingCenterReportButton({
 
       const receivedRows: ReceivedCallPdfRow[] = calls.map((r) => {
         const concern = concernByCall.get(r.id);
+        const reported = reportByCall.get(r.id);
         return {
           when: stamp(r.called_at),
           caller: r.caller_name,
@@ -191,11 +192,20 @@ export function CombinedCallingCenterReportButton({
           status: RECEIVED_STATUS_LABEL[r.status as ReceivedCallStatus] ?? r.status,
           followUp: r.follow_up_at ? stamp(r.follow_up_at) : '—',
           officer: r.recorded_by_name ?? '—',
+          // Names come from the reporting read when the concern itself is not
+          // visible to the person running the report, so no forwarded call is
+          // shown as un-forwarded.
           forwardedTo: concern
             ? (anyReviewerNames.get(concern.id) ?? [concern.forwarded_to_name ?? 'Staff member']).join(', ')
-            : '—',
+            : reported
+              ? (reported.reviewer_names?.length
+                  ? reported.reviewer_names
+                  : [reported.forwarded_to_name ?? 'Staff member']
+                ).join(', ')
+              : '—',
         };
       });
+
 
       const rPct = (n: number) => (calls.length ? Math.round((n / calls.length) * 100) : 0);
       const receivedByStatus = (Object.keys(RECEIVED_STATUS_LABEL) as ReceivedCallStatus[]).map((s) => {
