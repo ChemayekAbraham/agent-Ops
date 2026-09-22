@@ -52,7 +52,7 @@ export function FunderNewHouseCard({
   return (
     <article
       className={cn(
-        'relative flex gap-3 border-b border-border/70 py-3 transition-colors last:border-b-0',
+        'relative flex min-w-0 gap-3 border-b border-border/70 py-3 transition-colors last:border-b-0',
         'sm:flex-col sm:gap-0 sm:overflow-hidden sm:rounded-2xl sm:border sm:border-border sm:py-0 sm:shadow-sm sm:transition-shadow sm:hover:shadow-md',
         selected && 'sm:border-primary sm:ring-1 sm:ring-primary',
       )}
