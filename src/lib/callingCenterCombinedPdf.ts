@@ -300,7 +300,7 @@ export async function generateCombinedCallingCenterPdf(
   // ============================================ 2. Received calls summary
   doc.addPage();
   cursor = 20;
-  section('2 · Received Calls — summary', 60);
+  section('3 · Received Calls — summary', 60);
   tiles(input.received.tiles);
   table({
     head: [['Where each received call stands', 'Count', 'Share of received calls']],
@@ -325,7 +325,7 @@ export async function generateCombinedCallingCenterPdf(
   // =================================== 3. Complete received calls report
   doc.addPage();
   cursor = 20;
-  section('3 · Complete Received Calls report', 30);
+  section('4 · Complete Received Calls report', 30);
   if (!input.received.rows.length) {
     note('No received calls were recorded in this period.');
   } else {
@@ -351,7 +351,7 @@ export async function generateCombinedCallingCenterPdf(
   // ============================================ 4. Issues review summary
   doc.addPage();
   cursor = 20;
-  section('4 · Issues Review — summary', 60);
+  section('5 · Issues Review — summary', 60);
   tiles(input.issues.tiles);
 
   table({
@@ -426,7 +426,7 @@ export async function generateCombinedCallingCenterPdf(
   // ==================================== 5. Complete issues review report
   doc.addPage();
   cursor = 20;
-  section('5 · Complete Issues Review report', 30);
+  section('6 · Complete Issues Review report', 30);
   if (!input.issues.rows.length) {
     note('No concerns were forwarded in this period.');
   } else {
