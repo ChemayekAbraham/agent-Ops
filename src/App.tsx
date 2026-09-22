@@ -435,6 +435,8 @@ function GlobalOnboardingGates() {
       <NationalIdLinkGate />
       <ConcernAssignmentGate />
       <FacilitationApprovalGate />
+      <StaffLoanApprovalGate />
+
     </>
   );
 }
