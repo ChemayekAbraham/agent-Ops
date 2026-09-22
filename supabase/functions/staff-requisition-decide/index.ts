@@ -79,6 +79,11 @@ Deno.serve(async (req) => {
       return json({ error: "awaiting_requester", message: "This requisition is back with the requester." }, 409);
     }
 
+    // Guarded kinds are written as the approver; ordinary requisitions stay on the
+    // service-role client so existing behaviour is unchanged.
+    const writer = GATED_KINDS.has(String(row.request_kind ?? "requisition")) ? asActor : admin;
+
+
     const { data: roleRows } = await admin
       .from("user_roles")
       .select("role")
