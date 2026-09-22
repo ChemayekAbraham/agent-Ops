@@ -79,8 +79,13 @@ export function FunderNewFilterDrawer({
               Reset
             </Button>
             <Button className="flex-1 rounded-xl" onClick={() => onOpenChange(false)}>
-              Show homes
+              {typeof resultCount === 'number'
+                ? resultCounting
+                  ? 'Counting…'
+                  : `Show ${resultCount.toLocaleString()} ${resultCount === 1 ? 'home' : 'homes'}`
+                : 'Show homes'}
             </Button>
+
           </div>
         </div>
       </SheetContent>
