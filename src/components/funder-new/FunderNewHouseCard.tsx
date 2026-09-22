@@ -1,37 +1,45 @@
-import { Bookmark, CheckCircle2, Home, MapPin, ShieldCheck } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { Bookmark, Check, Home } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { cn } from '@/lib/utils';
-import type { FunderNewCategory, FunderNewEmptyHouse, FunderNewReadyPlan } from './types';
+import type { FunderNewCategory, FunderNewDistance, FunderNewEmptyHouse, FunderNewReadyPlan } from './types';
 import {
   emptyHousePlace,
   emptyHouseTitle,
   firstPhoto,
+  isHouseVerified,
   itemAmount,
   itemMonthlyReturn,
   readyPlanPlace,
   readyPlanTitle,
 } from './utils';
+import { FunderNewVerifiedBadge } from './FunderNewVerifiedBadge';
+import { STRAIGHT_LINE_EXPLANATION } from './distance';
 
+/**
+ * Compact listing for /dashboard/funder-new.
+ *
+ * Mobile: a photo-led horizontal row. Tablet/desktop: a shallow photo with text
+ * below. Only the essentials are shown here — everything else is in full view.
+ */
 export function FunderNewHouseCard({
   category,
   item,
   saved,
   selected,
+  distance,
   onSave,
   onSelect,
   onDetail,
-  highlighted = false,
 }: {
   category: FunderNewCategory;
   item: FunderNewEmptyHouse | FunderNewReadyPlan;
   saved: boolean;
   selected: boolean;
+  distance: FunderNewDistance | null;
   onSave: () => void;
   onSelect: () => void;
   onDetail: () => void;
-  highlighted?: boolean;
 }) {
   const isEmpty = category === 'empty';
   const title = isEmpty ? emptyHouseTitle(item as FunderNewEmptyHouse) : readyPlanTitle(item as FunderNewReadyPlan);
@@ -39,94 +47,85 @@ export function FunderNewHouseCard({
   const amount = itemAmount(category, item);
   const monthlyReturn = itemMonthlyReturn(category, item);
   const photo = firstPhoto(category, item);
-  const verified = isEmpty ? (item as FunderNewEmptyHouse).verified === true : false;
+  const verified = isHouseVerified(category, item);
 
   return (
     <article
       className={cn(
-        'group flex flex-col overflow-hidden rounded-2xl border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg',
-        selected && 'border-primary ring-2 ring-primary/30',
-        highlighted && !selected && 'border-primary/50 ring-1 ring-primary/20',
+        'relative flex gap-3 border-b border-border/70 py-3 transition-colors last:border-b-0',
+        'sm:flex-col sm:gap-0 sm:overflow-hidden sm:rounded-2xl sm:border sm:border-border sm:py-0 sm:shadow-sm sm:transition-shadow sm:hover:shadow-md',
+        selected && 'sm:border-primary sm:ring-1 sm:ring-primary',
       )}
     >
-      <div className="relative">
+      <div className="relative w-28 flex-none sm:w-full">
         <button
           type="button"
           onClick={onDetail}
-          aria-label={`View ${title}`}
-          className="block w-full overflow-hidden focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label={`Open full details for ${title} in ${place}`}
+          className="block w-full overflow-hidden rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:rounded-none"
         >
           {photo ? (
             <img
               src={photo}
-              alt={title}
+              alt={`${title} in ${place}`}
               loading="lazy"
-              className="aspect-[4/3] w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+              className="h-28 w-full object-cover sm:h-32 lg:h-36"
             />
           ) : (
-            <div className="flex aspect-[4/3] w-full items-center justify-center bg-primary/5">
-              <Home className="h-9 w-9 text-primary/50" />
+            <div className="flex h-28 w-full items-center justify-center bg-primary/5 sm:h-32 lg:h-36">
+              <Home className="h-7 w-7 text-primary/45" aria-hidden />
+              <span className="sr-only">No photo available</span>
             </div>
           )}
         </button>
 
-        <div className="pointer-events-none absolute left-3 top-3 flex flex-wrap gap-2">
-          <Badge className="pointer-events-auto rounded-full bg-primary text-primary-foreground shadow-sm">
-            {isEmpty ? 'Empty house' : 'Tenant ready'}
-          </Badge>
-          {verified ? (
-            <Badge variant="success" className="pointer-events-auto rounded-full shadow-sm">
-              <ShieldCheck className="mr-1 h-3.5 w-3.5" /> Verified
-            </Badge>
-          ) : null}
-        </div>
+        {verified ? <FunderNewVerifiedBadge className="absolute left-1.5 top-1.5" /> : null}
 
-        <Button
+        <button
           type="button"
-          size="icon"
-          variant="secondary"
           onClick={onSave}
-          aria-label={saved ? `Remove ${title} from saved` : `Save ${title}`}
+          aria-label={saved ? `Remove ${title} from saved homes` : `Save ${title} for later`}
           aria-pressed={saved}
-          className="absolute right-3 top-3 h-10 w-10 rounded-full shadow-sm"
+          className="absolute right-1.5 top-1.5 flex h-8 w-8 items-center justify-center rounded-full bg-card/90 text-foreground shadow-sm ring-1 ring-border backdrop-blur focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <Bookmark className={cn('h-4 w-4', saved && 'fill-current text-primary')} />
-        </Button>
+          <Bookmark className={cn('h-4 w-4', saved && 'fill-current text-primary')} aria-hidden />
+        </button>
       </div>
 
-      <div className="flex flex-1 flex-col gap-4 p-4 sm:p-5">
-        <div className="min-w-0">
-          <h3 className="line-clamp-2 text-base font-semibold leading-snug">{title}</h3>
-          <p className="mt-1.5 flex items-start gap-1.5 text-sm text-muted-foreground">
-            <MapPin className="mt-0.5 h-4 w-4 flex-none" />
-            <span className="line-clamp-1">{place}</span>
+      <div className="flex min-w-0 flex-1 flex-col gap-1 sm:gap-1.5 sm:p-3">
+        <p className="truncate text-sm font-semibold leading-snug">{place}</p>
+
+        <p className="break-words text-[0.9375rem] font-bold leading-snug sm:text-base">
+          {formatDynamic(amount)}
+          <span className="ml-1 text-xs font-medium text-muted-foreground">to support</span>
+        </p>
+
+        <p className="text-xs leading-snug text-muted-foreground">
+          {monthlyReturn === null ? (
+            'Projected return not available yet'
+          ) : (
+            <>
+              Projected return{' '}
+              <span className="font-semibold text-success">{formatDynamic(monthlyReturn)}</span>/month
+            </>
+          )}
+        </p>
+
+        {distance ? (
+          <p className="text-xs text-muted-foreground" title={STRAIGHT_LINE_EXPLANATION}>
+            {distance.label}
+            <span className="sr-only"> ({STRAIGHT_LINE_EXPLANATION})</span>
           </p>
-        </div>
+        ) : null}
 
-        <div className="grid grid-cols-2 gap-2">
-          <div className="rounded-xl bg-primary/5 p-3">
-            <p className="text-xs font-medium text-muted-foreground">Amount to fund</p>
-            <p className="mt-1 break-words text-base font-semibold">{formatDynamic(amount)}</p>
-          </div>
-          <div className="rounded-xl bg-primary/5 p-3">
-            <p className="text-xs font-medium text-muted-foreground">Monthly return</p>
-            <p className="mt-1 break-words text-base font-semibold">
-              {monthlyReturn ? formatDynamic(monthlyReturn) : 'On file'}
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-auto grid grid-cols-2 gap-2 border-t pt-4">
-          <Button variant="outline" className="h-11 rounded-xl" onClick={onDetail}>
-            View house
-          </Button>
+        <div className="mt-auto pt-1.5">
           <Button
             variant={selected ? 'default' : 'soft'}
-            className="h-11 rounded-xl"
+            className="h-10 w-full rounded-xl text-sm sm:h-11"
             onClick={onSelect}
             aria-pressed={selected}
           >
-            <CheckCircle2 className="h-4 w-4" />
+            {selected ? <Check className="h-4 w-4" aria-hidden /> : null}
             {selected ? 'Selected' : 'Select'}
           </Button>
         </div>
