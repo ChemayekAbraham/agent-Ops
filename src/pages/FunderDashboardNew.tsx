@@ -198,7 +198,7 @@ export default function FunderDashboardNew() {
   const items = useMemo(() => {
     if (!filters.withinFloat || availableBalance === null) return loadedItems;
     return loadedItems.filter((item) => {
-      const amount = itemAmount(item, tab);
+      const amount = itemAmount(tab, item);
       return amount > 0 && amount <= availableBalance;
     });
   }, [loadedItems, filters.withinFloat, availableBalance, tab]);
