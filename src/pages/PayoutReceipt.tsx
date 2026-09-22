@@ -122,7 +122,7 @@ export default function PayoutReceipt() {
         <div className="relative bg-card rounded-[28px] shadow-xl overflow-hidden border border-border">
           {/* Authenticity e-stamp watermark, stamped across every receipt */}
           <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center overflow-hidden">
-            <WelileStamp watermark scale={0.62} />
+            <WelileStamp watermark scale={0.62} date={data.processed_at} />
           </div>
           {/* Header */}
           <div className="bg-primary text-primary-foreground px-6 pt-8 pb-7 text-center">

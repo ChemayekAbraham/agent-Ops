@@ -1,9 +1,14 @@
 import { useEffect, useMemo } from 'react';
 
-/** Today's date in the exact physical-stamp format, e.g. "15 JUN 2026". */
-export function stampDate(): string {
-  const today = new Date();
-  return today
+/**
+ * The stamp's date in the exact physical-stamp format, e.g. "15 JUN 2026".
+ * Pass the receipt's own date (e.g. `processed_at`) so the stamp reflects when
+ * the transaction happened, not when it's being viewed — otherwise a receipt
+ * for a past payout would show today's date every time it's reopened.
+ */
+export function stampDate(date?: string | Date | null): string {
+  const d = date ? new Date(date) : new Date();
+  return d
     .toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
     .toUpperCase();
 }
@@ -25,21 +30,25 @@ function useStampFonts() {
 /**
  * Welile Technologies official e-stamp — an authenticity mark rendered on every
  * payout receipt. Reproduces the physical rubber stamp (blue border, serif
- * company name, red current date flanked by stars, PO Box address) with the
- * date generated dynamically for the day the receipt is viewed. Used both as a
- * faint diagonal watermark across the receipt and can be shown at full strength.
+ * company name, red date flanked by stars, PO Box address), dated to the
+ * receipt's own transaction date so it stays fixed no matter when the receipt
+ * is (re)viewed. Used both as a faint diagonal watermark across the receipt
+ * and can be shown at full strength.
  */
 export function WelileStamp({
   scale = 1,
   watermark = false,
   className = '',
+  date: dateInput,
 }: {
   scale?: number;
   watermark?: boolean;
   className?: string;
+  /** The receipt's own date (e.g. `processed_at`). Defaults to today if omitted. */
+  date?: string | Date | null;
 }) {
   useStampFonts();
-  const date = useMemo(() => stampDate(), []);
+  const date = useMemo(() => stampDate(dateInput), [dateInput]);
 
   return (
     <div

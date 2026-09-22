@@ -11,7 +11,7 @@ import { receiptChecksum } from '@/lib/receiptVerification';
  * watermark centred on the receipt. Mirrors the on-screen WelileStamp: blue
  * border, serif company name, red current date flanked by stars, PO Box line.
  */
-function drawStampWatermark(doc: jsPDF, cx: number, cy: number) {
+function drawStampWatermark(doc: jsPDF, cx: number, cy: number, date?: string | Date | null) {
   const BLUE: [number, number, number] = [17, 52, 166];
   const RED: [number, number, number] = [229, 25, 33];
   const boxW = 300;
@@ -43,7 +43,7 @@ function drawStampWatermark(doc: jsPDF, cx: number, cy: number) {
   doc.setTextColor(...RED);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(24);
-  doc.text(stampDate(), cx, midY + 6, { align: 'center' });
+  doc.text(stampDate(date), cx, midY + 6, { align: 'center' });
 
   // Address
   doc.setTextColor(...BLUE);
@@ -237,7 +237,7 @@ export async function downloadPayoutReceiptPdf(data: PayoutReceiptData) {
   doc.text('Verify at welileapp.com', cardX + cardW / 2, y, { align: 'center' });
 
   // Authenticity e-stamp watermark, stamped over the receipt body.
-  drawStampWatermark(doc, cardX + cardW / 2, 430);
+  drawStampWatermark(doc, cardX + cardW / 2, 430, data.processed_at);
 
   doc.save(`welile-receipt-${data.receipt_number || data.reference || 'payout'}.pdf`);
 }
