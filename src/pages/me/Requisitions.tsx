@@ -616,7 +616,7 @@ const MyRequisitions = () => {
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setOpen(false)} disabled={submitting}>Cancel</Button>
-                  <Button onClick={() => void submit()} disabled={submitting}>
+                  <Button onClick={() => void submit()} disabled={submitting || (kind === 'staff_loan' && !scheduleAccepted)}>
                     {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {resubmitId ? 'Resubmit' : kind === 'staff_loan' ? 'Submit loan request' : 'Submit for review'}
                   </Button>
@@ -680,7 +680,7 @@ const MyRequisitions = () => {
                       {row.request_kind === 'staff_loan' && (
                         <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
                           <Landmark className="mr-1 h-3 w-3" />
-                          Loan • {row.loan_months ?? 1} {row.loan_months === 1 ? 'month' : 'months'} • {Math.round(Number(row.loan_monthly_rate ?? 0.28) * 100)}%/month
+                          Loan • {row.loan_months ?? 1} {row.loan_months === 1 ? 'month' : 'months'} • {Number((Number(row.loan_monthly_rate ?? 0) * 100).toFixed(2))}%/month
                         </Badge>
                       )}
                     </div>
