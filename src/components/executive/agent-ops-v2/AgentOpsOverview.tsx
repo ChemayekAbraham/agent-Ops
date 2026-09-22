@@ -230,6 +230,12 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
   });
 
   const k = data?.kpis || ({} as Record<string, number>);
+  // Disjoint active counts (see the active-breakdown query above).
+  const activeCurrAgents = activeBreakdown?.agents_curr ?? 0;
+  const activeCurrSubs = activeBreakdown?.subagents_curr ?? 0;
+  const activeCurrTotal = activeBreakdown?.total_curr ?? activeCurrAgents + activeCurrSubs;
+  const activePrevTotal = activeBreakdown?.total_prev
+    ?? ((activeBreakdown?.agents_prev ?? 0) + (activeBreakdown?.subagents_prev ?? 0));
   const trend = trendPayload?.trend || data?.trend || [];
 
   const trendData = trend.map((t) => ({
