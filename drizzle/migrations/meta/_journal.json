@@ -2101,6 +2101,20 @@
       "when": 1790080984530,
       "tag": "0299_loan_auth_named_position_holders",
       "breakpoints": true
+    },
+    {
+      "idx": 300,
+      "version": "7",
+      "when": 1790082308504,
+      "tag": "0300_loan_rate_confirm_ceo_only",
+      "breakpoints": true
+    },
+    {
+      "idx": 301,
+      "version": "7",
+      "when": 1790084244530,
+      "tag": "0301_fix_a2_float_spent_direction_classification",
+      "breakpoints": true
     }
   ]
 }

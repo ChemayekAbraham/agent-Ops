@@ -1,62 +1,60 @@
 /**
- * Staff loan schedule — 28% per month charged on the amount still owing.
-...
- * the loan is repaid. Mirrors `staff_loan_accrue_interest()` in the database.
+ * Staff loan schedule — mirrors the database exactly.
+ *
+ * Interest is fixed at origination. The rate and the method are always supplied
+ * by the caller (from `my_staff_loan_eligibility` or the stored loan row) — this
+ * file never assumes a rate.
  */
-export const STAFF_LOAN_MONTHLY_RATE = 0.28;
-export const STAFF_LOAN_MAX_MONTHS = 12;
 
-export interface StaffLoanMonth {
-  month: number;
-  openingBalance: number;
-  charge: number;
-  principal: number;
-  due: number;
-  closingBalance: number;
+export interface StaffLoanInstalment {
+  seq: number;
+  dueOn: string;
+  amount: number;
 }
 
 export interface StaffLoanSchedule {
-  months: StaffLoanMonth[];
-  totalCharge: number;
+  interest: number;
   totalRepayable: number;
-  firstMonthDue: number;
-  firstDaily: number;
+  instalments: StaffLoanInstalment[];
 }
 
-export function staffLoanSchedule(principal: number, months: number): StaffLoanSchedule {
+/** Instalment n falls due on the 26th of the nth month after the current month. */
+function dueOnFor(seq: number): string {
+  const now = new Date();
+  const d = new Date(now.getFullYear(), now.getMonth() + seq, 26);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  return `${y}-${m}-26`;
+}
+
+export function staffLoanSchedule(
+  principal: number,
+  months: number,
+  monthlyRate: number,
+  interestMethod: 'flat' | 'compound',
+): StaffLoanSchedule {
   const amount = Math.max(0, Math.round(Number(principal) || 0));
-  const n = Math.max(1, Math.min(STAFF_LOAN_MAX_MONTHS, Math.round(Number(months) || 1)));
-  const monthlyPrincipal = Math.ceil(amount / n);
+  const n = Math.max(1, Math.round(Number(months) || 1));
+  const rate = Number(monthlyRate) || 0;
 
-  const rows: StaffLoanMonth[] = [];
-  let balance = amount;
-  let totalCharge = 0;
+  const interest = interestMethod === 'flat'
+    ? Math.round(amount * rate * n)
+    : Math.round(amount * (Math.pow(1 + rate, n) - 1));
 
-  for (let m = 1; m <= n; m += 1) {
-    const opening = balance;
-    const charge = Math.round(opening * STAFF_LOAN_MONTHLY_RATE);
-    const principalPart = Math.min(monthlyPrincipal, opening);
-    balance = Math.max(0, opening - principalPart);
-    totalCharge += charge;
-    rows.push({
-      month: m,
-      openingBalance: opening,
-      charge,
-      principal: principalPart,
-      due: principalPart + charge,
-      closingBalance: balance,
+  const totalRepayable = amount + interest;
+  const instalment = Math.floor(totalRepayable / n);
+  const lastInstalment = totalRepayable - instalment * (n - 1);
+
+  const instalments: StaffLoanInstalment[] = [];
+  for (let seq = 1; seq <= n; seq += 1) {
+    instalments.push({
+      seq,
+      dueOn: dueOnFor(seq),
+      amount: seq === n ? lastInstalment : instalment,
     });
-    if (balance <= 0 && m < n) break;
   }
 
-  const firstMonthDue = rows[0]?.due ?? 0;
-  return {
-    months: rows,
-    totalCharge,
-    totalRepayable: amount + totalCharge,
-    firstMonthDue,
-    firstDaily: Math.ceil(firstMonthDue / 30),
-  };
+  return { interest, totalRepayable, instalments };
 }
 
 export const MONTH_WORDS = [

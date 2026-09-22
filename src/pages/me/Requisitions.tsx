@@ -18,7 +18,7 @@ import {
   Landmark, MapPin,
 } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { staffLoanSchedule, MONTH_WORDS, STAFF_LOAN_MAX_MONTHS } from '@/lib/staffLoanSchedule';
+import { staffLoanSchedule, MONTH_WORDS } from '@/lib/staffLoanSchedule';
 import FacilitationRequestDialog from '@/components/requisitions/FacilitationRequestDialog';
 import FacilitationAccountabilityDialog from '@/components/requisitions/FacilitationAccountabilityDialog';
 
@@ -28,6 +28,7 @@ interface LoanEligibility {
   eligible: boolean;
   monthly_rate?: number;
   max_months?: number;
+  interest_method?: 'flat' | 'compound';
   active_loans?: number;
   outstanding?: number;
 }
@@ -163,6 +164,7 @@ const MyRequisitions = () => {
   const [usageReports, setUsageReports] = useState<Record<string, UsageReport>>({});
   const [kind, setKind] = useState<RequestKind>('requisition');
   const [months, setMonths] = useState(3);
+  const [scheduleAccepted, setScheduleAccepted] = useState(false);
   const [loanInfo, setLoanInfo] = useState<LoanEligibility | null>(null);
   const [loans, setLoans] = useState<StaffLoan[]>([]);
   // Facilitation is for Platform Sales Officers only. If the check fails we
@@ -277,6 +279,7 @@ const MyRequisitions = () => {
     setResubmitId(null);
     setKind(nextKind);
     setMonths(3);
+    setScheduleAccepted(false);
     setForm(EMPTY_FORM);
     setSelectedFiles([]);
     setOpen(true);
@@ -286,6 +289,7 @@ const MyRequisitions = () => {
     setResubmitId(row.id);
     setKind(row.request_kind === 'staff_loan' ? 'staff_loan' : 'requisition');
     setMonths(row.loan_months ?? 3);
+    setScheduleAccepted(false);
     setSelectedFiles([]);
     setForm({
       title: row.title,
@@ -441,7 +445,7 @@ const MyRequisitions = () => {
                   </DialogTitle>
                   <DialogDescription>
                     {kind === 'staff_loan'
-                      ? 'Reviewed by your department head, then the COO, then the CFO — the same as a requisition. Charged 28% a month on what you still owe.'
+                      ? 'Reviewed by HR, then the Chief Executive Officer. The Chief Finance Officer releases the money to your wallet.'
                       : 'Approvers see your department budget alongside the request.'}
                   </DialogDescription>
                 </DialogHeader>
@@ -485,49 +489,59 @@ const MyRequisitions = () => {
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            {Array.from({ length: STAFF_LOAN_MAX_MONTHS }, (_, i) => i + 1).map((m) => (
-                              <SelectItem key={m} value={String(m)}>{MONTH_WORDS[m - 1]}</SelectItem>
+                            {Array.from({ length: Math.max(1, Number(loanInfo?.max_months ?? 1)) }, (_, i) => i + 1).map((m) => (
+                              <SelectItem key={m} value={String(m)}>{MONTH_WORDS[m - 1] ?? `${m} months`}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
                       {Number(form.amount) > 0 && (() => {
-                        const s = staffLoanSchedule(Number(form.amount), months);
+                        const rate = Number(loanInfo?.monthly_rate ?? 0);
+                        const method = loanInfo?.interest_method === 'compound' ? 'compound' : 'flat';
+                        const s = staffLoanSchedule(Number(form.amount), months, rate, method);
+                        const ratePct = Number((rate * 100).toFixed(2));
                         return (
                           <div className="space-y-2 text-xs">
-                            <div className="grid grid-cols-2 gap-2">
-                              <p>First month due<br /><span className="text-sm font-semibold text-foreground">{formatUGX(s.firstMonthDue)}</span></p>
+                            <div className="grid grid-cols-3 gap-2">
+                              <p>Amount borrowed<br /><span className="text-sm font-semibold text-foreground">{formatUGX(Math.round(Number(form.amount)))}</span></p>
+                              <p>Total interest<br /><span className="text-sm font-semibold text-foreground">{formatUGX(s.interest)}</span></p>
                               <p>Total to repay<br /><span className="text-sm font-semibold text-foreground">{formatUGX(s.totalRepayable)}</span></p>
                             </div>
                             <div className="overflow-hidden rounded-lg border bg-background">
                               <table className="w-full text-[11px]">
                                 <thead className="bg-muted/50 text-muted-foreground">
                                   <tr>
-                                    <th className="px-2 py-1 text-left">Month</th>
-                                    <th className="px-2 py-1 text-right">Balance</th>
-                                    <th className="px-2 py-1 text-right">28% charge</th>
-                                    <th className="px-2 py-1 text-right">Due</th>
+                                    <th className="px-2 py-1 text-left">Instalment</th>
+                                    <th className="px-2 py-1 text-left">Due date</th>
+                                    <th className="px-2 py-1 text-right">Amount</th>
                                   </tr>
                                 </thead>
                                 <tbody>
-                                  {s.months.map((m) => (
-                                    <tr key={m.month} className="border-t">
-                                      <td className="px-2 py-1">{m.month}</td>
-                                      <td className="px-2 py-1 text-right">{formatUGX(m.openingBalance)}</td>
-                                      <td className="px-2 py-1 text-right">{formatUGX(m.charge)}</td>
-                                      <td className="px-2 py-1 text-right font-medium">{formatUGX(m.due)}</td>
+                                  {s.instalments.map((i) => (
+                                    <tr key={i.seq} className="border-t">
+                                      <td className="px-2 py-1">{i.seq}</td>
+                                      <td className="px-2 py-1">{new Date(`${i.dueOn}T00:00:00`).toLocaleDateString('en-GB', { dateStyle: 'medium' })}</td>
+                                      <td className="px-2 py-1 text-right font-medium">{formatUGX(i.amount)}</td>
                                     </tr>
                                   ))}
                                 </tbody>
                               </table>
                             </div>
                             <p className="text-muted-foreground">
-                              The charge is 28% of what you still owe at the start of each month, so it falls as you repay.
-                              Repayments are taken from your wallet as money comes in.
+                              {`Interest is fixed when the loan is issued: ${ratePct}% a month on the amount borrowed, for the full term. Instalments are taken automatically from your wallet on the 26th of each month.`}
                             </p>
                           </div>
                         );
                       })()}
+                      <label className="flex items-start gap-2 text-xs">
+                        <input
+                          type="checkbox"
+                          className="mt-0.5 h-4 w-4 accent-primary"
+                          checked={scheduleAccepted}
+                          onChange={(e) => setScheduleAccepted(e.target.checked)}
+                        />
+                        <span>I have read the repayment schedule and accept it.</span>
+                      </label>
                     </div>
                   )}
                   <div className="space-y-2">
@@ -602,7 +616,7 @@ const MyRequisitions = () => {
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => setOpen(false)} disabled={submitting}>Cancel</Button>
-                  <Button onClick={() => void submit()} disabled={submitting}>
+                  <Button onClick={() => void submit()} disabled={submitting || (kind === 'staff_loan' && !scheduleAccepted)}>
                     {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                     {resubmitId ? 'Resubmit' : kind === 'staff_loan' ? 'Submit loan request' : 'Submit for review'}
                   </Button>
@@ -666,7 +680,7 @@ const MyRequisitions = () => {
                       {row.request_kind === 'staff_loan' && (
                         <Badge variant="outline" className="border-primary/30 bg-primary/10 text-primary">
                           <Landmark className="mr-1 h-3 w-3" />
-                          Loan • {row.loan_months ?? 1} {row.loan_months === 1 ? 'month' : 'months'} • {Math.round(Number(row.loan_monthly_rate ?? 0.28) * 100)}%/month
+                          Loan • {row.loan_months ?? 1} {row.loan_months === 1 ? 'month' : 'months'} • {Number((Number(row.loan_monthly_rate ?? 0) * 100).toFixed(2))}%/month
                         </Badge>
                       )}
                     </div>
