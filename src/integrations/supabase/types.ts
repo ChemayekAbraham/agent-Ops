@@ -49953,6 +49953,7 @@ export type Database = {
         Row: {
           person_id: string | null
           section: string | null
+          subtype: string | null
         }
         Relationships: []
       }
@@ -57912,6 +57913,7 @@ export type Database = {
         }[]
       }
       get_my_commission_rate: { Args: never; Returns: Json }
+      get_my_landlord_properties: { Args: never; Returns: Json }
       get_my_listing_block: { Args: never; Returns: Json }
       get_my_parent_agent: {
         Args: never
