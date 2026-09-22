@@ -537,13 +537,6 @@ export default function SupporterDashboard({
           {/* ═══ SECTION: OPPORTUNITIES ═══ */}
 
           <div id="opportunities" className="relative scroll-mt-4 space-y-2.5 sm:space-y-4">
-            <div className="flex items-center gap-2 px-1">
-              <div className="w-1 h-5 rounded-full bg-primary" />
-              <div>
-                <h2 className="text-lg sm:text-base font-black text-foreground tracking-tight">Fund</h2>
-                <p className="text-[11px] text-muted-foreground">Choose a verified home and fund the tenant’s Rent Plan.</p>
-              </div>
-            </div>
             {!effectiveHasAccepted && <LockedOverlay onAcceptClick={() => setShowAgreementModal(true)} />}
             <WidgetErrorBoundary label="Capital opportunities">
               {loading && virtualHouses.length === 0 ? (
