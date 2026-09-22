@@ -59,6 +59,10 @@ export default function PeoplePage() {
             </p>
           </div>
         </TabsContent>
+
+        <TabsContent value="birthdays">
+          <HRBirthdayRegister />
+        </TabsContent>
       </Tabs>
     </HRPlaceholderPage>
   );
