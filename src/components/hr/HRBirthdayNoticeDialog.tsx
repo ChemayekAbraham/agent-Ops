@@ -67,11 +67,8 @@ export default function HRBirthdayNoticeDialog() {
 
   return (
     <AlertDialog open>
-      <AlertDialogContent
-        onEscapeKeyDown={(e) => e.preventDefault()}
-        onPointerDownOutside={(e) => e.preventDefault()}
-        onInteractOutside={(e) => e.preventDefault()}
-      >
+      {/* AlertDialog never closes on outside click; Escape is blocked explicitly below. */}
+      <AlertDialogContent onEscapeKeyDown={(e) => e.preventDefault()}>
         <AlertDialogHeader>
           <AlertDialogTitle>Staff birthday notice</AlertDialogTitle>
           <AlertDialogDescription asChild>
