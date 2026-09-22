@@ -52,6 +52,8 @@ import { OpenAttemptQueue } from '@/components/ops/calling/OpenAttemptQueue';
 import { LiveCallPanel } from './LiveCallPanel';
 import { TenantCallCenterHistory } from './TenantCallCenterHistory';
 import { TenantCallsReport } from './TenantCallsReport';
+import { WeeklyStaffForwardingReport } from './WeeklyStaffForwardingReport';
+
 import { ReceivedCallsTab } from './ReceivedCallsTab';
 import { ConcernsReviewTab } from './ConcernsReviewTab';
 
