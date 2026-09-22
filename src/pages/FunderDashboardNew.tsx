@@ -37,7 +37,7 @@ import type {
 import { itemAmount, itemId, placeCase, sortLabel, toSelectionItem } from '@/components/funder-new/utils';
 import { ROAD_TIME_UNAVAILABLE_REASON, straightLineDistance } from '@/components/funder-new/distance';
 import { itemCoordinates } from '@/components/funder-new/utils';
-import { FunderNewFilterChips } from '@/components/funder-new/FunderNewFilterChips';
+import { FunderNewFilterDrawer } from '@/components/funder-new/FunderNewFilterDrawer';
 
 import { formatDynamic } from '@/lib/currencyFormat';
 
