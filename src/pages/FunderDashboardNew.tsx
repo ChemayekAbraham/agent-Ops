@@ -34,9 +34,11 @@ import type {
   FunderNewSelectionItem,
   FunderNewSort,
 } from '@/components/funder-new/types';
-import { itemId, sortLabel, toSelectionItem } from '@/components/funder-new/utils';
+import { itemAmount, itemId, placeCase, sortLabel, toSelectionItem } from '@/components/funder-new/utils';
 import { ROAD_TIME_UNAVAILABLE_REASON, straightLineDistance } from '@/components/funder-new/distance';
 import { itemCoordinates } from '@/components/funder-new/utils';
+import { FunderNewFilterChips } from '@/components/funder-new/FunderNewFilterChips';
+
 import { formatDynamic } from '@/lib/currencyFormat';
 
 const SAVED_KEY = 'rentflow:funder-new:saved:v1';
@@ -87,7 +89,12 @@ export default function FunderDashboardNew() {
     location: '',
     amount: 'all',
     sort: 'recommended',
+    rentMin: null,
+    rentMax: null,
+    radiusKm: 'all',
+    withinFloat: false,
   });
+
   const [sortTouched, setSortTouched] = useState(false);
   const [area, setArea] = useState<{ lat: number; lng: number; radiusKm: number } | null>(null);
   const [saved, setSaved] = useState<SavedState>(() => readSaved());
@@ -117,20 +124,28 @@ export default function FunderDashboardNew() {
    * location".
    */
   const origin: FunderNewOrigin | null = useMemo(() => {
+    const chosenRadius = filters.radiusKm === 'all' ? null : filters.radiusKm;
     if (location.coords) {
       return {
         lat: location.coords.lat,
         lng: location.coords.lng,
         source: 'device',
-        radiusKm: DEFAULT_RADIUS_KM,
+        radiusKm: chosenRadius ?? DEFAULT_RADIUS_KM,
         label: 'your location',
       };
     }
     if (area) {
-      return { lat: area.lat, lng: area.lng, source: 'area', radiusKm: area.radiusKm, label: 'this area' };
+      return {
+        lat: area.lat,
+        lng: area.lng,
+        source: 'area',
+        radiusKm: chosenRadius ?? area.radiusKm,
+        label: 'this area',
+      };
     }
     return null;
-  }, [location.coords, area]);
+  }, [location.coords, area, filters.radiusKm]);
+
 
   /** Distance labels always measure from the real device position. */
   const deviceOrigin = location.coords ? { lat: location.coords.lat, lng: location.coords.lng } : null;
@@ -154,9 +169,39 @@ export default function FunderDashboardNew() {
   const readyItems = useMemo(() => (readyQuery.data?.pages ?? []).flatMap((page) => page.items), [readyQuery.data]);
 
   const activeQuery = tab === 'empty' ? emptyQuery : readyQuery;
-  const items: Array<FunderNewEmptyHouse | FunderNewReadyPlan> = tab === 'empty' ? emptyItems : readyItems;
+  const loadedItems: Array<FunderNewEmptyHouse | FunderNewReadyPlan> = tab === 'empty' ? emptyItems : readyItems;
   const filteredTotal = activeQuery.data?.pages?.[0]?.total ?? 0;
   const readyLimitation = readyQuery.data?.pages?.[0]?.limitation ?? null;
+
+  const availableBalance = wallet.isLoading || wallet.error ? null : wallet.withdrawable;
+
+  /** Districts present in the homes already loaded, used by the district chip. */
+  const districtOptions = useMemo(() => {
+    const counts = new Map<string, { label: string; count: number }>();
+    loadedItems.forEach((item) => {
+      const raw = (item as unknown as Record<string, unknown>).district;
+      const value = typeof raw === 'string' ? raw.trim() : '';
+      if (!value) return;
+      const existing = counts.get(value);
+      if (existing) existing.count += 1;
+      else counts.set(value, { label: placeCase(value) || value, count: 1 });
+    });
+    return [...counts.entries()]
+      .map(([value, meta]) => ({ value, label: meta.label, count: meta.count }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+  }, [loadedItems]);
+
+  /**
+   * The within-balance chip is applied to the homes already loaded, because the
+   * read service has no balance parameter. The chip row says so.
+   */
+  const items = useMemo(() => {
+    if (!filters.withinFloat || availableBalance === null) return loadedItems;
+    return loadedItems.filter((item) => {
+      const amount = itemAmount(tab, item);
+      return amount > 0 && amount <= availableBalance;
+    });
+  }, [loadedItems, filters.withinFloat, availableBalance, tab]);
 
   const effectiveSort: FunderNewSort = filters.sort === 'nearest' && !origin ? 'recommended' : filters.sort;
 
@@ -169,8 +214,29 @@ export default function FunderDashboardNew() {
     [selectedItems],
   );
 
-  const availableBalance = wallet.isLoading || wallet.error ? null : wallet.withdrawable;
-  const filtersActive = filters.search.trim() !== '' || filters.location.trim() !== '' || filters.amount !== 'all';
+  const filtersActive =
+    filters.search.trim() !== '' ||
+    filters.location.trim() !== '' ||
+    filters.amount !== 'all' ||
+    filters.rentMin !== null ||
+    filters.rentMax !== null ||
+    filters.radiusKm !== 'all' ||
+    filters.withinFloat;
+
+  const resetFilters = () => {
+    setSearchInput('');
+    setFilters((current) => ({
+      search: '',
+      location: '',
+      amount: 'all',
+      sort: current.sort,
+      rentMin: null,
+      rentMax: null,
+      radiusKm: 'all',
+      withinFloat: false,
+    }));
+  };
+
 
   const toggleSave = (category: FunderNewCategory, id: string) => {
     setSaved((current) => {
@@ -362,16 +428,31 @@ export default function FunderDashboardNew() {
               <Button
                 variant="ghost"
                 className="h-11 min-w-0 basis-full rounded-xl text-sm sm:flex-none sm:basis-auto"
-                onClick={() => {
-                  setSearchInput('');
-                  setFilters({ search: '', location: '', amount: 'all', sort: filters.sort });
-                }}
+                onClick={resetFilters}
               >
                 <X className="h-4 w-4" aria-hidden />
                 Clear
               </Button>
             ) : null}
           </div>
+
+          {/* Chip filters, matching the current funding dashboard */}
+          <FunderNewFilterChips
+            filters={filters}
+            districts={districtOptions}
+            supportsSort={tab === 'empty'}
+            hasOrigin={!!origin}
+            availableBalance={availableBalance}
+            onChange={(next) => setFilters((current) => ({ ...current, ...next }))}
+            onSortChange={changeSort}
+            onReset={resetFilters}
+          />
+          {filters.withinFloat && availableBalance !== null ? (
+            <p className="px-1 text-xs text-muted-foreground">
+              Within-balance is applied to the homes already loaded, because the read service has no balance filter.
+            </p>
+          ) : null}
+
 
           <Tabs value={tab} onValueChange={(value) => setTab(value as FunderNewCategory)}>
             <TabsList className="h-auto w-full flex-wrap justify-start gap-1 rounded-xl p-1 sm:w-fit">
