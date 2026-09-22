@@ -70,7 +70,9 @@ export function StaffLoanApprovalGate() {
     try {
       const { data, error } = await supabase.rpc('staff_loan_pending_prompt' as never);
       if (error) { setPrompt(null); return; }
-      const row = (Array.isArray(data) ? data[0] : data) as unknown as Prompt | undefined;
+      const raw = data as unknown;
+      const row = (Array.isArray(raw) ? raw[0] : raw) as Prompt | undefined | null;
+
       if (!row) { setPrompt(null); return; }
       setPrompt(row);
     } catch {
