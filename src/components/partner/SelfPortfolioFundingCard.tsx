@@ -26,7 +26,7 @@ import {
 } from './SelfSupportHousesSection';
 import { EmptyHouseDetailSheet } from '@/components/agent/EmptyHouseDetailSheet';
 import DepositFlow from '@/components/payments/DepositFlow';
-import { EmptyHouseMapBrowser } from './EmptyHouseMapBrowser';
+
 import { EmptyHouseTrendPanel } from './EmptyHouseTrendPanel';
 import { useEmptyHouseTotalRentNeeded } from '@/hooks/useEmptyHouseTotalRentNeeded';
 import { HouseCompareDialog } from './HouseCompareDialog';
@@ -1060,32 +1060,8 @@ export function SelfPortfolioFundingCard({
   return (
     <div className="space-y-3">
       {feedOrder === 'houses' && houses.length > 0 && (
-        <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm sm:rounded-2xl lg:grid lg:grid-cols-[minmax(0,1.45fr)_minmax(20rem,0.55fr)]">
-          <EmptyHouseMapBrowser
-            houses={searchableMapHouses}
-            selectedIds={houseSelected}
-            focusedId={flashHouseId}
-            searchQuery={houseSearch}
-            remaining={remaining}
-            busy={busy}
-            minRent={houseRentMin.trim() !== '' && Number.isFinite(rentMinBound) ? rentMinBound : null}
-            maxRent={houseRentMax.trim() !== '' && Number.isFinite(rentMaxBound) ? rentMaxBound : null}
-            district={houseDistrict !== 'all' ? houseDistrict : null}
-            country={selectedCountry}
-            maxAgeDays={listingAgeDays}
-            onHousesDiscovered={registerDiscoveredHouses}
-            onSearchQueryChange={setHouseSearch}
-            onOpenHouse={setDetailHouse}
-            onFundHouse={(house) => toggleHouse(house.house_id)}
-            onActiveHouseChange={(house) => {
-              if (house && Number.isFinite(Number(house.latitude)) && Number.isFinite(Number(house.longitude))) {
-                setReferencePoint({ lat: Number(house.latitude), lng: Number(house.longitude) });
-              } else if (!house) {
-                setReferencePoint(null);
-              }
-            }}
-          />
-          <div className="flex min-h-0 flex-col gap-3 border-t border-border/50 p-3 lg:max-h-[38rem] lg:overflow-y-auto lg:border-l lg:border-t-0 lg:p-5">
+        <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm sm:rounded-2xl">
+          <div className="flex flex-col gap-3 p-3 sm:p-4">
             <div>
               <div className="flex items-center justify-between gap-3">
                 <div>
@@ -1099,7 +1075,7 @@ export function SelfPortfolioFundingCard({
                 </Badge>
               </div>
               <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-                Tap a rent marker to see the house, location, photos and expected monthly Returns.
+                Tap a rent marker on the map above to see the house, location, photos and expected monthly Returns.
               </p>
             </div>
             <div className="hidden space-y-2 lg:block">
