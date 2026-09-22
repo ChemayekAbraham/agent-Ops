@@ -23,6 +23,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 
 import { AgentRentCapacityPanel } from '../AgentRentCapacityPanel';
+import { ActiveAgentsBreakdownDialog } from './ActiveAgentsBreakdownDialog';
 import type { DateRange } from 'react-day-picker';
 import { OpsDateRangeFilter, resolveRange, rangePhrase, type PresetKey } from '@/components/executive/shared/OpsDateRangeFilter';
 
@@ -122,6 +123,7 @@ export interface AgentOpsOverviewProps {
 export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
   const qc = useQueryClient();
   const [preset, setPreset] = useState<PresetKey>('today');
+  const [activeBreakdownOpen, setActiveBreakdownOpen] = useState(false);
   const [custom, setCustom] = useState<DateRange | undefined>();
   const { start, end } = useMemo(() => resolveRange(preset, custom), [preset, custom]);
   const startIso = start.toISOString();
