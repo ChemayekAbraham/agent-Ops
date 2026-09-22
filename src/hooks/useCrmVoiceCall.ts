@@ -474,6 +474,81 @@ export function useCrmVoiceCall(): UseCrmVoiceCall {
   }, []);
 
   /* ---------------- end (the real hangup) ---------------- */
+  /* ---------------- the server as a second witness ---------------- */
+  /**
+   * Watch the telephony row while a call is live.
+   *
+   * The SDK's `hangup` event was the ONLY way this hook learned a call had
+   * ended, and it is not dependable. When the person being called rejects,
+   * Africa's Talking reports it to `crm-voice-callback`, the row is updated -
+   * and the screen carried on saying "ringing", because nothing here was
+   * reading the row. There was no timeout either, so it said "ringing" until
+   * the page was reloaded.
+   *
+   * The two signals are independent on purpose: the browser hears about a
+   * hangup over the WebRTC socket, the server hears about it over the
+   * provider's webhook. Either one is now enough to settle the call, and
+   * `finalize` is idempotent so whichever arrives first wins and the other is
+   * a no-op.
+   */
+  useEffect(() => {
+    if (!callId || settledRef.current) return;
+
+    let cancelled = false;
+    const LIVE_STATUSES = new Set([
+      'initiating', 'queued', 'ringing', 'ringing_staff', 'bridged', 'in_progress', 'active',
+    ]);
+
+    const tick = async () => {
+      if (cancelled || settledRef.current) return;
+      const { data, error: qErr } = await supabase
+        .from('crm_call_sessions')
+        .select('status, hangup_cause, duration_seconds, answered_at')
+        .eq('id', callId)
+        .maybeSingle();
+      if (cancelled || qErr || !data || settledRef.current) return;
+
+      const status = (data.status ?? '').toLowerCase();
+
+      // ANSWERED, FROM WHICHEVER SIDE NOTICES FIRST.
+      //
+      // `answered_at` was only ever written by the browser, off the SDK's
+      // `callaccepted` event, and that event runs late - measured at 24s and
+      // 38s after dialling on two calls today. The person picks up and talks
+      // while the Call Centre still shows it ringing.
+      //
+      // `crm-voice-callback` already records the answer the moment the provider
+      // bridges the legs; nothing was reading it. Now it is, within one poll.
+      if (data.answered_at && !answeredRef.current) {
+        answeredRef.current = true;
+        // Anchor the talk timer on the SERVER's answer time, not on when this
+        // poll happened to notice. Otherwise every second of polling lag is a
+        // second of conversation missing from the duration.
+        const answeredMs = new Date(data.answered_at).getTime();
+        connectedAtRef.current =
+          Number.isFinite(answeredMs) && answeredMs > 0 ? answeredMs : Date.now();
+        setState((prev) => (prev === 'connected' ? prev : 'connected'));
+      }
+
+      if (!LIVE_STATUSES.has(status)) {
+        // The provider has reported an outcome. Take its cause over a guess.
+        const cause = data.hangup_cause ?? 'NORMAL_CLEARING';
+        finalize(
+          stateFromCause(cause, Boolean(data.answered_at) || answeredRef.current),
+          cause,
+          data.duration_seconds ?? null,
+        );
+      }
+    };
+
+    const id = window.setInterval(tick, 2000);
+    void tick();
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [callId, finalize]);
+
   const end = useCallback(() => {
     if (settledRef.current || endRequestedRef.current) return;
     endRequestedRef.current = true;
