@@ -5,9 +5,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import type { FunderNewFilters, FunderNewSort } from './types';
 
 const CHIP =
-  'h-8 w-auto min-w-0 flex-none rounded-[4px] border-border bg-background px-3 text-[11px] font-semibold shadow-none';
+  'min-h-8 w-auto min-w-0 flex-none rounded-md border-border bg-background px-3 py-4 text-[11px] font-semibold shadow-none';
 const CHIP_STACKED =
-  'h-10 w-full min-w-0 rounded-[4px] border-border bg-background px-3 text-xs font-semibold shadow-none';
+  'min-h-10 w-full min-w-0 rounded-md border-border bg-background px-3 py-4 text-xs font-semibold shadow-none';
 
 
 export interface FunderNewDistrictOption {
@@ -63,14 +63,13 @@ export function FunderNewFilterChips({
   const chip = stacked ? CHIP_STACKED : CHIP;
   const field = (label: string, node: ReactNode, wide = false) =>
     stacked ? (
-      <div className={wide ? 'sm:col-span-2 min-w-0 pb-4 pt-4' : 'min-w-0 pb-4 pt-4'}>
+      <div className={wide ? 'sm:col-span-2 min-w-0' : 'min-w-0'}>
         <span className="mb-1 block text-[11px] font-medium text-muted-foreground">{label}</span>
         {node}
       </div>
     ) : (
       node
     );
-
 
   return (
     <div
@@ -149,8 +148,8 @@ export function FunderNewFilterChips({
           aria-label="Minimum amount"
           className={
             stacked
-              ? 'h-10 w-full rounded-[4px] text-xs font-semibold'
-              : 'h-8 w-[7.5rem] flex-none rounded-[4px] text-[11px] font-semibold'
+              ? 'min-h-10 w-full rounded-md py-4 text-xs font-semibold'
+              : 'min-h-8 w-[7.5rem] flex-none rounded-md py-4 text-[11px] font-semibold'
           }
         />
       )}
@@ -163,8 +162,8 @@ export function FunderNewFilterChips({
           aria-label="Maximum amount"
           className={
             stacked
-              ? 'h-10 w-full rounded-[4px] text-xs font-semibold'
-              : 'h-8 w-[7.5rem] flex-none rounded-[4px] text-[11px] font-semibold'
+              ? 'min-h-10 w-full rounded-md py-4 text-xs font-semibold'
+              : 'min-h-8 w-[7.5rem] flex-none rounded-md py-4 text-[11px] font-semibold'
           }
         />
       )}
@@ -183,9 +182,7 @@ export function FunderNewFilterChips({
           }`}
         >
           <Wallet className="mr-1 inline h-3 w-3" aria-hidden />
-          {availableBalance === null
-            ? 'Within my balance'
-            : `Within my balance (UGX ${Math.round(availableBalance).toLocaleString('en-US')})`}
+          Within my balance
         </button>
 
         {dirty ? (

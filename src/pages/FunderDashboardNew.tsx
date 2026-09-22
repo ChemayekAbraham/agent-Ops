@@ -39,7 +39,7 @@ import type {
   FunderNewSelectionItem,
   FunderNewSort,
 } from '@/components/funder-new/types';
-import { itemAmount, itemId, placeCase, toSelectionItem } from '@/components/funder-new/utils';
+import { itemAmount, itemId, placeCase, sortLabel, toSelectionItem } from '@/components/funder-new/utils';
 import { ROAD_TIME_UNAVAILABLE_REASON, straightLineDistance } from '@/components/funder-new/distance';
 import { itemCoordinates } from '@/components/funder-new/utils';
 import { FunderNewFilterDrawer } from '@/components/funder-new/FunderNewFilterDrawer';
@@ -222,9 +222,7 @@ export default function FunderDashboardNew() {
 
   const filteredTotal = (emptyQuery.data?.pages?.[0]?.total ?? 0) + (readyQuery.data?.pages?.[0]?.total ?? 0);
 
-  // Spendable capacity for funding = withdrawable balance + current operational float.
-  const availableBalance =
-    wallet.isLoading || wallet.error ? null : wallet.withdrawable + wallet.floatBalance;
+  const availableBalance = wallet.isLoading || wallet.error ? null : wallet.withdrawable;
 
   /**
    * District chip lists every district in the whole market (from the summary
@@ -377,7 +375,10 @@ export default function FunderDashboardNew() {
             className="ring-2 ring-primary/20"
           />
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-xl font-semibold tracking-tight">{displayName}</h1>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Find a home to support
+            </p>
+            <h1 className="mt-0.5 truncate text-xl font-semibold tracking-tight">{displayName}</h1>
             {welileId && (
               <button
                 type="button"
@@ -473,6 +474,25 @@ export default function FunderDashboardNew() {
           ) : null}
 
 
+          {/* Applied context: what is loaded, and by which order */}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+            <span className="font-medium text-foreground">{sortLabel(effectiveSort)}</span>
+            <span>Houses first, then Rent Plans</span>
+            {feedLoading ? (
+              <span>Loading…</span>
+            ) : (
+              <span>
+                Showing {items.length} of {filteredTotal.toLocaleString()} matching{' '}
+                {filteredTotal === 1 ? 'home' : 'homes'}
+              </span>
+            )}
+            {effectiveSort === 'nearest' && origin ? (
+              <span>
+                Within {origin.radiusKm} km of {origin.label}
+              </span>
+            ) : null}
+            {filters.sort === 'nearest' && !origin ? <span>Nearest needs your location</span> : null}
+          </div>
 
           {/* Listings — houses first, then Rent Plans */}
           {feedLoading ? (
