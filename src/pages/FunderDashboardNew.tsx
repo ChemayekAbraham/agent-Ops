@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, Calculator, Fingerprint, HelpCircle, ListFilter, Loader2, Search, SlidersHorizontal, Wallet, X } from 'lucide-react';
+import { AlertTriangle, Calculator, Fingerprint, HelpCircle, Home, ListFilter, Loader2, Search, SlidersHorizontal, Wallet, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { AppRole, useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
@@ -567,17 +567,19 @@ export default function FunderDashboardNew() {
                 })}
               </div>
 
-              {feedHasNext ? (
+                {feedHasNext ? (
                 <div className="flex justify-center">
                   <Button
-                    variant="outline"
+                    variant="default"
                     className="h-11 rounded-full px-6"
                     onClick={fetchNextFeed}
                     disabled={feedFetchingNext}
                   >
                     {feedFetchingNext ? (
                       <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                    ) : null}
+                    ) : (
+                      <Home className="h-4 w-4" aria-hidden />
+                    )}
                     {feedFetchingNext
                       ? 'Loading'
                       : `Show more homes${remaining > 0 ? ` (${remaining.toLocaleString()} left)` : ''}`}
