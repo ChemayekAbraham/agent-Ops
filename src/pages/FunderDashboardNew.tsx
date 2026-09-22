@@ -462,6 +462,7 @@ export default function FunderDashboardNew() {
             supportsSort
             hasOrigin={!!origin}
             availableBalance={availableBalance}
+            floatBalance={wallet.isLoading || wallet.error ? null : wallet.floatBalance}
             resultCount={
               filters.withinFloat && availableBalance !== null ? items.length : filteredTotal
             }

@@ -12,6 +12,8 @@ interface Props {
   supportsSort: boolean;
   hasOrigin: boolean;
   availableBalance: number | null;
+  /** Operational float balance, shown on the within-balance chip. */
+  floatBalance?: number | null;
   /** How many homes the current filters match right now. */
   resultCount?: number;
   /** True while that count is still being recounted. */
@@ -30,6 +32,7 @@ export function FunderNewFilterDrawer({
   supportsSort,
   hasOrigin,
   availableBalance,
+  floatBalance = null,
   resultCount,
   resultCounting,
   onChange,
@@ -69,6 +72,7 @@ export function FunderNewFilterDrawer({
             supportsSort={supportsSort}
             hasOrigin={hasOrigin}
             availableBalance={availableBalance}
+            floatBalance={floatBalance}
             onChange={onChange}
             onSortChange={onSortChange}
           />
