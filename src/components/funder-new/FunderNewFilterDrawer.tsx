@@ -12,6 +12,10 @@ interface Props {
   supportsSort: boolean;
   hasOrigin: boolean;
   availableBalance: number | null;
+  /** How many homes the current filters match right now. */
+  resultCount?: number;
+  /** True while that count is still being recounted. */
+  resultCounting?: boolean;
   onChange: (next: Partial<FunderNewFilters>) => void;
   onSortChange: (sort: FunderNewSort) => void;
   onReset: () => void;
@@ -26,10 +30,13 @@ export function FunderNewFilterDrawer({
   supportsSort,
   hasOrigin,
   availableBalance,
+  resultCount,
+  resultCounting,
   onChange,
   onSortChange,
   onReset,
 }: Props) {
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
