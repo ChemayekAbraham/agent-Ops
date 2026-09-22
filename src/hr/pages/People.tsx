@@ -37,8 +37,9 @@ export default function PeoplePage() {
           ))}
         </TabsList>
 
-        <TabsContent value="directory">
+        <TabsContent value="directory" className="space-y-6">
           <StaffDirectory />
+          <HRBirthdayRegister />
         </TabsContent>
 
         <TabsContent value="enrollment">
