@@ -87,7 +87,12 @@ export default function FunderDashboardNew() {
     location: '',
     amount: 'all',
     sort: 'recommended',
+    rentMin: null,
+    rentMax: null,
+    radiusKm: 'all',
+    withinFloat: false,
   });
+
   const [sortTouched, setSortTouched] = useState(false);
   const [area, setArea] = useState<{ lat: number; lng: number; radiusKm: number } | null>(null);
   const [saved, setSaved] = useState<SavedState>(() => readSaved());
