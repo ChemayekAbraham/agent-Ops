@@ -5,9 +5,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import type { FunderNewFilters, FunderNewSort } from './types';
 
 const CHIP =
-  'h-8 w-auto min-w-0 flex-none rounded-full border-border bg-background px-3 text-[11px] font-semibold shadow-none';
+  'min-h-8 w-auto min-w-0 flex-none rounded-md border-border bg-background px-3 py-4 text-[11px] font-semibold shadow-none';
 const CHIP_STACKED =
-  'h-10 w-full min-w-0 rounded-xl border-border bg-background px-3 text-xs font-semibold shadow-none';
+  'min-h-10 w-full min-w-0 rounded-md border-border bg-background px-3 py-4 text-xs font-semibold shadow-none';
+
 
 export interface FunderNewDistrictOption {
   value: string;
@@ -147,8 +148,8 @@ export function FunderNewFilterChips({
           aria-label="Minimum amount"
           className={
             stacked
-              ? 'h-10 w-full rounded-xl text-xs font-semibold'
-              : 'h-8 w-[7.5rem] flex-none rounded-full text-[11px] font-semibold'
+              ? 'min-h-10 w-full rounded-md py-4 text-xs font-semibold'
+              : 'min-h-8 w-[7.5rem] flex-none rounded-md py-4 text-[11px] font-semibold'
           }
         />
       )}
@@ -161,11 +162,12 @@ export function FunderNewFilterChips({
           aria-label="Maximum amount"
           className={
             stacked
-              ? 'h-10 w-full rounded-xl text-xs font-semibold'
-              : 'h-8 w-[7.5rem] flex-none rounded-full text-[11px] font-semibold'
+              ? 'min-h-10 w-full rounded-md py-4 text-xs font-semibold'
+              : 'min-h-8 w-[7.5rem] flex-none rounded-md py-4 text-[11px] font-semibold'
           }
         />
       )}
+
 
       <div className={stacked ? 'sm:col-span-2 flex flex-wrap items-center gap-2 pt-1' : 'contents'}>
         <button
