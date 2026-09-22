@@ -323,14 +323,6 @@ export default function FunderDashboardNew() {
               </p>
             </div>
             <div className="grid gap-2 sm:flex sm:items-center">
-              <div className="rounded-xl border bg-card px-4 py-2">
-                <p className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Wallet className="h-3.5 w-3.5" /> Available balance
-                </p>
-                <p className="text-sm font-semibold">
-                  {wallet.error ? 'Unavailable' : wallet.isLoading ? 'Loading…' : formatDynamic(wallet.withdrawable)}
-                </p>
-              </div>
               <Button variant="outline" className="rounded-xl" onClick={() => navigate('/dashboard/funder')}>
                 Current dashboard
               </Button>
