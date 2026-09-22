@@ -91,8 +91,7 @@ export function FunderNewHero({
           </p>
 
           <p className="mt-2 text-sm font-medium text-primary-foreground/90 sm:text-base">
-            {summary.houseCount.toLocaleString()} {summary.houseCount === 1 ? 'home' : 'homes'}
-            {hasHouses ? ` \u00b7 About ${formatDynamic(Math.round(summary.avgMonthlyRent))} per home` : ''}
+            {summary.houseCount.toLocaleString()}+ homes&nbsp;
           </p>
         </div>
 
