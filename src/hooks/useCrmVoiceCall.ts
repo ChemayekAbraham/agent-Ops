@@ -22,6 +22,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import {
   getVoiceClient,
+  isVoiceClientReady,
+  resetVoiceClient,
   hangupVoiceCall,
   muteVoiceCall,
   onVoiceEvent,
@@ -145,6 +147,37 @@ async function fetchCapabilityToken(): Promise<TokenBundle> {
   return cachedToken;
 }
 
+/**
+ * Confirm the browser will actually give us a microphone.
+ *
+ * The SDK needs one to register. Without this check a denied or missing mic
+ * surfaces as "the call just never connected" - which is exactly how it
+ * presented: a session row, no provider session, and nothing on screen to
+ * explain it. Asking first turns that into a sentence the agent can act on.
+ *
+ * The track is stopped immediately; this is a permission probe, not a capture.
+ */
+async function assertMicrophone(): Promise<void> {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    throw new Error('This browser cannot place calls - it has no microphone support.');
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach((t) => t.stop());
+  } catch (err) {
+    const name = (err as { name?: string })?.name ?? '';
+    if (name === 'NotAllowedError' || name === 'SecurityError') {
+      throw new Error(
+        'Microphone access is blocked. Allow the microphone for this site in your browser settings, then try again.',
+      );
+    }
+    if (name === 'NotFoundError' || name === 'DevicesNotFoundError') {
+      throw new Error('No microphone was found. Plug one in, then try again.');
+    }
+    throw new Error('Could not access the microphone, so the call cannot be placed.');
+  }
+}
+
 export interface UseCrmVoiceCall {
   state: CallState;
   callId: string | null;
@@ -175,7 +208,6 @@ export function useCrmVoiceCall(): UseCrmVoiceCall {
   /** Guarantees the UI finalises once, whichever signal arrives first. */
   const settledRef = useRef(false);
   const endRequestedRef = useRef(false);
-  const readyRef = useRef(false);
 
   /* ---------------- finalisation (idempotent) ---------------- */
   const finalize = useCallback(
@@ -214,11 +246,12 @@ export function useCrmVoiceCall(): UseCrmVoiceCall {
 
   /* ---------------- SDK events ---------------- */
   useEffect(() => {
-    const offReady = onVoiceEvent('ready', () => {
-      readyRef.current = true;
-    });
+    // `ready` / `notready` now update module-level state inside atVoiceClient,
+    // so nothing needs mirroring here.
     const offNotReady = onVoiceEvent('notready', () => {
-      readyRef.current = false;
+      // Registration dropped. Discarding the instance is what makes the next
+      // call rebuild instead of dialling into a dead socket.
+      resetVoiceClient();
     });
 
     const offCalling = onVoiceEvent('calling', () => {
@@ -245,8 +278,10 @@ export function useCrmVoiceCall(): UseCrmVoiceCall {
     });
 
     const offOffline = onVoiceEvent('offline', () => {
-      readyRef.current = false;
       cachedToken = null; // token expired — force a fresh one next call
+      // A client that went offline never recovers on its own, and it would
+      // otherwise be handed back by token match for the rest of the hour.
+      resetVoiceClient();
       if (callIdRef.current && !settledRef.current) {
         finalize('failed', 'SERVICE_UNAVAILABLE');
         setError('The voice connection expired. Try the call again.');
@@ -254,7 +289,7 @@ export function useCrmVoiceCall(): UseCrmVoiceCall {
     });
 
     const offClosed = onVoiceEvent('closed', () => {
-      readyRef.current = false;
+      resetVoiceClient();
       if (callIdRef.current && !settledRef.current) {
         finalize('failed', 'SERVICE_UNAVAILABLE');
         setError('Lost the connection to the voice service.');
@@ -262,7 +297,6 @@ export function useCrmVoiceCall(): UseCrmVoiceCall {
     });
 
     return () => {
-      offReady();
       offNotReady();
       offCalling();
       offAccepted();
@@ -348,12 +382,18 @@ export function useCrmVoiceCall(): UseCrmVoiceCall {
     setState('initializing');
 
     try {
+      // A missing microphone is the cheapest failure to detect and the one that
+      // otherwise looks identical to every other silent failure.
+      await assertMicrophone();
+
       const bundle = await fetchCapabilityToken();
       // One client for the whole app: constructing per render would kill the call.
       const client = getVoiceClient(bundle.token);
 
-      // Wait briefly for registration; the SDK cannot dial before it is ready.
-      if (!readyRef.current) {
+      // Wait for registration. Readiness is read from the client itself rather
+      // than a per-mount ref, so a remount no longer waits on a `ready` event
+      // that already fired and will never be re-emitted.
+      if (!isVoiceClientReady()) {
         await new Promise<void>((resolve) => {
           const off = onVoiceEvent('ready', () => {
             off();
@@ -362,9 +402,28 @@ export function useCrmVoiceCall(): UseCrmVoiceCall {
           });
           const timer = window.setTimeout(() => {
             off();
-            resolve(); // dial anyway — the SDK queues, and a hangup event will tell us
+            resolve();
           }, 8000);
         });
+      }
+
+      // THE GATE. This used to fall through and dial anyway, on the assumption
+      // that the SDK would queue the call and a hangup event would report any
+      // problem. Neither holds when the client never registered: nothing is
+      // queued and no event ever arrives. What it did produce was a session row
+      // - created below, before the dial - that stayed 'initiating' forever
+      // while the callee's phone never rang. 101 sessions were sitting like
+      // that, the oldest for three weeks.
+      //
+      // Refusing here means the row is never written and the agent is told
+      // immediately, instead of watching a call that was never placed.
+      if (!isVoiceClientReady()) {
+        // The instance is unusable; discard it so the next attempt builds a
+        // fresh one rather than reusing this for the rest of the token's hour.
+        resetVoiceClient();
+        throw new Error(
+          'Your browser is not connected to the voice service. Reload the page and try again.',
+        );
       }
 
       const { data, error: rpcErr } = await supabase.rpc('crm_start_webrtc_call', {

@@ -12,7 +12,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { cn } from '@/lib/utils';
 import {
   CALLEE_ROLES, CALLEE_ROLE_BADGE, CALLEE_ROLE_LABEL, formatCallStamp, OUTCOME_LABEL,
-  primaryRole, type CalleeRole, type CallOutcome, type CallSection,
+  primaryRole, CALL_SECTION_FILTERS, CALL_SECTION_LABEL,
+  type CalleeRole, type CallOutcome, type CallSection,
 } from '@/lib/callCentre';
 import {
   PEOPLE_PAGE_SIZE, usePlatformPeople, usePlatformPeopleCounts,
@@ -130,7 +131,8 @@ export function CallCentrePeople({ section }: CallCentrePeopleProps) {
   const [queryInput, setQueryInput] = useState('');
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<PeopleStatusFilter>('all');
-  const [role, setRole] = useState<CalleeRole | 'all'>('all');
+  // Narrows within the queue. null = the whole queue.
+  const [subtype, setSubtype] = useState<string | null>(null);
   const [sort, setSort] = useState<PeopleSort>('name');
   const [page, setPage] = useState(0);
   const [historyFor, setHistoryFor] = useState<PlatformPerson | null>(null);
@@ -142,7 +144,9 @@ export function CallCentrePeople({ section }: CallCentrePeopleProps) {
   }, [queryInput]);
 
   // Any filter change restarts paging — page 3 of the old result set is meaningless.
-  useEffect(() => setPage(0), [search, status, section, sort]);
+  useEffect(() => setPage(0), [search, status, section, sort, subtype]);
+  // Moving between queues must clear a filter that does not exist there.
+  useEffect(() => setSubtype(null), [section]);
 
   // The audience is now the section you are standing in, so `role` is pinned
   // rather than chosen. `crm_platform_people_page` accepts queue names as well
@@ -152,8 +156,11 @@ export function CallCentrePeople({ section }: CallCentrePeopleProps) {
   // queue - it should come out of the filter bar. Status, sort and search all
   // still apply and should stay.
   const { rows, total, isLoading, isFetching, error } = usePlatformPeople({
-    search, role: section, status, sort, page,
+    search, role: section, subtype, status, sort, page,
   });
+
+  // Three queues have nothing to narrow by, so they render no filter at all.
+  const filters = CALL_SECTION_FILTERS[section];
 
   const from = total === 0 ? 0 : page * PEOPLE_PAGE_SIZE + 1;
   const to = Math.min(total, (page + 1) * PEOPLE_PAGE_SIZE);
@@ -163,8 +170,12 @@ export function CallCentrePeople({ section }: CallCentrePeopleProps) {
   const activeChips = useMemo(() => {
     const chips: { key: string; label: string; clear: () => void }[] = [];
     if (search) chips.push({ key: 'q', label: `Search: ${search}`, clear: () => setQueryInput('') });
-    if (role !== 'all') {
-      chips.push({ key: 'role', label: CALLEE_ROLE_LABEL[role], clear: () => setRole('all') });
+    if (subtype !== null) {
+      chips.push({
+        key: 'subtype',
+        label: filters.find((f) => f.value === subtype)?.label ?? String(subtype),
+        clear: () => setSubtype(null),
+      });
     }
     if (status !== 'all') {
       chips.push({
@@ -181,11 +192,11 @@ export function CallCentrePeople({ section }: CallCentrePeopleProps) {
       });
     }
     return chips;
-  }, [search, role, status, sort]);
+  }, [search, subtype, filters, status, sort]);
 
   const clearAll = () => {
     setQueryInput('');
-    setRole('all');
+    setSubtype(null);
     setStatus('all');
     setSort('name');
   };
@@ -259,23 +270,32 @@ export function CallCentrePeople({ section }: CallCentrePeopleProps) {
               </div>
             </div>
 
-            <div className="space-y-1">
-              <Label className="text-[11px] text-muted-foreground">Audience</Label>
-              <Select value={role} onValueChange={(v) => setRole(v as CalleeRole | 'all')}>
-                <SelectTrigger className="h-9 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all" className="text-xs">Everyone</SelectItem>
-                  {CALLEE_ROLES.map((r) => (
-                    <SelectItem key={r} value={r} className="text-xs">
-                      {CALLEE_ROLE_LABEL[r]}
-                      {counts ? ` (${(counts[r] ?? 0).toLocaleString()})` : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {filters.length > 0 && (
+              <div className="space-y-1">
+                <Label className="text-[11px] text-muted-foreground">
+                  {CALL_SECTION_LABEL[section]}
+                </Label>
+                <Select
+                  value={subtype ?? '__all__'}
+                  onValueChange={(v) => setSubtype(v === '__all__' ? null : v)}
+                >
+                  <SelectTrigger className="h-9 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filters.map((f) => (
+                      <SelectItem
+                        key={f.value ?? '__all__'}
+                        value={f.value ?? '__all__'}
+                        className="text-xs"
+                      >
+                        {f.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
 
             <div className="space-y-1">
               <Label className="text-[11px] text-muted-foreground">Call status</Label>

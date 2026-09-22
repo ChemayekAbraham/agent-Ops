@@ -6,31 +6,47 @@ import './funderNewMap.css';
 import { Crosshair, Loader2, Maximize2, RotateCcw, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { formatDynamicCompact } from '@/lib/currencyFormat';
+import { formatDynamic } from '@/lib/currencyFormat';
 import { cn } from '@/lib/utils';
 import type { FunderNewEmptyHouse } from './types';
-import { emptyHouseTitle, itemAmount, itemCoordinates } from './utils';
+import { emptyHouseTitle, itemAmount } from './utils';
 
 /** Uganda-wide fallback view. Never presented as the user's position. */
 const SERVICE_AREA_CENTRE: [number, number] = [1.3733, 32.2903];
 const SERVICE_AREA_ZOOM = 7;
 const LOCATED_ZOOM = 13;
+/** Default fly-to when no device location is available: Kampala, where most
+ *  homes are listed, so the map opens on house pins instead of a blank view. */
+const KAMPALA_CENTRE: [number, number] = [0.3476, 32.5825];
+const KAMPALA_ZOOM = 12;
 const CLUSTER_CELL_PX = 74;
 
 export interface FunderNewViewport {
   lat: number;
   lng: number;
   radiusKm: number;
+  /** Visible bounds + zoom, so the database can aggregate exactly this view. */
+  minLat: number;
+  minLng: number;
+  maxLat: number;
+  maxLng: number;
+  zoom: number;
 }
 
-interface MapPoint {
-  id: string;
+/**
+ * One aggregated grid cell from the database. A cell holding a single house
+ * carries that house, so it renders as a price pin; a busier cell renders as a
+ * counted cluster.
+ */
+export interface FunderNewMapCell {
+  key: string;
+  count: number;
   lat: number;
   lng: number;
-  title: string;
   amount: number;
-  house: FunderNewEmptyHouse;
+  house: FunderNewEmptyHouse | null;
 }
+
 
 function radiusKmOf(map: L.Map): number {
   const bounds = map.getBounds();
@@ -39,15 +55,31 @@ function radiusKmOf(map: L.Map): number {
   return Math.max(1, Math.round(metres / 1000));
 }
 
+/** Centre, radius, bounds and zoom of the current view in one reading. */
+function viewportOf(map: L.Map): FunderNewViewport {
+  const bounds = map.getBounds();
+  const centre = bounds.getCenter();
+  return {
+    lat: centre.lat,
+    lng: centre.lng,
+    radiusKm: radiusKmOf(map),
+    minLat: bounds.getSouth(),
+    minLng: bounds.getWest(),
+    maxLat: bounds.getNorth(),
+    maxLng: bounds.getEast(),
+    zoom: Math.round(map.getZoom()),
+  };
+}
+
 function priceIcon(label: string, active: boolean, saved: boolean): L.DivIcon {
-  const width = Math.max(46, Math.round(14 + label.length * 7.4));
+  const width = Math.max(74, Math.round(18 + label.length * 7.2));
   return L.divIcon({
     className: 'fn-map-divicon',
     html: `<span class="fn-map-price${active ? ' fn-map-price--active' : ''}${
       saved ? ' fn-map-price--saved' : ''
     }">${label}</span>`,
-    iconSize: [width, 26],
-    iconAnchor: [width / 2, 13],
+    iconSize: [width, 28],
+    iconAnchor: [width / 2, 14],
   });
 }
 
@@ -68,19 +100,21 @@ function meIcon(): L.DivIcon {
 }
 
 /**
- * Applies the automatic initial centre exactly once.
+ * Applies the automatic initial centre exactly once, with a flyTo animation.
  *
- * The fallback fitBounds is deliberately withheld while an automatic
- * (already-granted) location fix is still in flight, so a late success is never
- * overridden by the fallback.
+ * - With an already-granted device fix: fly to the user so the nearest homes
+ *   load around them.
+ * - Otherwise: fly to Kampala by default, so the map opens on house pins
+ *   instead of a blank country-level view.
+ *
+ * The fallback is deliberately withheld while an automatic (already-granted)
+ * location fix is still in flight, so a late success is never overridden.
  */
 function InitialView({
   device,
-  points,
   awaitingDeviceFix,
 }: {
   device: { lat: number; lng: number } | null;
-  points: MapPoint[];
   awaitingDeviceFix: boolean;
 }) {
   const map = useMap();
@@ -90,21 +124,13 @@ function InitialView({
     if (done.current) return;
     if (device) {
       done.current = true;
-      map.setView([device.lat, device.lng], LOCATED_ZOOM, { animate: false });
+      map.flyTo([device.lat, device.lng], LOCATED_ZOOM, { duration: 1.2 });
       return;
     }
     if (awaitingDeviceFix) return;
-    if (points.length === 0) return;
     done.current = true;
-    if (points.length === 1) {
-      map.setView([points[0].lat, points[0].lng], 12, { animate: false });
-      return;
-    }
-    map.fitBounds(
-      points.map((point) => [point.lat, point.lng] as [number, number]),
-      { padding: [28, 28], maxZoom: 12, animate: false },
-    );
-  }, [map, device, points, awaitingDeviceFix]);
+    map.flyTo(KAMPALA_CENTRE, KAMPALA_ZOOM, { duration: 1.2 });
+  }, [map, device, awaitingDeviceFix]);
 
   return null;
 }
@@ -121,8 +147,7 @@ function ViewportReporter({
 
   const report = useCallback(
     (fromUser: boolean) => {
-      const centre = map.getCenter();
-      const viewport: FunderNewViewport = { lat: centre.lat, lng: centre.lng, radiusKm: radiusKmOf(map) };
+      const viewport = viewportOf(map);
       if (timer.current) window.clearTimeout(timer.current);
       timer.current = window.setTimeout(() => {
         onChange(viewport);
@@ -138,8 +163,7 @@ function ViewportReporter({
   });
 
   useEffect(() => {
-    const centre = map.getCenter();
-    onChange({ lat: centre.lat, lng: centre.lng, radiusKm: radiusKmOf(map) });
+    onChange(viewportOf(map));
     return () => {
       if (timer.current) window.clearTimeout(timer.current);
     };
@@ -150,15 +174,18 @@ function ViewportReporter({
   return null;
 }
 
-/** Collision-conscious grid clustering computed in screen space. */
-function HouseLayer({
-  points,
+/**
+ * Renders the database's aggregated cells, then merges any that would still
+ * collide on screen so pins never stack on top of each other.
+ */
+function CellLayer({
+  cells,
   selectedIds,
   savedIds,
   activeId,
   onOpenHouse,
 }: {
-  points: MapPoint[];
+  cells: FunderNewMapCell[];
   selectedIds: string[];
   savedIds: string[];
   activeId: string | null;
@@ -174,40 +201,45 @@ function HouseLayer({
   });
 
   const groups = useMemo(() => {
-    const cells = new Map<string, MapPoint[]>();
-    points.forEach((point) => {
-      let key = 'x';
+    const buckets = new Map<string, FunderNewMapCell[]>();
+    cells.forEach((cell) => {
+      let key = cell.key;
       try {
-        const pixel = map.latLngToContainerPoint([point.lat, point.lng]);
+        const pixel = map.latLngToContainerPoint([cell.lat, cell.lng]);
         key = `${Math.floor(pixel.x / CLUSTER_CELL_PX)}:${Math.floor(pixel.y / CLUSTER_CELL_PX)}`;
       } catch {
-        key = `${point.lat.toFixed(2)}:${point.lng.toFixed(2)}`;
+        key = `${cell.lat.toFixed(2)}:${cell.lng.toFixed(2)}`;
       }
-      const bucket = cells.get(key);
-      if (bucket) bucket.push(point);
-      else cells.set(key, [point]);
+      const bucket = buckets.get(key);
+      if (bucket) bucket.push(cell);
+      else buckets.set(key, [cell]);
     });
-    return [...cells.values()];
+    return [...buckets.values()];
     // Recomputed on every pan/zoom tick.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [map, points, setTick]);
+  }, [map, cells, setTick]);
 
   return (
     <>
       {groups.map((group) => {
-        const active = group.find((point) => point.id === activeId);
-        // A group holding the active house always renders as individual pins so
-        // the selected home stays visible.
-        if (group.length > 1 && !active) {
-          const lat = group.reduce((sum, point) => sum + point.lat, 0) / group.length;
-          const lng = group.reduce((sum, point) => sum + point.lng, 0) / group.length;
+        const houses = group
+          .map((cell) => (cell.house ? { cell, house: cell.house } : null))
+          .filter((entry): entry is { cell: FunderNewMapCell; house: FunderNewEmptyHouse } => entry !== null);
+        const total = group.reduce((sum, cell) => sum + Math.max(1, cell.count), 0);
+        const activeEntry = houses.find((entry) => entry.house.house_id === activeId);
+
+        // A bucket that holds the open home always shows individual pins, so the
+        // selected home stays visible.
+        if (total > 1 && !activeEntry) {
+          const lat = group.reduce((sum, cell) => sum + cell.lat, 0) / group.length;
+          const lng = group.reduce((sum, cell) => sum + cell.lng, 0) / group.length;
           return (
             <Marker
-              key={`cluster:${group[0].id}:${group.length}`}
+              key={`cluster:${group[0].key}:${total}`}
               position={[lat, lng]}
-              icon={clusterIcon(group.length)}
+              icon={clusterIcon(total)}
               keyboard
-              alt={`${group.length} homes in this area. Zoom in to see each one.`}
+              alt={`${total} homes in this area. Zoom in to see each one.`}
               eventHandlers={{
                 click: () => map.setView([lat, lng], Math.min(map.getZoom() + 2, 17), { animate: true }),
                 keypress: () => map.setView([lat, lng], Math.min(map.getZoom() + 2, 17), { animate: true }),
@@ -215,23 +247,28 @@ function HouseLayer({
             />
           );
         }
-        return group.map((point) => (
-          <Marker
-            key={point.id}
-            position={[point.lat, point.lng]}
-            icon={priceIcon(
-              formatDynamicCompact(point.amount),
-              selectedIds.includes(point.id) || activeId === point.id,
-              savedIds.includes(point.id),
-            )}
-            keyboard
-            alt={`${point.title}. ${formatDynamicCompact(point.amount)} to support. Open details.`}
-            eventHandlers={{
-              click: () => onOpenHouse(point.house),
-              keypress: () => onOpenHouse(point.house),
-            }}
-          />
-        ));
+
+        return houses.map(({ cell, house }) => {
+          const id = house.house_id;
+          const amount = cell.amount || itemAmount('empty', house);
+          return (
+            <Marker
+              key={id}
+              position={[cell.lat, cell.lng]}
+              icon={priceIcon(
+                formatDynamic(amount),
+                selectedIds.includes(id) || activeId === id,
+                savedIds.includes(id),
+              )}
+              keyboard
+              alt={`${emptyHouseTitle(house)}. ${formatDynamic(amount)} to support. Open details.`}
+              eventHandlers={{
+                click: () => onOpenHouse(house),
+                keypress: () => onOpenHouse(house),
+              }}
+            />
+          );
+        });
       })}
     </>
   );
@@ -247,7 +284,7 @@ function Resizer({ token }: { token: unknown }) {
 }
 
 export function FunderNewRouteMap({
-  houses,
+  cells,
   selectedIds,
   savedIds,
   activeId,
@@ -264,7 +301,7 @@ export function FunderNewRouteMap({
   onReset,
   loadedNote,
 }: {
-  houses: FunderNewEmptyHouse[];
+  cells: FunderNewMapCell[];
   selectedIds: string[];
   savedIds: string[];
   activeId: string | null;
@@ -286,24 +323,6 @@ export function FunderNewRouteMap({
   const expandRef = useRef<HTMLButtonElement | null>(null);
   const closeRef = useRef<HTMLButtonElement | null>(null);
 
-  const points = useMemo<MapPoint[]>(
-    () =>
-      houses
-        .map((house) => {
-          const coords = itemCoordinates(house, 'empty');
-          if (!coords) return null;
-          return {
-            id: house.house_id,
-            lat: coords.lat,
-            lng: coords.lng,
-            title: emptyHouseTitle(house),
-            amount: itemAmount('empty', house),
-            house,
-          } satisfies MapPoint;
-        })
-        .filter((point): point is MapPoint => point !== null),
-    [houses],
-  );
 
   // Escape closes full screen; focus is moved in and restored on close.
   useEffect(() => {
@@ -334,7 +353,7 @@ export function FunderNewRouteMap({
   const controls = (
     <div className="pointer-events-none absolute inset-0 z-[500]">
       {/* One compact floating area search */}
-      <div className="pointer-events-auto absolute left-2 right-2 top-2 flex gap-2 sm:left-3 sm:right-3 sm:top-3">
+      <div className="pointer-events-auto absolute left-2 right-2 top-2 hidden gap-2 sm:left-3 sm:right-3 sm:top-3">
         <label className="relative min-w-0 flex-1">
           <span className="sr-only">Search homes by area</span>
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -349,7 +368,7 @@ export function FunderNewRouteMap({
 
       {/* "Search this area" only appears after a deliberate move */}
       {moved ? (
-        <div className="pointer-events-auto absolute left-1/2 top-16 -translate-x-1/2 sm:top-[4.25rem]">
+        <div className="pointer-events-auto absolute left-1/2 top-16 hidden -translate-x-1/2 sm:top-[4.25rem]">
           <Button
             size="sm"
             className="h-10 rounded-full px-4 shadow-lg"
@@ -431,7 +450,6 @@ export function FunderNewRouteMap({
 
         <InitialView
           device={device}
-          points={points}
           awaitingDeviceFix={awaitingDeviceFix}
         />
         <ViewportReporter onChange={onViewportChange} onMoved={setMoved} />
@@ -455,8 +473,8 @@ export function FunderNewRouteMap({
           </>
         ) : null}
 
-        <HouseLayer
-          points={points}
+        <CellLayer
+          cells={cells}
           selectedIds={selectedIds}
           savedIds={savedIds}
           activeId={activeId}

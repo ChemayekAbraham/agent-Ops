@@ -50,8 +50,31 @@ export function compactParts(amount: number): { prefix: string; figure: string }
   return { prefix: symbol, figure: figure || compact };
 }
 
+/**
+ * Route-local place casing. Field data arrives in mixed case, often SHOUTED
+ * ("NALYAMAGONJA"), and the shared prettyName only upper-cases first letters.
+ */
+export function placeCase(raw?: string | null): string {
+  const cleaned = (raw ?? '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!cleaned) return '';
+  return cleaned
+    .split(' ')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
+
+/**
+ * House type first. Listing titles are usually "Single Room in Central", which
+ * repeats the place line below it, so the clean room type wins. The shared
+ * formatHouseCategory appends "House"; the compact browse row does not need it.
+ */
 export function emptyHouseTitle(house: FunderNewEmptyHouse): string {
-  return house.title?.trim() || formatHouseCategory(house.house_category) || 'Empty house';
+  return (
+    placeCase(house.house_category) ||
+    house.title?.trim() ||
+    formatHouseCategory(house.house_category) ||
+    'Empty house'
+  );
 }
 
 /**
@@ -59,11 +82,11 @@ export function emptyHouseTitle(house: FunderNewEmptyHouse): string {
  * Deliberately short so the listing does not repeat a long address.
  */
 export function emptyHousePlace(house: FunderNewEmptyHouse): string {
-  const local = [house.village, house.sub_county].map((part) => (part ? prettyName(part) : '')).filter(Boolean)[0];
-  const district = house.district ? prettyName(house.district) : '';
-  const parts = [local, district].filter(Boolean);
+  const local = [house.village, house.sub_county].map((part) => placeCase(part)).filter(Boolean)[0];
+  const district = placeCase(house.district);
+  const parts = [local, district].filter(Boolean).filter((part, index, all) => all.indexOf(part) === index);
   if (parts.length) return parts.join(', ');
-  return house.region ? prettyName(house.region) : 'Location on file';
+  return placeCase(house.region) || 'Location on file';
 }
 
 export function readyPlanTitle(plan: FunderNewReadyPlan): string {

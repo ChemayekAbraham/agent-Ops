@@ -30,7 +30,6 @@ import { SelfPortfolioFundingCard } from '@/components/partner/SelfPortfolioFund
 import { HowItWorksSteps, type HowItWorksStep } from './HowItWorksSteps';
 import { EmptyHouseOpportunitiesSheet } from '@/components/agent/EmptyHouseOpportunitiesSheet';
 import { FunderBookedHousesPanel } from '@/components/supporter/FunderBookedHousesPanel';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 import { useProfile } from '@/hooks/useProfile';
 
@@ -792,47 +791,18 @@ export function FunderCapitalOpportunities({
         compactMobile
       >
 
-        {/* Tenant rent plans awaiting funding — stacked cards with bulk selection */}
+        {/* One merged list: empty houses and houses with ready tenants */}
         <div className="space-y-2.5 sm:pt-2 sm:space-y-3">
-          <ToggleGroup
-            type="single"
-            size="sm"
-            value={feedOrder}
-            onValueChange={(value) => value && setFeedOrder(value as FeedOrder)}
-            className="w-full"
-          >
-            <ToggleGroupItem
-              value="houses"
-              className="flex-1 px-2 text-[11px] sm:text-xs font-bold min-h-11 h-auto py-2 leading-tight data-[state=on]:!bg-success data-[state=on]:!text-white data-[state=off]:bg-muted/40 data-[state=off]:text-muted-foreground"
-            >
-              Empty houses without tenants yet
-            </ToggleGroupItem>
-            <ToggleGroupItem
-              value="rent"
-              className="flex-1 px-2 text-[11px] sm:text-xs font-bold min-h-11 h-auto py-2 leading-tight data-[state=on]:!bg-success data-[state=on]:!text-white data-[state=off]:bg-muted/40 data-[state=off]:text-muted-foreground"
-            >
-              Houses with ready tenants
-            </ToggleGroupItem>
-          </ToggleGroup>
+          <div className="w-full rounded-md bg-success px-2 py-2 text-center text-[11px] sm:text-xs font-bold leading-tight text-white min-h-11 flex items-center justify-center">
+            Houses to fund
+          </div>
 
-          {feedOrder !== 'houses' && (
-            <>
-              <div className="flex items-center gap-2">
-                <div className="w-1 h-5 rounded-full bg-primary" />
-                <h4 className="text-xs font-black text-foreground tracking-tight">
-                  Ready to fund rentals
-                </h4>
-              </div>
-
-              {user?.id
-                ? <SelfPortfolioFundingCard partnerId={user.id} feedOrder={feedOrder} onFeedOrderChange={setFeedOrder} />
-                : <p className="text-[11px] text-muted-foreground">Sign in to view tenant plans.</p>}
-            </>
-          )}
+          {user?.id
+            ? <SelfPortfolioFundingCard partnerId={user.id} feedOrder={feedOrder} onFeedOrderChange={setFeedOrder} />
+            : <p className="text-[11px] text-muted-foreground">Sign in to view houses to fund.</p>}
         </div>
 
-        {/* Empty houses you can support — browse, pick, and create your promissory note */}
-        {feedOrder === 'houses' && (
+        {/* Empty-house extras: how it works, return calculator, saved picks */}
         <div className="pt-2 space-y-3">
           <div className="flex min-w-0 items-center gap-2">
             <div className="h-5 w-1 shrink-0 rounded-full bg-primary" />
@@ -930,42 +900,6 @@ export function FunderCapitalOpportunities({
             </DialogContent>
           </Dialog>
 
-          {/* House cards appear first so funders can browse immediately */}
-          {user?.id
-            ? <SelfPortfolioFundingCard partnerId={user.id} feedOrder="houses" onFeedOrderChange={setFeedOrder} />
-            : <p className="text-[11px] text-muted-foreground">Sign in to view empty houses.</p>}
-
-          {/* Compact market figures stay secondary, after the visual house browser. */}
-          {(() => {
-            const s = emptyHouseSummary;
-            const openHouses = s?.house_count ?? 0;
-            const fundedHouses = s?.funded_count ?? 0;
-            const totalHouses = openHouses + fundedHouses;
-            const fundedPct = totalHouses > 0 ? Math.round((fundedHouses / totalHouses) * 100) : 0;
-            const biggest = s?.districts?.[0] ?? s?.landlords?.[0];
-            return (
-              <div className="space-y-1.5">
-                <div className="flex items-stretch gap-2 rounded-xl border border-border/60 bg-card p-2.5 sm:p-3 overflow-hidden">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">Empty houses</p>
-                    <p className="text-lg font-black text-foreground tracking-tight tabular-nums">{openHouses.toLocaleString()}</p>
-                  </div>
-                  {biggest && (
-                    <div className="flex-1 min-w-0 text-right border-l border-border/40 pl-2 sm:pl-3">
-                      <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider truncate">Biggest opportunity</p>
-                      <p className="text-sm font-bold text-foreground truncate">{biggest.label}</p>
-                      <p className="text-[10px] text-muted-foreground">{biggest.house_count.toLocaleString()} houses</p>
-                    </div>
-                  )}
-                </div>
-                <p className="flex flex-col items-start gap-0.5 text-[11px] text-muted-foreground px-0.5 sm:flex-row sm:items-center sm:justify-between sm:gap-0">
-                  <span>{fundedHouses.toLocaleString()} of {totalHouses.toLocaleString()} funded ({fundedPct}%)</span>
-                  <span className="font-medium text-foreground/80">{formatAmountCompact(s?.total_rent_needed ?? 0)} rent still needed</span>
-                </p>
-              </div>
-            );
-          })()}
-
           {/* Calculator: pick how many houses (or an amount) and see the return */}
           {(() => {
             const avgAvailable = (emptyHouseSummary?.avg_monthly_rent ?? 0) > 0;
@@ -1024,6 +958,7 @@ export function FunderCapitalOpportunities({
                           value={calcAmountInput}
                           onChange={(e) => setCalcAmountInput(e.target.value.replace(/[^0-9]/g, ''))}
                           className="h-9 text-xs"
+                          autoFocus={calcOpen}
                         />
                       </div>
 
@@ -1112,32 +1047,19 @@ export function FunderCapitalOpportunities({
             );
           })()}
 
-          {/* Mini breakdown: where the biggest opportunities are */}
-          <BiggestOpportunitiesPanel
-            districts={emptyHouseSummary?.districts ?? []}
-            landlords={emptyHouseSummary?.landlords ?? []}
-            formatAmountCompact={formatAmountCompact}
-            onExportPdf={exportRankingPdf}
-          />
 
           <FunderBookedHousesPanel />
 
-          <p className="text-[12px] leading-relaxed text-muted-foreground">
-            Browse empty houses with photos, landlord contact, and GPS location. Fund the ones you want
-            straight away, or book them and promise a funding date — you earn{' '}
-            <span className="font-bold text-success">15% of the rent every month for 12 months</span>.
-          </p>
 
           <Button
             variant="outline"
             className="h-11 w-full gap-2 text-xs font-bold rounded-xl"
             onClick={() => { hapticTap(); setHousePickerOpen(true); }}
           >
-            <Home className="h-4 w-4" /> Browse all empty houses
+            <Home className="h-4 w-4" /> Browse all houses
           </Button>
 
         </div>
-        )}
 
         <EmptyHouseOpportunitiesSheet
           open={housePickerOpen}

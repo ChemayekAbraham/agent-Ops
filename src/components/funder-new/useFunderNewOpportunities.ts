@@ -57,7 +57,12 @@ export function useFunderNewEmptyHouses(
   origin: FunderNewOrigin | null,
   enabled: boolean,
 ) {
-  const range = amountRange(filters.amount);
+  const bucket = amountRange(filters.amount);
+  // Typed rent bounds win over the coarse bucket, so the chip row is honest.
+  const range = {
+    min: filters.rentMin ?? bucket.min,
+    max: filters.rentMax ?? bucket.max,
+  };
   // 'nearest' needs coordinates; the RPC silently falls back otherwise, so the
   // route resolves the effective sort itself and shows the truth.
   const effectiveSort = filters.sort === 'nearest' && !origin ? 'recommended' : filters.sort;
@@ -71,6 +76,8 @@ export function useFunderNewEmptyHouses(
         search: filters.search.trim(),
         location: filters.location.trim(),
         amount: filters.amount,
+        rentMin: filters.rentMin,
+        rentMax: filters.rentMax,
         sort: effectiveSort,
       },
       stableOriginKey(nearby),
@@ -99,6 +106,7 @@ export function useFunderNewEmptyHouses(
       const houses = Array.isArray(payload.houses) ? (payload.houses as FunderNewEmptyHouse[]) : [];
       return { items: houses, total: toNumber(payload.total) || houses.length };
     },
+
     getNextPageParam: (lastPage, allPages) => {
       const loaded = allPages.reduce((sum, page) => sum + page.items.length, 0);
       if (lastPage.items.length === 0) return undefined;
@@ -119,7 +127,11 @@ export function useFunderNewEmptyHouses(
  * shown per plan where a pin exists, but the ordering is the service's own.
  */
 export function useFunderNewReadyPlans(filters: FunderNewFilters, enabled: boolean) {
-  const range = amountRange(filters.amount);
+  const bucket = amountRange(filters.amount);
+  const range = {
+    min: filters.rentMin ?? bucket.min,
+    max: filters.rentMax ?? bucket.max,
+  };
 
   return useInfiniteQuery<FunderNewListResult<FunderNewReadyPlan>>({
     queryKey: [
@@ -129,8 +141,11 @@ export function useFunderNewReadyPlans(filters: FunderNewFilters, enabled: boole
         search: filters.search.trim(),
         location: filters.location.trim(),
         amount: filters.amount,
+        rentMin: filters.rentMin,
+        rentMax: filters.rentMax,
       },
     ],
+
     enabled,
     initialPageParam: 0,
     queryFn: async ({ pageParam }) => {
