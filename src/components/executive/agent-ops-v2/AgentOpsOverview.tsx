@@ -325,12 +325,9 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
         />
         <KpiTile
           title="Active Agents"
-          value={fmtNum((k.active_agents_curr || 0) + (k.active_subagents_curr || 0))}
-          delta={pctDelta(
-            (k.active_agents_curr || 0) + (k.active_subagents_curr || 0),
-            (k.active_agents_prev || 0) + (k.active_subagents_prev || 0)
-          )}
-          subtitle={`${fmtNum(k.active_agents_curr || 0)} agents · ${fmtNum(k.active_subagents_curr || 0)} sub-agents active`}
+          value={fmtNum(activeCurrTotal)}
+          delta={pctDelta(activeCurrTotal, activePrevTotal)}
+          subtitle={`${fmtNum(activeCurrAgents)} agents · ${fmtNum(activeCurrSubs)} sub-agents active`}
           icon={Activity}
           accent="bg-emerald-600"
           spark={trendData.map((t) => t.activeAgents)}
@@ -339,17 +336,14 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
         />
         <KpiTile
           title="Inactive Agents"
-          value={fmtNum(
-            ((k.total_agents || 0) + (k.total_subagents || 0)) -
-            ((k.active_agents_curr || 0) + (k.active_subagents_curr || 0))
-          )}
+          value={fmtNum(Math.max(
+            ((k.total_agents || 0) + (k.total_subagents || 0)) - activeCurrTotal, 0
+          ))}
           delta={pctDelta(
-            ((k.total_agents || 0) + (k.total_subagents || 0)) -
-            ((k.active_agents_curr || 0) + (k.active_subagents_curr || 0)),
-            ((k.total_agents_prev || 0) + (k.total_subagents_prev || 0)) -
-            ((k.active_agents_prev || 0) + (k.active_subagents_prev || 0))
+            Math.max(((k.total_agents || 0) + (k.total_subagents || 0)) - activeCurrTotal, 0),
+            Math.max(((k.total_agents_prev || 0) + (k.total_subagents_prev || 0)) - activePrevTotal, 0)
           )}
-          subtitle={`${fmtNum((k.total_agents || 0) - (k.active_agents_curr || 0))} agents · ${fmtNum((k.total_subagents || 0) - (k.active_subagents_curr || 0))} sub-agents inactive`}
+          subtitle={`${fmtNum(Math.max((k.total_subagents || 0) - activeCurrSubs, 0))} sub-agents inactive`}
           icon={UserPlus}
           accent="bg-slate-500"
           onClick={() => onOpenSection('directory')}
