@@ -657,6 +657,11 @@ export function TenantCallingCenter() {
               second heavy read over the same spine, so it is fetched only when
               the officer actually asks for it instead of on every tab visit. */}
           <TenantCallsReport />
+          {/* Additive, read-only weekly (Wed → Tue) staff forwarding report.
+              Reads the same authoritative forwarding record the Combined Report
+              reads; no existing report or filter is affected. */}
+          <WeeklyStaffForwardingReport />
+
           {fullHistoryOpen ? (
             <TenantCallCenterHistory />
           ) : (
