@@ -39,7 +39,7 @@ import type {
   FunderNewSelectionItem,
   FunderNewSort,
 } from '@/components/funder-new/types';
-import { itemAmount, itemId, placeCase, sortLabel, toSelectionItem } from '@/components/funder-new/utils';
+import { itemAmount, itemId, placeCase, toSelectionItem } from '@/components/funder-new/utils';
 import { ROAD_TIME_UNAVAILABLE_REASON, straightLineDistance } from '@/components/funder-new/distance';
 import { itemCoordinates } from '@/components/funder-new/utils';
 import { FunderNewFilterDrawer } from '@/components/funder-new/FunderNewFilterDrawer';
