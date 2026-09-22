@@ -509,13 +509,13 @@ export default function FunderDashboardNew() {
                 <Skeleton key={index} className="h-40 rounded-2xl" />
               ))}
             </div>
-          ) : activeQuery.error ? (
+          ) : feedError ? (
             <Alert variant="warning" className="rounded-2xl border-warning/40 bg-warning/10">
               <AlertTriangle className="h-4 w-4" />
               <AlertTitle>These homes could not be loaded</AlertTitle>
               <AlertDescription>
                 Nothing has been replaced with a zero. Check your connection and try again.
-                <Button variant="link" className="h-auto px-1 py-0" onClick={() => activeQuery.refetch()}>
+                <Button variant="link" className="h-auto px-1 py-0" onClick={refetchFeed}>
                   Retry
                 </Button>
               </AlertDescription>
@@ -543,42 +543,44 @@ export default function FunderDashboardNew() {
             <div className="space-y-4">
               <div
                 className={
-                  activeQuery.isFetching && !activeQuery.isFetchingNextPage
+                  feedFetching && !feedFetchingNext
                     ? 'grid gap-0 opacity-70 transition-opacity sm:grid-cols-2 sm:gap-3 lg:grid-cols-3'
                     : 'grid gap-0 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3'
                 }
               >
-                {items.map((item) => {
-                  const id = itemId(tab, item);
-                  const coords = itemCoordinates(item, tab);
+                {items.map((entry) => {
+                  const id = itemId(entry.category, entry.item);
+                  const coords = itemCoordinates(entry.item, entry.category);
                   return (
                     <FunderNewHouseCard
-                      key={id}
-                      category={tab}
-                      item={item}
-                      saved={saved[tab].includes(id)}
-                      selected={selectedCategory === tab && activeSelectedIds.includes(id)}
+                      key={`${entry.category}:${id}`}
+                      category={entry.category}
+                      item={entry.item}
+                      saved={saved[entry.category].includes(id)}
+                      selected={selectedItems.some(
+                        (selected) => selected.category === entry.category && selected.id === id,
+                      )}
                       distance={coords ? straightLineDistance(deviceOrigin, coords) : null}
-                      onSave={() => toggleSave(tab, id)}
-                      onSelect={() => toggleSelect(tab, item)}
-                      onDetail={() => openDetail(tab, item)}
+                      onSave={() => toggleSave(entry.category, id)}
+                      onSelect={() => toggleSelect(entry.category, entry.item)}
+                      onDetail={() => openDetail(entry.category, entry.item)}
                     />
                   );
                 })}
               </div>
 
-              {activeQuery.hasNextPage ? (
+              {feedHasNext ? (
                 <div className="flex justify-center">
                   <Button
                     variant="outline"
                     className="h-11 rounded-full px-6"
-                    onClick={() => activeQuery.fetchNextPage()}
-                    disabled={activeQuery.isFetchingNextPage}
+                    onClick={fetchNextFeed}
+                    disabled={feedFetchingNext}
                   >
-                    {activeQuery.isFetchingNextPage ? (
+                    {feedFetchingNext ? (
                       <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
                     ) : null}
-                    {activeQuery.isFetchingNextPage
+                    {feedFetchingNext
                       ? 'Loading'
                       : `Show more homes${remaining > 0 ? ` (${remaining.toLocaleString()} left)` : ''}`}
                   </Button>
