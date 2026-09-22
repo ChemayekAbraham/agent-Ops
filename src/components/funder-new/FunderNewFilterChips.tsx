@@ -117,12 +117,12 @@ export function FunderNewFilterChips({
         </Select>
       ) : null}
 
-      {supportsSort ? (
+      {supportsSort ? field('Distance',
         <Select
           value={filters.radiusKm === 'all' ? 'all' : String(filters.radiusKm)}
           onValueChange={(value) => onChange({ radiusKm: value === 'all' ? 'all' : Number(value) })}
         >
-          <SelectTrigger className={CHIP} aria-label="Distance">
+          <SelectTrigger className={chip} aria-label="Distance">
             <SelectValue placeholder="Any distance" />
           </SelectTrigger>
           <SelectContent>
