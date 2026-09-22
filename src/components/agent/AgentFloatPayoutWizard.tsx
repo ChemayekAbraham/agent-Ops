@@ -244,7 +244,7 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
 
       const enriched = await Promise.all((data || []).map(async (r: any) => {
         const [{ data: landlord }, { data: tenant }, { data: existing }, { data: livePayout }] = await Promise.all([
-          supabase.from('landlords').select('id, name, phone, mobile_money_number, latitude, longitude, verification_status, verified').eq('id', r.landlord_id).single(),
+          supabase.from('landlords').select('id, name, phone, mobile_money_number, verified_mobile_money_number, latitude, longitude, verification_status, verified').eq('id', r.landlord_id).single(),
           supabase.from('profiles').select('id, full_name, phone').eq('id', r.tenant_id).single(),
           supabase.from('agent_float_withdrawals').select('id').eq('rent_request_id', r.id).eq('agent_id', user.id).maybeSingle(),
           // A landlord payout already in flight (or completed) for this rent
@@ -309,15 +309,19 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
     setReceiptFiles(prev => [...prev, ...Array.from(files)].slice(0, 3));
   };
 
-  const defaultLandlordPhone =
-    selectedRequest?.landlord?.mobile_money_number || selectedRequest?.landlord?.phone || '';
   const landlordVerified =
     selectedRequest?.landlord?.verification_status === 'verified' ||
     selectedRequest?.landlord?.verified === true;
   // The landlord's MoMo number is never agent-editable here — a wrong or
-  // agent-retargeted number misdirects real money. It is always the number
-  // on file; a missing/wrong number goes through Landlord Ops via the
-  // change-request flow below, never by typing over it in this form.
+  // agent-retargeted number misdirects real money. It is also never the raw,
+  // freely-editable landlords.mobile_money_number/phone — those can be
+  // changed by anyone with landlords-UPDATE access with zero re-approval.
+  // The only number ever used is verified_mobile_money_number: the exact
+  // number Landlord Ops actually approved, frozen at verification time by
+  // set_landlord_verification(). A missing/wrong number goes through
+  // Landlord Ops re-verification, never by typing over it in this form.
+  const defaultLandlordPhone =
+    (landlordVerified && selectedRequest?.landlord?.verified_mobile_money_number) || '';
   const landlordPhone = defaultLandlordPhone.trim();
 
   const parsedAmount = Number((amountInput || '').toString().replace(/[^\d.]/g, ''));
@@ -343,8 +347,8 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
     setSendOtpError(null);
     if (!phoneValid) {
       const msg = defaultLandlordPhone
-        ? 'The landlord\'s number on file looks invalid. Ask Landlord Ops to correct it.'
-        : 'No phone number on file for this landlord. Ask Landlord Ops to add one first.';
+        ? 'The Landlord-Ops-approved number looks invalid. Ask them to re-verify with a valid number.'
+        : 'Landlord Ops has not approved a payout number for this landlord yet. Ask them to (re-)verify the landlord first.';
       toast.error(msg);
       setSendOtpError(msg);
       return;
@@ -439,9 +443,9 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
   };
 
   const sendBlockedReason = !defaultLandlordPhone
-    ? 'No phone number on file for this landlord. Ask Landlord Ops to add one before paying.'
+    ? 'Landlord Ops has not approved a payout number for this landlord yet. Ask them to (re-)verify the landlord.'
     : !phoneValid
-    ? 'The landlord\'s number on file looks invalid. Ask Landlord Ops to correct it.'
+    ? 'The Landlord-Ops-approved number looks invalid. Ask them to re-verify with a valid number.'
     : effectiveAmount <= 0
       ? 'Enter an amount greater than 0.'
       : !withinRent
@@ -748,7 +752,7 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
           allocation.landlord_id
             ? supabase
                 .from('landlords')
-                .select('id, name, phone, mobile_money_number, latitude, longitude, verification_status, verified')
+                .select('id, name, phone, mobile_money_number, verified_mobile_money_number, latitude, longitude, verification_status, verified')
                 .eq('id', allocation.landlord_id)
                 .maybeSingle()
             : Promise.resolve({ data: null } as any),
@@ -761,11 +765,17 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
             : Promise.resolve({ data: null } as any),
         ]);
 
+        // No fallback to allocation.landlord_phone here — it is descriptive
+        // display data from the allocations view, not an Ops-approved number.
+        // If the landlord row itself can't be found, leave the approved
+        // number null so the payout blocks instead of paying an unapproved
+        // number.
         const landlord = landlordRes?.data || {
           id: allocation.landlord_id,
           name: allocation.landlord_name,
           phone: allocation.landlord_phone,
           mobile_money_number: allocation.landlord_phone,
+          verified_mobile_money_number: null,
           latitude: null,
           longitude: null,
         };
@@ -1018,7 +1028,7 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
                           </Badge>
                         </div>
                         <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                          <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{r.landlord?.mobile_money_number || r.landlord?.phone || 'N/A'}</span>
+                          <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{r.landlord?.verified_mobile_money_number || 'Not Ops-approved'}</span>
                           <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{format(new Date(r.created_at), 'dd MMM')}</span>
                         </div>
                         <div className="text-xs text-muted-foreground">Tenant: {r.tenant?.full_name || 'Unknown'}</div>
@@ -1094,33 +1104,29 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
                   {/*
                     Never agent-editable — a boss once hit a blank prefill here
                     and typed a number in, which would have misdirected a real
-                    payout. The number on file is the only source of truth;
-                    fixing it always goes through Landlord Ops below.
+                    payout. This is never the raw, freely-editable
+                    landlords.mobile_money_number/phone either — only the
+                    number Landlord Ops actually approved at verification time
+                    (verified_mobile_money_number) is ever shown or paid to.
                   */}
                   <Input
                     id="payout-phone"
                     inputMode="tel"
                     readOnly
                     value={defaultLandlordPhone}
-                    placeholder="No number on file"
+                    placeholder="Not yet approved by Landlord Ops"
                     className="h-9 font-mono bg-muted/60 cursor-not-allowed text-muted-foreground"
                   />
                   <div className="space-y-1.5">
                     {defaultLandlordPhone ? (
                       <p className="text-[11px] text-muted-foreground flex items-center gap-1">
-                        {landlordVerified ? (
-                          <>
-                            <ShieldCheck className="h-3 w-3 text-success shrink-0" />
-                            Verified by Landlord Ops — number locked.
-                          </>
-                        ) : (
-                          'Number on file — locked. Payouts only go to the number Landlord Ops has on record.'
-                        )}
+                        <ShieldCheck className="h-3 w-3 text-success shrink-0" />
+                        Approved by Landlord Ops — number locked.
                       </p>
                     ) : (
                       <p className="text-[11px] text-destructive flex items-center gap-1">
                         <AlertTriangle className="h-3 w-3 shrink-0" />
-                        No phone number on file for this landlord — Landlord Ops must add one before you can pay.
+                        Landlord Ops has not approved a payout number for this landlord yet — you cannot pay until they (re-)verify.
                       </p>
                     )}
                     {!showPhoneChangeReq ? (

@@ -427,24 +427,31 @@ Deno.serve(async (req) => {
 
     // The landlord's phone is NEVER taken from the client — a caller-supplied
     // number would let anyone retarget the OTP (and the eventual MoMo payout)
-    // to a phone they control. Always re-derive from the `landlords` table,
-    // the same source of truth the payout UI displays. Fixing a wrong/missing
-    // number goes through Landlord Ops (landlord_verification_requests), not
+    // to a phone they control. It is also NEVER the raw, freely-editable
+    // `mobile_money_number`/`phone` columns — those can be changed by anyone
+    // with landlords-UPDATE access with zero re-approval. The only number
+    // trusted here is `verified_mobile_money_number`, which is written ONLY
+    // by set_landlord_verification() at the moment Landlord Ops actually
+    // approves a landlord (see migration 20260922150000). Fixing a
+    // wrong/missing number goes through Landlord Ops re-verification, not
     // this endpoint.
     const { data: landlordRow, error: landlordErr } = await admin
       .from("landlords")
-      .select("mobile_money_number, phone")
+      .select("verified_mobile_money_number, verification_status")
       .eq("id", landlord_id)
       .maybeSingle();
     if (landlordErr) {
       return json({ error: landlordErr.message }, 400);
     }
-    const resolvedPhone = (landlordRow?.mobile_money_number || landlordRow?.phone || "").trim();
+    if (landlordRow?.verification_status !== "verified") {
+      return json({ error: "This landlord is not verified by Landlord Ops. Verification is required before any payout." }, 400);
+    }
+    const resolvedPhone = (landlordRow?.verified_mobile_money_number || "").trim();
     if (!resolvedPhone) {
-      return json({ error: "No phone number on file for this landlord. Ask Landlord Ops to add one before this payout can proceed." }, 400);
+      return json({ error: "Landlord Ops has not approved a payout number for this landlord yet. Ask them to (re-)verify the landlord." }, 400);
     }
     if (!/^\+?\d{9,15}$/.test(resolvedPhone.replace(/\s|-/g, ""))) {
-      return json({ error: "The landlord's number on file is invalid. Ask Landlord Ops to correct it." }, 400);
+      return json({ error: "The Landlord-Ops-approved number is invalid. Ask them to re-verify with a valid number." }, 400);
     }
 
     // Eligibility check (float, cutoff, landlord status) — same gate as final insert
