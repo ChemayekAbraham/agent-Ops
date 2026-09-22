@@ -135,6 +135,49 @@ export function CombinedCallingCenterReportButton({
         if (c.received_call_id && !concernByCall.has(c.received_call_id)) concernByCall.set(c.received_call_id, c);
       });
 
+      // ---------------------------------- Every forwarded concern in the period
+      // `cc_forwarded_concerns` is row-scoped: an officer only sees concerns they
+      // raised, ones sent to them, ones they review, or all of them if they are an
+      // overseer. That left the Staff Concern Handling Summary counting only the
+      // concerns the officer running the report had raised, so concerns forwarded
+      // from calls that came in (raised by other officers) were reported as "not
+      // forwarded". This read-only reporting function returns the summary fields for
+      // every concern in the window, so the staff table is complete.
+      type CcReportRow = {
+        id: string;
+        source_kind: string;
+        received_call_id: string | null;
+        cycle_row_id: string | null;
+        forwarded_to_name: string | null;
+        status: string;
+        created_at: string;
+        completed_at: string | null;
+        due_at: string | null;
+        due_is_custom: boolean | null;
+        reassigned_count: number | null;
+        reviewer_names: string[] | null;
+      };
+      const { data: reportData, error: reportError } = await anyDb.rpc('cc_concern_handling_report', {
+        p_from: fromIso,
+        p_to: toIso,
+      });
+      if (reportError) throw new Error(reportError.message);
+      const reportRows = ((reportData ?? []) as CcReportRow[]).length
+        ? (reportData as CcReportRow[])
+        : (concerns as unknown as CcReportRow[]);
+
+      const reportByCall = new Map<string, CcReportRow>();
+      reportRows.forEach((r) => {
+        if (r.received_call_id && !reportByCall.has(r.received_call_id)) reportByCall.set(r.received_call_id, r);
+      });
+      const reportRowIds = new Set(reportRows.map((r) => r.cycle_row_id).filter(Boolean) as string[]);
+      const reportReceiverMap = new Map<string, CcReportRow[]>();
+      reportRows.forEach((r) => {
+        const k = r.forwarded_to_name ?? 'Staff member';
+        reportReceiverMap.set(k, [...(reportReceiverMap.get(k) ?? []), r]);
+      });
+      const asConcern = (r: CcReportRow) => r as unknown as ForwardedConcern;
+
       const receivedRows: ReceivedCallPdfRow[] = calls.map((r) => {
         const concern = concernByCall.get(r.id);
         return {
