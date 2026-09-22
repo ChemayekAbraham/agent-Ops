@@ -341,7 +341,9 @@ export function CombinedCallingCenterReportButton({
       // Same grouping the Issues Review uses (the person it was forwarded to),
       // so the staff rows add up exactly to the forwarded total — a concern is
       // never counted twice even when more people were added as reviewers.
-      const staffHandlingRows = Array.from(receiverMap.entries())
+      // Built from the period-wide reporting read, so staff who were forwarded
+      // concerns from calls that came in appear here too.
+      const staffHandlingRows = Array.from(reportReceiverMap.entries())
         .map(([name, list]) => {
           const done = list.filter((c) => c.status === 'completed' && c.completed_at);
           const avg =
@@ -360,13 +362,12 @@ export function CombinedCallingCenterReportButton({
             fromReceived: list.filter((c) => c.source_kind === 'received_call').length,
             completed: done.length,
             open: list.length - done.length,
-            overdue: list.filter(isConcernOverdue).length,
-            onTime: done.filter((c) => concernOverdueHours(c) === 0).length,
+            overdue: list.filter((c) => isConcernOverdue(asConcern(c))).length,
+            onTime: done.filter((c) => concernOverdueHours(asConcern(c)) === 0).length,
             avgHours: avg == null ? '—' : `${avg.toFixed(1)} hours`,
-            alsoReviewer: concerns.filter(
+            alsoReviewer: reportRows.filter(
               (c) =>
-                (c.forwarded_to_name ?? 'Staff member') !== name &&
-                (anyReviewerNames.get(c.id) ?? []).includes(name),
+                (c.forwarded_to_name ?? 'Staff member') !== name && (c.reviewer_names ?? []).includes(name),
             ).length,
           };
         })
@@ -391,13 +392,13 @@ export function CombinedCallingCenterReportButton({
        * Counted as distinct concerns, not as a sum of the staff column: one
        * concern with three extra reviewers is still one concern here.
        */
-      const concernsWithExtraReviewer = concerns.filter((c) => {
+      const concernsWithExtraReviewer = reportRows.filter((c) => {
         const primary = c.forwarded_to_name ?? 'Staff member';
-        return (anyReviewerNames.get(c.id) ?? []).some((n) => n !== primary);
+        return (c.reviewer_names ?? []).some((n) => n !== primary);
       }).length;
 
       /** Overall average completion time — same formula as the per-staff column. */
-      const allDone = concerns.filter((c) => c.status === 'completed' && c.completed_at);
+      const allDone = reportRows.filter((c) => c.status === 'completed' && c.completed_at);
       const overallAvgHours =
         allDone.length > 0
           ? `${(
