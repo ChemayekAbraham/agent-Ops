@@ -55071,6 +55071,7 @@ export type Database = {
           total_rows: number
         }[]
       }
+      crm_reap_stale_call_sessions: { Args: never; Returns: Json }
       crm_record_call_outcome: {
         Args: { p_outcome: string; p_session_id: string }
         Returns: undefined
