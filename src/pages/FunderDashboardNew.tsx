@@ -333,29 +333,51 @@ export default function FunderDashboardNew() {
 
   return (
     <div className="min-h-screen bg-background pb-32 text-foreground">
-      {/* Existing top header — unchanged */}
-      <header className="border-b bg-background/95 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                RentFlow Insights review
-              </p>
-              <h1 className="mt-1 text-2xl font-semibold tracking-tight">Find a home to support</h1>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {user?.user_metadata?.full_name
-                  ? `${user.user_metadata.full_name}, review live homes without changing the current dashboard.`
-                  : 'Review live homes without changing the current dashboard.'}
-              </p>
-            </div>
-            <div className="grid gap-2 sm:flex sm:items-center">
-              <Button variant="outline" className="rounded-xl" onClick={() => navigate('/dashboard/funder')}>
-                Current dashboard
-              </Button>
-            </div>
+      {/* Same top bar as /dashboard/funder — logo + role switcher */}
+      <DashboardHeader
+        currentRole="supporter"
+        availableRoles={roles}
+        onRoleChange={handleRoleSwitch}
+        onSignOut={signOut}
+        headerActions={user ? <NotificationBell userId={user.id} /> : undefined}
+        compactInstallPrompt
+      />
+
+      {/* Identity strip — avatar, name, Welile ID */}
+      <section className="border-b bg-background/95 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-4 sm:px-6 lg:px-8">
+          <UserAvatar
+            avatarUrl={profile?.avatar_url}
+            fullName={displayName}
+            size="lg"
+            className="ring-2 ring-primary/20"
+          />
+          <div className="min-w-0 flex-1">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Find a home to support
+            </p>
+            <h1 className="mt-0.5 truncate text-xl font-semibold tracking-tight">{displayName}</h1>
+            {welileId && (
+              <button
+                type="button"
+                onClick={() => navigate(`/profile/${welileId}`)}
+                className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-0.5 font-mono text-[11px] font-medium text-primary transition-colors hover:bg-primary/20"
+                title="Open my Welile Trust Profile"
+              >
+                <Fingerprint className="h-3 w-3" aria-hidden />
+                {welileId}
+              </button>
+            )}
           </div>
+          <Button
+            variant="outline"
+            className="shrink-0 rounded-xl"
+            onClick={() => navigate('/dashboard/funder')}
+          >
+            Current dashboard
+          </Button>
         </div>
-      </header>
+      </section>
 
       <main className="mx-auto max-w-7xl space-y-5 px-4 py-5 sm:space-y-6 sm:px-6 lg:px-8">
         <FunderNewHero
