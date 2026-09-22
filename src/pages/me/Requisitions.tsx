@@ -223,8 +223,24 @@ const MyRequisitions = () => {
       .from('staff_loans')
       .select('id, requisition_id, principal, months, monthly_rate, outstanding_principal, accrued_interest, total_repaid, status, started_on, due_on')
       .order('created_at', { ascending: false });
-    setLoans((loanRows || []) as unknown as StaffLoan[]);
+    const list = (loanRows || []) as unknown as StaffLoan[];
+    setLoans(list);
+    if (list.length) {
+      const { data: instRows } = await supabase
+        .from('staff_loan_instalments')
+        .select('id, loan_id, seq, due_on, amount_due, amount_paid, status')
+        .in('loan_id', list.map((l) => l.id))
+        .order('seq', { ascending: true });
+      const map: Record<string, LoanInstalment[]> = {};
+      for (const row of (instRows || []) as unknown as LoanInstalment[]) {
+        (map[row.loan_id] ||= []).push(row);
+      }
+      setInstalments(map);
+    } else {
+      setInstalments({});
+    }
   }, []);
+
 
   useEffect(() => { void fetchLoans(); }, [fetchLoans]);
 
