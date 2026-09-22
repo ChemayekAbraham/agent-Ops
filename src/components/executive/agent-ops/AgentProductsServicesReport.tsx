@@ -956,6 +956,9 @@ export function AgentProductsServicesReport() {
               hint={report.agents.main_agents != null
                 ? `${num(report.agents.main_agents)} main · ${num(report.agents.sub_agents)} sub-agents`
                 : undefined} />
+            <Kpi label="Active agents" value={num(report.agents.active_today)}
+              current={report.agents.active_today} previous={pop.activeAgents} compareLabel={compareLabel}
+              hint={report.agents.total > 0 ? `${((Number(report.agents.active_today) / Number(report.agents.total)) * 100).toFixed(1)}% of total network` : undefined} />
             <Kpi label="Rent collected" value={apsUgx(report.rent.collected_today)}
               current={report.rent.collected_today} previous={pop.collected} compareLabel={compareLabel} />
             <Kpi label="Expected target (period)" value={apsUgx(expectedTotal)}

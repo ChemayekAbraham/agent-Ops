@@ -1093,7 +1093,7 @@ export function SelfPortfolioFundingCard({
       </Card>
       {(
         <p className="text-[11px] font-semibold text-muted-foreground px-1">
-          {plans.length} rent request{plans.length === 1 ? '' : 's'} · {houses.length} house
+          &nbsp;{houses.length} house
           {houses.length === 1 ? '' : 's'}
         </p>
       )}

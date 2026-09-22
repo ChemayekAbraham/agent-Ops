@@ -24,7 +24,7 @@ import { generateAgentProductsInFieldPdf, type AgentProductKpis, type AgentProdu
 import { archivePdfBlob } from '@/lib/pdfVault';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { Package, Users, Warehouse, Download, Plus, RefreshCw, Search, Wallet, TrendingUp, Trash2, Clock, Layers, Activity, Check, X, Loader2 } from 'lucide-react';
+import { Package, Users, Warehouse, Download, Plus, RefreshCw, Search, Wallet, TrendingUp, Trash2, Clock, Layers, Activity, Check, X, Loader2, Phone, Mail, MapPin, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface CatalogItem { id: string; item_name: string; unit_price: number; unit_cost: number }
 interface CentreItem { id: string; location_name: string | null; agent_id: string | null; agent_name: string | null; status: string }
@@ -118,11 +118,119 @@ const CATEGORY_SUGGESTIONS: Record<AgentProductCategory, string[]> = {
   boutique: ['Welile Jumper', 'Welile Jacket', 'Welile Polo', 'Welile T-Shirt', 'Welile Cap', 'Company ID', 'Umbrella', 'Branded Bag'],
 };
 
+function AgentInlineProfileExpansion({ agentId }: { agentId: string }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['agent-product-detail-inline', agentId],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_agent_product_detail' as any, {
+        p_agent_id: agentId,
+        p_category: null,
+      });
+      if (error) throw error;
+      return data as any;
+    },
+    staleTime: 60_000,
+  });
+
+  const agent = data?.agent;
+  const totals = data?.totals;
+  const items = (data?.items ?? []).filter(
+    (it: any) => !['rejected', 'cancelled', 'declined'].includes((it.order_status || '').toLowerCase()),
+  );
+  const deductions = (data?.deductions ?? []).slice(0, 3);
+
+  if (isLoading) {
+    return (
+      <div className="p-3 space-y-2 rounded-lg border bg-background/50 animate-pulse">
+        <Skeleton className="h-3.5 w-1/3" />
+        <Skeleton className="h-10 w-full" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3 pt-3 border-t border-border/70 text-xs animate-in fade-in-50 duration-200">
+      {/* Roles & Profile info */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-1.5">
+          {(agent?.roles ?? []).length > 0 ? (
+            (agent.roles as string[]).map((r) => (
+              <Badge key={r} variant="secondary" className="text-[10px] capitalize">
+                {r.replace(/_/g, ' ')}
+              </Badge>
+            ))
+          ) : (
+            <Badge variant="outline" className="text-[10px]">Registered Agent</Badge>
+          )}
+          {agent?.email && (
+            <span className="text-[11px] text-muted-foreground flex items-center gap-1 truncate max-w-[200px]">
+              <Mail className="h-3 w-3 shrink-0" /> {agent.email}
+            </span>
+          )}
+        </div>
+        {(agent?.district || agent?.territory) && (
+          <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+            <MapPin className="h-3 w-3" /> {[agent?.district, agent?.territory].filter(Boolean).join(' · ')}
+          </span>
+        )}
+      </div>
+
+      {/* Financial Standing summary */}
+      <div className="grid grid-cols-3 gap-2 text-center">
+        <div className="rounded-lg bg-background p-2 border border-border/50">
+          <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">Billed</p>
+          <p className="text-xs font-bold tabular-nums">{formatUGX(Number(totals?.billed || 0))}</p>
+          <p className="text-[10px] text-muted-foreground">{Number(totals?.items || 0)} item(s)</p>
+        </div>
+        <div className="rounded-lg bg-background p-2 border border-border/50">
+          <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">Repaid</p>
+          <p className="text-xs font-bold tabular-nums text-emerald-600">{formatUGX(Number(totals?.repaid || 0))}</p>
+        </div>
+        <div className="rounded-lg bg-background p-2 border border-border/50">
+          <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-semibold">Outstanding</p>
+          <p className="text-xs font-bold tabular-nums text-rose-600">{formatUGX(Number(totals?.outstanding || 0))}</p>
+        </div>
+      </div>
+
+      {/* Active Items on file */}
+      {items.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-[11px] font-semibold text-muted-foreground">Active products ({items.length})</p>
+          <div className="max-h-28 overflow-y-auto space-y-1 rounded-lg border p-1.5 bg-background">
+            {items.map((it: any) => (
+              <div key={it.id} className="flex items-center justify-between text-[11px] px-2 py-1 bg-muted/30 rounded">
+                <span className="font-medium truncate">{[it.brand, it.model_type].filter(Boolean).join(' ') || it.item_name}</span>
+                <span className="font-semibold tabular-nums text-muted-foreground">{formatUGX(Number(it.amount || 0))}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Recent Repayments */}
+      {deductions.length > 0 && (
+        <div className="space-y-1">
+          <p className="text-[11px] font-semibold text-muted-foreground">Recent repayments</p>
+          <div className="rounded-lg border divide-y bg-background text-[11px]">
+            {deductions.map((d: any) => (
+              <div key={d.id} className="flex items-center justify-between px-2 py-1">
+                <span className="text-muted-foreground truncate">{d.item_name || 'Product payment'}</span>
+                <span className="font-semibold text-emerald-600 tabular-nums">{formatUGX(Number(d.amount || 0))}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function AgentProductsPanel({ category, mode = 'full' }: { category?: AgentProductCategory; mode?: 'overview' | 'issued' | 'applications' | 'completed' | 'full' } = {}) {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [itemFilter, setItemFilter] = useState('all');
   const [detailAgentId, setDetailAgentId] = useState<string | null>(null);
+  const [expandedProfile, setExpandedProfile] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<AgentProductRow | null>(null);
   const [deleteReason, setDeleteReason] = useState('');
@@ -947,8 +1055,8 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
       )}
 
       {/* ---------- Pending application detail ---------- */}
-      <Dialog open={!!appDetail} onOpenChange={(o) => { if (!o) setAppDetail(null); }}>
-        <DialogContent className="max-w-lg">
+      <Dialog open={!!appDetail} onOpenChange={(o) => { if (!o) { setAppDetail(null); setExpandedProfile(false); } }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Application details</DialogTitle>
           </DialogHeader>
@@ -961,61 +1069,79 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
             const busy = approveApp.isPending || rejectApp.isPending;
             return (
               <div className="space-y-4">
-                <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/30 p-3">
-                  <UserAvatar avatarUrl={appDetail.avatar_url} fullName={appDetail.full_name || undefined} size="md" />
-                  <div className="min-w-0">
-                    <p className="text-sm font-semibold truncate">{appDetail.full_name || 'Unknown agent'}</p>
-                    <p className="text-xs text-muted-foreground truncate">{appDetail.phone || 'No phone on file'}</p>
-                    <Badge variant="secondary" className="mt-1 text-[10px]">{centre}</Badge>
+                {/* Agent profile card - inline expansion */}
+                <div className="rounded-xl border border-border bg-muted/30 p-3.5 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <UserAvatar avatarUrl={appDetail.avatar_url} fullName={appDetail.full_name || undefined} size="lg" />
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold truncate text-foreground">{appDetail.full_name || 'Unknown agent'}</p>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-0.5">
+                          {appDetail.phone ? (
+                            <a href={`tel:${appDetail.phone}`} className="inline-flex items-center gap-1 hover:text-foreground font-medium">
+                              <Phone className="h-3 w-3 text-primary" /> {appDetail.phone}
+                            </a>
+                          ) : (
+                            <span>No phone on file</span>
+                          )}
+                          <span className="inline-flex items-center gap-1">
+                            <MapPin className="h-3 w-3 text-muted-foreground" /> {centre}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    {appDetail.agent_id && (
+                      <Button
+                        size="sm"
+                        variant={expandedProfile ? "secondary" : "outline"}
+                        className="h-7 text-xs gap-1 shrink-0 hover:bg-background shadow-none"
+                        onClick={() => setExpandedProfile((prev) => !prev)}
+                      >
+                        {expandedProfile ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                        View profile
+                      </Button>
+                    )}
+                  </div>
+
+                  {/* Inline profile expansion (accordion) without leaving this modal */}
+                  {expandedProfile && appDetail.agent_id && (
+                    <AgentInlineProfileExpansion agentId={appDetail.agent_id} />
+                  )}
+                </div>
+
+                {/* Order specs */}
+                <div className="rounded-xl border border-border divide-y divide-border text-xs">
+                  <div className="flex items-center justify-between p-2.5">
+                    <span className="text-muted-foreground">Requested item</span>
+                    <span className="font-semibold text-foreground">{item}</span>
+                  </div>
+                  <div className="flex items-center justify-between p-2.5">
+                    <span className="text-muted-foreground">Quantity & Unit price</span>
+                    <span className="font-medium tabular-nums">{qty} × {formatUGX(unit)}</span>
+                  </div>
+                  <div className="flex items-center justify-between p-2.5 bg-muted/20">
+                    <span className="font-medium text-foreground">Total order amount</span>
+                    <span className="font-bold text-sm text-foreground tabular-nums">{formatUGX(total)}</span>
+                  </div>
+                  <div className="flex items-center justify-between p-2.5">
+                    <span className="text-muted-foreground">Request date</span>
+                    <span className="font-medium text-muted-foreground">
+                      {appDetail.created_at ? format(new Date(appDetail.created_at), 'dd MMM yyyy HH:mm') : '—'}
+                    </span>
                   </div>
                 </div>
 
-                <dl className="grid grid-cols-2 gap-3 text-sm">
-                  <div className="col-span-2">
-                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Requested item</dt>
-                    <dd className="font-medium">{item}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Quantity</dt>
-                    <dd className="font-medium tabular-nums">{qty}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Unit price</dt>
-                    <dd className="font-medium tabular-nums">{formatUGX(unit)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Total amount</dt>
-                    <dd className="font-semibold tabular-nums">{formatUGX(total)}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-[11px] uppercase tracking-wide text-muted-foreground">Request date</dt>
-                    <dd className="font-medium">
-                      {appDetail.created_at ? format(new Date(appDetail.created_at), 'dd MMM yyyy HH:mm') : '—'}
-                    </dd>
-                  </div>
-                </dl>
-
-                {appDetail.agent_id && (
-                  <Button
-                    variant="link"
-                    className="h-auto p-0 text-xs"
-                    onClick={() => { const id = appDetail.agent_id!; setAppDetail(null); setDetailAgentId(id); }}
-                  >
-                    Open full agent profile
-                  </Button>
-                )}
-
                 {canDecide ? (
-                  <DialogFooter className="gap-2 sm:gap-2">
+                  <DialogFooter className="gap-2 sm:gap-2 pt-1">
                     <Button
                       variant="outline"
-                      className="gap-1.5 text-destructive hover:text-destructive"
+                      className="gap-1.5 text-destructive hover:text-destructive flex-1 sm:flex-none"
                       disabled={busy}
                       onClick={() => { setRejectTarget(appDetail); setRejectReason(""); setAppDetail(null); }}
                     >
                       <X className="h-4 w-4" /> Reject
                     </Button>
-                    <Button className="gap-1.5" disabled={busy} onClick={() => approveApp.mutate(appDetail)}>
+                    <Button className="gap-1.5 flex-1 sm:flex-none" disabled={busy} onClick={() => approveApp.mutate(appDetail)}>
                       {approveApp.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
                       Approve
                     </Button>

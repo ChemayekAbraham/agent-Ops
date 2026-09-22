@@ -36,6 +36,29 @@ import {
   deriveChannel,
   EXPANDED_ROWS_KEY,
 } from '@/lib/emailTransactionsLogic';
+import { AlertOctagon, ArrowDownLeft, ArrowUpRight, CheckCircle2, Inbox, Send } from 'lucide-react';
+
+/** Plain-language mapping of a Gmail polling error, used for the toast copy. */
+function friendlyPollError(raw: string | null | undefined): { title: string; description: string } {
+  const m = (raw || '').toLowerCase();
+  if (m.includes('google_mail_api_key') || m.includes('not connected') || m.includes('not configured')) {
+    return { title: "Gmail isn't connected", description: 'Connect a Gmail account before polling.' };
+  }
+  if (m.includes('invalid credentials') || m.includes('unauthenticated') || m.includes('[401]') || m.includes(' 401')) {
+    return { title: 'Gmail session expired', description: 'Click Reconnect Gmail to re-authenticate.' };
+  }
+  if (m.includes('insufficient') || m.includes('scope') || m.includes('[403]') || m.includes(' 403')) {
+    return { title: 'Missing Gmail permission', description: 'Reconnect Gmail and approve all requested permissions.' };
+  }
+  if (m.includes('429') || m.includes('rate') || m.includes('quota')) {
+    return { title: 'Gmail rate limit hit', description: 'Wait a minute, then click Retry.' };
+  }
+  if (m.includes('502') || m.includes('503') || m.includes('504') || m.includes('timeout') || m.includes('fetch')) {
+    return { title: 'Network or gateway hiccup', description: 'A transient error occurred. Click Retry to try again.' };
+  }
+  return { title: 'Polling failed', description: raw?.slice(0, 200) || 'Unknown error. Click Retry to try again.' };
+}
+
 
 export type PaginationMode = 'paged' | 'infinite';
 export type SortMode = 'newest' | 'oldest' | 'amount_high' | 'amount_low' | 'status';

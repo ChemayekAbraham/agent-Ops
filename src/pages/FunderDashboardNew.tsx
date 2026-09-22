@@ -37,7 +37,7 @@ import type {
 import { itemAmount, itemId, placeCase, sortLabel, toSelectionItem } from '@/components/funder-new/utils';
 import { ROAD_TIME_UNAVAILABLE_REASON, straightLineDistance } from '@/components/funder-new/distance';
 import { itemCoordinates } from '@/components/funder-new/utils';
-import { FunderNewFilterChips } from '@/components/funder-new/FunderNewFilterChips';
+import { FunderNewFilterDrawer } from '@/components/funder-new/FunderNewFilterDrawer';
 
 import { formatDynamic } from '@/lib/currencyFormat';
 
@@ -105,6 +105,8 @@ export default function FunderDashboardNew() {
   const [reviewOpen, setReviewOpen] = useState(false);
   const [calculatorOpen, setCalculatorOpen] = useState(false);
   const [howOpen, setHowOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
 
   useEffect(() => {
     saveSaved(saved);
@@ -175,21 +177,27 @@ export default function FunderDashboardNew() {
 
   const availableBalance = wallet.isLoading || wallet.error ? null : wallet.withdrawable;
 
-  /** Districts present in the homes already loaded, used by the district chip. */
+  /**
+   * District chip lists every district in the whole market (from the summary
+   * service), not just the page of homes currently loaded. Any district found
+   * on loaded homes but missing from the summary is merged in so the select
+   * never hides the active filter value.
+   */
   const districtOptions = useMemo(() => {
     const counts = new Map<string, { label: string; count: number }>();
+    (summary.data?.districts ?? []).forEach((item) => {
+      counts.set(item.value, { label: item.label, count: item.count });
+    });
     loadedItems.forEach((item) => {
       const raw = (item as unknown as Record<string, unknown>).district;
       const value = typeof raw === 'string' ? raw.trim() : '';
-      if (!value) return;
-      const existing = counts.get(value);
-      if (existing) existing.count += 1;
-      else counts.set(value, { label: placeCase(value) || value, count: 1 });
+      if (!value || counts.has(value)) return;
+      counts.set(value, { label: placeCase(value) || value, count: 0 });
     });
     return [...counts.entries()]
       .map(([value, meta]) => ({ value, label: meta.label, count: meta.count }))
       .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
-  }, [loadedItems]);
+  }, [summary.data, loadedItems]);
 
   /**
    * The within-balance chip is applied to the homes already loaded, because the
@@ -321,14 +329,6 @@ export default function FunderDashboardNew() {
               </p>
             </div>
             <div className="grid gap-2 sm:flex sm:items-center">
-              <div className="rounded-xl border bg-card px-4 py-2">
-                <p className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <Wallet className="h-3.5 w-3.5" /> Available balance
-                </p>
-                <p className="text-sm font-semibold">
-                  {wallet.error ? 'Unavailable' : wallet.isLoading ? 'Loading…' : formatDynamic(wallet.withdrawable)}
-                </p>
-              </div>
               <Button variant="outline" className="rounded-xl" onClick={() => navigate('/dashboard/funder')}>
                 Current dashboard
               </Button>
@@ -374,46 +374,17 @@ export default function FunderDashboardNew() {
               />
             </label>
 
-            <Input
-              value={filters.location}
-              onChange={(event) => setFilters({ ...filters, location: event.target.value })}
-              placeholder="District"
-              aria-label="Filter by district"
-              className="h-11 min-w-0 basis-[calc(50%-0.25rem)] rounded-xl text-sm sm:flex-1 sm:basis-auto sm:max-w-[9.5rem]"
-            />
-
-            <Select
-              value={filters.amount}
-              onValueChange={(value: AmountBucket) => setFilters({ ...filters, amount: value })}
+            <Button
+              variant="outline"
+              className="relative h-11 min-w-0 basis-[calc(50%-0.25rem)] rounded-xl text-sm sm:flex-none sm:basis-auto"
+              onClick={() => setFiltersOpen(true)}
             >
-              <SelectTrigger className="h-11 min-w-0 basis-[calc(50%-0.25rem)] rounded-xl text-sm sm:flex-1 sm:basis-auto sm:max-w-[11rem]" aria-label="Filter by amount">
-                <SlidersHorizontal className="mr-1.5 h-4 w-4 text-muted-foreground" aria-hidden />
-                <SelectValue placeholder="Any amount" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Any amount</SelectItem>
-                <SelectItem value="under_300k">Under UGX 300,000</SelectItem>
-                <SelectItem value="300k_600k">UGX 300,000–600,000</SelectItem>
-                <SelectItem value="over_600k">Above UGX 600,000</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {tab === 'empty' ? (
-              <Select value={filters.sort} onValueChange={(value) => changeSort(value as FunderNewSort)}>
-                <SelectTrigger className="h-11 min-w-0 basis-[calc(50%-0.25rem)] rounded-xl text-sm sm:flex-1 sm:basis-auto sm:max-w-[10.5rem]" aria-label="Sort homes">
-                  <SelectValue placeholder="Sort" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="nearest" disabled={!origin}>
-                    Nearest first
-                  </SelectItem>
-                  <SelectItem value="rent_low">Lowest amount</SelectItem>
-                  <SelectItem value="rent_high">Highest amount</SelectItem>
-                  <SelectItem value="newest">Newest first</SelectItem>
-                  <SelectItem value="recommended">Recommended</SelectItem>
-                </SelectContent>
-              </Select>
-            ) : null}
+              <ListFilter className="h-4 w-4" aria-hidden />
+              Filters
+              {filtersActive ? (
+                <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-primary" aria-hidden />
+              ) : null}
+            </Button>
 
             <Button
               variant="soft"
@@ -424,20 +395,11 @@ export default function FunderDashboardNew() {
               Calculator
             </Button>
 
-            {filtersActive ? (
-              <Button
-                variant="ghost"
-                className="h-11 min-w-0 basis-full rounded-xl text-sm sm:flex-none sm:basis-auto"
-                onClick={resetFilters}
-              >
-                <X className="h-4 w-4" aria-hidden />
-                Clear
-              </Button>
-            ) : null}
           </div>
 
-          {/* Chip filters, matching the current funding dashboard */}
-          <FunderNewFilterChips
+          <FunderNewFilterDrawer
+            open={filtersOpen}
+            onOpenChange={setFiltersOpen}
             filters={filters}
             districts={districtOptions}
             supportsSort={tab === 'empty'}
@@ -447,6 +409,7 @@ export default function FunderDashboardNew() {
             onSortChange={changeSort}
             onReset={resetFilters}
           />
+
           {filters.withinFloat && availableBalance !== null ? (
             <p className="px-1 text-xs text-muted-foreground">
               Within-balance is applied to the homes already loaded, because the read service has no balance filter.

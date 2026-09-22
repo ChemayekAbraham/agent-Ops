@@ -48,6 +48,8 @@ interface EmptyHouseMapBrowserProps {
   onHousesDiscovered?: (houses: SupportableHouse[]) => void;
   /** Keep false on review surfaces that must not request device location until the user taps the location control. */
   requestLocationOnMount?: boolean;
+  /** Called when the map expand/collapse state changes (fullscreen toggle). */
+  onExpandedChange?: (expanded: boolean) => void;
 }
 
 const KAMPALA: [number, number] = [0.3476, 32.5825];
@@ -165,12 +167,16 @@ export function EmptyHouseMapBrowser({
   onActiveHouseChange,
   onHousesDiscovered,
   requestLocationOnMount = true,
+  onExpandedChange,
 }: EmptyHouseMapBrowserProps) {
   const [activeHouse, setActiveHouse] = useState<SupportableHouse | null>(null);
   const [viewport, setViewport] = useState<MapViewport | null>(null);
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  useEffect(() => {
+    onExpandedChange?.(isExpanded);
+  }, [isExpanded, onExpandedChange]);
   const [userPosition, setUserPosition] = useState<[number, number] | null>(null);
   /** 'idle' = never asked, 'granted' = located, 'denied'/'unsupported' = show the prompt. */
   const [geoStatus, setGeoStatus] = useState<'idle' | 'granted' | 'denied' | 'unsupported'>('idle');
