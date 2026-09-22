@@ -30,7 +30,6 @@ import { SelfPortfolioFundingCard } from '@/components/partner/SelfPortfolioFund
 import { HowItWorksSteps, type HowItWorksStep } from './HowItWorksSteps';
 import { EmptyHouseOpportunitiesSheet } from '@/components/agent/EmptyHouseOpportunitiesSheet';
 import { FunderBookedHousesPanel } from '@/components/supporter/FunderBookedHousesPanel';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 import { useProfile } from '@/hooks/useProfile';
 
