@@ -101,13 +101,79 @@ export function WeeklyStaffForwardingReport() {
         p_to: win.toIso,
       });
       if (rpcError) throw new Error(rpcError.message);
-      return (rows ?? []) as ReportRow[];
+      const forwarded = (rows ?? []) as ReportRow[];
+
+      // ---- Calls handled at the Calling Center with nothing forwarded on.
+      // Anything that produced a forwarded concern is excluded, so a call is
+      // counted either as forwarded above or as resolved here — never twice.
+      const forwardedRowIds = new Set(forwarded.map((r) => r.cycle_row_id).filter(Boolean) as string[]);
+      const forwardedCallIds = new Set(forwarded.map((r) => r.received_call_id).filter(Boolean) as string[]);
+
+      const [attemptsRes, callsRes] = await Promise.all([
+        anyDb
+          .from('cc_call_attempts')
+          .select('id, cycle_row_id, caller_id, recorded_at, outcome, void_reason')
+          .gte('recorded_at', win.fromIso)
+          .lt('recorded_at', win.toIso)
+          .limit(5000),
+        anyDb
+          .from('cc_received_calls')
+          .select('id, recorded_by_name, called_at')
+          .gte('called_at', win.fromIso)
+          .lt('called_at', win.toIso)
+          .limit(5000),
+      ]);
+      if (attemptsRes.error) throw new Error(attemptsRes.error.message);
+      if (callsRes.error) throw new Error(callsRes.error.message);
+
+      type Attempt = {
+        id: string;
+        cycle_row_id: string;
+        caller_id: string | null;
+        recorded_at: string | null;
+        outcome: string | null;
+        void_reason: string | null;
+      };
+      const attempts = ((attemptsRes.data ?? []) as Attempt[]).filter(
+        (a) =>
+          !a.void_reason &&
+          a.recorded_at &&
+          (a.outcome === 'engaged' || a.outcome === 'callback_booked') &&
+          !forwardedRowIds.has(a.cycle_row_id),
+      );
+
+      const officerNames = new Map<string, string>();
+      const officerIds = [...new Set(attempts.map((a) => a.caller_id).filter(Boolean) as string[])];
+      for (const slice of chunk(officerIds, 300)) {
+        const { data: profs } = await anyDb.from('profiles').select('id, full_name').in('id', slice);
+        ((profs ?? []) as { id: string; full_name: string | null }[]).forEach((p) => {
+          if (p.full_name) officerNames.set(p.id, p.full_name);
+        });
+      }
+
+      const resolved: ResolvedEntry[] = [
+        ...attempts.map((a) => ({
+          name: (a.caller_id ? officerNames.get(a.caller_id) : null) ?? 'Call centre officer',
+          at: a.recorded_at as string,
+          source: 'made' as const,
+        })),
+        ...((callsRes.data ?? []) as { id: string; recorded_by_name: string | null; called_at: string }[])
+          .filter((c) => !forwardedCallIds.has(c.id))
+          .map((c) => ({
+            name: c.recorded_by_name?.trim() || 'Call centre officer',
+            at: c.called_at,
+            source: 'received' as const,
+          })),
+      ];
+
+      return { forwarded, resolved };
     },
     staleTime: 60_000,
   });
 
   const report = useMemo(() => {
-    const rows = data ?? [];
+    const rows = data?.forwarded ?? [];
+
     const dayKeys = win.days.map(isoDay);
     const dayLabels = win.days.map((d) => format(d, 'EEE dd MMM'));
     const blank = () => dayKeys.map(() => 0);
