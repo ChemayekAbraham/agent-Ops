@@ -137,48 +137,62 @@ export function FunderNewFilterChips({
         </Select>
       ) : null}
 
-      <Input
-        value={filters.rentMin === null ? '' : String(filters.rentMin)}
-        onChange={(event) => onChange({ rentMin: parseAmount(event.target.value) })}
-        inputMode="numeric"
-        placeholder="Min amount"
-        aria-label="Minimum amount"
-        className="h-8 w-[7.5rem] flex-none rounded-full text-[11px] font-semibold"
-      />
-      <Input
-        value={filters.rentMax === null ? '' : String(filters.rentMax)}
-        onChange={(event) => onChange({ rentMax: parseAmount(event.target.value) })}
-        inputMode="numeric"
-        placeholder="Max amount"
-        aria-label="Maximum amount"
-        className="h-8 w-[7.5rem] flex-none rounded-full text-[11px] font-semibold"
-      />
+      {field('Min amount',
+        <Input
+          value={filters.rentMin === null ? '' : String(filters.rentMin)}
+          onChange={(event) => onChange({ rentMin: parseAmount(event.target.value) })}
+          inputMode="numeric"
+          placeholder="Min amount"
+          aria-label="Minimum amount"
+          className={
+            stacked
+              ? 'h-10 w-full rounded-xl text-xs font-semibold'
+              : 'h-8 w-[7.5rem] flex-none rounded-full text-[11px] font-semibold'
+          }
+        />
+      )}
+      {field('Max amount',
+        <Input
+          value={filters.rentMax === null ? '' : String(filters.rentMax)}
+          onChange={(event) => onChange({ rentMax: parseAmount(event.target.value) })}
+          inputMode="numeric"
+          placeholder="Max amount"
+          aria-label="Maximum amount"
+          className={
+            stacked
+              ? 'h-10 w-full rounded-xl text-xs font-semibold'
+              : 'h-8 w-[7.5rem] flex-none rounded-full text-[11px] font-semibold'
+          }
+        />
+      )}
 
-      <button
-        type="button"
-        aria-pressed={filters.withinFloat}
-        disabled={availableBalance === null}
-        onClick={() => onChange({ withinFloat: !filters.withinFloat })}
-        className={`h-8 flex-none rounded-full border px-3 text-[11px] font-semibold transition-colors disabled:opacity-50 ${
-          filters.withinFloat
-            ? 'border-primary bg-primary text-primary-foreground'
-            : 'border-border bg-background text-foreground hover:bg-muted'
-        }`}
-      >
-        <Wallet className="mr-1 inline h-3 w-3" aria-hidden />
-        Within my balance
-      </button>
-
-      {dirty ? (
+      <div className={stacked ? 'sm:col-span-2 flex flex-wrap items-center gap-2 pt-1' : 'contents'}>
         <button
           type="button"
-          onClick={onReset}
-          className="h-8 flex-none rounded-full border border-destructive/30 bg-destructive/5 px-3 text-[11px] font-semibold text-destructive transition-colors hover:bg-destructive/10"
+          aria-pressed={filters.withinFloat}
+          disabled={availableBalance === null}
+          onClick={() => onChange({ withinFloat: !filters.withinFloat })}
+          className={`h-8 flex-none rounded-full border px-3 text-[11px] font-semibold transition-colors disabled:opacity-50 ${
+            filters.withinFloat
+              ? 'border-primary bg-primary text-primary-foreground'
+              : 'border-border bg-background text-foreground hover:bg-muted'
+          }`}
         >
-          <X className="mr-1 inline h-3 w-3" aria-hidden />
-          Reset
+          <Wallet className="mr-1 inline h-3 w-3" aria-hidden />
+          Within my balance
         </button>
-      ) : null}
+
+        {dirty ? (
+          <button
+            type="button"
+            onClick={onReset}
+            className="h-8 flex-none rounded-full border border-destructive/30 bg-destructive/5 px-3 text-[11px] font-semibold text-destructive transition-colors hover:bg-destructive/10"
+          >
+            <X className="mr-1 inline h-3 w-3" aria-hidden />
+            Reset
+          </button>
+        ) : null}
+      </div>
     </div>
   );
 }
