@@ -49949,6 +49949,14 @@ export type Database = {
         }
         Relationships: []
       }
+      v_crm_call_section: {
+        Row: {
+          person_id: string | null
+          section: string | null
+          subtype: string | null
+        }
+        Relationships: []
+      }
       v_crm_person_roles: {
         Row: {
           person_id: string | null
@@ -54976,8 +54984,21 @@ export type Database = {
           total_rows: number
         }[]
       }
+      crm_call_section_counts: {
+        Args: never
+        Returns: {
+          people: number
+          section: string
+        }[]
+      }
       crm_call_sessions_feed: {
-        Args: { p_days?: number; p_limit?: number; p_target_user_id?: string }
+        Args: {
+          p_days?: number
+          p_limit?: number
+          p_section?: string
+          p_target_user_id?: string
+          p_with_summary_only?: boolean
+        }
         Returns: {
           created_at: string
           duration_seconds: number
@@ -55050,6 +55071,7 @@ export type Database = {
           total_rows: number
         }[]
       }
+      crm_reap_stale_call_sessions: { Args: never; Returns: Json }
       crm_record_call_outcome: {
         Args: { p_outcome: string; p_session_id: string }
         Returns: undefined
@@ -56249,6 +56271,14 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: number
       }
+      get_agent_active_breakdown: {
+        Args: { p_range_end?: string; p_range_start: string }
+        Returns: Json
+      }
+      get_agent_active_rent_request: {
+        Args: { p_tenant_id: string }
+        Returns: Json
+      }
       get_agent_advance_activity_correlation: {
         Args: { p_days?: number }
         Returns: {
@@ -56823,6 +56853,10 @@ export type Database = {
           tenant_status: string
           verified: boolean
         }[]
+      }
+      get_agent_tenant_repayments: {
+        Args: { p_tenant_id: string }
+        Returns: Json
       }
       get_agent_tenants_overview: {
         Args: { p_today_start?: string }
@@ -57884,6 +57918,7 @@ export type Database = {
         }[]
       }
       get_my_commission_rate: { Args: never; Returns: Json }
+      get_my_landlord_properties: { Args: never; Returns: Json }
       get_my_listing_block: { Args: never; Returns: Json }
       get_my_parent_agent: {
         Args: never

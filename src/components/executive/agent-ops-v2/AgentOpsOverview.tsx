@@ -158,6 +158,28 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
     staleTime: 60_000,
   });
 
+  // Active agents, counted as two disjoint groups: primary agents (who collected
+  // themselves OR whose sub-agents collected) and sub-agents who collected. The
+  // overview RPC's active_agents_curr counts every collector including
+  // sub-agents, so adding it to active_subagents_curr double-counted them and
+  // left team-only primary agents out.
+  const { data: activeBreakdown } = useQuery({
+    queryKey: ['agent-ops-overview', 'active-breakdown', startIso, endIso],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_agent_active_breakdown' as any, {
+        p_range_start: startIso,
+        p_range_end: endIso,
+      });
+      if (error) throw error;
+      return data as unknown as {
+        agents_curr: number; agents_prev: number;
+        subagents_curr: number; subagents_prev: number;
+        total_curr: number; total_prev: number;
+      };
+    },
+    staleTime: 60_000,
+  });
+
   // Daily series for the charts — same RPC, daily buckets over the last 30 days.
   const { data: trendPayload } = useQuery({
     queryKey: ['agent-ops-overview', 'daily-trend', trendStart, endIso],
@@ -208,6 +230,12 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
   });
 
   const k = data?.kpis || ({} as Record<string, number>);
+  // Disjoint active counts (see the active-breakdown query above).
+  const activeCurrAgents = activeBreakdown?.agents_curr ?? 0;
+  const activeCurrSubs = activeBreakdown?.subagents_curr ?? 0;
+  const activeCurrTotal = activeBreakdown?.total_curr ?? activeCurrAgents + activeCurrSubs;
+  const activePrevTotal = activeBreakdown?.total_prev
+    ?? ((activeBreakdown?.agents_prev ?? 0) + (activeBreakdown?.subagents_prev ?? 0));
   const trend = trendPayload?.trend || data?.trend || [];
 
   const trendData = trend.map((t) => ({
@@ -303,12 +331,9 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
         />
         <KpiTile
           title="Active Agents"
-          value={fmtNum((k.active_agents_curr || 0) + (k.active_subagents_curr || 0))}
-          delta={pctDelta(
-            (k.active_agents_curr || 0) + (k.active_subagents_curr || 0),
-            (k.active_agents_prev || 0) + (k.active_subagents_prev || 0)
-          )}
-          subtitle={`${fmtNum(k.active_agents_curr || 0)} agents · ${fmtNum(k.active_subagents_curr || 0)} sub-agents active`}
+          value={fmtNum(activeCurrTotal)}
+          delta={pctDelta(activeCurrTotal, activePrevTotal)}
+          subtitle={`${fmtNum(activeCurrAgents)} agents · ${fmtNum(activeCurrSubs)} sub-agents active`}
           icon={Activity}
           accent="bg-emerald-600"
           spark={trendData.map((t) => t.activeAgents)}
@@ -317,17 +342,14 @@ export function AgentOpsOverview({ onOpenSection }: AgentOpsOverviewProps) {
         />
         <KpiTile
           title="Inactive Agents"
-          value={fmtNum(
-            ((k.total_agents || 0) + (k.total_subagents || 0)) -
-            ((k.active_agents_curr || 0) + (k.active_subagents_curr || 0))
-          )}
+          value={fmtNum(Math.max(
+            ((k.total_agents || 0) + (k.total_subagents || 0)) - activeCurrTotal, 0
+          ))}
           delta={pctDelta(
-            ((k.total_agents || 0) + (k.total_subagents || 0)) -
-            ((k.active_agents_curr || 0) + (k.active_subagents_curr || 0)),
-            ((k.total_agents_prev || 0) + (k.total_subagents_prev || 0)) -
-            ((k.active_agents_prev || 0) + (k.active_subagents_prev || 0))
+            Math.max(((k.total_agents || 0) + (k.total_subagents || 0)) - activeCurrTotal, 0),
+            Math.max(((k.total_agents_prev || 0) + (k.total_subagents_prev || 0)) - activePrevTotal, 0)
           )}
-          subtitle={`${fmtNum((k.total_agents || 0) - (k.active_agents_curr || 0))} agents · ${fmtNum((k.total_subagents || 0) - (k.active_subagents_curr || 0))} sub-agents inactive`}
+          subtitle={`${fmtNum(Math.max((k.total_subagents || 0) - activeCurrSubs, 0))} sub-agents inactive`}
           icon={UserPlus}
           accent="bg-slate-500"
           onClick={() => onOpenSection('directory')}

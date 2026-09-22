@@ -327,8 +327,14 @@ export function TenantCallsReport() {
                 {busy ? 'Building…' : 'PDF'}
               </Button>
               {/* Separate, additive export: Received Calls + Issues Review in
-                  one document. The History PDF above is untouched. */}
-              <CombinedCallingCenterReportButton />
+                  one document. The History PDF above is untouched. It is given
+                  the same window this page is already filtered to, so both PDFs
+                  always cover the identical period. */}
+              <CombinedCallingCenterReportButton
+                fromIso={win.fromIso}
+                toIso={win.toIso}
+                periodLabel={win.label}
+              />
               
               <Button
                 size="sm"

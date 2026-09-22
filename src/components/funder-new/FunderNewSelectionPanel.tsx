@@ -26,8 +26,11 @@ export function FunderNewSelectionBar({
   const total = items.reduce((sum, item) => sum + item.amount, 0);
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 border-t bg-card/95 shadow-[0_-8px_30px_-12px_hsl(var(--primary)/0.35)] backdrop-blur pb-safe">
-      <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+    // z-[60] keeps the bar above the app's other fixed bottom overlays, which
+    // sit at z-40 and would otherwise swallow taps on Review.
+    <div className="fixed inset-x-0 bottom-0 z-[60] border-t bg-card/95 shadow-[0_-8px_30px_-12px_hsl(var(--primary)/0.35)] backdrop-blur pb-safe">
+      <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-2.5 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
           <p className="text-sm font-semibold">
             {items.length} {items.length === 1 ? 'home' : 'homes'} selected

@@ -1,0 +1,144 @@
+/*
+ * Map styling for /dashboard/funder-new ONLY.
+ * Every rule is nested under .fn-map so no other Leaflet map on the platform is
+ * affected. Nothing here targets a bare .leaflet-* selector.
+ */
+
+.fn-map {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: hsl(var(--muted));
+}
+
+.fn-map .leaflet-container {
+  width: 100%;
+  height: 100%;
+  background: hsl(var(--muted));
+  font: inherit;
+  outline: none;
+}
+
+/* Keep the required provider attribution readable but quiet. */
+.fn-map .leaflet-control-attribution {
+  background: hsl(var(--card) / 0.82);
+  color: hsl(var(--muted-foreground));
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 6px 0 0 0;
+}
+
+.fn-map .leaflet-control-attribution a {
+  color: hsl(var(--muted-foreground));
+}
+
+/* Default Leaflet zoom buttons are replaced by the app control group. */
+.fn-map .leaflet-control-zoom {
+  display: none;
+}
+
+/* ---- Price marker: light surface, dark readable text ---- */
+.fn-map-price {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 46px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid hsl(var(--border));
+  background: hsl(0 0% 100%);
+  color: hsl(222 47% 16%);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  box-shadow: 0 1px 4px hsl(222 47% 11% / 0.28);
+  cursor: pointer;
+}
+
+.fn-map-price:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* Selected / active house: purple fill AND a ring plus a caret, so the state is
+   never carried by colour alone. */
+.fn-map-price--active {
+  background: hsl(var(--primary));
+  border-color: hsl(var(--primary));
+  color: hsl(var(--primary-foreground));
+  box-shadow:
+    0 0 0 3px hsl(var(--primary) / 0.28),
+    0 2px 8px hsl(222 47% 11% / 0.35);
+  z-index: 5;
+}
+
+.fn-map-price--active::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -5px;
+  width: 8px;
+  height: 8px;
+  transform: translateX(-50%) rotate(45deg);
+  background: hsl(var(--primary));
+}
+
+.fn-map-price--saved {
+  border-color: hsl(var(--primary) / 0.65);
+  border-width: 2px;
+}
+
+/* ---- Count cluster: visually distinct from a price pill ---- */
+.fn-map-cluster {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: hsl(var(--primary) / 0.92);
+  color: hsl(var(--primary-foreground));
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  border: 2px solid hsl(0 0% 100% / 0.9);
+  box-shadow: 0 2px 10px hsl(222 47% 11% / 0.3);
+  cursor: pointer;
+}
+
+.fn-map-cluster--lg {
+  font-size: 15px;
+}
+
+.fn-map-cluster:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 2px;
+}
+
+/* ---- Actual device location: blue dot, never used for houses ---- */
+.fn-map-me {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: hsl(214 90% 52%);
+  border: 3px solid hsl(0 0% 100%);
+  box-shadow: 0 0 0 2px hsl(214 90% 52% / 0.35), 0 1px 5px hsl(222 47% 11% / 0.4);
+}
+
+/* ---- Full-screen surface, also applied to the portaled node ---- */
+.fn-map-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  background: hsl(var(--background));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fn-map .leaflet-fade-anim .leaflet-tile,
+  .fn-map .leaflet-zoom-anim .leaflet-zoom-animated {
+    transition: none !important;
+  }
+}

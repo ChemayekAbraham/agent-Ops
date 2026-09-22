@@ -6,7 +6,7 @@ import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useOffline } from '@/contexts/OfflineContext';
 import { Button } from '@/components/ui/button';
-import { Calculator, BadgeCheck, Wallet } from 'lucide-react';
+import { Calculator, BadgeCheck, MapPin, Wallet } from 'lucide-react';
 import { formatUGX as _formatUGX } from '@/lib/rentCalculations';
 import { useToast } from '@/hooks/use-toast';
 import { AppRole } from '@/hooks/useAuth';
@@ -66,6 +66,12 @@ import {
   WidgetCardSkeleton,
   ListSectionSkeleton,
 } from '@/components/skeletons/SectionSkeletons';
+import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import { Suspense } from 'react';
+
+const EmptyHouseMapBrowser = lazyWithRetry(
+  () => import('@/components/partner/EmptyHouseMapBrowser').then(m => ({ default: m.EmptyHouseMapBrowser })),
+);
 
 
 interface SupporterDashboardProps {
@@ -104,6 +110,7 @@ export default function SupporterDashboard({
   const [localHasAccepted, setLocalHasAccepted] = useState<boolean | null>(null);
   const [justAccepted, setJustAccepted] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
+  const [showMap, setShowMap] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [selectedHouse, setSelectedHouse] = useState<VirtualHouse | null>(null);
   const [showHouseDetails, setShowHouseDetails] = useState(false);
@@ -499,7 +506,7 @@ export default function SupporterDashboard({
             {/* Bottom summary strip */}
             <div className="mt-4 flex items-center gap-4 border-t border-border/40 pt-3">
               <p className="text-[11px] font-medium leading-snug text-muted-foreground">
-                <span className="font-bold text-foreground">{openHouses.toLocaleString()}</span> empty {openHouses === 1 ? 'house' : 'houses'} waiting
+                <span className="font-bold text-foreground">{openHouses.toLocaleString()}</span> {openHouses === 1 ? 'house' : 'houses'} waiting
                 {avgRent > 0 && <> · avg <span className="font-bold text-foreground">{formatAmountCompact(avgRent)}</span>/mo</>}
               </p>
             </div>
@@ -507,16 +514,29 @@ export default function SupporterDashboard({
             );
           })()}
 
+          {/* ═══ STANDALONE MAP ═══ */}
+          <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+            <Suspense fallback={
+              <div className="flex h-[300px] items-center justify-center bg-muted/30">
+                <p className="text-xs text-muted-foreground animate-pulse">Loading map…</p>
+              </div>
+            }>
+              <EmptyHouseMapBrowser
+                houses={[]}
+                selectedIds={[]}
+                searchQuery=""
+                remaining={0}
+                busy={false}
+                onSearchQueryChange={() => {}}
+                onOpenHouse={() => {}}
+                onFundHouse={() => {}}
+              />
+            </Suspense>
+          </div>
+
           {/* ═══ SECTION: OPPORTUNITIES ═══ */}
 
           <div id="opportunities" className="relative scroll-mt-4 space-y-2.5 sm:space-y-4">
-            <div className="flex items-center gap-2 px-1">
-              <div className="w-1 h-5 rounded-full bg-primary" />
-              <div>
-                <h2 className="text-lg sm:text-base font-black text-foreground tracking-tight">Fund</h2>
-                <p className="text-[11px] text-muted-foreground">Choose a verified home and fund the tenant’s Rent Plan.</p>
-              </div>
-            </div>
             {!effectiveHasAccepted && <LockedOverlay onAcceptClick={() => setShowAgreementModal(true)} />}
             <WidgetErrorBoundary label="Capital opportunities">
               {loading && virtualHouses.length === 0 ? (

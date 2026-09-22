@@ -157,8 +157,8 @@ export function AgentProductDetailDialog({ agentId, category, onClose }: Props) 
 
   return (
     <Dialog open={!!agentId} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="max-w-2xl p-0 gap-0 max-h-[90vh] flex flex-col">
-        <DialogHeader className="p-4 pb-3 border-b border-border">
+      <DialogContent className="max-w-2xl p-0 gap-0 max-h-[90vh] flex flex-col overflow-hidden">
+        <DialogHeader className="p-4 pb-3 border-b border-border shrink-0">
           <DialogTitle className="text-base">Agent product profile</DialogTitle>
         </DialogHeader>
 
@@ -171,7 +171,7 @@ export function AgentProductDetailDialog({ agentId, category, onClose }: Props) 
             {(error as Error).message || 'Could not load this agent.'}
           </p>
         ) : (
-          <ScrollArea className="flex-1">
+          <ScrollArea className="flex-1 min-h-0 overflow-y-auto">
             <div className="p-4 space-y-4">
               {/* Identity */}
               <div className="flex items-start gap-3">
