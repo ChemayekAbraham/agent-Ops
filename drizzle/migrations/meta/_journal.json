@@ -2115,6 +2115,13 @@
       "when": 1790084244530,
       "tag": "0301_fix_a2_float_spent_direction_classification",
       "breakpoints": true
+    },
+    {
+      "idx": 302,
+      "version": "7",
+      "when": 1790085913855,
+      "tag": "0302_loan_gate_prompts_and_disbursement",
+      "breakpoints": true
     }
   ]
 }

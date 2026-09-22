@@ -39968,6 +39968,60 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_loan_prompts: {
+        Row: {
+          approver_id: string
+          created_at: string
+          id: string
+          kind: string
+          requisition_id: string
+          resolution: string | null
+          resolved_at: string | null
+          snooze_count: number
+          snooze_until: string | null
+          state: string
+        }
+        Insert: {
+          approver_id: string
+          created_at?: string
+          id?: string
+          kind: string
+          requisition_id: string
+          resolution?: string | null
+          resolved_at?: string | null
+          snooze_count?: number
+          snooze_until?: string | null
+          state?: string
+        }
+        Update: {
+          approver_id?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          requisition_id?: string
+          resolution?: string | null
+          resolved_at?: string | null
+          snooze_count?: number
+          snooze_until?: string | null
+          state?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_loan_prompts_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "staff_requisitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_loan_prompts_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_facilitation_position"
+            referencedColumns: ["requisition_id"]
+          },
+        ]
+      }
       staff_loan_repayments: {
         Row: {
           amount: number
@@ -63999,9 +64053,83 @@ export type Database = {
           loans_charged: number
         }[]
       }
+      staff_loan_disburse: {
+        Args: { _requisition_id: string }
+        Returns: {
+          amount: number
+          approved_amount: number | null
+          attachment_urls: string[]
+          category: string | null
+          ceo_decided_at: string | null
+          ceo_decided_by: string | null
+          ceo_note: string | null
+          cfo_decided_at: string | null
+          cfo_decided_by: string | null
+          cfo_note: string | null
+          coo_decided_at: string | null
+          coo_decided_by: string | null
+          coo_note: string | null
+          created_at: string
+          credited_at: string | null
+          credited_by: string | null
+          currency: string
+          current_approver_role: string | null
+          decided_at: string | null
+          department_id: string | null
+          department_key: string | null
+          final_stage: string
+          hr_decided_at: string | null
+          hr_decided_by: string | null
+          hr_note: string | null
+          id: string
+          loan_monthly_rate: number | null
+          loan_months: number | null
+          needed_by: string | null
+          reason: string
+          rejection_reason: string | null
+          request_kind: string
+          requester_id: string
+          requester_name: string | null
+          requester_role: string | null
+          requisition_code: string
+          returned_from_stage: string | null
+          stage: string
+          supervisor_decided_at: string | null
+          supervisor_decided_by: string | null
+          supervisor_note: string | null
+          title: string
+          updated_at: string
+          wallet_credit_status: string | null
+          wallet_transaction_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "staff_requisitions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       staff_loan_has_authority: {
         Args: { _authority: string; _user_id: string }
         Returns: boolean
+      }
+      staff_loan_pending_prompt: {
+        Args: never
+        Returns: {
+          amount: number
+          borrower_name: string
+          currency: string
+          interest_method: string
+          kind: string
+          monthly_rate: number
+          months: number
+          prompt_id: string
+          reason: string
+          requisition_code: string
+          requisition_id: string
+          snooze_count: number
+          submitted_at: string
+        }[]
       }
       staff_loan_policy_confirm: {
         Args: {
@@ -64027,6 +64155,27 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "staff_loan_policy"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      staff_loan_prompt_snooze: {
+        Args: { _prompt_id: string }
+        Returns: {
+          approver_id: string
+          created_at: string
+          id: string
+          kind: string
+          requisition_id: string
+          resolution: string | null
+          resolved_at: string | null
+          snooze_count: number
+          snooze_until: string | null
+          state: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "staff_loan_prompts"
           isOneToOne: true
           isSetofReturn: false
         }
