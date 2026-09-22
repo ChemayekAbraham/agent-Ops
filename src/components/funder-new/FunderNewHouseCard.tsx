@@ -79,8 +79,6 @@ export function FunderNewHouseCard({
           )}
         </button>
 
-        {verified ? <FunderNewVerifiedBadge className="absolute left-1.5 top-1.5" /> : null}
-
         <button
           type="button"
           onClick={onSave}
