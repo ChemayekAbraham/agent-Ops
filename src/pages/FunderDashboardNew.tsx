@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, Calculator, Fingerprint, HelpCircle, Info, ListFilter, Loader2, Search, SlidersHorizontal, Wallet, X } from 'lucide-react';
+import { AlertTriangle, Calculator, Fingerprint, HelpCircle, ListFilter, Loader2, Search, SlidersHorizontal, Wallet, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { AppRole, useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
@@ -10,7 +10,6 @@ import { roleToSlug } from '@/lib/roleRoutes';
 import { generateWelileAiId } from '@/lib/welileAiId';
 import { useWalletBalance } from '@/hooks/wallet/useWalletBalance';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
