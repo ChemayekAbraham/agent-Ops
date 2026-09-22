@@ -415,7 +415,11 @@ export function CombinedCallingCenterReportButton({ days = 90 }: { days?: number
             { label: 'Staff members holding concerns', value: String(byReceiver.length) },
             { label: 'Officers who recorded received calls', value: String(receivedByOfficer.length) },
             { label: 'Repeated concerns identified', value: String(themes.length) },
+            { label: 'Calls we made', value: String(madeCalls.length) },
+            { label: 'Calls we made with a concern forwarded', value: String(madeForwarded) },
+            { label: 'Calls and concerns never forwarded to staff', value: String(totalNotForwarded) },
           ],
+          staffHandling,
           received: {
             tiles: [
               { label: 'Calls received', value: String(calls.length) },
