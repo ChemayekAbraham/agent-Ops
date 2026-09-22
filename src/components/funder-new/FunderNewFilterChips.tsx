@@ -60,7 +60,7 @@ export function FunderNewFilterChips({
     filters.withinFloat;
 
   const chip = stacked ? CHIP_STACKED : CHIP;
-  const field = (label: string, node: React.ReactNode, wide = false) =>
+  const field = (label: string, node: ReactNode, wide = false) =>
     stacked ? (
       <div className={wide ? 'sm:col-span-2 min-w-0' : 'min-w-0'}>
         <span className="mb-1 block text-[11px] font-medium text-muted-foreground">{label}</span>
