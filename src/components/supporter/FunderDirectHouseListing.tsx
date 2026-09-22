@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, MapPin, Home, ArrowRight, X, AlertCircle, RefreshCw, Check, Wallet, TrendingUp, CalendarIcon, Lock, SlidersHorizontal, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { MapPin, Home, ArrowRight, X, AlertCircle, RefreshCw, Check, Wallet, TrendingUp, CalendarIcon, Lock, SlidersHorizontal, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { format, addMonths } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -169,7 +169,7 @@ export function FunderDirectHouseListing() {
   const PAGE_SIZE = 100;
   const CARDS_PER_PAGE = 4;
 
-  const [search, setSearch] = useState('');
+  const search = '';
   const [region, setRegion] = useState('all');
   const [category, setCategory] = useState('all');
   const [rooms, setRooms] = useState('all');
@@ -423,7 +423,6 @@ export function FunderDirectHouseListing() {
   };
 
   const clearFilters = () => {
-    setSearch('');
     setRegion('all');
     setCategory('all');
     setRooms('all');
@@ -572,18 +571,6 @@ export function FunderDirectHouseListing() {
 
   return (
     <div ref={containerRef} className="space-y-3">
-      {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
-        <Input
-          placeholder="Search by area, title, or address"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="pl-9 h-10 text-sm"
-          aria-label="Search houses"
-        />
-      </div>
-
       {/* Filter toggle + live count */}
       <div className="flex flex-wrap items-center gap-2">
         <Button
