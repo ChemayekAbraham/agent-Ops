@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -15,7 +15,7 @@ import {
 import { formatDynamic } from '@/lib/currencyFormat';
 import { fetchAllPages } from '@/lib/fetchAllPages';
 import { toast } from 'sonner';
-import { Car, Check, Home, Loader2, MapPin, Navigation, Plus, ShieldCheck, TrendingUp, UserCheck, Wallet } from 'lucide-react';
+import { Bookmark, Car, Check, Home, Loader2, MapPin, Navigation, Plus, Share2, ShieldCheck, TrendingUp, UserCheck, Wallet } from 'lucide-react';
 import { estimateRoute } from '@/lib/houseGeo';
 import type { HouseOpportunity } from '@/components/agent/EmptyHouseDetailSheet';
 import { FundHouseTooltip } from './FundHouseTooltip';
@@ -131,7 +131,7 @@ export function useVerifiedEmptyHouses() {
 }
 
 
-/** One selectable verified empty house, styled to match the tenant plan cards. */
+/** One selectable verified empty house — Google Maps hotel-card style. */
 export function HouseSupportCard({
   house,
   isSelected,
@@ -141,7 +141,7 @@ export function HouseSupportCard({
   onOpenDetail,
   onTopUp,
   flash = false,
-  searchQuery = '',
+  searchQuery,
   origin = null,
 }: {
   house: SupportableHouse;
@@ -165,161 +165,163 @@ export function HouseSupportCard({
   const addressLine = houseAddressLine(house);
   const shortfall = Number(house.monthly_rent || 0) - remaining;
   const unaffordable = shortfall > 0;
-  // How far away and roughly how long a drive it is, measured from the funder's
-  // location (or the house they tapped on the map). No API call — estimated.
   const route = origin ? estimateRoute(house, origin.lat, origin.lng) : null;
+  const scrollRef = useRef<HTMLDivElement>(null);
 
+  const handleShare = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const url = `${window.location.origin}/houses/${house.house_id}`;
+    if (navigator.share) {
+      navigator.share({ title: titleLine, url }).catch(() => {});
+    } else {
+      navigator.clipboard.writeText(url);
+      toast.success('Link copied');
+    }
+  };
 
   return (
-    <Card
+    <div
       data-house-id={house.house_id}
-      role="button"
-      tabIndex={0}
-      onClick={() => onOpenDetail(house)}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onOpenDetail(house);
-        }
-      }}
-      className={`relative overflow-hidden rounded-2xl p-0 transition-all cursor-pointer border ${
-        flash
-          ? 'ring-4 ring-success/70 bg-success/10 border-success shadow-lg'
-          : isSelected
-            ? 'ring-2 ring-primary bg-primary/5 border-primary'
-            : 'border-primary/30 hover:border-primary/60'
+      className={`border-b border-border/60 pb-4 last:border-b-0 last:pb-0 ${
+        flash ? 'bg-success/5' : ''
       }`}
     >
-      <div className="flex flex-col">
-        <div className="relative aspect-[4/3] w-full shrink-0 overflow-hidden bg-muted">
-          {images.length > 0 ? (
-            <img
-              src={images[0]}
-              alt={titleLine}
-              loading="lazy"
-              decoding="async"
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center">
-              <Home className="h-7 w-7 text-muted-foreground" />
-            </div>
-          )}
-          {/* Card-type badge: this row is an empty house, no tenant attached. */}
-          <span className="absolute left-1.5 top-1.5 rounded-full bg-secondary px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-secondary-foreground shadow-sm">
-            House
+      {/* ── Title + subtitle ── */}
+      <button
+        type="button"
+        className="w-full text-left"
+        onClick={() => onOpenDetail(house)}
+      >
+        <p className="text-[15px] font-bold leading-tight text-foreground">
+          <HighlightText text={titleLine} query={searchQuery} />
+        </p>
+        <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[12px] text-muted-foreground">
+          <span className="inline-flex items-center gap-0.5 font-semibold text-emerald-600 dark:text-emerald-400">
+            <ShieldCheck className="h-3 w-3" />
+            Verified
           </span>
-          {images.length > 1 && (
-            <span className="absolute bottom-1.5 right-1.5 rounded-full bg-background/85 px-1.5 py-0.5 text-[9px] font-bold backdrop-blur">
-              +{images.length - 1}
-            </span>
+          <span>·</span>
+          <span>{house.district || 'Uganda'}</span>
+          {route && (
+            <>
+              <span>·</span>
+              <span>{route.distanceLabel}</span>
+            </>
           )}
-        </div>
+        </p>
+      </button>
 
-        <div className="min-w-0 flex-1 p-4">
-          <p className="truncate text-sm font-bold leading-tight sm:text-base">
-            <HighlightText text={titleLine} query={searchQuery} />
-          </p>
-          <p className="mt-0.5 flex items-start gap-1 text-[11px] leading-snug text-muted-foreground">
-            <MapPin className="mt-0.5 h-3 w-3 flex-none" />
-            <span className="line-clamp-2">
-              <HighlightText text={addressLine || 'Uganda'} query={searchQuery} />
-            </span>
-          </p>
-
-          {route ? (
-            <p
-              className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[10px] font-semibold text-muted-foreground"
-              aria-label={`About ${route.distanceLabel} away, roughly ${route.durationLabel} by car${route.approximate ? ', approximate location' : ''}`}
+      {/* ── Horizontal image carousel ── */}
+      <div
+        ref={scrollRef}
+        className="mt-2.5 flex gap-1.5 overflow-x-auto scroll-smooth pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
+        {images.length > 0 ? (
+          images.slice(0, 3).map((src, idx) => (
+            <button
+              key={`img-${house.house_id}-${idx}`}
+              type="button"
+              onClick={() => onOpenDetail(house)}
+              className="relative flex-none overflow-hidden rounded-xl first:rounded-l-xl last:rounded-r-xl"
             >
-              <span className="inline-flex items-center gap-1">
-                <Navigation className="h-3 w-3 flex-none text-primary" aria-hidden />
-                {route.distanceLabel} away
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <Car className="h-3 w-3 flex-none text-primary" aria-hidden />
-                about {route.durationLabel} by car
-              </span>
-              {route.approximate ? <span className="text-[9px] italic">(approximate area)</span> : null}
-            </p>
-          ) : null}
-
-          <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
-              {HOUSE_MONTHLY_ROI_RATE}% / month
-            </span>
-            <Badge variant="secondary" className="rounded-full text-[10px] font-semibold">
-              Verified
-            </Badge>
-            {house.landlord_name ? (
-              <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
-                {house.landlord_name}
-              </span>
-            ) : null}
-          </div>
-
-          {/* Fall-back agent on record: who places the tenant for this house. */}
-          <p className="mt-1.5 flex items-center gap-1 text-[10px] font-semibold text-muted-foreground">
-            <UserCheck className="h-3 w-3 flex-none text-primary" />
-            <span className="truncate">
-              {house.listing_agent_name
-                ? `Agent on record · ${house.listing_agent_name}`
-                : 'Agent on record · assigned by Agent Operations'}
-            </span>
-          </p>
-
-          <div className="mt-2 flex items-end justify-between gap-2">
-            <div className="min-w-0">
-              <p className="truncate text-base font-black leading-none sm:text-lg">
-                {formatDynamic(house.monthly_rent)}
-              </p>
-              <p className="mt-1 truncate text-[10px] text-muted-foreground">
-                Earn <span className="font-bold text-primary">{formatDynamic(monthlyRoi)}</span> monthly
-              </p>
-            </div>
-            <Button
-              size="icon"
-              variant={isSelected ? 'secondary' : 'default'}
-              disabled={busy}
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggle(house.house_id);
-              }}
-              aria-label={`${isSelected ? 'Remove' : 'Select'} house ${titleLine}`}
-              className="h-10 w-10 shrink-0 rounded-full shadow-sm"
-            >
-              {isSelected ? <Check className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
-            </Button>
-          </div>
-
-          {unaffordable && (
-            <p className={`mt-1.5 text-[10px] font-semibold ${isSelected ? 'text-primary' : 'text-muted-foreground'}`}>
-              {isSelected
-                ? `Picked — add ${formatDynamic(shortfall)} to your balance to fund it. It stays saved while you top up.`
-                : `Add ${formatDynamic(shortfall)} to your balance to include this house.`}
-            </p>
-          )}
-
-          {isSelected && unaffordable && onTopUp && (
-            <Button
-              size="sm"
-              variant="outline"
-              disabled={busy}
-              onClick={(e) => {
-                e.stopPropagation();
-                onTopUp(shortfall);
-              }}
-              aria-label={`Top up ${formatDynamic(shortfall)} to fund ${titleLine}`}
-              className="mt-2 h-9 w-full rounded-xl border-primary/40 text-[11px] font-bold text-primary"
-            >
-              <Wallet className="mr-1.5 h-3.5 w-3.5" />
-              Top up {formatDynamic(shortfall)}
-            </Button>
-          )}
-        </div>
+              <img
+                src={src}
+                alt={`${titleLine} photo ${idx + 1}`}
+                loading="lazy"
+                decoding="async"
+                className="h-[120px] w-[160px] object-cover transition-transform hover:scale-[1.03]"
+              />
+              {/* Price overlay on last visible image */}
+              {idx === Math.min(images.length, 3) - 1 && (
+                <span className="absolute bottom-1.5 right-1.5 rounded-md bg-foreground/85 px-2 py-1 text-[12px] font-bold text-background shadow-lg backdrop-blur-sm">
+                  {formatDynamic(house.monthly_rent)}
+                </span>
+              )}
+            </button>
+          ))
+        ) : (
+          <button
+            type="button"
+            onClick={() => onOpenDetail(house)}
+            className="flex h-[120px] w-full items-center justify-center rounded-xl bg-muted"
+          >
+            <Home className="h-8 w-8 text-muted-foreground/40" />
+          </button>
+        )}
       </div>
-    </Card>
-  );
+
+      {/* ── Returns line ── */}
+      <p className="mt-1.5 text-[11px] text-muted-foreground">
+        Earn <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatDynamic(monthlyRoi)}</span> monthly returns
+        <span className="ml-1.5 text-[10px]">({HOUSE_MONTHLY_ROI_RATE}%)</span>
+      </p>
+
+      {/* ── Shortfall notice ── */}
+      {unaffordable && (
+        <p className={`mt-1 text-[10px] font-semibold ${isSelected ? 'text-primary' : 'text-muted-foreground'}`}>
+          {isSelected
+            ? `Picked — add ${formatDynamic(shortfall)} to fund it.`
+            : `Add ${formatDynamic(shortfall)} to include this house.`}
+        </p>
+      )}
+
+      {/* ── Action buttons (Google Maps style) ── */}
+      <div className="mt-2.5 flex items-center gap-1">
+        <Button
+          size="sm"
+          variant={isSelected ? 'secondary' : 'outline'}
+          disabled={busy}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle(house.house_id);
+          }}
+          className="h-9 rounded-full px-4 text-xs font-semibold gap-1.5"
+        >
+          {isSelected ? <Check className="h-3.5 w-3.5" /> : <Home className="h-3.5 w-3.5" />}
+          {isSelected ? 'Selected' : 'Fund'}
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={handleShare}
+          className="h-9 rounded-full px-4 text-xs font-semibold gap-1.5"
+        >
+          <Share2 className="h-3.5 w-3.5" />
+          Share
+        </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={(e) => {
+            e.stopPropagation();
+            // Save functionality - toggle select as save-for-later
+            if (!isSelected) onToggle(house.house_id);
+          }}
+          className="h-9 rounded-full px-4 text-xs font-semibold gap-1.5"
+        >
+          <Bookmark className="h-3.5 w-3.5" />
+          Save
+        </Button>
+      </div>
+
+      {/* Top-up CTA when selected but can't afford */}
+      {isSelected && unaffordable && onTopUp && (
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={busy}
+          onClick={(e) => {
+            e.stopPropagation();
+            onTopUp(shortfall);
+          }}
+          className="mt-2 h-9 w-full rounded-xl border-primary/40 text-[11px] font-bold text-primary"
+        >
+          <Wallet className="mr-1.5 h-3.5 w-3.5" />
+          Top up {formatDynamic(shortfall)}
+        </Button>
+      )}
+    </div>
+   );
 }
 
 export interface ActiveHouseCommitment {

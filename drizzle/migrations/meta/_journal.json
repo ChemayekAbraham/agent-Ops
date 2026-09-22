@@ -2017,6 +2017,118 @@
       "when": 1790019996190,
       "tag": "0287_restrict_tenant_support_contacts_read",
       "breakpoints": true
+    },
+    {
+      "idx": 288,
+      "version": "7",
+      "when": 1790059239560,
+      "tag": "0288_agent_collection_quality_from_daily_settlements",
+      "breakpoints": true
+    },
+    {
+      "idx": 289,
+      "version": "7",
+      "when": 1790063898972,
+      "tag": "0289_crm_call_centre_five_overlapping_queues",
+      "breakpoints": true
+    },
+    {
+      "idx": 290,
+      "version": "7",
+      "when": 1790064428198,
+      "tag": "0290_agent_active_breakdown",
+      "breakpoints": true
+    },
+    {
+      "idx": 291,
+      "version": "7",
+      "when": 1790066039375,
+      "tag": "0291_crm_call_queues_real_definitions",
+      "breakpoints": true
+    },
+    {
+      "idx": 292,
+      "version": "7",
+      "when": 1790066438265,
+      "tag": "0292_allow_system_reaper_ended_by",
+      "breakpoints": true
+    },
+    {
+      "idx": 293,
+      "version": "7",
+      "when": 1790066485886,
+      "tag": "0293_reap_stale_calls_and_make_ops_staff_callable",
+      "breakpoints": true
+    },
+    {
+      "idx": 294,
+      "version": "7",
+      "when": 1790074614230,
+      "tag": "0294_fix_queue_scoping_and_add_subtype_filter",
+      "breakpoints": true
+    },
+    {
+      "idx": 295,
+      "version": "7",
+      "when": 1790076254996,
+      "tag": "0295_cc_concern_handling_report_read",
+      "breakpoints": true
+    },
+    {
+      "idx": 296,
+      "version": "7",
+      "when": 1790079325110,
+      "tag": "0296_record_system_reaper_ended_by_constraint",
+      "breakpoints": true
+    },
+    {
+      "idx": 297,
+      "version": "7",
+      "when": 1790079657558,
+      "tag": "0297_allow_staff_loan_repayment_ledger_category",
+      "breakpoints": true
+    },
+    {
+      "idx": 298,
+      "version": "7",
+      "when": 1790080807427,
+      "tag": "0298_hr_staff_birthdays_and_forceful_notice",
+      "breakpoints": true
+    },
+    {
+      "idx": 299,
+      "version": "7",
+      "when": 1790080984530,
+      "tag": "0299_loan_auth_named_position_holders",
+      "breakpoints": true
+    },
+    {
+      "idx": 300,
+      "version": "7",
+      "when": 1790082308504,
+      "tag": "0300_loan_rate_confirm_ceo_only",
+      "breakpoints": true
+    },
+    {
+      "idx": 301,
+      "version": "7",
+      "when": 1790084244530,
+      "tag": "0301_fix_a2_float_spent_direction_classification",
+      "breakpoints": true
+    },
+    {
+      "idx": 302,
+      "version": "7",
+      "when": 1790085913855,
+      "tag": "0302_loan_gate_prompts_and_disbursement",
+      "breakpoints": true
+    },
+    {
+      "idx": 303,
+      "version": "7",
+      "when": 1790086500000,
+      "tag": "0303_hr_birthday_layer_corrections",
+      "breakpoints": true
     }
   ]
 }

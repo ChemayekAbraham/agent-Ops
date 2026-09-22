@@ -42,6 +42,17 @@ Deno.serve(async (req) => {
     if (authErr || !userData?.user) return json({ error: "Not authenticated" }, 401);
     const actor = userData.user;
 
+    // Facilitation and staff-loan rows are protected by database guards that read
+    // auth.uid() — a service-key write has no identity and is refused outright.
+    // Those writes must go through a client carrying the approver's own session.
+    const asActor = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+      { global: { headers: { Authorization: `Bearer ${token}` } } },
+    );
+    const GATED_KINDS = new Set(["facilitation", "staff_loan"]);
+
+
     const body = await req.json().catch(() => ({}));
     const requisitionId = String(body.requisition_id || "");
     const action = String(body.action || "");
@@ -67,6 +78,11 @@ Deno.serve(async (req) => {
     if (row.stage === "returned") {
       return json({ error: "awaiting_requester", message: "This requisition is back with the requester." }, 409);
     }
+
+    // Guarded kinds are written as the approver; ordinary requisitions stay on the
+    // service-role client so existing behaviour is unchanged.
+    const writer = GATED_KINDS.has(String(row.request_kind ?? "requisition")) ? asActor : admin;
+
 
     const { data: roleRows } = await admin
       .from("user_roles")
@@ -109,7 +125,7 @@ Deno.serve(async (req) => {
 
     // ── Reject ───────────────────────────────────────────────────────────────
     if (action === "reject") {
-      const { data: updated } = await admin
+      const { data: updated } = await writer
         .from("staff_requisitions")
         .update({
           ...decisionCols,
@@ -130,7 +146,7 @@ Deno.serve(async (req) => {
 
     // ── Send back for more information ───────────────────────────────────────
     if (action === "return_info") {
-      const { data: updated } = await admin
+      const { data: updated } = await writer
         .from("staff_requisitions")
         .update({
           ...decisionCols,
@@ -163,7 +179,7 @@ Deno.serve(async (req) => {
         : stageKey === "ceo" && row.final_stage === "cfo"
         ? "cfo"
         : row.final_stage;
-      const { data: updated } = await admin
+      const { data: updated } = await writer
         .from("staff_requisitions")
         .update({
           ...decisionCols,
@@ -190,7 +206,7 @@ Deno.serve(async (req) => {
 
     const finalAmount = approvedAmount ?? Number(row.approved_amount ?? row.amount);
 
-    const { data: approvedRow, error: apprErr } = await admin
+    const { data: approvedRow, error: apprErr } = await writer
       .from("staff_requisitions")
       .update({
         ...decisionCols,
@@ -225,7 +241,7 @@ Deno.serve(async (req) => {
 
     if (!credit.ok) {
       // No approved-but-uncredited limbo: roll the stage back to this approver.
-      await admin
+      await writer
         .from("staff_requisitions")
         .update({
           stage: stageKey,

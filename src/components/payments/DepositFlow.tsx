@@ -2536,16 +2536,19 @@ export default function DepositFlow({ open, onOpenChange, defaultPurpose, allowe
           <a
             href={
               momoProvider === 'mtn'
-                ? `tel:*165*3*${amount}%23`
-                : `tel:*185*9%23`
+                ? `tel:*165*3*${MERCHANT_CODES.mtn}*${amount}%23`
+                : `tel:*185*9*${MERCHANT_CODES.airtel}*${amount}%23`
             }
             // Native anchor — iOS Safari (and most Android in-app
             // webviews) refuse to launch the dialer from a
             // programmatic `window.location.href = "tel:"`. A real
             // <a href="tel:..."> is the only reliable way.
             onClick={() => {
+              try {
+                navigator.clipboard.writeText(MERCHANT_CODES[momoProvider]);
+              } catch {}
               setTimeout(() => {
-                toast.info(`Merchant ID: ${MERCHANT_CODES[momoProvider]}`, {
+                toast.info(`Merchant ID: ${MERCHANT_CODES[momoProvider]} copied!`, {
                   duration: 10000,
                   action: {
                     label: 'Copy',
@@ -2557,7 +2560,7 @@ export default function DepositFlow({ open, onOpenChange, defaultPurpose, allowe
             className={`mx-4 mb-4 w-[calc(100%-2rem)] h-11 inline-flex items-center justify-center rounded-md font-semibold text-sm transition-colors ${momoProvider === 'mtn' ? 'bg-[hsl(var(--warning))] text-[hsl(var(--warning-foreground))] hover:bg-[hsl(var(--warning))]/90' : 'bg-destructive text-destructive-foreground hover:bg-destructive/90'}`}
           >
             <Phone className="h-4 w-4 mr-2" />
-            Pay Now via {momoProvider === 'mtn' ? 'MTN' : 'Airtel'}
+            Call {momoProvider === 'mtn' ? `*165*3*${MERCHANT_CODES.mtn}*${amount}#` : `*185*9*${MERCHANT_CODES.airtel}*${amount}#`}
           </a>
         )}
 

@@ -32,6 +32,12 @@ interface PropertyInfo {
   name: string;          // landlord name
   phone: string;
   mobile_money_number: string | null;
+  // The number Landlord Ops actually approved at verification time, frozen
+  // by set_landlord_verification(). This — never mobile_money_number/phone,
+  // which anyone with landlords-UPDATE access can silently change — is the
+  // only number this dialog ever prefills or pays to.
+  verified_mobile_money_number: string | null;
+  verification_status?: string | null;
   property_address: string;
   monthly_rent: number | null;
 }
@@ -52,7 +58,13 @@ export function AgentLandlordPayoutDialog({ open, onOpenChange, property, onSucc
 
   // form
   const [landlordName, setLandlordName] = useState('');
-  const [landlordPhone, setLandlordPhone] = useState('');
+  // Never agent-editable — this must always be the number Landlord Ops
+  // actually approved, not something typed into this form and not the raw
+  // mobile_money_number/phone (which can be changed with zero re-approval).
+  // A blank prefill here once let an agent type in a number, which would
+  // misdirect a real payout.
+  const landlordVerified = property?.verification_status === 'verified';
+  const landlordPhone = (landlordVerified ? property?.verified_mobile_money_number : '')?.trim() ?? '';
   const [tenantName, setTenantName] = useState('');
   const [tenantPhone, setTenantPhone] = useState('');
   const [amount, setAmount] = useState('');
@@ -72,7 +84,6 @@ export function AgentLandlordPayoutDialog({ open, onOpenChange, property, onSucc
   const resetAll = () => {
     setStep('form');
     setLandlordName(property?.name ?? '');
-    setLandlordPhone(property?.mobile_money_number ?? property?.phone ?? '');
     setTenantName('');
     setTenantPhone('');
     setAmount(property?.monthly_rent ? String(property.monthly_rent) : '');
@@ -88,7 +99,6 @@ export function AgentLandlordPayoutDialog({ open, onOpenChange, property, onSucc
   useEffect(() => {
     if (open && property) {
       setLandlordName(property.name ?? '');
-      setLandlordPhone(property.mobile_money_number ?? property.phone ?? '');
       setAmount(property.monthly_rent ? String(property.monthly_rent) : '');
     }
   }, [open, property]);
@@ -115,7 +125,8 @@ export function AgentLandlordPayoutDialog({ open, onOpenChange, property, onSucc
 
   const validateForm = (): string | null => {
     if (!landlordName.trim()) return 'Landlord name is required';
-    if (!/^\+?\d{9,15}$/.test(landlordPhone.replace(/\s|-/g, ''))) return 'Invalid landlord phone';
+    if (!landlordPhone) return 'Landlord Ops has not approved a payout number for this landlord yet — ask them to (re-)verify before paying.';
+    if (!/^\+?\d{9,15}$/.test(landlordPhone.replace(/\s|-/g, ''))) return 'The Landlord-Ops-approved number looks invalid — ask them to re-verify with a valid number.';
     if (!tenantName.trim()) return 'Tenant name is required';
     if (!/^\+?\d{9,15}$/.test(tenantPhone.replace(/\s|-/g, ''))) return 'Invalid tenant phone';
     const amt = parseFloat(amount);
@@ -252,7 +263,15 @@ export function AgentLandlordPayoutDialog({ open, onOpenChange, property, onSucc
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs flex items-center gap-1"><Phone className="h-3 w-3" /> Landlord Phone *</Label>
-                  <Input value={landlordPhone} onChange={(e) => setLandlordPhone(e.target.value)} placeholder="0772…" className="h-10" />
+                  <Input
+                    value={landlordPhone || 'Not yet approved by Landlord Ops'}
+                    readOnly
+                    disabled
+                    className="h-10 bg-muted/60 text-muted-foreground cursor-not-allowed"
+                  />
+                  {!landlordPhone && (
+                    <p className="text-[11px] text-destructive">Ask Landlord Ops to (re-)verify this landlord before paying.</p>
+                  )}
                 </div>
                 <div className="space-y-1">
                   <Label className="text-xs flex items-center gap-1"><User className="h-3 w-3" /> Tenant Name *</Label>
@@ -287,7 +306,7 @@ export function AgentLandlordPayoutDialog({ open, onOpenChange, property, onSucc
                 </div>
               </div>
 
-              <Button onClick={handleSendOtp} className="w-full h-12 rounded-xl gap-2" disabled={otpLoading}>
+              <Button onClick={handleSendOtp} className="w-full h-12 rounded-xl gap-2" disabled={otpLoading || !landlordPhone}>
                 {otpLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
                 Send OTP to Landlord
               </Button>

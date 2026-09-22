@@ -46,6 +46,10 @@ interface EmptyHouseMapBrowserProps {
    * page) so the parent can keep selection totals and funding accurate.
    */
   onHousesDiscovered?: (houses: SupportableHouse[]) => void;
+  /** Keep false on review surfaces that must not request device location until the user taps the location control. */
+  requestLocationOnMount?: boolean;
+  /** Called when the map expand/collapse state changes (fullscreen toggle). */
+  onExpandedChange?: (expanded: boolean) => void;
 }
 
 const KAMPALA: [number, number] = [0.3476, 32.5825];
@@ -162,12 +166,17 @@ export function EmptyHouseMapBrowser({
   onFundHouse,
   onActiveHouseChange,
   onHousesDiscovered,
+  requestLocationOnMount = true,
+  onExpandedChange,
 }: EmptyHouseMapBrowserProps) {
   const [activeHouse, setActiveHouse] = useState<SupportableHouse | null>(null);
   const [viewport, setViewport] = useState<MapViewport | null>(null);
   const [mapInstance, setMapInstance] = useState<L.Map | null>(null);
   const [showHeatmap, setShowHeatmap] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  useEffect(() => {
+    onExpandedChange?.(isExpanded);
+  }, [isExpanded, onExpandedChange]);
   const [userPosition, setUserPosition] = useState<[number, number] | null>(null);
   /** 'idle' = never asked, 'granted' = located, 'denied'/'unsupported' = show the prompt. */
   const [geoStatus, setGeoStatus] = useState<'idle' | 'granted' | 'denied' | 'unsupported'>('idle');
@@ -298,7 +307,7 @@ export function EmptyHouseMapBrowser({
    * refused, the loaded-houses fit below takes over.
    */
   useEffect(() => {
-    if (!mapInstance || initialFitDone.current || locationPreviouslyGranted || initialLocateStarted.current) return;
+    if (!requestLocationOnMount || !mapInstance || initialFitDone.current || locationPreviouslyGranted || initialLocateStarted.current) return;
     initialLocateStarted.current = true;
     if (!navigator.geolocation) {
       setGeoStatus('unsupported');
@@ -337,7 +346,7 @@ export function EmptyHouseMapBrowser({
     return () => {
       cancelled = true;
     };
-  }, [mapInstance, locationPreviouslyGranted]);
+  }, [mapInstance, locationPreviouslyGranted, requestLocationOnMount]);
 
   /** Retry after the browser said no (or the funder dismissed the prompt and tapped again). */
   const retryLocate = useCallback(() => {
@@ -425,7 +434,7 @@ export function EmptyHouseMapBrowser({
    * area if one was saved; otherwise show the gate again.
    */
   useEffect(() => {
-    if (!mapInstance || !locationPreviouslyGranted || userPosition || manualAreaRestored.current || initialLocateStarted.current) return;
+    if (!requestLocationOnMount || !mapInstance || !locationPreviouslyGranted || userPosition || manualAreaRestored.current || initialLocateStarted.current) return;
     initialLocateStarted.current = true;
     if (!navigator.geolocation) {
       manualAreaRestored.current = true;
@@ -464,7 +473,7 @@ export function EmptyHouseMapBrowser({
     return () => {
       cancelled = true;
     };
-  }, [mapInstance, locationPreviouslyGranted, userPosition, chooseManualArea]);
+  }, [mapInstance, locationPreviouslyGranted, userPosition, chooseManualArea, requestLocationOnMount]);
 
   // Fallback: open the map over the first loaded houses, then leave the view under the funder's control.
   useEffect(() => {
@@ -530,7 +539,7 @@ export function EmptyHouseMapBrowser({
       style={isExpanded ? { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0 } : undefined}
     >
       {/* ── Top bar: search (left) + action buttons (right) ─── */}
-      <div className={`absolute top-3 z-[1000] ${isExpanded ? 'inset-x-3' : 'inset-x-3 sm:right-auto sm:w-[22rem]'}`}>
+      <div className={`absolute top-3 z-[1300] ${isExpanded ? 'inset-x-3' : 'inset-x-3 sm:right-auto sm:w-[22rem]'}`}>
         <div className="flex items-center gap-2">
           {/* Search bar */}
           <div className="relative flex-1">
@@ -725,7 +734,7 @@ export function EmptyHouseMapBrowser({
       </MapContainer>
 
       {/* Location gate: houses are shown for the funder's own area, so the map stays covered until we know where they are. Only show it when location has not been approved before. */}
-      {!userPosition && !locationPreviouslyGranted && (
+      {requestLocationOnMount && !userPosition && !locationPreviouslyGranted && (
         <div
           role="dialog"
           aria-label="Share your location to see empty houses near you"

@@ -24,6 +24,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { Progress } from '@/components/ui/progress';
 import {
   Dialog,
   DialogContent,
@@ -649,6 +650,36 @@ export function AgentMonitoring() {
     }));
   }, [collectionMap, day, profileMap, scheduleMap, selectedAgent]);
 
+  /**
+   * Comprehensive payment position for the open agent: how much of the whole
+   * book has been paid, how much is left, and the same reading split by the
+   * tenants' own payment period (daily vs weekly). Presentation only — every
+   * figure is derived from the rent plans already loaded above.
+   */
+  const agentPortfolio = useMemo(() => {
+    const blank = () => ({ planned: 0, paid: 0, scheduled: 0, tenants: 0 });
+    const totals = blank();
+    const daily = blank();
+    const weekly = blank();
+    selectedAgentRows.forEach(({ request, schedule }) => {
+      const planned = Number(request.total_repayment ?? 0);
+      const bucket = schedule.weekly ? weekly : daily;
+      [totals, bucket].forEach((target) => {
+        target.planned += planned;
+        target.paid += schedule.paidToDate;
+        target.scheduled += schedule.scheduledToDate;
+        target.tenants += 1;
+      });
+    });
+    const withRates = (value: ReturnType<typeof blank>) => ({
+      ...value,
+      remaining: Math.max(0, value.planned - value.paid),
+      planPercent: value.planned > 0 ? Math.min(100, (value.paid / value.planned) * 100) : null,
+      schedulePercent: value.scheduled > 0 ? Math.min(100, (value.paid / value.scheduled) * 100) : null,
+    });
+    return { totals: withRates(totals), daily: withRates(daily), weekly: withRates(weekly) };
+  }, [selectedAgentRows]);
+
   const selectedPlanIds = useMemo(
     () => (selectedAgent ? selectedAgent.tenants.map((request) => request.id).sort() : []),
     [selectedAgent],
@@ -910,6 +941,67 @@ export function AgentMonitoring() {
                 </Button>
               )}
               <Separator />
+              {/* Comprehensive payment position across every rent plan this agent holds. */}
+              <div className="space-y-3 rounded-lg border p-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <h3 className="text-sm font-semibold">Overall payment progress</h3>
+                  <span className="text-xs tabular-nums text-muted-foreground">
+                    {agentPortfolio.totals.tenants} rent plan{agentPortfolio.totals.tenants === 1 ? '' : 's'}
+                  </span>
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <span className="text-lg font-bold tabular-nums text-emerald-600 dark:text-emerald-400">
+                      {agentPortfolio.totals.planPercent === null ? '—' : `${agentPortfolio.totals.planPercent.toFixed(1)}% paid`}
+                    </span>
+                    <span className="text-xs tabular-nums text-muted-foreground">
+                      {formatUGX(agentPortfolio.totals.paid)} of {formatUGX(agentPortfolio.totals.planned)}
+                    </span>
+                  </div>
+                  <Progress value={agentPortfolio.totals.planPercent ?? 0} className="h-2" />
+                  <p className="text-xs font-medium tabular-nums text-destructive">
+                    {formatUGX(agentPortfolio.totals.remaining)} left to pay
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+                  <div>
+                    <Label className="text-[10px] text-muted-foreground">Schedule met</Label>
+                    <p className="font-semibold tabular-nums">
+                      {agentPortfolio.totals.schedulePercent === null ? '—' : `${agentPortfolio.totals.schedulePercent.toFixed(1)}%`}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">of {formatUGX(agentPortfolio.totals.scheduled)} due so far</p>
+                  </div>
+                  <div>
+                    <Label className="text-[10px] text-muted-foreground">Today collected</Label>
+                    <p className="font-semibold tabular-nums">
+                      {selectedAgent.expected > 0
+                        ? `${Math.min(100, (selectedAgent.collected / selectedAgent.expected) * 100).toFixed(1)}%`
+                        : '—'}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">of {formatUGX(selectedAgent.expected)} due this day</p>
+                  </div>
+                  <div>
+                    <Label className="text-[10px] text-muted-foreground">Daily plans</Label>
+                    <p className="font-semibold tabular-nums">
+                      {agentPortfolio.daily.planPercent === null ? '—' : `${agentPortfolio.daily.planPercent.toFixed(1)}%`}
+                      <span className="ml-1 text-[10px] font-normal text-muted-foreground">({agentPortfolio.daily.tenants})</span>
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">{formatUGX(agentPortfolio.daily.remaining)} left</p>
+                  </div>
+                  <div>
+                    <Label className="text-[10px] text-muted-foreground">Weekly plans</Label>
+                    <p className="font-semibold tabular-nums">
+                      {agentPortfolio.weekly.planPercent === null ? '—' : `${agentPortfolio.weekly.planPercent.toFixed(1)}%`}
+                      <span className="ml-1 text-[10px] font-normal text-muted-foreground">({agentPortfolio.weekly.tenants})</span>
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">{formatUGX(agentPortfolio.weekly.remaining)} left</p>
+                  </div>
+                </div>
+                <p className="text-[10px] text-muted-foreground">
+                  Arrears across this book: {formatUGX(selectedAgent.arrears)} · {selectedAgent.behindCount} behind · {selectedAgent.aheadCount} paid ahead
+                </p>
+              </div>
+              <Separator />
               <div className="space-y-2">
                 <div className="flex items-center justify-between"><h3 className="text-sm font-semibold">Active tenants</h3><StatusIndicator status={collectionStatus(selectedAgent.expected, selectedAgent.collected)} /></div>
                 {selectedAgentRows.length === 0 ? <p className="py-6 text-center text-sm text-muted-foreground">No active daily-collection tenants for this agent.</p> : (
@@ -944,6 +1036,35 @@ export function AgentMonitoring() {
                             <div><Label className="text-[10px] text-muted-foreground">Paid ahead</Label><p className="font-semibold tabular-nums">{formatUGX(schedule.aheadAmount)}{schedule.periodsAhead > 0 ? ` · ${schedule.periodsAhead} ${unit}${schedule.periodsAhead === 1 ? '' : 's'}` : ''}</p></div>
                             <div><Label className="text-[10px] text-muted-foreground">Outstanding plan</Label><p className="font-semibold tabular-nums">{formatUGX(schedule.outstandingPlan)}</p></div>
                           </div>
+                          {/* Percentage paid and what is left on this tenant's own plan. */}
+                          {(() => {
+                            const planned = Number(request.total_repayment ?? 0);
+                            const planPercent = planned > 0 ? Math.min(100, (schedule.paidToDate / planned) * 100) : null;
+                            const schedulePercent = schedule.scheduledToDate > 0
+                              ? Math.min(100, (schedule.paidToDate / schedule.scheduledToDate) * 100)
+                              : null;
+                            return (
+                              <div className="mt-3 space-y-1.5 rounded-md bg-muted/40 p-2.5">
+                                <div className="flex flex-wrap items-baseline justify-between gap-2 text-xs">
+                                  <span className="font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+                                    {planPercent === null ? '—' : `${planPercent.toFixed(1)}% of plan paid`}
+                                  </span>
+                                  <span className="tabular-nums text-muted-foreground">
+                                    {formatUGX(schedule.paidToDate)} of {formatUGX(planned)}
+                                  </span>
+                                </div>
+                                <Progress value={planPercent ?? 0} className="h-1.5" />
+                                <div className="flex flex-wrap items-center justify-between gap-2 text-[10px] text-muted-foreground">
+                                  <span className="font-medium tabular-nums text-destructive">
+                                    {formatUGX(schedule.outstandingPlan)} left to pay
+                                  </span>
+                                  <span className="tabular-nums">
+                                    {schedulePercent === null ? '—' : `${schedulePercent.toFixed(1)}%`} of {formatUGX(schedule.scheduledToDate)} due so far ({unit === 'week' ? 'weekly' : 'daily'} plan)
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })()}
                           <Separator className="my-3" />
                           <TenantPaymentHistory
                             payments={paymentHistory?.get(request.id) ?? []}

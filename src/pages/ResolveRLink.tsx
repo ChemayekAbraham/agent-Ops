@@ -29,6 +29,20 @@ export default function ResolveRLink() {
         if (!active) return;
         const target = data as { target_path?: string; target_params?: Record<string, string> | null } | null;
         if (!error && target?.target_path) {
+          // Fire-and-forget click tracking — don't block the redirect. Same
+          // call TrackedRedirect (/s/:code) makes; this /r/:code path is the
+          // one createShortLink/useShortLink actually embed in SMS and email,
+          // so it must record too or short_links.click_count stays at 0.
+          try {
+            await supabase.rpc('record_short_link_click', {
+              p_code: code,
+              p_user_agent: navigator.userAgent ?? null,
+              p_referrer: document.referrer ?? null,
+            });
+          } catch {
+            /* ignore tracking errors */
+          }
+
           const params = new URLSearchParams();
           if (target.target_params) {
             Object.entries(target.target_params).forEach(([k, v]) => params.set(k, String(v)));

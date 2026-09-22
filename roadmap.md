@@ -5,3 +5,4 @@
 
 ## Pending
 - [x] CI: map load-test budgets run in build workflow and block deploy on regression (done 2026-09-21)
+

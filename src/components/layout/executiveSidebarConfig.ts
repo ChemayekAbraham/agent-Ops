@@ -298,21 +298,69 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       title: 'Customer Relations',
       items: [
         { label: 'Overview', icon: LayoutDashboard, id: 'overview' },
-        {
-          label: 'Call Center',
-          icon: PhoneCall,
-          id: 'call-centre',
-          children: [
-            { label: 'Overview', icon: Gauge, id: 'call-centre-overview' },
-            { label: 'History', icon: History, id: 'call-centre-history' },
-            { label: 'People / Calls', icon: Users, id: 'call-centre-people' },
-          ],
-        },
         { label: 'Customer Issues', icon: MessageSquare, id: 'customer-issues' },
         { label: 'Tenant Support', icon: Handshake, id: 'tenant-support' },
         { label: 'Communications', icon: MessageSquare, id: 'communications' },
         { label: 'Requisitions', icon: ClipboardList, id: 'requisitions' },
         { label: 'My Work', icon: ClipboardList, id: 'my-work' },
+      ],
+    },
+    // The Call Centre is its own titled section rather than one item inside
+    // Customer Relations, because it needs three levels - Call Center >
+    // audience > view - and `children` only renders two. Promoting it to a
+    // section title buys the third level with no change to the renderer.
+    //
+    // Ids are produced by `callSectionNavId` in src/lib/callCentre.ts; keep the
+    // two in step or a leaf will render the fallback view.
+    {
+      title: 'Call Center',
+      icon: PhoneCall,
+      items: [
+        {
+          label: 'Tenants', icon: Home, id: 'call-centre-tenants',
+          children: [
+            { label: 'Overview', icon: Gauge, id: 'call-centre-tenants-overview' },
+            { label: 'Tenants', icon: Users, id: 'call-centre-tenants-people' },
+            { label: 'Call Logs', icon: History, id: 'call-centre-tenants-logs' },
+            { label: 'Summaries', icon: FileText, id: 'call-centre-tenants-summaries' },
+          ],
+        },
+        {
+          label: 'Partners', icon: Handshake, id: 'call-centre-partners',
+          children: [
+            { label: 'Overview', icon: Gauge, id: 'call-centre-partners-overview' },
+            { label: 'Partners', icon: Users, id: 'call-centre-partners-people' },
+            { label: 'Call Logs', icon: History, id: 'call-centre-partners-logs' },
+            { label: 'Summaries', icon: FileText, id: 'call-centre-partners-summaries' },
+          ],
+        },
+        {
+          label: 'Proxy Agents', icon: UserCheck, id: 'call-centre-proxy-agents',
+          children: [
+            { label: 'Overview', icon: Gauge, id: 'call-centre-proxy-agents-overview' },
+            { label: 'Proxy Agents', icon: Users, id: 'call-centre-proxy-agents-people' },
+            { label: 'Call Logs', icon: History, id: 'call-centre-proxy-agents-logs' },
+            { label: 'Summaries', icon: FileText, id: 'call-centre-proxy-agents-summaries' },
+          ],
+        },
+        {
+          label: 'Operational Agents', icon: Bike, id: 'call-centre-operational-agents',
+          children: [
+            { label: 'Overview', icon: Gauge, id: 'call-centre-operational-agents-overview' },
+            { label: 'Agents', icon: Users, id: 'call-centre-operational-agents-people' },
+            { label: 'Call Logs', icon: History, id: 'call-centre-operational-agents-logs' },
+            { label: 'Summaries', icon: FileText, id: 'call-centre-operational-agents-summaries' },
+          ],
+        },
+        {
+          label: 'Employees', icon: UserCog, id: 'call-centre-employees',
+          children: [
+            { label: 'Overview', icon: Gauge, id: 'call-centre-employees-overview' },
+            { label: 'Employees', icon: Users, id: 'call-centre-employees-people' },
+            { label: 'Call Logs', icon: History, id: 'call-centre-employees-logs' },
+            { label: 'Summaries', icon: FileText, id: 'call-centre-employees-summaries' },
+          ],
+        },
       ],
     },
   ],

@@ -5,10 +5,15 @@ import type {
   FunderNewFilters,
   FunderNewReadyPlan,
   FunderNewSelectionItem,
+  FunderNewSort,
 } from './types';
 import { formatHouseCategory, prettyName } from '@/lib/formatting';
+import { formatDynamicCompact, getDynamicCurrencySymbol } from '@/lib/currencyFormat';
+import { readCoordinate } from './distance';
 
 const MONTHLY_RETURN_RATE = 0.15;
+
+export const FUNDER_NEW_RETURN_RATE = MONTHLY_RETURN_RATE;
 
 export function toNumber(value: unknown): number {
   const n = Number(value ?? 0);
@@ -23,26 +28,79 @@ export function amountRange(bucket: AmountBucket): { min: number | null; max: nu
 }
 
 export function categoryLabel(category: FunderNewCategory) {
-  return category === 'empty' ? 'Empty houses' : 'Houses with ready tenants';
+  return category === 'empty' ? 'Empty homes' : 'Tenant ready';
 }
 
+export function sortLabel(sort: FunderNewSort): string {
+  if (sort === 'nearest') return 'Nearest first';
+  if (sort === 'rent_low') return 'Lowest amount';
+  if (sort === 'rent_high') return 'Highest amount';
+  if (sort === 'newest') return 'Newest first';
+  return 'Recommended';
+}
+
+/**
+ * Splits a compact market total so the hero can render a smaller currency
+ * prefix ahead of a dominant figure, e.g. { prefix: 'UGX', figure: '5.8B' }.
+ */
+export function compactParts(amount: number): { prefix: string; figure: string } {
+  const compact = formatDynamicCompact(amount);
+  const symbol = getDynamicCurrencySymbol();
+  const figure = compact.startsWith(symbol) ? compact.slice(symbol.length).trim() : compact.replace(/^[^\d.,-]+/, '');
+  return { prefix: symbol, figure: figure || compact };
+}
+
+/**
+ * Route-local place casing. Field data arrives in mixed case, often SHOUTED
+ * ("NALYAMAGONJA"), and the shared prettyName only upper-cases first letters.
+ */
+export function placeCase(raw?: string | null): string {
+  const cleaned = (raw ?? '').replace(/[_-]+/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!cleaned) return '';
+  return cleaned
+    .split(' ')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
+}
+
+/**
+ * House type first. Listing titles are usually "Single Room in Central", which
+ * repeats the place line below it, so the clean room type wins. The shared
+ * formatHouseCategory appends "House"; the compact browse row does not need it.
+ */
 export function emptyHouseTitle(house: FunderNewEmptyHouse): string {
-  return house.title?.trim() || formatHouseCategory(house.house_category) || 'Empty house';
+  return (
+    placeCase(house.house_category) ||
+    house.title?.trim() ||
+    formatHouseCategory(house.house_category) ||
+    'Empty house'
+  );
 }
 
+/**
+ * Specific place line: village/neighbourhood first, district second.
+ * Deliberately short so the listing does not repeat a long address.
+ */
 export function emptyHousePlace(house: FunderNewEmptyHouse): string {
-  return [house.village, house.sub_county, house.district].filter(Boolean).join(', ') || house.region || 'Location on file';
+  const local = [house.village, house.sub_county].map((part) => placeCase(part)).filter(Boolean)[0];
+  const district = placeCase(house.district);
+  const parts = [district, local].filter(Boolean).filter((part, index, all) => all.indexOf(part) === index);
+  if (parts.length) return parts.join(', ');
+  return placeCase(house.region) || 'Location on file';
 }
+
 
 export function readyPlanTitle(plan: FunderNewReadyPlan): string {
-  const home = formatHouseCategory(plan.house_category);
-  const area = plan.request_city || plan.tenant_location;
-  return area ? `${home} in ${prettyName(area)}` : home;
+  return formatHouseCategory(plan.house_category) || 'Rent Plan';
 }
 
 export function readyPlanPlace(plan: FunderNewReadyPlan): string {
-  return plan.tenant_location || plan.request_city || 'Location on file';
+  const local = plan.tenant_location ? prettyName(plan.tenant_location) : '';
+  const city = plan.request_city ? prettyName(plan.request_city) : '';
+  const parts = [city, local].filter(Boolean).filter((part, index, all) => all.indexOf(part) === index);
+  return parts.join(', ') || 'Location on file';
 }
+
 
 export function readyPlanTerm(plan: FunderNewReadyPlan): string {
   if (plan.duration_days && plan.duration_days > 0) {
@@ -52,17 +110,33 @@ export function readyPlanTerm(plan: FunderNewReadyPlan): string {
   return plan.repayment_cadence ? prettyName(plan.repayment_cadence) : 'Term on file';
 }
 
+export function itemId(category: FunderNewCategory, item: FunderNewEmptyHouse | FunderNewReadyPlan): string {
+  return category === 'empty'
+    ? (item as FunderNewEmptyHouse).house_id
+    : (item as FunderNewReadyPlan).rent_request_id;
+}
+
 export function itemAmount(category: FunderNewCategory, item: FunderNewEmptyHouse | FunderNewReadyPlan): number {
   return category === 'empty'
     ? toNumber((item as FunderNewEmptyHouse).monthly_rent)
     : toNumber((item as FunderNewReadyPlan).funding_amount);
 }
 
-export function itemMonthlyReturn(category: FunderNewCategory, item: FunderNewEmptyHouse | FunderNewReadyPlan): number | null {
+/**
+ * Projected monthly Returns at the existing 15% rate.
+ * Returns null when the underlying amount is unavailable — a real zero and
+ * missing data are not the same thing.
+ */
+export function itemMonthlyReturn(
+  category: FunderNewCategory,
+  item: FunderNewEmptyHouse | FunderNewReadyPlan,
+): number | null {
   if (category === 'empty') {
     const house = item as FunderNewEmptyHouse;
     const provided = toNumber(house.partner_monthly_return);
-    return provided > 0 ? provided : Math.round(toNumber(house.monthly_rent) * MONTHLY_RETURN_RATE);
+    if (provided > 0) return provided;
+    const rent = toNumber(house.monthly_rent);
+    return rent > 0 ? Math.round(rent * MONTHLY_RETURN_RATE) : null;
   }
   const amount = toNumber((item as FunderNewReadyPlan).funding_amount);
   return amount > 0 ? Math.round(amount * MONTHLY_RETURN_RATE) : null;
@@ -76,15 +150,26 @@ export function firstPhoto(category: FunderNewCategory, item: FunderNewEmptyHous
   return ((item as FunderNewReadyPlan).house_image_urls ?? []).filter(Boolean)[0] || null;
 }
 
-export function toSelectionItem(category: FunderNewCategory, item: FunderNewEmptyHouse | FunderNewReadyPlan): FunderNewSelectionItem {
-  const id = category === 'empty'
-    ? (item as FunderNewEmptyHouse).house_id
-    : (item as FunderNewReadyPlan).rent_request_id;
+/**
+ * House verification only. A ready tenant, a GPS pin, a paid status or the mere
+ * existence of the listing are NOT house verification.
+ */
+export function isHouseVerified(category: FunderNewCategory, item: FunderNewEmptyHouse | FunderNewReadyPlan): boolean {
+  if (category !== 'empty') return false;
+  return (item as FunderNewEmptyHouse).verified === true;
+}
+
+export function toSelectionItem(
+  category: FunderNewCategory,
+  item: FunderNewEmptyHouse | FunderNewReadyPlan,
+): FunderNewSelectionItem {
   return {
-    id,
+    id: itemId(category, item),
     category,
-    title: category === 'empty' ? emptyHouseTitle(item as FunderNewEmptyHouse) : readyPlanTitle(item as FunderNewReadyPlan),
-    place: category === 'empty' ? emptyHousePlace(item as FunderNewEmptyHouse) : readyPlanPlace(item as FunderNewReadyPlan),
+    title:
+      category === 'empty' ? emptyHouseTitle(item as FunderNewEmptyHouse) : readyPlanTitle(item as FunderNewReadyPlan),
+    place:
+      category === 'empty' ? emptyHousePlace(item as FunderNewEmptyHouse) : readyPlanPlace(item as FunderNewReadyPlan),
     amount: itemAmount(category, item),
     monthlyReturn: itemMonthlyReturn(category, item),
     termLabel: category === 'empty' ? '1 month house support' : readyPlanTerm(item as FunderNewReadyPlan),
@@ -109,14 +194,18 @@ export function matchesReadyPlanSearch(plan: FunderNewReadyPlan, filters: Funder
   return haystack.includes(q);
 }
 
-export function hasCoordinates(item: FunderNewEmptyHouse | FunderNewReadyPlan, category: FunderNewCategory) {
-  const lat = category === 'empty'
-    ? toNumber((item as FunderNewEmptyHouse).latitude)
-    : toNumber((item as FunderNewReadyPlan).request_latitude);
-  const lng = category === 'empty'
-    ? toNumber((item as FunderNewEmptyHouse).longitude)
-    : toNumber((item as FunderNewReadyPlan).request_longitude);
-  return Number.isFinite(lat) && Number.isFinite(lng) && (lat !== 0 || lng !== 0)
-    ? { lat, lng }
-    : null;
+/** Valid coordinates for an item, or null. Never converts a missing pin to 0,0. */
+export function itemCoordinates(
+  item: FunderNewEmptyHouse | FunderNewReadyPlan,
+  category: FunderNewCategory,
+): { lat: number; lng: number } | null {
+  if (category === 'empty') {
+    const house = item as FunderNewEmptyHouse;
+    return readCoordinate(house.latitude, house.longitude);
+  }
+  const plan = item as FunderNewReadyPlan;
+  return readCoordinate(plan.request_latitude, plan.request_longitude);
 }
+
+/** Kept for compatibility with the earlier route-local helper name. */
+export const hasCoordinates = itemCoordinates;

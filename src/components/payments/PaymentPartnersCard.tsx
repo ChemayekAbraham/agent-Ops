@@ -28,7 +28,7 @@ const PROVIDERS = {
       'Enter Merchant ID: 090777',
       'Enter amount & confirm with PIN',
     ],
-    buildDial: (amount: string) => `tel:*165*3*${amount}%23`,
+    buildDial: (amount?: string) => amount ? `tel:*165*3*090777*${amount}%23` : `tel:*165*3*090777%23`,
   },
   airtel: {
     name: 'Airtel Money',
@@ -39,7 +39,7 @@ const PROVIDERS = {
       'Enter Merchant ID: 4380664',
       'Enter amount & confirm with PIN',
     ],
-    buildDial: () => `tel:*185*9%23`,
+    buildDial: (amount?: string) => amount ? `tel:*185*9*4380664*${amount}%23` : `tel:*185*9*4380664%23`,
   },
 };
 
@@ -83,7 +83,7 @@ export default function PaymentPartnersCard({ dashboardType, onPaymentSubmitted 
 
   const handlePayNow = () => {
     if (!provider || !data) return;
-    const dial = provider === 'mtn' ? PROVIDERS.mtn.buildDial(amount) : PROVIDERS.airtel.buildDial();
+    const dial = data.buildDial(amount);
     window.location.href = dial;
     setTimeout(() => {
       toast.info(`Merchant ID: ${data.merchantId}`, {
@@ -216,7 +216,7 @@ export default function PaymentPartnersCard({ dashboardType, onPaymentSubmitted 
                 onClick={handlePayNow}
               >
                 <Phone className="h-4 w-4 mr-2" />
-                Pay Now via {isMtn ? 'MTN' : 'Airtel'}
+                Call {isMtn ? `*165*3*${data.merchantId}*${amount}#` : `*185*9*${data.merchantId}*${amount}#`}
               </Button>
             )}
           </CardContent>

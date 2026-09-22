@@ -213,12 +213,12 @@ export default function AgentRegistrationControlTab() {
     <div className="space-y-6">
       <Card>
         <CardHeader className="flex flex-col items-start justify-between gap-4 sm:flex-row">
-          <div>
+          <div className="min-w-0">
             <CardTitle className="text-base">Agent registration control</CardTitle>
-            <CardDescription>{ruleSummary()}</CardDescription>
+            <CardDescription className="break-words">{ruleSummary()}</CardDescription>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" size="sm" onClick={handleGeneratePdf} disabled={generatingPdf}>
+          <div className="grid w-full grid-cols-1 gap-2 min-[380px]:grid-cols-2 sm:flex sm:w-auto sm:flex-wrap sm:items-center sm:justify-end">
+            <Button className="w-full sm:w-auto" variant="outline" size="sm" onClick={handleGeneratePdf} disabled={generatingPdf}>
               {generatingPdf ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
@@ -226,7 +226,7 @@ export default function AgentRegistrationControlTab() {
               )}
               Professional PDF
             </Button>
-            <Button variant="outline" size="sm" onClick={handleExportXlsx} disabled={generatingXlsx}>
+            <Button className="w-full sm:w-auto" variant="outline" size="sm" onClick={handleExportXlsx} disabled={generatingXlsx}>
               {generatingXlsx ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
@@ -234,13 +234,13 @@ export default function AgentRegistrationControlTab() {
               )}
               Export Excel
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setRulesOpen(true)}>
+            <Button className="w-full min-[380px]:col-span-2 sm:w-auto" variant="outline" size="sm" onClick={() => setRulesOpen(true)}>
               <Settings2 className="mr-2 h-4 w-4" />
               Rules
             </Button>
           </div>
         </CardHeader>
-        <CardContent className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-5">
+        <CardContent className="grid grid-cols-1 gap-3 min-[360px]:grid-cols-2 sm:gap-4 md:grid-cols-3 xl:grid-cols-5">
           <KPICard
             title="Agents reviewed"
             value={totals?.agents ?? 0}
@@ -574,7 +574,7 @@ export default function AgentRegistrationControlTab() {
       </Card>
 
       <Dialog open={!!overrideFor} onOpenChange={(o) => !o && setOverrideFor(null)}>
-        <DialogContent>
+          <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Allow {overrideFor?.full_name ?? 'this agent'} to register</DialogTitle>
             <DialogDescription>
@@ -602,15 +602,16 @@ export default function AgentRegistrationControlTab() {
                 min={1}
                 value={overrideDays}
                 onChange={(e) => setOverrideDays(e.target.value)}
-                className="max-w-[8rem]"
+               className="w-full sm:max-w-[8rem]"
               />
             </div>
           </div>
-          <DialogFooter>
-            <Button variant="ghost" onClick={() => setOverrideFor(null)}>
+          <DialogFooter className="flex-col-reverse gap-2 sm:flex-row">
+            <Button variant="ghost" className="w-full sm:w-auto" onClick={() => setOverrideFor(null)}>
               Cancel
             </Button>
             <Button
+              className="w-full sm:w-auto"
               onClick={submitOverride}
               disabled={overrideReason.trim().length < 10 || grant.isPending}
             >

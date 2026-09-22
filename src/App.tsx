@@ -66,6 +66,8 @@ const RequisitionUsageReportGate = optionalLazyWithRetry(() => import("@/compone
 const NationalIdLinkGate = optionalLazyWithRetry(() => import("@/components/notifications/NationalIdLinkGate"), "NationalIdLinkGate");
 const ConcernAssignmentGate = optionalLazyWithRetry(() => import("@/components/notifications/ConcernAssignmentGate"), "ConcernAssignmentGate");
 const FacilitationApprovalGate = optionalLazyWithRetry(() => import("@/components/requisitions/FacilitationApprovalGate"), "FacilitationApprovalGate");
+const StaffLoanApprovalGate = optionalLazyWithRetry(() => import("@/components/requisitions/StaffLoanApprovalGate"), "StaffLoanApprovalGate");
+
 const PsoFacilitationRegister = lazyWithRetry(() => import("@/pages/PsoFacilitationRegister"));
 
 // Field recruitment campaign pages
@@ -82,6 +84,7 @@ const FeatureFlagsProvider = lazyWithRetry(() => import("@/contexts/FeatureFlags
 const Toaster = optionalLazyWithRetry(() => import("@/components/ui/toaster").then(m => ({ default: m.Toaster })), "Toaster");
 const SonnerToaster = optionalLazyWithRetry(() => import("@/components/ui/sonner").then(m => ({ default: m.Toaster })), "SonnerToaster");
 const NationalIdUnlinkNoticeDialog = optionalLazyWithRetry(() => import("@/components/national-id/NationalIdUnlinkNoticeDialog"), "NationalIdUnlinkNoticeDialog");
+const HRBirthdayNoticeDialog = optionalLazyWithRetry(() => import("@/components/hr/HRBirthdayNoticeDialog"), "HRBirthdayNoticeDialog");
 import MaintenanceBanner from "@/components/MaintenanceBanner";
 import MaintenanceLockScreen from "@/components/MaintenanceLockScreen";
 
@@ -434,6 +437,8 @@ function GlobalOnboardingGates() {
       <NationalIdLinkGate />
       <ConcernAssignmentGate />
       <FacilitationApprovalGate />
+      <StaffLoanApprovalGate />
+
     </>
   );
 }
@@ -976,6 +981,7 @@ const App = () => {
                           <ForceResetPasswordGate />
                           <GlobalOnboardingGates />
                           <NationalIdUnlinkNoticeDialog />
+                          <HRBirthdayNoticeDialog />
                           <CreditLoadingDebugPanel />
                         </Suspense>
                       </DeferredErrorBoundary>

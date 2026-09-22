@@ -11010,22 +11010,28 @@ export type Database = {
       }
       critical_function_baselines: {
         Row: {
+          auto_remediate: boolean
           baselined_at: string
           baselined_by: string | null
+          canonical_body: string | null
           expected_sha256: string
           function_signature: string
           note: string | null
         }
         Insert: {
+          auto_remediate?: boolean
           baselined_at?: string
           baselined_by?: string | null
+          canonical_body?: string | null
           expected_sha256: string
           function_signature: string
           note?: string | null
         }
         Update: {
+          auto_remediate?: boolean
           baselined_at?: string
           baselined_by?: string | null
+          canonical_body?: string | null
           expected_sha256?: string
           function_signature?: string
           note?: string | null
@@ -16892,6 +16898,92 @@ export type Database = {
           },
         ]
       }
+      hr_birthday_notices: {
+        Row: {
+          acknowledged_at: string | null
+          birthday_on: string
+          created_at: string
+          id: string
+          recipient_user_id: string
+          snoozed_until: string | null
+          staff_id: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          birthday_on: string
+          created_at?: string
+          id?: string
+          recipient_user_id: string
+          snoozed_until?: string | null
+          staff_id: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          birthday_on?: string
+          created_at?: string
+          id?: string
+          recipient_user_id?: string
+          snoozed_until?: string | null
+          staff_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_birthday_notices_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "hr_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_birthday_notices_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "hr_birthday_notices_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_note_events"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "hr_birthday_notices_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_officers"
+            referencedColumns: ["staff_id"]
+          },
+        ]
+      }
+      hr_birthday_recipients: {
+        Row: {
+          active: boolean
+          added_at: string
+          added_by: string | null
+          label: string | null
+          staff_ref: string | null
+          user_id: string
+        }
+        Insert: {
+          active?: boolean
+          added_at?: string
+          added_by?: string | null
+          label?: string | null
+          staff_ref?: string | null
+          user_id: string
+        }
+        Update: {
+          active?: boolean
+          added_at?: string
+          added_by?: string | null
+          label?: string | null
+          staff_ref?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       hr_contracts: {
         Row: {
           contract_type: string
@@ -19704,6 +19796,62 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      hr_staff_birthdays: {
+        Row: {
+          birth_date: string
+          recorded_at: string
+          recorded_by: string | null
+          staff_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          birth_date: string
+          recorded_at?: string
+          recorded_by?: string | null
+          staff_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          birth_date?: string
+          recorded_at?: string
+          recorded_by?: string | null
+          staff_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_staff_birthdays_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
+            referencedRelation: "hr_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_staff_birthdays_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "hr_staff_birthdays_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
+            referencedRelation: "v_pso_note_events"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "hr_staff_birthdays_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
+            referencedRelation: "v_pso_officers"
+            referencedColumns: ["staff_id"]
+          },
+        ]
       }
       hr_task_assessments: {
         Row: {
@@ -22877,6 +23025,9 @@ export type Database = {
           verified: boolean | null
           verified_at: string | null
           verified_by: string | null
+          verified_mobile_money_number: string | null
+          verified_mobile_money_set_at: string | null
+          verified_mobile_money_source: string | null
           village: string | null
           water_meter_number: string | null
         }
@@ -22952,6 +23103,9 @@ export type Database = {
           verified?: boolean | null
           verified_at?: string | null
           verified_by?: string | null
+          verified_mobile_money_number?: string | null
+          verified_mobile_money_set_at?: string | null
+          verified_mobile_money_source?: string | null
           village?: string | null
           water_meter_number?: string | null
         }
@@ -23027,6 +23181,9 @@ export type Database = {
           verified?: boolean | null
           verified_at?: string | null
           verified_by?: string | null
+          verified_mobile_money_number?: string | null
+          verified_mobile_money_set_at?: string | null
+          verified_mobile_money_source?: string | null
           village?: string | null
           water_meter_number?: string | null
         }
@@ -39671,6 +39828,30 @@ export type Database = {
           },
         ]
       }
+      staff_loan_authorities: {
+        Row: {
+          added_at: string
+          authority: string
+          enabled: boolean
+          note: string | null
+          user_id: string
+        }
+        Insert: {
+          added_at?: string
+          authority: string
+          enabled?: boolean
+          note?: string | null
+          user_id: string
+        }
+        Update: {
+          added_at?: string
+          authority?: string
+          enabled?: boolean
+          note?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       staff_loan_instalments: {
         Row: {
           amount_due: number
@@ -39789,6 +39970,60 @@ export type Database = {
           set_by?: string
         }
         Relationships: []
+      }
+      staff_loan_prompts: {
+        Row: {
+          approver_id: string
+          created_at: string
+          id: string
+          kind: string
+          requisition_id: string
+          resolution: string | null
+          resolved_at: string | null
+          snooze_count: number
+          snooze_until: string | null
+          state: string
+        }
+        Insert: {
+          approver_id: string
+          created_at?: string
+          id?: string
+          kind: string
+          requisition_id: string
+          resolution?: string | null
+          resolved_at?: string | null
+          snooze_count?: number
+          snooze_until?: string | null
+          state?: string
+        }
+        Update: {
+          approver_id?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          requisition_id?: string
+          resolution?: string | null
+          resolved_at?: string | null
+          snooze_count?: number
+          snooze_until?: string | null
+          state?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_loan_prompts_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "staff_requisitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_loan_prompts_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_facilitation_position"
+            referencedColumns: ["requisition_id"]
+          },
+        ]
       }
       staff_loan_repayments: {
         Row: {
@@ -49943,6 +50178,14 @@ export type Database = {
         }
         Relationships: []
       }
+      v_crm_call_section: {
+        Row: {
+          person_id: string | null
+          section: string | null
+          subtype: string | null
+        }
+        Relationships: []
+      }
       v_crm_person_roles: {
         Row: {
           person_id: string | null
@@ -53960,6 +54203,23 @@ export type Database = {
         }
         Returns: Json
       }
+      cc_concern_handling_report: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          completed_at: string
+          created_at: string
+          cycle_row_id: string
+          due_at: string
+          due_is_custom: boolean
+          forwarded_to_name: string
+          id: string
+          reassigned_count: number
+          received_call_id: string
+          reviewer_names: string[]
+          source_kind: string
+          status: string
+        }[]
+      }
       cc_concern_participants_text: {
         Args: { p_concern_id: string }
         Returns: string
@@ -54970,8 +55230,21 @@ export type Database = {
           total_rows: number
         }[]
       }
+      crm_call_section_counts: {
+        Args: never
+        Returns: {
+          people: number
+          section: string
+        }[]
+      }
       crm_call_sessions_feed: {
-        Args: { p_days?: number; p_limit?: number; p_target_user_id?: string }
+        Args: {
+          p_days?: number
+          p_limit?: number
+          p_section?: string
+          p_target_user_id?: string
+          p_with_summary_only?: boolean
+        }
         Returns: {
           created_at: string
           duration_seconds: number
@@ -55026,6 +55299,7 @@ export type Database = {
           p_search?: string
           p_sort?: string
           p_status?: string
+          p_subtype?: string
         }
         Returns: {
           avatar_url: string
@@ -55044,6 +55318,7 @@ export type Database = {
           total_rows: number
         }[]
       }
+      crm_reap_stale_call_sessions: { Args: never; Returns: Json }
       crm_record_call_outcome: {
         Args: { p_outcome: string; p_session_id: string }
         Returns: undefined
@@ -56243,6 +56518,14 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: number
       }
+      get_agent_active_breakdown: {
+        Args: { p_range_end?: string; p_range_start: string }
+        Returns: Json
+      }
+      get_agent_active_rent_request: {
+        Args: { p_tenant_id: string }
+        Returns: Json
+      }
       get_agent_advance_activity_correlation: {
         Args: { p_days?: number }
         Returns: {
@@ -56397,6 +56680,7 @@ export type Database = {
         Args: { p_limit?: number; p_offset?: number; p_week_start?: string }
         Returns: Json
       }
+      get_agent_collection_quality: { Args: { p_days?: number }; Returns: Json }
       get_agent_collection_records: {
         Args: { p_agent_id: string; p_end: string; p_start: string }
         Returns: Json
@@ -56816,6 +57100,10 @@ export type Database = {
           tenant_status: string
           verified: boolean
         }[]
+      }
+      get_agent_tenant_repayments: {
+        Args: { p_tenant_id: string }
+        Returns: Json
       }
       get_agent_tenants_overview: {
         Args: { p_today_start?: string }
@@ -57854,6 +58142,7 @@ export type Database = {
       get_mission_leaderboard: { Args: { p_limit?: number }; Returns: Json }
       get_money_at_bank_reconciliation: { Args: never; Returns: Json }
       get_money_at_bank_total: { Args: never; Returns: Json }
+      get_my_agent_collections_today: { Args: never; Returns: Json }
       get_my_ai_id_summary: { Args: never; Returns: Json }
       get_my_borrowed_loans: {
         Args: never
@@ -57876,6 +58165,7 @@ export type Database = {
         }[]
       }
       get_my_commission_rate: { Args: never; Returns: Json }
+      get_my_landlord_properties: { Args: never; Returns: Json }
       get_my_listing_block: { Args: never; Returns: Json }
       get_my_parent_agent: {
         Args: never
@@ -59437,6 +59727,27 @@ export type Database = {
         Returns: boolean
       }
       house_share_performance: { Args: never; Returns: Json }
+      hr_birthday_acknowledge: {
+        Args: { p_notice_id: string }
+        Returns: undefined
+      }
+      hr_birthday_can_write: { Args: never; Returns: boolean }
+      hr_birthday_pending: {
+        Args: never
+        Returns: {
+          birthday_on: string
+          full_name: string
+          notice_id: string
+          staff_id: string
+          staff_ref: string
+          turning_age: number
+        }[]
+      }
+      hr_birthday_queue_daily: { Args: never; Returns: number }
+      hr_birthday_snooze: {
+        Args: { p_minutes: number; p_notice_id: string }
+        Returns: undefined
+      }
       hr_can_assign_tasks: { Args: never; Returns: boolean }
       hr_change_department: {
         Args: {
@@ -59447,6 +59758,10 @@ export type Database = {
         Returns: string
       }
       hr_claim_ticket: { Args: { p_ticket_id: string }; Returns: string }
+      hr_clear_staff_birth_date: {
+        Args: { p_staff_id: string }
+        Returns: undefined
+      }
       hr_compute_cc_snapshots: {
         Args: { _period_end: string; _period_start: string }
         Returns: number
@@ -59491,6 +59806,19 @@ export type Database = {
       hr_is_named_officer: {
         Args: { _role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean
+      }
+      hr_list_staff_birthdays: {
+        Args: never
+        Returns: {
+          birth_date: string
+          birth_day_month: string
+          days_until: number
+          full_name: string
+          next_birthday: string
+          staff_id: string
+          staff_ref: string
+          turning_age: number
+        }[]
       }
       hr_manages: { Args: { _staff_id: string }; Returns: boolean }
       hr_my_approvals: {
@@ -59711,6 +60039,10 @@ export type Database = {
       hr_perf_weeks_in_month: {
         Args: { _period_code: string }
         Returns: number
+      }
+      hr_set_staff_birth_date: {
+        Args: { p_birth_date: string; p_staff_id: string }
+        Returns: undefined
       }
       hr_task_wip_limit: { Args: never; Returns: number }
       hr_ticket_people: {
@@ -63728,6 +64060,84 @@ export type Database = {
           loans_charged: number
         }[]
       }
+      staff_loan_disburse: {
+        Args: { _requisition_id: string }
+        Returns: {
+          amount: number
+          approved_amount: number | null
+          attachment_urls: string[]
+          category: string | null
+          ceo_decided_at: string | null
+          ceo_decided_by: string | null
+          ceo_note: string | null
+          cfo_decided_at: string | null
+          cfo_decided_by: string | null
+          cfo_note: string | null
+          coo_decided_at: string | null
+          coo_decided_by: string | null
+          coo_note: string | null
+          created_at: string
+          credited_at: string | null
+          credited_by: string | null
+          currency: string
+          current_approver_role: string | null
+          decided_at: string | null
+          department_id: string | null
+          department_key: string | null
+          final_stage: string
+          hr_decided_at: string | null
+          hr_decided_by: string | null
+          hr_note: string | null
+          id: string
+          loan_monthly_rate: number | null
+          loan_months: number | null
+          needed_by: string | null
+          reason: string
+          rejection_reason: string | null
+          request_kind: string
+          requester_id: string
+          requester_name: string | null
+          requester_role: string | null
+          requisition_code: string
+          returned_from_stage: string | null
+          stage: string
+          supervisor_decided_at: string | null
+          supervisor_decided_by: string | null
+          supervisor_note: string | null
+          title: string
+          updated_at: string
+          wallet_credit_status: string | null
+          wallet_transaction_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "staff_requisitions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      staff_loan_has_authority: {
+        Args: { _authority: string; _user_id: string }
+        Returns: boolean
+      }
+      staff_loan_pending_prompt: {
+        Args: never
+        Returns: {
+          amount: number
+          borrower_name: string
+          currency: string
+          interest_method: string
+          kind: string
+          monthly_rate: number
+          months: number
+          prompt_id: string
+          reason: string
+          requisition_code: string
+          requisition_id: string
+          snooze_count: number
+          submitted_at: string
+        }[]
+      }
       staff_loan_policy_confirm: {
         Args: {
           _interest_method: string
@@ -63752,6 +64162,27 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "staff_loan_policy"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      staff_loan_prompt_snooze: {
+        Args: { _prompt_id: string }
+        Returns: {
+          approver_id: string
+          created_at: string
+          id: string
+          kind: string
+          requisition_id: string
+          resolution: string | null
+          resolved_at: string | null
+          snooze_count: number
+          snooze_until: string | null
+          state: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "staff_loan_prompts"
           isOneToOne: true
           isSetofReturn: false
         }

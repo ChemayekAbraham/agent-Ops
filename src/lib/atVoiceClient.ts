@@ -62,7 +62,34 @@ let client: RawClient | null = null;
 let clientToken: string | null = null;
 const listeners = new Map<AtVoiceEvent, Set<Listener>>();
 
+/**
+ * Whether the SDK is currently REGISTERED and able to place a call.
+ *
+ * This lives at module level, beside the client it describes, because the
+ * client does. It used to live in a `useRef` inside `useCrmVoiceCall`, which
+ * had two consequences and both cost real calls:
+ *
+ *   * the ref reset to `false` on every remount while the client stayed
+ *     registered, and `ready` is emitted once per registration with no replay -
+ *     so the hook waited for an event that would never come again, timed out,
+ *     and dialled anyway;
+ *   * a second hook instance had its own ref and disagreed with the first.
+ *
+ * Readiness is a property of the connection, not of whoever is looking at it.
+ */
+let registered = false;
+
+/** Is the voice client registered right now? */
+export function isVoiceClientReady(): boolean {
+  return registered && client !== null;
+}
+
 function emit(event: AtVoiceEvent, payload: unknown) {
+  // Registration state is tracked HERE rather than by each subscriber, so it
+  // cannot drift from the events that drive it.
+  if (event === 'ready') registered = true;
+  if (event === 'notready' || event === 'offline' || event === 'closed') registered = false;
+
   listeners.get(event)?.forEach((fn) => {
     try {
       fn(payload);
@@ -70,6 +97,31 @@ function emit(event: AtVoiceEvent, payload: unknown) {
       console.error(`[atVoice] listener for "${event}" threw`, err);
     }
   });
+}
+
+/**
+ * Throw the current client away so the next `getVoiceClient` builds a fresh one.
+ *
+ * Needed because a client whose registration has dropped is indistinguishable
+ * from a healthy one by token alone: `getVoiceClient` hands back the cached
+ * instance whenever the token string matches, and the token is good for an
+ * hour. Without this, one dropped registration made every call for the rest of
+ * that hour dial into nothing.
+ */
+export function resetVoiceClient(): void {
+  if (client) {
+    try {
+      client.hangup();
+    } catch {
+      // Already gone. Nothing to salvage, and the point is to discard it.
+    }
+  }
+  // Dropping the reference does not close a peer connection: without this the
+  // audio outlives the client object that owned it.
+  stopVoiceMedia();
+  client = null;
+  clientToken = null;
+  registered = false;
 }
 
 /**
@@ -105,6 +157,46 @@ export function getVoiceClient(capabilityToken: string): RawClient {
   client = next;
   clientToken = capabilityToken;
   return next;
+}
+
+/**
+ * Silence the call's audio for real.
+ *
+ * `hangup()` sends the SIP BYE, which ends the call as far as the signalling
+ * is concerned. It does not reliably stop the inbound media: the SDK attaches
+ * the remote audio to an element it creates and does not expose, and that
+ * element has been observed still playing after a hang-up - you cancel the
+ * call and can still hear the other person.
+ *
+ * So the tracks are stopped directly. Only elements whose `srcObject` is a
+ * MediaStream are touched: ordinary `<audio src="...">` players (notification
+ * sounds and the like) have no `srcObject` and are left alone.
+ *
+ * Returns how many tracks were stopped, which is worth logging when a call
+ * ends in a way nobody expected.
+ */
+export function stopVoiceMedia(): number {
+  if (typeof document === 'undefined') return 0;
+  let stopped = 0;
+  document.querySelectorAll<HTMLMediaElement>('audio, video').forEach((el) => {
+    const stream = el.srcObject as MediaStream | null;
+    if (!stream || typeof stream.getTracks !== 'function') return;
+    stream.getTracks().forEach((track) => {
+      try {
+        track.stop();
+        stopped += 1;
+      } catch {
+        // Already ended. Nothing to stop, which is the outcome we wanted.
+      }
+    });
+    try {
+      el.pause();
+      el.srcObject = null;
+    } catch {
+      // Detached from the DOM mid-sweep; the tracks are stopped either way.
+    }
+  });
+  return stopped;
 }
 
 /** The current client, if one has been built. Never constructs. */

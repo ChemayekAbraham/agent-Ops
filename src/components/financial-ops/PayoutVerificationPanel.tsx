@@ -101,6 +101,7 @@ import {
   maskIdNumber,
   useDecidePayoutDestination,
   useRevertHolderName,
+  useSetHolderName,
 
 
   usePayoutVerificationCounts,
@@ -399,16 +400,36 @@ function NameChangeHistory({ userId }: { userId: string }) {
  */
 function IdNameMismatchCard({ row, onSaved }: { row: PayoutDestinationRow; onSaved: () => void }) {
   const adopt = useAdoptNationalIdName();
+  const setHolderName = useSetHolderName();
   const idName = (row.national_id_name || '').trim();
   const accountName = (row.full_name || row.account_name || '').trim();
   const alreadySame = !!idName && idName.toLowerCase() === accountName.toLowerCase();
   const confidence = assessIdNameConfidence(idName);
+  // finops_set_holder_name / useSetHolderName already existed for this exact
+  // situation but had zero call sites anywhere in the frontend — there was no
+  // button that could ever reach it, so a reviewer had no way to make a
+  // correction stick against the auto-adopt effect below. correctionValue is
+  // seeded from the account name (usually already correct, e.g. taken from a
+  // verified selfie/withdrawal) so confirming it here is a one-click action.
+  const [correctionValue, setCorrectionValue] = useState(accountName);
+  const [showCorrection, setShowCorrection] = useState(false);
+  // A Financial Ops manual override (finops_set_holder_name) is an explicit
+  // human decision that the ID-read name is NOT the real name. Without this
+  // check, every re-render of this card (case reopened, 30s queue poll,
+  // navigating back to it) re-fires the auto-adopt effect below and silently
+  // overwrites that decision with the same untrustworthy OCR text again —
+  // this is the "every time the name goes back" bug: name_match_score stays
+  // low (it is not recomputed after an override) so the card keeps rendering,
+  // and neither `alreadySame` nor `confidence.confident` know a human already
+  // rejected this exact ID reading.
+  const humanOverridden = row.name_source === 'verified';
   const appliedRef = useRef<string | null>(null);
 
   // The ID name replaces the account name on its own, as soon as the case opens —
-  // but only when the read is clean. A doubtful read is flagged, never applied.
+  // but only when the read is clean, and never once Financial Ops has manually
+  // set the holder name (see `humanOverridden` above).
   useEffect(() => {
-    if (alreadySame || !confidence.confident) return;
+    if (alreadySame || !confidence.confident || humanOverridden) return;
     if (appliedRef.current === row.id) return;
     appliedRef.current = row.id;
     void (async () => {
@@ -430,19 +451,27 @@ function IdNameMismatchCard({ row, onSaved }: { row: PayoutDestinationRow; onSav
     })();
 
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [row.id, idName, alreadySame, confidence.confident]);
+  }, [row.id, idName, alreadySame, confidence.confident, humanOverridden]);
 
-  const flagged = !confidence.confident;
+  // Reset the correction field when moving to a different case, so it never
+  // shows a previous holder's name in the input.
+  useEffect(() => {
+    setCorrectionValue(accountName);
+    setShowCorrection(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [row.id]);
+
+  const flagged = !confidence.confident && !humanOverridden;
 
   return (
     <div
       className={`mx-5 mt-3 rounded-2xl border p-4 ${
-        flagged ? 'border-destructive/50 bg-destructive/10' : 'border-amber-500/40 bg-amber-500/10'
+        flagged ? 'border-destructive/50 bg-destructive/10' : humanOverridden ? 'border-emerald-500/40 bg-emerald-500/10' : 'border-amber-500/40 bg-amber-500/10'
       }`}
     >
       <p
         className={`flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] ${
-          flagged ? 'text-destructive' : 'text-amber-700 dark:text-amber-400'
+          flagged ? 'text-destructive' : humanOverridden ? 'text-emerald-700 dark:text-emerald-400' : 'text-amber-700 dark:text-amber-400'
         }`}
       >
         <AlertTriangle className="h-3.5 w-3.5" aria-hidden="true" />
@@ -457,6 +486,13 @@ function IdNameMismatchCard({ row, onSaved }: { row: PayoutDestinationRow; onSav
             {confidence.reason} The account name was left as it is — ask for a clearer ID photo before verifying.
           </span>
         </p>
+      ) : humanOverridden ? (
+        <p className="mt-2 flex items-start gap-1.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+          <UserCheck className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+          <span>
+            Financial Ops set the account name manually — the ID reading above will not overwrite it again.
+          </span>
+        </p>
       ) : (
         <p className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
           {adopt.isPending ? (
@@ -468,6 +504,69 @@ function IdNameMismatchCard({ row, onSaved }: { row: PayoutDestinationRow; onSav
             ? 'Applying the name from the ID…'
             : 'The name from the ID is now the name on the account.'}
         </p>
+      )}
+
+      {!humanOverridden && (
+        showCorrection ? (
+          <div className="mt-3 space-y-2">
+            <Input
+              value={correctionValue}
+              onChange={(e) => setCorrectionValue(e.target.value)}
+              placeholder="Full name as printed on the ID"
+              className="h-9 text-sm"
+              disabled={setHolderName.isPending}
+            />
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                className="h-8 gap-1.5 rounded-full text-xs"
+                disabled={setHolderName.isPending || correctionValue.trim().length < 3}
+                onClick={() => {
+                  setHolderName.mutate(
+                    { id: row.id, fullName: correctionValue.trim() },
+                    {
+                      onSuccess: (res) => {
+                        toast.success(`Name set to ${res.full_name || correctionValue.trim()}.`);
+                        setShowCorrection(false);
+                        onSaved();
+                      },
+                      onError: (err: Error) => toast.error(err.message),
+                    },
+                  );
+                }}
+              >
+                {setHolderName.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                ) : (
+                  <UserCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                )}
+                Save this name
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="h-8 rounded-full text-xs"
+                disabled={setHolderName.isPending}
+                onClick={() => setShowCorrection(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="mt-3 h-8 gap-1.5 rounded-full text-xs"
+            onClick={() => setShowCorrection(true)}
+          >
+            <UserCheck className="h-3.5 w-3.5" aria-hidden="true" />
+            {alreadySame || !confidence.confident ? 'Type the correct name' : 'Not this — type the correct name'}
+          </Button>
+        )
       )}
     </div>
   );
