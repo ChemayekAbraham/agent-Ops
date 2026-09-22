@@ -2080,6 +2080,13 @@
       "when": 1790079325110,
       "tag": "0296_record_system_reaper_ended_by_constraint",
       "breakpoints": true
+    },
+    {
+      "idx": 297,
+      "version": "7",
+      "when": 1790079657558,
+      "tag": "0297_allow_staff_loan_repayment_ledger_category",
+      "breakpoints": true
     }
   ]
 }
