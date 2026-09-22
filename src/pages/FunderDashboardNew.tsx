@@ -375,10 +375,7 @@ export default function FunderDashboardNew() {
             className="ring-2 ring-primary/20"
           />
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Find a home to support
-            </p>
-            <h1 className="mt-0.5 truncate text-xl font-semibold tracking-tight">{displayName}</h1>
+            <h1 className="truncate text-xl font-semibold tracking-tight">{displayName}</h1>
             {welileId && (
               <button
                 type="button"
