@@ -129,9 +129,6 @@ export function FunderNewHouseCard({
               {formatDynamic(monthlyReturn)} / month
             </span>
           )}
-          {verified ? (
-            <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">Verified</span>
-          ) : null}
         </div>
 
         <div className="pt-1">
