@@ -212,6 +212,104 @@ export function CombinedCallingCenterReportButton({ days = 90 }: { days?: number
         })
         .sort((a, b) => b.total - a.total);
 
+      // ------------------------------- Made Calls (same cc_* calling spine)
+      // Read-only, exactly the records the History tab reads: attempt rows on
+      // tenant roster rows. A made call counts as forwarded when a concern was
+      // raised from its roster row (`cc_forwarded_concerns.cycle_row_id`) —
+      // the same link the Forward Concern dialog writes.
+      const attempts: { id: string; cycle_row_id: string }[] = [];
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await anyDb
+          .from('cc_call_attempts')
+          .select('id, cycle_row_id')
+          .gte('revealed_at', since)
+          .order('revealed_at', { ascending: false })
+          .range(from, from + 999);
+        if (error) throw new Error(error.message);
+        attempts.push(...((data ?? []) as { id: string; cycle_row_id: string }[]));
+        if (!data || data.length < 1000) break;
+      }
+      const tenantRowIds = new Set<string>();
+      const allRowIds = [...new Set(attempts.map((a) => a.cycle_row_id))];
+      for (let i = 0; i < allRowIds.length; i += 300) {
+        const { data, error } = await anyDb
+          .from('cc_cycle_rows')
+          .select('id, subject_type')
+          .in('id', allRowIds.slice(i, i + 300));
+        if (error) throw new Error(error.message);
+        ((data ?? []) as { id: string; subject_type: string }[]).forEach((r) => {
+          if (r.subject_type === 'tenant') tenantRowIds.add(r.id);
+        });
+      }
+      const concernRowIds = new Set(concerns.map((c) => c.cycle_row_id).filter(Boolean) as string[]);
+      const madeCalls = attempts.filter((a) => tenantRowIds.has(a.cycle_row_id));
+      const madeForwarded = madeCalls.filter((a) => concernRowIds.has(a.cycle_row_id)).length;
+      const madeNotForwarded = madeCalls.length - madeForwarded;
+      const receivedNotForwarded = calls.length - receivedForwarded;
+      const totalNotForwarded = madeNotForwarded + receivedNotForwarded;
+      const grandTotal = concerns.length + totalNotForwarded;
+      const gPct = (n: number) => (grandTotal ? `${Math.round((n / grandTotal) * 100)}%` : '0%');
+
+      // ------------------------- Staff concern handling (both call sources)
+      // Same grouping the Issues Review uses (the person it was forwarded to),
+      // so the staff rows add up exactly to the forwarded total — a concern is
+      // never counted twice even when more people were added as reviewers.
+      const staffHandlingRows = Array.from(receiverMap.entries())
+        .map(([name, list]) => {
+          const done = list.filter((c) => c.status === 'completed' && c.completed_at);
+          const avg =
+            done.length > 0
+              ? done.reduce(
+                  (a, c) => a + (new Date(c.completed_at as string).getTime() - new Date(c.created_at).getTime()),
+                  0,
+                ) /
+                done.length /
+                3_600_000
+              : null;
+          return {
+            name,
+            total: list.length,
+            fromMade: list.filter((c) => c.source_kind === 'outbound_call').length,
+            fromReceived: list.filter((c) => c.source_kind === 'received_call').length,
+            completed: done.length,
+            open: list.length - done.length,
+            overdue: list.filter(isConcernOverdue).length,
+            onTime: done.filter((c) => concernOverdueHours(c) === 0).length,
+            avgHours: avg == null ? '—' : `${avg.toFixed(1)} hours`,
+            alsoReviewer: concerns.filter(
+              (c) =>
+                (c.forwarded_to_name ?? 'Staff member') !== name &&
+                (anyReviewerNames.get(c.id) ?? []).includes(name),
+            ).length,
+          };
+        })
+        .sort((a, b) => b.total - a.total);
+
+      const staffHandling = {
+        rows: staffHandlingRows,
+        note:
+          'Every concern is counted once, against the staff member it was forwarded to. Where more people were later added to the same concern they appear in the last column instead, so the staff rows add up exactly to the forwarded total. Calls and concerns below cover both the calls we made and the calls that came in, over the same period.',
+        reconciliation: [
+          {
+            label: 'Total forwarded — concerns sent to at least one staff member',
+            count: concerns.length,
+            share: gPct(concerns.length),
+          },
+          {
+            label: 'Not forwarded / no staff assigned — calls we made',
+            count: madeNotForwarded,
+            share: gPct(madeNotForwarded),
+          },
+          {
+            label: 'Not forwarded / no staff assigned — calls that came in',
+            count: receivedNotForwarded,
+            share: gPct(receivedNotForwarded),
+          },
+          { label: 'Total not forwarded', count: totalNotForwarded, share: gPct(totalNotForwarded) },
+          { label: 'Grand total concerns and calls', count: grandTotal, share: '100%' },
+        ],
+      };
+
       const withDue = concerns.filter((c) => !!c.due_at);
       const late = concerns.filter((c) => concernOverdueHours(c) > 0);
       const lateTotal = late.reduce((a, c) => a + concernOverdueHours(c), 0);
@@ -317,7 +415,11 @@ export function CombinedCallingCenterReportButton({ days = 90 }: { days?: number
             { label: 'Staff members holding concerns', value: String(byReceiver.length) },
             { label: 'Officers who recorded received calls', value: String(receivedByOfficer.length) },
             { label: 'Repeated concerns identified', value: String(themes.length) },
+            { label: 'Calls we made', value: String(madeCalls.length) },
+            { label: 'Calls we made with a concern forwarded', value: String(madeForwarded) },
+            { label: 'Calls and concerns never forwarded to staff', value: String(totalNotForwarded) },
           ],
+          staffHandling,
           received: {
             tiles: [
               { label: 'Calls received', value: String(calls.length) },
