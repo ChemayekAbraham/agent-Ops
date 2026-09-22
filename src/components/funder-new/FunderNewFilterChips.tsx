@@ -180,7 +180,9 @@ export function FunderNewFilterChips({
           }`}
         >
           <Wallet className="mr-1 inline h-3 w-3" aria-hidden />
-          Within my balance
+          {availableBalance === null
+            ? 'Within my balance'
+            : `Within my balance (UGX ${Math.round(availableBalance).toLocaleString('en-US')})`}
         </button>
 
         {dirty ? (
