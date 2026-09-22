@@ -23022,6 +23022,9 @@ export type Database = {
           verified: boolean | null
           verified_at: string | null
           verified_by: string | null
+          verified_mobile_money_number: string | null
+          verified_mobile_money_set_at: string | null
+          verified_mobile_money_source: string | null
           village: string | null
           water_meter_number: string | null
         }
@@ -23097,6 +23100,9 @@ export type Database = {
           verified?: boolean | null
           verified_at?: string | null
           verified_by?: string | null
+          verified_mobile_money_number?: string | null
+          verified_mobile_money_set_at?: string | null
+          verified_mobile_money_source?: string | null
           village?: string | null
           water_meter_number?: string | null
         }
@@ -23172,6 +23178,9 @@ export type Database = {
           verified?: boolean | null
           verified_at?: string | null
           verified_by?: string | null
+          verified_mobile_money_number?: string | null
+          verified_mobile_money_set_at?: string | null
+          verified_mobile_money_source?: string | null
           village?: string | null
           water_meter_number?: string | null
         }
