@@ -548,3 +548,131 @@ export function resolvePrimaryAudience(memberships: AudienceMemberships): Callee
   // broadest bucket is the only safe default.
   return 'tenant';
 }
+
+/* ------------------------------------------------------------------
+ * Call queues
+ *
+ * The Call Centre is five sections, each with the same four views. A section
+ * is a REASON TO CALL SOMEONE, not a statement about who they are, so unlike
+ * `AUDIENCE_PRECEDENCE` above these DO NOT collapse to one bucket: a proxy
+ * agent who is also an employee belongs in both queues and is called by both
+ * desks, about different things. Section totals therefore sum to more than the
+ * platform headcount, on purpose.
+ *
+ * Mirrors the `v_crm_call_section` view. Landlords are deliberately absent -
+ * they are not platform users (zero of them have a `profiles` row) and are
+ * called from Landlord Ops against `v_landlord_calling_base` instead.
+ * ------------------------------------------------------------------ */
+
+export type CallSection =
+  | 'tenant'
+  | 'partner'
+  | 'proxy_agent'
+  | 'operational_agent'
+  | 'employee';
+
+/** Display order in the sidebar, largest audience first. */
+export const CALL_SECTIONS: CallSection[] = [
+  'tenant',
+  'partner',
+  'proxy_agent',
+  'operational_agent',
+  'employee',
+];
+
+export const CALL_SECTION_LABEL: Record<CallSection, string> = {
+  tenant: 'Tenants',
+  partner: 'Partners',
+  proxy_agent: 'Proxy Agents',
+  operational_agent: 'Operational Agents',
+  employee: 'Employees',
+};
+
+/** Heading for the people tab inside a section. */
+export const CALL_SECTION_PEOPLE_LABEL: Record<CallSection, string> = {
+  tenant: 'Tenants',
+  partner: 'Partners',
+  proxy_agent: 'Proxy Agents',
+  employee: 'Employees',
+  // The one place the tab is not just the section name again.
+  operational_agent: 'Agents',
+};
+
+export const CALL_SECTION_SLUG: Record<CallSection, string> = {
+  tenant: 'tenants',
+  partner: 'partners',
+  proxy_agent: 'proxy-agents',
+  operational_agent: 'operational-agents',
+  employee: 'employees',
+};
+
+/** The four views every section carries. */
+export type CallSectionView = 'overview' | 'people' | 'logs' | 'summaries';
+export const CALL_SECTION_VIEWS: CallSectionView[] = ['overview', 'people', 'logs', 'summaries'];
+export const CALL_SECTION_VIEW_LABEL: Record<CallSectionView, string> = {
+  overview: 'Overview',
+  people: 'People',
+  logs: 'Call Logs',
+  summaries: 'Summaries',
+};
+
+/** Sidebar id for one leaf, e.g. `call-centre-tenants-logs`. */
+export function callSectionNavId(section: CallSection, view: CallSectionView): string {
+  return `call-centre-${CALL_SECTION_SLUG[section]}-${view}`;
+}
+
+/** Parse a sidebar id back to its section and view. Null when it is not one. */
+export function parseCallSectionNavId(
+  id: string,
+): { section: CallSection; view: CallSectionView } | null {
+  for (const section of CALL_SECTIONS) {
+    for (const view of CALL_SECTION_VIEWS) {
+      if (callSectionNavId(section, view) === id) return { section, view };
+    }
+  }
+  return null;
+}
+
+/**
+ * The KPI row, as the brief specifies it.
+ *
+ * `computeKpis` above counts CALLS. Two of the nine tiles count PEOPLE instead,
+ * which is why they cannot be derived from the call list alone:
+ *   - `totalNumbers` is the size of the queue, so it comes from the roster.
+ *   - `calledReached` is how many of those people have been reached at least
+ *     once, which is a distinct count over the call list.
+ * Put beside each other they answer "how far through this queue are we", which
+ * neither figure answers on its own.
+ */
+export interface CallSectionKpis extends CallCentreKpis {
+  /** Everyone in this queue, whether or not they have ever been called. */
+  totalNumbers: number;
+  /** Distinct people in this queue who have been called at all. */
+  calledAtLeastOnce: number;
+  /** Distinct people actually spoken to - an answered call, not just dialled. */
+  reachedAtLeastOnce: number;
+  /** reached / total, 0-100. Null when the queue is empty. */
+  coveragePct: number | null;
+}
+
+export function computeSectionKpis(
+  records: CallRecord[],
+  queueSize: number,
+): CallSectionKpis {
+  const base = computeKpis(records);
+
+  const called = new Set<string>();
+  const reached = new Set<string>();
+  for (const record of records) {
+    called.add(record.calleeId);
+    if (deriveOutcome(record) === 'answered') reached.add(record.calleeId);
+  }
+
+  return {
+    ...base,
+    totalNumbers: queueSize,
+    calledAtLeastOnce: called.size,
+    reachedAtLeastOnce: reached.size,
+    coveragePct: queueSize > 0 ? Math.round((reached.size / queueSize) * 1000) / 10 : null,
+  };
+}

@@ -19,10 +19,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import {
   CALLEE_ROLES,
+  CALL_SECTIONS,
+  buildOutcomeTrend,
+  computeSectionKpis,
   deriveOutcome,
   type CalleeRole,
   type CallOutcome,
   type CallRecord,
+  type CallSection,
 } from '@/lib/callCentre';
 
 /** The voice API is wired; the dialer no longer shows the "not connected" notice. */
@@ -226,7 +230,13 @@ export type PeopleSort = 'name' | 'recent_call' | 'newest';
 
 export interface PlatformPeopleQuery {
   search?: string;
-  role?: CalleeRole | 'all';
+  /**
+   * A raw role ('agent', 'landlord', …) or a Call Centre queue
+   * ('operational_agent', 'proxy_agent'). `crm_platform_people_page` tests
+   * membership against `v_crm_person_roles` first and `v_crm_call_section`
+   * second, so both kinds of value resolve.
+   */
+  role?: CalleeRole | CallSection | 'all';
   status?: PeopleStatusFilter;
   sort?: PeopleSort;
   page?: number;
@@ -572,4 +582,160 @@ export function useRosterAudienceCounts() {
     for (const r of rows) counts.set(r.role, (counts.get(r.role) ?? 0) + 1);
     return counts;
   }, [rows]);
+}
+
+/* ------------------------------------------------------------------
+ * Per-queue reads
+ *
+ * The Call Centre is five queues (see `v_crm_call_section`), each showing the
+ * same four views. Everything below takes a `CallSection` and is otherwise the
+ * same query the flat Call Centre already ran, so the shared components need
+ * one extra prop rather than a fork per audience.
+ *
+ * Queue membership is resolved SERVER-side on every read. Filtering client-side
+ * on `record.calleeRole` would be wrong twice over: the roster is paged, so the
+ * client never holds the whole queue, and `crm_call_sessions.target_role` is a
+ * snapshot written when the call was placed - it still says 'agent' for someone
+ * who became a proxy agent afterwards.
+ * ------------------------------------------------------------------ */
+
+/** How many people sit in each queue. Feeds the "Total Numbers" tile. */
+export function useCallSectionCounts() {
+  const query = useQuery({
+    queryKey: ['crm-call-section-counts'],
+    queryFn: async (): Promise<Record<CallSection, number>> => {
+      const { data, error } = await supabase.rpc('crm_call_section_counts' as any);
+      if (error) throw error;
+      const out = {} as Record<CallSection, number>;
+      for (const section of CALL_SECTIONS) out[section] = 0;
+      for (const row of (data ?? []) as { section: string; people: number }[]) {
+        if ((CALL_SECTIONS as string[]).includes(row.section)) {
+          out[row.section as CallSection] = Number(row.people ?? 0);
+        }
+      }
+      return out;
+    },
+    staleTime: 5 * 60_000,
+  });
+  return { ...query, counts: query.data ?? ({} as Record<CallSection, number>) };
+}
+
+/** Every call placed to one queue in the window. Powers Overview and Call Logs. */
+export function useSectionCallRecords(section: CallSection | null, days = 30) {
+  const query = useQuery({
+    queryKey: ['crm-section-records', section, days],
+    enabled: Boolean(section),
+    queryFn: async (): Promise<CallRecord[]> => {
+      const { data, error } = await supabase.rpc('crm_call_sessions_feed' as any, {
+        p_days: days,
+        p_limit: 2000,
+        p_target_user_id: null,
+        p_section: section,
+      });
+      if (error) throw error;
+      return ((data ?? []) as FeedRow[]).map(toCallRecord);
+    },
+    staleTime: 30_000,
+  });
+  return { ...query, records: query.data ?? [] };
+}
+
+/**
+ * Only the calls staff actually wrote up. The Summaries tab is a record of what
+ * was said, so a call with no note has nothing to show and is excluded at the
+ * database rather than filtered out after fetching 2,000 rows.
+ */
+export function useSectionSummaries(section: CallSection | null, days = 90) {
+  const query = useQuery({
+    queryKey: ['crm-section-summaries', section, days],
+    enabled: Boolean(section),
+    queryFn: async (): Promise<CallRecord[]> => {
+      const { data, error } = await supabase.rpc('crm_call_sessions_feed' as any, {
+        p_days: days,
+        p_limit: 2000,
+        p_target_user_id: null,
+        p_section: section,
+        p_with_summary_only: true,
+      });
+      if (error) throw error;
+      return ((data ?? []) as FeedRow[]).map(toCallRecord);
+    },
+    staleTime: 30_000,
+  });
+  return { ...query, summaries: query.data ?? [] };
+}
+
+/** One page of a queue's people, searchable by name or number. */
+export function useSectionRoster(
+  section: CallSection | null,
+  options: { search?: string; page?: number; pageSize?: number } = {},
+) {
+  const search = (options.search ?? '').trim();
+  const page = options.page ?? 0;
+  const pageSize = Math.min(Math.max(options.pageSize ?? 50, 1), 200);
+
+  const query = useQuery({
+    queryKey: ['crm-section-roster', section, search, page, pageSize],
+    enabled: Boolean(section),
+    queryFn: async (): Promise<{ rows: RosterPerson[]; total: number }> => {
+      const { data, error } = await supabase.rpc('crm_call_roster_page', {
+        p_search: search || null,
+        p_role: section,
+        p_limit: pageSize,
+        p_offset: page * pageSize,
+      });
+      if (error) throw error;
+
+      const raw = (data ?? []) as RosterRow[];
+      return {
+        total: Number(raw[0]?.total_rows ?? raw.length),
+        rows: raw.map((r) => ({
+          calleeId: r.person_id,
+          name: r.name?.trim() || 'Unnamed user',
+          phone: r.phone_masked ?? '—',
+          hasPhone: r.has_phone === true,
+          avatarUrl: r.avatar_url,
+          role: asRole(r.primary_role),
+          location: r.location,
+          status: r.last_call_id
+            ? deriveOutcome({
+                status: r.last_status ?? 'unknown',
+                hangupCause: r.last_hangup_cause,
+                durationSeconds: r.last_duration_seconds,
+              })
+            : null,
+          calledAt: r.first_called_at,
+          recalledAt:
+            r.last_called_at && r.last_called_at !== r.first_called_at ? r.last_called_at : null,
+          totalCalls: Number(r.total_calls ?? 0),
+          summaries: Number(r.summaries ?? 0),
+          lastCallId: r.last_call_id,
+        })),
+      };
+    },
+    staleTime: 60_000,
+  });
+
+  return {
+    ...query,
+    rows: query.data?.rows ?? [],
+    total: query.data?.total ?? 0,
+    page,
+    pageSize,
+    pageCount: Math.max(1, Math.ceil((query.data?.total ?? 0) / pageSize)),
+  };
+}
+
+/** The nine KPI tiles for one queue, ready to render. */
+export function useSectionKpis(section: CallSection | null, days = 30) {
+  const { records, isLoading: recordsLoading } = useSectionCallRecords(section, days);
+  const { counts, isLoading: countsLoading } = useCallSectionCounts();
+
+  const kpis = useMemo(
+    () => computeSectionKpis(records, section ? (counts[section] ?? 0) : 0),
+    [records, counts, section],
+  );
+  const trend = useMemo(() => buildOutcomeTrend(records, { days }), [records, days]);
+
+  return { kpis, trend, records, isLoading: recordsLoading || countsLoading };
 }
