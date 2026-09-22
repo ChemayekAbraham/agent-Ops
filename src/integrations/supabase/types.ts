@@ -16905,6 +16905,7 @@ export type Database = {
           created_at: string
           id: string
           recipient_user_id: string
+          snoozed_until: string | null
           staff_id: string
         }
         Insert: {
@@ -16913,6 +16914,7 @@ export type Database = {
           created_at?: string
           id?: string
           recipient_user_id: string
+          snoozed_until?: string | null
           staff_id: string
         }
         Update: {
@@ -16921,6 +16923,7 @@ export type Database = {
           created_at?: string
           id?: string
           recipient_user_id?: string
+          snoozed_until?: string | null
           staff_id?: string
         }
         Relationships: [
@@ -59741,6 +59744,10 @@ export type Database = {
         }[]
       }
       hr_birthday_queue_daily: { Args: never; Returns: number }
+      hr_birthday_snooze: {
+        Args: { p_minutes: number; p_notice_id: string }
+        Returns: undefined
+      }
       hr_can_assign_tasks: { Args: never; Returns: boolean }
       hr_change_department: {
         Args: {
