@@ -43,6 +43,10 @@ export interface WeeklyForwardingInput {
   dailyTotals: number[];
   /** Every forwarded concern in the week, counted once. */
   grandTotal: number;
+  /** Calls handled and closed at the Calling Center with nothing forwarded. */
+  resolvedRows?: WeeklyForwardingStaffRow[];
+  resolvedDailyTotals?: number[];
+  resolvedGrandTotal?: number;
   tiles: ConcernPdfTile[];
   /** Measure → value insight table. */
   insights: { label: string; value: string }[];
@@ -50,6 +54,7 @@ export interface WeeklyForwardingInput {
   perDayBreakdown: { day: string; made: number; received: number; total: number; share: string }[];
   note: string;
 }
+
 
 async function loadLogoBase64(): Promise<string | null> {
   try {
