@@ -328,7 +328,8 @@ export function WeeklyStaffForwardingReport() {
             share: pct(report.dailyTotals[i]),
           })),
           note:
-            'Each figure is the number of concerns forwarded to that staff member on that day, counting both calls we made and calls that came in. Every concern is counted once, against the staff member it was forwarded to, so a concern later shared with more reviewers is never counted twice. "Daily total" is every staff member added together for that day; the "Weekly total" column is one staff member across the week, and the grand total is the whole week counted once.',
+            'Each figure is the number of concerns forwarded to that staff member on that day, counting both calls we made and calls that came in. Every concern is counted once, against the staff member it was forwarded to, so a concern later shared with more reviewers is never counted twice. The "Resolved by call center" block lists the person who handled and closed the call at the Calling Center with nothing forwarded on, so every call appears either as forwarded or as resolved — never in both. "Daily total" is every staff member added together for that day; the "Weekly total" column is one staff member across the week.',
+
         },
         {
           generatedBy,
