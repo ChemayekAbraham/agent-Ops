@@ -11,7 +11,14 @@ const EXPLANATION =
  * One small check badge, shown only when the HOUSE itself is verified.
  * Tap works for touch users; hover/focus works for pointer and keyboard.
  */
-export function FunderNewVerifiedBadge({ className }: { className?: string }) {
+export function FunderNewVerifiedBadge({
+  className,
+  variant = 'pill',
+}: {
+  className?: string;
+  /** `icon` is the compact browse-list check; `pill` is the labelled badge. */
+  variant?: 'pill' | 'icon';
+}) {
   return (
     <TooltipProvider delayDuration={200}>
       <Popover>
