@@ -56269,6 +56269,10 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: number
       }
+      get_agent_active_breakdown: {
+        Args: { p_range_end?: string; p_range_start: string }
+        Returns: Json
+      }
       get_agent_active_rent_request: {
         Args: { p_tenant_id: string }
         Returns: Json
