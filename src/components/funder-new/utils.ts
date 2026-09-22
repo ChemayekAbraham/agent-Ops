@@ -50,8 +50,13 @@ export function compactParts(amount: number): { prefix: string; figure: string }
   return { prefix: symbol, figure: figure || compact };
 }
 
+/**
+ * House type first. Listing titles are usually "Single Room in Central", which
+ * repeats the place line below it, so the clean category label wins when the
+ * listing has one.
+ */
 export function emptyHouseTitle(house: FunderNewEmptyHouse): string {
-  return house.title?.trim() || formatHouseCategory(house.house_category) || 'Empty house';
+  return formatHouseCategory(house.house_category) || house.title?.trim() || 'Empty house';
 }
 
 /**
