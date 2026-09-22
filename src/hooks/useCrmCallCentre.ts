@@ -369,6 +369,34 @@ function useInvalidateCallRecords() {
   }, [qc]);
 }
 
+/**
+ * Refresh every view that shows a call or a caller.
+ *
+ * `useInvalidateCallRecords` covers only the two flat keys that existed before
+ * the Call Centre was split into queues. Everything a user actually looks at
+ * now - the per-queue overview, people table, call log and summaries - is keyed
+ * separately, so a finished call left them all stale and the only way to see
+ * the outcome was to reload the page.
+ *
+ * Deliberately broad. These are cheap reads over a few hundred rows, and a
+ * missed key is a call that still reads as in progress.
+ */
+export function useInvalidateCallViews() {
+  const qc = useQueryClient();
+  return useCallback(() => {
+    [
+      CALL_RECORDS_KEY,
+      CALL_ROSTER_KEY,
+      ['crm-section-records'],
+      ['crm-section-summaries'],
+      ['crm-section-roster'],
+      ['crm-platform-people'],
+      ['crm-call-section-counts'],
+      ['crm-platform-people-counts'],
+    ].forEach((key) => qc.invalidateQueries({ queryKey: key as readonly unknown[] }));
+  }, [qc]);
+}
+
 /* ------------------------------------------------------------------ *
  * Placing a call
  * ------------------------------------------------------------------ */
@@ -614,6 +642,7 @@ export function useCallSectionCounts() {
   const query = useQuery({
     queryKey: ['crm-call-section-counts'],
     queryFn: async (): Promise<Record<CallSection, number>> => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await supabase.rpc('crm_call_section_counts' as any);
       if (error) throw error;
       const out = {} as Record<CallSection, number>;
@@ -636,6 +665,7 @@ export function useSectionCallRecords(section: CallSection | null, days = 30) {
     queryKey: ['crm-section-records', section, days],
     enabled: Boolean(section),
     queryFn: async (): Promise<CallRecord[]> => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await supabase.rpc('crm_call_sessions_feed' as any, {
         p_days: days,
         p_limit: 2000,
@@ -660,6 +690,7 @@ export function useSectionSummaries(section: CallSection | null, days = 90) {
     queryKey: ['crm-section-summaries', section, days],
     enabled: Boolean(section),
     queryFn: async (): Promise<CallRecord[]> => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await supabase.rpc('crm_call_sessions_feed' as any, {
         p_days: days,
         p_limit: 2000,

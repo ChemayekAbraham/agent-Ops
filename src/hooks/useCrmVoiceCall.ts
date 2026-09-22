@@ -20,10 +20,12 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useInvalidateCallViews } from '@/hooks/useCrmCallCentre';
 import {
   getVoiceClient,
   isVoiceClientReady,
   resetVoiceClient,
+  stopVoiceMedia,
   hangupVoiceCall,
   muteVoiceCall,
   onVoiceEvent,
@@ -210,10 +212,17 @@ export function useCrmVoiceCall(): UseCrmVoiceCall {
   const endRequestedRef = useRef(false);
 
   /* ---------------- finalisation (idempotent) ---------------- */
+  const invalidateCallViews = useInvalidateCallViews();
+
   const finalize = useCallback(
     (next: CallState, cause: string | null, durationOverride?: number | null) => {
       if (settledRef.current) return;
       settledRef.current = true;
+
+      // Whatever ended this call - our cancel, their hang-up, a failure - the
+      // audio stops HERE. Doing it in `end()` alone missed every path where
+      // the far side or the network ended the call first.
+      stopVoiceMedia();
 
       const seconds =
         durationOverride != null && durationOverride > 0
@@ -239,9 +248,13 @@ export function useCrmVoiceCall(): UseCrmVoiceCall {
         })
         .then(({ error: rpcErr }) => {
           if (rpcErr) console.error('[useCrmVoiceCall] finalize failed', rpcErr.message);
+          // The row has changed; the lists showing it have not been told.
+          // Without this the call still reads as in progress until the page is
+          // reloaded, which is exactly how it was reported.
+          invalidateCallViews();
         });
     },
-    [],
+    [invalidateCallViews],
   );
 
   /* ---------------- SDK events ---------------- */
@@ -482,13 +495,19 @@ export function useCrmVoiceCall(): UseCrmVoiceCall {
       return;
     }
 
-    // Otherwise wait for confirmation — the SDK `hangup` event or the Events
-    // webhook. A safety net closes the UI if neither arrives.
+    // Brief grace for the SDK's `hangup` event, which carries the true cause.
+    // It used to be six seconds, on the assumption the event would arrive. When
+    // it does not - and with this integration it frequently does not - the user
+    // stares at a call that says "ending" and reaches for the reload button.
+    //
+    // 1.5s is long enough for a healthy event and short enough not to read as
+    // broken. The user asked to hang up, so ORIGINATOR_CANCEL is the right
+    // answer anyway; the event only ever supplied a more precise one.
     window.setTimeout(() => {
       if (!settledRef.current) {
         finalize(answeredRef.current ? 'completed' : 'cancelled', 'ORIGINATOR_CANCEL');
       }
-    }, 6000);
+    }, 1500);
   }, [finalize]);
 
   const toggleMute = useCallback(() => {
