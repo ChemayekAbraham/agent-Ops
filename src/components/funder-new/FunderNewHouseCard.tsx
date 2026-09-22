@@ -40,7 +40,6 @@ export function FunderNewHouseCard({
   const amount = itemAmount(category, item);
   const monthlyReturn = itemMonthlyReturn(category, item);
   const photo = firstPhoto(category, item);
-  const verified = isHouseVerified(category, item);
 
   return (
     <article
