@@ -214,21 +214,51 @@ export async function generateWeeklyForwardingPdf(
   // ==================================== 1. Staff × day matrix (first section)
   section('1 · Forwarded to staff, day by day', 70);
   note(input.note);
-  if (!input.rows.length) {
-    note('No concern was forwarded to any staff member in this week.');
+  const resolvedRows = input.resolvedRows ?? [];
+  const resolvedDailyTotals = input.resolvedDailyTotals ?? input.dayLabels.map(() => 0);
+  const resolvedGrandTotal = input.resolvedGrandTotal ?? 0;
+
+  if (!input.rows.length && !resolvedRows.length) {
+    note('No concern was forwarded and no call was closed at the Calling Center in this week.');
   } else {
     const body: string[][] = input.rows.map((r) => [
       r.name,
       ...r.perDay.map((n) => (n ? String(n) : '—')),
       String(r.total),
     ]);
+    const boldRows = new Set<number>();
+    const bandRows = new Set<number>();
+    boldRows.add(body.length);
     body.push(['Daily total — all staff', ...input.dailyTotals.map((n) => String(n)), String(input.grandTotal)]);
+
+    bandRows.add(body.length);
     body.push([
-      'Grand total — whole week',
+      'Resolved by call center — not forwarded',
       ...input.dayLabels.map(() => ''),
-      String(input.grandTotal),
+      '',
     ]);
-    const lastTwo = body.length - 2;
+    resolvedRows.forEach((r) => {
+      body.push([r.name, ...r.perDay.map((n) => (n ? String(n) : '—')), String(r.total)]);
+    });
+    if (!resolvedRows.length) {
+      body.push(['No call was closed without a forward', ...input.dayLabels.map(() => ''), '0']);
+    }
+    boldRows.add(body.length);
+    body.push([
+      'Daily total — resolved by call center',
+      ...resolvedDailyTotals.map((n) => String(n)),
+      String(resolvedGrandTotal),
+    ]);
+
+    bandRows.add(body.length);
+    body.push(['Grand total — whole week', ...input.dayLabels.map(() => ''), String(input.grandTotal)]);
+    bandRows.add(body.length);
+    body.push([
+      'Grand total — forwarded + resolved',
+      ...input.dayLabels.map((_, i) => String(input.dailyTotals[i] + resolvedDailyTotals[i])),
+      String(input.grandTotal + resolvedGrandTotal),
+    ]);
+
     const dayCols: Record<number, any> = {};
     input.dayLabels.forEach((_, i) => {
       dayCols[i + 1] = { halign: 'center', cellWidth: 20 };
@@ -246,14 +276,15 @@ export async function generateWeeklyForwardingPdf(
       didParseCell: (data: any) => {
         if (data.section === 'head' && data.column.index === 0) data.cell.styles.halign = 'left';
         if (data.section !== 'body') return;
-        if (data.row.index >= lastTwo) {
+        if (boldRows.has(data.row.index) || bandRows.has(data.row.index)) {
           data.cell.styles.fontStyle = 'bold';
-          data.cell.styles.fillColor = data.row.index === lastTwo ? STRIPE : [237, 229, 249];
+          data.cell.styles.fillColor = bandRows.has(data.row.index) ? [237, 229, 249] : STRIPE;
           if (data.column.index === 0) data.cell.styles.halign = 'left';
         }
       },
     });
   }
+
 
   // ==================================================== 2. Week at a glance
   section('2 · Week at a glance', 60);
