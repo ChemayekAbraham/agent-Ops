@@ -5,9 +5,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import type { FunderNewFilters, FunderNewSort } from './types';
 
 const CHIP =
-  'h-8 w-auto min-w-0 flex-none rounded-full border-border bg-background px-3 text-[11px] font-semibold shadow-none';
+  'h-8 w-auto min-w-0 flex-none rounded-[4px] border-border bg-background px-3 text-[11px] font-semibold shadow-none';
 const CHIP_STACKED =
-  'h-10 w-full min-w-0 rounded-xl border-border bg-background px-3 text-xs font-semibold shadow-none';
+  'h-10 w-full min-w-0 rounded-[4px] border-border bg-background px-3 text-xs font-semibold shadow-none';
+
 
 export interface FunderNewDistrictOption {
   value: string;
@@ -62,13 +63,14 @@ export function FunderNewFilterChips({
   const chip = stacked ? CHIP_STACKED : CHIP;
   const field = (label: string, node: ReactNode, wide = false) =>
     stacked ? (
-      <div className={wide ? 'sm:col-span-2 min-w-0' : 'min-w-0'}>
+      <div className={wide ? 'sm:col-span-2 min-w-0 pb-4 pt-4' : 'min-w-0 pb-4 pt-4'}>
         <span className="mb-1 block text-[11px] font-medium text-muted-foreground">{label}</span>
         {node}
       </div>
     ) : (
       node
     );
+
 
   return (
     <div
@@ -147,8 +149,8 @@ export function FunderNewFilterChips({
           aria-label="Minimum amount"
           className={
             stacked
-              ? 'h-10 w-full rounded-xl text-xs font-semibold'
-              : 'h-8 w-[7.5rem] flex-none rounded-full text-[11px] font-semibold'
+              ? 'h-10 w-full rounded-[4px] text-xs font-semibold'
+              : 'h-8 w-[7.5rem] flex-none rounded-[4px] text-[11px] font-semibold'
           }
         />
       )}
@@ -161,11 +163,12 @@ export function FunderNewFilterChips({
           aria-label="Maximum amount"
           className={
             stacked
-              ? 'h-10 w-full rounded-xl text-xs font-semibold'
-              : 'h-8 w-[7.5rem] flex-none rounded-full text-[11px] font-semibold'
+              ? 'h-10 w-full rounded-[4px] text-xs font-semibold'
+              : 'h-8 w-[7.5rem] flex-none rounded-[4px] text-[11px] font-semibold'
           }
         />
       )}
+
 
       <div className={stacked ? 'sm:col-span-2 flex flex-wrap items-center gap-2 pt-1' : 'contents'}>
         <button
