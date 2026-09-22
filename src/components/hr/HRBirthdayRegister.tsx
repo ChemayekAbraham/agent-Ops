@@ -146,10 +146,10 @@ export default function HRBirthdayRegister() {
             <TableRow>
               <TableHead>Employee</TableHead>
               <TableHead>Date of birth</TableHead>
-              <TableHead>Age</TableHead>
+              <TableHead>Turning</TableHead>
               <TableHead>Next birthday</TableHead>
               <TableHead>Days until</TableHead>
-              {!readOnly && <TableHead className="text-right">Action</TableHead>}
+              {showActions && <TableHead className="text-right">Action</TableHead>}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -169,7 +169,7 @@ export default function HRBirthdayRegister() {
                   <TableCell>{row.turning_age ?? '—'}</TableCell>
                   <TableCell>{notSet ? '—' : formatDate(row.next_birthday)}</TableCell>
                   <TableCell>{notSet ? '—' : (row.days_until ?? '—')}</TableCell>
-                  {!readOnly && (
+                  {showActions && (
                     <TableCell>
                       <div className="flex flex-wrap items-center justify-end gap-2">
                         <Input
