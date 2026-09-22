@@ -83,8 +83,22 @@ function saveSaved(value: SavedState) {
 
 export default function FunderDashboardNew() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, roles, signOut, switchRole } = useAuth();
+  const { profile } = useProfile();
   const wallet = useWalletBalance(user?.id);
+
+  const metaFullName = (user?.user_metadata?.full_name as string | undefined)?.trim() || '';
+  const emailLocal = (user?.email || '').split('@')[0] || '';
+  const displayName = profile?.full_name?.trim() || metaFullName || emailLocal || 'Funder';
+  const welileId = user ? generateWelileAiId(user.id) : '';
+
+  // Same role-switch behavior as /dashboard/funder: switch then let the
+  // persona URL render the matching dashboard.
+  const handleRoleSwitch = (newRole: AppRole) => {
+    if (!roles.includes(newRole)) return;
+    switchRole(newRole);
+    navigate(roleToSlug(newRole), { replace: true });
+  };
   const summary = useFunderNewMarketSummary();
   const location = useFunderNewLocation();
 
