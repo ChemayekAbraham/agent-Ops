@@ -47,6 +47,17 @@ interface StaffLoan {
   due_on: string | null;
 }
 
+interface LoanInstalment {
+  id: string;
+  loan_id: string;
+  seq: number;
+  due_on: string;
+  amount_due: number;
+  amount_paid: number;
+  status: string;
+}
+
+
 interface Requisition {
   id: string;
   requisition_code: string;
