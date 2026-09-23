@@ -126,6 +126,7 @@ export default function ProxyAgentCommandCenter() {
 
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [inviting, setInviting] = useState(false);
   const [inviteSheetOpen, setInviteSheetOpen] = useState(false);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
@@ -242,35 +243,98 @@ export default function ProxyAgentCommandCenter() {
     }
   }, [inviteUrl, openInviteSheet]);
 
-  const exportCsv = useCallback(() => {
-    const rows: string[] = [];
-    if (tab === 'partners') {
-      rows.push('Partner,Phone,Linked on,Portfolios,Total funded (UGX),Came in,Returning,Notes,Sources');
-      (partnersQ.data?.rows ?? []).forEach((r) => {
-        rows.push([
-          `"${r.partner_name}"`, r.partner_phone, format(new Date(r.linked_at), 'yyyy-MM-dd'),
-          r.portfolios, Number(r.total_funded), r.came_in ? 'Yes' : 'No',
-          r.is_returning ? 'Yes' : 'No', r.notes_count, `"${(r.sources ?? []).join(' | ')}"`,
-        ].join(','));
-      });
-    } else {
-      rows.push('Partner,WhatsApp,Amount (UGX),Type,Status,Collected (UGX),Linked partner,Came in,Created');
-      (notesQ.data?.rows ?? []).forEach((r) => {
-        rows.push([
-          `"${r.partner_name}"`, r.whatsapp_number ?? '', Number(r.amount),
-          r.contribution_type ?? '', r.status, Number(r.total_collected),
-          `"${r.linked_partner_name ?? 'Not linked'}"`, r.partner_came_in ? 'Yes' : 'No',
-          format(new Date(r.created_at), 'yyyy-MM-dd'),
-        ].join(','));
-      });
+  /**
+   * Full-list PDF export.
+   *
+   * Pages through the list RPC until every matching row is in hand - the old
+   * CSV wrote out only the visible page, and spreadsheets turned the phone
+   * column into scientific notation. PDF keeps phones as text.
+   */
+  const exportPdf = useCallback(async () => {
+    if (!agentId) return;
+    hapticTap();
+    setExporting(true);
+    const BATCH = 500;
+    try {
+      const all: any[] = [];
+      for (let offset = 0; ; offset += BATCH) {
+        const { data, error } = tab === 'partners'
+          ? await supabase.rpc('list_proxy_agent_partners', {
+            p_agent_id: agentId,
+            p_search: pSearch || null,
+            p_filter: pFilter,
+            p_sort: pSort,
+            p_dir: pDir,
+            p_limit: BATCH,
+            p_offset: offset,
+          })
+          : await supabase.rpc('list_proxy_agent_promissory_notes', {
+            p_agent_id: agentId,
+            p_search: nSearch || null,
+            p_status: nStatus,
+            p_sort: nSort,
+            p_dir: nDir,
+            p_limit: BATCH,
+            p_offset: offset,
+          });
+        if (error) throw new Error(error.message);
+        const page = ((data as any)?.rows ?? []) as any[];
+        all.push(...page);
+        if (page.length < BATCH) break;
+      }
+
+      if (all.length === 0) {
+        toast.info('Nothing to export for the current view');
+        return;
+      }
+
+      const agentName = (user?.user_metadata as any)?.full_name as string | undefined;
+      let blob: Blob;
+      if (tab === 'partners') {
+        const { generateProxyPartnerListPdf } = await import('@/lib/proxyPartnerListPdf');
+        blob = await generateProxyPartnerListPdf({
+          agentName,
+          filterSummary: [
+            pFilter === 'all' ? 'All partners' : pFilter.replace(/_/g, ' '),
+            pSearch ? `search "${pSearch}"` : null,
+          ].filter(Boolean).join(', '),
+          rows: all as any,
+        });
+      } else {
+        const { generateProxyNoteListPdf } = await import('@/lib/proxyPartnerListPdf');
+        blob = await generateProxyNoteListPdf({
+          agentName,
+          filterSummary: [
+            nStatus === 'all' ? 'All notes' : nStatus,
+            nSearch ? `search "${nSearch}"` : null,
+          ].filter(Boolean).join(', '),
+          rows: (all as any[]).map((r) => ({
+            partner_name: r.partner_name,
+            phone: r.whatsapp_number || r.phone_number || '',
+            amount: r.amount,
+            contribution_type: r.contribution_type,
+            status: r.status,
+            total_collected: r.total_collected,
+            linked_partner_name: r.linked_partner_name,
+            partner_came_in: r.partner_came_in,
+            created_at: r.created_at,
+          })),
+        });
+      }
+
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `welile-proxy-${tab}-${format(new Date(), 'yyyy-MM-dd')}.pdf`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast.success(`${all.length} ${tab === 'partners' ? 'partners' : 'notes'} exported to PDF`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not build the PDF');
+    } finally {
+      setExporting(false);
     }
-    const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `proxy-${tab}-${format(new Date(), 'yyyy-MM-dd')}.csv`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  }, [tab, partnersQ.data, notesQ.data]);
+  }, [agentId, tab, pSearch, pFilter, pSort, pDir, nSearch, nStatus, nSort, nDir, user]);
+
 
   const quickActions = useMemo(() => ([
     { key: 'note', label: 'Promissory', icon: FileText, onClick: () => { hapticTap(); setSupportModeOpen(true); } },
@@ -829,8 +893,10 @@ export default function ProxyAgentCommandCenter() {
               </CardContent></Card>
             )}
             <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={exportCsv}>
-                <Download className="mr-2 h-4 w-4" /> Export {tab === 'partners' ? 'partners' : 'notes'} CSV
+              <Button variant="outline" className="flex-1" onClick={exportPdf} disabled={exporting}>
+                {exporting
+                  ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Building PDF…</>
+                  : <><Download className="mr-2 h-4 w-4" /> Download full {tab === 'partners' ? 'partner' : 'notes'} list (PDF)</>}
               </Button>
               <Button variant="outline" className="flex-1" onClick={handleCopyInvite}>
                 <Copy className="mr-2 h-4 w-4" /> Copy invite link
