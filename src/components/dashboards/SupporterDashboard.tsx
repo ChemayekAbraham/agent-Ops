@@ -114,6 +114,7 @@ export default function SupporterDashboard({
   const [showMap, setShowMap] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [mapExpanded, setMapExpanded] = useState(false);
+  const [mapSearchQuery, setMapSearchQuery] = useState('');
   const [selectedHouse, setSelectedHouse] = useState<VirtualHouse | null>(null);
   const [showHouseDetails, setShowHouseDetails] = useState(false);
   const [selectedPackageCategory, setSelectedPackageCategory] = useState<RentCategory | null>(null);
@@ -527,10 +528,10 @@ export default function SupporterDashboard({
               <EmptyHouseMapBrowser
                 houses={[]}
                 selectedIds={[]}
-                searchQuery=""
+                searchQuery={mapSearchQuery}
                 remaining={0}
                 busy={false}
-                onSearchQueryChange={() => {}}
+                onSearchQueryChange={setMapSearchQuery}
                 onOpenHouse={() => {}}
                 onFundHouse={() => {}}
                 onExpandedChange={setMapExpanded}
