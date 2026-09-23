@@ -69,6 +69,18 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
     [tenantCategory],
   );
 
+  const agentCategory = useMemo(
+    () => breakdown.data?.categories.find((cat) => cat.key === 'agent' || cat.label === AGENT_CATEGORY_LABEL),
+    [breakdown.data],
+  );
+
+  const agentProducts = useMemo(() => agentCategory?.products ?? [], [agentCategory]);
+
+  const selectedAgentProduct = useMemo(
+    () => agentProducts.find((p) => p.key === selectedAgentProductKey) ?? agentProducts[0],
+    [agentProducts, selectedAgentProductKey],
+  );
+
   /** Categories sorted with the tenant book pinned first, for the category drill-down. */
   const sortedCategories = useMemo(() => {
     const cats = breakdown.data?.categories ?? [];
@@ -116,6 +128,9 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
   const totalReceivables = total.data?.total ?? breakdown.data?.total ?? 0;
   const selectedTenantShare = totalReceivables > 0
     ? (selectedTenantProduct.outstanding / totalReceivables) * 100
+    : 0;
+  const selectedAgentShare = totalReceivables > 0 && selectedAgentProduct
+    ? (selectedAgentProduct.outstanding / totalReceivables) * 100
     : 0;
 
   return (
