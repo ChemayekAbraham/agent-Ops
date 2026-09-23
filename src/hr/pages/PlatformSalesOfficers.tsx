@@ -34,6 +34,17 @@ interface PsoFundedSummary {
   as_at: string;
 }
 
+interface PsoPromiseSummary {
+  staff_id: string;
+  staff_ref: string;
+  notes_activated: number;
+  notes_pending: number;
+  promised_amount: number;
+  promised_activated: number;
+  pre_enrolment_promised: number;
+  as_at: string;
+}
+
 interface NonOfficerRow {
   person_user_id: string;
   person_name: string;
