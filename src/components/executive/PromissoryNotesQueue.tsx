@@ -40,6 +40,8 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { PromissoryKpiDetailSheet, type PromissoryKpiMetric } from './partner-ops/PromissoryKpiDetailSheet';
 import { PromissoryFulfilmentTracker } from './partner-ops/PromissoryFulfilmentTracker';
 import { PromissoryConversionQueue } from './partner-ops/PromissoryConversionQueue';
+import { PromissoryOpsAnalytics } from './partner-ops/PromissoryOpsAnalytics';
+
 
 
 
@@ -942,6 +944,10 @@ export function PromissoryNotesQueue({
 
       {/* Read-only fulfilment tracking: rates, on-time %, trend, per-partner reliability */}
       <PromissoryFulfilmentTracker />
+
+      {/* Read-only analytics: contact attempts, conversion, overdue aging, rates by partner/agent */}
+      <PromissoryOpsAnalytics />
+
 
 
       {/* Search & Filter — sticky on phones so it stays reachable while scrolling */}
