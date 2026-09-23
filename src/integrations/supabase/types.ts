@@ -33100,6 +33100,70 @@ export type Database = {
           },
         ]
       }
+      promissory_note_ops_actions: {
+        Row: {
+          action: string
+          actor_id: string
+          assigned_to: string | null
+          channel: string | null
+          created_at: string
+          id: string
+          note_id: string
+          outcome: string | null
+          reason: string
+          resolution: string | null
+          snooze_until: string | null
+        }
+        Insert: {
+          action: string
+          actor_id: string
+          assigned_to?: string | null
+          channel?: string | null
+          created_at?: string
+          id?: string
+          note_id: string
+          outcome?: string | null
+          reason: string
+          resolution?: string | null
+          snooze_until?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string
+          assigned_to?: string | null
+          channel?: string | null
+          created_at?: string
+          id?: string
+          note_id?: string
+          outcome?: string | null
+          reason?: string
+          resolution?: string | null
+          snooze_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promissory_note_ops_actions_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "promissory_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promissory_note_ops_actions_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "v_promissory_self_support_tracker"
+            referencedColumns: ["note_id"]
+          },
+          {
+            foreignKeyName: "promissory_note_ops_actions_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_note_events"
+            referencedColumns: ["note_id"]
+          },
+        ]
+      }
       promissory_note_plan_intents: {
         Row: {
           agent_id: string
@@ -41861,6 +41925,153 @@ export type Database = {
         }
         Relationships: []
       }
+      tenant_arrears_escalations: {
+        Row: {
+          agent_id: string | null
+          agent_task_id: string | null
+          arrears_ugx: number | null
+          cc_cycle_row_id: string | null
+          created_at: string
+          days_behind: number | null
+          dedupe_key: string
+          id: string
+          last_error: string | null
+          phone: string | null
+          plans_count: number | null
+          recipient_role: string | null
+          recipient_user_id: string | null
+          rent_request_id: string | null
+          run_date: string
+          sent_at: string | null
+          sms_status: string
+          sms_text: string | null
+          stage: string
+          tenant_id: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          agent_task_id?: string | null
+          arrears_ugx?: number | null
+          cc_cycle_row_id?: string | null
+          created_at?: string
+          days_behind?: number | null
+          dedupe_key: string
+          id?: string
+          last_error?: string | null
+          phone?: string | null
+          plans_count?: number | null
+          recipient_role?: string | null
+          recipient_user_id?: string | null
+          rent_request_id?: string | null
+          run_date: string
+          sent_at?: string | null
+          sms_status?: string
+          sms_text?: string | null
+          stage: string
+          tenant_id?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          agent_task_id?: string | null
+          arrears_ugx?: number | null
+          cc_cycle_row_id?: string | null
+          created_at?: string
+          days_behind?: number | null
+          dedupe_key?: string
+          id?: string
+          last_error?: string | null
+          phone?: string | null
+          plans_count?: number | null
+          recipient_role?: string | null
+          recipient_user_id?: string | null
+          rent_request_id?: string | null
+          run_date?: string
+          sent_at?: string | null
+          sms_status?: string
+          sms_text?: string | null
+          stage?: string
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_arrears_escalations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_request_formula_drift"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_arrears_escalations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_arrears_escalations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "tenant_arrears_escalations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_partner_self_fundable_plans"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "tenant_arrears_escalations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_expired_owing"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "tenant_arrears_escalations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "tenant_arrears_escalations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "tenant_arrears_escalations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_daily_eligibility"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "tenant_arrears_escalations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "tenant_arrears_escalations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "tenant_arrears_escalations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
+          },
+        ]
+      }
       tenant_balance_edits: {
         Row: {
           agent_id: string | null
@@ -49924,6 +50135,32 @@ export type Database = {
           },
         ]
       }
+      v_agent_receivable_restatement: {
+        Row: {
+          account: string | null
+          category: string | null
+          current_net: number | null
+          delta: number | null
+          item_id: string | null
+          item_table: string | null
+          product: string | null
+          target: number | null
+        }
+        Relationships: []
+      }
+      v_agent_receivable_restatement_orphans: {
+        Row: {
+          account: string | null
+          category: string | null
+          current_net: number | null
+          delta: number | null
+          item_id: string | null
+          item_table: string | null
+          product: string | null
+          target: number | null
+        }
+        Relationships: []
+      }
       v_cc_call_queue: {
         Row: {
           active_capability_count: number | null
@@ -51790,6 +52027,18 @@ export type Database = {
           tenant_id: string | null
           term_ends_on: string | null
           total_repayment: number | null
+        }
+        Relationships: []
+      }
+      v_rent_plan_receivable_restatement: {
+        Row: {
+          classification: string | null
+          current_net: number | null
+          delta: number | null
+          kind: string | null
+          plan_id: string | null
+          status: string | null
+          target: number | null
         }
         Relationships: []
       }
@@ -55489,6 +55738,10 @@ export type Database = {
           p_user_id: string
         }
         Returns: string
+      }
+      derecognise_partner_receivable: {
+        Args: { p_note_id: string; p_reason: string }
+        Returns: Json
       }
       derive_deposit_guardrail_source: {
         Args: {
@@ -60419,6 +60672,7 @@ export type Database = {
       }
       landlord_payouts_blocked_from_queue: { Args: never; Returns: boolean }
       ledger_category_allowlist: { Args: never; Returns: string[] }
+      ledger_category_allowlist_base: { Args: never; Returns: string[] }
       lending_find_user_by_phone: {
         Args: { p_phone: string }
         Returns: {
@@ -62442,6 +62696,44 @@ export type Database = {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
       }
+      promissory_ops_assignees: {
+        Args: never
+        Returns: {
+          full_name: string
+          role: string
+          user_id: string
+        }[]
+      }
+      promissory_ops_can_act: { Args: { _user_id: string }; Returns: boolean }
+      promissory_ops_queue_state: {
+        Args: never
+        Returns: {
+          action_count: number
+          assigned_at: string
+          assigned_to: string
+          assigned_to_name: string
+          last_contact_at: string
+          last_contact_channel: string
+          last_contact_outcome: string
+          note_id: string
+          resolution: string
+          resolved_at: string
+          snoozed_until: string
+        }[]
+      }
+      promissory_ops_record_action: {
+        Args: {
+          p_action: string
+          p_assigned_to?: string
+          p_channel?: string
+          p_note_id: string
+          p_outcome?: string
+          p_reason: string
+          p_resolution?: string
+          p_snooze_until?: string
+        }
+        Returns: string
+      }
       promissory_self_support_context: {
         Args: { p_user: string }
         Returns: Json
@@ -63504,6 +63796,18 @@ export type Database = {
       respond_payout_dispute: {
         Args: { p_dispute_id: string; p_note?: string; p_status: string }
         Returns: undefined
+      }
+      restate_agent_receivables: {
+        Args: { p_dry_run?: boolean; p_reason: string }
+        Returns: Json
+      }
+      restate_rent_plan_receivables: {
+        Args: { p_dry_run?: boolean; p_reason: string }
+        Returns: Json
+      }
+      restate_rent_plan_receivables_tagged: {
+        Args: { p_dry_run?: boolean; p_reason: string; p_tag: string }
+        Returns: Json
       }
       restore_campaign_attribution: { Args: { p_token: string }; Returns: Json }
       resubmit_rejected_deposit: {

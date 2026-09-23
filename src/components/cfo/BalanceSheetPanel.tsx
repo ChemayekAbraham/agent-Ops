@@ -327,8 +327,8 @@ function receivablesCategoryOf(label: string): string | null {
 const ALWAYS_SHOWN_PRODUCTS: Record<string, { key: string; label: string; from: string }[]> = {
   tenant: [
     { key: 'rent_plan', label: 'Rent Access Plans', from: 'tenant' },
-    { key: 'tenant_service_charge', label: 'Tenant Service Charges', from: 'other' },
-    { key: 'business_advance', label: 'Business Advances', from: 'other' },
+    { key: 'tenant_service_charge', label: 'Tenant Service Charges', from: 'tenant' },
+    { key: 'business_advance', label: 'Business Advances', from: 'tenant' },
   ],
   landlord: [
     { key: 'welile_homes', label: 'Welile Homes Subscriptions', from: 'landlord' },
