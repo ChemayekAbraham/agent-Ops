@@ -364,25 +364,29 @@ export default function PredictiveReceivablesForecast({
                 <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                   On the books today
                 </p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div className={`grid grid-cols-1 gap-2 ${isFiltered ? '' : 'sm:grid-cols-3'}`}>
                   <Tile
                     label="Actual recorded"
                     value={formatUGX(data.actual.total)}
                     hint={`${data.actual.item_count} open item${data.actual.item_count === 1 ? '' : 's'}`}
                   />
-                  <Tile
-                    label="Overdue"
-                    value={formatUGX(data.actual.overdue)}
-                    hint="Past due date"
-                    labelTone="text-destructive"
-                    valueTone="text-destructive"
-                  />
-                  <Tile
-                    label="Not yet due"
-                    value={formatUGX(data.actual.not_yet_due)}
-                    hint="On the books"
-                    labelTone="text-emerald-700 dark:text-emerald-500"
-                  />
+                  {!isFiltered && (
+                    <>
+                      <Tile
+                        label="Overdue"
+                        value={formatUGX(data.actual.overdue)}
+                        hint="Past due date"
+                        labelTone="text-destructive"
+                        valueTone="text-destructive"
+                      />
+                      <Tile
+                        label="Not yet due"
+                        value={formatUGX(data.actual.not_yet_due)}
+                        hint="On the books"
+                        labelTone="text-emerald-700 dark:text-emerald-500"
+                      />
+                    </>
+                  )}
                 </div>
               </div>
               <div className="lg:w-64">
