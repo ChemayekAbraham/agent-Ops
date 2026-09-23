@@ -191,9 +191,25 @@ export function PromissoryConversionQueue() {
     },
   });
 
+  // Partner Ops working state (assignment / contact / snooze / resolve),
+  // derived entirely from the append-only action log.
+  const { data: opsState = {} } = useQuery({
+    queryKey: ['promissory-ops-queue-state'],
+    enabled: open,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('promissory_ops_queue_state');
+      if (error) throw error;
+      const map: Record<string, OpsState> = {};
+      for (const row of (data || []) as OpsState[]) map[row.note_id] = row;
+      return map;
+    },
+  });
+
   const ranked = useMemo<RankedNote[]>(() => {
     if (!notes.length) return [];
-    const today = asDate(kampalaToday()).getTime();
+    const todayStr = kampalaToday();
+    const today = asDate(todayStr).getTime();
     const maxAmount = Math.max(...notes.map(n => Number(n.amount || 0)), 1);
 
     return notes
@@ -218,19 +234,29 @@ export function PromissoryConversionQueue() {
         const overdueScore = Math.min(1, lateness / 30);
         const score = Math.round(amountScore * 60 + overdueScore * 40);
 
-        return { ...n, daysOverdue, ageDays, tier, score };
+        const ops = opsState[n.id];
+        return {
+          ...n,
+          daysOverdue,
+          ageDays,
+          tier,
+          score,
+          ops,
+          isSnoozed: !!ops?.snoozed_until && ops.snoozed_until > todayStr,
+          isResolved: !!ops?.resolved_at,
+        };
       })
       .sort((a, b) => {
         if (sortBy === 'amount') return Number(b.amount) - Number(a.amount);
         if (sortBy === 'overdue') return (b.daysOverdue ?? -999) - (a.daysOverdue ?? -999);
         return b.score - a.score;
       });
-  }, [notes, sortBy]);
+  }, [notes, sortBy, opsState]);
 
   const totals = useMemo(() => {
     const by = (t: Tier) => ranked.filter(n => n.tier === t);
     const sum = (rows: RankedNote[]) => rows.reduce((s, n) => s + Number(n.amount || 0), 0);
-    const esc = by('escalated');
+    const esc = by('escalated').filter(n => !n.isResolved && !n.isSnoozed);
     return {
       openCount: ranked.length,
       openValue: sum(ranked),
@@ -241,21 +267,48 @@ export function PromissoryConversionQueue() {
       dueSoonCount: by('due_soon').length,
       noDateCount: by('grace').length,
       topTenValue: sum(ranked.slice().sort((a, b) => b.score - a.score).slice(0, 10)),
+      mineCount: ranked.filter(n => n.ops?.assigned_to && n.ops.assigned_to === myId && !n.isResolved).length,
+      assignedCount: ranked.filter(n => n.ops?.assigned_to && !n.isResolved).length,
+      snoozedCount: ranked.filter(n => n.isSnoozed).length,
+      resolvedCount: ranked.filter(n => n.isResolved).length,
     };
-  }, [ranked]);
+  }, [ranked, myId]);
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
     return ranked.filter(n => {
+      if (view === 'working' && (n.isResolved || n.isSnoozed)) return false;
+      if (view === 'mine' && (n.ops?.assigned_to !== myId || n.isResolved)) return false;
+      if (view === 'assigned' && (!n.ops?.assigned_to || n.isResolved)) return false;
+      if (view === 'snoozed' && !n.isSnoozed) return false;
+      if (view === 'resolved' && !n.isResolved) return false;
       if (tierFilter !== 'all' && n.tier !== tierFilter) return false;
       if (!q) return true;
       return (
         (n.partner_name || '').toLowerCase().includes(q) ||
         (n.phone_number || '').includes(q) ||
+        (n.ops?.assigned_to_name || '').toLowerCase().includes(q) ||
         (agentNames[n.agent_id] || '').toLowerCase().includes(q)
       );
     });
-  }, [ranked, tierFilter, search, agentNames]);
+  }, [ranked, tierFilter, search, agentNames, view, myId]);
+
+  const act = (a: OpsAction, n: RankedNote) => {
+    setTarget({
+      id: n.id,
+      partner_name: n.partner_name,
+      phone_number: n.phone_number,
+      whatsapp_number: n.whatsapp_number,
+      amount: Number(n.amount || 0),
+      fulfilment_due_on: n.fulfilment_due_on,
+      assigned_to: n.ops?.assigned_to ?? null,
+      assigned_to_name: n.ops?.assigned_to_name ?? null,
+      snoozed_until: n.ops?.snoozed_until ?? null,
+      resolution: n.ops?.resolution ?? null,
+    });
+    setAction(a);
+  };
+
 
   return (
     <Card className="border-primary/20">
