@@ -101,7 +101,8 @@ export function AgentLandlordPayoutFlow({ open, onOpenChange }: AgentLandlordPay
       // `agent_landlord_payouts` table is only checked for old records.
       const enriched = await Promise.all((data || []).map(async (r: any) => {
         const [{ data: landlord }, { data: tenant }, { data: livePayouts }, { data: legacyPayout }] = await Promise.all([
-          supabase.from('landlords').select('id, name, phone, mobile_money_number').eq('id', r.landlord_id).single(),
+          // Only the Landlord-Ops-approved payout number is read or shown here.
+          supabase.from('landlords').select('id, name, verified_mobile_money_number, verification_status').eq('id', r.landlord_id).single(),
           supabase.from('profiles').select('id, full_name, phone').eq('id', r.tenant_id).single(),
           supabase
             .from('landlord_payouts')
@@ -225,7 +226,7 @@ export function AgentLandlordPayoutFlow({ open, onOpenChange }: AgentLandlordPay
         landlord_id: selectedRequest.landlord_id,
         tenant_id: selectedRequest.tenant_id,
         amount: payoutAmount,
-        landlord_phone: selectedRequest.landlord?.mobile_money_number || selectedRequest.landlord?.phone || '',
+        landlord_phone: approvedPayoutNumber(selectedRequest.landlord),
         landlord_name: selectedRequest.landlord?.name || 'Unknown',
         mobile_money_provider: provider,
         transaction_id: transactionId.trim() || null,
@@ -330,7 +331,7 @@ export function AgentLandlordPayoutFlow({ open, onOpenChange }: AgentLandlordPay
                         <Badge variant="secondary" className="text-xs">{formatUGX(r.rent_amount)}</Badge>
                       </div>
                       <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{r.landlord?.mobile_money_number || r.landlord?.phone || 'N/A'}</span>
+                        <span className="flex items-center gap-1"><Phone className="h-3 w-3" />{approvedPayoutNumber(r.landlord) || 'Not Ops-approved'}</span>
                         <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{format(new Date(r.created_at), 'dd MMM')}</span>
                       </div>
                       <div className="text-xs text-muted-foreground">
@@ -370,7 +371,7 @@ export function AgentLandlordPayoutFlow({ open, onOpenChange }: AgentLandlordPay
                   <div><span className="text-muted-foreground">Amount:</span> <span className="font-bold text-primary">{formatUGX(req.rent_amount)}</span></div>
                   <div className="col-span-2 flex items-center gap-1">
                     <Phone className="h-3 w-3" />
-                    <span className="font-mono font-bold text-base">{req.landlord?.mobile_money_number || req.landlord?.phone || 'N/A'}</span>
+                    <span className="font-mono font-bold text-base">{approvedPayoutNumber(req.landlord) || 'Landlord Ops has not approved a payout number yet'}</span>
                   </div>
                 </div>
                 <p className="text-[10px] text-muted-foreground">
