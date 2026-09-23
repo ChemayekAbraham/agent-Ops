@@ -463,7 +463,10 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
                           {selectedTenantProduct.key !== 'rent_plan' && (
                             <PredictiveReceivablesForecast
                               productLabel={selectedTenantProduct.label}
-                              projectionAvailable={false}
+                              filterCategoryKey={cat.key}
+                              filterProductKey={selectedTenantProduct.key}
+                              actualTotal={selectedTenantProduct.outstanding}
+                              actualItemCount={selectedTenantProduct.item_count}
                             />
                           )}
                         </div>
@@ -552,7 +555,10 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
 
                               <PredictiveReceivablesForecast
                                 productLabel={selectedFamilyProduct.label}
-                                projectionAvailable={false}
+                                filterCategoryKey={cat.key}
+                                filterProductKey={selectedFamilyProduct.key}
+                                actualTotal={selectedFamilyProduct.outstanding}
+                                actualItemCount={selectedFamilyProduct.item_count}
                               />
                             </>
                           )}

@@ -129,11 +129,25 @@ function downloadCsv(name: string, rows: (string | number)[][]) {
 interface PredictiveReceivablesForecastProps {
   productLabel?: string;
   projectionAvailable?: boolean;
+  /**
+   * When set, the whole-book forecast is narrowed to this single product: every
+   * period is rebuilt from only the modelled sources belonging to it, so a
+   * product drill-down shows its own projection across the period choices.
+   */
+  filterProductKey?: string;
+  filterCategoryKey?: string;
+  /** The product's own recorded outstanding, shown instead of the book total. */
+  actualTotal?: number;
+  actualItemCount?: number;
 }
 
 export default function PredictiveReceivablesForecast({
   productLabel,
   projectionAvailable = true,
+  filterProductKey,
+  filterCategoryKey,
+  actualTotal,
+  actualItemCount,
 }: PredictiveReceivablesForecastProps = {}) {
   const [granularity, setGranularity] = useState<ForecastGranularity>('month');
   const [periods, setPeriods] = useState(12);
@@ -141,7 +155,45 @@ export default function PredictiveReceivablesForecast({
   const [showStreams, setShowStreams] = useState(false);
 
   const q = useReceivablesPredictiveForecast(granularity, periods, projectionAvailable);
-  const data = q.data;
+  const isFiltered = !!filterProductKey;
+
+  /** Product-level view of the server forecast; identity when unfiltered. */
+  const data = useMemo(() => {
+    const raw = q.data;
+    if (!raw || !filterProductKey) return raw;
+    const matches = (s: { product_key: string; category_key: string }) =>
+      s.product_key === filterProductKey &&
+      (!filterCategoryKey || s.category_key === filterCategoryKey);
+    return {
+      ...raw,
+      history: [],
+      periods: raw.periods.map((p) => {
+        const sources = p.sources.filter(matches);
+        const amount = sources.reduce((s, x) => s + x.amount, 0);
+        const ratio = p.forecast_amount > 0 ? amount / p.forecast_amount : 0;
+        return {
+          ...p,
+          sources,
+          forecast_amount: amount,
+          runoff_amount: sources.reduce((s, x) => s + x.runoff, 0),
+          new_origination_amount: sources.reduce((s, x) => s + x.new_origination, 0),
+          scheduled_amount: sources
+            .filter((x) => x.basis === 'scheduled')
+            .reduce((s, x) => s + x.amount, 0),
+          low: Math.round(p.low * ratio),
+          high: Math.round(p.high * ratio),
+        };
+      }),
+      streams: raw.streams.filter(matches),
+      scheduled_only_streams: raw.scheduled_only_streams.filter((s) => matches(s)),
+      origination_only_streams: raw.origination_only_streams.filter((s) => matches(s)),
+      actual: {
+        ...raw.actual,
+        total: actualTotal ?? raw.actual.total,
+        item_count: actualItemCount ?? raw.actual.item_count,
+      },
+    };
+  }, [q.data, filterProductKey, filterCategoryKey, actualTotal, actualItemCount]);
 
   const chartData = useMemo(() => {
     if (!data) return [];
@@ -312,25 +364,29 @@ export default function PredictiveReceivablesForecast({
                 <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
                   On the books today
                 </p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div className={`grid grid-cols-1 gap-2 ${isFiltered ? '' : 'sm:grid-cols-3'}`}>
                   <Tile
                     label="Actual recorded"
                     value={formatUGX(data.actual.total)}
                     hint={`${data.actual.item_count} open item${data.actual.item_count === 1 ? '' : 's'}`}
                   />
-                  <Tile
-                    label="Overdue"
-                    value={formatUGX(data.actual.overdue)}
-                    hint="Past due date"
-                    labelTone="text-destructive"
-                    valueTone="text-destructive"
-                  />
-                  <Tile
-                    label="Not yet due"
-                    value={formatUGX(data.actual.not_yet_due)}
-                    hint="On the books"
-                    labelTone="text-emerald-700 dark:text-emerald-500"
-                  />
+                  {!isFiltered && (
+                    <>
+                      <Tile
+                        label="Overdue"
+                        value={formatUGX(data.actual.overdue)}
+                        hint="Past due date"
+                        labelTone="text-destructive"
+                        valueTone="text-destructive"
+                      />
+                      <Tile
+                        label="Not yet due"
+                        value={formatUGX(data.actual.not_yet_due)}
+                        hint="On the books"
+                        labelTone="text-emerald-700 dark:text-emerald-500"
+                      />
+                    </>
+                  )}
                 </div>
               </div>
               <div className="lg:w-64">
