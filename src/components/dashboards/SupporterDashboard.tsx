@@ -546,13 +546,6 @@ export default function SupporterDashboard({
           {mapExpanded ? (
             <MapBottomSheet
               defaultSnap="half"
-              header={
-                <div className="flex items-center justify-between">
-                  <p className="text-[15px] font-bold text-foreground">
-                    houses <span className="text-xs font-normal text-muted-foreground">ⓘ</span>
-                  </p>
-                </div>
-              }
             >
               <div id="opportunities" className="relative space-y-2.5">
                 {!effectiveHasAccepted && <LockedOverlay onAcceptClick={() => setShowAgreementModal(true)} />}
