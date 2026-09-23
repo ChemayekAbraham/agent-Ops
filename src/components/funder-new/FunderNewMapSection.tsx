@@ -19,8 +19,8 @@ const MAP_BOX = 'h-[330px] sm:h-[440px] lg:h-[520px]';
 /**
  * Location-aware map for /dashboard/funder-new.
  *
- * Route-local composition built on the project's existing Leaflet stack. The
- * shared EmptyHouseMapBrowser is intentionally untouched.
+ * Route-local Google Maps composition. The shared EmptyHouseMapBrowser used by
+ * /dashboard/funder is intentionally untouched.
  */
 export function FunderNewMapSection({
   filters,
