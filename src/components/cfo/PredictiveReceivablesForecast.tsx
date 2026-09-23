@@ -322,8 +322,27 @@ export default function PredictiveReceivablesForecast({
               aria-label="Projection period"
               className="inline-flex w-full items-center gap-0.5 rounded-lg border bg-muted/40 p-0.5 sm:w-auto"
             >
+              {/* Quick segment: next 7 days (daily granularity, 7 periods) */}
+              <button
+                type="button"
+                role="tab"
+                aria-selected={granularity === 'day' && periods === 7}
+                onClick={() => {
+                  setGranularity('day');
+                  setPeriods(7);
+                  setOpenPeriod(null);
+                }}
+                className={`h-8 flex-1 rounded-md px-2.5 text-[11px] font-medium transition-colors sm:h-7 sm:flex-none ${
+                  granularity === 'day' && periods === 7
+                    ? 'bg-primary text-primary-foreground shadow-sm'
+                    : 'text-muted-foreground hover:bg-background hover:text-foreground'
+                }`}
+              >
+                7 Days
+              </button>
               {GRANULARITIES.map((g) => {
-                const active = granularity === g.key;
+                const active =
+                  granularity === g.key && !(g.key === 'day' && periods === 7);
                 return (
                   <button
                     key={g.key}
