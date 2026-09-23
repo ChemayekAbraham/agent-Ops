@@ -417,12 +417,14 @@ export default function PlatformSalesOfficersPage() {
 
   const officers = useMemo<OfficerSummary[]>(() => {
     const fundedById = new Map(fundedSummaries.map((s) => [s.staff_id, s]));
+    const promiseById = new Map(promiseSummaries.map((s) => [s.staff_id, s]));
     const byId = new Map<string, OfficerSummary>();
 
     for (const row of rows) {
       let entry = byId.get(row.staff_id);
       if (!entry) {
         const funded = fundedById.get(row.staff_id);
+        const promise = promiseById.get(row.staff_id);
         entry = {
           staff_id: row.staff_id,
           staff_ref: row.staff_ref,
