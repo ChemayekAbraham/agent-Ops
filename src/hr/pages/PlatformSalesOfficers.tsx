@@ -348,7 +348,7 @@ export default function PlatformSalesOfficersPage() {
     refetchIntervalInBackground: false,
   });
 
-  const { data: fundedSummaries = [] } = useQuery<PsoFundedSummary[]>({
+  const { data: fundedSummaries = [], error: fundedError } = useQuery<PsoFundedSummary[]>({
     queryKey: ['pso-funded-summary-officers', from, to],
     refetchInterval: 60_000,
     refetchOnWindowFocus: true,
@@ -364,7 +364,7 @@ export default function PlatformSalesOfficersPage() {
   });
 
   // Promised value of the notes themselves, separate from what funders deployed.
-  const { data: promiseSummaries = [] } = useQuery<PsoPromiseSummary[]>({
+  const { data: promiseSummaries = [], error: promiseError } = useQuery<PsoPromiseSummary[]>({
     queryKey: ['pso-promise-summary-officers', from, to],
     refetchInterval: 60_000,
     refetchOnWindowFocus: true,
@@ -407,7 +407,7 @@ export default function PlatformSalesOfficersPage() {
     };
   }, [queryClient]);
 
-  const { data: nonOfficerRows = [] } = useQuery<NonOfficerRow[]>({
+  const { data: nonOfficerRows = [], error: nonOfficerRowsError } = useQuery<NonOfficerRow[]>({
     queryKey: ['pso-daily-series-non-officers', from, to],
     refetchInterval: 60_000,
     refetchOnWindowFocus: true,
@@ -422,7 +422,7 @@ export default function PlatformSalesOfficersPage() {
     },
   });
 
-  const { data: nonOfficerFunded = [] } = useQuery<NonOfficerFunded[]>({
+  const { data: nonOfficerFunded = [], error: nonOfficerFundedError } = useQuery<NonOfficerFunded[]>({
     queryKey: ['pso-funded-summary-non-officers', from, to],
     refetchInterval: 60_000,
     refetchOnWindowFocus: true,
@@ -438,7 +438,7 @@ export default function PlatformSalesOfficersPage() {
   });
 
   // Both funding-commission engines in one list, server-ordered by commission paid.
-  const { data: fundingRows = [] } = useQuery<FundingCommissionRow[]>({
+  const { data: fundingRows = [], error: fundingError } = useQuery<FundingCommissionRow[]>({
     queryKey: ['funding-commission-summary', from, to],
     refetchInterval: 60_000,
     refetchOnWindowFocus: true,
@@ -718,6 +718,24 @@ export default function PlatformSalesOfficersPage() {
 
   const isNotPermitted = error instanceof Error && error.message.includes('not permitted');
 
+  // A figure that failed to load must read as failed, never as a silent zero.
+  // Permission refusals are excluded — the full-page notice already covers those.
+  const failedParts = useMemo(() => {
+    const parts: string[] = [];
+    const add = (err: unknown, name: string) => {
+      if (!err) return;
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('not permitted')) return;
+      parts.push(name);
+    };
+    add(fundedError, 'funded and commission');
+    add(promiseError, 'promised, activated and pending');
+    add(nonOfficerRowsError, "other contributors' notes");
+    add(nonOfficerFundedError, "other contributors' funding");
+    add(fundingError, 'funding commission');
+    return parts;
+  }, [fundedError, promiseError, nonOfficerRowsError, nonOfficerFundedError, fundingError]);
+
   if (isNotPermitted) {
     return (
       <PersonalLayout title="Platform Sales Officers">
@@ -831,6 +849,13 @@ export default function PlatformSalesOfficersPage() {
             <div className="text-base font-bold tabular-nums sm:text-lg">{formatUgxCompact(moneyTotal)}</div>
           </div>
         </div>
+
+        {failedParts.length > 0 && (
+          <div className="rounded-md border px-3 py-2 text-xs text-muted-foreground">
+            Some figures on this page could not be loaded and are showing as zero: {failedParts.join(', ')} Refresh, and report it if it persists.
+          </div>
+        )}
+
 
         {mode === 'MONTHLY' && (
           <p className="text-xs text-muted-foreground">
@@ -1086,7 +1111,7 @@ export default function PlatformSalesOfficersPage() {
                   <thead className="bg-muted/50">
                     <tr>
                       <th className="px-4 py-2 text-left font-medium">#</th>
-                      <th className="px-4 py-2 text-left font-medium">Officer</th>
+                      <th className="px-4 py-2 text-left font-medium">Person</th>
                       {dayIndices.map((wi) => (
                         <SortableTh
                           key={wi}
