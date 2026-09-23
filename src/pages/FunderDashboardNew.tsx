@@ -40,7 +40,7 @@ import type {
   FunderNewSort,
 } from '@/components/funder-new/types';
 import { itemAmount, itemId, placeCase, sortLabel, toSelectionItem } from '@/components/funder-new/utils';
-import { ROAD_TIME_UNAVAILABLE_REASON, straightLineDistance } from '@/components/funder-new/distance';
+import { straightLineDistance } from '@/components/funder-new/distance';
 import { itemCoordinates } from '@/components/funder-new/utils';
 import { FunderNewFilterDrawer } from '@/components/funder-new/FunderNewFilterDrawer';
 
@@ -584,7 +584,9 @@ export default function FunderDashboardNew() {
               ) : null}
 
               {deviceOrigin ? (
-                <p className="text-center text-xs text-muted-foreground">{ROAD_TIME_UNAVAILABLE_REASON}</p>
+                <p className="text-center text-xs text-muted-foreground">
+                  Building Africa's <span className="text-primary">financial identity </span>infrastructure.
+                </p>
               ) : null}
             </div>
           )}
