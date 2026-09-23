@@ -746,7 +746,7 @@ export default function PlatformSalesOfficersPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
           <div className="rounded-lg border bg-card px-3 py-2">
             <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Officers</div>
             <div className="text-base font-bold tabular-nums sm:text-lg">{officers.length}</div>
