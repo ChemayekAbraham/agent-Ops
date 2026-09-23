@@ -126,3 +126,4 @@
 - [Tenant arrears escalation ladder](mem://features/tenant/arrears-escalation-ladder) — Daily Rent Plan arrears chase: tenant SMS day 1 then every 3rd day, agent SMS + agent task from day 3, calling-centre to_call row from day 7
 - [Promissory conversion queue actions](mem://features/partner/promissory-conversion-queue-actions) — Partner Ops assign/contact/snooze/resolve on open promises via append-only promissory_note_ops_actions log; never edits the note or reminder fields
 - [Promissory queue analytics](mem://features/partner/ops-queue-analytics) — read-only `promissory_ops_analytics` RPC + analytics panel: contact attempts (manual + automated SMS), conversion, overdue aging, fulfilment rates by partner and agent
+- [Conversion queue export](mem://features/partner/queue-export) — CSV/PDF buttons export the filtered on-screen queue rows with score, days late, tier and owner
