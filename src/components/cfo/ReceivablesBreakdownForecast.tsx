@@ -309,6 +309,8 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
               .map(({ cat, products }) => {
               const catOpen = openCategory === cat.key;
               const isTenantCat = cat.label === TENANT_CATEGORY_LABEL;
+              const isAgentCat = cat.label === AGENT_CATEGORY_LABEL || cat.key === 'agent';
+              const isDrillCat = isTenantCat || isAgentCat;
               const shownOutstanding =
                 productFilter === ALL_PRODUCTS
                   ? cat.outstanding
@@ -323,12 +325,12 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
               const categoryHeader = (
                 <button
                   type="button"
-                  onClick={isTenantCat ? undefined : () => setOpenCategory(catOpen ? null : cat.key)}
-                  aria-expanded={isTenantCat ? tenantModalOpen : catOpen}
+                  onClick={isDrillCat ? undefined : () => setOpenCategory(catOpen ? null : cat.key)}
+                  aria-expanded={isDrillCat ? (isTenantCat ? tenantModalOpen : agentModalOpen) : catOpen}
                   className="w-full flex items-center justify-between gap-2 px-3 py-2.5 min-h-11 text-left hover:bg-muted/40 rounded-xl transition-colors"
                 >
                   <span className="flex items-center gap-1.5 min-w-0">
-                    {isTenantCat || !catOpen ? (
+                    {isDrillCat || !catOpen ? (
                       <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                     ) : (
                       <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
