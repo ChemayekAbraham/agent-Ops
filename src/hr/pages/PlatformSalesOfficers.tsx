@@ -852,7 +852,7 @@ export default function PlatformSalesOfficersPage() {
 
         {failedParts.length > 0 && (
           <div className="rounded-md border px-3 py-2 text-xs text-muted-foreground">
-            Some figures on this page could not be loaded and are showing as zero: {failedParts.join(', ')} Refresh, and report it if it persists.
+            Some figures on this page could not be loaded and are showing as zero: {failedParts.join(', ')}. Refresh, and report it if it persists.
           </div>
         )}
 
