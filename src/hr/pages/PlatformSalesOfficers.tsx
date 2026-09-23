@@ -490,11 +490,15 @@ export default function PlatformSalesOfficersPage() {
         preEnrolmentNotes: funded.pre_enrolment_notes ?? 0,
         preEnrolmentFunded: funded.pre_enrolment_funded ?? 0,
         preEnrolmentAmount: funded.pre_enrolment_amount ?? 0,
+        notesActivated: promiseById.get(funded.staff_id)?.notes_activated ?? 0,
+        notesPending: promiseById.get(funded.staff_id)?.notes_pending ?? 0,
+        promisedAmount: promiseById.get(funded.staff_id)?.promised_amount ?? 0,
+        preEnrolmentPromised: promiseById.get(funded.staff_id)?.pre_enrolment_promised ?? 0,
       });
     }
 
     return Array.from(byId.values());
-  }, [rows, fundedSummaries]);
+  }, [rows, fundedSummaries, promiseSummaries]);
 
   // Highest-first on the selected column; ties fall back to net notes then name.
   const sortedOfficers = useMemo(
