@@ -207,6 +207,9 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
                     if (cat?.label === TENANT_CATEGORY_LABEL) {
                       setTenantModalOpen(true);
                     }
+                    if (cat?.label === AGENT_CATEGORY_LABEL || cat?.key === 'agent') {
+                      setAgentModalOpen(true);
+                    }
                   }
                 }}
               >
@@ -254,6 +257,10 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
                     const opt = productOptions.find((o) => o.value === v);
                     if (opt?.catLabel === TENANT_CATEGORY_LABEL) {
                       setTenantModalOpen(true);
+                    }
+                    if (opt?.catLabel === AGENT_CATEGORY_LABEL) {
+                      setAgentModalOpen(true);
+                      setSelectedAgentProductKey(v.split(':')[1]);
                     }
                   }
                 }}
