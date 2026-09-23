@@ -64,14 +64,22 @@ export function PromissoryFulfilmentTracker() {
     enabled: open,
     staleTime: 120_000,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('promissory_notes')
-        .select('id, partner_name, phone_number, partner_user_id, agent_id, amount, status, recorded_on, fulfilment_due_on, approved_at, created_at')
-        .in('status', ['pending', 'activated'])
-        .order('recorded_on', { ascending: false })
-        .limit(5000);
-      if (error) throw error;
-      return (data || []) as TrackerNote[];
+      // PostgREST caps a single response at ~1000 rows; page through so the
+      // rates and trend cover every promise, not just the newest thousand.
+      const pageSize = 1000;
+      const all: TrackerNote[] = [];
+      for (let from = 0; ; from += pageSize) {
+        const { data, error } = await supabase
+          .from('promissory_notes')
+          .select('id, partner_name, phone_number, partner_user_id, agent_id, amount, status, recorded_on, fulfilment_due_on, approved_at, created_at')
+          .in('status', ['pending', 'activated'])
+          .order('recorded_on', { ascending: false })
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+        all.push(...((data || []) as TrackerNote[]));
+        if (!data || data.length < pageSize) break;
+      }
+      return all;
     },
   });
 
