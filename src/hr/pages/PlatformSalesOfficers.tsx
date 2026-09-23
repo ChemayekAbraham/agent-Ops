@@ -390,6 +390,14 @@ export default function PlatformSalesOfficersPage() {
         { event: '*', schema: 'public', table: 'promissory_commission_events' },
         () => {
           queryClient.invalidateQueries({ queryKey: ['pso-funded-summary-officers'] });
+          queryClient.invalidateQueries({ queryKey: ['funding-commission-summary'] });
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'proxy_commission_queue' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['funding-commission-summary'] });
         },
       )
       .subscribe();
