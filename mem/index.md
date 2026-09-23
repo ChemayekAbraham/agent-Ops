@@ -124,3 +124,4 @@
 - [ID orientation + back side](mem://features/identity/id-orientation-and-back-side) — auto-rotate/re-read upside-down or sideways ID photos before rejecting; back of card required, read, confirmed and shown to FinOps
 - [House support deep link](mem://features/agent/house-support-deeplink) — Agent house share links → public /support-house page → existing partner_support_houses flow, server-side agent attribution via short_links
 - [Tenant arrears escalation ladder](mem://features/tenant/arrears-escalation-ladder) — Daily Rent Plan arrears chase: tenant SMS day 1 then every 3rd day, agent SMS + agent task from day 3, calling-centre to_call row from day 7
+- [Promissory conversion queue actions](mem://features/partner/promissory-conversion-queue-actions) — Partner Ops assign/contact/snooze/resolve on open promises via append-only promissory_note_ops_actions log; never edits the note or reminder fields
