@@ -37,6 +37,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { usePromissoryOpsReport, PROMISSORY_RANGES } from '@/hooks/usePromissoryOpsReport';
 import { formatUGX } from '@/lib/rentCalculations';
+import { PromissoryKpiDetailSheet, type PromissoryKpiMetric } from './partner-ops/PromissoryKpiDetailSheet';
 
 
 const SWIPE_THRESHOLD = 90;
