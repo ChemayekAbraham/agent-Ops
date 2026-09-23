@@ -893,8 +893,10 @@ export default function ProxyAgentCommandCenter() {
               </CardContent></Card>
             )}
             <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={exportCsv}>
-                <Download className="mr-2 h-4 w-4" /> Export {tab === 'partners' ? 'partners' : 'notes'} CSV
+              <Button variant="outline" className="flex-1" onClick={exportPdf} disabled={exporting}>
+                {exporting
+                  ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Building PDF…</>
+                  : <><Download className="mr-2 h-4 w-4" /> Download full {tab === 'partners' ? 'partner' : 'notes'} list (PDF)</>}
               </Button>
               <Button variant="outline" className="flex-1" onClick={handleCopyInvite}>
                 <Copy className="mr-2 h-4 w-4" /> Copy invite link
