@@ -40,7 +40,7 @@ import {
 } from '@/hooks/useReceivables';
 
 const GRANULARITIES: { key: ForecastGranularity; label: string; defaultPeriods: number }[] = [
-  { key: 'day', label: 'Daily', defaultPeriods: 7 },
+  { key: 'day', label: 'Daily', defaultPeriods: 30 },
   { key: 'week', label: 'Weekly', defaultPeriods: 26 },
   { key: 'month', label: 'Monthly', defaultPeriods: 12 },
   { key: 'quarter', label: 'Quarterly', defaultPeriods: 12 },
