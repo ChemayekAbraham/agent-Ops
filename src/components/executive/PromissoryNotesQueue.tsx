@@ -40,6 +40,8 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { PromissoryKpiDetailSheet, type PromissoryKpiMetric } from './partner-ops/PromissoryKpiDetailSheet';
 import { PromissoryFulfilmentTracker } from './partner-ops/PromissoryFulfilmentTracker';
 import { PromissoryConversionQueue } from './partner-ops/PromissoryConversionQueue';
+import { PromissoryOpsAnalytics } from './partner-ops/PromissoryOpsAnalytics';
+
 
 
 
