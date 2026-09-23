@@ -282,6 +282,23 @@ interface PersonSummary {
   commissionAccrued: number;
 }
 
+// Funding commission earned through either engine: a matched promissory note,
+// or a managed proxy account. Reviewer-only, straight from the RPC.
+interface FundingCommissionRow {
+  earner_id: string;
+  earner_name: string;
+  staff_ref: string | null;
+  is_pso: boolean;
+  paths: string | null;
+  creations: number;
+  topups: number;
+  base_creation: number;
+  base_topup: number;
+  commission_paid: number;
+  commission_pending: number;
+  as_at: string;
+}
+
 export default function PlatformSalesOfficersPage() {
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<WindowMode>('WEEKLY');
@@ -373,6 +390,14 @@ export default function PlatformSalesOfficersPage() {
         { event: '*', schema: 'public', table: 'promissory_commission_events' },
         () => {
           queryClient.invalidateQueries({ queryKey: ['pso-funded-summary-officers'] });
+          queryClient.invalidateQueries({ queryKey: ['funding-commission-summary'] });
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'proxy_commission_queue' },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ['funding-commission-summary'] });
         },
       )
       .subscribe();
@@ -411,6 +436,34 @@ export default function PlatformSalesOfficersPage() {
       return data ?? [];
     },
   });
+
+  // Both funding-commission engines in one list, server-ordered by commission paid.
+  const { data: fundingRows = [] } = useQuery<FundingCommissionRow[]>({
+    queryKey: ['funding-commission-summary', from, to],
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+    refetchIntervalInBackground: false,
+    queryFn: async () => {
+      const { data, error } = (await supabase.rpc('funding_commission_summary' as any, {
+        p_from: from,
+        p_to: to,
+      })) as unknown as { data: FundingCommissionRow[] | null; error: { message: string } | null };
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+  });
+
+  const fundingTotals = useMemo(() => {
+    return fundingRows.reduce(
+      (acc, r) => ({
+        base: acc.base + Number(r.base_creation ?? 0) + Number(r.base_topup ?? 0),
+        paid: acc.paid + Number(r.commission_paid ?? 0),
+        pending: acc.pending + Number(r.commission_pending ?? 0),
+      }),
+      { base: 0, paid: 0, pending: 0 },
+    );
+  }, [fundingRows]);
+
 
   const fundedAsAt = fundedSummaries[0]?.as_at ?? null;
 
@@ -1154,6 +1207,127 @@ export default function PlatformSalesOfficersPage() {
           </div>
         )}
 
+        {fundingRows.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex flex-col gap-0.5 border-t pt-4">
+              <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Funding commission — 2% creation · 1% top-up
+              </span>
+              <span className="text-[11px] text-muted-foreground">
+                everyone paid commission on funding in this window, with or without promissory notes
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              <div className="rounded-lg border bg-card px-3 py-2">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Earners</div>
+                <div className="text-base font-bold tabular-nums sm:text-lg">{fundingRows.length}</div>
+              </div>
+              <div className="rounded-lg border bg-card px-3 py-2">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Funding base</div>
+                <div className="text-base font-bold tabular-nums sm:text-lg">{formatUgxCompact(fundingTotals.base)}</div>
+              </div>
+              <div className="rounded-lg border bg-card px-3 py-2">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Commission paid</div>
+                <div className="text-base font-bold tabular-nums sm:text-lg">{formatUgxCompact(fundingTotals.paid)}</div>
+              </div>
+              <div className="rounded-lg border bg-card px-3 py-2">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Commission pending</div>
+                <div className="text-base font-bold tabular-nums sm:text-lg">{formatUgxCompact(fundingTotals.pending)}</div>
+              </div>
+            </div>
+
+            <div className="space-y-2 md:hidden">
+              {fundingRows.map((row) => (
+                <div key={row.earner_id} className="rounded-xl border bg-card p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold">{row.earner_name}</div>
+                      <div className="text-[11px] text-muted-foreground">
+                        {row.staff_ref ?? '—'}
+                        {row.is_pso && <span className="text-muted-foreground"> · PSO</span>}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-2xl font-bold leading-none tabular-nums">
+                        {formatUgxCompact(Number(row.commission_paid ?? 0))}
+                      </div>
+                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">commission paid</div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t pt-2">
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Creations</div>
+                      <div className="text-xs font-semibold tabular-nums">{row.creations > 0 ? row.creations : '—'}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Top-ups</div>
+                      <div className="text-xs font-semibold tabular-nums">{row.topups > 0 ? row.topups : '—'}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Pending</div>
+                      <div className="text-xs font-semibold tabular-nums">
+                        {Number(row.commission_pending ?? 0) > 0
+                          ? formatUgxCompact(Number(row.commission_pending))
+                          : '—'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="hidden md:block">
+              <div className="overflow-x-auto rounded-md border [overscroll-behavior-x:contain]">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/50">
+                    <tr>
+                      <th className="px-4 py-2 text-left font-medium">Person</th>
+                      <th className="px-4 py-2 text-left font-medium">Staff code</th>
+                      <th className="px-4 py-2 text-left font-medium">Path</th>
+                      <th className="px-4 py-2 text-right font-medium">Creations</th>
+                      <th className="px-4 py-2 text-right font-medium">Top-ups</th>
+                      <th className="px-4 py-2 text-right font-medium">Creation base</th>
+                      <th className="px-4 py-2 text-right font-medium">Top-up base</th>
+                      <th className="px-4 py-2 text-right font-medium">Commission paid</th>
+                      <th className="px-4 py-2 text-right font-medium">Pending</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {fundingRows.map((row) => (
+                      <tr key={row.earner_id} className="border-t">
+                        <td className="px-4 py-2 font-medium">{row.earner_name}</td>
+                        <td className="px-4 py-2">
+                          {row.staff_ref ?? '—'}
+                          {row.is_pso && <span className="text-muted-foreground"> · PSO</span>}
+                        </td>
+                        <td className="px-4 py-2 text-muted-foreground">{row.paths ?? '—'}</td>
+                        <td className="px-4 py-2 text-right tabular-nums">{row.creations > 0 ? row.creations : '—'}</td>
+                        <td className="px-4 py-2 text-right tabular-nums">{row.topups > 0 ? row.topups : '—'}</td>
+                        <td className="px-4 py-2 text-right tabular-nums">
+                          UGX {Number(row.base_creation ?? 0).toLocaleString('en-UG')}
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums">
+                          UGX {Number(row.base_topup ?? 0).toLocaleString('en-UG')}
+                        </td>
+                        <td className="px-4 py-2 text-right font-semibold tabular-nums">
+                          UGX {Number(row.commission_paid ?? 0).toLocaleString('en-UG')}
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums">
+                          {Number(row.commission_pending ?? 0) > 0
+                            ? `UGX ${Number(row.commission_pending).toLocaleString('en-UG')}`
+                            : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
         <p className="text-xs text-muted-foreground">
           Notes are counted on the day they were created. The partner dashboard counts only activated
           notes, on the day they were approved, so the two will differ for any given window. Promised
@@ -1162,7 +1336,9 @@ export default function PlatformSalesOfficersPage() {
         <p className="text-xs text-muted-foreground">
           Money deployed is what the funder put in. Commission base is the amount commission was
           calculated on, capped at the note's promised amount. Pre-enrol counts notes and conversions
-          dated before the officer's assignment start and is excluded from the ranked total.
+          dated before the officer's assignment start and is excluded from the ranked total. Funding
+          commission is paid through two routes — a matched promissory note, or a managed proxy
+          account — and the section above shows both.
         </p>
         <p className="text-xs text-muted-foreground">
           as at {fundedAsAt ? formatKampalaDateTime(fundedAsAt) : '—'} · funded figures are never frozen
