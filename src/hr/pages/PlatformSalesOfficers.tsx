@@ -444,6 +444,10 @@ export default function PlatformSalesOfficersPage() {
           preEnrolmentNotes: funded?.pre_enrolment_notes ?? 0,
           preEnrolmentFunded: funded?.pre_enrolment_funded ?? 0,
           preEnrolmentAmount: funded?.pre_enrolment_amount ?? 0,
+          notesActivated: promise?.notes_activated ?? 0,
+          notesPending: promise?.notes_pending ?? 0,
+          promisedAmount: promise?.promised_amount ?? 0,
+          preEnrolmentPromised: promise?.pre_enrolment_promised ?? 0,
         };
         byId.set(row.staff_id, entry);
       }
