@@ -245,58 +245,6 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
             </div>
           )}
 
-          {/* Product / service filter */}
-          {productOptions.length > 0 && (
-            <div className="flex items-center gap-2">
-              <Filter className="h-3 w-3 text-muted-foreground shrink-0" />
-              <Select
-                value={productFilter}
-                onValueChange={(v) => {
-                  setProductFilter(v);
-                  if (v !== ALL_PRODUCTS) {
-                    const catKey = v.split(':')[0];
-                    setOpenCategory(catKey);
-                    const opt = productOptions.find((o) => o.value === v);
-                    if (opt?.catLabel === TENANT_CATEGORY_LABEL) {
-                      setTenantModalOpen(true);
-                    }
-                    if (opt && isDrillFamily(catKey, opt.catLabel)) {
-                      setDrillCategoryKey(catKey);
-                      setDrillProductKeys((current) => ({ ...current, [catKey]: v.split(':')[1] }));
-                    }
-                  }
-                }}
-              >
-                <SelectTrigger className="h-8 flex-1 text-xs">
-                  <SelectValue placeholder="All products & services" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL_PRODUCTS} className="text-xs">
-                    All products &amp; services
-                  </SelectItem>
-                  {productOptions.map((o) => (
-                    <SelectItem key={o.value} value={o.value} className="text-xs">
-                      {o.label} · {formatUGX(o.outstanding)} · {totalReceivables > 0
-                        ? `${((o.outstanding / totalReceivables) * 100).toFixed(1)}%`
-                        : '0.0%'} · {o.projectionAvailable ? 'projection available' : 'no projection'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {productFilter !== ALL_PRODUCTS && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-8 px-2 text-[11px] shrink-0"
-                  onClick={() => setProductFilter(ALL_PRODUCTS)}
-                >
-                  <X className="h-3 w-3 mr-1" />
-                  Clear
-                </Button>
-              )}
-            </div>
-          )}
-
           {breakdown.isLoading && (
             <div className="flex justify-center py-8">
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
