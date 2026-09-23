@@ -943,6 +943,10 @@ export function PromissoryNotesQueue({
       {/* Read-only fulfilment tracking: rates, on-time %, trend, per-partner reliability */}
       <PromissoryFulfilmentTracker />
 
+      {/* Read-only analytics: contact attempts, conversion, overdue aging, rates by partner/agent */}
+      <PromissoryOpsAnalytics />
+
+
 
       {/* Search & Filter — sticky on phones so it stays reachable while scrolling */}
       <div className="sticky top-0 z-20 -mx-1 px-1 py-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 space-y-2 rounded-b-lg">
