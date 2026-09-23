@@ -126,6 +126,7 @@ export default function ProxyAgentCommandCenter() {
 
   const [withdrawOpen, setWithdrawOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [inviting, setInviting] = useState(false);
   const [inviteSheetOpen, setInviteSheetOpen] = useState(false);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
