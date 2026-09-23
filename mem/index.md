@@ -123,3 +123,4 @@
 - [National ID group linking](mem://features/identity/national-id-group-linking) — duplicate NIN → link request: holder OTP + in-app approval + staff confirm, 20 accounts per NIN, 7-day expiry, NIN-only visibility
 - [ID orientation + back side](mem://features/identity/id-orientation-and-back-side) — auto-rotate/re-read upside-down or sideways ID photos before rejecting; back of card required, read, confirmed and shown to FinOps
 - [House support deep link](mem://features/agent/house-support-deeplink) — Agent house share links → public /support-house page → existing partner_support_houses flow, server-side agent attribution via short_links
+- [Tenant arrears escalation ladder](mem://features/tenant/arrears-escalation-ladder) — Daily Rent Plan arrears chase: tenant SMS day 1 then every 3rd day, agent SMS + agent task from day 3, calling-centre to_call row from day 7
