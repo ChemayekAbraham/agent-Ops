@@ -8,15 +8,26 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { formatUGX } from '@/lib/rentCalculations';
 import {
+  PromissoryOpsActionDialog,
+  type OpsAction,
+  type OpsActionTarget,
+} from './PromissoryOpsActionDialog';
+import {
   AlertTriangle,
   ArrowUpDown,
+  BellOff,
+  CheckCircle2,
   ChevronDown,
   ChevronUp,
   Flame,
   ListOrdered,
+  Phone,
+  RotateCcw,
   Search,
   Timer,
+  UserPlus,
 } from 'lucide-react';
+
 
 /**
  * Read-only Partner Ops conversion queue for the Promissory Notes page.
@@ -79,18 +90,57 @@ const TIERS: Record<Tier, { label: string; hint: string; cls: string }> = {
   },
 };
 
+interface OpsState {
+  note_id: string;
+  assigned_to: string | null;
+  assigned_to_name: string | null;
+  assigned_at: string | null;
+  snoozed_until: string | null;
+  resolved_at: string | null;
+  resolution: string | null;
+  last_contact_at: string | null;
+  last_contact_channel: string | null;
+  last_contact_outcome: string | null;
+  action_count: number;
+}
+
 interface RankedNote extends QueueNote {
   daysOverdue: number | null;
   ageDays: number;
   tier: Tier;
   score: number;
+  ops?: OpsState;
+  isSnoozed: boolean;
+  isResolved: boolean;
 }
+
+type View = 'working' | 'mine' | 'assigned' | 'snoozed' | 'resolved' | 'all';
+
+const VIEWS: [View, string][] = [
+  ['working', 'To work'],
+  ['mine', 'Mine'],
+  ['assigned', 'Assigned'],
+  ['snoozed', 'Snoozed'],
+  ['resolved', 'Resolved'],
+  ['all', 'Everything'],
+];
 
 export function PromissoryConversionQueue() {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [tierFilter, setTierFilter] = useState<Tier | 'all'>('all');
   const [sortBy, setSortBy] = useState<'score' | 'amount' | 'overdue'>('score');
+  const [view, setView] = useState<View>('working');
+  const [action, setAction] = useState<OpsAction | null>(null);
+  const [target, setTarget] = useState<OpsActionTarget | null>(null);
+
+  const { data: myId } = useQuery({
+    queryKey: ['promissory-ops-me'],
+    staleTime: Infinity,
+    queryFn: async () => (await supabase.auth.getUser()).data.user?.id ?? null,
+  });
+
+
 
   const { data: notes = [], isLoading, isError, error } = useQuery({
     queryKey: ['promissory-conversion-queue'],
@@ -141,9 +191,25 @@ export function PromissoryConversionQueue() {
     },
   });
 
+  // Partner Ops working state (assignment / contact / snooze / resolve),
+  // derived entirely from the append-only action log.
+  const { data: opsState = {} } = useQuery({
+    queryKey: ['promissory-ops-queue-state'],
+    enabled: open,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('promissory_ops_queue_state');
+      if (error) throw error;
+      const map: Record<string, OpsState> = {};
+      for (const row of (data || []) as OpsState[]) map[row.note_id] = row;
+      return map;
+    },
+  });
+
   const ranked = useMemo<RankedNote[]>(() => {
     if (!notes.length) return [];
-    const today = asDate(kampalaToday()).getTime();
+    const todayStr = kampalaToday();
+    const today = asDate(todayStr).getTime();
     const maxAmount = Math.max(...notes.map(n => Number(n.amount || 0)), 1);
 
     return notes
@@ -168,19 +234,29 @@ export function PromissoryConversionQueue() {
         const overdueScore = Math.min(1, lateness / 30);
         const score = Math.round(amountScore * 60 + overdueScore * 40);
 
-        return { ...n, daysOverdue, ageDays, tier, score };
+        const ops = opsState[n.id];
+        return {
+          ...n,
+          daysOverdue,
+          ageDays,
+          tier,
+          score,
+          ops,
+          isSnoozed: !!ops?.snoozed_until && ops.snoozed_until > todayStr,
+          isResolved: !!ops?.resolved_at,
+        };
       })
       .sort((a, b) => {
         if (sortBy === 'amount') return Number(b.amount) - Number(a.amount);
         if (sortBy === 'overdue') return (b.daysOverdue ?? -999) - (a.daysOverdue ?? -999);
         return b.score - a.score;
       });
-  }, [notes, sortBy]);
+  }, [notes, sortBy, opsState]);
 
   const totals = useMemo(() => {
     const by = (t: Tier) => ranked.filter(n => n.tier === t);
     const sum = (rows: RankedNote[]) => rows.reduce((s, n) => s + Number(n.amount || 0), 0);
-    const esc = by('escalated');
+    const esc = by('escalated').filter(n => !n.isResolved && !n.isSnoozed);
     return {
       openCount: ranked.length,
       openValue: sum(ranked),
@@ -191,21 +267,48 @@ export function PromissoryConversionQueue() {
       dueSoonCount: by('due_soon').length,
       noDateCount: by('grace').length,
       topTenValue: sum(ranked.slice().sort((a, b) => b.score - a.score).slice(0, 10)),
+      mineCount: ranked.filter(n => n.ops?.assigned_to && n.ops.assigned_to === myId && !n.isResolved).length,
+      assignedCount: ranked.filter(n => n.ops?.assigned_to && !n.isResolved).length,
+      snoozedCount: ranked.filter(n => n.isSnoozed).length,
+      resolvedCount: ranked.filter(n => n.isResolved).length,
     };
-  }, [ranked]);
+  }, [ranked, myId]);
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
     return ranked.filter(n => {
+      if (view === 'working' && (n.isResolved || n.isSnoozed)) return false;
+      if (view === 'mine' && (n.ops?.assigned_to !== myId || n.isResolved)) return false;
+      if (view === 'assigned' && (!n.ops?.assigned_to || n.isResolved)) return false;
+      if (view === 'snoozed' && !n.isSnoozed) return false;
+      if (view === 'resolved' && !n.isResolved) return false;
       if (tierFilter !== 'all' && n.tier !== tierFilter) return false;
       if (!q) return true;
       return (
         (n.partner_name || '').toLowerCase().includes(q) ||
         (n.phone_number || '').includes(q) ||
+        (n.ops?.assigned_to_name || '').toLowerCase().includes(q) ||
         (agentNames[n.agent_id] || '').toLowerCase().includes(q)
       );
     });
-  }, [ranked, tierFilter, search, agentNames]);
+  }, [ranked, tierFilter, search, agentNames, view, myId]);
+
+  const act = (a: OpsAction, n: RankedNote) => {
+    setTarget({
+      id: n.id,
+      partner_name: n.partner_name,
+      phone_number: n.phone_number,
+      whatsapp_number: n.whatsapp_number,
+      amount: Number(n.amount || 0),
+      fulfilment_due_on: n.fulfilment_due_on,
+      assigned_to: n.ops?.assigned_to ?? null,
+      assigned_to_name: n.ops?.assigned_to_name ?? null,
+      snoozed_until: n.ops?.snoozed_until ?? null,
+      resolution: n.ops?.resolution ?? null,
+    });
+    setAction(a);
+  };
+
 
   return (
     <Card className="border-primary/20">
@@ -270,6 +373,30 @@ export function PromissoryConversionQueue() {
                   </div>
                 </div>
 
+                {/* Working views */}
+                <div className="flex flex-wrap gap-1">
+                  {VIEWS.map(([v, label]) => {
+                    const count =
+                      v === 'mine' ? totals.mineCount
+                        : v === 'assigned' ? totals.assignedCount
+                          : v === 'snoozed' ? totals.snoozedCount
+                            : v === 'resolved' ? totals.resolvedCount
+                              : null;
+                    return (
+                      <Button
+                        key={v}
+                        type="button"
+                        size="sm"
+                        variant={view === v ? 'default' : 'outline'}
+                        className="h-7 text-[11px] px-2"
+                        onClick={() => setView(v)}
+                      >
+                        {label}{count !== null ? ` (${count})` : ''}
+                      </Button>
+                    );
+                  })}
+                </div>
+
                 {/* Controls */}
                 <div className="flex flex-wrap items-center gap-2">
                   <div className="relative flex-1 min-w-[180px]">
@@ -277,10 +404,11 @@ export function PromissoryConversionQueue() {
                     <Input
                       value={search}
                       onChange={e => setSearch(e.target.value)}
-                      placeholder="Search partner, phone or agent"
+                      placeholder="Search partner, phone, agent or owner"
                       className="h-8 pl-7 text-xs"
                     />
                   </div>
+
                   <div className="flex flex-wrap gap-1">
                     {(['all', 'escalated', 'chasing', 'due_soon', 'grace'] as const).map(t => (
                       <Button
@@ -344,6 +472,21 @@ export function PromissoryConversionQueue() {
                               <Badge variant="outline" className="text-[9px] px-1 py-0 bg-white/60">
                                 {tier.label}
                               </Badge>
+                              {n.ops?.assigned_to && !n.isResolved && (
+                                <Badge variant="outline" className="text-[9px] px-1 py-0 bg-white/60">
+                                  {n.ops.assigned_to === myId ? 'Mine' : n.ops.assigned_to_name || 'Assigned'}
+                                </Badge>
+                              )}
+                              {n.isSnoozed && (
+                                <Badge variant="outline" className="text-[9px] px-1 py-0 bg-white/60">
+                                  Snoozed to {n.ops?.snoozed_until}
+                                </Badge>
+                              )}
+                              {n.isResolved && (
+                                <Badge variant="outline" className="text-[9px] px-1 py-0 bg-white/60">
+                                  Resolved · {(n.ops?.resolution || '').replace(/_/g, ' ')}
+                                </Badge>
+                              )}
                               <span className="text-sm font-bold ml-auto">{formatUGX(Number(n.amount || 0))}</span>
                             </div>
                             <p className="text-[10px] opacity-80 mt-0.5">
@@ -360,6 +503,78 @@ export function PromissoryConversionQueue() {
                               {n.phone_number ? ` · ${n.phone_number}` : ''}
                               {n.last_followed_up_on ? ` · last follow-up ${n.last_followed_up_on}` : ' · no follow-up logged'}
                             </p>
+                            {n.ops?.last_contact_at && (
+                              <p className="text-[10px] opacity-70">
+                                Last Partner Ops contact {new Date(n.ops.last_contact_at).toLocaleDateString()}
+                                {n.ops.last_contact_channel ? ` by ${n.ops.last_contact_channel}` : ''}
+                                {n.ops.last_contact_outcome ? ` — “${n.ops.last_contact_outcome}”` : ''}
+                              </p>
+                            )}
+
+                            {/* Actions */}
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-6 text-[10px] px-2 bg-white/70"
+                                onClick={() => act('assign', n)}
+                              >
+                                <UserPlus className="h-3 w-3 mr-1" />
+                                {n.ops?.assigned_to ? 'Reassign' : 'Assign'}
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-6 text-[10px] px-2 bg-white/70"
+                                onClick={() => act('contact', n)}
+                              >
+                                <Phone className="h-3 w-3 mr-1" /> Contact
+                              </Button>
+                              {n.isSnoozed ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 text-[10px] px-2 bg-white/70"
+                                  onClick={() => act('unsnooze', n)}
+                                >
+                                  <RotateCcw className="h-3 w-3 mr-1" /> Unsnooze
+                                </Button>
+                              ) : (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 text-[10px] px-2 bg-white/70"
+                                  onClick={() => act('snooze', n)}
+                                >
+                                  <BellOff className="h-3 w-3 mr-1" /> Snooze
+                                </Button>
+                              )}
+                              {n.isResolved ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 text-[10px] px-2 bg-white/70"
+                                  onClick={() => act('reopen', n)}
+                                >
+                                  <RotateCcw className="h-3 w-3 mr-1" /> Reopen
+                                </Button>
+                              ) : (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 text-[10px] px-2 bg-white/70"
+                                  onClick={() => act('resolve', n)}
+                                >
+                                  <CheckCircle2 className="h-3 w-3 mr-1" /> Resolve
+                                </Button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       );
@@ -368,10 +583,19 @@ export function PromissoryConversionQueue() {
                 </div>
 
                 <p className="text-[10px] text-muted-foreground">
-                  Priority score = 60% promise size + 40% lateness (lateness counted up to 30 days). Read-only view —
-                  partners keep getting their Monday/Wednesday/Friday reminder and agents their own chase; nothing here
-                  changes a promise, a wallet or any record.
+                  Priority score = 60% promise size + 40% lateness (lateness counted up to 30 days). Assigning,
+                  contacting, snoozing and resolving are recorded in a Partner Ops working log with your written
+                  reason — the promise itself, its status, wallets and the partner/agent reminder schedules are
+                  never changed.
                 </p>
+
+                <PromissoryOpsActionDialog
+                  action={action}
+                  note={target}
+                  onClose={() => { setAction(null); setTarget(null); }}
+                />
+
+
               </>
             )}
           </>
