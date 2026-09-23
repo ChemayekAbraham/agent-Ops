@@ -469,18 +469,21 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
                         </div>
                       </DialogContent>
                     </Dialog>
-                  ) : isAgentCat ? (
-                    <Dialog open={agentModalOpen} onOpenChange={setAgentModalOpen}>
+                  ) : isFamilyCat ? (
+                    <Dialog
+                      open={drillCategoryKey === cat.key}
+                      onOpenChange={(open) => setDrillCategoryKey(open ? cat.key : null)}
+                    >
                       <DialogTrigger asChild>{categoryHeader}</DialogTrigger>
                       <DialogContent className="max-w-6xl w-[92vw] max-h-[85vh] overflow-y-auto p-0 rounded-2xl border border-border/60 shadow-xl">
                         <DialogHeader className="px-5 pt-5 pb-2">
                           <DialogTitle className="text-base sm:text-lg">{cat.label}</DialogTitle>
                           <DialogDescription>
-                            Receivable position and projection for {selectedAgentProduct?.label ?? 'this product'}.
+                            Receivable position and projection for {selectedFamilyProduct?.label ?? 'this product'}.
                           </DialogDescription>
                         </DialogHeader>
                         <div className="px-5 pb-6 space-y-4">
-                          {!selectedAgentProduct ? (
+                          {!selectedFamilyProduct ? (
                             <p className="text-xs text-muted-foreground">
                               No open receivables in this category.
                             </p>
@@ -494,10 +497,10 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
                                         Outstanding receivable
                                       </p>
                                       <p className="mt-1 text-2xl sm:text-3xl font-bold font-mono tabular-nums">
-                                        {formatUGX(selectedAgentProduct.outstanding)}
+                                        {formatUGX(selectedFamilyProduct.outstanding)}
                                       </p>
                                       <p className="mt-1 text-[11px] text-muted-foreground">
-                                        {selectedAgentProduct.item_count} open {selectedAgentProduct.item_count === 1 ? 'item' : 'items'} · {selectedAgentShare.toFixed(1)}% of total receivables book
+                                        {selectedFamilyProduct.item_count} open {selectedFamilyProduct.item_count === 1 ? 'item' : 'items'} · {selectedFamilyShare.toFixed(1)}% of total receivables book
                                       </p>
                                     </div>
                                     <div className="shrink-0 text-right">
@@ -505,20 +508,25 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
                                         Share of book
                                       </p>
                                       <p className="mt-1 text-xl font-bold font-mono tabular-nums">
-                                        {selectedAgentShare.toFixed(1)}%
+                                        {selectedFamilyShare.toFixed(1)}%
                                       </p>
-                                      <Progress value={selectedAgentShare} className="mt-2 h-1.5 w-24 sm:w-32" />
+                                      <Progress value={selectedFamilyShare} className="mt-2 h-1.5 w-24 sm:w-32" />
                                     </div>
                                   </div>
                                   <Separator className="my-4" />
                                   <div className="space-y-1.5">
-                                    {agentProducts.map((prod) => {
-                                      const active = prod.key === selectedAgentProduct.key;
+                                    {familyProducts.map((prod) => {
+                                      const active = prod.key === selectedFamilyProduct.key;
                                       return (
                                         <button
                                           key={prod.key}
                                           type="button"
-                                          onClick={() => setSelectedAgentProductKey(prod.key)}
+                                          onClick={() =>
+                                            setDrillProductKeys((current) => ({
+                                              ...current,
+                                              [cat.key]: prod.key,
+                                            }))
+                                          }
                                           className={`w-full rounded-lg px-2.5 py-2 flex items-center justify-between gap-2 min-h-10 text-left transition-colors ${
                                             active
                                               ? 'bg-primary/10 ring-1 ring-primary/40'
@@ -543,7 +551,7 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
                               </Card>
 
                               <PredictiveReceivablesForecast
-                                productLabel={selectedAgentProduct.label}
+                                productLabel={selectedFamilyProduct.label}
                                 projectionAvailable={false}
                               />
                             </>
