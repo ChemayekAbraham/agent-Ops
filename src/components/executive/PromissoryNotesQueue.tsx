@@ -903,18 +903,35 @@ export function PromissoryNotesQueue({
         </Button>
       </div>
 
-      {/* KPI grid */}
+      {/* KPI grid — every number opens a read-only breakdown with its trend */}
       <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-2">
         {kpiCards.map(k => (
-          <Card key={k.label} className={k.tone}>
-            <CardContent className="p-3">
-              <p className="text-[11px] text-muted-foreground leading-tight">{k.label}</p>
-              <p className="text-base font-bold mt-0.5">{k.value}</p>
-              {k.hint && <p className="text-[10px] text-muted-foreground truncate">{k.hint}</p>}
+          <Card key={k.label} className={cn(k.tone, 'transition-shadow hover:shadow-md')}>
+            <CardContent className="p-0">
+              <button
+                type="button"
+                onClick={() => setKpiDetail({ metric: k.metric, label: k.label })}
+                aria-label={`See details and trend for ${k.label}`}
+                className="w-full text-left p-3 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              >
+                <p className="text-[11px] text-muted-foreground leading-tight">{k.label}</p>
+                <p className="text-base font-bold mt-0.5 underline decoration-dotted decoration-from-font underline-offset-2">
+                  {k.value}
+                </p>
+                {k.hint && <p className="text-[10px] text-muted-foreground truncate">{k.hint}</p>}
+              </button>
             </CardContent>
           </Card>
         ))}
       </div>
+
+      <PromissoryKpiDetailSheet
+        metric={kpiDetail?.metric ?? null}
+        label={kpiDetail?.label ?? ''}
+        rangeLabel={PROMISSORY_RANGES.find(r => r.key === range)?.label ?? 'All time'}
+        report={report}
+        onClose={() => setKpiDetail(null)}
+      />
 
       {/* Search & Filter — sticky on phones so it stays reachable while scrolling */}
       <div className="sticky top-0 z-20 -mx-1 px-1 py-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 space-y-2 rounded-b-lg">
