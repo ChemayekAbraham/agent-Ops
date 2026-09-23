@@ -935,8 +935,12 @@ export function PromissoryNotesQueue({
         onClose={() => setKpiDetail(null)}
       />
 
+      {/* Read-only conversion queue: open promises ranked by size + lateness, 7+ days auto-escalated */}
+      <PromissoryConversionQueue />
+
       {/* Read-only fulfilment tracking: rates, on-time %, trend, per-partner reliability */}
       <PromissoryFulfilmentTracker />
+
 
       {/* Search & Filter — sticky on phones so it stays reachable while scrolling */}
       <div className="sticky top-0 z-20 -mx-1 px-1 py-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 space-y-2 rounded-b-lg">
