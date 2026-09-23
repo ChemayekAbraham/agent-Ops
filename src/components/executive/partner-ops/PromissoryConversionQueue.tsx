@@ -141,6 +141,7 @@ export function PromissoryConversionQueue() {
   const [view, setView] = useState<View>('working');
   const [action, setAction] = useState<OpsAction | null>(null);
   const [target, setTarget] = useState<OpsActionTarget | null>(null);
+  const [exporting, setExporting] = useState<'csv' | 'pdf' | null>(null);
 
   const { data: myId } = useQuery({
     queryKey: ['promissory-ops-me'],
