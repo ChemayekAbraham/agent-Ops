@@ -8,15 +8,26 @@ import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { formatUGX } from '@/lib/rentCalculations';
 import {
+  PromissoryOpsActionDialog,
+  type OpsAction,
+  type OpsActionTarget,
+} from './PromissoryOpsActionDialog';
+import {
   AlertTriangle,
   ArrowUpDown,
+  BellOff,
+  CheckCircle2,
   ChevronDown,
   ChevronUp,
   Flame,
   ListOrdered,
+  Phone,
+  RotateCcw,
   Search,
   Timer,
+  UserPlus,
 } from 'lucide-react';
+
 
 /**
  * Read-only Partner Ops conversion queue for the Promissory Notes page.
