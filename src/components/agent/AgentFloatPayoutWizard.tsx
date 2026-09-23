@@ -112,6 +112,13 @@ function maskLandlordPhone(phone?: string | null): string {
   return phone;
 }
 
+function normalizeLandlordPhone(phone?: string | null): string {
+  const digits = (phone || '').replace(/\D/g, '');
+  if (digits.startsWith('256') && digits.length === 12) return `0${digits.slice(3)}`;
+  if (digits.length === 9) return `0${digits}`;
+  return digits;
+}
+
 export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone }: AgentFloatPayoutWizardProps) {
   const { user } = useAuth();
   const qc = useQueryClient();
@@ -323,6 +330,19 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
   const defaultLandlordPhone =
     (landlordVerified && selectedRequest?.landlord?.verified_mobile_money_number) || '';
   const landlordPhone = defaultLandlordPhone.trim();
+  // Show the actual current landlord record at this stage. This is deliberately
+  // separate from the frozen Ops-approved payout number: if they differ, the
+  // screen must expose the mismatch and stop before sending an OTP rather than
+  // silently presenting the older snapshot as though it were still on file.
+  const landlordPhoneOnFile = (
+    selectedRequest?.landlord?.mobile_money_number ||
+    selectedRequest?.landlord?.phone ||
+    ''
+  ).trim();
+  const payoutNumberMatchesOnFile =
+    !!landlordPhone &&
+    !!landlordPhoneOnFile &&
+    normalizeLandlordPhone(landlordPhone) === normalizeLandlordPhone(landlordPhoneOnFile);
 
   const parsedAmount = Number((amountInput || '').toString().replace(/[^\d.]/g, ''));
   const effectiveAmount =
@@ -341,14 +361,20 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
   const withinRent = effectiveAmount > 0 && effectiveAmount <= rentDue;
   const withinFloat = effectiveAmount > 0 && effectiveAmount <= availablePayoutFloat;
   const amountValid = withinRent && withinFloat;
-  const phoneValid = /^(?:\+?256|0)?\d{9}$/.test(landlordPhone.replace(/\s+/g, ''));
+  const phoneValid =
+    /^(?:\+?256|0)?\d{9}$/.test(landlordPhone.replace(/\s+/g, '')) &&
+    payoutNumberMatchesOnFile;
 
   const handleSendOtp = async (source: 'auto' | 'manual' = 'manual') => {
     setSendOtpError(null);
     if (!phoneValid) {
-      const msg = defaultLandlordPhone
-        ? 'The Landlord-Ops-approved number looks invalid. Ask them to re-verify with a valid number.'
-        : 'Landlord Ops has not approved a payout number for this landlord yet. Ask them to (re-)verify the landlord first.';
+      const msg = !landlordPhoneOnFile
+        ? 'This landlord has no mobile money number on file. Ask Landlord Ops to add and verify it first.'
+        : defaultLandlordPhone && !payoutNumberMatchesOnFile
+          ? 'The landlord number on file has changed since approval. Ask Landlord Ops to verify the current number before sending an OTP.'
+          : defaultLandlordPhone
+            ? 'The Landlord-Ops-approved number looks invalid. Ask them to re-verify with a valid number.'
+            : 'Landlord Ops has not approved the number currently on file. Ask them to (re-)verify the landlord first.';
       toast.error(msg);
       setSendOtpError(msg);
       return;
@@ -442,8 +468,12 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
     }
   };
 
-  const sendBlockedReason = !defaultLandlordPhone
-    ? 'Landlord Ops has not approved a payout number for this landlord yet. Ask them to (re-)verify the landlord.'
+  const sendBlockedReason = !landlordPhoneOnFile
+    ? 'This landlord has no mobile money number on file. Ask Landlord Ops to add and verify it.'
+    : !defaultLandlordPhone
+    ? 'Landlord Ops has not approved the number currently on file. Ask them to (re-)verify the landlord.'
+    : !payoutNumberMatchesOnFile
+    ? 'The landlord number on file has changed since approval. Landlord Ops must verify the current number before an OTP can be sent.'
     : !phoneValid
     ? 'The Landlord-Ops-approved number looks invalid. Ask them to re-verify with a valid number.'
     : effectiveAmount <= 0
@@ -1051,7 +1081,7 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
                       Pay {req.landlord?.name || 'Landlord'}
                     </h3>
                     <p className="text-xs text-muted-foreground font-mono mt-0.5">
-                      {maskLandlordPhone(landlordPhone)} · MTN Mobile Money
+                      {maskLandlordPhone(landlordPhoneOnFile)} · MTN Mobile Money
                     </p>
                   </div>
                   <Badge variant="outline" className="text-[10px] font-mono shrink-0">
@@ -1100,31 +1130,33 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
                     Landlord MoMo number
                   </Label>
                   {/*
-                    Never agent-editable — a boss once hit a blank prefill here
-                    and typed a number in, which would have misdirected a real
-                    payout. This is never the raw, freely-editable
-                    landlords.mobile_money_number/phone either — only the
-                    number Landlord Ops actually approved at verification time
-                    (verified_mobile_money_number) is ever shown or paid to.
+                    Never agent-editable. Show the current number on the
+                    landlord record here, then require it to match the number
+                    Landlord Ops approved before an OTP can be sent.
                   */}
                   <Input
                     id="payout-phone"
                     inputMode="tel"
                     readOnly
-                    value={defaultLandlordPhone}
-                    placeholder="Not yet approved by Landlord Ops"
+                    value={landlordPhoneOnFile}
+                    placeholder="No landlord number on file"
                     className="h-9 font-mono bg-muted/60 cursor-not-allowed text-muted-foreground"
                   />
                   <div className="space-y-1.5">
-                    {defaultLandlordPhone ? (
+                    {payoutNumberMatchesOnFile ? (
                       <p className="text-[11px] text-muted-foreground flex items-center gap-1">
                         <ShieldCheck className="h-3 w-3 text-success shrink-0" />
-                        Approved by Landlord Ops — number locked.
+                        Matches the number approved by Landlord Ops — locked.
+                      </p>
+                    ) : landlordPhoneOnFile ? (
+                      <p className="text-[11px] text-destructive flex items-center gap-1">
+                        <AlertTriangle className="h-3 w-3 shrink-0" />
+                        This number changed after approval. OTP is blocked until Landlord Ops verifies it.
                       </p>
                     ) : (
                       <p className="text-[11px] text-destructive flex items-center gap-1">
                         <AlertTriangle className="h-3 w-3 shrink-0" />
-                        Landlord Ops has not approved a payout number for this landlord yet — you cannot pay until they (re-)verify.
+                        No mobile money number is currently recorded for this landlord.
                       </p>
                     )}
                     {!showPhoneChangeReq ? (
@@ -1134,7 +1166,7 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
                         className="text-[11px] text-chart-4 font-medium inline-flex items-center gap-1 hover:underline"
                       >
                         <RefreshCw className="h-3 w-3" />
-                        {defaultLandlordPhone ? 'Request change from Landlord Ops' : 'Ask Landlord Ops to add a number'}
+                        {landlordPhoneOnFile ? 'Ask Landlord Ops to verify this number' : 'Ask Landlord Ops to add a number'}
                       </button>
                     ) : (
                       <div className="space-y-2 rounded-lg border p-2 bg-muted/30">
