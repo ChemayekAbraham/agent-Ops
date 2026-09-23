@@ -42,11 +42,7 @@ const TENANT_PRODUCTS = [
   { key: 'business_advance', label: 'Business Advances', projectionAvailable: false },
 ] as const;
 
-/**
- * Families that open the same full drill-down sheet the tenant book uses:
- * one product per row, tap a row to see its outstanding figure, share of the
- * book and period projection. Never a dropdown.
- */
+/** Families that open the same full product drill-down sheet. */
 const DRILL_CATEGORY_KEYS = new Set(['agent', 'landlord', 'partner']);
 const DRILL_CATEGORY_LABELS = new Set([
   AGENT_CATEGORY_LABEL,
@@ -199,7 +195,7 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
             )}
           </div>
 
-          {/* Category drill-down */}
+          {/* Category dropdown */}
           {sortedCategories.length > 0 && (
             <div className="flex items-center gap-2">
               <Layers className="h-3 w-3 text-muted-foreground shrink-0" />
@@ -307,7 +303,7 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
             </div>
           )}
 
-          <div className="space-y-2">
+          <div>
             {sortedCategories
               .filter((cat) => categoryFilter === ALL_CATEGORIES || cat.key === categoryFilter)
               .map((cat) => {
@@ -353,7 +349,7 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
                         : drillCategoryKey === cat.key
                       : catOpen
                   }
-                  className="w-full flex items-center justify-between gap-2 px-3 py-2.5 min-h-11 text-left hover:bg-muted/40 rounded-xl transition-colors"
+                  className="hidden"
                 >
                   <span className="flex items-center gap-1.5 min-w-0">
                     {isDrillCat || !catOpen ? (
@@ -406,7 +402,7 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
               );
 
               return (
-                <div key={cat.key} className="rounded-xl border border-border/60 bg-card">
+                <div key={cat.key}>
                   {isTenantCat ? (
                     <Dialog open={tenantModalOpen} onOpenChange={setTenantModalOpen}>
                       <DialogTrigger asChild>{categoryHeader}</DialogTrigger>
