@@ -897,6 +897,10 @@ export default function PlatformSalesOfficersPage() {
                         ))}
 
                         <td className="px-4 py-2 text-right tabular-nums">{officer.netNotes}</td>
+                        <td className="px-4 py-2 text-right tabular-nums">{officer.notesActivated}</td>
+                        <td className="px-4 py-2 text-right tabular-nums">
+                          {officer.notesPending === 0 ? '—' : officer.notesPending}
+                        </td>
                         <td className="px-4 py-2 text-right tabular-nums">
                           {officer.notesUnapproved === 0 ? '—' : officer.notesUnapproved}
                         </td>
@@ -904,6 +908,9 @@ export default function PlatformSalesOfficersPage() {
                         <td className="px-4 py-2 text-right tabular-nums">{officer.fundersConverted}</td>
                         <td className="px-4 py-2 text-right tabular-nums">
                           {officer.topups === 0 ? '—' : officer.topups}
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums">
+                          UGX {officer.promisedAmount.toLocaleString('en-UG')}
                         </td>
                         <td className="px-4 py-2 text-right tabular-nums">
                           UGX {officer.amountDeployed.toLocaleString('en-UG')}
@@ -922,6 +929,11 @@ export default function PlatformSalesOfficersPage() {
                           <div className="text-[11px] text-muted-foreground">
                             UGX {officer.preEnrolmentAmount.toLocaleString('en-UG')}
                           </div>
+                          {officer.preEnrolmentPromised > 0 && (
+                            <div className="text-[11px] text-muted-foreground">
+                              UGX {officer.preEnrolmentPromised.toLocaleString('en-UG')} promised
+                            </div>
+                          )}
                         </td>
                       </tr>
                     ))}
