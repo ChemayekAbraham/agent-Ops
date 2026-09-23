@@ -8,7 +8,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { fetchAllPages } from '@/lib/fetchAllPages';
 import { toast } from 'sonner';
-import { ArrowUpDown, Bell, Bookmark, Calculator, Check, ChevronLeft, ChevronRight, GitCompareArrows, Home, Loader2, MapPin, Navigation as NavigationIcon, Plus, RefreshCw, ShieldCheck, TrendingUp, Wallet, X } from 'lucide-react';
+import { ArrowUpDown, Bell, Bookmark, Calculator, Check, ChevronDown, ChevronLeft, ChevronRight, GitCompareArrows, Home, Loader2, MapPin, Navigation as NavigationIcon, Plus, RefreshCw, Search, ShieldCheck, SlidersHorizontal, TrendingUp, Wallet, X } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 
@@ -174,6 +174,11 @@ export function SelfPortfolioFundingCard({
   // Radius filter (km) around the funder's own location, falling back to the
   // last house tapped on the map when device location is unavailable.
   const [houseRadiusKm, setHouseRadiusKm] = useState<string>('all');
+  // Occupancy filter: vacant houses vs houses that already have a tenant (Rent Plans).
+  type HouseOccupancy = 'all' | 'empty' | 'tenant';
+  const [houseOccupancy, setHouseOccupancy] = useState<HouseOccupancy>('all');
+  // Filters panel visibility — the search bar stays visible when collapsed.
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   useEffect(() => {
     if (!('geolocation' in navigator)) return;
@@ -831,12 +836,15 @@ export function SelfPortfolioFundingCard({
   }, [houseDistrict, houseSubCounties, houseSubCounty]);
 
   const feed = useMemo<FeedItem[]>(() => {
-    const planItems: FeedItem[] = plans.map((plan) => ({
-      kind: 'plan',
-      id: plan.rent_request_id,
-      plan,
-    }));
-    let visibleHouses = houses.filter((h) => matchesBaseFilters(h));
+    const planItems: FeedItem[] =
+      houseOccupancy === 'empty'
+        ? []
+        : plans.map((plan) => ({
+            kind: 'plan',
+            id: plan.rent_request_id,
+            plan,
+          }));
+    let visibleHouses = houseOccupancy === 'tenant' ? [] : houses.filter((h) => matchesBaseFilters(h));
     if (houseDistrict !== 'all') {
       visibleHouses = visibleHouses.filter(
         (h) => (h.district ?? '').trim().toLowerCase() === houseDistrict,
@@ -944,6 +952,7 @@ export function SelfPortfolioFundingCard({
     plans,
     houses,
     houseSort,
+    houseOccupancy,
     referencePoint,
     userPoint,
     houseRadiusKm,
@@ -961,6 +970,7 @@ export function SelfPortfolioFundingCard({
     setHouseSearch('');
     setHouseRentMin('');
     setHouseRentMax('');
+    setHouseOccupancy('all');
     setHouseFundingStatus('all');
     setHouseWithinFloat(false);
     setShowSavedReadyOnly(false);
@@ -970,9 +980,23 @@ export function SelfPortfolioFundingCard({
     setReferencePoint(null);
   }, []);
 
+  // Number of non-default filters — drives the badge on the collapsible Filters tab.
+  const activeFilterCount =
+    (houseOccupancy !== 'all' ? 1 : 0) +
+    (houseDistrict !== 'all' ? 1 : 0) +
+    (houseSubCounty !== 'all' ? 1 : 0) +
+    (houseRentMin.trim() !== '' ? 1 : 0) +
+    (houseRentMax.trim() !== '' ? 1 : 0) +
+    (houseRadiusKm !== 'all' ? 1 : 0) +
+    (houseCountry !== 'all' ? 1 : 0) +
+    (houseListingAge !== 'all' ? 1 : 0) +
+    (houseFundingStatus !== 'all' ? 1 : 0) +
+    (houseWithinFloat ? 1 : 0) +
+    (showSavedReadyOnly ? 1 : 0);
+
   useEffect(() => {
     setPage(0);
-  }, [houseSort, houseDistrict, houseSubCounty, houseSearch, houseRentMin, houseRentMax, houseFundingStatus, houseWithinFloat, showSavedReadyOnly, houseCountry, houseListingAge, houseRadiusKm, feedOrder]);
+  }, [houseSort, houseOccupancy, houseDistrict, houseSubCounty, houseSearch, houseRentMin, houseRentMax, houseFundingStatus, houseWithinFloat, showSavedReadyOnly, houseCountry, houseListingAge, houseRadiusKm, feedOrder]);
 
   const pageCount = Math.max(1, Math.ceil(feed.length / PLANS_PER_PAGE));
   const pageStart = page * PLANS_PER_PAGE;
@@ -1070,27 +1094,6 @@ export function SelfPortfolioFundingCard({
       )}
 
 
-      <Card className="p-3 sm:p-4 rounded-xl sm:rounded-2xl">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="text-[11px] font-semibold text-muted-foreground">Available to fund</p>
-            <p className="text-base sm:text-lg font-black text-foreground">{formatDynamic(available)}</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">
-              Minimum {formatDynamic(MIN_FUNDING)} per plan
-            </p>
-            <p className="hidden sm:block text-[10px] font-semibold text-muted-foreground mt-0.5">
-              You can only select plans up to your operational float —{' '}
-              {formatDynamic(remaining)} left to fund
-            </p>
-            <p className="text-[10px] font-semibold text-primary mt-1">
-              {formatDynamic(marketRentNeeded)} rent needed by  houses
-            </p>
-          </div>
-          <Button variant="ghost" size="sm" onClick={() => void load()} disabled={busy}>
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-        </div>
-      </Card>
       {(
         <p className="text-[11px] font-semibold text-muted-foreground px-1">
           &nbsp;{houses.length} house
@@ -1099,191 +1102,252 @@ export function SelfPortfolioFundingCard({
       )}
 
       {houses.length > 0 && (
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 px-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Filter houses">
-          {/* Sort chip */}
-          <Select value={houseSort} onValueChange={(v) => setHouseSort(v as HouseSort)}>
-            <SelectTrigger className="h-8 w-auto min-w-0 flex-none rounded-full border-border bg-background px-3 text-[11px] font-semibold shadow-none" aria-label="Sort">
-              <ArrowUpDown className="h-3 w-3 mr-1 flex-none" aria-hidden />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {HOUSE_SORTS.map((s) => (
-                <SelectItem key={s.value} value={s.value}>
-                  {s.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {/* District chip */}
-          <Select value={houseDistrict} onValueChange={setHouseDistrict}>
-            <SelectTrigger className="h-8 w-auto min-w-0 flex-none rounded-full border-border bg-background px-3 text-[11px] font-semibold shadow-none" aria-label="District">
-              <MapPin className="h-3 w-3 mr-1 flex-none" aria-hidden />
-              <SelectValue placeholder="All districts" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">
-                All districts ({houseDistricts.reduce((sum, [, { count }]) => sum + count, 0)})
-              </SelectItem>
-              {houseDistricts.map(([key, { label, count }]) => (
-                <SelectItem key={key} value={key}>
-                  {label} ({count})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {/* Country chip */}
-          <Select value={houseCountry} onValueChange={setHouseCountry}>
-            <SelectTrigger className="h-8 w-auto min-w-0 flex-none rounded-full border-border bg-background px-3 text-[11px] font-semibold shadow-none" aria-label="Country">
-              <SelectValue placeholder="All countries" />
-            </SelectTrigger>
-            <SelectContent className="max-h-72">
-              <SelectItem value="all">All of Africa</SelectItem>
-              {listedCountries.map((c) => (
-                <SelectItem key={c.code} value={c.code}>
-                  {c.name} ({c.listings})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {/* Listing age chip */}
-          <Select value={houseListingAge} onValueChange={setHouseListingAge}>
-            <SelectTrigger className="h-8 w-auto min-w-0 flex-none rounded-full border-border bg-background px-3 text-[11px] font-semibold shadow-none" aria-label="Listing age">
-              <SelectValue placeholder="Any age" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Any listing age</SelectItem>
-              <SelectItem value="7">Last 7 days</SelectItem>
-              <SelectItem value="30">Last 30 days</SelectItem>
-              <SelectItem value="90">Last 3 months</SelectItem>
-              <SelectItem value="365">Last year</SelectItem>
-            </SelectContent>
-          </Select>
-          {/* Funding status chip */}
-          <Select value={houseFundingStatus} onValueChange={(v) => setHouseFundingStatus(v as HouseFundingStatus)}>
-            <SelectTrigger className="h-8 w-auto min-w-0 flex-none rounded-full border-border bg-background px-3 text-[11px] font-semibold shadow-none" aria-label="Funding status">
-              <SelectValue placeholder="Any status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Any status</SelectItem>
-              <SelectItem value="ready">Ready to fund</SelectItem>
-              <SelectItem value="topup">Needs top-up</SelectItem>
-            </SelectContent>
-          </Select>
-          {/* Distance chip */}
-          <Select value={houseRadiusKm} onValueChange={setHouseRadiusKm}>
-            <SelectTrigger className="h-8 w-auto min-w-0 flex-none rounded-full border-border bg-background px-3 text-[11px] font-semibold shadow-none" aria-label="Distance">
-              <SelectValue placeholder="Any distance" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Any distance</SelectItem>
-              <SelectItem value="1">1 km</SelectItem>
-              <SelectItem value="2">2 km</SelectItem>
-              <SelectItem value="5">5 km</SelectItem>
-              <SelectItem value="10">10 km</SelectItem>
-              <SelectItem value="25">25 km</SelectItem>
-              <SelectItem value="50">50 km</SelectItem>
-            </SelectContent>
-          </Select>
-          {/* Within float toggle chip */}
-          <button
-            type="button"
-            onClick={() => setHouseWithinFloat((v) => !v)}
-            className={`h-8 flex-none rounded-full border px-3 text-[11px] font-semibold transition-colors ${
-              houseWithinFloat
-                ? 'border-primary bg-primary text-primary-foreground'
-                : 'border-border bg-background text-foreground hover:bg-muted'
-            }`}
-          >
-            Within float
-          </button>
-          {/* Reset chip */}
-          {(houseDistrict !== 'all' || houseSubCounty !== 'all' || houseSearch || houseWithinFloat || showSavedReadyOnly || houseSort !== 'rent_asc' || houseRentMin || houseRentMax || houseFundingStatus !== 'all' || houseCountry !== 'all' || houseListingAge !== 'all' || houseRadiusKm !== 'all') && (
+        <div className="space-y-2 px-1">
+          {/* Search bar + collapsible Filters tab */}
+          <div className="flex items-center gap-2">
+            <div className="relative min-w-0 flex-1">
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                aria-hidden
+              />
+              <Input
+                value={houseSearch}
+                onChange={(event) => setHouseSearch(event.target.value)}
+                placeholder="Search houses — name, area, district…"
+                aria-label="Search houses"
+                className="h-10 w-full rounded-full border-border bg-background pl-9 pr-9 text-xs font-semibold shadow-none"
+              />
+              {houseSearch ? (
+                <button
+                  type="button"
+                  onClick={() => setHouseSearch('')}
+                  aria-label="Clear search"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground transition-colors hover:bg-muted"
+                >
+                  <X className="h-3.5 w-3.5" aria-hidden />
+                </button>
+              ) : null}
+            </div>
             <button
               type="button"
-              onClick={resetFilters}
-              className="h-8 flex-none rounded-full border border-destructive/30 bg-destructive/5 px-3 text-[11px] font-semibold text-destructive transition-colors hover:bg-destructive/10"
+              aria-expanded={filtersOpen}
+              onClick={() => setFiltersOpen((v) => !v)}
+              className={`flex h-10 flex-none items-center gap-1.5 rounded-full border px-3 text-xs font-semibold transition-colors ${
+                filtersOpen || activeFilterCount > 0
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'border-border bg-background text-foreground hover:bg-muted'
+              }`}
             >
-              <X className="h-3 w-3 mr-1 inline" aria-hidden />
-              Reset
+              <SlidersHorizontal className="h-3.5 w-3.5" aria-hidden />
+              Filters
+              {activeFilterCount > 0 && (
+                <span
+                  className={`flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-black ${
+                    filtersOpen || activeFilterCount > 0
+                      ? 'bg-primary-foreground text-primary'
+                      : 'bg-primary text-primary-foreground'
+                  }`}
+                >
+                  {activeFilterCount}
+                </span>
+              )}
+              <ChevronDown
+                className={`h-3.5 w-3.5 transition-transform ${filtersOpen ? 'rotate-180' : ''}`}
+                aria-hidden
+              />
             </button>
-          )}
-        </div>
-      )}
+          </div>
 
+          {filtersOpen && (
+            <div
+              className="grid grid-cols-2 gap-3 rounded-2xl border border-border bg-muted/30 p-3 sm:grid-cols-3"
+              aria-label="Filter houses"
+            >
+              <div className="min-w-0">
+                <span className="mb-1 block text-[11px] font-medium text-muted-foreground">House type</span>
+                <Select value={houseOccupancy} onValueChange={(v) => setHouseOccupancy(v as HouseOccupancy)}>
+                  <SelectTrigger className="h-10 w-full rounded-xl border-border bg-background px-3 text-xs font-semibold shadow-none" aria-label="House type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All houses</SelectItem>
+                    <SelectItem value="empty">Empty houses</SelectItem>
+                    <SelectItem value="tenant">Houses with a tenant</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
 
+              <div className="min-w-0">
+                <span className="mb-1 block text-[11px] font-medium text-muted-foreground">Sort by</span>
+                <Select value={houseSort} onValueChange={(v) => setHouseSort(v as HouseSort)}>
+                  <SelectTrigger className="h-10 w-full rounded-xl border-border bg-background px-3 text-xs font-semibold shadow-none" aria-label="Sort">
+                    <ArrowUpDown className="h-3 w-3 mr-1 flex-none" aria-hidden />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {HOUSE_SORTS.map((s) => (
+                      <SelectItem key={s.value} value={s.value}>
+                        {s.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-      {houses.length > 0 && (houseDistricts.length > 0 || houseSubCounties.length > 0) && (
-        <div className="space-y-1.5 px-1" aria-label="Quick location filters">
-          {houseDistricts.length > 0 && (
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5" role="group" aria-label="District quick filters">
-              <MapPin className="h-3.5 w-3.5 flex-none text-muted-foreground" aria-hidden />
-              <button
-                type="button"
-                aria-pressed={houseDistrict === 'all'}
-                onClick={() => setHouseDistrict('all')}
-                className={`h-8 flex-none rounded-full border px-3 text-xs font-semibold transition-colors ${
-                  houseDistrict === 'all'
-                    ? 'border-primary bg-primary text-primary-foreground'
-                    : 'border-border bg-background text-foreground hover:bg-muted'
-                }`}
-              >
-                All districts
-                <span className="ml-1 opacity-70">
-                  ({houseDistricts.reduce((sum, [, { count }]) => sum + count, 0)})
-                </span>
-              </button>
-              {houseDistricts.map(([key, { label, count }]) => (
+              <div className="min-w-0">
+                <span className="mb-1 block text-[11px] font-medium text-muted-foreground">District</span>
+                <Select value={houseDistrict} onValueChange={setHouseDistrict}>
+                  <SelectTrigger className="h-10 w-full rounded-xl border-border bg-background px-3 text-xs font-semibold shadow-none" aria-label="District">
+                    <MapPin className="h-3 w-3 mr-1 flex-none" aria-hidden />
+                    <SelectValue placeholder="All districts" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-72">
+                    <SelectItem value="all">
+                      All districts ({houseDistricts.reduce((sum, [, { count }]) => sum + count, 0)})
+                    </SelectItem>
+                    {houseDistricts.map(([key, { label, count }]) => (
+                      <SelectItem key={key} value={key}>
+                        {label} ({count})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="min-w-0">
+                <span className="mb-1 block text-[11px] font-medium text-muted-foreground">Neighborhood</span>
+                <Select value={houseSubCounty} onValueChange={setHouseSubCounty}>
+                  <SelectTrigger className="h-10 w-full rounded-xl border-border bg-background px-3 text-xs font-semibold shadow-none" aria-label="Neighborhood">
+                    <NavigationIcon className="h-3 w-3 mr-1 flex-none" aria-hidden />
+                    <SelectValue placeholder="All neighborhoods" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-72">
+                    <SelectItem value="all">
+                      All neighborhoods ({houseSubCounties.reduce((sum, [, { count }]) => sum + count, 0)})
+                    </SelectItem>
+                    {houseSubCounties.map(([key, { label, count }]) => (
+                      <SelectItem key={key} value={key}>
+                        {label} ({count})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="min-w-0">
+                <span className="mb-1 block text-[11px] font-medium text-muted-foreground">Min price (UGX)</span>
+                <Input
+                  value={houseRentMin}
+                  onChange={(event) => setHouseRentMin(event.target.value.replace(/[^0-9]/g, ''))}
+                  inputMode="numeric"
+                  placeholder="No minimum"
+                  aria-label="Minimum price"
+                  className="h-10 w-full rounded-xl border-border bg-background px-3 text-xs font-semibold shadow-none"
+                />
+              </div>
+
+              <div className="min-w-0">
+                <span className="mb-1 block text-[11px] font-medium text-muted-foreground">Max price (UGX)</span>
+                <Input
+                  value={houseRentMax}
+                  onChange={(event) => setHouseRentMax(event.target.value.replace(/[^0-9]/g, ''))}
+                  inputMode="numeric"
+                  placeholder="No maximum"
+                  aria-label="Maximum price"
+                  className="h-10 w-full rounded-xl border-border bg-background px-3 text-xs font-semibold shadow-none"
+                />
+              </div>
+
+              <div className="min-w-0">
+                <span className="mb-1 block text-[11px] font-medium text-muted-foreground">Distance</span>
+                <Select value={houseRadiusKm} onValueChange={setHouseRadiusKm}>
+                  <SelectTrigger className="h-10 w-full rounded-xl border-border bg-background px-3 text-xs font-semibold shadow-none" aria-label="Distance">
+                    <SelectValue placeholder="Any distance" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Any distance</SelectItem>
+                    <SelectItem value="1">Within 1 km</SelectItem>
+                    <SelectItem value="2">Within 2 km</SelectItem>
+                    <SelectItem value="5">Within 5 km</SelectItem>
+                    <SelectItem value="10">Within 10 km</SelectItem>
+                    <SelectItem value="25">Within 25 km</SelectItem>
+                    <SelectItem value="50">Within 50 km</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="min-w-0">
+                <span className="mb-1 block text-[11px] font-medium text-muted-foreground">Country</span>
+                <Select value={houseCountry} onValueChange={setHouseCountry}>
+                  <SelectTrigger className="h-10 w-full rounded-xl border-border bg-background px-3 text-xs font-semibold shadow-none" aria-label="Country">
+                    <SelectValue placeholder="All countries" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-72">
+                    <SelectItem value="all">All of Africa</SelectItem>
+                    {listedCountries.map((c) => (
+                      <SelectItem key={c.code} value={c.code}>
+                        {c.name} ({c.listings})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="min-w-0">
+                <span className="mb-1 block text-[11px] font-medium text-muted-foreground">Listing age</span>
+                <Select value={houseListingAge} onValueChange={setHouseListingAge}>
+                  <SelectTrigger className="h-10 w-full rounded-xl border-border bg-background px-3 text-xs font-semibold shadow-none" aria-label="Listing age">
+                    <SelectValue placeholder="Any age" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Any listing age</SelectItem>
+                    <SelectItem value="7">Last 7 days</SelectItem>
+                    <SelectItem value="30">Last 30 days</SelectItem>
+                    <SelectItem value="90">Last 3 months</SelectItem>
+                    <SelectItem value="365">Last year</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="min-w-0">
+                <span className="mb-1 block text-[11px] font-medium text-muted-foreground">Funding status</span>
+                <Select value={houseFundingStatus} onValueChange={(v) => setHouseFundingStatus(v as HouseFundingStatus)}>
+                  <SelectTrigger className="h-10 w-full rounded-xl border-border bg-background px-3 text-xs font-semibold shadow-none" aria-label="Funding status">
+                    <SelectValue placeholder="Any status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Any status</SelectItem>
+                    <SelectItem value="ready">Ready to fund</SelectItem>
+                    <SelectItem value="topup">Needs top-up</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="col-span-2 flex flex-wrap items-center gap-2 pt-1 sm:col-span-3">
                 <button
-                  key={key}
                   type="button"
-                  aria-pressed={houseDistrict === key}
-                  onClick={() => setHouseDistrict(houseDistrict === key ? 'all' : key)}
-                  className={`h-8 flex-none rounded-full border px-3 text-xs font-semibold transition-colors ${
-                    houseDistrict === key
+                  aria-pressed={houseWithinFloat}
+                  onClick={() => setHouseWithinFloat((v) => !v)}
+                  className={`h-8 flex-none rounded-full border px-3 text-[11px] font-semibold transition-colors ${
+                    houseWithinFloat
                       ? 'border-primary bg-primary text-primary-foreground'
                       : 'border-border bg-background text-foreground hover:bg-muted'
                   }`}
                 >
-                  {label}
-                  <span className="ml-1 opacity-70">({count})</span>
+                  <Wallet className="h-3 w-3 mr-1 inline" aria-hidden />
+                  Within float
                 </button>
-              ))}
-            </div>
-          )}
-          {houseSubCounties.length > 0 && (
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5" role="group" aria-label="Neighborhood quick filters">
-              <NavigationIcon className="h-3.5 w-3.5 flex-none text-muted-foreground" aria-hidden />
-              <button
-                type="button"
-                aria-pressed={houseSubCounty === 'all'}
-                onClick={() => setHouseSubCounty('all')}
-                className={`h-8 flex-none rounded-full border px-3 text-xs font-semibold transition-colors ${
-                  houseSubCounty === 'all'
-                    ? 'border-primary bg-primary text-primary-foreground'
-                    : 'border-border bg-background text-foreground hover:bg-muted'
-                }`}
-              >
-                All neighborhoods
-                <span className="ml-1 opacity-70">
-                  ({houseSubCounties.reduce((sum, [, { count }]) => sum + count, 0)})
-                </span>
-              </button>
-              {houseSubCounties.map(([key, { label, count }]) => (
-                <button
-                  key={key}
-                  type="button"
-                  aria-pressed={houseSubCounty === key}
-                  onClick={() => setHouseSubCounty(houseSubCounty === key ? 'all' : key)}
-                  className={`h-8 flex-none rounded-full border px-3 text-xs font-semibold transition-colors ${
-                    houseSubCounty === key
-                      ? 'border-primary bg-primary text-primary-foreground'
-                      : 'border-border bg-background text-foreground hover:bg-muted'
-                  }`}
-                >
-                  {label}
-                  <span className="ml-1 opacity-70">({count})</span>
-                </button>
-              ))}
+                {(activeFilterCount > 0 || houseSearch || houseSort !== 'rent_asc') && (
+                  <button
+                    type="button"
+                    onClick={resetFilters}
+                    className="h-8 flex-none rounded-full border border-destructive/30 bg-destructive/5 px-3 text-[11px] font-semibold text-destructive transition-colors hover:bg-destructive/10"
+                  >
+                    <X className="h-3 w-3 mr-1 inline" aria-hidden />
+                    Reset all
+                  </button>
+                )}
+              </div>
             </div>
           )}
         </div>

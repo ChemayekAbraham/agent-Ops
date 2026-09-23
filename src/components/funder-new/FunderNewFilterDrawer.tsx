@@ -12,6 +12,12 @@ interface Props {
   supportsSort: boolean;
   hasOrigin: boolean;
   availableBalance: number | null;
+  /** Operational float balance, shown on the within-balance chip. */
+  floatBalance?: number | null;
+  /** How many homes the current filters match right now. */
+  resultCount?: number;
+  /** True while that count is still being recounted. */
+  resultCounting?: boolean;
   onChange: (next: Partial<FunderNewFilters>) => void;
   onSortChange: (sort: FunderNewSort) => void;
   onReset: () => void;
@@ -26,10 +32,14 @@ export function FunderNewFilterDrawer({
   supportsSort,
   hasOrigin,
   availableBalance,
+  floatBalance = null,
+  resultCount,
+  resultCounting,
   onChange,
   onSortChange,
   onReset,
 }: Props) {
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -41,8 +51,18 @@ export function FunderNewFilterDrawer({
             <ListFilter className="h-4 w-4 text-primary" aria-hidden />
             Filters
           </SheetTitle>
-          <SheetDescription>Narrow the homes shown in the list and on the map.</SheetDescription>
+          <SheetDescription>
+            Narrow the homes shown in the list and on the map.
+            {typeof resultCount === 'number' ? (
+              <span className="mt-1 block font-medium text-foreground">
+                {resultCounting
+                  ? 'Counting matching homes…'
+                  : `${resultCount.toLocaleString()} ${resultCount === 1 ? 'home' : 'homes'} match right now`}
+              </span>
+            ) : null}
+          </SheetDescription>
         </SheetHeader>
+
 
         <div className="mt-4 space-y-4">
           <FunderNewFilterChips
@@ -52,18 +72,27 @@ export function FunderNewFilterDrawer({
             supportsSort={supportsSort}
             hasOrigin={hasOrigin}
             availableBalance={availableBalance}
+            floatBalance={floatBalance}
             onChange={onChange}
             onSortChange={onSortChange}
-            onReset={onReset}
           />
 
           <div className="flex gap-2 pb-2">
-            <Button variant="outline" className="flex-1 rounded-xl" onClick={onReset}>
+            <Button
+              variant="outline"
+              className="flex-1 rounded-xl border-destructive text-destructive hover:bg-destructive/10 hover:text-destructive"
+              onClick={onReset}
+            >
               Reset
             </Button>
             <Button className="flex-1 rounded-xl" onClick={() => onOpenChange(false)}>
-              Show homes
+              {typeof resultCount === 'number'
+                ? resultCounting
+                  ? 'Counting…'
+                  : `Show ${resultCount.toLocaleString()} ${resultCount === 1 ? 'home' : 'homes'}`
+                : 'Show homes'}
             </Button>
+
           </div>
         </div>
       </SheetContent>

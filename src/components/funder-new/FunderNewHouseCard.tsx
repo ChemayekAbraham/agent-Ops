@@ -1,4 +1,4 @@
-import { Bookmark, Check, Home, MapPin, Navigation } from 'lucide-react';
+import { Bookmark, Check, Home, Navigation, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { cn } from '@/lib/utils';
@@ -44,7 +44,7 @@ export function FunderNewHouseCard({
   return (
     <article
       className={cn(
-        'relative min-w-0 overflow-hidden rounded-lg border border-border bg-card shadow-sm transition-[border-color,box-shadow]',
+        'relative my-3 min-w-0 overflow-hidden rounded-lg border border-border bg-card shadow-sm transition-[border-color,box-shadow] sm:my-0',
         'hover:shadow-md',
         selected && 'border-primary ring-1 ring-primary',
       )}
@@ -98,20 +98,23 @@ export function FunderNewHouseCard({
           onClick={onSave}
           aria-label={saved ? `Remove ${title} from saved homes` : `Save ${title} for later`}
           aria-pressed={saved}
-          className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-card/95 text-foreground shadow-sm ring-1 ring-border backdrop-blur focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className={cn(
+            'absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-card/95 text-foreground shadow-sm ring-1 ring-border backdrop-blur transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            saved && 'border border-emerald-600 bg-emerald-500 text-white ring-emerald-600',
+          )}
         >
-          <Bookmark className={cn('h-4 w-4', saved && 'fill-current text-primary')} aria-hidden />
+          {saved ? (
+            <Check className="h-4 w-4 text-white" aria-hidden />
+          ) : (
+            <Bookmark className="h-4 w-4" aria-hidden />
+          )}
         </button>
       </div>
 
-      <div className="space-y-3 p-4">
+        <div className="space-y-3 p-4">
         <div className="min-w-0">
-          <div className="flex min-w-0 items-start gap-2">
-            <p className="min-w-0 flex-1 break-words text-base font-bold leading-snug text-foreground">{title}</p>
-          </div>
-          <p className="mt-1.5 flex min-w-0 items-start gap-1.5 text-xs leading-relaxed text-muted-foreground">
-            <MapPin className="mt-0.5 h-3.5 w-3.5 flex-none" aria-hidden />
-            <span className="min-w-0 break-words">{place}</span>
+          <p className="min-w-0 break-words text-base font-bold leading-snug text-foreground">
+            {title} <span className="font-medium text-muted-foreground">in</span> {place}
           </p>
 
           {distance ? (
@@ -123,14 +126,6 @@ export function FunderNewHouseCard({
           ) : null}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {monthlyReturn === null ? null : (
-            <span className="rounded-full bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary">
-              {formatDynamic(monthlyReturn)} / month
-            </span>
-          )}
-        </div>
-
         <div className="pt-1">
           <p className="text-xl font-bold leading-none text-foreground">{formatDynamic(amount)}</p>
           <p className="mt-2 text-xs text-muted-foreground">
@@ -138,15 +133,43 @@ export function FunderNewHouseCard({
           </p>
         </div>
 
-        <Button
-          variant="default"
-          className="h-11 w-full rounded-lg text-sm font-bold text-primary-foreground shadow-sm"
-          onClick={onSelect}
-          aria-pressed={selected}
-        >
-          {selected ? <Check className="h-4 w-4" aria-hidden /> : null}
-          {selected ? 'Selected' : 'Select'}
-        </Button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={onSave}
+            aria-label={saved ? `Remove ${title} from saved homes` : `Save ${title} for later`}
+            aria-pressed={saved}
+            className={cn(
+              'flex h-11 w-11 flex-none items-center justify-center rounded-lg border border-primary bg-transparent text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+              saved && 'border-emerald-600 bg-emerald-500 text-white hover:bg-emerald-600',
+            )}
+          >
+            {saved ? (
+              <Check className="h-4 w-4 text-white" aria-hidden />
+            ) : (
+              <Bookmark className="h-4 w-4" aria-hidden />
+            )}
+          </button>
+          <Button
+            variant="default"
+            className={cn(
+              'h-11 flex-1 gap-2 rounded-lg text-sm font-bold shadow-sm transition-colors',
+              selected
+                ? 'border border-emerald-600 bg-emerald-500 text-white hover:bg-emerald-600'
+                : 'text-primary-foreground',
+            )}
+            onClick={onSelect}
+            aria-pressed={selected}
+          >
+            {selected ? (
+              <Check className="h-4 w-4 text-white" aria-hidden />
+            ) : (
+              <Plus className="h-4 w-4" aria-hidden />
+            )}
+            {selected ? 'Selected' : 'Select'}
+          </Button>
+
+        </div>
       </div>
     </article>
   );

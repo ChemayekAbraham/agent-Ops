@@ -116,6 +116,9 @@ export function resetVoiceClient(): void {
       // Already gone. Nothing to salvage, and the point is to discard it.
     }
   }
+  // Dropping the reference does not close a peer connection: without this the
+  // audio outlives the client object that owned it.
+  stopVoiceMedia();
   client = null;
   clientToken = null;
   registered = false;
@@ -154,6 +157,46 @@ export function getVoiceClient(capabilityToken: string): RawClient {
   client = next;
   clientToken = capabilityToken;
   return next;
+}
+
+/**
+ * Silence the call's audio for real.
+ *
+ * `hangup()` sends the SIP BYE, which ends the call as far as the signalling
+ * is concerned. It does not reliably stop the inbound media: the SDK attaches
+ * the remote audio to an element it creates and does not expose, and that
+ * element has been observed still playing after a hang-up - you cancel the
+ * call and can still hear the other person.
+ *
+ * So the tracks are stopped directly. Only elements whose `srcObject` is a
+ * MediaStream are touched: ordinary `<audio src="...">` players (notification
+ * sounds and the like) have no `srcObject` and are left alone.
+ *
+ * Returns how many tracks were stopped, which is worth logging when a call
+ * ends in a way nobody expected.
+ */
+export function stopVoiceMedia(): number {
+  if (typeof document === 'undefined') return 0;
+  let stopped = 0;
+  document.querySelectorAll<HTMLMediaElement>('audio, video').forEach((el) => {
+    const stream = el.srcObject as MediaStream | null;
+    if (!stream || typeof stream.getTracks !== 'function') return;
+    stream.getTracks().forEach((track) => {
+      try {
+        track.stop();
+        stopped += 1;
+      } catch {
+        // Already ended. Nothing to stop, which is the outcome we wanted.
+      }
+    });
+    try {
+      el.pause();
+      el.srcObject = null;
+    } catch {
+      // Detached from the DOM mid-sweep; the tracks are stopped either way.
+    }
+  });
+  return stopped;
 }
 
 /** The current client, if one has been built. Never constructs. */

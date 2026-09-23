@@ -66,6 +66,8 @@ const RequisitionUsageReportGate = optionalLazyWithRetry(() => import("@/compone
 const NationalIdLinkGate = optionalLazyWithRetry(() => import("@/components/notifications/NationalIdLinkGate"), "NationalIdLinkGate");
 const ConcernAssignmentGate = optionalLazyWithRetry(() => import("@/components/notifications/ConcernAssignmentGate"), "ConcernAssignmentGate");
 const FacilitationApprovalGate = optionalLazyWithRetry(() => import("@/components/requisitions/FacilitationApprovalGate"), "FacilitationApprovalGate");
+const StaffLoanApprovalGate = optionalLazyWithRetry(() => import("@/components/requisitions/StaffLoanApprovalGate"), "StaffLoanApprovalGate");
+
 const PsoFacilitationRegister = lazyWithRetry(() => import("@/pages/PsoFacilitationRegister"));
 
 // Field recruitment campaign pages
@@ -435,6 +437,8 @@ function GlobalOnboardingGates() {
       <NationalIdLinkGate />
       <ConcernAssignmentGate />
       <FacilitationApprovalGate />
+      <StaffLoanApprovalGate />
+
     </>
   );
 }

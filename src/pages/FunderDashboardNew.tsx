@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, Calculator, HelpCircle, Info, ListFilter, Loader2, Search, SlidersHorizontal, Wallet, X } from 'lucide-react';
+import { AlertTriangle, Calculator, Fingerprint, HelpCircle, Home, ListFilter, Loader2, SlidersHorizontal, Wallet, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '@/hooks/useAuth';
+import { AppRole, useAuth } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
+import DashboardHeader from '@/components/DashboardHeader';
+import { UserAvatar } from '@/components/UserAvatar';
+import { NotificationBell } from '@/components/supporter/NotificationBell';
+import { roleToSlug } from '@/lib/roleRoutes';
+import { generateWelileAiId } from '@/lib/welileAiId';
 import { useWalletBalance } from '@/hooks/wallet/useWalletBalance';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -35,7 +39,7 @@ import type {
   FunderNewSort,
 } from '@/components/funder-new/types';
 import { itemAmount, itemId, placeCase, sortLabel, toSelectionItem } from '@/components/funder-new/utils';
-import { ROAD_TIME_UNAVAILABLE_REASON, straightLineDistance } from '@/components/funder-new/distance';
+import { straightLineDistance } from '@/components/funder-new/distance';
 import { itemCoordinates } from '@/components/funder-new/utils';
 import { FunderNewFilterDrawer } from '@/components/funder-new/FunderNewFilterDrawer';
 
@@ -77,12 +81,25 @@ function saveSaved(value: SavedState) {
 
 export default function FunderDashboardNew() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, roles, signOut, switchRole } = useAuth();
+  const { profile } = useProfile();
   const wallet = useWalletBalance(user?.id);
+
+  const metaFullName = (user?.user_metadata?.full_name as string | undefined)?.trim() || '';
+  const emailLocal = (user?.email || '').split('@')[0] || '';
+  const displayName = profile?.full_name?.trim() || metaFullName || emailLocal || 'Funder';
+  const welileId = user ? generateWelileAiId(user.id) : '';
+
+  // Same role-switch behavior as /dashboard/funder: switch then let the
+  // persona URL render the matching dashboard.
+  const handleRoleSwitch = (newRole: AppRole) => {
+    if (!roles.includes(newRole)) return;
+    switchRole(newRole);
+    navigate(roleToSlug(newRole), { replace: true });
+  };
   const summary = useFunderNewMarketSummary();
   const location = useFunderNewLocation();
 
-  const [tab, setTab] = useState<FunderNewCategory>('empty');
   const [searchInput, setSearchInput] = useState('');
   const [filters, setFilters] = useState<FunderNewFilters>({
     search: '',
@@ -161,8 +178,12 @@ export default function FunderDashboardNew() {
     setFilters((current) => ({ ...current, sort: 'nearest' }));
   }, [origin, sortTouched]);
 
-  const emptyQuery = useFunderNewEmptyHouses(filters, origin, tab === 'empty');
-  const readyQuery = useFunderNewReadyPlans(filters, tab === 'ready');
+  /**
+   * Single combined feed: every empty house first, then every tenant-ready
+   * Rent Plan. Both reads run together; there is no tab switch.
+   */
+  const emptyQuery = useFunderNewEmptyHouses(filters, origin, true);
+  const readyQuery = useFunderNewReadyPlans(filters, true);
 
   const emptyItems = useMemo(
     () => (emptyQuery.data?.pages ?? []).flatMap((page) => page.items),
@@ -170,10 +191,35 @@ export default function FunderDashboardNew() {
   );
   const readyItems = useMemo(() => (readyQuery.data?.pages ?? []).flatMap((page) => page.items), [readyQuery.data]);
 
-  const activeQuery = tab === 'empty' ? emptyQuery : readyQuery;
-  const loadedItems: Array<FunderNewEmptyHouse | FunderNewReadyPlan> = tab === 'empty' ? emptyItems : readyItems;
-  const filteredTotal = activeQuery.data?.pages?.[0]?.total ?? 0;
-  const readyLimitation = readyQuery.data?.pages?.[0]?.limitation ?? null;
+  interface FeedEntry {
+    category: FunderNewCategory;
+    item: FunderNewEmptyHouse | FunderNewReadyPlan;
+  }
+
+  /** Houses first, Rent Plans last. Each entry carries its own category. */
+  const loadedItems = useMemo<FeedEntry[]>(
+    () => [
+      ...emptyItems.map((item): FeedEntry => ({ category: 'empty', item })),
+      ...readyItems.map((item): FeedEntry => ({ category: 'ready', item })),
+    ],
+    [emptyItems, readyItems],
+  );
+
+  const feedLoading = emptyQuery.isLoading || readyQuery.isLoading;
+  const feedError = emptyQuery.error || readyQuery.error;
+  const feedFetching = emptyQuery.isFetching || readyQuery.isFetching;
+  const feedFetchingNext = emptyQuery.isFetchingNextPage || readyQuery.isFetchingNextPage;
+  const feedHasNext = !!emptyQuery.hasNextPage || !!readyQuery.hasNextPage;
+  const refetchFeed = () => {
+    emptyQuery.refetch();
+    readyQuery.refetch();
+  };
+  const fetchNextFeed = () => {
+    if (emptyQuery.hasNextPage && !emptyQuery.isFetchingNextPage) emptyQuery.fetchNextPage();
+    if (readyQuery.hasNextPage && !readyQuery.isFetchingNextPage) readyQuery.fetchNextPage();
+  };
+
+  const filteredTotal = (emptyQuery.data?.pages?.[0]?.total ?? 0) + (readyQuery.data?.pages?.[0]?.total ?? 0);
 
   const availableBalance = wallet.isLoading || wallet.error ? null : wallet.withdrawable;
 
@@ -188,7 +234,7 @@ export default function FunderDashboardNew() {
     (summary.data?.districts ?? []).forEach((item) => {
       counts.set(item.value, { label: item.label, count: item.count });
     });
-    loadedItems.forEach((item) => {
+    loadedItems.forEach(({ item }) => {
       const raw = (item as unknown as Record<string, unknown>).district;
       const value = typeof raw === 'string' ? raw.trim() : '';
       if (!value || counts.has(value)) return;
@@ -205,18 +251,13 @@ export default function FunderDashboardNew() {
    */
   const items = useMemo(() => {
     if (!filters.withinFloat || availableBalance === null) return loadedItems;
-    return loadedItems.filter((item) => {
-      const amount = itemAmount(tab, item);
+    return loadedItems.filter((entry) => {
+      const amount = itemAmount(entry.category, entry.item);
       return amount > 0 && amount <= availableBalance;
     });
-  }, [loadedItems, filters.withinFloat, availableBalance, tab]);
+  }, [loadedItems, filters.withinFloat, availableBalance]);
 
   const effectiveSort: FunderNewSort = filters.sort === 'nearest' && !origin ? 'recommended' : filters.sort;
-
-  const activeSelectedIds = useMemo(
-    () => selectedItems.filter((item) => item.category === tab).map((item) => item.id),
-    [selectedItems, tab],
-  );
   const selectedEmptyIds = useMemo(
     () => selectedItems.filter((item) => item.category === 'empty').map((item) => item.id),
     [selectedItems],
@@ -283,8 +324,8 @@ export default function FunderDashboardNew() {
   }, []);
 
   const openDetailById = (id: string) => {
-    const found = items.find((item) => itemId(tab, item) === id);
-    if (found) openDetail(tab, found);
+    const found = items.find((entry) => itemId(entry.category, entry.item) === id);
+    if (found) openDetail(found.category, found.item);
   };
 
   /** Applying a map area changes the list; simply panning does not. */
@@ -313,29 +354,41 @@ export default function FunderDashboardNew() {
 
   return (
     <div className="min-h-screen bg-background pb-32 text-foreground">
-      {/* Existing top header — unchanged */}
-      <header className="border-b bg-background/95 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                RentFlow Insights review
-              </p>
-              <h1 className="mt-1 text-2xl font-semibold tracking-tight">Find a home to support</h1>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {user?.user_metadata?.full_name
-                  ? `${user.user_metadata.full_name}, review live homes without changing the current dashboard.`
-                  : 'Review live homes without changing the current dashboard.'}
-              </p>
-            </div>
-            <div className="grid gap-2 sm:flex sm:items-center">
-              <Button variant="outline" className="rounded-xl" onClick={() => navigate('/dashboard/funder')}>
-                Current dashboard
-              </Button>
-            </div>
+      {/* Same top bar as /dashboard/funder — logo + role switcher */}
+      <DashboardHeader
+        currentRole="supporter"
+        availableRoles={roles}
+        onRoleChange={handleRoleSwitch}
+        onSignOut={signOut}
+        headerActions={user ? <NotificationBell userId={user.id} /> : undefined}
+        compactInstallPrompt
+      />
+
+      {/* Identity strip — avatar, name, Welile ID */}
+      <section className="border-b bg-background/95 backdrop-blur">
+        <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-4 sm:px-6 lg:px-8">
+          <UserAvatar
+            avatarUrl={profile?.avatar_url}
+            fullName={displayName}
+            size="lg"
+            className="ring-2 ring-primary/20"
+          />
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-xl font-semibold tracking-tight">{displayName}</h1>
+            {welileId && (
+              <button
+                type="button"
+                onClick={() => navigate(`/profile/${welileId}`)}
+                className="mt-1 inline-flex items-center gap-1.5 rounded-full border border-primary/20 bg-primary/10 px-2.5 py-0.5 font-mono text-[11px] font-medium text-primary transition-colors hover:bg-primary/20"
+                title="Open my Welile Trust Profile"
+              >
+                <Fingerprint className="h-3 w-3" aria-hidden />
+                {welileId}
+              </button>
+            )}
           </div>
         </div>
-      </header>
+      </section>
 
       <main className="mx-auto max-w-7xl space-y-5 px-4 py-5 sm:space-y-6 sm:px-6 lg:px-8">
         <FunderNewHero
@@ -357,22 +410,22 @@ export default function FunderDashboardNew() {
           onAreaSearchChange={setSearchInput}
         />
 
+        {/* Independent "How it works" row, directly below the map */}
+        <div className="flex">
+          <Button
+            variant="outline"
+            onClick={() => setHowOpen(true)}
+            className="h-11 w-fit shrink-0 rounded-full px-4"
+          >
+            <HelpCircle className="h-4 w-4" aria-hidden />
+            How it works
+          </Button>
+        </div>
+
+
         {/* Compact filters + calculator, directly under the map */}
         <section className="space-y-3">
           <div className="flex flex-wrap gap-2 rounded-2xl border bg-card p-2.5 shadow-sm sm:p-3">
-            <label className="relative min-w-0 flex-1 basis-full sm:basis-64">
-              <span className="sr-only">Search homes</span>
-              <Search
-                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-                aria-hidden
-              />
-              <Input
-                value={searchInput}
-                onChange={(event) => setSearchInput(event.target.value)}
-                placeholder="Search area or house type"
-                className="h-11 rounded-xl pl-9 text-sm"
-              />
-            </label>
 
             <Button
               variant="outline"
@@ -402,13 +455,19 @@ export default function FunderDashboardNew() {
             onOpenChange={setFiltersOpen}
             filters={filters}
             districts={districtOptions}
-            supportsSort={tab === 'empty'}
+            supportsSort
             hasOrigin={!!origin}
             availableBalance={availableBalance}
+            floatBalance={wallet.isLoading || wallet.error ? null : wallet.floatBalance}
+            resultCount={
+              filters.withinFloat && availableBalance !== null ? items.length : filteredTotal
+            }
+            resultCounting={feedLoading || feedFetching}
             onChange={(next) => setFilters((current) => ({ ...current, ...next }))}
             onSortChange={changeSort}
             onReset={resetFilters}
           />
+
 
           {filters.withinFloat && availableBalance !== null ? (
             <p className="px-1 text-xs text-muted-foreground">
@@ -417,23 +476,10 @@ export default function FunderDashboardNew() {
           ) : null}
 
 
-          <Tabs value={tab} onValueChange={(value) => setTab(value as FunderNewCategory)}>
-            <TabsList className="h-auto w-full flex-wrap justify-start gap-1 rounded-xl p-1 sm:w-fit">
-              <TabsTrigger value="empty" className="rounded-lg px-4 py-2 text-sm">
-                Empty homes
-              </TabsTrigger>
-              <TabsTrigger value="ready" className="rounded-lg px-4 py-2 text-sm">
-                Tenant ready
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-
           {/* Applied context: what is loaded, and by which order */}
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-            <span className="font-medium text-foreground">
-              {tab === 'empty' ? sortLabel(effectiveSort) : 'Order from the tenant-ready service'}
-            </span>
-            {activeQuery.isLoading ? (
+            <span className="font-medium text-foreground">{sortLabel(effectiveSort)}</span>
+            {feedLoading ? (
               <span>Loading…</span>
             ) : (
               <span>
@@ -449,31 +495,20 @@ export default function FunderDashboardNew() {
             {filters.sort === 'nearest' && !origin ? <span>Nearest needs your location</span> : null}
           </div>
 
-          {tab === 'ready' ? (
-            <p className="flex items-start gap-2 rounded-xl bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-              <Info className="mt-0.5 h-3.5 w-3.5 flex-none" aria-hidden />
-              <span>
-                Tenant-ready homes cannot be ordered by distance: the read service supports district and amount only, so
-                this list is not a nearest-first search. Distances are still shown where a home has a map pin.
-                {readyLimitation ? ` ${readyLimitation}` : ''}
-              </span>
-            </p>
-          ) : null}
-
-          {/* Listings */}
-          {activeQuery.isLoading ? (
+          {/* Listings — houses first, then Rent Plans */}
+          {feedLoading ? (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {Array.from({ length: 6 }).map((_, index) => (
                 <Skeleton key={index} className="h-40 rounded-2xl" />
               ))}
             </div>
-          ) : activeQuery.error ? (
+          ) : feedError ? (
             <Alert variant="warning" className="rounded-2xl border-warning/40 bg-warning/10">
               <AlertTriangle className="h-4 w-4" />
               <AlertTitle>These homes could not be loaded</AlertTitle>
               <AlertDescription>
                 Nothing has been replaced with a zero. Check your connection and try again.
-                <Button variant="link" className="h-auto px-1 py-0" onClick={() => activeQuery.refetch()}>
+                <Button variant="link" className="h-auto px-1 py-0" onClick={refetchFeed}>
                   Retry
                 </Button>
               </AlertDescription>
@@ -501,42 +536,46 @@ export default function FunderDashboardNew() {
             <div className="space-y-4">
               <div
                 className={
-                  activeQuery.isFetching && !activeQuery.isFetchingNextPage
+                  feedFetching && !feedFetchingNext
                     ? 'grid gap-0 opacity-70 transition-opacity sm:grid-cols-2 sm:gap-3 lg:grid-cols-3'
                     : 'grid gap-0 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3'
                 }
               >
-                {items.map((item) => {
-                  const id = itemId(tab, item);
-                  const coords = itemCoordinates(item, tab);
+                {items.map((entry) => {
+                  const id = itemId(entry.category, entry.item);
+                  const coords = itemCoordinates(entry.item, entry.category);
                   return (
                     <FunderNewHouseCard
-                      key={id}
-                      category={tab}
-                      item={item}
-                      saved={saved[tab].includes(id)}
-                      selected={selectedCategory === tab && activeSelectedIds.includes(id)}
+                      key={`${entry.category}:${id}`}
+                      category={entry.category}
+                      item={entry.item}
+                      saved={saved[entry.category].includes(id)}
+                      selected={selectedItems.some(
+                        (selected) => selected.category === entry.category && selected.id === id,
+                      )}
                       distance={coords ? straightLineDistance(deviceOrigin, coords) : null}
-                      onSave={() => toggleSave(tab, id)}
-                      onSelect={() => toggleSelect(tab, item)}
-                      onDetail={() => openDetail(tab, item)}
+                      onSave={() => toggleSave(entry.category, id)}
+                      onSelect={() => toggleSelect(entry.category, entry.item)}
+                      onDetail={() => openDetail(entry.category, entry.item)}
                     />
                   );
                 })}
               </div>
 
-              {activeQuery.hasNextPage ? (
+                {feedHasNext ? (
                 <div className="flex justify-center">
                   <Button
-                    variant="outline"
-                    className="h-11 rounded-full px-6"
-                    onClick={() => activeQuery.fetchNextPage()}
-                    disabled={activeQuery.isFetchingNextPage}
+                    variant="default"
+                    className="h-11 rounded-md px-6"
+                    onClick={fetchNextFeed}
+                    disabled={feedFetchingNext}
                   >
-                    {activeQuery.isFetchingNextPage ? (
+                    {feedFetchingNext ? (
                       <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                    ) : null}
-                    {activeQuery.isFetchingNextPage
+                    ) : (
+                      <Home className="h-4 w-4" aria-hidden />
+                    )}
+                    {feedFetchingNext
                       ? 'Loading'
                       : `Show more homes${remaining > 0 ? ` (${remaining.toLocaleString()} left)` : ''}`}
                   </Button>
@@ -544,7 +583,9 @@ export default function FunderDashboardNew() {
               ) : null}
 
               {deviceOrigin ? (
-                <p className="text-center text-xs text-muted-foreground">{ROAD_TIME_UNAVAILABLE_REASON}</p>
+                <p className="text-center text-xs text-muted-foreground">
+                  Building Africa's <span className="font-bold text-primary">financial identity </span>infrastructure.
+                </p>
               ) : null}
             </div>
           )}

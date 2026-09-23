@@ -114,7 +114,7 @@ export default function SupporterDashboard({
   const [showMap, setShowMap] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [mapExpanded, setMapExpanded] = useState(false);
-  console.log('[SupporterDashboard] mapExpanded =', mapExpanded);
+  const [mapSearchQuery, setMapSearchQuery] = useState('');
   const [selectedHouse, setSelectedHouse] = useState<VirtualHouse | null>(null);
   const [showHouseDetails, setShowHouseDetails] = useState(false);
   const [selectedPackageCategory, setSelectedPackageCategory] = useState<RentCategory | null>(null);
@@ -518,6 +518,7 @@ export default function SupporterDashboard({
           })()}
 
           {/* ═══ STANDALONE MAP ═══ */}
+          <h2 className="text-base font-bold text-green-600 dark:text-green-400">Search for houses to fund</h2>
           <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
             <Suspense fallback={
               <div className="flex h-[300px] items-center justify-center bg-muted/30">
@@ -527,10 +528,10 @@ export default function SupporterDashboard({
               <EmptyHouseMapBrowser
                 houses={[]}
                 selectedIds={[]}
-                searchQuery=""
+                searchQuery={mapSearchQuery}
                 remaining={0}
                 busy={false}
-                onSearchQueryChange={() => {}}
+                onSearchQueryChange={setMapSearchQuery}
                 onOpenHouse={() => {}}
                 onFundHouse={() => {}}
                 onExpandedChange={setMapExpanded}
@@ -545,13 +546,6 @@ export default function SupporterDashboard({
           {mapExpanded ? (
             <MapBottomSheet
               defaultSnap="half"
-              header={
-                <div className="flex items-center justify-between">
-                  <p className="text-[15px] font-bold text-foreground">
-                    houses <span className="text-xs font-normal text-muted-foreground">ⓘ</span>
-                  </p>
-                </div>
-              }
             >
               <div id="opportunities" className="relative space-y-2.5">
                 {!effectiveHasAccepted && <LockedOverlay onAcceptClick={() => setShowAgreementModal(true)} />}

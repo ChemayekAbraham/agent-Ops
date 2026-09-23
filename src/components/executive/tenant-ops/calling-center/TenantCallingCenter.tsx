@@ -52,6 +52,8 @@ import { OpenAttemptQueue } from '@/components/ops/calling/OpenAttemptQueue';
 import { LiveCallPanel } from './LiveCallPanel';
 import { TenantCallCenterHistory } from './TenantCallCenterHistory';
 import { TenantCallsReport } from './TenantCallsReport';
+import { WeeklyStaffForwardingReport } from './WeeklyStaffForwardingReport';
+
 import { ReceivedCallsTab } from './ReceivedCallsTab';
 import { ConcernsReviewTab } from './ConcernsReviewTab';
 
@@ -62,7 +64,7 @@ import {
   useTenantCallCenterDialer,
 } from './useTenantCallCenterDialer';
 
-type CenterTab = 'overview' | 'queue' | 'live' | 'received' | 'concerns' | 'history' | 'settings';
+type CenterTab = 'overview' | 'queue' | 'live' | 'received' | 'concerns' | 'history' | 'forwarding' | 'settings';
 
 const AUTO_LABEL: Record<string, string> = {
   off: 'Idle',
@@ -338,6 +340,7 @@ export function TenantCallingCenter() {
             ['received', 'Received Calls', PhoneIncoming],
             ['concerns', 'Issues Review', ClipboardList],
             ['history', 'History', History],
+            ['forwarding', 'Weekly Forwarding', CalendarClock],
             ['settings', 'Settings', Settings2],
           ] as [CenterTab, string, typeof Phone][]).map(([key, label, Icon]) => (
             <TabsTrigger
@@ -657,6 +660,7 @@ export function TenantCallingCenter() {
               second heavy read over the same spine, so it is fetched only when
               the officer actually asks for it instead of on every tab visit. */}
           <TenantCallsReport />
+
           {fullHistoryOpen ? (
             <TenantCallCenterHistory />
           ) : (
@@ -672,7 +676,10 @@ export function TenantCallingCenter() {
           )}
         </TabsContent>
 
-
+        {/* --------------------------------------------- Weekly Forwarding */}
+        <TabsContent value="forwarding" className="mt-4">
+          <WeeklyStaffForwardingReport />
+        </TabsContent>
 
         {/* ------------------------------------------------------ Settings */}
         <TabsContent value="settings" className="mt-4 space-y-3">

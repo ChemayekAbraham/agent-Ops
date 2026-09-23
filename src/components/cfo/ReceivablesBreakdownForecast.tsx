@@ -25,7 +25,6 @@ import {
 import { formatUGX } from '@/lib/rentCalculations';
 import PredictiveReceivablesForecast from '@/components/cfo/PredictiveReceivablesForecast';
 import { useReceivablesBreakdown, useReceivablesTotal } from '@/hooks/useReceivables';
-import { TenantReceivablesLocationPanel } from '@/components/cfo/TenantReceivablesLocationPanel';
 import TenantPaymentsLocationFilters from '@/components/cfo/TenantPaymentsLocationFilters';
 import { CollectionsProjectionPanel } from '@/components/executive/tenant-ops/CollectionsProjectionPanel';
 
@@ -33,17 +32,37 @@ import { CollectionsProjectionPanel } from '@/components/executive/tenant-ops/Co
 const ALL_PRODUCTS = '__all__';
 const ALL_CATEGORIES = '__all__';
 const TENANT_CATEGORY_LABEL = 'Tenant Products & Services';
+const AGENT_CATEGORY_LABEL = 'Agent Products & Services';
+const LANDLORD_CATEGORY_LABEL = 'Landlord Products & Services';
+const PARTNER_CATEGORY_LABEL = 'Partner Products & Services';
 const TENANT_PRODUCTS = [
   { key: 'rent_plan', label: 'Rent Access Plans', projectionAvailable: true },
   { key: 'tenant_service_charge', label: 'Tenant Charges', projectionAvailable: false },
   { key: 'business_advance', label: 'Business Advances', projectionAvailable: false },
 ] as const;
 
+/** Families that open the same full product drill-down sheet. */
+const DRILL_CATEGORY_KEYS = new Set(['agent', 'landlord', 'partner']);
+const DRILL_CATEGORY_LABELS = new Set([
+  AGENT_CATEGORY_LABEL,
+  LANDLORD_CATEGORY_LABEL,
+  PARTNER_CATEGORY_LABEL,
+]);
+
+/** True for every non-tenant family that drills down. */
+function isDrillFamily(key: string, label: string): boolean {
+  return DRILL_CATEGORY_KEYS.has(key) || DRILL_CATEGORY_LABELS.has(label);
+}
+
 export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHeadline?: boolean } = {}) {
   const [openCategory, setOpenCategory] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>(ALL_CATEGORIES);
   const [productFilter, setProductFilter] = useState<string>(ALL_PRODUCTS);
   const [tenantModalOpen, setTenantModalOpen] = useState(false);
+  /** Which non-tenant family sheet is open, by category key. */
+  const [drillCategoryKey, setDrillCategoryKey] = useState<string | null>(null);
+  /** The product row selected inside each family sheet. */
+  const [drillProductKeys, setDrillProductKeys] = useState<Record<string, string | null>>({});
   const total = useReceivablesTotal();
   const breakdown = useReceivablesBreakdown();
 
@@ -175,7 +194,7 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
             )}
           </div>
 
-          {/* Category drill-down */}
+          {/* Category dropdown */}
           {sortedCategories.length > 0 && (
             <div className="flex items-center gap-2">
               <Layers className="h-3 w-3 text-muted-foreground shrink-0" />
@@ -188,6 +207,9 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
                     const cat = sortedCategories.find((c) => c.key === v);
                     if (cat?.label === TENANT_CATEGORY_LABEL) {
                       setTenantModalOpen(true);
+                    }
+                    if (cat && isDrillFamily(cat.key, cat.label)) {
+                      setDrillCategoryKey(cat.key);
                     }
                   }
                 }}
@@ -222,61 +244,13 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
             </div>
           )}
 
-          {/* Product / service filter */}
-          {productOptions.length > 0 && (
-            <div className="flex items-center gap-2">
-              <Filter className="h-3 w-3 text-muted-foreground shrink-0" />
-              <Select
-                value={productFilter}
-                onValueChange={(v) => {
-                  setProductFilter(v);
-                  if (v !== ALL_PRODUCTS) {
-                    const catKey = v.split(':')[0];
-                    setOpenCategory(catKey);
-                    const opt = productOptions.find((o) => o.value === v);
-                    if (opt?.catLabel === TENANT_CATEGORY_LABEL) {
-                      setTenantModalOpen(true);
-                    }
-                  }
-                }}
-              >
-                <SelectTrigger className="h-8 flex-1 text-xs">
-                  <SelectValue placeholder="All products & services" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL_PRODUCTS} className="text-xs">
-                    All products &amp; services
-                  </SelectItem>
-                  {productOptions.map((o) => (
-                    <SelectItem key={o.value} value={o.value} className="text-xs">
-                      {o.label} · {formatUGX(o.outstanding)} · {totalReceivables > 0
-                        ? `${((o.outstanding / totalReceivables) * 100).toFixed(1)}%`
-                        : '0.0%'} · {o.projectionAvailable ? 'projection available' : 'no projection'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {productFilter !== ALL_PRODUCTS && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-8 px-2 text-[11px] shrink-0"
-                  onClick={() => setProductFilter(ALL_PRODUCTS)}
-                >
-                  <X className="h-3 w-3 mr-1" />
-                  Clear
-                </Button>
-              )}
-            </div>
-          )}
-
           {breakdown.isLoading && (
             <div className="flex justify-center py-8">
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
             </div>
           )}
 
-          <div className="space-y-2">
+          <div>
             {sortedCategories
               .filter((cat) => categoryFilter === ALL_CATEGORIES || cat.key === categoryFilter)
               .map((cat) => {
@@ -291,6 +265,15 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
               .map(({ cat, products }) => {
               const catOpen = openCategory === cat.key;
               const isTenantCat = cat.label === TENANT_CATEGORY_LABEL;
+              const isFamilyCat = !isTenantCat && isDrillFamily(cat.key, cat.label);
+              const isDrillCat = isTenantCat || isFamilyCat;
+              const familyProducts = isFamilyCat ? cat.products : [];
+              const selectedFamilyProduct =
+                familyProducts.find((p) => p.key === drillProductKeys[cat.key]) ?? familyProducts[0];
+              const selectedFamilyShare =
+                totalReceivables > 0 && selectedFamilyProduct
+                  ? (selectedFamilyProduct.outstanding / totalReceivables) * 100
+                  : 0;
               const shownOutstanding =
                 productFilter === ALL_PRODUCTS
                   ? cat.outstanding
@@ -305,12 +288,18 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
               const categoryHeader = (
                 <button
                   type="button"
-                  onClick={isTenantCat ? undefined : () => setOpenCategory(catOpen ? null : cat.key)}
-                  aria-expanded={isTenantCat ? tenantModalOpen : catOpen}
-                  className="w-full flex items-center justify-between gap-2 px-3 py-2.5 min-h-11 text-left hover:bg-muted/40 rounded-xl transition-colors"
+                  onClick={isDrillCat ? undefined : () => setOpenCategory(catOpen ? null : cat.key)}
+                  aria-expanded={
+                    isDrillCat
+                      ? isTenantCat
+                        ? tenantModalOpen
+                        : drillCategoryKey === cat.key
+                      : catOpen
+                  }
+                  className="hidden"
                 >
                   <span className="flex items-center gap-1.5 min-w-0">
-                    {isTenantCat || !catOpen ? (
+                    {isDrillCat || !catOpen ? (
                       <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                     ) : (
                       <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -360,7 +349,7 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
               );
 
               return (
-                <div key={cat.key} className="rounded-xl border border-border/60 bg-card">
+                <div key={cat.key}>
                   {isTenantCat ? (
                     <Dialog open={tenantModalOpen} onOpenChange={setTenantModalOpen}>
                       <DialogTrigger asChild>{categoryHeader}</DialogTrigger>
@@ -417,8 +406,104 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
                           {selectedTenantProduct.key !== 'rent_plan' && (
                             <PredictiveReceivablesForecast
                               productLabel={selectedTenantProduct.label}
-                              projectionAvailable={false}
+                              filterCategoryKey={cat.key}
+                              filterProductKey={selectedTenantProduct.key}
+                              actualTotal={selectedTenantProduct.outstanding}
+                              actualItemCount={selectedTenantProduct.item_count}
                             />
+                          )}
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                  ) : isFamilyCat ? (
+                    <Dialog
+                      open={drillCategoryKey === cat.key}
+                      onOpenChange={(open) => setDrillCategoryKey(open ? cat.key : null)}
+                    >
+                      <DialogTrigger asChild>{categoryHeader}</DialogTrigger>
+                      <DialogContent className="max-w-6xl w-[92vw] max-h-[85vh] overflow-y-auto p-0 rounded-2xl border border-border/60 shadow-xl">
+                        <DialogHeader className="px-5 pt-5 pb-2">
+                          <DialogTitle className="text-base sm:text-lg">{cat.label}</DialogTitle>
+                          <DialogDescription>
+                            Receivable position and projection for {selectedFamilyProduct?.label ?? 'this product'}.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="px-5 pb-6 space-y-4">
+                          {!selectedFamilyProduct ? (
+                            <p className="text-xs text-muted-foreground">
+                              No open receivables in this category.
+                            </p>
+                          ) : (
+                            <>
+                              <Card className="border-border/60">
+                                <CardContent className="p-4">
+                                  <div className="flex items-start justify-between gap-4">
+                                    <div className="min-w-0">
+                                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                                        Outstanding receivable
+                                      </p>
+                                      <p className="mt-1 text-2xl sm:text-3xl font-bold font-mono tabular-nums">
+                                        {formatUGX(selectedFamilyProduct.outstanding)}
+                                      </p>
+                                      <p className="mt-1 text-[11px] text-muted-foreground">
+                                        {selectedFamilyProduct.item_count} open {selectedFamilyProduct.item_count === 1 ? 'item' : 'items'} · {selectedFamilyShare.toFixed(1)}% of total receivables book
+                                      </p>
+                                    </div>
+                                    <div className="shrink-0 text-right">
+                                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                                        Share of book
+                                      </p>
+                                      <p className="mt-1 text-xl font-bold font-mono tabular-nums">
+                                        {selectedFamilyShare.toFixed(1)}%
+                                      </p>
+                                      <Progress value={selectedFamilyShare} className="mt-2 h-1.5 w-24 sm:w-32" />
+                                    </div>
+                                  </div>
+                                  <Separator className="my-4" />
+                                  <div className="space-y-1.5">
+                                    {familyProducts.map((prod) => {
+                                      const active = prod.key === selectedFamilyProduct.key;
+                                      return (
+                                        <button
+                                          key={prod.key}
+                                          type="button"
+                                          onClick={() =>
+                                            setDrillProductKeys((current) => ({
+                                              ...current,
+                                              [cat.key]: prod.key,
+                                            }))
+                                          }
+                                          className={`w-full rounded-lg px-2.5 py-2 flex items-center justify-between gap-2 min-h-10 text-left transition-colors ${
+                                            active
+                                              ? 'bg-primary/10 ring-1 ring-primary/40'
+                                              : 'bg-muted/30 hover:bg-muted/50'
+                                          }`}
+                                        >
+                                          <span className="flex items-center gap-1.5 min-w-0">
+                                            <ChevronRight className={`h-3.5 w-3.5 shrink-0 ${active ? 'text-primary' : 'text-muted-foreground'}`} />
+                                            <span className="text-[11px] sm:text-xs truncate">{prod.label}</span>
+                                            <span className="text-[9px] sm:text-[10px] text-muted-foreground shrink-0">
+                                              ({prod.item_count})
+                                            </span>
+                                          </span>
+                                          <span className="text-[11px] sm:text-xs font-mono tabular-nums font-semibold shrink-0">
+                                            {formatUGX(prod.outstanding)}
+                                          </span>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                                </CardContent>
+                              </Card>
+
+                              <PredictiveReceivablesForecast
+                                productLabel={selectedFamilyProduct.label}
+                                filterCategoryKey={cat.key}
+                                filterProductKey={selectedFamilyProduct.key}
+                                actualTotal={selectedFamilyProduct.outstanding}
+                                actualItemCount={selectedFamilyProduct.item_count}
+                              />
+                            </>
                           )}
                         </div>
                       </DialogContent>
@@ -437,15 +522,6 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
           </div>
         </CardContent>
       </Card>
-
-      {/* Tenant products & services: where the money is owed, down to the account */}
-      <TenantReceivablesLocationPanel
-        productKey={
-          productFilter !== ALL_PRODUCTS && productFilter.startsWith('tenant:')
-            ? productFilter.split(':')[1]
-            : null
-        }
-      />
 
       {/* Predictive, data-driven forecast */}
       <PredictiveReceivablesForecast />

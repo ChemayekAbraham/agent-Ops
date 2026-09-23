@@ -41,7 +41,7 @@ type FeedOrder = 'rent' | 'houses';
 // Configurable service/access fee on empty-house funding (rate on one-month funding).
 const EMPTY_HOUSE_SERVICE_FEE_RATE = 0;
 
-// Steps shown in the collapsible "How it works" explainer on Support Tenants Directly.
+// Steps shown in the collapsible "How it works" explainer on Fund these houses.
 const MANAGED_FUNDING_STEPS: HowItWorksStep[] = [
   {
     title: 'Sign your tenant-support contract',
@@ -785,7 +785,7 @@ export function FunderCapitalOpportunities({
   if (view === 'direct') {
     return ( <TooltipProvider delayDuration={150}>
       <DetailShell
-        title="Support Tenants Directly"
+        title="Fund these houses."
         subtitle="Fund approved tenant rent plans from your balance"
         onBack={embedded ? undefined : () => setView('menu')}
         compactMobile
@@ -793,10 +793,6 @@ export function FunderCapitalOpportunities({
 
         {/* One merged list: empty houses and houses with ready tenants */}
         <div className="space-y-2.5 sm:pt-2 sm:space-y-3">
-          <div className="w-full rounded-md bg-success px-2 py-2 text-center text-[11px] sm:text-xs font-bold leading-tight text-white min-h-11 flex items-center justify-center">
-            Houses to fund
-          </div>
-
           {user?.id
             ? <SelfPortfolioFundingCard partnerId={user.id} feedOrder={feedOrder} onFeedOrderChange={setFeedOrder} />
             : <p className="text-[11px] text-muted-foreground">Sign in to view houses to fund.</p>}
@@ -804,13 +800,6 @@ export function FunderCapitalOpportunities({
 
         {/* Empty-house extras: how it works, return calculator, saved picks */}
         <div className="pt-2 space-y-3">
-          <div className="flex min-w-0 items-center gap-2">
-            <div className="h-5 w-1 shrink-0 rounded-full bg-primary" />
-            <div className="min-w-0">
-              <h4 className="text-sm font-black text-foreground tracking-tight">Choose an empty house</h4>
-              <p className="truncate text-[10px] text-muted-foreground">Tap a rent marker or house photo</p>
-            </div>
-          </div>
 
           {/* Single "How it works" explainer — opens a dedicated dialog */}
           <Dialog open={showHowItWorks} onOpenChange={setShowHowItWorks}>

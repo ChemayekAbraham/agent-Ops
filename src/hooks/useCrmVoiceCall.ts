@@ -20,10 +20,12 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { useInvalidateCallViews } from '@/hooks/useCrmCallCentre';
 import {
   getVoiceClient,
   isVoiceClientReady,
   resetVoiceClient,
+  stopVoiceMedia,
   hangupVoiceCall,
   muteVoiceCall,
   onVoiceEvent,
@@ -210,10 +212,17 @@ export function useCrmVoiceCall(): UseCrmVoiceCall {
   const endRequestedRef = useRef(false);
 
   /* ---------------- finalisation (idempotent) ---------------- */
+  const invalidateCallViews = useInvalidateCallViews();
+
   const finalize = useCallback(
     (next: CallState, cause: string | null, durationOverride?: number | null) => {
       if (settledRef.current) return;
       settledRef.current = true;
+
+      // Whatever ended this call - our cancel, their hang-up, a failure - the
+      // audio stops HERE. Doing it in `end()` alone missed every path where
+      // the far side or the network ended the call first.
+      stopVoiceMedia();
 
       const seconds =
         durationOverride != null && durationOverride > 0
@@ -239,9 +248,13 @@ export function useCrmVoiceCall(): UseCrmVoiceCall {
         })
         .then(({ error: rpcErr }) => {
           if (rpcErr) console.error('[useCrmVoiceCall] finalize failed', rpcErr.message);
+          // The row has changed; the lists showing it have not been told.
+          // Without this the call still reads as in progress until the page is
+          // reloaded, which is exactly how it was reported.
+          invalidateCallViews();
         });
     },
-    [],
+    [invalidateCallViews],
   );
 
   /* ---------------- SDK events ---------------- */
@@ -461,6 +474,81 @@ export function useCrmVoiceCall(): UseCrmVoiceCall {
   }, []);
 
   /* ---------------- end (the real hangup) ---------------- */
+  /* ---------------- the server as a second witness ---------------- */
+  /**
+   * Watch the telephony row while a call is live.
+   *
+   * The SDK's `hangup` event was the ONLY way this hook learned a call had
+   * ended, and it is not dependable. When the person being called rejects,
+   * Africa's Talking reports it to `crm-voice-callback`, the row is updated -
+   * and the screen carried on saying "ringing", because nothing here was
+   * reading the row. There was no timeout either, so it said "ringing" until
+   * the page was reloaded.
+   *
+   * The two signals are independent on purpose: the browser hears about a
+   * hangup over the WebRTC socket, the server hears about it over the
+   * provider's webhook. Either one is now enough to settle the call, and
+   * `finalize` is idempotent so whichever arrives first wins and the other is
+   * a no-op.
+   */
+  useEffect(() => {
+    if (!callId || settledRef.current) return;
+
+    let cancelled = false;
+    const LIVE_STATUSES = new Set([
+      'initiating', 'queued', 'ringing', 'ringing_staff', 'bridged', 'in_progress', 'active',
+    ]);
+
+    const tick = async () => {
+      if (cancelled || settledRef.current) return;
+      const { data, error: qErr } = await supabase
+        .from('crm_call_sessions')
+        .select('status, hangup_cause, duration_seconds, answered_at')
+        .eq('id', callId)
+        .maybeSingle();
+      if (cancelled || qErr || !data || settledRef.current) return;
+
+      const status = (data.status ?? '').toLowerCase();
+
+      // ANSWERED, FROM WHICHEVER SIDE NOTICES FIRST.
+      //
+      // `answered_at` was only ever written by the browser, off the SDK's
+      // `callaccepted` event, and that event runs late - measured at 24s and
+      // 38s after dialling on two calls today. The person picks up and talks
+      // while the Call Centre still shows it ringing.
+      //
+      // `crm-voice-callback` already records the answer the moment the provider
+      // bridges the legs; nothing was reading it. Now it is, within one poll.
+      if (data.answered_at && !answeredRef.current) {
+        answeredRef.current = true;
+        // Anchor the talk timer on the SERVER's answer time, not on when this
+        // poll happened to notice. Otherwise every second of polling lag is a
+        // second of conversation missing from the duration.
+        const answeredMs = new Date(data.answered_at).getTime();
+        connectedAtRef.current =
+          Number.isFinite(answeredMs) && answeredMs > 0 ? answeredMs : Date.now();
+        setState((prev) => (prev === 'connected' ? prev : 'connected'));
+      }
+
+      if (!LIVE_STATUSES.has(status)) {
+        // The provider has reported an outcome. Take its cause over a guess.
+        const cause = data.hangup_cause ?? 'NORMAL_CLEARING';
+        finalize(
+          stateFromCause(cause, Boolean(data.answered_at) || answeredRef.current),
+          cause,
+          data.duration_seconds ?? null,
+        );
+      }
+    };
+
+    const id = window.setInterval(tick, 2000);
+    void tick();
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [callId, finalize]);
+
   const end = useCallback(() => {
     if (settledRef.current || endRequestedRef.current) return;
     endRequestedRef.current = true;
@@ -482,13 +570,19 @@ export function useCrmVoiceCall(): UseCrmVoiceCall {
       return;
     }
 
-    // Otherwise wait for confirmation — the SDK `hangup` event or the Events
-    // webhook. A safety net closes the UI if neither arrives.
+    // Brief grace for the SDK's `hangup` event, which carries the true cause.
+    // It used to be six seconds, on the assumption the event would arrive. When
+    // it does not - and with this integration it frequently does not - the user
+    // stares at a call that says "ending" and reaches for the reload button.
+    //
+    // 1.5s is long enough for a healthy event and short enough not to read as
+    // broken. The user asked to hang up, so ORIGINATOR_CANCEL is the right
+    // answer anyway; the event only ever supplied a more precise one.
     window.setTimeout(() => {
       if (!settledRef.current) {
         finalize(answeredRef.current ? 'completed' : 'cancelled', 'ORIGINATOR_CANCEL');
       }
-    }, 6000);
+    }, 1500);
   }, [finalize]);
 
   const toggleMute = useCallback(() => {

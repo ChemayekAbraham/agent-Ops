@@ -113,10 +113,12 @@ Deno.serve(async (req) => {
       return json({ ...payload, sms_sent: false, sms_skipped: "no_valid_phone" });
     }
 
+    const receiptNo: string = result.receipt_number ?? "";
     const message =
       `Welile: Dear ${snapshot.landlord_name ?? "Landlord"}, you have received ` +
       `${formatUGX(snapshot.amount)} as rent for ${snapshot.tenant_name ?? "your tenant"}. ` +
       `Processed by ${snapshot.processed_by_name ?? "Welile"} on ${formatDateTime(snapshot.paid_at ?? null)}. ` +
+      (receiptNo ? `Receipt No: ${receiptNo} (Code: ${receiptCode}). ` : "") +
       `View your receipt: ${receiptUrl}`;
 
     let sent = false;

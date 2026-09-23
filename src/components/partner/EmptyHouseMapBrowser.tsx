@@ -53,6 +53,8 @@ interface EmptyHouseMapBrowserProps {
 }
 
 const KAMPALA: [number, number] = [0.3476, 32.5825];
+/** Keyword search looks across the whole country, not just the patch of map on screen. */
+const UGANDA_BBOX: [number, number, number, number] = [-1.6, 29.4, 4.4, 35.1];
 const LOCATION_GRANTED_KEY = 'welile-map-location-granted';
 const MANUAL_AREA_KEY = 'welile-map-manual-area';
 
@@ -215,7 +217,16 @@ export function EmptyHouseMapBrowser({
     mapInstance.fitBounds(L.latLngBounds([south, west], [north, east]), { padding: [24, 24] });
   }, [mapInstance, country]);
 
-  const cellsQuery = useEmptyHouseMapCells(viewport, {
+  // A keyword search queries the whole country so matches outside the visible
+  // patch of map are found; with no search term the map only loads what is on
+  // screen.
+  const trimmedSearch = searchQuery.trim();
+  const searchScope = useMemo<MapViewport | null>(() => {
+    if (!trimmedSearch) return null;
+    const bbox = country?.bbox ?? UGANDA_BBOX;
+    return { minLat: bbox[0], minLng: bbox[1], maxLat: bbox[2], maxLng: bbox[3], zoom: 10 };
+  }, [trimmedSearch, country]);
+  const cellsQuery = useEmptyHouseMapCells(trimmedSearch ? (searchScope ?? viewport) : viewport, {
     search: searchQuery,
     district: district ?? undefined,
     minRent: minRent ?? null,
@@ -230,6 +241,22 @@ export function EmptyHouseMapBrowser({
   );
   const housesInView = cellsQuery.data?.housesInView ?? 0;
   const cellSize = cellsQuery.data?.cellSize ?? 0;
+
+  // When a keyword finds houses, frame them on the map once per search term so
+  // the funder sees the matches without hunting for them.
+  const lastSearchFitRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!trimmedSearch) {
+      lastSearchFitRef.current = null;
+      return;
+    }
+    if (!mapInstance || cellsQuery.isFetching) return;
+    if (lastSearchFitRef.current === trimmedSearch) return;
+    lastSearchFitRef.current = trimmedSearch;
+    if (cells.length === 0) return;
+    const bounds = L.latLngBounds(cells.map((cell) => [cell.latitude, cell.longitude] as [number, number]));
+    mapInstance.fitBounds(bounds.pad(0.15), { padding: [48, 48], maxZoom: 13 });
+  }, [mapInstance, trimmedSearch, cells, cellsQuery.isFetching]);
 
   /**
    * Optional density view: tints each grid cell by how many empty houses it
