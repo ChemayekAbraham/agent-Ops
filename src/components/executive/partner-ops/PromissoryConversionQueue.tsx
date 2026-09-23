@@ -90,18 +90,57 @@ const TIERS: Record<Tier, { label: string; hint: string; cls: string }> = {
   },
 };
 
+interface OpsState {
+  note_id: string;
+  assigned_to: string | null;
+  assigned_to_name: string | null;
+  assigned_at: string | null;
+  snoozed_until: string | null;
+  resolved_at: string | null;
+  resolution: string | null;
+  last_contact_at: string | null;
+  last_contact_channel: string | null;
+  last_contact_outcome: string | null;
+  action_count: number;
+}
+
 interface RankedNote extends QueueNote {
   daysOverdue: number | null;
   ageDays: number;
   tier: Tier;
   score: number;
+  ops?: OpsState;
+  isSnoozed: boolean;
+  isResolved: boolean;
 }
+
+type View = 'working' | 'mine' | 'assigned' | 'snoozed' | 'resolved' | 'all';
+
+const VIEWS: [View, string][] = [
+  ['working', 'To work'],
+  ['mine', 'Mine'],
+  ['assigned', 'Assigned'],
+  ['snoozed', 'Snoozed'],
+  ['resolved', 'Resolved'],
+  ['all', 'Everything'],
+];
 
 export function PromissoryConversionQueue() {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
   const [tierFilter, setTierFilter] = useState<Tier | 'all'>('all');
   const [sortBy, setSortBy] = useState<'score' | 'amount' | 'overdue'>('score');
+  const [view, setView] = useState<View>('working');
+  const [action, setAction] = useState<OpsAction | null>(null);
+  const [target, setTarget] = useState<OpsActionTarget | null>(null);
+
+  const { data: myId } = useQuery({
+    queryKey: ['promissory-ops-me'],
+    staleTime: Infinity,
+    queryFn: async () => (await supabase.auth.getUser()).data.user?.id ?? null,
+  });
+
+
 
   const { data: notes = [], isLoading, isError, error } = useQuery({
     queryKey: ['promissory-conversion-queue'],
