@@ -53,6 +53,8 @@ interface EmptyHouseMapBrowserProps {
 }
 
 const KAMPALA: [number, number] = [0.3476, 32.5825];
+/** Keyword search looks across the whole country, not just the patch of map on screen. */
+const UGANDA_BBOX: [number, number, number, number] = [-1.6, 29.4, 4.4, 35.1];
 const LOCATION_GRANTED_KEY = 'welile-map-location-granted';
 const MANUAL_AREA_KEY = 'welile-map-manual-area';
 
@@ -215,7 +217,16 @@ export function EmptyHouseMapBrowser({
     mapInstance.fitBounds(L.latLngBounds([south, west], [north, east]), { padding: [24, 24] });
   }, [mapInstance, country]);
 
-  const cellsQuery = useEmptyHouseMapCells(viewport, {
+  // A keyword search queries the whole country so matches outside the visible
+  // patch of map are found; with no search term the map only loads what is on
+  // screen.
+  const trimmedSearch = searchQuery.trim();
+  const searchScope = useMemo<MapViewport | null>(() => {
+    if (!trimmedSearch) return null;
+    const bbox = country?.bbox ?? UGANDA_BBOX;
+    return { minLat: bbox[0], minLng: bbox[1], maxLat: bbox[2], maxLng: bbox[3], zoom: 10 };
+  }, [trimmedSearch, country]);
+  const cellsQuery = useEmptyHouseMapCells(trimmedSearch ? (searchScope ?? viewport) : viewport, {
     search: searchQuery,
     district: district ?? undefined,
     minRent: minRent ?? null,
