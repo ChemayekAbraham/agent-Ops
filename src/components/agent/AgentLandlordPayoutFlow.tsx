@@ -31,6 +31,17 @@ const GPS_MATCH_THRESHOLD_METERS = 500; // auto-approve within 500m
 const RECEIPT_NUMBER_REQUIRED_FROM = new Date('2026-09-21T00:00:00+03:00');
 const receiptNumberRequired = () => new Date() >= RECEIPT_NUMBER_REQUIRED_FROM;
 
+/**
+ * The ONLY landlord number this flow may show or pay to: the one Landlord Ops
+ * approved (`verified_mobile_money_number`, written only by
+ * `set_landlord_verification`). Never falls back to `mobile_money_number` or
+ * `phone` — those are freely editable and are not what money is sent to.
+ */
+function approvedPayoutNumber(landlord: any): string {
+  if (!landlord || landlord.verification_status !== 'verified') return '';
+  return (landlord.verified_mobile_money_number || '').trim();
+}
+
 function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371000;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -167,6 +178,12 @@ export function AgentLandlordPayoutFlow({ open, onOpenChange }: AgentLandlordPay
       const trimmedReceiptNumber = receiptNumber.trim();
       if (receiptNumberRequired() && trimmedReceiptNumber.length < 3) {
         throw new Error('Please enter the receipt number from the landlord\'s signed receipt');
+      }
+
+      // No approved payout number means no payout. The number cannot be typed
+      // here; it changes only through Landlord Ops re-verification.
+      if (!approvedPayoutNumber(selectedRequest.landlord)) {
+        throw new Error('Landlord Ops has not approved a payout number for this landlord yet. Ask Landlord Ops to verify the number before paying.');
       }
 
       const payoutAmount = selectedRequest.rent_amount;
