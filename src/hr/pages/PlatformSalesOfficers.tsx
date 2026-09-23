@@ -613,6 +613,7 @@ export default function PlatformSalesOfficersPage() {
   }, [netTotal, officerNetTarget]);
   const fundedTotal = useMemo(() => officers.reduce((s, o) => s + o.notesFunded, 0), [officers]);
   const moneyTotal = useMemo(() => officers.reduce((s, o) => s + o.amountDeployed, 0), [officers]);
+  const promisedTotal = useMemo(() => officers.reduce((s, o) => s + o.promisedAmount, 0), [officers]);
 
   const peopleNetTotal = useMemo(() => people.reduce((s, p) => s + p.netNotes, 0), [people]);
   const peopleFundedTotal = useMemo(() => people.reduce((s, p) => s + p.notesFunded, 0), [people]);
