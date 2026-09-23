@@ -873,10 +873,13 @@ export default function PlatformSalesOfficersPage() {
                       ))}
 
                       <SortableTh label="Total" sortKey="netNotes" activeKey={sortKey} onSort={setSortKey} />
+                      <SortableTh label="Activated" sortKey="notesActivated" activeKey={sortKey} onSort={setSortKey} />
+                      <SortableTh label="Pending" sortKey="notesPending" activeKey={sortKey} onSort={setSortKey} />
                       <SortableTh label="Unapproved" sortKey="notesUnapproved" activeKey={sortKey} onSort={setSortKey} />
                       <SortableTh label="Funded" sortKey="notesFunded" activeKey={sortKey} onSort={setSortKey} />
                       <SortableTh label="Funders" sortKey="fundersConverted" activeKey={sortKey} onSort={setSortKey} />
                       <SortableTh label="Top-ups" sortKey="topups" activeKey={sortKey} onSort={setSortKey} />
+                      <SortableTh label="Promised" sortKey="promisedAmount" activeKey={sortKey} onSort={setSortKey} />
                       <SortableTh label="Money deployed" sortKey="amountDeployed" activeKey={sortKey} onSort={setSortKey} />
                       <SortableTh label="Commission base" sortKey="commissionBase" activeKey={sortKey} onSort={setSortKey} />
                       <SortableTh label="Commission" sortKey="commissionAccrued" activeKey={sortKey} onSort={setSortKey} />
