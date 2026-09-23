@@ -149,6 +149,22 @@ export function PromissoryConversionQueue() {
     queryFn: async () => (await supabase.auth.getUser()).data.user?.id ?? null,
   });
 
+  const { data: myName = '' } = useQuery({
+    queryKey: ['promissory-ops-me-name', myId],
+    enabled: !!myId,
+    staleTime: Infinity,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', myId as string)
+        .maybeSingle();
+      return (data as any)?.full_name || '';
+    },
+  });
+
+
+
 
 
   const { data: notes = [], isLoading, isError, error } = useQuery({
