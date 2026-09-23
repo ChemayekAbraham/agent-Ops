@@ -410,6 +410,19 @@ export default function FunderDashboardNew() {
           onAreaSearchChange={setSearchInput}
         />
 
+        {/* Independent "How it works" row, directly below the map */}
+        <div className="flex">
+          <Button
+            variant="outline"
+            onClick={() => setHowOpen(true)}
+            className="h-11 w-fit shrink-0 rounded-full px-4"
+          >
+            <HelpCircle className="h-4 w-4" aria-hidden />
+            How it works
+          </Button>
+        </div>
+
+
         {/* Compact filters + calculator, directly under the map */}
         <section className="space-y-3">
           <div className="flex flex-wrap gap-2 rounded-2xl border bg-card p-2.5 shadow-sm sm:p-3">

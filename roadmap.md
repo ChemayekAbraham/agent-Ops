@@ -7,3 +7,7 @@
 - [x] CI: map load-test budgets run in build workflow and block deploy on regression (done 2026-09-21)
 
 - [x] Show the current landlord number on file in the agent payout flow and block OTP when it differs from the Ops-approved number.
+
+- [x] Reporting-side correction: float ⇄ withdrawable movements report as customer custody (L1) with X4 counterpart (2026-09-23)
+- [ ] Partner float funding (UGX 368,320,964) still reported as customer custody — needs a designed counterpart, blocked on CFO ruling
+- [x] "How it works" moved out of the funder hero into its own row below the map (2026-09-23)
