@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 import type { FunderNewEmptyHouse } from './types';
 import { emptyHouseTitle, itemAmount } from './utils';
 import './funderNewMap.css';
