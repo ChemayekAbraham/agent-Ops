@@ -16,29 +16,50 @@ const KAMPALA_ZOOM = 12;
 
 let mapsPromise: Promise<typeof google.maps> | null = null;
 
+// The billed Maps key lives in the secret store, so it is fetched once per
+// session rather than compiled into the bundle. The connector key is only a
+// fallback for environments where the function is unavailable.
+async function resolveMapsKey(): Promise<string> {
+  try {
+    const { data, error } = await supabase.functions.invoke('maps-browser-key');
+    if (!error && data && typeof (data as { key?: string }).key === 'string') {
+      return (data as { key: string }).key;
+    }
+  } catch {
+    // fall through to the connector key
+  }
+  const fallback = import.meta.env['VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY'] as string | undefined;
+  if (fallback) return fallback;
+  throw new Error('Google Maps is not connected.');
+}
+
 function loadGoogleMaps(): Promise<typeof google.maps> {
   if (window.google?.maps) return Promise.resolve(window.google.maps);
   if (mapsPromise) return mapsPromise;
 
-  const key = import.meta.env['VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY'] as string | undefined;
   const channel = import.meta.env['VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID'] as string | undefined;
-  if (!key) return Promise.reject(new Error('Google Maps is not connected.'));
 
-  mapsPromise = new Promise((resolve, reject) => {
-    const callbackName = '__initFunderNewGoogleMap';
-    window[callbackName] = () => {
-      if (window.google?.maps) resolve(window.google.maps);
-      else reject(new Error('Google Maps did not initialise.'));
-      delete window[callbackName];
-    };
+  mapsPromise = resolveMapsKey().then(
+    (key) =>
+      new Promise<typeof google.maps>((resolve, reject) => {
+        const callbackName = '__initFunderNewGoogleMap';
+        window[callbackName] = () => {
+          if (window.google?.maps) resolve(window.google.maps);
+          else reject(new Error('Google Maps did not initialise.'));
+          delete window[callbackName];
+        };
 
-    const script = document.createElement('script');
-    const params = new URLSearchParams({ key, loading: 'async', callback: callbackName });
-    if (channel) params.set('channel', channel);
-    script.src = `https://maps.googleapis.com/maps/api/js?${params.toString()}`;
-    script.async = true;
-    script.onerror = () => reject(new Error('Google Maps could not be loaded.'));
-    document.head.appendChild(script);
+        const script = document.createElement('script');
+        const params = new URLSearchParams({ key, loading: 'async', callback: callbackName });
+        if (channel) params.set('channel', channel);
+        script.src = `https://maps.googleapis.com/maps/api/js?${params.toString()}`;
+        script.async = true;
+        script.onerror = () => reject(new Error('Google Maps could not be loaded.'));
+        document.head.appendChild(script);
+      }),
+  );
+  mapsPromise.catch(() => {
+    mapsPromise = null;
   });
   return mapsPromise;
 }
