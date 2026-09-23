@@ -315,19 +315,33 @@ export default function PredictiveReceivablesForecast({
               </p>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-1.5 sm:flex sm:items-center">
-            <Select value={granularity} onValueChange={(v) => changeGranularity(v as ForecastGranularity)}>
-              <SelectTrigger className="h-9 sm:h-8 w-full sm:w-[112px] text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {GRANULARITIES.map((g) => (
-                  <SelectItem key={g.key} value={g.key} className="text-xs">
+          <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center">
+            {/* Segmented period control — no dropdown; tapping a period re-projects immediately */}
+            <div
+              role="tablist"
+              aria-label="Projection period"
+              className="inline-flex w-full items-center gap-0.5 rounded-lg border bg-muted/40 p-0.5 sm:w-auto"
+            >
+              {GRANULARITIES.map((g) => {
+                const active = granularity === g.key;
+                return (
+                  <button
+                    key={g.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => changeGranularity(g.key)}
+                    className={`h-8 flex-1 rounded-md px-2.5 text-[11px] font-medium transition-colors sm:h-7 sm:flex-none ${
+                      active
+                        ? 'bg-primary text-primary-foreground shadow-sm'
+                        : 'text-muted-foreground hover:bg-background hover:text-foreground'
+                    }`}
+                  >
                     {g.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                  </button>
+                );
+              })}
+            </div>
             <Select value={String(periods)} onValueChange={(v) => setPeriods(Number(v))}>
               <SelectTrigger className="h-9 sm:h-8 w-full sm:w-[156px] text-xs">
                 <SelectValue />
