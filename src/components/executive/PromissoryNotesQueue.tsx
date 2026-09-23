@@ -37,6 +37,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { usePromissoryOpsReport, PROMISSORY_RANGES } from '@/hooks/usePromissoryOpsReport';
 import { formatUGX } from '@/lib/rentCalculations';
+import { PromissoryKpiDetailSheet, type PromissoryKpiMetric } from './partner-ops/PromissoryKpiDetailSheet';
 
 
 const SWIPE_THRESHOLD = 90;
@@ -249,6 +250,7 @@ export function PromissoryNotesQueue({
     }
   }, []);
   const [selectedNote, setSelectedNote] = useState<any>(null);
+  const [kpiDetail, setKpiDetail] = useState<{ metric: PromissoryKpiMetric; label: string } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [deleteReason, setDeleteReason] = useState('');
   const [deleting, setDeleting] = useState(false);
@@ -844,23 +846,24 @@ export function PromissoryNotesQueue({
     { value: 'overdue', label: 'Overdue' },
   ];
 
-  const kpiCards: { label: string; value: React.ReactNode; hint?: string; tone: string }[] = [
-    { label: 'Promissory notes', value: kpis.notes_count, hint: `${kpis.approved_notes} approved`, tone: 'bg-primary/5 border-primary/20' },
-    { label: 'Partners came in', value: kpis.partners_came_in, hint: `of ${kpis.notes_count} notes`, tone: 'bg-emerald-50 border-emerald-200' },
-    { label: 'Created a portfolio', value: kpis.partners_with_portfolio, hint: `${kpis.partners_portfolio_active} active · ${kpis.partners_portfolio_pending} pending`, tone: 'bg-sky-50 border-sky-200' },
-    { label: 'Receivable', value: <CompactAmount value={Number(kpis.receivable)} />, hint: 'outstanding on live notes', tone: 'bg-amber-50 border-amber-200' },
-    { label: 'Promised vs fulfilled', value: <CompactAmount value={Number(kpis.promised_total)} />, hint: `fulfilled ${Math.round(Number(kpis.promised_total) > 0 ? (Number(kpis.fulfilled_total) / Number(kpis.promised_total)) * 100 : 0)}%`, tone: 'bg-sky-50 border-sky-200' },
-    { label: 'Proxy agents', value: kpis.proxy_agents, hint: `${kpis.proxies_approved} approved`, tone: 'bg-violet-50 border-violet-200' },
-    { label: 'Lead attachments', value: kpis.lead_attachments, hint: 'active proxy attachments', tone: 'bg-muted/40 border-border' },
-    { label: 'Pending commission', value: <CompactAmount value={Number(kpis.pending_commission)} />, hint: `${kpis.pending_commission_count} requests`, tone: 'bg-amber-50 border-amber-200' },
-    { label: 'Approved commission', value: <CompactAmount value={Number(kpis.approved_commission)} />, hint: `${kpis.approved_commission_count} paid`, tone: 'bg-emerald-50 border-emerald-200' },
-    { label: 'Proxies pending review', value: kpis.proxies_pending, hint: 'awaiting approval', tone: 'bg-rose-50 border-rose-200' },
-    { label: 'Self supporting tenants', value: kpis.self_supporting_tenants, hint: `${kpis.self_supporting_partners} partner${kpis.self_supporting_partners === 1 ? '' : 's'} · ${formatUGX(Number(kpis.self_support_committed))}`, tone: 'bg-teal-50 border-teal-200' },
+  const kpiCards: { label: string; value: React.ReactNode; hint?: string; tone: string; metric: PromissoryKpiMetric }[] = [
+    { label: 'Promissory notes', value: kpis.notes_count, hint: `${kpis.approved_notes} approved`, tone: 'bg-primary/5 border-primary/20', metric: 'notes_count' },
+    { label: 'Partners came in', value: kpis.partners_came_in, hint: `of ${kpis.notes_count} notes`, tone: 'bg-emerald-50 border-emerald-200', metric: 'partners_came_in' },
+    { label: 'Created a portfolio', value: kpis.partners_with_portfolio, hint: `${kpis.partners_portfolio_active} active · ${kpis.partners_portfolio_pending} pending`, tone: 'bg-sky-50 border-sky-200', metric: 'partners_with_portfolio' },
+    { label: 'Receivable', value: <CompactAmount value={Number(kpis.receivable)} />, hint: 'outstanding on live notes', tone: 'bg-amber-50 border-amber-200', metric: 'receivable' },
+    { label: 'Promised vs fulfilled', value: <CompactAmount value={Number(kpis.promised_total)} />, hint: `fulfilled ${Math.round(Number(kpis.promised_total) > 0 ? (Number(kpis.fulfilled_total) / Number(kpis.promised_total)) * 100 : 0)}%`, tone: 'bg-sky-50 border-sky-200', metric: 'promised_total' },
+    { label: 'Proxy agents', value: kpis.proxy_agents, hint: `${kpis.proxies_approved} approved`, tone: 'bg-violet-50 border-violet-200', metric: 'proxy_agents' },
+    { label: 'Lead attachments', value: kpis.lead_attachments, hint: 'active proxy attachments', tone: 'bg-muted/40 border-border', metric: 'lead_attachments' },
+    { label: 'Pending commission', value: <CompactAmount value={Number(kpis.pending_commission)} />, hint: `${kpis.pending_commission_count} requests`, tone: 'bg-amber-50 border-amber-200', metric: 'pending_commission' },
+    { label: 'Approved commission', value: <CompactAmount value={Number(kpis.approved_commission)} />, hint: `${kpis.approved_commission_count} paid`, tone: 'bg-emerald-50 border-emerald-200', metric: 'approved_commission' },
+    { label: 'Proxies pending review', value: kpis.proxies_pending, hint: 'awaiting approval', tone: 'bg-rose-50 border-rose-200', metric: 'proxies_pending' },
+    { label: 'Self supporting tenants', value: kpis.self_supporting_tenants, hint: `${kpis.self_supporting_partners} partner${kpis.self_supporting_partners === 1 ? '' : 's'} · ${formatUGX(Number(kpis.self_support_committed))}`, tone: 'bg-teal-50 border-teal-200', metric: 'self_supporting_tenants' },
     {
       label: 'Proxy agent commission',
       value: <CompactAmount value={Number(kpis.promissory_commission_paid_total || 0)} />,
       hint: `${pct(report?.rates?.portfolio_creation ?? 0.02)} creation ${formatUGX(Number(kpis.promissory_creation_commission_paid || 0))} · ${pct(report?.rates?.portfolio_topup ?? 0.01)} top-up ${formatUGX(Number(kpis.promissory_topup_commission_paid || 0))}`,
       tone: 'bg-violet-50 border-violet-200',
+      metric: 'proxy_commission',
     },
   ];
 
@@ -901,18 +904,35 @@ export function PromissoryNotesQueue({
         </Button>
       </div>
 
-      {/* KPI grid */}
+      {/* KPI grid — every number opens a read-only breakdown with its trend */}
       <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-2">
         {kpiCards.map(k => (
-          <Card key={k.label} className={k.tone}>
-            <CardContent className="p-3">
-              <p className="text-[11px] text-muted-foreground leading-tight">{k.label}</p>
-              <p className="text-base font-bold mt-0.5">{k.value}</p>
-              {k.hint && <p className="text-[10px] text-muted-foreground truncate">{k.hint}</p>}
+          <Card key={k.label} className={cn(k.tone, 'transition-shadow hover:shadow-md')}>
+            <CardContent className="p-0">
+              <button
+                type="button"
+                onClick={() => setKpiDetail({ metric: k.metric, label: k.label })}
+                aria-label={`See details and trend for ${k.label}`}
+                className="w-full text-left p-3 rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40"
+              >
+                <p className="text-[11px] text-muted-foreground leading-tight">{k.label}</p>
+                <p className="text-base font-bold mt-0.5 underline decoration-dotted decoration-from-font underline-offset-2">
+                  {k.value}
+                </p>
+                {k.hint && <p className="text-[10px] text-muted-foreground truncate">{k.hint}</p>}
+              </button>
             </CardContent>
           </Card>
         ))}
       </div>
+
+      <PromissoryKpiDetailSheet
+        metric={kpiDetail?.metric ?? null}
+        label={kpiDetail?.label ?? ''}
+        rangeLabel={PROMISSORY_RANGES.find(r => r.key === range)?.label ?? 'All time'}
+        report={report}
+        onClose={() => setKpiDetail(null)}
+      />
 
       {/* Search & Filter — sticky on phones so it stays reachable while scrolling */}
       <div className="sticky top-0 z-20 -mx-1 px-1 py-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 space-y-2 rounded-b-lg">
