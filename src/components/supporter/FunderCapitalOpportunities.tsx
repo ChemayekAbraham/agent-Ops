@@ -800,13 +800,6 @@ export function FunderCapitalOpportunities({
 
         {/* Empty-house extras: how it works, return calculator, saved picks */}
         <div className="pt-2 space-y-3">
-          <div className="flex min-w-0 items-center gap-2">
-            <div className="h-5 w-1 shrink-0 rounded-full bg-primary" />
-            <div className="min-w-0">
-              <h4 className="text-sm font-black text-foreground tracking-tight">Choose an empty house</h4>
-              <p className="truncate text-[10px] text-muted-foreground">Tap a rent marker or house photo</p>
-            </div>
-          </div>
 
           {/* Single "How it works" explainer — opens a dedicated dialog */}
           <Dialog open={showHowItWorks} onOpenChange={setShowHowItWorks}>
