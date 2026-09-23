@@ -472,6 +472,21 @@ export function PromissoryConversionQueue() {
                               <Badge variant="outline" className="text-[9px] px-1 py-0 bg-white/60">
                                 {tier.label}
                               </Badge>
+                              {n.ops?.assigned_to && !n.isResolved && (
+                                <Badge variant="outline" className="text-[9px] px-1 py-0 bg-white/60">
+                                  {n.ops.assigned_to === myId ? 'Mine' : n.ops.assigned_to_name || 'Assigned'}
+                                </Badge>
+                              )}
+                              {n.isSnoozed && (
+                                <Badge variant="outline" className="text-[9px] px-1 py-0 bg-white/60">
+                                  Snoozed to {n.ops?.snoozed_until}
+                                </Badge>
+                              )}
+                              {n.isResolved && (
+                                <Badge variant="outline" className="text-[9px] px-1 py-0 bg-white/60">
+                                  Resolved · {(n.ops?.resolution || '').replace(/_/g, ' ')}
+                                </Badge>
+                              )}
                               <span className="text-sm font-bold ml-auto">{formatUGX(Number(n.amount || 0))}</span>
                             </div>
                             <p className="text-[10px] opacity-80 mt-0.5">
@@ -488,6 +503,78 @@ export function PromissoryConversionQueue() {
                               {n.phone_number ? ` · ${n.phone_number}` : ''}
                               {n.last_followed_up_on ? ` · last follow-up ${n.last_followed_up_on}` : ' · no follow-up logged'}
                             </p>
+                            {n.ops?.last_contact_at && (
+                              <p className="text-[10px] opacity-70">
+                                Last Partner Ops contact {new Date(n.ops.last_contact_at).toLocaleDateString()}
+                                {n.ops.last_contact_channel ? ` by ${n.ops.last_contact_channel}` : ''}
+                                {n.ops.last_contact_outcome ? ` — “${n.ops.last_contact_outcome}”` : ''}
+                              </p>
+                            )}
+
+                            {/* Actions */}
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-6 text-[10px] px-2 bg-white/70"
+                                onClick={() => act('assign', n)}
+                              >
+                                <UserPlus className="h-3 w-3 mr-1" />
+                                {n.ops?.assigned_to ? 'Reassign' : 'Assign'}
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className="h-6 text-[10px] px-2 bg-white/70"
+                                onClick={() => act('contact', n)}
+                              >
+                                <Phone className="h-3 w-3 mr-1" /> Contact
+                              </Button>
+                              {n.isSnoozed ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 text-[10px] px-2 bg-white/70"
+                                  onClick={() => act('unsnooze', n)}
+                                >
+                                  <RotateCcw className="h-3 w-3 mr-1" /> Unsnooze
+                                </Button>
+                              ) : (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 text-[10px] px-2 bg-white/70"
+                                  onClick={() => act('snooze', n)}
+                                >
+                                  <BellOff className="h-3 w-3 mr-1" /> Snooze
+                                </Button>
+                              )}
+                              {n.isResolved ? (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 text-[10px] px-2 bg-white/70"
+                                  onClick={() => act('reopen', n)}
+                                >
+                                  <RotateCcw className="h-3 w-3 mr-1" /> Reopen
+                                </Button>
+                              ) : (
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-6 text-[10px] px-2 bg-white/70"
+                                  onClick={() => act('resolve', n)}
+                                >
+                                  <CheckCircle2 className="h-3 w-3 mr-1" /> Resolve
+                                </Button>
+                              )}
+                            </div>
                           </div>
                         </div>
                       );
@@ -496,10 +583,12 @@ export function PromissoryConversionQueue() {
                 </div>
 
                 <p className="text-[10px] text-muted-foreground">
-                  Priority score = 60% promise size + 40% lateness (lateness counted up to 30 days). Read-only view —
-                  partners keep getting their Monday/Wednesday/Friday reminder and agents their own chase; nothing here
-                  changes a promise, a wallet or any record.
+                  Priority score = 60% promise size + 40% lateness (lateness counted up to 30 days). Assigning,
+                  contacting, snoozing and resolving are recorded in a Partner Ops working log with your written
+                  reason — the promise itself, its status, wallets and the partner/agent reminder schedules are
+                  never changed.
                 </p>
+
               </>
             )}
           </>
