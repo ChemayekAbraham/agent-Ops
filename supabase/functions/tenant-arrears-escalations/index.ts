@@ -327,7 +327,12 @@ Deno.serve(async (req) => {
           const cur = worstByTenant.get(r.tenant_id!);
           if (!cur || Number(r.days_behind) > Number(cur.days_behind)) worstByTenant.set(r.tenant_id!, r);
         }
-        for (const [tenantId, r] of worstByTenant) {
+        // Largest arrears first, capped per run so the calling queue gets a
+        // workable list instead of a few hundred rows in one morning.
+        const callTargets = [...worstByTenant.entries()]
+          .sort((a, b) => Number(b[1].arrears_ugx || 0) - Number(a[1].arrears_ugx || 0))
+          .slice(0, CALL_TASK_CAP);
+        for (const [tenantId, r] of callTargets) {
           if (dryRun) {
             summary.preview.push({ kind: "call_task", to: nameOf(tenantId), message: `${r.days_behind} days behind, ${ugx(Number(r.arrears_ugx))}` });
             summary.call_tasks_raised++;
