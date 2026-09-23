@@ -427,14 +427,10 @@ Deno.serve(async (req) => {
 
     // The landlord's phone is NEVER taken from the client — a caller-supplied
     // number would let anyone retarget the OTP (and the eventual MoMo payout)
-    // to a phone they control. It is also NEVER the raw, freely-editable
-    // `mobile_money_number`/`phone` columns — those can be changed by anyone
-    // with landlords-UPDATE access with zero re-approval. The only number
-    // trusted here is `verified_mobile_money_number`, which is written ONLY
-    // by set_landlord_verification() at the moment Landlord Ops actually
-    // approves a landlord (see migration 20260922150000). Fixing a
-    // wrong/missing number goes through Landlord Ops re-verification, not
-    // this endpoint.
+    // to a phone they control. Read the current number from the landlord row,
+    // then require an exact normalized match with `verified_mobile_money_number`,
+    // which only set_landlord_verification() may snapshot. This shows the real
+    // number on file without ever treating an unreviewed change as payable.
     const { data: landlordRow, error: landlordErr } = await admin
       .from("landlords")
       .select("phone, mobile_money_number, verified_mobile_money_number, verification_status")
