@@ -100,7 +100,27 @@ const ASSET_ACCOUNT_MAP: Record<string, string> = {
   // two categories stop being unsourced placeholders.
   A6: 'Receivables from Landlord Products and Services',
   A7: 'Receivables from Partner Products and Services',
+  // A10–A17 split what used to sit inside A4 into one account per agent product
+  // (advances, their access fees, merchandise/smartphone recovery, bike
+  // recovery, credit access draws, merchandise credit sales and service-centre
+  // balances). Every one is an amount owed by an agent or service centre, so
+  // they report under agent receivables alongside A4. Their balances and ledger
+  // classifications are untouched; only the heading they print under is decided
+  // here — previously they had no entry and fell into the flagged block.
+  A10: 'Receivables from Agent Products and Services',
+  A11: 'Receivables from Agent Products and Services',
+  A12: 'Receivables from Agent Products and Services',
+  A13: 'Receivables from Agent Products and Services',
+  A14: 'Receivables from Agent Products and Services',
+  A15: 'Receivables from Agent Products and Services',
+  A16: 'Receivables from Agent Products and Services',
+  A17: 'Receivables from Agent Products and Services',
+  // A18 tenant service charges and A19 business advances are owed by tenants,
+  // so they report with the tenant receivables A3 already carries.
+  A18: 'Receivables from Tenant Products and Services',
+  A19: 'Receivables from Tenant Products and Services',
 };
+
 
 
 /* ── Liabilities ───────────────────────────────────────────────────────── */
