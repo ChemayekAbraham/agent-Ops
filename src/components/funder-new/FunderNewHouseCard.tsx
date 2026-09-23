@@ -1,4 +1,4 @@
-import { Bookmark, Check, Home, Navigation } from 'lucide-react';
+import { Bookmark, Check, Home, Navigation, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { cn } from '@/lib/utils';
@@ -142,19 +142,19 @@ export function FunderNewHouseCard({
           <Button
             variant="default"
             className={cn(
-              'h-11 flex-1 gap-2 rounded-lg text-sm font-bold shadow-sm',
+              'h-11 flex-1 gap-2 rounded-lg text-sm font-bold shadow-sm transition-colors',
               selected
-                ? 'border border-primary bg-primary/10 text-primary hover:bg-primary/15'
+                ? 'border border-emerald-600 bg-emerald-500 text-white hover:bg-emerald-600'
                 : 'text-primary-foreground',
             )}
             onClick={onSelect}
             aria-pressed={selected}
           >
             {selected ? (
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500">
-                <Check className="h-3.5 w-3.5 text-white" aria-hidden />
-              </span>
-            ) : null}
+              <Check className="h-4 w-4 text-white" aria-hidden />
+            ) : (
+              <Plus className="h-4 w-4" aria-hidden />
+            )}
             {selected ? 'Selected' : 'Select'}
           </Button>
 
