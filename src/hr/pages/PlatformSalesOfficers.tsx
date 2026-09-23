@@ -346,6 +346,22 @@ export default function PlatformSalesOfficersPage() {
     },
   });
 
+  // Promised value of the notes themselves, separate from what funders deployed.
+  const { data: promiseSummaries = [] } = useQuery<PsoPromiseSummary[]>({
+    queryKey: ['pso-promise-summary-officers', from, to],
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+    refetchIntervalInBackground: false,
+    queryFn: async () => {
+      const { data, error } = (await supabase.rpc('pso_promise_summary' as any, {
+        p_from: from,
+        p_to: to,
+      })) as unknown as { data: PsoPromiseSummary[] | null; error: { message: string } | null };
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+  });
+
   // Commission lands the instant a promissory commission event is paid — no
   // waiting for the 60s poll. Any change re-asks the RPC (which is the only
   // permitted source of these figures) rather than patching numbers locally.
