@@ -555,7 +555,10 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
 
                               <PredictiveReceivablesForecast
                                 productLabel={selectedFamilyProduct.label}
-                                projectionAvailable={false}
+                                filterCategoryKey={cat.key}
+                                filterProductKey={selectedFamilyProduct.key}
+                                actualTotal={selectedFamilyProduct.outstanding}
+                                actualItemCount={selectedFamilyProduct.item_count}
                               />
                             </>
                           )}
