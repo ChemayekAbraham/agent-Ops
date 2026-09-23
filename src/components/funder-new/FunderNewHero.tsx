@@ -1,5 +1,3 @@
-import { HelpCircle } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatDynamic } from '@/lib/currencyFormat';
 import type { FunderNewMarketSummary } from './types';
@@ -58,14 +56,6 @@ export function FunderNewHero({
               The live market total is unavailable right now. Homes below still load, so you can keep browsing.
             </p>
           </div>
-          <Button
-            variant="ghost"
-            onClick={onHowItWorks}
-            className="h-11 w-fit shrink-0 rounded-full px-4 text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground"
-          >
-            <HelpCircle className="h-4 w-4" aria-hidden />
-            How it works
-          </Button>
         </div>
       </section>
     );
@@ -95,14 +85,6 @@ export function FunderNewHero({
           </p>
         </div>
 
-        <Button
-          variant="ghost"
-          onClick={onHowItWorks}
-          className="h-11 w-fit shrink-0 rounded-full px-4 text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground"
-        >
-          <HelpCircle className="h-4 w-4" aria-hidden />
-          How it works
-        </Button>
       </div>
     </section>
   );
