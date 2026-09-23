@@ -834,6 +834,10 @@ export default function PlatformSalesOfficersPage() {
 
                   <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t pt-2">
                     <div>
+                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Promised</div>
+                      <div className="text-xs font-semibold tabular-nums">{formatUgxCompact(officer.promisedAmount)}</div>
+                    </div>
+                    <div>
                       <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Funded</div>
                       <div className="text-xs font-semibold tabular-nums">{officer.notesFunded}</div>
                     </div>
