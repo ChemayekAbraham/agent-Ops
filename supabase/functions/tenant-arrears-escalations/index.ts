@@ -126,17 +126,23 @@ Deno.serve(async (req) => {
       summary.plans_paused_skipped = before - rows.length;
     }
 
-    // Phones and names for everyone involved.
+    // Phones and names for everyone involved. Chunked small: a long `in` list
+    // travels in the query string, and one oversized batch failing would leave
+    // every recipient looking phoneless and silently skipped.
     const peopleIds = [...new Set(rows.flatMap((r) => [r.tenant_id, r.agent_id]).filter(Boolean))] as string[];
     const person = new Map<string, { name: string | null; phone: string | null }>();
-    for (let i = 0; i < peopleIds.length; i += 500) {
-      const { data: profiles } = await admin
+    for (let i = 0; i < peopleIds.length; i += 100) {
+      const { data: profiles, error: profErr } = await admin
         .from("profiles")
         .select("id, full_name, phone")
-        .in("id", peopleIds.slice(i, i + 500));
+        .in("id", peopleIds.slice(i, i + 100));
+      if (profErr) summary.errors.push(`profiles ${i}: ${profErr.message}`);
       for (const p of profiles ?? []) {
         person.set(p.id as string, { name: p.full_name, phone: p.phone });
       }
+    }
+    if (person.size === 0 && peopleIds.length > 0) {
+      throw new Error("contact lookup returned nothing - aborting before any send");
     }
     const nameOf = (id: string | null) => (id ? person.get(id)?.name ?? "A tenant" : "A tenant");
 
