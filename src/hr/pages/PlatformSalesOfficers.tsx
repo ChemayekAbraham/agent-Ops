@@ -262,6 +262,10 @@ interface OfficerSummary {
   preEnrolmentNotes: number;
   preEnrolmentFunded: number;
   preEnrolmentAmount: number;
+  notesActivated: number;
+  notesPending: number;
+  promisedAmount: number;
+  preEnrolmentPromised: number;
 }
 
 interface PersonSummary {
