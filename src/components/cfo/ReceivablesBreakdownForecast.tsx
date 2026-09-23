@@ -25,7 +25,6 @@ import {
 import { formatUGX } from '@/lib/rentCalculations';
 import PredictiveReceivablesForecast from '@/components/cfo/PredictiveReceivablesForecast';
 import { useReceivablesBreakdown, useReceivablesTotal } from '@/hooks/useReceivables';
-import { TenantReceivablesLocationPanel } from '@/components/cfo/TenantReceivablesLocationPanel';
 import TenantPaymentsLocationFilters from '@/components/cfo/TenantPaymentsLocationFilters';
 import { CollectionsProjectionPanel } from '@/components/executive/tenant-ops/CollectionsProjectionPanel';
 
@@ -42,11 +41,7 @@ const TENANT_PRODUCTS = [
   { key: 'business_advance', label: 'Business Advances', projectionAvailable: false },
 ] as const;
 
-/**
- * Families that open the same full drill-down sheet the tenant book uses:
- * one product per row, tap a row to see its outstanding figure, share of the
- * book and period projection. Never a dropdown.
- */
+/** Families that open the same full product drill-down sheet. */
 const DRILL_CATEGORY_KEYS = new Set(['agent', 'landlord', 'partner']);
 const DRILL_CATEGORY_LABELS = new Set([
   AGENT_CATEGORY_LABEL,
@@ -199,7 +194,7 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
             )}
           </div>
 
-          {/* Category drill-down */}
+          {/* Category dropdown */}
           {sortedCategories.length > 0 && (
             <div className="flex items-center gap-2">
               <Layers className="h-3 w-3 text-muted-foreground shrink-0" />
@@ -249,65 +244,13 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
             </div>
           )}
 
-          {/* Product / service filter */}
-          {productOptions.length > 0 && (
-            <div className="flex items-center gap-2">
-              <Filter className="h-3 w-3 text-muted-foreground shrink-0" />
-              <Select
-                value={productFilter}
-                onValueChange={(v) => {
-                  setProductFilter(v);
-                  if (v !== ALL_PRODUCTS) {
-                    const catKey = v.split(':')[0];
-                    setOpenCategory(catKey);
-                    const opt = productOptions.find((o) => o.value === v);
-                    if (opt?.catLabel === TENANT_CATEGORY_LABEL) {
-                      setTenantModalOpen(true);
-                    }
-                    if (opt && isDrillFamily(catKey, opt.catLabel)) {
-                      setDrillCategoryKey(catKey);
-                      setDrillProductKeys((current) => ({ ...current, [catKey]: v.split(':')[1] }));
-                    }
-                  }
-                }}
-              >
-                <SelectTrigger className="h-8 flex-1 text-xs">
-                  <SelectValue placeholder="All products & services" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL_PRODUCTS} className="text-xs">
-                    All products &amp; services
-                  </SelectItem>
-                  {productOptions.map((o) => (
-                    <SelectItem key={o.value} value={o.value} className="text-xs">
-                      {o.label} · {formatUGX(o.outstanding)} · {totalReceivables > 0
-                        ? `${((o.outstanding / totalReceivables) * 100).toFixed(1)}%`
-                        : '0.0%'} · {o.projectionAvailable ? 'projection available' : 'no projection'}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {productFilter !== ALL_PRODUCTS && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-8 px-2 text-[11px] shrink-0"
-                  onClick={() => setProductFilter(ALL_PRODUCTS)}
-                >
-                  <X className="h-3 w-3 mr-1" />
-                  Clear
-                </Button>
-              )}
-            </div>
-          )}
-
           {breakdown.isLoading && (
             <div className="flex justify-center py-8">
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
             </div>
           )}
 
-          <div className="space-y-2">
+          <div>
             {sortedCategories
               .filter((cat) => categoryFilter === ALL_CATEGORIES || cat.key === categoryFilter)
               .map((cat) => {
@@ -353,7 +296,7 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
                         : drillCategoryKey === cat.key
                       : catOpen
                   }
-                  className="w-full flex items-center justify-between gap-2 px-3 py-2.5 min-h-11 text-left hover:bg-muted/40 rounded-xl transition-colors"
+                  className="hidden"
                 >
                   <span className="flex items-center gap-1.5 min-w-0">
                     {isDrillCat || !catOpen ? (
@@ -406,7 +349,7 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
               );
 
               return (
-                <div key={cat.key} className="rounded-xl border border-border/60 bg-card">
+                <div key={cat.key}>
                   {isTenantCat ? (
                     <Dialog open={tenantModalOpen} onOpenChange={setTenantModalOpen}>
                       <DialogTrigger asChild>{categoryHeader}</DialogTrigger>
@@ -463,7 +406,10 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
                           {selectedTenantProduct.key !== 'rent_plan' && (
                             <PredictiveReceivablesForecast
                               productLabel={selectedTenantProduct.label}
-                              projectionAvailable={false}
+                              filterCategoryKey={cat.key}
+                              filterProductKey={selectedTenantProduct.key}
+                              actualTotal={selectedTenantProduct.outstanding}
+                              actualItemCount={selectedTenantProduct.item_count}
                             />
                           )}
                         </div>
@@ -552,7 +498,10 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
 
                               <PredictiveReceivablesForecast
                                 productLabel={selectedFamilyProduct.label}
-                                projectionAvailable={false}
+                                filterCategoryKey={cat.key}
+                                filterProductKey={selectedFamilyProduct.key}
+                                actualTotal={selectedFamilyProduct.outstanding}
+                                actualItemCount={selectedFamilyProduct.item_count}
                               />
                             </>
                           )}
@@ -573,15 +522,6 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
           </div>
         </CardContent>
       </Card>
-
-      {/* Tenant products & services: where the money is owed, down to the account */}
-      <TenantReceivablesLocationPanel
-        productKey={
-          productFilter !== ALL_PRODUCTS && productFilter.startsWith('tenant:')
-            ? productFilter.split(':')[1]
-            : null
-        }
-      />
 
       {/* Predictive, data-driven forecast */}
       <PredictiveReceivablesForecast />

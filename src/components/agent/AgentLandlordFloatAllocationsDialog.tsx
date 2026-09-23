@@ -239,10 +239,15 @@ export function AgentLandlordFloatAllocationsDialog({ open, onOpenChange, onSele
                         )}
                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground truncate mt-0.5">
                           <span>{a.landlord_name}</span>
-                          {a.landlord_phone && (
+                          {a.landlord_phone ? (
                             <>
                               <span>·</span>
                               <span className="font-mono">{maskLandlordPhone(a.landlord_phone)}</span>
+                            </>
+                          ) : (
+                            <>
+                              <span>·</span>
+                              <span className="text-amber-600 dark:text-amber-400">No Ops-approved payout number</span>
                             </>
                           )}
                         </div>

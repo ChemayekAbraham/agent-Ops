@@ -9,7 +9,10 @@ export type LandlordFloatAllocation = {
   rent_request_id: string | null;
   landlord_id: string | null;
   landlord_name: string;
+  /** Current mobile money number on the landlord record. */
   landlord_phone: string | null;
+  /** true when Ops has approved a payout number; false when not; null for unlinked legacy rows. */
+  landlord_payout_number_approved?: boolean | null;
   mobile_money_provider: string | null;
   allocated_amount: number;
   paid_out_amount: number;
@@ -183,7 +186,10 @@ export function useLandlordFloatAllocations(opts?: { onlyOpen?: boolean }) {
         landlordIds.length
           ? supabase
               .from('landlords')
-              .select('id, name, mobile_money_number, phone')
+              // Show the current number on the landlord record. Approval is a
+              // separate check: a payout is allowed only when this current value
+              // matches the frozen Landlord-Ops-approved value.
+              .select('id, name, phone, mobile_money_number, verified_mobile_money_number, verification_status')
               .in('id', landlordIds)
           : Promise.resolve({ data: [] as any[] }),
         rentRequestIds.length || landlordIds.length
@@ -248,7 +254,15 @@ export function useLandlordFloatAllocations(opts?: { onlyOpen?: boolean }) {
         return {
           ...r,
           landlord_name: live?.name || r.landlord_name,
-          landlord_phone: live?.mobile_money_number || live?.phone || r.landlord_phone,
+          landlord_phone: live
+            ? (live.mobile_money_number || live.phone || null)
+            : r.landlord_phone,
+          landlord_payout_number_approved: live
+            ? live.verification_status === 'verified' &&
+              !!(live.mobile_money_number || live.phone) &&
+              String(live.mobile_money_number || live.phone).replace(/\D/g, '').replace(/^256/, '0') ===
+                String(live.verified_mobile_money_number || '').replace(/\D/g, '').replace(/^256/, '0')
+            : null,
           tenant_name: r.tenant_id ? tenantById.get(r.tenant_id) ?? null : null,
           allocated_amount: Number(r.allocated_amount) || 0,
           paid_out_amount: Number(r.paid_out_amount) || 0,

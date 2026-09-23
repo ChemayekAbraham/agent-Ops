@@ -427,17 +427,13 @@ Deno.serve(async (req) => {
 
     // The landlord's phone is NEVER taken from the client — a caller-supplied
     // number would let anyone retarget the OTP (and the eventual MoMo payout)
-    // to a phone they control. It is also NEVER the raw, freely-editable
-    // `mobile_money_number`/`phone` columns — those can be changed by anyone
-    // with landlords-UPDATE access with zero re-approval. The only number
-    // trusted here is `verified_mobile_money_number`, which is written ONLY
-    // by set_landlord_verification() at the moment Landlord Ops actually
-    // approves a landlord (see migration 20260922150000). Fixing a
-    // wrong/missing number goes through Landlord Ops re-verification, not
-    // this endpoint.
+    // to a phone they control. Read the current number from the landlord row,
+    // then require an exact normalized match with `verified_mobile_money_number`,
+    // which only set_landlord_verification() may snapshot. This shows the real
+    // number on file without ever treating an unreviewed change as payable.
     const { data: landlordRow, error: landlordErr } = await admin
       .from("landlords")
-      .select("verified_mobile_money_number, verification_status")
+      .select("phone, mobile_money_number, verified_mobile_money_number, verification_status")
       .eq("id", landlord_id)
       .maybeSingle();
     if (landlordErr) {
@@ -446,12 +442,22 @@ Deno.serve(async (req) => {
     if (landlordRow?.verification_status !== "verified") {
       return json({ error: "This landlord is not verified by Landlord Ops. Verification is required before any payout." }, 400);
     }
-    const resolvedPhone = (landlordRow?.verified_mobile_money_number || "").trim();
+    const resolvedPhone = (landlordRow?.mobile_money_number || landlordRow?.phone || "").trim();
+    const approvedPhone = (landlordRow?.verified_mobile_money_number || "").trim();
     if (!resolvedPhone) {
-      return json({ error: "Landlord Ops has not approved a payout number for this landlord yet. Ask them to (re-)verify the landlord." }, 400);
+      return json({ error: "This landlord has no mobile money number on file. Ask Landlord Ops to add and verify it." }, 400);
     }
     if (!/^\+?\d{9,15}$/.test(resolvedPhone.replace(/\s|-/g, ""))) {
-      return json({ error: "The Landlord-Ops-approved number is invalid. Ask them to re-verify with a valid number." }, 400);
+      return json({ error: "The landlord number on file is invalid. Ask Landlord Ops to correct and verify it." }, 400);
+    }
+    const normalizePhone = (value: string) => {
+      const digits = value.replace(/\D/g, "");
+      if (digits.startsWith("256") && digits.length === 12) return `0${digits.slice(3)}`;
+      if (digits.length === 9) return `0${digits}`;
+      return digits;
+    };
+    if (!approvedPhone || normalizePhone(resolvedPhone) !== normalizePhone(approvedPhone)) {
+      return json({ error: "The landlord number on file has changed since approval. Landlord Ops must verify the current number before an OTP can be sent." }, 400);
     }
 
     // Eligibility check (float, cutoff, landlord status) — same gate as final insert
