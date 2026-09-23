@@ -766,6 +766,10 @@ export default function PlatformSalesOfficersPage() {
             </div>
           </div>
           <div className="rounded-lg border bg-card px-3 py-2">
+            <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Promised</div>
+            <div className="text-base font-bold tabular-nums sm:text-lg">{formatUgxCompact(promisedTotal)}</div>
+          </div>
+          <div className="rounded-lg border bg-card px-3 py-2">
             <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Funded</div>
             <div className="text-base font-bold tabular-nums sm:text-lg">{fundedTotal}</div>
           </div>
