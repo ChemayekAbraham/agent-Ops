@@ -250,6 +250,7 @@ export function PromissoryNotesQueue({
     }
   }, []);
   const [selectedNote, setSelectedNote] = useState<any>(null);
+  const [kpiDetail, setKpiDetail] = useState<{ metric: PromissoryKpiMetric; label: string } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [deleteReason, setDeleteReason] = useState('');
   const [deleting, setDeleting] = useState(false);
