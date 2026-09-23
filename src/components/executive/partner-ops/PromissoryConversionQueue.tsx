@@ -373,6 +373,30 @@ export function PromissoryConversionQueue() {
                   </div>
                 </div>
 
+                {/* Working views */}
+                <div className="flex flex-wrap gap-1">
+                  {VIEWS.map(([v, label]) => {
+                    const count =
+                      v === 'mine' ? totals.mineCount
+                        : v === 'assigned' ? totals.assignedCount
+                          : v === 'snoozed' ? totals.snoozedCount
+                            : v === 'resolved' ? totals.resolvedCount
+                              : null;
+                    return (
+                      <Button
+                        key={v}
+                        type="button"
+                        size="sm"
+                        variant={view === v ? 'default' : 'outline'}
+                        className="h-7 text-[11px] px-2"
+                        onClick={() => setView(v)}
+                      >
+                        {label}{count !== null ? ` (${count})` : ''}
+                      </Button>
+                    );
+                  })}
+                </div>
+
                 {/* Controls */}
                 <div className="flex flex-wrap items-center gap-2">
                   <div className="relative flex-1 min-w-[180px]">
@@ -380,10 +404,11 @@ export function PromissoryConversionQueue() {
                     <Input
                       value={search}
                       onChange={e => setSearch(e.target.value)}
-                      placeholder="Search partner, phone or agent"
+                      placeholder="Search partner, phone, agent or owner"
                       className="h-8 pl-7 text-xs"
                     />
                   </div>
+
                   <div className="flex flex-wrap gap-1">
                     {(['all', 'escalated', 'chasing', 'due_soon', 'grace'] as const).map(t => (
                       <Button
