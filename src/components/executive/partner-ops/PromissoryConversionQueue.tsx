@@ -513,6 +513,31 @@ export function PromissoryConversionQueue() {
                       </Button>
                     ))}
                   </div>
+
+                  <div className="flex gap-1 ml-auto">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-[11px] px-2"
+                      disabled={exporting !== null}
+                      onClick={() => doExport('csv')}
+                    >
+                      <FileDown className="h-3 w-3 mr-1" />
+                      {exporting === 'csv' ? 'Exporting…' : 'CSV'}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-[11px] px-2"
+                      disabled={exporting !== null}
+                      onClick={() => doExport('pdf')}
+                    >
+                      <FileText className="h-3 w-3 mr-1" />
+                      {exporting === 'pdf' ? 'Exporting…' : 'PDF'}
+                    </Button>
+                  </div>
                 </div>
 
                 {totals.escalatedCount > 0 && (
