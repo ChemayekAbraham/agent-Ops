@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Suspense, lazy, useCallback, useMemo, useState } from 'react';
 import { AlertTriangle, Crosshair, Loader2, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -13,67 +13,7 @@ const LazyRouteMap = lazy(() => import('./FunderNewRouteMap').then((module) => (
 /** Reserved box so lazy loading the map never shifts the page. */
 const MAP_BOX = 'h-[330px] sm:h-[440px] lg:h-[520px]';
 
-/**
- * Scroll-driven widening: the map grows out of the page gutters until it spans
- * the full device width, then stays there. Progress only ever increases, so the
- * map never narrows again once it has filled the screen.
- */
-function useScrollWidening(ref: React.RefObject<HTMLDivElement>) {
-  const [bleed, setBleed] = useState(0);
-  const progressRef = useRef(0);
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
-      progressRef.current = 1;
-      setBleed(0);
-    }
-
-    let frame = 0;
-
-    const measure = () => {
-      frame = 0;
-      const node = ref.current;
-      if (!node) return;
-      // Only widen once the user has actually scrolled — otherwise the map
-      // bleeds out of the page gutters on first paint and looks broken next to
-      // the still-inset cards.
-      if (window.scrollY <= 0) return;
-      const rect = node.getBoundingClientRect();
-      const viewportH = window.innerHeight || 1;
-      // Starts once the map's top crosses the middle of the screen, completes
-      // by the time it has travelled up to roughly a sixth of the screen height.
-      const start = viewportH * 0.55;
-      const end = viewportH * 0.15;
-      const raw = (start - rect.top) / Math.max(1, start - end);
-      const next = Math.min(1, Math.max(progressRef.current, raw));
-      if (next === progressRef.current) return;
-      progressRef.current = next;
-
-      const parentWidth = node.parentElement?.clientWidth || rect.width;
-      if (parentWidth <= 1) return;
-      const full = document.documentElement.clientWidth || window.innerWidth;
-      const gutter = Math.max(0, (full - parentWidth) / 2);
-      setBleed(Number((gutter * next).toFixed(2)));
-    };
-
-    const schedule = () => {
-      if (frame) return;
-      frame = window.requestAnimationFrame(measure);
-    };
-
-    measure();
-    window.addEventListener('scroll', schedule, { passive: true });
-    window.addEventListener('resize', schedule);
-    return () => {
-      if (frame) window.cancelAnimationFrame(frame);
-      window.removeEventListener('scroll', schedule);
-      window.removeEventListener('resize', schedule);
-    };
-  }, [ref]);
-
-  return bleed;
-}
 
 
 /**
@@ -105,9 +45,6 @@ export function FunderNewMapSection({
 }) {
   const [viewport, setViewport] = useState<FunderNewViewport | null>(null);
   const [resetToken, setResetToken] = useState(0);
-  const mapBoxRef = useRef<HTMLDivElement>(null);
-  const bleed = useScrollWidening(mapBoxRef);
-
 
   const device = location.coords;
 
@@ -201,13 +138,7 @@ export function FunderNewMapSection({
       ) : null}
 
       <div
-        ref={mapBoxRef}
-        style={{
-          marginLeft: `-${bleed}px`,
-          marginRight: `-${bleed}px`,
-          borderRadius: `${Math.max(0, 16 - bleed)}px`,
-        }}
-        className={`relative z-0 overflow-hidden border bg-card shadow-sm ${MAP_BOX}`}
+        className={`relative z-0 overflow-hidden rounded-2xl border bg-card shadow-sm ${MAP_BOX}`}
       >
 
         <Suspense fallback={<Skeleton className="h-full w-full rounded-2xl" />}>
