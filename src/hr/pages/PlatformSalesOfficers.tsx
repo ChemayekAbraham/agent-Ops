@@ -282,6 +282,23 @@ interface PersonSummary {
   commissionAccrued: number;
 }
 
+// Funding commission earned through either engine: a matched promissory note,
+// or a managed proxy account. Reviewer-only, straight from the RPC.
+interface FundingCommissionRow {
+  earner_id: string;
+  earner_name: string;
+  staff_ref: string | null;
+  is_pso: boolean;
+  paths: string | null;
+  creations: number;
+  topups: number;
+  base_creation: number;
+  base_topup: number;
+  commission_paid: number;
+  commission_pending: number;
+  as_at: string;
+}
+
 export default function PlatformSalesOfficersPage() {
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<WindowMode>('WEEKLY');
