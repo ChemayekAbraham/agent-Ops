@@ -39,6 +39,8 @@ import { usePromissoryOpsReport, PROMISSORY_RANGES } from '@/hooks/usePromissory
 import { formatUGX } from '@/lib/rentCalculations';
 import { PromissoryKpiDetailSheet, type PromissoryKpiMetric } from './partner-ops/PromissoryKpiDetailSheet';
 import { PromissoryFulfilmentTracker } from './partner-ops/PromissoryFulfilmentTracker';
+import { PromissoryConversionQueue } from './partner-ops/PromissoryConversionQueue';
+
 
 
 const SWIPE_THRESHOLD = 90;
