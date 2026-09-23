@@ -50430,6 +50430,24 @@ export type Database = {
         }
         Relationships: []
       }
+      v_funding_commission: {
+        Row: {
+          base_amount: number | null
+          commission_amount: number | null
+          created_at: string | null
+          earner_id: string | null
+          funding_source_id: string | null
+          kind: string | null
+          note_id: string | null
+          partner_id: string | null
+          path: string | null
+          rate: number | null
+          source_id: string | null
+          source_table: string | null
+          status: string | null
+        }
+        Relationships: []
+      }
       v_g7_receivable_direction_defect: {
         Row: {
           amount: number | null
@@ -56711,6 +56729,23 @@ export type Database = {
           tenant_phone: string
           total_repayment: number
           village: string
+        }[]
+      }
+      funding_commission_summary: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          as_at: string
+          base_creation: number
+          base_topup: number
+          commission_paid: number
+          commission_pending: number
+          creations: number
+          earner_id: string
+          earner_name: string
+          is_pso: boolean
+          paths: string
+          staff_ref: string
+          topups: number
         }[]
       }
       generate_campaign_short_code: { Args: never; Returns: string }
@@ -63044,6 +63079,19 @@ export type Database = {
           partner_registered: number
           person_name: string
           person_user_id: string
+        }[]
+      }
+      pso_promise_summary: {
+        Args: { p_from: string; p_staff_id?: string; p_to: string }
+        Returns: {
+          as_at: string
+          notes_activated: number
+          notes_pending: number
+          pre_enrolment_promised: number
+          promised_activated: number
+          promised_amount: number
+          staff_id: string
+          staff_ref: string
         }[]
       }
       public_house_support_offer: { Args: { p_code: string }; Returns: Json }
