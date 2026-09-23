@@ -183,7 +183,11 @@ export function useLandlordFloatAllocations(opts?: { onlyOpen?: boolean }) {
         landlordIds.length
           ? supabase
               .from('landlords')
-              .select('id, name, mobile_money_number, phone')
+              // Only the Landlord-Ops-approved payout number is ever read here.
+              // `mobile_money_number`/`phone` are freely editable and are NOT the
+              // number money goes to — showing them made the displayed number
+              // appear to "shuffle" at payout time.
+              .select('id, name, verified_mobile_money_number, verification_status')
               .in('id', landlordIds)
           : Promise.resolve({ data: [] as any[] }),
         rentRequestIds.length || landlordIds.length
