@@ -34,6 +34,17 @@ interface PsoFundedSummary {
   as_at: string;
 }
 
+interface PsoPromiseSummary {
+  staff_id: string;
+  staff_ref: string;
+  notes_activated: number;
+  notes_pending: number;
+  promised_amount: number;
+  promised_activated: number;
+  pre_enrolment_promised: number;
+  as_at: string;
+}
+
 interface NonOfficerRow {
   person_user_id: string;
   person_name: string;
@@ -251,6 +262,10 @@ interface OfficerSummary {
   preEnrolmentNotes: number;
   preEnrolmentFunded: number;
   preEnrolmentAmount: number;
+  notesActivated: number;
+  notesPending: number;
+  promisedAmount: number;
+  preEnrolmentPromised: number;
 }
 
 interface PersonSummary {
@@ -331,6 +346,22 @@ export default function PlatformSalesOfficersPage() {
     },
   });
 
+  // Promised value of the notes themselves, separate from what funders deployed.
+  const { data: promiseSummaries = [] } = useQuery<PsoPromiseSummary[]>({
+    queryKey: ['pso-promise-summary-officers', from, to],
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+    refetchIntervalInBackground: false,
+    queryFn: async () => {
+      const { data, error } = (await supabase.rpc('pso_promise_summary' as any, {
+        p_from: from,
+        p_to: to,
+      })) as unknown as { data: PsoPromiseSummary[] | null; error: { message: string } | null };
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+  });
+
   // Commission lands the instant a promissory commission event is paid — no
   // waiting for the 60s poll. Any change re-asks the RPC (which is the only
   // permitted source of these figures) rather than patching numbers locally.
@@ -386,12 +417,14 @@ export default function PlatformSalesOfficersPage() {
 
   const officers = useMemo<OfficerSummary[]>(() => {
     const fundedById = new Map(fundedSummaries.map((s) => [s.staff_id, s]));
+    const promiseById = new Map(promiseSummaries.map((s) => [s.staff_id, s]));
     const byId = new Map<string, OfficerSummary>();
 
     for (const row of rows) {
       let entry = byId.get(row.staff_id);
       if (!entry) {
         const funded = fundedById.get(row.staff_id);
+        const promise = promiseById.get(row.staff_id);
         entry = {
           staff_id: row.staff_id,
           staff_ref: row.staff_ref,
@@ -411,6 +444,10 @@ export default function PlatformSalesOfficersPage() {
           preEnrolmentNotes: funded?.pre_enrolment_notes ?? 0,
           preEnrolmentFunded: funded?.pre_enrolment_funded ?? 0,
           preEnrolmentAmount: funded?.pre_enrolment_amount ?? 0,
+          notesActivated: promise?.notes_activated ?? 0,
+          notesPending: promise?.notes_pending ?? 0,
+          promisedAmount: promise?.promised_amount ?? 0,
+          preEnrolmentPromised: promise?.pre_enrolment_promised ?? 0,
         };
         byId.set(row.staff_id, entry);
       }
@@ -453,11 +490,15 @@ export default function PlatformSalesOfficersPage() {
         preEnrolmentNotes: funded.pre_enrolment_notes ?? 0,
         preEnrolmentFunded: funded.pre_enrolment_funded ?? 0,
         preEnrolmentAmount: funded.pre_enrolment_amount ?? 0,
+        notesActivated: promiseById.get(funded.staff_id)?.notes_activated ?? 0,
+        notesPending: promiseById.get(funded.staff_id)?.notes_pending ?? 0,
+        promisedAmount: promiseById.get(funded.staff_id)?.promised_amount ?? 0,
+        preEnrolmentPromised: promiseById.get(funded.staff_id)?.pre_enrolment_promised ?? 0,
       });
     }
 
     return Array.from(byId.values());
-  }, [rows, fundedSummaries]);
+  }, [rows, fundedSummaries, promiseSummaries]);
 
   // Highest-first on the selected column; ties fall back to net notes then name.
   const sortedOfficers = useMemo(
@@ -572,6 +613,7 @@ export default function PlatformSalesOfficersPage() {
   }, [netTotal, officerNetTarget]);
   const fundedTotal = useMemo(() => officers.reduce((s, o) => s + o.notesFunded, 0), [officers]);
   const moneyTotal = useMemo(() => officers.reduce((s, o) => s + o.amountDeployed, 0), [officers]);
+  const promisedTotal = useMemo(() => officers.reduce((s, o) => s + o.promisedAmount, 0), [officers]);
 
   const peopleNetTotal = useMemo(() => people.reduce((s, p) => s + p.netNotes, 0), [people]);
   const peopleFundedTotal = useMemo(() => people.reduce((s, p) => s + p.notesFunded, 0), [people]);
@@ -704,7 +746,7 @@ export default function PlatformSalesOfficersPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-5">
           <div className="rounded-lg border bg-card px-3 py-2">
             <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Officers</div>
             <div className="text-base font-bold tabular-nums sm:text-lg">{officers.length}</div>
@@ -722,6 +764,10 @@ export default function PlatformSalesOfficersPage() {
                 {officerNetTarget <= 0 ? 0 : officerNetPct}%
               </div>
             </div>
+          </div>
+          <div className="rounded-lg border bg-card px-3 py-2">
+            <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Promised</div>
+            <div className="text-base font-bold tabular-nums sm:text-lg">{formatUgxCompact(promisedTotal)}</div>
           </div>
           <div className="rounded-lg border bg-card px-3 py-2">
             <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Funded</div>
@@ -788,6 +834,10 @@ export default function PlatformSalesOfficersPage() {
 
                   <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t pt-2">
                     <div>
+                      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Promised</div>
+                      <div className="text-xs font-semibold tabular-nums">{formatUgxCompact(officer.promisedAmount)}</div>
+                    </div>
+                    <div>
                       <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Funded</div>
                       <div className="text-xs font-semibold tabular-nums">{officer.notesFunded}</div>
                     </div>
@@ -823,10 +873,13 @@ export default function PlatformSalesOfficersPage() {
                       ))}
 
                       <SortableTh label="Total" sortKey="netNotes" activeKey={sortKey} onSort={setSortKey} />
+                      <SortableTh label="Activated" sortKey="notesActivated" activeKey={sortKey} onSort={setSortKey} />
+                      <SortableTh label="Pending" sortKey="notesPending" activeKey={sortKey} onSort={setSortKey} />
                       <SortableTh label="Unapproved" sortKey="notesUnapproved" activeKey={sortKey} onSort={setSortKey} />
                       <SortableTh label="Funded" sortKey="notesFunded" activeKey={sortKey} onSort={setSortKey} />
                       <SortableTh label="Funders" sortKey="fundersConverted" activeKey={sortKey} onSort={setSortKey} />
                       <SortableTh label="Top-ups" sortKey="topups" activeKey={sortKey} onSort={setSortKey} />
+                      <SortableTh label="Promised" sortKey="promisedAmount" activeKey={sortKey} onSort={setSortKey} />
                       <SortableTh label="Money deployed" sortKey="amountDeployed" activeKey={sortKey} onSort={setSortKey} />
                       <SortableTh label="Commission base" sortKey="commissionBase" activeKey={sortKey} onSort={setSortKey} />
                       <SortableTh label="Commission" sortKey="commissionAccrued" activeKey={sortKey} onSort={setSortKey} />
@@ -844,6 +897,10 @@ export default function PlatformSalesOfficersPage() {
                         ))}
 
                         <td className="px-4 py-2 text-right tabular-nums">{officer.netNotes}</td>
+                        <td className="px-4 py-2 text-right tabular-nums">{officer.notesActivated}</td>
+                        <td className="px-4 py-2 text-right tabular-nums">
+                          {officer.notesPending === 0 ? '—' : officer.notesPending}
+                        </td>
                         <td className="px-4 py-2 text-right tabular-nums">
                           {officer.notesUnapproved === 0 ? '—' : officer.notesUnapproved}
                         </td>
@@ -851,6 +908,9 @@ export default function PlatformSalesOfficersPage() {
                         <td className="px-4 py-2 text-right tabular-nums">{officer.fundersConverted}</td>
                         <td className="px-4 py-2 text-right tabular-nums">
                           {officer.topups === 0 ? '—' : officer.topups}
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums">
+                          UGX {officer.promisedAmount.toLocaleString('en-UG')}
                         </td>
                         <td className="px-4 py-2 text-right tabular-nums">
                           UGX {officer.amountDeployed.toLocaleString('en-UG')}
@@ -869,6 +929,11 @@ export default function PlatformSalesOfficersPage() {
                           <div className="text-[11px] text-muted-foreground">
                             UGX {officer.preEnrolmentAmount.toLocaleString('en-UG')}
                           </div>
+                          {officer.preEnrolmentPromised > 0 && (
+                            <div className="text-[11px] text-muted-foreground">
+                              UGX {officer.preEnrolmentPromised.toLocaleString('en-UG')} promised
+                            </div>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -1089,6 +1154,11 @@ export default function PlatformSalesOfficersPage() {
           </div>
         )}
 
+        <p className="text-xs text-muted-foreground">
+          Notes are counted on the day they were created. The partner dashboard counts only activated
+          notes, on the day they were approved, so the two will differ for any given window. Promised
+          is the face value of the notes; Money deployed is what funders actually put in.
+        </p>
         <p className="text-xs text-muted-foreground">
           Money deployed is what the funder put in. Commission base is the amount commission was
           calculated on, capped at the note's promised amount. Pre-enrol counts notes and conversions
