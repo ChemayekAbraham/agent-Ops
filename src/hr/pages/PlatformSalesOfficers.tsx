@@ -348,7 +348,7 @@ export default function PlatformSalesOfficersPage() {
     refetchIntervalInBackground: false,
   });
 
-  const { data: fundedSummaries = [] } = useQuery<PsoFundedSummary[]>({
+  const { data: fundedSummaries = [], error: fundedError } = useQuery<PsoFundedSummary[]>({
     queryKey: ['pso-funded-summary-officers', from, to],
     refetchInterval: 60_000,
     refetchOnWindowFocus: true,
@@ -364,7 +364,7 @@ export default function PlatformSalesOfficersPage() {
   });
 
   // Promised value of the notes themselves, separate from what funders deployed.
-  const { data: promiseSummaries = [] } = useQuery<PsoPromiseSummary[]>({
+  const { data: promiseSummaries = [], error: promiseError } = useQuery<PsoPromiseSummary[]>({
     queryKey: ['pso-promise-summary-officers', from, to],
     refetchInterval: 60_000,
     refetchOnWindowFocus: true,
@@ -407,7 +407,7 @@ export default function PlatformSalesOfficersPage() {
     };
   }, [queryClient]);
 
-  const { data: nonOfficerRows = [] } = useQuery<NonOfficerRow[]>({
+  const { data: nonOfficerRows = [], error: nonOfficerRowsError } = useQuery<NonOfficerRow[]>({
     queryKey: ['pso-daily-series-non-officers', from, to],
     refetchInterval: 60_000,
     refetchOnWindowFocus: true,
@@ -422,7 +422,7 @@ export default function PlatformSalesOfficersPage() {
     },
   });
 
-  const { data: nonOfficerFunded = [] } = useQuery<NonOfficerFunded[]>({
+  const { data: nonOfficerFunded = [], error: nonOfficerFundedError } = useQuery<NonOfficerFunded[]>({
     queryKey: ['pso-funded-summary-non-officers', from, to],
     refetchInterval: 60_000,
     refetchOnWindowFocus: true,
@@ -438,7 +438,7 @@ export default function PlatformSalesOfficersPage() {
   });
 
   // Both funding-commission engines in one list, server-ordered by commission paid.
-  const { data: fundingRows = [] } = useQuery<FundingCommissionRow[]>({
+  const { data: fundingRows = [], error: fundingError } = useQuery<FundingCommissionRow[]>({
     queryKey: ['funding-commission-summary', from, to],
     refetchInterval: 60_000,
     refetchOnWindowFocus: true,
