@@ -30,6 +30,8 @@ const AGENT_DAY = 3;
 const CALL_TASK_DAY = 7;
 /** Repeat cadence for both the tenant reminder and the agent escalation. */
 const CADENCE = 3;
+/** Most call tasks raised in one run, largest arrears first. */
+const CALL_TASK_CAP = 60;
 const CONCURRENCY = 5;
 
 interface ArrearsRow {
