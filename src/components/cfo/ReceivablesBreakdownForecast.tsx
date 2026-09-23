@@ -138,9 +138,6 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
   const selectedTenantShare = totalReceivables > 0
     ? (selectedTenantProduct.outstanding / totalReceivables) * 100
     : 0;
-  const selectedAgentShare = totalReceivables > 0 && selectedAgentProduct
-    ? (selectedAgentProduct.outstanding / totalReceivables) * 100
-    : 0;
 
   return (
     <div className="space-y-3 sm:space-y-4 max-w-full">
@@ -216,8 +213,8 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
                     if (cat?.label === TENANT_CATEGORY_LABEL) {
                       setTenantModalOpen(true);
                     }
-                    if (cat?.label === AGENT_CATEGORY_LABEL || cat?.key === 'agent') {
-                      setAgentModalOpen(true);
+                    if (cat && isDrillFamily(cat.key, cat.label)) {
+                      setDrillCategoryKey(cat.key);
                     }
                   }
                 }}
@@ -267,9 +264,9 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
                     if (opt?.catLabel === TENANT_CATEGORY_LABEL) {
                       setTenantModalOpen(true);
                     }
-                    if (opt?.catLabel === AGENT_CATEGORY_LABEL) {
-                      setAgentModalOpen(true);
-                      setSelectedAgentProductKey(v.split(':')[1]);
+                    if (opt && isDrillFamily(catKey, opt.catLabel)) {
+                      setDrillCategoryKey(catKey);
+                      setDrillProductKeys((current) => ({ ...current, [catKey]: v.split(':')[1] }));
                     }
                   }
                 }}
