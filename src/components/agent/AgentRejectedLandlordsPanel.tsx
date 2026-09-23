@@ -41,8 +41,9 @@ const EDIT_FIELDS: Array<{ key: keyof LandlordEditFields; label: string; type?: 
   { key: 'phone', label: 'Landlord phone', type: 'tel' },
   { key: 'property_address', label: 'Property address' },
   { key: 'monthly_rent', label: 'Monthly rent (UGX)', type: 'number' },
-  { key: 'mobile_money_number', label: 'MoMo number', type: 'tel' },
-  { key: 'mobile_money_name', label: 'MoMo name' },
+  // The payout number is deliberately NOT editable here. Agents must never be
+  // able to change the number a landlord is paid on; that only moves through
+  // Landlord Ops verification (`set_landlord_verification`).
   { key: 'bank_name', label: 'Bank name (optional)' },
   { key: 'bank_branch', label: 'Branch (optional)' },
   { key: 'account_number', label: 'Bank account number (optional)' },
@@ -168,8 +169,8 @@ export function AgentRejectedLandlordsPanel() {
           phone: form.phone.trim(),
           property_address: form.property_address.trim() || null,
           monthly_rent: form.monthly_rent.trim() ? Number(form.monthly_rent) : null,
-          mobile_money_number: form.mobile_money_number.trim() || null,
-          mobile_money_name: form.mobile_money_name.trim() || null,
+          // mobile_money_number / mobile_money_name are intentionally omitted:
+          // agents cannot change a landlord's payout number from here.
           bank_name: form.bank_name.trim() || null,
           bank_branch: form.bank_branch.trim() || null,
           account_number: form.account_number.trim() || null,

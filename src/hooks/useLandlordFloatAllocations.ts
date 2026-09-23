@@ -9,7 +9,10 @@ export type LandlordFloatAllocation = {
   rent_request_id: string | null;
   landlord_id: string | null;
   landlord_name: string;
+  /** Landlord-Ops-approved payout number (`verified_mobile_money_number`) only. */
   landlord_phone: string | null;
+  /** true when Ops has approved a payout number; false when not; null for unlinked legacy rows. */
+  landlord_payout_number_approved?: boolean | null;
   mobile_money_provider: string | null;
   allocated_amount: number;
   paid_out_amount: number;
@@ -183,7 +186,11 @@ export function useLandlordFloatAllocations(opts?: { onlyOpen?: boolean }) {
         landlordIds.length
           ? supabase
               .from('landlords')
-              .select('id, name, mobile_money_number, phone')
+              // Only the Landlord-Ops-approved payout number is ever read here.
+              // `mobile_money_number`/`phone` are freely editable and are NOT the
+              // number money goes to — showing them made the displayed number
+              // appear to "shuffle" at payout time.
+              .select('id, name, verified_mobile_money_number, verification_status')
               .in('id', landlordIds)
           : Promise.resolve({ data: [] as any[] }),
         rentRequestIds.length || landlordIds.length
@@ -248,7 +255,17 @@ export function useLandlordFloatAllocations(opts?: { onlyOpen?: boolean }) {
         return {
           ...r,
           landlord_name: live?.name || r.landlord_name,
-          landlord_phone: live?.mobile_money_number || live?.phone || r.landlord_phone,
+          // The approved payout number, or nothing. Never the editable live
+          // number and never the number stamped on the allocation row — both
+          // can disagree with what money is actually sent to.
+          landlord_phone: live
+            ? (live.verification_status === 'verified'
+                ? (live.verified_mobile_money_number || null)
+                : null)
+            : r.landlord_phone,
+          landlord_payout_number_approved: live
+            ? live.verification_status === 'verified' && !!live.verified_mobile_money_number
+            : null,
           tenant_name: r.tenant_id ? tenantById.get(r.tenant_id) ?? null : null,
           allocated_amount: Number(r.allocated_amount) || 0,
           paid_out_amount: Number(r.paid_out_amount) || 0,
