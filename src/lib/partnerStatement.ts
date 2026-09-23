@@ -688,11 +688,6 @@ export function buildPartnerStatementHtml(d: StatementData): string {
       <div>UGANDA</div>
     </div>
   </div>
-  <div class="bank-meta-right">
-    <div><strong>International Supporter Ref</strong></div>
-    <div class="font-mono">IDLUG225278/${stamp.replace(/-/g, '')}</div>
-    <div class="font-mono" style="margin-top: 3px;"><strong>WELILEUGX2026</strong></div>
-  </div>
 </div>`;
 
   // Transactions Summary Head
