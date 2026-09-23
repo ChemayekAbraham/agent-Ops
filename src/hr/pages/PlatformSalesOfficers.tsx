@@ -437,6 +437,34 @@ export default function PlatformSalesOfficersPage() {
     },
   });
 
+  // Both funding-commission engines in one list, server-ordered by commission paid.
+  const { data: fundingRows = [] } = useQuery<FundingCommissionRow[]>({
+    queryKey: ['funding-commission-summary', from, to],
+    refetchInterval: 60_000,
+    refetchOnWindowFocus: true,
+    refetchIntervalInBackground: false,
+    queryFn: async () => {
+      const { data, error } = (await supabase.rpc('funding_commission_summary' as any, {
+        p_from: from,
+        p_to: to,
+      })) as unknown as { data: FundingCommissionRow[] | null; error: { message: string } | null };
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    },
+  });
+
+  const fundingTotals = useMemo(() => {
+    return fundingRows.reduce(
+      (acc, r) => ({
+        base: acc.base + Number(r.base_creation ?? 0) + Number(r.base_topup ?? 0),
+        paid: acc.paid + Number(r.commission_paid ?? 0),
+        pending: acc.pending + Number(r.commission_pending ?? 0),
+      }),
+      { base: 0, paid: 0, pending: 0 },
+    );
+  }, [fundingRows]);
+
+
   const fundedAsAt = fundedSummaries[0]?.as_at ?? null;
 
 
