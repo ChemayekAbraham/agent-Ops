@@ -1,7 +1,7 @@
 /*
  * Map styling for /dashboard/funder-new ONLY.
- * Every rule is nested under .fn-map so no other Leaflet map on the platform is
- * affected. Nothing here targets a bare .leaflet-* selector.
+ * Every rule is nested under .fn-map so no other map on the platform is
+ * affected. The new Funder route uses Google Maps; the original route is untouched.
  */
 
 .fn-map {
@@ -12,7 +12,7 @@
   background: hsl(var(--muted));
 }
 
-.fn-map .leaflet-container {
+.fn-map > div:first-child {
   width: 100%;
   height: 100%;
   background: hsl(var(--muted));
@@ -20,22 +20,17 @@
   outline: none;
 }
 
-/* Keep the required provider attribution readable but quiet. */
-.fn-map .leaflet-control-attribution {
-  background: hsl(var(--card) / 0.82);
-  color: hsl(var(--muted-foreground));
-  font-size: 10px;
-  padding: 1px 6px;
-  border-radius: 6px 0 0 0;
+.fn-map .fn-google-price-label {
+  transform: translateY(-18px);
+  width: max-content;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: hsl(var(--primary));
+  box-shadow: 0 1px 4px hsl(var(--foreground) / 0.28);
 }
 
-.fn-map .leaflet-control-attribution a {
-  color: hsl(var(--muted-foreground));
-}
-
-/* Default Leaflet zoom buttons are replaced by the app control group. */
-.fn-map .leaflet-control-zoom {
-  display: none;
+.fn-map .fn-google-cluster-label {
+  width: max-content;
 }
 
 /* ---- Price marker: primary surface with the full UGX amount ---- */
@@ -137,8 +132,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .fn-map .leaflet-fade-anim .leaflet-tile,
-  .fn-map .leaflet-zoom-anim .leaflet-zoom-animated {
+  .fn-map * {
     transition: none !important;
   }
 }
