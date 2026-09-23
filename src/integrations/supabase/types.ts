@@ -33100,6 +33100,70 @@ export type Database = {
           },
         ]
       }
+      promissory_note_ops_actions: {
+        Row: {
+          action: string
+          actor_id: string
+          assigned_to: string | null
+          channel: string | null
+          created_at: string
+          id: string
+          note_id: string
+          outcome: string | null
+          reason: string
+          resolution: string | null
+          snooze_until: string | null
+        }
+        Insert: {
+          action: string
+          actor_id: string
+          assigned_to?: string | null
+          channel?: string | null
+          created_at?: string
+          id?: string
+          note_id: string
+          outcome?: string | null
+          reason: string
+          resolution?: string | null
+          snooze_until?: string | null
+        }
+        Update: {
+          action?: string
+          actor_id?: string
+          assigned_to?: string | null
+          channel?: string | null
+          created_at?: string
+          id?: string
+          note_id?: string
+          outcome?: string | null
+          reason?: string
+          resolution?: string | null
+          snooze_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "promissory_note_ops_actions_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "promissory_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "promissory_note_ops_actions_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "v_promissory_self_support_tracker"
+            referencedColumns: ["note_id"]
+          },
+          {
+            foreignKeyName: "promissory_note_ops_actions_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_note_events"
+            referencedColumns: ["note_id"]
+          },
+        ]
+      }
       promissory_note_plan_intents: {
         Row: {
           agent_id: string
@@ -62631,6 +62695,44 @@ export type Database = {
       promissory_fuzzy_arrival_suggestions: {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
+      }
+      promissory_ops_assignees: {
+        Args: never
+        Returns: {
+          full_name: string
+          role: string
+          user_id: string
+        }[]
+      }
+      promissory_ops_can_act: { Args: { _user_id: string }; Returns: boolean }
+      promissory_ops_queue_state: {
+        Args: never
+        Returns: {
+          action_count: number
+          assigned_at: string
+          assigned_to: string
+          assigned_to_name: string
+          last_contact_at: string
+          last_contact_channel: string
+          last_contact_outcome: string
+          note_id: string
+          resolution: string
+          resolved_at: string
+          snoozed_until: string
+        }[]
+      }
+      promissory_ops_record_action: {
+        Args: {
+          p_action: string
+          p_assigned_to?: string
+          p_channel?: string
+          p_note_id: string
+          p_outcome?: string
+          p_reason: string
+          p_resolution?: string
+          p_snooze_until?: string
+        }
+        Returns: string
       }
       promissory_self_support_context: {
         Args: { p_user: string }
