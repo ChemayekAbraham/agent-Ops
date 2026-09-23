@@ -44,7 +44,7 @@ export function FunderNewHouseCard({
   return (
     <article
       className={cn(
-        'relative min-w-0 overflow-hidden rounded-lg border border-border bg-card shadow-sm transition-[border-color,box-shadow]',
+        'relative my-3 min-w-0 overflow-hidden rounded-lg border border-border bg-card shadow-sm transition-[border-color,box-shadow] sm:my-0',
         'hover:shadow-md',
         selected && 'border-primary ring-1 ring-primary',
       )}
