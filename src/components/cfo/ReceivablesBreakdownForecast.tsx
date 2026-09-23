@@ -34,19 +34,40 @@ const ALL_PRODUCTS = '__all__';
 const ALL_CATEGORIES = '__all__';
 const TENANT_CATEGORY_LABEL = 'Tenant Products & Services';
 const AGENT_CATEGORY_LABEL = 'Agent Products & Services';
+const LANDLORD_CATEGORY_LABEL = 'Landlord Products & Services';
+const PARTNER_CATEGORY_LABEL = 'Partner Products & Services';
 const TENANT_PRODUCTS = [
   { key: 'rent_plan', label: 'Rent Access Plans', projectionAvailable: true },
   { key: 'tenant_service_charge', label: 'Tenant Charges', projectionAvailable: false },
   { key: 'business_advance', label: 'Business Advances', projectionAvailable: false },
 ] as const;
 
+/**
+ * Families that open the same full drill-down sheet the tenant book uses:
+ * one product per row, tap a row to see its outstanding figure, share of the
+ * book and period projection. Never a dropdown.
+ */
+const DRILL_CATEGORY_KEYS = new Set(['agent', 'landlord', 'partner']);
+const DRILL_CATEGORY_LABELS = new Set([
+  AGENT_CATEGORY_LABEL,
+  LANDLORD_CATEGORY_LABEL,
+  PARTNER_CATEGORY_LABEL,
+]);
+
+/** True for every non-tenant family that drills down. */
+function isDrillFamily(key: string, label: string): boolean {
+  return DRILL_CATEGORY_KEYS.has(key) || DRILL_CATEGORY_LABELS.has(label);
+}
+
 export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHeadline?: boolean } = {}) {
   const [openCategory, setOpenCategory] = useState<string | null>(null);
   const [categoryFilter, setCategoryFilter] = useState<string>(ALL_CATEGORIES);
   const [productFilter, setProductFilter] = useState<string>(ALL_PRODUCTS);
   const [tenantModalOpen, setTenantModalOpen] = useState(false);
-  const [agentModalOpen, setAgentModalOpen] = useState(false);
-  const [selectedAgentProductKey, setSelectedAgentProductKey] = useState<string | null>(null);
+  /** Which non-tenant family sheet is open, by category key. */
+  const [drillCategoryKey, setDrillCategoryKey] = useState<string | null>(null);
+  /** The product row selected inside each family sheet. */
+  const [drillProductKeys, setDrillProductKeys] = useState<Record<string, string | null>>({});
   const total = useReceivablesTotal();
   const breakdown = useReceivablesBreakdown();
 
