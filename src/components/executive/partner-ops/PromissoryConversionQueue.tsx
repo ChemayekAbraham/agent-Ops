@@ -589,6 +589,13 @@ export function PromissoryConversionQueue() {
                   never changed.
                 </p>
 
+                <PromissoryOpsActionDialog
+                  action={action}
+                  note={target}
+                  onClose={() => { setAction(null); setTarget(null); }}
+                />
+
+
               </>
             )}
           </>
