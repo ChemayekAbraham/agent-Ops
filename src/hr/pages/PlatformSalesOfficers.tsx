@@ -1155,6 +1155,11 @@ export default function PlatformSalesOfficersPage() {
         )}
 
         <p className="text-xs text-muted-foreground">
+          Notes are counted on the day they were created. The partner dashboard counts only activated
+          notes, on the day they were approved, so the two will differ for any given window. Promised
+          is the face value of the notes; Money deployed is what funders actually put in.
+        </p>
+        <p className="text-xs text-muted-foreground">
           Money deployed is what the funder put in. Commission base is the amount commission was
           calculated on, capped at the note's promised amount. Pre-enrol counts notes and conversions
           dated before the officer's assignment start and is excluded from the ranked total.
