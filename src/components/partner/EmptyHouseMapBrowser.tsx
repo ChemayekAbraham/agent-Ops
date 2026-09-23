@@ -242,6 +242,22 @@ export function EmptyHouseMapBrowser({
   const housesInView = cellsQuery.data?.housesInView ?? 0;
   const cellSize = cellsQuery.data?.cellSize ?? 0;
 
+  // When a keyword finds houses, frame them on the map once per search term so
+  // the funder sees the matches without hunting for them.
+  const lastSearchFitRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!trimmedSearch) {
+      lastSearchFitRef.current = null;
+      return;
+    }
+    if (!mapInstance || cellsQuery.isFetching) return;
+    if (lastSearchFitRef.current === trimmedSearch) return;
+    lastSearchFitRef.current = trimmedSearch;
+    if (cells.length === 0) return;
+    const bounds = L.latLngBounds(cells.map((cell) => [cell.latitude, cell.longitude] as [number, number]));
+    mapInstance.fitBounds(bounds.pad(0.15), { padding: [48, 48], maxZoom: 13 });
+  }, [mapInstance, trimmedSearch, cells, cellsQuery.isFetching]);
+
   /**
    * Optional density view: tints each grid cell by how many empty houses it
    * holds, so a funder can read where the opportunities are across Africa
