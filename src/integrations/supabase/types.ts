@@ -62696,6 +62696,7 @@ export type Database = {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
       }
+      promissory_ops_analytics: { Args: { p_days?: number }; Returns: Json }
       promissory_ops_assignees: {
         Args: never
         Returns: {

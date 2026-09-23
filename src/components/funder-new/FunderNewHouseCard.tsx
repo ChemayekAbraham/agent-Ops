@@ -1,4 +1,4 @@
-import { Bookmark, Check, Home, Navigation } from 'lucide-react';
+import { Bookmark, Check, Home, Navigation, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { cn } from '@/lib/utils';
@@ -44,7 +44,7 @@ export function FunderNewHouseCard({
   return (
     <article
       className={cn(
-        'relative min-w-0 overflow-hidden rounded-lg border border-border bg-card shadow-sm transition-[border-color,box-shadow]',
+        'relative my-3 min-w-0 overflow-hidden rounded-lg border border-border bg-card shadow-sm transition-[border-color,box-shadow] sm:my-0',
         'hover:shadow-md',
         selected && 'border-primary ring-1 ring-primary',
       )}
@@ -98,9 +98,16 @@ export function FunderNewHouseCard({
           onClick={onSave}
           aria-label={saved ? `Remove ${title} from saved homes` : `Save ${title} for later`}
           aria-pressed={saved}
-          className="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-card/95 text-foreground shadow-sm ring-1 ring-border backdrop-blur focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className={cn(
+            'absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-card/95 text-foreground shadow-sm ring-1 ring-border backdrop-blur transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+            saved && 'border border-emerald-600 bg-emerald-500 text-white ring-emerald-600',
+          )}
         >
-          <Bookmark className={cn('h-4 w-4', saved && 'fill-current text-primary')} aria-hidden />
+          {saved ? (
+            <Check className="h-4 w-4 text-white" aria-hidden />
+          ) : (
+            <Bookmark className="h-4 w-4" aria-hidden />
+          )}
         </button>
       </div>
 
@@ -134,27 +141,31 @@ export function FunderNewHouseCard({
             aria-pressed={saved}
             className={cn(
               'flex h-11 w-11 flex-none items-center justify-center rounded-lg border border-primary bg-transparent text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-              saved && 'text-primary',
+              saved && 'border-emerald-600 bg-emerald-500 text-white hover:bg-emerald-600',
             )}
           >
-            <Bookmark className={cn('h-4 w-4', saved && 'fill-current')} aria-hidden />
+            {saved ? (
+              <Check className="h-4 w-4 text-white" aria-hidden />
+            ) : (
+              <Bookmark className="h-4 w-4" aria-hidden />
+            )}
           </button>
           <Button
             variant="default"
             className={cn(
-              'h-11 flex-1 gap-2 rounded-lg text-sm font-bold shadow-sm',
+              'h-11 flex-1 gap-2 rounded-lg text-sm font-bold shadow-sm transition-colors',
               selected
-                ? 'border border-primary bg-primary/10 text-primary hover:bg-primary/15'
+                ? 'border border-emerald-600 bg-emerald-500 text-white hover:bg-emerald-600'
                 : 'text-primary-foreground',
             )}
             onClick={onSelect}
             aria-pressed={selected}
           >
             {selected ? (
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500">
-                <Check className="h-3.5 w-3.5 text-white" aria-hidden />
-              </span>
-            ) : null}
+              <Check className="h-4 w-4 text-white" aria-hidden />
+            ) : (
+              <Plus className="h-4 w-4" aria-hidden />
+            )}
             {selected ? 'Selected' : 'Select'}
           </Button>
 

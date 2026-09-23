@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, Calculator, Fingerprint, HelpCircle, Home, ListFilter, Loader2, Search, SlidersHorizontal, Wallet, X } from 'lucide-react';
+import { AlertTriangle, Calculator, Fingerprint, HelpCircle, Home, ListFilter, Loader2, SlidersHorizontal, Wallet, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { AppRole, useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
@@ -10,7 +10,6 @@ import { roleToSlug } from '@/lib/roleRoutes';
 import { generateWelileAiId } from '@/lib/welileAiId';
 import { useWalletBalance } from '@/hooks/wallet/useWalletBalance';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -40,7 +39,7 @@ import type {
   FunderNewSort,
 } from '@/components/funder-new/types';
 import { itemAmount, itemId, placeCase, sortLabel, toSelectionItem } from '@/components/funder-new/utils';
-import { ROAD_TIME_UNAVAILABLE_REASON, straightLineDistance } from '@/components/funder-new/distance';
+import { straightLineDistance } from '@/components/funder-new/distance';
 import { itemCoordinates } from '@/components/funder-new/utils';
 import { FunderNewFilterDrawer } from '@/components/funder-new/FunderNewFilterDrawer';
 
@@ -414,19 +413,6 @@ export default function FunderDashboardNew() {
         {/* Compact filters + calculator, directly under the map */}
         <section className="space-y-3">
           <div className="flex flex-wrap gap-2 rounded-2xl border bg-card p-2.5 shadow-sm sm:p-3">
-            <label className="relative min-w-0 flex-1 basis-full sm:basis-64">
-              <span className="sr-only">Search homes</span>
-              <Search
-                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-                aria-hidden
-              />
-              <Input
-                value={searchInput}
-                onChange={(event) => setSearchInput(event.target.value)}
-                placeholder="Search area or house type"
-                className="h-11 rounded-xl pl-9 text-sm"
-              />
-            </label>
 
             <Button
               variant="outline"
@@ -584,7 +570,9 @@ export default function FunderDashboardNew() {
               ) : null}
 
               {deviceOrigin ? (
-                <p className="text-center text-xs text-muted-foreground">{ROAD_TIME_UNAVAILABLE_REASON}</p>
+                <p className="text-center text-xs text-muted-foreground">
+                  Building Africa's <span className="text-primary">financial identity </span>infrastructure.
+                </p>
               ) : null}
             </div>
           )}

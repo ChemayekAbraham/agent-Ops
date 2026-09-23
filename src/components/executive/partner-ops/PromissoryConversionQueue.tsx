@@ -13,12 +13,20 @@ import {
   type OpsActionTarget,
 } from './PromissoryOpsActionDialog';
 import {
+  downloadQueueCsv,
+  downloadQueuePdf,
+  type QueueExportRow,
+} from '@/lib/promissoryQueueExport';
+import { toast } from 'sonner';
+import {
   AlertTriangle,
   ArrowUpDown,
   BellOff,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  FileDown,
+  FileText,
   Flame,
   ListOrdered,
   Phone,
@@ -133,12 +141,29 @@ export function PromissoryConversionQueue() {
   const [view, setView] = useState<View>('working');
   const [action, setAction] = useState<OpsAction | null>(null);
   const [target, setTarget] = useState<OpsActionTarget | null>(null);
+  const [exporting, setExporting] = useState<'csv' | 'pdf' | null>(null);
 
   const { data: myId } = useQuery({
     queryKey: ['promissory-ops-me'],
     staleTime: Infinity,
     queryFn: async () => (await supabase.auth.getUser()).data.user?.id ?? null,
   });
+
+  const { data: myName = '' } = useQuery({
+    queryKey: ['promissory-ops-me-name', myId],
+    enabled: !!myId,
+    staleTime: Infinity,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', myId as string)
+        .maybeSingle();
+      return (data as any)?.full_name || '';
+    },
+  });
+
+
 
 
 
@@ -293,6 +318,57 @@ export function PromissoryConversionQueue() {
     });
   }, [ranked, tierFilter, search, agentNames, view, myId]);
 
+  // Export exactly what is on screen: the current view + tier filter + search,
+  // in the current sort order.
+  const exportRows = useMemo<QueueExportRow[]>(() => visible.map((n, idx) => ({
+    rank: idx + 1,
+    partner_name: n.partner_name || 'Unnamed partner',
+    phone_number: n.phone_number,
+    agent_name: agentNames[n.agent_id] || 'Unknown',
+    amount: Number(n.amount || 0),
+    daysOverdue: n.daysOverdue,
+    fulfilment_due_on: n.fulfilment_due_on,
+    recorded_on: n.recorded_on,
+    score: n.score,
+    tierLabel: TIERS[n.tier].label,
+    assigned_owner: n.isResolved
+      ? ''
+      : n.ops?.assigned_to
+        ? (n.ops.assigned_to === myId ? 'Me' : n.ops.assigned_to_name || 'Assigned')
+        : '',
+    last_contact: n.ops?.last_contact_at
+      ? `${new Date(n.ops.last_contact_at).toLocaleDateString('en-GB')}${n.ops.last_contact_channel ? ` by ${n.ops.last_contact_channel}` : ''}`
+      : '',
+    snoozed_until: n.isSnoozed ? n.ops?.snoozed_until ?? null : null,
+    resolution: n.isResolved ? n.ops?.resolution ?? null : null,
+  })), [visible, agentNames, myId]);
+
+  const doExport = async (kind: 'csv' | 'pdf') => {
+    if (!exportRows.length) {
+      toast.error('Nothing to export — the current filters match no promises.');
+      return;
+    }
+    setExporting(kind);
+    try {
+      if (kind === 'csv') {
+        downloadQueueCsv(exportRows);
+      } else {
+        await downloadQueuePdf(exportRows, {
+          viewLabel: VIEWS.find(([v]) => v === view)?.[1] || view,
+          tierLabel: tierFilter === 'all' ? 'All tiers' : TIERS[tierFilter].label,
+          sortLabel: sortBy === 'score' ? 'Priority' : sortBy === 'amount' ? 'Amount' : 'Days late',
+          search: search.trim(),
+          generatedBy: myName,
+        });
+      }
+      toast.success(`${kind.toUpperCase()} exported — ${exportRows.length} promises.`);
+    } catch (e: any) {
+      toast.error(e?.message || 'Export failed.');
+    } finally {
+      setExporting(null);
+    }
+  };
+
   const act = (a: OpsAction, n: RankedNote) => {
     setTarget({
       id: n.id,
@@ -436,6 +512,31 @@ export function PromissoryConversionQueue() {
                         {label}
                       </Button>
                     ))}
+                  </div>
+
+                  <div className="flex gap-1 ml-auto">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-[11px] px-2"
+                      disabled={exporting !== null}
+                      onClick={() => doExport('csv')}
+                    >
+                      <FileDown className="h-3 w-3 mr-1" />
+                      {exporting === 'csv' ? 'Exporting…' : 'CSV'}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-[11px] px-2"
+                      disabled={exporting !== null}
+                      onClick={() => doExport('pdf')}
+                    >
+                      <FileText className="h-3 w-3 mr-1" />
+                      {exporting === 'pdf' ? 'Exporting…' : 'PDF'}
+                    </Button>
                   </div>
                 </div>
 
