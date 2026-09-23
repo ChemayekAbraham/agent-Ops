@@ -51,6 +51,13 @@ interface AgentLandlordPayoutDialogProps {
 
 type Step = 'form' | 'otp' | 'progress';
 
+function normalizeLandlordPhone(phone?: string | null): string {
+  const digits = (phone || '').replace(/\D/g, '');
+  if (digits.startsWith('256') && digits.length === 12) return `0${digits.slice(3)}`;
+  if (digits.length === 9) return `0${digits}`;
+  return digits;
+}
+
 export function AgentLandlordPayoutDialog({ open, onOpenChange, property, onSuccess }: AgentLandlordPayoutDialogProps) {
   const { user } = useAuth();
   const locGate = useRequireContactLocation(property?.id ?? null, 'landlord', property?.name ?? null);
@@ -64,7 +71,12 @@ export function AgentLandlordPayoutDialog({ open, onOpenChange, property, onSucc
   // A blank prefill here once let an agent type in a number, which would
   // misdirect a real payout.
   const landlordVerified = property?.verification_status === 'verified';
-  const landlordPhone = (landlordVerified ? property?.verified_mobile_money_number : '')?.trim() ?? '';
+  const landlordPhone = (property?.mobile_money_number || property?.phone || '').trim();
+  const approvedPhone = (property?.verified_mobile_money_number || '').trim();
+  const payoutNumberApproved =
+    landlordVerified &&
+    !!landlordPhone &&
+    normalizeLandlordPhone(landlordPhone) === normalizeLandlordPhone(approvedPhone);
   const [tenantName, setTenantName] = useState('');
   const [tenantPhone, setTenantPhone] = useState('');
   const [amount, setAmount] = useState('');
@@ -125,8 +137,9 @@ export function AgentLandlordPayoutDialog({ open, onOpenChange, property, onSucc
 
   const validateForm = (): string | null => {
     if (!landlordName.trim()) return 'Landlord name is required';
-    if (!landlordPhone) return 'Landlord Ops has not approved a payout number for this landlord yet — ask them to (re-)verify before paying.';
-    if (!/^\+?\d{9,15}$/.test(landlordPhone.replace(/\s|-/g, ''))) return 'The Landlord-Ops-approved number looks invalid — ask them to re-verify with a valid number.';
+    if (!landlordPhone) return 'This landlord has no mobile money number on file — ask Landlord Ops to add and verify it before paying.';
+    if (!/^\+?\d{9,15}$/.test(landlordPhone.replace(/\s|-/g, ''))) return 'The landlord number on file looks invalid — ask Landlord Ops to correct and verify it.';
+    if (!payoutNumberApproved) return 'The landlord number on file has changed since approval — Landlord Ops must verify the current number before paying.';
     if (!tenantName.trim()) return 'Tenant name is required';
     if (!/^\+?\d{9,15}$/.test(tenantPhone.replace(/\s|-/g, ''))) return 'Invalid tenant phone';
     const amt = parseFloat(amount);
@@ -306,7 +319,7 @@ export function AgentLandlordPayoutDialog({ open, onOpenChange, property, onSucc
                 </div>
               </div>
 
-              <Button onClick={handleSendOtp} className="w-full h-12 rounded-xl gap-2" disabled={otpLoading || !landlordPhone}>
+              <Button onClick={handleSendOtp} className="w-full h-12 rounded-xl gap-2" disabled={otpLoading || !payoutNumberApproved}>
                 {otpLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
                 Send OTP to Landlord
               </Button>

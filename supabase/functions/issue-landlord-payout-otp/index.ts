@@ -437,7 +437,7 @@ Deno.serve(async (req) => {
     // this endpoint.
     const { data: landlordRow, error: landlordErr } = await admin
       .from("landlords")
-      .select("verified_mobile_money_number, verification_status")
+      .select("phone, mobile_money_number, verified_mobile_money_number, verification_status")
       .eq("id", landlord_id)
       .maybeSingle();
     if (landlordErr) {
@@ -446,12 +446,22 @@ Deno.serve(async (req) => {
     if (landlordRow?.verification_status !== "verified") {
       return json({ error: "This landlord is not verified by Landlord Ops. Verification is required before any payout." }, 400);
     }
-    const resolvedPhone = (landlordRow?.verified_mobile_money_number || "").trim();
+    const resolvedPhone = (landlordRow?.mobile_money_number || landlordRow?.phone || "").trim();
+    const approvedPhone = (landlordRow?.verified_mobile_money_number || "").trim();
     if (!resolvedPhone) {
-      return json({ error: "Landlord Ops has not approved a payout number for this landlord yet. Ask them to (re-)verify the landlord." }, 400);
+      return json({ error: "This landlord has no mobile money number on file. Ask Landlord Ops to add and verify it." }, 400);
     }
     if (!/^\+?\d{9,15}$/.test(resolvedPhone.replace(/\s|-/g, ""))) {
-      return json({ error: "The Landlord-Ops-approved number is invalid. Ask them to re-verify with a valid number." }, 400);
+      return json({ error: "The landlord number on file is invalid. Ask Landlord Ops to correct and verify it." }, 400);
+    }
+    const normalizePhone = (value: string) => {
+      const digits = value.replace(/\D/g, "");
+      if (digits.startsWith("256") && digits.length === 12) return `0${digits.slice(3)}`;
+      if (digits.length === 9) return `0${digits}`;
+      return digits;
+    };
+    if (!approvedPhone || normalizePhone(resolvedPhone) !== normalizePhone(approvedPhone)) {
+      return json({ error: "The landlord number on file has changed since approval. Landlord Ops must verify the current number before an OTP can be sent." }, 400);
     }
 
     // Eligibility check (float, cutoff, landlord status) — same gate as final insert
