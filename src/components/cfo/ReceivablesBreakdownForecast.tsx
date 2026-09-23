@@ -322,8 +322,15 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
               .map(({ cat, products }) => {
               const catOpen = openCategory === cat.key;
               const isTenantCat = cat.label === TENANT_CATEGORY_LABEL;
-              const isAgentCat = cat.label === AGENT_CATEGORY_LABEL || cat.key === 'agent';
-              const isDrillCat = isTenantCat || isAgentCat;
+              const isFamilyCat = !isTenantCat && isDrillFamily(cat.key, cat.label);
+              const isDrillCat = isTenantCat || isFamilyCat;
+              const familyProducts = isFamilyCat ? cat.products : [];
+              const selectedFamilyProduct =
+                familyProducts.find((p) => p.key === drillProductKeys[cat.key]) ?? familyProducts[0];
+              const selectedFamilyShare =
+                totalReceivables > 0 && selectedFamilyProduct
+                  ? (selectedFamilyProduct.outstanding / totalReceivables) * 100
+                  : 0;
               const shownOutstanding =
                 productFilter === ALL_PRODUCTS
                   ? cat.outstanding
@@ -339,7 +346,13 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
                 <button
                   type="button"
                   onClick={isDrillCat ? undefined : () => setOpenCategory(catOpen ? null : cat.key)}
-                  aria-expanded={isDrillCat ? (isTenantCat ? tenantModalOpen : agentModalOpen) : catOpen}
+                  aria-expanded={
+                    isDrillCat
+                      ? isTenantCat
+                        ? tenantModalOpen
+                        : drillCategoryKey === cat.key
+                      : catOpen
+                  }
                   className="w-full flex items-center justify-between gap-2 px-3 py-2.5 min-h-11 text-left hover:bg-muted/40 rounded-xl transition-colors"
                 >
                   <span className="flex items-center gap-1.5 min-w-0">
