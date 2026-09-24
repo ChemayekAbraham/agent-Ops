@@ -53,6 +53,7 @@ import { template as redirectMonitorAlertTemplate } from './redirect-monitor-ale
 import { template as smartphoneOrderReceiptTemplate } from './smartphone-order-receipt.tsx'
 import { template as portfolioRenewalApologyTemplate } from './portfolio-renewal-apology.tsx'
 import { template as partnerPortfolioInviteTemplate } from './partner-portfolio-invite.tsx'
+import { template as shareholderSharesCreatedTemplate } from './shareholder-shares-created.tsx'
 import { template as performanceAssessmentReportTemplate } from './performance-assessment-report.tsx'
 import { template as boardTechnologyMemoTemplate } from './board-technology-memo.tsx'
 import { template as proxyAgentOnboardedTemplate } from './proxy-agent-onboarded.tsx'
@@ -115,6 +116,7 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'smartphone-order-receipt': smartphoneOrderReceiptTemplate,
   'portfolio-renewal-apology': portfolioRenewalApologyTemplate,
   'partner-portfolio-invite': partnerPortfolioInviteTemplate,
+  'shareholder-shares-created': shareholderSharesCreatedTemplate,
   'performance-assessment-report': performanceAssessmentReportTemplate,
   'board-technology-memo': boardTechnologyMemoTemplate,
   'proxy-agent-onboarded': proxyAgentOnboardedTemplate,
