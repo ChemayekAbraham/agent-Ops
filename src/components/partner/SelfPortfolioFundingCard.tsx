@@ -1572,7 +1572,7 @@ export function SelfPortfolioFundingCard({
           <Wallet className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
           <p className="text-sm font-semibold">Nothing awaiting money right now</p>
           <p className="text-xs text-muted-foreground mt-1">
-            Rent requests appear here after approval, and verified empty houses appear as soon as they are listed.
+            Rent requests appear here after approval.
           </p>
         </Card>
       )}
