@@ -1,4 +1,4 @@
-import { Bookmark, Check, Home, Navigation, Plus } from 'lucide-react';
+import { Bookmark, Check, HandCoins, Home, Navigation, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { cn } from '@/lib/utils';
@@ -164,9 +164,9 @@ export function FunderNewHouseCard({
             {selected ? (
               <Check className="h-4 w-4 text-white" aria-hidden />
             ) : (
-              <Plus className="h-4 w-4" aria-hidden />
+              <HandCoins className="h-4 w-4" aria-hidden />
             )}
-            {selected ? 'Selected' : 'Select'}
+            {selected ? 'Selected' : 'Fund this House'}
           </Button>
 
         </div>
