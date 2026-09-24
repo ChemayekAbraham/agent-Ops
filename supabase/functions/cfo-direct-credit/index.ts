@@ -654,6 +654,49 @@ Deno.serve(async (req) => {
       }
     }
 
+    // ── PR A: block double-credit against parked unmatched MoMo claims ──
+    // If this gmail row is linked to a deposit_requests row with
+    // pending_claim + awaiting_otp, refuse. Credit only after OTP claim (PR C)
+    // or after FinOps cancels the park.
+    if (op === "credit" && gmailTxId) {
+      const { data: gmailLink } = await adminClient
+        .from("gmail_transactions")
+        .select("id, linked_deposit_request_id")
+        .eq("id", gmailTxId)
+        .maybeSingle();
+      const linkedId = (gmailLink as any)?.linked_deposit_request_id as string | null;
+      if (linkedId) {
+        const { data: linkedDep } = await adminClient
+          .from("deposit_requests")
+          .select("id, status, auto_match_audit")
+          .eq("id", linkedId)
+          .maybeSingle();
+        const audit = ((linkedDep as any)?.auto_match_audit ?? {}) as {
+          pending_claim?: boolean;
+          claim_state?: string;
+        };
+        const terminal = ["rejected", "cancelled", "failed", "reversed"];
+        const status = String((linkedDep as any)?.status ?? "");
+        if (
+          linkedDep
+          && !terminal.includes(status)
+          && audit.pending_claim === true
+          && audit.claim_state !== "claimed"
+        ) {
+          console.warn("[cfo-direct-credit] PENDING_CLAIM blocked", { gmailTxId, linkedId });
+          return new Response(JSON.stringify({
+            error: "PENDING_CLAIM: this email is linked to a parked unmatched MoMo deposit awaiting OTP claim. Do not route/credit — cancel the park first or wait for claim.",
+            reason: "PENDING_CLAIM",
+            deposit_request_id: linkedId,
+            claim_state: audit.claim_state ?? "awaiting_otp",
+          }), {
+            status: 409,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
+    }
+
     // ── Server-side idempotency guard for email-origin credits ────────────
     // For any credit that carries a gmail_message_id or email_tid we INSERT
     // a row into email_credit_idempotency *before* posting to the ledger.

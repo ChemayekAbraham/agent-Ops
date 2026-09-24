@@ -40,6 +40,7 @@ const TERMINAL = new Set(["rejected", "cancelled", "failed", "reversed"]);
 type Reason =
   | "OK"
   | "DUPLICATE_DEPOSIT"
+  | "PENDING_CLAIM"
   | "DUPLICATE_LEDGER_LEG"
   | "AMOUNT_MISMATCH"
   | "REFERENCE_MISSING"
@@ -47,7 +48,7 @@ type Reason =
 
 interface CreditedDepositOut {
   deposit_id: string;
-  user_id: string;
+  user_id: string | null;
   user_name: string;
   user_phone: string;
   amount: number;
@@ -55,6 +56,8 @@ interface CreditedDepositOut {
   auto_approved: boolean | null;
   deposit_purpose: string | null;
   credited_at: string | null;
+  pending_claim?: boolean;
+  claim_state?: string | null;
 }
 
 interface LedgerLegOut {
@@ -185,24 +188,31 @@ Deno.serve(async (req) => {
     if (depIds.size) {
       const { data: deps } = await adminClient
         .from("deposit_requests")
-        .select("id, user_id, amount, status, auto_approved, deposit_purpose, created_at, updated_at")
+        .select("id, user_id, amount, status, auto_approved, deposit_purpose, created_at, updated_at, auto_match_audit")
         .in("id", Array.from(depIds));
       const candidates = (deps ?? []).filter((d: any) => !TERMINAL.has(d.status));
       if (candidates.length) {
         const pick: any = candidates[0];
-        const { data: prof } = await adminClient
-          .from("profiles").select("id, full_name, phone").eq("id", pick.user_id).maybeSingle();
+        let prof: { full_name?: string | null; phone?: string | null } | null = null;
+        if (pick.user_id) {
+          const { data: p } = await adminClient
+            .from("profiles").select("id, full_name, phone").eq("id", pick.user_id).maybeSingle();
+          prof = p;
+        }
+        const audit = (pick.auto_match_audit ?? {}) as { pending_claim?: boolean; claim_state?: string };
         activeDeposit = {
           deposit_id: pick.id,
           user_id: pick.user_id,
-          user_name: (prof?.full_name as string) ?? "Unknown user",
+          user_name: (prof?.full_name as string) ?? (audit.pending_claim ? "Pending claim (unmatched MoMo)" : "Unknown user"),
           user_phone: (prof?.phone as string) ?? "",
           amount: Number(pick.amount) || 0,
           status: pick.status,
           auto_approved: pick.auto_approved ?? null,
           deposit_purpose: pick.deposit_purpose ?? null,
           credited_at: (pick.updated_at as string) ?? (pick.created_at as string) ?? null,
-        };
+          pending_claim: audit.pending_claim === true,
+          claim_state: audit.claim_state ?? null,
+        } as CreditedDepositOut;
       }
     }
 
@@ -246,7 +256,13 @@ Deno.serve(async (req) => {
     let reason: Reason = "OK";
     let message = "No prior credit found — safe to credit.";
 
-    if (activeDeposit && targetUserId && activeDeposit.user_id === targetUserId) {
+    const pendingClaimActive = !!(activeDeposit as any)?.pending_claim
+      && (activeDeposit as any)?.claim_state !== "claimed";
+    if (pendingClaimActive) {
+      safe = false;
+      reason = "PENDING_CLAIM";
+      message = `Deposit ${activeDeposit!.deposit_id} is parked as an unmatched MoMo pending claim (awaiting OTP). Do not route/credit — wait for claim or cancel the park in FinOps.`;
+    } else if (activeDeposit && targetUserId && activeDeposit.user_id === targetUserId) {
       safe = false;
       reason = "DUPLICATE_DEPOSIT";
       message = `Deposit ${activeDeposit.deposit_id} already credited UGX ${Math.round(activeDeposit.amount).toLocaleString()} to ${activeDeposit.user_name} (status: ${activeDeposit.status}).`;
