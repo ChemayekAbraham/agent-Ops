@@ -174,6 +174,23 @@ export function FunderHouseListingsSection() {
         onTogglePick={(house) => toggleSelect('empty', house as FunderNewEmptyHouse)}
         isPartner
         remaining={availableBalance ?? undefined}
+        onFund={(house) => {
+          const cost = Number(house.monthly_rent || 0);
+          const avail = availableBalance ?? 0;
+          if (avail >= cost) {
+            // Enough balance: select the house and open the funding review.
+            if (!selectedItems.some((i) => i.category === 'empty' && i.id === house.house_id)) {
+              toggleSelect('empty', house as FunderNewEmptyHouse);
+            }
+            setDetailHouse(null);
+            setReviewOpen(true);
+          } else {
+            // Not enough balance: open the deposit sheet with the exact shortfall.
+            toast.info(`Not enough balance. Deposit ${formatDynamic(cost - avail)} to fund this house.`);
+            setDetailHouse(null);
+            setTopUpAmount(Math.ceil(cost - avail));
+          }
+        }}
       />
       <SelfPortfolioPlanDetailSheet
         plan={detailPlan}
