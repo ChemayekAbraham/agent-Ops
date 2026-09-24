@@ -553,14 +553,14 @@ export default function PayrollEnrollment() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-6 p-4 md:p-6">
+    <div className="print-root mx-auto w-full max-w-7xl space-y-6 p-4 md:p-6">
       <div className="hidden print:block print:mb-4">
         <p className="text-sm font-semibold">Welile Technologies (U) Ltd</p>
         <h2 className="text-lg font-bold">Payroll enrollment sheet</h2>
         <p className="text-xs">{new Date().toLocaleDateString('en-GB')}</p>
         <p className="text-xs">Prepared for review. Not a payroll run.</p>
       </div>
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="no-print flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Payroll enrollment</h1>
           <p className="text-sm text-muted-foreground">
@@ -645,7 +645,7 @@ export default function PayrollEnrollment() {
               <Loader2 className="h-4 w-4 animate-spin" /> Loading enrollment…
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto print:overflow-visible">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -660,11 +660,11 @@ export default function PayrollEnrollment() {
                     <TableHead className="text-right">Deductions</TableHead>
                     <TableHead className="text-right">Gross on record</TableHead>
                     <TableHead>Effective from</TableHead>
-                    <TableHead>PAYE</TableHead>
-                    <TableHead>NSSF</TableHead>
-                    <TableHead>LST</TableHead>
-                    <TableHead>Basis</TableHead>
-                    <TableHead>Statutory IDs</TableHead>
+                    <TableHead className="print-hide">PAYE</TableHead>
+                    <TableHead className="print-hide">NSSF</TableHead>
+                    <TableHead className="print-hide">LST</TableHead>
+                    <TableHead className="print-hide">Basis</TableHead>
+                    <TableHead className="print-hide">Statutory IDs</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -686,6 +686,9 @@ export default function PayrollEnrollment() {
                         <TableCell>{row.department || '—'}</TableCell>
                         <TableCell>{row.position || '—'}</TableCell>
                         <TableCell>
+                          <span className="hidden text-xs print:inline">
+                            {row.employmentType ?? 'employee'}
+                          </span>
                           <Select
                             value={row.employmentType ?? 'employee'}
                             onValueChange={(value) =>
@@ -797,7 +800,7 @@ export default function PayrollEnrollment() {
                         <TableCell className="text-xs text-muted-foreground">
                           {formatDate(row.basicEffectiveFrom)}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="print-hide">
                           <Checkbox
                             checked={row.payeApplicable}
                             onCheckedChange={(value) =>
@@ -805,7 +808,7 @@ export default function PayrollEnrollment() {
                             }
                           />
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="print-hide">
                           <Checkbox
                             checked={row.nssfApplicable}
                             onCheckedChange={(value) =>
@@ -813,7 +816,7 @@ export default function PayrollEnrollment() {
                             }
                           />
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="print-hide">
                           <Checkbox
                             checked={row.lstApplicable}
                             onCheckedChange={(value) =>
@@ -822,7 +825,7 @@ export default function PayrollEnrollment() {
                           />
                         </TableCell>
                         <TableCell
-                          className="max-w-[180px] truncate text-xs text-muted-foreground"
+                          className="print-hide max-w-[180px] truncate text-xs text-muted-foreground"
                           title={row.exemptionBasis ?? ''}
                         >
                           {row.exemptionBasis || '—'}
@@ -897,7 +900,7 @@ export default function PayrollEnrollment() {
                     ))
                   )}
                 </TableBody>
-                <TableFooter className="sticky bottom-0 border-t-2 bg-muted">
+                <TableFooter className="sticky bottom-0 border-t-2 bg-muted print:static">
                   <TableRow className="font-semibold hover:bg-transparent">
                     <TableCell colSpan={5}>{totals.people} people included</TableCell>
                     <TableCell className="text-right font-mono tabular-nums">
