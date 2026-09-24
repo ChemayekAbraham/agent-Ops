@@ -60,6 +60,10 @@ export function CommandStrip() {
         <span className="font-semibold">{h.now}</span> now · {h.next} next · {h.later} later
         {cap != null && <span className="block text-xs text-muted-foreground">Cap {cap}</span>}
       </Tile>
+      <Tile title="SoL gap" tone={gapTone(solMedian)}>
+        <span className="font-semibold">{fmtGap(solMedian)}</span>
+        <span className="block text-xs text-muted-foreground">median of {solList.length} Now missions</span>
+      </Tile>
       <Tile title="Pipeline shape" tone={stageCount.prove === 0 && stageCount.build >= 3 ? 'break' : 'neutral'}>
         <span className="text-xs">{STAGES.map((s) => `${STAGE_LABEL[s]} ${stageCount[s]}`).join(' · ')}</span>
       </Tile>
