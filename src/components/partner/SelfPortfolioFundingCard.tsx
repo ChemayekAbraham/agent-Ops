@@ -1583,6 +1583,7 @@ export function SelfPortfolioFundingCard({
 
       <div className="grid gap-3 sm:grid-cols-2">
       {pageItems.map((item) => {
+        if (item.kind !== 'plan') return null;
         return (
           <div key={`plan-${item.id}`} className="space-y-3 sm:col-span-2">
             {(() => {
