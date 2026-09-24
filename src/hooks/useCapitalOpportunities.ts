@@ -36,7 +36,52 @@ export interface PortfolioRecord {
   roi_mode: string | null;
   next_roi_date: string | null;
   created_at: string | null;
-  funded_at: string | null; // mapped from created_at
+  /** Actual running start: the ORIGINAL portfolio's start after following the
+   *  renewal chain (locked_from_portfolio_id) to its root, preferring
+   *  cfo_verified_at (money confirmed working) over created_at. */
+  funded_at: string | null;
+}
+
+/** Columns needed to resolve the running start of a portfolio, including
+ *  walking renewal chains via locked_from_portfolio_id. */
+const PORTFOLIO_CHAIN_COLUMNS = 'id, created_at, cfo_verified_at, locked_from_portfolio_id';
+
+/** Walk locked_from_portfolio_id chains so a renewed portfolio reports the
+ *  date its money ORIGINALLY started working, not the renewal row's
+ *  created_at. Returns a map of portfolio id -> running start ISO string. */
+async function resolveRunningStarts(rows: Array<{ id: string; created_at: string | null; cfo_verified_at: string | null; locked_from_portfolio_id: string | null }>): Promise<Map<string, string>> {
+  const byId = new Map(rows.map(r => [r.id, r]));
+  // Fetch ancestors referenced by renewal chains (any status — matured/locked
+  // rows are excluded from the visible lists but are part of the chain).
+  let frontier = rows
+    .map(r => r.locked_from_portfolio_id)
+    .filter((id): id is string => !!id && !byId.has(id));
+  for (let depth = 0; depth < 10 && frontier.length > 0; depth++) {
+    const { data } = await supabase
+      .from('investor_portfolios')
+      .select(PORTFOLIO_CHAIN_COLUMNS)
+      .in('id', frontier);
+    frontier = [];
+    for (const p of data || []) {
+      if (byId.has(p.id)) continue;
+      byId.set(p.id, p as any);
+      if (p.locked_from_portfolio_id && !byId.has(p.locked_from_portfolio_id)) {
+        frontier.push(p.locked_from_portfolio_id);
+      }
+    }
+  }
+  const result = new Map<string, string>();
+  for (const row of rows) {
+    let current = row as any;
+    const visited = new Set<string>([row.id]);
+    while (current.locked_from_portfolio_id && byId.has(current.locked_from_portfolio_id) && !visited.has(current.locked_from_portfolio_id)) {
+      current = byId.get(current.locked_from_portfolio_id);
+      visited.add(current.id);
+    }
+    const start = current.cfo_verified_at || current.created_at;
+    if (start) result.set(row.id, start);
+  }
+  return result;
 }
 
 export function useCapitalOpportunities() {
