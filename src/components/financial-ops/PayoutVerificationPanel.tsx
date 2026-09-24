@@ -1235,12 +1235,21 @@ function PayoutNameCheckCard({
           <Smartphone className="h-3.5 w-3.5" aria-hidden="true" /> Step 1 — name check on the number
         </p>
         {check && (
-          <span className="text-[10px] font-bold uppercase tracking-widest">
+          <span
+            role={check.outcome === 'match' ? undefined : 'alert'}
+            className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-widest ${
+              check.outcome === 'match'
+                ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400'
+                : check.outcome === 'partial'
+                  ? 'animate-pulse bg-amber-500 text-white'
+                  : 'animate-pulse bg-destructive text-destructive-foreground'
+            }`}
+          >
             {check.outcome === 'match'
               ? 'Same person'
               : check.outcome === 'partial'
-                ? 'Partly agrees'
-                : 'Different name'}
+                ? '⚠ Partly agrees'
+                : '⚠ Different name'}
           </span>
         )}
       </div>
@@ -1325,9 +1334,29 @@ function PayoutNameCheckCard({
             </p>
           </div>
           {check.outcome !== 'match' && (
-            <p role="alert" className="text-sm font-extrabold uppercase tracking-wide text-destructive">
-              These are not clearly the same person. Call the holder first — Verify will ask for a written reason and your confirmation.
-            </p>
+            <div
+              role="alert"
+              className={`animate-pulse rounded-xl border-2 p-3 ${
+                check.outcome === 'partial'
+                  ? 'border-amber-600 bg-amber-500/25'
+                  : 'border-destructive bg-destructive/25'
+              }`}
+            >
+              <p
+                className={`flex items-center gap-1.5 text-sm font-extrabold uppercase tracking-wide ${
+                  check.outcome === 'partial' ? 'text-amber-700 dark:text-amber-400' : 'text-destructive'
+                }`}
+              >
+                <ShieldAlert className="h-5 w-5 shrink-0" aria-hidden="true" />
+                {check.outcome === 'partial'
+                  ? 'Warning: names only partly agree'
+                  : 'Danger: the names are different'}
+              </p>
+              <p className="mt-1 text-sm font-bold text-foreground">
+                These are not clearly the same person. Call the holder first — Verify will ask for a
+                written reason and your confirmation.
+              </p>
+            </div>
           )}
           <Button
             variant="outline"
