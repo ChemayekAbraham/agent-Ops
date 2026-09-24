@@ -109,6 +109,12 @@ function FitBounds({ points }: { points: [number, number][] }) {
       const bounds = L.latLngBounds(points);
       map.fitBounds(bounds, { padding: [40, 40], maxZoom: 15 });
     }
+    // Cancel any in-flight pan/zoom animation before the effect re-runs or the
+    // map unmounts, so Leaflet's async _onZoomTransitionEnd never touches a
+    // pane that's already been torn down (the _leaflet_pos crash).
+    return () => {
+      map.stop();
+    };
   }, [points, map]);
   return null;
 }

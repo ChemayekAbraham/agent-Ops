@@ -67,6 +67,12 @@ function FitBounds({ landlords }: { landlords: Landlord[] }) {
       const bounds = L.latLngBounds(valid.map(l => [l.latitude!, l.longitude!] as [number, number]));
       map.fitBounds(bounds, { padding: [50, 50] });
     }
+    // Cancel any in-flight pan/zoom animation before the effect re-runs or the
+    // sheet closes, so Leaflet's async _onZoomTransitionEnd never touches a
+    // pane that's already been torn down (the _leaflet_pos crash).
+    return () => {
+      map.stop();
+    };
   }, [landlords, map]);
   return null;
 }
