@@ -68,7 +68,7 @@ async function notifyBorrower(
         user_id: loan.borrower_user_id,
         title,
         message,
-        type: status === "deducted" ? "success" : "warning",
+        type: "lending_repayment",
         event_key: eventKey,
         metadata: {
           kind: "lending_repayment_status",
@@ -234,7 +234,7 @@ Deno.serve(async (req) => {
         await notifyBorrower(admin, loan, today, "overdue", 0, outstanding, overdueBefore);
         await logSystemEvent(
           admin,
-          "lending_repayment_overdue",
+          "payment_overdue",
           loan.borrower_user_id,
           "lending_agent_loans",
           loan.id,
