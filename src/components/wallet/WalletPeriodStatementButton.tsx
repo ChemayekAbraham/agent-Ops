@@ -20,6 +20,7 @@ export function WalletPeriodStatementButton() {
   const [from, setFrom] = useState(ymd(subMonths(today, 3)));
   const [to, setTo] = useState(ymd(today));
   const [busy, setBusy] = useState(false);
+  const [fmt, setFmt] = useState<Format>('pdf');
 
   const presets = [
     { label: 'Last 7 days', from: subDays(today, 7) },
@@ -36,14 +37,17 @@ export function WalletPeriodStatementButton() {
     setBusy(true);
     try {
       const st = await loadPeriodStatement(user.id, from, to);
-      const blob = await generatePeriodStatementPdf(st, { name: profile?.full_name || 'Welile user', phone: profile?.phone });
+      const owner = { name: profile?.full_name || 'Welile user', phone: profile?.phone };
+      const blob = fmt === 'pdf'
+        ? await generatePeriodStatementPdf(st, owner)
+        : generatePeriodStatementCsv(st, owner);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `Welile_Wallet_Statement_${from}_to_${to}.pdf`;
+      a.download = `Welile_Wallet_Statement_${from}_to_${to}.${fmt}`;
       document.body.appendChild(a); a.click(); a.remove();
       URL.revokeObjectURL(url);
-      toast.success(`Statement ready: ${st.rows.length} transaction${st.rows.length === 1 ? '' : 's'}`);
+      toast.success(`Statement ready (${fmt.toUpperCase()}): ${st.rows.length} transaction${st.rows.length === 1 ? '' : 's'}`);
       setOpen(false);
     } catch (e: any) {
       console.error('[WalletPeriodStatement]', e);
