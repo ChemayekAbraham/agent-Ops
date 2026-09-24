@@ -64,19 +64,39 @@ export function categoryLabel(category: string, description?: string | null) {
     category.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+export interface StatementReconciliation {
+  /** Balance on the wallet today (authoritative). */
+  currentBalance: number;
+  /** Net of visible transactions after the period end, up to today. */
+  netAfterPeriod: number;
+  afterCount: number;
+  /** Unfiltered period figures (independent of any on-screen filters). */
+  periodIn: number; periodOut: number; periodCount: number;
+  /** Sum of every visible transaction before the period start. */
+  visibleBeforePeriod: number; beforeCount: number;
+  /**
+   * Internal adjustments = today's balance − sum of ALL visible transactions ever.
+   * These are internal corrections / balance anchors that are not listed as
+   * transactions. Derived without reading any hidden record.
+   */
+  internalAdjustments: number;
+}
+
 export interface PeriodStatement {
   from: string; to: string; opening: number; closing: number;
   totalIn: number; totalOut: number; rows: (PeriodRow & { balance: number })[];
+  reconciliation?: StatementReconciliation;
 }
 
 /** from/to are YYYY-MM-DD, inclusive, interpreted in Kampala time (UTC+3). */
 export async function loadPeriodStatement(userId: string, from: string, to: string): Promise<PeriodStatement> {
   const startIso = new Date(`${from}T00:00:00+03:00`).toISOString();
   const endIso = new Date(`${to}T23:59:59.999+03:00`).toISOString();
-  const [rows, after, wallet] = await Promise.all([
+  const [rows, after, before, wallet] = await Promise.all([
     fetchAll(userId, 'id, transaction_date, amount, direction, category, description, reference_id, linked_party, source_table, source_id, classification',
       (q) => q.gte('transaction_date', startIso).lte('transaction_date', endIso)),
     fetchAll(userId, 'id, amount, direction, category, description, classification, source_table', (q) => q.gt('transaction_date', endIso)),
+    fetchAll(userId, 'id, amount, direction, category, description, classification, source_table', (q) => q.lt('transaction_date', startIso)),
     supabase.from('wallets').select('withdrawable_balance, float_balance, balance').eq('user_id', userId).maybeSingle(),
   ]);
 
@@ -100,13 +120,45 @@ export async function loadPeriodStatement(userId: string, from: string, to: stri
     return s + v;
   }, 0);
   const opening = closing - net;
+  const visibleBefore = before.reduce((s, r) => s + signed(r), 0);
 
   let bal = opening;
   const withBal = (rows as PeriodRow[]).map((r) => {
     bal += signed(r);
     return { ...r, amount: Number(r.amount), balance: bal };
   });
-  return { from, to, opening, closing, totalIn, totalOut, rows: withBal };
+  return {
+    from, to, opening, closing, totalIn, totalOut, rows: withBal,
+    reconciliation: {
+      currentBalance: current, netAfterPeriod: netAfter, afterCount: after.length,
+      periodIn: totalIn, periodOut: totalOut, periodCount: rows.length,
+      visibleBeforePeriod: visibleBefore, beforeCount: before.length,
+      internalAdjustments: opening - visibleBefore,
+    },
+  };
+}
+
+const sgn = (n: number) => `${n < 0 ? '−' : '+'} UGX ${Math.abs(Math.round(n)).toLocaleString('en-US')}`;
+
+/** Plain-language reconciliation lines: [label, amount, explanation]. */
+export function reconciliationLines(st: PeriodStatement): [string, string, string][] {
+  const r = st.reconciliation;
+  if (!r) return [];
+  const u = (n: number) => `UGX ${Math.round(n).toLocaleString('en-US')}`;
+  const adj = Math.round(r.internalAdjustments);
+  return [
+    ['1. Wallet balance today', u(r.currentBalance), 'The balance shown on your wallet card right now.'],
+    ['2. Activity after the period', sgn(-r.netAfterPeriod), `Undo ${r.afterCount} transaction(s) dated after ${st.to}.`],
+    ['3. Closing balance', u(st.closing), 'Line 1 plus line 2: your balance at the end of the period.'],
+    ['4. Money in during the period', sgn(-r.periodIn), `Remove ${r.periodCount} period transaction(s): money in…`],
+    ['5. Money out during the period', sgn(r.periodOut), '…and add back money out.'],
+    ['6. Opening balance', u(st.opening), 'Line 3 plus lines 4 and 5: your balance at the start of the period.'],
+    ['7. Listed transactions before the period', u(r.visibleBeforePeriod), `Sum of ${r.beforeCount} earlier transaction(s) shown in your history.`],
+    ['8. Internal adjustments', adj === 0 ? u(0) : sgn(adj),
+      adj === 0
+        ? 'None. Your opening balance equals the sum of your listed transactions.'
+        : 'Line 6 minus line 7. Internal balance corrections made by Welile before this period that are not listed as transactions. They are already inside the opening balance; contact support for details.'],
+  ];
 }
 
 
