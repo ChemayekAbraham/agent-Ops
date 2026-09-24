@@ -1015,9 +1015,10 @@ export function SelfPortfolioFundingCard({
     const plan = plans.find((p) => p.rent_request_id === id);
     const cost = Number(plan?.funding_amount || 0);
     if (cost > remaining) {
-      toast.error(
-        `Not enough operational float. This plan needs ${formatDynamic(cost)} and you have ${formatDynamic(remaining)} left to fund.`,
+      toast.info(
+        `Not enough balance. Deposit ${formatDynamic(cost - remaining)} to fund this plan.`,
       );
+      setTopUpAmount(Math.ceil(cost - remaining));
       return;
     }
     setSelected((prev) => [...prev, id]);
