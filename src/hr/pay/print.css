@@ -92,6 +92,15 @@
     width: auto;
   }
 
+  .print-values {
+    margin: 1.5mm 0 0;
+    font-size: 7.5pt;
+    font-weight: 600;
+    letter-spacing: 1.5pt;
+    text-transform: uppercase;
+    color: #5b21b6;
+  }
+
   .print-company {
     text-align: right;
     font-size: 8pt;
@@ -165,18 +174,19 @@
     border-bottom: 1pt solid #000;
   }
 
-  /* Indices count every column in the markup, including the five hidden ones,
-     because nth-child ignores display. The twelve that print sum to 100%. */
+  /* Indices count every column in the markup, including the five hidden ones
+     (12 to 16), because nth-child ignores display. The twelve that print are
+     1 to 11 and 17, and they sum to exactly 100%. */
   .print-root th:nth-child(1),
-  .print-root td:nth-child(1) { width: 7%; }
+  .print-root td:nth-child(1) { width: 6%; }
   .print-root th:nth-child(2),
-  .print-root td:nth-child(2) { width: 14%; }
+  .print-root td:nth-child(2) { width: 13%; }
   .print-root th:nth-child(3),
-  .print-root td:nth-child(3) { width: 11%; }
+  .print-root td:nth-child(3) { width: 10%; }
   .print-root th:nth-child(4),
-  .print-root td:nth-child(4) { width: 12%; }
+  .print-root td:nth-child(4) { width: 11%; }
   .print-root th:nth-child(5),
-  .print-root td:nth-child(5) { width: 8%; }
+  .print-root td:nth-child(5) { width: 7%; }
   .print-root th:nth-child(6),
   .print-root td:nth-child(6) { width: 9%; text-align: right; }
   .print-root th:nth-child(7),
@@ -188,9 +198,9 @@
   .print-root th:nth-child(10),
   .print-root td:nth-child(10) { width: 9%; text-align: right; }
   .print-root th:nth-child(11),
-  .print-root td:nth-child(11) { width: 9%; }
+  .print-root td:nth-child(11) { width: 8%; }
   .print-root th:nth-child(17),
-  .print-root td:nth-child(17) { width: 0%; }
+  .print-root td:nth-child(17) { width: 6%; }
 
   /* The totals row has to read as the answer, not another row. */
   tfoot td {
