@@ -83,8 +83,8 @@ Deno.serve(async (req) => {
     const invite = await issueShareInvite(admin, row, origin, "1");
 
     await Promise.all([
-      logSystemEvent(admin, "share_onboarding_created", shareholderId!, "share_onboarding_requests", row.id,
-        { reference_id: referenceId, amount: calc.amount, shares: calc.shares, created_by: user.id, emailed: invite.emailed }),
+      logSystemEvent(admin, "account_activated", shareholderId!, "share_onboarding_requests", row.id,
+        { action: "share_onboarding.created", reference_id: referenceId, amount: calc.amount, shares: calc.shares, created_by: user.id, emailed: invite.emailed }),
       admin.from("audit_logs").insert({
         user_id: user.id, action_type: "share_onboarding_created", table_name: "share_onboarding_requests",
         record_id: row.id, reason: `Angel Pool shares created for shareholder (${referenceId})`,

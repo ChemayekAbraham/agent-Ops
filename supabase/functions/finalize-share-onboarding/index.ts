@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
         .eq("id", row.id).in("status", ["awaiting_signature", "submitted"]);
       if (error) throw error;
       await Promise.all([
-        logSystemEvent(admin, "share_onboarding_cancelled", row.shareholder_id, "share_onboarding_requests", row.id, { reason: body.reason }),
+        logSystemEvent(admin, "account_activated", row.shareholder_id, "share_onboarding_requests", row.id, { action: "share_onboarding.cancelled", reason: body.reason }),
         admin.from("audit_logs").insert({ user_id: user.id, action_type: "share_onboarding_cancelled",
           table_name: "share_onboarding_requests", record_id: row.id, reason: body.reason }),
       ]);
@@ -118,7 +118,7 @@ Deno.serve(async (req) => {
     await admin.from("share_onboarding_requests").update({
       status: "completed", company_rep_name: body.repName, company_rep_position: body.repPosition,
       company_rep_signature_data_url: body.repSignature, company_signed_at: txDate, countersigned_by: user.id,
-      pdf_path: upErr ? null : pdfPath, angel_pool_investment_id: inv.id, token_hash: null,
+      pdf_path: upErr ? null : pdfPath, angel_pool_investment_id: inv.id,
     }).eq("id", row.id).eq("status", "submitted");
 
     // Final email with the signed agreement attached (BCC partnership@ is automatic for this template).
@@ -159,8 +159,8 @@ Deno.serve(async (req) => {
     }
 
     await Promise.all([
-      logSystemEvent(admin, "angel_pool_investment", row.shareholder_id, "angel_pool_investments", row.reference_id,
-        { source: "share_onboarding", request_id: row.id, shares, amount, countersigned_by: user.id }),
+      logSystemEvent(admin, "account_activated", row.shareholder_id, "angel_pool_investments", inv.id,
+        { action: "share_onboarding.completed", reference_id: row.reference_id, request_id: row.id, shares, amount, countersigned_by: user.id }),
       admin.from("audit_logs").insert({
         user_id: user.id, action_type: "share_onboarding_completed", table_name: "share_onboarding_requests",
         record_id: row.id, reason: `Shares countersigned and wallet debited (${row.reference_id})`,
