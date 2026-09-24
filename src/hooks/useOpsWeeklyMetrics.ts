@@ -48,16 +48,20 @@ export function useOpsWeeklyMetrics(department: OpsDepartment, enabled = true) {
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
     queryFn: async () => {
-      const { data, error } = await (supabase.rpc as any)(RPC[department]);
+      // Not in generated types until Lovable regenerates them after the migration applies.
+      const rpc = supabase.rpc.bind(supabase) as unknown as (
+        fn: string,
+      ) => Promise<{ data: Record<string, unknown>[] | null; error: Error | null }>;
+      const { data, error } = await rpc(RPC[department]);
       if (error) throw error;
-      return ((data ?? []) as any[]).map((r) => ({
+      return (data ?? []).map((r) => ({
         ...r,
         current_value: Number(r.current_value ?? 0),
         week_ago_value: num(r.week_ago_value),
         net_change: num(r.net_change),
         pct_change: num(r.pct_change),
         projection_7d: num(r.projection_7d),
-      })) as OpsWeeklyMetric[];
+      })) as unknown as OpsWeeklyMetric[];
     },
   });
 }
