@@ -7,7 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
-import { loadPeriodStatement, generatePeriodStatementPdf } from '@/lib/walletPeriodStatement';
+import { loadPeriodStatement, generatePeriodStatementPdf, generatePeriodStatementCsv } from '@/lib/walletPeriodStatement';
+
+type Format = 'pdf' | 'csv';
 
 const ymd = (d: Date) => format(d, 'yyyy-MM-dd');
 
@@ -18,6 +20,7 @@ export function WalletPeriodStatementButton() {
   const [from, setFrom] = useState(ymd(subMonths(today, 3)));
   const [to, setTo] = useState(ymd(today));
   const [busy, setBusy] = useState(false);
+  const [fmt, setFmt] = useState<Format>('pdf');
 
   const presets = [
     { label: 'Last 7 days', from: subDays(today, 7) },
@@ -34,14 +37,17 @@ export function WalletPeriodStatementButton() {
     setBusy(true);
     try {
       const st = await loadPeriodStatement(user.id, from, to);
-      const blob = await generatePeriodStatementPdf(st, { name: profile?.full_name || 'Welile user', phone: profile?.phone });
+      const owner = { name: profile?.full_name || 'Welile user', phone: profile?.phone };
+      const blob = fmt === 'pdf'
+        ? await generatePeriodStatementPdf(st, owner)
+        : generatePeriodStatementCsv(st, owner);
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `Welile_Wallet_Statement_${from}_to_${to}.pdf`;
+      a.download = `Welile_Wallet_Statement_${from}_to_${to}.${fmt}`;
       document.body.appendChild(a); a.click(); a.remove();
       URL.revokeObjectURL(url);
-      toast.success(`Statement ready: ${st.rows.length} transaction${st.rows.length === 1 ? '' : 's'}`);
+      toast.success(`Statement ready (${fmt.toUpperCase()}): ${st.rows.length} transaction${st.rows.length === 1 ? '' : 's'}`);
       setOpen(false);
     } catch (e: any) {
       console.error('[WalletPeriodStatement]', e);
@@ -57,7 +63,7 @@ export function WalletPeriodStatementButton() {
     <>
       <Button variant="outline" size="sm" className="w-full gap-2 text-xs mb-4" onClick={() => setOpen(true)}>
         <CalendarRange className="h-3.5 w-3.5" />
-        Statement for any period (PDF)
+        Statement for any period (PDF or CSV)
       </Button>
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="bottom" className="rounded-t-2xl">
@@ -88,9 +94,20 @@ export function WalletPeriodStatementButton() {
               </div>
             </div>
             {invalid && <p className="text-xs text-destructive">Pick a start date on or before the end date, and not in the future.</p>}
+            <div className="space-y-1">
+              <Label>File format</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {(['pdf', 'csv'] as Format[]).map((f) => (
+                  <Button key={f} type="button" size="sm" variant={fmt === f ? 'default' : 'outline'} className="text-xs"
+                    onClick={() => setFmt(f)}>
+                    {f === 'pdf' ? 'PDF (statement)' : 'CSV (spreadsheet)'}
+                  </Button>
+                ))}
+              </div>
+            </div>
             <Button className="w-full gap-2" disabled={busy || invalid} onClick={generate}>
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
-              {busy ? 'Preparing…' : 'Download statement'}
+              {busy ? 'Preparing…' : `Download ${fmt.toUpperCase()}`}
             </Button>
           </div>
         </SheetContent>

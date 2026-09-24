@@ -166,3 +166,33 @@ export async function generatePeriodStatementPdf(
   });
   return pdf.output('blob');
 }
+
+const csvCell = (v: string | number | null | undefined) => {
+  const s = v == null ? '' : String(v);
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+};
+
+export function generatePeriodStatementCsv(
+  st: PeriodStatement, owner: { name: string; phone?: string | null },
+): Blob {
+  const lines: string[] = [
+    'Welile Wallet Statement',
+    `Name,${csvCell(owner.name)}`,
+    `Phone,${csvCell(owner.phone ?? '')}`,
+    `Period,${st.from} to ${st.to} (Kampala time)`,
+    `Opening balance (UGX),${Math.round(st.opening)}`,
+    `Money in (UGX),${Math.round(st.totalIn)}`,
+    `Money out (UGX),${Math.round(st.totalOut)}`,
+    `Closing balance (UGX),${Math.round(st.closing)}`,
+    `Transactions,${st.rows.length}`,
+    '',
+    ['Date (Kampala)', 'What happened', 'Details', 'Other party', 'Direction', 'Money in (UGX)', 'Money out (UGX)', 'Balance (UGX)', 'Reference', 'Source table', 'Source ID', 'Entry ID'].join(','),
+    ...st.rows.map((r) => [
+      kampala(r.transaction_date), categoryLabel(r.category, r.description), r.description ?? '',
+      r.linked_party ?? '', r.direction === 'cash_in' ? 'Money in' : 'Money out',
+      r.direction === 'cash_in' ? Math.round(r.amount) : '', r.direction === 'cash_out' ? Math.round(r.amount) : '',
+      Math.round(r.balance), r.reference_id ?? '', r.source_table ?? '', r.source_id ?? '', r.id,
+    ].map(csvCell).join(',')),
+  ];
+  return new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+}
