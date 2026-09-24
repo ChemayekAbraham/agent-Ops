@@ -63,6 +63,19 @@ export function CallingHub({ subjectType }: { subjectType: CcSubjectType }) {
 
   const hub = useCcCallingHub(subjectType, { state: tab, sortKey, search: debouncedSearch, page, filters });
 
+  /**
+   * Background refresh without flicker, same pattern as the Calling Center's
+   * Work Queue (`TenantCallingCenter.tsx`): keep showing the rows already on
+   * screen while a refetch is in flight, rather than swapping the whole table
+   * for a skeleton. A background invalidation (e.g. from recording a call
+   * elsewhere) should never make it look like the page reloaded.
+   */
+  const [stableRows, setStableRows] = useState<CcRow[]>([]);
+  useEffect(() => {
+    if (!hub.isLoading) setStableRows(hub.rows);
+  }, [hub.isLoading, hub.rows]);
+  const displayRows = hub.isLoading && stableRows.length ? stableRows : hub.rows;
+
 
   /**
    * Reveals stay usable until the row's outcome is recorded. An entry survives
@@ -241,7 +254,7 @@ export function CallingHub({ subjectType }: { subjectType: CcSubjectType }) {
                     {hub.error}
                   </p>
                 )}
-                {hub.isLoading ? (
+                {hub.isLoading && !displayRows.length ? (
                   <div className="space-y-2 p-2">
                     <Skeleton className="h-6 w-full" />
                     <Skeleton className="h-6 w-full" />
@@ -251,7 +264,7 @@ export function CallingHub({ subjectType }: { subjectType: CcSubjectType }) {
                   <>
                     <CallingHubTable
                       columns={activeTab.columns}
-                      rows={hub.rows}
+                      rows={displayRows}
                       metricLabel={metricLabel}
                       revealed={revealedPhones}
                       revealing={hub.reveal.isPending}
@@ -259,10 +272,13 @@ export function CallingHub({ subjectType }: { subjectType: CcSubjectType }) {
                       onReveal={handleReveal}
                     />
                     <div className="mt-2 flex flex-wrap items-center justify-between gap-2 px-1 pb-2">
-                      <p className="text-[11px] text-muted-foreground">
+                      <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                         {hub.total === 0
                           ? 'Showing 0 of 0'
                           : `Showing ${hub.pageFrom} to ${hub.pageTo} of ${hub.total.toLocaleString()}`}
+                        {hub.isLoading && stableRows.length > 0 && (
+                          <span className="text-[10px] font-medium text-muted-foreground">· Updating…</span>
+                        )}
                       </p>
                       <div className="flex flex-wrap items-center gap-1.5">
 

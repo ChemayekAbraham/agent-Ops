@@ -17,6 +17,7 @@ import {
   useUploadConcernAttachments,
   type ConcernAttachment,
 } from '@/hooks/useConcernAttachments';
+import { armAuthCriticalSection, disarmAuthCriticalSection } from '@/lib/staleSessionDetector';
 
 const readableSize = (bytes: number | null) => {
   if (!bytes || bytes <= 0) return '—';
@@ -54,6 +55,9 @@ export function ConcernAttachmentsPanel({
   const files = list.data ?? [];
 
   const pick = async (picked: FileList | null) => {
+    // The picker just closed and control is back — whatever gap the onClick
+    // below opened while the OS picker had the screen is over either way.
+    disarmAuthCriticalSection();
     if (!picked || picked.length === 0) return;
     try {
       await upload.mutateAsync({ concern_id: concernId, files: Array.from(picked) });
@@ -126,7 +130,13 @@ export function ConcernAttachmentsPanel({
               size="sm"
               variant="outline"
               className="h-7 gap-1.5 text-[11px] font-semibold"
-              onClick={() => inputRef.current?.click()}
+              onClick={() => {
+                // Same guard as the Forward Concern dialog: the OS picker is
+                // about to take the screen, and a resume with a stale token
+                // must never force a sign-out mid-pick.
+                armAuthCriticalSection(180_000);
+                inputRef.current?.click();
+              }}
               disabled={upload.isPending}
             >
               <Upload className="h-3.5 w-3.5" />
