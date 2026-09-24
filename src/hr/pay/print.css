@@ -212,6 +212,26 @@
     background: #f4f4f5 !important;
   }
 
+  /* ---- Department grouping ---- */
+  .print-root tr.dept-header td {
+    font-size: 8.5pt;
+    font-weight: 700;
+    color: #5b21b6;
+    border-bottom: 1pt solid #5b21b6;
+    padding-top: 6px;
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .print-root tr.dept-subtotal td {
+    font-weight: 700;
+    border-top: 0.75pt solid #000;
+    border-bottom: 1pt solid #a1a1aa;
+    background: #fafafa !important;
+    break-before: avoid;
+    page-break-before: avoid;
+  }
+
   /* ---- Statutory position ---- */
   .print-statutory {
     margin-top: 5mm;
