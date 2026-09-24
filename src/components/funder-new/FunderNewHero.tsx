@@ -61,7 +61,11 @@ export function FunderNewHero({
     );
   }
 
-  const { prefix, figure } = compactParts(summary.totalRentNeeded);
+  // Full, unabbreviated market total: keep the small currency prefix, but show
+  // every digit instead of a compact "5.8B".
+  const prefix = getDynamicCurrencySymbol();
+  const formattedTotal = formatDynamic(summary.totalRentNeeded);
+  const figure = formattedTotal.replace(prefix, '').replace(/^[^\d.,-]+/, '').trim() || formattedTotal;
   const hasHouses = summary.houseCount > 0;
 
   return (
