@@ -22,6 +22,8 @@ import { Badge } from '@/components/ui/badge';
 import { formatUGX } from '@/lib/rentCalculations';
 import { prettyName, formatHouseCategory } from '@/lib/formatting';
 import { useRelatedHouses } from '@/hooks/useRelatedHouses';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface HouseOpportunity {
   house_id: string;
@@ -113,7 +115,42 @@ export function EmptyHouseDetailSheet({
     if (sheet) sheet.scrollTo(0, 0);
   }, [house?.house_id]);
 
+  // Map pins carry only a light record — look up the landlord when missing.
+  const needsLandlord = !!house && !house.landlord_name && !house.landlord_phone;
+  const { data: landlordFill } = useQuery({
+    queryKey: ['empty-house-landlord', house?.house_id],
+    enabled: open && needsLandlord,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      let landlordId = house!.landlord_id ?? null;
+      if (!landlordId) {
+        const { data } = await supabase
+          .from('house_listings')
+          .select('landlord_id')
+          .eq('id', house!.house_id)
+          .maybeSingle();
+        landlordId = (data as any)?.landlord_id ?? null;
+      }
+      if (!landlordId) return null;
+      const { data } = await supabase
+        .from('landlords')
+        .select('id, name, phone')
+        .eq('id', landlordId)
+        .maybeSingle();
+      return (data as { id: string; name: string | null; phone: string | null } | null) ?? null;
+    },
+  });
+
   if (!house) return null;
+
+  if (needsLandlord && landlordFill) {
+    house = {
+      ...house,
+      landlord_id: landlordFill.id,
+      landlord_name: landlordFill.name,
+      landlord_phone: landlordFill.phone,
+    };
+  }
 
   // Some lists (e.g. the funder map) don't supply the Returns figures —
   // derive them from rent with the same 15%/month rule used elsewhere.
