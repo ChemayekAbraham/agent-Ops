@@ -355,7 +355,7 @@ export async function generateAgentMonitoringPdf(input: AgentMonitoringReportInp
   });
 
   // ---------- Detailed agent table ----------
-  doc.addPage(); header(false);
+  doc.addPage();
   doc.setTextColor(...INK); doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
   doc.text('Agent collection performance', M, 20);
   doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(...MUTED);
@@ -392,7 +392,7 @@ export async function generateAgentMonitoringPdf(input: AgentMonitoringReportInp
       if (d.column.index === 12) { d.cell.styles.textColor = STATUS_COLOR[a.status]; d.cell.styles.fontStyle = 'bold'; }
       if (d.column.index === 9 && a.arrears > 0) d.cell.styles.textColor = RED;
     },
-    didDrawPage: (d) => { if (d.pageNumber > 1 && d.pageNumber !== doc.getNumberOfPages()) return; },
+    didDrawPage: () => header(false),
   });
 
   // ---------- Definitions ----------
@@ -405,7 +405,7 @@ export async function generateAgentMonitoringPdf(input: AgentMonitoringReportInp
     'Expected: UGX genuinely due on the selected day under each tenant\'s own Rent Plan schedule (weekly plans fall due on their instalment weekday at 7 × the daily amount; tenants already covered by earlier over-payment owe nothing that day).',
     'Collected: every receipt posted against the Rent Plan during the selected day (00:00–24:00 EAT), whoever recorded it, plus tenant self-payments not already mirrored by an agent collection. Reversed collections are excluded.',
     'Arrears: UGX still owed for periods already due, after payments clear the oldest periods first. Paid ahead: tenants whose surplus covers future periods.',
-    'Status: On target = collected ≥ expected; Partial / Critical by share collected; Nothing due = no money expected that day. Identical to the Agent Monitoring page.',
+    'Status: On target = collected ≥ expected; Partial = some but not all collected; Critical = money due and nothing collected; Nothing due = no money expected that day. Identical to the Agent Monitoring page.',
   ];
   defs.forEach((d) => {
     const w = doc.splitTextToSize(`• ${d}`, W - 2 * M) as string[];
