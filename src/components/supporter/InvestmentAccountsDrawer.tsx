@@ -50,6 +50,14 @@ function daysUntilNextRoi(nextRoiDate: string | null | undefined): number | null
   return differenceInCalendarDays(target, today);
 }
 
+/** Months the portfolio has actually been running, from its funded date to today */
+function monthsRunning(fundedAt: string | null | undefined): number | null {
+  if (!fundedAt) return null;
+  const start = new Date(fundedAt);
+  if (isNaN(start.getTime())) return null;
+  return Math.max(0, differenceInCalendarMonths(new Date(), start));
+}
+
 function NextRoiIndicator({ nextRoiDate }: { nextRoiDate: string | null | undefined }) {
   const days = daysUntilNextRoi(nextRoiDate);
   if (days === null) return null;
