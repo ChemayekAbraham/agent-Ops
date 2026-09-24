@@ -102,6 +102,7 @@ const LEDGER_EARNING_CATEGORIES: Record<string, string> = {
   agent_investment_commission: 'investment_commission',
   investment_commission: 'investment_commission',
   proxy_investment_commission: 'investment_commission',
+  partner_commission: 'investment_commission',
   subagent_commission: 'subagent_commission',
   subagent_override: 'subagent_commission',
   referral_bonus: 'referral_bonus',

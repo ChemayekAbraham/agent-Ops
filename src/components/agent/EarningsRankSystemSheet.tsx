@@ -28,7 +28,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
+import { fetchAgentLedgerEarnings, type AgentLedgerEarning } from '@/lib/agentLedgerEarnings';
 import { formatUGX } from '@/lib/rentCalculations';
 import { motion } from 'framer-motion';
 
@@ -132,15 +132,16 @@ Start your journey: ${shareLink}`;
     const fetchStats = async () => {
       setLoading(true);
       
-      // Fetch all relevant data in parallel
-      // Only fetch agent_earnings (wallet-related), stub referrals/subagents
-      const [earningsResult] = await Promise.all([
-        supabase.from('agent_earnings').select('amount').eq('agent_id', user.id),
-      ]);
+      // Earnings come from the ledger — agent_earnings stopped being written in
+      // July, so this total showed zero. Referrals/subagents remain stubbed.
+      const earnings: AgentLedgerEarning[] = await fetchAgentLedgerEarnings(user.id).catch(err => {
+        console.error('[EarningsRankSystemSheet] ledger earnings failed:', err);
+        return [];
+      });
 
       const tenantsCount = 0; // Stubbed - referrals query removed
       const subAgentCount = 0; // Stubbed - agent_subagents query removed
-      const totalEarnings = (earningsResult.data || []).reduce((sum, e) => sum + Number(e.amount), 0);
+      const totalEarnings = earnings.reduce((sum, e) => sum + e.amount, 0);
       const activeRepayingTenants = 0; // Stubbed - complex join removed
 
       // Determine rank based on sub-agents

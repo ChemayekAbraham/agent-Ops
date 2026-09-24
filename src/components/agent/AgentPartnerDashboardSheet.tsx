@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { formatUGX } from '@/lib/rentCalculations';
+import { fetchAgentLedgerEarnings } from '@/lib/agentLedgerEarnings';
 import { cn } from '@/lib/utils';
 import {
   Users, TrendingUp, Wallet, Banknote, Copy, Check, Share2,
@@ -101,17 +102,13 @@ export function AgentPartnerDashboardSheet({ open, onOpenChange }: Props) {
       });
       setPartners(Array.from(partnerMap.values()));
 
-      // 3. Fetch agent earnings (commissions)
-      const { data: earnings } = await supabase
-        .from('agent_earnings')
-        .select('id, amount, earning_type, description, created_at')
-        .eq('agent_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(50);
+      // 3. Fetch agent earnings (commissions) from the ledger — agent_earnings
+      // has not been written since July, so it showed every agent zero.
+      const earnings = await fetchAgentLedgerEarnings(user.id);
 
-      const commEarnings = (earnings || []).filter(e => e.earning_type === 'commission' || e.earning_type === 'investment_commission');
+      const commEarnings = earnings.filter(e => e.earning_type === 'commission' || e.earning_type === 'investment_commission');
       setTotalCommission(commEarnings.reduce((s, e) => s + Number(e.amount), 0));
-      setCommissionHistory(commEarnings.map(e => ({
+      setCommissionHistory(commEarnings.slice(0, 50).map(e => ({
         id: e.id,
         type: 'commission',
         description: e.description || 'Commission earned',
@@ -121,7 +118,7 @@ export function AgentPartnerDashboardSheet({ open, onOpenChange }: Props) {
 
       // 4. Build activity feed from earnings + portfolios
       const feed: ActivityItem[] = [];
-      (earnings || []).slice(0, 20).forEach(e => {
+      earnings.slice(0, 20).forEach(e => {
         feed.push({
           id: e.id,
           type: e.earning_type,

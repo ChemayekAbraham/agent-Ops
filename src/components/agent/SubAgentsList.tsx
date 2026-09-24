@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
+import { fetchMySubagentRentOverrides } from '@/lib/agentLedgerEarnings';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -136,11 +137,9 @@ export function SubAgentsList({ onSummary, parentAgentName }: SubAgentsListProps
 
       const tenantsBySub: Record<string, number> = {};
       const lastActiveBySub: Record<string, string> = {};
-      const tenantToSub: Record<string, string> = {};
       const todayStr = new Date().toISOString().slice(0, 10);
       (rentReqRows || []).forEach(r => {
         tenantsBySub[r.agent_id] = (tenantsBySub[r.agent_id] || 0) + 1;
-        if (r.tenant_id) tenantToSub[r.tenant_id] = r.agent_id;
         if (
           !lastActiveBySub[r.agent_id] ||
           r.created_at > lastActiveBySub[r.agent_id]
@@ -149,22 +148,19 @@ export function SubAgentsList({ onSummary, parentAgentName }: SubAgentsListProps
         }
       });
 
-      // All sub-agent override commission the parent earned. source_user_id is
-      // the tenant id, so route each commission to its sub-agent via tenantToSub.
-      let earningsQuery = supabase
-        .from('agent_earnings')
-        .select('amount, source_user_id, created_at')
-        .eq('agent_id', user.id)
-        .eq('earning_type', 'subagent_commission');
-
-      if (dateFrom) {
-        earningsQuery = earningsQuery.gte('created_at', `${dateFrom}T00:00:00Z`);
-      }
-      if (dateTo) {
-        earningsQuery = earningsQuery.lte('created_at', `${dateTo}T23:59:59Z`);
-      }
-
-      const { data: earnings } = await earningsQuery;
+      // % rent override the parent earned on each sub-agent's collections, read
+      // from the ledger (the only live source — agent_earnings stopped being
+      // written in April and commission_accrual_ledger no longer receives
+      // 'recruiter' rows, so both showed zero). Grouped per sub-agent
+      // server-side: rent_requests RLS hides most sub-agents' plans from the
+      // parent, so the plan→sub-agent join can't be done here.
+      const earnings = await fetchMySubagentRentOverrides({
+        from: dateFrom ? `${dateFrom}T00:00:00Z` : undefined,
+        to: dateTo ? `${dateTo}T23:59:59Z` : undefined,
+      }).catch(err => {
+        console.error('[SubAgentsList] sub-agent override earnings failed:', err);
+        return [];
+      });
 
       const earningsBySub: Record<string, number> = {};
       const bonusBySub: Record<string, number> = {};
@@ -172,8 +168,8 @@ export function SubAgentsList({ onSummary, parentAgentName }: SubAgentsListProps
       let total = 0;
       let totalBonus = 0;
       let totalRent = 0;
-      (earnings || []).forEach(e => {
-        const subId = e.source_user_id ? tenantToSub[e.source_user_id] : undefined;
+      earnings.forEach(e => {
+        const subId = e.sub_agent_id;
         if (!subId) return;
         const v = Number(e.amount) || 0;
         earningsBySub[subId] = (earningsBySub[subId] || 0) + v;
@@ -209,35 +205,6 @@ export function SubAgentsList({ onSummary, parentAgentName }: SubAgentsListProps
         bonusBySub[subId] = (bonusBySub[subId] || 0) + v;
         total += v;
         totalBonus += v;
-      });
-
-      // 2% rent override. Since the April 2026 commission-engine rewrite, the
-      // recruiter's rent override is written to commission_accrual_ledger
-      // (commission_role = 'recruiter'), NOT agent_earnings.subagent_commission.
-      // Without this the per-sub-agent 2% rent earnings show as zero. Each row
-      // carries the tenant_id, so route it to its sub-agent via tenantToSub.
-      let recruiterQuery = supabase
-        .from('commission_accrual_ledger')
-        .select('amount, tenant_id, earned_at')
-        .eq('agent_id', user.id)
-        .eq('commission_role', 'recruiter');
-
-      if (dateFrom) {
-        recruiterQuery = recruiterQuery.gte('earned_at', `${dateFrom}T00:00:00Z`);
-      }
-      if (dateTo) {
-        recruiterQuery = recruiterQuery.lte('earned_at', `${dateTo}T23:59:59Z`);
-      }
-
-      const { data: recruiterCommissions } = await recruiterQuery;
-      (recruiterCommissions || []).forEach(rc => {
-        const subId = rc.tenant_id ? tenantToSub[rc.tenant_id] : undefined;
-        if (!subId) return;
-        const v = Number(rc.amount) || 0;
-        earningsBySub[subId] = (earningsBySub[subId] || 0) + v;
-        rentBySub[subId] = (rentBySub[subId] || 0) + v;
-        total += v;
-        totalRent += v;
       });
 
       const enriched: SubAgent[] = finalIds.map(id => {

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
+import { fetchAgentLedgerEarnings } from '@/lib/agentLedgerEarnings';
 import { TrendingUp, Zap, Coins } from 'lucide-react';
 
 interface Props {
@@ -12,20 +13,17 @@ export function EarningsForecastCard({ agentId }: Props) {
     queryKey: ['agent-earnings-forecast', agentId],
     queryFn: async () => {
       // Fetch active rent requests + actual earnings in parallel
-      const [requestsRes, earningsRes] = await Promise.all([
+      // Earnings come from the ledger — agent_earnings stopped being written in July.
+      const [requestsRes, earnings] = await Promise.all([
         supabase
           .from('rent_requests')
           .select('daily_repayment, total_repayment, amount_repaid')
           .eq('agent_id', agentId)
           .in('status', ['approved', 'disbursed', 'active']),
-        supabase
-          .from('agent_earnings')
-          .select('amount, earning_type')
-          .eq('agent_id', agentId),
+        fetchAgentLedgerEarnings(agentId),
       ]);
 
       const requests = requestsRes.data || [];
-      const earnings = earningsRes.data || [];
 
       const totalDailyCollectable = requests.reduce((s, r) => s + (r.daily_repayment || 0), 0);
       const totalOutstanding = requests.reduce((s, r) => s + Math.max(0, (r.total_repayment || 0) - (r.amount_repaid || 0)), 0);
