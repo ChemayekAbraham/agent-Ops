@@ -30,6 +30,7 @@ import { SelfPortfolioFundingCard } from '@/components/partner/SelfPortfolioFund
 import { HowItWorksSteps, type HowItWorksStep } from './HowItWorksSteps';
 import { EmptyHouseOpportunitiesSheet } from '@/components/agent/EmptyHouseOpportunitiesSheet';
 import { FunderBookedHousesPanel } from '@/components/supporter/FunderBookedHousesPanel';
+import { FunderHouseListingsSection } from '@/components/supporter/FunderHouseListingsSection';
 
 import { useProfile } from '@/hooks/useProfile';
 
@@ -794,11 +795,12 @@ export function FunderCapitalOpportunities({
         compactMobile
       >
 
-        {/* One merged list: empty houses and houses with ready tenants */}
+        {/* One merged list: rent plans with ready tenants, then empty houses */}
         <div className="space-y-2.5 sm:pt-2 sm:space-y-3">
           {user?.id
             ? <SelfPortfolioFundingCard partnerId={user.id} feedOrder={feedOrder} onFeedOrderChange={setFeedOrder} />
             : <p className="text-[11px] text-muted-foreground">Sign in to view houses to fund.</p>}
+          <FunderHouseListingsSection />
         </div>
 
         {/* Empty-house extras: how it works, return calculator, saved picks */}
