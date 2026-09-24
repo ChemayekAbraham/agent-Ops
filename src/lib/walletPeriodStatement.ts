@@ -157,7 +157,7 @@ export function reconciliationLines(st: PeriodStatement): [string, string, strin
     ['8. Internal adjustments', adj === 0 ? u(0) : sgn(adj),
       adj === 0
         ? 'None. Your opening balance equals the sum of your listed transactions.'
-        : 'Line 6 minus line 7. Internal balance corrections made by Welile before this period that are not listed as transactions. They are already inside the opening balance; contact support for details.'],
+        : 'Line 6 minus line 7. Internal balance corrections made by Welile that are not listed as transactions. They are already inside the opening balance; contact support for details.'],
   ];
 }
 
@@ -198,6 +198,19 @@ export async function generatePeriodStatementPdf(
     body: [[ugx(st.opening), ugx(st.totalIn), ugx(st.totalOut), ugx(st.closing), String(st.rows.length)]],
     margin: { left: m, right: m },
   });
+
+  const recon = reconciliationLines(st);
+  if (recon.length) {
+    autoTable(pdf, {
+      startY: (pdf as any).lastAutoTable.finalY + 6, theme: 'grid', styles: { fontSize: 8, cellPadding: 1.5 },
+      headStyles: { fillColor: [60, 60, 110] },
+      head: [['Reconciliation details', 'Amount', 'How it was calculated']],
+      body: recon,
+      columnStyles: { 0: { cellWidth: 70, fontStyle: 'bold' }, 1: { cellWidth: 40, halign: 'right' } },
+      didParseCell: (d: any) => { if (d.section === 'body' && d.row.index === 7 && Math.round(st.reconciliation!.internalAdjustments) !== 0) d.cell.styles.fillColor = [255, 243, 205]; },
+      margin: { left: m, right: m },
+    });
+  }
 
   const group = (dir: 'cash_in' | 'cash_out') => {
     const map = new Map<string, { n: number; amt: number }>();
@@ -259,6 +272,8 @@ export function generatePeriodStatementCsv(
     `Closing balance (UGX),${Math.round(st.closing)}`,
     `Transactions,${st.rows.length}`,
     '',
+    ...(st.reconciliation ? ['Reconciliation details,Amount,How it was calculated',
+      ...reconciliationLines(st).map((l) => l.map(csvCell).join(',')), ''] : []),
     ['Date (Kampala)', 'What happened', 'Details', 'Other party', 'Direction', 'Money in (UGX)', 'Money out (UGX)', 'Balance (UGX)', 'Reference', 'Source table', 'Source ID', 'Entry ID'].join(','),
     ...st.rows.map((r) => [
       kampala(r.transaction_date), categoryLabel(r.category, r.description), r.description ?? '',
