@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { db, STAGES, STAGE_LABEL, useCurrentUserId, useDecisions, useMissions, useOpenP0, useRdMe, useRdMutation, useSettings } from './useRd';
+import { fmtGap, gapTone, median, solRows } from './sol';
 
 type Tone = 'neutral' | 'watch' | 'break';
 const toneCls: Record<Tone, string> = {
@@ -52,6 +53,8 @@ export function CommandStrip() {
   const staleP0 = signals.some((s: any) => Date.now() - new Date(s.created_at).getTime() > 48 * 3600_000);
   const single = live.filter((m) => m.horizon === 'now' && !m.deputy_id).length;
   const risks = p0?.risks.length ?? 0;
+  const solList = solRows(missions);
+  const solMedian = median(solList.map((r) => r.gap));
   const wq = (settings?.weekly_question ?? '').trim();
 
   return (
@@ -59,6 +62,10 @@ export function CommandStrip() {
       <Tile title="Active missions" tone={cap != null && h.now > cap ? 'break' : 'neutral'}>
         <span className="font-semibold">{h.now}</span> now · {h.next} next · {h.later} later
         {cap != null && <span className="block text-xs text-muted-foreground">Cap {cap}</span>}
+      </Tile>
+      <Tile title="SoL gap" tone={gapTone(solMedian)}>
+        <span className="font-semibold">{fmtGap(solMedian)}</span>
+        <span className="block text-xs text-muted-foreground">median of {solList.length} Now missions</span>
       </Tile>
       <Tile title="Pipeline shape" tone={stageCount.prove === 0 && stageCount.build >= 3 ? 'break' : 'neutral'}>
         <span className="text-xs">{STAGES.map((s) => `${STAGE_LABEL[s]} ${stageCount[s]}`).join(' · ')}</span>

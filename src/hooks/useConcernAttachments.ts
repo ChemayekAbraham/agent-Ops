@@ -13,6 +13,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { beginAuthCriticalSection, endAuthCriticalSection } from '@/lib/staleSessionDetector';
 
 export const CONCERN_BUCKET = 'concern-attachments';
 export const CONCERN_ATTACHMENT_MAX_BYTES = 10 * 1024 * 1024;
@@ -114,29 +115,43 @@ export function useConcernCaseContext(concernId: string | null, enabled = true) 
 const safeName = (name: string) =>
   name.replace(/[^a-zA-Z0-9._-]+/g, '-').replace(/-+/g, '-').slice(-120) || 'file';
 
-/** Upload one or more files and record each against the concern. */
+/**
+ * Upload one or more files and record each against the concern.
+ *
+ * Wrapped in the same auth-critical-section guard used by withdrawal proof and
+ * KYC-photo uploads (`src/lib/staleSessionDetector.ts`): a Storage upload is a
+ * real network request that can straddle a near-expired token, and without this
+ * guard a 401 mid-upload triggers a hard `window.location.replace('/auth')` —
+ * wiping the officer's open dialog, tab and form state. Every caller of this
+ * shared function is covered by fixing it once here.
+ */
 export async function uploadConcernAttachments(concernId: string, files: File[]) {
-  for (const file of files) {
-    if (file.size > CONCERN_ATTACHMENT_MAX_BYTES) {
-      throw new Error(`${file.name} is larger than 10MB.`);
-    }
-    const path = `${concernId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeName(file.name)}`;
-    const { error: upErr } = await supabase.storage
-      .from(CONCERN_BUCKET)
-      .upload(path, file, { contentType: file.type || 'application/octet-stream', upsert: false });
-    if (upErr) throw new Error(upErr.message);
+  beginAuthCriticalSection();
+  try {
+    for (const file of files) {
+      if (file.size > CONCERN_ATTACHMENT_MAX_BYTES) {
+        throw new Error(`${file.name} is larger than 10MB.`);
+      }
+      const path = `${concernId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeName(file.name)}`;
+      const { error: upErr } = await supabase.storage
+        .from(CONCERN_BUCKET)
+        .upload(path, file, { contentType: file.type || 'application/octet-stream', upsert: false });
+      if (upErr) throw new Error(upErr.message);
 
-    const { error: rpcErr } = await anyDb.rpc('cc_add_concern_attachment', {
-      p_concern_id: concernId,
-      p_storage_path: path,
-      p_file_name: file.name,
-      p_mime_type: file.type || null,
-      p_size_bytes: file.size,
-    });
-    if (rpcErr) {
-      await supabase.storage.from(CONCERN_BUCKET).remove([path]);
-      throw new Error(rpcErr.message);
+      const { error: rpcErr } = await anyDb.rpc('cc_add_concern_attachment', {
+        p_concern_id: concernId,
+        p_storage_path: path,
+        p_file_name: file.name,
+        p_mime_type: file.type || null,
+        p_size_bytes: file.size,
+      });
+      if (rpcErr) {
+        await supabase.storage.from(CONCERN_BUCKET).remove([path]);
+        throw new Error(rpcErr.message);
+      }
     }
+  } finally {
+    endAuthCriticalSection();
   }
 }
 

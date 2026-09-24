@@ -2157,6 +2157,13 @@
       "when": 1790237755909,
       "tag": "0307_remap_partner_funding_float_wallet_leg_to_l1",
       "breakpoints": true
+    },
+    {
+      "idx": 308,
+      "version": "7",
+      "when": 1790240098129,
+      "tag": "0308_add_rd_notifications",
+      "breakpoints": true
     }
   ]
 }

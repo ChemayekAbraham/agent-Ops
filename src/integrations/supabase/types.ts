@@ -59176,6 +59176,14 @@ export type Database = {
           total_subagents: number
         }[]
       }
+      get_my_subagent_rent_overrides: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: {
+          amount: number
+          credits: number
+          sub_agent_id: string
+        }[]
+      }
       get_my_subagent_tenant_profiles: {
         Args: never
         Returns: {
@@ -63874,6 +63882,7 @@ export type Database = {
       }
       rd_is_contributor: { Args: never; Returns: boolean }
       rd_is_lead: { Args: never; Returns: boolean }
+      rd_lead_user_ids: { Args: never; Returns: string[] }
       rd_me: {
         Args: never
         Returns: {
@@ -63884,6 +63893,17 @@ export type Database = {
           is_lead: boolean
         }[]
       }
+      rd_notify: {
+        Args: {
+          p_event_key: string
+          p_link: string
+          p_message: string
+          p_title: string
+          p_user: string
+        }
+        Returns: undefined
+      }
+      rd_p0_overdue_sweep: { Args: never; Returns: number }
       rd_people: {
         Args: never
         Returns: {

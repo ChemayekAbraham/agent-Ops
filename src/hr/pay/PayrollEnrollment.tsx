@@ -231,6 +231,14 @@ export default function PayrollEnrollment() {
     () => rows.filter((r) => Boolean(r.tin) && Boolean(r.nssfNumber) && Boolean(r.lstDistrict)).length,
     [rows],
   );
+  const statutoryCoverage = useMemo(
+    () => ({
+      paye: rows.filter((r) => r.payeApplicable).length,
+      nssf: rows.filter((r) => r.nssfApplicable).length,
+      lst: rows.filter((r) => r.lstApplicable).length,
+    }),
+    [rows],
+  );
 
   const bothApplyCount = useMemo(
     () => rows.filter((r) => bothApply(r, periodCutOff)).length,
@@ -553,14 +561,44 @@ export default function PayrollEnrollment() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-7xl space-y-6 p-4 md:p-6">
-      <div className="hidden print:block print:mb-4">
-        <p className="text-sm font-semibold">Welile Technologies (U) Ltd</p>
-        <h2 className="text-lg font-bold">Payroll enrollment sheet</h2>
-        <p className="text-xs">{new Date().toLocaleDateString('en-GB')}</p>
-        <p className="text-xs">Prepared for review. Not a payroll run.</p>
+    <div className="print-root mx-auto w-full max-w-7xl space-y-6 p-4 md:p-6">
+      <div className="hidden print:block">
+        <div className="print-letterhead">
+          <div>
+            <div className="print-wordmark">Welile</div>
+            <p className="print-values">Hope · Faith · Love</p>
+          </div>
+          <div className="print-company">
+            <p className="font-semibold">Welile Technologies Ltd</p>
+            <p>P.O. Box 167564, Kampala-Uganda</p>
+            <p>weliletechnologies@gmail.com</p>
+            <p>+256 744475573 / +256 764379713</p>
+          </div>
+        </div>
+        <div className="print-title">
+          <h2>Payroll enrollment sheet</h2>
+          <p>
+            {periodCode ? `Open period ${periodCode} · ` : ''}
+            Generated {new Date().toLocaleDateString('en-GB')} · Prepared for review, not a
+            payroll run
+          </p>
+        </div>
+        <div className="print-summary">
+          <span>
+            <strong>{counts.total}</strong> active workers
+          </span>
+          <span>
+            <strong>{counts.ready}</strong> ready
+          </span>
+          <span>
+            <strong>{counts.incomplete}</strong> incomplete
+          </span>
+          <span>
+            Total monthly gross <strong>UGX {formatAmount(totals.gross)}</strong>
+          </span>
+        </div>
       </div>
-      <div className="flex flex-wrap items-start justify-between gap-4">
+      <div className="no-print flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Payroll enrollment</h1>
           <p className="text-sm text-muted-foreground">
@@ -581,7 +619,7 @@ export default function PayrollEnrollment() {
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-4">
+      <div className="no-print grid gap-3 sm:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-xs uppercase text-muted-foreground">
@@ -621,8 +659,8 @@ export default function PayrollEnrollment() {
       <p
         className={
           idsComplete < counts.total
-            ? 'text-sm font-medium text-amber-600'
-            : 'text-sm font-medium text-muted-foreground'
+            ? 'no-print text-sm font-medium text-amber-600'
+            : 'no-print text-sm font-medium text-muted-foreground'
         }
       >
         Statutory IDs complete: {idsComplete} of {counts.total}
@@ -645,7 +683,7 @@ export default function PayrollEnrollment() {
               <Loader2 className="h-4 w-4 animate-spin" /> Loading enrollment…
             </div>
           ) : (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto print:overflow-visible">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -660,11 +698,11 @@ export default function PayrollEnrollment() {
                     <TableHead className="text-right">Deductions</TableHead>
                     <TableHead className="text-right">Gross on record</TableHead>
                     <TableHead>Effective from</TableHead>
-                    <TableHead>PAYE</TableHead>
-                    <TableHead>NSSF</TableHead>
-                    <TableHead>LST</TableHead>
-                    <TableHead>Basis</TableHead>
-                    <TableHead>Statutory IDs</TableHead>
+                    <TableHead className="print-hide">PAYE</TableHead>
+                    <TableHead className="print-hide">NSSF</TableHead>
+                    <TableHead className="print-hide">LST</TableHead>
+                    <TableHead className="print-hide">Basis</TableHead>
+                    <TableHead className="print-hide">Statutory IDs</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -686,6 +724,9 @@ export default function PayrollEnrollment() {
                         <TableCell>{row.department || '—'}</TableCell>
                         <TableCell>{row.position || '—'}</TableCell>
                         <TableCell>
+                          <span className="hidden text-xs print:inline">
+                            {row.employmentType ?? 'employee'}
+                          </span>
                           <Select
                             value={row.employmentType ?? 'employee'}
                             onValueChange={(value) =>
@@ -797,7 +838,7 @@ export default function PayrollEnrollment() {
                         <TableCell className="text-xs text-muted-foreground">
                           {formatDate(row.basicEffectiveFrom)}
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="print-hide">
                           <Checkbox
                             checked={row.payeApplicable}
                             onCheckedChange={(value) =>
@@ -805,7 +846,7 @@ export default function PayrollEnrollment() {
                             }
                           />
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="print-hide">
                           <Checkbox
                             checked={row.nssfApplicable}
                             onCheckedChange={(value) =>
@@ -813,7 +854,7 @@ export default function PayrollEnrollment() {
                             }
                           />
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="print-hide">
                           <Checkbox
                             checked={row.lstApplicable}
                             onCheckedChange={(value) =>
@@ -822,13 +863,13 @@ export default function PayrollEnrollment() {
                           />
                         </TableCell>
                         <TableCell
-                          className="max-w-[180px] truncate text-xs text-muted-foreground"
+                          className="print-hide max-w-[180px] truncate text-xs text-muted-foreground"
                           title={row.exemptionBasis ?? ''}
                         >
                           {row.exemptionBasis || '—'}
                         </TableCell>
                         <TableCell
-                          className="cursor-pointer"
+                          className="print-hide cursor-pointer"
                           onClick={() => openIds(row)}
                           title="Statutory identifiers"
                         >
@@ -897,7 +938,7 @@ export default function PayrollEnrollment() {
                     ))
                   )}
                 </TableBody>
-                <TableFooter className="sticky bottom-0 border-t-2 bg-muted">
+                <TableFooter className="sticky bottom-0 border-t-2 bg-muted print:static">
                   <TableRow className="font-semibold hover:bg-transparent">
                     <TableCell colSpan={5}>{totals.people} people included</TableCell>
                     <TableCell className="text-right font-mono tabular-nums">
@@ -915,7 +956,13 @@ export default function PayrollEnrollment() {
                     <TableCell className="text-right font-mono tabular-nums">
                       {reveal ? formatAmount(totals.gross) : '••••••'}
                     </TableCell>
-                    <TableCell colSpan={7} />
+                    <TableCell />
+                    <TableCell className="print-hide" />
+                    <TableCell className="print-hide" />
+                    <TableCell className="print-hide" />
+                    <TableCell className="print-hide" />
+                    <TableCell className="print-hide" />
+                    <TableCell />
                   </TableRow>
                 </TableFooter>
               </Table>
@@ -924,9 +971,45 @@ export default function PayrollEnrollment() {
         </CardContent>
       </Card>
 
-      <p className="text-xs text-muted-foreground">Gross on record is everything currently recorded for this person. Where part-month pay applies, it replaces basic salary in the payroll calculation, so the amount paid will be lower than the figure shown here. The payslip is the authority.</p>
+      <p className="no-print text-xs text-muted-foreground">Gross on record is everything currently recorded for this person. Where part-month pay applies, it replaces basic salary in the payroll calculation, so the amount paid will be lower than the figure shown here. The payslip is the authority.</p>
 
-      <div className="hidden print:block print:mt-10">
+      <div className="print-statutory hidden print:block">
+        <h3>Statutory position</h3>
+        <div className="print-statutory-grid">
+          <div>
+            <p>
+              PAYE applies to <strong>{statutoryCoverage.paye}</strong> of {counts.total} — not
+              applied to <strong>{counts.total - statutoryCoverage.paye}</strong>
+            </p>
+            <p>
+              NSSF applies to <strong>{statutoryCoverage.nssf}</strong> of {counts.total} — not
+              applied to <strong>{counts.total - statutoryCoverage.nssf}</strong>
+            </p>
+            <p>
+              LST applies to <strong>{statutoryCoverage.lst}</strong> of {counts.total} — not
+              applied to <strong>{counts.total - statutoryCoverage.lst}</strong>
+            </p>
+          </div>
+          <div>
+            <p>
+              Statutory identifiers complete: <strong>{idsComplete}</strong> of {counts.total}
+            </p>
+            <p>
+              Missing an identifier: <strong>{counts.total - idsComplete}</strong>
+            </p>
+            <p>
+              Total monthly gross on record: <strong>UGX {formatAmount(totals.gross)}</strong>
+            </p>
+          </div>
+        </div>
+        <p className="print-note">
+          This sheet records what is payable and which statutory deductions apply. It carries no
+          PAYE, NSSF or LST amounts — those are computed on a payroll run and appear on that
+          run&apos;s register and statutory returns. Where part-month pay applies it replaces basic
+          salary in the calculation, so the amount paid will be lower than the gross shown here.
+        </p>
+      </div>
+      <div className="print-signoff hidden print:block print:mt-10">
         <div className="flex gap-16">
           <div className="flex-1">
             <div className="mt-8 border-t border-black" />
@@ -943,7 +1026,7 @@ export default function PayrollEnrollment() {
         </div>
       </div>
 
-      <p className="text-xs text-muted-foreground">
+      <p className="no-print text-xs text-muted-foreground">
         Statutory profiles and compensation are both append-only. Every change keeps the previous
         record with the date it closed.
       </p>

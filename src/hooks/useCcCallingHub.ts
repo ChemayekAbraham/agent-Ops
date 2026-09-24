@@ -561,13 +561,21 @@ export function useCcCallingHub(
     staleTime: 15_000,
   });
 
+  /**
+   * Scoped to this hook's own `subjectType`: every query key here already
+   * starts with `[key, subjectType, ...]`, so prefix-matching on just the
+   * subject type still catches every tab/sort/search/page/filter variant for
+   * that subject — the only thing it no longer touches is the *other* two
+   * subject types' queues, which this mutation never affected anyway. Purely
+   * narrows the blast radius of a background refetch; changes no data.
+   */
   const invalidate = useCallback(() => {
-    qc.invalidateQueries({ queryKey: ['cc-queue'] });
-    qc.invalidateQueries({ queryKey: ['cc-state-counts'] });
+    qc.invalidateQueries({ queryKey: ['cc-queue', subjectType] });
+    qc.invalidateQueries({ queryKey: ['cc-state-counts', subjectType] });
     qc.invalidateQueries({ queryKey: ['cc-open-attempts'] });
     qc.invalidateQueries({ queryKey: ['cc-cycle-progress'] });
     qc.invalidateQueries({ queryKey: ['cc-followups'] });
-  }, [qc]);
+  }, [qc, subjectType]);
 
   /* ----------------------------------------------------------- mutations */
   /**

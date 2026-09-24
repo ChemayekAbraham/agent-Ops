@@ -18,6 +18,7 @@ import {
   CONCERN_ATTACHMENT_MAX_BYTES,
   uploadConcernAttachments,
 } from '@/hooks/useConcernAttachments';
+import { armAuthCriticalSection, disarmAuthCriticalSection } from '@/lib/staleSessionDetector';
 import { CCBlock, CCDialogHeading } from './ccUi';
 import { toast } from 'sonner';
 import {
@@ -64,6 +65,9 @@ export function ForwardConcernDialog({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const addFiles = (picked: FileList | null) => {
+    // The OS file/camera picker just closed and control is back with us —
+    // whatever gap it opened (see the onClick below) is over either way.
+    disarmAuthCriticalSection();
     if (!picked) return;
     const tooBig = Array.from(picked).find((f) => f.size > CONCERN_ATTACHMENT_MAX_BYTES);
     if (tooBig) {
@@ -330,7 +334,14 @@ export function ForwardConcernDialog({
               size="sm"
               variant="outline"
               className="h-9 gap-1.5 text-xs font-semibold"
-              onClick={() => fileInputRef.current?.click()}
+              onClick={() => {
+                // The camera/gallery is about to take over the screen, and on
+                // mobile the page can be backgrounded or even discarded before
+                // onChange ever fires. Arm the guard now so a resume with a
+                // stale token never forces a sign-out mid-pick.
+                armAuthCriticalSection(180_000);
+                fileInputRef.current?.click();
+              }}
             >
               <Paperclip className="h-3.5 w-3.5" />
               Attach files

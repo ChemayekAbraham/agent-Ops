@@ -2,16 +2,26 @@ import { NavLink, Route, Routes, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, FlaskConical } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
 import { CommandStrip } from '@/components/rd/CommandStrip';
 import { Pipeline } from '@/components/rd/Pipeline';
 import { MissionDetail } from '@/components/rd/MissionDetail';
 import { DecisionLog } from '@/components/rd/DecisionLog';
+import { Signals } from '@/components/rd/Signals';
+import { Lab } from '@/components/rd/Lab';
+import { Risk } from '@/components/rd/Risk';
+import { SpeedOfLight } from '@/components/rd/SpeedOfLight';
+import { AuditTrail } from '@/components/rd/AuditTrail';
+import { useRdMe } from '@/components/rd/useRd';
 
 const tabCls = ({ isActive }: { isActive: boolean }) =>
-  cn('rounded-md px-3 py-1.5 text-sm font-medium', isActive ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted');
+  cn('shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium', isActive ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted');
 
 export default function RDDashboard() {
   const navigate = useNavigate();
+  const { roles } = useAuth();
+  const { data: me } = useRdMe();
+  const showAudit = !!me?.is_lead || (roles ?? []).includes('super_admin');
 
   return (
     <div className="min-h-screen bg-background">
@@ -27,9 +37,14 @@ export default function RDDashboard() {
               <h1 className="text-lg font-bold text-foreground">R&amp;D</h1>
             </div>
           </div>
-          <nav className="mt-2 flex gap-1">
+          <nav className="-mx-4 mt-2 flex gap-1 overflow-x-auto px-4">
             <NavLink to="/rd" end className={tabCls}>Pipeline</NavLink>
+            <NavLink to="/rd/sol" className={tabCls}>Speed of Light</NavLink>
+            <NavLink to="/rd/signals" className={tabCls}>Signals</NavLink>
+            <NavLink to="/rd/lab" className={tabCls}>Lab</NavLink>
+            <NavLink to="/rd/risk" className={tabCls}>Risk</NavLink>
             <NavLink to="/rd/log" className={tabCls}>Decision log</NavLink>
+            {showAudit && <NavLink to="/rd/audit" className={tabCls}>Audit</NavLink>}
           </nav>
         </div>
       </header>
@@ -37,7 +52,12 @@ export default function RDDashboard() {
         <Routes>
           <Route index element={<><CommandStrip /><Pipeline /></>} />
           <Route path="missions/:id" element={<MissionDetail />} />
+          <Route path="sol" element={<SpeedOfLight />} />
+          <Route path="signals" element={<Signals />} />
+          <Route path="lab" element={<Lab />} />
+          <Route path="risk" element={<Risk />} />
           <Route path="log" element={<DecisionLog />} />
+          <Route path="audit" element={<AuditTrail />} />
         </Routes>
       </main>
     </div>
