@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Check,
   Loader2,
+  Wallet,
 } from 'lucide-react';
 
 import { Sheet, SheetContent } from '@/components/ui/sheet';
@@ -73,6 +74,7 @@ export function EmptyHouseDetailSheet({
   remaining,
   onRelatedHouseClick,
   onSeeMoreDistrict,
+  onFund,
 
 }: {
   house: HouseOpportunity | null;
@@ -86,7 +88,12 @@ export function EmptyHouseDetailSheet({
   onRelatedHouseClick?: (house: HouseOpportunity) => void;
   /** Closes this drawer and opens the map filtered to the house's district. */
   onSeeMoreDistrict?: (district: string, anchor: { lat: number; lng: number } | null) => void;
-
+  /**
+   * Funder-facing "Fund" action. The parent decides what happens: enough
+   * balance → straight into the funding confirmation; not enough → the
+   * deposit/top-up flow for the shortfall.
+   */
+  onFund?: (house: HouseOpportunity) => void;
 
 }) {
   const [index, setIndex] = useState(0);
@@ -322,10 +329,22 @@ export function EmptyHouseDetailSheet({
             )}
           </div>
 
+          {onFund && (
+            <Button
+              className="h-12 w-full gap-2 bg-emerald-600 text-base font-bold text-white hover:bg-emerald-700"
+              onClick={() => onFund(house)}
+            >
+              <Wallet className="h-5 w-5" />
+              {topUpNeeded > 0
+                ? `Fund this house — top up ${formatUGX(topUpNeeded)}`
+                : `Fund this house — ${formatUGX(house.monthly_rent)}`}
+            </Button>
+          )}
+
           {onTogglePick && (
             <Button
               className="h-11 w-full gap-2 font-semibold"
-              variant={isPicked ? 'outline' : 'default'}
+              variant={isPicked || onFund ? 'outline' : 'default'}
               onClick={() => onTogglePick(house)}
             >
               {isPicked ? (
