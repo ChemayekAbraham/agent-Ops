@@ -26,7 +26,7 @@ const BYPASS_ROLES: AppRole[] = ['super_admin', 'cto'];
  * empty this array if the business wants an explicit grant for every
  * dashboard, including a person's own function.
  */
-const SELF_ROLE_DASHBOARDS: string[] = ['ceo', 'coo', 'cfo', 'cto', 'cmo', 'crm', 'hr'];
+const SELF_ROLE_DASHBOARDS: string[] = ['ceo', 'coo', 'cfo', 'cto', 'cmo', 'crm', 'hr', 'rd'];
 
 export function useStaffPermissions() {
   const { user, roles, loading: authLoading } = useAuth();

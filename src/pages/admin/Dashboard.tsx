@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import {
   Crown, Cpu, Megaphone, MessageSquare, Users, Home, Building2,
   Shield, Activity, BarChart3, Wallet, Handshake, ArrowLeft, Gift, LayoutDashboard,
-  ShieldCheck, ChevronRight, Briefcase
+  ShieldCheck, ChevronRight, Briefcase, FlaskConical
 } from 'lucide-react';
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
@@ -38,6 +38,7 @@ const executiveDashboards: DashboardCard[] = [
   { label: 'CMO', description: 'Marketing & growth', icon: Megaphone, route: '/cmo/dashboard', color: 'bg-pink-500/10 text-pink-700 border-pink-500/30', permissionKey: 'cmo' },
   { label: 'CRM', description: 'Customer support & disputes', icon: MessageSquare, route: '/crm/dashboard', color: 'bg-orange-500/10 text-orange-700 border-orange-500/30', permissionKey: 'crm' },
   { label: 'HR', description: 'People, recruitment & performance', icon: Briefcase, route: '/hr/dashboard', color: 'bg-cyan-500/10 text-cyan-700 border-cyan-500/30', permissionKey: 'hr' },
+  { label: 'R&D', description: 'Missions, signals, experiments & decisions', icon: FlaskConical, route: '/rd', color: 'bg-lime-500/10 text-lime-700 border-lime-500/30', permissionKey: 'rd' },
 ];
 
 const operationsDashboards: DashboardCard[] = [

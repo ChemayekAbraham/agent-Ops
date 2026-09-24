@@ -225,6 +225,7 @@ const VerificationHistoryPage = lazy(() => import('./pages/VerificationHistory')
 const PhantomDriftDetailPage = lazy(() => import('./pages/cfo/PhantomDriftDetail'));
 const COODashboardPage = lazy(() => import('./pages/coo/Dashboard'));
 const HRDashboardPage = lazy(() => import('./pages/hr/Dashboard'));
+const RDDashboardPage = lazy(() => import('./pages/rd/Dashboard'));
 const CalculatorSelfCheck = lazy(() => import('./hr/pay/calculator/CalculatorSelfCheck'));
 const PayrollConfigPage = lazy(() => import('./hr/pay/PayrollConfig'));
 const PayRunsPage = lazy(() => import('./hr/pay/PayRuns'));
@@ -687,6 +688,7 @@ function AppRoutes() {
           <Route path="/admin/merchandise-share-preview" element={<RoleGuard allowedRoles={['cmo', 'cfo', 'manager', 'super_admin']}><MerchandiseSharePreviewCheckPage /></RoleGuard>} />
           <Route path="/crm/dashboard" element={<RoleGuard allowedRoles={['crm', 'super_admin', 'cto']} requiredPermission="crm"><CRMDashboardPage /></RoleGuard>} />
           <Route path="/hr/dashboard" element={<RoleGuard allowedRoles={['hr', 'super_admin']} requiredPermission="hr"><HRDashboardPage /></RoleGuard>} />
+          <Route path="/rd/*" element={<RoleGuard allowedRoles={['rd', 'super_admin', 'cto', 'ceo', 'employee']} requiredPermission="rd"><RDDashboardPage /></RoleGuard>} />
           <Route path="/hr/pay/calculator-check" element={<RoleGuard allowedRoles={['hr', 'super_admin']} requiredPermission="hr"><CalculatorSelfCheck /></RoleGuard>} />
           <Route path="/hr/pay/config" element={<RoleGuard allowedRoles={['hr', 'super_admin']} requiredPermission="hr"><PayrollConfigPage /></RoleGuard>} />
           <Route path="/hr/pay/runs" element={<RoleGuard allowedRoles={['hr', 'super_admin']} requiredPermission="hr"><PayRunsPage /></RoleGuard>} />
