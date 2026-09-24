@@ -941,13 +941,8 @@ export function SelfPortfolioFundingCard({
           );
       }
     });
-    const houseItems: FeedItem[] = visibleHouses.map((house) => ({
-      kind: 'house',
-      id: house.house_id,
-      house,
-    }));
-    // One merged list: empty houses first, then rent plans with ready tenants.
-    return [...houseItems, ...planItems];
+    // Houses are no longer listed here — only rent plans with ready tenants.
+    return planItems;
   }, [
     plans,
     houses,
