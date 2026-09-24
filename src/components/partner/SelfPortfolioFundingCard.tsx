@@ -1869,6 +1869,20 @@ export function SelfPortfolioFundingCard({
         remaining={remaining}
         isPicked={!!detailHouse && houseSelected.includes(detailHouse.house_id)}
         onTogglePick={(h) => toggleHouse(h.house_id)}
+        onFund={(h) => {
+          const cost = Number(h.monthly_rent || 0);
+          if (remaining >= cost) {
+            // Enough balance: pick the house and open the funding confirmation.
+            if (!houseSelected.includes(h.house_id)) toggleHouse(h.house_id);
+            setDetailHouse(null);
+            setFundConfirmKey(`${h.house_id}-${Date.now()}`);
+          } else {
+            // Not enough balance: open the deposit sheet with the exact shortfall.
+            toast.info(`Not enough balance. Deposit ${formatUGX(cost - remaining)} to fund this house.`);
+            setDetailHouse(null);
+            setTopUpAmount(Math.ceil(cost - remaining));
+          }
+        }}
       />
 
       </>
