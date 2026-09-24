@@ -346,23 +346,25 @@ export async function generateAgentMonitoringPdf(input: AgentMonitoringReportInp
     alternateRowStyles: { fillColor: SOFT },
     columnStyles: { 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' }, 6: { halign: 'right' } },
     didParseCell: (d) => {
+      if (d.section !== 'body' && d.column.index > 0) d.cell.styles.halign = 'right';
       if (d.section === 'body' && d.column.index === 0) {
         d.cell.styles.textColor = STATUS_COLOR[byStatus[d.row.index].status];
         d.cell.styles.fontStyle = 'bold';
       }
     },
-    didDrawPage: (d) => { if (d.pageNumber > 1) header(false); },
+    didDrawPage: () => { if (doc.getCurrentPageInfo().pageNumber > 1) header(false); },
   });
 
   // ---------- Detailed agent table ----------
-  doc.addPage();
+  let ty = (doc as any).lastAutoTable.finalY + 10;
+  if (ty > H - 50) { doc.addPage(); header(false); ty = 22; }
   doc.setTextColor(...INK); doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
-  doc.text('Agent collection performance', M, 20);
+  doc.text('Agent collection performance', M, ty);
   doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(...MUTED);
-  doc.text(`${agents.length} agents · sorted as on the page (amount due, then name) · figures for ${format(day, 'dd MMM yyyy')}`, M, 24.5);
+  doc.text(`${agents.length} agents · sorted as on the page (amount due, then name) · figures for ${format(day, 'dd MMM yyyy')}`, M, ty + 4.5);
 
   autoTable(doc, {
-    startY: 28,
+    startY: ty + 8,
     margin: { left: M, right: M, top: 18, bottom: 14 },
     head: [['#', 'Agent', 'Phone', 'Tenants', 'D / W', 'Due', 'Expected', 'Collected', 'Collection %', 'Arrears', 'Behind / ahead', 'Requests', 'Status']],
     body: agents.map((a, i) => [
@@ -387,12 +389,17 @@ export async function generateAgentMonitoringPdf(input: AgentMonitoringReportInp
       11: { halign: 'right' }, 12: { cellWidth: 20 },
     },
     didParseCell: (d) => {
-      if (d.section !== 'body') return;
+      if (d.section !== 'body') {
+        if ([0, 3, 5, 6, 7, 8, 9, 11].includes(d.column.index)) d.cell.styles.halign = 'right';
+        if ([4, 10].includes(d.column.index)) d.cell.styles.halign = 'center';
+        return;
+      }
       const a = agents[d.row.index];
       if (d.column.index === 12) { d.cell.styles.textColor = STATUS_COLOR[a.status]; d.cell.styles.fontStyle = 'bold'; }
       if (d.column.index === 9 && a.arrears > 0) d.cell.styles.textColor = RED;
+      if (d.column.index === 7 && a.collected <= 0) { d.cell.styles.textColor = MUTED; d.cell.styles.fontStyle = 'normal'; }
     },
-    didDrawPage: () => header(false),
+    didDrawPage: () => { if (doc.getCurrentPageInfo().pageNumber > 1) header(false); },
   });
 
   // ---------- Definitions ----------
@@ -405,7 +412,7 @@ export async function generateAgentMonitoringPdf(input: AgentMonitoringReportInp
     'Expected: UGX genuinely due on the selected day under each tenant\'s own Rent Plan schedule (weekly plans fall due on their instalment weekday at 7 × the daily amount; tenants already covered by earlier over-payment owe nothing that day).',
     'Collected: every receipt posted against the Rent Plan during the selected day (00:00–24:00 EAT), whoever recorded it, plus tenant self-payments not already mirrored by an agent collection. Reversed collections are excluded.',
     'Arrears: UGX still owed for periods already due, after payments clear the oldest periods first. Paid ahead: tenants whose surplus covers future periods.',
-    'Status: On target = collected ≥ expected; Partial = some but not all collected; Critical = money due and nothing collected; Nothing due = no money expected that day. Identical to the Agent Monitoring page.',
+    'Status: On target = collected >= expected; Partial = some but not all collected; Critical = money due and nothing collected; Nothing due = no money expected that day. Identical to the Agent Monitoring page.',
   ];
   defs.forEach((d) => {
     const w = doc.splitTextToSize(`• ${d}`, W - 2 * M) as string[];
