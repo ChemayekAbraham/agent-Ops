@@ -13,4 +13,4 @@
 - [x] "How it works" moved out of the funder hero into its own row below the map (2026-09-23)
 - [x] Repair lending-agent daily arrears recovery and borrower alerts/email; deploy and verify Enock's advance.
 
-- [ ] Follow the uploaded two-function production deployment scope and verification checklist.
+- [ ] Follow the uploaded two-function production deployment scope and verification checklist. Blocked: the required live share purchase needs an explicitly named real shareholder; no test users or arbitrary production account selection.
