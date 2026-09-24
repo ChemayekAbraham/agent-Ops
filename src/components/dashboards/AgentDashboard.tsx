@@ -103,6 +103,7 @@ import { AgentAgreementBanner } from '@/components/agent/agreement';
 import { AgentPaymentEditAlert } from '@/components/agent/AgentPaymentEditAlert';
 import { AgentRejectedLandlordsPanel } from '@/components/agent/AgentRejectedLandlordsPanel';
 import { AgentDeadTenantsBanner } from '@/components/agent/AgentDeadTenantsBanner';
+import { AgentOverdueChase } from '@/components/agent/AgentOverdueChase';
 import { AgentReturnedInactivationsPanel } from '@/components/agent/AgentReturnedInactivationsPanel';
 import { VerificationChecklist } from '@/components/shared/VerificationChecklist';
 import { useOffline } from '@/contexts/OfflineContext';
@@ -1056,6 +1057,10 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
 
         {/* Live cash-with-agent deposit codes targeting this agent */}
         <AgentCashDepositCodesPanel />
+
+        {/* Aggressive overdue field-chase (Faith) — banner+modal when book due/overdue.
+            Kill-switch: src/lib/agentOverdueChaseFlag.ts. Merchant agents skipped. */}
+        {!isMerchant && user?.id && <AgentOverdueChase agentId={user.id} />}
 
         {/* Tab Navigation — scrolls with the dashboard so the Service Center / Proxy Agents buttons never float */}
         <div className="-mx-4 px-4 py-2 bg-background border-b border-border/40 overflow-x-auto overflow-y-hidden scrollbar-hide">
