@@ -941,13 +941,8 @@ export function SelfPortfolioFundingCard({
           );
       }
     });
-    const houseItems: FeedItem[] = visibleHouses.map((house) => ({
-      kind: 'house',
-      id: house.house_id,
-      house,
-    }));
-    // One merged list: empty houses first, then rent plans with ready tenants.
-    return [...houseItems, ...planItems];
+    // Houses are no longer listed here — only rent plans with ready tenants.
+    return planItems;
   }, [
     plans,
     houses,
@@ -1554,23 +1549,9 @@ export function SelfPortfolioFundingCard({
         <Card className="p-6 rounded-2xl text-center space-y-3">
           <Home className="h-8 w-8 mx-auto text-muted-foreground" />
           <div className="space-y-1">
-            <p className="text-sm font-semibold">No houses match your filters</p>
+            <p className="text-sm font-semibold">No rent requests match your filters</p>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              {houseSearch
-                ? `We could not find any houses matching "${houseSearch}". Try a different name, district, or neighborhood.`
-                : showSavedReadyOnly
-                  ? 'You have no saved houses that your current balance can fund. Reset to see all houses, or top up your balance.'
-                  : selectedCountry
-                    ? `No empty houses in ${selectedCountry.name} match the other filters yet. Choose "All of Africa" or widen your filters.`
-                    : houseListingAge !== 'all'
-                      ? 'No empty houses were listed in that period. Try a longer listing age.'
-                      : houseRadiusKm !== 'all'
-                        ? `No empty houses with known GPS are within ${houseRadiusKm} km of your location. Try a wider distance.`
-                        : houseDistrict !== 'all' || houseSubCounty !== 'all'
-                    ? 'No empty houses in this area match the other filters. Try a different location or widen your search.'
-                    : houseFundingStatus !== 'all' || houseWithinFloat
-                      ? 'No houses match the funding-status filter. Reset to see every available house.'
-                      : `No houses match the current rent range or sort filters. Reset to see all ${houses.length.toLocaleString()} houses again.`}
+              Reset the filters to see every rent request awaiting funding.
             </p>
           </div>
           <Button
@@ -1591,7 +1572,7 @@ export function SelfPortfolioFundingCard({
           <Wallet className="h-6 w-6 mx-auto text-muted-foreground mb-2" />
           <p className="text-sm font-semibold">Nothing awaiting money right now</p>
           <p className="text-xs text-muted-foreground mt-1">
-            Rent requests appear here after approval, and verified empty houses appear as soon as they are listed.
+            Rent requests appear here after approval.
           </p>
         </Card>
       )}
@@ -1601,59 +1582,10 @@ export function SelfPortfolioFundingCard({
 
 
       <div className="grid gap-3 sm:grid-cols-2">
-      {pageItems.map((item, i) => {
-        const globalIndex = pageStart + i;
-        const prevKind = globalIndex > 0 ? feed[globalIndex - 1].kind : null;
-        const groupHeader =
-          globalIndex > 0 && prevKind !== item.kind ? (
-            <div key={`hr-${item.kind}`} className="flex items-center gap-2 px-1 pt-2 sm:col-span-2">
-              <span className="h-px flex-1 bg-border" />
-              <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
-                {item.kind === 'house' ? 'Houses' : 'Rent requests'}
-              </span>
-              <span className="h-px flex-1 bg-border" />
-            </div>
-          ) : null;
-
-        if (item.kind === 'house') {
-          return (
-            <div key={`house-${item.id}`} className="relative min-w-0 space-y-3">
-              {groupHeader}
-              <HouseSupportCard
-                house={item.house}
-                isSelected={houseSelected.includes(item.id)}
-                remaining={remaining}
-                busy={busy}
-                onToggle={toggleHouse}
-                onOpenDetail={setDetailHouse}
-                 onTopUp={(shortfall) => setTopUpAmount(Math.max(0, Math.round(shortfall)))}
-                 flash={flashHouseId === item.id || fundableIds.includes(item.id)}
-                searchQuery={houseSearch}
-                origin={referencePoint ?? userPoint}
-                />
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleCompare(item.id);
-                }}
-                aria-pressed={compareIds.includes(item.id)}
-                aria-label={`${compareIds.includes(item.id) ? 'Remove' : 'Add'} ${houseTitleLine(item.house)} ${compareIds.includes(item.id) ? 'from' : 'to'} comparison`}
-                className={`absolute right-2 top-2 z-10 flex h-9 w-9 items-center justify-center rounded-full shadow-sm transition-colors ${
-                  compareIds.includes(item.id)
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-background/90 text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <GitCompareArrows className="h-4 w-4" aria-hidden />
-              </button>
-            </div>
-          );
-        }
-
+      {pageItems.map((item) => {
+        if (item.kind !== 'plan') return null;
         return (
           <div key={`plan-${item.id}`} className="space-y-3 sm:col-span-2">
-            {groupHeader}
             {(() => {
         const plan = item.plan;
 
