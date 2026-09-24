@@ -54,14 +54,15 @@ function leg(user_id: string, date: string, amount: number, direction: 'cash_in'
   });
 }
 const signed = (r: Row) => (r.direction === 'cash_in' ? 1 : -1) * r.amount;
-const walletCard = (u: string) => {
+const walletCard = (u: string, isAgent = true) => {
   const w = DB.wallets.find((x) => x.user_id === u)!;
-  return w.withdrawable_balance + w.float_balance;
+  return w.withdrawable_balance + (isAgent ? w.float_balance : 0);
 };
 
 const A = 'seed-user-a'; // ordinary activity + hidden internal corrections
 const B = 'seed-user-b'; // clean wallet: listed transactions add up exactly
 const C = 'seed-user-c'; // no activity at all
+const D = 'seed-user-d'; // non-agent with money sitting in float
 
 beforeAll(() => {
   // ---- User A: June → September 2026 ----
@@ -98,6 +99,11 @@ beforeAll(() => {
 
   // ---- User C: empty ----
   DB.wallets.push({ user_id: C, withdrawable_balance: 0, float_balance: 0, balance: 0 });
+
+  // ---- User D: non-agent with float the card never shows ----
+  leg(D, '2026-08-05T05:00:00Z', 200_000, 'cash_in');
+  leg(D, '2026-08-06T05:00:00Z', 50_000, 'cash_out');
+  DB.wallets.push({ user_id: D, withdrawable_balance: 150_000, float_balance: 80_000, balance: 230_000 });
 });
 
 function tieOut(st: Awaited<ReturnType<typeof loadPeriodStatement>>) {
@@ -108,7 +114,7 @@ function tieOut(st: Awaited<ReturnType<typeof loadPeriodStatement>>) {
 
 describe('wallet statement vs wallet card (seeded records)', () => {
   it('short range: 1–3 Aug', async () => {
-    const st = await loadPeriodStatement(A, '2026-08-01', '2026-08-03');
+    const st = await loadPeriodStatement(A, '2026-08-01', '2026-08-03', { isAgent: true });
     tieOut(st);
     expect(st.rows).toHaveLength(3);
     expect(st.totalIn).toBe(520_000);
@@ -116,7 +122,7 @@ describe('wallet statement vs wallet card (seeded records)', () => {
   });
 
   it('full month: July respects Kampala midnight and hides corrections', async () => {
-    const st = await loadPeriodStatement(A, '2026-07-01', '2026-07-31');
+    const st = await loadPeriodStatement(A, '2026-07-01', '2026-07-31', { isAgent: true });
     tieOut(st);
     expect(st.rows).toHaveLength(3); // 1 Jul 00:00 transfer, Returns, portfolio; not the admin correction
     expect(st.totalIn).toBe(1_260_000);
@@ -124,7 +130,7 @@ describe('wallet statement vs wallet card (seeded records)', () => {
   });
 
   it('multi-month range ending today closes exactly on the wallet card', async () => {
-    const st = await loadPeriodStatement(A, '2026-06-01', '2026-09-30');
+    const st = await loadPeriodStatement(A, '2026-06-01', '2026-09-30', { isAgent: true });
     tieOut(st);
     expect(st.rows).toHaveLength(11);
     expect(st.closing).toBe(walletCard(A));
@@ -135,7 +141,7 @@ describe('wallet statement vs wallet card (seeded records)', () => {
 
   it('consecutive months chain and sum to the whole range', async () => {
     const months = [['2026-06-01', '2026-06-30'], ['2026-07-01', '2026-07-31'], ['2026-08-01', '2026-08-31'], ['2026-09-01', '2026-09-30']];
-    const sts = await Promise.all(months.map(([f, t]) => loadPeriodStatement(A, f, t)));
+    const sts = await Promise.all(months.map(([f, t]) => loadPeriodStatement(A, f, t, { isAgent: true })));
     sts.forEach(tieOut);
     for (let i = 1; i < sts.length; i++) expect(sts[i].opening).toBe(sts[i - 1].closing);
     expect(sts.at(-1)!.closing).toBe(walletCard(A));
@@ -143,7 +149,7 @@ describe('wallet statement vs wallet card (seeded records)', () => {
   });
 
   it('ignores the drifted cached balance and uses the card rule', async () => {
-    const st = await loadPeriodStatement(A, '2026-09-01', '2026-09-30');
+    const st = await loadPeriodStatement(A, '2026-09-01', '2026-09-30', { isAgent: true });
     expect(st.closing).toBe(walletCard(A));
     expect(st.closing).not.toBe(1);
   });
@@ -161,5 +167,37 @@ describe('wallet statement vs wallet card (seeded records)', () => {
     const st = await loadPeriodStatement(C, '2026-01-01', '2026-12-31');
     tieOut(st);
     expect([st.rows.length, st.opening, st.closing, st.totalIn, st.totalOut]).toEqual([0, 0, 0, 0, 0]);
+  });
+
+  it('non-agent: closing matches the card (withdrawable only), float excluded', async () => {
+    const st = await loadPeriodStatement(D, '2026-08-01', '2026-08-31'); // default: non-agent
+    tieOut(st);
+    expect(st.rows).toHaveLength(2);
+    expect(st.closing).toBe(walletCard(D, false)); // 150,000 — not 230,000
+    expect(st.closing).toBe(150_000);
+    expect(st.opening).toBe(0);
+    expect(st.reconciliation!.currentBalance).toBe(150_000);
+  });
+
+  it('non-agent: mid-period range still anchors to the withdrawable-only card', async () => {
+    const st = await loadPeriodStatement(D, '2026-08-05', '2026-08-05');
+    tieOut(st);
+    expect(st.rows).toHaveLength(1);
+    expect(st.closing).toBe(200_000); // 150,000 card − 50,000 out the next day
+    expect(st.opening).toBe(0);
+  });
+
+  it('same wallet, agent vs non-agent: closing differs by exactly the float', async () => {
+    const [agent, nonAgent] = await Promise.all([
+      loadPeriodStatement(D, '2026-08-01', '2026-08-31', { isAgent: true }),
+      loadPeriodStatement(D, '2026-08-01', '2026-08-31', { isAgent: false }),
+    ]);
+    tieOut(agent); tieOut(nonAgent);
+    expect(agent.closing).toBe(230_000);
+    expect(nonAgent.closing).toBe(150_000);
+    expect(agent.closing - nonAgent.closing).toBe(80_000);
+    expect(agent.totalIn).toBe(nonAgent.totalIn);
+    expect(agent.totalOut).toBe(nonAgent.totalOut);
+    expect(agent.rows.length).toBe(nonAgent.rows.length);
   });
 });
