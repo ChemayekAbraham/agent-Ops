@@ -1075,20 +1075,6 @@ export function SelfPortfolioFundingCard({
 
   return (
     <div className="space-y-3">
-      {houses.length > 0 && (
-        <div className="flex items-center justify-between px-1">
-          <div>
-            <p className="text-[15px] font-bold text-foreground">
-              houses <span className="text-xs font-normal text-muted-foreground">ⓘ</span>
-            </p>
-            <p className="text-[11px] text-muted-foreground">
-              {feed.length.toLocaleString()} available · {formatDynamic(available)} to fund
-            </p>
-          </div>
-        </div>
-      )}
-
-
       {(
         <p className="text-[11px] font-semibold text-muted-foreground px-1">
           &nbsp;{houses.length} house
