@@ -6,7 +6,7 @@ export const PUBLIC_ROLES: AppRole[] = ['tenant', 'agent', 'supporter', 'landlor
 /** Staff/admin roles that require backend assignment */
 export const STAFF_ROLES: AppRole[] = [
   'manager', 'super_admin', 'employee', 'operations',
-  'ceo', 'coo', 'cfo', 'cto', 'cmo', 'crm', 'hr',
+  'ceo', 'coo', 'cfo', 'cto', 'cmo', 'crm', 'hr', 'rd',
 ];
 
 export function isPublicRole(role: AppRole): boolean {

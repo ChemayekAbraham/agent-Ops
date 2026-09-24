@@ -33,6 +33,7 @@ const DASHBOARDS = [
   { key: 'landlord-ops', label: 'Landlord Ops' },
   { key: 'partner-ops', label: 'Partner Ops' },
   { key: 'hr', label: 'HR Dashboard' },
+  { key: 'rd', label: 'R&D Dashboard' },
   { key: 'kyc', label: 'KYC Console' },
 ];
 
