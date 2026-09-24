@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { FunderHouseListingsSection } from '@/components/supporter/FunderHouseListingsSection';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -179,6 +180,7 @@ export function SelfPortfolioFundingCard({
   const [houseOccupancy, setHouseOccupancy] = useState<HouseOccupancy>('all');
   // Filters panel visibility — the search bar stays visible when collapsed.
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [listView, setListView] = useState<'plans' | 'houses'>('plans');
 
   useEffect(() => {
     if (!('geolocation' in navigator)) return;
@@ -1329,6 +1331,41 @@ export function SelfPortfolioFundingCard({
         </div>
       )}
 
+      {/* Switch between rent plans and empty houses */}
+      <div className="flex gap-2 px-1" role="tablist" aria-label="What to fund">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={listView === 'plans'}
+          onClick={() => setListView('plans')}
+          className={`h-10 flex-1 rounded-full border px-3 text-xs font-bold transition-colors ${
+            listView === 'plans'
+              ? 'border-success bg-success text-success-foreground'
+              : 'border-border bg-background text-foreground hover:bg-muted'
+          }`}
+        >
+          Rent plans
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={listView === 'houses'}
+          onClick={() => setListView('houses')}
+          className={`h-10 flex-1 rounded-full border px-3 text-xs font-bold transition-colors ${
+            listView === 'houses'
+              ? 'border-success bg-success text-success-foreground'
+              : 'border-border bg-background text-foreground hover:bg-muted'
+          }`}
+        >
+          Empty houses
+        </button>
+      </div>
+
+      {listView === 'houses' ? (
+        <FunderHouseListingsSection />
+      ) : (
+      <>
+
       {alertsOpen && houseAlerts.length > 0 && (
         <Card className="p-3 sm:p-4 rounded-xl sm:rounded-2xl border-border" aria-label="Balance alert history">
           <div className="flex items-center justify-between gap-2 px-0.5">
@@ -1834,6 +1871,8 @@ export function SelfPortfolioFundingCard({
         onTogglePick={(h) => toggleHouse(h.house_id)}
       />
 
+      </>
+      )}
 
       <HouseCompareDialog
         open={compareOpen && compareHouses.length >= 2}
