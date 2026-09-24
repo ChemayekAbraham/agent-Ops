@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import SignaturePad from '@/components/shared/SignaturePad';
+import { SignaturePad } from '@/components/shared/SignaturePad';
 import { renderAgreementPdfBase64 } from '@/components/partner/renderAgreementPdf';
 import { Loader2, FileSignature, XCircle } from 'lucide-react';
 import ShareAgreementPreview from './ShareAgreementPreview';
@@ -91,7 +91,7 @@ export default function ShareVettingDialog({ row, onClose }: { row: ShareRequest
                 <p className="text-sm font-medium">Welile signatory</p>
                 <div><Label>Full name</Label><Input value={repName} onChange={(e) => setRepName(e.target.value)} /></div>
                 <div><Label>Position</Label><Input value={repPosition} onChange={(e) => setRepPosition(e.target.value)} placeholder="e.g. Partner Operations Manager" /></div>
-                <div><Label>Signature</Label><SignaturePad onChange={(d: string | null) => setSig(d || undefined)} /></div>
+                <div><Label>Signature</Label><SignaturePad onChange={(d: string) => setSig(d || undefined)} /></div>
                 <p className="text-xs text-muted-foreground">Date: {today}. Approving debits the shareholder's wallet and emails the signed agreement (copy to partnership@welile.com).</p>
                 {balance !== null && balance < Number(row.amount) && (
                   <p className="text-xs text-destructive">Wallet balance is too low — approval will be refused.</p>
