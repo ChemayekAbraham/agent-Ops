@@ -168,4 +168,36 @@ describe('wallet statement vs wallet card (seeded records)', () => {
     tieOut(st);
     expect([st.rows.length, st.opening, st.closing, st.totalIn, st.totalOut]).toEqual([0, 0, 0, 0, 0]);
   });
+
+  it('non-agent: closing matches the card (withdrawable only), float excluded', async () => {
+    const st = await loadPeriodStatement(D, '2026-08-01', '2026-08-31'); // default: non-agent
+    tieOut(st);
+    expect(st.rows).toHaveLength(2);
+    expect(st.closing).toBe(walletCard(D, false)); // 150,000 — not 230,000
+    expect(st.closing).toBe(150_000);
+    expect(st.opening).toBe(0);
+    expect(st.reconciliation!.currentBalance).toBe(150_000);
+  });
+
+  it('non-agent: mid-period range still anchors to the withdrawable-only card', async () => {
+    const st = await loadPeriodStatement(D, '2026-08-05', '2026-08-05');
+    tieOut(st);
+    expect(st.rows).toHaveLength(1);
+    expect(st.closing).toBe(200_000); // 150,000 card − 50,000 out the next day
+    expect(st.opening).toBe(0);
+  });
+
+  it('same wallet, agent vs non-agent: closing differs by exactly the float', async () => {
+    const [agent, nonAgent] = await Promise.all([
+      loadPeriodStatement(D, '2026-08-01', '2026-08-31', { isAgent: true }),
+      loadPeriodStatement(D, '2026-08-01', '2026-08-31', { isAgent: false }),
+    ]);
+    tieOut(agent); tieOut(nonAgent);
+    expect(agent.closing).toBe(230_000);
+    expect(nonAgent.closing).toBe(150_000);
+    expect(agent.closing - nonAgent.closing).toBe(80_000);
+    expect(agent.totalIn).toBe(nonAgent.totalIn);
+    expect(agent.totalOut).toBe(nonAgent.totalOut);
+    expect(agent.rows.length).toBe(nonAgent.rows.length);
+  });
 });
