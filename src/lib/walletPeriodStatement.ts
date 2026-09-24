@@ -73,21 +73,42 @@ export interface PeriodStatement {
 export async function loadPeriodStatement(userId: string, from: string, to: string): Promise<PeriodStatement> {
   const startIso = new Date(`${from}T00:00:00+03:00`).toISOString();
   const endIso = new Date(`${to}T23:59:59.999+03:00`).toISOString();
-  const [before, rows] = await Promise.all([
-    fetchAll(userId, 'id, amount, direction, category, description, classification, source_table', (q) => q.lt('transaction_date', startIso)),
+  const [rows, after, wallet] = await Promise.all([
     fetchAll(userId, 'id, transaction_date, amount, direction, category, description, reference_id, linked_party, source_table, source_id, classification',
       (q) => q.gte('transaction_date', startIso).lte('transaction_date', endIso)),
+    fetchAll(userId, 'id, amount, direction, category, description, classification, source_table', (q) => q.gt('transaction_date', endIso)),
+    supabase.from('wallets').select('withdrawable_balance, float_balance, balance').eq('user_id', userId).maybeSingle(),
   ]);
-  const opening = before.reduce((s, r) => s + signed(r), 0);
-  let bal = opening, totalIn = 0, totalOut = 0;
-  const withBal = (rows as PeriodRow[]).map((r) => {
+
+  // The wallet cache is the authoritative balance the user sees, and it is not a
+  // plain sum of the visible legs: internal corrections, baseline anchors and
+  // reseeds are deliberately hidden from customer-facing history. So anchor the
+  // running balance at the CURRENT balance and walk backwards, instead of
+  // summing visible legs forward from zero — otherwise a statement ending today
+  // closes on a number that disagrees with the wallet card.
+  const w: any = (wallet as any)?.data ?? null;
+  const current = w
+    ? Number(w.balance ?? 0) || Number(w.withdrawable_balance ?? 0) + Number(w.float_balance ?? 0)
+    : 0;
+  const netAfter = after.reduce((s, r) => s + signed(r), 0);
+  const closing = current - netAfter;
+
+  let totalIn = 0, totalOut = 0;
+  const net = (rows as PeriodRow[]).reduce((s, r) => {
     const v = signed(r);
-    bal += v;
     if (v >= 0) totalIn += v; else totalOut += -v;
+    return s + v;
+  }, 0);
+  const opening = closing - net;
+
+  let bal = opening;
+  const withBal = (rows as PeriodRow[]).map((r) => {
+    bal += signed(r);
     return { ...r, amount: Number(r.amount), balance: bal };
   });
-  return { from, to, opening, closing: bal, totalIn, totalOut, rows: withBal };
+  return { from, to, opening, closing, totalIn, totalOut, rows: withBal };
 }
+
 
 const ugx = (n: number) => `UGX ${Math.round(n).toLocaleString('en-US')}`;
 
