@@ -18,7 +18,7 @@ type Dir = 'all' | 'cash_in' | 'cash_out';
 const ymd = (d: Date) => format(d, 'yyyy-MM-dd');
 
 export function WalletPeriodStatementButton() {
-  const { user, profile } = useAuth() as any;
+  const { user, profile, role } = useAuth() as any;
   const today = new Date();
   const [open, setOpen] = useState(false);
   const [from, setFrom] = useState(ymd(subMonths(today, 3)));
@@ -46,7 +46,7 @@ export function WalletPeriodStatementButton() {
     if (!user?.id || invalid) return;
     setBusy(true);
     try {
-      const st = await loadPeriodStatement(user.id, from, to);
+      const st = await loadPeriodStatement(user.id, from, to, { isAgent: role === 'agent' });
       setLoaded(st);
       setLoadedRange(rangeKey);
       setDir('all'); setCat('all'); setSrc('all');
