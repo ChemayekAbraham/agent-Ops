@@ -6,6 +6,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useProducts, VALUES, VALUE_LABEL } from './values';
 import { db, DOMAINS, labelize, useCurrentUserId, useRdMutation, useRdPeople } from './useRd';
 
 export function NewMissionDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
@@ -15,14 +16,18 @@ export function NewMissionDialog({ open, onOpenChange }: { open: boolean; onOpen
   const [problem, setProblem] = useState('');
   const [domains, setDomains] = useState<string[]>([]);
   const [owner, setOwner] = useState<string>('');
+  const [product, setProduct] = useState('none');
+  const [value, setValue] = useState('none');
+  const { data: products = [] } = useProducts();
 
   useEffect(() => {
-    if (open) { setTitle(''); setProblem(''); setDomains([]); setOwner(uid ?? ''); }
+    if (open) { setTitle(''); setProblem(''); setDomains([]); setOwner(uid ?? ''); setProduct('none'); setValue('none'); }
   }, [open, uid]);
 
   const create = useRdMutation(async () =>
     db.from('rd_missions').insert({
-      title, problem, domains, owner_id: owner || null, stage: 'intake', created_by: uid,
+      title, problem, domains, owner_id: owner || null,
+      product_id: product === 'none' ? null : product, company_value: value === 'none' ? null : value, stage: 'intake', created_by: uid,
     }), 'Mission created');
 
   const ownerOptions = people.some((p) => p.user_id === uid) ? people : [...people, ...(uid ? [{ user_id: uid, full_name: 'Me' } as any] : [])];
@@ -65,6 +70,28 @@ export function NewMissionDialog({ open, onOpenChange }: { open: boolean; onOpen
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <Label>Product (optional)</Label>
+              <Select value={product} onValueChange={setProduct}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {products.filter((p) => p.active).map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Company value (optional)</Label>
+              <Select value={value} onValueChange={setValue}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  {VALUES.map((v) => <SelectItem key={v} value={v}>{VALUE_LABEL[v]}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
         <DialogFooter>

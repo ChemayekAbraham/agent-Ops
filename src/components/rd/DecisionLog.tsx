@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Download } from 'lucide-react';
+import { ValueChip } from './values';
 import { DECISIONS, fmtDateTime, labelize, useDecisions, useMissions, usePeopleMap } from './useRd';
 
 const csvCell = (v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`;
@@ -14,6 +15,7 @@ export function DecisionLog() {
   const name = usePeopleMap();
   const [type, setType] = useState('all');
   const titles = useMemo(() => new Map(missions.map((m) => [m.id, m.title])), [missions]);
+  const vals = useMemo(() => new Map(missions.map((m) => [m.id, m.company_value])), [missions]);
   const rows = decisions.filter((d: any) => type === 'all' || d.decision === type);
 
   const exportCsv = () => {
@@ -47,7 +49,10 @@ export function DecisionLog() {
         <Card key={d.id} className="space-y-1.5 p-3">
           <div className="flex items-start justify-between gap-2">
             <p className="text-sm font-semibold text-foreground">{titles.get(d.mission_id) ?? 'Mission'}</p>
-            <Badge variant="outline" className="uppercase">{d.decision}</Badge>
+            <div className="flex shrink-0 items-center gap-1">
+              <ValueChip value={vals.get(d.mission_id)} />
+              <Badge variant="outline" className="uppercase">{d.decision}</Badge>
+            </div>
           </div>
           <p className="text-sm"><span className="text-muted-foreground">Why: </span>{d.why}</p>
           {d.belief_that_was_wrong && <p className="text-sm"><span className="text-muted-foreground">Belief that was wrong: </span>{d.belief_that_was_wrong}</p>}
