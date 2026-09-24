@@ -354,7 +354,7 @@ Deno.serve(async (req) => {
 
       await logSystemEvent(
         admin,
-        "lending_auto_repayment",
+        "payment_made",
         loan.borrower_user_id,
         "lending_agent_loans",
         loan.id,
@@ -367,6 +367,17 @@ Deno.serve(async (req) => {
           remaining_balance_ugx: newOutstanding,
         },
       );
+
+      try {
+        await admin.rpc("recompute_trust_score", {
+          p_user_id: loan.borrower_user_id,
+        });
+      } catch (error) {
+        console.error("[lending-auto-deduct] trust recompute failed", {
+          loan_id: loan.id,
+          error,
+        });
+      }
 
       await notifyBorrower(
         admin,
