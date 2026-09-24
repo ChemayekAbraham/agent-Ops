@@ -12,3 +12,5 @@
 - [ ] Partner float funding (UGX 368,320,964) still reported as customer custody — needs a designed counterpart, blocked on CFO ruling
 - [x] "How it works" moved out of the funder hero into its own row below the map (2026-09-23)
 - [x] Repair lending-agent daily arrears recovery and borrower alerts/email; deploy and verify Enock's advance.
+
+- [ ] Follow the uploaded two-function production deployment scope and verification checklist.
