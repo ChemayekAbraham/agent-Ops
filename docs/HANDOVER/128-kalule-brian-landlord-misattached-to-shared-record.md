@@ -73,3 +73,32 @@ list. `landlord-payout-disburse` doesn't read assignments, so only the screen wa
   landlord (`2849983b` 100k 03-01, `ac2a40b5` 500k 04-10, `75a1c591` 200k 03-26, `4b32a6db` 300k
   09-17). Backfilling would make them payable from float, so that's a human call. The March/April
   ones are probably stale.
+
+## Follow-up 2: the withdrawal still showed Gloria, because the allocation had its own copy
+
+Josh: *"we wanted Kalule Brian's landlord number to change on the Agent Landlord Payout Float
+withdrawal but it never changed."*
+
+`agent_landlord_float_allocations` stores its **own** `landlord_id / landlord_name /
+landlord_phone`, snapshotted when the CFO disbursed the plan. The agent's per-tenant allocation list
+opens `AgentFloatPayoutWizard` from that allocation, not from the rent plan. Allocation
+`ad67a1a1` (UGX 600,000, open, 0 paid) was therefore still Gloria Nakalekwa / 0703141822.
+
+An OTP for this plan had also been **sent to 0703141822 at 12:17 UTC and was still pending**. If
+Gloria had supplied the code, the payout could have completed to her, because her record's approved
+number matches.
+
+- **Data (live, verified):**
+  - Allocation `ad67a1a1` now points to `d8d31630`: Nakasita Joanita, 0750754907.
+  - The pending OTP is `cancelled`, with its reason recorded in metadata.
+  - An audit_logs row was written.
+  - Agent float balance is unchanged at 7,100,000.
+- **Code:** `20260924220000_rent_request_landlord_change_follows_allocation.sql` adds
+  `trg_follow_rent_request_landlord_change` (AFTER UPDATE OF `landlord_id`). It:
+  - moves open allocations with nothing paid out to the new landlord;
+  - cancels that plan's pending OTPs addressed to the old landlord;
+  - leaves partially or fully paid allocations alone, because they need a human.
+
+  It was tested in a rolled-back transaction: moving the plan to Gloria and back again, the
+  allocation followed both ways. Together with `trg_auto_assign_landlord_on_rent_request_update`
+  (follow-up 1), re-pointing a plan now carries the whole payout path with it.
