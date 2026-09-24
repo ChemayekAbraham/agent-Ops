@@ -1582,59 +1582,9 @@ export function SelfPortfolioFundingCard({
 
 
       <div className="grid gap-3 sm:grid-cols-2">
-      {pageItems.map((item, i) => {
-        const globalIndex = pageStart + i;
-        const prevKind = globalIndex > 0 ? feed[globalIndex - 1].kind : null;
-        const groupHeader =
-          globalIndex > 0 && prevKind !== item.kind ? (
-            <div key={`hr-${item.kind}`} className="flex items-center gap-2 px-1 pt-2 sm:col-span-2">
-              <span className="h-px flex-1 bg-border" />
-              <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">
-                {item.kind === 'house' ? 'Houses' : 'Rent requests'}
-              </span>
-              <span className="h-px flex-1 bg-border" />
-            </div>
-          ) : null;
-
-        if (item.kind === 'house') {
-          return (
-            <div key={`house-${item.id}`} className="relative min-w-0 space-y-3">
-              {groupHeader}
-              <HouseSupportCard
-                house={item.house}
-                isSelected={houseSelected.includes(item.id)}
-                remaining={remaining}
-                busy={busy}
-                onToggle={toggleHouse}
-                onOpenDetail={setDetailHouse}
-                 onTopUp={(shortfall) => setTopUpAmount(Math.max(0, Math.round(shortfall)))}
-                 flash={flashHouseId === item.id || fundableIds.includes(item.id)}
-                searchQuery={houseSearch}
-                origin={referencePoint ?? userPoint}
-                />
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleCompare(item.id);
-                }}
-                aria-pressed={compareIds.includes(item.id)}
-                aria-label={`${compareIds.includes(item.id) ? 'Remove' : 'Add'} ${houseTitleLine(item.house)} ${compareIds.includes(item.id) ? 'from' : 'to'} comparison`}
-                className={`absolute right-2 top-2 z-10 flex h-9 w-9 items-center justify-center rounded-full shadow-sm transition-colors ${
-                  compareIds.includes(item.id)
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-background/90 text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                <GitCompareArrows className="h-4 w-4" aria-hidden />
-              </button>
-            </div>
-          );
-        }
-
+      {pageItems.map((item) => {
         return (
           <div key={`plan-${item.id}`} className="space-y-3 sm:col-span-2">
-            {groupHeader}
             {(() => {
         const plan = item.plan;
 
