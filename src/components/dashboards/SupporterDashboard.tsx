@@ -47,7 +47,6 @@ import { CreditRequestsFeed } from '@/components/supporter/CreditRequestsFeed';
 import { InvestmentPackageSheet } from '@/components/supporter/InvestmentPackageSheet';
 // FundingPoolCard removed from direct import
 import { FunderCapitalOpportunities } from '@/components/supporter/FunderCapitalOpportunities';
-import { FunderHouseListingsSection } from '@/components/supporter/FunderHouseListingsSection';
 import { FunderNewHero } from '@/components/funder-new/FunderNewHero';
 import { useFunderNewMarketSummary } from '@/components/funder-new/useFunderNewOpportunities';
 import { FunderNewMapSection } from '@/components/funder-new/FunderNewMapSection';
