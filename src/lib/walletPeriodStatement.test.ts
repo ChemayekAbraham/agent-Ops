@@ -14,6 +14,7 @@ function ledgerQuery() {
     gte: (k: string, v: string) => (filters.push((r) => r[k] >= v), q),
     lte: (k: string, v: string) => (filters.push((r) => r[k] <= v), q),
     gt: (k: string, v: string) => (filters.push((r) => r[k] > v), q),
+    lt: (k: string, v: string) => (filters.push((r) => r[k] < v), q),
     order: () => q,
     range: (a: number, b: number) => {
       lo = a; hi = b;
@@ -39,7 +40,7 @@ vi.mock('@/lib/customerWalletHistory', () => ({
 vi.mock('@/lib/walletRequisitionLabel', () => ({ requisitionEntryLabel: () => null }));
 vi.mock('@/assets/welile-logo.png', () => ({ default: '' }));
 
-import { loadPeriodStatement } from './walletPeriodStatement';
+import { loadPeriodStatement, reconciliationLines } from './walletPeriodStatement';
 
 const U = 'user-1';
 let n = 0;
@@ -55,7 +56,8 @@ const mine = () => db.legs.filter((l) => l.user_id === U && ['wallet', 'bridge']
 
 function expected(from: string, to: string) {
   const inRange = mine().filter((l) => l.transaction_date >= startIso(from) && l.transaction_date <= endIso(to));
-  const closing = current - net(mine().filter((l) => l.transaction_date > endIso(to)));
+  const cur = Number(db.wallet?.balance) || Number(db.wallet?.withdrawable_balance ?? 0) + Number(db.wallet?.float_balance ?? 0);
+  const closing = cur - net(mine().filter((l) => l.transaction_date > endIso(to)));
   return {
     count: inRange.length,
     totalIn: inRange.filter((l) => l.direction === 'cash_in').reduce((s, l) => s + l.amount, 0),
@@ -150,5 +152,23 @@ describe('loadPeriodStatement', () => {
     db.wallet = { balance: 0, withdrawable_balance: 4_000_000, float_balance: 1_000_000 };
     const st = await check('2026-06-01', '2026-09-30');
     expect(st.closing).toBe(current);
+  });
+
+  it('reconciliation identifies internal adjustments not listed as transactions', async () => {
+    const st = await check('2026-08-01', '2026-08-31');
+    const r = st.reconciliation!;
+    const listedAll = net(mine());
+    expect(r.internalAdjustments).toBe(current - listedAll);
+    expect(r.visibleBeforePeriod + r.internalAdjustments).toBe(st.opening);
+    expect(r.currentBalance - r.netAfterPeriod).toBe(st.closing);
+    expect(r.periodCount + r.beforeCount + r.afterCount).toBe(mine().length);
+    expect(reconciliationLines(st)).toHaveLength(8);
+  });
+
+  it('reports no adjustment when the balance equals listed transactions', async () => {
+    db.wallet = { balance: net(mine()) };
+    const st = await check('2026-07-01', '2026-07-31');
+    expect(st.reconciliation!.internalAdjustments).toBe(0);
+    expect(reconciliationLines(st)[7][2]).toMatch(/^None/);
   });
 });
