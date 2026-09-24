@@ -27,7 +27,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { downloadPortfolioPdf, type PortfolioPdfData } from '@/lib/portfolioPdf';
 import { downloadPartnerStatement } from '@/lib/partnerStatement';
-import { differenceInCalendarDays } from 'date-fns';
+import { differenceInCalendarDays, differenceInCalendarMonths } from 'date-fns';
 
 /** Support line that handles rejected portfolio top-ups (WhatsApp chat). */
 const SUPPORT_CHAT_NUMBER = '256777607640';
@@ -48,6 +48,14 @@ function daysUntilNextRoi(nextRoiDate: string | null | undefined): number | null
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   return differenceInCalendarDays(target, today);
+}
+
+/** Months the portfolio has actually been running, from its funded date to today */
+function monthsRunning(fundedAt: string | null | undefined): number | null {
+  if (!fundedAt) return null;
+  const start = new Date(fundedAt);
+  if (isNaN(start.getTime())) return null;
+  return Math.max(0, differenceInCalendarMonths(new Date(), start));
 }
 
 function NextRoiIndicator({ nextRoiDate }: { nextRoiDate: string | null | undefined }) {
@@ -452,9 +460,16 @@ function PortfolioDetailSheet({ portfolio, open, onOpenChange, onRenamed, onTopU
             {portfolio.roi_mode && (
               <DetailRow label="ROI Mode" value={portfolio.roi_mode} icon={RefreshCw} />
             )}
-            {portfolio.duration_months && (
-              <DetailRow label="Duration" value={`${portfolio.duration_months} months`} icon={Clock} />
-            )}
+            {(() => {
+              const running = monthsRunning(portfolio.funded_at);
+              return running !== null ? (
+                <DetailRow
+                  label="Running for"
+                  value={`${running} ${running === 1 ? 'month' : 'months'}`}
+                  icon={Clock}
+                />
+              ) : null;
+            })()}
             {portfolio.maturity_date && (
               <DetailRow label="Maturity Date" value={formatDateOnlyForDisplay(portfolio.maturity_date)} icon={Calendar} />
             )}
