@@ -802,7 +802,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       const { data } = await (supabase.rpc as unknown as (
         fn: string, args: Record<string, unknown>,
       ) => Promise<{ data: unknown; error: { message: string } | null }>)(
-        'national_id_name_taken', { p_name: full },
+        'national_id_name_taken', { p_name: full, p_nin: form.nin || null },
       );
       if (cancelled) return;
       const res = (data ?? {}) as { taken?: boolean };
@@ -816,7 +816,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       }
     }, 500);
     return () => { cancelled = true; window.clearTimeout(timer); };
-  }, [form.given_name, form.surname]);
+  }, [form.given_name, form.surname, form.nin]);
 
 
 
