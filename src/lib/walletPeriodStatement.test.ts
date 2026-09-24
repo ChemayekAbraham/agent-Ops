@@ -56,7 +56,7 @@ const mine = () => db.legs.filter((l) => l.user_id === U && ['wallet', 'bridge']
 
 function expected(from: string, to: string) {
   const inRange = mine().filter((l) => l.transaction_date >= startIso(from) && l.transaction_date <= endIso(to));
-  const cur = Number(db.wallet?.balance) || Number(db.wallet?.withdrawable_balance ?? 0) + Number(db.wallet?.float_balance ?? 0);
+  const cur = (db.wallet?.withdrawable_balance == null && db.wallet?.float_balance == null) ? Number(db.wallet?.balance ?? 0) : Number(db.wallet?.withdrawable_balance ?? 0) + Number(db.wallet?.float_balance ?? 0);
   const closing = cur - net(mine().filter((l) => l.transaction_date > endIso(to)));
   return {
     count: inRange.length,
@@ -148,7 +148,7 @@ describe('loadPeriodStatement', () => {
     expect(st.rows.length).toBe(4 + 2_345);
   });
 
-  it('falls back to withdrawable + float when balance is empty', async () => {
+  it('uses withdrawable + float even when cached balance is empty', async () => {
     db.wallet = { balance: 0, withdrawable_balance: 4_000_000, float_balance: 1_000_000 };
     const st = await check('2026-06-01', '2026-09-30');
     expect(st.closing).toBe(current);
