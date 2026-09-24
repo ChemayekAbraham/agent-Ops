@@ -5,6 +5,15 @@
 // { loan_id } body so an agent can trigger a single loan immediately to test.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { logSystemEvent } from "../_shared/eventLogger.ts";
+import {
+  firstDeductionDate,
+  nextDeductionDate,
+  overdueAmount,
+  scheduledDatesThrough,
+  unpaidScheduledDates,
+  ymd,
+  type Frequency,
+} from "./schedule.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -12,47 +21,99 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
-type Frequency = "daily" | "weekly" | "monthly" | "once" | "end_of_month";
-
-function ymd(d: Date): string {
-  return d.toISOString().slice(0, 10);
-}
-
-function lastDayOfMonth(year: number, monthIdx: number): Date {
-  // monthIdx is 0-based; day 0 of next month = last day of this month.
-  return new Date(Date.UTC(year, monthIdx + 1, 0));
-}
-
-/** Compute the next deduction date after `from` for a given cadence. */
-function nextDeductionDate(from: Date, freq: Frequency): string | null {
-  const d = new Date(from.getTime());
-  switch (freq) {
-    case "daily":
-      d.setUTCDate(d.getUTCDate() + 1);
-      return ymd(d);
-    case "weekly":
-      d.setUTCDate(d.getUTCDate() + 7);
-      return ymd(d);
-    case "monthly":
-      d.setUTCMonth(d.getUTCMonth() + 1);
-      return ymd(d);
-    case "end_of_month": {
-      // Last day of the FOLLOWING month.
-      const next = lastDayOfMonth(d.getUTCFullYear(), d.getUTCMonth() + 1);
-      return ymd(next);
-    }
-    case "once":
-    default:
-      return null;
-  }
-}
-
 function outstandingOf(loan: any): number {
   const interest =
     (Number(loan.principal_ugx) * (Number(loan.interest_rate_pct) || 0)) / 100;
   const owed =
     Number(loan.principal_ugx) + interest - (Number(loan.amount_repaid_ugx) || 0);
   return Math.max(0, Math.round(owed));
+}
+
+const EMAIL_OVERRIDES: Record<string, string> = {
+  // Product-owner authorised 2026-09-24 for this borrowing identity only.
+  "18d9fe76-9688-45b3-a468-fb77e3a8ab79": "kamulindecoseaenock@gmail.com",
+};
+
+function formatUGX(amount: number): string {
+  return `UGX ${Math.max(0, Math.round(amount)).toLocaleString("en-US")}`;
+}
+
+async function notifyBorrower(
+  admin: any,
+  loan: any,
+  today: string,
+  status: "overdue" | "deducted",
+  amount: number,
+  remainingBalance: number,
+  overdueDates: string[],
+): Promise<void> {
+  const eventKey = `lending-repayment-${status}-${loan.id}-${today}`;
+  const dateText = overdueDates.length > 0 ? overdueDates.join(", ") : "none";
+  const title = status === "deducted"
+    ? `${formatUGX(amount)} repayment recovered`
+    : "Repayment overdue — fund your wallet";
+  const message = status === "deducted"
+    ? `${formatUGX(amount)} was recovered from your available wallet balance. Remaining balance: ${formatUGX(remainingBalance)}. Overdue dates: ${dateText}. Consistent funded-wallet repayments can improve eligibility for future access up to UGX 30,000,000; eligibility is assessed and not guaranteed.`
+    : `Keep money in your Welile wallet for automatic recovery. Overdue dates: ${dateText}. Consistent funded-wallet repayments can improve eligibility for future access up to UGX 30,000,000; eligibility is assessed and not guaranteed.`;
+
+  try {
+    const { data: existing } = await admin
+      .from("notifications")
+      .select("id")
+      .eq("user_id", loan.borrower_user_id)
+      .eq("event_key", eventKey)
+      .maybeSingle();
+    if (!existing) {
+      await admin.from("notifications").insert({
+        user_id: loan.borrower_user_id,
+        title,
+        message,
+        type: status === "deducted" ? "success" : "warning",
+        event_key: eventKey,
+        metadata: {
+          kind: "lending_repayment_status",
+          loan_id: loan.id,
+          status,
+          amount_ugx: amount,
+          remaining_balance_ugx: remainingBalance,
+          overdue_dates: overdueDates,
+        },
+      });
+    }
+  } catch (error) {
+    console.error("[lending-auto-deduct] notification failed", { loan_id: loan.id, error });
+  }
+
+  try {
+    let recipientEmail = EMAIL_OVERRIDES[loan.borrower_user_id] ?? null;
+    if (!recipientEmail) {
+      const { data: profile } = await admin
+        .from("profiles")
+        .select("email")
+        .eq("id", loan.borrower_user_id)
+        .maybeSingle();
+      recipientEmail = profile?.email ?? null;
+    }
+    if (recipientEmail) {
+      const { error } = await admin.functions.invoke("send-transactional-email", {
+        body: {
+          templateName: "lending-repayment-status",
+          recipientEmail,
+          idempotencyKey: eventKey,
+          templateData: {
+            borrowerName: loan.borrower_display_name || "there",
+            status,
+            amount,
+            remainingBalance,
+            overdueDates,
+          },
+        },
+      });
+      if (error) console.error("[lending-auto-deduct] email failed", { loan_id: loan.id, error });
+    }
+  } catch (error) {
+    console.error("[lending-auto-deduct] email failed", { loan_id: loan.id, error });
+  }
 }
 
 Deno.serve(async (req) => {
@@ -91,6 +152,7 @@ Deno.serve(async (req) => {
     for (const loan of loans ?? []) {
       const freq = (loan.repayment_frequency as Frequency) || "once";
       const outstanding = outstandingOf(loan);
+      const totalOwed = outstanding + (Number(loan.amount_repaid_ugx) || 0);
 
       // Already settled — close it out.
       if (outstanding <= 0) {
@@ -106,10 +168,44 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      const target = Math.min(
-        outstanding,
-        Math.max(0, Math.round(Number(loan.installment_ugx) || 0)) || outstanding,
+      const installment = Math.max(0, Math.round(Number(loan.installment_ugx) || 0)) || totalOwed;
+      const firstDate = firstDeductionDate(
+        loan.auto_deduct_started_at || loan.created_at,
+        loan.expected_repayment_date,
+        freq,
       );
+      const datesDue = scheduledDatesThrough(
+        firstDate,
+        today,
+        loan.expected_repayment_date,
+        freq,
+      );
+      const unpaidDatesBefore = unpaidScheduledDates(
+        datesDue,
+        installment,
+        Number(loan.amount_repaid_ugx) || 0,
+        totalOwed,
+      );
+      const overdueBefore = unpaidDatesBefore.filter((date) => date < today);
+      const amountDue = overdueAmount(
+        datesDue.length,
+        installment,
+        Number(loan.amount_repaid_ugx) || 0,
+        totalOwed,
+      );
+      const target = Math.min(outstanding, amountDue);
+
+      if (target <= 0) {
+        const lastDue = datesDue.at(-1);
+        const futureDate = lastDue
+          ? nextDeductionDate(lastDue, freq)
+          : firstDate;
+        await admin.from("lending_agent_loans").update({
+          next_deduction_date: futureDate,
+        }).eq("id", loan.id);
+        results.push({ loan_id: loan.id, action: "not_due", next_deduction_date: futureDate });
+        continue;
+      }
 
       // How much can we actually pull from the borrower's withdrawable wallet?
       const { data: availRaw, error: availError } = await admin.rpc(
@@ -124,18 +220,26 @@ Deno.serve(async (req) => {
       const deductible = Math.min(target, available);
 
       const attempts = (Number(loan.auto_deduct_attempts) || 0) + 1;
-      const nextDate = nextDeductionDate(new Date(), freq);
 
       if (deductible <= 0) {
-        // No funds this cycle — record the miss and roll to the next cycle so
-        // we keep retrying ("take what's available" policy).
+        // Preserve the oldest unpaid date. The arrears are not discarded when
+        // an attempt finds an empty wallet; tomorrow's run retries them first.
         await admin
           .from("lending_agent_loans")
           .update({
             auto_deduct_attempts: attempts,
-            next_deduction_date: freq === "once" ? loan.next_deduction_date : nextDate,
+            next_deduction_date: unpaidDatesBefore[0] || loan.next_deduction_date,
           })
           .eq("id", loan.id);
+        await notifyBorrower(admin, loan, today, "overdue", 0, outstanding, overdueBefore);
+        await logSystemEvent(
+          admin,
+          "lending_repayment_overdue",
+          loan.borrower_user_id,
+          "lending_agent_loans",
+          loan.id,
+          { overdue_dates: overdueBefore, amount_due_ugx: target },
+        );
         results.push({ loan_id: loan.id, action: "no_funds", available });
         continue;
       }
@@ -149,7 +253,7 @@ Deno.serve(async (req) => {
         );
 
       const ref = `LAD-${loan.id.slice(0, 8)}-${today.replace(/-/g, "")}`;
-      const lenderLabel = "Loan repayment";
+      const lenderLabel = "lending advance";
       const borrowerLabel = loan.borrower_display_name || loan.borrower_ai_id || "Borrower";
 
       const { error: ledgerError } = await admin.rpc("create_ledger_transaction", {
@@ -162,7 +266,7 @@ Deno.serve(async (req) => {
             ledger_scope: "wallet",
             source_table: "lending_agent_loans",
             source_id: loan.id,
-            description: `Auto loan repayment to ${lenderLabel}`,
+            description: `Automatic repayment to ${lenderLabel}`,
             currency: "UGX",
             transaction_date: new Date().toISOString(),
             reference_id: ref,
@@ -177,7 +281,7 @@ Deno.serve(async (req) => {
             ledger_scope: "wallet",
             source_table: "lending_agent_loans",
             source_id: loan.id,
-            description: `Loan repayment from ${borrowerLabel}`,
+            description: `Advance repayment from ${borrowerLabel}`,
             currency: "UGX",
             transaction_date: new Date().toISOString(),
             reference_id: ref,
@@ -201,9 +305,17 @@ Deno.serve(async (req) => {
       const newOutstanding = outstanding - deductible;
       const fullyRepaid = newOutstanding <= 0;
       const newStatus = fullyRepaid ? "repaid" : "partially_repaid";
-      // Once fully repaid OR a one-shot cadence, stop scheduling.
-      const updatedNextDate =
-        fullyRepaid || freq === "once" ? null : nextDate;
+      const unpaidDatesAfter = unpaidScheduledDates(
+        datesDue,
+        installment,
+        newRepaid,
+        totalOwed,
+      );
+      const overdueAfter = unpaidDatesAfter.filter((date) => date < today);
+      const lastDue = datesDue.at(-1);
+      const updatedNextDate = fullyRepaid
+        ? null
+        : unpaidDatesAfter[0] || (lastDue ? nextDeductionDate(lastDue, freq) : firstDate);
 
       await admin
         .from("lending_agent_loans")
@@ -246,7 +358,24 @@ Deno.serve(async (req) => {
         loan.borrower_user_id,
         "lending_agent_loans",
         loan.id,
-        { amount: deductible, lender_agent_id: loan.lender_agent_id, reference: ref },
+        {
+          amount: deductible,
+          lender_agent_id: loan.lender_agent_id,
+          reference: ref,
+          overdue_dates_before: overdueBefore,
+          overdue_dates_after: overdueAfter,
+          remaining_balance_ugx: newOutstanding,
+        },
+      );
+
+      await notifyBorrower(
+        admin,
+        loan,
+        today,
+        "deducted",
+        deductible,
+        newOutstanding,
+        overdueAfter,
       );
 
       results.push({
