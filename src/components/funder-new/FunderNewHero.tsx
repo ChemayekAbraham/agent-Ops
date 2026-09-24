@@ -1,7 +1,6 @@
 import { Skeleton } from '@/components/ui/skeleton';
-import { formatDynamic } from '@/lib/currencyFormat';
+import { formatDynamic, getDynamicCurrencySymbol } from '@/lib/currencyFormat';
 import type { FunderNewMarketSummary } from './types';
-import { compactParts } from './utils';
 
 /**
  * Compact market-demand hero for /dashboard/funder-new.
