@@ -470,11 +470,11 @@ function PortfolioDetailSheet({ portfolio, open, onOpenChange, onRenamed, onTopU
               <DetailRow label="ROI Mode" value={portfolio.roi_mode} icon={RefreshCw} />
             )}
             {(() => {
-              const running = monthsRunning(portfolio.funded_at);
+              const running = runningDurationLabel(portfolio.funded_at);
               return running !== null ? (
                 <DetailRow
                   label="Running for"
-                  value={`${running} ${running === 1 ? 'month' : 'months'}`}
+                  value={running}
                   icon={Clock}
                 />
               ) : null;
