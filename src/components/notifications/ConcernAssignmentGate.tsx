@@ -16,15 +16,23 @@ import { CONCERN_PRIORITY_LABEL, CONCERN_STATUS_LABEL } from '@/hooks/useCalling
  * concern has been passed to them (from Made Calls or Received Calls).
  *
  * Follows the same shape as RequisitionUsageReportGate: one global shadcn
- * Dialog, opened once when unseen work is first discovered, kept live by a
- * realtime subscription. Unlike that gate it does NOT re-nag on a timer —
- * closing it records that the person has seen the concern, so it never fires
- * again as brand new, while a genuinely new hand-off (or being added back to a
- * concern) clears the acknowledgement server-side and shows up again.
+ * Dialog, driven purely by a live "is anything still open" query, opened on
+ * first discovery and re-opened every REMIND_INTERVAL_MS while something
+ * stays open, kept fresh by a realtime subscription. Closing it (or clicking
+ * View Concerns) only snoozes it — the concern's own status is the sole
+ * authority for whether it keeps coming back, so it reappears on every login
+ * and every refresh for as long as any concern forwarded to this person is
+ * not 'completed', exactly like the Requisitions gate reappears while a
+ * report is outstanding.
  *
- * Concerns that are finished never appear. Nothing about forwarding rules,
- * concern statuses or the audit trail is touched.
+ * Concerns that are finished (status = 'completed') never appear. Nothing
+ * about forwarding rules, concern statuses or the audit trail is touched —
+ * dismiss/View Concerns still call cc_acknowledge_concern, which only feeds
+ * the separate "Confirmed" badge in ConcernParticipantsPanel and has no
+ * bearing on whether this popup shows.
  */
+
+const REMIND_INTERVAL_MS = 5 * 60 * 1000;
 
 function fmtDate(iso: string | null) {
   if (!iso) return '—';
@@ -59,14 +67,18 @@ export function ConcernAssignmentGate() {
     return () => { supabase.removeChannel(channel); };
   }, [user?.id, refetch]);
 
-  // Open on first discovery (login, and again after a refresh while anything
-  // is still unseen). Never on a repeating timer.
+  // Open on first discovery (login, and again after every refresh while
+  // anything is still open), then keep re-opening on a timer for as long as
+  // the tab stays open and something remains unresolved — same shape as
+  // RequisitionUsageReportGate.
   useEffect(() => {
     if (pending.length === 0) { openedOnceRef.current = false; setOpen(false); return; }
     if (!openedOnceRef.current) {
       openedOnceRef.current = true;
       setOpen(true);
     }
+    const timer = window.setInterval(() => setOpen(true), REMIND_INTERVAL_MS);
+    return () => window.clearInterval(timer);
   }, [pending.length]);
 
   const dismiss = async () => {
