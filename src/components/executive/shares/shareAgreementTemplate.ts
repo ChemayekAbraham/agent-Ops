@@ -1,6 +1,6 @@
 import rawHtml from './shareAgreement.html?raw';
 import welileLogo from '@/assets/welile-contract-logo.png';
-import { formatUGX } from '@/lib/rentCalculations';
+const formatUGX = (n: number) => `UGX ${Math.round(n).toLocaleString('en-US')}`;
 
 export interface ShareAgreementData {
   participantName?: string | null;
