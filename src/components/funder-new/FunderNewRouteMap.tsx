@@ -17,14 +17,28 @@ const KAMPALA_ZOOM = 12;
 
 let mapsPromise: Promise<typeof google.maps> | null = null;
 
-// The billed Maps key lives in the secret store, so it is fetched once per
-// session rather than compiled into the bundle. The connector key is only a
-// fallback for environments where the function is unavailable.
+const MAPS_KEY_STORAGE = 'welile-gmaps-key';
+
+// The billed Maps key lives in the secret store. Once fetched, it is cached in
+// sessionStorage for the rest of the browser session so repeated navigations
+// and reloads never wait on an edge function cold start.
 async function resolveMapsKey(): Promise<string> {
+  try {
+    const cached = sessionStorage.getItem(MAPS_KEY_STORAGE);
+    if (cached) return cached;
+  } catch {
+    // sessionStorage not available
+  }
   try {
     const { data, error } = await supabase.functions.invoke('maps-browser-key');
     if (!error && data && typeof (data as { key?: string }).key === 'string') {
-      return (data as { key: string }).key;
+      const key = (data as { key: string }).key;
+      try {
+        sessionStorage.setItem(MAPS_KEY_STORAGE, key);
+      } catch {
+        // ignore
+      }
+      return key;
     }
   } catch {
     // fall through to the connector key
@@ -63,6 +77,11 @@ function loadGoogleMaps(): Promise<typeof google.maps> {
     mapsPromise = null;
   });
   return mapsPromise;
+}
+
+// Eagerly preload Google Maps script in the background so tiles start resolving immediately
+if (typeof window !== 'undefined') {
+  void loadGoogleMaps();
 }
 
 declare global {
@@ -255,16 +274,21 @@ export function FunderNewRouteMap({
   const closeRef = useRef<HTMLButtonElement | null>(null);
 
   const reportViewport = useCallback(
-    (fromUser: boolean) => {
+    (fromUser: boolean, immediate = false) => {
       const map = mapRef.current;
       if (!map) return;
       if (reportTimerRef.current) window.clearTimeout(reportTimerRef.current);
-      reportTimerRef.current = window.setTimeout(() => {
+      const doReport = () => {
         const viewport = viewportOf(map);
         if (!viewport) return;
         onViewportChange(viewport);
         if (fromUser) setMoved(viewport);
-      }, 400);
+      };
+      if (immediate) {
+        doReport();
+      } else {
+        reportTimerRef.current = window.setTimeout(doReport, 300);
+      }
     },
     [onViewportChange],
   );
@@ -274,9 +298,11 @@ export function FunderNewRouteMap({
     loadGoogleMaps()
       .then(() => {
         if (cancelled || !hostRef.current) return;
+        const initialCenter = device ?? (awaitingDeviceFix ? SERVICE_AREA_CENTRE : KAMPALA_CENTRE);
+        const initialZoom = device ? LOCATED_ZOOM : awaitingDeviceFix ? SERVICE_AREA_ZOOM : KAMPALA_ZOOM;
         const map = new google.maps.Map(hostRef.current, {
-          center: device ?? SERVICE_AREA_CENTRE,
-          zoom: device ? LOCATED_ZOOM : SERVICE_AREA_ZOOM,
+          center: initialCenter,
+          zoom: initialZoom,
           clickableIcons: false,
           disableDefaultUI: true,
           gestureHandling: fullscreen ? 'greedy' : 'cooperative',
@@ -287,14 +313,9 @@ export function FunderNewRouteMap({
           map.addListener('idle', () => {
             const first = !initialisedRef.current;
             initialisedRef.current = true;
-            reportViewport(!first);
+            reportViewport(!first, first);
           }),
         ];
-        if (device) map.panTo(device);
-        else if (!awaitingDeviceFix) {
-          map.setCenter(KAMPALA_CENTRE);
-          map.setZoom(KAMPALA_ZOOM);
-        }
       })
       .catch((error: unknown) => {
         if (!cancelled) setMapError(error instanceof Error ? error.message : 'Google Maps could not be loaded.');

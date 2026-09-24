@@ -4,13 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useEmptyHouseMapCells, type MapViewport } from '@/hooks/useEmptyHouseMapCells';
 import type { FunderNewEmptyHouse, FunderNewFilters, FunderNewOrigin } from './types';
-import type { FunderNewMapCell, FunderNewViewport } from './FunderNewRouteMap';
+import { FunderNewRouteMap, type FunderNewMapCell, type FunderNewViewport } from './FunderNewRouteMap';
 import type { FunderNewLocationController } from './useFunderNewLocation';
 import { amountRange } from './utils';
 
-const LazyRouteMap = lazy(() => import('./FunderNewRouteMap').then((module) => ({ default: module.FunderNewRouteMap })));
-
-/** Reserved box so lazy loading the map never shifts the page. */
+/** Reserved box so loading the map never shifts the page. */
 const MAP_BOX = 'h-[330px] sm:h-[440px] lg:h-[520px]';
 
 
@@ -149,28 +147,26 @@ export function FunderNewMapSection({
         className={`relative z-0 overflow-hidden rounded-2xl border bg-card shadow-sm ${MAP_BOX}`}
       >
 
-        <Suspense fallback={<Skeleton className="h-full w-full rounded-2xl" />}>
-          <LazyRouteMap
-            key={resetToken}
-            cells={cells}
-            selectedIds={selectedIds}
-            savedIds={savedIds}
-            activeId={activeId}
-            device={device}
-            awaitingDeviceFix={awaitingDeviceFix}
-            locating={location.status === 'locating'}
-            canUseLocation={location.permission !== 'unsupported' && location.permission !== 'denied'}
-            areaSearchValue={filters.search}
-            onAreaSearchChange={onAreaSearchChange}
-            onOpenHouse={onOpenHouse}
-            onViewportChange={setViewport}
-            onSearchThisArea={onApplyArea}
-            onUseMyLocation={device ? location.refresh : location.request}
-            onReset={handleReset}
-            loadedNote={loadedNote}
-            onExpandedChange={onExpandedChange}
-          />
-        </Suspense>
+        <FunderNewRouteMap
+          key={resetToken}
+          cells={cells}
+          selectedIds={selectedIds}
+          savedIds={savedIds}
+          activeId={activeId}
+          device={device}
+          awaitingDeviceFix={awaitingDeviceFix}
+          locating={location.status === 'locating'}
+          canUseLocation={location.permission !== 'unsupported' && location.permission !== 'denied'}
+          areaSearchValue={filters.search}
+          onAreaSearchChange={onAreaSearchChange}
+          onOpenHouse={onOpenHouse}
+          onViewportChange={setViewport}
+          onSearchThisArea={onApplyArea}
+          onUseMyLocation={device ? location.refresh : location.request}
+          onReset={handleReset}
+          loadedNote={loadedNote}
+          onExpandedChange={onExpandedChange}
+        />
       </div>
 
       {!device && origin?.source === 'area' ? (
