@@ -331,7 +331,15 @@ function parseTransaction(text: string): {
   const cpMatch = !out.counterparty && t.match(/\b(?:from|to|by)\s+([A-Z][A-Za-z'.\- ]{1,40}?)(?=\s+(?:on|at|UGX|USh|Shs|Bal|ID|TID|Ref|\.|,|256|\+256|0\d{9}|\d[*xX•·]{3,}\d{4}))/);
   if (cpMatch) out.counterparty = cpMatch[1].trim();
   if (!out.counterparty) {
-    const phoneCp = t.match(/\b(?:from|to|by)\s+((?:\+?256|0)\d{9})\b/);
+    // Airtel's inbound shape is "RECEIVED. TID… UGX 21445 from 752251576" —
+    // a bare 9-digit subscriber number with no 0/256 prefix. Requiring the
+    // prefix left every one of these with counterparty=null, so a payer who
+    // never submitted a deposit request could only be matched by the looser
+    // body scan (handover 127). The bare form is accepted after "from" only,
+    // so outbound "to …" shapes (which feed the payout auto-debit) are
+    // unchanged.
+    const phoneCp = t.match(/\b(?:from|to|by)\s+((?:\+?256|0)\d{9})\b/)
+      || t.match(/\bfrom\s+(7\d{8})\b/);
     if (phoneCp) out.counterparty = phoneCp[1];
   }
 
@@ -838,15 +846,23 @@ Deno.serve(async (req) => {
     // normal path (ID / TID / dedup_hash checks still apply, so already-
     // ingested messages are skipped). Combine with debug=1 for a dry run.
     // Never moves the stored cutoff backwards (newestMs starts at lastMs).
+    //
+    // Optional `only_message_ids` (JSON body, ≤25 Gmail ids) limits a rescan
+    // to specific messages. Needed when messages share a timestamp but only
+    // some should be replayed — e.g. a merchant float send whose float has
+    // since been re-asserted by an absolute "set to" reconciliation, where a
+    // replay would credit the same money twice (handover 127).
     let rescanFrom = url.searchParams.get('rescan_from');
     let rescanTo = url.searchParams.get('rescan_to');
-    if (!rescanFrom) {
-      try {
-        const body = await req.clone().json();
-        if (body?.rescan_from) rescanFrom = String(body.rescan_from);
-        if (body?.rescan_to) rescanTo = String(body.rescan_to);
-      } catch { /* no body */ }
-    }
+    let onlyMessageIds: Set<string> | null = null;
+    try {
+      const body = await req.clone().json();
+      if (!rescanFrom && body?.rescan_from) rescanFrom = String(body.rescan_from);
+      if (!rescanTo && body?.rescan_to) rescanTo = String(body.rescan_to);
+      if (Array.isArray(body?.only_message_ids) && body.only_message_ids.length) {
+        onlyMessageIds = new Set(body.only_message_ids.slice(0, 25).map((x: unknown) => String(x)));
+      }
+    } catch { /* no body */ }
     const rescanFromMs = rescanFrom ? Date.parse(rescanFrom) : NaN;
     const rescanToMs = rescanTo ? Date.parse(rescanTo) : pollNowMs;
     // Bounded like `backfill`: at most 48h per call, and no further back than
@@ -876,6 +892,11 @@ Deno.serve(async (req) => {
         messages.push(...(list?.messages ?? []));
         pageToken = list?.nextPageToken;
         if (!pageToken) break;
+      }
+      if (onlyMessageIds) {
+        const keep = messages.filter((m) => onlyMessageIds!.has(m.id));
+        messages.length = 0;
+        messages.push(...keep);
       }
     } else {
       const list = await gmailFetch(
@@ -2290,7 +2311,11 @@ async function _tryAutoCreditOperationalFloat(
   const emailLast9Set = new Set<string>();
   {
     const hay = `${cp}\n${subject ?? ''}\n${snippet ?? ''}\n${rawBody ?? ''}`;
-    for (const t of hay.match(/(?:\+?256|0)?7\d{8}/g) ?? []) {
+    // Digit boundaries matter: without them this pulled "716200575" out of
+    // "TID157162005754". A fragment that happened to equal a real user's
+    // number would have credited the wrong person (0 of 451 past body
+    // matches were affected, checked 2026-09-24; handover 127).
+    for (const t of hay.match(/(?<!\d)(?:\+?256|0)?7\d{8}(?!\d)/g) ?? []) {
       const d = toLast9(t);
       if (d) emailLast9Set.add(d);
     }
