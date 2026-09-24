@@ -148,8 +148,10 @@
     display: table-header-group;
   }
 
+  /* The grand total prints once, after the last department. As a footer group
+     it would repeat at the foot of every page and read as a page total. */
   tfoot {
-    display: table-footer-group;
+    display: table-row-group;
   }
 
   tr {
