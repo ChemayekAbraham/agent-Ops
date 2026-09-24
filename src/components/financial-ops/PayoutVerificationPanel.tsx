@@ -1245,14 +1245,34 @@ function PayoutNameCheckCard({
 
       {check ? (
         <div className="mt-2 space-y-2">
-          <div className="rounded-xl border border-border bg-background/70 p-2.5">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+          {/* The recorded network name is the decision-critical value — render it
+              large, loud and colour-coded by outcome so it cannot be missed. */}
+          <div
+            className={`rounded-xl border-2 p-3 ${
+              check.outcome === 'match'
+                ? 'border-emerald-500 bg-emerald-500/15'
+                : check.outcome === 'partial'
+                  ? 'border-amber-500 bg-amber-500/15'
+                  : 'border-destructive bg-destructive/15'
+            }`}
+          >
+            <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-muted-foreground">
               Name the network showed
             </p>
-            <p className="truncate text-sm font-bold text-foreground">{check.networkName}</p>
+            <p
+              className={`mt-0.5 break-words text-2xl font-extrabold leading-tight ${
+                check.outcome === 'match'
+                  ? 'text-emerald-700 dark:text-emerald-400'
+                  : check.outcome === 'partial'
+                    ? 'text-amber-700 dark:text-amber-400'
+                    : 'text-destructive'
+              }`}
+            >
+              {check.networkName}
+            </p>
           </div>
           {check.outcome !== 'match' && (
-            <p role="alert" className="text-xs font-semibold text-destructive">
+            <p role="alert" className="text-sm font-extrabold uppercase tracking-wide text-destructive">
               These are not clearly the same person. Verify stays closed — call the holder or reject with a note.
             </p>
           )}
