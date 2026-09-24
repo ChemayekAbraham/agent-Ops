@@ -56,7 +56,8 @@ const mine = () => db.legs.filter((l) => l.user_id === U && ['wallet', 'bridge']
 
 function expected(from: string, to: string) {
   const inRange = mine().filter((l) => l.transaction_date >= startIso(from) && l.transaction_date <= endIso(to));
-  const closing = current - net(mine().filter((l) => l.transaction_date > endIso(to)));
+  const cur = Number(db.wallet?.balance) || Number(db.wallet?.withdrawable_balance ?? 0) + Number(db.wallet?.float_balance ?? 0);
+  const closing = cur - net(mine().filter((l) => l.transaction_date > endIso(to)));
   return {
     count: inRange.length,
     totalIn: inRange.filter((l) => l.direction === 'cash_in').reduce((s, l) => s + l.amount, 0),
