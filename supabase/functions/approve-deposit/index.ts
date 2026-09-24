@@ -709,6 +709,18 @@ Deno.serve(async (req) => {
               .eq('direction', 'cash_in');
             hasTransitLeg = (transitCount ?? 0) > 0;
           }
+          // Physical cash routed to WITHDRAWABLE needs NO platform offset leg.
+          // `agent_float_cash_offset` exists only to cancel the DR A2 that a
+          // FLOAT deposit's wallet leg posts. When the wallet leg is instead
+          // `wallet_deposit` (CR L1), that A2 credit has no matching debit, and
+          // `cash_custody_payable` becomes a second credit for the obligation the
+          // wallet leg already recorded. Result: DR A5 / CR A2 / CR L1 / CR L1,
+          // out by 2x on every such deposit (37 groups, UGX 333,255,000 before
+          // this fix). The wallet leg became purpose-aware on 2026-09-07; the
+          // platform legs were not updated with it.
+          // Correct entry for physical cash + personal_deposit is DR A5 / CR L1.
+          const needsPlatformOffset = !isPhysicalCashChannel || isFloatDeposit;
+
           const depositEntries: Record<string, unknown>[] = [
               {
                 user_id: depositRequest.user_id,
@@ -727,21 +739,23 @@ Deno.serve(async (req) => {
                 currency: 'UGX',
                 transaction_date: new Date().toISOString(),
               },
-              {
-                direction: 'cash_out',
-                amount: depositRequest.amount,
-                category: isPhysicalCashChannel ? 'agent_float_cash_offset' : depositCategory,
-                ledger_scope: 'platform',
-                source_table: 'deposit_requests',
-                source_id: depositRequest.id,
-                description: isPhysicalCashChannel
-                  ? 'Offset: physical cash is held by the company, not with the agent'
-                  : isFloatDeposit
-                  ? 'Platform: float deposit credited to agent float bucket'
-                  : 'Platform liability: deposit credited to user wallet',
-                currency: 'UGX',
-                transaction_date: new Date().toISOString(),
-              },
+              ...(needsPlatformOffset
+                ? [{
+                    direction: 'cash_out',
+                    amount: depositRequest.amount,
+                    category: isPhysicalCashChannel ? 'agent_float_cash_offset' : depositCategory,
+                    ledger_scope: 'platform',
+                    source_table: 'deposit_requests',
+                    source_id: depositRequest.id,
+                    description: isPhysicalCashChannel
+                      ? 'Offset: physical cash is held by the company, not with the agent'
+                      : isFloatDeposit
+                      ? 'Platform: float deposit credited to agent float bucket'
+                      : 'Platform liability: deposit credited to user wallet',
+                    currency: 'UGX',
+                    transaction_date: new Date().toISOString(),
+                  }]
+                : []),
           ];
 
           if (isPhysicalCashChannel && !hasTransitLeg) {
@@ -758,19 +772,27 @@ Deno.serve(async (req) => {
                 currency: 'UGX',
                 transaction_date: new Date().toISOString(),
               },
-              {
-                direction: 'cash_out',
-                amount: depositRequest.amount,
-                category: 'cash_custody_payable',
-                ledger_scope: 'platform',
-                source_table: 'deposit_requests',
-                source_id: depositRequest.id,
-                reference_id: depositRequest.transaction_id || depositRequest.id,
-                description: 'Custody obligation for physical cash received, not yet banked',
-                currency: 'UGX',
-                transaction_date: new Date().toISOString(),
-              },
             );
+            // Custody obligation belongs to the FLOAT variant only. For a
+            // withdrawable (personal) deposit the wallet leg above is already
+            // the L1 credit for this obligation; posting this leg too records
+            // the same custody twice. See needsPlatformOffset above.
+            if (isFloatDeposit) {
+              depositEntries.push(
+                {
+                  direction: 'cash_out',
+                  amount: depositRequest.amount,
+                  category: 'cash_custody_payable',
+                  ledger_scope: 'platform',
+                  source_table: 'deposit_requests',
+                  source_id: depositRequest.id,
+                  reference_id: depositRequest.transaction_id || depositRequest.id,
+                  description: 'Custody obligation for physical cash received, not yet banked',
+                  currency: 'UGX',
+                  transaction_date: new Date().toISOString(),
+                },
+              );
+            }
           }
 
           const { error: depositLedgerErr } = await supabaseAdmin.rpc('create_ledger_transaction', {
