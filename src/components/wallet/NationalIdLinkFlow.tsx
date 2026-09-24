@@ -50,15 +50,34 @@ export default function NationalIdLinkFlow({
   const cancel = useCancelNationalIdLink();
   const [code, setCode] = useState('');
 
+  const [startError, setStartError] = useState<string | null>(null);
+
   // One request per account per ID; asking again picks up the open one.
+  // Returns the request id, or null with the reason shown on screen — never
+  // leaves the buttons below wired to nothing.
+  const ensureRequest = async (): Promise<string | null> => {
+    if (requestId) return requestId;
+    if (!nin) return null;
+    try {
+      const res = await start.mutateAsync(nin);
+      const id = res.request_id ?? null;
+      if (!id) throw new Error('Could not start that request. Please try again.');
+      setRequestId(id);
+      setStartError(null);
+      return id;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Could not start that request.';
+      setStartError(msg);
+      toast.error(msg);
+      return null;
+    }
+  };
+
   useEffect(() => {
     if (requestId || start.isPending || !nin) return;
-    start
-      .mutateAsync(nin)
-      .then((res) => setRequestId(res.request_id ?? null))
-      .catch((e) => toast.error(e instanceof Error ? e.message : 'Could not start that request.'));
+    void ensureRequest();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nin]);
+  }, [nin, requestId]);
 
   const s = state.data;
   const [seen, setSeen] = useState<string | null>(null);
@@ -98,7 +117,7 @@ export default function NationalIdLinkFlow({
     status === 'cancelled_by_requester';
 
   const doCancel = async () => {
-    if (!requestId) return;
+    if (!requestId) { doStartAgain(); return; }
     try {
       await cancel.mutateAsync(requestId);
       setCode('');
@@ -113,14 +132,16 @@ export default function NationalIdLinkFlow({
   // setup effect can open a fresh one.
   const doStartAgain = () => {
     setRequestId(null);
+    setStartError(null);
     setCode('');
     setSeen(null);
   };
 
   const doSend = async () => {
-    if (!requestId) return;
+    const id = await ensureRequest();
+    if (!id) return;
     try {
-      await send.mutateAsync(requestId);
+      await send.mutateAsync(id);
       toast.success('Code sent to the number on that National ID.');
       state.refetch();
     } catch (e) {
@@ -129,7 +150,7 @@ export default function NationalIdLinkFlow({
   };
 
   const doVerify = async () => {
-    if (!requestId) return;
+    if (!requestId) { toast.error('Send the code first.'); return; }
     try {
       await verify.mutateAsync({ requestId, code });
       setCode('');
@@ -161,6 +182,9 @@ export default function NationalIdLinkFlow({
         </p>
       ) : (
         <>
+          {startError && !requestId && (
+            <p className="rounded-lg bg-destructive/10 p-2 text-xs text-destructive">{startError}</p>
+          )}
           <div className="space-y-2">
             <Step
               state={s?.code_verified ? 'done' : 'todo'}
@@ -197,8 +221,8 @@ export default function NationalIdLinkFlow({
 
           {!closed && status !== 'active' && !s?.code_verified && (
             <div className="space-y-2">
-              <Button variant="outline" className="h-11 w-full" onClick={doSend} disabled={send.isPending}>
-                {send.isPending && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
+              <Button variant="outline" className="h-11 w-full" onClick={doSend} disabled={send.isPending || start.isPending}>
+                {(send.isPending || start.isPending) && <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />}
                 {s?.code_sent ? 'Send the code again' : 'Send code to the ID holder'}
               </Button>
               {s?.code_sent && (

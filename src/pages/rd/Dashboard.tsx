@@ -12,6 +12,7 @@ import { Lab } from '@/components/rd/Lab';
 import { Risk } from '@/components/rd/Risk';
 import { SpeedOfLight } from '@/components/rd/SpeedOfLight';
 import { AuditTrail } from '@/components/rd/AuditTrail';
+import { Settings } from '@/components/rd/Settings';
 import { useRdMe } from '@/components/rd/useRd';
 
 const tabCls = ({ isActive }: { isActive: boolean }) =>
@@ -44,6 +45,7 @@ export default function RDDashboard() {
             <NavLink to="/rd/lab" className={tabCls}>Lab</NavLink>
             <NavLink to="/rd/risk" className={tabCls}>Risk</NavLink>
             <NavLink to="/rd/log" className={tabCls}>Decision log</NavLink>
+            {me?.is_lead && <NavLink to="/rd/settings" className={tabCls}>Settings</NavLink>}
             {showAudit && <NavLink to="/rd/audit" className={tabCls}>Audit</NavLink>}
           </nav>
         </div>
@@ -57,6 +59,7 @@ export default function RDDashboard() {
           <Route path="lab" element={<Lab />} />
           <Route path="risk" element={<Risk />} />
           <Route path="log" element={<DecisionLog />} />
+          <Route path="settings" element={<Settings />} />
           <Route path="audit" element={<AuditTrail />} />
         </Routes>
       </main>

@@ -15,11 +15,14 @@ import {
 } from './useRd';
 import { KillDialog, ReasonDialog } from './KillDialog';
 import { toast } from 'sonner';
+import { useProducts, VALUES, VALUE_LABEL } from './values';
+import { useSettings } from './useRd';
 
 const EDITABLE = [
   'title', 'problem', 'constraint_note', 'bet', 'horizon', 'owner_id', 'deputy_id',
   'exit_metric_name', 'exit_metric_baseline', 'exit_metric_target', 'exit_metric_unit', 'exit_metric_result',
   'sol_days', 'delay_bucket', 'delay_note', 'kill_criteria', 'evidence', 'dependency_notes', 'next_gate_on', 'domains',
+  'product_id', 'company_value', 'value_note',
 ] as const;
 const NUMERIC = new Set(['exit_metric_baseline', 'exit_metric_target', 'exit_metric_result', 'sol_days']);
 const NONE = '__none__';
@@ -48,6 +51,8 @@ export function MissionDetail() {
   const [comment, setComment] = useState('');
   const [dlg, setDlg] = useState<null | 'advance' | 'back' | 'force' | 'pause' | 'kill'>(null);
   const [saving, setSaving] = useState(false);
+  const { data: products = [] } = useProducts();
+  const { data: settings } = useSettings();
 
   useEffect(() => { if (m) setForm(Object.fromEntries(EDITABLE.map((k) => [k, m[k] ?? null]))); }, [m]);
 
@@ -118,6 +123,24 @@ export function MissionDetail() {
 
       <Section title="Problem, constraint, bet">
         {txt('problem', 'Problem')}{txt('constraint_note', 'Constraint')}{txt('bet', 'Bet')}
+      </Section>
+
+      <Section title="Product and value">
+        <div className="grid gap-3 sm:grid-cols-2">
+          {pick('product_id', 'Product', products.filter((p) => p.active || p.id === m.product_id || p.id === form.product_id).map((p) => ({ v: p.id, l: p.active ? p.name : `${p.name} (inactive)` })))}
+          <div>
+            {pick('company_value', 'Company value', VALUES.map((v) => ({ v, l: VALUE_LABEL[v] })))}
+            {form.company_value && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                {(settings?.[`value_${form.company_value}`] ?? '').trim() || 'Not yet defined by the R&D lead'}
+              </p>
+            )}
+          </div>
+        </div>
+        <div>
+          <Label>How this mission serves the value</Label>
+          <Textarea rows={2} maxLength={300} disabled={readOnly} value={form.value_note ?? ''} onChange={(e) => set('value_note', e.target.value)} />
+        </div>
       </Section>
 
       <Section title="Stage, horizon, owner">

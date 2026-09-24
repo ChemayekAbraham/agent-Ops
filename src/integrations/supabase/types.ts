@@ -35328,6 +35328,7 @@ export type Database = {
       rd_missions: {
         Row: {
           bet: string | null
+          company_value: string | null
           constraint_note: string | null
           created_at: string
           created_by: string | null
@@ -35349,6 +35350,7 @@ export type Database = {
           ops_ready: boolean
           owner_id: string | null
           problem: string
+          product_id: string | null
           released_at: string | null
           released_by: string | null
           ship_approved_at: string | null
@@ -35358,9 +35360,11 @@ export type Database = {
           started_on: string | null
           title: string
           updated_at: string
+          value_note: string | null
         }
         Insert: {
           bet?: string | null
+          company_value?: string | null
           constraint_note?: string | null
           created_at?: string
           created_by?: string | null
@@ -35382,6 +35386,7 @@ export type Database = {
           ops_ready?: boolean
           owner_id?: string | null
           problem: string
+          product_id?: string | null
           released_at?: string | null
           released_by?: string | null
           ship_approved_at?: string | null
@@ -35391,9 +35396,11 @@ export type Database = {
           started_on?: string | null
           title: string
           updated_at?: string
+          value_note?: string | null
         }
         Update: {
           bet?: string | null
+          company_value?: string | null
           constraint_note?: string | null
           created_at?: string
           created_by?: string | null
@@ -35415,6 +35422,7 @@ export type Database = {
           ops_ready?: boolean
           owner_id?: string | null
           problem?: string
+          product_id?: string | null
           released_at?: string | null
           released_by?: string | null
           ship_approved_at?: string | null
@@ -35424,8 +35432,17 @@ export type Database = {
           started_on?: string | null
           title?: string
           updated_at?: string
+          value_note?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "rd_missions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "rd_products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       rd_model_versions: {
         Row: {
@@ -35475,6 +35492,30 @@ export type Database = {
           training_window?: string | null
           updated_at?: string
           version?: string
+        }
+        Relationships: []
+      }
+      rd_products: {
+        Row: {
+          active: boolean
+          created_at: string
+          created_by: string | null
+          id: string
+          name: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          name?: string
         }
         Relationships: []
       }
@@ -35534,6 +35575,9 @@ export type Database = {
           now_cap: number
           updated_at: string
           updated_by: string | null
+          value_faith: string
+          value_hope: string
+          value_love: string
           weekly_question: string
         }
         Insert: {
@@ -35541,6 +35585,9 @@ export type Database = {
           now_cap?: number
           updated_at?: string
           updated_by?: string | null
+          value_faith?: string
+          value_hope?: string
+          value_love?: string
           weekly_question?: string
         }
         Update: {
@@ -35548,6 +35595,9 @@ export type Database = {
           now_cap?: number
           updated_at?: string
           updated_by?: string | null
+          value_faith?: string
+          value_hope?: string
+          value_love?: string
           weekly_question?: string
         }
         Relationships: []
@@ -63791,6 +63841,7 @@ export type Database = {
         Args: { p_mission: string }
         Returns: {
           bet: string | null
+          company_value: string | null
           constraint_note: string | null
           created_at: string
           created_by: string | null
@@ -63812,6 +63863,7 @@ export type Database = {
           ops_ready: boolean
           owner_id: string | null
           problem: string
+          product_id: string | null
           released_at: string | null
           released_by: string | null
           ship_approved_at: string | null
@@ -63821,6 +63873,7 @@ export type Database = {
           started_on: string | null
           title: string
           updated_at: string
+          value_note: string | null
         }
         SetofOptions: {
           from: "*"
@@ -63842,6 +63895,7 @@ export type Database = {
         }
         Returns: {
           bet: string | null
+          company_value: string | null
           constraint_note: string | null
           created_at: string
           created_by: string | null
@@ -63863,6 +63917,7 @@ export type Database = {
           ops_ready: boolean
           owner_id: string | null
           problem: string
+          product_id: string | null
           released_at: string | null
           released_by: string | null
           ship_approved_at: string | null
@@ -63872,6 +63927,7 @@ export type Database = {
           started_on: string | null
           title: string
           updated_at: string
+          value_note: string | null
         }
         SetofOptions: {
           from: "*"
@@ -63918,6 +63974,7 @@ export type Database = {
         Args: { p_mission: string }
         Returns: {
           bet: string | null
+          company_value: string | null
           constraint_note: string | null
           created_at: string
           created_by: string | null
@@ -63939,6 +63996,7 @@ export type Database = {
           ops_ready: boolean
           owner_id: string | null
           problem: string
+          product_id: string | null
           released_at: string | null
           released_by: string | null
           ship_approved_at: string | null
@@ -63948,6 +64006,7 @@ export type Database = {
           started_on: string | null
           title: string
           updated_at: string
+          value_note: string | null
         }
         SetofOptions: {
           from: "*"
@@ -63965,6 +64024,7 @@ export type Database = {
         }
         Returns: {
           bet: string | null
+          company_value: string | null
           constraint_note: string | null
           created_at: string
           created_by: string | null
@@ -63986,6 +64046,7 @@ export type Database = {
           ops_ready: boolean
           owner_id: string | null
           problem: string
+          product_id: string | null
           released_at: string | null
           released_by: string | null
           ship_approved_at: string | null
@@ -63995,6 +64056,7 @@ export type Database = {
           started_on: string | null
           title: string
           updated_at: string
+          value_note: string | null
         }
         SetofOptions: {
           from: "*"
