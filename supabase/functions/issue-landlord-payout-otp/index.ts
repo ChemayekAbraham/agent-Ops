@@ -443,7 +443,9 @@ Deno.serve(async (req) => {
       return json({ error: "This landlord is not verified by Landlord Ops. Verification is required before any payout." }, 400);
     }
     const resolvedPhone = (landlordRow?.mobile_money_number || landlordRow?.phone || "").trim();
-    const approvedPhone = (landlordRow?.verified_mobile_money_number || "").trim();
+    // Formatting stripped: some approved numbers were backfilled as "0772 363 578",
+    // and this value flows through to the withdrawal FinOps pays (doc 122).
+    const approvedPhone = (landlordRow?.verified_mobile_money_number || "").replace(/[\s-]/g, "");
     if (!resolvedPhone) {
       return json({ error: "This landlord has no mobile money number on file. Ask Landlord Ops to add and verify it." }, 400);
     }

@@ -163,5 +163,6 @@ The pre-09-09 audit rows don't record old or new values, and before 09-09 there 
   number outside the chain. Ops included: an ops edit also becomes a request.
 - Don't set `landlord_numbers.change_authorized` anywhere except the review, expiry and create
   functions. That flag *is* the lock's key.
-- Don't loosen `enforce_landlord_payout_eligibility`'s exact match to a normalized one. Fix the
-  caller so it sends the approved value verbatim, as `issue-landlord-payout-otp` now does.
+- ~~Don't loosen `enforce_landlord_payout_eligibility`'s exact match.~~ **Superseded by doc 122:** the exact
+  match blocked a real payout (approved `0772 363 578` vs `0772363578`, 597 landlords exposed). It now
+  compares the subscriber number (last 9 digits), which still refuses any different number.
