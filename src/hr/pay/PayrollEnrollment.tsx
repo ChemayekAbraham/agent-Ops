@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Check, Loader2, Printer } from 'lucide-react';
 import { toast } from 'sonner';
 import '@/hr/pay/print.css';
@@ -239,6 +239,33 @@ export default function PayrollEnrollment() {
     }),
     [rows],
   );
+
+  /** Staff grouped by department, alphabetically, unassigned last. */
+  const groups = useMemo(() => {
+    const NONE = 'No department';
+    const byDept = new Map<string, EnrollmentRow[]>();
+    for (const row of rows) {
+      const key = row.department || NONE;
+      const list = byDept.get(key) ?? [];
+      list.push(row);
+      byDept.set(key, list);
+    }
+    return Array.from(byDept.entries())
+      .sort(([a], [b]) => {
+        if (a === NONE) return 1;
+        if (b === NONE) return -1;
+        return a.localeCompare(b);
+      })
+      .map(([department, groupRows]) => ({
+        department,
+        rows: groupRows,
+        basic: groupRows.reduce((sum, r) => sum + (r.basicAmount ?? 0), 0),
+        partMonth: groupRows.reduce((sum, r) => sum + r.partMonthAmount, 0),
+        allowances: groupRows.reduce((sum, r) => sum + r.allowancesTotal, 0),
+        deductions: groupRows.reduce((sum, r) => sum + r.deductionsTotal, 0),
+        gross: groupRows.reduce((sum, r) => sum + r.grossTotal, 0),
+      }));
+  }, [rows]);
 
   const bothApplyCount = useMemo(
     () => rows.filter((r) => bothApply(r, periodCutOff)).length,
@@ -714,7 +741,23 @@ export default function PayrollEnrollment() {
                       </TableCell>
                     </TableRow>
                   ) : (
-                    rows.map((row) => (
+                    groups.map((group) => (
+                      <Fragment key={group.department}>
+                        <TableRow className="dept-header bg-muted/60 hover:bg-muted/60">
+                          <TableCell colSpan={11} className="text-sm font-semibold">
+                            {group.department}
+                            <span className="ml-2 text-xs font-normal text-muted-foreground">
+                              {group.rows.length} {group.rows.length === 1 ? 'person' : 'people'}
+                            </span>
+                          </TableCell>
+                          <TableCell className="print-hide" />
+                          <TableCell className="print-hide" />
+                          <TableCell className="print-hide" />
+                          <TableCell className="print-hide" />
+                          <TableCell className="print-hide" />
+                          <TableCell />
+                        </TableRow>
+                        {group.rows.map((row) => (
                       <TableRow
                         key={row.staffId}
                         className={bothApply(row, periodCutOff) ? 'bg-amber-50' : undefined}
@@ -935,6 +978,36 @@ export default function PayrollEnrollment() {
                           </div>
                         </TableCell>
                       </TableRow>
+                        ))}
+                        <TableRow className="dept-subtotal bg-muted/30 font-medium hover:bg-muted/30">
+                          <TableCell colSpan={5}>
+                            {group.department} subtotal · {group.rows.length}{' '}
+                            {group.rows.length === 1 ? 'person' : 'people'}
+                          </TableCell>
+                          <TableCell className="text-right font-mono tabular-nums">
+                            {reveal ? formatAmount(group.basic) : '••••••'}
+                          </TableCell>
+                          <TableCell className="text-right font-mono tabular-nums">
+                            {reveal ? formatAmount(group.partMonth) : '••••••'}
+                          </TableCell>
+                          <TableCell className="text-right font-mono tabular-nums">
+                            {reveal ? formatAmount(group.allowances) : '••••••'}
+                          </TableCell>
+                          <TableCell className="text-right font-mono tabular-nums">
+                            {reveal ? formatAmount(group.deductions) : '••••••'}
+                          </TableCell>
+                          <TableCell className="text-right font-mono tabular-nums">
+                            {reveal ? formatAmount(group.gross) : '••••••'}
+                          </TableCell>
+                          <TableCell />
+                          <TableCell className="print-hide" />
+                          <TableCell className="print-hide" />
+                          <TableCell className="print-hide" />
+                          <TableCell className="print-hide" />
+                          <TableCell className="print-hide" />
+                          <TableCell />
+                        </TableRow>
+                      </Fragment>
                     ))
                   )}
                 </TableBody>
