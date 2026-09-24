@@ -22382,6 +22382,96 @@ export type Database = {
           },
         ]
       }
+      landlord_number_direct_edits: {
+        Row: {
+          actor: string | null
+          created_at: string
+          field: string
+          id: string
+          landlord_id: string
+          new_value: string | null
+          old_value: string | null
+          open_payouts: number
+          payout_number_changed: boolean
+          review_note: string | null
+          review_outcome: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          risk_flags: string[]
+          tenants_on_record: number
+        }
+        Insert: {
+          actor?: string | null
+          created_at?: string
+          field: string
+          id?: string
+          landlord_id: string
+          new_value?: string | null
+          old_value?: string | null
+          open_payouts?: number
+          payout_number_changed?: boolean
+          review_note?: string | null
+          review_outcome?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          risk_flags?: string[]
+          tenants_on_record?: number
+        }
+        Update: {
+          actor?: string | null
+          created_at?: string
+          field?: string
+          id?: string
+          landlord_id?: string
+          new_value?: string | null
+          old_value?: string | null
+          open_payouts?: number
+          payout_number_changed?: boolean
+          review_note?: string | null
+          review_outcome?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          risk_flags?: string[]
+          tenants_on_record?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landlord_number_direct_edits_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "landlords"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_number_direct_edits_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "landlords_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_number_direct_edits_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_calling_base"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "landlord_number_direct_edits_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_ops_status"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "landlord_number_direct_edits_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_landlord_base"
+            referencedColumns: ["landlord_id"]
+          },
+        ]
+      }
       landlord_onboarding_targets: {
         Row: {
           created_at: string
@@ -30721,6 +30811,45 @@ export type Database = {
           status?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      payout_name_check_log: {
+        Row: {
+          checked_at: string
+          checked_by: string
+          checked_name: string
+          destination_id: string
+          id: string
+          id_name: string | null
+          network: string | null
+          outcome: string
+          payout_target: string | null
+          subject_user_id: string | null
+        }
+        Insert: {
+          checked_at?: string
+          checked_by?: string
+          checked_name: string
+          destination_id: string
+          id?: string
+          id_name?: string | null
+          network?: string | null
+          outcome: string
+          payout_target?: string | null
+          subject_user_id?: string | null
+        }
+        Update: {
+          checked_at?: string
+          checked_by?: string
+          checked_name?: string
+          destination_id?: string
+          id?: string
+          id_name?: string | null
+          network?: string | null
+          outcome?: string
+          payout_target?: string | null
+          subject_user_id?: string | null
         }
         Relationships: []
       }
@@ -62166,10 +62295,12 @@ export type Database = {
         Returns: Json
       }
       national_id_link_state: { Args: { p_request_id: string }; Returns: Json }
-      national_id_name_taken: {
-        Args: { p_name: string; p_user_id?: string }
-        Returns: Json
-      }
+      national_id_name_taken:
+        | { Args: { p_name: string; p_user_id?: string }; Returns: Json }
+        | {
+            Args: { p_name: string; p_nin?: string; p_user_id?: string }
+            Returns: Json
+          }
       national_id_name_twins: {
         Args: { p_name: string; p_user_id: string }
         Returns: Json
@@ -64967,6 +65098,10 @@ export type Database = {
       }
       review_landlord_number_change: {
         Args: { p_comment: string; p_decision: string; p_request_id: string }
+        Returns: Json
+      }
+      review_landlord_number_direct_edit: {
+        Args: { p_edit_id: string; p_note: string; p_outcome: string }
         Returns: Json
       }
       review_merchant_out_of_pocket: {

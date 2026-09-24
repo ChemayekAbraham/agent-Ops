@@ -794,7 +794,7 @@ export function FunderCapitalOpportunities({
         compactMobile
       >
 
-        {/* One merged list: empty houses and houses with ready tenants */}
+        {/* Rent plans / empty houses — switched by the toggle inside the card */}
         <div className="space-y-2.5 sm:pt-2 sm:space-y-3">
           {user?.id
             ? <SelfPortfolioFundingCard partnerId={user.id} feedOrder={feedOrder} onFeedOrderChange={setFeedOrder} />
