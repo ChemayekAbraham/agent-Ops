@@ -35151,6 +35151,463 @@ export type Database = {
         }
         Relationships: []
       }
+      rd_audit: {
+        Row: {
+          actor: string | null
+          at: string
+          entity: string
+          entity_id: string | null
+          field: string | null
+          id: number
+          new_value: string | null
+          old_value: string | null
+          op: string
+        }
+        Insert: {
+          actor?: string | null
+          at?: string
+          entity: string
+          entity_id?: string | null
+          field?: string | null
+          id?: number
+          new_value?: string | null
+          old_value?: string | null
+          op: string
+        }
+        Update: {
+          actor?: string | null
+          at?: string
+          entity?: string
+          entity_id?: string | null
+          field?: string | null
+          id?: number
+          new_value?: string | null
+          old_value?: string | null
+          op?: string
+        }
+        Relationships: []
+      }
+      rd_comments: {
+        Row: {
+          author_id: string | null
+          body: string
+          created_at: string
+          id: string
+          mission_id: string
+        }
+        Insert: {
+          author_id?: string | null
+          body: string
+          created_at?: string
+          id?: string
+          mission_id: string
+        }
+        Update: {
+          author_id?: string | null
+          body?: string
+          created_at?: string
+          id?: string
+          mission_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rd_comments_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "rd_missions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rd_decisions: {
+        Row: {
+          artefact_urls: string[]
+          belief_that_was_wrong: string | null
+          decided_at: string
+          decided_by: string | null
+          decision: string
+          id: string
+          mission_id: string
+          never_again: string | null
+          why: string
+        }
+        Insert: {
+          artefact_urls?: string[]
+          belief_that_was_wrong?: string | null
+          decided_at?: string
+          decided_by?: string | null
+          decision: string
+          id?: string
+          mission_id: string
+          never_again?: string | null
+          why: string
+        }
+        Update: {
+          artefact_urls?: string[]
+          belief_that_was_wrong?: string | null
+          decided_at?: string
+          decided_by?: string | null
+          decision?: string
+          id?: string
+          mission_id?: string
+          never_again?: string | null
+          why?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rd_decisions_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "rd_missions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rd_experiments: {
+        Row: {
+          baseline: number | null
+          cohort: string | null
+          created_at: string
+          decision: string
+          end_on: string | null
+          guardrail: string | null
+          hypothesis: string
+          id: string
+          metric_name: string | null
+          mission_id: string
+          observed: number | null
+          owner_id: string | null
+          result: string | null
+          start_on: string | null
+          updated_at: string
+        }
+        Insert: {
+          baseline?: number | null
+          cohort?: string | null
+          created_at?: string
+          decision?: string
+          end_on?: string | null
+          guardrail?: string | null
+          hypothesis: string
+          id?: string
+          metric_name?: string | null
+          mission_id: string
+          observed?: number | null
+          owner_id?: string | null
+          result?: string | null
+          start_on?: string | null
+          updated_at?: string
+        }
+        Update: {
+          baseline?: number | null
+          cohort?: string | null
+          created_at?: string
+          decision?: string
+          end_on?: string | null
+          guardrail?: string | null
+          hypothesis?: string
+          id?: string
+          metric_name?: string | null
+          mission_id?: string
+          observed?: number | null
+          owner_id?: string | null
+          result?: string | null
+          start_on?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rd_experiments_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "rd_missions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rd_missions: {
+        Row: {
+          bet: string | null
+          constraint_note: string | null
+          created_at: string
+          created_by: string | null
+          delay_bucket: string | null
+          delay_note: string | null
+          dependency_notes: string | null
+          deputy_id: string | null
+          domains: string[]
+          evidence: string | null
+          exit_metric_baseline: number | null
+          exit_metric_name: string | null
+          exit_metric_result: number | null
+          exit_metric_target: number | null
+          exit_metric_unit: string | null
+          horizon: string
+          id: string
+          kill_criteria: string | null
+          next_gate_on: string | null
+          ops_ready: boolean
+          owner_id: string | null
+          problem: string
+          released_at: string | null
+          released_by: string | null
+          ship_approved_at: string | null
+          ship_approved_by: string | null
+          sol_days: number | null
+          stage: string
+          started_on: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          bet?: string | null
+          constraint_note?: string | null
+          created_at?: string
+          created_by?: string | null
+          delay_bucket?: string | null
+          delay_note?: string | null
+          dependency_notes?: string | null
+          deputy_id?: string | null
+          domains?: string[]
+          evidence?: string | null
+          exit_metric_baseline?: number | null
+          exit_metric_name?: string | null
+          exit_metric_result?: number | null
+          exit_metric_target?: number | null
+          exit_metric_unit?: string | null
+          horizon?: string
+          id?: string
+          kill_criteria?: string | null
+          next_gate_on?: string | null
+          ops_ready?: boolean
+          owner_id?: string | null
+          problem: string
+          released_at?: string | null
+          released_by?: string | null
+          ship_approved_at?: string | null
+          ship_approved_by?: string | null
+          sol_days?: number | null
+          stage?: string
+          started_on?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          bet?: string | null
+          constraint_note?: string | null
+          created_at?: string
+          created_by?: string | null
+          delay_bucket?: string | null
+          delay_note?: string | null
+          dependency_notes?: string | null
+          deputy_id?: string | null
+          domains?: string[]
+          evidence?: string | null
+          exit_metric_baseline?: number | null
+          exit_metric_name?: string | null
+          exit_metric_result?: number | null
+          exit_metric_target?: number | null
+          exit_metric_unit?: string | null
+          horizon?: string
+          id?: string
+          kill_criteria?: string | null
+          next_gate_on?: string | null
+          ops_ready?: boolean
+          owner_id?: string | null
+          problem?: string
+          released_at?: string | null
+          released_by?: string | null
+          ship_approved_at?: string | null
+          ship_approved_by?: string | null
+          sol_days?: number | null
+          stage?: string
+          started_on?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      rd_model_versions: {
+        Row: {
+          banned_features_note: string | null
+          created_at: string
+          decides: string
+          features_note: string | null
+          id: string
+          last_drift_check_on: string | null
+          name: string
+          owner_id: string | null
+          rollback_path: string | null
+          source_job: string | null
+          status: string
+          training_window: string | null
+          updated_at: string
+          version: string
+        }
+        Insert: {
+          banned_features_note?: string | null
+          created_at?: string
+          decides: string
+          features_note?: string | null
+          id?: string
+          last_drift_check_on?: string | null
+          name: string
+          owner_id?: string | null
+          rollback_path?: string | null
+          source_job?: string | null
+          status?: string
+          training_window?: string | null
+          updated_at?: string
+          version: string
+        }
+        Update: {
+          banned_features_note?: string | null
+          created_at?: string
+          decides?: string
+          features_note?: string | null
+          id?: string
+          last_drift_check_on?: string | null
+          name?: string
+          owner_id?: string | null
+          rollback_path?: string | null
+          source_job?: string | null
+          status?: string
+          training_window?: string | null
+          updated_at?: string
+          version?: string
+        }
+        Relationships: []
+      }
+      rd_risk_items: {
+        Row: {
+          blocks_mission_id: string | null
+          created_at: string
+          due_on: string | null
+          id: string
+          kind: string
+          opened_on: string
+          owner_id: string | null
+          severity: string
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          blocks_mission_id?: string | null
+          created_at?: string
+          due_on?: string | null
+          id?: string
+          kind: string
+          opened_on?: string
+          owner_id?: string | null
+          severity: string
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          blocks_mission_id?: string | null
+          created_at?: string
+          due_on?: string | null
+          id?: string
+          kind?: string
+          opened_on?: string
+          owner_id?: string | null
+          severity?: string
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rd_risk_items_blocks_mission_id_fkey"
+            columns: ["blocks_mission_id"]
+            isOneToOne: false
+            referencedRelation: "rd_missions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rd_settings: {
+        Row: {
+          id: boolean
+          now_cap: number
+          updated_at: string
+          updated_by: string | null
+          weekly_question: string
+        }
+        Insert: {
+          id?: boolean
+          now_cap?: number
+          updated_at?: string
+          updated_by?: string | null
+          weekly_question?: string
+        }
+        Update: {
+          id?: boolean
+          now_cap?: number
+          updated_at?: string
+          updated_by?: string | null
+          weekly_question?: string
+        }
+        Relationships: []
+      }
+      rd_signals: {
+        Row: {
+          author_id: string | null
+          body: string
+          created_at: string
+          domain: string
+          id: string
+          mission_id: string | null
+          seen_at: string | null
+          seen_by: string | null
+          severity: string
+          status: string
+          strength: string
+          updated_at: string
+          why_it_matters: string
+        }
+        Insert: {
+          author_id?: string | null
+          body: string
+          created_at?: string
+          domain: string
+          id?: string
+          mission_id?: string | null
+          seen_at?: string | null
+          seen_by?: string | null
+          severity?: string
+          status?: string
+          strength: string
+          updated_at?: string
+          why_it_matters: string
+        }
+        Update: {
+          author_id?: string | null
+          body?: string
+          created_at?: string
+          domain?: string
+          id?: string
+          mission_id?: string | null
+          seen_at?: string | null
+          seen_by?: string | null
+          severity?: string
+          status?: string
+          strength?: string
+          updated_at?: string
+          why_it_matters?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rd_signals_mission_id_fkey"
+            columns: ["mission_id"]
+            isOneToOne: false
+            referencedRelation: "rd_missions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       receipt_numbers: {
         Row: {
           created_at: string
@@ -63322,6 +63779,210 @@ export type Database = {
         Returns: undefined
       }
       queue_tenant_rent_intake_stall_notices: { Args: never; Returns: number }
+      rd_approve_ship: {
+        Args: { p_mission: string }
+        Returns: {
+          bet: string | null
+          constraint_note: string | null
+          created_at: string
+          created_by: string | null
+          delay_bucket: string | null
+          delay_note: string | null
+          dependency_notes: string | null
+          deputy_id: string | null
+          domains: string[]
+          evidence: string | null
+          exit_metric_baseline: number | null
+          exit_metric_name: string | null
+          exit_metric_result: number | null
+          exit_metric_target: number | null
+          exit_metric_unit: string | null
+          horizon: string
+          id: string
+          kill_criteria: string | null
+          next_gate_on: string | null
+          ops_ready: boolean
+          owner_id: string | null
+          problem: string
+          released_at: string | null
+          released_by: string | null
+          ship_approved_at: string | null
+          ship_approved_by: string | null
+          sol_days: number | null
+          stage: string
+          started_on: string | null
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "rd_missions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      rd_can_read: { Args: never; Returns: boolean }
+      rd_convert_signal: { Args: { p_signal: string }; Returns: string }
+      rd_decide: {
+        Args: {
+          p_artefacts?: string[]
+          p_belief?: string
+          p_decision: string
+          p_mission: string
+          p_never_again?: string
+          p_why: string
+        }
+        Returns: {
+          bet: string | null
+          constraint_note: string | null
+          created_at: string
+          created_by: string | null
+          delay_bucket: string | null
+          delay_note: string | null
+          dependency_notes: string | null
+          deputy_id: string | null
+          domains: string[]
+          evidence: string | null
+          exit_metric_baseline: number | null
+          exit_metric_name: string | null
+          exit_metric_result: number | null
+          exit_metric_target: number | null
+          exit_metric_unit: string | null
+          horizon: string
+          id: string
+          kill_criteria: string | null
+          next_gate_on: string | null
+          ops_ready: boolean
+          owner_id: string | null
+          problem: string
+          released_at: string | null
+          released_by: string | null
+          ship_approved_at: string | null
+          ship_approved_by: string | null
+          sol_days: number | null
+          stage: string
+          started_on: string | null
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "rd_missions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      rd_is_contributor: { Args: never; Returns: boolean }
+      rd_is_lead: { Args: never; Returns: boolean }
+      rd_me: {
+        Args: never
+        Returns: {
+          can_read: boolean
+          is_ceo: boolean
+          is_cfo: boolean
+          is_contributor: boolean
+          is_lead: boolean
+        }[]
+      }
+      rd_people: {
+        Args: never
+        Returns: {
+          full_name: string
+          is_lead: boolean
+          is_rd: boolean
+          staff_ref: string
+          user_id: string
+        }[]
+      }
+      rd_release: {
+        Args: { p_mission: string }
+        Returns: {
+          bet: string | null
+          constraint_note: string | null
+          created_at: string
+          created_by: string | null
+          delay_bucket: string | null
+          delay_note: string | null
+          dependency_notes: string | null
+          deputy_id: string | null
+          domains: string[]
+          evidence: string | null
+          exit_metric_baseline: number | null
+          exit_metric_name: string | null
+          exit_metric_result: number | null
+          exit_metric_target: number | null
+          exit_metric_unit: string | null
+          horizon: string
+          id: string
+          kill_criteria: string | null
+          next_gate_on: string | null
+          ops_ready: boolean
+          owner_id: string | null
+          problem: string
+          released_at: string | null
+          released_by: string | null
+          ship_approved_at: string | null
+          ship_approved_by: string | null
+          sol_days: number | null
+          stage: string
+          started_on: string | null
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "rd_missions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      rd_set_stage: {
+        Args: {
+          p_force?: boolean
+          p_mission: string
+          p_reason?: string
+          p_to: string
+        }
+        Returns: {
+          bet: string | null
+          constraint_note: string | null
+          created_at: string
+          created_by: string | null
+          delay_bucket: string | null
+          delay_note: string | null
+          dependency_notes: string | null
+          deputy_id: string | null
+          domains: string[]
+          evidence: string | null
+          exit_metric_baseline: number | null
+          exit_metric_name: string | null
+          exit_metric_result: number | null
+          exit_metric_target: number | null
+          exit_metric_unit: string | null
+          horizon: string
+          id: string
+          kill_criteria: string | null
+          next_gate_on: string | null
+          ops_ready: boolean
+          owner_id: string | null
+          problem: string
+          released_at: string | null
+          released_by: string | null
+          ship_approved_at: string | null
+          ship_approved_by: string | null
+          sol_days: number | null
+          stage: string
+          started_on: string | null
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "rd_missions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
         Returns: {
