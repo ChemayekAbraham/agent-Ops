@@ -246,20 +246,21 @@
   }
 
   /* Column widths from the header row. Indices count every column in the
-     markup: 3 (Department) is collapsed to zero, 12 to 16 are hidden. The
-     eleven that print are 1, 2, 4 to 11 and 17, and they sum to 100%. */
+     markup: 3 (Department) is collapsed to zero, 13 to 17 are hidden. The
+     twelve that print are 1, 2, 4 to 12 and 18, and they sum to 100%. */
   .print-root th:nth-child(1) { width: 6%; }
-  .print-root th:nth-child(2) { width: 16%; }
+  .print-root th:nth-child(2) { width: 13%; }
   .print-root th:nth-child(3) { width: 0; }
-  .print-root th:nth-child(4) { width: 19%; }
+  .print-root th:nth-child(4) { width: 18%; }
   .print-root th:nth-child(5) { width: 6%; }
   .print-root th:nth-child(6) { width: 8%; }
   .print-root th:nth-child(7) { width: 6%; }
   .print-root th:nth-child(8) { width: 7%; }
   .print-root th:nth-child(9) { width: 7%; }
-  .print-root th:nth-child(10) { width: 9%; }
-  .print-root th:nth-child(11) { width: 8%; }
-  .print-root th:nth-child(17) { width: 8%; }
+  .print-root th:nth-child(10) { width: 7%; }
+  .print-root th:nth-child(11) { width: 9%; }
+  .print-root th:nth-child(12) { width: 7%; }
+  .print-root th:nth-child(18) { width: 6%; }
 
   .print-root th:nth-child(6),
   .print-root td:nth-child(6),
@@ -270,7 +271,9 @@
   .print-root th:nth-child(9),
   .print-root td:nth-child(9),
   .print-root th:nth-child(10),
-  .print-root td:nth-child(10) {
+  .print-root td:nth-child(10),
+  .print-root th:nth-child(11),
+  .print-root td:nth-child(11) {
     text-align: right;
   }
 
