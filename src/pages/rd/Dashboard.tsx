@@ -2,6 +2,7 @@ import { NavLink, Route, Routes, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, FlaskConical } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/hooks/useAuth';
 import { CommandStrip } from '@/components/rd/CommandStrip';
 import { Pipeline } from '@/components/rd/Pipeline';
 import { MissionDetail } from '@/components/rd/MissionDetail';
@@ -9,12 +10,17 @@ import { DecisionLog } from '@/components/rd/DecisionLog';
 import { Signals } from '@/components/rd/Signals';
 import { Lab } from '@/components/rd/Lab';
 import { Risk } from '@/components/rd/Risk';
+import { AuditTrail } from '@/components/rd/AuditTrail';
+import { useRdMe } from '@/components/rd/useRd';
 
 const tabCls = ({ isActive }: { isActive: boolean }) =>
   cn('shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium', isActive ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted');
 
 export default function RDDashboard() {
   const navigate = useNavigate();
+  const { roles } = useAuth();
+  const { data: me } = useRdMe();
+  const showAudit = !!me?.is_lead || (roles ?? []).includes('super_admin');
 
   return (
     <div className="min-h-screen bg-background">
