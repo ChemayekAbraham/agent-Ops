@@ -94,6 +94,15 @@ export const PARTNER_OPS_NAV: PartnerOpsNavItem[] = [
     ],
   },
   {
+    key: 'shares',
+    label: 'Shares',
+    icon: PieChart,
+    keywords: ['shares', 'angel pool', 'equity'],
+    children: [
+      { key: 'shares.onboarding', label: 'Shares Onboarding', icon: FileSignature, keywords: ['shareholder', 'angel pool', 'shares agreement', 'sign', 'countersign'] },
+    ],
+  },
+  {
     key: 'onboarding',
     label: 'Partner Onboarding',
     icon: UserPlus,
