@@ -1129,6 +1129,45 @@ function DecisionDialog({
  * phone to this exact number, reads back the registered name the network shows,
  * types it here, and the two names are compared with the National ID name.
  */
+// Audible alert for name-check outcomes, so a risky result is heard even when
+// the checker is looking at their phone instead of the screen. A match plays a
+// soft confirmation chime; a partial match two warning beeps; different names
+// an urgent triple low-pitched alarm. Runs on a user gesture (Record tap), so
+// browser autoplay rules allow it. Any audio failure is silent.
+function playNameCheckAlert(outcome: 'match' | 'partial' | 'different') {
+  try {
+    const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    const beep = (freq: number, start: number, dur: number, gain = 0.22) => {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.value = freq;
+      g.gain.setValueAtTime(gain, ctx.currentTime + start);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + start + dur);
+      osc.connect(g).connect(ctx.destination);
+      osc.start(ctx.currentTime + start);
+      osc.stop(ctx.currentTime + start + dur);
+    };
+    if (outcome === 'match') {
+      beep(880, 0, 0.12, 0.12);
+      beep(1320, 0.14, 0.18, 0.12);
+    } else if (outcome === 'partial') {
+      beep(620, 0, 0.18);
+      beep(620, 0.28, 0.18);
+    } else {
+      beep(330, 0, 0.22, 0.28);
+      beep(330, 0.3, 0.22, 0.28);
+      beep(330, 0.6, 0.34, 0.28);
+    }
+    // Close after the last tone so contexts don't pile up across checks.
+    window.setTimeout(() => void ctx.close().catch(() => undefined), 1600);
+  } catch {
+    /* audio unavailable — the visual alert still shows */
+  }
+}
+
 function PayoutNameCheckCard({
   row,
   check,
@@ -1163,6 +1202,7 @@ function PayoutNameCheckCard({
     const next: PayoutNameCheck = { networkName, outcome, checkedAt: new Date().toISOString() };
     saveNameCheck(row.id, next);
     onChange(next);
+    playNameCheckAlert(outcome);
     logNameCheck({
       destinationId: row.id,
       subjectUserId: row.user_id ?? null,
