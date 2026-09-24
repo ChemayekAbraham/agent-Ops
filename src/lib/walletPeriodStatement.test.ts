@@ -86,7 +86,7 @@ beforeEach(() => {
 });
 
 async function check(from: string, to: string) {
-  const st = await loadPeriodStatement(U, from, to);
+  const st = await loadPeriodStatement(U, from, to, { isAgent: true });
   const e = expected(from, to);
   expect(st.rows).toHaveLength(e.count);
   expect(st.totalIn).toBe(e.totalIn);
@@ -152,6 +152,20 @@ describe('loadPeriodStatement', () => {
     db.wallet = { balance: 0, withdrawable_balance: 4_000_000, float_balance: 1_000_000 };
     const st = await check('2026-06-01', '2026-09-30');
     expect(st.closing).toBe(current);
+  });
+
+  it('non-agent: closing matches the card (withdrawable only), float excluded', async () => {
+    // Same seeded wallet (4,000,000 withdrawable + 1,000,000 float), but the
+    // non-agent card shows withdrawable only — the statement must follow it.
+    const st = await loadPeriodStatement(U, '2026-06-01', '2026-09-30', { isAgent: false });
+    expect(st.closing).toBe(4_000_000);
+    expect(st.reconciliation!.currentBalance).toBe(4_000_000);
+    expect(st.opening + st.totalIn - st.totalOut).toBe(st.closing);
+  });
+
+  it('non-agent is the default when no option is passed', async () => {
+    const st = await loadPeriodStatement(U, '2026-06-01', '2026-09-30');
+    expect(st.closing).toBe(4_000_000);
   });
 
   it('reconciliation identifies internal adjustments not listed as transactions', async () => {
