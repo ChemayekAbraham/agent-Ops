@@ -30,7 +30,6 @@ import { SelfPortfolioFundingCard } from '@/components/partner/SelfPortfolioFund
 import { HowItWorksSteps, type HowItWorksStep } from './HowItWorksSteps';
 import { EmptyHouseOpportunitiesSheet } from '@/components/agent/EmptyHouseOpportunitiesSheet';
 import { FunderBookedHousesPanel } from '@/components/supporter/FunderBookedHousesPanel';
-import { FunderHouseListingsSection } from '@/components/supporter/FunderHouseListingsSection';
 
 import { useProfile } from '@/hooks/useProfile';
 
