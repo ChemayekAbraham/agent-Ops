@@ -53,3 +53,23 @@ withdrawal `dd3ddbdb…` are still on Gloria Nakalekwa / 0703141822.
   A rename on a shared or verified record can be just as misleading as a number change.
 - Root cause: agents can attach a new tenant to an existing landlord record, and nothing flags
   one landlord record being shared across tenants at different addresses.
+
+## Follow-up (same day): plan missing from the agent's Landlord Payout Float withdrawal
+
+Josh: the corrected landlord must show on the agent's **Landlord Payout Float** withdrawal.
+`AgentFloatPayoutWizard` builds that list from `agent_landlord_assignments`, which was only written
+by `trg_auto_assign_landlord_on_rent_request` **AFTER INSERT**. Re-pointing the plan's `landlord_id`
+therefore left James Katongole with no assignment for `d8d31630`, and the plan disappeared from his
+list. `landlord-payout-disburse` doesn't read assignments, so only the screen was affected.
+
+- **Data:** inserted the assignment (agent `16d52ad2`, landlord `d8d31630`, plan `2b12e1c4`).
+  Verified: the screen's query now returns Kalule Brian → Nakasita Joanita, 0750754907, UGX 600,000,
+  unpaid.
+- **Code:** `20260924200000_assign_landlord_on_rent_request_landlord_change.sql` adds
+  `trg_auto_assign_landlord_on_rent_request_update`, which is AFTER UPDATE OF `landlord_id` and
+  `agent_id` and runs the same idempotent `auto_assign_landlord_to_agent()`. Applied live and
+  verified.
+- **Not backfilled:** 4 other funded, unpaid plans have no active assignment for their agent and
+  landlord (`2849983b` 100k 03-01, `ac2a40b5` 500k 04-10, `75a1c591` 200k 03-26, `4b32a6db` 300k
+  09-17). Backfilling would make them payable from float, so that's a human call. The March/April
+  ones are probably stale.
