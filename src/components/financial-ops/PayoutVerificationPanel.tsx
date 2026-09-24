@@ -8,7 +8,8 @@
  * lives in the database and the approve-withdrawal function.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { PayoutNameCheckHistory, logNameCheck, nameCheckHistoryKey } from './PayoutNameCheckHistory';
 import {
   AlertTriangle,
   ArrowUpDown,
@@ -1128,6 +1129,45 @@ function DecisionDialog({
  * phone to this exact number, reads back the registered name the network shows,
  * types it here, and the two names are compared with the National ID name.
  */
+// Audible alert for name-check outcomes, so a risky result is heard even when
+// the checker is looking at their phone instead of the screen. A match plays a
+// soft confirmation chime; a partial match two warning beeps; different names
+// an urgent triple low-pitched alarm. Runs on a user gesture (Record tap), so
+// browser autoplay rules allow it. Any audio failure is silent.
+function playNameCheckAlert(outcome: 'match' | 'partial' | 'different') {
+  try {
+    const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    const beep = (freq: number, start: number, dur: number, gain = 0.22) => {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.value = freq;
+      g.gain.setValueAtTime(gain, ctx.currentTime + start);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + start + dur);
+      osc.connect(g).connect(ctx.destination);
+      osc.start(ctx.currentTime + start);
+      osc.stop(ctx.currentTime + start + dur);
+    };
+    if (outcome === 'match') {
+      beep(880, 0, 0.12, 0.12);
+      beep(1320, 0.14, 0.18, 0.12);
+    } else if (outcome === 'partial') {
+      beep(620, 0, 0.18);
+      beep(620, 0.28, 0.18);
+    } else {
+      beep(330, 0, 0.22, 0.28);
+      beep(330, 0.3, 0.22, 0.28);
+      beep(330, 0.6, 0.34, 0.28);
+    }
+    // Close after the last tone so contexts don't pile up across checks.
+    window.setTimeout(() => void ctx.close().catch(() => undefined), 1600);
+  } catch {
+    /* audio unavailable — the visual alert still shows */
+  }
+}
+
 function PayoutNameCheckCard({
   row,
   check,
@@ -1138,6 +1178,7 @@ function PayoutNameCheckCard({
   onChange: (next: PayoutNameCheck | null) => void;
 }) {
   const [typed, setTyped] = useState('');
+  const queryClient = useQueryClient();
   useEffect(() => setTyped(''), [row.id]);
 
   const idName = (row.national_id_name || '').trim();
@@ -1161,8 +1202,20 @@ function PayoutNameCheckCard({
     const next: PayoutNameCheck = { networkName, outcome, checkedAt: new Date().toISOString() };
     saveNameCheck(row.id, next);
     onChange(next);
+    playNameCheckAlert(outcome);
+    logNameCheck({
+      destinationId: row.id,
+      subjectUserId: row.user_id ?? null,
+      payoutTarget: target,
+      network: isMomo ? network.label : row.bank_name ?? 'Bank',
+      checkedName: networkName,
+      idName,
+      outcome,
+    })
+      .then(() => queryClient.invalidateQueries({ queryKey: nameCheckHistoryKey(row.id) }))
+      .catch((e) => toast.error(`Name check not saved to history: ${e?.message ?? e}`));
     if (outcome === 'match') toast.success('Names are the same. Verify is now open.');
-    else if (outcome === 'partial') toast.warning('Names only partly agree — Verify stays closed.');
+    else if (outcome === 'partial') toast.warning('Names only partly agree — Verify will need your written confirmation.');
     else toast.error('Different names — do not verify. Reject or call the holder.');
   };
 
@@ -1182,12 +1235,21 @@ function PayoutNameCheckCard({
           <Smartphone className="h-3.5 w-3.5" aria-hidden="true" /> Step 1 — name check on the number
         </p>
         {check && (
-          <span className="text-[10px] font-bold uppercase tracking-widest">
+          <span
+            role={check.outcome === 'match' ? undefined : 'alert'}
+            className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-widest ${
+              check.outcome === 'match'
+                ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400'
+                : check.outcome === 'partial'
+                  ? 'animate-pulse bg-amber-500 text-white'
+                  : 'animate-pulse bg-destructive text-destructive-foreground'
+            }`}
+          >
             {check.outcome === 'match'
               ? 'Same person'
               : check.outcome === 'partial'
-                ? 'Partly agrees'
-                : 'Different name'}
+                ? '⚠ Partly agrees'
+                : '⚠ Different name'}
           </span>
         )}
       </div>
@@ -1245,16 +1307,56 @@ function PayoutNameCheckCard({
 
       {check ? (
         <div className="mt-2 space-y-2">
-          <div className="rounded-xl border border-border bg-background/70 p-2.5">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+          {/* The recorded network name is the decision-critical value — render it
+              large, loud and colour-coded by outcome so it cannot be missed. */}
+          <div
+            className={`rounded-xl border-2 p-3 ${
+              check.outcome === 'match'
+                ? 'border-emerald-500 bg-emerald-500/15'
+                : check.outcome === 'partial'
+                  ? 'border-amber-500 bg-amber-500/15'
+                  : 'border-destructive bg-destructive/15'
+            }`}
+          >
+            <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-muted-foreground">
               Name the network showed
             </p>
-            <p className="truncate text-sm font-bold text-foreground">{check.networkName}</p>
+            <p
+              className={`mt-0.5 break-words text-2xl font-extrabold leading-tight ${
+                check.outcome === 'match'
+                  ? 'text-emerald-700 dark:text-emerald-400'
+                  : check.outcome === 'partial'
+                    ? 'text-amber-700 dark:text-amber-400'
+                    : 'text-destructive'
+              }`}
+            >
+              {check.networkName}
+            </p>
           </div>
           {check.outcome !== 'match' && (
-            <p role="alert" className="text-xs font-semibold text-destructive">
-              These are not clearly the same person. Verify stays closed — call the holder or reject with a note.
-            </p>
+            <div
+              role="alert"
+              className={`animate-pulse rounded-xl border-2 p-3 ${
+                check.outcome === 'partial'
+                  ? 'border-amber-600 bg-amber-500/25'
+                  : 'border-destructive bg-destructive/25'
+              }`}
+            >
+              <p
+                className={`flex items-center gap-1.5 text-sm font-extrabold uppercase tracking-wide ${
+                  check.outcome === 'partial' ? 'text-amber-700 dark:text-amber-400' : 'text-destructive'
+                }`}
+              >
+                <ShieldAlert className="h-5 w-5 shrink-0" aria-hidden="true" />
+                {check.outcome === 'partial'
+                  ? 'Warning: names only partly agree'
+                  : 'Danger: the names are different'}
+              </p>
+              <p className="mt-1 text-sm font-bold text-foreground">
+                These are not clearly the same person. Call the holder first — Verify will ask for a
+                written reason and your confirmation.
+              </p>
+            </div>
           )}
           <Button
             variant="outline"
@@ -1285,6 +1387,7 @@ function PayoutNameCheckCard({
           </Button>
         </div>
       )}
+      <PayoutNameCheckHistory destinationId={row.id} />
     </div>
   );
 }
@@ -1484,7 +1587,25 @@ export default function PayoutVerificationPanel() {
     setNameCheck(loadNameCheck(row?.id));
   }, [row?.id]);
   const nameCheckPassed = nameCheck?.outcome === 'match';
-  const verifyBlocked = !photosReady || idNameUnreadable || isDouble || !nameCheckPassed;
+  // A partial or different name no longer hard-blocks Verify, but it requires a
+  // written reason and an explicit ownership confirmation in the confirm step.
+  const nameCheckNeedsOverride = !!nameCheck && nameCheck.outcome !== 'match';
+  const [overrideNote, setOverrideNote] = useState('');
+  const [overrideAck, setOverrideAck] = useState(false);
+  useEffect(() => {
+    setOverrideNote('');
+    setOverrideAck(false);
+  }, [confirmingVerify?.id, nameCheck?.checkedAt]);
+  // When the Verify confirmation opens on a partial or different name, play the
+  // alert again — this is the final moment a risky payout can still be stopped.
+  useEffect(() => {
+    if (confirmingVerify && nameCheck && nameCheck.outcome !== 'match') {
+      playNameCheckAlert(nameCheck.outcome);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [confirmingVerify?.id]);
+  const overrideReady = overrideNote.trim().length >= 10 && overrideAck;
+  const verifyBlocked = !photosReady || idNameUnreadable || isDouble || !nameCheck;
 
   const linkRequestQuery = useQuery({
     queryKey: ['national-id-link-for-user', row?.user_id],
@@ -1591,7 +1712,7 @@ export default function PayoutVerificationPanel() {
 
   // One tap verifies and saves everything: the National ID name becomes the
   // account name, the note is written for the audit trail, and the queue moves on.
-  const runQuickVerify = async (target: PayoutDestinationRow) => {
+  const runQuickVerify = async (target: PayoutDestinationRow, overrideReason: string | null = null) => {
     try {
       await quickVerify.mutateAsync({
         id: target.id,
@@ -1600,7 +1721,11 @@ export default function PayoutVerificationPanel() {
         reason:
           'Verified by Financial Ops: National ID photo, selfie and payout number checked; name taken from the National ID.' +
           (nameCheck
-            ? ` Name check on the payout number showed "${nameCheck.networkName}" — same person as the National ID.`
+            ? nameCheck.outcome === 'match'
+              ? ` Name check on the payout number showed "${nameCheck.networkName}" — same person as the National ID.`
+              : ` Name check on the payout number showed "${nameCheck.networkName}" — ${
+                  nameCheck.outcome === 'partial' ? 'only partly agrees with' : 'different from'
+                } the National ID. Reviewer confirmed ownership: ${overrideReason ?? ''}`
             : ''),
       });
       const idName = (target.national_id_name || '').trim();
@@ -2293,7 +2418,7 @@ export default function PayoutVerificationPanel() {
                 <p className="-mt-2 flex items-center justify-center gap-1.5 px-5 pb-4 text-center text-xs font-semibold text-amber-600">
                   <AlertTriangle className="h-3.5 w-3.5" />
                   {nameCheck
-                    ? 'Verify is off — the name on the number is not clearly the same person as the National ID.'
+                    ? 'The name on the number is not clearly the same person — Verify needs a written reason and your confirmation.'
                     : 'Verify is off — do the name check on the payout number first (Step 1 above).'}
                 </p>
               )}
@@ -2412,6 +2537,35 @@ export default function PayoutVerificationPanel() {
                     : `${confirmingVerify.bank_name ?? ''} ${confirmingVerify.bank_account_number ?? ''}`.trim() || '—'}
                 </span>
               </div>
+              {nameCheckNeedsOverride && (
+                <div role="alert" className="mt-3 animate-pulse space-y-2 rounded-xl border-4 border-destructive bg-destructive/20 p-3">
+                  <p className="flex items-center gap-1.5 text-sm font-extrabold uppercase tracking-wide text-destructive">
+                    <ShieldAlert className="h-5 w-5 shrink-0" aria-hidden="true" />
+                    {nameCheck?.outcome === 'partial'
+                      ? 'Warning: the names only partly agree'
+                      : 'Danger: the names are different'}
+                  </p>
+                  <p className="text-xs text-foreground">
+                    Only continue if you have confirmed with the holder that this number is theirs. Write what you checked.
+                  </p>
+                  <Textarea
+                    value={overrideNote}
+                    onChange={(e) => setOverrideNote(e.target.value)}
+                    placeholder="e.g. Called the holder; the number is registered in their mother's name"
+                    className="min-h-[72px] text-sm"
+                    aria-label="Reason for verifying despite the name difference"
+                  />
+                  <label className="flex items-start gap-2 text-xs font-semibold text-foreground">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-4 w-4"
+                      checked={overrideAck}
+                      onChange={(e) => setOverrideAck(e.target.checked)}
+                    />
+                    I confirm this payout number belongs to the account holder and I take responsibility for this decision.
+                  </label>
+                </div>
+              )}
             </div>
           )}
           <DialogFooter className="gap-2 px-5 pb-5 pt-2">
@@ -2425,12 +2579,14 @@ export default function PayoutVerificationPanel() {
             </Button>
             <Button
               className="h-12 flex-1 rounded-xl text-xs font-bold uppercase tracking-widest shadow-lg shadow-primary/25"
-              disabled={quickVerify.isPending}
+              disabled={quickVerify.isPending || (nameCheckNeedsOverride && !overrideReady)}
               onClick={async () => {
                 if (!confirmingVerify) return;
+                if (nameCheckNeedsOverride && !overrideReady) return;
                 const target = confirmingVerify;
+                const note = nameCheckNeedsOverride ? overrideNote.trim() : null;
                 setConfirmingVerify(null);
-                await runQuickVerify(target);
+                await runQuickVerify(target, note);
               }}
             >
               {quickVerify.isPending ? (

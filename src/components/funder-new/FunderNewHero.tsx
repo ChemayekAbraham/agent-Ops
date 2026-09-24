@@ -1,7 +1,6 @@
 import { Skeleton } from '@/components/ui/skeleton';
-import { formatDynamic } from '@/lib/currencyFormat';
+import { formatDynamic, getDynamicCurrencySymbol } from '@/lib/currencyFormat';
 import type { FunderNewMarketSummary } from './types';
-import { compactParts } from './utils';
 
 /**
  * Compact market-demand hero for /dashboard/funder-new.
@@ -61,7 +60,11 @@ export function FunderNewHero({
     );
   }
 
-  const { prefix, figure } = compactParts(summary.totalRentNeeded);
+  // Full, unabbreviated market total: keep the small currency prefix, but show
+  // every digit instead of a compact "5.8B".
+  const prefix = getDynamicCurrencySymbol();
+  const formattedTotal = formatDynamic(summary.totalRentNeeded);
+  const figure = formattedTotal.replace(prefix, '').replace(/^[^\d.,-]+/, '').trim() || formattedTotal;
   const hasHouses = summary.houseCount > 0;
 
   return (
@@ -70,18 +73,18 @@ export function FunderNewHero({
       <div className="relative flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
         <div className="min-w-0">
           <h1 className="text-sm font-semibold tracking-tight text-primary-foreground/85 sm:text-base">
-            Homes waiting for support
+            Amount needed to fund houses:
           </h1>
 
           <p className="mt-1 flex flex-wrap items-baseline gap-x-2 leading-none">
             <span className="text-base font-semibold text-primary-foreground/80 sm:text-lg">{prefix}</span>
-            <span className="break-words text-[2.75rem] font-bold tracking-tight sm:text-5xl lg:text-[3.5rem]">
+            <span className="break-words text-[1.75rem] font-bold tracking-tight sm:text-4xl lg:text-5xl">
               {figure}
             </span>
           </p>
 
           <p className="mt-2 text-sm font-medium text-primary-foreground/90 sm:text-base">
-            {summary.houseCount.toLocaleString()}+ homes&nbsp;
+            over {summary.houseCount.toLocaleString()}+ homes&nbsp;
           </p>
         </div>
 

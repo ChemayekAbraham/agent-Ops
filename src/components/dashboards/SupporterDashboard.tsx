@@ -1,5 +1,6 @@
 import calculatorIllustration from "@/assets/calculator-illustration.svg.asset.json";
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { cn } from '@/lib/utils';
 import { useConfetti } from '@/components/Confetti';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { User } from '@supabase/supabase-js';
@@ -7,7 +8,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useOffline } from '@/contexts/OfflineContext';
 import { Button } from '@/components/ui/button';
 import { Calculator, BadgeCheck, MapPin, Wallet } from 'lucide-react';
-import { MapBottomSheet } from '@/components/supporter/MapBottomSheet';
 import { formatUGX as _formatUGX } from '@/lib/rentCalculations';
 import { useToast } from '@/hooks/use-toast';
 import { AppRole } from '@/hooks/useAuth';
@@ -48,9 +48,14 @@ import { CreditRequestsFeed } from '@/components/supporter/CreditRequestsFeed';
 import { InvestmentPackageSheet } from '@/components/supporter/InvestmentPackageSheet';
 // FundingPoolCard removed from direct import
 import { FunderCapitalOpportunities } from '@/components/supporter/FunderCapitalOpportunities';
-import { FunderHouseListingsSection } from '@/components/supporter/FunderHouseListingsSection';
 import { FunderNewHero } from '@/components/funder-new/FunderNewHero';
 import { useFunderNewMarketSummary } from '@/components/funder-new/useFunderNewOpportunities';
+import { FunderNewMapSection } from '@/components/funder-new/FunderNewMapSection';
+import { useFunderNewLocation } from '@/components/funder-new/useFunderNewLocation';
+import type { FunderNewEmptyHouse, FunderNewFilters, FunderNewOrigin } from '@/components/funder-new/types';
+import type { FunderNewViewport } from '@/components/funder-new/FunderNewRouteMap';
+import { MapBottomSheet } from '@/components/supporter/MapBottomSheet';
+import EmptyHouseDetailSheet from '@/components/agent/EmptyHouseDetailSheet';
 import { useSupportedTenants } from '@/hooks/useSupportedTenants';
 import { useCapitalOpportunities } from '@/hooks/useCapitalOpportunities';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -72,10 +77,6 @@ import {
 } from '@/components/skeletons/SectionSkeletons';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { Suspense } from 'react';
-
-const EmptyHouseMapBrowser = lazyWithRetry(
-  () => import('@/components/partner/EmptyHouseMapBrowser').then(m => ({ default: m.EmptyHouseMapBrowser })),
-);
 
 
 interface SupporterDashboardProps {
@@ -117,8 +118,63 @@ export default function SupporterDashboard({
   const [showMap, setShowMap] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [mapExpanded, setMapExpanded] = useState(false);
-  const [mapSearchQuery, setMapSearchQuery] = useState('');
+
+  useEffect(() => {
+    if (mapExpanded) {
+      document.body.dataset.mapExpanded = 'true';
+    } else {
+      delete document.body.dataset.mapExpanded;
+    }
+    return () => {
+      delete document.body.dataset.mapExpanded;
+    };
+  }, [mapExpanded]);
   const marketSummary = useFunderNewMarketSummary();
+  const mapLocation = useFunderNewLocation();
+  const [mapSearchInput, setMapSearchInput] = useState('');
+  const [mapFilters, setMapFilters] = useState<FunderNewFilters>({
+    search: '',
+    location: '',
+    amount: 'all',
+    sort: 'recommended',
+    rentMin: null,
+    rentMax: null,
+    radiusKm: 'all',
+    withinFloat: false,
+  });
+  const [mapArea, setMapArea] = useState<{ lat: number; lng: number; radiusKm: number } | null>(null);
+  const [mapDetailHouse, setMapDetailHouse] = useState<FunderNewEmptyHouse | null>(null);
+
+  const mapOrigin: FunderNewOrigin | null = useMemo(() => {
+    if (mapLocation.coords) {
+      return {
+        lat: mapLocation.coords.lat,
+        lng: mapLocation.coords.lng,
+        source: 'device',
+        radiusKm: 25,
+        label: 'your location',
+      };
+    }
+    if (mapArea) {
+      return {
+        lat: mapArea.lat,
+        lng: mapArea.lng,
+        source: 'area',
+        radiusKm: mapArea.radiusKm,
+        label: 'this area',
+      };
+    }
+    return null;
+  }, [mapLocation.coords, mapArea]);
+
+  const applyMapArea = useCallback((viewport: FunderNewViewport) => {
+    setMapArea({ lat: viewport.lat, lng: viewport.lng, radiusKm: viewport.radiusKm });
+  }, []);
+
+  const handleMapSearchChange = useCallback((value: string) => {
+    setMapSearchInput(value);
+    setMapFilters((prev) => ({ ...prev, search: value }));
+  }, []);
   const [selectedHouse, setSelectedHouse] = useState<VirtualHouse | null>(null);
   const [showHouseDetails, setShowHouseDetails] = useState(false);
   const [selectedPackageCategory, setSelectedPackageCategory] = useState<RentCategory | null>(null);
@@ -448,17 +504,19 @@ export default function SupporterDashboard({
           onUnlock={unlock}
         />
       )}
-      <DashboardHeader
-        currentRole={currentRole}
-        availableRoles={availableRoles}
-        onRoleChange={onRoleChange}
-        onSignOut={signOut}
-        onMenuClick={() => setMenuOpen(true)}
-        headerActions={<NotificationBell userId={user.id} />}
-        compactInstallPrompt
-      />
+      {!mapExpanded && (
+        <DashboardHeader
+          currentRole={currentRole}
+          availableRoles={availableRoles}
+          onRoleChange={onRoleChange}
+          onSignOut={signOut}
+          onMenuClick={() => setMenuOpen(true)}
+          headerActions={<NotificationBell userId={user.id} />}
+          compactInstallPrompt
+        />
+      )}
 
-      <div className="flex-1 min-h-0 overflow-y-auto pb-nav overscroll-contain">
+      <div className={cn("flex-1 min-h-0 overflow-y-auto overscroll-contain", !mapExpanded && "pb-nav")}>
         <main className="px-3 xs:px-4 py-3 xs:py-4 sm:py-5 space-y-3 sm:space-y-5 max-w-lg lg:max-w-7xl mx-auto">
           {/* ═══ AIRBNB-STYLE PROFILE CARD ═══ */}
           {(() => {
@@ -521,37 +579,47 @@ export default function SupporterDashboard({
             onHowItWorks={() => {}}
           />
 
-          {/* ═══ STANDALONE MAP ═══ */}
-          <h2 className="text-base font-bold text-green-600 dark:text-green-400">Search for houses to fund</h2>
-          <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-            <Suspense fallback={
-              <div className="flex h-[300px] items-center justify-center bg-muted/30">
-                <p className="text-xs text-muted-foreground animate-pulse">Loading map…</p>
-              </div>
-            }>
-              <EmptyHouseMapBrowser
-                houses={[]}
-                selectedIds={[]}
-                searchQuery={mapSearchQuery}
-                remaining={0}
-                busy={false}
-                onSearchQueryChange={setMapSearchQuery}
-                onOpenHouse={() => {}}
-                onFundHouse={() => {}}
-                onExpandedChange={setMapExpanded}
-              />
-            </Suspense>
-          </div>
+          {/* ═══ MAP SECTION (Google Maps as in /dashboard/funder-new) ═══ */}
+          <FunderNewMapSection
+            filters={mapFilters}
+            location={mapLocation}
+            origin={mapOrigin}
+            selectedIds={[]}
+            savedIds={[]}
+            activeId={null}
+            heading="Search for houses to fund"
+            headingClassName="text-base font-bold text-green-600 dark:text-green-400"
+            onOpenHouse={(house) => setMapDetailHouse(house)}
+            onApplyArea={applyMapArea}
+            onAreaSearchChange={handleMapSearchChange}
+            onExpandedChange={setMapExpanded}
+          />
 
           {/* ═══ SECTION: OPPORTUNITIES ═══ */}
-          {/* When map is expanded (fullscreen), render inside a draggable bottom sheet.
-              Otherwise, render inline in the normal scroll flow. */}
-
           {mapExpanded ? (
             <MapBottomSheet
               defaultSnap="half"
+              header={({ snap, setSnap }) => (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <p className="text-[15px] font-bold text-foreground">
+                      Houses to fund
+                    </p>
+                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+                      {virtualHouses.length > 0 ? `${virtualHouses.length} waiting` : 'Waiting'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSnap(snap === 'full' ? 'half' : snap === 'half' ? 'collapsed' : 'half')}
+                    className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground touch-manipulation py-1 px-2 rounded-lg hover:bg-muted/60 transition-colors"
+                  >
+                    <span>{snap === 'full' ? 'Show map' : snap === 'half' ? 'Minimize' : 'Expand'}</span>
+                  </button>
+                </div>
+              )}
             >
-              <div id="opportunities" className="relative space-y-2.5">
+              <div id="opportunities" className="relative space-y-2.5 pb-8">
                 {!effectiveHasAccepted && <LockedOverlay onAcceptClick={() => setShowAgreementModal(true)} />}
                 <WidgetErrorBoundary label="Capital opportunities">
                   {loading && virtualHouses.length === 0 ? (
@@ -593,9 +661,6 @@ export default function SupporterDashboard({
                     />
                   </>
                 )}
-              </WidgetErrorBoundary>
-              <WidgetErrorBoundary label="House listings">
-                <FunderHouseListingsSection />
               </WidgetErrorBoundary>
             </div>
           )}
@@ -677,6 +742,14 @@ export default function SupporterDashboard({
         house={selectedHouse}
         open={showHouseDetails}
         onOpenChange={setShowHouseDetails}
+      />
+
+      <EmptyHouseDetailSheet
+        house={mapDetailHouse as any}
+        open={!!mapDetailHouse}
+        onOpenChange={(open) => {
+          if (!open) setMapDetailHouse(null);
+        }}
       />
       
       <InvestmentPackageSheet

@@ -1,5 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
 import { AlertTriangle, Home, ListFilter, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { formatDynamic } from '@/lib/currencyFormat';
+import DepositFlow from '@/components/payments/DepositFlow';
 import { useAuth } from '@/hooks/useAuth';
 import { useWalletBalance } from '@/hooks/wallet/useWalletBalance';
 import { Button } from '@/components/ui/button';
@@ -62,6 +65,9 @@ export function FunderHouseListingsSection() {
   const [detailHouse, setDetailHouse] = useState<FunderNewEmptyHouse | null>(null);
   const [detailPlan, setDetailPlan] = useState<FunderNewReadyPlan | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
+  // Top-up launched from the detail sheet's Fund button when the balance
+  // doesn't cover the house's rent — the deposit opens with the shortfall.
+  const [topUpAmount, setTopUpAmount] = useState<number | null>(null);
 
   const availableBalance = wallet.isLoading || wallet.error ? null : wallet.withdrawable;
   const loading = emptyQuery.isLoading || readyQuery.isLoading;
@@ -171,6 +177,23 @@ export function FunderHouseListingsSection() {
         onTogglePick={(house) => toggleSelect('empty', house as FunderNewEmptyHouse)}
         isPartner
         remaining={availableBalance ?? undefined}
+        onFund={(house) => {
+          const cost = Number(house.monthly_rent || 0);
+          const avail = availableBalance ?? 0;
+          if (avail >= cost) {
+            // Enough balance: select the house and open the funding review.
+            if (!selectedItems.some((i) => i.category === 'empty' && i.id === house.house_id)) {
+              toggleSelect('empty', house as FunderNewEmptyHouse);
+            }
+            setDetailHouse(null);
+            setReviewOpen(true);
+          } else {
+            // Not enough balance: open the deposit sheet with the exact shortfall.
+            toast.info(`Not enough balance. Deposit ${formatDynamic(cost - avail)} to fund this house.`);
+            setDetailHouse(null);
+            setTopUpAmount(Math.ceil(cost - avail));
+          }
+        }}
       />
       <SelfPortfolioPlanDetailSheet
         plan={detailPlan}
@@ -197,6 +220,13 @@ export function FunderHouseListingsSection() {
           setSelectedCategory(null);
         }}
         onReview={() => setReviewOpen(true)}
+      />
+      <DepositFlow
+        open={topUpAmount !== null}
+        onOpenChange={(open) => {
+          if (!open) setTopUpAmount(null);
+        }}
+        defaultAmount={topUpAmount ?? undefined}
       />
     </section>
   );

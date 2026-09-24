@@ -103,6 +103,7 @@ import { AgentAgreementBanner } from '@/components/agent/agreement';
 import { AgentPaymentEditAlert } from '@/components/agent/AgentPaymentEditAlert';
 import { AgentRejectedLandlordsPanel } from '@/components/agent/AgentRejectedLandlordsPanel';
 import { AgentDeadTenantsBanner } from '@/components/agent/AgentDeadTenantsBanner';
+import { AgentOverdueCallDrive } from '@/components/agent/AgentOverdueCallDrive';
 import { AgentReturnedInactivationsPanel } from '@/components/agent/AgentReturnedInactivationsPanel';
 import { VerificationChecklist } from '@/components/shared/VerificationChecklist';
 import { useOffline } from '@/contexts/OfflineContext';
@@ -1611,6 +1612,8 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
             <AgentDailyCardEmailPrompt />
             <AgentCapacityShareInline />
             <AgentDeadTenantsBanner agentId={user.id} />
+            {/* Overdue tenants: forces a call on every app open, emails the list daily. */}
+            <AgentOverdueCallDrive agentId={user.id} />
             {/* Unpaid days to recover. Renders nothing when nobody is behind. */}
             <AgentArrearsCard agentId={user.id} />
             {/* Rent Plans past their end date that still owe. These carry no

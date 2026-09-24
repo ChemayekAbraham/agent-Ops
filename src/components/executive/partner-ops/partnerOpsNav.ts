@@ -23,6 +23,8 @@ import {
   UserPlus,
   Percent,
   IdCard,
+  PieChart,
+  FileSignature,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -53,7 +55,8 @@ export type PartnerOpsViewKey =
   | 'maturity'
   | 'approvals'
   | 'onboarding'
-  | 'rent.requests';
+  | 'rent.requests'
+  | 'shares.onboarding';
 
 export interface PartnerOpsNavChild {
   key: PartnerOpsViewKey;
@@ -88,6 +91,15 @@ export const PARTNER_OPS_NAV: PartnerOpsNavItem[] = [
         icon: IdCard,
         keywords: ['bio data', 'details', 'profile', 'support', 'portfolio breakdown', 'financial history', 'top-ups', 'maturities', 'changes', 'search partner', 'export'],
       },
+    ],
+  },
+  {
+    key: 'shares',
+    label: 'Shares',
+    icon: PieChart,
+    keywords: ['shares', 'angel pool', 'equity'],
+    children: [
+      { key: 'shares.onboarding', label: 'Shares Onboarding', icon: FileSignature, keywords: ['shareholder', 'angel pool', 'shares agreement', 'sign', 'countersign'] },
     ],
   },
   {

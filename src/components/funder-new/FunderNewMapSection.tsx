@@ -4,13 +4,11 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useEmptyHouseMapCells, type MapViewport } from '@/hooks/useEmptyHouseMapCells';
 import type { FunderNewEmptyHouse, FunderNewFilters, FunderNewOrigin } from './types';
-import type { FunderNewMapCell, FunderNewViewport } from './FunderNewRouteMap';
+import { FunderNewRouteMap, type FunderNewMapCell, type FunderNewViewport } from './FunderNewRouteMap';
 import type { FunderNewLocationController } from './useFunderNewLocation';
 import { amountRange } from './utils';
 
-const LazyRouteMap = lazy(() => import('./FunderNewRouteMap').then((module) => ({ default: module.FunderNewRouteMap })));
-
-/** Reserved box so lazy loading the map never shifts the page. */
+/** Reserved box so loading the map never shifts the page. */
 const MAP_BOX = 'h-[330px] sm:h-[440px] lg:h-[520px]';
 
 
@@ -29,9 +27,12 @@ export function FunderNewMapSection({
   selectedIds,
   savedIds,
   activeId,
+  heading: customHeading,
+  headingClassName,
   onOpenHouse,
   onApplyArea,
   onAreaSearchChange,
+  onExpandedChange,
 }: {
   filters: FunderNewFilters;
   location: FunderNewLocationController;
@@ -39,9 +40,12 @@ export function FunderNewMapSection({
   selectedIds: string[];
   savedIds: string[];
   activeId: string | null;
+  heading?: string;
+  headingClassName?: string;
   onOpenHouse: (house: FunderNewEmptyHouse) => void;
   onApplyArea: (viewport: FunderNewViewport) => void;
   onAreaSearchChange: (value: string) => void;
+  onExpandedChange?: (expanded: boolean) => void;
 }) {
   const [viewport, setViewport] = useState<FunderNewViewport | null>(null);
   const [resetToken, setResetToken] = useState(0);
@@ -108,7 +112,9 @@ export function FunderNewMapSection({
   return (
     <section id="funder-new-map" className="scroll-mt-24 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold tracking-tight sm:text-xl">{heading}</h2>
+        <h2 className={headingClassName ?? "text-lg font-semibold tracking-tight sm:text-xl"}>
+          {customHeading ?? heading}
+        </h2>
 
         {location.autoLocating ? (
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -141,27 +147,26 @@ export function FunderNewMapSection({
         className={`relative z-0 overflow-hidden rounded-2xl border bg-card shadow-sm ${MAP_BOX}`}
       >
 
-        <Suspense fallback={<Skeleton className="h-full w-full rounded-2xl" />}>
-          <LazyRouteMap
-            key={resetToken}
-            cells={cells}
-            selectedIds={selectedIds}
-            savedIds={savedIds}
-            activeId={activeId}
-            device={device}
-            awaitingDeviceFix={awaitingDeviceFix}
-            locating={location.status === 'locating'}
-            canUseLocation={location.permission !== 'unsupported' && location.permission !== 'denied'}
-            areaSearchValue={filters.search}
-            onAreaSearchChange={onAreaSearchChange}
-            onOpenHouse={onOpenHouse}
-            onViewportChange={setViewport}
-            onSearchThisArea={onApplyArea}
-            onUseMyLocation={device ? location.refresh : location.request}
-            onReset={handleReset}
-            loadedNote={loadedNote}
-          />
-        </Suspense>
+        <FunderNewRouteMap
+          key={resetToken}
+          cells={cells}
+          selectedIds={selectedIds}
+          savedIds={savedIds}
+          activeId={activeId}
+          device={device}
+          awaitingDeviceFix={awaitingDeviceFix}
+          locating={location.status === 'locating'}
+          canUseLocation={location.permission !== 'unsupported' && location.permission !== 'denied'}
+          areaSearchValue={filters.search}
+          onAreaSearchChange={onAreaSearchChange}
+          onOpenHouse={onOpenHouse}
+          onViewportChange={setViewport}
+          onSearchThisArea={onApplyArea}
+          onUseMyLocation={device ? location.refresh : location.request}
+          onReset={handleReset}
+          loadedNote={loadedNote}
+          onExpandedChange={onExpandedChange}
+        />
       </div>
 
       {!device && origin?.source === 'area' ? (

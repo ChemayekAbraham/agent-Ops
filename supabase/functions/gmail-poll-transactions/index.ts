@@ -331,7 +331,15 @@ function parseTransaction(text: string): {
   const cpMatch = !out.counterparty && t.match(/\b(?:from|to|by)\s+([A-Z][A-Za-z'.\- ]{1,40}?)(?=\s+(?:on|at|UGX|USh|Shs|Bal|ID|TID|Ref|\.|,|256|\+256|0\d{9}|\d[*xX•·]{3,}\d{4}))/);
   if (cpMatch) out.counterparty = cpMatch[1].trim();
   if (!out.counterparty) {
-    const phoneCp = t.match(/\b(?:from|to|by)\s+((?:\+?256|0)\d{9})\b/);
+    // Airtel's inbound shape is "RECEIVED. TID… UGX 21445 from 752251576" —
+    // a bare 9-digit subscriber number with no 0/256 prefix. Requiring the
+    // prefix left every one of these with counterparty=null, so a payer who
+    // never submitted a deposit request could only be matched by the looser
+    // body scan (handover 127). The bare form is accepted after "from" only,
+    // so outbound "to …" shapes (which feed the payout auto-debit) are
+    // unchanged.
+    const phoneCp = t.match(/\b(?:from|to|by)\s+((?:\+?256|0)\d{9})\b/)
+      || t.match(/\bfrom\s+(7\d{8})\b/);
     if (phoneCp) out.counterparty = phoneCp[1];
   }
 
@@ -819,11 +827,83 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ── Same-second grace window ───────────────────────────────────────────
+    // internalDate has 1-second resolution and Gmail's list index lags
+    // delivery by a few seconds. On 2026-09-23 a tick at 11:06:00 ingested a
+    // message stamped 11:05:52 and moved the cutoff there; a 3-message IFTTT
+    // thread stamped the SAME second only became listable afterwards, and the
+    // next tick dropped all three as `older_than_last_poll` — silently, since
+    // that skip is never logged. One was a tenant's direct rent payment
+    // (TID157162005754), another a UGX 1M deposit. So only skip messages
+    // meaningfully older than the cutoff; the ID checks below keep the wider
+    // window duplicate-free (handover 125).
+    const CUTOFF_GRACE_MS = 10 * 60 * 1000;
+
+    // ── Rescan mode: re-list a past window, bypassing the time cutoff ──────
+    // `backfill` / `reparse` only revisit rows already in gmail_transactions,
+    // so a message the cutoff dropped could never be recovered. Rescan lists
+    // Gmail for [rescan_from, rescan_to) and runs every message through the
+    // normal path (ID / TID / dedup_hash checks still apply, so already-
+    // ingested messages are skipped). Combine with debug=1 for a dry run.
+    // Never moves the stored cutoff backwards (newestMs starts at lastMs).
+    //
+    // Optional `only_message_ids` (JSON body, ≤25 Gmail ids) limits a rescan
+    // to specific messages. Needed when messages share a timestamp but only
+    // some should be replayed — e.g. a merchant float send whose float has
+    // since been re-asserted by an absolute "set to" reconciliation, where a
+    // replay would credit the same money twice (handover 127).
+    let rescanFrom = url.searchParams.get('rescan_from');
+    let rescanTo = url.searchParams.get('rescan_to');
+    let onlyMessageIds: Set<string> | null = null;
+    try {
+      const body = await req.clone().json();
+      if (!rescanFrom && body?.rescan_from) rescanFrom = String(body.rescan_from);
+      if (!rescanTo && body?.rescan_to) rescanTo = String(body.rescan_to);
+      if (Array.isArray(body?.only_message_ids) && body.only_message_ids.length) {
+        onlyMessageIds = new Set(body.only_message_ids.slice(0, 25).map((x: unknown) => String(x)));
+      }
+    } catch { /* no body */ }
+    const rescanFromMs = rescanFrom ? Date.parse(rescanFrom) : NaN;
+    const rescanToMs = rescanTo ? Date.parse(rescanTo) : pollNowMs;
+    // Bounded like `backfill`: at most 48h per call, and no further back than
+    // the 7-day auto-credit window (+1 day) — this endpoint is reachable with
+    // the anon key, so a rescan must stay a cheap, idempotent operation.
+    const rescan = Number.isFinite(rescanFromMs) && Number.isFinite(rescanToMs)
+      && rescanFromMs < rescanToMs
+      && rescanToMs - rescanFromMs <= 48 * 3600 * 1000
+      && rescanFromMs >= pollNowMs - 8 * 24 * 3600 * 1000;
+    if (rescanFrom && !rescan) {
+      return new Response(JSON.stringify({ ok: false, error: 'invalid rescan_from / rescan_to (max 48h window, within the last 8 days)' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const skipBeforeMs = rescan ? 0 : (lastMs ? lastMs - CUTOFF_GRACE_MS : 0);
+
     // List recent matching messages
-    const list = await gmailFetch(
-      `/users/me/messages?maxResults=50&q=${encodeURIComponent(GMAIL_QUERY)}`,
-    );
-    const messages: { id: string; threadId: string }[] = list?.messages ?? [];
+    const messages: { id: string; threadId: string }[] = [];
+    if (rescan) {
+      const q = `${GMAIL_QUERY} after:${Math.floor(rescanFromMs / 1000)} before:${Math.ceil(rescanToMs / 1000)}`;
+      let pageToken: string | undefined;
+      for (let page = 0; page < 5; page++) {
+        const list = await gmailFetch(
+          `/users/me/messages?maxResults=100&q=${encodeURIComponent(q)}` +
+          (pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ''),
+        );
+        messages.push(...(list?.messages ?? []));
+        pageToken = list?.nextPageToken;
+        if (!pageToken) break;
+      }
+      if (onlyMessageIds) {
+        const keep = messages.filter((m) => onlyMessageIds!.has(m.id));
+        messages.length = 0;
+        messages.push(...keep);
+      }
+    } else {
+      const list = await gmailFetch(
+        `/users/me/messages?maxResults=50&q=${encodeURIComponent(GMAIL_QUERY)}`,
+      );
+      messages.push(...(list?.messages ?? []));
+    }
 
     let inserted = 0; let newestMs = lastMs;
     /** Advance the cutoff only with sane, non-future timestamps. */
@@ -909,7 +989,7 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      if (lastMs && internalMs && internalMs <= lastMs) {
+      if (skipBeforeMs && internalMs && internalMs < skipBeforeMs) {
         if (debug) debugReport.push({
           id: m.id, decision: 'skipped', reason: 'older_than_last_poll',
           internal_date: new Date(internalMs).toISOString(),
@@ -917,6 +997,17 @@ Deno.serve(async (req) => {
           from: fromEmail, subject,
         });
         continue;
+      }
+      // Inside the grace window (or a rescan) a message may already have been
+      // judged a TID/dedup_hash duplicate on an earlier tick. Skip it quietly
+      // so the wider window doesn't re-write gmail_dedup_audit every minute.
+      if (rescan || (lastMs && internalMs && internalMs <= lastMs)) {
+        const { data: judged } = await supabase
+          .from('gmail_dedup_audit').select('id').eq('gmail_message_id', m.id).limit(1).maybeSingle();
+        if (judged) {
+          if (debug) debugReport.push({ id: m.id, decision: 'skipped', reason: 'already_judged_duplicate' });
+          continue;
+        }
       }
       advanceCutoff(internalMs);
 
@@ -1191,6 +1282,7 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({
       ok: true, scanned: messages.length, inserted,
       query: GMAIL_QUERY,
+      rescan: rescan ? { from: new Date(rescanFromMs).toISOString(), to: new Date(rescanToMs).toISOString() } : undefined,
       last_cutoff: lastMs ? new Date(lastMs).toISOString() : null,
       debug: debug ? debugReport : undefined,
     }), {
@@ -2219,7 +2311,11 @@ async function _tryAutoCreditOperationalFloat(
   const emailLast9Set = new Set<string>();
   {
     const hay = `${cp}\n${subject ?? ''}\n${snippet ?? ''}\n${rawBody ?? ''}`;
-    for (const t of hay.match(/(?:\+?256|0)?7\d{8}/g) ?? []) {
+    // Digit boundaries matter: without them this pulled "716200575" out of
+    // "TID157162005754". A fragment that happened to equal a real user's
+    // number would have credited the wrong person (0 of 451 past body
+    // matches were affected, checked 2026-09-24; handover 127).
+    for (const t of hay.match(/(?<!\d)(?:\+?256|0)?7\d{8}(?!\d)/g) ?? []) {
       const d = toLast9(t);
       if (d) emailLast9Set.add(d);
     }
@@ -2681,78 +2777,14 @@ async function _tryAutoCreditOperationalFloat(
 
   const provider = parsed.channel === 'mtn_momo' ? 'mtn' : 'airtel';
 
-  // ── Direct tenant rent payment (2026-09-06 tenant-ops meeting, item #7) ──
-  // 090777 / 4380664 are Welile's own MTN/Airtel merchant tills — the SAME
-  // destination every self-deposit already targets, so a tenant paying rent
-  // directly here produces an email indistinguishable from a normal
-  // self-deposit at this point in the pipeline: no pre-existing
-  // deposit_requests row (checked above), a resolved profile, a real TID.
-  // Try attributing it to the tenant's responsible agent + rent balance
-  // BEFORE falling through to the default "credit the sender's own
-  // operational float" path below, since that default is simply wrong for a
-  // tenant (their payment would vanish into their own wallet with no rent
-  // credit and no agent commission). record_direct_tenant_rent_payment
-  // itself is the gate: it only succeeds when this profile has an active,
-  // outstanding rent request, so a genuine agent/self self-deposit is
-  // untouched and falls through exactly as before.
-  {
-    const { data: directRpc, error: directErr } = await supabase.rpc('record_direct_tenant_rent_payment', {
-      p_tid: parsed.transaction_id,
-      p_tenant_id: profile.id,
-      p_amount: parsed.amount,
-      p_provider: provider,
-      p_gmail_transaction_id: gmailRow.id,
-      p_occurred_at: internalMs ? new Date(internalMs).toISOString() : new Date().toISOString(),
-    });
-
-    if (directErr) {
-      console.error('[gmail-poll] record_direct_tenant_rent_payment RPC error:', directErr);
-      await logDepositDecision(supabase, {
-        source: 'matcher',
-        decision: 'failed',
-        reason: 'direct_tenant_rent_payment_rpc_error',
-        amount: parsed.amount ?? null,
-        actor_id: profile.id,
-        metadata: { gmail_message_id: gmailMessageId, error: directErr.message },
-      });
-      // Fall through to default handling below — don't drop the receipt.
-    } else if (directRpc?.ok) {
-      await supabase
-        .from('gmail_transactions')
-        .update({
-          auto_matched_at: new Date().toISOString(),
-          auto_match_method: 'direct_tenant_rent_payment',
-        })
-        .eq('id', gmailRow.id);
-      console.log(
-        `[gmail-poll] direct tenant rent payment credited tenant=${profile.id} ` +
-        `agent=${directRpc.agent_id} amount=${directRpc.amount_applied} reason=${directRpc.reason}`,
-      );
-      await logDepositDecision(supabase, {
-        source: 'matcher',
-        decision: 'auto_credited',
-        reason: `direct_tenant_rent_payment_${directRpc.reason}`,
-        amount: parsed.amount ?? null,
-        actor_id: profile.id,
-        metadata: { gmail_message_id: gmailMessageId, ...directRpc },
-      });
-      return;
-    } else if (directRpc?.reason === 'amount_exceeds_outstanding') {
-      // Unusual (rent nearly settled, or a mistaken overpayment) — surface it
-      // rather than silently absorbing it into the tenant's own float below.
-      await logDepositDecision(supabase, {
-        source: 'matcher',
-        decision: 'skipped',
-        reason: 'direct_tenant_rent_payment_amount_exceeds_outstanding',
-        amount: parsed.amount ?? null,
-        actor_id: profile.id,
-        metadata: { gmail_message_id: gmailMessageId, ...directRpc },
-      });
-    }
-    // Any other reason (no_active_rent_request / no_outstanding_balance /
-    // no_responsible_agent / already_reconciled / already_recorded) means
-    // this genuinely isn't a direct rent payment — fall through unchanged.
-  }
+  // Direct tenant rent payments need no special case here. A tenant paying
+  // into Welile's till is auto-credited below like any other matched sender;
+  // on approval, trg_tenant_self_repayment_on_approval ->
+  // settle_tenant_rent_from_deposit applies it to their Rent Plan, books the
+  // collection to the plan's agent with commission, and SMSes tenant and
+  // agent. It also refuses agents' own float top-ups, which the retired
+  // record_direct_tenant_rent_payment (never deployed) would have hijacked
+  // into rent repayments. See handover 126.
 
   const auditMeta = {
     source: 'gmail_auto_credit',

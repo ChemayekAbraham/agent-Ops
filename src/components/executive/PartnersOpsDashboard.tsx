@@ -1,3 +1,4 @@
+import SharesOnboardingPanel from './shares/SharesOnboardingPanel';
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -282,6 +283,7 @@ export function PartnersOpsDashboard() {
         </div>
       );
       case 'onboarding': return <PartnerOnboardingPanel embedded />;
+      case 'shares.onboarding': return <SharesOnboardingPanel />;
       case 'directory': return <COOPartnersPage />;
       case 'directory.profile': return <PartnerProfile360 />;
       case 'portfolios.invited': return <InvitedPortfoliosPanel />;

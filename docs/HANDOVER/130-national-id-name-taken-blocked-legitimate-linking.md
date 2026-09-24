@@ -1,4 +1,4 @@
-# 125 — `national_id_name_taken` blocked the entire ID-linking flow
+# 130 — `national_id_name_taken` blocked the entire ID-linking flow
 
 **Fixed and applied live 2026-09-24.** Before touching `IdentityPhotoCapture.tsx`'s
 `nameTaken`/`handleSave` gate or `national_id_name_taken()` again — the entire
@@ -51,7 +51,7 @@ select national_id_name_taken('SHAFEEQ SSENABULYA', NULL, NULL);             -- 
 ```
 
 Applied directly to production (`mcp__lovable__query_database`) and recorded in migration
-`20260924180000_national_id_name_taken_respects_matching_nin.sql` — this function was not
+`20260924181000_national_id_name_taken_respects_matching_nin.sql` — this function was not
 previously tracked in `supabase/migrations/` at all
 ([[project_repo_migrations_diverge_from_production]]).
 

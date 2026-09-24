@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Crosshair, Loader2, Maximize2, RotateCcw, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { formatDynamic } from '@/lib/currencyFormat';
+import { formatDynamic, formatDynamicCompact } from '@/lib/currencyFormat';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import type { FunderNewEmptyHouse } from './types';
@@ -17,14 +17,28 @@ const KAMPALA_ZOOM = 12;
 
 let mapsPromise: Promise<typeof google.maps> | null = null;
 
-// The billed Maps key lives in the secret store, so it is fetched once per
-// session rather than compiled into the bundle. The connector key is only a
-// fallback for environments where the function is unavailable.
+const MAPS_KEY_STORAGE = 'welile-gmaps-key';
+
+// The billed Maps key lives in the secret store. Once fetched, it is cached in
+// sessionStorage for the rest of the browser session so repeated navigations
+// and reloads never wait on an edge function cold start.
 async function resolveMapsKey(): Promise<string> {
+  try {
+    const cached = sessionStorage.getItem(MAPS_KEY_STORAGE);
+    if (cached) return cached;
+  } catch {
+    // sessionStorage not available
+  }
   try {
     const { data, error } = await supabase.functions.invoke('maps-browser-key');
     if (!error && data && typeof (data as { key?: string }).key === 'string') {
-      return (data as { key: string }).key;
+      const key = (data as { key: string }).key;
+      try {
+        sessionStorage.setItem(MAPS_KEY_STORAGE, key);
+      } catch {
+        // ignore
+      }
+      return key;
     }
   } catch {
     // fall through to the connector key
@@ -51,7 +65,7 @@ function loadGoogleMaps(): Promise<typeof google.maps> {
         };
 
         const script = document.createElement('script');
-        const params = new URLSearchParams({ key, loading: 'async', callback: callbackName });
+        const params = new URLSearchParams({ key, loading: 'async', callback: callbackName, libraries: 'geometry,marker' });
         if (channel) params.set('channel', channel);
         script.src = `https://maps.googleapis.com/maps/api/js?${params.toString()}`;
         script.async = true;
@@ -63,6 +77,11 @@ function loadGoogleMaps(): Promise<typeof google.maps> {
     mapsPromise = null;
   });
   return mapsPromise;
+}
+
+// Eagerly preload Google Maps script in the background so tiles start resolving immediately
+if (typeof window !== 'undefined') {
+  void loadGoogleMaps();
 }
 
 declare global {
@@ -117,15 +136,90 @@ function viewportOf(map: google.maps.Map): FunderNewViewport | null {
   };
 }
 
-function markerIcon(active: boolean, saved: boolean): google.maps.Symbol {
-  return {
-    path: google.maps.SymbolPath.CIRCLE,
-    scale: active ? 9 : saved ? 8 : 7,
-    fillColor: 'hsl(270 100% 40%)',
-    fillOpacity: 1,
-    strokeColor: 'hsl(0 0% 100%)',
-    strokeWeight: active || saved ? 3 : 2,
+const pinIconCache = new Map<string, google.maps.Icon>();
+
+/**
+ * Builds an SVG price-pill icon for Google Maps markers.
+ * Displays only the formatted price tag with rent-tier styling.
+ */
+function getPricePinIcon(
+  amount: number,
+  active: boolean,
+  saved: boolean,
+): google.maps.Icon {
+  const safeAmount = amount > 0 ? amount : 100000;
+  const priceText = formatDynamicCompact(safeAmount);
+  const cacheKey = `${priceText}_${safeAmount}_${active}_${saved}`;
+  const existing = pinIconCache.get(cacheKey);
+  if (existing) return existing;
+
+  // Rent tiers consistent with platform standards
+  const isLuxury = safeAmount >= 2_000_000;
+  const isPremium = safeAmount >= 800_000 && safeAmount < 2_000_000;
+  const isMid = safeAmount >= 300_000 && safeAmount < 800_000;
+
+  let bg = '#ffffff';
+  let textColor = '#15803d'; // green (<300k)
+  let borderColor = '#86efac';
+  let strokeWidth = 1.5;
+
+  if (isLuxury) {
+    textColor = '#b45309'; // amber
+    borderColor = '#fcd34d';
+  } else if (isPremium) {
+    textColor = '#6d28d9'; // purple
+    borderColor = '#c4b5fd';
+  } else if (isMid) {
+    textColor = '#1d4ed8'; // blue
+    borderColor = '#93c5fd';
+  }
+
+  if (active) {
+    bg = isLuxury ? '#b45309' : isMid ? '#1d4ed8' : isPremium ? '#6d28d9' : '#16a34a';
+    textColor = '#ffffff';
+    borderColor = '#ffffff';
+    strokeWidth = 2;
+  } else if (saved) {
+    bg = '#7c3aed';
+    textColor = '#ffffff';
+    borderColor = '#e9d5ff';
+    strokeWidth = 2;
+  }
+
+  const charWidth = 7;
+  const padding = 16;
+  const pillWidth = Math.max(54, Math.round(priceText.length * charWidth + padding));
+  const pillHeight = 25;
+  const pointerHeight = 5;
+  const totalHeight = pillHeight + pointerHeight;
+  const totalWidth = pillWidth + 4;
+  const cx = totalWidth / 2;
+  const rectX = 2;
+  const rectY = 1;
+  const r = 12;
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${totalWidth}" height="${totalHeight}" viewBox="0 0 ${totalWidth} ${totalHeight}">
+  <defs>
+    <filter id="psh" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="1.5" stdDeviation="1.5" flood-color="rgba(0,0,0,0.28)"/>
+    </filter>
+  </defs>
+  <g filter="url(#psh)">
+    <rect x="${rectX}" y="${rectY}" width="${pillWidth}" height="${pillHeight}" rx="${r}" ry="${r}" fill="${bg}" stroke="${borderColor}" stroke-width="${strokeWidth}"/>
+    <polygon points="${cx - 4.5},${rectY + pillHeight - 1} ${cx + 4.5},${rectY + pillHeight - 1} ${cx},${totalHeight - 1}" fill="${bg}" stroke="${borderColor}" stroke-width="${strokeWidth}" stroke-linejoin="round"/>
+    <rect x="${cx - 4}" y="${rectY + pillHeight - 2}" width="8" height="2" fill="${bg}"/>
+  </g>
+  <text x="${cx}" y="${rectY + pillHeight / 2}" fill="${textColor}" font-size="11" font-weight="700" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" text-anchor="middle" dominant-baseline="central" letter-spacing="-0.2px">${priceText}</text>
+</svg>`;
+
+  const icon: google.maps.Icon = {
+    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+    scaledSize: new google.maps.Size(totalWidth, totalHeight),
+    anchor: new google.maps.Point(cx, totalHeight - 1),
   };
+
+  pinIconCache.set(cacheKey, icon);
+  return icon;
 }
 
 export function FunderNewRouteMap({
@@ -145,6 +239,7 @@ export function FunderNewRouteMap({
   onUseMyLocation,
   onReset,
   loadedNote,
+  onExpandedChange,
 }: {
   cells: FunderNewMapCell[];
   selectedIds: string[];
@@ -162,6 +257,7 @@ export function FunderNewRouteMap({
   onUseMyLocation: () => void;
   onReset: () => void;
   loadedNote: string;
+  onExpandedChange?: (expanded: boolean) => void;
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -178,16 +274,21 @@ export function FunderNewRouteMap({
   const closeRef = useRef<HTMLButtonElement | null>(null);
 
   const reportViewport = useCallback(
-    (fromUser: boolean) => {
+    (fromUser: boolean, immediate = false) => {
       const map = mapRef.current;
       if (!map) return;
       if (reportTimerRef.current) window.clearTimeout(reportTimerRef.current);
-      reportTimerRef.current = window.setTimeout(() => {
+      const doReport = () => {
         const viewport = viewportOf(map);
         if (!viewport) return;
         onViewportChange(viewport);
         if (fromUser) setMoved(viewport);
-      }, 400);
+      };
+      if (immediate) {
+        doReport();
+      } else {
+        reportTimerRef.current = window.setTimeout(doReport, 300);
+      }
     },
     [onViewportChange],
   );
@@ -197,9 +298,11 @@ export function FunderNewRouteMap({
     loadGoogleMaps()
       .then(() => {
         if (cancelled || !hostRef.current) return;
+        const initialCenter = device ?? (awaitingDeviceFix ? SERVICE_AREA_CENTRE : KAMPALA_CENTRE);
+        const initialZoom = device ? LOCATED_ZOOM : awaitingDeviceFix ? SERVICE_AREA_ZOOM : KAMPALA_ZOOM;
         const map = new google.maps.Map(hostRef.current, {
-          center: device ?? SERVICE_AREA_CENTRE,
-          zoom: device ? LOCATED_ZOOM : SERVICE_AREA_ZOOM,
+          center: initialCenter,
+          zoom: initialZoom,
           clickableIcons: false,
           disableDefaultUI: true,
           gestureHandling: fullscreen ? 'greedy' : 'cooperative',
@@ -210,14 +313,9 @@ export function FunderNewRouteMap({
           map.addListener('idle', () => {
             const first = !initialisedRef.current;
             initialisedRef.current = true;
-            reportViewport(!first);
+            reportViewport(!first, first);
           }),
         ];
-        if (device) map.panTo(device);
-        else if (!awaitingDeviceFix) {
-          map.setCenter(KAMPALA_CENTRE);
-          map.setZoom(KAMPALA_ZOOM);
-        }
       })
       .catch((error: unknown) => {
         if (!cancelled) setMapError(error instanceof Error ? error.message : 'Google Maps could not be loaded.');
@@ -254,33 +352,18 @@ export function FunderNewRouteMap({
       const id = house?.house_id ?? null;
       const active = !!id && (selectedIds.includes(id) || activeId === id);
       const saved = !!id && savedIds.includes(id);
-      const isCluster = cell.count > 1 || !house;
       const amount = cell.amount || (house ? itemAmount('empty', house) : 0);
       const marker = new google.maps.Marker({
         map,
         position: { lat: cell.lat, lng: cell.lng },
-        title: isCluster ? `${cell.count} homes in this area` : `${emptyHouseTitle(house)}. ${formatDynamic(amount)} to support.`,
-        icon: isCluster
-          ? {
-              path: google.maps.SymbolPath.CIRCLE,
-              scale: cell.count >= 100 ? 24 : cell.count >= 10 ? 20 : 17,
-              fillColor: 'hsl(270 100% 40%)',
-              fillOpacity: 0.94,
-              strokeColor: 'hsl(0 0% 100%)',
-              strokeWeight: 2,
-            }
-          : markerIcon(active, saved),
-        label: {
-          text: isCluster ? (cell.count > 999 ? '999+' : String(cell.count)) : formatDynamic(amount),
-          color: 'hsl(0 0% 100%)',
-          fontSize: isCluster ? '12px' : '11px',
-          fontWeight: '700',
-          className: isCluster ? 'fn-google-cluster-label' : 'fn-google-price-label',
-        },
-        zIndex: active ? 30 : isCluster ? 20 : 10,
+        title: house
+          ? `${emptyHouseTitle(house)}. ${formatDynamic(amount)} to support.`
+          : `${cell.count} homes in this area from ${formatDynamic(amount)}.`,
+        icon: getPricePinIcon(amount, active, saved),
+        zIndex: active ? 30 : saved ? 25 : 10,
       });
       marker.addListener('click', () => {
-        if (house && !isCluster) onOpenHouse(house);
+        if (house) onOpenHouse(house);
         else {
           map.panTo({ lat: cell.lat, lng: cell.lng });
           map.setZoom(Math.min((map.getZoom() ?? KAMPALA_ZOOM) + 2, 17));
@@ -347,6 +430,21 @@ export function FunderNewRouteMap({
     if (!fullscreen) expandRef.current?.focus({ preventScroll: true });
   }, [fullscreen]);
 
+  useEffect(() => {
+    if (fullscreen) {
+      document.body.dataset.mapExpanded = 'true';
+    } else {
+      delete document.body.dataset.mapExpanded;
+    }
+    return () => {
+      delete document.body.dataset.mapExpanded;
+    };
+  }, [fullscreen]);
+
+  useEffect(() => {
+    onExpandedChange?.(fullscreen);
+  }, [fullscreen, onExpandedChange]);
+
   const controls = useMemo(
     () => (
       <div className="pointer-events-none absolute inset-0 z-10">
@@ -364,16 +462,19 @@ export function FunderNewRouteMap({
             </Button>
           </div>
         ) : null}
-        <div className="pointer-events-auto absolute bottom-7 right-2 flex flex-col gap-2 sm:right-3">
+        <div className={cn(
+          "pointer-events-auto flex flex-col gap-2",
+          fullscreen ? "absolute top-3 right-3 z-30 pt-safe" : "absolute bottom-7 right-2 sm:right-3"
+        )}>
           {canUseLocation ? (
-            <Button size="icon" variant="secondary" className="h-11 w-11 rounded-full border bg-card shadow-md" onClick={onUseMyLocation} aria-label={device ? 'Recentre on my location' : 'Use my location'}>
+            <Button size="icon" variant="secondary" className="h-11 w-11 rounded-full border bg-card/95 shadow-lg backdrop-blur-sm" onClick={onUseMyLocation} aria-label={device ? 'Recentre on my location' : 'Use my location'}>
               {locating ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Crosshair className={cn('h-4 w-4', device && 'text-primary')} aria-hidden />}
             </Button>
           ) : null}
-          <Button ref={fullscreen ? closeRef : expandRef} size="icon" variant="secondary" className="h-11 w-11 rounded-full border bg-card shadow-md" onClick={() => setFullscreen((value) => !value)} aria-label={fullscreen ? 'Close the full screen map' : 'Expand the map'}>
+          <Button ref={fullscreen ? closeRef : expandRef} size="icon" variant="secondary" className="h-11 w-11 rounded-full border bg-card/95 shadow-lg backdrop-blur-sm" onClick={() => setFullscreen((value) => !value)} aria-label={fullscreen ? 'Close the full screen map' : 'Expand the map'}>
             {fullscreen ? <X className="h-4 w-4" aria-hidden /> : <Maximize2 className="h-4 w-4" aria-hidden />}
           </Button>
-          <Button size="icon" variant="secondary" className="h-11 w-11 rounded-full border bg-card shadow-md" onClick={() => { setMoved(null); onReset(); }} aria-label="Reset the map view">
+          <Button size="icon" variant="secondary" className="h-11 w-11 rounded-full border bg-card/95 shadow-lg backdrop-blur-sm" onClick={() => { setMoved(null); onReset(); }} aria-label="Reset the map view">
             <RotateCcw className="h-4 w-4" aria-hidden />
           </Button>
         </div>
@@ -387,7 +488,10 @@ export function FunderNewRouteMap({
       <div ref={hostRef} className="h-full w-full" aria-label="Google map of available homes" />
       {mapError ? <div className="absolute inset-0 grid place-items-center bg-muted p-6 text-center text-sm text-muted-foreground">{mapError}</div> : null}
       {controls}
-      <p className="pointer-events-none absolute bottom-6 left-2 right-2 z-10 w-fit max-w-[92%] rounded-md bg-card/90 px-2 py-1 text-[11px] leading-tight text-muted-foreground shadow-sm">{loadedNote}</p>
+      <p className={cn(
+        "pointer-events-none absolute left-2 right-2 z-10 w-fit max-w-[92%] rounded-md bg-card/90 px-2 py-1 text-[11px] leading-tight text-muted-foreground shadow-sm",
+        fullscreen ? "top-3 left-3 pt-safe hidden sm:block" : "bottom-6"
+      )}>{loadedNote}</p>
     </div>
   );
 }

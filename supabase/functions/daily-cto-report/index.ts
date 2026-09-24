@@ -1940,7 +1940,7 @@ Deno.serve(async (req) => {
 
     // Preview mode: return the PDF itself instead of emailing it.
     if (body?.preview === true) {
-      return new Response(pdfBytes, {
+      return new Response(pdfBytes as unknown as BodyInit, {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${pdfName}"` },
       });
@@ -1958,7 +1958,7 @@ Deno.serve(async (req) => {
     );
     form.append('text', reportType === 'board' ? boardText : text);
     form.append('html', reportType === 'board' ? boardHtml : html);
-    form.append('attachment', new Blob([pdfBytes], { type: 'application/pdf' }), pdfName);
+    form.append('attachment', new Blob([pdfBytes as unknown as BlobPart], { type: 'application/pdf' }), pdfName);
 
     const mgRes = await fetch(`${mgBase}/v3/${mgDomain}/messages`, {
       method: 'POST',

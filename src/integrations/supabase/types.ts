@@ -22382,6 +22382,96 @@ export type Database = {
           },
         ]
       }
+      landlord_number_direct_edits: {
+        Row: {
+          actor: string | null
+          created_at: string
+          field: string
+          id: string
+          landlord_id: string
+          new_value: string | null
+          old_value: string | null
+          open_payouts: number
+          payout_number_changed: boolean
+          review_note: string | null
+          review_outcome: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          risk_flags: string[]
+          tenants_on_record: number
+        }
+        Insert: {
+          actor?: string | null
+          created_at?: string
+          field: string
+          id?: string
+          landlord_id: string
+          new_value?: string | null
+          old_value?: string | null
+          open_payouts?: number
+          payout_number_changed?: boolean
+          review_note?: string | null
+          review_outcome?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          risk_flags?: string[]
+          tenants_on_record?: number
+        }
+        Update: {
+          actor?: string | null
+          created_at?: string
+          field?: string
+          id?: string
+          landlord_id?: string
+          new_value?: string | null
+          old_value?: string | null
+          open_payouts?: number
+          payout_number_changed?: boolean
+          review_note?: string | null
+          review_outcome?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          risk_flags?: string[]
+          tenants_on_record?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landlord_number_direct_edits_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "landlords"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_number_direct_edits_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "landlords_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_number_direct_edits_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_calling_base"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "landlord_number_direct_edits_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_ops_status"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "landlord_number_direct_edits_landlord_id_fkey"
+            columns: ["landlord_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_landlord_base"
+            referencedColumns: ["landlord_id"]
+          },
+        ]
+      }
       landlord_onboarding_targets: {
         Row: {
           created_at: string
@@ -30721,6 +30811,45 @@ export type Database = {
           status?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      payout_name_check_log: {
+        Row: {
+          checked_at: string
+          checked_by: string
+          checked_name: string
+          destination_id: string
+          id: string
+          id_name: string | null
+          network: string | null
+          outcome: string
+          payout_target: string | null
+          subject_user_id: string | null
+        }
+        Insert: {
+          checked_at?: string
+          checked_by?: string
+          checked_name: string
+          destination_id: string
+          id?: string
+          id_name?: string | null
+          network?: string | null
+          outcome: string
+          payout_target?: string | null
+          subject_user_id?: string | null
+        }
+        Update: {
+          checked_at?: string
+          checked_by?: string
+          checked_name?: string
+          destination_id?: string
+          id?: string
+          id_name?: string | null
+          network?: string | null
+          outcome?: string
+          payout_target?: string | null
+          subject_user_id?: string | null
         }
         Relationships: []
       }
@@ -39782,6 +39911,96 @@ export type Database = {
           enabled?: boolean
           id?: string
           sample_percentage?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      share_onboarding_requests: {
+        Row: {
+          amount: number
+          angel_pool_investment_id: string | null
+          cancelled_reason: string | null
+          company_ownership_percent: number
+          company_rep_name: string | null
+          company_rep_position: string | null
+          company_rep_signature_data_url: string | null
+          company_signed_at: string | null
+          countersigned_by: string | null
+          created_at: string
+          created_by: string
+          id: string
+          pdf_path: string | null
+          pool_ownership_percent: number
+          prefill_email: string | null
+          prefill_name: string | null
+          prefill_phone: string | null
+          reference_id: string
+          shareholder_id: string
+          shareholder_name: string | null
+          shareholder_signature_data_url: string | null
+          shareholder_signed_at: string | null
+          shares: number
+          status: string
+          token_expires_at: string | null
+          token_hash: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          angel_pool_investment_id?: string | null
+          cancelled_reason?: string | null
+          company_ownership_percent: number
+          company_rep_name?: string | null
+          company_rep_position?: string | null
+          company_rep_signature_data_url?: string | null
+          company_signed_at?: string | null
+          countersigned_by?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          pdf_path?: string | null
+          pool_ownership_percent: number
+          prefill_email?: string | null
+          prefill_name?: string | null
+          prefill_phone?: string | null
+          reference_id: string
+          shareholder_id: string
+          shareholder_name?: string | null
+          shareholder_signature_data_url?: string | null
+          shareholder_signed_at?: string | null
+          shares: number
+          status?: string
+          token_expires_at?: string | null
+          token_hash?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          angel_pool_investment_id?: string | null
+          cancelled_reason?: string | null
+          company_ownership_percent?: number
+          company_rep_name?: string | null
+          company_rep_position?: string | null
+          company_rep_signature_data_url?: string | null
+          company_signed_at?: string | null
+          countersigned_by?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          pdf_path?: string | null
+          pool_ownership_percent?: number
+          prefill_email?: string | null
+          prefill_name?: string | null
+          prefill_phone?: string | null
+          reference_id?: string
+          shareholder_id?: string
+          shareholder_name?: string | null
+          shareholder_signature_data_url?: string | null
+          shareholder_signed_at?: string | null
+          shares?: number
+          status?: string
+          token_expires_at?: string | null
+          token_hash?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -60849,6 +61068,13 @@ export type Database = {
         Args: { _gross: number; _run_id: string; _staff_id: string }
         Returns: number
       }
+      hr_pay_advance_recovered_totals: {
+        Args: never
+        Returns: {
+          advance_id: string
+          recovered: number
+        }[]
+      }
       hr_pay_correct_compensation: {
         Args: {
           _amount: number
@@ -62076,10 +62302,12 @@ export type Database = {
         Returns: Json
       }
       national_id_link_state: { Args: { p_request_id: string }; Returns: Json }
-      national_id_name_taken: {
-        Args: { p_name: string; p_user_id?: string }
-        Returns: Json
-      }
+      national_id_name_taken:
+        | { Args: { p_name: string; p_user_id?: string }; Returns: Json }
+        | {
+            Args: { p_name: string; p_nin?: string; p_user_id?: string }
+            Returns: Json
+          }
       national_id_name_twins: {
         Args: { p_name: string; p_user_id: string }
         Returns: Json
@@ -64879,6 +65107,10 @@ export type Database = {
         Args: { p_comment: string; p_decision: string; p_request_id: string }
         Returns: Json
       }
+      review_landlord_number_direct_edit: {
+        Args: { p_edit_id: string; p_note: string; p_outcome: string }
+        Returns: Json
+      }
       review_merchant_out_of_pocket: {
         Args: { p_decision: string; p_id: string; p_note?: string }
         Returns: Json
@@ -65292,6 +65524,51 @@ export type Database = {
       }
       settle_tenant_rent_from_deposit: {
         Args: { p_deposit_request_id: string }
+        Returns: Json
+      }
+      share_onboarding_get: {
+        Args: { p_id: string; p_token: string }
+        Returns: Json
+      }
+      share_onboarding_list: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_status?: string
+        }
+        Returns: {
+          amount: number
+          company_ownership_percent: number
+          company_rep_name: string
+          company_rep_position: string
+          company_signed_at: string
+          created_at: string
+          created_by_name: string
+          id: string
+          pdf_path: string
+          pool_ownership_percent: number
+          reference_id: string
+          shareholder_email: string
+          shareholder_full_name: string
+          shareholder_id: string
+          shareholder_name: string
+          shareholder_phone: string
+          shareholder_signature_data_url: string
+          shareholder_signed_at: string
+          shares: number
+          status: string
+          token_expires_at: string
+          total_count: number
+        }[]
+      }
+      share_onboarding_submit: {
+        Args: {
+          p_id: string
+          p_name: string
+          p_signature: string
+          p_token: string
+        }
         Returns: Json
       }
       show_limit: { Args: never; Returns: number }
