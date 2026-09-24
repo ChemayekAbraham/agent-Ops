@@ -254,7 +254,7 @@ export default function PayrollEnrollment() {
    *  recovery date has arrived is deducted, capped at what is still owed. */
   const advanceByStaff = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
-    const byStaff = new Map
+    const byStaff = new Map<
       string,
       { next: number; remaining: number; notDisbursed: boolean; startsOn: string | null }
     >();
