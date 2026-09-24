@@ -12,6 +12,7 @@ import {
   Check,
   Loader2,
   Wallet,
+  X,
 } from 'lucide-react';
 
 import { Sheet, SheetContent } from '@/components/ui/sheet';
@@ -130,7 +131,21 @@ export function EmptyHouseDetailSheet({
         overlayClassName="z-[1260]"
       >
 
-        <div className="space-y-4 p-4">
+        {/* Close control — the sheet's built-in one is easy to miss on mobile. */}
+        <div className="sticky top-0 z-10 flex justify-end px-3 pt-3">
+          <Button
+            type="button"
+            size="icon"
+            variant="secondary"
+            className="h-9 w-9 rounded-full shadow-md"
+            onClick={() => onOpenChange(false)}
+            aria-label="Close house details"
+          >
+            <X className="h-5 w-5" />
+          </Button>
+        </div>
+
+        <div className="space-y-4 p-4 pt-1">
           {/* Gallery */}
           {photos.length > 0 ? (
             <div className="space-y-2">
