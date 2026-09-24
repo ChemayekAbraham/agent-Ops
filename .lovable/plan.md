@@ -1,89 +1,58 @@
-# Float ⇄ withdrawable: what the money actually did, and the entry it needs
+# Shares Onboarding (Partner Ops)
 
-Read-only audit of the 625 `bucket_reclass_*` groups and the 356 `wallet_transfer` groups. Nothing was posted, changed or deployed.
+## What the user gets
 
-## What these transactions are
+A new **Shares** section in the Partner Ops side menu with one item, **Shares Onboarding**. It has three tabs:
 
-Every one of the 981 groups has **exactly two legs, both inside wallets, and no platform leg at all**. There is no bank leg, no treasury leg, no cash receipt, no payment. One bucket of a wallet goes down and another bucket goes up by the identical amount, on the same day.
+1. **Create** – Partner Ops picks an existing user, or enters a new person's name, phone and email. They enter the amount (or the number of shares). The screen shows the number of shares, ownership of the pool, ownership of the company and the person's wallet balance, using the same maths as the agent Angel Pool (UGX 20,000 per share, 25,000 shares, the pool holds 8% of Welile). On submit, the "Your Shares Have Been Created" email (the one you uploaded) is sent with a **Review & Sign Agreement** button.
+2. **Submitted / Vetting** – a list with statuses: Awaiting signature, Submitted, Completed, Cancelled. Opening a submitted record shows a live preview of the contract, in the same style as partner-onboarding. Partner Ops fills in the Welile representative's details and signature, then approves.
+3. **Completed** – signed contracts, with download and resend buttons.
 
-The sources name themselves: `finops_wallet_move`, `admin_float_to_withdrawable`, `admin_withdrawable_to_float`, `agent_withdrawable_to_float`. These are Finance and admin staff moving money between an agent's spending float and the agent's own withdrawable balance. They are not sales, not collections, not payouts.
+**Shareholder signing page** – the same look and flow as the partner portfolio invite page:
+- The shareholder must be signed in to the invited account.
+- Their name, phone and email are filled in for them, and only when those details exist on their account.
+- They add only the signature and date, then submit.
 
-Measured populations:
+**Final email** – the existing share-purchase confirmation email, with its download button. The Early Angel Pool Shareholders Agreement (the one you uploaded) is attached as a PDF, filled in with both parties' details. A BCC copy goes to partnership@welile.com.
 
-| Movement | Groups | Amount |
-|---|---|---|
-| Float → withdrawable | 642 | 1,514,268,576 |
-| Withdrawable → float | 339 | 311,745,740 |
-| Net shift into withdrawable | | 1,202,522,836 |
-
-Supporting traces: 194 groups (352,258,781) had the float sitting there in full; 34 (171,146,315) partly; **414 (990,863,480) had no float in the wallet at all** — the move pushed float negative instead. Wallets involved were later paid out in real cash, so the withdrawable side is a genuine claim.
-
-## The key finding
-
-In every case **the total the company owes that wallet does not change**. Float down 100, withdrawable up 100 — the wallet holds the same amount, only the label changes from "you may spend this on company business" to "you may withdraw this".
-
-So:
-
-- It is **not** a new expense.
-- It is **not** income.
-- It is **not** a payment or a receipt.
-- It **is** an internal reclassification of an obligation the company already had.
-
-This holds whether or not the float was really there beforehand, because both sides are mirrors of the same wallet.
-
-**The 2× X4 expense treatment applied this morning is therefore not economically supported.** It books UGX 2,405,045,672 of cost for events that cost nothing. It arose only because both real legs are credits once the withdrawable side is treated as money owed — that is a signal the float side is mislabelled, not evidence of an expense.
-
-## Why the requested constraints cannot all hold as stated
-
-You asked for A2 correct, L1 correct, A8 out of it, balanced, no invented expense. That set is unsatisfiable **while float is carried as a company asset**, because both legs then move the same way and something has to absorb 2× the amount — either A8, or an expense, or an asset that does not exist.
-
-The resolution is upstream: money in an agent's float bucket is money the company owes that agent, exactly like withdrawable — it is simply restricted in how it may be used. Read that way, float is part of the same custody obligation, and every constraint holds at once.
-
-## Confirmed treatment and entries
-
-Float → withdrawable, amount X:
+## Flow
 
 ```text
-Dr  Float custody (restricted)      X      obligation released from float
-Cr  L1 Withdrawable custody payable X      obligation now payable on demand
+Partner Ops creates  ->  email to shareholder (Review & Sign)
+  -> shareholder signs in, reviews contract, signs  -> status Submitted
+  -> Partner Ops vets, previews, countersigns       -> wallet debited, shares confirmed
+  -> final email + PDF attached, BCC partnership@welile.com
 ```
 
-Withdrawable → float: the same entry reversed. No expense, no income, no cash, A8 untouched, balanced by construction.
+## Money rule (important)
 
-Effect on the statement, against today's live figures:
+- The wallet balance is checked when the shares are created, so Partner Ops sees immediately if the person can't afford them.
+- **The actual wallet debit happens only when Partner Ops countersigns.** This way nobody pays for shares whose contract was never signed. The balance is checked again at that point.
+- The debit uses the same balanced entry the Angel Pool purchase uses, and it is posted by the server, never by the browser.
+- It also uses the same "shares still available" limit (25,000 shares), which counts shares already reserved by pending invites.
+- New people added without an account get one created, the same way the partner invite does. They need money in their wallet before countersigning can succeed.
+- Cancelling before countersign moves no money.
 
-| Line | Now | After |
-|---|---|---|
-| L1 customer money held | 1,407,950,648 Cr | 1,407,950,648 Cr (unchanged) |
-| X4 cost | 2,871,702,707 Dr | 466,657,035 Dr (the 2,405,045,672 reversed out) |
-| A8 float control | 2,240,539,682 Cr | unchanged |
-| Restricted float custody | — | 1,202,522,836 Cr moved out of the float asset line |
+## Technical details
 
-L1 lands on the same number it shows now; the difference is that the balancing side becomes a reclassification inside customer money rather than an invented cost.
+**Database (one new migration)**
+- `share_onboarding_requests`: shareholder, created_by, amount, shares, pool and company percentages, reference (`ANG…` format), status (`awaiting_signature | submitted | completed | cancelled`), shareholder name/date/signature, company representative name/position/signature/date, pdf_path, angel_pool_investment_id, token hash, expiry, timestamps. It has access rules, grants and an index on (status, created_at).
+- Two server functions:
+  - `share_onboarding_submit(token, signature, name)` – shareholder side.
+  - `share_onboarding_list(status, search, page)` – one query that returns the rows with names already attached, so there are no repeated lookups per row.
+- Every change is recorded as a system event and an audit log entry.
 
-## Partner funding — the proposed A2 mapping is not confirmed
+**Backend functions (new, deployed by name)**
+- `create-share-onboarding` – checks the Partner Ops role, creates the account for new people (reusing the partner-invite account logic), checks balance and share supply, stores a hashed token (7-day link), and sends the new `shareholder-shares-created` email.
+- `resend-share-onboarding-invite` – sends a fresh link.
+- `finalize-share-onboarding` – countersign: checks the balance again, posts the balanced ledger entry, inserts the `angel_pool_investments` row, stores the client-rendered PDF, and sends the confirmation email with the PDF attached and a BCC to partnership@welile.com.
+- Shared share maths goes into `_shared/angelPoolShares.ts`, so the server-side copies of the share maths are no longer maintained separately.
 
-171 legs, UGX 371,420,964 (net 368,320,964), 147 users; 92 of them are preceded within seven days by the agent depositing their own cash. The agent's float is the route through which a partner's cash reaches a portfolio.
+**Frontend**
+- Navigation: add `shares.onboarding` in `partnerOpsNav.ts` and a render branch in `PartnersOpsDashboard.tsx`.
+- `src/components/executive/shares/`: `SharesOnboardingPanel`, `CreateShareholderDialog`, `ShareVettingDialog` (reuses the partner sign-off preview and PDF approach), and `shareAgreementTemplate.ts` (built from the uploaded agreement).
+- New page `/shares/:requestId/sign` that reuses the portfolio-completion sign-in gate and the signature pad.
+- Data hooks use React Query with a single list query and fresh reads before countersigning. The layout works on mobile and desktop.
+- Email templates: `shareholder-shares-created.tsx` (from the upload) and the confirmation template extended with the attachment.
 
-Each group has only two legs: the float reduction, and the partner obligation (L2). Mapping the float leg to A2 leaves both legs as credits and puts UGX 736,641,928 out of balance — which is why it was reverted earlier today. The missing side is the **partner's cash received**, not a float asset and not customer custody. Until that cash leg is agreed, no mapping change to this category is safe.
-
-## Decision needed from you
-
-Whether float is an obligation to the agent (restricted customer money) or an asset of the company. Everything above follows from the first reading; if you hold the second, the only arithmetically available answers are an A8 plug or a real expense, and I will not pick between those on your behalf.
-
-## Smallest reporting-side correction, if you confirm
-
-1. Reverse this morning's X4 counterpart legs — drop the `synth_reclass` block, so 2,405,045,672 of cost disappears.
-2. Give the float side of these three categories only (`bucket_reclass_in`, `bucket_reclass_out`, `wallet_transfer`) a restricted-custody presentation, so a float decrease releases an obligation instead of writing off an asset.
-3. Keep the withdrawable side in L1 as it now is (the `debit_when` change already applied is correct and stays).
-4. Leave the narrowed A8 rule as applied, so nothing else changes behaviour.
-5. Re-measure L1, A2, A8, X4 and the debits-equals-credits check; the pre-existing 13,000,000 discrepancy stays out of scope.
-6. No `general_ledger` row, wallet balance, bucket, or repayment figure is touched. Partner funding stays untouched pending the cash-leg question.
-
-## Technical notes
-
-- Population: `general_ledger` wallet legs, `wallet_bucket = 'withdrawable'`, categories `bucket_reclass_in` / `bucket_reclass_out` / `wallet_transfer`, in groups that also carry a float leg; classification `production` / `legacy_real`.
-- Group shape is uniformly two wallet legs, `n_plat = 0` — verified across all 981 groups.
-- Float provenance for the wallets involved: `agent_float_deposit` from `merchant_float_reconciliations` (46.78bn), `deposit_requests` (1.49bn) and `cfo_direct_credit` (979m) — i.e. predominantly cash the agent or merchant put in, recorded Dr A2 / Cr A8.
-- Change 3 to implement: remove the `synth_reclass` CTE from `public.sofp_ledger_legs` and resolve the float leg of the three categories to a restricted-custody account instead of A2, leaving the narrowed A8 branches and all other categories exactly as they are.
-- `ledger_account_map` rows for `bucket_reclass_in/out` + `withdrawable` + `L1` keep `debit_when = 'cash_out'`.
+**Checks:** a typecheck and the project's safety checks run automatically. I will test one full flow without real money movement.
