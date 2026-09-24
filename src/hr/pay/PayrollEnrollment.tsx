@@ -231,6 +231,14 @@ export default function PayrollEnrollment() {
     () => rows.filter((r) => Boolean(r.tin) && Boolean(r.nssfNumber) && Boolean(r.lstDistrict)).length,
     [rows],
   );
+  const statutoryCoverage = useMemo(
+    () => ({
+      paye: rows.filter((r) => r.payeApplicable).length,
+      nssf: rows.filter((r) => r.nssfApplicable).length,
+      lst: rows.filter((r) => r.lstApplicable).length,
+    }),
+    [rows],
+  );
 
   const bothApplyCount = useMemo(
     () => rows.filter((r) => bothApply(r, periodCutOff)).length,
@@ -554,11 +562,38 @@ export default function PayrollEnrollment() {
 
   return (
     <div className="print-root mx-auto w-full max-w-7xl space-y-6 p-4 md:p-6">
-      <div className="hidden print:block print:mb-4">
-        <p className="text-sm font-semibold">Welile Technologies (U) Ltd</p>
-        <h2 className="text-lg font-bold">Payroll enrollment sheet</h2>
-        <p className="text-xs">{new Date().toLocaleDateString('en-GB')}</p>
-        <p className="text-xs">Prepared for review. Not a payroll run.</p>
+      <div className="hidden print:block">
+        <div className="print-letterhead">
+          <div className="print-wordmark">Welile</div>
+          <div className="print-company">
+            <p className="font-semibold">Welile Technologies Ltd</p>
+            <p>P.O. Box 167564, Kampala-Uganda</p>
+            <p>weliletechnologies@gmail.com</p>
+            <p>+256 744475573 / +256 764379713</p>
+          </div>
+        </div>
+        <div className="print-title">
+          <h2>Payroll enrollment sheet</h2>
+          <p>
+            {periodCode ? `Open period ${periodCode} · ` : ''}
+            Generated {new Date().toLocaleDateString('en-GB')} · Prepared for review, not a
+            payroll run
+          </p>
+        </div>
+        <div className="print-summary">
+          <span>
+            <strong>{counts.total}</strong> active workers
+          </span>
+          <span>
+            <strong>{counts.ready}</strong> ready
+          </span>
+          <span>
+            <strong>{counts.incomplete}</strong> incomplete
+          </span>
+          <span>
+            Total monthly gross <strong>UGX {formatAmount(totals.gross)}</strong>
+          </span>
+        </div>
       </div>
       <div className="no-print flex flex-wrap items-start justify-between gap-4">
         <div>
@@ -935,7 +970,43 @@ export default function PayrollEnrollment() {
 
       <p className="text-xs text-muted-foreground">Gross on record is everything currently recorded for this person. Where part-month pay applies, it replaces basic salary in the payroll calculation, so the amount paid will be lower than the figure shown here. The payslip is the authority.</p>
 
-      <div className="hidden print:block print:mt-10">
+      <div className="print-statutory hidden print:block">
+        <h3>Statutory position</h3>
+        <div className="print-statutory-grid">
+          <div>
+            <p>
+              PAYE applies to <strong>{statutoryCoverage.paye}</strong> of {counts.total} — not
+              applied to <strong>{counts.total - statutoryCoverage.paye}</strong>
+            </p>
+            <p>
+              NSSF applies to <strong>{statutoryCoverage.nssf}</strong> of {counts.total} — not
+              applied to <strong>{counts.total - statutoryCoverage.nssf}</strong>
+            </p>
+            <p>
+              LST applies to <strong>{statutoryCoverage.lst}</strong> of {counts.total} — not
+              applied to <strong>{counts.total - statutoryCoverage.lst}</strong>
+            </p>
+          </div>
+          <div>
+            <p>
+              Statutory identifiers complete: <strong>{idsComplete}</strong> of {counts.total}
+            </p>
+            <p>
+              Missing an identifier: <strong>{counts.total - idsComplete}</strong>
+            </p>
+            <p>
+              Total monthly gross on record: <strong>UGX {formatAmount(totals.gross)}</strong>
+            </p>
+          </div>
+        </div>
+        <p className="print-note">
+          This sheet records what is payable and which statutory deductions apply. It carries no
+          PAYE, NSSF or LST amounts — those are computed on a payroll run and appear on that
+          run&apos;s register and statutory returns. Where part-month pay applies it replaces basic
+          salary in the calculation, so the amount paid will be lower than the gross shown here.
+        </p>
+      </div>
+      <div className="print-signoff hidden print:block print:mt-10">
         <div className="flex gap-16">
           <div className="flex-1">
             <div className="mt-8 border-t border-black" />

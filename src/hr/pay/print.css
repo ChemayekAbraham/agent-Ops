@@ -1,6 +1,6 @@
 @page {
   size: A4 landscape;
-  margin: 10mm;
+  margin: 12mm 10mm;
 }
 
 @media print {
@@ -17,6 +17,7 @@
     margin: 0;
     padding: 0;
     background: #fff !important;
+    color: #000;
     font-size: 9pt;
     line-height: 1.25;
     -webkit-print-color-adjust: exact;
@@ -46,7 +47,6 @@
     background: transparent;
   }
 
-  /* Controls never print. The amount cells carry a print-only twin span. */
   .print-root .no-print,
   .print-root button,
   .print-root [role='switch'],
@@ -54,24 +54,81 @@
     display: none !important;
   }
 
-  /* Columns dropped from the printed sheet. */
   .print-root .print-hide {
     display: none !important;
   }
 
-  /* The screen scroll container must not clip the sheet. */
   .print-root .overflow-x-auto,
   .print-root .overflow-auto {
     overflow: visible !important;
   }
 
-  /* Card chrome adds nothing on paper. */
   .print-root [class*='rounded-lg'],
   .print-root [class*='rounded-xl'] {
     border: none !important;
     box-shadow: none !important;
   }
 
+  /* ---- Letterhead. Page one only: browsers repeat thead, not blocks. ---- */
+  .print-letterhead {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12mm;
+    padding-bottom: 3mm;
+    border-bottom: 1.5pt solid #5b21b6;
+  }
+
+  .print-wordmark {
+    font-size: 26pt;
+    font-weight: 800;
+    letter-spacing: -0.5pt;
+    color: #5b21b6;
+    line-height: 1;
+  }
+
+  .print-wordmark img {
+    height: 14mm;
+    width: auto;
+  }
+
+  .print-company {
+    text-align: right;
+    font-size: 8pt;
+    line-height: 1.45;
+  }
+
+  .print-company p {
+    margin: 0;
+  }
+
+  .print-title {
+    margin-top: 4mm;
+    margin-bottom: 3mm;
+  }
+
+  .print-title h2 {
+    font-size: 13pt;
+    font-weight: 700;
+    margin: 0;
+  }
+
+  .print-title p {
+    font-size: 8pt;
+    margin: 1mm 0 0;
+    color: #3f3f46;
+  }
+
+  .print-summary {
+    display: flex;
+    gap: 8mm;
+    padding: 2mm 0 3mm;
+    font-size: 8.5pt;
+    border-bottom: 0.5pt solid #d4d4d8;
+    margin-bottom: 3mm;
+  }
+
+  /* ---- Table ---- */
   table {
     width: 100% !important;
     table-layout: fixed;
@@ -99,6 +156,7 @@
     word-break: break-word;
     white-space: normal;
     border-bottom: 0.5pt solid #d4d4d8;
+    vertical-align: top;
   }
 
   th {
@@ -107,9 +165,8 @@
     border-bottom: 1pt solid #000;
   }
 
-  /* Column widths. Indices count every column in the markup, including the
-     five that are hidden, because nth-child ignores display. The twelve that
-     print sum to 100%. */
+  /* Indices count every column in the markup, including the five hidden ones,
+     because nth-child ignores display. The twelve that print sum to 100%. */
   .print-root th:nth-child(1),
   .print-root td:nth-child(1) { width: 7%; }
   .print-root th:nth-child(2),
@@ -135,9 +192,51 @@
   .print-root th:nth-child(17),
   .print-root td:nth-child(17) { width: 0%; }
 
+  /* The totals row has to read as the answer, not another row. */
   tfoot td {
+    font-size: 8.5pt;
     font-weight: 700;
-    border-top: 1pt solid #000;
-    border-bottom: none;
+    border-top: 1.5pt solid #000;
+    border-bottom: 1.5pt solid #000;
+    padding: 3px;
+    background: #f4f4f5 !important;
+  }
+
+  /* ---- Statutory position ---- */
+  .print-statutory {
+    margin-top: 5mm;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .print-statutory h3 {
+    font-size: 9.5pt;
+    font-weight: 700;
+    margin: 0 0 2mm;
+    padding-bottom: 1mm;
+    border-bottom: 0.5pt solid #000;
+  }
+
+  .print-statutory-grid {
+    display: flex;
+    gap: 10mm;
+    font-size: 8pt;
+  }
+
+  .print-statutory-grid div {
+    line-height: 1.5;
+  }
+
+  .print-note {
+    margin-top: 2mm;
+    font-size: 7.5pt;
+    color: #3f3f46;
+    max-width: 180mm;
+  }
+
+  .print-signoff {
+    margin-top: 10mm;
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 }
