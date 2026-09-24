@@ -751,11 +751,22 @@ export default function SupporterDashboard({
           if (!open) setMapDetailHouse(null);
         }}
         isPartner
+        remaining={strictAvailable ?? undefined}
         onRelatedHouseClick={(h) => setMapDetailHouse(h as any)}
-        onFund={() => {
-          // Hand off to the houses list, which runs the balance check and
-          // the fund / top-up flow.
+        onFund={(h: any) => {
+          const cost = Number(h?.monthly_rent || 0);
+          const avail = Number(strictAvailable ?? 0);
           setMapDetailHouse(null);
+          if (avail < cost) {
+            // Not enough balance: prompt a deposit / top-up.
+            toast({
+              title: 'Not enough balance',
+              description: `Deposit ${_formatUGX(Math.ceil(cost - avail))} to fund this house.`,
+            });
+            setShowPaymentPartners(true);
+            return;
+          }
+          // Enough balance: go to the houses list, which runs the funding flow.
           setCapitalView('direct');
           setCapitalFeedOrder('houses');
           setShowMap(false);
