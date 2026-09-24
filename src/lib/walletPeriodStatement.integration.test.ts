@@ -54,14 +54,15 @@ function leg(user_id: string, date: string, amount: number, direction: 'cash_in'
   });
 }
 const signed = (r: Row) => (r.direction === 'cash_in' ? 1 : -1) * r.amount;
-const walletCard = (u: string) => {
+const walletCard = (u: string, isAgent = true) => {
   const w = DB.wallets.find((x) => x.user_id === u)!;
-  return w.withdrawable_balance + w.float_balance;
+  return w.withdrawable_balance + (isAgent ? w.float_balance : 0);
 };
 
 const A = 'seed-user-a'; // ordinary activity + hidden internal corrections
 const B = 'seed-user-b'; // clean wallet: listed transactions add up exactly
 const C = 'seed-user-c'; // no activity at all
+const D = 'seed-user-d'; // non-agent with money sitting in float
 
 beforeAll(() => {
   // ---- User A: June → September 2026 ----
