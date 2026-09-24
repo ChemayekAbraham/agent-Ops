@@ -17,6 +17,8 @@ This project is being built by two agents in parallel. Stay in your lane so work
 - **Regulatory terminology is mandatory in user-facing copy**: "Rent Plan" (never "loan"), "Supporter" (never "lender"), "Returns" (never "ROI" or "interest").
 - `.env` is hands-off — never read, edit, or print its contents.
 - Don't invent new data shapes or endpoints — if a component needs data that no existing hook/RPC provides, flag it for Claude rather than fetching it ad hoc from inside a component.
+- **The Lovable MCP `query_database` tool is read-only for you.** It runs raw SQL against the live production database (project `43e6c2e1-18a6-4503-badb-5bb6c23491cc`) with full permissions — RLS does not apply and writes are permanent. Use it for `SELECT` only. Never run `INSERT`, `UPDATE`, `DELETE`, `TRUNCATE`, or DDL (`CREATE`/`ALTER`/`DROP`), and never call an RPC that moves money through it. Any data fix or ledger/wallet change goes through the existing SECURITY DEFINER RPCs or edge functions — hand it to Claude.
+- **`supabase/migrations/` does not match the live schema.** When you need to know a table or column shape, check it with a `SELECT` against `information_schema` rather than trusting a migration file.
 
 ## Design conventions
 
