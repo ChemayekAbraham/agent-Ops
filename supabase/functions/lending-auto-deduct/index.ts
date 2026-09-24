@@ -4,7 +4,6 @@
 // RPC. Designed to run on a daily cron, but also accepts an optional
 // { loan_id } body so an agent can trigger a single loan immediately to test.
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { logSystemEvent } from "../_shared/eventLogger.ts";
 import {
   firstDeductionDate,
   nextDeductionDate,
@@ -36,6 +35,24 @@ const EMAIL_OVERRIDES: Record<string, string> = {
 
 function formatUGX(amount: number): string {
   return `UGX ${Math.max(0, Math.round(amount)).toLocaleString("en-US")}`;
+}
+
+async function emitRepaymentEvent(
+  admin: any,
+  eventType: "payment_made" | "payment_overdue",
+  loan: any,
+  metadata: Record<string, unknown>,
+): Promise<void> {
+  const { error } = await admin.from("system_events").insert({
+    event_type: eventType,
+    user_id: loan.borrower_user_id,
+    related_entity_type: "lending_agent_loans",
+    related_entity_id: loan.id,
+    metadata,
+  });
+  if (error) {
+    console.error("[lending-auto-deduct] event failed", { loan_id: loan.id, eventType, error });
+  }
 }
 
 async function notifyBorrower(
@@ -232,12 +249,10 @@ Deno.serve(async (req) => {
           })
           .eq("id", loan.id);
         await notifyBorrower(admin, loan, today, "overdue", 0, outstanding, overdueBefore);
-        await logSystemEvent(
+        await emitRepaymentEvent(
           admin,
           "payment_overdue",
-          loan.borrower_user_id,
-          "lending_agent_loans",
-          loan.id,
+          loan,
           { overdue_dates: overdueBefore, amount_due_ugx: target },
         );
         results.push({ loan_id: loan.id, action: "no_funds", available });
@@ -352,12 +367,10 @@ Deno.serve(async (req) => {
         },
       }).then(() => {}, () => {});
 
-      await logSystemEvent(
+      await emitRepaymentEvent(
         admin,
         "payment_made",
-        loan.borrower_user_id,
-        "lending_agent_loans",
-        loan.id,
+        loan,
         {
           amount: deductible,
           lender_agent_id: loan.lender_agent_id,
