@@ -48,6 +48,7 @@ import { CreditRequestsFeed } from '@/components/supporter/CreditRequestsFeed';
 import { InvestmentPackageSheet } from '@/components/supporter/InvestmentPackageSheet';
 // FundingPoolCard removed from direct import
 import { FunderCapitalOpportunities } from '@/components/supporter/FunderCapitalOpportunities';
+import { FunderHouseListingsSection } from '@/components/supporter/FunderHouseListingsSection';
 import { useSupportedTenants } from '@/hooks/useSupportedTenants';
 import { useCapitalOpportunities } from '@/hooks/useCapitalOpportunities';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -589,6 +590,9 @@ export default function SupporterDashboard({
                     />
                   </>
                 )}
+              </WidgetErrorBoundary>
+              <WidgetErrorBoundary label="House listings">
+                <FunderHouseListingsSection />
               </WidgetErrorBoundary>
             </div>
           )}
