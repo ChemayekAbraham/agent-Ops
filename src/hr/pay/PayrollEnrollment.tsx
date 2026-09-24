@@ -45,6 +45,7 @@ import {
   type StaffCompensationHistoryRow,
 } from '@/hr/pay/api/enrollment';
 import { listComponents, type PayComponentRow } from '@/hr/pay/api/config';
+import { listAdvances, type AdvanceRow } from '@/hr/pay/api/advances';
 import {
   addCompensation,
   addPartMonthPay,
@@ -119,6 +120,7 @@ export default function PayrollEnrollment() {
   const [periodCode, setPeriodCode] = useState<string | null>(null);
   const [periodStart, setPeriodStart] = useState<string | null>(null);
   const [periodCutOff, setPeriodCutOff] = useState<string | null>(null);
+  const [advances, setAdvances] = useState<AdvanceRow[]>([]);
 
   // Part-month pay dialog state
   const [pmRow, setPmRow] = useState<EnrollmentRow | null>(null);
@@ -186,6 +188,12 @@ export default function PayrollEnrollment() {
       setPeriodCode(result.openPeriodCode);
       setPeriodStart(result.openPeriodStart);
       setPeriodCutOff(result.openPeriodCutOff);
+      try {
+        setAdvances(await listAdvances());
+      } catch (advanceError) {
+        setAdvances([]);
+        toast.error(`Advances could not be loaded: ${rawError(advanceError)}`);
+      }
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Could not load enrollment');
     } finally {
@@ -241,6 +249,48 @@ export default function PayrollEnrollment() {
     [rows],
   );
 
+  /** What the next run will recover from each person's advances. Same rule as
+   *  hr_pay_advance_due: only an approved, disbursed advance whose first
+   *  recovery date has arrived is deducted, capped at what is still owed. */
+  const advanceByStaff = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10);
+    const byStaff = new Map
+      string,
+      { next: number; remaining: number; notDisbursed: boolean; startsOn: string | null }
+    >();
+    for (const a of advances) {
+      if (!['hr_approved', 'ceo_approved', 'approved'].includes(a.status)) continue;
+      const remaining = Math.max(0, a.principal - a.recovered);
+      if (remaining <= 0) continue;
+      const disbursed = a.status === 'approved' && a.disbursed_at !== null;
+      const started = a.first_recovery_on <= today;
+      const gross = rows.find((r) => r.staffId === a.staff_id)?.grossTotal ?? 0;
+      const perRun =
+        a.recovery_mode === 'fixed'
+          ? a.recovery_value
+          : Math.round((gross * a.recovery_value) / 100);
+      const next = disbursed && started ? Math.min(perRun, remaining) : 0;
+      const held = byStaff.get(a.staff_id) ?? {
+        next: 0,
+        remaining: 0,
+        notDisbursed: false,
+        startsOn: null,
+      };
+      byStaff.set(a.staff_id, {
+        next: held.next + next,
+        remaining: held.remaining + remaining,
+        notDisbursed: held.notDisbursed || !disbursed,
+        startsOn: disbursed && !started ? a.first_recovery_on : held.startsOn,
+      });
+    }
+    return byStaff;
+  }, [advances, rows]);
+
+  const advanceTotal = useMemo(
+    () => rows.reduce((sum, r) => sum + (advanceByStaff.get(r.staffId)?.next ?? 0), 0),
+    [rows, advanceByStaff],
+  );
+
   /** Staff grouped by department, alphabetically, unassigned last. */
   const groups = useMemo(() => {
     const NONE = 'No department';
@@ -265,8 +315,12 @@ export default function PayrollEnrollment() {
         allowances: groupRows.reduce((sum, r) => sum + r.allowancesTotal, 0),
         deductions: groupRows.reduce((sum, r) => sum + r.deductionsTotal, 0),
         gross: groupRows.reduce((sum, r) => sum + r.grossTotal, 0),
+        advance: groupRows.reduce(
+          (sum, r) => sum + (advanceByStaff.get(r.staffId)?.next ?? 0),
+          0,
+        ),
       }));
-  }, [rows]);
+  }, [rows, advanceByStaff]);
 
   const bothApplyCount = useMemo(
     () => rows.filter((r) => bothApply(r, periodCutOff)).length,
@@ -724,6 +778,7 @@ export default function PayrollEnrollment() {
                     <TableHead className="text-right">Part-month</TableHead>
                     <TableHead className="text-right">Allowances</TableHead>
                     <TableHead className="text-right">Deductions</TableHead>
+                    <TableHead className="text-right">Advance recovery</TableHead>
                     <TableHead className="text-right">Gross on record</TableHead>
                     <TableHead>Effective from</TableHead>
                     <TableHead className="print-hide">PAYE</TableHead>
@@ -737,7 +792,7 @@ export default function PayrollEnrollment() {
                 <TableBody>
                   {rows.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={17} className="p-6 text-sm text-muted-foreground">
+                      <TableCell colSpan={18} className="p-6 text-sm text-muted-foreground">
                         No active staff members.
                       </TableCell>
                     </TableRow>
@@ -745,7 +800,7 @@ export default function PayrollEnrollment() {
                     groups.map((group) => (
                       <Fragment key={group.department}>
                         <TableRow className="dept-header bg-muted/60 hover:bg-muted/60">
-                          <TableCell colSpan={11} className="text-sm font-semibold">
+                          <TableCell colSpan={12} className="text-sm font-semibold">
                             {group.department}
                             <span className="ml-2 text-xs font-normal text-muted-foreground">
                               {group.rows.length} {group.rows.length === 1 ? 'person' : 'people'}
@@ -876,6 +931,30 @@ export default function PayrollEnrollment() {
                             {reveal ? formatAmount(row.deductionsTotal) : '••••••'}
                           </span>
                         </TableCell>
+                        <TableCell className="text-right">
+                          {(() => {
+                            const adv = advanceByStaff.get(row.staffId);
+                            if (!adv) return <span className="text-muted-foreground">—</span>;
+                            return (
+                              <>
+                                <span className="font-mono text-sm tabular-nums">
+                                  {adv.next > 0
+                                    ? reveal
+                                      ? formatAmount(adv.next)
+                                      : '••••••'
+                                    : '—'}
+                                </span>
+                                <p className="text-[11px] text-muted-foreground">
+                                  {adv.next > 0
+                                    ? `Owed ${reveal ? formatAmount(adv.remaining) : '••••'}`
+                                    : adv.notDisbursed
+                                      ? 'Not disbursed'
+                                      : `Starts ${formatDate(adv.startsOn)}`}
+                                </p>
+                              </>
+                            );
+                          })()}
+                        </TableCell>
                         <TableCell className="text-right font-mono text-sm tabular-nums">
                           {reveal ? formatAmount(row.grossTotal) : '••••••'}
                         </TableCell>
@@ -998,6 +1077,9 @@ export default function PayrollEnrollment() {
                             {reveal ? formatAmount(group.deductions) : '••••••'}
                           </TableCell>
                           <TableCell className="text-right font-mono tabular-nums">
+                            {reveal ? formatAmount(group.advance) : '••••••'}
+                          </TableCell>
+                          <TableCell className="text-right font-mono tabular-nums">
                             {reveal ? formatAmount(group.gross) : '••••••'}
                           </TableCell>
                           <TableCell />
@@ -1026,6 +1108,9 @@ export default function PayrollEnrollment() {
                     </TableCell>
                     <TableCell className="text-right font-mono tabular-nums">
                       {reveal ? formatAmount(totals.deductions) : '••••••'}
+                    </TableCell>
+                    <TableCell className="text-right font-mono tabular-nums">
+                      {reveal ? formatAmount(advanceTotal) : '••••••'}
                     </TableCell>
                     <TableCell className="text-right font-mono tabular-nums">
                       {reveal ? formatAmount(totals.gross) : '••••••'}
