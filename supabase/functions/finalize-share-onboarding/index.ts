@@ -91,6 +91,8 @@ Deno.serve(async (req) => {
       user_id: row.shareholder_id, ledger_scope: scope, direction, amount, category: "share_capital",
       source_table: "angel_pool_investments", source_id: wallet.id, description, currency: "UGX",
       reference_id: row.reference_id, transaction_date: txDate,
+      // Wallet leg debits the operational float bucket, never withdrawable.
+      ...(scope === "wallet" ? { recipient_type: "operational_wallet", wallet_bucket: "float" } : {}),
     });
     const { data: groupId, error: rpcErr } = await admin.rpc("create_ledger_transaction", {
       entries: [

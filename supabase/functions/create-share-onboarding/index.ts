@@ -94,7 +94,7 @@ Deno.serve(async (req) => {
 
     return json({
       ok: true, id: row.id, reference_id: referenceId, shares: calc.shares,
-      available_balance: Number(avail ?? 0), emailed: invite.emailed, email: invite.email, signing_url: invite.url,
+      available_balance: Number(walletRow?.float_balance ?? 0), emailed: invite.emailed, email: invite.email, signing_url: invite.url,
     });
   } catch (e) {
     console.error("[create-share-onboarding]", (e as Error)?.message || e);
