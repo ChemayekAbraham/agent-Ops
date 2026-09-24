@@ -831,7 +831,7 @@ export default function PayrollEnrollment() {
                           {row.exemptionBasis || '—'}
                         </TableCell>
                         <TableCell
-                          className="cursor-pointer"
+                          className="print-hide cursor-pointer"
                           onClick={() => openIds(row)}
                           title="Statutory identifiers"
                         >
@@ -918,7 +918,13 @@ export default function PayrollEnrollment() {
                     <TableCell className="text-right font-mono tabular-nums">
                       {reveal ? formatAmount(totals.gross) : '••••••'}
                     </TableCell>
-                    <TableCell colSpan={7} />
+                    <TableCell />
+                    <TableCell className="print-hide" />
+                    <TableCell className="print-hide" />
+                    <TableCell className="print-hide" />
+                    <TableCell className="print-hide" />
+                    <TableCell className="print-hide" />
+                    <TableCell />
                   </TableRow>
                 </TableFooter>
               </Table>
