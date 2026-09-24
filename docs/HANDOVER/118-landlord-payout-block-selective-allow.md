@@ -1,4 +1,4 @@
-# 117 — "Block landlord payouts from queue": allow selected payouts through (2026-09-24)
+# 118 — "Block landlord payouts from queue": allow selected payouts through (2026-09-24)
 
 **Status: applied live to production 2026-09-24 and verified** (view, both claim RPCs and the
 priority hold carry the new predicate; three new functions exist). The end-to-end check with the
@@ -59,7 +59,7 @@ None of the touched functions are in `critical_function_baselines`, so no re-bas
 
 ## Files
 
-- `supabase/migrations/20260924100000_landlord_payout_block_exemptions.sql`
+- `supabase/migrations/20260924110000_landlord_payout_block_exemptions.sql`
 - `src/hooks/useLandlordPayoutBlockQueue.ts` (new)
 - `src/components/cto/LandlordPayoutBlockExemptions.tsx` (new)
 - `src/components/cto/PlatformControlsPanel.tsx` (mount + description copy)

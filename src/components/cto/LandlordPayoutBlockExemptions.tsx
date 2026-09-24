@@ -12,7 +12,7 @@ import { useLandlordPayoutBlockQueue } from '@/hooks/useLandlordPayoutBlockQueue
  * landlord payout the block is holding back, with a checkbox to select and
  * allow specific ones through to the Merchant Agent Payout Queue (or
  * re-block them). Enforced server-side — see
- * 20260924100000_landlord_payout_block_exemptions.sql.
+ * 20260924110000_landlord_payout_block_exemptions.sql.
  */
 export function LandlordPayoutBlockExemptions() {
   const { toast } = useToast();
