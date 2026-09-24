@@ -2178,6 +2178,13 @@
       "when": 1790244156592,
       "tag": "0310_share_onboarding_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 311,
+      "version": "7",
+      "when": 1790246455824,
+      "tag": "0311_linked_identities_may_withdraw",
+      "breakpoints": true
     }
   ]
 }
