@@ -62166,10 +62166,12 @@ export type Database = {
         Returns: Json
       }
       national_id_link_state: { Args: { p_request_id: string }; Returns: Json }
-      national_id_name_taken: {
-        Args: { p_name: string; p_user_id?: string }
-        Returns: Json
-      }
+      national_id_name_taken:
+        | { Args: { p_name: string; p_user_id?: string }; Returns: Json }
+        | {
+            Args: { p_name: string; p_nin?: string; p_user_id?: string }
+            Returns: Json
+          }
       national_id_name_twins: {
         Args: { p_name: string; p_user_id: string }
         Returns: Json
