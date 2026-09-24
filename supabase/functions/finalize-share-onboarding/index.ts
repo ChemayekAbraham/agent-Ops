@@ -70,25 +70,29 @@ Deno.serve(async (req) => {
     const amount = Number(row.amount);
     const shares = Number(row.shares);
 
-    const [committed, { data: availRaw, error: availErr }] = await Promise.all([
+    const [committed, { data: wallet, error: walletErr }] = await Promise.all([
       sharesCommitted(admin, row.id),
-      admin.rpc("get_user_available_balance", { p_user_id: row.shareholder_id }),
+      admin.from("wallets").select("id, float_balance").eq("user_id", row.shareholder_id).maybeSingle(),
     ]);
-    if (availErr) throw availErr;
+    if (walletErr) throw walletErr;
     if (committed + shares > ANGEL_TOTAL_SHARES) return json({ error: "Not enough shares left in the pool" }, 400);
-    const available = Number(availRaw ?? 0);
-    if (available < amount) {
-      return json({ error: `The shareholder's wallet has UGX ${available.toLocaleString()} available; UGX ${amount.toLocaleString()} is needed.` }, 400);
-    }
-
-    const { data: wallet } = await admin.from("wallets").select("id").eq("user_id", row.shareholder_id).maybeSingle();
     if (!wallet) return json({ error: "The shareholder has no wallet yet" }, 400);
+    // Shares are funded from the shareholder's operational float, not the
+    // withdrawable bucket. The wallet leg below is stamped wallet_bucket
+    // 'float', and create_ledger_transaction skips its own balance check for
+    // float legs — so this float gate is the only guard; keep it here.
+    const available = Number(wallet.float_balance ?? 0);
+    if (available < amount) {
+      return json({ error: `The shareholder's operational float has UGX ${available.toLocaleString()}; UGX ${amount.toLocaleString()} is needed.` }, 400);
+    }
 
     const txDate = new Date().toISOString();
     const leg = (scope: string, direction: string, description: string) => ({
       user_id: row.shareholder_id, ledger_scope: scope, direction, amount, category: "share_capital",
       source_table: "angel_pool_investments", source_id: wallet.id, description, currency: "UGX",
       reference_id: row.reference_id, transaction_date: txDate,
+      // Wallet leg debits the operational float bucket, never withdrawable.
+      ...(scope === "wallet" ? { recipient_type: "operational_wallet", wallet_bucket: "float" } : {}),
     });
     const { data: groupId, error: rpcErr } = await admin.rpc("create_ledger_transaction", {
       entries: [

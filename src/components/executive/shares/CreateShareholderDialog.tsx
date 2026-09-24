@@ -45,8 +45,9 @@ export default function CreateShareholderDialog({ open, onOpenChange }: { open: 
     queryKey: ['share-person-balance', picked?.id],
     enabled: !!picked,
     queryFn: async () => {
-      const { data } = await supabase.rpc('get_user_available_balance', { p_user_id: picked!.id });
-      return Number(data ?? 0);
+      // Shares are funded from the operational float, not withdrawable.
+      const { data } = await supabase.from('wallets').select('float_balance').eq('user_id', picked!.id).maybeSingle();
+      return Number(data?.float_balance ?? 0);
     },
   });
 
@@ -82,7 +83,7 @@ export default function CreateShareholderDialog({ open, onOpenChange }: { open: 
       <DialogContent className="max-h-[92vh] w-[calc(100vw-1.5rem)] max-w-lg overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add new shareholder</DialogTitle>
-          <DialogDescription>Shares are paid from the shareholder's Welile wallet when you countersign.</DialogDescription>
+          <DialogDescription>Shares are paid from the shareholder's operational float when you countersign.</DialogDescription>
         </DialogHeader>
 
         <Tabs value={mode} onValueChange={(v) => { setMode(v as any); setPicked(null); }}>
@@ -98,7 +99,7 @@ export default function CreateShareholderDialog({ open, onOpenChange }: { open: 
               <div className="min-w-0">
                 <p className="flex items-center gap-1.5 font-medium"><UserCheck className="h-4 w-4 text-primary" />{picked.full_name || 'Unnamed'}</p>
                 <p className="truncate text-xs text-muted-foreground">{[picked.phone, picked.email].filter(Boolean).join(' • ')}</p>
-                <p className="mt-1 text-xs">Wallet available: <strong>{balance === undefined ? '…' : ugx(balance)}</strong></p>
+                <p className="mt-1 text-xs">Operational float: <strong>{balance === undefined ? '…' : ugx(balance)}</strong></p>
               </div>
               <Button size="sm" variant="ghost" onClick={() => setPicked(null)}>Change</Button>
             </div>
@@ -127,7 +128,7 @@ export default function CreateShareholderDialog({ open, onOpenChange }: { open: 
               <div><Label>Phone</Label><Input value={np.phone} onChange={(e) => setNp({ ...np, phone: e.target.value })} /></div>
               <div><Label>Email</Label><Input type="email" value={np.email} onChange={(e) => setNp({ ...np, email: e.target.value })} /></div>
             </div>
-            <p className="text-xs text-muted-foreground">An account is created for them. They need money in their wallet before you can countersign.</p>
+            <p className="text-xs text-muted-foreground">An account is created for them. They need money in their operational float before you can countersign.</p>
           </div>
         )}
 
@@ -144,7 +145,7 @@ export default function CreateShareholderDialog({ open, onOpenChange }: { open: 
           <div><p className="text-[11px] text-muted-foreground">Company</p><p className="font-semibold">{calc.company.toFixed(4)}%</p></div>
         </div>
         {picked && balance !== undefined && amount > balance && (
-          <p className="text-xs text-destructive">Wallet balance is below this amount — countersigning will be refused until it is topped up.</p>
+          <p className="text-xs text-destructive">Operational float is below this amount — countersigning will be refused until it is topped up.</p>
         )}
 
         <Button className="w-full" disabled={!canSubmit || busy} onClick={submit}>
