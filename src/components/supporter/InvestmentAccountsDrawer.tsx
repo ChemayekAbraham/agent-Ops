@@ -291,16 +291,20 @@ function PortfolioDetailSheet({ portfolio, open, onOpenChange, onRenamed, onTopU
     const currentValue = localAutoReinvest ?? portfolio.auto_reinvest ?? false;
     const newValue = !currentValue;
     try {
-      const { error } = await supabase
-        .from('investor_portfolios')
-        .update({ auto_reinvest: newValue })
-        .eq('id', portfolio.id);
-      if (error) throw error;
-      setLocalAutoReinvest(newValue);
-      toast.success(`Auto-reinvest ${newValue ? 'enabled' : 'disabled'}`);
+      const { data, error } = await supabase.functions.invoke('supporter-account-action', {
+        body: { action: 'set_auto_support', portfolio_id: portfolio.id, enabled: newValue },
+      });
+      if (error) {
+        let msg = error.message;
+        try { msg = (await (error as any).context?.json())?.error || msg; } catch { /* keep msg */ }
+        throw new Error(msg);
+      }
+      if (data?.error) throw new Error(data.error);
+      setLocalAutoReinvest(!!data?.auto_reinvest);
+      toast.success(`Auto-Support ${data?.auto_reinvest ? 'ON — Returns now compound' : 'OFF — Returns paid monthly'}`);
       onRenamed(); // triggers refetch
-    } catch {
-      toast.error('Failed to update auto-reinvest setting');
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to update Auto-Support');
     } finally {
       setTogglingReinvest(false);
     }

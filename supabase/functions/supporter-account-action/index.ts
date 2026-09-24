@@ -197,6 +197,46 @@ Deno.serve(async (req) => {
         break;
       }
 
+      case "set_auto_support": {
+        // Single switch keeps both fields in step: auto_reinvest drives the
+        // monthly Returns run; roi_mode is what every screen and report shows.
+        const enabled = body.enabled === true;
+        const newMode = enabled ? "monthly_compounding" : "monthly_payout";
+        const previous = { auto_reinvest: portfolio.auto_reinvest, roi_mode: portfolio.roi_mode };
+
+        const { data: updated, error: sErr } = await admin
+          .from("investor_portfolios")
+          .update({ auto_reinvest: enabled, roi_mode: newMode })
+          .eq("id", portfolio_id)
+          .select("auto_reinvest, roi_mode")
+          .single();
+        if (sErr) throw sErr;
+        if (!updated || updated.auto_reinvest !== enabled || updated.roi_mode !== newMode) {
+          throw new Error("Auto-Support setting was not saved. Please try again.");
+        }
+
+        await admin.from("audit_logs").insert({
+          user_id: user.id,
+          action_type: "auto_support_change",
+          table_name: "investor_portfolios",
+          record_id: portfolio_id,
+          metadata: {
+            previous,
+            new_auto_reinvest: enabled,
+            new_mode: newMode,
+            reason: reason || "Self-service Auto-Support toggle",
+          },
+        });
+
+        result = { success: true, auto_reinvest: enabled, roi_mode: newMode };
+        emailSubject = `⚙️ Auto-Support ${enabled ? "turned ON" : "turned OFF"}: ${accountName}`;
+        emailBody = `Hi ${supporterName},\n\nAuto-Support on your support account "${accountName}" is now ${enabled ? "ON" : "OFF"}.\n\n${enabled
+          ? "• Compounding: your monthly Returns are added to your capital each month, so your capital grows."
+          : "• Monthly payout: your monthly Returns are paid to your wallet each cycle."
+        }\n\n• Returns rate: ${portfolio.roi_percentage}%\n• Current capital: UGX ${Number(portfolio.investment_amount).toLocaleString()}\n\nThis change takes effect from your next Returns cycle.\n\n— Welile Technologies`;
+        break;
+      }
+
       default:
         return new Response(JSON.stringify({ error: `Unknown action: ${action}` }), {
           status: 400,
@@ -237,7 +277,7 @@ Deno.serve(async (req) => {
     // Notify managers (fire-and-forget)
     fetch(`${supabaseUrl}/functions/v1/notify-managers`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${supabaseServiceKey}` },
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${serviceRoleKey}` },
       body: JSON.stringify({ title: "💼 Supporter Action", body: "Activity: supporter account action", url: "/dashboard/manager" }),
     }).catch(() => {});
 
