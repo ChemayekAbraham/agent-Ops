@@ -1,8 +1,17 @@
-# 117 — A tenant goes on "repaying" only after the merchant pays the landlord
+# 117 — A tenant goes on "repaying" only after the merchant pays the landlord (new plans only)
 
-**Built and applied live 2026-09-24 (migration `20260924100000_gate_repaying_on_merchant_landlord_payout.sql`).
-Before adding any new code path that sets `rent_requests.status = 'repaying'`, or if a plan looks
-"stuck on funded" after a collection.**
+**Built and applied live 2026-09-24 (migrations `20260924100000_gate_repaying_on_merchant_landlord_payout.sql`
+and `20260924110000_scope_repaying_gate_to_new_plans.sql`). Before adding any new code path that
+sets `rent_requests.status = 'repaying'`, or if a plan looks "stuck on funded" after a collection.**
+
+> **Scope, per Josh's follow-up the same day:** "for the existing already repaying plans don't
+> tamper with them, it should be only for the new plans that have been paid for and the merchant
+> agent confirms." The rule applies only to plans **funded at/after 2026-09-24 06:22:48 UTC**
+> (`repaying_gate_applies()`; the trigger checks `COALESCE(funded_at, disbursed_at, created_at)` on
+> NEW). Plans funded before that keep the old behaviour, where the first collection moves them to
+> repaying. They are never auto-promoted and never held. The 31-plan backfill described below was
+> **reverted** by the second migration: all 31 went back to `funded`, none had a collection in
+> between, and `updated_at` could not be restored (audit rows `repaying_backfill_reverted`).
 
 ## What was asked
 
@@ -64,8 +73,9 @@ Gated at the table so every writer (current and future) is covered:
   existing trigger update them in either order; whichever lands second sees full evidence. A
   failure inside the promotion is caught and logged (`repaying_promotion_failed`), so it can never
   roll back the merchant's payout completion.
-- **Backfill**: the 31 funded-but-merchant-paid plans were promoted (audit rows
-  `repaying_backfill_merchant_landlord_paid`).
+- **Backfill (reverted)**: 20260924100000 promoted 31 existing funded-but-merchant-paid plans
+  (audit rows `repaying_backfill_merchant_landlord_paid`). 20260924110000 put them back to `funded`
+  because the rule is for new plans only.
 
 Verified live, inside transactions that were forced to roll back:
 - funded → repaying on an unpaid plan: status stayed `funded`;
@@ -73,10 +83,10 @@ Verified live, inside transactions that were forced to roll back:
 - merchant marking a pending landlord-payout withdrawal `completed`: payout → `awaiting_agent_receipt`,
   plan `funded` → `repaying`.
 
-## Left for a human decision: repaying plans without merchant evidence
+## Existing repaying plans without merchant evidence (not touched, by instruction)
 
-These were **not** demoted. Changing a live plan's status touches collections and receivables, so
-that is Finance's decision.
+Josh explicitly said not to tamper with existing repaying plans, so these stay as they are. They
+are listed for reference only.
 
 - **112 `outstanding_balance` plans**: correct, exempt by design.
 - **85 plans (May–June) paid via the retired FinOps-direct path**: payout `awaiting_agent_receipt`/
