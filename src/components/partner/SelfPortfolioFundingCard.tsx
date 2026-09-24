@@ -1549,23 +1549,9 @@ export function SelfPortfolioFundingCard({
         <Card className="p-6 rounded-2xl text-center space-y-3">
           <Home className="h-8 w-8 mx-auto text-muted-foreground" />
           <div className="space-y-1">
-            <p className="text-sm font-semibold">No houses match your filters</p>
+            <p className="text-sm font-semibold">No rent requests match your filters</p>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              {houseSearch
-                ? `We could not find any houses matching "${houseSearch}". Try a different name, district, or neighborhood.`
-                : showSavedReadyOnly
-                  ? 'You have no saved houses that your current balance can fund. Reset to see all houses, or top up your balance.'
-                  : selectedCountry
-                    ? `No empty houses in ${selectedCountry.name} match the other filters yet. Choose "All of Africa" or widen your filters.`
-                    : houseListingAge !== 'all'
-                      ? 'No empty houses were listed in that period. Try a longer listing age.'
-                      : houseRadiusKm !== 'all'
-                        ? `No empty houses with known GPS are within ${houseRadiusKm} km of your location. Try a wider distance.`
-                        : houseDistrict !== 'all' || houseSubCounty !== 'all'
-                    ? 'No empty houses in this area match the other filters. Try a different location or widen your search.'
-                    : houseFundingStatus !== 'all' || houseWithinFloat
-                      ? 'No houses match the funding-status filter. Reset to see every available house.'
-                      : `No houses match the current rent range or sort filters. Reset to see all ${houses.length.toLocaleString()} houses again.`}
+              Reset the filters to see every rent request awaiting funding.
             </p>
           </div>
           <Button
