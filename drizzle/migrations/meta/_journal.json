@@ -2136,6 +2136,20 @@
       "when": 1790169810257,
       "tag": "0304_add_pso_promise_and_funding_commission_reporting",
       "breakpoints": true
+    },
+    {
+      "idx": 305,
+      "version": "7",
+      "when": 1790236347017,
+      "tag": "0305_add_rd_app_role",
+      "breakpoints": true
+    },
+    {
+      "idx": 306,
+      "version": "7",
+      "when": 1790236987097,
+      "tag": "0306_add_rd_dashboard_schema",
+      "breakpoints": true
     }
   ]
 }

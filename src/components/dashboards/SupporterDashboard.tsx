@@ -48,6 +48,9 @@ import { CreditRequestsFeed } from '@/components/supporter/CreditRequestsFeed';
 import { InvestmentPackageSheet } from '@/components/supporter/InvestmentPackageSheet';
 // FundingPoolCard removed from direct import
 import { FunderCapitalOpportunities } from '@/components/supporter/FunderCapitalOpportunities';
+import { FunderHouseListingsSection } from '@/components/supporter/FunderHouseListingsSection';
+import { FunderNewHero } from '@/components/funder-new/FunderNewHero';
+import { useFunderNewMarketSummary } from '@/components/funder-new/useFunderNewOpportunities';
 import { useSupportedTenants } from '@/hooks/useSupportedTenants';
 import { useCapitalOpportunities } from '@/hooks/useCapitalOpportunities';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -115,6 +118,7 @@ export default function SupporterDashboard({
   const [menuOpen, setMenuOpen] = useState(false);
   const [mapExpanded, setMapExpanded] = useState(false);
   const [mapSearchQuery, setMapSearchQuery] = useState('');
+  const marketSummary = useFunderNewMarketSummary();
   const [selectedHouse, setSelectedHouse] = useState<VirtualHouse | null>(null);
   const [showHouseDetails, setShowHouseDetails] = useState(false);
   const [selectedPackageCategory, setSelectedPackageCategory] = useState<RentCategory | null>(null);
@@ -486,14 +490,6 @@ export default function SupporterDashboard({
               {/* Right: Stats + action */}
               <div className="flex flex-1 flex-col items-end justify-between gap-2">
                 <AiIdButton variant="compact" />
-                <div className="text-right">
-                  <p className="text-base font-black leading-none tracking-tight tabular-nums sm:text-xl">
-                    {capitalLoading && !s ? '—' : formatAmount(rentNeeded)}
-                  </p>
-                  <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Rent needed
-                  </p>
-                </div>
                 <Button
                   variant="default"
                   size="default"
@@ -516,6 +512,14 @@ export default function SupporterDashboard({
           </div>
             );
           })()}
+
+          {/* ═══ MARKET HERO (same section as /dashboard/funder-new) ═══ */}
+          <FunderNewHero
+            summary={marketSummary.data}
+            isLoading={marketSummary.isLoading}
+            hasError={marketSummary.isError}
+            onHowItWorks={() => {}}
+          />
 
           {/* ═══ STANDALONE MAP ═══ */}
           <h2 className="text-base font-bold text-green-600 dark:text-green-400">Search for houses to fund</h2>
@@ -589,6 +593,9 @@ export default function SupporterDashboard({
                     />
                   </>
                 )}
+              </WidgetErrorBoundary>
+              <WidgetErrorBoundary label="House listings">
+                <FunderHouseListingsSection />
               </WidgetErrorBoundary>
             </div>
           )}
