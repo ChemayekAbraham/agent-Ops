@@ -7,7 +7,9 @@ import { Label } from '@/components/ui/label';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
-import { loadPeriodStatement, generatePeriodStatementPdf } from '@/lib/walletPeriodStatement';
+import { loadPeriodStatement, generatePeriodStatementPdf, generatePeriodStatementCsv } from '@/lib/walletPeriodStatement';
+
+type Format = 'pdf' | 'csv';
 
 const ymd = (d: Date) => format(d, 'yyyy-MM-dd');
 
