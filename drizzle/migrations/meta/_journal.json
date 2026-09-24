@@ -2199,6 +2199,13 @@
       "when": 1790258501979,
       "tag": "0313_allow_lending_repayment_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 314,
+      "version": "7",
+      "when": 1790260390374,
+      "tag": "0314_patience_ruba_repayment_starts_25_sept",
+      "breakpoints": true
     }
   ]
 }
