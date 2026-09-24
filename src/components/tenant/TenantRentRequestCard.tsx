@@ -126,6 +126,8 @@ export function TenantRentRequestCard({ userId }: { userId: string }) {
     const rent = Number(amount.replace(/[^\d.]/g, ''));
     if (!rent || rent <= 0) { toast.error('Enter your monthly rent'); return; }
     if (!landlordName.trim() || !landlordPhone.trim()) { toast.error('Add your landlord name and phone'); return; }
+    // Server rejects intake without GPS (agents are matched by distance to the house).
+    if (!coords) { toast.error('Pin your house location first'); return; }
     setSubmitting(true);
     try {
       const { data, error } = await supabase.rpc('submit_tenant_rent_intake', {

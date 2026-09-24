@@ -33,6 +33,15 @@ type Row = {
   latitude: number | null;
   longitude: number | null;
   created_at: string;
+  source: 'intake_form' | 'self_onboarding';
+  rent_request_id: string | null;
+  assigned_agent_id: string | null;
+  assigned_agent_distance_km: number | null;
+  claim_distance_km: number | null;
+  claim_proximity: 'near' | 'far' | null;
+  forwarded_from_agent_id: string | null;
+  forwarded_at: string | null;
+  forward_reason: string | null;
 };
 
 const QUEUE_KEY = ['tenant-rent-intake-queue'];
@@ -59,7 +68,7 @@ export function useTenantRentIntakeQueue() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('tenant_rent_intake_requests')
-        .select('id, tenant_id, tenant_name, tenant_phone, rent_amount, location_name, village_name, district_name, landlord_name, landlord_phone, tenant_note, status, distance_km, service_centre_name, decline_reason, claimed_by, latitude, longitude, created_at')
+        .select('id, tenant_id, tenant_name, tenant_phone, rent_amount, location_name, village_name, district_name, landlord_name, landlord_phone, tenant_note, status, distance_km, service_centre_name, decline_reason, claimed_by, latitude, longitude, created_at, source, rent_request_id, assigned_agent_id, assigned_agent_distance_km, claim_distance_km, claim_proximity, forwarded_from_agent_id, forwarded_at, forward_reason')
         .order('created_at', { ascending: false })
         .limit(200);
       if (error) throw error;
@@ -101,13 +110,19 @@ export function TenantRentIntakeQueue({ searchQuery = '' }: { searchQuery?: stri
 
   const act = async (
     id: string,
-    action: 'claim' | 'verify_visit' | 'approve' | 'decline',
-    extra?: { reason?: string },
+    action: 'claim' | 'verify_visit' | 'approve' | 'decline' | 'forward',
+    extra?: { reason?: string; toAgentId?: string },
   ) => {
     setBusyId(id);
     try {
       let coords: { lat: number; lng: number } | null = null;
-      if (action === 'verify_visit' && navigator.geolocation) {
+      // Claim records how far the claiming agent is from the tenant's pin;
+      // verify_visit proves the agent is at the house. Both need live GPS.
+      if (action === 'claim' || action === 'verify_visit') {
+        if (!navigator.geolocation) {
+          toast.error('Location required', { description: 'This device cannot share its location.' });
+          return;
+        }
         coords = await new Promise((resolve) =>
           navigator.geolocation.getCurrentPosition(
             (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude }),
@@ -116,19 +131,32 @@ export function TenantRentIntakeQueue({ searchQuery = '' }: { searchQuery?: stri
           ),
         );
         if (!coords) {
-          toast.error('Location required', { description: 'Turn on location at the house to verify the visit.' });
+          toast.error('Location required', {
+            description: action === 'claim'
+              ? 'Turn on location to claim — we check how close you are to the tenant.'
+              : 'Turn on location at the house to verify the visit.',
+          });
           return;
         }
       }
-      const { error } = await supabase.rpc('tenant_rent_intake_decide', {
+      // p_to_agent_id is newer than the generated types.
+      const { data, error } = await (supabase as any).rpc('tenant_rent_intake_decide', {
         p_request_id: id,
         p_action: action,
         p_reason: extra?.reason ?? null,
         p_latitude: coords?.lat ?? null,
         p_longitude: coords?.lng ?? null,
+        p_to_agent_id: extra?.toAgentId ?? null,
       });
       if (error) throw error;
-      toast.success('Updated');
+      const result = data as { proximity?: 'near' | 'far' | null; distance_km?: number | null } | null;
+      if (action === 'claim' && result?.proximity === 'far' && result.distance_km != null) {
+        toast.warning('Claimed — but you are far from this tenant', {
+          description: `You are about ${Number(result.distance_km).toFixed(1)} km from their house. Consider forwarding to a nearer agent.`,
+        });
+      } else {
+        toast.success(action === 'forward' ? 'Tenant forwarded' : 'Updated');
+      }
       setDeclineFor(null); setReason('');
       qc.invalidateQueries({ queryKey: QUEUE_KEY });
     } catch (e: any) {
