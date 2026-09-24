@@ -28,8 +28,9 @@ export default function ShareVettingDialog({ row, onClose }: { row: ShareRequest
   useEffect(() => {
     setRepName(''); setRepPosition(''); setSig(undefined); setShowCancel(false); setCancelReason(''); setBalance(null);
     if (row?.status === 'submitted') {
-      supabase.rpc('get_user_available_balance', { p_user_id: row.shareholder_id })
-        .then(({ data }) => setBalance(Number(data ?? 0)));
+      // Countersigning draws from the operational float, not withdrawable.
+      supabase.from('wallets').select('float_balance').eq('user_id', row.shareholder_id).maybeSingle()
+        .then(({ data }) => setBalance(Number(data?.float_balance ?? 0)));
     }
   }, [row?.id, row?.status, row?.shareholder_id]);
 
