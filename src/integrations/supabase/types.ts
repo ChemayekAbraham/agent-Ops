@@ -30814,6 +30814,45 @@ export type Database = {
         }
         Relationships: []
       }
+      payout_name_check_log: {
+        Row: {
+          checked_at: string
+          checked_by: string
+          checked_name: string
+          destination_id: string
+          id: string
+          id_name: string | null
+          network: string | null
+          outcome: string
+          payout_target: string | null
+          subject_user_id: string | null
+        }
+        Insert: {
+          checked_at?: string
+          checked_by?: string
+          checked_name: string
+          destination_id: string
+          id?: string
+          id_name?: string | null
+          network?: string | null
+          outcome: string
+          payout_target?: string | null
+          subject_user_id?: string | null
+        }
+        Update: {
+          checked_at?: string
+          checked_by?: string
+          checked_name?: string
+          destination_id?: string
+          id?: string
+          id_name?: string | null
+          network?: string | null
+          outcome?: string
+          payout_target?: string | null
+          subject_user_id?: string | null
+        }
+        Relationships: []
+      }
       payout_number_change_requests: {
         Row: {
           created_at: string
