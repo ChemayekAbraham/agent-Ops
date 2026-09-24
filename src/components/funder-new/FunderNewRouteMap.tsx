@@ -431,6 +431,17 @@ export function FunderNewRouteMap({
   }, [fullscreen]);
 
   useEffect(() => {
+    if (fullscreen) {
+      document.body.dataset.mapExpanded = 'true';
+    } else {
+      delete document.body.dataset.mapExpanded;
+    }
+    return () => {
+      delete document.body.dataset.mapExpanded;
+    };
+  }, [fullscreen]);
+
+  useEffect(() => {
     onExpandedChange?.(fullscreen);
   }, [fullscreen, onExpandedChange]);
 

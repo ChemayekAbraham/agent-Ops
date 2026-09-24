@@ -136,3 +136,11 @@
     transition: none !important;
   }
 }
+
+/* ---- When map is expanded into fullscreen: hide top nav and bottom role nav ---- */
+body[data-map-expanded='true'] header,
+body[data-map-expanded='true'] nav[aria-label="Switch dashboard role"] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
