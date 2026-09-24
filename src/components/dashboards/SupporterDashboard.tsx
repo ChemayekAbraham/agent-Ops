@@ -750,6 +750,15 @@ export default function SupporterDashboard({
         onOpenChange={(open) => {
           if (!open) setMapDetailHouse(null);
         }}
+        isPartner
+        onFund={() => {
+          // Hand off to the houses list, which runs the balance check and
+          // the fund / top-up flow.
+          setMapDetailHouse(null);
+          setCapitalView('direct');
+          setCapitalFeedOrder('houses');
+          setShowMap(false);
+        }}
       />
       
       <InvestmentPackageSheet
