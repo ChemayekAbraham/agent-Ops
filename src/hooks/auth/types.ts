@@ -1,6 +1,6 @@
 import { User, Session } from '@supabase/supabase-js';
 
-export type AppRole = 'tenant' | 'agent' | 'landlord' | 'supporter' | 'manager' | 'ceo' | 'coo' | 'cfo' | 'cto' | 'cmo' | 'crm' | 'employee' | 'operations' | 'super_admin' | 'hr' | 'access_admin';
+export type AppRole = 'tenant' | 'agent' | 'landlord' | 'supporter' | 'manager' | 'ceo' | 'coo' | 'cfo' | 'cto' | 'cmo' | 'crm' | 'employee' | 'operations' | 'super_admin' | 'hr' | 'access_admin' | 'rd';
 
 export interface AuthContextType {
   user: User | null;
