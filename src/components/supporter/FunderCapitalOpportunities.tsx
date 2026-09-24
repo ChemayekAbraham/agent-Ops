@@ -258,10 +258,12 @@ function OptionCard({
 
 
 function DetailShell({ title, subtitle, onBack, children, compactMobile = false }: {
-  title: string; subtitle: string; onBack?: () => void; children: React.ReactNode; compactMobile?: boolean;
+  title?: string; subtitle?: string; onBack?: () => void; children: React.ReactNode; compactMobile?: boolean;
 }) {
+  const showHeader = Boolean(title) || Boolean(onBack);
   return (
     <div className={`border border-border/80 bg-card overflow-hidden shadow-sm ${compactMobile ? 'rounded-xl sm:rounded-2xl' : 'rounded-2xl'}`}>
+      {showHeader && (
       <div className={`${compactMobile ? 'px-3.5 py-3 sm:px-5 sm:pt-4 sm:pb-3' : 'px-5 pt-4 pb-3'} flex items-center gap-2.5 border-b border-border/50`}>
         {onBack && (
           <Button
@@ -276,11 +278,14 @@ function DetailShell({ title, subtitle, onBack, children, compactMobile = false 
             <span className="text-xs font-semibold">Back</span>
           </Button>
         )}
+        {title && (
         <div className="min-w-0">
           <h3 className="font-black text-foreground text-sm tracking-tight leading-tight truncate">{title}</h3>
-          <p className="text-[10px] text-muted-foreground font-medium leading-tight truncate">{subtitle}</p>
+          {subtitle && <p className="text-[10px] text-muted-foreground font-medium leading-tight truncate">{subtitle}</p>}
         </div>
+        )}
       </div>
+      )}
       <div className={`${compactMobile ? 'px-3 py-3 sm:px-5 sm:py-4 sm:space-y-4' : 'px-5 py-4 space-y-4'} space-y-3`}>{children}</div>
     </div>
   );
