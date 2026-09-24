@@ -30,6 +30,7 @@ import { template as agentLandlordFloatFundedTemplate } from './agent-landlord-f
 import { template as walletTransferReceivedTemplate } from './wallet-transfer-received.tsx'
 import { template as walletTransferSentTemplate } from './wallet-transfer-sent.tsx'
 import { template as agentTenantPaymentReceiptTemplate } from './agent-tenant-payment-receipt.tsx'
+import { template as agentOverdueCallDriveTemplate } from './agent-overdue-call-drive.tsx'
 import { template as cashWithdrawalCodeTemplate } from './cash-withdrawal-code.tsx'
 import { template as cashDepositCodeTemplate } from './cash-deposit-code.tsx'
 import { template as cashDepositWalletConfirmationTemplate } from './cash-deposit-wallet-confirmation.tsx'
@@ -95,6 +96,7 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'wallet-transfer-received': walletTransferReceivedTemplate,
   'wallet-transfer-sent': walletTransferSentTemplate,
   'agent-tenant-payment-receipt': agentTenantPaymentReceiptTemplate,
+  'agent-overdue-call-drive': agentOverdueCallDriveTemplate,
   'cash-withdrawal-code': cashWithdrawalCodeTemplate,
   'cash-deposit-code': cashDepositCodeTemplate,
   'cash-deposit-wallet-confirmation': cashDepositWalletConfirmationTemplate,
