@@ -98,13 +98,13 @@ export function useCapitalOpportunities() {
       const [byInvestor, byAgent, summaryRes, emptyHousesRes] = await Promise.all([
         supabase
           .from('investor_portfolios')
-          .select('id, investment_amount, total_roi_earned, roi_percentage, status, portfolio_code, account_name, maturity_date, duration_months, auto_reinvest, roi_mode, next_roi_date, created_at')
+          .select('id, investment_amount, total_roi_earned, roi_percentage, status, portfolio_code, account_name, maturity_date, duration_months, auto_reinvest, roi_mode, next_roi_date, created_at, cfo_verified_at, locked_from_portfolio_id')
           .eq('investor_id', user.id)
           .in('status', ['active', 'pending', 'pending_approval', 'matured', 'withdrawn'])
           .limit(100),
         supabase
           .from('investor_portfolios')
-          .select('id, investment_amount, total_roi_earned, roi_percentage, status, portfolio_code, account_name, maturity_date, duration_months, auto_reinvest, roi_mode, next_roi_date, created_at')
+          .select('id, investment_amount, total_roi_earned, roi_percentage, status, portfolio_code, account_name, maturity_date, duration_months, auto_reinvest, roi_mode, next_roi_date, created_at, cfo_verified_at, locked_from_portfolio_id')
           .eq('agent_id', user.id)
           .is('investor_id', null)
           .in('status', ['active', 'pending', 'pending_approval', 'matured', 'withdrawn'])
@@ -128,9 +128,12 @@ export function useCapitalOpportunities() {
         if (seen.has(p.id)) return false;
         seen.add(p.id);
         return true;
-      }).map(p => ({ ...p, funded_at: p.created_at } as PortfolioRecord));
+      });
 
-      setPortfolios(deduped);
+      const starts = await resolveRunningStarts(deduped as any);
+      const withStarts = deduped.map(p => ({ ...p, funded_at: starts.get(p.id) ?? p.created_at } as PortfolioRecord));
+
+      setPortfolios(withStarts);
 
       if (!summaryRes.error && summaryRes.data) {
         setOpportunitySummary(summaryRes.data as OpportunitySummary);
