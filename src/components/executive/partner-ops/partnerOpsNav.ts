@@ -180,15 +180,6 @@ export const PARTNER_OPS_NAV: PartnerOpsNavItem[] = [
       { key: 'proxy.followup', label: 'Followup', icon: PhoneCall, keywords: ['contact', 'chase'] },
     ],
   },
-  {
-    key: 'shares',
-    label: 'Shares',
-    icon: PieChart,
-    keywords: ['shares', 'angel pool', 'equity'],
-    children: [
-      { key: 'shares.onboarding', label: 'Shares Onboarding', icon: FileSignature, keywords: ['shareholder', 'angel pool', 'shares agreement', 'sign', 'countersign'] },
-    ],
-  },
 ];
 
 export interface PartnerOpsSearchResult {
