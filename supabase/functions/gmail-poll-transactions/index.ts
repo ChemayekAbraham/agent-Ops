@@ -828,7 +828,7 @@ Deno.serve(async (req) => {
     // that skip is never logged. One was a tenant's direct rent payment
     // (TID157162005754), another a UGX 1M deposit. So only skip messages
     // meaningfully older than the cutoff; the ID checks below keep the wider
-    // window duplicate-free (handover 121).
+    // window duplicate-free (handover 125).
     const CUTOFF_GRACE_MS = 10 * 60 * 1000;
 
     // ── Rescan mode: re-list a past window, bypassing the time cutoff ──────
@@ -2759,7 +2759,7 @@ async function _tryAutoCreditOperationalFloat(
   // collection to the plan's agent with commission, and SMSes tenant and
   // agent. It also refuses agents' own float top-ups, which the retired
   // record_direct_tenant_rent_payment (never deployed) would have hijacked
-  // into rent repayments. See handover 122.
+  // into rent repayments. See handover 126.
 
   const auditMeta = {
     source: 'gmail_auto_credit',

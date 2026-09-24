@@ -1,4 +1,4 @@
--- Handover 122: the agent SMS sent by settle_tenant_rent_from_deposit() when a
+-- Handover 126: the agent SMS sent by settle_tenant_rent_from_deposit() when a
 -- tenant pays rent directly said "<name> paid his own rent ... His rent
 -- balance ... No collection needed from him", regardless of the tenant. It
 -- went out as e.g. "Martha Namigadde paid his own rent". Make it neutral.

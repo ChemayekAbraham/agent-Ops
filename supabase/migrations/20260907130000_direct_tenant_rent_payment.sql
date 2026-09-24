@@ -1,4 +1,4 @@
--- RETIRED 2026-09-24 — intentionally a no-op (handover 122).
+-- RETIRED 2026-09-24 — intentionally a no-op (handover 126).
 --
 -- This migration originally created direct_tenant_rent_payments and
 -- record_direct_tenant_rent_payment(). It was never applied to production

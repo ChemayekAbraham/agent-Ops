@@ -1,4 +1,4 @@
-# 121 — Gmail poller silently dropped same-second messages (tenant direct rent payment lost)
+# 125 — Gmail poller silently dropped same-second messages (tenant direct rent payment lost)
 
 **Status (2026-09-24):** code fix committed in `gmail-poll-transactions`; **edge function deploy
 and the recovery rescan are pending** — until both are done, TID157162005754 is still not in the
@@ -42,7 +42,7 @@ there was no way to recover a message the cutoff dropped.
 Had it been ingested, the existing path would have handled it correctly:
 `_tryAutoCreditOperationalFloat` matches sender 752251576 → Martha's profile → auto-credited
 deposit → on approval `settle_tenant_rent_from_deposit` applies it to her Rent Plan, books the
-collection and commission to Isaac, and SMSes both (see handover 122).
+collection and commission to Isaac, and SMSes both (see handover 126).
 
 ## Fix (`supabase/functions/gmail-poll-transactions/index.ts`)
 

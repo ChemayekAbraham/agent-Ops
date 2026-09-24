@@ -1,4 +1,4 @@
-# 122 — Direct tenant rent payments: already live; retire the unsafe duplicate
+# 126 — Direct tenant rent payments: already live; retire the unsafe duplicate
 
 **Status (2026-09-24):** code + migration committed, **not yet pushed/deployed**.
 
@@ -53,7 +53,7 @@ Rent Plan).
   points to the live path.
 - `20260907130000_direct_tenant_rent_payment.sql`: replaced with a documented no-op so it can
   never be applied late.
-- `20260924160000_tenant_self_repayment_agent_sms_neutral_wording.sql`: patches the **live**
+- `20260924180000_tenant_self_repayment_agent_sms_neutral_wording.sql`: patches the **live**
   `settle_tenant_rent_from_deposit` body in place (`pg_get_functiondef` → `replace` → `execute`),
   changing only three SMS phrases (“paid their rent directly”, “Rent balance”, “No collection
   needed until”). Refuses to run if the phrases aren't found. A read-only dry run against
@@ -71,7 +71,7 @@ select max(created_at) from deposit_decision_audit where reason = 'direct_tenant
 
 ## Martha Namigadde (TID157162005754)
 
-Once handover 121's rescan ingests her email, the path above settles it: plan `660d8178…`, agent
+Once handover 125's rescan ingests her email, the path above settles it: plan `660d8178…`, agent
 Mwaka Isaac, UGX 212,112 outstanding, no registered numbers (`unverified_no_registered_number`
 is allowed), no agent activity of her own. Confirm with
 `select * from tenant_self_repayment_attempts where tenant_id = '41383cef-a13c-456e-861d-01aa797f192c';`
