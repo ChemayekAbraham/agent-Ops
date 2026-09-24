@@ -115,6 +115,17 @@ export function EmptyHouseDetailSheet({
 
   if (!house) return null;
 
+  // Some lists (e.g. the funder map) don't supply the Returns figures —
+  // derive them from rent with the same 15%/month rule used elsewhere.
+  {
+    const rent = Number(house.monthly_rent || 0);
+    const monthly = Number(house.partner_monthly_return) || Math.round(rent * 0.15);
+    const annual = Number(house.partner_annual_return) || monthly * 12;
+    if (monthly !== house.partner_monthly_return || annual !== house.partner_annual_return) {
+      house = { ...house, partner_monthly_return: monthly, partner_annual_return: annual };
+    }
+  }
+
   const photos = photosOf(house);
   const gps = houseHasGps(house);
   const active = photos[Math.min(index, Math.max(photos.length - 1, 0))];
