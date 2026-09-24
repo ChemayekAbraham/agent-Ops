@@ -626,9 +626,6 @@ export default function SupporterDashboard({
                     </>
                   )}
                 </WidgetErrorBoundary>
-                <WidgetErrorBoundary label="House listings">
-                  <FunderHouseListingsSection />
-                </WidgetErrorBoundary>
               </div>
             </MapBottomSheet>
           ) : (
@@ -651,9 +648,6 @@ export default function SupporterDashboard({
                     />
                   </>
                 )}
-              </WidgetErrorBoundary>
-              <WidgetErrorBoundary label="House listings">
-                <FunderHouseListingsSection />
               </WidgetErrorBoundary>
             </div>
           )}
