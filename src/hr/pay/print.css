@@ -19,6 +19,8 @@
     background: #fff !important;
     font-size: 9pt;
     line-height: 1.25;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
   }
 
   body * {
@@ -44,9 +46,30 @@
     background: transparent;
   }
 
+  /* Controls never print. The amount cells carry a print-only twin span. */
   .print-root .no-print,
-  .print-root button {
+  .print-root button,
+  .print-root [role='switch'],
+  .print-root [role='checkbox'] {
     display: none !important;
+  }
+
+  /* Columns dropped from the printed sheet. */
+  .print-root .print-hide {
+    display: none !important;
+  }
+
+  /* The screen scroll container must not clip the sheet. */
+  .print-root .overflow-x-auto,
+  .print-root .overflow-auto {
+    overflow: visible !important;
+  }
+
+  /* Card chrome adds nothing on paper. */
+  .print-root [class*='rounded-lg'],
+  .print-root [class*='rounded-xl'] {
+    border: none !important;
+    box-shadow: none !important;
   }
 
   table {
@@ -59,6 +82,10 @@
     display: table-header-group;
   }
 
+  tfoot {
+    display: table-footer-group;
+  }
+
   tr {
     page-break-inside: avoid;
     break-inside: avoid;
@@ -66,10 +93,51 @@
 
   th,
   td {
-    font-size: 8pt;
+    font-size: 7.5pt;
     padding: 2px 3px;
     overflow-wrap: break-word;
     word-break: break-word;
     white-space: normal;
+    border-bottom: 0.5pt solid #d4d4d8;
+  }
+
+  th {
+    text-align: left;
+    font-weight: 700;
+    border-bottom: 1pt solid #000;
+  }
+
+  /* Column widths. Indices count every column in the markup, including the
+     five that are hidden, because nth-child ignores display. The twelve that
+     print sum to 100%. */
+  .print-root th:nth-child(1),
+  .print-root td:nth-child(1) { width: 7%; }
+  .print-root th:nth-child(2),
+  .print-root td:nth-child(2) { width: 14%; }
+  .print-root th:nth-child(3),
+  .print-root td:nth-child(3) { width: 11%; }
+  .print-root th:nth-child(4),
+  .print-root td:nth-child(4) { width: 12%; }
+  .print-root th:nth-child(5),
+  .print-root td:nth-child(5) { width: 8%; }
+  .print-root th:nth-child(6),
+  .print-root td:nth-child(6) { width: 9%; text-align: right; }
+  .print-root th:nth-child(7),
+  .print-root td:nth-child(7) { width: 7%; text-align: right; }
+  .print-root th:nth-child(8),
+  .print-root td:nth-child(8) { width: 7%; text-align: right; }
+  .print-root th:nth-child(9),
+  .print-root td:nth-child(9) { width: 7%; text-align: right; }
+  .print-root th:nth-child(10),
+  .print-root td:nth-child(10) { width: 9%; text-align: right; }
+  .print-root th:nth-child(11),
+  .print-root td:nth-child(11) { width: 9%; }
+  .print-root th:nth-child(17),
+  .print-root td:nth-child(17) { width: 0%; }
+
+  tfoot td {
+    font-weight: 700;
+    border-top: 1pt solid #000;
+    border-bottom: none;
   }
 }
