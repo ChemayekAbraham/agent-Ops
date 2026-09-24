@@ -63,7 +63,7 @@ export function WalletPeriodStatementButton() {
     <>
       <Button variant="outline" size="sm" className="w-full gap-2 text-xs mb-4" onClick={() => setOpen(true)}>
         <CalendarRange className="h-3.5 w-3.5" />
-        Statement for any period (PDF)
+        Statement for any period (PDF or CSV)
       </Button>
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="bottom" className="rounded-t-2xl">
@@ -94,9 +94,20 @@ export function WalletPeriodStatementButton() {
               </div>
             </div>
             {invalid && <p className="text-xs text-destructive">Pick a start date on or before the end date, and not in the future.</p>}
+            <div className="space-y-1">
+              <Label>File format</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {(['pdf', 'csv'] as Format[]).map((f) => (
+                  <Button key={f} type="button" size="sm" variant={fmt === f ? 'default' : 'outline'} className="text-xs"
+                    onClick={() => setFmt(f)}>
+                    {f === 'pdf' ? 'PDF (statement)' : 'CSV (spreadsheet)'}
+                  </Button>
+                ))}
+              </div>
+            </div>
             <Button className="w-full gap-2" disabled={busy || invalid} onClick={generate}>
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
-              {busy ? 'Preparing…' : 'Download statement'}
+              {busy ? 'Preparing…' : `Download ${fmt.toUpperCase()}`}
             </Button>
           </div>
         </SheetContent>
