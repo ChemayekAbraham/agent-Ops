@@ -1,5 +1,8 @@
 import { useCallback, useMemo, useState } from 'react';
 import { AlertTriangle, Home, ListFilter, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { formatDynamic } from '@/lib/currencyFormat';
+import DepositFlow from '@/components/payments/DepositFlow';
 import { useAuth } from '@/hooks/useAuth';
 import { useWalletBalance } from '@/hooks/wallet/useWalletBalance';
 import { Button } from '@/components/ui/button';
@@ -217,6 +220,13 @@ export function FunderHouseListingsSection() {
           setSelectedCategory(null);
         }}
         onReview={() => setReviewOpen(true)}
+      />
+      <DepositFlow
+        open={topUpAmount !== null}
+        onOpenChange={(open) => {
+          if (!open) setTopUpAmount(null);
+        }}
+        defaultAmount={topUpAmount ?? undefined}
       />
     </section>
   );
