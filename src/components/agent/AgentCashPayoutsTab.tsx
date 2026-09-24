@@ -247,9 +247,11 @@ function isQueueRowClientEligible(
   // Landlord float payout vs standard payout.
   const isLandlord = typeof row.reason === 'string' && row.reason.startsWith('Landlord float payout');
   // CTO Platform Control "Block landlord payouts from queue": hides landlord
-  // rows unconditionally, even from someone filtering the "landlord" tab
-  // directly. Takes precedence over the status filter below.
-  if (o.landlordPayoutsBlocked && isLandlord) return false;
+  // rows, even from someone filtering the "landlord" tab directly — except
+  // rows the CTO explicitly allowed through (landlord_block_exempt_at, set via
+  // set_landlord_payout_block_exemption; mirrors the server's
+  // landlord_payout_queue_blocked()). Takes precedence over the status filter.
+  if (o.landlordPayoutsBlocked && isLandlord && !row.landlord_block_exempt_at) return false;
   if (o.status === 'landlord' && !isLandlord) return false;
   if (o.status === 'standard' && isLandlord) return false;
 
@@ -776,7 +778,7 @@ export function AgentCashPayoutsTab() {
       const q = applyMerchantQueueFence(
         supabase
           .from('withdrawal_requests')
-          .select('id, reason, user_id, linked_party, payout_method, mobile_money_provider, mobile_money_number, mobile_money_name'),
+          .select('id, reason, user_id, linked_party, payout_method, mobile_money_provider, mobile_money_number, mobile_money_name, landlord_block_exempt_at'),
       ).is('assigned_cashout_agent_id', null).limit(QUEUE_CANDIDATE_CAP);
       const { data, error } = await q;
       if (error) throw error;
@@ -811,7 +813,7 @@ export function AgentCashPayoutsTab() {
       const proxyOnly = proxyPriorityEnforced && !!blockingUrgentProxy && !landlordOnly;
       let q = applyQueueFilters(
         supabase.from('withdrawal_requests').select(
-          'id, reason, user_id, linked_party, payout_method, mobile_money_provider, mobile_money_number, mobile_money_name, priority_level',
+          'id, reason, user_id, linked_party, payout_method, mobile_money_provider, mobile_money_number, mobile_money_name, priority_level, landlord_block_exempt_at',
         ),
         base,
       );

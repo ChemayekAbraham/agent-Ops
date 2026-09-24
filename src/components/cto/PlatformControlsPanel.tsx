@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import { Loader2, RefreshCw, SlidersHorizontal, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Switch } from '@/components/ui/switch';
@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import MaintenanceToggleCard from '@/components/cto/MaintenanceToggleCard';
 import WalletOpsMaintenanceCard from '@/components/cto/WalletOpsMaintenanceCard';
+import LandlordPayoutBlockExemptions from '@/components/cto/LandlordPayoutBlockExemptions';
 
 /**
  * CTO Platform Controls
@@ -71,7 +72,7 @@ const UI_OVERRIDE_CONTROLS: ControlDef[] = [
   {
     key: 'landlord_payouts_blocked',
     label: 'Block landlord payouts from queue',
-    description: 'ON: Landlord float payouts are hidden from the Merchant Agent Payout Queue and cannot be claimed by anyone. The withdrawal requests are NOT cancelled — they stay queued and reappear the moment this is switched back OFF. OFF (default): landlord payouts flow normally.',
+    description: 'ON: Landlord float payouts are hidden from the Merchant Agent Payout Queue and cannot be claimed by anyone. The withdrawal requests are NOT cancelled — they stay queued and reappear the moment this is switched back OFF. While ON you can select individual landlord payouts below and allow just those through. OFF (default): landlord payouts flow normally.',
     danger: true,
   },
   {
@@ -144,7 +145,8 @@ export function PlatformControlsPanel() {
         {controls.map((c) => {
           const on = !!state[c.key];
           return (
-            <div key={c.key} className="flex items-start justify-between gap-3 rounded-lg border border-border/60 p-3">
+            <Fragment key={c.key}>
+            <div className="flex items-start justify-between gap-3 rounded-lg border border-border/60 p-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <p className="text-sm font-medium">{c.label}</p>
@@ -164,6 +166,8 @@ export function PlatformControlsPanel() {
                 )}
               </div>
             </div>
+            {c.key === 'landlord_payouts_blocked' && on && <LandlordPayoutBlockExemptions />}
+            </Fragment>
           );
         })}
       </div>
