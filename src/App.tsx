@@ -225,6 +225,7 @@ const VerificationHistoryPage = lazy(() => import('./pages/VerificationHistory')
 const PhantomDriftDetailPage = lazy(() => import('./pages/cfo/PhantomDriftDetail'));
 const COODashboardPage = lazy(() => import('./pages/coo/Dashboard'));
 const HRDashboardPage = lazy(() => import('./pages/hr/Dashboard'));
+const RDDashboardPage = lazy(() => import('./pages/rd/Dashboard'));
 const CalculatorSelfCheck = lazy(() => import('./hr/pay/calculator/CalculatorSelfCheck'));
 const PayrollConfigPage = lazy(() => import('./hr/pay/PayrollConfig'));
 const PayRunsPage = lazy(() => import('./hr/pay/PayRuns'));
