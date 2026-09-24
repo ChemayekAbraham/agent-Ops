@@ -13,7 +13,7 @@ import {
   Loader2, ArrowDownRight, ArrowUpRight, Scale, Wallet,
   ChevronRight, Info, CalendarDays, Download,
   PiggyBank, BarChart3, Package, ChevronDown,
-  Landmark, Vault, Banknote, CheckCircle2, AlertTriangle,
+  Landmark, Vault, CheckCircle2, AlertTriangle,
 } from 'lucide-react';
 import {
   ResponsiveContainer, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -302,7 +302,6 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
                       {[
                         { label: 'MTN Money', amount: actualMoney?.mtn ?? 0, logo: mtnLogoAsset.url, line: 'mtn_momo' as const },
                         { label: 'Airtel Money', amount: actualMoney?.airtel ?? 0, logo: airtelLogoAsset.url, line: 'airtel_money' as const },
-                        { label: 'Cash in Custody — Not Yet Confirmed Banked (excluded)', amount: actualMoney?.custodyNotConfirmedBanked ?? 0, icon: <Banknote className="h-4 w-4 text-emerald-600" />, line: 'cash' as const },
                         { label: 'Cash at Bank', amount: actualMoney?.bankedCash ?? 0, icon: <Landmark className="h-4 w-4 text-sky-600" />, line: 'banked_cash' as const },
                       ].map((row) => (
                         <button
