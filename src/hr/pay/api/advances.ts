@@ -38,26 +38,17 @@ export async function listAdvances(): Promise<AdvanceRow[]> {
       .order('requested_at', { ascending: false }),
   ) ?? []) as Array<Record<string, any>>;
 
-  const ids = rows.map((r) => r.id as string);
+  // Recovered totals come from a security-definer function. Staff may read
+  // their own advance but not hr_pay_runs or the recovery table, so reading
+  // those directly showed nothing repaid for anyone without payroll authority.
+  // Only recoveries on approved or paid runs count, as in hr_pay_advance_due.
   const recoveredById = new Map<string, number>();
-  if (ids.length > 0) {
-    const recoveries = (unwrap(
-      await supabase
-        .from('hr_pay_advance_recoveries')
-        .select('advance_id, amount, hr_pay_runs!hr_pay_advance_recoveries_run_id_fkey(status)')
-        .in('advance_id', ids),
-    ) ?? []) as Array<{
-      advance_id: string;
-      amount: number | string;
-      hr_pay_runs: { status: string } | null;
-    }>;
-    for (const r of recoveries) {
-      const runStatus = r.hr_pay_runs?.status;
-      if (runStatus !== 'approved' && runStatus !== 'paid') continue;
-      recoveredById.set(
-        r.advance_id,
-        (recoveredById.get(r.advance_id) ?? 0) + Number(r.amount ?? 0),
-      );
+  if (rows.length > 0) {
+    const totals = (unwrap(
+      await (supabase.rpc as any)('hr_pay_advance_recovered_totals'),
+    ) ?? []) as Array<{ advance_id: string; recovered: number | string }>;
+    for (const t of totals) {
+      recoveredById.set(t.advance_id, Number(t.recovered ?? 0));
     }
   }
 
