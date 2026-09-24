@@ -61068,6 +61068,13 @@ export type Database = {
         Args: { _gross: number; _run_id: string; _staff_id: string }
         Returns: number
       }
+      hr_pay_advance_recovered_totals: {
+        Args: never
+        Returns: {
+          advance_id: string
+          recovered: number
+        }[]
+      }
       hr_pay_correct_compensation: {
         Args: {
           _amount: number
