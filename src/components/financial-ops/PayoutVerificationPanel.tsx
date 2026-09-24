@@ -8,7 +8,8 @@
  * lives in the database and the approve-withdrawal function.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { PayoutNameCheckHistory, logNameCheck, nameCheckHistoryKey } from './PayoutNameCheckHistory';
 import {
   AlertTriangle,
   ArrowUpDown,
