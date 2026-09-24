@@ -107,9 +107,12 @@ export async function loadPeriodStatement(userId: string, from: string, to: stri
   // summing visible legs forward from zero — otherwise a statement ending today
   // closes on a number that disagrees with the wallet card.
   const w: any = (wallet as any)?.data ?? null;
-  const current = w
-    ? Number(w.balance ?? 0) || Number(w.withdrawable_balance ?? 0) + Number(w.float_balance ?? 0)
-    : 0;
+  // Same rule as the wallet card: withdrawable + float. The raw cached
+  // `wallets.balance` is only a fallback when both buckets are missing.
+  const current = !w ? 0
+    : (w.withdrawable_balance == null && w.float_balance == null)
+      ? Number(w.balance ?? 0)
+      : Number(w.withdrawable_balance ?? 0) + Number(w.float_balance ?? 0);
   const netAfter = after.reduce((s, r) => s + signed(r), 0);
   const closing = current - netAfter;
 
