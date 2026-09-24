@@ -29,6 +29,8 @@ export function FunderNewMapSection({
   selectedIds,
   savedIds,
   activeId,
+  heading: customHeading,
+  headingClassName,
   onOpenHouse,
   onApplyArea,
   onAreaSearchChange,
@@ -39,6 +41,8 @@ export function FunderNewMapSection({
   selectedIds: string[];
   savedIds: string[];
   activeId: string | null;
+  heading?: string;
+  headingClassName?: string;
   onOpenHouse: (house: FunderNewEmptyHouse) => void;
   onApplyArea: (viewport: FunderNewViewport) => void;
   onAreaSearchChange: (value: string) => void;
@@ -108,7 +112,9 @@ export function FunderNewMapSection({
   return (
     <section id="funder-new-map" className="scroll-mt-24 space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-semibold tracking-tight sm:text-xl">{heading}</h2>
+        <h2 className={headingClassName ?? "text-lg font-semibold tracking-tight sm:text-xl"}>
+          {customHeading ?? heading}
+        </h2>
 
         {location.autoLocating ? (
           <p className="flex items-center gap-1.5 text-xs text-muted-foreground">

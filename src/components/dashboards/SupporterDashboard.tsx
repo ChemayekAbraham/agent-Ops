@@ -1,5 +1,5 @@
 import calculatorIllustration from "@/assets/calculator-illustration.svg.asset.json";
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useConfetti } from '@/components/Confetti';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { User } from '@supabase/supabase-js';
@@ -7,7 +7,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useOffline } from '@/contexts/OfflineContext';
 import { Button } from '@/components/ui/button';
 import { Calculator, BadgeCheck, MapPin, Wallet } from 'lucide-react';
-import { MapBottomSheet } from '@/components/supporter/MapBottomSheet';
 import { formatUGX as _formatUGX } from '@/lib/rentCalculations';
 import { useToast } from '@/hooks/use-toast';
 import { AppRole } from '@/hooks/useAuth';
@@ -51,6 +50,11 @@ import { FunderCapitalOpportunities } from '@/components/supporter/FunderCapital
 import { FunderHouseListingsSection } from '@/components/supporter/FunderHouseListingsSection';
 import { FunderNewHero } from '@/components/funder-new/FunderNewHero';
 import { useFunderNewMarketSummary } from '@/components/funder-new/useFunderNewOpportunities';
+import { FunderNewMapSection } from '@/components/funder-new/FunderNewMapSection';
+import { useFunderNewLocation } from '@/components/funder-new/useFunderNewLocation';
+import type { FunderNewEmptyHouse, FunderNewFilters, FunderNewOrigin } from '@/components/funder-new/types';
+import type { FunderNewViewport } from '@/components/funder-new/FunderNewRouteMap';
+import EmptyHouseDetailSheet from '@/components/agent/EmptyHouseDetailSheet';
 import { useSupportedTenants } from '@/hooks/useSupportedTenants';
 import { useCapitalOpportunities } from '@/hooks/useCapitalOpportunities';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -72,10 +76,6 @@ import {
 } from '@/components/skeletons/SectionSkeletons';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { Suspense } from 'react';
-
-const EmptyHouseMapBrowser = lazyWithRetry(
-  () => import('@/components/partner/EmptyHouseMapBrowser').then(m => ({ default: m.EmptyHouseMapBrowser })),
-);
 
 
 interface SupporterDashboardProps {
@@ -116,9 +116,52 @@ export default function SupporterDashboard({
   const [showCalculator, setShowCalculator] = useState(false);
   const [showMap, setShowMap] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [mapExpanded, setMapExpanded] = useState(false);
-  const [mapSearchQuery, setMapSearchQuery] = useState('');
   const marketSummary = useFunderNewMarketSummary();
+  const mapLocation = useFunderNewLocation();
+  const [mapSearchInput, setMapSearchInput] = useState('');
+  const [mapFilters, setMapFilters] = useState<FunderNewFilters>({
+    search: '',
+    location: '',
+    amount: 'all',
+    sort: 'recommended',
+    rentMin: null,
+    rentMax: null,
+    radiusKm: 'all',
+    withinFloat: false,
+  });
+  const [mapArea, setMapArea] = useState<{ lat: number; lng: number; radiusKm: number } | null>(null);
+  const [mapDetailHouse, setMapDetailHouse] = useState<FunderNewEmptyHouse | null>(null);
+
+  const mapOrigin: FunderNewOrigin | null = useMemo(() => {
+    if (mapLocation.coords) {
+      return {
+        lat: mapLocation.coords.lat,
+        lng: mapLocation.coords.lng,
+        source: 'device',
+        radiusKm: 25,
+        label: 'your location',
+      };
+    }
+    if (mapArea) {
+      return {
+        lat: mapArea.lat,
+        lng: mapArea.lng,
+        source: 'area',
+        radiusKm: mapArea.radiusKm,
+        label: 'this area',
+      };
+    }
+    return null;
+  }, [mapLocation.coords, mapArea]);
+
+  const applyMapArea = useCallback((viewport: FunderNewViewport) => {
+    setMapArea({ lat: viewport.lat, lng: viewport.lng, radiusKm: viewport.radiusKm });
+  }, []);
+
+  const handleMapSearchChange = useCallback((value: string) => {
+    setMapSearchInput(value);
+    setMapFilters((prev) => ({ ...prev, search: value }));
+  }, []);
   const [selectedHouse, setSelectedHouse] = useState<VirtualHouse | null>(null);
   const [showHouseDetails, setShowHouseDetails] = useState(false);
   const [selectedPackageCategory, setSelectedPackageCategory] = useState<RentCategory | null>(null);
@@ -521,84 +564,46 @@ export default function SupporterDashboard({
             onHowItWorks={() => {}}
           />
 
-          {/* ═══ STANDALONE MAP ═══ */}
-          <h2 className="text-base font-bold text-green-600 dark:text-green-400">Search for houses to fund</h2>
-          <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
-            <Suspense fallback={
-              <div className="flex h-[300px] items-center justify-center bg-muted/30">
-                <p className="text-xs text-muted-foreground animate-pulse">Loading map…</p>
-              </div>
-            }>
-              <EmptyHouseMapBrowser
-                houses={[]}
-                selectedIds={[]}
-                searchQuery={mapSearchQuery}
-                remaining={0}
-                busy={false}
-                onSearchQueryChange={setMapSearchQuery}
-                onOpenHouse={() => {}}
-                onFundHouse={() => {}}
-                onExpandedChange={setMapExpanded}
-              />
-            </Suspense>
-          </div>
+          {/* ═══ MAP SECTION (Google Maps as in /dashboard/funder-new) ═══ */}
+          <FunderNewMapSection
+            filters={mapFilters}
+            location={mapLocation}
+            origin={mapOrigin}
+            selectedIds={[]}
+            savedIds={[]}
+            activeId={null}
+            heading="Search for houses to fund"
+            headingClassName="text-base font-bold text-green-600 dark:text-green-400"
+            onOpenHouse={(house) => setMapDetailHouse(house)}
+            onApplyArea={applyMapArea}
+            onAreaSearchChange={handleMapSearchChange}
+          />
 
           {/* ═══ SECTION: OPPORTUNITIES ═══ */}
-          {/* When map is expanded (fullscreen), render inside a draggable bottom sheet.
-              Otherwise, render inline in the normal scroll flow. */}
-
-          {mapExpanded ? (
-            <MapBottomSheet
-              defaultSnap="half"
-            >
-              <div id="opportunities" className="relative space-y-2.5">
-                {!effectiveHasAccepted && <LockedOverlay onAcceptClick={() => setShowAgreementModal(true)} />}
-                <WidgetErrorBoundary label="Capital opportunities">
-                  {loading && virtualHouses.length === 0 ? (
-                    <div className="space-y-3">
-                      <WidgetCardSkeleton />
-                      <WidgetCardSkeleton />
-                    </div>
-                  ) : (
-                    <>
-                      <FunderApprovalBanner className="mb-3" />
-                      <FunderCapitalOpportunities
-                        key={`${capitalView}-${capitalFeedOrder}`}
-                        initialView={capitalView}
-                        initialFeedOrder={capitalFeedOrder}
-                        embedded
-                      />
-                    </>
-                  )}
-                </WidgetErrorBoundary>
-              </div>
-            </MapBottomSheet>
-          ) : (
-            <div id="opportunities" className="relative scroll-mt-4 space-y-2.5 sm:space-y-4">
-              {!effectiveHasAccepted && <LockedOverlay onAcceptClick={() => setShowAgreementModal(true)} />}
-              <WidgetErrorBoundary label="Capital opportunities">
-                {loading && virtualHouses.length === 0 ? (
-                  <div className="space-y-3">
-                    <WidgetCardSkeleton />
-                    <WidgetCardSkeleton />
-                  </div>
-                ) : (
-                  <>
-                    <FunderApprovalBanner className="mb-3" />
-                    <FunderCapitalOpportunities
-                      key={`${capitalView}-${capitalFeedOrder}`}
-                      initialView={capitalView}
-                      initialFeedOrder={capitalFeedOrder}
-                      embedded
-                    />
-                  </>
-                )}
-              </WidgetErrorBoundary>
-              <WidgetErrorBoundary label="House listings">
-                <FunderHouseListingsSection />
-              </WidgetErrorBoundary>
-            </div>
-          )}
+          <div id="opportunities" className="relative scroll-mt-4 space-y-2.5 sm:space-y-4">
+            {!effectiveHasAccepted && <LockedOverlay onAcceptClick={() => setShowAgreementModal(true)} />}
+            <WidgetErrorBoundary label="Capital opportunities">
+              {loading && virtualHouses.length === 0 ? (
+                <div className="space-y-3">
+                  <WidgetCardSkeleton />
+                  <WidgetCardSkeleton />
+                </div>
+              ) : (
+                <>
+                  <FunderApprovalBanner className="mb-3" />
+                  <FunderCapitalOpportunities
+                    key={`${capitalView}-${capitalFeedOrder}`}
+                    initialView={capitalView}
+                    initialFeedOrder={capitalFeedOrder}
+                    embedded
+                  />
+                </>
+              )}
+            </WidgetErrorBoundary>
+            <WidgetErrorBoundary label="House listings">
+              <FunderHouseListingsSection />
+            </WidgetErrorBoundary>
+          </div>
 
         </main>
       </div>
@@ -677,6 +682,14 @@ export default function SupporterDashboard({
         house={selectedHouse}
         open={showHouseDetails}
         onOpenChange={setShowHouseDetails}
+      />
+
+      <EmptyHouseDetailSheet
+        house={mapDetailHouse as any}
+        open={!!mapDetailHouse}
+        onOpenChange={(open) => {
+          if (!open) setMapDetailHouse(null);
+        }}
       />
       
       <InvestmentPackageSheet

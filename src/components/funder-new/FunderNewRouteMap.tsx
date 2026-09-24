@@ -51,7 +51,7 @@ function loadGoogleMaps(): Promise<typeof google.maps> {
         };
 
         const script = document.createElement('script');
-        const params = new URLSearchParams({ key, loading: 'async', callback: callbackName });
+        const params = new URLSearchParams({ key, loading: 'async', callback: callbackName, libraries: 'geometry,marker' });
         if (channel) params.set('channel', channel);
         script.src = `https://maps.googleapis.com/maps/api/js?${params.toString()}`;
         script.async = true;
