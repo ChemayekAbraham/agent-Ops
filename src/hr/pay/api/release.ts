@@ -72,9 +72,20 @@ export async function listDisbursements(runId: string): Promise<DisbursementRow[
     .sort((a, b) => (a.staff_ref ?? '').localeCompare(b.staff_ref ?? ''));
 }
 
-export async function runRelease(runId: string, dryRun: boolean): Promise<any> {
+/**
+ * Release a run. With payslipIds, only that batch is paid. An empty list is
+ * passed through deliberately: the function refuses it rather than treating it
+ * as "everyone".
+ */
+export async function runRelease(
+  runId: string,
+  dryRun: boolean,
+  payslipIds?: string[],
+): Promise<any> {
+  const body: Record<string, unknown> = { runId, dryRun };
+  if (payslipIds !== undefined) body.payslipIds = payslipIds;
   const { data, error } = await supabase.functions.invoke('hr-pay-release', {
-    body: { runId, dryRun },
+    body,
   });
   if (error) {
     // Surface the function's message unmodified.
