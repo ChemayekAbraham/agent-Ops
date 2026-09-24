@@ -55523,6 +55523,7 @@ export type Database = {
         }
         Returns: string
       }
+      cc_plan_pace: { Args: { p_rent_request_id: string }; Returns: Json }
       cc_queue_access_allowed: {
         Args: { p_subject_type: Database["public"]["Enums"]["cc_subject_type"] }
         Returns: boolean
