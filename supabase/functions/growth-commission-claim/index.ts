@@ -90,8 +90,9 @@ Deno.serve(async (req) => {
         amount,
         reason: report,
         category: "growth_commission",
-        stage: "ceo",
-        current_approver_role: "ceo",
+        // Six eyes: COO -> CEO -> CFO like every other requisition.
+        stage: "coo",
+        current_approver_role: "coo",
         final_stage: "cfo",
       })
       .select("*")
@@ -123,7 +124,7 @@ Deno.serve(async (req) => {
       actor_id: requester.id,
       actor_name: requesterName,
       action: "created",
-      stage: "ceo",
+      stage: "coo",
       comment: report.slice(0, 2000),
       metadata: {
         source: "growth_commission",
@@ -145,10 +146,10 @@ Deno.serve(async (req) => {
       reason: `Claimed ${fmtUGX(amount)} for ${userCount} new platform users`,
     });
 
-    // Notify the CEO stage holders.
+    // Notify the COO stage holders (first of the three six-eyes sign-offs).
     try {
       const { data: holders } = await admin
-        .from("user_roles").select("user_id").eq("role", "ceo").eq("enabled", true).limit(20);
+        .from("user_roles").select("user_id").eq("role", "coo").eq("enabled", true).limit(20);
       const ids = (holders || []).map((r: { user_id: string }) => r.user_id);
       if (ids.length) {
         await admin.from("notifications").insert(ids.map((id: string) => ({
@@ -156,7 +157,7 @@ Deno.serve(async (req) => {
           type: "staff_requisition",
           title: `Requisition ${requisition.requisition_code} needs your review`,
           message: `${requesterName} • ${fmtUGX(amount)} — growth commission for ${userCount.toLocaleString("en-US")} new platform users`,
-          metadata: { requisition_id: requisition.id, stage: "ceo", claim_id: claim.id },
+          metadata: { requisition_id: requisition.id, stage: "coo", claim_id: claim.id },
         })));
         const { data: phones } = await admin
           .from("profiles").select("id, phone, full_name").in("id", ids);

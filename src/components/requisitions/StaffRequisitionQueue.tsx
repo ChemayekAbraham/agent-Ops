@@ -46,6 +46,11 @@ export interface StaffRequisition {
   coo_note: string | null;
   cfo_note: string | null;
   approved_amount: number | null;
+  request_kind?: string | null;
+  supervisor_decided_by?: string | null;
+  coo_decided_by?: string | null;
+  ceo_decided_by?: string | null;
+  cfo_decided_by?: string | null;
   rejection_reason: string | null;
   wallet_credit_status: string | null;
   wallet_transaction_id: string | null;
@@ -107,9 +112,9 @@ function fmtDay(iso: string | null) {
 
 /**
  * Explains the route a requisition is taking, so a CFO-skipping path is visible
- * instead of looking like a lost item. Nobody reviews their own money: a
- * requester who holds the CFO role is routed COO -> CEO, and a requester who
- * holds the COO role starts at CFO.
+ * instead of looking like a lost item. Since 2026-09-24 every requisition is
+ * six-eyes (COO -> CEO -> CFO, three different people); a final stage of CEO
+ * or a skipped CFO only appears on rows decided under the older routing.
  */
 function routeNote(row: StaffRequisition) {
   const final = row.final_stage === 'ceo' ? 'CEO' : 'CFO';
@@ -258,17 +263,32 @@ export function StaffRequisitionQueue() {
     setEvents((prev) => ({ ...prev, [id]: (data || []) as unknown as ReqEvent[] }));
   }, []);
 
-  /** The CEO holds an executive override and may act at any stage, so a
-   *  requisition sitting with the COO or CFO still shows Approve / Decline for
-   *  them. The server enforces the same rule, and self-approval stays blocked. */
+  /** Six-eyes: an ordinary requisition needs COO, CEO and CFO sign-off from
+   *  three different people. It is in my inbox only when I hold the current
+   *  stage's role and did not sign an earlier stage; everyone else sees it
+   *  read-only under "In flight". Other kinds keep the executive override
+   *  (the CEO / super_admin / manager may act at any stage). The server
+   *  enforces the same rules, and self-approval stays blocked. */
   const isMine = useCallback(
-    (row: StaffRequisition) =>
-      !!row.current_approver_role &&
-      ((roles as string[]).includes(row.current_approver_role) ||
-        (roles as string[]).includes('super_admin') ||
-        (roles as string[]).includes('manager') ||
-        (roles as string[]).includes('ceo')),
-    [roles],
+    (row: StaffRequisition) => {
+      if (!row.current_approver_role) return false;
+      const r = roles as string[];
+      if ((row.request_kind ?? 'requisition') === 'requisition') {
+        const signedEarlier = [
+          row.stage !== 'supervisor' ? row.supervisor_decided_by : null,
+          row.stage === 'ceo' || row.stage === 'cfo' ? row.coo_decided_by : null,
+          row.stage === 'cfo' ? row.ceo_decided_by : null,
+        ].includes(user?.id ?? '__none__');
+        return r.includes(row.current_approver_role) && !signedEarlier;
+      }
+      return (
+        r.includes(row.current_approver_role) ||
+        r.includes('super_admin') ||
+        r.includes('manager') ||
+        r.includes('ceo')
+      );
+    },
+    [roles, user?.id],
   );
 
   const buckets = useMemo(() => {

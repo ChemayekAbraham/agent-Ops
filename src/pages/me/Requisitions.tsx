@@ -291,7 +291,8 @@ const MyRequisitions = () => {
 
   const routeLine = useMemo(() => {
     if (!route) return null;
-    const stages = ['supervisor', 'coo', 'cfo', 'ceo'];
+    // Six-eyes order: COO -> CEO -> CFO (legacy rows may end at CEO).
+    const stages = ['supervisor', 'coo', 'ceo', 'cfo'];
     const startIdx = Math.max(0, stages.indexOf(route.stage));
     const endIdx = route.final_stage === 'ceo' ? stages.indexOf('ceo') : stages.indexOf('cfo');
     const supervisorLabel = route.approver_role

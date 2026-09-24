@@ -99,15 +99,30 @@ Deno.serve(async (req) => {
     if (resubmitId) {
       const { data: existing } = await admin
         .from("staff_requisitions")
-        .select("id, requester_id, stage, returned_from_stage, requisition_code, department_id")
+        .select("id, requester_id, stage, returned_from_stage, requisition_code, department_id, amount, request_kind, supervisor_decided_by")
         .eq("id", resubmitId)
         .maybeSingle();
       if (!existing) return json({ error: "Requisition not found" }, 404);
       if (existing.requester_id !== requester.id) return json({ error: "Not your requisition" }, 403);
       if (existing.stage !== "returned") return json({ error: "Only returned requisitions can be resubmitted" }, 409);
 
-      const backTo = existing.returned_from_stage || "supervisor";
+      // Six eyes: raising the amount on resubmission voids the earlier sign-offs
+      // — approval starts again from the first stage.
+      const restart = String(existing.request_kind ?? "requisition") === "requisition"
+        && amount > Number(existing.amount);
+      const backTo = restart
+        ? (existing.supervisor_decided_by ? "supervisor" : "coo")
+        : existing.returned_from_stage || "supervisor";
       const approverRole = await approverRoleForStage(admin, backTo, existing.department_id);
+      const clearedSignoffs = restart
+        ? {
+          supervisor_decided_by: null, supervisor_decided_at: null, supervisor_note: null,
+          coo_decided_by: null, coo_decided_at: null, coo_note: null,
+          ceo_decided_by: null, ceo_decided_at: null, ceo_note: null,
+          cfo_decided_by: null, cfo_decided_at: null, cfo_note: null,
+          approved_amount: null,
+        }
+        : {};
 
       const { data: updated, error: upErr } = await admin
         .from("staff_requisitions")
@@ -122,6 +137,7 @@ Deno.serve(async (req) => {
           current_approver_role: approverRole,
           returned_from_stage: null,
           rejection_reason: null,
+          ...clearedSignoffs,
         })
         .eq("id", resubmitId)
         .select("*")
@@ -135,7 +151,7 @@ Deno.serve(async (req) => {
         action: "resubmitted",
         stage: backTo,
         comment: reason.slice(0, 2000),
-        metadata: { amount, title },
+        metadata: { amount, title, restarted_approval: restart, previous_amount: existing.amount },
       });
       await notifyApprovers(admin, approverRole, updated, requesterName);
       await emitEvent(admin, "requisition.resubmitted", updated);
@@ -171,14 +187,14 @@ Deno.serve(async (req) => {
     if (!route?.department_id) {
       // Staff with no active department assignment must still be able to raise a
       // requisition: it goes straight to the COO, who can reassign it if needed.
-      // Nobody reviews their own money, so a COO's own request starts at the CFO.
-      const selfIsCoo = primaryRole === "coo";
+      // Six eyes: a COO's own request still starts at the COO stage — another
+      // COO signs it (the decide function and DB guard block self-approval).
       route = {
         department_id: null,
         department_key: null,
         department_name: "Unassigned",
-        stage: selfIsCoo ? "cfo" : "coo",
-        approver_role: selfIsCoo ? "cfo" : "coo",
+        stage: "coo",
+        approver_role: "coo",
         final_stage: "cfo",
       };
     }

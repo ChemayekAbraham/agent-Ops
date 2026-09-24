@@ -13,8 +13,22 @@ const corsHeaders = {
 const OVERRIDE_ROLES = new Set(["super_admin", "manager"]);
 /** Executive override: the CEO may approve or decline at any stage, including
  *  CFO stage, without being a designated CFO approver. Deciding your own
- *  requisition stays blocked for the CEO like everyone else. */
+ *  requisition stays blocked for the CEO like everyone else.
+ *  Ordinary requisitions are six-eyes (see below): there the overrides may
+ *  only decline or send back, never approve. */
 const EXEC_OVERRIDE_ROLES = new Set(["ceo"]);
+
+/** Six-eyes: an ordinary requisition needs COO, CEO and CFO sign-off from three
+ *  different people, in that order (after the department head, if any). The
+ *  database guard staff_requisition_six_eyes_guard enforces the same rule. */
+const SIX_EYES_NEXT: Record<string, string> = { supervisor: "coo", coo: "ceo", ceo: "cfo" };
+const DECIDED_BY_COL: Record<string, string> = {
+  supervisor: "supervisor_decided_by",
+  coo: "coo_decided_by",
+  ceo: "ceo_decided_by",
+  cfo: "cfo_decided_by",
+};
+const SIX_EYES_ORDER = ["supervisor", "coo", "ceo", "cfo"];
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -90,19 +104,42 @@ Deno.serve(async (req) => {
       .eq("user_id", actor.id)
       .eq("enabled", true);
     const roles = (roleRows || []).map((r: { role: string }) => r.role);
-    const isExecOverride = roles.some((r: string) => EXEC_OVERRIDE_ROLES.has(r));
-    const ownsStage = roles.includes(row.current_approver_role)
-      || roles.some((r: string) => OVERRIDE_ROLES.has(r))
-      || isExecOverride;
+    const isSixEyes = String(row.request_kind ?? "requisition") === "requisition";
+    const holdsStageRole = roles.includes(row.current_approver_role);
+    const hasOverride = roles.some((r: string) => OVERRIDE_ROLES.has(r))
+      || roles.some((r: string) => EXEC_OVERRIDE_ROLES.has(r));
+    // Six-eyes: overrides can stop money (decline / send back) at any stage,
+    // but approving needs the stage's own role. Other kinds keep the old rule.
+    const isExecOverride = !(isSixEyes && action === "approve")
+      && roles.some((r: string) => EXEC_OVERRIDE_ROLES.has(r));
+    const ownsStage = holdsStageRole || (hasOverride && !(isSixEyes && action === "approve"));
     if (!ownsStage) {
-      return json({ error: "forbidden", message: `This requisition is with ${row.current_approver_role}.` }, 403);
+      return json({
+        error: "forbidden",
+        message: isSixEyes && action === "approve" && hasOverride
+          ? `Only a ${String(row.current_approver_role).toUpperCase()} can approve at this stage. Every requisition needs COO, CEO and CFO sign-off from three different people.`
+          : `This requisition is with ${row.current_approver_role}.`,
+      }, 403);
     }
-    if (row.requester_id === actor.id && !roles.some((r: string) => OVERRIDE_ROLES.has(r))) {
+    if (row.requester_id === actor.id && (isSixEyes || !roles.some((r: string) => OVERRIDE_ROLES.has(r)))) {
       return json({ error: "self_approval_blocked", message: "You cannot decide your own requisition." }, 403);
     }
 
+    // Six eyes means three different people: whoever signed an earlier stage
+    // cannot sign this one too, even when they hold both roles.
+    if (isSixEyes && action === "approve") {
+      const priorStages = SIX_EYES_ORDER.slice(0, SIX_EYES_ORDER.indexOf(row.stage));
+      const signedEarlier = priorStages.find((s) => row[DECIDED_BY_COL[s]] === actor.id);
+      if (signedEarlier) {
+        return json({
+          error: "same_approver_blocked",
+          message: `You already approved this requisition at ${stageLabel(signedEarlier)} review. The ${stageLabel(row.stage)} approval must come from a different person.`,
+        }, 403);
+      }
+    }
+
     // CFO-stage decisions are restricted; refusal is deliberately non-disclosing.
-    // The CEO's executive override passes this gate.
+    // The CEO's executive override passes this gate (except six-eyes approvals).
     if (row.current_approver_role === "cfo" && !isExecOverride && !(await isCfoApprover(admin, actor.id))) {
       return json({
         error: "forbidden",
@@ -125,7 +162,7 @@ Deno.serve(async (req) => {
 
     // ── Reject ───────────────────────────────────────────────────────────────
     if (action === "reject") {
-      const { data: updated } = await writer
+      const { data: updated, error: upErr } = await writer
         .from("staff_requisitions")
         .update({
           ...decisionCols,
@@ -135,8 +172,11 @@ Deno.serve(async (req) => {
           decided_at: now,
         })
         .eq("id", requisitionId)
+        .eq("stage", stageKey)
         .select("*")
-        .single();
+        .maybeSingle();
+      if (upErr) return guardRefused(upErr);
+      if (!updated) return stageMoved();
       await logEvent(admin, requisitionId, actor.id, actorName, "rejected", stageKey, comment, { amount: row.amount });
       await auditLog(admin, actor.id, requisitionId, "staff_requisition_rejected", comment);
       await setGrowthClaimStatus(admin, requisitionId, "rejected");
@@ -146,7 +186,7 @@ Deno.serve(async (req) => {
 
     // ── Send back for more information ───────────────────────────────────────
     if (action === "return_info") {
-      const { data: updated } = await writer
+      const { data: updated, error: upErr } = await writer
         .from("staff_requisitions")
         .update({
           ...decisionCols,
@@ -155,8 +195,11 @@ Deno.serve(async (req) => {
           current_approver_role: null,
         })
         .eq("id", requisitionId)
+        .eq("stage", stageKey)
         .select("*")
-        .single();
+        .maybeSingle();
+      if (upErr) return guardRefused(upErr);
+      if (!updated) return stageMoved();
       await logEvent(admin, requisitionId, actor.id, actorName, "returned", stageKey, comment, {});
       await auditLog(admin, actor.id, requisitionId, "staff_requisition_returned", comment);
       await notifyRequester(admin, updated, `Requisition ${row.requisition_code} needs more information: ${comment}`);
@@ -168,18 +211,29 @@ Deno.serve(async (req) => {
     if (body.amount != null) {
       const n = Math.round(Number(body.amount) * 100) / 100;
       if (!Number.isFinite(n) || n <= 0) return json({ error: "invalid_amount" }, 400);
+      // Six-eyes: a later approver may lower the amount, never raise it above
+      // what the earlier approvers saw.
+      const ceiling = Number(row.approved_amount ?? row.amount);
+      if (isSixEyes && n > ceiling) {
+        return json({
+          error: "amount_above_prior_approval",
+          message: `You can lower this requisition but not raise it above ${fmtUGX(ceiling)}. To ask for more, send it back to the requester.`,
+        }, 400);
+      }
       approvedAmount = n;
     }
 
-    const isFinalStage = stageKey === row.final_stage;
+    const isFinalStage = isSixEyes ? stageKey === "cfo" : stageKey === row.final_stage;
 
     if (!isFinalStage) {
-      const nextStage = stageKey === "supervisor"
+      const nextStage = isSixEyes
+        ? SIX_EYES_NEXT[stageKey]
+        : stageKey === "supervisor"
         ? "coo"
         : stageKey === "ceo" && row.final_stage === "cfo"
         ? "cfo"
         : row.final_stage;
-      const { data: updated } = await writer
+      const { data: updated, error: upErr } = await writer
         .from("staff_requisitions")
         .update({
           ...decisionCols,
@@ -188,8 +242,11 @@ Deno.serve(async (req) => {
           ...(approvedAmount != null ? { approved_amount: approvedAmount } : {}),
         })
         .eq("id", requisitionId)
+        .eq("stage", stageKey)
         .select("*")
-        .single();
+        .maybeSingle();
+      if (upErr) return guardRefused(upErr);
+      if (!updated) return stageMoved();
       await logEvent(admin, requisitionId, actor.id, actorName, "approved", stageKey, comment, {
         next_stage: nextStage, approved_amount: approvedAmount,
       });
@@ -217,9 +274,11 @@ Deno.serve(async (req) => {
         rejection_reason: null,
       })
       .eq("id", requisitionId)
+      .eq("stage", stageKey)
       .select("*")
-      .single();
-    if (apprErr) throw apprErr;
+      .maybeSingle();
+    if (apprErr) return guardRefused(apprErr);
+    if (!approvedRow) return stageMoved();
 
     const credit = await creditRequisitionWallet({
       admin,
@@ -282,6 +341,20 @@ Deno.serve(async (req) => {
     return json({ error: String((e as Error).message ?? e) }, 500);
   }
 });
+
+/** The database guards (six-eyes, staff-loan, facilitation) refuse with a
+ *  readable message; surface it instead of a bare 500. */
+function guardRefused(err: { message?: string }) {
+  return json({ error: "refused", message: String(err?.message ?? err) }, 409);
+}
+
+/** Another approver acted first (or the requester reduced / withdrew it). */
+function stageMoved() {
+  return json({
+    error: "stage_changed",
+    message: "This requisition has moved on since you opened it. Refresh to see where it is now.",
+  }, 409);
+}
 
 function stageLabel(stage: string) {
   return stage === "supervisor" ? "department" : stage.toUpperCase();
