@@ -39786,6 +39786,96 @@ export type Database = {
         }
         Relationships: []
       }
+      share_onboarding_requests: {
+        Row: {
+          amount: number
+          angel_pool_investment_id: string | null
+          cancelled_reason: string | null
+          company_ownership_percent: number
+          company_rep_name: string | null
+          company_rep_position: string | null
+          company_rep_signature_data_url: string | null
+          company_signed_at: string | null
+          countersigned_by: string | null
+          created_at: string
+          created_by: string
+          id: string
+          pdf_path: string | null
+          pool_ownership_percent: number
+          prefill_email: string | null
+          prefill_name: string | null
+          prefill_phone: string | null
+          reference_id: string
+          shareholder_id: string
+          shareholder_name: string | null
+          shareholder_signature_data_url: string | null
+          shareholder_signed_at: string | null
+          shares: number
+          status: string
+          token_expires_at: string | null
+          token_hash: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount: number
+          angel_pool_investment_id?: string | null
+          cancelled_reason?: string | null
+          company_ownership_percent: number
+          company_rep_name?: string | null
+          company_rep_position?: string | null
+          company_rep_signature_data_url?: string | null
+          company_signed_at?: string | null
+          countersigned_by?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          pdf_path?: string | null
+          pool_ownership_percent: number
+          prefill_email?: string | null
+          prefill_name?: string | null
+          prefill_phone?: string | null
+          reference_id: string
+          shareholder_id: string
+          shareholder_name?: string | null
+          shareholder_signature_data_url?: string | null
+          shareholder_signed_at?: string | null
+          shares: number
+          status?: string
+          token_expires_at?: string | null
+          token_hash?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          angel_pool_investment_id?: string | null
+          cancelled_reason?: string | null
+          company_ownership_percent?: number
+          company_rep_name?: string | null
+          company_rep_position?: string | null
+          company_rep_signature_data_url?: string | null
+          company_signed_at?: string | null
+          countersigned_by?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          pdf_path?: string | null
+          pool_ownership_percent?: number
+          prefill_email?: string | null
+          prefill_name?: string | null
+          prefill_phone?: string | null
+          reference_id?: string
+          shareholder_id?: string
+          shareholder_name?: string | null
+          shareholder_signature_data_url?: string | null
+          shareholder_signed_at?: string | null
+          shares?: number
+          status?: string
+          token_expires_at?: string | null
+          token_hash?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       short_link_clicks: {
         Row: {
           clicked_at: string
@@ -65292,6 +65382,51 @@ export type Database = {
       }
       settle_tenant_rent_from_deposit: {
         Args: { p_deposit_request_id: string }
+        Returns: Json
+      }
+      share_onboarding_get: {
+        Args: { p_id: string; p_token: string }
+        Returns: Json
+      }
+      share_onboarding_list: {
+        Args: {
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_status?: string
+        }
+        Returns: {
+          amount: number
+          company_ownership_percent: number
+          company_rep_name: string
+          company_rep_position: string
+          company_signed_at: string
+          created_at: string
+          created_by_name: string
+          id: string
+          pdf_path: string
+          pool_ownership_percent: number
+          reference_id: string
+          shareholder_email: string
+          shareholder_full_name: string
+          shareholder_id: string
+          shareholder_name: string
+          shareholder_phone: string
+          shareholder_signature_data_url: string
+          shareholder_signed_at: string
+          shares: number
+          status: string
+          token_expires_at: string
+          total_count: number
+        }[]
+      }
+      share_onboarding_submit: {
+        Args: {
+          p_id: string
+          p_name: string
+          p_signature: string
+          p_token: string
+        }
         Returns: Json
       }
       show_limit: { Args: never; Returns: number }

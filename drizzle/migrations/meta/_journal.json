@@ -2171,6 +2171,13 @@
       "when": 1790241484620,
       "tag": "0309_add_rd_products_and_company_values",
       "breakpoints": true
+    },
+    {
+      "idx": 310,
+      "version": "7",
+      "when": 1790244156592,
+      "tag": "0310_share_onboarding_requests",
+      "breakpoints": true
     }
   ]
 }
