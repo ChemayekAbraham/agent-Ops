@@ -493,7 +493,10 @@ Deno.serve(async (req) => {
         rent_request_id: rent_request_id ?? null,
         amount: amt,
         landlord_name,
-        landlord_phone: resolvedPhone,
+        // The approved record, verbatim — landlord-payout-disburse pays this
+        // value and enforce_landlord_payout_eligibility() requires it to equal
+        // verified_mobile_money_number exactly (doc 120).
+        landlord_phone: approvedPhone,
         tenant_name: tenant_name ?? null,
         tenant_phone: tenant_phone ?? null,
         mobile_money_provider,
@@ -512,7 +515,7 @@ Deno.serve(async (req) => {
       return json({ error: insErr?.message ?? "Could not create challenge" }, 500);
     }
 
-    const phone = normalizePhone(resolvedPhone);
+    const phone = normalizePhone(approvedPhone);
     const sent = await sendOtpWithFallback(
       phone,
       `Welile: You are receiving UGX ${amt.toLocaleString()} as rent${tenant_name ? ` from ${tenant_name}` : ""}. OTP: ${otp}. Valid 1 hour. Share with the agent ONLY if you want to receive this money.`,
@@ -524,7 +527,7 @@ Deno.serve(async (req) => {
       agent_id: agentId,
       landlord_id,
       event_type: "sent",
-      landlord_phone: resolvedPhone,
+      landlord_phone: approvedPhone,
       amount: amt,
       otp_expires_at,
       detail: normalizedTrigger === "auto"
