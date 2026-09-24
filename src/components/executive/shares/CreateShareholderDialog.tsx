@@ -34,10 +34,15 @@ export default function CreateShareholderDialog({ open, onOpenChange }: { open: 
     enabled: open && mode === 'existing' && debounced.length >= 2 && !picked,
     queryFn: async () => {
       const s = debounced.replace(/[%,()]/g, '');
-      const { data, error } = await supabase.from('profiles').select('id, full_name, phone, email')
-        .or(`full_name.ilike.%${s}%,phone.ilike.%${s}%,email.ilike.%${s}%`).limit(8);
+      const [{ data, error }, { data: authData }] = await Promise.all([
+        supabase.from('profiles').select('id, full_name, phone, email')
+          .or(`full_name.ilike.%${s}%,phone.ilike.%${s}%,email.ilike.%${s}%`).limit(8),
+        supabase.auth.getUser(),
+      ]);
       if (error) throw error;
-      return (data ?? []) as Person[];
+      const currentUserId = authData.user?.id;
+      return ((data ?? []) as Person[]).sort((a, b) =>
+        Number(b.id === currentUserId) - Number(a.id === currentUserId));
     },
   });
 
@@ -45,9 +50,12 @@ export default function CreateShareholderDialog({ open, onOpenChange }: { open: 
     queryKey: ['share-person-balance', picked?.id],
     enabled: !!picked,
     queryFn: async () => {
-      // Shares are funded from the operational float, not withdrawable.
-      const { data } = await supabase.from('wallets').select('float_balance').eq('user_id', picked!.id).maybeSingle();
-      return Number(data?.float_balance ?? 0);
+      if (!picked) return 0;
+      // Use the canonical spendable operational-float calculation rather than
+      // reading the wallet cache directly.
+      const { data, error } = await supabase.rpc('get_user_float_available_balance', { p_user_id: picked.id });
+      if (error) throw error;
+      return Number(data ?? 0);
     },
   });
 
