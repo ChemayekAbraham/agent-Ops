@@ -751,6 +751,7 @@ export default function SupporterDashboard({
           if (!open) setMapDetailHouse(null);
         }}
         isPartner
+        onRelatedHouseClick={(h) => setMapDetailHouse(h as any)}
         onFund={() => {
           // Hand off to the houses list, which runs the balance check and
           // the fund / top-up flow.
