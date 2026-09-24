@@ -2143,6 +2143,13 @@
       "when": 1790236347017,
       "tag": "0305_add_rd_app_role",
       "breakpoints": true
+    },
+    {
+      "idx": 306,
+      "version": "7",
+      "when": 1790238727903,
+      "tag": "0306_engrep_case_insensitive_git_email_match",
+      "breakpoints": true
     }
   ]
 }
