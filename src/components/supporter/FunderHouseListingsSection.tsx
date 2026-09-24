@@ -62,6 +62,9 @@ export function FunderHouseListingsSection() {
   const [detailHouse, setDetailHouse] = useState<FunderNewEmptyHouse | null>(null);
   const [detailPlan, setDetailPlan] = useState<FunderNewReadyPlan | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
+  // Top-up launched from the detail sheet's Fund button when the balance
+  // doesn't cover the house's rent — the deposit opens with the shortfall.
+  const [topUpAmount, setTopUpAmount] = useState<number | null>(null);
 
   const availableBalance = wallet.isLoading || wallet.error ? null : wallet.withdrawable;
   const loading = emptyQuery.isLoading || readyQuery.isLoading;

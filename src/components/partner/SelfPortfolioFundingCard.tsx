@@ -1878,7 +1878,7 @@ export function SelfPortfolioFundingCard({
             setFundConfirmKey(`${h.house_id}-${Date.now()}`);
           } else {
             // Not enough balance: open the deposit sheet with the exact shortfall.
-            toast.info(`Not enough balance. Deposit ${formatUGX(cost - remaining)} to fund this house.`);
+            toast.info(`Not enough balance. Deposit ${formatDynamic(cost - remaining)} to fund this house.`);
             setDetailHouse(null);
             setTopUpAmount(Math.ceil(cost - remaining));
           }
