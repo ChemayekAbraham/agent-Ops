@@ -490,14 +490,6 @@ export default function SupporterDashboard({
               {/* Right: Stats + action */}
               <div className="flex flex-1 flex-col items-end justify-between gap-2">
                 <AiIdButton variant="compact" />
-                <div className="text-right">
-                  <p className="text-base font-black leading-none tracking-tight tabular-nums sm:text-xl">
-                    {capitalLoading && !s ? '—' : formatAmount(rentNeeded)}
-                  </p>
-                  <p className="mt-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Rent needed
-                  </p>
-                </div>
                 <Button
                   variant="default"
                   size="default"
