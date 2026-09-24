@@ -88,8 +88,14 @@ export interface PeriodStatement {
   reconciliation?: StatementReconciliation;
 }
 
-/** from/to are YYYY-MM-DD, inclusive, interpreted in Kampala time (UTC+3). */
-export async function loadPeriodStatement(userId: string, from: string, to: string): Promise<PeriodStatement> {
+/**
+ * from/to are YYYY-MM-DD, inclusive, interpreted in Kampala time (UTC+3).
+ * `opts.isAgent` mirrors the wallet card rule: agents see withdrawable + float,
+ * everyone else sees withdrawable only. Defaults to false (non-agent).
+ */
+export async function loadPeriodStatement(
+  userId: string, from: string, to: string, opts: { isAgent?: boolean } = {},
+): Promise<PeriodStatement> {
   const startIso = new Date(`${from}T00:00:00+03:00`).toISOString();
   const endIso = new Date(`${to}T23:59:59.999+03:00`).toISOString();
   const [rows, after, before, wallet] = await Promise.all([
@@ -107,12 +113,13 @@ export async function loadPeriodStatement(userId: string, from: string, to: stri
   // summing visible legs forward from zero — otherwise a statement ending today
   // closes on a number that disagrees with the wallet card.
   const w: any = (wallet as any)?.data ?? null;
-  // Same rule as the wallet card: withdrawable + float. The raw cached
-  // `wallets.balance` is only a fallback when both buckets are missing.
+  // Same rule as the wallet card: agents see withdrawable + float, everyone
+  // else sees withdrawable only. The raw cached `wallets.balance` is only a
+  // fallback when both buckets are missing.
   const current = !w ? 0
     : (w.withdrawable_balance == null && w.float_balance == null)
       ? Number(w.balance ?? 0)
-      : Number(w.withdrawable_balance ?? 0) + Number(w.float_balance ?? 0);
+      : Number(w.withdrawable_balance ?? 0) + (opts.isAgent ? Number(w.float_balance ?? 0) : 0);
   const netAfter = after.reduce((s, r) => s + signed(r), 0);
   const closing = current - netAfter;
 
