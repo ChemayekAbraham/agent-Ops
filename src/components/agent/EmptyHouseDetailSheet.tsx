@@ -270,6 +270,29 @@ export function EmptyHouseDetailSheet({
                 <p className="text-[11px] text-muted-foreground">No contact on file.</p>
               )}
             </div>
+
+            <div className="space-y-2 border-t pt-3">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Potential earnings</p>
+              <div className="grid grid-cols-2 gap-3 text-[12px]">
+                <div>
+                  <p className="text-[10px] text-muted-foreground">Monthly Returns (15%)</p>
+                  <p className="text-base font-black text-primary">{formatUGX(house.partner_monthly_return)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground">After 12 months</p>
+                  <p className="text-base font-black text-primary">{formatUGX(house.partner_annual_return)}</p>
+                </div>
+              </div>
+              {onFund && (
+                <Button
+                  className="h-11 w-full gap-2 bg-emerald-600 font-bold text-white hover:bg-emerald-700"
+                  onClick={() => onFund(house)}
+                >
+                  <Wallet className="h-4 w-4" />
+                  {topUpNeeded > 0 ? `Fund — top up ${formatUGX(topUpNeeded)}` : 'Fund this house'}
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* Your opportunity / benefit card */}
