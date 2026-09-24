@@ -323,6 +323,7 @@ const BorrowFromAgent = lazy(() => import('./pages/BorrowFromAgent'));
 // Public funder signup (multi-step) — lives in pages/Onboarding.tsx and is exported as FunderOnboarding.
 const FunderOnboarding = lazy(() => import('./pages/Onboarding'));
 const PortfolioCompletion = lazy(() => import('./pages/PortfolioCompletion'));
+const ShareSigning = lazy(() => import('./pages/ShareSigning'));
 // Admin queue used by COO / Partner Ops to approve self-registered funders.
 const PartnerOnboarding = lazy(() => import('./pages/PartnerOnboarding'));
 const PersonalHub = lazy(() => import('./pages/me/PersonalHub'));
@@ -474,6 +475,7 @@ function AppRoutes() {
           <Route path="/funder-onboarding" element={<FunderOnboarding />} />
           <Route path="/partner-onboarding" element={<PartnerOnboarding />} />
           <Route path="/partners/:partnerId/portfolios/:portfolioId/complete" element={<PortfolioCompletion />} />
+          <Route path="/shares/:requestId/sign" element={<ShareSigning />} />
           <Route path="/unsubscribe" element={<Unsubscribe />} />
           <Route path="/stop-sms" element={<StopSms />} />
           <Route path="/requisition/new" element={<PublicRequisitionForm />} />
