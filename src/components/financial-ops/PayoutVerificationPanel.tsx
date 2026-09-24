@@ -1138,6 +1138,7 @@ function PayoutNameCheckCard({
   onChange: (next: PayoutNameCheck | null) => void;
 }) {
   const [typed, setTyped] = useState('');
+  const queryClient = useQueryClient();
   useEffect(() => setTyped(''), [row.id]);
 
   const idName = (row.national_id_name || '').trim();
@@ -1161,6 +1162,17 @@ function PayoutNameCheckCard({
     const next: PayoutNameCheck = { networkName, outcome, checkedAt: new Date().toISOString() };
     saveNameCheck(row.id, next);
     onChange(next);
+    logNameCheck({
+      destinationId: row.id,
+      subjectUserId: row.user_id ?? null,
+      payoutTarget: target,
+      network: isMomo ? network.label : row.bank_name ?? 'Bank',
+      checkedName: networkName,
+      idName,
+      outcome,
+    })
+      .then(() => queryClient.invalidateQueries({ queryKey: nameCheckHistoryKey(row.id) }))
+      .catch((e) => toast.error(`Name check not saved to history: ${e?.message ?? e}`));
     if (outcome === 'match') toast.success('Names are the same. Verify is now open.');
     else if (outcome === 'partial') toast.warning('Names only partly agree — Verify stays closed.');
     else toast.error('Different names — do not verify. Reject or call the holder.');
@@ -1305,6 +1317,7 @@ function PayoutNameCheckCard({
           </Button>
         </div>
       )}
+      <PayoutNameCheckHistory destinationId={row.id} />
     </div>
   );
 }
