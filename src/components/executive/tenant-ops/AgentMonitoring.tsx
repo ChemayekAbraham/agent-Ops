@@ -8,6 +8,7 @@ import {
   CircleAlert,
   CircleCheck,
   CircleDot,
+  FileDown,
   History,
   Loader2,
   Phone,
@@ -44,6 +45,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { UserDrilldownDrawer } from '@/components/ops/UserDrilldownDrawer';
 import { AgentPaymentPosition } from './AgentPaymentPosition';
 import { RentAnalysis } from './RentAnalysis';
+import { generateAgentMonitoringPdf } from '@/lib/agentMonitoringReportPdf';
+import { toast } from 'sonner';
 import {
   describePlanSchedule,
   scheduleAwareStatus,
@@ -755,6 +758,45 @@ export function AgentMonitoring() {
 
 
 
+  const [exporting, setExporting] = useState(false);
+  /** PDF of exactly what the page shows: same filtered agents, same per-plan figures. */
+  const exportPdf = async () => {
+    setExporting(true);
+    try {
+      const reportAgents = filteredAgents.map((agent) => {
+        let dailyExpected = 0, dailyCollected = 0, weeklyExpected = 0, weeklyCollected = 0;
+        agent.tenants.forEach((request) => {
+          const schedule = scheduleMap.get(request.id);
+          if (!schedule) return;
+          const paid = collectionMap.forPlan(agent.id, request);
+          if (schedule.weekly) { weeklyExpected += schedule.expectedOnDay; weeklyCollected += paid; }
+          else { dailyExpected += schedule.expectedOnDay; dailyCollected += paid; }
+        });
+        return {
+          name: agent.name, phone: agent.phone, tenantCount: agent.tenantCount,
+          dailyCount: agent.dailyCount, weeklyCount: agent.weeklyCount, dueCount: agent.dueCount,
+          coveredAheadCount: agent.coveredAheadCount, expected: agent.expected, collected: agent.collected,
+          arrears: agent.arrears, behindCount: agent.behindCount, aheadCount: agent.aheadCount,
+          requestCount: agent.requestCount, status: collectionStatus(agent.expected, agent.collected),
+          dailyExpected, dailyCollected, weeklyExpected, weeklyCollected,
+        };
+      });
+      await generateAgentMonitoringPdf({
+        day,
+        cohortLabel: tab === 'after-sep-2026' ? 'Agents added on/after 1 Sep 2026' : tab === 'before-sep-2026' ? 'Agents added before 1 Sep 2026' : 'All agents',
+        frequencyLabel: frequencyFilter === 'all' ? 'All plans' : frequencyFilter === 'daily' ? 'Daily' : 'Weekly',
+        statusLabel: statusFilter === 'all' ? 'All' : STATUS_LABEL[statusFilter],
+        search,
+        agents: reportAgents,
+      });
+      toast.success('Agent Monitoring report downloaded');
+    } catch (err) {
+      toast.error(getErrorMessage(err));
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const renderAgentRow = (agent: AgentRow, compact = false) => {
     const rate = agent.expected > 0 ? Math.min(100, (agent.collected / agent.expected) * 100) : null;
     const callHref = agent.phone ? `tel:${agent.phone.replace(/[^\d+]/g, '')}` : null;
@@ -860,6 +902,9 @@ export function AgentMonitoring() {
           <Button variant="ghost" size="sm" className="h-8 w-8 shrink-0 p-0" onClick={() => setDay((value) => addDays(value, 1))} aria-label="Next day">→</Button>
           <Button variant="outline" size="sm" className="h-8 shrink-0 gap-1.5 text-xs" onClick={() => setDay(startOfDay(new Date()))}>
             <CalendarDays className="h-3.5 w-3.5" /> Today
+          </Button>
+          <Button variant="default" size="sm" className="h-8 shrink-0 gap-1.5 text-xs" onClick={() => void exportPdf()} disabled={exporting || isLoading || isError}>
+            {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />} PDF
           </Button>
         </div>
       </div>
