@@ -438,6 +438,24 @@ Deno.serve(async (req) => {
       content_base64: bytesToBase64(pdfBytes),
       content_type: 'application/pdf',
     }
+  } else if (
+    templateName === 'angel-pool-share-purchase' &&
+    typeof templateData.contract_pdf_path === 'string' &&
+    /^share-agreements\/[0-9a-f-]{36}\.pdf$/.test(templateData.contract_pdf_path)
+  ) {
+    // Shares Onboarding: attach the countersigned shareholders agreement.
+    const { data: pdfBlob, error: pdfErr } = await supabase.storage
+      .from('partner-agreements')
+      .download(templateData.contract_pdf_path)
+    if (pdfErr || !pdfBlob) {
+      console.error('Share agreement attachment missing', pdfErr)
+    } else {
+      attachment = {
+        filename: String(templateData.contract_pdf_name || 'Welile-Angel-Pool-Agreement.pdf'),
+        content_base64: bytesToBase64(new Uint8Array(await pdfBlob.arrayBuffer())),
+        content_type: 'application/pdf',
+      }
+    }
   }
 
   // 5. Enqueue the pre-rendered email for async processing by the dispatcher.
