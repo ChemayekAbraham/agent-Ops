@@ -57,7 +57,7 @@ export default function CreateShareholderDialog({ open, onOpenChange }: { open: 
     return { shares, pool: (shares / TOTAL) * 100, company: (shares / TOTAL) * POOL };
   }, [amount]);
 
-  const canSubmit = amount >= PRICE && (mode === 'existing' ? !!picked
+  const canSubmit = amount >= PRICE && (mode === 'existing' ? !!picked && balance !== undefined && amount <= balance
     : np.fullName.trim().length >= 3 && np.phone.trim().length >= 7 && /\S+@\S+\.\S+/.test(np.email));
 
   const submit = async () => {
@@ -135,8 +135,15 @@ export default function CreateShareholderDialog({ open, onOpenChange }: { open: 
         <div>
           <Label>Amount (UGX)</Label>
           <Input inputMode="numeric" placeholder="e.g. 1,000,000" value={amount ? amount.toLocaleString('en-US') : amountStr}
-            onChange={(e) => setAmountStr(e.target.value)} />
-          <p className="mt-1 text-xs text-muted-foreground">UGX 20,000 per share • minimum 1 share</p>
+            onChange={(e) => {
+              const n = Number(e.target.value.replace(/[^0-9]/g, '')) || 0;
+              const cap = mode === 'existing' && picked && balance !== undefined ? balance : Infinity;
+              setAmountStr(String(Math.min(n, Math.floor(cap))));
+            }} />
+          <p className="mt-1 text-xs text-muted-foreground">
+            UGX 20,000 per share • minimum 1 share
+            {mode === 'existing' && picked && balance !== undefined && <> • maximum {ugx(balance)}</>}
+          </p>
         </div>
 
         <div className="grid grid-cols-3 gap-2 rounded-lg bg-muted/50 p-3 text-center">
