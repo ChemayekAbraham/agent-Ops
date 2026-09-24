@@ -790,8 +790,6 @@ export function FunderCapitalOpportunities({
   if (view === 'direct') {
     return ( <TooltipProvider delayDuration={150}>
       <DetailShell
-        title="Fund these houses."
-        subtitle="Fund approved tenant rent plans from your balance"
         onBack={embedded ? undefined : () => setView('menu')}
         compactMobile
       >
