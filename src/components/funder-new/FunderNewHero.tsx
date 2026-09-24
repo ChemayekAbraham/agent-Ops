@@ -78,7 +78,7 @@ export function FunderNewHero({
 
           <p className="mt-1 flex flex-wrap items-baseline gap-x-2 leading-none">
             <span className="text-base font-semibold text-primary-foreground/80 sm:text-lg">{prefix}</span>
-            <span className="break-words text-[2.75rem] font-bold tracking-tight sm:text-5xl lg:text-[3.5rem]">
+            <span className="break-words text-[1.75rem] font-bold tracking-tight sm:text-4xl lg:text-5xl">
               {figure}
             </span>
           </p>
