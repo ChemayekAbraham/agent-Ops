@@ -79,7 +79,7 @@ export default function ShareVettingDialog({ row, onClose }: { row: ShareRequest
           <DialogTitle className="flex items-center gap-2"><FileSignature className="h-5 w-5" />{row.shareholder_full_name || 'Shareholder'} • {row.reference_id}</DialogTitle>
           <DialogDescription>
             UGX {Number(row.amount).toLocaleString('en-US')} • {Number(row.shares).toLocaleString('en-US', { maximumFractionDigits: 2 })} shares
-            {balance !== null && <> • Wallet available: UGX {balance.toLocaleString('en-US')}</>}
+            {balance !== null && <> • Operational float: UGX {balance.toLocaleString('en-US')}</>}
           </DialogDescription>
         </DialogHeader>
 
@@ -95,7 +95,7 @@ export default function ShareVettingDialog({ row, onClose }: { row: ShareRequest
                 <div><Label>Signature</Label><SignaturePad onChange={(d: string) => setSig(d || undefined)} /></div>
                 <p className="text-xs text-muted-foreground">Date: {today}. Approving debits the shareholder's wallet and emails the signed agreement (copy to partnership@welile.com).</p>
                 {balance !== null && balance < Number(row.amount) && (
-                  <p className="text-xs text-destructive">Wallet balance is too low — approval will be refused.</p>
+                  <p className="text-xs text-destructive">Operational float is too low — approval will be refused.</p>
                 )}
                 <Button className="w-full" disabled={!canApprove || busy} onClick={approve}>
                   {busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Approve & send agreement
