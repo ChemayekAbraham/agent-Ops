@@ -1129,6 +1129,45 @@ function DecisionDialog({
  * phone to this exact number, reads back the registered name the network shows,
  * types it here, and the two names are compared with the National ID name.
  */
+// Audible alert for name-check outcomes, so a risky result is heard even when
+// the checker is looking at their phone instead of the screen. A match plays a
+// soft confirmation chime; a partial match two warning beeps; different names
+// an urgent triple low-pitched alarm. Runs on a user gesture (Record tap), so
+// browser autoplay rules allow it. Any audio failure is silent.
+function playNameCheckAlert(outcome: 'match' | 'partial' | 'different') {
+  try {
+    const Ctx = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    const beep = (freq: number, start: number, dur: number, gain = 0.22) => {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.value = freq;
+      g.gain.setValueAtTime(gain, ctx.currentTime + start);
+      g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + start + dur);
+      osc.connect(g).connect(ctx.destination);
+      osc.start(ctx.currentTime + start);
+      osc.stop(ctx.currentTime + start + dur);
+    };
+    if (outcome === 'match') {
+      beep(880, 0, 0.12, 0.12);
+      beep(1320, 0.14, 0.18, 0.12);
+    } else if (outcome === 'partial') {
+      beep(620, 0, 0.18);
+      beep(620, 0.28, 0.18);
+    } else {
+      beep(330, 0, 0.22, 0.28);
+      beep(330, 0.3, 0.22, 0.28);
+      beep(330, 0.6, 0.34, 0.28);
+    }
+    // Close after the last tone so contexts don't pile up across checks.
+    window.setTimeout(() => void ctx.close().catch(() => undefined), 1600);
+  } catch {
+    /* audio unavailable — the visual alert still shows */
+  }
+}
+
 function PayoutNameCheckCard({
   row,
   check,
@@ -1163,6 +1202,7 @@ function PayoutNameCheckCard({
     const next: PayoutNameCheck = { networkName, outcome, checkedAt: new Date().toISOString() };
     saveNameCheck(row.id, next);
     onChange(next);
+    playNameCheckAlert(outcome);
     logNameCheck({
       destinationId: row.id,
       subjectUserId: row.user_id ?? null,
@@ -1195,12 +1235,21 @@ function PayoutNameCheckCard({
           <Smartphone className="h-3.5 w-3.5" aria-hidden="true" /> Step 1 — name check on the number
         </p>
         {check && (
-          <span className="text-[10px] font-bold uppercase tracking-widest">
+          <span
+            role={check.outcome === 'match' ? undefined : 'alert'}
+            className={`rounded-full px-2.5 py-1 text-[10px] font-extrabold uppercase tracking-widest ${
+              check.outcome === 'match'
+                ? 'bg-emerald-500/20 text-emerald-700 dark:text-emerald-400'
+                : check.outcome === 'partial'
+                  ? 'animate-pulse bg-amber-500 text-white'
+                  : 'animate-pulse bg-destructive text-destructive-foreground'
+            }`}
+          >
             {check.outcome === 'match'
               ? 'Same person'
               : check.outcome === 'partial'
-                ? 'Partly agrees'
-                : 'Different name'}
+                ? '⚠ Partly agrees'
+                : '⚠ Different name'}
           </span>
         )}
       </div>
@@ -1285,9 +1334,29 @@ function PayoutNameCheckCard({
             </p>
           </div>
           {check.outcome !== 'match' && (
-            <p role="alert" className="text-sm font-extrabold uppercase tracking-wide text-destructive">
-              These are not clearly the same person. Call the holder first — Verify will ask for a written reason and your confirmation.
-            </p>
+            <div
+              role="alert"
+              className={`animate-pulse rounded-xl border-2 p-3 ${
+                check.outcome === 'partial'
+                  ? 'border-amber-600 bg-amber-500/25'
+                  : 'border-destructive bg-destructive/25'
+              }`}
+            >
+              <p
+                className={`flex items-center gap-1.5 text-sm font-extrabold uppercase tracking-wide ${
+                  check.outcome === 'partial' ? 'text-amber-700 dark:text-amber-400' : 'text-destructive'
+                }`}
+              >
+                <ShieldAlert className="h-5 w-5 shrink-0" aria-hidden="true" />
+                {check.outcome === 'partial'
+                  ? 'Warning: names only partly agree'
+                  : 'Danger: the names are different'}
+              </p>
+              <p className="mt-1 text-sm font-bold text-foreground">
+                These are not clearly the same person. Call the holder first — Verify will ask for a
+                written reason and your confirmation.
+              </p>
+            </div>
           )}
           <Button
             variant="outline"
@@ -1527,6 +1596,14 @@ export default function PayoutVerificationPanel() {
     setOverrideNote('');
     setOverrideAck(false);
   }, [confirmingVerify?.id, nameCheck?.checkedAt]);
+  // When the Verify confirmation opens on a partial or different name, play the
+  // alert again — this is the final moment a risky payout can still be stopped.
+  useEffect(() => {
+    if (confirmingVerify && nameCheck && nameCheck.outcome !== 'match') {
+      playNameCheckAlert(nameCheck.outcome);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [confirmingVerify?.id]);
   const overrideReady = overrideNote.trim().length >= 10 && overrideAck;
   const verifyBlocked = !photosReady || idNameUnreadable || isDouble || !nameCheck;
 
@@ -2461,11 +2538,12 @@ export default function PayoutVerificationPanel() {
                 </span>
               </div>
               {nameCheckNeedsOverride && (
-                <div role="alert" className="mt-3 space-y-2 rounded-xl border-2 border-destructive bg-destructive/10 p-3">
-                  <p className="text-xs font-extrabold uppercase tracking-wide text-destructive">
+                <div role="alert" className="mt-3 animate-pulse space-y-2 rounded-xl border-4 border-destructive bg-destructive/20 p-3">
+                  <p className="flex items-center gap-1.5 text-sm font-extrabold uppercase tracking-wide text-destructive">
+                    <ShieldAlert className="h-5 w-5 shrink-0" aria-hidden="true" />
                     {nameCheck?.outcome === 'partial'
-                      ? 'The names only partly agree'
-                      : 'The names are different'}
+                      ? 'Warning: the names only partly agree'
+                      : 'Danger: the names are different'}
                   </p>
                   <p className="text-xs text-foreground">
                     Only continue if you have confirmed with the holder that this number is theirs. Write what you checked.
