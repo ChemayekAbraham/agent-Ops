@@ -2,6 +2,7 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Check, Loader2, Printer } from 'lucide-react';
 import { toast } from 'sonner';
 import '@/hr/pay/print.css';
+import { WELILE_LOGO } from '@/hr/pay/letterheadLogo';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -592,7 +593,7 @@ export default function PayrollEnrollment() {
       <div className="hidden print:block">
         <div className="print-letterhead">
           <div>
-            <div className="print-wordmark">Welile</div>
+            <img src={WELILE_LOGO} alt="Welile" className="print-logo" />
             <p className="print-values">Hope · Faith · Love</p>
           </div>
           <div className="print-company">
@@ -716,7 +717,7 @@ export default function PayrollEnrollment() {
                   <TableRow>
                     <TableHead>Staff ref</TableHead>
                     <TableHead>Name</TableHead>
-                    <TableHead>Department</TableHead>
+                    <TableHead className="print-collapse">Department</TableHead>
                     <TableHead>Position</TableHead>
                     <TableHead>Employment type</TableHead>
                     <TableHead className="text-right">Basic pay</TableHead>
@@ -764,7 +765,7 @@ export default function PayrollEnrollment() {
                       >
                         <TableCell className="font-mono text-xs">{row.staffRef || '—'}</TableCell>
                         <TableCell className="font-medium">{row.name}</TableCell>
-                        <TableCell>{row.department || '—'}</TableCell>
+                        <TableCell className="print-collapse">{row.department || '—'}</TableCell>
                         <TableCell>{row.position || '—'}</TableCell>
                         <TableCell>
                           <span className="hidden text-xs print:inline">
