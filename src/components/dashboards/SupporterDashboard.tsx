@@ -118,6 +118,17 @@ export default function SupporterDashboard({
   const [showMap, setShowMap] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [mapExpanded, setMapExpanded] = useState(false);
+
+  useEffect(() => {
+    if (mapExpanded) {
+      document.body.dataset.mapExpanded = 'true';
+    } else {
+      delete document.body.dataset.mapExpanded;
+    }
+    return () => {
+      delete document.body.dataset.mapExpanded;
+    };
+  }, [mapExpanded]);
   const marketSummary = useFunderNewMarketSummary();
   const mapLocation = useFunderNewLocation();
   const [mapSearchInput, setMapSearchInput] = useState('');
@@ -493,17 +504,19 @@ export default function SupporterDashboard({
           onUnlock={unlock}
         />
       )}
-      <DashboardHeader
-        currentRole={currentRole}
-        availableRoles={availableRoles}
-        onRoleChange={onRoleChange}
-        onSignOut={signOut}
-        onMenuClick={() => setMenuOpen(true)}
-        headerActions={<NotificationBell userId={user.id} />}
-        compactInstallPrompt
-      />
+      {!mapExpanded && (
+        <DashboardHeader
+          currentRole={currentRole}
+          availableRoles={availableRoles}
+          onRoleChange={onRoleChange}
+          onSignOut={signOut}
+          onMenuClick={() => setMenuOpen(true)}
+          headerActions={<NotificationBell userId={user.id} />}
+          compactInstallPrompt
+        />
+      )}
 
-      <div className="flex-1 min-h-0 overflow-y-auto pb-nav overscroll-contain">
+      <div className={cn("flex-1 min-h-0 overflow-y-auto overscroll-contain", !mapExpanded && "pb-nav")}>
         <main className="px-3 xs:px-4 py-3 xs:py-4 sm:py-5 space-y-3 sm:space-y-5 max-w-lg lg:max-w-7xl mx-auto">
           {/* ═══ AIRBNB-STYLE PROFILE CARD ═══ */}
           {(() => {

@@ -113,7 +113,17 @@ const BottomRoleSwitcher = memo(function BottomRoleSwitcher({ currentRole, onRol
   const cols = showStaffTab ? 5 : 4;
 
   const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const [isMapExpanded, setIsMapExpanded] = useState(() => (typeof document !== 'undefined' ? document.body.dataset.mapExpanded === 'true' : false));
+
+  useEffect(() => {
+    setMounted(true);
+    const updateExpanded = () => {
+      setIsMapExpanded(document.body.dataset.mapExpanded === 'true');
+    };
+    const observer = new MutationObserver(updateExpanded);
+    observer.observe(document.body, { attributes: true, attributeFilter: ['data-map-expanded'] });
+    return () => observer.disconnect();
+  }, []);
 
   const activeIndex = PUBLIC_ROLES.findIndex(({ role }) => role === currentRole);
   const { containerRef, setItemRef, indicatorStyle } = useSlidingIndicator(activeIndex, [currentRole, cols]);
@@ -208,7 +218,7 @@ const BottomRoleSwitcher = memo(function BottomRoleSwitcher({ currentRole, onRol
     </>
   );
 
-  if (!mounted) return null;
+  if (!mounted || isMapExpanded) return null;
   return createPortal(navContent, document.body);
 });
 
