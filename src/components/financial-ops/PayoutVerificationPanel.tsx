@@ -1175,7 +1175,7 @@ function PayoutNameCheckCard({
       .then(() => queryClient.invalidateQueries({ queryKey: nameCheckHistoryKey(row.id) }))
       .catch((e) => toast.error(`Name check not saved to history: ${e?.message ?? e}`));
     if (outcome === 'match') toast.success('Names are the same. Verify is now open.');
-    else if (outcome === 'partial') toast.warning('Names only partly agree — Verify stays closed.');
+    else if (outcome === 'partial') toast.warning('Names only partly agree — Verify will need your written confirmation.');
     else toast.error('Different names — do not verify. Reject or call the holder.');
   };
 
@@ -1286,7 +1286,7 @@ function PayoutNameCheckCard({
           </div>
           {check.outcome !== 'match' && (
             <p role="alert" className="text-sm font-extrabold uppercase tracking-wide text-destructive">
-              These are not clearly the same person. Verify stays closed — call the holder or reject with a note.
+              These are not clearly the same person. Call the holder first — Verify will ask for a written reason and your confirmation.
             </p>
           )}
           <Button
@@ -1518,7 +1518,17 @@ export default function PayoutVerificationPanel() {
     setNameCheck(loadNameCheck(row?.id));
   }, [row?.id]);
   const nameCheckPassed = nameCheck?.outcome === 'match';
-  const verifyBlocked = !photosReady || idNameUnreadable || isDouble || !nameCheckPassed;
+  // A partial or different name no longer hard-blocks Verify, but it requires a
+  // written reason and an explicit ownership confirmation in the confirm step.
+  const nameCheckNeedsOverride = !!nameCheck && nameCheck.outcome !== 'match';
+  const [overrideNote, setOverrideNote] = useState('');
+  const [overrideAck, setOverrideAck] = useState(false);
+  useEffect(() => {
+    setOverrideNote('');
+    setOverrideAck(false);
+  }, [confirmingVerify?.id, nameCheck?.checkedAt]);
+  const overrideReady = overrideNote.trim().length >= 10 && overrideAck;
+  const verifyBlocked = !photosReady || idNameUnreadable || isDouble || !nameCheck;
 
   const linkRequestQuery = useQuery({
     queryKey: ['national-id-link-for-user', row?.user_id],
@@ -1625,7 +1635,7 @@ export default function PayoutVerificationPanel() {
 
   // One tap verifies and saves everything: the National ID name becomes the
   // account name, the note is written for the audit trail, and the queue moves on.
-  const runQuickVerify = async (target: PayoutDestinationRow) => {
+  const runQuickVerify = async (target: PayoutDestinationRow, overrideReason: string | null = null) => {
     try {
       await quickVerify.mutateAsync({
         id: target.id,
@@ -1634,7 +1644,11 @@ export default function PayoutVerificationPanel() {
         reason:
           'Verified by Financial Ops: National ID photo, selfie and payout number checked; name taken from the National ID.' +
           (nameCheck
-            ? ` Name check on the payout number showed "${nameCheck.networkName}" — same person as the National ID.`
+            ? nameCheck.outcome === 'match'
+              ? ` Name check on the payout number showed "${nameCheck.networkName}" — same person as the National ID.`
+              : ` Name check on the payout number showed "${nameCheck.networkName}" — ${
+                  nameCheck.outcome === 'partial' ? 'only partly agrees with' : 'different from'
+                } the National ID. Reviewer confirmed ownership: ${overrideReason ?? ''}`
             : ''),
       });
       const idName = (target.national_id_name || '').trim();
@@ -2327,7 +2341,7 @@ export default function PayoutVerificationPanel() {
                 <p className="-mt-2 flex items-center justify-center gap-1.5 px-5 pb-4 text-center text-xs font-semibold text-amber-600">
                   <AlertTriangle className="h-3.5 w-3.5" />
                   {nameCheck
-                    ? 'Verify is off — the name on the number is not clearly the same person as the National ID.'
+                    ? 'The name on the number is not clearly the same person — Verify needs a written reason and your confirmation.'
                     : 'Verify is off — do the name check on the payout number first (Step 1 above).'}
                 </p>
               )}
@@ -2446,6 +2460,34 @@ export default function PayoutVerificationPanel() {
                     : `${confirmingVerify.bank_name ?? ''} ${confirmingVerify.bank_account_number ?? ''}`.trim() || '—'}
                 </span>
               </div>
+              {nameCheckNeedsOverride && (
+                <div role="alert" className="mt-3 space-y-2 rounded-xl border-2 border-destructive bg-destructive/10 p-3">
+                  <p className="text-xs font-extrabold uppercase tracking-wide text-destructive">
+                    {nameCheck?.outcome === 'partial'
+                      ? 'The names only partly agree'
+                      : 'The names are different'}
+                  </p>
+                  <p className="text-xs text-foreground">
+                    Only continue if you have confirmed with the holder that this number is theirs. Write what you checked.
+                  </p>
+                  <Textarea
+                    value={overrideNote}
+                    onChange={(e) => setOverrideNote(e.target.value)}
+                    placeholder="e.g. Called the holder; the number is registered in their mother's name"
+                    className="min-h-[72px] text-sm"
+                    aria-label="Reason for verifying despite the name difference"
+                  />
+                  <label className="flex items-start gap-2 text-xs font-semibold text-foreground">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-4 w-4"
+                      checked={overrideAck}
+                      onChange={(e) => setOverrideAck(e.target.checked)}
+                    />
+                    I confirm this payout number belongs to the account holder and I take responsibility for this decision.
+                  </label>
+                </div>
+              )}
             </div>
           )}
           <DialogFooter className="gap-2 px-5 pb-5 pt-2">
@@ -2459,12 +2501,14 @@ export default function PayoutVerificationPanel() {
             </Button>
             <Button
               className="h-12 flex-1 rounded-xl text-xs font-bold uppercase tracking-widest shadow-lg shadow-primary/25"
-              disabled={quickVerify.isPending}
+              disabled={quickVerify.isPending || (nameCheckNeedsOverride && !overrideReady)}
               onClick={async () => {
                 if (!confirmingVerify) return;
+                if (nameCheckNeedsOverride && !overrideReady) return;
                 const target = confirmingVerify;
+                const note = nameCheckNeedsOverride ? overrideNote.trim() : null;
                 setConfirmingVerify(null);
-                await runQuickVerify(target);
+                await runQuickVerify(target, note);
               }}
             >
               {quickVerify.isPending ? (
