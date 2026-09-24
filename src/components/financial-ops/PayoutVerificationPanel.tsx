@@ -1596,6 +1596,14 @@ export default function PayoutVerificationPanel() {
     setOverrideNote('');
     setOverrideAck(false);
   }, [confirmingVerify?.id, nameCheck?.checkedAt]);
+  // When the Verify confirmation opens on a partial or different name, play the
+  // alert again — this is the final moment a risky payout can still be stopped.
+  useEffect(() => {
+    if (confirmingVerify && nameCheck && nameCheck.outcome !== 'match') {
+      playNameCheckAlert(nameCheck.outcome);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [confirmingVerify?.id]);
   const overrideReady = overrideNote.trim().length >= 10 && overrideAck;
   const verifyBlocked = !photosReady || idNameUnreadable || isDouble || !nameCheck;
 
@@ -2530,11 +2538,12 @@ export default function PayoutVerificationPanel() {
                 </span>
               </div>
               {nameCheckNeedsOverride && (
-                <div role="alert" className="mt-3 space-y-2 rounded-xl border-2 border-destructive bg-destructive/10 p-3">
-                  <p className="text-xs font-extrabold uppercase tracking-wide text-destructive">
+                <div role="alert" className="mt-3 animate-pulse space-y-2 rounded-xl border-4 border-destructive bg-destructive/20 p-3">
+                  <p className="flex items-center gap-1.5 text-sm font-extrabold uppercase tracking-wide text-destructive">
+                    <ShieldAlert className="h-5 w-5 shrink-0" aria-hidden="true" />
                     {nameCheck?.outcome === 'partial'
-                      ? 'The names only partly agree'
-                      : 'The names are different'}
+                      ? 'Warning: the names only partly agree'
+                      : 'Danger: the names are different'}
                   </p>
                   <p className="text-xs text-foreground">
                     Only continue if you have confirmed with the holder that this number is theirs. Write what you checked.
