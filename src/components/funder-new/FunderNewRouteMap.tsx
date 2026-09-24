@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Crosshair, Loader2, Maximize2, RotateCcw, Search, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { formatDynamic } from '@/lib/currencyFormat';
+import { formatDynamic, formatDynamicCompact } from '@/lib/currencyFormat';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import type { FunderNewEmptyHouse } from './types';
@@ -117,15 +117,90 @@ function viewportOf(map: google.maps.Map): FunderNewViewport | null {
   };
 }
 
-function markerIcon(active: boolean, saved: boolean): google.maps.Symbol {
-  return {
-    path: google.maps.SymbolPath.CIRCLE,
-    scale: active ? 9 : saved ? 8 : 7,
-    fillColor: 'hsl(270 100% 40%)',
-    fillOpacity: 1,
-    strokeColor: 'hsl(0 0% 100%)',
-    strokeWeight: active || saved ? 3 : 2,
+const pinIconCache = new Map<string, google.maps.Icon>();
+
+/**
+ * Builds an SVG price-pill icon for Google Maps markers.
+ * Displays only the formatted price tag with rent-tier styling.
+ */
+function getPricePinIcon(
+  amount: number,
+  active: boolean,
+  saved: boolean,
+): google.maps.Icon {
+  const safeAmount = amount > 0 ? amount : 100000;
+  const priceText = formatDynamicCompact(safeAmount);
+  const cacheKey = `${priceText}_${safeAmount}_${active}_${saved}`;
+  const existing = pinIconCache.get(cacheKey);
+  if (existing) return existing;
+
+  // Rent tiers consistent with platform standards
+  const isLuxury = safeAmount >= 2_000_000;
+  const isPremium = safeAmount >= 800_000 && safeAmount < 2_000_000;
+  const isMid = safeAmount >= 300_000 && safeAmount < 800_000;
+
+  let bg = '#ffffff';
+  let textColor = '#15803d'; // green (<300k)
+  let borderColor = '#86efac';
+  let strokeWidth = 1.5;
+
+  if (isLuxury) {
+    textColor = '#b45309'; // amber
+    borderColor = '#fcd34d';
+  } else if (isPremium) {
+    textColor = '#6d28d9'; // purple
+    borderColor = '#c4b5fd';
+  } else if (isMid) {
+    textColor = '#1d4ed8'; // blue
+    borderColor = '#93c5fd';
+  }
+
+  if (active) {
+    bg = isLuxury ? '#b45309' : isMid ? '#1d4ed8' : isPremium ? '#6d28d9' : '#16a34a';
+    textColor = '#ffffff';
+    borderColor = '#ffffff';
+    strokeWidth = 2;
+  } else if (saved) {
+    bg = '#7c3aed';
+    textColor = '#ffffff';
+    borderColor = '#e9d5ff';
+    strokeWidth = 2;
+  }
+
+  const charWidth = 7;
+  const padding = 16;
+  const pillWidth = Math.max(54, Math.round(priceText.length * charWidth + padding));
+  const pillHeight = 25;
+  const pointerHeight = 5;
+  const totalHeight = pillHeight + pointerHeight;
+  const totalWidth = pillWidth + 4;
+  const cx = totalWidth / 2;
+  const rectX = 2;
+  const rectY = 1;
+  const r = 12;
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${totalWidth}" height="${totalHeight}" viewBox="0 0 ${totalWidth} ${totalHeight}">
+  <defs>
+    <filter id="psh" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="1.5" stdDeviation="1.5" flood-color="rgba(0,0,0,0.28)"/>
+    </filter>
+  </defs>
+  <g filter="url(#psh)">
+    <rect x="${rectX}" y="${rectY}" width="${pillWidth}" height="${pillHeight}" rx="${r}" ry="${r}" fill="${bg}" stroke="${borderColor}" stroke-width="${strokeWidth}"/>
+    <polygon points="${cx - 4.5},${rectY + pillHeight - 1} ${cx + 4.5},${rectY + pillHeight - 1} ${cx},${totalHeight - 1}" fill="${bg}" stroke="${borderColor}" stroke-width="${strokeWidth}" stroke-linejoin="round"/>
+    <rect x="${cx - 4}" y="${rectY + pillHeight - 2}" width="8" height="2" fill="${bg}"/>
+  </g>
+  <text x="${cx}" y="${rectY + pillHeight / 2}" fill="${textColor}" font-size="11" font-weight="700" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" text-anchor="middle" dominant-baseline="central" letter-spacing="-0.2px">${priceText}</text>
+</svg>`;
+
+  const icon: google.maps.Icon = {
+    url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
+    scaledSize: new google.maps.Size(totalWidth, totalHeight),
+    anchor: new google.maps.Point(cx, totalHeight - 1),
   };
+
+  pinIconCache.set(cacheKey, icon);
+  return icon;
 }
 
 export function FunderNewRouteMap({
@@ -256,33 +331,18 @@ export function FunderNewRouteMap({
       const id = house?.house_id ?? null;
       const active = !!id && (selectedIds.includes(id) || activeId === id);
       const saved = !!id && savedIds.includes(id);
-      const isCluster = cell.count > 1 || !house;
       const amount = cell.amount || (house ? itemAmount('empty', house) : 0);
       const marker = new google.maps.Marker({
         map,
         position: { lat: cell.lat, lng: cell.lng },
-        title: isCluster ? `${cell.count} homes in this area` : `${emptyHouseTitle(house)}. ${formatDynamic(amount)} to support.`,
-        icon: isCluster
-          ? {
-              path: google.maps.SymbolPath.CIRCLE,
-              scale: cell.count >= 100 ? 24 : cell.count >= 10 ? 20 : 17,
-              fillColor: 'hsl(270 100% 40%)',
-              fillOpacity: 0.94,
-              strokeColor: 'hsl(0 0% 100%)',
-              strokeWeight: 2,
-            }
-          : markerIcon(active, saved),
-        label: {
-          text: isCluster ? (cell.count > 999 ? '999+' : String(cell.count)) : formatDynamic(amount),
-          color: 'hsl(0 0% 100%)',
-          fontSize: isCluster ? '12px' : '11px',
-          fontWeight: '700',
-          className: isCluster ? 'fn-google-cluster-label' : 'fn-google-price-label',
-        },
-        zIndex: active ? 30 : isCluster ? 20 : 10,
+        title: house
+          ? `${emptyHouseTitle(house)}. ${formatDynamic(amount)} to support.`
+          : `${cell.count} homes in this area from ${formatDynamic(amount)}.`,
+        icon: getPricePinIcon(amount, active, saved),
+        zIndex: active ? 30 : saved ? 25 : 10,
       });
       marker.addListener('click', () => {
-        if (house && !isCluster) onOpenHouse(house);
+        if (house) onOpenHouse(house);
         else {
           map.panTo({ lat: cell.lat, lng: cell.lng });
           map.setZoom(Math.min((map.getZoom() ?? KAMPALA_ZOOM) + 2, 17));
