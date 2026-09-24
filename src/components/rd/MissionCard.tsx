@@ -2,11 +2,13 @@ import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { fmtDate, labelize, Mission } from './useRd';
+import { useProductName, ValueChip } from './values';
 import { fmtGap, gapTone, solGap } from './sol';
 
 export function MissionCard({ m, ownerName }: { m: Mission; ownerName: string }) {
   const navigate = useNavigate();
   const sol = solGap(m);
+  const product = useProductName()(m.product_id);
   return (
     <Card
       role="button"
@@ -20,6 +22,12 @@ export function MissionCard({ m, ownerName }: { m: Mission; ownerName: string })
         <Badge variant="outline" className="shrink-0 text-[10px] uppercase">{m.horizon}</Badge>
       </div>
       <p className="text-xs text-muted-foreground">{ownerName}</p>
+      {(product || m.company_value) && (
+        <div className="flex flex-wrap items-center gap-1">
+          {product && <span className="text-[11px] font-medium text-foreground">{product}</span>}
+          <ValueChip value={m.company_value} />
+        </div>
+      )}
       {!!m.domains?.length && (
         <div className="flex flex-wrap gap-1">
           {m.domains.map((d) => (

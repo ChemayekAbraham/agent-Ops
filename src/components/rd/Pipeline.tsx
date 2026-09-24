@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, ChevronDown, ChevronRight } from 'lucide-react';
 import { DOMAINS, HORIZONS, STAGES, STAGE_LABEL, labelize, useCurrentUserId, useMissions, usePeopleMap, useRdMe, useRdPeople } from './useRd';
+import { useProducts, VALUES, VALUE_LABEL } from './values';
 import { MissionCard } from './MissionCard';
 import { NewMissionDialog } from './NewMissionDialog';
 
@@ -26,6 +27,9 @@ export function Pipeline() {
   const [domain, setDomain] = useState('all');
   const [owner, setOwner] = useState('all');
   const [mine, setMine] = useState(false);
+  const [product, setProduct] = useState('all');
+  const [value, setValue] = useState('all');
+  const { data: products = [] } = useProducts();
   const [showKilled, setShowKilled] = useState(false);
   const [newOpen, setNewOpen] = useState(false);
 
@@ -33,8 +37,10 @@ export function Pipeline() {
     (horizon === 'all' || m.horizon === horizon) &&
     (domain === 'all' || (m.domains ?? []).includes(domain)) &&
     (owner === 'all' || m.owner_id === owner) &&
+    (product === 'all' || m.product_id === product) &&
+    (value === 'all' || (value === 'unset' ? !m.company_value : m.company_value === value)) &&
     (!mine || m.owner_id === uid || m.deputy_id === uid || m.created_by === uid)
-  ), [missions, horizon, domain, owner, mine, uid]);
+  ), [missions, horizon, domain, owner, product, value, mine, uid]);
 
   const killed = filtered.filter((m) => m.stage === 'kill');
 
@@ -60,6 +66,21 @@ export function Pipeline() {
           <SelectContent>
             <SelectItem value="all">All owners</SelectItem>
             {people.map((p) => <SelectItem key={p.user_id} value={p.user_id}>{p.full_name || 'Unknown staff'}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={product} onValueChange={setProduct}>
+          <SelectTrigger className="h-9 w-[140px]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All products</SelectItem>
+            {products.map((p) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={value} onValueChange={setValue}>
+          <SelectTrigger className="h-9 w-[120px]"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All values</SelectItem>
+            {VALUES.map((v) => <SelectItem key={v} value={v}>{VALUE_LABEL[v]}</SelectItem>)}
+            <SelectItem value="unset">Unset</SelectItem>
           </SelectContent>
         </Select>
         <Button size="sm" variant={mine ? 'default' : 'outline'} onClick={() => setMine(!mine)}>Mine</Button>

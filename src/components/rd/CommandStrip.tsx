@@ -55,6 +55,9 @@ export function CommandStrip() {
   const risks = p0?.risks.length ?? 0;
   const solList = solRows(missions);
   const solMedian = median(solList.map((r) => r.gap));
+  const nowLive = live.filter((m) => m.horizon === 'now');
+  const vc = { hope: 0, faith: 0, love: 0, unset: 0 } as Record<string, number>;
+  nowLive.forEach((m) => { const k = m.company_value && m.company_value in vc ? m.company_value : 'unset'; vc[k] += 1; });
   const wq = (settings?.weekly_question ?? '').trim();
 
   return (
@@ -66,6 +69,9 @@ export function CommandStrip() {
       <Tile title="SoL gap" tone={gapTone(solMedian)}>
         <span className="font-semibold">{fmtGap(solMedian)}</span>
         <span className="block text-xs text-muted-foreground">median of {solList.length} Now missions</span>
+      </Tile>
+      <Tile title="Values in Now" tone={vc.unset > 0 ? 'watch' : 'neutral'}>
+        <span className="text-xs">Hope {vc.hope} · Faith {vc.faith} · Love {vc.love} · unset {vc.unset}</span>
       </Tile>
       <Tile title="Pipeline shape" tone={stageCount.prove === 0 && stageCount.build >= 3 ? 'break' : 'neutral'}>
         <span className="text-xs">{STAGES.map((s) => `${STAGE_LABEL[s]} ${stageCount[s]}`).join(' · ')}</span>
