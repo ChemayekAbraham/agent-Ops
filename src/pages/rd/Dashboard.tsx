@@ -10,6 +10,7 @@ import { DecisionLog } from '@/components/rd/DecisionLog';
 import { Signals } from '@/components/rd/Signals';
 import { Lab } from '@/components/rd/Lab';
 import { Risk } from '@/components/rd/Risk';
+import { SpeedOfLight } from '@/components/rd/SpeedOfLight';
 import { AuditTrail } from '@/components/rd/AuditTrail';
 import { useRdMe } from '@/components/rd/useRd';
 
@@ -38,6 +39,7 @@ export default function RDDashboard() {
           </div>
           <nav className="-mx-4 mt-2 flex gap-1 overflow-x-auto px-4">
             <NavLink to="/rd" end className={tabCls}>Pipeline</NavLink>
+            <NavLink to="/rd/sol" className={tabCls}>Speed of Light</NavLink>
             <NavLink to="/rd/signals" className={tabCls}>Signals</NavLink>
             <NavLink to="/rd/lab" className={tabCls}>Lab</NavLink>
             <NavLink to="/rd/risk" className={tabCls}>Risk</NavLink>
@@ -50,6 +52,7 @@ export default function RDDashboard() {
         <Routes>
           <Route index element={<><CommandStrip /><Pipeline /></>} />
           <Route path="missions/:id" element={<MissionDetail />} />
+          <Route path="sol" element={<SpeedOfLight />} />
           <Route path="signals" element={<Signals />} />
           <Route path="lab" element={<Lab />} />
           <Route path="risk" element={<Risk />} />

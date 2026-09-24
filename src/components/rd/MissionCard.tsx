@@ -2,9 +2,11 @@ import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { fmtDate, labelize, Mission } from './useRd';
+import { fmtGap, gapTone, solGap } from './sol';
 
 export function MissionCard({ m, ownerName }: { m: Mission; ownerName: string }) {
   const navigate = useNavigate();
+  const sol = solGap(m);
   return (
     <Card
       role="button"
@@ -24,6 +26,9 @@ export function MissionCard({ m, ownerName }: { m: Mission; ownerName: string })
             <Badge key={d} variant="secondary" className="text-[10px]">{labelize(d)}</Badge>
           ))}
         </div>
+      )}
+      {sol && sol.gap > 1.5 && (
+        <Badge variant={gapTone(sol.gap) === 'break' ? 'destructive' : 'outline'} className={gapTone(sol.gap) === 'watch' ? 'border-amber-500/50 bg-amber-500/10 text-[10px]' : 'text-[10px]'}>SoL gap {fmtGap(sol.gap)}</Badge>
       )}
       <p className="text-[11px] text-muted-foreground">Next gate: {fmtDate(m.next_gate_on)}</p>
     </Card>

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { cn } from '@/lib/utils';
 import { db, STAGES, STAGE_LABEL, useCurrentUserId, useDecisions, useMissions, useOpenP0, useRdMe, useRdMutation, useSettings } from './useRd';
+import { fmtGap, gapTone, median, solRows } from './sol';
 
 type Tone = 'neutral' | 'watch' | 'break';
 const toneCls: Record<Tone, string> = {
@@ -52,6 +53,8 @@ export function CommandStrip() {
   const staleP0 = signals.some((s: any) => Date.now() - new Date(s.created_at).getTime() > 48 * 3600_000);
   const single = live.filter((m) => m.horizon === 'now' && !m.deputy_id).length;
   const risks = p0?.risks.length ?? 0;
+  const solList = solRows(missions);
+  const solMedian = median(solList.map((r) => r.gap));
   const wq = (settings?.weekly_question ?? '').trim();
 
   return (
