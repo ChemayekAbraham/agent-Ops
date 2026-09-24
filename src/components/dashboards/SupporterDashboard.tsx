@@ -54,6 +54,7 @@ import { FunderNewMapSection } from '@/components/funder-new/FunderNewMapSection
 import { useFunderNewLocation } from '@/components/funder-new/useFunderNewLocation';
 import type { FunderNewEmptyHouse, FunderNewFilters, FunderNewOrigin } from '@/components/funder-new/types';
 import type { FunderNewViewport } from '@/components/funder-new/FunderNewRouteMap';
+import { MapBottomSheet } from '@/components/supporter/MapBottomSheet';
 import EmptyHouseDetailSheet from '@/components/agent/EmptyHouseDetailSheet';
 import { useSupportedTenants } from '@/hooks/useSupportedTenants';
 import { useCapitalOpportunities } from '@/hooks/useCapitalOpportunities';
@@ -116,6 +117,7 @@ export default function SupporterDashboard({
   const [showCalculator, setShowCalculator] = useState(false);
   const [showMap, setShowMap] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [mapExpanded, setMapExpanded] = useState(false);
   const marketSummary = useFunderNewMarketSummary();
   const mapLocation = useFunderNewLocation();
   const [mapSearchInput, setMapSearchInput] = useState('');
@@ -577,33 +579,84 @@ export default function SupporterDashboard({
             onOpenHouse={(house) => setMapDetailHouse(house)}
             onApplyArea={applyMapArea}
             onAreaSearchChange={handleMapSearchChange}
+            onExpandedChange={setMapExpanded}
           />
 
           {/* ═══ SECTION: OPPORTUNITIES ═══ */}
-          <div id="opportunities" className="relative scroll-mt-4 space-y-2.5 sm:space-y-4">
-            {!effectiveHasAccepted && <LockedOverlay onAcceptClick={() => setShowAgreementModal(true)} />}
-            <WidgetErrorBoundary label="Capital opportunities">
-              {loading && virtualHouses.length === 0 ? (
-                <div className="space-y-3">
-                  <WidgetCardSkeleton />
-                  <WidgetCardSkeleton />
+          {mapExpanded ? (
+            <MapBottomSheet
+              defaultSnap="half"
+              header={({ snap, setSnap }) => (
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <p className="text-[15px] font-bold text-foreground">
+                      Houses to fund
+                    </p>
+                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+                      {virtualHouses.length > 0 ? `${virtualHouses.length} waiting` : 'Waiting'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setSnap(snap === 'full' ? 'half' : snap === 'half' ? 'collapsed' : 'half')}
+                    className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground touch-manipulation py-1 px-2 rounded-lg hover:bg-muted/60 transition-colors"
+                  >
+                    <span>{snap === 'full' ? 'Show map' : snap === 'half' ? 'Minimize' : 'Expand'}</span>
+                  </button>
                 </div>
-              ) : (
-                <>
-                  <FunderApprovalBanner className="mb-3" />
-                  <FunderCapitalOpportunities
-                    key={`${capitalView}-${capitalFeedOrder}`}
-                    initialView={capitalView}
-                    initialFeedOrder={capitalFeedOrder}
-                    embedded
-                  />
-                </>
               )}
-            </WidgetErrorBoundary>
-            <WidgetErrorBoundary label="House listings">
-              <FunderHouseListingsSection />
-            </WidgetErrorBoundary>
-          </div>
+            >
+              <div id="opportunities" className="relative space-y-2.5 pb-8">
+                {!effectiveHasAccepted && <LockedOverlay onAcceptClick={() => setShowAgreementModal(true)} />}
+                <WidgetErrorBoundary label="Capital opportunities">
+                  {loading && virtualHouses.length === 0 ? (
+                    <div className="space-y-3">
+                      <WidgetCardSkeleton />
+                      <WidgetCardSkeleton />
+                    </div>
+                  ) : (
+                    <>
+                      <FunderApprovalBanner className="mb-3" />
+                      <FunderCapitalOpportunities
+                        key={`${capitalView}-${capitalFeedOrder}`}
+                        initialView={capitalView}
+                        initialFeedOrder={capitalFeedOrder}
+                        embedded
+                      />
+                    </>
+                  )}
+                </WidgetErrorBoundary>
+                <WidgetErrorBoundary label="House listings">
+                  <FunderHouseListingsSection />
+                </WidgetErrorBoundary>
+              </div>
+            </MapBottomSheet>
+          ) : (
+            <div id="opportunities" className="relative scroll-mt-4 space-y-2.5 sm:space-y-4">
+              {!effectiveHasAccepted && <LockedOverlay onAcceptClick={() => setShowAgreementModal(true)} />}
+              <WidgetErrorBoundary label="Capital opportunities">
+                {loading && virtualHouses.length === 0 ? (
+                  <div className="space-y-3">
+                    <WidgetCardSkeleton />
+                    <WidgetCardSkeleton />
+                  </div>
+                ) : (
+                  <>
+                    <FunderApprovalBanner className="mb-3" />
+                    <FunderCapitalOpportunities
+                      key={`${capitalView}-${capitalFeedOrder}`}
+                      initialView={capitalView}
+                      initialFeedOrder={capitalFeedOrder}
+                      embedded
+                    />
+                  </>
+                )}
+              </WidgetErrorBoundary>
+              <WidgetErrorBoundary label="House listings">
+                <FunderHouseListingsSection />
+              </WidgetErrorBoundary>
+            </div>
+          )}
 
         </main>
       </div>

@@ -23,15 +23,29 @@ export function MapBottomSheet({
   children,
   header,
   defaultSnap = 'half',
+  snap: externalSnap,
+  onSnapChange,
 }: {
   children: ReactNode;
   /** Content rendered in the fixed header area (title, filter chips, etc.) */
-  header?: ReactNode;
+  header?: ReactNode | ((props: { snap: SnapPoint; setSnap: (s: SnapPoint) => void }) => ReactNode);
   defaultSnap?: SnapPoint;
+  snap?: SnapPoint;
+  onSnapChange?: (snap: SnapPoint) => void;
 }) {
   const sheetRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
-  const [snap, setSnap] = useState<SnapPoint>(defaultSnap);
+  const [internalSnap, setInternalSnap] = useState<SnapPoint>(defaultSnap);
+  const snap = externalSnap ?? internalSnap;
+
+  const setSnap = useCallback((newSnap: SnapPoint | ((prev: SnapPoint) => SnapPoint)) => {
+    setInternalSnap((prev) => {
+      const resolved = typeof newSnap === 'function' ? newSnap(prev) : newSnap;
+      onSnapChange?.(resolved);
+      return resolved;
+    });
+  }, [onSnapChange]);
+
   const [isDragging, setIsDragging] = useState(false);
   const [dragOffset, setDragOffset] = useState(0);
 
@@ -71,8 +85,10 @@ export function MapBottomSheet({
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
     const deltaY = e.touches[0].clientY - dragStartY.current;
-    if (snap === 'full' && !isScrolledToTop.current && deltaY < 0) return;
-    if (snap === 'full' && !isScrolledToTop.current && deltaY > 0) {
+    if (snap === 'full') {
+      // Swiping up (deltaY <= 0) scrolls down into listings - let native scroll take over
+      if (deltaY <= 0) return;
+      // Swiping down (deltaY > 0) should only drag the sheet down if user has scrolled to top
       const content = contentRef.current;
       if (content && content.scrollTop > 0) return;
     }
@@ -88,7 +104,7 @@ export function MapBottomSheet({
     const finalHeight = Math.max(COLLAPSED_PX, snapToHeight(snap) - dragOffset);
     setSnap(resolveSnap(finalHeight));
     setDragOffset(0);
-  }, [isDragging, snap, dragOffset, snapToHeight, resolveSnap]);
+  }, [isDragging, snap, dragOffset, snapToHeight, resolveSnap, setSnap]);
 
   // Mouse handlers (desktop)
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
@@ -123,7 +139,7 @@ export function MapBottomSheet({
 
     window.addEventListener('mousemove', handleMouseMove);
     window.addEventListener('mouseup', handleMouseUp);
-  }, [snap, snapToHeight, resolveSnap]);
+  }, [snap, snapToHeight, resolveSnap, setSnap]);
 
   // Track scroll position
   useEffect(() => {
@@ -142,14 +158,14 @@ export function MapBottomSheet({
       if (s === 'half') return 'full';
       return 'half';
     });
-  }, [isDragging]);
+  }, [isDragging, setSnap]);
 
   const sheetContent = (
     <div
       ref={sheetRef}
       role="region"
       aria-label="House listings panel"
-      className="fixed inset-x-0 bottom-0 z-[10000] flex flex-col rounded-t-2xl bg-background shadow-[0_-4px_24px_rgba(0,0,0,0.12)] border-t border-border/60"
+      className="fixed inset-x-0 bottom-0 z-[80] flex flex-col rounded-t-2xl bg-background shadow-[0_-4px_24px_rgba(0,0,0,0.12)] border-t border-border/60"
       style={{
         height: currentHeight,
         transition: isDragging ? 'none' : 'height 0.3s cubic-bezier(0.32, 0.72, 0, 1)',
@@ -163,17 +179,17 @@ export function MapBottomSheet({
       {/* Drag handle */}
       <button
         type="button"
-        className="mx-auto flex w-full flex-col items-center pt-2 pb-1 cursor-grab active:cursor-grabbing"
+        className="mx-auto flex w-full flex-col items-center pt-2.5 pb-1 cursor-grab active:cursor-grabbing touch-manipulation"
         onClick={handleHandleTap}
         aria-label={`${snap === 'collapsed' ? 'Expand' : 'Collapse'} house listings`}
       >
-        <div className="h-1 w-10 rounded-full bg-muted-foreground/30" />
+        <div className="h-1.5 w-12 rounded-full bg-muted-foreground/35 hover:bg-muted-foreground/50 transition-colors" />
       </button>
 
-      {/* Header (title + chips) */}
+      {/* Header (title + chips + controls) */}
       {header && (
         <div className="flex-none px-4 pb-2">
-          {header}
+          {typeof header === 'function' ? header({ snap, setSnap }) : header}
         </div>
       )}
 
@@ -183,6 +199,7 @@ export function MapBottomSheet({
         className="flex-1 overflow-y-auto overscroll-contain px-4 pb-safe"
         style={{
           overflowY: snap === 'full' ? 'auto' : 'hidden',
+          touchAction: snap === 'full' ? 'pan-y' : 'none',
         }}
       >
         {children}
@@ -190,6 +207,6 @@ export function MapBottomSheet({
     </div>
   );
 
-  // Portal to document.body so it renders above the expanded map (which also portals)
+  // Portal to document.body so it renders above the expanded map
   return createPortal(sheetContent, document.body);
 }

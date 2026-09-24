@@ -145,6 +145,7 @@ export function FunderNewRouteMap({
   onUseMyLocation,
   onReset,
   loadedNote,
+  onExpandedChange,
 }: {
   cells: FunderNewMapCell[];
   selectedIds: string[];
@@ -162,6 +163,7 @@ export function FunderNewRouteMap({
   onUseMyLocation: () => void;
   onReset: () => void;
   loadedNote: string;
+  onExpandedChange?: (expanded: boolean) => void;
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -347,6 +349,10 @@ export function FunderNewRouteMap({
     if (!fullscreen) expandRef.current?.focus({ preventScroll: true });
   }, [fullscreen]);
 
+  useEffect(() => {
+    onExpandedChange?.(fullscreen);
+  }, [fullscreen, onExpandedChange]);
+
   const controls = useMemo(
     () => (
       <div className="pointer-events-none absolute inset-0 z-10">
@@ -364,16 +370,19 @@ export function FunderNewRouteMap({
             </Button>
           </div>
         ) : null}
-        <div className="pointer-events-auto absolute bottom-7 right-2 flex flex-col gap-2 sm:right-3">
+        <div className={cn(
+          "pointer-events-auto flex flex-col gap-2",
+          fullscreen ? "absolute top-3 right-3 z-30 pt-safe" : "absolute bottom-7 right-2 sm:right-3"
+        )}>
           {canUseLocation ? (
-            <Button size="icon" variant="secondary" className="h-11 w-11 rounded-full border bg-card shadow-md" onClick={onUseMyLocation} aria-label={device ? 'Recentre on my location' : 'Use my location'}>
+            <Button size="icon" variant="secondary" className="h-11 w-11 rounded-full border bg-card/95 shadow-lg backdrop-blur-sm" onClick={onUseMyLocation} aria-label={device ? 'Recentre on my location' : 'Use my location'}>
               {locating ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Crosshair className={cn('h-4 w-4', device && 'text-primary')} aria-hidden />}
             </Button>
           ) : null}
-          <Button ref={fullscreen ? closeRef : expandRef} size="icon" variant="secondary" className="h-11 w-11 rounded-full border bg-card shadow-md" onClick={() => setFullscreen((value) => !value)} aria-label={fullscreen ? 'Close the full screen map' : 'Expand the map'}>
+          <Button ref={fullscreen ? closeRef : expandRef} size="icon" variant="secondary" className="h-11 w-11 rounded-full border bg-card/95 shadow-lg backdrop-blur-sm" onClick={() => setFullscreen((value) => !value)} aria-label={fullscreen ? 'Close the full screen map' : 'Expand the map'}>
             {fullscreen ? <X className="h-4 w-4" aria-hidden /> : <Maximize2 className="h-4 w-4" aria-hidden />}
           </Button>
-          <Button size="icon" variant="secondary" className="h-11 w-11 rounded-full border bg-card shadow-md" onClick={() => { setMoved(null); onReset(); }} aria-label="Reset the map view">
+          <Button size="icon" variant="secondary" className="h-11 w-11 rounded-full border bg-card/95 shadow-lg backdrop-blur-sm" onClick={() => { setMoved(null); onReset(); }} aria-label="Reset the map view">
             <RotateCcw className="h-4 w-4" aria-hidden />
           </Button>
         </div>
@@ -387,7 +396,10 @@ export function FunderNewRouteMap({
       <div ref={hostRef} className="h-full w-full" aria-label="Google map of available homes" />
       {mapError ? <div className="absolute inset-0 grid place-items-center bg-muted p-6 text-center text-sm text-muted-foreground">{mapError}</div> : null}
       {controls}
-      <p className="pointer-events-none absolute bottom-6 left-2 right-2 z-10 w-fit max-w-[92%] rounded-md bg-card/90 px-2 py-1 text-[11px] leading-tight text-muted-foreground shadow-sm">{loadedNote}</p>
+      <p className={cn(
+        "pointer-events-none absolute left-2 right-2 z-10 w-fit max-w-[92%] rounded-md bg-card/90 px-2 py-1 text-[11px] leading-tight text-muted-foreground shadow-sm",
+        fullscreen ? "top-3 left-3 pt-safe hidden sm:block" : "bottom-6"
+      )}>{loadedNote}</p>
     </div>
   );
 }
