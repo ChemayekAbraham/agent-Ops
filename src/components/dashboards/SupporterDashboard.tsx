@@ -56,6 +56,8 @@ import type { FunderNewEmptyHouse, FunderNewFilters, FunderNewOrigin } from '@/c
 import type { FunderNewViewport } from '@/components/funder-new/FunderNewRouteMap';
 import { MapBottomSheet } from '@/components/supporter/MapBottomSheet';
 import EmptyHouseDetailSheet from '@/components/agent/EmptyHouseDetailSheet';
+import { FunderNewReviewDialog } from '@/components/funder-new/FunderNewSelectionPanel';
+import { toSelectionItem } from '@/components/funder-new/utils';
 import { useSupportedTenants } from '@/hooks/useSupportedTenants';
 import { useCapitalOpportunities } from '@/hooks/useCapitalOpportunities';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -144,6 +146,7 @@ export default function SupporterDashboard({
   });
   const [mapArea, setMapArea] = useState<{ lat: number; lng: number; radiusKm: number } | null>(null);
   const [mapDetailHouse, setMapDetailHouse] = useState<FunderNewEmptyHouse | null>(null);
+  const [mapFundItem, setMapFundItem] = useState<FunderNewEmptyHouse | null>(null);
 
   const mapOrigin: FunderNewOrigin | null = useMemo(() => {
     if (mapLocation.coords) {
@@ -766,11 +769,18 @@ export default function SupporterDashboard({
             setShowPaymentPartners(true);
             return;
           }
-          // Enough balance: go to the houses list, which runs the funding flow.
-          setCapitalView('direct');
-          setCapitalFeedOrder('houses');
-          setShowMap(false);
+          // Enough balance: open the funding confirmation for this house.
+          setMapFundItem(h as FunderNewEmptyHouse);
         }}
+      />
+      <FunderNewReviewDialog
+        open={!!mapFundItem}
+        onOpenChange={(o) => { if (!o) setMapFundItem(null); }}
+        items={mapFundItem ? [toSelectionItem('empty', mapFundItem)] : []}
+        available={strictAvailable ?? null}
+        walletLoading={false}
+        walletError={null}
+        onRemove={() => setMapFundItem(null)}
       />
       
       <InvestmentPackageSheet
