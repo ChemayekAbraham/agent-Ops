@@ -819,11 +819,70 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ── Same-second grace window ───────────────────────────────────────────
+    // internalDate has 1-second resolution and Gmail's list index lags
+    // delivery by a few seconds. On 2026-09-23 a tick at 11:06:00 ingested a
+    // message stamped 11:05:52 and moved the cutoff there; a 3-message IFTTT
+    // thread stamped the SAME second only became listable afterwards, and the
+    // next tick dropped all three as `older_than_last_poll` — silently, since
+    // that skip is never logged. One was a tenant's direct rent payment
+    // (TID157162005754), another a UGX 1M deposit. So only skip messages
+    // meaningfully older than the cutoff; the ID checks below keep the wider
+    // window duplicate-free (handover 121).
+    const CUTOFF_GRACE_MS = 10 * 60 * 1000;
+
+    // ── Rescan mode: re-list a past window, bypassing the time cutoff ──────
+    // `backfill` / `reparse` only revisit rows already in gmail_transactions,
+    // so a message the cutoff dropped could never be recovered. Rescan lists
+    // Gmail for [rescan_from, rescan_to) and runs every message through the
+    // normal path (ID / TID / dedup_hash checks still apply, so already-
+    // ingested messages are skipped). Combine with debug=1 for a dry run.
+    // Never moves the stored cutoff backwards (newestMs starts at lastMs).
+    let rescanFrom = url.searchParams.get('rescan_from');
+    let rescanTo = url.searchParams.get('rescan_to');
+    if (!rescanFrom) {
+      try {
+        const body = await req.clone().json();
+        if (body?.rescan_from) rescanFrom = String(body.rescan_from);
+        if (body?.rescan_to) rescanTo = String(body.rescan_to);
+      } catch { /* no body */ }
+    }
+    const rescanFromMs = rescanFrom ? Date.parse(rescanFrom) : NaN;
+    const rescanToMs = rescanTo ? Date.parse(rescanTo) : pollNowMs;
+    // Bounded like `backfill`: at most 48h per call, and no further back than
+    // the 7-day auto-credit window (+1 day) — this endpoint is reachable with
+    // the anon key, so a rescan must stay a cheap, idempotent operation.
+    const rescan = Number.isFinite(rescanFromMs) && Number.isFinite(rescanToMs)
+      && rescanFromMs < rescanToMs
+      && rescanToMs - rescanFromMs <= 48 * 3600 * 1000
+      && rescanFromMs >= pollNowMs - 8 * 24 * 3600 * 1000;
+    if (rescanFrom && !rescan) {
+      return new Response(JSON.stringify({ ok: false, error: 'invalid rescan_from / rescan_to (max 48h window, within the last 8 days)' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const skipBeforeMs = rescan ? 0 : (lastMs ? lastMs - CUTOFF_GRACE_MS : 0);
+
     // List recent matching messages
-    const list = await gmailFetch(
-      `/users/me/messages?maxResults=50&q=${encodeURIComponent(GMAIL_QUERY)}`,
-    );
-    const messages: { id: string; threadId: string }[] = list?.messages ?? [];
+    const messages: { id: string; threadId: string }[] = [];
+    if (rescan) {
+      const q = `${GMAIL_QUERY} after:${Math.floor(rescanFromMs / 1000)} before:${Math.ceil(rescanToMs / 1000)}`;
+      let pageToken: string | undefined;
+      for (let page = 0; page < 5; page++) {
+        const list = await gmailFetch(
+          `/users/me/messages?maxResults=100&q=${encodeURIComponent(q)}` +
+          (pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ''),
+        );
+        messages.push(...(list?.messages ?? []));
+        pageToken = list?.nextPageToken;
+        if (!pageToken) break;
+      }
+    } else {
+      const list = await gmailFetch(
+        `/users/me/messages?maxResults=50&q=${encodeURIComponent(GMAIL_QUERY)}`,
+      );
+      messages.push(...(list?.messages ?? []));
+    }
 
     let inserted = 0; let newestMs = lastMs;
     /** Advance the cutoff only with sane, non-future timestamps. */
@@ -909,7 +968,7 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      if (lastMs && internalMs && internalMs <= lastMs) {
+      if (skipBeforeMs && internalMs && internalMs < skipBeforeMs) {
         if (debug) debugReport.push({
           id: m.id, decision: 'skipped', reason: 'older_than_last_poll',
           internal_date: new Date(internalMs).toISOString(),
@@ -917,6 +976,17 @@ Deno.serve(async (req) => {
           from: fromEmail, subject,
         });
         continue;
+      }
+      // Inside the grace window (or a rescan) a message may already have been
+      // judged a TID/dedup_hash duplicate on an earlier tick. Skip it quietly
+      // so the wider window doesn't re-write gmail_dedup_audit every minute.
+      if (rescan || (lastMs && internalMs && internalMs <= lastMs)) {
+        const { data: judged } = await supabase
+          .from('gmail_dedup_audit').select('id').eq('gmail_message_id', m.id).limit(1).maybeSingle();
+        if (judged) {
+          if (debug) debugReport.push({ id: m.id, decision: 'skipped', reason: 'already_judged_duplicate' });
+          continue;
+        }
       }
       advanceCutoff(internalMs);
 
@@ -1191,6 +1261,7 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({
       ok: true, scanned: messages.length, inserted,
       query: GMAIL_QUERY,
+      rescan: rescan ? { from: new Date(rescanFromMs).toISOString(), to: new Date(rescanToMs).toISOString() } : undefined,
       last_cutoff: lastMs ? new Date(lastMs).toISOString() : null,
       debug: debug ? debugReport : undefined,
     }), {
