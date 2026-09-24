@@ -59176,6 +59176,14 @@ export type Database = {
           total_subagents: number
         }[]
       }
+      get_my_subagent_rent_overrides: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: {
+          amount: number
+          credits: number
+          sub_agent_id: string
+        }[]
+      }
       get_my_subagent_tenant_profiles: {
         Args: never
         Returns: {

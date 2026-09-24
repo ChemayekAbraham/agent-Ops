@@ -564,7 +564,10 @@ export default function PayrollEnrollment() {
     <div className="print-root mx-auto w-full max-w-7xl space-y-6 p-4 md:p-6">
       <div className="hidden print:block">
         <div className="print-letterhead">
-          <div className="print-wordmark">Welile</div>
+          <div>
+            <div className="print-wordmark">Welile</div>
+            <p className="print-values">Hope · Faith · Love</p>
+          </div>
           <div className="print-company">
             <p className="font-semibold">Welile Technologies Ltd</p>
             <p>P.O. Box 167564, Kampala-Uganda</p>
@@ -616,7 +619,7 @@ export default function PayrollEnrollment() {
         </div>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-4">
+      <div className="no-print grid gap-3 sm:grid-cols-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-xs uppercase text-muted-foreground">
@@ -656,8 +659,8 @@ export default function PayrollEnrollment() {
       <p
         className={
           idsComplete < counts.total
-            ? 'text-sm font-medium text-amber-600'
-            : 'text-sm font-medium text-muted-foreground'
+            ? 'no-print text-sm font-medium text-amber-600'
+            : 'no-print text-sm font-medium text-muted-foreground'
         }
       >
         Statutory IDs complete: {idsComplete} of {counts.total}
@@ -968,7 +971,7 @@ export default function PayrollEnrollment() {
         </CardContent>
       </Card>
 
-      <p className="text-xs text-muted-foreground">Gross on record is everything currently recorded for this person. Where part-month pay applies, it replaces basic salary in the payroll calculation, so the amount paid will be lower than the figure shown here. The payslip is the authority.</p>
+      <p className="no-print text-xs text-muted-foreground">Gross on record is everything currently recorded for this person. Where part-month pay applies, it replaces basic salary in the payroll calculation, so the amount paid will be lower than the figure shown here. The payslip is the authority.</p>
 
       <div className="print-statutory hidden print:block">
         <h3>Statutory position</h3>
@@ -1023,7 +1026,7 @@ export default function PayrollEnrollment() {
         </div>
       </div>
 
-      <p className="text-xs text-muted-foreground">
+      <p className="no-print text-xs text-muted-foreground">
         Statutory profiles and compensation are both append-only. Every change keeps the previous
         record with the date it closed.
       </p>
