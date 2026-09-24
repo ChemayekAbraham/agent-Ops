@@ -1075,12 +1075,6 @@ export function SelfPortfolioFundingCard({
 
   return (
     <div className="space-y-3">
-      {(
-        <p className="text-[11px] font-semibold text-muted-foreground px-1">
-          &nbsp;{houses.length} house
-          {houses.length === 1 ? '' : 's'}
-        </p>
-      )}
 
       {houses.length > 0 && (
         <div className="space-y-2 px-1">
