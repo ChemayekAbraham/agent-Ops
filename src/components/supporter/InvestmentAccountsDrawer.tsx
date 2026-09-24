@@ -50,12 +50,17 @@ function daysUntilNextRoi(nextRoiDate: string | null | undefined): number | null
   return differenceInCalendarDays(target, today);
 }
 
-/** Months the portfolio has actually been running, from its funded date to today */
-function monthsRunning(fundedAt: string | null | undefined): number | null {
+/** How long the portfolio has actually been running, from its original start
+ *  date (renewals count from the first portfolio) to today. Shows days when
+ *  it has been running for less than a month. */
+function runningDurationLabel(fundedAt: string | null | undefined): string | null {
   if (!fundedAt) return null;
   const start = new Date(fundedAt);
   if (isNaN(start.getTime())) return null;
-  return Math.max(0, differenceInCalendarMonths(new Date(), start));
+  const months = Math.max(0, differenceInCalendarMonths(new Date(), start));
+  if (months >= 1) return `${months} ${months === 1 ? 'month' : 'months'}`;
+  const days = Math.max(0, differenceInCalendarDays(new Date(), start));
+  return `${days} ${days === 1 ? 'day' : 'days'}`;
 }
 
 function NextRoiIndicator({ nextRoiDate }: { nextRoiDate: string | null | undefined }) {
