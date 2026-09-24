@@ -49,6 +49,8 @@ import { InvestmentPackageSheet } from '@/components/supporter/InvestmentPackage
 // FundingPoolCard removed from direct import
 import { FunderCapitalOpportunities } from '@/components/supporter/FunderCapitalOpportunities';
 import { FunderHouseListingsSection } from '@/components/supporter/FunderHouseListingsSection';
+import { FunderNewHero } from '@/components/funder-new/FunderNewHero';
+import { useFunderNewMarketSummary } from '@/components/funder-new/useFunderNewOpportunities';
 import { useSupportedTenants } from '@/hooks/useSupportedTenants';
 import { useCapitalOpportunities } from '@/hooks/useCapitalOpportunities';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -116,6 +118,7 @@ export default function SupporterDashboard({
   const [menuOpen, setMenuOpen] = useState(false);
   const [mapExpanded, setMapExpanded] = useState(false);
   const [mapSearchQuery, setMapSearchQuery] = useState('');
+  const marketSummary = useFunderNewMarketSummary();
   const [selectedHouse, setSelectedHouse] = useState<VirtualHouse | null>(null);
   const [showHouseDetails, setShowHouseDetails] = useState(false);
   const [selectedPackageCategory, setSelectedPackageCategory] = useState<RentCategory | null>(null);
@@ -517,6 +520,14 @@ export default function SupporterDashboard({
           </div>
             );
           })()}
+
+          {/* ═══ MARKET HERO (same section as /dashboard/funder-new) ═══ */}
+          <FunderNewHero
+            summary={marketSummary.data}
+            isLoading={marketSummary.isLoading}
+            hasError={marketSummary.isError}
+            onHowItWorks={() => {}}
+          />
 
           {/* ═══ STANDALONE MAP ═══ */}
           <h2 className="text-base font-bold text-green-600 dark:text-green-400">Search for houses to fund</h2>
