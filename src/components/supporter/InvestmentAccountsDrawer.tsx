@@ -27,7 +27,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import { downloadPortfolioPdf, type PortfolioPdfData } from '@/lib/portfolioPdf';
 import { downloadPartnerStatement } from '@/lib/partnerStatement';
-import { differenceInCalendarDays } from 'date-fns';
+import { differenceInCalendarDays, differenceInCalendarMonths } from 'date-fns';
 
 /** Support line that handles rejected portfolio top-ups (WhatsApp chat). */
 const SUPPORT_CHAT_NUMBER = '256777607640';
