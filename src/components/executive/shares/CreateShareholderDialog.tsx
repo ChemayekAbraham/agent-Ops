@@ -45,8 +45,9 @@ export default function CreateShareholderDialog({ open, onOpenChange }: { open: 
     queryKey: ['share-person-balance', picked?.id],
     enabled: !!picked,
     queryFn: async () => {
-      const { data } = await supabase.rpc('get_user_available_balance', { p_user_id: picked!.id });
-      return Number(data ?? 0);
+      // Shares are funded from the operational float, not withdrawable.
+      const { data } = await supabase.from('wallets').select('float_balance').eq('user_id', picked!.id).maybeSingle();
+      return Number(data?.float_balance ?? 0);
     },
   });
 

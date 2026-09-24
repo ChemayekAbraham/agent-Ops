@@ -63,9 +63,9 @@ Deno.serve(async (req) => {
       return json({ error: `Only ${(ANGEL_TOTAL_SHARES - committed).toLocaleString()} shares remaining in the pool` }, 400);
     }
 
-    const [{ data: prof }, { data: avail }] = await Promise.all([
+    const [{ data: prof }, { data: walletRow }] = await Promise.all([
       admin.from("profiles").select("full_name, phone, email").eq("id", shareholderId).maybeSingle(),
-      admin.rpc("get_user_available_balance", { p_user_id: shareholderId }),
+      admin.from("wallets").select("float_balance").eq("user_id", shareholderId).maybeSingle(),
     ]);
 
     const referenceId = newAngelReference();
