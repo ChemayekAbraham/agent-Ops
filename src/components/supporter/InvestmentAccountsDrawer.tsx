@@ -544,13 +544,13 @@ function PortfolioDetailSheet({ portfolio, open, onOpenChange, onRenamed, onTopU
             </DialogContent>
           </Dialog>
 
-          {/* Auto-Reinvest Toggle */}
+           {/* Auto-Support Toggle */}
           {isActive && (
             <div className="flex items-center justify-between p-3.5 rounded-xl border border-border/60 bg-muted/30">
               <div className="flex items-center gap-2">
                 <RefreshCw className={`h-4 w-4 ${autoReinvestValue ? 'text-primary' : 'text-muted-foreground'}`} />
                 <div>
-                  <p className="text-xs font-bold">Auto-Reinvest</p>
+                   <p className="text-xs font-bold">Auto-Support</p>
                   <p className="text-[10px] text-muted-foreground">Automatically compound your returns</p>
                 </div>
               </div>
