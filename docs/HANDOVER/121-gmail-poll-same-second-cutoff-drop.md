@@ -40,8 +40,9 @@ surface shows it. `backfill` / `reparse` only revisit rows already in `gmail_tra
 there was no way to recover a message the cutoff dropped.
 
 Had it been ingested, the existing path would have handled it correctly:
-`_tryAutoCreditOperationalFloat` matches sender 752251576 → Martha's profile →
-`record_direct_tenant_rent_payment` credits her Rent Plan and attributes it to Isaac.
+`_tryAutoCreditOperationalFloat` matches sender 752251576 → Martha's profile → auto-credited
+deposit → on approval `settle_tenant_rent_from_deposit` applies it to her Rent Plan, books the
+collection and commission to Isaac, and SMSes both (see handover 122).
 
 ## Fix (`supabase/functions/gmail-poll-transactions/index.ts`)
 
@@ -69,8 +70,9 @@ No migration. `deno check` reports the same 52 pre-existing type errors before a
    dropped. Note it before the live run.
 2. Live run: same without `debug=1`. The response must include a `rescan` object (proves the new
    code is deployed).
-3. Verify: `gmail_transactions` row for TID157162005754 with `auto_match_method =
-   'direct_tenant_rent_payment'`, and Martha's rent request balance reduced by 21,445.
+3. Verify: a `gmail_transactions` row for TID157162005754 linked to an approved deposit request,
+   a `tenant_self_repayment_attempts` row with `outcome = 'settled'` for tenant
+   `41383cef-…`, and her rent request balance reduced by 21,445.
    The 7-day auto-credit gate means this must run **before 2026-09-30 11:05 UTC**, or the rows
    will ingest but not credit.
 

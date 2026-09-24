@@ -2752,78 +2752,14 @@ async function _tryAutoCreditOperationalFloat(
 
   const provider = parsed.channel === 'mtn_momo' ? 'mtn' : 'airtel';
 
-  // ── Direct tenant rent payment (2026-09-06 tenant-ops meeting, item #7) ──
-  // 090777 / 4380664 are Welile's own MTN/Airtel merchant tills — the SAME
-  // destination every self-deposit already targets, so a tenant paying rent
-  // directly here produces an email indistinguishable from a normal
-  // self-deposit at this point in the pipeline: no pre-existing
-  // deposit_requests row (checked above), a resolved profile, a real TID.
-  // Try attributing it to the tenant's responsible agent + rent balance
-  // BEFORE falling through to the default "credit the sender's own
-  // operational float" path below, since that default is simply wrong for a
-  // tenant (their payment would vanish into their own wallet with no rent
-  // credit and no agent commission). record_direct_tenant_rent_payment
-  // itself is the gate: it only succeeds when this profile has an active,
-  // outstanding rent request, so a genuine agent/self self-deposit is
-  // untouched and falls through exactly as before.
-  {
-    const { data: directRpc, error: directErr } = await supabase.rpc('record_direct_tenant_rent_payment', {
-      p_tid: parsed.transaction_id,
-      p_tenant_id: profile.id,
-      p_amount: parsed.amount,
-      p_provider: provider,
-      p_gmail_transaction_id: gmailRow.id,
-      p_occurred_at: internalMs ? new Date(internalMs).toISOString() : new Date().toISOString(),
-    });
-
-    if (directErr) {
-      console.error('[gmail-poll] record_direct_tenant_rent_payment RPC error:', directErr);
-      await logDepositDecision(supabase, {
-        source: 'matcher',
-        decision: 'failed',
-        reason: 'direct_tenant_rent_payment_rpc_error',
-        amount: parsed.amount ?? null,
-        actor_id: profile.id,
-        metadata: { gmail_message_id: gmailMessageId, error: directErr.message },
-      });
-      // Fall through to default handling below — don't drop the receipt.
-    } else if (directRpc?.ok) {
-      await supabase
-        .from('gmail_transactions')
-        .update({
-          auto_matched_at: new Date().toISOString(),
-          auto_match_method: 'direct_tenant_rent_payment',
-        })
-        .eq('id', gmailRow.id);
-      console.log(
-        `[gmail-poll] direct tenant rent payment credited tenant=${profile.id} ` +
-        `agent=${directRpc.agent_id} amount=${directRpc.amount_applied} reason=${directRpc.reason}`,
-      );
-      await logDepositDecision(supabase, {
-        source: 'matcher',
-        decision: 'auto_credited',
-        reason: `direct_tenant_rent_payment_${directRpc.reason}`,
-        amount: parsed.amount ?? null,
-        actor_id: profile.id,
-        metadata: { gmail_message_id: gmailMessageId, ...directRpc },
-      });
-      return;
-    } else if (directRpc?.reason === 'amount_exceeds_outstanding') {
-      // Unusual (rent nearly settled, or a mistaken overpayment) — surface it
-      // rather than silently absorbing it into the tenant's own float below.
-      await logDepositDecision(supabase, {
-        source: 'matcher',
-        decision: 'skipped',
-        reason: 'direct_tenant_rent_payment_amount_exceeds_outstanding',
-        amount: parsed.amount ?? null,
-        actor_id: profile.id,
-        metadata: { gmail_message_id: gmailMessageId, ...directRpc },
-      });
-    }
-    // Any other reason (no_active_rent_request / no_outstanding_balance /
-    // no_responsible_agent / already_reconciled / already_recorded) means
-    // this genuinely isn't a direct rent payment — fall through unchanged.
-  }
+  // Direct tenant rent payments need no special case here. A tenant paying
+  // into Welile's till is auto-credited below like any other matched sender;
+  // on approval, trg_tenant_self_repayment_on_approval ->
+  // settle_tenant_rent_from_deposit applies it to their Rent Plan, books the
+  // collection to the plan's agent with commission, and SMSes tenant and
+  // agent. It also refuses agents' own float top-ups, which the retired
+  // record_direct_tenant_rent_payment (never deployed) would have hijacked
+  // into rent repayments. See handover 122.
 
   const auditMeta = {
     source: 'gmail_auto_credit',
