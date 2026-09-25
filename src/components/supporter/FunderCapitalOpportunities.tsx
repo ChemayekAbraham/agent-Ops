@@ -26,7 +26,7 @@ import { FundRentDialog } from './FundRentDialog';
 import { InvestmentWithdrawButton } from './InvestmentWithdrawButton';
 import { useAuth } from '@/hooks/useAuth';
 import { useFunderApprovalStatus } from '@/hooks/useFunderApprovalStatus';
-import { SelfPortfolioFundingCard } from '@/components/partner/SelfPortfolioFundingCard';
+import { FunderHouseListingsSection } from '@/components/supporter/FunderHouseListingsSection';
 import { HowItWorksSteps, type HowItWorksStep } from './HowItWorksSteps';
 import { EmptyHouseOpportunitiesSheet } from '@/components/agent/EmptyHouseOpportunitiesSheet';
 import { FunderBookedHousesPanel } from '@/components/supporter/FunderBookedHousesPanel';
@@ -477,10 +477,10 @@ const BiggestOpportunitiesPanel = memo(function BiggestOpportunitiesPanel({
 
 export function FunderCapitalOpportunities({
   initialView = 'menu',
-  initialFeedOrder = 'houses',
   embedded = false,
 }: {
   initialView?: ViewState;
+  /** Kept for older callers; the feed order is fixed (Rent Plans first) and no longer switchable. */
   initialFeedOrder?: FeedOrder;
   embedded?: boolean;
 } = {}) {
@@ -502,7 +502,6 @@ export function FunderCapitalOpportunities({
   const [calcAmountInput, setCalcAmountInput] = useState('');
   const [calcOpen, setCalcOpen] = useState(false);
   const [showHowItWorks, setShowHowItWorks] = useState(false);
-  const [feedOrder, setFeedOrder] = useState<FeedOrder>(initialFeedOrder);
 
   const [feeRatePct, setFeeRatePct] = useState(EMPTY_HOUSE_SERVICE_FEE_RATE * 100);
 
@@ -794,10 +793,10 @@ export function FunderCapitalOpportunities({
         compactMobile
       >
 
-        {/* Rent plans / empty houses — switched by the toggle inside the card */}
+        {/* Single listing — Rent Plans first, then empty houses (no tabs) */}
         <div className="space-y-2.5 sm:pt-2 sm:space-y-3">
           {user?.id
-            ? <SelfPortfolioFundingCard partnerId={user.id} feedOrder={feedOrder} onFeedOrderChange={setFeedOrder} />
+            ? <FunderHouseListingsSection />
             : <p className="text-[11px] text-muted-foreground">Sign in to view houses to fund.</p>}
         </div>
 
