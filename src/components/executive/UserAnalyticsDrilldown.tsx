@@ -108,6 +108,7 @@ export function UserAnalyticsDrilldown({
       let q = supabase
         .from('profiles')
         .select('id, full_name, email, phone, created_at', { count: 'exact' })
+        .is('deleted_at', null)
         .order('created_at', { ascending: false })
         .range(from, to);
 
