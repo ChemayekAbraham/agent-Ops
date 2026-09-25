@@ -13,5 +13,5 @@
 - [x] "How it works" moved out of the funder hero into its own row below the map (2026-09-23)
 - [x] Repair lending-agent daily arrears recovery and borrower alerts/email; deploy and verify Enock's advance.
 
-- [ ] Reconcile EMP-00053 September collected notes and correct the report source/count.
-- [ ] Improve the concerns page for smartphone navigation with prominent Call and WhatsApp actions.
+- [x] Reconcile EMP-00053 September collected notes and correct the report source/count.
+- [x] Improve the concerns page for smartphone navigation with prominent Call and WhatsApp actions.
