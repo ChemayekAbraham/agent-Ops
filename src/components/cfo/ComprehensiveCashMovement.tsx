@@ -4666,6 +4666,7 @@ export function ComprehensiveCashMovement() {
         <TreasuryWalletFlowSummary
           rows={rows}
           includeAdjustments={includeAdjustments}
+          periodFrom={range.from?.toISOString() ?? null}
           onDrill={(direction) => {
             setScopeFilter('wallet');
             setDirectionQuickFilter(direction);
