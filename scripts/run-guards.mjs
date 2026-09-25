@@ -24,6 +24,7 @@ const GUARDS = [
   ['guard-legacy-domain.mjs', 'legacy domain references'],
   ['guard-location-freetext.mjs', 'free-text admin location capture'],
   ['guard-canonical-tags.mjs', 'canonical tags'],
+  ['guard-privileged-function-grants.mjs', 'privileged function EXECUTE grants'],
 ];
 
 const bar = '='.repeat(78);
