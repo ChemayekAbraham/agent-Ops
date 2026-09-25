@@ -1,4 +1,4 @@
--- Bank-transfer payouts are not merchant out-of-pocket (docs/HANDOVER/132).
+-- Bank-transfer payouts are not merchant out-of-pocket (docs/HANDOVER/134).
 --
 -- classify_merchant_payout_funding booked every UGX a payout was not covered
 -- by desk float as money the company owes the merchant ('Phase 6

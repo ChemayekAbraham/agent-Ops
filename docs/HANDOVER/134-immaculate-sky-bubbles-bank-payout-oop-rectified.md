@@ -1,4 +1,4 @@
-# 132: Immaculate's bank desk "out-of-pocket" was treasury-funded, not owed
+# 134: Immaculate's bank desk "out-of-pocket" was treasury-funded, not owed
 
 **Rectified and applied live 2026-09-25. Instructed by the CEO.** Read this before quoting any
 figure for money "owed" to a merchant desk that pays by bank transfer, and before touching
