@@ -22,7 +22,7 @@ No prior knowledge assumed.
 9. [When the tenant part-pays](#9-when-the-tenant-part-pays)
 10. [When the tenant misses a day](#10-when-the-tenant-misses-a-day)
 11. [When the agent never pays the landlord](#11-when-the-agent-never-pays-the-landlord)
-12. [What the agent earns, with real numbers](#12-what-the-agent-earns-with-real-numbers)
+12. [Where commissions are paid — before and after](#12-where-commissions-are-paid--before-and-after)
 13. [Every message we send, in one table](#13-every-message-we-send-in-one-table)
 14. [What changed, what is live, what happens Monday](#14-what-changed-what-is-live-what-happens-monday)
 15. [Where things actually stand today](#15-where-things-actually-stand-today)
@@ -553,38 +553,167 @@ those four decides. That is the whole control.
 
 ---
 
-## 12. What the agent earns, with real numbers
+## 12. Where commissions are paid — before and after
+
+### The principle behind the change
+
+> **Money is earned for work completed, not for money received.**
+
+Before this month, an agent was paid **UGX 15,000 the instant the company handed
+over cash** — before they had done the one thing that actually mattered, which is
+getting the rent into the landlord's hands. They were paid for our action, not
+theirs.
+
+Now they are paid when the landlord actually has the money, and again as the
+tenant actually repays.
+
+### Every point money changes hands
+
+| Stage | **Before** | **Now** | Change |
+|---|---:|---:|---|
+| Empty house listed & verified | 2,000 | **2,000** | unchanged |
+| New landlord verified | 5,000 | **5,000** | unchanged |
+| New LC1 chairperson verified | 2,000 | **2,000** | unchanged |
+| Sub-agent registered | 10,000 | **10,000** | unchanged |
+| Contact location captured | 0 | **100** | **new** |
+| **Landlord named on a rent request** | **5,000, every time** | **0** | **removed** |
+| **Rent request posted** | 5,000 (broken) | **0** | **removed** |
+| Any of the five approval desks | 0 | **0** | never paid |
+| **CFO releases the landlord float** | **5,000 + 10,000** | **0** | **removed** |
+| **Landlord actually paid** | 1% | **1%** | now the **only** payment here |
+| Each rent collection | 10% | **10%** | unchanged |
+| Sub-agent collection | 8% + 2% to parent | **8% + 2%** | unchanged |
+
+### And the recruiting parent
+
+This is the part most easily misread. **Some parent payments died and one
+lived.**
+
+| Parent earns on… | Before | Now |
+|---|---:|---|
+| Their sub-agent's landlord being verified | 3,000 | **0 — removed** |
+| Their sub-agent's LC1 being verified | 3,000 | **0 — removed** |
+| A tenant of theirs being funded | 3,000 | **0 — removed** |
+| **Their sub-agent collecting rent** | **2%** | **2% — kept** |
+
+The three that were removed all paid a parent for someone *else's* one-off
+paperwork. The one that survives pays them a share of ongoing collection, which
+is real, recurring work by someone they recruited and support.
+
+> In the last 7 days the surviving 2% paid out **709 times, UGX 191,939**.
+
+### What was removed, measured
+
+These are real payments that really happened, and have now stopped:
+
+| Stream | Payments | Total paid | Ran from | Last paid |
+|---|---:|---:|---|---|
+| 10,000 bonus at CFO funding | **1,420** | **14,200,000** | 28 Jul | 24 Sep |
+| Wallet bonuses at the funding stage | **2,280** | **11,400,003** | 10 Apr | 24 Sep |
+| Parent override, landlord verified | 2,473 | 7,405,000 | 17 Jun | — |
+| Landlord bonus per rent request | 1,177 | 5,885,000 | 10 Apr | 24 Sep |
+| Parent override, tenant funded | 390 | 1,170,000 | 16 Jun | — |
+| Parent override, LC1 verified | 15 | 45,000 | 15 Jun | — |
+
+**Every one of these is at zero since the change went live yesterday morning.**
+
+### The duplicate that is easiest to see
+
+The clearest single defect was the landlord bonus being paid **per rent request**
+instead of **per landlord**. The ledger shows it plainly:
+
+| Landlord | Times the 5,000 was paid |
+|---|---:|
+| Gloria Nakalekwa | **3** |
+| Patty Patience | 2 |
+| Nakimbugwe Rose | 2 |
+
+Same landlord, brought in once, paid for repeatedly — simply because her name
+appeared on more than one rent request.
+
+Measured across the platform: **723 distinct landlords, 1,131 rent requests, UGX
+5,885,000 paid where 3,615,000 was due — 2,270,000 overpaid.** 154 landlords were
+paid through two different routes at once.
+
+**The correct one still works.** Today alone, eight agents were each paid 5,000
+for a genuinely new landlord — Nasiwa, Benson, Betty, Siraje, Lutwama, Matasi,
+Nantambi, Christine. One landlord, one payment, once ever. The duplicate route
+last paid on 24 September and has not fired since.
+
+### What is still paying, right now
+
+Last 7 days, by stream:
+
+| What | Payments | Total |
+|---|---:|---:|
+| 10% collection commission | 363 | **1,032,435** |
+| 8% collection (sub-agent) | 709 | 767,757 |
+| 2% parent override on sub-agent collection | 709 | 191,939 |
+| House listing bonus, 2,000 | 42 | 84,000 |
+| **1% at landlord paid** | **5** | **130,000** |
+| Full 10% (whitelisted sub-agents) | 30 | 36,130 |
+| Commission on tenant self-payment | 40 | 52,127 |
+
+**Collection commission is roughly 90% of everything agents earn.** That is the
+point of the whole redesign — the money now follows the work that keeps
+happening, not the paperwork that happens once.
 
 ### A complete plan, start to finish — rent UGX 250,000 over 30 days
 
-| Stage | Earned |
-|---|---:|
-| Empty house listed and verified | 2,000 |
-| New landlord verified | 5,000 |
-| Rent request posted | **0** |
-| Five approval desks | **0** |
-| **CFO releases the money** | **0** |
-| **Landlord actually paid — 1%** | **2,500** |
-| 30 collections at 10% | 35,250 |
-| **Total** | **44,750** |
+| Stage | Before | Now |
+|---|---:|---:|
+| Empty house listed and verified | 2,000 | 2,000 |
+| New landlord verified | 5,000 | 5,000 |
+| Rent request posted | 0 | 0 |
+| Five approval desks | 0 | 0 |
+| **CFO releases the money** | **15,000** | **0** |
+| **Landlord actually paid — 1%** | 2,500 | 2,500 |
+| 30 collections at 10% | 35,250 | 35,250 |
+| **Agent total** | **59,750** | **44,750** |
+| **Parent total** | 8,000 | **2,000** |
+| Share earned **before** any collecting | **41%** | **21%** |
 
-**Before this month it was 59,750**, and their recruiting parent took another
-8,000. The difference is the 15,000 that used to be paid the moment the company
-handed over cash.
+### The same plan at different sizes
+
+| Rent | 1% at landlord paid | Old flat bonus | Better or worse? |
+|---:|---:|---:|---|
+| 100,000 | 1,000 | 5,000 | worse by 4,000 |
+| 250,000 | 2,500 | 5,000 | worse by 2,500 |
+| **500,000** | **5,000** | 5,000 | **the break-even point** |
+| 1,000,000 | 10,000 | 5,000 | **better by 5,000** |
+| 2,000,000 | 20,000 | 5,000 | **better by 15,000** |
+
+The 1% rewards the size of the errand. Carrying two million to a landlord is not
+the same job as carrying one hundred thousand, and it used to pay identically.
 
 ### Who is affected, and how much
 
 | Agent type | Impact |
 |---|---|
-| **Collects diligently** | Barely affected — the 10% is untouched and is **79%** of their total |
+| **Collects diligently** | Barely affected — the 10% is untouched and is **79%** of their total on a 250,000 plan |
 | **Only acquires, never collects** | Loses most of it — 15,000 a plan disappears |
-| **Handles large payouts** | Better off — 1% of 1,000,000 is 10,000, double the old flat 5,000 |
+| **Handles large payouts** | **Better off** above 500,000 |
+| **Recruiting parents** | Lose the one-off overrides, keep the 2% on collections |
 
 **Nothing is clawed back.** Every shilling already paid stays paid. All of this is
 forward-only.
 
-> **This has not yet been announced to agents.** It should be, before anyone
-> discovers it from their wallet balance.
+### Two prices advertised that have never paid anyone
+
+| Advertised | Paid to date |
+|---|---:|
+| Tenant placement — 10,000 | **never, not once** |
+| Service Centre setup — 25,000 | **never, not once** |
+| Sub-agent lists 3 verified houses — 10,000 | once, in August |
+
+These sit in the price list and look live. They are not wired to anything. Either
+connect them or take them off the list — a price that pays nothing is how trust
+goes.
+
+> **None of this has been announced to agents.** It should be, before anyone
+> discovers it from their wallet balance. It is the only item in this whole
+> programme that is not a technical task, and the only one nobody can verify
+> from the system.
 
 ---
 
