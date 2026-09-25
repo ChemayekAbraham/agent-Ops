@@ -153,9 +153,11 @@ export function UserAnalyticsView() {
     queryKey: ['user-analytics-totals', preset, customStart, customEnd],
     queryFn: async () => {
       const [signups, allUsers, loginAttempts, loginSuccess] = await Promise.all([
-        supabase.from('profiles').select('*', { count: 'exact', head: true })
+        // Exclude accounts flagged invalid and soft-deleted (bot/fraud purges).
+        supabase.from('profiles').select('id', { count: 'exact', head: true })
+          .is('deleted_at', null)
           .gte('created_at', start.toISOString()).lte('created_at', end.toISOString()),
-        supabase.from('profiles').select('*', { count: 'exact', head: true }),
+        supabase.from('profiles').select('id', { count: 'exact', head: true }).is('deleted_at', null),
         supabase.from('otp_login_audit').select('*', { count: 'exact', head: true })
           .gte('created_at', start.toISOString()).lte('created_at', end.toISOString()),
         supabase.from('otp_login_audit').select('*', { count: 'exact', head: true })
