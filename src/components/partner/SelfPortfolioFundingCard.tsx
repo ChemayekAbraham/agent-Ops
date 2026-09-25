@@ -1610,7 +1610,6 @@ export function SelfPortfolioFundingCard({
         const isFunded = fundedIds.includes(plan.rent_request_id);
         const heldByOther = !!plan.held_by && plan.held_by !== partnerId;
         const isSelected = selected.includes(plan.rent_request_id);
-        const unaffordable = !isSelected && Number(plan.funding_amount || 0) > remaining;
         const images = (plan.house_image_urls ?? []).filter(Boolean);
         const monthlyRoi = Math.round((Number(plan.funding_amount || 0) * MONTHLY_ROI_RATE) / 100);
         const prettyName = (raw?: string | null) =>
@@ -1714,12 +1713,6 @@ export function SelfPortfolioFundingCard({
                       </Button>
                     )}
                 </div>
-
-                {unaffordable && !heldByOther && (
-                  <p className="text-xs font-semibold text-destructive">
-                    Add {formatDynamic(Number(plan.funding_amount) - remaining)} to your balance to include this plan.
-                  </p>
-                )}
               </div>
           </article>
         );
