@@ -2720,6 +2720,54 @@ export type Database = {
           },
         ]
       }
+      agent_expected_day_corrections: {
+        Row: {
+          agent_id: string | null
+          captured_at: string | null
+          day: string
+          expected_ugx: number
+          id: string
+          landlord_paid_at: string | null
+          plan_status: string | null
+          reason: string
+          removed_at: string
+          removed_by: string
+          rent_request_id: string
+          repayment_starts_on: string | null
+          tenant_id: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          captured_at?: string | null
+          day: string
+          expected_ugx: number
+          id?: string
+          landlord_paid_at?: string | null
+          plan_status?: string | null
+          reason: string
+          removed_at?: string
+          removed_by?: string
+          rent_request_id: string
+          repayment_starts_on?: string | null
+          tenant_id?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          captured_at?: string | null
+          day?: string
+          expected_ugx?: number
+          id?: string
+          landlord_paid_at?: string | null
+          plan_status?: string | null
+          reason?: string
+          removed_at?: string
+          removed_by?: string
+          rent_request_id?: string
+          repayment_starts_on?: string | null
+          tenant_id?: string | null
+        }
+        Relationships: []
+      }
       agent_expected_day_plans: {
         Row: {
           agent_id: string | null
@@ -44170,30 +44218,36 @@ export type Database = {
       tenant_ops_weekly_metrics: {
         Row: {
           captured_at: string
+          dormant_20_plus_count: number
           new_tenants_added: number
           non_paying_tenants: number
           paying_tenants: number
           payment_rate_pct: number
+          self_payment_tenants: number
           total_active_tenants: number
           week_end: string
           week_start: string
         }
         Insert: {
           captured_at?: string
+          dormant_20_plus_count?: number
           new_tenants_added?: number
           non_paying_tenants?: number
           paying_tenants?: number
           payment_rate_pct?: number
+          self_payment_tenants?: number
           total_active_tenants?: number
           week_end: string
           week_start: string
         }
         Update: {
           captured_at?: string
+          dormant_20_plus_count?: number
           new_tenants_added?: number
           non_paying_tenants?: number
           paying_tenants?: number
           payment_rate_pct?: number
+          self_payment_tenants?: number
           total_active_tenants?: number
           week_end?: string
           week_start?: string
@@ -53173,6 +53227,7 @@ export type Database = {
           amount_repaid: number | null
           daily_amount: number | null
           is_live: boolean | null
+          last_pay_date: string | null
           oblig_days: number | null
           obligation_end: string | null
           rent_request_id: string | null
@@ -53858,10 +53913,12 @@ export type Database = {
       _tenant_ops_weekly_metrics_raw: {
         Args: { p_week_end: string; p_week_start: string }
         Returns: {
+          dormant_20_plus_count: number
           new_tenants_added: number
           non_paying_tenants: number
           paying_tenants: number
           payment_rate_pct: number
+          self_payment_tenants: number
           total_active_tenants: number
         }[]
       }
@@ -55956,6 +56013,16 @@ export type Database = {
           p_payment_reference?: string
           p_reason: string
           p_withdrawal_id: string
+        }
+        Returns: Json
+      }
+      cfo_record_advance_payment: {
+        Args: {
+          p_advance_id: string
+          p_amount: number
+          p_notes?: string
+          p_payment_method: string
+          p_reference: string
         }
         Returns: Json
       }
@@ -60704,6 +60771,10 @@ export type Database = {
           vacant_units: number
         }[]
       }
+      get_tenant_ops_no_payment_report: {
+        Args: { p_agent_id?: string }
+        Returns: Json
+      }
       get_tenant_ops_pipeline_trend: {
         Args: { p_days?: number }
         Returns: Json
@@ -60744,10 +60815,12 @@ export type Database = {
         Args: { p_limit?: number }
         Returns: {
           captured_at: string
+          dormant_20_plus_count: number
           new_tenants_added: number
           non_paying_tenants: number
           paying_tenants: number
           payment_rate_pct: number
+          self_payment_tenants: number
           total_active_tenants: number
           week_end: string
           week_start: string
@@ -65176,6 +65249,10 @@ export type Database = {
       rent_plan_arrears_ugx: {
         Args: { p_rent_request_id: string }
         Returns: number
+      }
+      rent_plan_billable_from: {
+        Args: { p_rent_request_id: string }
+        Returns: string
       }
       rent_plan_collect_authorized: {
         Args: { p_rent_request_id: string }
