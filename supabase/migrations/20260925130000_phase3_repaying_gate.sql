@@ -143,8 +143,12 @@ $function$;
 -- at which the money counts as gone. This trigger now always runs first and
 -- does the complete job; the older one becomes a harmless no-op because the
 -- plan is already 'repaying' by the time it looks.
-DROP TRIGGER IF EXISTS trg_start_repaying_on_landlord_paid ON public.landlord_payouts;
+-- Clean up the names this went through while the trigger point was being
+-- corrected from dispatch-to-merchant to landlord-actually-paid.
+DROP TRIGGER IF EXISTS trg_start_repaying_on_payout_dispatch ON public.landlord_payouts;
+DROP TRIGGER IF EXISTS trg_aa_start_repaying_on_payout_dispatch ON public.landlord_payouts;
 DROP TRIGGER IF EXISTS trg_aa_start_repaying_on_landlord_paid ON public.landlord_payouts;
+DROP FUNCTION IF EXISTS public.start_repaying_on_payout_dispatch();
 CREATE TRIGGER trg_aa_start_repaying_on_landlord_paid
 AFTER INSERT OR UPDATE OF status ON public.landlord_payouts
 FOR EACH ROW
@@ -343,96 +347,104 @@ CREATE OR REPLACE VIEW public.v_rent_plan_schedule AS
 -- SECURITY DEFINER and revoked from anon/authenticated: it returns phone
 -- numbers and is for the service role only.
 -- ---------------------------------------------------------------------------
+-- The three lists all hang off the same two events: float arriving in the
+-- agent's wallet, and the landlord actually being paid.
+--
+-- The LANDLORD's own SMS is deliberately absent. `landlord-rent-receipt`
+-- already mints the permanent receipt and texts them the number and public
+-- link, invoked from approve-withdrawal at the same moment FinOps disburses —
+-- 332 sent to date. A second one here would duplicate it.
 CREATE OR REPLACE FUNCTION public.rent_plan_transition_notices_pending(p_lookback_hours integer DEFAULT 48)
 RETURNS jsonb
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path TO 'public'
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public'
 AS $function$
   WITH since AS (SELECT now() - make_interval(hours => GREATEST(1, LEAST(COALESCE(p_lookback_hours,48), 168))) AS t),
   a1 AS (
     SELECT jsonb_agg(jsonb_build_object(
-      'kind','agent_float_funded',
-      'rent_request_id', x.rent_request_id,
-      'reference_id',   'a1:'||x.rent_request_id::text,
-      'agent_id',       x.agent_id,
-      'agent_phone',    x.agent_phone,
-      'agent_name',     x.agent_name,
-      'landlord_name',  x.landlord_name,
-      'tenant_name',    x.tenant_name,
-      'rent_amount',    x.rent_amount,
-      'deadline_at',    x.deadline_at
-    ) ORDER BY x.deadline_at) AS rows
+      'kind','agent_float_funded','rent_request_id',x.rent_request_id,
+      'agent_id',x.agent_id,'agent_phone',x.agent_phone,'agent_name',x.agent_name,
+      'landlord_name',x.landlord_name,'tenant_name',x.tenant_name,'rent_amount',x.rent_amount
+    ) ORDER BY x.created_at) AS rows
     FROM (
       SELECT rr.id AS rent_request_id, al.agent_id, ap.phone AS agent_phone,
-             ap.full_name AS agent_name,
-             COALESCE(al.landlord_name, ll.name) AS landlord_name,
-             tp.full_name AS tenant_name, rr.rent_amount,
-             al.created_at + interval '24 hours' AS deadline_at
+             ap.full_name AS agent_name, COALESCE(al.landlord_name, ll.name) AS landlord_name,
+             tp.full_name AS tenant_name, rr.rent_amount, al.created_at
       FROM public.agent_landlord_float_allocations al
       JOIN public.rent_requests rr ON rr.id = al.rent_request_id
       JOIN public.profiles ap      ON ap.id = al.agent_id
       LEFT JOIN public.profiles tp ON tp.id = rr.tenant_id
-      LEFT JOIN public.landlords ll ON ll.id = al.landlord_id
-      , since
-      WHERE al.created_at >= since.t
-        AND rr.status = 'funded'
+      LEFT JOIN public.landlords ll ON ll.id = al.landlord_id, since
+      WHERE al.created_at >= since.t AND rr.status = 'funded'
         AND al.status IN ('open','partially_paid')
         AND COALESCE(btrim(ap.phone),'') <> ''
         AND NOT EXISTS (SELECT 1 FROM public.sms_delivery_log s
                          WHERE s.idempotency_key = 'rent-plan-a1:'||rr.id::text)
     ) x
   ),
+  paid AS (
+    SELECT ev.related_entity_id AS rent_request_id,
+           (ev.metadata->>'landlord_name') AS landlord_name,
+           (ev.metadata->>'landlord_payout_id')::uuid AS payout_id,
+           (ev.metadata->>'finops_momo_reference') AS momo_ref,
+           rr.tenant_id, rr.rent_amount, rr.duration_days, rr.total_repayment,
+           rr.repayment_starts_on,
+           CASE WHEN lower(COALESCE(rr.repayment_frequency,'daily'))='weekly'
+                THEN COALESCE(rr.daily_repayment,0)*7 ELSE COALESCE(rr.daily_repayment,0) END AS instalment,
+           CASE WHEN lower(COALESCE(rr.repayment_frequency,'daily'))='weekly'
+                THEN 'per week' ELSE 'per day' END AS period_label,
+           COALESCE(rr.assigned_agent_id, rr.agent_id) AS agent_id
+    FROM public.system_events ev
+    JOIN public.rent_requests rr ON rr.id = ev.related_entity_id, since
+    WHERE ev.event_type = 'rent_request_repaying_started'
+      AND ev.created_at >= since.t
+      AND rr.status = 'repaying'
+  ),
   t1 AS (
     SELECT jsonb_agg(jsonb_build_object(
-      'kind','tenant_welcome',
-      'rent_request_id',     y.rent_request_id,
-      'reference_id',        't1:'||y.rent_request_id::text,
-      'tenant_id',           y.tenant_id,
-      'tenant_phone',        y.tenant_phone,
-      'tenant_first_name',   y.tenant_first_name,
-      'landlord_name',       y.landlord_name,
-      'rent_amount',         y.rent_amount,
-      'instalment',          y.instalment,
-      'period_label',        y.period_label,
-      'duration_days',       y.duration_days,
-      'total_repayment',     y.total_repayment,
-      'repayment_starts_on', y.repayment_starts_on,
-      'agent_name',          y.agent_name,
-      'agent_phone',         y.agent_phone
-    ) ORDER BY y.repayment_starts_on) AS rows
-    FROM (
-      SELECT rr.id AS rent_request_id, rr.tenant_id, tp.phone AS tenant_phone,
-             split_part(btrim(COALESCE(tp.full_name,'')), ' ', 1) AS tenant_first_name,
-             (ev.metadata->>'landlord_name') AS landlord_name,
-             rr.rent_amount,
-             -- Weekly plans are billed the whole week on their due day, so the
-             -- tenant must be quoted the weekly figure, not one seventh of it.
-             CASE WHEN lower(COALESCE(rr.repayment_frequency,'daily')) = 'weekly'
-                  THEN COALESCE(rr.daily_repayment,0) * 7
-                  ELSE COALESCE(rr.daily_repayment,0) END AS instalment,
-             CASE WHEN lower(COALESCE(rr.repayment_frequency,'daily')) = 'weekly'
-                  THEN 'per week' ELSE 'per day' END AS period_label,
-             rr.duration_days, rr.total_repayment, rr.repayment_starts_on,
-             ap.full_name AS agent_name, ap.phone AS agent_phone
-      FROM public.system_events ev
-      JOIN public.rent_requests rr ON rr.id = ev.related_entity_id
-      JOIN public.profiles tp      ON tp.id = rr.tenant_id
-      LEFT JOIN public.profiles ap ON ap.id = COALESCE(rr.assigned_agent_id, rr.agent_id)
-      , since
-      WHERE ev.event_type = 'rent_request_repaying_started'
-        AND ev.created_at >= since.t
-        AND rr.status = 'repaying'
-        AND COALESCE(btrim(tp.phone),'') <> ''
-        AND NOT EXISTS (SELECT 1 FROM public.sms_delivery_log s
-                         WHERE s.idempotency_key = 'rent-plan-t1:'||rr.id::text)
-    ) y
+      'kind','tenant_welcome','rent_request_id',p.rent_request_id,'tenant_id',p.tenant_id,
+      'tenant_phone',tp.phone,
+      'tenant_first_name',split_part(btrim(COALESCE(tp.full_name,'')),' ',1),
+      'landlord_name',p.landlord_name,'rent_amount',p.rent_amount,
+      'instalment',p.instalment,'period_label',p.period_label,
+      'duration_days',p.duration_days,'total_repayment',p.total_repayment,
+      'repayment_starts_on',p.repayment_starts_on,
+      'agent_name',ap.full_name,'agent_phone',ap.phone
+    ) ORDER BY p.repayment_starts_on) AS rows
+    FROM paid p
+    JOIN public.profiles tp ON tp.id = p.tenant_id
+    LEFT JOIN public.profiles ap ON ap.id = p.agent_id
+    WHERE COALESCE(btrim(tp.phone),'') <> ''
+      AND NOT EXISTS (SELECT 1 FROM public.sms_delivery_log s
+                       WHERE s.idempotency_key = 'rent-plan-t1:'||p.rent_request_id::text)
+  ),
+  -- The 1% is quoted only when its ledger leg actually exists, so the message
+  -- can never promise a commission that was not posted.
+  ag AS (
+    SELECT jsonb_agg(jsonb_build_object(
+      'kind','agent_landlord_paid','rent_request_id',p.rent_request_id,
+      'agent_id',p.agent_id,'agent_phone',ap.phone,'agent_name',ap.full_name,
+      'landlord_name',p.landlord_name,'tenant_first_name',split_part(btrim(COALESCE(tp.full_name,'')),' ',1),
+      'rent_amount',p.rent_amount,'instalment',p.instalment,'period_label',p.period_label,
+      'repayment_starts_on',p.repayment_starts_on,'momo_ref',p.momo_ref,
+      'receipt_number',(SELECT r.receipt_number FROM public.landlord_payout_receipts r
+                         WHERE r.payout_id = p.payout_id LIMIT 1),
+      'commission_ugx',(SELECT gl.amount FROM public.general_ledger gl
+                         WHERE gl.source_table='landlord_payouts' AND gl.source_id = p.payout_id
+                           AND gl.category='agent_commission_earned' AND gl.ledger_scope='wallet'
+                         LIMIT 1)
+    ) ORDER BY p.repayment_starts_on) AS rows
+    FROM paid p
+    JOIN public.profiles ap ON ap.id = p.agent_id
+    LEFT JOIN public.profiles tp ON tp.id = p.tenant_id
+    WHERE COALESCE(btrim(ap.phone),'') <> ''
+      AND NOT EXISTS (SELECT 1 FROM public.sms_delivery_log s
+                       WHERE s.idempotency_key = 'rent-plan-ap:'||p.rent_request_id::text)
   )
   SELECT jsonb_build_object(
     'as_of', now(),
-    'agent_float_funded', COALESCE((SELECT rows FROM a1), '[]'::jsonb),
-    'tenant_welcome',     COALESCE((SELECT rows FROM t1), '[]'::jsonb)
+    'agent_float_funded',  COALESCE((SELECT rows FROM a1), '[]'::jsonb),
+    'tenant_welcome',      COALESCE((SELECT rows FROM t1), '[]'::jsonb),
+    'agent_landlord_paid', COALESCE((SELECT rows FROM ag), '[]'::jsonb)
   );
 $function$;
 
