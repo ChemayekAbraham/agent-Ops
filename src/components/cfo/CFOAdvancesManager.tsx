@@ -48,6 +48,8 @@ export function CFOAdvancesManager() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  // cancel_agent_advance requires a reason of at least 10 characters.
+  const [cancelReason, setCancelReason] = useState('');
   const [exporting, setExporting] = useState(false);
   const [exportingPayments, setExportingPayments] = useState(false);
   const [paymentAdvance, setPaymentAdvance] = useState<any | null>(null);
@@ -187,30 +189,53 @@ export function CFOAdvancesManager() {
     }
   };
 
-  const handleDeleteSelected = async () => {
+  // Cancels the selected advances through cancel_agent_advance.
+  //
+  // This used to be `supabase.from('agent_advances').delete()`, which destroyed
+  // the rows outright — no pre_cancel_outstanding, no ledger entry, and an audit
+  // row written by a separate unguarded call that could fail on its own. It ran
+  // once, on 2026-05-05, and that advance is unrecoverable.
+  //
+  // cancel_agent_advance locks the row, enforces the CFO/Manager gate, requires
+  // a reason, preserves pre_cancel_outstanding and writes its audit row inside
+  // the same transaction. It takes one advance at a time, so we loop and report
+  // per-advance outcomes rather than failing the whole batch on one error.
+  const handleCancelSelected = async () => {
+    if (cancelReason.trim().length < 10) {
+      toast.error('Please enter a reason (min 10 characters).');
+      return;
+    }
+
     setDeleting(true);
     try {
       const ids = Array.from(selectedIds);
-      const { error } = await supabase.from('agent_advances').delete().in('id', ids);
-      if (error) throw error;
+      const failures: { id: string; message: string }[] = [];
 
-      await supabase.from('audit_logs').insert({
-        user_id: user?.id,
-        action_type: 'cfo_advance_deleted',
-        table_name: 'agent_advances',
-        record_id: ids[0],
-        metadata: {
-          count: ids.length,
-          advance_ids: ids,
-        },
-      });
+      for (const id of ids) {
+        const { error } = await supabase.rpc('cancel_agent_advance', {
+          p_advance_id: id,
+          p_recoup: false,
+          p_reason: cancelReason.trim(),
+        });
+        if (error) failures.push({ id, message: error.message });
+      }
 
-      toast.success(`${ids.length} advance(s) deleted`);
-      setSelectedIds(new Set());
-      setDeleteDialogOpen(false);
+      const succeeded = ids.length - failures.length;
+      if (succeeded > 0) toast.success(`${succeeded} advance(s) cancelled`);
+      if (failures.length > 0) {
+        toast.error(
+          `${failures.length} could not be cancelled: ${failures[0].message}`,
+        );
+      }
+
+      if (succeeded > 0) {
+        setSelectedIds(new Set());
+        setCancelReason('');
+        setDeleteDialogOpen(false);
+      }
       refetch();
     } catch (e: any) {
-      toast.error(e.message || 'Delete failed');
+      toast.error(e.message || 'Cancellation failed');
     } finally {
       setDeleting(false);
     }
@@ -541,15 +566,32 @@ export function CFOAdvancesManager() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete {selectedIds.size} advance(s)?</AlertDialogTitle>
+            <AlertDialogTitle>Cancel {selectedIds.size} advance(s)?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will permanently remove the selected advance records. This action cannot be undone.
+              Each advance is cancelled as a write-off: the outstanding balance is set to zero
+              and the pre-cancellation balance is retained on the record. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="bulk-cancel-reason" className="text-xs">
+              Reason (min 10 characters)
+            </Label>
+            <Input
+              id="bulk-cancel-reason"
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder="Why are these advances being cancelled?"
+              disabled={deleting}
+            />
+          </div>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteSelected} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              {deleting ? 'Deleting...' : 'Delete'}
+            <AlertDialogCancel disabled={deleting}>Back</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleCancelSelected}
+              disabled={deleting || cancelReason.trim().length < 10}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? 'Cancelling...' : 'Cancel advances'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
