@@ -44167,6 +44167,39 @@ export type Database = {
         }
         Relationships: []
       }
+      tenant_ops_weekly_metrics: {
+        Row: {
+          captured_at: string
+          new_tenants_added: number
+          non_paying_tenants: number
+          paying_tenants: number
+          payment_rate_pct: number
+          total_active_tenants: number
+          week_end: string
+          week_start: string
+        }
+        Insert: {
+          captured_at?: string
+          new_tenants_added?: number
+          non_paying_tenants?: number
+          paying_tenants?: number
+          payment_rate_pct?: number
+          total_active_tenants?: number
+          week_end: string
+          week_start: string
+        }
+        Update: {
+          captured_at?: string
+          new_tenants_added?: number
+          non_paying_tenants?: number
+          paying_tenants?: number
+          payment_rate_pct?: number
+          total_active_tenants?: number
+          week_end?: string
+          week_start?: string
+        }
+        Relationships: []
+      }
       tenant_phone_duplicate_alerts: {
         Row: {
           created_at: string
@@ -53822,6 +53855,16 @@ export type Database = {
         Args: { p_roles: string[]; p_user: string }
         Returns: boolean
       }
+      _tenant_ops_weekly_metrics_raw: {
+        Args: { p_week_end: string; p_week_start: string }
+        Returns: {
+          new_tenants_added: number
+          non_paying_tenants: number
+          paying_tenants: number
+          payment_rate_pct: number
+          total_active_tenants: number
+        }[]
+      }
       _test_proxy_capability_sync: {
         Args: never
         Returns: {
@@ -60697,6 +60740,29 @@ export type Database = {
           total_tenants: number
         }[]
       }
+      get_tenant_ops_weekly_history: {
+        Args: { p_limit?: number }
+        Returns: {
+          captured_at: string
+          new_tenants_added: number
+          non_paying_tenants: number
+          paying_tenants: number
+          payment_rate_pct: number
+          total_active_tenants: number
+          week_end: string
+          week_start: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "tenant_ops_weekly_metrics"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      get_tenant_ops_weekly_performance: {
+        Args: { p_anchor?: string }
+        Returns: Json
+      }
       get_tenant_payment_day_state: {
         Args: { p_as_of?: string; p_tenant_ids?: string[] }
         Returns: {
@@ -63879,6 +63945,14 @@ export type Database = {
       pin_agent_expected_day_for_plan: {
         Args: { p_rent_request_id: string }
         Returns: number
+      }
+      pin_tenant_ops_weekly_metrics: {
+        Args: { p_anchor?: string }
+        Returns: number
+      }
+      pin_tenant_ops_weekly_metrics_catchup: {
+        Args: { p_lookback_weeks?: number }
+        Returns: Json
       }
       populate_wallet_review_queue: {
         Args: never
