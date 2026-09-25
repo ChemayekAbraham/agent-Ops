@@ -72,3 +72,13 @@ select tgname from pg_trigger where tgname in ('trg_zz_auto_verify_payout_destin
 select jobname, schedule from cron.job where jobname = 'auto-verify-waiting-payout-destinations';
 select count(*) from audit_logs where action_type = 'payout_destination_auto_verified' and created_at > '2026-09-25';
 ```
+
+## Applied live 2026-09-25
+
+Josh ran both migrations by hand at 13:46–13:47 UTC.
+- The first sweep verified 4 rows, all by name match.
+- The second sweep verified 11 with the SMS code + face + ID number rule:
+  - 8 had the SMS code confirmed on that exact destination;
+  - 3 more (Aine; Yasin, on Fred Muwanguzi's ID; Nakanwagi Ritah Lilian) used the number being their own login phone as ownership proof.
+
+After that, 2,804 rows were still waiting. All three triggers and the 10-minute cron job are live.
