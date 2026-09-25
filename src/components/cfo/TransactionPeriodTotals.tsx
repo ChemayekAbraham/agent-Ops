@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
-import { BarChart3, Loader2 } from 'lucide-react';
+import { BarChart3, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { format, parseISO, startOfWeek } from 'date-fns';
 
 /**
@@ -16,6 +16,10 @@ import { format, parseISO, startOfWeek } from 'date-fns';
  *
  * Every ledger movement is double-entry, so Money In and Money Out mirror
  * each other per period; both are shown so the CFO sees the gross volume.
+ *
+ * Tapping a period row expands a "what it was for" breakdown powered by
+ * `get_wallet_ledger_category_sums` (wallet-scope ledger legs grouped by
+ * category) for that exact period window.
  */
 
 interface DailyRow {
@@ -31,10 +35,21 @@ interface PeriodBucket {
   label: string;
   inflow: number;
   outflow: number;
+  from: string; // ISO timestamptz (inclusive)
+  to: string; // ISO timestamptz (exclusive)
+}
+
+interface CategoryLine {
+  category: string;
+  label: string;
+  inflow: number;
+  outflow: number;
 }
 
 const DAILY_WINDOW = 90; // RPC hard cap
 const DAILY_ROWS_SHOWN = 14;
+const CATEGORY_LINES_SHOWN = 12;
+const EAT_OFFSET_MS = 3 * 3_600_000; // Africa/Kampala is UTC+3, no DST
 
 const fmtUgx = (n: number) =>
   `${n < 0 ? '-' : ''}UGX ${new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Math.abs(n))}`;
@@ -45,8 +60,58 @@ function weekStartKey(day: string) {
   return format(startOfWeek(d, { weekStartsOn: 1 }), 'yyyy-MM-dd');
 }
 
+/** Inclusive start / exclusive end of a Kampala calendar day, as ISO strings. */
+function dayWindow(dayKey: string): { from: string; to: string } {
+  const startUtc = Date.parse(`${dayKey}T00:00:00Z`) - EAT_OFFSET_MS;
+  return {
+    from: new Date(startUtc).toISOString(),
+    to: new Date(startUtc + 86_400_000).toISOString(),
+  };
+}
+
+const CATEGORY_LABELS: Record<string, string> = {
+  agent_float_deposit: 'Agent float deposits',
+  agent_float_settlement: 'Agent float settlements',
+  agent_float_cash_offset: 'Agent float cash offsets',
+  agent_float_cycle_settled_to_bank: 'Agent float settled to bank',
+  partner_funding: 'Supporter funding',
+  partner_receivable_capital: 'Supporter receivable (capital)',
+  partner_receivable_created: 'Supporter receivable created',
+  roi_expense: 'Returns expense',
+  roi_wallet_credit: 'Returns paid to wallets',
+  roi_reinvestment: 'Returns reinvested',
+  pending_portfolio_topup: 'Pending portfolio top-ups',
+  wallet_withdrawal: 'Wallet withdrawals',
+  wallet_deposit: 'Wallet deposits',
+  wallet_transfer: 'Wallet transfers',
+  bucket_reclass_in: 'Bucket reclassifications (in)',
+  bucket_reclass_out: 'Bucket reclassifications (out)',
+  cash_receipt_in_transit: 'Cash receipts in transit',
+  cash_custody_payable: 'Cash custody payable',
+  rent_receivable_created: 'Rent receivables created',
+  rent_plan_receivable_restatement: 'Rent plan receivable restatements',
+  receivable_restatement_equity: 'Receivable restatement equity',
+  verified_bank_cash_recognised: 'Verified bank cash recognised',
+  rent_collection: 'Rent collections',
+  rent_payment: 'Rent payments',
+  commission_earned: 'Commission earned',
+  agent_commission: 'Agent commission',
+  salary_payment: 'Salary payments',
+  advance_disbursement: 'Advance disbursements',
+  advance_recovery: 'Advance recoveries',
+  system_balance_correction: 'Balance corrections',
+};
+
+function categoryLabel(category: string): string {
+  if (CATEGORY_LABELS[category]) return CATEGORY_LABELS[category];
+  return category
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
 export function TransactionPeriodTotals() {
   const [mode, setMode] = useState<PeriodMode>('daily');
+  const [expandedKey, setExpandedKey] = useState<string | null>(null);
 
   const { data, isLoading, error } = useQuery<DailyRow[]>({
     queryKey: ['cfo-transaction-period-totals'],
@@ -75,9 +140,10 @@ export function TransactionPeriodTotals() {
         label: format(parseISO(r.day), 'EEE d MMM'),
         inflow: r.inflow,
         outflow: r.outflow,
+        ...dayWindow(r.day),
       }));
     }
-    const map = new Map<string, PeriodBucket>();
+    const map = new Map<string, PeriodBucket & { days: string[] }>();
     for (const r of dailyRows) {
       let key: string;
       let label: string;
@@ -89,16 +155,56 @@ export function TransactionPeriodTotals() {
         key = r.day.slice(0, 7);
         label = format(parseISO(`${key}-01`), 'MMMM yyyy');
       }
-      const cur = map.get(key) ?? { key, label, inflow: 0, outflow: 0 };
+      const cur = map.get(key) ?? { key, label, inflow: 0, outflow: 0, from: '', to: '', days: [] as string[] };
       cur.inflow += r.inflow;
       cur.outflow += r.outflow;
+      cur.days.push(r.day);
       map.set(key, cur);
     }
-    return Array.from(map.values()).sort((a, b) => b.key.localeCompare(a.key));
+    return Array.from(map.values())
+      .sort((a, b) => b.key.localeCompare(a.key))
+      .map((b) => {
+        const first = b.days[b.days.length - 1]; // earliest day in bucket
+        const last = b.days[0]; // latest day in bucket
+        const from = dayWindow(first).from;
+        const to = dayWindow(last).to;
+        return { key: b.key, label: b.label, inflow: b.inflow, outflow: b.outflow, from, to };
+      });
   }, [dailyRows, mode]);
 
   const totalInflow = buckets.reduce((s, b) => s + b.inflow, 0);
   const totalOutflow = buckets.reduce((s, b) => s + b.outflow, 0);
+
+  const expandedBucket = expandedKey ? buckets.find((b) => b.key === expandedKey) ?? null : null;
+
+  const { data: categoryLines, isLoading: categoriesLoading } = useQuery<CategoryLine[]>({
+    queryKey: ['cfo-period-category-breakdown', expandedBucket?.from, expandedBucket?.to],
+    enabled: !!expandedBucket,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_wallet_ledger_category_sums', {
+        p_from: expandedBucket!.from,
+        p_to: expandedBucket!.to,
+      });
+      if (error) throw error;
+      const map = new Map<string, CategoryLine>();
+      for (const r of (data as any[]) || []) {
+        const category = String(r.category || 'other');
+        const cur = map.get(category) ?? {
+          category,
+          label: categoryLabel(category),
+          inflow: 0,
+          outflow: 0,
+        };
+        if (r.direction === 'cash_in') cur.inflow += Number(r.amount) || 0;
+        else cur.outflow += Number(r.amount) || 0;
+        map.set(category, cur);
+      }
+      return Array.from(map.values()).sort(
+        (a, b) => Math.max(b.inflow, b.outflow) - Math.max(a.inflow, a.outflow),
+      );
+    },
+    staleTime: 60_000,
+  });
 
   const totalLabel =
     mode === 'daily'
@@ -122,7 +228,10 @@ export function TransactionPeriodTotals() {
               <button
                 key={m}
                 type="button"
-                onClick={() => setMode(m)}
+                onClick={() => {
+                  setMode(m);
+                  setExpandedKey(null);
+                }}
                 aria-pressed={mode === m}
                 className={`rounded-full px-3 py-1 text-xs font-medium capitalize transition-colors ${
                   mode === m
@@ -154,22 +263,30 @@ export function TransactionPeriodTotals() {
                       <th className="text-left px-3 py-2 font-semibold">{mode === 'daily' ? 'Day' : mode === 'weekly' ? 'Week' : 'Month'}</th>
                       <th className="text-right px-3 py-2 font-semibold text-emerald-700">Money In</th>
                       <th className="text-right px-3 py-2 font-semibold text-rose-700">Money Out</th>
+                      <th className="w-8 px-2 py-2" aria-label="Details" />
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
-                    {buckets.map((b) => (
-                      <tr key={b.key} className="hover:bg-muted/30">
-                        <td className="px-3 py-2 font-medium">{b.label}</td>
-                        <td className="px-3 py-2 text-right tabular-nums font-mono text-emerald-700">{fmtUgx(b.inflow)}</td>
-                        <td className="px-3 py-2 text-right tabular-nums font-mono text-rose-700">{fmtUgx(b.outflow)}</td>
-                      </tr>
-                    ))}
+                    {buckets.map((b) => {
+                      const isOpen = expandedKey === b.key;
+                      return (
+                        <FragmentRow
+                          key={b.key}
+                          bucket={b}
+                          isOpen={isOpen}
+                          onToggle={() => setExpandedKey(isOpen ? null : b.key)}
+                          categoriesLoading={categoriesLoading}
+                          categoryLines={isOpen ? categoryLines : undefined}
+                        />
+                      );
+                    })}
                   </tbody>
                   <tfoot className="bg-muted/30 font-semibold">
                     <tr>
                       <td className="px-3 py-2">{totalLabel}</td>
                       <td className="px-3 py-2 text-right tabular-nums font-mono text-emerald-700">{fmtUgx(totalInflow)}</td>
                       <td className="px-3 py-2 text-right tabular-nums font-mono text-rose-700">{fmtUgx(totalOutflow)}</td>
+                      <td />
                     </tr>
                   </tfoot>
                 </table>
@@ -178,7 +295,7 @@ export function TransactionPeriodTotals() {
             <p className="mt-2 text-[11px] text-muted-foreground">
               Uganda calendar days (EAT). Money In and Money Out mirror each other because every
               movement is recorded as a balanced double entry — together they show the gross volume
-              of transactions for the period.
+              of transactions for the period. Tap a row to see what the transactions were for.
               {mode === 'daily' && dailyRows.length > DAILY_ROWS_SHOWN && (
                 <> Showing the most recent {DAILY_ROWS_SHOWN} of {dailyRows.length} days.</>
               )}
@@ -187,5 +304,84 @@ export function TransactionPeriodTotals() {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+function FragmentRow({
+  bucket,
+  isOpen,
+  onToggle,
+  categoriesLoading,
+  categoryLines,
+}: {
+  bucket: PeriodBucket;
+  isOpen: boolean;
+  onToggle: () => void;
+  categoriesLoading: boolean;
+  categoryLines?: CategoryLine[];
+}) {
+  const shown = categoryLines?.slice(0, CATEGORY_LINES_SHOWN) ?? [];
+  const hiddenCount = (categoryLines?.length ?? 0) - shown.length;
+  return (
+    <>
+      <tr
+        className="hover:bg-muted/30 cursor-pointer select-none"
+        onClick={onToggle}
+        aria-expanded={isOpen}
+      >
+        <td className="px-3 py-2 font-medium">{bucket.label}</td>
+        <td className="px-3 py-2 text-right tabular-nums font-mono text-emerald-700">{fmtUgx(bucket.inflow)}</td>
+        <td className="px-3 py-2 text-right tabular-nums font-mono text-rose-700">{fmtUgx(bucket.outflow)}</td>
+        <td className="px-2 py-2 text-muted-foreground">
+          {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </td>
+      </tr>
+      {isOpen && (
+        <tr className="bg-muted/20">
+          <td colSpan={4} className="px-3 py-3">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+              What the transactions were for — {bucket.label}
+            </p>
+            {categoriesLoading ? (
+              <div className="flex items-center gap-2 py-3 text-xs text-muted-foreground">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading breakdown…
+              </div>
+            ) : !shown.length ? (
+              <p className="py-2 text-xs text-muted-foreground">No wallet transactions recorded in this period.</p>
+            ) : (
+              <div className="rounded-md border border-border/60 overflow-hidden bg-background">
+                <table className="w-full text-xs">
+                  <thead className="bg-muted/40">
+                    <tr className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      <th className="text-left px-2.5 py-1.5 font-semibold">Purpose</th>
+                      <th className="text-right px-2.5 py-1.5 font-semibold text-emerald-700">In</th>
+                      <th className="text-right px-2.5 py-1.5 font-semibold text-rose-700">Out</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border/60">
+                    {shown.map((c) => (
+                      <tr key={c.category}>
+                        <td className="px-2.5 py-1.5">{c.label}</td>
+                        <td className="px-2.5 py-1.5 text-right tabular-nums font-mono text-emerald-700">
+                          {c.inflow ? fmtUgx(c.inflow) : '—'}
+                        </td>
+                        <td className="px-2.5 py-1.5 text-right tabular-nums font-mono text-rose-700">
+                          {c.outflow ? fmtUgx(c.outflow) : '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {hiddenCount > 0 && (
+                  <p className="px-2.5 py-1.5 text-[10px] text-muted-foreground bg-muted/30">
+                    + {hiddenCount} more purpose{hiddenCount === 1 ? '' : 's'} with smaller amounts
+                  </p>
+                )}
+              </div>
+            )}
+          </td>
+        </tr>
+      )}
+    </>
   );
 }
