@@ -984,7 +984,7 @@ function TreasuryWalletFlowSummary({
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      const { data, error } = await supabase.rpc('get_cfo_treasury_wallet_flow_summary', {
+      const { data, error } = await supabase.rpc('get_cfo_treasury_wallet_flow_summary_json', {
         p_from: periodFrom,
         p_include_adjustments: includeAdjustments,
       });
@@ -995,7 +995,7 @@ function TreasuryWalletFlowSummary({
         return;
       }
       const next = { toWallets: [] as TreasuryFlowItem[], toCompany: [] as TreasuryFlowItem[] };
-      for (const row of (data || []) as Array<Record<string, unknown>>) {
+      for (const row of (Array.isArray(data) ? data : []) as Array<Record<string, unknown>>) {
         const item: TreasuryFlowItem = {
           amount: Number(row.amount) || 0,
           category: String(row.category || 'other'),
