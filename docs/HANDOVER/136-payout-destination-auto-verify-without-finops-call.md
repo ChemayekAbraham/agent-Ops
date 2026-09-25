@@ -38,8 +38,28 @@ That rule's **only** caller is `submit_identity_photos`. `ensure_payout_destinat
 
 - **Names that don't match the ID** (relatives, partners). The owner can still clear these instantly with the existing SMS consent code.
 - **Destinations a human rejected**, including the "Resubmitted after rejection" state.
-- **About 2,500 waiting rows whose owners never uploaded an ID photo and selfie.** There is no evidence to verify them on. This is most of the queue, so the backfill only clears **4 rows**. The gain is that matching numbers no longer queue from now on.
-- **`payout_auto_verify_ready`** (SMS code + face match + ID number), which exists live but has no callers. Do **not** wire it in. In a dry run it would have verified 8 rows, including third parties' numbers: "Aguti Elizabeth" on Priscilla Lolem's ID, and "Yaseen Sebunya" and "Tenywa vicent" on Shafeeq Ssenabulya's ID. It proves who the account holder is, not who owns the number.
+- **About 2,500 waiting rows whose owners never uploaded an ID photo and selfie.** There is no evidence to verify them on. This is most of the queue, so the first backfill only cleared **4 rows** (12 with the update below). The gain is that matching numbers no longer queue from now on.
+## Update, same day: the SMS code + face + ID number rule is now wired in too
+
+Migration `20260925180000_wire_sms_face_nin_payout_auto_verify.sql` makes `payout_auto_verify_ready` a second rule inside `payout_destination_auto_verdict`. Josh asked for this. The rule verifies a destination when:
+- the number is proven to be theirs,
+- the latest `national_id_readings` row has `face_verified`,
+- and the ID number read off the photo equals the typed one.
+
+A new trigger, `trg_recheck_payout_destinations_on_reading`, re-runs the check whenever a reading lands. The migration is self-contained: it recreates everything from `20260925170000`.
+
+An earlier draft of this doc said "do not wire it in", because the account name differs from the ID name on all 8 rows it clears (e.g. "Yaseen Sebunya" on Shafeeq Ssenabulya's ID). That was overstated, and those 8 rows are legitimate:
+- all 8 confirmed that exact destination with the SMS code;
+- 7 of the 8 are the person's own login phone and registered payout number;
+- no other account uses any of the 8 numbers.
+
+This is the normal case of a MoMo line registered in a relative's name.
+
+**Gap closed while wiring:** `payout_number_ownership_confirmed` also accepts *any* verified `otp_verifications` row for the number, and that table has no `user_id`. So the number's real owner signing up would count as ownership for someone else. The auto-verify path accepts only two things:
+- `ownership_code_confirmed_at` on the destination row, or
+- the number being the person's own `profiles.phone`.
+
+`payout_auto_verify_ready` itself is unchanged and still has no callers. The backfill now clears **12** rows (4 by name match, 8 by this rule).
 
 ## Risk note
 
@@ -48,7 +68,7 @@ The account name is typed by the user, not looked up from the network. This chan
 ## Verify after deploy
 
 ```sql
-select tgname from pg_trigger where tgname in ('trg_zz_auto_verify_payout_destination','trg_recheck_payout_destinations_on_id');
+select tgname from pg_trigger where tgname in ('trg_zz_auto_verify_payout_destination','trg_recheck_payout_destinations_on_id','trg_recheck_payout_destinations_on_reading');
 select jobname, schedule from cron.job where jobname = 'auto-verify-waiting-payout-destinations';
 select count(*) from audit_logs where action_type = 'payout_destination_auto_verified' and created_at > '2026-09-25';
 ```
