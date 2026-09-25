@@ -550,6 +550,15 @@ export default function PlatformSalesOfficersPage() {
       });
     }
 
+    // A monthly report describes everything collected during that calendar
+    // month. Include notes recorded before the officer's formal assignment
+    // date so a mid-month enrolment does not hide work already completed.
+    if (mode === 'MONTHLY') {
+      for (const entry of byId.values()) {
+        entry.netNotes += entry.preEnrolmentNotes;
+      }
+    }
+
     return Array.from(byId.values());
   }, [rows, fundedSummaries, promiseSummaries, mode]);
 
@@ -604,15 +613,6 @@ export default function PlatformSalesOfficersPage() {
       }
       entry.netNotes += row.net_notes ?? 0;
       entry.weekday[kampalaWeekdayIndex(row.day)] += row.net_notes ?? 0;
-    }
-
-    // A monthly report describes everything collected during that calendar
-    // month. Include notes recorded before the officer's formal assignment
-    // date so a mid-month enrolment does not hide work already completed.
-    if (mode === 'MONTHLY') {
-      for (const entry of byId.values()) {
-        entry.netNotes += entry.preEnrolmentNotes;
-      }
     }
 
     // Same rule for other contributors: commission earned in the window puts a
