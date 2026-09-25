@@ -1617,7 +1617,7 @@ export function SelfPortfolioFundingCard({
           (raw ?? '')
             .replace(/[_-]/g, ' ')
             .replace(/\b\w/g, (c) => c.toUpperCase()) || 'Rental home';
-        const titleLine = `${prettyName(plan.house_category)}${plan.request_city ? ` in ${prettyName(plan.request_city)}` : ''}`;
+        const titleLine = prettyName(plan.house_category);
         const village = plan.tenant_location?.split(',')[0]?.trim();
         const district = plan.request_city?.split(',')[0]?.trim();
         const addressLine = [village, district, 'Uganda'].filter(Boolean).join(', ');
@@ -1705,7 +1705,7 @@ export function SelfPortfolioFundingCard({
                           e.stopPropagation();
                           toggle(plan.rent_request_id);
                         }}
-                        aria-label={`${isSelected ? 'Remove' : 'Select'} plan for ${plan.tenant_full_name ?? plan.tenant_first_name ?? 'tenant'}`}
+                        aria-label={`${isSelected ? 'Remove selected Rent Plan' : 'Fund this House'} for ${plan.tenant_full_name ?? plan.tenant_first_name ?? 'tenant'}`}
                         aria-pressed={isSelected}
                         className="h-11 flex-1 gap-2 rounded-lg text-sm font-bold shadow-sm"
                       >
