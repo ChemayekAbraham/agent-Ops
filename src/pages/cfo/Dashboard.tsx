@@ -97,6 +97,7 @@ import { DuplicateRoiCreditsPanel } from '@/components/cfo/DuplicateRoiCreditsPa
 import { FinanceMonitoringHealthPanel } from '@/components/cfo/FinanceMonitoringHealthPanel';
 import { CFOUnfundingApprovals } from '@/components/cfo/CFOUnfundingApprovals';
 import { CFOAllocationReturnApprovals } from '@/components/cfo/CFOAllocationReturnApprovals';
+import { LandlordFloatIdleQueue } from '@/components/shared/LandlordFloatIdleQueue';
 import { CFOTenantBalanceApprovals } from '@/components/cfo/CFOTenantBalanceApprovals';
 import { SmsDeliveryLogPanel } from '@/components/cfo/SmsDeliveryLogPanel';
 import { SmsFailureAlertsPanel } from '@/components/cfo/SmsFailureAlertsPanel';
@@ -373,6 +374,7 @@ export default function CFODashboardPage() {
               </p>
             </div>
             <CFOTenantBalanceApprovals />
+            <LandlordFloatIdleQueue />
             <CFOAllocationReturnApprovals />
             <RentDisbursementQueue locationProvisionsOnly />
             <PromissoryBookingsPanel />
@@ -412,6 +414,7 @@ export default function CFODashboardPage() {
       case 'unfunding-approvals':
         return (
           <div className="space-y-6">
+            <LandlordFloatIdleQueue />
             <CFOAllocationReturnApprovals />
             <CFOUnfundingApprovals />
           </div>
