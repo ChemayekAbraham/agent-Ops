@@ -492,6 +492,23 @@ export default function SupporterDashboard({
     ]);
   };
 
+  // Same dropdown menu as every other dashboard (DashboardHeader), with the
+  // funder-specific actions from the old side drawer passed as menuItems.
+  const supporterMenuItems: import('@/components/DashboardHeader').MenuItemConfig[] = [
+    { icon: CreditCard, label: 'Add Funds', onClick: () => setShowPaymentPartners(true) },
+    { icon: Wallet, label: 'My Wallet', onClick: () => setShowFunderHub(true) },
+    { icon: TrendingUp, label: 'My Portfolios', onClick: () => { setInvestmentsTab('accounts'); setShowInvestments(true); } },
+    { icon: Home, label: 'Houses I Support', onClick: () => { setInvestmentsTab('accounts'); setShowInvestments(true); } },
+    { icon: Zap, label: 'Angel Pool', onClick: () => { setCapitalView('angel'); document.getElementById('opportunities')?.scrollIntoView({ behavior: 'smooth' }); } },
+    { icon: Calculator, label: 'Returns Calculator', onClick: () => setShowCalculator(true) },
+    { icon: TrendingUp, label: 'Returns Analytics', onClick: () => navigate('/supporter-earnings') },
+    { icon: History, label: 'History', onClick: () => navigate('/transactions') },
+    { icon: FileText, label: 'Statement', onClick: () => navigate('/financial-statement') },
+    { icon: Receipt, label: 'Receipts', onClick: () => navigate('/my-receipts') },
+    { icon: Share2, label: 'Referrals', onClick: () => navigate('/referrals'), separator: true },
+    { icon: ScrollText, label: 'Agreement', onClick: () => { setViewAgreementTab('summary'); setShowViewAgreementModal(true); } },
+  ];
+
   return (
     <div className="h-dvh bg-background flex flex-col overflow-hidden">
       {/* Inactivity lock overlay */}
