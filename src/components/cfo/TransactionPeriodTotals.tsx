@@ -65,7 +65,6 @@ const POOL_ORDER = [
 
 const DAILY_WINDOW = 90; // RPC hard cap
 const DAILY_ROWS_SHOWN = 14;
-const CATEGORY_LINES_SHOWN = 12;
 const EAT_OFFSET_MS = 3 * 3_600_000; // Africa/Kampala is UTC+3, no DST
 
 const fmtUgx = (n: number) =>
