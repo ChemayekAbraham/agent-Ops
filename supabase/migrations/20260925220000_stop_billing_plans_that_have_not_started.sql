@@ -128,7 +128,7 @@ CREATE TABLE IF NOT EXISTS public.agent_expected_day_corrections (
   landlord_paid_at timestamptz,
   repayment_starts_on date,
   removed_at      timestamptz NOT NULL DEFAULT now(),
-  removed_by      text        NOT NULL DEFAULT 'migration:20260925200000',
+  removed_by      text        NOT NULL DEFAULT 'migration:20260925220000',
   CONSTRAINT agent_expected_day_corrections_day_plan_key UNIQUE (day, rent_request_id)
 );
 
