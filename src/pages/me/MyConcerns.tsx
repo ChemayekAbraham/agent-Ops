@@ -97,11 +97,11 @@ function ConcernCard({
   };
 
   return (
-    <div className={CC_ROW}>
+    <div className={`${CC_ROW} scroll-mt-24 overflow-hidden`}>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate text-xs font-bold">{concern.title}</p>
-          <p className="text-[11px] text-muted-foreground">
+          <p className="line-clamp-2 text-sm font-bold leading-snug">{concern.title}</p>
+          <p className="mt-1 text-xs leading-snug text-muted-foreground">
             {concern.source_kind === 'received_call' ? 'Call that came in' : 'Call we made'}
             {concern.caller_name ? ` · about ${concern.caller_name}` : ''} · from{' '}
             {concern.forwarded_by_name ?? 'Officer'} · {stamp(concern.created_at)}
@@ -122,7 +122,7 @@ function ConcernCard({
         </div>
       </div>
 
-      {concern.context && <p className="mt-2 text-[11px] leading-snug">{concern.context}</p>}
+      {concern.context && <p className="mt-3 text-sm leading-relaxed">{concern.context}</p>}
       <div className="mt-1.5 space-y-1.5">
         <ConcernCaseContextPanel concernId={concern.id} fallbackName={concern.caller_name} />
         <ConcernAttachmentsPanel concernId={concern.id} />
@@ -313,7 +313,7 @@ const MyConcerns = () => {
               <CardTitle className="text-sm font-bold leading-tight">Concerns from the Calling Center</CardTitle>
             </div>
           </CardHeader>
-          <CardContent className="p-3 text-[11px] leading-snug text-muted-foreground">
+          <CardContent className="p-3 text-xs leading-relaxed text-muted-foreground">
             When someone in the Calling Center passes a caller's concern to you, it lands here. Confirm you have it,
             work on it, then write what you did before marking it completed. Nothing is ever deleted — every step stays
             on the record.
@@ -327,22 +327,23 @@ const MyConcerns = () => {
         </Card>
 
         <Tabs defaultValue="to_me">
-          <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1.5 rounded-xl border border-border bg-muted/30 p-1.5">
-            <TabsTrigger value="to_me" className="h-9 gap-1.5 rounded-lg px-2.5 text-xs font-semibold">
+          <div className="sticky top-0 z-20 -mx-1 overflow-x-auto bg-background/95 px-1 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/85">
+          <TabsList className="inline-flex h-auto min-w-max justify-start gap-1.5 rounded-xl border border-border bg-muted/30 p-1.5">
+            <TabsTrigger value="to_me" className="min-h-11 gap-1.5 rounded-lg px-3 text-xs font-semibold">
               <Inbox className="h-3.5 w-3.5" />
               Sent to me
               <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
                 {mine.length}
               </Badge>
             </TabsTrigger>
-            <TabsTrigger value="from_me" className="h-9 gap-1.5 rounded-lg px-2.5 text-xs font-semibold">
+            <TabsTrigger value="from_me" className="min-h-11 gap-1.5 rounded-lg px-3 text-xs font-semibold">
               <Send className="h-3.5 w-3.5" />
               I forwarded
               <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
                 {sent.length}
               </Badge>
             </TabsTrigger>
-            <TabsTrigger value="open" className="h-9 gap-1.5 rounded-lg px-2.5 text-xs font-semibold">
+            <TabsTrigger value="open" className="min-h-11 gap-1.5 rounded-lg px-3 text-xs font-semibold">
               <UserPlus className="h-3.5 w-3.5" />
               Open Concerns
               <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
@@ -350,7 +351,7 @@ const MyConcerns = () => {
               </Badge>
             </TabsTrigger>
             {oversight.length > 0 && (
-              <TabsTrigger value="all" className="h-9 gap-1.5 rounded-lg px-2.5 text-xs font-semibold">
+              <TabsTrigger value="all" className="min-h-11 gap-1.5 rounded-lg px-3 text-xs font-semibold">
                 <Forward className="h-3.5 w-3.5" />
                 Everyone else
                 <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
@@ -359,6 +360,7 @@ const MyConcerns = () => {
               </TabsTrigger>
             )}
           </TabsList>
+          </div>
 
           <TabsContent value="to_me" className="mt-3 space-y-2">
             {everything.isLoading || reviewers.isLoading ? (

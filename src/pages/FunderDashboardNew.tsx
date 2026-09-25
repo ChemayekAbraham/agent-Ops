@@ -605,6 +605,7 @@ export default function FunderDashboardNew() {
         }
         onTogglePick={(house) => toggleSelect('empty', house as FunderNewEmptyHouse)}
         isPartner
+        onRelatedHouseClick={(h) => setDetailHouse(h as any)}
         remaining={availableBalance ?? undefined}
       />
       <SelfPortfolioPlanDetailSheet

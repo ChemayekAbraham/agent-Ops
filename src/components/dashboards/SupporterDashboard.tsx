@@ -56,6 +56,8 @@ import type { FunderNewEmptyHouse, FunderNewFilters, FunderNewOrigin } from '@/c
 import type { FunderNewViewport } from '@/components/funder-new/FunderNewRouteMap';
 import { MapBottomSheet } from '@/components/supporter/MapBottomSheet';
 import EmptyHouseDetailSheet from '@/components/agent/EmptyHouseDetailSheet';
+import { FunderNewReviewDialog } from '@/components/funder-new/FunderNewSelectionPanel';
+import { toSelectionItem } from '@/components/funder-new/utils';
 import { useSupportedTenants } from '@/hooks/useSupportedTenants';
 import { useCapitalOpportunities } from '@/hooks/useCapitalOpportunities';
 import { useCurrency } from '@/hooks/useCurrency';
@@ -144,6 +146,7 @@ export default function SupporterDashboard({
   });
   const [mapArea, setMapArea] = useState<{ lat: number; lng: number; radiusKm: number } | null>(null);
   const [mapDetailHouse, setMapDetailHouse] = useState<FunderNewEmptyHouse | null>(null);
+  const [mapFundItem, setMapFundItem] = useState<FunderNewEmptyHouse | null>(null);
 
   const mapOrigin: FunderNewOrigin | null = useMemo(() => {
     if (mapLocation.coords) {
@@ -750,6 +753,34 @@ export default function SupporterDashboard({
         onOpenChange={(open) => {
           if (!open) setMapDetailHouse(null);
         }}
+        isPartner
+        remaining={strictAvailable ?? undefined}
+        onRelatedHouseClick={(h) => setMapDetailHouse(h as any)}
+        onFund={(h: any) => {
+          const cost = Number(h?.monthly_rent || 0);
+          const avail = Number(strictAvailable ?? 0);
+          setMapDetailHouse(null);
+          if (avail < cost) {
+            // Not enough balance: prompt a deposit / top-up.
+            toast({
+              title: 'Not enough balance',
+              description: `Deposit ${_formatUGX(Math.ceil(cost - avail))} to fund this house.`,
+            });
+            setShowPaymentPartners(true);
+            return;
+          }
+          // Enough balance: open the funding confirmation for this house.
+          setMapFundItem(h as FunderNewEmptyHouse);
+        }}
+      />
+      <FunderNewReviewDialog
+        open={!!mapFundItem}
+        onOpenChange={(o) => { if (!o) setMapFundItem(null); }}
+        items={mapFundItem ? [toSelectionItem('empty', mapFundItem)] : []}
+        available={strictAvailable ?? null}
+        walletLoading={false}
+        walletError={null}
+        onRemove={() => setMapFundItem(null)}
       />
       
       <InvestmentPackageSheet

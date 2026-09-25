@@ -176,6 +176,7 @@ export function FunderHouseListingsSection() {
         isPicked={detailHouse ? selectedItems.some((i) => i.category === 'empty' && i.id === detailHouse.house_id) : false}
         onTogglePick={(house) => toggleSelect('empty', house as FunderNewEmptyHouse)}
         isPartner
+        onRelatedHouseClick={(h) => setDetailHouse(h as any)}
         remaining={availableBalance ?? undefined}
         onFund={(house) => {
           const cost = Number(house.monthly_rent || 0);

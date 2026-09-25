@@ -7,8 +7,9 @@
  * figure is recalculated.
  */
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Phone, PhoneIncoming, PhoneOutgoing, UserRound } from 'lucide-react';
+import { MessageCircle, Phone, PhoneIncoming, PhoneOutgoing, UserRound } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { useConcernCaseContext } from '@/hooks/useConcernAttachments';
 
@@ -24,6 +25,14 @@ const stamp = (iso?: string | null) =>
     : '—';
 
 const titleCase = (v?: string | null) => (v ? String(v).replace(/_/g, ' ') : null);
+
+const contactNumber = (value?: string | null) => {
+  if (!value) return null;
+  const digits = value.replace(/\D/g, '');
+  if (digits.length < 9 || digits.length > 15) return null;
+  if (digits.startsWith('0')) return `256${digits.slice(1)}`;
+  return digits;
+};
 
 function Field({ label, value }: { label: string; value?: string | null }) {
   if (!value) return null;
@@ -48,6 +57,7 @@ export function ConcernCaseContextPanel({ concernId, fallbackName }: { concernId
   const plan = person.active_plan ?? null;
   const name = person.full_name || ctx.call.caller_name_recorded || ctx.caller_name || fallbackName || 'Caller';
   const phone = person.phone || ctx.call.caller_phone_recorded || null;
+  const phoneDigits = contactNumber(phone);
 
   return (
     <div className="space-y-2 rounded-xl border border-border/70 bg-muted/20 p-2.5 text-[11px]">
@@ -71,6 +81,28 @@ export function ConcernCaseContextPanel({ concernId, fallbackName }: { concernId
           )}
         </div>
       </div>
+
+      {phoneDigits && (
+        <div className="grid grid-cols-2 gap-2 border-t border-border/60 pt-2">
+          <Button asChild size="lg" className="min-h-12 gap-2 text-sm font-bold shadow-sm">
+            <a href={`tel:+${phoneDigits}`} aria-label={`Call ${name}`}>
+              <Phone className="h-5 w-5" />
+              Call now
+            </a>
+          </Button>
+          <Button asChild size="lg" variant="success" className="min-h-12 gap-2 text-sm font-bold shadow-sm">
+            <a
+              href={`https://wa.me/${phoneDigits}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`WhatsApp ${name}`}
+            >
+              <MessageCircle className="h-5 w-5" />
+              WhatsApp
+            </a>
+          </Button>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-1 border-t border-border/60 pt-1.5 sm:grid-cols-2">
         <Field label="Phone" value={phone} />
