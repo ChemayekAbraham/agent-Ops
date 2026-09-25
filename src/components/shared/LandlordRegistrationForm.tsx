@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useCaptureLocation } from '@/hooks/useCaptureLocation';
+import { useSimilarContacts, describeSimilarContact } from '@/hooks/useSimilarContacts';
 import { Button } from '@/components/ui/button';
 import { formatUgandaPhone, cleanPhoneNumber, toUgandaLocalDigits } from '@/lib/phoneUtils';
 import { Input } from '@/components/ui/input';
@@ -255,6 +256,20 @@ export default function LandlordRegistrationForm({
   // what lets us drop the old village: 'To be confirmed' placeholder.
   const [ugLoc, setUgLoc] = useState<UgLocationSelection | null>(null);
   const [ugLocError, setUgLocError] = useState<string | null>(null);
+
+  // Fuzzy duplicate detection. The existing find_landlord_duplicate check is
+  // exact-match only, so "Walyomu Michael" and "Walyoumu Micheal" read as two
+  // different people. This catches the near misses, scoped by the official
+  // location the agent has already picked.
+  // The hook also returns `matches` and `checking` for a richer
+  // "here are the near matches, reuse one" panel when that is designed.
+  const { blocking: blockingLandlordMatch } = useSimilarContacts({
+    kind: 'landlord',
+    name: landlordName,
+    villageId: ugLoc?.villageId ?? null,
+    village: ugLoc?.village ?? null,
+    district: ugLoc?.district ?? null,
+  });
   const [numberOfRentals, setNumberOfRentals] = useState('');
   const [houseCategory, setHouseCategory] = useState('');
 
@@ -478,6 +493,25 @@ export default function LandlordRegistrationForm({
       });
       return;
     }
+    // A near-certain duplicate in the same village. Surfaced as a field error
+    // rather than a toast so it stays on screen while the agent decides
+    // whether to reuse the existing record.
+    if (blockingLandlordMatch) {
+      setErrors((prev) => ({
+        ...prev,
+        landlordName: describeSimilarContact(blockingLandlordMatch, 'landlord'),
+      }));
+      hapticWarning();
+      setStep(1);
+      focusField('landlordName');
+      toastFn({
+        title: 'This landlord looks already registered',
+        description: describeSimilarContact(blockingLandlordMatch, 'landlord'),
+        variant: 'destructive',
+      });
+      return;
+    }
+
     if (!phoneVerified) {
       const available = await checkPhoneAvailable(landlordPhone);
       if (!available) {
