@@ -527,6 +527,14 @@ export function useMyPayoutDestinations(userId?: string | null) {
     enabled: !!userId,
     staleTime: 30_000,
     queryFn: async (): Promise<MyPayoutDestination[]> => {
+      // Re-run the automatic name-match check first, so a waiting destination
+      // that already qualifies reads "verified" on this fetch (and on "Check
+      // again") instead of waiting for Financial Ops. Best-effort only.
+      try {
+        await (supabase.rpc as any)('recheck_my_payout_destinations');
+      } catch {
+        /* the list below is still authoritative */
+      }
       const { data, error } = await supabase
         .from('payout_destination_verifications')
         .select(
