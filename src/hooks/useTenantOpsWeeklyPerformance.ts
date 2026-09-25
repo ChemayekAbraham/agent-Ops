@@ -19,6 +19,8 @@ export interface TenantOpsWeeklyMetrics {
   payment_rate_pct: number;
   /** Distinct tenants who self-paid via a merchant/mobile-money channel that week. */
   self_payment_tenants: number;
+  /** Tenants currently 20+ days without a payment (snapshot as of when this week was frozen). */
+  dormant_20_plus_count: number;
 }
 
 export interface TenantOpsWeeklyPerformance {
