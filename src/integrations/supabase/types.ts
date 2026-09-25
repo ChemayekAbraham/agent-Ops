@@ -58839,6 +58839,15 @@ export type Database = {
           wallet_bucket: string
         }[]
       }
+      get_cfo_period_breakdown: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          amount: number
+          category: string
+          direction: string
+          pool: string
+        }[]
+      }
       get_cfo_rent_fee_collections: {
         Args: { p_as_at?: string }
         Returns: Json

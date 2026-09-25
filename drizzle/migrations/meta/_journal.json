@@ -2241,6 +2241,13 @@
       "when": 1790324705632,
       "tag": "0319_payout_projection_no_landlord_double_count",
       "breakpoints": true
+    },
+    {
+      "idx": 320,
+      "version": "7",
+      "when": 1790330396543,
+      "tag": "0320_cfo_period_breakdown_by_pool",
+      "breakpoints": true
     }
   ]
 }
