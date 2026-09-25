@@ -48,7 +48,7 @@ the data links …9292 to Sky Bubbles (whose registered Equity account is …707
    with every advance id). No ledger or wallet movement. It can be reversed (`rejected →
    pending_reimbursement` is a legal transition). The `reviewed_at` stamp also stops the classifier
    from reviving the rows.
-2. **Fixed the root cause** in migration `20260925140000_bank_transfer_payouts_not_merchant_oop.sql`,
+2. **Fixed the root cause** in migration `20260925140500_bank_transfer_payouts_not_merchant_oop.sql`,
    applied live via query_database. A completed `bank_transfer` payout that float doesn't fully
    cover now takes the existing no-receivable branch: `merchant_payout_funding.funding_source =
    'needs_review'`, with a treasury-funded note and no claim rows. Float that was actually consumed is

@@ -41,7 +41,7 @@ DECLARE
   v_completed boolean := false;
   v_has_reservation boolean := false;
   v_note text := NULL;
-  -- 20260925140000: bank_transfer payouts are treasury-funded, never merchant own cash.
+  -- 20260925140500: bank_transfer payouts are treasury-funded, never merchant own cash.
   v_treasury_bank boolean := false;
   v_treasury_bank_cutoff CONSTANT timestamptz := '2026-09-25 06:00:00+00';
   -- Before this timestamp, no payout ever received an independent telecom
@@ -103,7 +103,7 @@ BEGIN
   v_own_principal := GREATEST(0, v_amount - v_float_principal);
   v_own_telecom := GREATEST(0, v_telecom - v_float_telecom);
 
-  -- 20260925140000
+  -- 20260925140500
   -- Forward-only: payouts processed before the cutover keep their existing
   -- classification so open claims on other desks are never rewritten.
   v_treasury_bank := v_completed
