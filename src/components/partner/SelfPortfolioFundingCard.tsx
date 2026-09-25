@@ -1603,7 +1603,7 @@ export function SelfPortfolioFundingCard({
       {pageItems.map((item) => {
         if (item.kind !== 'plan') return null;
         return (
-          <div key={`plan-${item.id}`} className="space-y-3 sm:col-span-2">
+          <div key={`plan-${item.id}`} className="min-w-0">
             {(() => {
         const plan = item.plan;
 
@@ -1693,7 +1693,6 @@ export function SelfPortfolioFundingCard({
                   <p className="mt-2 text-xs text-muted-foreground">
                     Earn <span className="font-semibold text-primary">{formatDynamic(monthlyRoi)}</span> monthly
                   </p>
-                </p>
                 </div>
 
                 <div className="flex items-center gap-2">
