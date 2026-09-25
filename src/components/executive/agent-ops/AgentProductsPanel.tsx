@@ -127,7 +127,7 @@ function AgentInlineProfileExpansion({ agentId }: { agentId: string }) {
           p_agent_id: agentId,
           p_category: null,
         }),
-        supabase.from('profiles').select('national_id, is_active, status').eq('id', agentId).maybeSingle(),
+        supabase.from('profiles').select('national_id, is_frozen, frozen_at').eq('id', agentId).maybeSingle(),
         supabase.from('proxy_agent_identity').select('nin').eq('agent_user_id', agentId).maybeSingle(),
         supabase
           .from('rent_requests')
