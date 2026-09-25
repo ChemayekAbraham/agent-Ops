@@ -191,8 +191,9 @@ function buildPdf(r: Report, win: { title: string; pretty: string }, logo: Uint8
   const b = r.backlog || ({} as Record<string, number>);
   const f = r.forecast;
   const days = Math.max(1, Number(r.days) || 1);
-  // Capital in = top-ups applied + compounded + new portfolio capital, all in the window.
-  const inflow = (Number(k.new_capital) || 0) + (Number(t.applied_amount) || 0) + (Number(k.compounded_amount) || 0);
+  // Capital in = new portfolio capital + top-ups applied, all in the window. Cash only:
+  // compounded returns never leave the business, so they are not capital in or out.
+  const inflow = (Number(k.new_capital) || 0) + (Number(t.applied_amount) || 0);
   const outflow = Number(k.paid_out_amount) || 0;
 
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
@@ -350,11 +351,11 @@ function buildPdf(r: Report, win: { title: string; pretty: string }, logo: Uint8
   {
     let cur = drawSectionHead(
       "Headline - the window",
-      `Window is ${days} day${days === 1 ? "" : "s"} of EAT calendar activity. Capital in = top-ups applied that day + returns compounded that day + new portfolios created that day.`,
+      `Window is ${days} day${days === 1 ? "" : "s"} of EAT calendar activity. Capital in = top-ups applied that day + new portfolios created that day (cash only; compounded returns are shown separately).`,
     );
     cur = drawTiles([
       { label: "Capital live (close)", value: compactUGX(k.total_capital), sub: `${num(k.active_portfolios)} active portfolios` },
-      { label: "Capital in (cash)", value: fmtUGX(inflow), sub: `${num(k.new_portfolios)} new - ${num(t.applied_count)} top-ups - ${num(k.compounded_count)} compounded`, kind: "good" },
+      { label: "Capital in (cash)", value: fmtUGX(inflow), sub: `${num(k.new_portfolios)} new - ${num(t.applied_count)} top-ups`, kind: "good" },
       { label: "Returns paid", value: fmtUGX(k.paid_out_amount), sub: `${num(k.paid_out_count)} credits`, kind: "good" },
       { label: "Compounded", value: fmtUGX(k.compounded_amount), sub: `${num(k.compounded_count)} portfolios (non-cash)` },
       { label: "Net capital movement", value: fmtUGX(inflow - outflow), sub: inflow - outflow >= 0 ? "net inflow" : "net outflow", kind: inflow - outflow >= 0 ? "good" : "bad" },
@@ -367,7 +368,7 @@ function buildPdf(r: Report, win: { title: string; pretty: string }, logo: Uint8
   {
     let cur = drawSectionHead(
       "Capital in - new money and top-ups",
-      "New portfolio capital, top-ups merged into existing portfolios and returns compounded back into principal.",
+      "New portfolio capital and top-ups merged into existing portfolios. Compounded returns are shown for reference and are not counted as capital in.",
     );
     cur = drawTiles([
       { label: "New portfolio capital", value: fmtUGX(k.new_capital), sub: `${num(k.new_portfolios)} portfolios`, kind: "good" },
@@ -375,7 +376,7 @@ function buildPdf(r: Report, win: { title: string; pretty: string }, logo: Uint8
       { label: "Compounded into principal", value: fmtUGX(k.compounded_amount), sub: `${num(k.compounded_count)} portfolios` },
     ], cur);
 
-    // Daily bar chart — capital in vs returns settled
+    // Daily bar chart — capital in vs returns paid (cash)
     const series = r.series || [];
     if (series.length) {
       const chartH = 34;
@@ -383,19 +384,19 @@ function buildPdf(r: Report, win: { title: string; pretty: string }, logo: Uint8
       doc.setFont("helvetica", "bold");
       doc.setFontSize(8);
       doc.setTextColor(...INK);
-      doc.text("Daily capital in vs returns settled", margin + 6, cur + 8);
+      doc.text("Daily capital in vs returns paid", margin + 6, cur + 8);
       const baseY = cur + 12 + chartH;
       const maxSeries = Math.max(
         1,
         ...series.map((s: any) => Math.max(
           (Number(s.new_capital) || 0) + (Number(s.topups_applied) || 0),
-          (Number(s.paid_out) || 0) + (Number(s.compounded) || 0),
+          (Number(s.paid_out) || 0),
         )),
       );
       const slot = (contentW - 12) / series.length;
       series.forEach((s: any, i: number) => {
         const cin = (Number(s.new_capital) || 0) + (Number(s.topups_applied) || 0);
-        const cout = (Number(s.paid_out) || 0) + (Number(s.compounded) || 0);
+        const cout = (Number(s.paid_out) || 0);
         const h = (v: number) => Math.max(v > 0 ? 1 : 0, (v / maxSeries) * chartH);
         const cx = margin + 6 + i * slot + slot / 2;
         const bw = Math.min(4, slot / 3);
@@ -417,7 +418,7 @@ function buildPdf(r: Report, win: { title: string; pretty: string }, logo: Uint8
       doc.setTextColor(...EMERALD);
       doc.text("capital in", margin + 6, baseY + 11);
       doc.setTextColor(...ROSE);
-      doc.text("returns settled", margin + 28, baseY + 11);
+      doc.text("returns paid", margin + 28, baseY + 11);
       doc.setTextColor(...MUTED);
       doc.text(`peak ${compactUGX(maxSeries)}`, margin + 58, baseY + 11);
       cur = baseY + 12;
@@ -426,7 +427,6 @@ function buildPdf(r: Report, win: { title: string; pretty: string }, logo: Uint8
     cur = drawTable(["Movement", "Count", "Volume"], [
       ["New portfolio capital", num(k.new_portfolios), fmtUGX(k.new_capital)],
       ["Top-ups applied", num(t.applied_count), fmtUGX(t.applied_amount)],
-      ["Compounded into principal", num(k.compounded_count), fmtUGX(k.compounded_amount)],
       ["Renewals", num(k.renewals_count), fmtUGX(k.renewals_topup_amount)],
     ], cur, ["Capital in", "", fmtUGX(inflow)]);
 
@@ -588,7 +588,7 @@ function buildHtml(r: Report, win: { title: string; pretty: string }): string {
   const b = r.backlog || ({} as Record<string, number>);
   const f = r.forecast;
   const days = Math.max(1, Number(r.days) || 1);
-  const inflow = (Number(k.new_capital) || 0) + (Number(t.applied_amount) || 0) + (Number(k.compounded_amount) || 0);
+  const inflow = (Number(k.new_capital) || 0) + (Number(t.applied_amount) || 0);
   const outflow = Number(k.paid_out_amount) || 0;
 
   const tile = (label: string, value: string, sub: string, kind: "hero" | "good" | "bad" = "hero") => {
@@ -634,17 +634,17 @@ function buildHtml(r: Report, win: { title: string; pretty: string }): string {
   };
   const note = (txt: string) => `<div style="font-size:11.5px;color:#787484;margin-top:10px;line-height:1.55">${esc(txt)}</div>`;
 
-  // Daily chart — capital in vs returns settled
+  // Daily chart — capital in vs returns paid (cash)
   const maxSeries = Math.max(
     1,
     ...r.series.map((s: any) => Math.max(
       (Number(s.new_capital) || 0) + (Number(s.topups_applied) || 0),
-      (Number(s.paid_out) || 0) + (Number(s.compounded) || 0),
+      (Number(s.paid_out) || 0),
     )),
   );
   const bars = r.series.map((s: any) => {
     const cin = (Number(s.new_capital) || 0) + (Number(s.topups_applied) || 0);
-    const cout = (Number(s.paid_out) || 0) + (Number(s.compounded) || 0);
+    const cout = (Number(s.paid_out) || 0);
     const h = (v: number) => Math.max(v > 0 ? 3 : 0, Math.round((v / maxSeries) * 92));
     return `<td style="vertical-align:bottom;text-align:center;padding:0 2px">
       <div style="height:100px;font-size:0;line-height:0">
@@ -697,28 +697,27 @@ function buildHtml(r: Report, win: { title: string; pretty: string }): string {
       </td></tr>
     </table>
 
-    ${section("Headline - the window", `Window is ${days} day${days === 1 ? "" : "s"} of EAT calendar activity. Capital in = top-ups applied that day + returns compounded that day + new portfolios created that day.`, tiles([
+    ${section("Headline - the window", `Window is ${days} day${days === 1 ? "" : "s"} of EAT calendar activity. Capital in = top-ups applied that day + new portfolios created that day (cash only; compounded returns are shown separately).`, tiles([
       tile("Capital live (close)", compactUGX(k.total_capital), `${num(k.active_portfolios)} active portfolios`),
-      tile("Capital in (cash)", fmtUGX(inflow), `${num(k.new_portfolios)} new · ${num(t.applied_count)} top-ups · ${num(k.compounded_count)} compounded`, "good"),
+      tile("Capital in (cash)", fmtUGX(inflow), `${num(k.new_portfolios)} new · ${num(t.applied_count)} top-ups`, "good"),
       tile("Returns paid", fmtUGX(k.paid_out_amount), `${num(k.paid_out_count)} credits`, "good"),
       tile("Compounded", fmtUGX(k.compounded_amount), `${num(k.compounded_count)} portfolios (non-cash)`),
       tile("Net capital movement", fmtUGX(inflow - outflow), inflow - outflow >= 0 ? "net inflow" : "net outflow", inflow - outflow >= 0 ? "good" : "bad"),
       tile("Total promissory notes receivable", fmtUGX(pn.receivable_amount), `${num(pn.total_count)} notes · ${num(pn.pending_count)} pending`, "bad"),
     ]))}
 
-    ${section("Capital in - new money and top-ups", "New portfolio capital, top-ups merged into existing portfolios and returns compounded back into principal.", tiles([
+    ${section("Capital in - new money and top-ups", "New portfolio capital and top-ups merged into existing portfolios. Compounded returns are shown for reference and are not counted as capital in.", tiles([
       tile("New portfolio capital", fmtUGX(k.new_capital), `${num(k.new_portfolios)} portfolios`, "good"),
       tile("Top-ups applied", fmtUGX(t.applied_amount), `${num(t.applied_count)} top-ups`, "good"),
       tile("Compounded into principal", fmtUGX(k.compounded_amount), `${num(k.compounded_count)} portfolios`),
-    ]) + `<div style="font-size:12px;font-weight:700;color:#1e1b2e;margin-top:16px">Daily capital in vs returns settled</div>
+    ]) + `<div style="font-size:12px;font-weight:700;color:#1e1b2e;margin-top:16px">Daily capital in vs returns paid</div>
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;margin-top:8px"><tr>${bars}</tr></table>
       <div style="font-size:11px;color:#787484;margin-top:8px">
         <span style="color:#0f9664;font-weight:800">&#9632;</span> capital in &nbsp;
-        <span style="color:#db2777;font-weight:800">&#9632;</span> returns settled &nbsp;· peak ${esc(compactUGX(maxSeries))}
+        <span style="color:#db2777;font-weight:800">&#9632;</span> returns paid &nbsp;· peak ${esc(compactUGX(maxSeries))}
       </div>` + dataTable(["Movement", "Count", "Volume"], [
         ["New portfolio capital", num(k.new_portfolios), fmtUGX(k.new_capital)],
         ["Top-ups applied", num(t.applied_count), fmtUGX(t.applied_amount)],
-        ["Compounded into principal", num(k.compounded_count), fmtUGX(k.compounded_amount)],
         ["Renewals", num(k.renewals_count), fmtUGX(k.renewals_topup_amount)],
       ], ["Capital in", "", fmtUGX(inflow)]))}
 
