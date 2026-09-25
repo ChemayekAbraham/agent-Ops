@@ -115,7 +115,6 @@ export default function SupporterDashboard({
   const [justAccepted, setJustAccepted] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
   const [showMap, setShowMap] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [mapExpanded, setMapExpanded] = useState(false);
 
   useEffect(() => {
