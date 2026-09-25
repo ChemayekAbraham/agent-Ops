@@ -22034,6 +22034,7 @@ export type Database = {
       landlord_float_idle_alerts: {
         Row: {
           acknowledged_at: string | null
+          acknowledged_by: string | null
           agent_id: string | null
           agent_name: string | null
           allocation_id: string
@@ -22048,12 +22049,16 @@ export type Database = {
           payout_attempted: boolean
           rent_request_id: string
           resolved_at: string | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
           severity: string
           tenant_name: string | null
           updated_at: string
         }
         Insert: {
           acknowledged_at?: string | null
+          acknowledged_by?: string | null
           agent_id?: string | null
           agent_name?: string | null
           allocation_id: string
@@ -22068,12 +22073,16 @@ export type Database = {
           payout_attempted?: boolean
           rent_request_id: string
           resolved_at?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           severity?: string
           tenant_name?: string | null
           updated_at?: string
         }
         Update: {
           acknowledged_at?: string | null
+          acknowledged_by?: string | null
           agent_id?: string | null
           agent_name?: string | null
           allocation_id?: string
@@ -22088,6 +22097,9 @@ export type Database = {
           payout_attempted?: boolean
           rent_request_id?: string
           resolved_at?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           severity?: string
           tenant_name?: string | null
           updated_at?: string
@@ -26868,6 +26880,99 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      merchant_desk_external_funding: {
+        Row: {
+          agent_id: string
+          amount: number
+          channel: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          destination_account: string | null
+          funded_at: string
+          gmail_transaction_id: string | null
+          id: string
+          note: string | null
+          recorded_by: string | null
+          reference: string | null
+          rule_id: string | null
+          source_account: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          agent_id: string
+          amount: number
+          channel: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          destination_account?: string | null
+          funded_at: string
+          gmail_transaction_id?: string | null
+          id?: string
+          note?: string | null
+          recorded_by?: string | null
+          reference?: string | null
+          rule_id?: string | null
+          source_account?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          agent_id?: string
+          amount?: number
+          channel?: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          destination_account?: string | null
+          funded_at?: string
+          gmail_transaction_id?: string | null
+          id?: string
+          note?: string | null
+          recorded_by?: string | null
+          reference?: string | null
+          rule_id?: string | null
+          source_account?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      merchant_desk_funding_rules: {
+        Row: {
+          active: boolean
+          active_from: string
+          agent_id: string
+          body_pattern: string | null
+          created_at: string
+          id: string
+          note: string | null
+          rule_kind: string
+        }
+        Insert: {
+          active?: boolean
+          active_from?: string
+          agent_id: string
+          body_pattern?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          rule_kind: string
+        }
+        Update: {
+          active?: boolean
+          active_from?: string
+          agent_id?: string
+          body_pattern?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          rule_kind?: string
+        }
+        Relationships: []
       }
       merchant_float_deliveries: {
         Row: {
@@ -44062,6 +44167,39 @@ export type Database = {
         }
         Relationships: []
       }
+      tenant_ops_weekly_metrics: {
+        Row: {
+          captured_at: string
+          new_tenants_added: number
+          non_paying_tenants: number
+          paying_tenants: number
+          payment_rate_pct: number
+          total_active_tenants: number
+          week_end: string
+          week_start: string
+        }
+        Insert: {
+          captured_at?: string
+          new_tenants_added?: number
+          non_paying_tenants?: number
+          paying_tenants?: number
+          payment_rate_pct?: number
+          total_active_tenants?: number
+          week_end: string
+          week_start: string
+        }
+        Update: {
+          captured_at?: string
+          new_tenants_added?: number
+          non_paying_tenants?: number
+          paying_tenants?: number
+          payment_rate_pct?: number
+          total_active_tenants?: number
+          week_end?: string
+          week_start?: string
+        }
+        Relationships: []
+      }
       tenant_phone_duplicate_alerts: {
         Row: {
           created_at: string
@@ -53717,6 +53855,16 @@ export type Database = {
         Args: { p_roles: string[]; p_user: string }
         Returns: boolean
       }
+      _tenant_ops_weekly_metrics_raw: {
+        Args: { p_week_end: string; p_week_start: string }
+        Returns: {
+          new_tenants_added: number
+          non_paying_tenants: number
+          paying_tenants: number
+          payment_rate_pct: number
+          total_active_tenants: number
+        }[]
+      }
       _test_proxy_capability_sync: {
         Args: never
         Returns: {
@@ -55264,6 +55412,10 @@ export type Database = {
         Returns: boolean
       }
       can_replay_settlement: { Args: { _user_id: string }; Returns: boolean }
+      can_reverse_landlord_float: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       can_review_bike_leases: { Args: { _user_id: string }; Returns: boolean }
       can_review_smartphone_orders: {
         Args: { _user_id: string }
@@ -55279,6 +55431,10 @@ export type Database = {
       }
       can_view_agent_data: {
         Args: { _target_agent_id: string; _viewer_id: string }
+        Returns: boolean
+      }
+      can_view_landlord_float_queue: {
+        Args: { _user_id: string }
         Returns: boolean
       }
       can_view_payout_reconciliation: {
@@ -56699,6 +56855,10 @@ export type Database = {
       decide_error_correction_approval: {
         Args: { p_approval_id: string; p_decision: string; p_note?: string }
         Returns: Json
+      }
+      decide_merchant_desk_external_funding: {
+        Args: { p_id: string; p_note?: string; p_status: string }
+        Returns: undefined
       }
       decide_national_id_unlink: {
         Args: { p_approve: boolean; p_note?: string; p_request_id: string }
@@ -58722,8 +58882,32 @@ export type Database = {
           wallet_bucket: string
         }[]
       }
+      get_cfo_period_breakdown: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          amount: number
+          category: string
+          direction: string
+          pool: string
+        }[]
+      }
       get_cfo_rent_fee_collections: {
         Args: { p_as_at?: string }
+        Returns: Json
+      }
+      get_cfo_treasury_wallet_flow_summary: {
+        Args: { p_from?: string; p_include_adjustments?: boolean }
+        Returns: {
+          amount: number
+          category: string
+          flow_direction: string
+          party: string
+          transaction_date: string
+          transfer_count: number
+        }[]
+      }
+      get_cfo_treasury_wallet_flow_summary_json: {
+        Args: { p_from?: string; p_include_adjustments?: boolean }
         Returns: Json
       }
       get_cfo_weekly_report: { Args: { p_end?: string }; Returns: Json }
@@ -59383,6 +59567,25 @@ export type Database = {
           p_limit?: number
         }
         Returns: Json
+      }
+      get_merchant_desk_funding_tracker: {
+        Args: { p_agent_ids: string[]; p_from?: string; p_to?: string }
+        Returns: {
+          agent_id: string
+          bank_payouts_amount: number
+          day: string
+          desk_label: string
+          given_external_confirmed: number
+          given_external_suggested: number
+          given_ledger: number
+          oop_outstanding_confirmed: number
+          oop_outstanding_with_suggested: number
+          payouts: number
+          running_confirmed: number
+          running_with_suggested: number
+          taken_back: number
+          used: number
+        }[]
       }
       get_merchant_float_email_movements: {
         Args: { p_days?: number }
@@ -60537,6 +60740,29 @@ export type Database = {
           total_tenants: number
         }[]
       }
+      get_tenant_ops_weekly_history: {
+        Args: { p_limit?: number }
+        Returns: {
+          captured_at: string
+          new_tenants_added: number
+          non_paying_tenants: number
+          paying_tenants: number
+          payment_rate_pct: number
+          total_active_tenants: number
+          week_end: string
+          week_start: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "tenant_ops_weekly_metrics"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      get_tenant_ops_weekly_performance: {
+        Args: { p_anchor?: string }
+        Returns: Json
+      }
       get_tenant_payment_day_state: {
         Args: { p_as_of?: string; p_tenant_ids?: string[] }
         Returns: {
@@ -61539,6 +61765,7 @@ export type Database = {
       is_landlord_ops: { Args: { _user_id: string }; Returns: boolean }
       is_landlord_ops_staff: { Args: { _user_id: string }; Returns: boolean }
       is_merchant_agent: { Args: { p_user_id: string }; Returns: boolean }
+      is_merchant_funding_reviewer: { Args: { _uid: string }; Returns: boolean }
       is_ops_role: { Args: { _user_id: string }; Returns: boolean }
       is_parent_agent: { Args: { _agent_id: string }; Returns: boolean }
       is_partner_not_agent: { Args: { p_user_id: string }; Returns: boolean }
@@ -61649,6 +61876,14 @@ export type Database = {
           witness_name: string
           witness_signed_on: string
         }[]
+      }
+      landlord_float_idle_action: {
+        Args: { p_action: string; p_alert_id: string; p_note: string }
+        Returns: Json
+      }
+      landlord_float_idle_queue: {
+        Args: { p_limit?: number; p_scope?: string }
+        Returns: Json
       }
       landlord_float_recall_go_live: { Args: never; Returns: string }
       landlord_float_withdrawals_paused: { Args: never; Returns: boolean }
@@ -63711,6 +63946,14 @@ export type Database = {
         Args: { p_rent_request_id: string }
         Returns: number
       }
+      pin_tenant_ops_weekly_metrics: {
+        Args: { p_anchor?: string }
+        Returns: number
+      }
+      pin_tenant_ops_weekly_metrics_catchup: {
+        Args: { p_lookback_weeks?: number }
+        Returns: Json
+      }
       populate_wallet_review_queue: {
         Args: never
         Returns: {
@@ -64636,6 +64879,17 @@ export type Database = {
         Returns: undefined
       }
       record_map_query_telemetry: { Args: { p_batch: Json }; Returns: number }
+      record_merchant_desk_external_funding: {
+        Args: {
+          p_agent_id: string
+          p_amount: number
+          p_channel: string
+          p_funded_at: string
+          p_note?: string
+          p_reference?: string
+        }
+        Returns: string
+      }
       record_merchant_float_delivery: {
         Args: {
           p_agent_user_id: string
@@ -66080,6 +66334,7 @@ export type Database = {
             }
             Returns: Json
           }
+      suggest_merchant_desk_external_funding: { Args: never; Returns: number }
       suggest_nearby_agents: {
         Args: { _lat: number; _limit?: number; _lng: number }
         Returns: {

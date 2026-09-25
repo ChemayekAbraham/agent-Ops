@@ -290,7 +290,7 @@ const COMPANY_TO_WALLETS_GROUP_5 = new Set(['marketing_expense']);
 // 6. Operational expenses paid by CFO to different wallets
 const COMPANY_TO_WALLETS_GROUP_6 = new Set(['general_admin_expense', 'operational_expenses']);
 // 7. Payroll paid to employee wallets
-const COMPANY_TO_WALLETS_GROUP_7 = new Set(['payroll_expense', 'payroll', 'salary_payment', 'payroll_growth']);
+const COMPANY_TO_WALLETS_GROUP_7 = new Set(['payroll_expense', 'payroll', 'salary_payment', 'salary_payout', 'payroll_growth']);
 // 8. Tax payments paid to wallets
 const COMPANY_TO_WALLETS_GROUP_8 = new Set(['tax_expense']);
 // 9. Research & Development paid to wallets by CFO
@@ -514,7 +514,7 @@ function Highlight({ text, query }: { text: string | null | undefined; query: st
 // Pure deposits / withdrawals (where both legs move the same direction)
 // are intentionally excluded — they are not internal treasury transfers.
 // ─────────────────────────────────────────────────────────────
-type TreasuryFlowItem = { amount: number; category: string; party: string | null; date: string };
+type TreasuryFlowItem = { amount: number; category: string; party: string | null; date: string; count?: number };
 function summarizeTreasuryFlow(
   items: TreasuryFlowItem[],
   groupDefs: { label: string; categories: Set<string>; color: string }[] = WALLET_TO_COMPANY_GROUPS,
@@ -524,24 +524,25 @@ function summarizeTreasuryFlow(
   const byParty = new Map<string, { amount: number; count: number }>();
   const byGroup = new Map<string, { amount: number; count: number }>();
   for (const i of items) {
+    const transferCount = i.count ?? 1;
     const c = byCat.get(i.category) || { amount: 0, count: 0 };
-    c.amount += i.amount; c.count += 1; byCat.set(i.category, c);
+    c.amount += i.amount; c.count += transferCount; byCat.set(i.category, c);
     if (i.party) {
       const p = byParty.get(i.party) || { amount: 0, count: 0 };
-      p.amount += i.amount; p.count += 1; byParty.set(i.party, p);
+      p.amount += i.amount; p.count += transferCount; byParty.set(i.party, p);
     }
     // Bucket into the provided numbered groups (Company → Wallets or Wallets → Company)
     for (const g of groupDefs) {
       if (g.categories.has(i.category)) {
         const existing = byGroup.get(g.label) || { amount: 0, count: 0 };
-        existing.amount += i.amount; existing.count += 1; byGroup.set(g.label, existing);
+        existing.amount += i.amount; existing.count += transferCount; byGroup.set(g.label, existing);
         break;
       }
     }
   }
   return {
     total,
-    count: items.length,
+    count: items.reduce((sum, item) => sum + (item.count ?? 1), 0),
     // Ordered by the canonical CFO category sequence (LOCKED_CATEGORIES),
     // falling back to amount for any non-canonical categories so the CFO
     // always reads movements in a predictable, familiar order.
@@ -955,10 +956,12 @@ function GroupPeriodDrilldown({
 function TreasuryWalletFlowSummary({
   rows,
   includeAdjustments,
+  periodFrom,
   onDrill,
 }: {
   rows: LedgerRow[];
   includeAdjustments: boolean;
+  periodFrom: string | null;
   onDrill?: (direction: 'cash_in' | 'cash_out', scope: 'wallet') => void;
 }) {
   const [names, setNames] = useState<Record<string, string>>({});
@@ -972,6 +975,41 @@ function TreasuryWalletFlowSummary({
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
   // Compare the selected window against the immediately preceding equal-length window.
   const [compareEnabled, setCompareEnabled] = useState(false);
+
+  const [summaryItems, setSummaryItems] = useState<{
+    toWallets: TreasuryFlowItem[];
+    toCompany: TreasuryFlowItem[];
+  } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data, error } = await supabase.rpc('get_cfo_treasury_wallet_flow_summary_json', {
+        p_from: periodFrom,
+        p_include_adjustments: includeAdjustments,
+      });
+      if (cancelled) return;
+      if (error) {
+        console.error('[CashMovement] treasury summary failed', error);
+        setSummaryItems(null);
+        return;
+      }
+      const next = { toWallets: [] as TreasuryFlowItem[], toCompany: [] as TreasuryFlowItem[] };
+      for (const row of (Array.isArray(data) ? data : []) as Array<Record<string, unknown>>) {
+        const item: TreasuryFlowItem = {
+          amount: Number(row.amount) || 0,
+          category: String(row.category || 'other'),
+          party: row.party ? String(row.party) : null,
+          date: String(row.transaction_date),
+          count: Number(row.transfer_count) || 0,
+        };
+        if (row.flow_direction === 'to_wallets') next.toWallets.push(item);
+        else next.toCompany.push(item);
+      }
+      setSummaryItems(next);
+    })();
+    return () => { cancelled = true; };
+  }, [periodFrom, includeAdjustments]);
 
   const { toWallets, toCompany } = useMemo(() => {
     const groups = new Map<string, LedgerRow[]>();
@@ -1057,13 +1095,15 @@ function TreasuryWalletFlowSummary({
     if (toKey && dayKey > toKey) return false;
     return true;
   }, [excludeToday, todayKey, fromKey, toKey]);
+  const effectiveToWallets = summaryItems?.toWallets ?? toWallets;
+  const effectiveToCompany = summaryItems?.toCompany ?? toCompany;
   const filteredToWallets = useMemo(
-    () => toWallets.filter(i => matchesDateFilter(i.date)),
-    [toWallets, matchesDateFilter],
+    () => effectiveToWallets.filter(i => matchesDateFilter(i.date)),
+    [effectiveToWallets, matchesDateFilter],
   );
   const filteredToCompany = useMemo(
-    () => toCompany.filter(i => matchesDateFilter(i.date)),
-    [toCompany, matchesDateFilter],
+    () => effectiveToCompany.filter(i => matchesDateFilter(i.date)),
+    [effectiveToCompany, matchesDateFilter],
   );
 
   const inSummary = useMemo(() => summarizeTreasuryFlow(filteredToWallets, COMPANY_TO_WALLETS_GROUPS), [filteredToWallets]);
@@ -1089,12 +1129,12 @@ function TreasuryWalletFlowSummary({
     return dayKey >= prevRange.fromKey && dayKey <= prevRange.toKey;
   }, [prevRange]);
   const prevInSummary = useMemo(
-    () => (compareEnabled && prevRange ? summarizeTreasuryFlow(toWallets.filter(i => inPrevRange(i.date)), COMPANY_TO_WALLETS_GROUPS) : null),
-    [compareEnabled, prevRange, toWallets, inPrevRange],
+    () => (compareEnabled && prevRange ? summarizeTreasuryFlow(effectiveToWallets.filter(i => inPrevRange(i.date)), COMPANY_TO_WALLETS_GROUPS) : null),
+    [compareEnabled, prevRange, effectiveToWallets, inPrevRange],
   );
   const prevOutSummary = useMemo(
-    () => (compareEnabled && prevRange ? summarizeTreasuryFlow(toCompany.filter(i => inPrevRange(i.date)), WALLET_TO_COMPANY_GROUPS) : null),
-    [compareEnabled, prevRange, toCompany, inPrevRange],
+    () => (compareEnabled && prevRange ? summarizeTreasuryFlow(effectiveToCompany.filter(i => inPrevRange(i.date)), WALLET_TO_COMPANY_GROUPS) : null),
+    [compareEnabled, prevRange, effectiveToCompany, inPrevRange],
   );
 
   // Resolve party names for the top movers shown on each card.
@@ -3585,7 +3625,10 @@ export function ComprehensiveCashMovement() {
       // ledger RLS policies per row (~3s per 1,000 rows) on top of the deep
       // OFFSET, so large periods returned HTTP 500. Same columns, same order,
       // same rows — only the transport changed.
-      const PAGE = 5000;
+      // The API caps every response at 1,000 rows, so the page size must match
+      // that cap — a larger PAGE made the loop stop after the first response
+      // and silently loaded only the first ~day of the period.
+      const PAGE = 1000;
       const acc: LedgerRow[] = [];
       const seen = new Set<string>();
       let cursorDate: string | null = from ? from.toISOString() : null;
@@ -3614,7 +3657,7 @@ export function ComprehensiveCashMovement() {
           ? new Date(new Date(last.transaction_date).getTime() + 1).toISOString()
           : last.transaction_date;
         pages += 1;
-        if (pages > 400) break; // safety cap
+        if (pages > 2000) break; // safety cap
       }
       setRows(acc);
       setGeneratedAt(new Date());
@@ -4623,6 +4666,7 @@ export function ComprehensiveCashMovement() {
         <TreasuryWalletFlowSummary
           rows={rows}
           includeAdjustments={includeAdjustments}
+          periodFrom={range.from?.toISOString() ?? null}
           onDrill={(direction) => {
             setScopeFilter('wallet');
             setDirectionQuickFilter(direction);

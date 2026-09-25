@@ -93,6 +93,29 @@ Found by running the planned Rent Plan changes through the blueprint's
 
 ### D8 — cancelling a Rent Plan strands the fee receivable ✅ FIXED 25 Sep 2026
 
+**Both routes covered as of the evening of 25 Sep 2026.**
+
+| Route | Function | Fee reversed |
+|---|---|---|
+| CFO/Landlord Ops cancels, and the 24h cron | `cancel_tenant_and_return_landlord_float` | ✅ |
+| Agent requests, one of the four approves | `cfo_decide_allocation_return` | ✅ |
+
+Route 2 does **not** cancel the plan — it sends it back to
+`agent_ops_approved`, where it can be funded again. That is why D11 below had to
+ship in the same change: reversing the fee without making re-recognition
+net-aware would have left a re-funded plan carrying no fee at all.
+
+Verified on a real pending request in a rolled-back transaction:
+`{"status":"reversed","amount":119000,"cycle":0}`, four legs, balanced.
+
+**Historical, uncorrected:** of 37 approved returns, 4 carry a recognised fee.
+Three are on plans **re-funded afterwards and live today** — their receivable is
+real and must not be reversed. Only **1 plan / 119,000** (`5530b7ce`, status
+`rejected`) is genuinely stranded. An earlier read of "3 / 254,500" counted the
+live plans and was wrong.
+
+Original route-1 fix follows.
+
 **Fixed** by `reverse_funding_treasury()`, called from
 `cancel_tenant_and_return_landlord_float` before the plan is cancelled. It posts
 the exact mirror — **DR L7 / CR A3** — netted against anything already drawn
@@ -183,3 +206,56 @@ should be deleted rather than left in place.
 Related: production has **two** functions named `credit_recruiter_override` with
 different signatures, different subagent tables, different status predicates and
 different amounts. One should be dropped.
+
+### D11 — fee recognition was blind to its own reversal ✅ FIXED 25 Sep 2026
+
+Surfaced by D8's route-2 fix, and it would have been silent.
+
+`recognise_funding_treasury`'s guard tested for **any** `treasury_fee_recognised`
+leg without filtering `direction`, and its idempotency key was a bare
+`treasury-funding:<plan>`. A plan that was returned (route 2 sends it back to
+`agent_ops_approved`) and then **funded again** would therefore have:
+
+1. matched the guard against its own reversal leg, reported `already_recognised`,
+   and posted nothing; or
+2. past the guard, collided on the idempotency key and been handed the first
+   cycle's group.
+
+Either way the platform **quietly stops charging the access and registration
+fee** on re-funded plans. Not hypothetical: `4b30340b` and `a7fe92c5` are both
+live today having gone funded → returned → funded.
+
+**Fix:** the guard is now net-aware (`SUM(cash_out) - SUM(cash_in) > 0`) and both
+functions carry a cycle suffix on the key — bare for cycle 0 so every existing
+group is untouched, `:n` thereafter.
+
+Verified in a rolled-back transaction: reverse → `nothing_to_reverse` →
+re-recognise at `cycle 1` → `already_recognised`. Keys observed:
+`treasury-funding:<p>`, `treasury-funding:<p>:1`, `treasury-funding-reversal:<p>`.
+
+**Note the semantic:** re-recognition uses the plan's fees **as they stand now**,
+not the historical amount. On the test plan that was 11,112 against an original
+119,000, because the fees on that plan changed in between. That is correct — but
+it means a re-funded plan is charged today's price.
+
+### D12 — who may reverse landlord float ✅ ALIGNED 25 Sep 2026
+
+The two reversal routes disagreed, in opposite directions:
+
+| | Before | Holders |
+|---|---|---:|
+| `cancel_tenant_and_return_landlord_float` | cfo, manager, super_admin, coo, operations, financial_ops | 74 |
+| `cfo_decide_allocation_return` | `is_cfo_approver()` — cfo **and** a row in `cfo_approval_approvers` | **1** |
+
+Both now use `public.can_reverse_landlord_float(uuid)`: **cfo, landlord_ops,
+cto, super_admin**. `agent` is absent by construction — `request_allocation_return`
+only ever creates a pending row.
+
+Reads are deliberately wider: `can_view_landlord_float_queue()` adds ceo, coo,
+manager, operations, financial_ops, agent_ops. Seeing 13.4m of idle landlord
+money is not the same authority as pulling it back.
+
+**21 users lost** the ability to cancel a tenant and return float. The
+single-member approver bottleneck on route 2 is gone; this is a deliberate
+loosening of that one control, reversible by putting `is_cfo_approver` back into
+the predicate.

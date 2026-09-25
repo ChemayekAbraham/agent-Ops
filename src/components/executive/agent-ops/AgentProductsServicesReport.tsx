@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { format, subDays, startOfMonth, startOfYear, differenceInCalendarDays, startOfDay, endOfDay, isSameDay } from 'date-fns';
+import { format, subDays, startOfMonth, startOfYear, differenceInCalendarDays, startOfDay, endOfDay, isSameDay, isSameMonth } from 'date-fns';
 import { toast } from 'sonner';
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
@@ -11,6 +11,7 @@ import {
 
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useServiceCentres, SERVICE_CENTRE_BONUS } from '@/hooks/useServiceCentres';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -309,23 +310,25 @@ function Kpi({ label, value, hint, current, previous, invert, compareLabel }: {
   );
 }
 
-/** Unified SERVICE CENTRES summary card. Replaces separate Active/Pending tiles. */
+/** Unified SERVICE CENTRES summary card matching the Service Centers Overview item. */
 function ServiceCentreConsolidatedCard({ report, compareLabel, previous }: {
   report: ApsReport; compareLabel?: string;
   previous?: { scActive?: number; scPending?: number; scApprovedVolume?: number; scRejected?: number };
 }) {
   const sc = report.service_centres;
-  const active = Math.max(0, Number(sc.active_total) || 0);
+  const total = Number((sc as any).total ?? sc.active_total ?? 0);
+  const live = Math.max(0, Number(sc.active_total) || 0);
   const pending = Math.max(0, Number(sc.pending_total) || 0);
-  const approvedVolume = Math.max(0, Number(sc.approved_volume) || 0);
+  const awaitingPayout = Math.max(0, Number((sc as any).awaiting_payout ?? 0));
   const rejected = Math.max(0, Number(sc.rejected_count) || 0);
+  const approvedVolume = Math.max(0, Number(sc.approved_volume) || 0);
   const target = Math.max(0, Number(sc.monthly_target) || 0);
-  const targetPct = target > 0 ? (active / target) * 100 : 0;
+  const targetPct = target > 0 ? (total / target) * 100 : 0;
 
   const subItems = [
-    { label: 'Pending verification', value: num(pending), current: pending, previous: previous?.scPending, invert: true },
-    { label: 'New this month', value: num(sc.new_this_month), current: sc.new_this_month, previous: sc.new_prev },
-    { label: 'Approved volume', value: apsUgx(approvedVolume), current: approvedVolume, previous: previous?.scApprovedVolume },
+    { label: 'Awaiting verification', value: num(pending), current: pending, previous: previous?.scPending, invert: true },
+    { label: 'Awaiting payout', value: `${num(awaitingPayout)} (${apsUgx(approvedVolume)})`, current: awaitingPayout },
+    { label: 'Live centres', value: num(live), current: live, previous: previous?.scActive },
     { label: 'Rejected', value: num(rejected), current: rejected, previous: previous?.scRejected, invert: true },
   ];
 
@@ -335,8 +338,10 @@ function ServiceCentreConsolidatedCard({ report, compareLabel, previous }: {
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Service centres</p>
-            <p className="text-2xl font-bold">{num(active)}</p>
-            <p className="text-[10px] text-muted-foreground">Total active service centres</p>
+            <p className="text-2xl font-bold">{num(total)}</p>
+            <p className="text-[10px] text-muted-foreground">
+              {num(live)} live &amp; paid · {num(awaitingPayout)} awaiting payout
+            </p>
           </div>
           {target > 0 && (
             <div className="text-right">
@@ -522,13 +527,101 @@ export function AgentProductsServicesReport() {
     refetchOnWindowFocus: false,
   });
 
+  /** Fetch overview metrics from the canonical get_agent_ops_overview RPC */
+  const overviewQuery = useQuery({
+    queryKey: ['agent-ops-overview', 'aps-sync', startOfDay(startDate).toISOString(), endOfDay(endDate).toISOString()],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_agent_ops_overview' as any, {
+        p_range_start: startOfDay(startDate).toISOString(),
+        p_range_end: endOfDay(endDate).toISOString(),
+      });
+      if (error) throw error;
+      return data as any;
+    },
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+  });
+
+  /** Fetch active agents breakdown from overview */
+  const activeBreakdownQuery = useQuery({
+    queryKey: ['agent-ops-overview', 'active-breakdown-aps', startOfDay(startDate).toISOString(), endOfDay(endDate).toISOString()],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_agent_active_breakdown' as any, {
+        p_range_start: startOfDay(startDate).toISOString(),
+        p_range_end: endOfDay(endDate).toISOString(),
+      });
+      if (error) throw error;
+      return data as any;
+    },
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+  });
+
+  /** Single source of truth for Service Centres (same as Service Centres main item) */
+  const { data: serviceCentresData, refetch: refetchServiceCentres } = useServiceCentres();
+
   const report = useMemo(() => {
     if (!rawReport) return rawReport;
     const map = commissionQuery.data;
     const cc = commandCenterQuery.data;
+    const ok = overviewQuery.data?.kpis;
+    const ab = activeBreakdownQuery.data;
 
     let rent = rawReport.rent;
     let rent_rows = rawReport.rent_rows || [];
+    let agents = rawReport.agents;
+    let service_centres = rawReport.service_centres;
+    let service_centre_rows = rawReport.service_centre_rows || [];
+
+    if (serviceCentresData) {
+      const scRows = serviceCentresData;
+      const byStatus = (s: string) => scRows.filter(r => r.status === s);
+      const paid = byStatus('paid');
+      const approved = byStatus('approved');
+      const verified = byStatus('verified');
+      const pending = byStatus('pending');
+      const rejected = byStatus('rejected');
+      const live = [...paid, ...approved];
+      const newThisMonth = scRows.filter(r => r.created_at && isSameMonth(new Date(r.created_at), new Date())).length;
+      const committedBonus = verified.length * SERVICE_CENTRE_BONUS;
+
+      service_centres = {
+        ...rawReport.service_centres,
+        total: scRows.length,
+        active_total: live.length,
+        pending_total: pending.length,
+        awaiting_payout: verified.length,
+        rejected_count: rejected.length,
+        new_this_month: newThisMonth,
+        approved_volume: committedBonus,
+      } as any;
+
+      service_centre_rows = scRows.map(r => ({
+        id: r.id,
+        agent_name: r.agent_name || 'Unknown agent',
+        agent_phone: r.agent_phone || null,
+        location_name: r.location_name || null,
+        status: r.status,
+        created_at: r.created_at,
+        verified_at: r.verified_at || null,
+        approved_at: r.approved_at || null,
+      }));
+    }
+
+    if (ok) {
+      const totalAgents = (ok.total_agents || 0) + (ok.total_subagents || 0);
+      const newAgents = (ok.new_agents_curr || 0) + (ok.new_subagents_curr || 0);
+      const activeAgents = ab?.total_curr ?? (ok.active_agents_curr !== undefined ? ok.active_agents_curr : agents.active_today);
+      agents = {
+        ...rawReport.agents,
+        total: totalAgents || rawReport.agents.total,
+        base: totalAgents || rawReport.agents.base,
+        new_today: newAgents !== undefined ? newAgents : rawReport.agents.new_today,
+        active_today: activeAgents !== undefined ? activeAgents : rawReport.agents.active_today,
+      };
+    }
 
     if (cc?.totals && Number(cc.totals.expected_due) !== undefined) {
       const ccAgentMap: Record<string, { expected: number; expected_daily: number }> = {};
@@ -563,6 +656,9 @@ export function AgentProductsServicesReport() {
 
     return {
       ...rawReport,
+      agents,
+      service_centres,
+      service_centre_rows,
       rent,
       rent_rows,
       agent_float_rows: (rawReport.agent_float_rows || []).map(r => ({
@@ -570,7 +666,7 @@ export function AgentProductsServicesReport() {
         commission_balance: Number(map?.[(r as any).agent_id] ?? 0),
       })),
     };
-  }, [rawReport, commissionQuery.data, commandCenterQuery.data, rangeDays]);
+  }, [rawReport, commissionQuery.data, commandCenterQuery.data, overviewQuery.data, activeBreakdownQuery.data, serviceCentresData, rangeDays]);
 
   const cumulativeQuery = useQuery({
     queryKey: ['agent-products-cumulative', endDateKey],
@@ -641,11 +737,63 @@ export function AgentProductsServicesReport() {
     refetchOnWindowFocus: false,
   });
 
+  const prevOverviewQuery = useQuery({
+    queryKey: ['agent-ops-overview', 'aps-sync-prev', startOfDay(prevFrom).toISOString(), endOfDay(prevTo).toISOString()],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_agent_ops_overview' as any, {
+        p_range_start: startOfDay(prevFrom).toISOString(),
+        p_range_end: endOfDay(prevTo).toISOString(),
+      });
+      if (error) throw error;
+      return data as any;
+    },
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+  });
+
+  const prevActiveBreakdownQuery = useQuery({
+    queryKey: ['agent-ops-overview', 'active-breakdown-aps-prev', startOfDay(prevFrom).toISOString(), endOfDay(prevTo).toISOString()],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_agent_active_breakdown' as any, {
+        p_range_start: startOfDay(prevFrom).toISOString(),
+        p_range_end: endOfDay(prevTo).toISOString(),
+      });
+      if (error) throw error;
+      return data as any;
+    },
+    placeholderData: keepPreviousData,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+  });
+
   const prevReport = useMemo(() => {
     const rawPrev = prevQuery.data;
     if (!rawPrev) return null;
     const prevCc = prevCommandCenterQuery.data;
-    if (!prevCc?.totals || Number(prevCc.totals.expected_due) === undefined) return rawPrev;
+    const prevOk = prevOverviewQuery.data?.kpis;
+    const prevAb = prevActiveBreakdownQuery.data;
+
+    let prevAgents = rawPrev.agents;
+    if (prevOk) {
+      const totalAgents = (prevOk.total_agents || 0) + (prevOk.total_subagents || 0);
+      const newAgents = (prevOk.new_agents_curr || 0) + (prevOk.new_subagents_curr || 0);
+      const activeAgents = prevAb?.total_curr ?? (prevOk.active_agents_curr !== undefined ? prevOk.active_agents_curr : prevAgents.active_today);
+      prevAgents = {
+        ...rawPrev.agents,
+        total: totalAgents || rawPrev.agents.total,
+        base: totalAgents || rawPrev.agents.base,
+        new_today: newAgents !== undefined ? newAgents : rawPrev.agents.new_today,
+        active_today: activeAgents !== undefined ? activeAgents : rawPrev.agents.active_today,
+      };
+    }
+
+    if (!prevCc?.totals || Number(prevCc.totals.expected_due) === undefined) {
+      return {
+        ...rawPrev,
+        agents: prevAgents,
+      };
+    }
 
     const expectedDue = Number(prevCc.totals.expected_due) || 0;
     const days = Math.max(1, rangeDays);
@@ -653,6 +801,7 @@ export function AgentProductsServicesReport() {
 
     return {
       ...rawPrev,
+      agents: prevAgents,
       rent: {
         ...rawPrev.rent,
         expected_cumulative: expectedDue,
@@ -660,7 +809,7 @@ export function AgentProductsServicesReport() {
         expected_days: rangeDays,
       },
     };
-  }, [prevQuery.data, prevCommandCenterQuery.data, rangeDays]);
+  }, [prevQuery.data, prevCommandCenterQuery.data, prevOverviewQuery.data, prevActiveBreakdownQuery.data, rangeDays]);
 
   /** Previous-period values for every KPI (falls back to the RPC's day-over-day fields). */
   const pop = useMemo(() => {
@@ -766,8 +915,16 @@ export function AgentProductsServicesReport() {
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
-              <Button size="sm" variant="outline" className="h-8 text-[11px]" onClick={() => { void reportQuery.refetch(); void commissionQuery.refetch(); }}>
-                <RefreshCw className={cn('h-3.5 w-3.5 mr-1', reportQuery.isFetching && 'animate-spin')} />
+              <Button size="sm" variant="outline" className="h-8 text-[11px]" onClick={() => {
+                void reportQuery.refetch();
+                void commissionQuery.refetch();
+                void overviewQuery.refetch();
+                void activeBreakdownQuery.refetch();
+                void prevOverviewQuery.refetch();
+                void prevActiveBreakdownQuery.refetch();
+                void refetchServiceCentres();
+              }}>
+                <RefreshCw className={cn('h-3.5 w-3.5 mr-1', (reportQuery.isFetching || overviewQuery.isFetching) && 'animate-spin')} />
                 Refresh
               </Button>
               <Button size="sm" className="h-8 text-[11px]" disabled={!report || exporting} onClick={handlePdf}>
