@@ -18,8 +18,10 @@ import { format, parseISO, startOfWeek } from 'date-fns';
  * each other per period; both are shown so the CFO sees the gross volume.
  *
  * Tapping a period row expands a "what it was for" breakdown powered by
- * `get_wallet_ledger_category_sums` (wallet-scope ledger legs grouped by
- * category) for that exact period window.
+ * `get_cfo_period_breakdown` — the same ledger population the totals use,
+ * grouped into plain-language money pools (Landlord Float, Agent &
+ * Operational Float, Wallet (withdrawable), Platform & custody) so each
+ * line says which pool of money it belongs to.
  */
 
 interface DailyRow {
@@ -46,9 +48,23 @@ interface CategoryLine {
   outflow: number;
 }
 
+interface PoolGroup {
+  pool: string;
+  inflow: number;
+  outflow: number;
+  lines: CategoryLine[];
+}
+
+/** Display order for the money pools in the breakdown. */
+const POOL_ORDER = [
+  'Landlord Float',
+  'Agent & Operational Float',
+  'Wallet (withdrawable)',
+  'Platform & custody',
+];
+
 const DAILY_WINDOW = 90; // RPC hard cap
 const DAILY_ROWS_SHOWN = 14;
-const CATEGORY_LINES_SHOWN = 12;
 const EAT_OFFSET_MS = 3 * 3_600_000; // Africa/Kampala is UTC+3, no DST
 
 const fmtUgx = (n: number) =>
@@ -99,6 +115,13 @@ const CATEGORY_LABELS: Record<string, string> = {
   salary_payment: 'Salary payments',
   advance_disbursement: 'Advance disbursements',
   advance_recovery: 'Advance recoveries',
+  landlord_float_credited: 'Landlord float credited to landlords',
+  agent_landlord_payout: 'Landlord float payouts to landlords',
+  rent_float_funding: 'Landlord float funding',
+  landlord_receivable_created: 'Landlord receivables created',
+  landlord_receivable_obligation: 'Landlord payable obligations',
+  landlord_receivable_collected: 'Landlord receivables collected',
+  landlord_rent_payment: 'Landlord rent payments',
   system_balance_correction: 'Balance corrections',
 };
 
@@ -177,31 +200,52 @@ export function TransactionPeriodTotals() {
 
   const expandedBucket = expandedKey ? buckets.find((b) => b.key === expandedKey) ?? null : null;
 
-  const { data: categoryLines, isLoading: categoriesLoading } = useQuery<CategoryLine[]>({
-    queryKey: ['cfo-period-category-breakdown', expandedBucket?.from, expandedBucket?.to],
+  const { data: poolGroups, isLoading: categoriesLoading } = useQuery<PoolGroup[]>({
+    queryKey: ['cfo-period-pool-breakdown', expandedBucket?.from, expandedBucket?.to],
     enabled: !!expandedBucket,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_wallet_ledger_category_sums', {
+      const { data, error } = await supabase.rpc('get_cfo_period_breakdown', {
         p_from: expandedBucket!.from,
         p_to: expandedBucket!.to,
       });
       if (error) throw error;
-      const map = new Map<string, CategoryLine>();
+      const pools = new Map<string, Map<string, CategoryLine>>();
       for (const r of (data as any[]) || []) {
+        const pool = String(r.pool || 'Platform & custody');
         const category = String(r.category || 'other');
-        const cur = map.get(category) ?? {
+        const amount = Number(r.amount) || 0;
+        let lines = pools.get(pool);
+        if (!lines) {
+          lines = new Map();
+          pools.set(pool, lines);
+        }
+        const cur = lines.get(category) ?? {
           category,
           label: categoryLabel(category),
           inflow: 0,
           outflow: 0,
         };
-        if (r.direction === 'cash_in') cur.inflow += Number(r.amount) || 0;
-        else cur.outflow += Number(r.amount) || 0;
-        map.set(category, cur);
+        if (r.direction === 'cash_in') cur.inflow += amount;
+        else cur.outflow += amount;
+        lines.set(category, cur);
       }
-      return Array.from(map.values()).sort(
-        (a, b) => Math.max(b.inflow, b.outflow) - Math.max(a.inflow, a.outflow),
-      );
+      const order = (p: string) => {
+        const i = POOL_ORDER.indexOf(p);
+        return i >= 0 ? i : POOL_ORDER.length;
+      };
+      return Array.from(pools.entries())
+        .map(([pool, lines]) => {
+          const all = Array.from(lines.values()).sort(
+            (a, b) => Math.max(b.inflow, b.outflow) - Math.max(a.inflow, a.outflow),
+          );
+          return {
+            pool,
+            inflow: all.reduce((s, c) => s + c.inflow, 0),
+            outflow: all.reduce((s, c) => s + c.outflow, 0),
+            lines: all,
+          };
+        })
+        .sort((a, b) => order(a.pool) - order(b.pool));
     },
     staleTime: 60_000,
   });
@@ -276,7 +320,7 @@ export function TransactionPeriodTotals() {
                           isOpen={isOpen}
                           onToggle={() => setExpandedKey(isOpen ? null : b.key)}
                           categoriesLoading={categoriesLoading}
-                          categoryLines={isOpen ? categoryLines : undefined}
+                          poolGroups={isOpen ? poolGroups : undefined}
                         />
                       );
                     })}
@@ -307,21 +351,21 @@ export function TransactionPeriodTotals() {
   );
 }
 
+const POOL_LINES_SHOWN = 6;
+
 function FragmentRow({
   bucket,
   isOpen,
   onToggle,
   categoriesLoading,
-  categoryLines,
+  poolGroups,
 }: {
   bucket: PeriodBucket;
   isOpen: boolean;
   onToggle: () => void;
   categoriesLoading: boolean;
-  categoryLines?: CategoryLine[];
+  poolGroups?: PoolGroup[];
 }) {
-  const shown = categoryLines?.slice(0, CATEGORY_LINES_SHOWN) ?? [];
-  const hiddenCount = (categoryLines?.length ?? 0) - shown.length;
   return (
     <>
       <tr
@@ -346,37 +390,51 @@ function FragmentRow({
               <div className="flex items-center gap-2 py-3 text-xs text-muted-foreground">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading breakdown…
               </div>
-            ) : !shown.length ? (
-              <p className="py-2 text-xs text-muted-foreground">No wallet transactions recorded in this period.</p>
+            ) : !poolGroups?.length ? (
+              <p className="py-2 text-xs text-muted-foreground">No transactions recorded in this period.</p>
             ) : (
-              <div className="rounded-md border border-border/60 overflow-hidden bg-background">
-                <table className="w-full text-xs">
-                  <thead className="bg-muted/40">
-                    <tr className="text-[10px] uppercase tracking-wider text-muted-foreground">
-                      <th className="text-left px-2.5 py-1.5 font-semibold">Purpose</th>
-                      <th className="text-right px-2.5 py-1.5 font-semibold text-emerald-700">In</th>
-                      <th className="text-right px-2.5 py-1.5 font-semibold text-rose-700">Out</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-border/60">
-                    {shown.map((c) => (
-                      <tr key={c.category}>
-                        <td className="px-2.5 py-1.5">{c.label}</td>
-                        <td className="px-2.5 py-1.5 text-right tabular-nums font-mono text-emerald-700">
-                          {c.inflow ? fmtUgx(c.inflow) : '—'}
-                        </td>
-                        <td className="px-2.5 py-1.5 text-right tabular-nums font-mono text-rose-700">
-                          {c.outflow ? fmtUgx(c.outflow) : '—'}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {hiddenCount > 0 && (
-                  <p className="px-2.5 py-1.5 text-[10px] text-muted-foreground bg-muted/30">
-                    + {hiddenCount} more purpose{hiddenCount === 1 ? '' : 's'} with smaller amounts
-                  </p>
-                )}
+              <div className="space-y-2">
+                {poolGroups.map((g) => {
+                  const shown = g.lines.slice(0, POOL_LINES_SHOWN);
+                  const hiddenCount = g.lines.length - shown.length;
+                  return (
+                    <div key={g.pool} className="rounded-md border border-border/60 overflow-hidden bg-background">
+                      <div className="flex items-center justify-between gap-3 bg-primary/5 px-2.5 py-1.5">
+                        <span className="text-[11px] font-semibold tracking-tight">{g.pool}</span>
+                        <span className="text-[10px] tabular-nums font-mono text-muted-foreground">
+                          In {fmtUgx(g.inflow)} · Out {fmtUgx(g.outflow)}
+                        </span>
+                      </div>
+                      <table className="w-full text-xs">
+                        <thead className="bg-muted/40">
+                          <tr className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                            <th className="text-left px-2.5 py-1.5 font-semibold">Purpose</th>
+                            <th className="text-right px-2.5 py-1.5 font-semibold text-emerald-700">In</th>
+                            <th className="text-right px-2.5 py-1.5 font-semibold text-rose-700">Out</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border/60">
+                          {shown.map((c) => (
+                            <tr key={c.category}>
+                              <td className="px-2.5 py-1.5">{c.label}</td>
+                              <td className="px-2.5 py-1.5 text-right tabular-nums font-mono text-emerald-700">
+                                {c.inflow ? fmtUgx(c.inflow) : '—'}
+                              </td>
+                              <td className="px-2.5 py-1.5 text-right tabular-nums font-mono text-rose-700">
+                                {c.outflow ? fmtUgx(c.outflow) : '—'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      {hiddenCount > 0 && (
+                        <p className="px-2.5 py-1.5 text-[10px] text-muted-foreground bg-muted/30">
+                          + {hiddenCount} more purpose{hiddenCount === 1 ? '' : 's'} with smaller amounts
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
           </td>
