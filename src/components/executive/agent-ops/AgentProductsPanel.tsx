@@ -127,7 +127,7 @@ function AgentInlineProfileExpansion({ agentId }: { agentId: string }) {
           p_agent_id: agentId,
           p_category: null,
         }),
-        supabase.from('profiles').select('national_id, is_active, status').eq('id', agentId).maybeSingle(),
+        supabase.from('profiles').select('national_id, is_frozen, frozen_at').eq('id', agentId).maybeSingle(),
         supabase.from('proxy_agent_identity').select('nin').eq('agent_user_id', agentId).maybeSingle(),
         supabase
           .from('rent_requests')
@@ -141,7 +141,7 @@ function AgentInlineProfileExpansion({ agentId }: { agentId: string }) {
         (profileRes.data?.national_id && profileRes.data.national_id.trim()) ||
         (proxyRes.data?.nin && proxyRes.data.nin.trim()) ||
         null;
-      const isActive = profileRes.data?.is_active !== false && profileRes.data?.status !== 'suspended' && profileRes.data?.status !== 'inactive';
+      const isActive = profileRes.data?.is_frozen !== true && profileRes.data?.frozen_at == null;
       return {
         ...(detailRes.data as any),
         national_id,
