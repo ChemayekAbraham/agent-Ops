@@ -11307,7 +11307,9 @@ export type Database = {
           pdf_path: string | null
           period_end: string
           period_start: string
+          report: Json | null
           report_date: string
+          report_version: number
           run_window: string
           total_deposited: number
           total_paid_out: number
@@ -11327,7 +11329,9 @@ export type Database = {
           pdf_path?: string | null
           period_end: string
           period_start: string
+          report?: Json | null
           report_date: string
+          report_version?: number
           run_window?: string
           total_deposited?: number
           total_paid_out?: number
@@ -11347,7 +11351,9 @@ export type Database = {
           pdf_path?: string | null
           period_end?: string
           period_start?: string
+          report?: Json | null
           report_date?: string
+          report_version?: number
           run_window?: string
           total_deposited?: number
           total_paid_out?: number

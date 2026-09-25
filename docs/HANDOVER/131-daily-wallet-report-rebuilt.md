@@ -1,9 +1,6 @@
 # 131 — Daily Wallet report rebuilt (compute_wallet_report v2)
 
-**Built and committed 2026-09-25. NOT live until migration `20260925090000` is applied AND the
-`generate-daily-wallet-report` edge function is redeployed. Ship both together:** the new edge
-function refuses a v1 payload, and the old one would print v2 numbers under the old labels.
-Read this before quoting any figure from the "Daily Wallet Financial Summary" email (sent at
+**Built 2026-09-25 and applied live the same day.** The edge function was deployed via Lovable (05:3x UTC), then migration `20260925090000` was applied via query_database, in that order. The 24 Sep full-day row was regenerated as v2 (`skipEmail`) and verified: money in 39,998,129 · paid out 28,816,500 · net 11,181,629, with PDF and XLSX stored. The first emailed v2 report is the 12:00 EAT midday checkpoint on 25 Sep; the first full-day v2 email goes out at 00:00 EAT on 26 Sep. Read this before quoting any figure from the "Daily Wallet Financial Summary" email (sent at
 00:00, 06:00 and 12:00 EAT), or before touching `compute_wallet_report`.
 
 ## Why it was destroyed
