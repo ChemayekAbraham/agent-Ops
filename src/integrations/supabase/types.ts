@@ -22031,6 +22031,69 @@ export type Database = {
           },
         ]
       }
+      landlord_float_idle_alerts: {
+        Row: {
+          acknowledged_at: string | null
+          agent_id: string | null
+          agent_name: string | null
+          allocation_id: string
+          amount: number
+          created_at: string
+          deadline_at: string
+          funded_at: string
+          hours_outstanding: number
+          id: string
+          landlord_name: string | null
+          outcome: string | null
+          payout_attempted: boolean
+          rent_request_id: string
+          resolved_at: string | null
+          severity: string
+          tenant_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          agent_id?: string | null
+          agent_name?: string | null
+          allocation_id: string
+          amount?: number
+          created_at?: string
+          deadline_at: string
+          funded_at: string
+          hours_outstanding?: number
+          id?: string
+          landlord_name?: string | null
+          outcome?: string | null
+          payout_attempted?: boolean
+          rent_request_id: string
+          resolved_at?: string | null
+          severity?: string
+          tenant_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          agent_id?: string | null
+          agent_name?: string | null
+          allocation_id?: string
+          amount?: number
+          created_at?: string
+          deadline_at?: string
+          funded_at?: string
+          hours_outstanding?: number
+          id?: string
+          landlord_name?: string | null
+          outcome?: string | null
+          payout_attempted?: boolean
+          rent_request_id?: string
+          resolved_at?: string | null
+          severity?: string
+          tenant_name?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       landlord_float_receivables: {
         Row: {
           agent_id: string | null
@@ -56714,6 +56777,10 @@ export type Database = {
         Args: { p_min_amount?: number }
         Returns: Json
       }
+      detect_idle_landlord_float: {
+        Args: { p_system_actor?: string }
+        Returns: Json
+      }
       detect_ledger_group_imbalances: {
         Args: { p_since_hours?: number }
         Returns: number
@@ -65142,6 +65209,10 @@ export type Database = {
         Returns: Json
       }
       reverse_all_phantom_auto_debits: { Args: never; Returns: Json }
+      reverse_funding_treasury: {
+        Args: { p_rent_request_id: string }
+        Returns: Json
+      }
       reverse_phantom_auto_debit_obligation: {
         Args: { p_obligation_id: string }
         Returns: Json
