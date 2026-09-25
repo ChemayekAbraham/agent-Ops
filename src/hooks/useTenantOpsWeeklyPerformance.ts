@@ -17,6 +17,8 @@ export interface TenantOpsWeeklyMetrics {
   non_paying_tenants: number;
   new_tenants_added: number;
   payment_rate_pct: number;
+  /** Distinct tenants who self-paid via a merchant/mobile-money channel that week. */
+  self_payment_tenants: number;
 }
 
 export interface TenantOpsWeeklyPerformance {
@@ -25,7 +27,10 @@ export interface TenantOpsWeeklyPerformance {
   is_current_week_open: boolean;
   current: TenantOpsWeeklyMetrics;
   previous: TenantOpsWeeklyMetrics & { week_start: string; week_end: string };
-  delta: TenantOpsWeeklyMetrics;
+  delta: TenantOpsWeeklyMetrics & {
+    /** Week-on-week % change in self-paying tenants; null when the prior week had none to compare against. */
+    self_payment_increase_pct: number | null;
+  };
 }
 
 export interface TenantOpsWeeklyHistoryRow extends TenantOpsWeeklyMetrics {

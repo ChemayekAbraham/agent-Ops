@@ -45,6 +45,8 @@ export interface TenantSelfRepaymentTotals {
   total_applied: number;
   total_surplus: number;
   total_commission: number;
+  /** Distinct tenants behind the settled rows in this range (settled_count counts attempts, not people). */
+  distinct_tenant_count: number;
 }
 
 export interface TenantSelfRepaymentFilters {
@@ -61,6 +63,7 @@ const EMPTY_TOTALS: TenantSelfRepaymentTotals = {
   total_applied: 0,
   total_surplus: 0,
   total_commission: 0,
+  distinct_tenant_count: 0,
 };
 
 /**
