@@ -1,6 +1,6 @@
 -- The detector must respect a human decision
 --
--- Companion to 20260925150000, which gives Landlord Ops and the CFO actions on
+-- Companion to 20260925170000, which gives Landlord Ops and the CFO actions on
 -- the idle-float queue. Without this, those actions are cosmetic.
 -- detect_idle_landlord_float runs every 15 minutes and unconditionally
 -- rewrites `outcome` on any alert whose allocation is still open, so:
