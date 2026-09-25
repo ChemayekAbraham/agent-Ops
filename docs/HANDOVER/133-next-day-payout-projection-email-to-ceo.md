@@ -1,9 +1,14 @@
 # 133 — Next-day payout projection, emailed to the CEO nightly
 
-**Status (2026-09-25):** built and committed, **not yet live**. Needs: migration
-`20260925140000` (RPC) → deploy edge function `daily-payout-projection-report` →
-migration `20260925140100` (cron). Verify all three after the push (see doc 06);
-migrations here sometimes never auto-apply.
+**Status (2026-09-25 ~07:45 UTC):** RPC `20260925140000` **live** (applied by
+Lovable, verified via pg_proc), edge function **deployed**, test email sent to
+joshwanda17@gmail.com only (Mailgun accepted; subject "Welile Payouts Projection —
+Saturday 26 September 2026 — UGX 18,470,600"). **Cron migration `20260925140100`
+deliberately NOT applied**: it waits for Josh to approve the test email. Until it
+is applied, the CEO receives nothing.
+
+Send a test yourself: while signed in as an executive, POST to the function with
+`{"to":["you@x"],"cc":[],"dry_run":true}` (drop `dry_run` to actually send).
 
 ## What it does
 Every evening at **18:00 Africa/Kampala** (cron `0 15 * * *` UTC,
