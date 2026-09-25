@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { formatDynamic } from '@/lib/currencyFormat';
 import { fetchAllPages } from '@/lib/fetchAllPages';
 import { toast } from 'sonner';
-import { ArrowUpDown, Bell, Bookmark, Calculator, Check, ChevronDown, ChevronLeft, ChevronRight, GitCompareArrows, Home, Loader2, MapPin, Navigation as NavigationIcon, Plus, RefreshCw, Search, ShieldCheck, SlidersHorizontal, TrendingUp, Wallet, X } from 'lucide-react';
+import { ArrowUpDown, Bell, Bookmark, Check, ChevronDown, ChevronLeft, ChevronRight, GitCompareArrows, HandCoins, Home, Loader2, MapPin, Navigation as NavigationIcon, RefreshCw, Search, ShieldCheck, SlidersHorizontal, TrendingUp, Wallet, X } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 
@@ -1603,7 +1603,7 @@ export function SelfPortfolioFundingCard({
       {pageItems.map((item) => {
         if (item.kind !== 'plan') return null;
         return (
-          <div key={`plan-${item.id}`} className="space-y-3 sm:col-span-2">
+          <div key={`plan-${item.id}`} className="min-w-0">
             {(() => {
         const plan = item.plan;
 
@@ -1613,63 +1613,66 @@ export function SelfPortfolioFundingCard({
         const unaffordable = !isSelected && Number(plan.funding_amount || 0) > remaining;
         const images = (plan.house_image_urls ?? []).filter(Boolean);
         const monthlyRoi = Math.round((Number(plan.funding_amount || 0) * MONTHLY_ROI_RATE) / 100);
-        const planMonths = plan.duration_days ? Math.max(1, Math.round(Number(plan.duration_days) / 30)) : 1;
-        const totalReturn = monthlyRoi * planMonths;
         const prettyName = (raw?: string | null) =>
           (raw ?? '')
             .replace(/[_-]/g, ' ')
             .replace(/\b\w/g, (c) => c.toUpperCase()) || 'Rental home';
-        const titleLine = `${prettyName(plan.house_category)}${plan.request_city ? ` in ${prettyName(plan.request_city)}` : ''}`;
+        const titleLine = prettyName(plan.house_category);
         const village = plan.tenant_location?.split(',')[0]?.trim();
         const district = plan.request_city?.split(',')[0]?.trim();
         const addressLine = [village, district, 'Uganda'].filter(Boolean).join(', ');
 
         return (
-          <Card
+          <article
             key={plan.rent_request_id}
             data-plan-id={plan.rent_request_id}
-            role="button"
-            tabIndex={0}
-            onClick={() => setDetailPlan(plan)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                setDetailPlan(plan);
-              }
-            }}
-            className={`relative overflow-hidden rounded-2xl p-0 transition-all cursor-pointer border ${isSelected ? 'ring-2 ring-primary bg-primary/5 border-primary' : 'border-primary/30 hover:border-primary/60'}`}
+            className={`relative my-3 min-w-0 overflow-hidden rounded-lg border bg-card shadow-sm transition-[border-color,box-shadow] sm:my-0 ${isSelected ? 'border-primary ring-1 ring-primary' : 'border-border hover:shadow-md'}`}
           >
-            <div className="flex flex-col">
-              {/* Photo */}
-              <div className="relative aspect-[16/10] sm:aspect-[4/3] w-full shrink-0 overflow-hidden bg-muted">
+              <div className="relative aspect-[16/10] w-full bg-muted">
+                <button
+                  type="button"
+                  onClick={() => setDetailPlan(plan)}
+                  aria-label={`Open full details for ${titleLine} in ${addressLine || 'Uganda'}`}
+                  className="block h-full w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+                >
                 {images.length > 0 ? (
                   <img src={images[0]} alt={titleLine} loading="lazy" decoding="async" className="h-full w-full object-cover" />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center">
-                    <Home className="h-7 w-7 text-muted-foreground" />
+                  <div className="flex h-full w-full items-center justify-center bg-primary/5">
+                    <Home className="h-9 w-9 text-primary/45" aria-hidden />
+                    <span className="sr-only">No photo available</span>
                   </div>
                 )}
-                {/* Card-type badge: this row is a tenant rent plan. */}
-                <span className="absolute left-1.5 top-1.5 rounded-full bg-primary px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-primary-foreground shadow-sm">
+                </button>
+
+                <span className="absolute left-3 top-3 rounded-full bg-card/95 px-2.5 py-1 text-[11px] font-semibold text-foreground shadow-sm ring-1 ring-border backdrop-blur">
                   Rent plan
                 </span>
                 {images.length > 1 && (
-                  <span className="absolute bottom-1.5 right-1.5 rounded-full bg-background/85 px-1.5 py-0.5 text-[9px] font-bold backdrop-blur">
+                  <span className="absolute bottom-3 right-3 rounded-full bg-card/95 px-2 py-1 text-[11px] font-semibold text-foreground shadow-sm ring-1 ring-border backdrop-blur">
                     +{images.length - 1}
                   </span>
                 )}
               </div>
 
-              {/* Details */}
-              <div className="min-w-0 flex-1 p-4">
-                <p className="truncate text-sm font-bold leading-tight sm:text-base">{titleLine}</p>
-                <p className="mt-0.5 flex items-start gap-1 text-[11px] leading-snug text-muted-foreground">
-                  <MapPin className="mt-0.5 h-3 w-3 flex-none" />
-                  <span className="line-clamp-2">{addressLine || 'Uganda'}</span>
-                </p>
+              <div className="space-y-3 p-4">
+                <div className="min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => setDetailPlan(plan)}
+                    className="block w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  >
+                    <span className="block min-w-0 break-words text-base font-bold leading-snug text-foreground">
+                      {titleLine} <span className="font-medium text-muted-foreground">in</span> {addressLine || 'Uganda'}
+                    </span>
+                  </button>
+                  <p className="mt-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+                    <MapPin className="h-3.5 w-3.5 flex-none text-primary" aria-hidden />
+                    {plan.landlord_name ? `Landlord: ${plan.landlord_name}` : 'Approved tenant Rent Plan'}
+                  </p>
+                </div>
 
-                {/* KPI chips */}
-                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <div className="flex flex-wrap items-center gap-1.5">
                   <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">
                     {MONTHLY_ROI_RATE}% / month
                   </span>
@@ -1685,69 +1688,40 @@ export function SelfPortfolioFundingCard({
                   ) : null}
                 </div>
 
-                {/* Price row + action */}
-                <div className="mt-2 flex items-end justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-base font-black leading-none sm:text-lg">
-                      {formatDynamic(plan.funding_amount)}
-                    </p>
-                  </div>
+                <div className="pt-1">
+                  <p className="text-xl font-bold leading-none text-foreground">{formatDynamic(plan.funding_amount)}</p>
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Earn <span className="font-semibold text-primary">{formatDynamic(monthlyRoi)}</span> monthly
+                  </p>
+                </div>
 
-                  <div className="flex shrink-0 items-center gap-1.5">
-                    <PlanShareButton plan={plan} />
-                    {!isFunded && (
+                <div className="flex items-center gap-2">
+                  <PlanShareButton plan={plan} />
+                  {!isFunded && (
                       <Button
-                        size="icon"
-                        variant={isSelected ? 'secondary' : 'default'}
+                        variant="default"
                         disabled={heldByOther || busy}
                         onClick={(e) => {
                           e.stopPropagation();
                           toggle(plan.rent_request_id);
                         }}
-                        aria-label={`${isSelected ? 'Remove' : 'Select'} plan for ${plan.tenant_full_name ?? plan.tenant_first_name ?? 'tenant'}`}
-                        className="h-10 w-10 shrink-0 rounded-full shadow-sm"
+                        aria-label={`${isSelected ? 'Remove selected Rent Plan' : 'Fund this House'} for ${plan.tenant_full_name ?? plan.tenant_first_name ?? 'tenant'}`}
+                        aria-pressed={isSelected}
+                        className="h-11 flex-1 gap-2 rounded-lg text-sm font-bold shadow-sm"
                       >
-                        {isSelected ? <Check className="h-5 w-5" /> : <Plus className="h-5 w-5" />}
+                        {isSelected ? <Check className="h-4 w-4" aria-hidden /> : <HandCoins className="h-4 w-4" aria-hidden />}
+                        {isSelected ? 'Selected' : 'Fund this House'}
                       </Button>
                     )}
-                  </div>
                 </div>
-
-                {/* Earnings breakdown: monthly amount, timeframe, total return */}
-                <div className="mt-2.5 grid grid-cols-3 gap-1.5 rounded-xl bg-primary/5 px-2.5 py-2">
-                  <div className="min-w-0">
-                    <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">You earn</p>
-                    <p className="truncate text-xs font-black text-primary sm:text-sm">{formatDynamic(monthlyRoi)}</p>
-                    <p className="text-[9px] text-muted-foreground">per month</p>
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">For</p>
-                    <p className="truncate text-xs font-black sm:text-sm">{planMonths} {planMonths === 1 ? 'month' : 'months'}</p>
-                    <p className="text-[9px] text-muted-foreground">{plan.duration_days ? `${plan.duration_days} days` : 'plan term'}</p>
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[9px] font-semibold uppercase tracking-wide text-muted-foreground">Total return</p>
-                    <p className="truncate text-xs font-black text-primary sm:text-sm">{formatDynamic(totalReturn)}</p>
-                    <p className="text-[9px] text-muted-foreground">by plan end</p>
-                  </div>
-                </div>
-
-                <p className="mt-1.5 flex items-start gap-1 text-[10px] leading-snug text-muted-foreground">
-                  <Calculator className="mt-0.5 h-3 w-3 flex-none" />
-                  <span>
-                    Monthly earnings = {formatDynamic(plan.funding_amount)} × {MONTHLY_ROI_RATE}%.
-                    Total payout = {formatDynamic(monthlyRoi)} × {planMonths} {planMonths === 1 ? 'month' : 'months'}.
-                  </span>
-                </p>
 
                 {unaffordable && !heldByOther && (
-                  <p className="mt-1.5 text-[10px] font-semibold text-muted-foreground">
+                  <p className="text-xs font-semibold text-destructive">
                     Add {formatDynamic(Number(plan.funding_amount) - remaining)} to your balance to include this plan.
                   </p>
                 )}
               </div>
-            </div>
-          </Card>
+          </article>
         );
             })()}
           </div>
