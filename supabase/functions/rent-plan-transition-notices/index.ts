@@ -1,10 +1,18 @@
 // Rent Plan transition notices — Phase 3, items 11 and 13.
 //
-// Two messages, one drain:
+// Three messages, one drain:
 //   A1  to the AGENT   when landlord float lands in their wallet and the
 //                      landlord has not been paid yet.
-//   T1  to the TENANT  when their plan becomes `repaying`, telling them
+//   T1  to the TENANT  when the landlord has actually been paid, telling them
 //                      repayment starts tomorrow and what it will be.
+//   AP  to the AGENT   on the same event: their landlord is paid, with the
+//                      receipt number, when the tenant starts, and the 1% they
+//                      earned.
+//
+// The LANDLORD's own message is NOT sent from here. `landlord-rent-receipt`
+// already issues the permanent receipt and SMSes them the number and public
+// link, invoked from approve-withdrawal at the same moment. 332 sent to date.
+// Adding a second would duplicate it.
 //
 // Why a cron drain rather than sending inline from the trigger. The status
 // flip happens inside a landlord-payout transaction, and nothing there may be
@@ -51,6 +59,22 @@ interface AgentNotice {
   landlord_name: string | null;
   tenant_name: string | null;
   rent_amount: number;
+}
+
+interface AgentPaidNotice {
+  rent_request_id: string;
+  agent_id: string;
+  agent_phone: string;
+  agent_name: string | null;
+  landlord_name: string | null;
+  tenant_first_name: string | null;
+  rent_amount: number;
+  instalment: number;
+  period_label: string;
+  repayment_starts_on: string;
+  receipt_number: string | null;
+  /** Only present when the commission leg actually exists in general_ledger. */
+  commission_ugx: number | null;
 }
 
 interface TenantNotice {
@@ -101,6 +125,29 @@ function tenantMessage(n: TenantNotice): string {
   ].join('\n') + agent;
 }
 
+function agentPaidMessage(n: AgentPaidNotice): string {
+  const tenant = n.tenant_first_name || 'your tenant';
+  const receipt = n.receipt_number ? ` Receipt No ${n.receipt_number}.` : '';
+  // Only claim the commission when the ledger leg is really there.
+  const commission = n.commission_ugx
+    ? `
+
+You earned ${ugx(n.commission_ugx)} commission.`
+    : '';
+  return (
+    `${ugx(n.rent_amount)} has been paid to landlord ${n.landlord_name || ''}`.trimEnd() +
+    `.${receipt}
+
+` +
+    `${tenant} starts repaying TOMORROW, ${dayLabel(n.repayment_starts_on)}: ` +
+    `${ugx(n.instalment)} ${n.period_label}.` +
+    commission +
+    `
+
+Please upload the receipt.`
+  );
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
@@ -109,7 +156,11 @@ Deno.serve(async (req) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   );
 
-  const result = { agent_sent: 0, agent_failed: 0, tenant_sent: 0, tenant_failed: 0 };
+  const result = {
+    agent_sent: 0, agent_failed: 0,
+    tenant_sent: 0, tenant_failed: 0,
+    agent_paid_sent: 0, agent_paid_failed: 0,
+  };
 
   try {
     // One round trip for the entire work list.
@@ -120,6 +171,7 @@ Deno.serve(async (req) => {
 
     const agents = (data?.agent_float_funded ?? []) as AgentNotice[];
     const tenants = (data?.tenant_welcome ?? []) as TenantNotice[];
+    const agentsPaid = (data?.agent_landlord_paid ?? []) as AgentPaidNotice[];
 
     for (const n of agents) {
       const ok = await sendSMS(n.agent_phone, agentMessage(n), {
@@ -143,6 +195,18 @@ Deno.serve(async (req) => {
         idempotencyKey: `rent-plan-t1:${n.rent_request_id}`,
       });
       ok ? result.tenant_sent++ : result.tenant_failed++;
+    }
+
+    for (const n of agentsPaid) {
+      const ok = await sendSMS(n.agent_phone, agentPaidMessage(n), {
+        admin,
+        source: 'rent_plan_landlord_paid',
+        reference_id: n.rent_request_id,
+        recipient_user_id: n.agent_id,
+        recipient_name: n.agent_name,
+        idempotencyKey: `rent-plan-ap:${n.rent_request_id}`,
+      });
+      ok ? result.agent_paid_sent++ : result.agent_paid_failed++;
     }
 
     return new Response(JSON.stringify({ success: true, ...result }), {

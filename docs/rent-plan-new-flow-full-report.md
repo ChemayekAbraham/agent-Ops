@@ -211,16 +211,25 @@ paid through both paths.
 
 ### The rule
 
-> A Rent Plan becomes `repaying` the moment the landlord float **leaves the
-> agent's wallet** — when the payout is dispatched to a merchant agent, after the
-> landlord has entered the OTP sent to their own phone.
+> A Rent Plan becomes `repaying` the moment the landlord **actually receives the
+> money** — when FinOps records the disbursement and stamps the mobile-money
+> reference that proves it.
 >
 > **The tenant's first repayment day is the day after that.**
 
+> **Corrected 25 September 2026.** This section previously said the flip
+> happened at `pending_merchant_payout`, when the payout is handed to a merchant.
+> That was wrong. A payout can sit with a merchant indefinitely, and of the rows
+> at that status **none** carry `finops_disbursed_at`, a MoMo reference or
+> `disbursed_at` — the landlord has categorically not been paid. Asking a tenant
+> to start repaying rent their landlord has not received cannot be defended, and
+> neither can recalling float for a payment that never went out.
+
 ### The trigger
 
-An `AFTER UPDATE` trigger on `landlord_payouts`, firing when `status` becomes
-`pending_merchant_payout`, setting **both fields in one statement**:
+`trg_aa_start_repaying_on_landlord_paid` on `landlord_payouts`, firing when
+`status` reaches `awaiting_agent_receipt`, `disbursed` or `completed`, setting
+**both fields in one statement**:
 
 ```sql
 UPDATE public.rent_requests
@@ -244,33 +253,29 @@ collected, written permanently into a bill that is immutable by design.**
 That is exactly the failure that produced phantom day-1 arrears on Faizal Kayondo
 and Hamiss Mutyaba. Re-stamping is what stops it recurring on every funded plan.
 
-### Why `pending_merchant_payout` is the right moment
+### Which status means the landlord has the money
 
-| At `pending_merchant_payout` | |
-|---|---|
-| Agent's **spendable** landlord float | **reduced** — `get_agent_lp_float_available` subtracts every payout in `otp_verified` or `pending_merchant_payout` |
-| Can the agent use that money for anything else? | **No** |
-| `agent_landlord_float.balance` | unchanged |
-| `allocation.paid_out_amount` | still 0 until FinOps disburses |
+| Status | Rows | `finops_disbursed_at` | MoMo ref | `disbursed_at` |
+|---|---:|---:|---:|---:|
+| `pending_merchant_payout` | 4 | **0** | **0** | **0** |
+| `awaiting_agent_receipt` | 959 | 899 | 899 | 942 |
+| `completed` | 85 | 85 | 75 | 85 |
 
-The agent's discretion over the money ends here, which is what the rule cares
-about. The books catch up minutes later. And because repayment starts *tomorrow*,
-a same-day merchant failure costs nothing — the agent retries and no collection
-has been missed. **The next-day rule is the grace window.**
+`awaiting_agent_receipt` is set inside `approve-withdrawal` **after FinOps
+disburses**, stamping `finops_disbursed_at`, `disbursed_at` and
+`finops_momo_reference` — the proof of payment. The outstanding "receipt" is the
+agent's paperwork, not the money.
 
-### Two timings that are deliberately different
+`completed` is not usable as the gate: 959 payouts rest at
+`awaiting_agent_receipt` against 85 completed, so waiting for it would strand
+about 92% of plans.
 
-| Moment | Payout status | What happens |
-|---|---|---|
-| Agent dispatches to merchant | `pending_merchant_payout` | **plan becomes `repaying`**, date stamped, **tenant welcomed** |
-| FinOps confirms disbursement | `awaiting_agent_receipt` | **agent earns the 1%**, allocation `paid_out_amount` bumped |
+### One event, three consequences
 
-These are minutes to hours apart and that is correct: the plan starts repaying
-when the agent commits the money; the commission pays when the money is confirmed
-gone. `post_landlord_payout_finops_commission` already fires at the second point
-and needs no change. For scale, **944 payouts currently rest in
-`awaiting_agent_receipt` against 81 `completed`** — so this is the normal resting
-state, and the 1% does reliably pay.
+The status flip, the allocation's `paid_out_amount` and the agent's 1% now all
+fire on the same transition — which is what they always should have shared,
+because all three mean the same thing: **the landlord has the money.**
+`post_landlord_payout_finops_commission` needs no change.
 
 ### If a payout fails after repayment has started
 
