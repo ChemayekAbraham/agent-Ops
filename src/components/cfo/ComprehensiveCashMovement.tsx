@@ -290,7 +290,7 @@ const COMPANY_TO_WALLETS_GROUP_5 = new Set(['marketing_expense']);
 // 6. Operational expenses paid by CFO to different wallets
 const COMPANY_TO_WALLETS_GROUP_6 = new Set(['general_admin_expense', 'operational_expenses']);
 // 7. Payroll paid to employee wallets
-const COMPANY_TO_WALLETS_GROUP_7 = new Set(['payroll_expense', 'payroll', 'salary_payment', 'payroll_growth']);
+const COMPANY_TO_WALLETS_GROUP_7 = new Set(['payroll_expense', 'payroll', 'salary_payment', 'salary_payout', 'payroll_growth']);
 // 8. Tax payments paid to wallets
 const COMPANY_TO_WALLETS_GROUP_8 = new Set(['tax_expense']);
 // 9. Research & Development paid to wallets by CFO
@@ -3585,7 +3585,10 @@ export function ComprehensiveCashMovement() {
       // ledger RLS policies per row (~3s per 1,000 rows) on top of the deep
       // OFFSET, so large periods returned HTTP 500. Same columns, same order,
       // same rows — only the transport changed.
-      const PAGE = 5000;
+      // The API caps every response at 1,000 rows, so the page size must match
+      // that cap — a larger PAGE made the loop stop after the first response
+      // and silently loaded only the first ~day of the period.
+      const PAGE = 1000;
       const acc: LedgerRow[] = [];
       const seen = new Set<string>();
       let cursorDate: string | null = from ? from.toISOString() : null;
@@ -3614,7 +3617,7 @@ export function ComprehensiveCashMovement() {
           ? new Date(new Date(last.transaction_date).getTime() + 1).toISOString()
           : last.transaction_date;
         pages += 1;
-        if (pages > 400) break; // safety cap
+        if (pages > 2000) break; // safety cap
       }
       setRows(acc);
       setGeneratedAt(new Date());
