@@ -613,6 +613,12 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
           onToggle={() => toggleSection('tools')}
         >
           <ReceiptNumberLookupPanel className="rounded-2xl shadow-sm" />
+          <Suspense fallback={<Card className="p-4 text-sm text-muted-foreground">Loading transactions…</Card>}>
+            <EmailTransactionsPanel />
+          </Suspense>
+          <Suspense fallback={<Card className="p-4 text-sm text-muted-foreground">Loading transaction search…</Card>}>
+            <TransactionSearch />
+          </Suspense>
           <CFOActionsLog />
         </Band>
       </div>
