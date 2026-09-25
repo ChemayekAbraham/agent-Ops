@@ -908,8 +908,15 @@ export function useAuthForm() {
       metrics.winnerEmail = phase1Winner.email;
       metrics.winnerPhase = 'phase1';
     } else {
+      // NOTE: do not infer accountExists from "Invalid login credentials"
+      // here — Supabase returns that same error for a guessed placeholder
+      // email that belongs to no account at all, not just for a real
+      // account with a wrong password. accountExists is only trustworthy
+      // when it comes from an RPC-confirmed real email (see earlyRpcEmails
+      // above and rpcEmails below); otherwise a user with the *correct*
+      // password gets told "Incorrect password" just because none of our
+      // guessed synthetic emails matched their real one.
       for (const r of phase1) {
-        if (r.error?.message?.includes('Invalid login credentials')) accountExists = true;
         lastError = r.error;
       }
     }
@@ -937,8 +944,12 @@ export function useAuthForm() {
           metrics.winnerEmail = phase2Winner.email;
           metrics.winnerPhase = 'phase2';
         } else {
+          // Same reasoning as phase 1: `remaining` mixes RPC-confirmed real
+          // emails with guessed `@welile.agent` placeholders, so an
+          // "Invalid login credentials" here isn't proof the account
+          // exists. accountExists is already set above from rpcEmails.length
+          // when the RPC actually found a real email.
           for (const r of phase2) {
-            if (r.error?.message?.includes('Invalid login credentials')) accountExists = true;
             lastError = r.error ?? lastError;
           }
         }

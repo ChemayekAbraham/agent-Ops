@@ -57198,6 +57198,50 @@ export type Database = {
           village: string
         }[]
       }
+      find_similar_landlords: {
+        Args: {
+          p_district?: string
+          p_limit?: number
+          p_name: string
+          p_village_id?: number
+          p_village_text?: string
+        }
+        Returns: {
+          created_at: string
+          district: string
+          geo_match: string
+          id: string
+          is_mine: boolean
+          name: string
+          registered_by_name: string
+          severity: string
+          similarity: number
+          verified: boolean
+          village: string
+        }[]
+      }
+      find_similar_lc1: {
+        Args: {
+          p_district?: string
+          p_limit?: number
+          p_name: string
+          p_village_id?: number
+          p_village_text?: string
+        }
+        Returns: {
+          created_at: string
+          district: string
+          geo_match: string
+          id: string
+          is_mine: boolean
+          name: string
+          registered_by_name: string
+          severity: string
+          similarity: number
+          verified: boolean
+          village: string
+        }[]
+      }
       finops_adopt_national_id_name: {
         Args: { p_id: string; p_reason?: string }
         Returns: Json
@@ -64816,6 +64860,10 @@ export type Database = {
           due_on: string
           rent_request_id: string
         }[]
+      }
+      rent_plan_transition_notices_pending: {
+        Args: { p_lookback_hours?: number }
+        Returns: Json
       }
       rent_pricing_floor_effective_from: { Args: never; Returns: string }
       rent_request_financials_unchanged: {
