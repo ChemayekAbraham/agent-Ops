@@ -494,7 +494,7 @@ export default function SupporterDashboard({
 
   // Same dropdown menu as every other dashboard (DashboardHeader), with the
   // funder-specific actions from the old side drawer passed as menuItems.
-  const supporterMenuItems: import('@/components/DashboardHeader').MenuItemConfig[] = [
+  const supporterMenuItems = [
     { icon: CreditCard, label: 'Add Funds', onClick: () => setShowPaymentPartners(true) },
     { icon: Wallet, label: 'My Wallet', onClick: () => setShowFunderHub(true) },
     { icon: TrendingUp, label: 'My Portfolios', onClick: () => { setInvestmentsTab('accounts'); setShowInvestments(true); } },
