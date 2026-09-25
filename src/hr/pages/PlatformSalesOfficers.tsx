@@ -550,8 +550,17 @@ export default function PlatformSalesOfficersPage() {
       });
     }
 
+    // A monthly report describes everything collected during that calendar
+    // month. Include notes recorded before the officer's formal assignment
+    // date so a mid-month enrolment does not hide work already completed.
+    if (mode === 'MONTHLY') {
+      for (const entry of byId.values()) {
+        entry.netNotes += entry.preEnrolmentNotes;
+      }
+    }
+
     return Array.from(byId.values());
-  }, [rows, fundedSummaries, promiseSummaries]);
+  }, [rows, fundedSummaries, promiseSummaries, mode]);
 
   // Highest-first on the selected column; ties fall back to net notes then name.
   const sortedOfficers = useMemo(
@@ -1360,8 +1369,9 @@ export default function PlatformSalesOfficersPage() {
         </p>
         <p className="text-xs text-muted-foreground">
           Money deployed is what the funder put in. Commission base is the amount commission was
-          calculated on, capped at the note's promised amount. Pre-enrol counts notes and conversions
-          dated before the officer's assignment start and is excluded from the ranked total. Funding
+          calculated on, capped at the note's promised amount. On monthly reports, the ranked total
+          includes every note collected during the month, including work before a mid-month officer
+          assignment. Pre-enrol keeps that earlier work visible as a separate breakdown. Funding
           commission is paid through two routes — a matched promissory note, or a managed proxy
           account — and the section above shows both.
         </p>
