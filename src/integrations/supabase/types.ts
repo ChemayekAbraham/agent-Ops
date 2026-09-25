@@ -58852,6 +58852,21 @@ export type Database = {
         Args: { p_as_at?: string }
         Returns: Json
       }
+      get_cfo_treasury_wallet_flow_summary: {
+        Args: { p_from?: string; p_include_adjustments?: boolean }
+        Returns: {
+          amount: number
+          category: string
+          flow_direction: string
+          party: string
+          transaction_date: string
+          transfer_count: number
+        }[]
+      }
+      get_cfo_treasury_wallet_flow_summary_json: {
+        Args: { p_from?: string; p_include_adjustments?: boolean }
+        Returns: Json
+      }
       get_cfo_weekly_report: { Args: { p_end?: string }; Returns: Json }
       get_chain_health_summary: {
         Args: never
