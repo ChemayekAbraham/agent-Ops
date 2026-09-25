@@ -30,12 +30,26 @@
 -- dispatched payout, and 19 of those 41 carry a repayment_starts_on EARLIER
 -- than the day their payout was dispatched. The bug is live, not theoretical.
 --
--- `pending_merchant_payout` is the moment chosen because it is when the agent's
--- discretion over the money ends: get_agent_lp_float_available() already
--- subtracts every payout in `otp_verified` or `pending_merchant_payout`, so the
--- agent cannot spend it on anything else. The books catch up minutes later when
--- FinOps disburses. And because repayment starts TOMORROW, a same-day merchant
--- failure costs nothing: the agent retries and no collection has been missed.
+-- The trigger point is `awaiting_agent_receipt` -- the moment FinOps records
+-- that the landlord has ACTUALLY been paid -- and not `pending_merchant_payout`.
+--
+-- An earlier draft of this used dispatch-to-merchant. That was wrong, and the
+-- data says so plainly. Of the payouts sitting at `pending_merchant_payout`:
+-- 0 have finops_disbursed_at, 0 have a finops_momo_reference, 0 have
+-- disbursed_at. Nothing has reached the landlord. A payout can sit with a
+-- merchant indefinitely, and asking a tenant to start repaying rent their
+-- landlord has not received is indefensible -- as is recalling float for a
+-- payment that never actually went out.
+--
+-- `awaiting_agent_receipt` is set inside approve-withdrawal after FinOps
+-- disburses, stamping finops_disbursed_at, disbursed_at and the MoMo reference
+-- that proves the payment. The outstanding "receipt" is the agent's paperwork,
+-- not the money. 959 payouts rest there against 85 `completed`, so gating on
+-- `completed` would strand roughly 92% of plans.
+--
+-- This also puts the status flip, the allocation's paid_out_amount and the
+-- agent's 1% commission on the same event, which is what they always should
+-- have shared: all three mean "the landlord has the money".
 --
 -- Guards on the trigger:
 --   * acts only on a plan still at `funded`, so a second payout on the same
@@ -43,7 +57,7 @@
 --   * wrapped so a failure can never block a payout — a missed status flip is
 --     recoverable, a blocked landlord payment is not.
 -- ---------------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.start_repaying_on_payout_dispatch()
+CREATE OR REPLACE FUNCTION public.start_repaying_on_landlord_paid()
 RETURNS trigger
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -100,15 +114,16 @@ BEGIN
           'landlord_payout_status', NEW.status,
           'landlord_name',       NEW.landlord_name,
           'amount',              NEW.amount,
-          'dispatched_on',       v_today,
+          'finops_momo_reference', NEW.finops_momo_reference,
+          'landlord_paid_on',    v_today,
           'repayment_starts_on', v_today + 1,
-          'trigger',             'start_repaying_on_payout_dispatch'
+          'trigger',             'start_repaying_on_landlord_paid'
         )
       );
     END IF;
   EXCEPTION WHEN OTHERS THEN
     -- Never block a landlord payout because the status flip failed.
-    RAISE WARNING 'start_repaying_on_payout_dispatch failed for plan %: %', v_plan, SQLERRM;
+    RAISE WARNING 'start_repaying_on_landlord_paid failed for plan %: %', v_plan, SQLERRM;
   END;
 
   RETURN NEW;
@@ -128,14 +143,13 @@ $function$;
 -- at which the money counts as gone. This trigger now always runs first and
 -- does the complete job; the older one becomes a harmless no-op because the
 -- plan is already 'repaying' by the time it looks.
-DROP TRIGGER IF EXISTS trg_start_repaying_on_payout_dispatch ON public.landlord_payouts;
-DROP TRIGGER IF EXISTS trg_aa_start_repaying_on_payout_dispatch ON public.landlord_payouts;
-CREATE TRIGGER trg_aa_start_repaying_on_payout_dispatch
+DROP TRIGGER IF EXISTS trg_start_repaying_on_landlord_paid ON public.landlord_payouts;
+DROP TRIGGER IF EXISTS trg_aa_start_repaying_on_landlord_paid ON public.landlord_payouts;
+CREATE TRIGGER trg_aa_start_repaying_on_landlord_paid
 AFTER INSERT OR UPDATE OF status ON public.landlord_payouts
 FOR EACH ROW
-WHEN (NEW.status IN ('pending_merchant_payout','pending_finops_disbursement',
-                     'awaiting_agent_receipt','disbursed','completed'))
-EXECUTE FUNCTION public.start_repaying_on_payout_dispatch();
+WHEN (NEW.status IN ('awaiting_agent_receipt','disbursed','completed'))
+EXECUTE FUNCTION public.start_repaying_on_landlord_paid();
 
 -- ---------------------------------------------------------------------------
 -- 17. A payout that fails AFTER repayment has started
@@ -288,7 +302,7 @@ CREATE OR REPLACE VIEW public.v_rent_plan_schedule AS
     AND (
       -- Authoritative from Phase 3 onward: the landlord has been paid.
       rr.status = 'repaying'::text
-      -- Transitional, for plans that predate trg_start_repaying_on_payout_dispatch.
+      -- Transitional, for plans that predate trg_start_repaying_on_landlord_paid.
       -- Delete this arm once they have drained.
       OR COALESCE(rr.amount_repaid, 0::numeric) > 0::numeric
       OR le.rent_request_id IS NULL
