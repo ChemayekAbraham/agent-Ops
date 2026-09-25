@@ -28,6 +28,7 @@ interface ReportRow {
   total_deposited: number;
   total_paid_out: number;
   closing_balance: number;
+  report_version?: number;
   deposits_by_source: Metrics['deposits'];
   payouts_by_channel: Metrics['payouts'];
   pdf_path: string | null;
@@ -36,18 +37,53 @@ interface ReportRow {
   email_sent_at: string | null;
 }
 
+// compute_wallet_report v2 (docs/HANDOVER/131): money_in excludes float WELILE
+// sent to agents and hand-posted credits; payouts count cash when it actually
+// left (agent float settlements + treasury-paid withdrawals).
 const DEPOSIT_LABEL: Record<string, string> = {
-  cash: 'Cash', cash_code: 'Cash (Deposit Code)', mtn: 'MTN Mobile Money', airtel: 'Airtel Money', bank: 'Bank',
-  cfo_direct_credit: 'CFO Direct Credit',
-  gmail_auto_credit: 'Gmail Auto-Credit',
-  manual_recovery: 'Manual Recovery',
-  ledger_adjustment: 'Ledger Adjustment',
-  other: 'Other',
+  mtn: 'MTN', airtel: 'Airtel', bank: 'Bank', cash: 'Cash',
+  gmail_auto: 'Gmail auto-credit', other: 'Other deposit requests',
 };
 const PAYOUT_LABEL: Record<string, string> = {
-  merchant_mtn: 'Merchant MTN', merchant_airtel: 'Merchant Airtel',
-  merchant_equity_bank: 'Merchant Equity Bank', other: 'Other',
+  agent_paid: 'Paid by agents from float (incl. fees)',
+  treasury_bank_transfer: 'Bank transfers (treasury)',
+  treasury_mtn: 'MTN (treasury)', treasury_airtel: 'Airtel (treasury)', treasury_other: 'Other',
 };
+
+interface ReportV2 {
+  version: number;
+  period_start: string;
+  period_end: string;
+  money_in: Record<string, { count: number; amount: number }>;
+  money_in_total: number;
+  payouts: {
+    agent_paid: { withdrawals: number; amount: number };
+    treasury_bank_transfer: { count: number; amount: number };
+    treasury_mtn: { count: number; amount: number };
+    treasury_airtel: { count: number; amount: number };
+    treasury_other: { count: number; amount: number };
+  };
+  payouts_total: number;
+  net_movement: number;
+}
+
+function toMetrics(r: ReportV2): Metrics {
+  return {
+    period_start: r.period_start,
+    period_end: r.period_end,
+    total_deposited: Number(r.money_in_total ?? 0),
+    total_paid_out: Number(r.payouts_total ?? 0),
+    closing_wallet_balance: Number(r.net_movement ?? 0),
+    deposits: r.money_in ?? {},
+    payouts: {
+      agent_paid: { count: r.payouts.agent_paid.withdrawals, amount: r.payouts.agent_paid.amount },
+      treasury_bank_transfer: r.payouts.treasury_bank_transfer,
+      treasury_mtn: r.payouts.treasury_mtn,
+      treasury_airtel: r.payouts.treasury_airtel,
+      treasury_other: r.payouts.treasury_other,
+    },
+  };
+}
 
 function eatDayToUtcRange(dateStr: string) {
   const start = new Date(`${dateStr}T00:00:00.000+03:00`);
@@ -133,7 +169,7 @@ export function DailyWalletReportsPanel() {
         _start: startIso, _end: endIso,
       });
       if (error) throw error;
-      return (data as unknown) as Metrics;
+      return toMetrics((data as unknown) as ReportV2);
     },
   });
 
@@ -161,7 +197,8 @@ export function DailyWalletReportsPanel() {
 
   const exportRangeCsv = () => {
     const rows = filtered;
-    const header = ['Date', 'Total Deposited', 'Total Paid Out', 'Closing Balance', 'Generated At', 'Emailed At'];
+    // Rows before 2026-09-25 are v1 (deposits counted float sent to agents); see handover 131.
+    const header = ['Date', 'Money In', 'Paid Out', 'Net Movement', 'Report Version', 'Generated At', 'Emailed At'];
     const lines = [header.join(',')];
     for (const r of rows) {
       lines.push([
@@ -169,6 +206,7 @@ export function DailyWalletReportsPanel() {
         Math.round(r.total_deposited),
         Math.round(r.total_paid_out),
         Math.round(r.closing_balance),
+        r.report_version ?? 1,
         r.generated_at,
         r.email_sent_at ?? '',
       ].join(','));
@@ -247,13 +285,13 @@ export function DailyWalletReportsPanel() {
           ) : agg ? (
             <div className="space-y-4">
               <div className="grid gap-3 sm:grid-cols-3">
-                <Metric label="Total Amount Deposited" value={formatUGX(agg.total_deposited)} />
-                <Metric label="Total Amount Paid Out" value={formatUGX(agg.total_paid_out)} />
-                <Metric label="Closing Wallet Balance" value={formatUGX(agg.closing_wallet_balance)} highlight />
+                <Metric label="Money In" value={formatUGX(agg.total_deposited)} />
+                <Metric label="Money Paid Out" value={formatUGX(agg.total_paid_out)} />
+                <Metric label="Net Movement (not a balance)" value={formatUGX(agg.closing_wallet_balance)} highlight />
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
-                <BreakdownTable title="Deposits by source" labels={DEPOSIT_LABEL} data={agg.deposits} />
-                <BreakdownTable title="Payouts by channel" labels={PAYOUT_LABEL} data={agg.payouts} />
+                <BreakdownTable title="Money in by channel" labels={DEPOSIT_LABEL} data={agg.deposits} />
+                <BreakdownTable title="Paid out by who paid" labels={PAYOUT_LABEL} data={agg.payouts} />
               </div>
             </div>
           ) : (
@@ -311,9 +349,9 @@ export function DailyWalletReportsPanel() {
                 <thead>
                   <tr className="text-left text-muted-foreground border-b">
                     <th className="py-2 pr-3">Date</th>
-                    <th className="py-2 pr-3 text-right">Deposited</th>
+                    <th className="py-2 pr-3 text-right">Money In</th>
                     <th className="py-2 pr-3 text-right">Paid Out</th>
-                    <th className="py-2 pr-3 text-right">Closing</th>
+                    <th className="py-2 pr-3 text-right">Net</th>
                     <th className="py-2 pr-3">Emailed</th>
                     <th className="py-2 pr-3">Actions</th>
                   </tr>
