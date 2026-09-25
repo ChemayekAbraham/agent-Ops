@@ -6,7 +6,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const RENT_FUNDED_BONUS = 5000 // UGX 5,000 flat bonus
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -300,10 +299,17 @@ Deno.serve(async (req) => {
     }
 
     // ============================================================
-    // AGENT BONUS: UGX 5,000 flat bonus for rent funded
+    // NO BONUS IS PAID HERE.
+    //
+    // Funding the landlord float used to pay the agent twice — a flat UGX
+    // 5,000 posted inline here, and UGX 10,000 from
+    // trg_credit_agent_rent_funded_bonus, neither aware of the other. Both are
+    // removed as of Phase 1 (see docs/rent-plan-new-flow-full-report.md §2).
+    //
+    // The agent now earns at the point the work is actually done: 1% of the
+    // payout when the landlord float leaves their wallet, posted by
+    // post_landlord_payout_finops_commission. Do not reinstate a payment here.
     // ============================================================
-    let bonusPaid = false
-
     const { data: agentProfile } = await serviceClient
       .from('profiles')
       .select('full_name, email')
@@ -312,63 +318,20 @@ Deno.serve(async (req) => {
 
     const agentName = agentProfile?.full_name || 'Agent'
 
-    const { error: ledgerErr } = await serviceClient.rpc('create_ledger_transaction', {
-      entries: [
-        {
-          user_id: bonusAgentId,
-          amount: RENT_FUNDED_BONUS,
-          direction: 'cash_in',
-          category: 'agent_commission_earned',
-          ledger_scope: 'wallet',
-          source_table: 'rent_requests',
-          source_id: rent_request_id,
-          description: `UGX 5,000 rent funded bonus – landlord ${landlord?.name || 'Unknown'}`,
-          currency: 'UGX',
-          linked_party: request.tenant_id,
-          transaction_date: now,
-        },
-        {
-          user_id: bonusAgentId,
-          direction: 'cash_out',
-          amount: RENT_FUNDED_BONUS,
-          category: 'agent_commission_earned',
-          ledger_scope: 'platform',
-          source_table: 'rent_requests',
-          source_id: rent_request_id,
-          description: `Platform expense: rent funded bonus`,
-          currency: 'UGX',
-          transaction_date: now,
-        },
-      ],
-      idempotency_key: `fund-agent-landlord-float:${rent_request_id}:bonus`,
+    // The agent still has to be told the float arrived and that paying the
+    // landlord is now their next action.
+    await serviceClient.from('notifications').insert({
+      user_id: bonusAgentId,
+      title: 'Landlord float is in your wallet',
+      message: `UGX ${request.rent_amount.toLocaleString()} has been added to your landlord float to pay ${landlord?.name || 'Unknown'}. Please pay the landlord and submit the TID and receipt.`,
+      type: 'float',
+      metadata: {
+        float_amount: request.rent_amount,
+        type: 'landlord_float_funded',
+        rent_request_id,
+        landlord_name: landlord?.name,
+      },
     })
-
-    if (!ledgerErr) {
-      bonusPaid = true
-      await serviceClient.from('agent_earnings').insert({
-        agent_id: bonusAgentId,
-        amount: RENT_FUNDED_BONUS,
-        earning_type: 'rent_funded_bonus',
-        description: `UGX 5,000 bonus – rent funded to ${landlord?.name || 'Unknown'} (UGX ${request.rent_amount.toLocaleString()})`,
-      currency: 'UGX',
-        rent_request_id: rent_request_id,
-        source_user_id: request.tenant_id,
-      })
-
-      await serviceClient.from('notifications').insert({
-        user_id: bonusAgentId,
-        title: 'Rent Funded to Your Float! 🎉',
-        message: `UGX ${request.rent_amount.toLocaleString()} has been added to your landlord float to pay ${landlord?.name || 'Unknown'}. You also earned a UGX ${RENT_FUNDED_BONUS.toLocaleString()} bonus! Please pay the landlord and submit TID + receipt.`,
-        type: 'earning',
-        metadata: {
-          amount: RENT_FUNDED_BONUS,
-          float_amount: request.rent_amount,
-          type: 'rent_funded_bonus',
-          rent_request_id,
-          landlord_name: landlord?.name,
-        },
-      })
-    }
 
     // Branded transactional email to the agent — uses the
     // `agent-landlord-float-funded` React Email template.
@@ -410,7 +373,7 @@ Deno.serve(async (req) => {
               rent_request_ref: rent_request_id.slice(0, 8).toUpperCase(),
               daily_repayment: request.daily_repayment || '',
               duration_days: request.duration_days || '',
-              bonus_amount: bonusPaid ? RENT_FUNDED_BONUS : '',
+              bonus_amount: '',
               withdraw_url: 'https://welileapp.com/dashboard/agent',
               company_name: 'Welile',
               logo_url: 'https://welileapp.com/welile-logo.png',
@@ -433,8 +396,8 @@ Deno.serve(async (req) => {
         landlord_name: landlord?.name,
         agent_id: bonusAgentId,
         agent_name: agentName,
-        bonus_amount: RENT_FUNDED_BONUS,
-        bonus_paid: bonusPaid,
+        bonus_amount: 0,
+        bonus_paid: false,
         notes,
       },
     })
@@ -454,7 +417,7 @@ Deno.serve(async (req) => {
         message: `UGX ${request.rent_amount.toLocaleString()} funded to ${agentName}'s landlord float for ${landlord?.name || 'landlord'}`,
         agent_id: bonusAgentId,
         float_funded: request.rent_amount,
-        agent_bonus: { amount: RENT_FUNDED_BONUS, paid: bonusPaid },
+        agent_bonus: { amount: 0, paid: false },
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )

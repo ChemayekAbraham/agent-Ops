@@ -246,24 +246,36 @@ function RunActionBar({
 }
 
 /**
- * Release payment. Authority comes from the database authority register
- * (hr_pay_is_releaser), never from the signed-in user's roles.
+ * Release payment — the whole run at once, or in batches. Authority comes from
+ * the database authority register (hr_pay_is_releaser), never from the signed-in
+ * user's roles. The releaser ticks who is paid in each batch. Every payslip is
+ * keyed, so nobody can be paid twice, and the run can only be recorded as paid
+ * once every payslip with net pay has been posted. Record payment is shown
+ * whenever the run is approved — not only straight after a release.
  */
-function ReleaseSection({ runId, status }: { runId: string; status: string }) {
+function ReleaseSection({
+  runId,
+  status,
+  payslips,
+  onPaid,
+}: {
+  runId: string;
+  status: string;
+  payslips: Array<{ id: string; staff_ref?: string | null; staff_name?: string | null; net: number }>;
+  onPaid?: () => void;
+}) {
   const authority = useRunAuthority();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [dry, setDry] = useState<{
-    payslip_count: number;
-    total_net: number;
-    items: Array<{ staff_ref: string | null; amount: number; blocker: string | null }>;
-  } | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [dry, setDry] = useState<{ payslip_count: number; total_net: number; items: Array<{ staff_ref: string | null; amount: number; blocker: string | null }> } | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [typed, setTyped] = useState('');
-  const [released, setReleased] = useState(false);
   const [disbursements, setDisbursements] = useState<DisbursementRow[]>([]);
   const [paidError, setPaidError] = useState<string | null>(null);
   const [paidDone, setPaidDone] = useState(false);
+
+  const visible = ['approved', 'paid', 'locked'].includes(status);
 
   const loadDisbursements = useCallback(async () => {
     try {
@@ -273,11 +285,77 @@ function ReleaseSection({ runId, status }: { runId: string; status: string }) {
     }
   }, [runId]);
 
+  useEffect(() => {
+    if (visible) void loadDisbursements();
+  }, [visible, loadDisbursements]);
+
+  const byPayslip = useMemo(() => {
+    const map = new Map<string, DisbursementRow>();
+    for (const d of disbursements) {
+      if (d.payslip_id) map.set(d.payslip_id, d);
+    }
+    return map;
+  }, [disbursements]);
+
+  const payable = useMemo(() => payslips.filter((p) => Number(p.net) > 0), [payslips]);
+
+  const canTick = (id: string) => {
+    const s = byPayslip.get(id)?.status;
+    return s !== 'posted' && s !== 'pending';
+  };
+
+  const summary = useMemo(() => {
+    let paidCount = 0;
+    let paidSum = 0;
+    let owedCount = 0;
+    let owedSum = 0;
+    let failedCount = 0;
+    let pendingCount = 0;
+    for (const p of payable) {
+      const s = byPayslip.get(p.id)?.status;
+      if (s === 'posted') {
+        paidCount++;
+        paidSum += Number(p.net);
+      } else {
+        owedCount++;
+        owedSum += Number(p.net);
+      }
+      if (s === 'failed') failedCount++;
+      if (s === 'pending') pendingCount++;
+    }
+    return { paidCount, paidSum, owedCount, owedSum, failedCount, pendingCount };
+  }, [payable, byPayslip]);
+
+  const selectedTotal = useMemo(
+    () => payable.filter((p) => selected.has(p.id)).reduce((sum, p) => sum + Number(p.net), 0),
+    [payable, selected],
+  );
+
+  const toggle = (id: string) => {
+    setDry(null);
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const selectAllUnpaid = () => {
+    setDry(null);
+    setSelected(new Set(payable.filter((p) => canTick(p.id)).map((p) => p.id)));
+  };
+
+  const clearSelection = () => {
+    setDry(null);
+    setSelected(new Set());
+  };
+
   const doDryRun = async () => {
     setBusy(true);
     setError(null);
     try {
-      const res = await runRelease(runId, true);
+      const res = await runRelease(runId, true, Array.from(selected));
       setDry({
         payslip_count: Number(res?.payslip_count ?? 0),
         total_net: Number(res?.total_net ?? 0),
@@ -294,12 +372,15 @@ function ReleaseSection({ runId, status }: { runId: string; status: string }) {
     setBusy(true);
     setError(null);
     try {
-      await runRelease(runId, false);
-      setReleased(true);
+      const res = await runRelease(runId, false, Array.from(selected));
       setConfirmOpen(false);
       setTyped('');
+      setDry(null);
+      setSelected(new Set());
       await loadDisbursements();
-      toast.success('Release processed.');
+      toast.success(
+        `Batch released: ${Number(res?.posted ?? 0)} paid, ${Number(res?.failed ?? 0)} failed, ${Number(res?.already_handled ?? 0)} already handled.`,
+      );
     } catch (err) {
       setError((err as Error).message);
     } finally {
@@ -307,50 +388,157 @@ function ReleaseSection({ runId, status }: { runId: string; status: string }) {
     }
   };
 
-  const counts = useMemo(() => {
-    return disbursements.reduce(
-      (acc, d) => ({
-        posted: acc.posted + (d.status === 'posted' ? 1 : 0),
-        failed: acc.failed + (d.status === 'failed' ? 1 : 0),
-        skipped: acc.skipped + (d.status === 'skipped' ? 1 : 0),
-      }),
-      { posted: 0, failed: 0, skipped: 0 },
-    );
-  }, [disbursements]);
-
-  if (!['approved', 'paid', 'locked'].includes(status)) return null;
+  if (!visible) return null;
 
   const readOnly = !authority.releaser;
+  const releasable = status === 'approved' && !readOnly;
+  const allPaid = summary.owedCount === 0;
 
   return (
     <Card>
       <CardHeader className="space-y-1">
         <CardTitle className="text-base">Release payment</CardTitle>
         <p className="text-xs text-muted-foreground">
-          Credits each employee&apos;s wallet. This moves real money.
+          Credits each employee&apos;s wallet. This moves real money. Pay everyone at once, or in
+          batches: tick who is paid now and release; the rest stay owed until the next batch.
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
-        {readOnly ? (
+        <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+          <span>
+            Paid <strong>{summary.paidCount}</strong> of {payable.length} ·{' '}
+            <strong>{formatNet(summary.paidSum)}</strong>
+          </span>
+          <span>
+            Still to pay <strong>{summary.owedCount}</strong> ·{' '}
+            <strong>{formatNet(summary.owedSum)}</strong>
+          </span>
+          {summary.failedCount > 0 && (
+            <span className="font-semibold text-destructive">
+              {summary.failedCount} failed — tick to retry
+            </span>
+          )}
+          {summary.pendingCount > 0 && (
+            <span className="font-semibold text-amber-700">
+              {summary.pendingCount} in progress — check the ledger before retrying
+            </span>
+          )}
+        </div>
+
+        {readOnly && (
           <p className="text-sm text-muted-foreground">
             Only the position holding release authority may release this run.
           </p>
-        ) : (
-          <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" variant="outline" disabled={busy} onClick={() => void doDryRun()}>
+        )}
+
+        {payable.length > 0 && (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                {releasable && <TableHead className="w-10">Pay</TableHead>}
+                <TableHead>Staff ref</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead className="text-right">Net</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {payable.map((p) => {
+                const d = byPayslip.get(p.id);
+                const s = d?.status;
+                const label =
+                  s === 'posted'
+                    ? 'Paid'
+                    : s === 'failed'
+                      ? 'Failed'
+                      : s === 'pending'
+                        ? 'In progress'
+                        : s === 'skipped'
+                          ? 'Skipped'
+                          : 'Not paid';
+                const tone =
+                  s === 'posted'
+                    ? 'text-emerald-600'
+                    : s === 'failed'
+                      ? 'text-destructive'
+                      : s === 'pending'
+                        ? 'text-amber-700'
+                        : 'text-muted-foreground';
+                return (
+                  <TableRow key={p.id}>
+                    {releasable && (
+                      <TableCell>
+                        <input
+                          type="checkbox"
+                          aria-label={`Pay ${p.staff_ref ?? 'employee'}`}
+                          checked={selected.has(p.id)}
+                          disabled={busy || !canTick(p.id)}
+                          onChange={() => toggle(p.id)}
+                        />
+                      </TableCell>
+                    )}
+                    <TableCell className="font-mono text-xs">{p.staff_ref ?? '—'}</TableCell>
+                    <TableCell>{p.staff_name ?? '—'}</TableCell>
+                    <TableCell className="text-right">{formatNet(p.net)}</TableCell>
+                    <TableCell className={`text-xs font-semibold ${tone}`}>
+                      {label}
+                      {s === 'posted' && d?.posted_at ? (
+                        <span className="ml-1 font-normal text-muted-foreground">
+                          {new Date(d.posted_at).toLocaleDateString('en-GB')}
+                        </span>
+                      ) : null}
+                      {s === 'failed' && d?.error_text ? (
+                        <span className="block whitespace-pre-wrap font-normal">{d.error_text}</span>
+                      ) : null}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        )}
+
+        {releasable && (
+          <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy || summary.owedCount === 0}
+              onClick={selectAllUnpaid}
+            >
+              Select all unpaid
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy || selected.size === 0}
+              onClick={clearSelection}
+            >
+              Clear
+            </Button>
+            <span className="text-sm">
+              <strong>{selected.size}</strong> selected ·{' '}
+              <strong>{formatNet(selectedTotal)}</strong>
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy || selected.size === 0}
+              onClick={() => void doDryRun()}
+            >
               {busy && <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />}
               Dry run
             </Button>
             <Button
               size="sm"
-              disabled={busy || !dry}
-              title={dry ? 'Release payment' : 'Perform a dry run first.'}
+              disabled={busy || !dry || selected.size === 0}
+              title={dry ? 'Release this batch' : 'Tick who to pay, then perform a dry run.'}
               onClick={() => {
                 setTyped('');
                 setConfirmOpen(true);
               }}
             >
-              Release payment
+              Release selected
             </Button>
           </div>
         )}
@@ -364,7 +552,7 @@ function ReleaseSection({ runId, status }: { runId: string; status: string }) {
         {dry && (
           <div className="space-y-2">
             <p className="text-sm">
-              {dry.payslip_count} payslips · total {formatNet(dry.total_net)}
+              Dry run: {dry.payslip_count} selected · total {formatNet(dry.total_net)}
             </p>
             <p className="text-xs text-muted-foreground">
               A dry run writes nothing. No wallet is credited and no ledger entry is posted.
@@ -396,59 +584,21 @@ function ReleaseSection({ runId, status }: { runId: string; status: string }) {
           </div>
         )}
 
-        {released && (
-          <div className="space-y-2 border-t border-border pt-4">
-            <p className="text-sm font-semibold">
-              Posted {counts.posted} · Failed {counts.failed} · Skipped {counts.skipped}
-            </p>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Staff ref</TableHead>
-                  <TableHead className="text-right">Amount</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Ledger reference</TableHead>
-                  <TableHead>Error</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {disbursements.map((d) => (
-                  <TableRow key={d.id}>
-                    <TableCell className="font-mono text-xs">{d.staff_ref ?? '—'}</TableCell>
-                    <TableCell className="text-right">{formatNet(d.amount)}</TableCell>
-                    <TableCell
-                      className={
-                        d.status === 'posted'
-                          ? 'text-xs font-semibold text-emerald-600'
-                          : d.status === 'failed'
-                            ? 'text-xs font-semibold text-destructive'
-                            : 'text-xs font-semibold text-muted-foreground'
-                      }
-                    >
-                      {d.status}
-                    </TableCell>
-                    <TableCell className="font-mono text-[11px]">
-                      {d.ledger_reference_id ?? '—'}
-                    </TableCell>
-                    <TableCell className="whitespace-pre-wrap text-xs">
-                      {d.error_text ?? '—'}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+        {status === 'approved' && (
+          <div className="space-y-2 border-t border-border pt-3">
             <p className="text-xs text-muted-foreground">
-              Retrying is safe. Payments already posted are skipped by their idempotency key.
+              Retrying is safe. A posted payment is never paid again, and a failed payment can be
+              ticked and released again.
             </p>
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 size="sm"
                 variant="outline"
-                disabled={busy || counts.failed > 0 || paidDone}
+                disabled={busy || readOnly || !allPaid || paidDone}
                 title={
-                  counts.failed > 0
-                    ? 'Resolve the failed rows before recording payment.'
-                    : 'Record that this run has been paid.'
+                  !allPaid
+                    ? `${summary.owedCount} ${summary.owedCount === 1 ? 'person is' : 'people are'} still to be paid.`
+                    : 'Record that this run has been paid in full.'
                 }
                 onClick={() => {
                   setPaidError(null);
@@ -457,6 +607,7 @@ function ReleaseSection({ runId, status }: { runId: string; status: string }) {
                     .then(() => {
                       setPaidDone(true);
                       toast.success('Payment recorded.');
+                      onPaid?.();
                     })
                     .catch((err) => setPaidError((err as Error).message))
                     .finally(() => setBusy(false));
@@ -477,7 +628,7 @@ function ReleaseSection({ runId, status }: { runId: string; status: string }) {
         <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Release payment</DialogTitle>
+              <DialogTitle>Release this batch</DialogTitle>
             </DialogHeader>
             <div className="space-y-3">
               <p className="text-sm">
@@ -1762,7 +1913,12 @@ export function PayRunDetailPlaceholder() {
             periodCode={detail.period_code ?? null}
           />
 
-          <ReleaseSection runId={detail.id} status={detail.status} />
+          <ReleaseSection
+            runId={detail.id}
+            status={detail.status}
+            payslips={detail.payslips}
+            onPaid={() => void load()}
+          />
 
           <Card>
             <CardHeader>

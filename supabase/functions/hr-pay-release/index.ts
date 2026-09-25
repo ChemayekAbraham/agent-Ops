@@ -137,6 +137,20 @@ Deno.serve(async (req) => {
     const dryRun: boolean = body?.dryRun === true;
     if (!runId) return json({ error: 'runId is required' }, 400);
 
+    // NEW — optional batch. When payslipIds is present it must be a non-empty
+    // list; an empty list is refused rather than treated as "everyone", so a
+    // screen fault can never release the whole run by accident.
+    const rawIds = body?.payslipIds;
+    let payslipIds: string[] | null = null;
+    if (rawIds !== undefined && rawIds !== null) {
+      const valid = Array.isArray(rawIds) && rawIds.length > 0 &&
+        rawIds.every((x: unknown) => typeof x === 'string' && x.length > 0);
+      if (!valid) {
+        return json({ error: 'payslipIds must be a non-empty list of payslip ids.' }, 400);
+      }
+      payslipIds = Array.from(new Set(rawIds as string[]));
+    }
+
     // 5. Load the run
     const { data: run, error: runErr } = await adminClient
       .from('hr_pay_runs')
@@ -149,14 +163,24 @@ Deno.serve(async (req) => {
     }
     const periodCode: string = (run as any).hr_pay_periods?.code ?? '';
 
-    // 6. Current payslips joined to staff
-    const { data: payslips, error: psErr } = await adminClient
+    // 6. Current payslips joined to staff — NEW: optionally only a chosen batch
+    let psQuery = adminClient
       .from('hr_pay_payslips')
       .select('id, staff_id, net, hr_staff:staff_id(id, staff_ref, user_id)')
       .eq('run_id', runId)
       .eq('is_current', true);
+    if (payslipIds) psQuery = psQuery.in('id', payslipIds);
+    const { data: payslips, error: psErr } = await psQuery;
     if (psErr) return json({ error: psErr.message }, 500);
     const rows = payslips ?? [];
+
+    // NEW — a batch may only name current payslips of this run. Anything else is
+    // stale or foreign; refuse the whole batch rather than pay part of it.
+    if (payslipIds && rows.length !== payslipIds.length) {
+      return json({
+        error: `${payslipIds.length - rows.length} of the ${payslipIds.length} selected payslips are not current payslips of this run. Reload the run and select again.`,
+      }, 409);
+    }
 
     // 7. Dry run — write nothing
     if (dryRun) {
@@ -165,10 +189,11 @@ Deno.serve(async (req) => {
         let blocker: string | null = null;
         if (net <= 0) blocker = 'Net is zero or negative';
         else if (!p.hr_staff?.user_id) blocker = 'Staff member has no linked user account';
-        return { staff_ref: p.hr_staff?.staff_ref ?? null, amount: net, blocker };
+        return { payslip_id: p.id, staff_ref: p.hr_staff?.staff_ref ?? null, amount: net, blocker };
       });
       return json({
         dryRun: true,
+        batch: payslipIds ? 'selected' : 'all',
         payslip_count: rows.length,
         total_net: items.reduce((s, i) => s + i.amount, 0),
         items,
@@ -176,7 +201,7 @@ Deno.serve(async (req) => {
     }
 
     // 8. Post each payslip sequentially
-    let posted = 0, skipped = 0, failed = 0, alreadyHandled = 0, totalPosted = 0;
+    let posted = 0, skipped = 0, failed = 0, alreadyHandled = 0, retried = 0, totalPosted = 0;
 
     for (const p of rows as any[]) {
       const net = Number(p.net ?? 0);
@@ -202,16 +227,43 @@ Deno.serve(async (req) => {
         .select('id')
         .single();
 
+      let disbId: string;
       if (insErr) {
         if ((insErr as any).code === '23505' || /duplicate key|unique/i.test(insErr.message)) {
-          alreadyHandled++;
+          // NEW — already attempted. A FAILED attempt is retried by reclaiming the
+          // same row, conditionally on it still being failed, so two releases can
+          // never both claim it. Posted, skipped and pending rows are left alone —
+          // a pending row may already have reached the ledger.
+          const { data: reclaimed, error: reErr } = await adminClient
+            .from('hr_pay_disbursements')
+            .update({
+              status: 'pending',
+              error_text: null,
+              attempted_at: new Date().toISOString(),
+              released_by: user.id,
+            })
+            .eq('idempotency_key', idempotencyKey)
+            .eq('status', 'failed')
+            .select('id');
+          if (reErr) {
+            failed++;
+            console.error(`[hr-pay-release] retry claim failed for payslip ${p.id}:`, reErr.message);
+            continue;
+          }
+          if (!reclaimed || reclaimed.length === 0) {
+            alreadyHandled++;
+            continue;
+          }
+          disbId = reclaimed[0].id;
+          retried++;
+        } else {
+          failed++;
+          console.error(`[hr-pay-release] claim failed for payslip ${p.id}:`, insErr.message);
           continue;
         }
-        failed++;
-        console.error(`[hr-pay-release] claim failed for payslip ${p.id}:`, insErr.message);
-        continue;
+      } else {
+        disbId = disb!.id;
       }
-      const disbId = disb!.id;
 
       // c. zero or negative net
       if (net <= 0) {
@@ -288,6 +340,7 @@ Deno.serve(async (req) => {
           staff_id: p.staff_id,
           amount: net,
           reference_id: refId,
+          batch: payslipIds ? 'selected' : 'all',
         },
       });
 
@@ -325,9 +378,12 @@ Deno.serve(async (req) => {
     // 9. Summary
     return json({
       success: true,
+      batch: payslipIds ? 'selected' : 'all',
+      selected: payslipIds ? payslipIds.length : null,
       posted,
       skipped,
       failed,
+      retried,
       already_handled: alreadyHandled,
       total_posted: totalPosted,
     }, 200);

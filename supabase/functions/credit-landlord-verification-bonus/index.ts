@@ -1,155 +1,53 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { checkTreasuryGuard } from "../_shared/treasuryGuard.ts";
+// RETIRED — 25 September 2026. This function no longer pays anything.
+//
+// It credited the agent UGX 5,000 every time a rent request passed a pipeline
+// desk that showed the landlord checklist. Three problems:
+//
+//   1. it was keyed on `rent_request_id`, not `landlord_id`, so the same
+//      landlord paid a bonus once per rent request naming them;
+//   2. its `create_ledger_transaction` call carried NO idempotency_key, so a
+//      retry or a second desk approving paid again;
+//   3. it never checked whether the landlord was new or already verified.
+//
+// Measured over its life (2026-04-10 → 2026-09-22): 1,177 ledger legs across
+// 1,131 rent requests but only 723 distinct landlords — UGX 5,885,000 paid
+// where 3,615,000 was due, and 154 landlords paid through this path AND the
+// correct one.
+//
+// The landlord bonus is now paid once per NEW landlord by
+// `pay_landlord_registration_verified_bonus`, a trigger on the
+// `landlords.verified` false → true transition, guarded by
+// `registration_verification_bonus_paid` and the idempotency key
+// `landlord_reg_verify_v2:<landlord_id>`.
+//
+// The body is kept as a refusing stub rather than deleted: removing the source
+// does not undeploy the function, and a stale caller should get a clear answer
+// instead of an opaque failure. Both call sites in
+// src/components/executive/RentPipelineQueue.tsx were removed in the same change.
+//
+// Spec: docs/rent-plan-new-flow-full-report.md §2, §7.
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const LANDLORD_VERIFICATION_BONUS = 5000;
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
-  try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
+  console.warn('[credit-landlord-verification-bonus] retired endpoint called; nothing was paid')
 
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) throw new Error('Missing authorization')
-
-    const anonClient = createClient(supabaseUrl, Deno.env.get('SUPABASE_ANON_KEY')!, {
-      global: { headers: { Authorization: authHeader } },
-    })
-    const { data: { user }, error: authErr } = await anonClient.auth.getUser()
-    if (authErr || !user) throw new Error('Unauthorized')
-
-    const serviceClient = createClient(supabaseUrl, serviceKey)
-
-    // Treasury guard: bonus credits agent wallet — block when paused
-    const guardBlock = await checkTreasuryGuard(serviceClient, "credit");
-    if (guardBlock) return guardBlock;
-
-    // Verify caller has appropriate role
-    const { data: roles } = await serviceClient
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .in('role', ['manager', 'operations', 'coo', 'super_admin', 'employee'])
-    if (!roles || roles.length === 0) throw new Error('Insufficient permissions')
-
-    const { rent_request_id } = await req.json()
-    if (!rent_request_id) throw new Error('rent_request_id is required')
-
-    // Fetch the rent request to get the agent
-    const { data: request, error: reqErr } = await serviceClient
-      .from('rent_requests')
-      .select('id, agent_id, assigned_agent_id, landlord_id, tenant_id, rent_amount')
-      .eq('id', rent_request_id)
-      .single()
-
-    if (reqErr || !request) throw new Error('Rent request not found')
-
-    const agentId = request.assigned_agent_id || request.agent_id
-    if (!agentId) {
-      return new Response(JSON.stringify({ success: false, reason: 'no_agent' }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
-
-    // Fetch landlord name
-    const { data: landlord } = await serviceClient
-      .from('landlords')
-      .select('name')
-      .eq('id', request.landlord_id)
-      .single()
-
-    const now = new Date().toISOString()
-    const landlordName = landlord?.name || 'Unknown'
-
-    // Credit UGX 5,000 landlord verification bonus via RPC
-    const { data: txGroupId, error: ledgerErr } = await serviceClient.rpc('create_ledger_transaction', {
-      entries: [
-        {
-          user_id: agentId,
-          amount: LANDLORD_VERIFICATION_BONUS,
-          direction: 'cash_in',
-          category: 'agent_commission_earned',
-          ledger_scope: 'wallet',
-          source_table: 'rent_requests',
-          source_id: rent_request_id,
-          description: `UGX 5,000 landlord verification bonus – ${landlordName}`,
-          currency: 'UGX',
-          transaction_date: now,
-        },
-        {
-          direction: 'cash_out',
-          amount: LANDLORD_VERIFICATION_BONUS,
-          category: 'agent_commission_earned',
-          ledger_scope: 'platform',
-          source_table: 'rent_requests',
-          source_id: rent_request_id,
-          description: `Platform expense: verification bonus – ${landlordName}`,
-          currency: 'UGX',
-          transaction_date: now,
-        },
-      ],
-    })
-
-    if (ledgerErr) throw new Error(`Ledger error: ${ledgerErr.message}`)
-
-    // Record in agent_earnings
-    await serviceClient.from('agent_earnings').insert({
-      agent_id: agentId,
-      amount: LANDLORD_VERIFICATION_BONUS,
-      earning_type: 'verification_bonus',
-      source_user_id: user.id,
-      rent_request_id,
-      description: `UGX 5,000 landlord location verification bonus – ${landlordName}`,
-      currency: 'UGX',
-    })
-
-    // Notify agent
-    await serviceClient.from('notifications').insert({
-      user_id: agentId,
-      title: 'Verification Bonus! 🎉',
-      message: `You earned UGX ${LANDLORD_VERIFICATION_BONUS.toLocaleString()} for verifying landlord ${landlordName}'s property location.`,
-      type: 'earning',
-      metadata: {
-        amount: LANDLORD_VERIFICATION_BONUS,
-        type: 'verification_bonus',
-        rent_request_id,
-        landlord_name: landlordName,
-      },
-    })
-
-    // Audit log
-    await serviceClient.from('audit_logs').insert({
-      user_id: user.id,
-      action_type: 'landlord_verification_bonus',
-      table_name: 'rent_requests',
-      record_id: rent_request_id,
-      metadata: {
-        agent_id: agentId,
-        bonus_amount: LANDLORD_VERIFICATION_BONUS,
-        landlord_name: landlordName,
-      },
-    })
-
-    return new Response(JSON.stringify({
-      success: true,
-      agent_id: agentId,
-      bonus: LANDLORD_VERIFICATION_BONUS,
-      landlord_name: landlordName,
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
-  } catch (err) {
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 400,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    })
-  }
+  return new Response(
+    JSON.stringify({
+      success: false,
+      retired: true,
+      bonus_paid: 0,
+      reason: 'landlord_bonus_moved_to_registration_trigger',
+      message:
+        'This endpoint is retired. The landlord bonus is paid once per new landlord when the landlord is verified, by pay_landlord_registration_verified_bonus. Nothing was credited by this call.',
+    }),
+    { status: 410, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+  )
 })

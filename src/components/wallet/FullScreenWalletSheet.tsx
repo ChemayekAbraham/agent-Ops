@@ -40,6 +40,7 @@ import { PaymentMethodIcons } from './PaymentMethodIcons';
 import { ProxyPartnerFunds } from '@/components/agent/ProxyPartnerFunds';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { WalletTransactionTimeline } from './WalletTransactionTimeline';
+import { WalletPeriodStatementButton } from './WalletPeriodStatementButton';
 import { BillPaymentDialog } from './BillPaymentDialog';
 import { FoodMarketDialog } from './FoodMarketDialog';
 import { WalletDisclaimer } from './WalletDisclaimer';
@@ -173,6 +174,8 @@ export function FullScreenWalletSheet({ open, onOpenChange, scrollTarget }: Full
                     <PaymentMethodIcons className="mt-2" />
                   </div>
                 </div>
+
+                <WalletPeriodStatementButton />
 
                 {/* Download Statement Button */}
                 {isAgent && user?.id && (

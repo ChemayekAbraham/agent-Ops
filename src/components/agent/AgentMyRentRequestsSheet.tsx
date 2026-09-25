@@ -32,7 +32,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { downloadRepaymentPdf, shareRepaymentPdfWhatsApp } from '@/lib/repaymentSchedulePdf';
 import { useToast } from '@/hooks/use-toast';
 import { AgentRejectedRequestsSection } from './AgentRejectedRequestsSection';
-import { RentRewardChips } from './RentRewardChips';
 
 interface AgentRentRequest {
   id: string;
@@ -344,13 +343,6 @@ export function AgentMyRentRequestsSheet({ open, onOpenChange }: AgentMyRentRequ
                             <span className="font-medium">Landlord verification pending</span>
                           </div>
                         )}
-
-                        {/* Agent reward progress (1k → 4k → 5k) for listed-house requests */}
-                        <RentRewardChips
-                          isListed={!!req.house_listing_id}
-                          landlordVerified={!!req.landlord?.verified}
-                          status={req.status}
-                        />
 
                         {/* Details */}
                         <div className="px-4 pb-3 space-y-1 text-sm text-muted-foreground">

@@ -40,13 +40,12 @@ If you brought another agent to Welile, you get *2%* from every tenant THEY mana
 Bring an investor who funds rent → earn *2%* of their investment (1% on Angel Pool)!
 
 🎁 *Extra Cash Bonuses*
-• Help a tenant apply for rent → *UGX 5,000*
+• Register a landlord (paid when verified) → *UGX 5,000*
 • List an empty house (paid after verification) → *UGX 2,000*
-• A tenant moves into a house you listed → *UGX 5,000*
-• Landlord on your rent request verified → *UGX 4,000*
-• Sub-agent's house/landlord/LC1 verified → *UGX 1,000*
-• Rent request posted & listed → *UGX 1,000*
-• Replace a tenant in a house → *UGX 20,000*
+• A tenant moves into a house you listed → *UGX 10,000*
+• Pay the landlord from your float → *1% of the amount*
+• Capture a contact's location → *UGX 100*
+• Sub-agent's house listing verified → *UGX 2,000*
 • Register a new agent under you → *UGX 10,000*
 • Set up a Welile Service Centre → *UGX 25,000*
 
@@ -170,7 +169,7 @@ Bring an investor who funds rent → earn *2%* of their investment (1% on Angel 
 
             <div className="rounded-2xl bg-primary text-primary-foreground p-4 text-center">
               <p className="text-sm font-semibold opacity-90">You earn when your landlord is verified</p>
-              <p className="text-3xl font-extrabold mt-1">UGX 4,000</p>
+              <p className="text-3xl font-extrabold mt-1">UGX 5,000</p>
               <p className="text-sm opacity-90 mt-1">…and then 10% of every rent payment forever!</p>
             </div>
 
@@ -268,17 +267,6 @@ Bring an investor who funds rent → earn *2%* of their investment (1% on Angel 
                 </div>
 
                 <div className="px-3 py-2.5 flex items-start gap-2.5">
-                  <Award className="h-4 w-4 text-primary mt-0.5 shrink-0" />
-                  <div className="flex-1">
-                    <div className="flex justify-between items-start">
-                      <p className="text-sm font-semibold text-foreground">Replace a Tenant</p>
-                      <span className="text-xs font-bold text-primary whitespace-nowrap">UGX 20,000</span>
-                    </div>
-                    <p className="text-sm text-muted-foreground">Find a new tenant for a vacated house</p>
-                  </div>
-                </div>
-
-                <div className="px-3 py-2.5 flex items-start gap-2.5">
                   <UserPlus className="h-4 w-4 text-primary mt-0.5 shrink-0" />
                   <div className="flex-1">
                     <div className="flex justify-between items-start">
@@ -293,10 +281,10 @@ Bring an investor who funds rent → earn *2%* of their investment (1% on Angel 
                   <BookOpen className="h-4 w-4 text-primary mt-0.5 shrink-0" />
                   <div className="flex-1">
                     <div className="flex justify-between items-start">
-                      <p className="text-sm font-semibold text-foreground">Help a Tenant Apply for Rent</p>
-                      <span className="text-xs font-bold text-primary whitespace-nowrap">UGX 5,000</span>
+                      <p className="text-sm font-semibold text-foreground">Pay the Landlord from Your Float</p>
+                      <span className="text-xs font-bold text-primary whitespace-nowrap">1% of the payout</span>
                     </div>
-                    <p className="text-sm text-muted-foreground">Help post a rent request for a tenant who needs help</p>
+                    <p className="text-sm text-muted-foreground">Earned when the rent leaves your wallet and reaches the landlord — e.g. UGX 2,500 on a UGX 250,000 rent</p>
                   </div>
                 </div>
 
@@ -316,7 +304,7 @@ Bring an investor who funds rent → earn *2%* of their investment (1% on Angel 
                   <div className="flex-1">
                     <div className="flex justify-between items-start">
                       <p className="text-sm font-semibold text-foreground">Tenant Placed in Your Listed House</p>
-                      <span className="text-xs font-bold text-primary whitespace-nowrap">UGX 5,000</span>
+                      <span className="text-xs font-bold text-primary whitespace-nowrap">UGX 10,000</span>
                     </div>
                     <p className="text-sm text-muted-foreground">When an empty house you listed gets its first tenant — automatic bonus to you</p>
                   </div>
@@ -327,20 +315,21 @@ Bring an investor who funds rent → earn *2%* of their investment (1% on Angel 
                   <div className="flex-1">
                     <div className="flex justify-between items-start">
                       <p className="text-base font-bold text-foreground">⭐ Register a Landlord</p>
-                      <span className="text-sm font-bold text-primary whitespace-nowrap">UGX 4,000</span>
+                      <span className="text-sm font-bold text-primary whitespace-nowrap">UGX 5,000</span>
                     </div>
-                    <p className="text-sm text-muted-foreground">Your #1 priority — earn when your landlord is verified, then 10% of rent forever</p>
+                    <p className="text-sm text-muted-foreground">Your #1 priority — paid once when a NEW landlord is verified, then 10% of their rent forever</p>
                   </div>
                 </div>
 
+
                 <div className="px-3 py-2.5 flex items-start gap-2.5">
-                  <FileText className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                  <MapPin className="h-4 w-4 text-primary mt-0.5 shrink-0" />
                   <div className="flex-1">
                     <div className="flex justify-between items-start">
-                      <p className="text-sm font-semibold text-foreground">Rent Request Posted &amp; Listed</p>
-                      <span className="text-xs font-bold text-primary whitespace-nowrap">UGX 1,000</span>
+                      <p className="text-sm font-semibold text-foreground">Capture a Contact&apos;s Location</p>
+                      <span className="text-xs font-bold text-primary whitespace-nowrap">UGX 100</span>
                     </div>
-                    <p className="text-sm text-muted-foreground">A small bonus when your rent request is posted and listed</p>
+                    <p className="text-sm text-muted-foreground">Record the GPS location of a tenant or landlord you manage — paid once per contact</p>
                   </div>
                 </div>
 
@@ -349,9 +338,9 @@ Bring an investor who funds rent → earn *2%* of their investment (1% on Angel 
                   <div className="flex-1">
                     <div className="flex justify-between items-start">
                       <p className="text-sm font-semibold text-foreground">Sub-Agent Verification Override</p>
-                      <span className="text-xs font-bold text-primary whitespace-nowrap">UGX 3,000</span>
+                      <span className="text-xs font-bold text-primary whitespace-nowrap">UGX 2,000</span>
                     </div>
-                    <p className="text-sm text-muted-foreground">When a house, landlord or LC1 chairperson submitted by an agent you recruited is verified</p>
+                    <p className="text-sm text-muted-foreground">When a house listing submitted by an agent you recruited is verified</p>
                   </div>
                 </div>
 
@@ -545,13 +534,6 @@ Bring an investor who funds rent → earn *2%* of their investment (1% on Angel 
                       </div>
                       <div className="flex justify-between items-center px-3 py-3">
                         <div>
-                          <p className="text-sm font-medium text-foreground">Replace a tenant</p>
-                          <p className="text-xs text-muted-foreground">Find a new tenant for a vacated house</p>
-                        </div>
-                        <span className="font-bold text-primary whitespace-nowrap">UGX 20,000</span>
-                      </div>
-                      <div className="flex justify-between items-center px-3 py-3">
-                        <div>
                           <p className="text-sm font-medium text-foreground">Register a new agent</p>
                           <p className="text-xs text-muted-foreground">Bring someone new to join as a Welile agent</p>
                         </div>
@@ -559,10 +541,10 @@ Bring an investor who funds rent → earn *2%* of their investment (1% on Angel 
                       </div>
                       <div className="flex justify-between items-center px-3 py-3">
                         <div>
-                          <p className="text-sm font-medium text-foreground">Help a tenant apply for rent</p>
-                          <p className="text-xs text-muted-foreground">When you help post a rent request</p>
+                          <p className="text-sm font-medium text-foreground">Pay the landlord from your float</p>
+                          <p className="text-xs text-muted-foreground">Earned when the rent reaches the landlord</p>
                         </div>
-                        <span className="font-bold text-primary whitespace-nowrap">UGX 5,000</span>
+                        <span className="font-bold text-primary whitespace-nowrap">1% of the payout</span>
                       </div>
                       <div className="flex justify-between items-center px-3 py-3">
                         <div>
@@ -576,28 +558,28 @@ Bring an investor who funds rent → earn *2%* of their investment (1% on Angel 
                           <p className="text-sm font-medium text-foreground">Tenant placed in your listed house</p>
                           <p className="text-xs text-muted-foreground">When an empty house you listed gets its first tenant</p>
                         </div>
-                        <span className="font-bold text-primary whitespace-nowrap">UGX 5,000</span>
+                        <span className="font-bold text-primary whitespace-nowrap">UGX 10,000</span>
                       </div>
                       <div className="flex justify-between items-center px-3 py-3 bg-primary/10 border-l-4 border-primary">
                         <div>
                           <p className="text-base font-bold text-foreground">⭐ Register a landlord</p>
-                          <p className="text-sm text-muted-foreground">Your #1 priority — earn when your landlord is verified</p>
+                          <p className="text-sm text-muted-foreground">Your #1 priority — paid once when a NEW landlord is verified</p>
                         </div>
-                        <span className="font-bold text-primary whitespace-nowrap">UGX 4,000</span>
+                        <span className="font-bold text-primary whitespace-nowrap">UGX 5,000</span>
+                      </div>
+                      <div className="flex justify-between items-center px-3 py-3">
+                        <div>
+                          <p className="text-sm font-medium text-foreground">Capture a contact&apos;s location</p>
+                          <p className="text-xs text-muted-foreground">Record the GPS location of a tenant or landlord you manage</p>
+                        </div>
+                        <span className="font-bold text-primary whitespace-nowrap">UGX 100</span>
                       </div>
                       <div className="flex justify-between items-center px-3 py-3">
                         <div>
                           <p className="text-sm font-medium text-foreground">Sub-agent verification override</p>
-                          <p className="text-xs text-muted-foreground">A house, landlord or LC1 from an agent you recruited gets verified</p>
+                          <p className="text-xs text-muted-foreground">A house listing from an agent you recruited gets verified</p>
                         </div>
-                        <span className="font-bold text-primary whitespace-nowrap">UGX 3,000</span>
-                      </div>
-                      <div className="flex justify-between items-center px-3 py-3">
-                        <div>
-                          <p className="text-sm font-medium text-foreground">Rent request posted &amp; listed</p>
-                          <p className="text-xs text-muted-foreground">Small bonus when your rent request is posted and listed</p>
-                        </div>
-                        <span className="font-bold text-primary whitespace-nowrap">UGX 1,000</span>
+                        <span className="font-bold text-primary whitespace-nowrap">UGX 2,000</span>
                       </div>
                     </div>
                   </div>

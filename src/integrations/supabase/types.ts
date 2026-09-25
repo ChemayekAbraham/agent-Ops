@@ -11307,7 +11307,9 @@ export type Database = {
           pdf_path: string | null
           period_end: string
           period_start: string
+          report: Json | null
           report_date: string
+          report_version: number
           run_window: string
           total_deposited: number
           total_paid_out: number
@@ -11327,7 +11329,9 @@ export type Database = {
           pdf_path?: string | null
           period_end: string
           period_start: string
+          report?: Json | null
           report_date: string
+          report_version?: number
           run_window?: string
           total_deposited?: number
           total_paid_out?: number
@@ -11347,7 +11351,9 @@ export type Database = {
           pdf_path?: string | null
           period_end?: string
           period_start?: string
+          report?: Json | null
           report_date?: string
+          report_version?: number
           run_window?: string
           total_deposited?: number
           total_paid_out?: number
@@ -55523,6 +55529,7 @@ export type Database = {
         }
         Returns: string
       }
+      cc_plan_pace: { Args: { p_rent_request_id: string }; Returns: Json }
       cc_queue_access_allowed: {
         Args: { p_subject_type: Database["public"]["Enums"]["cc_subject_type"] }
         Returns: boolean
@@ -57187,6 +57194,50 @@ export type Database = {
           sub_county: string
           title: string
           total_monthly_cost: number
+          verified: boolean
+          village: string
+        }[]
+      }
+      find_similar_landlords: {
+        Args: {
+          p_district?: string
+          p_limit?: number
+          p_name: string
+          p_village_id?: number
+          p_village_text?: string
+        }
+        Returns: {
+          created_at: string
+          district: string
+          geo_match: string
+          id: string
+          is_mine: boolean
+          name: string
+          registered_by_name: string
+          severity: string
+          similarity: number
+          verified: boolean
+          village: string
+        }[]
+      }
+      find_similar_lc1: {
+        Args: {
+          p_district?: string
+          p_limit?: number
+          p_name: string
+          p_village_id?: number
+          p_village_text?: string
+        }
+        Returns: {
+          created_at: string
+          district: string
+          geo_match: string
+          id: string
+          is_mine: boolean
+          name: string
+          registered_by_name: string
+          severity: string
+          similarity: number
           verified: boolean
           village: string
         }[]
@@ -64809,6 +64860,10 @@ export type Database = {
           due_on: string
           rent_request_id: string
         }[]
+      }
+      rent_plan_transition_notices_pending: {
+        Args: { p_lookback_hours?: number }
+        Returns: Json
       }
       rent_pricing_floor_effective_from: { Args: never; Returns: string }
       rent_request_financials_unchanged: {

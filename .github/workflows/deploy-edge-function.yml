@@ -65,6 +65,8 @@ on:
           - agent-daily-performance-report
           - agent-ops-daily-report
           - notify-agent-collection-lapse
+          - create-share-onboarding
+          - finalize-share-onboarding
           - redispatch-withdrawals
           - sms-otp
           - daily-cto-report

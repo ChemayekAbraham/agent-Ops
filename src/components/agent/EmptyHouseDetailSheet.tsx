@@ -22,6 +22,8 @@ import { Badge } from '@/components/ui/badge';
 import { formatUGX } from '@/lib/rentCalculations';
 import { prettyName, formatHouseCategory } from '@/lib/formatting';
 import { useRelatedHouses } from '@/hooks/useRelatedHouses';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface HouseOpportunity {
   house_id: string;
@@ -113,7 +115,53 @@ export function EmptyHouseDetailSheet({
     if (sheet) sheet.scrollTo(0, 0);
   }, [house?.house_id]);
 
+  // Map pins carry only a light record — look up the landlord when missing.
+  const needsLandlord = !!house && !house.landlord_name && !house.landlord_phone;
+  const { data: landlordFill } = useQuery({
+    queryKey: ['empty-house-landlord', house?.house_id],
+    enabled: open && needsLandlord,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      let landlordId = house!.landlord_id ?? null;
+      if (!landlordId) {
+        const { data } = await supabase
+          .from('house_listings')
+          .select('landlord_id')
+          .eq('id', house!.house_id)
+          .maybeSingle();
+        landlordId = (data as any)?.landlord_id ?? null;
+      }
+      if (!landlordId) return null;
+      const { data } = await supabase
+        .from('landlords')
+        .select('id, name, phone')
+        .eq('id', landlordId)
+        .maybeSingle();
+      return (data as { id: string; name: string | null; phone: string | null } | null) ?? null;
+    },
+  });
+
   if (!house) return null;
+
+  if (needsLandlord && landlordFill) {
+    house = {
+      ...house,
+      landlord_id: landlordFill.id,
+      landlord_name: landlordFill.name,
+      landlord_phone: landlordFill.phone,
+    };
+  }
+
+  // Some lists (e.g. the funder map) don't supply the Returns figures —
+  // derive them from rent with the same 15%/month rule used elsewhere.
+  {
+    const rent = Number(house.monthly_rent || 0);
+    const monthly = Number(house.partner_monthly_return) || Math.round(rent * 0.15);
+    const annual = Number(house.partner_annual_return) || monthly * 12;
+    if (monthly !== house.partner_monthly_return || annual !== house.partner_annual_return) {
+      house = { ...house, partner_monthly_return: monthly, partner_annual_return: annual };
+    }
+  }
 
   const photos = photosOf(house);
   const gps = houseHasGps(house);
@@ -221,6 +269,29 @@ export function EmptyHouseDetailSheet({
             <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
               <MapPin className="h-3 w-3 shrink-0" /> {housePlace(house)}
             </p>
+
+            <div className="space-y-2 border-y py-3">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Potential earnings</p>
+              <div className="grid grid-cols-2 gap-3 text-[12px]">
+                <div>
+                  <p className="text-[10px] text-muted-foreground">Monthly Returns (15%)</p>
+                  <p className="text-base font-black text-primary">{formatUGX(house.partner_monthly_return)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] text-muted-foreground">After 12 months</p>
+                  <p className="text-base font-black text-primary">{formatUGX(house.partner_annual_return)}</p>
+                </div>
+              </div>
+              {onFund && (
+                <Button
+                  className="h-11 w-full gap-2 bg-emerald-600 font-bold text-white hover:bg-emerald-700"
+                  onClick={() => onFund(house)}
+                >
+                  <Wallet className="h-4 w-4" />
+                  {topUpNeeded > 0 ? `Fund — top up ${formatUGX(topUpNeeded)}` : 'Fund this house'}
+                </Button>
+              )}
+            </div>
 
             <div className="grid grid-cols-2 gap-3 pt-1 text-[12px]">
               <div>

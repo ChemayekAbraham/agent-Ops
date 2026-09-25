@@ -242,3 +242,6 @@ verify_jwt = false
 
 [functions.confirm-landlord-payout-receipt]
 verify_jwt = false
+
+[functions.rent-plan-transition-notices]
+verify_jwt = false

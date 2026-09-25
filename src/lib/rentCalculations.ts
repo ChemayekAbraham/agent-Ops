@@ -92,15 +92,49 @@ export const SOURCE_RATE = 0.02;           // Source (onboarding) agent: 2%
 export const MANAGER_RATE = 0.08;          // Tenant manager: 8%
 export const RECRUITER_RATE = 0.02;        // Recruiter override: 2% (manager drops to 6%)
 
-// Event-based fixed bonuses (UGX)
+// Event-based fixed bonuses (UGX).
+//
+// Every entry names the backend path that actually pays it. Nothing is listed
+// here that does not pay — four entries were removed on 2026-09-25 because
+// they had never paid a shilling (their event keys were not recognised by
+// `credit_agent_event_bonus`) and their triggers have since been dropped:
+// rent_posted_listed (1,000), rent_landlord_verified (4,000),
+// rent_request_posted (5,000) and tenant_replacement (20,000).
+// See docs/rent-plan-new-flow-full-report.md.
 export const EVENT_BONUSES = {
-  rent_posted_listed: 1000,
-  rent_landlord_verified: 4000,
-  rent_request_posted: 5000,
+  /** credit_agent_event_bonus('contact_location_capture') — once per agent per contact */
+  contact_location_capture: 100,
+  /** credit_agent_event_bonus('house_listed') — via credit-listing-bonus */
   house_listed: 2000,
-  tenant_replacement: 20000,
+  /** pay_landlord_registration_verified_bonus — once per NEW landlord, ever */
+  landlord_verified: 5000,
+  /** pay_lc1_registration_verified_bonus — once per NEW LC1 chairperson */
+  lc1_verified: 2000,
+  /** credit_agent_event_bonus('subagent_registration') */
   subagent_registration: 10000,
+  /** credit_agent_event_bonus('three_verified_houses') */
+  three_verified_houses: 10000,
+  /** credit_agent_event_bonus('tenant_placement') */
+  tenant_placement: 10000,
+  /** credit_agent_event_bonus('service_centre_setup') */
+  service_centre_setup: 25000,
 } as const;
+
+/**
+ * Recruiter override paid to the parent agent, by
+ * `pay_recruiter_override_house_verified`. House listings only — the landlord
+ * and LC1 verification overrides were removed on 2026-09-25; that money is now
+ * solely the registering agent's.
+ */
+export const RECRUITER_VERIFICATION_OVERRIDE = 2000;
+
+/**
+ * Paid to the agent when the landlord float leaves their wallet, by
+ * `post_landlord_payout_finops_commission`. This replaced the flat bonuses that
+ * used to be paid when the CFO funded the float — nothing is earned for
+ * receiving the money, only for delivering it.
+ */
+export const LANDLORD_PAYOUT_COMMISSION_RATE = 0.01;
 
 export type CommissionEventType = keyof typeof EVENT_BONUSES;
 
