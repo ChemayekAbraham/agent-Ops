@@ -21,6 +21,23 @@ name: Deploy Edge Function (manual, one at a time)
 # never succeeds, and ~95% of OTP sends were failing. The checked-in version
 # only requires gateway acceptance and has no such wait.
 #
+# cfo-record-advance-payment added 2026-09-25: production posts the agent
+# advance subledger and the advance row through separate PostgREST calls, then
+# posts the ledger with `if (rpcErr) console.error(...)` — logged and swallowed.
+# A failed posting still reduced the balance and still wrote an audit row
+# claiming a completed payment. Thirteen entries failed that way between
+# 2026-08-20 and 2026-09-23 (UGX 6,785,998.18 across six advances), every one
+# because the function posted a WALLET cash_out leg for every payment method
+# and create_ledger_transaction raises on an empty agent wallet. The checked-in
+# version moves all four writes into public.cfo_record_advance_payment, one
+# SECURITY DEFINER transaction, and posts external receipts to A1/A5 instead of
+# the agent's wallet.
+#
+# PREREQUISITE: migration 20260925200000 must be applied first — it creates the
+# RPC and the two mapping rows the new code calls. Applied to production
+# 2026-09-25 12:37 UTC, verified present. Deploying without it would 404 on the
+# RPC for every payment.
+#
 # issue-landlord-payout-otp / landlord-payout-disburse added 2026-09-22:
 # production trusted whatever landlord_phone string the CLIENT sent — an
 # agent-editable phone field, silently persisted into landlords.
@@ -78,6 +95,7 @@ on:
           - weekly-messaging-usage-report
           - issue-landlord-payout-otp
           - landlord-payout-disburse
+          - cfo-record-advance-payment
       confirm:
         description: 'Type DEPLOY to confirm you intend to change production'
         required: true

@@ -1,6 +1,13 @@
 import "../_shared/smsFooterInterceptor.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { attemptYoolaPrimary } from "../_shared/yoolaPrimary.ts";
+import { routeTenantNotification } from "../_shared/tenantChannelRouter.ts";
+import {
+  accessSentence,
+  firstName,
+  formatUGX,
+  loadTenantPaymentMessageVars,
+  nextLevelSentence,
+} from "../_shared/tenantTemplates.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -374,77 +381,54 @@ Deno.serve(async (req) => {
     // Branded "Rent Money You Can Get" SMS to tenant (fire-and-forget).
     // Mirrors the agent allocation flow so every rent payment — including
     // tenant-self-pay and one-tap renew — triggers the same confirmation card.
+    //
+    // Consolidated 2026-09-25 onto the same Stage-6 channel router and real
+    // topup-eligibility wording every other tenant payment-confirmation SMS
+    // already uses (tenant-payment-notices' PAYMENT_FULL/PAYMENT_PARTIAL) —
+    // no more bespoke inline Yoola/Africa's Talking calls, no more hardcoded
+    // flat "up to UGX 3,000,000" line. tenant_topup_eligibility_rules()'s
+    // actual 70%/90% thresholds are reused unchanged via
+    // loadTenantPaymentMessageVars/accessSentence/nextLevelSentence, which
+    // never render a percentage to the tenant, only exact UGX amounts.
     (async () => {
       try {
         const phone = (profileData as any)?.phone as string | undefined;
         const fullName = (profileData as any)?.full_name as string | undefined;
-        if (!phone || !fullName) return;
-        const apiKey = Deno.env.get("AFRICASTALKING_API_KEY");
-        const username = Deno.env.get("AFRICASTALKING_USERNAME");
-        if (!apiKey || !username) {
-          console.warn("[tenant-pay-rent] Skipping SMS — AT credentials missing");
-          return;
-        }
+        if (!phone) return;
+
         const siteBase = Deno.env.get("PUBLIC_SITE_URL") || "https://welileapp.com";
         const shareUrl = `${siteBase.replace(/\/+$/, "")}/limit/${tenantId}`;
-        const firstName = fullName.split(" ")[0];
-        const fmt = (n: number) => `UGX ${Math.max(0, Math.round(n)).toLocaleString("en-UG")}`;
-        const message = [
-          "WELILE — Rent Money You Can Get",
-          "",
-          `Hello ${firstName},`,
-          "",
-          `You have paid ${fmt(payAmount)} toward your rent. Your remaining balance is ${fmt(remainingBalance)}.`,
-          "",
-          "Continue paying your rent on time to qualify for future rent support of up to UGX 3,000,000.",
-          "",
-          "View your rent card here:",
-          shareUrl,
-          "",
-          "Pay on time, your rent limit increases daily!",
-        ].join("\n");
 
-        // Yoola is the primary SMS provider; fall through to AT only if it fails.
-        if (await attemptYoolaPrimary(phone, message, { source: "tenant-pay-rent" })) return;
+        const planVars = await loadTenantPaymentMessageVars(supabaseAdmin, [tenantId]);
+        const vars = planVars.get(tenantId);
 
-        const digits = phone.replace(/[^0-9]/g, "");
-        const to = digits.startsWith("256")
-          ? `+${digits}`
-          : digits.startsWith("0")
-            ? `+256${digits.slice(1)}`
-            : digits.length === 9
-              ? `+256${digits}`
-              : `+${digits}`;
-
-        const isSandbox = username.toLowerCase() === "sandbox";
-        const baseUrl = isSandbox
-          ? "https://api.sandbox.africastalking.com/version1/messaging"
-          : "https://api.africastalking.com/version1/messaging";
-
-        const res = await fetch(baseUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-            apiKey,
-            Accept: "application/json",
+        const outcome = await routeTenantNotification({
+          admin: supabaseAdmin,
+          tenantId,
+          eventKey: "WALLET_RENT_PAYMENT_CONFIRMED",
+          episodeKey: `wallet_payment:${txnGroupId}`,
+          vars: {
+            name: firstName(fullName),
+            amount_paid: formatUGX(payAmount),
+            balance: formatUGX(remainingBalance),
+            access_now: accessSentence(vars),
+            next_level: nextLevelSentence(vars),
+            share_url: shareUrl,
           },
-          body: new URLSearchParams({ username, from: "WELILE", to, message }).toString(),
-        });
-        const raw = await res.text();
-        console.log(`[tenant-pay-rent] SMS to=${to} status=${res.status} body=${raw}`);
-
-        await supabaseAdmin.from("system_events").insert({
-          event_type: "rent_access_limit.sms.sent",
-          actor_id: tenantId,
-          subject_id: tenantId,
+          phone,
+          tenantName: fullName ?? null,
           payload: {
             mode: "tenant_pay_rent",
             paid_amount: payAmount,
             remaining_balance: remainingBalance,
             share_url: shareUrl,
-            http_status: res.status,
           },
+          linkPath: "/dashboard/tenant",
         });
+
+        console.log(
+          `[tenant-pay-rent] SMS routed tenant=${tenantId} sent=${outcome.smsSent} reason=${outcome.reason ?? "-"}`,
+        );
       } catch (e) {
         console.warn("[tenant-pay-rent] branded SMS failed:", e);
       }

@@ -7,10 +7,15 @@
  * The detailed attempt-by-attempt list already exists at
  * TenantSelfRepaymentsPanel.tsx; this section is the trend headline that
  * sits alongside it, not a replacement for it.
+ *
+ * Styled like the rest of Tenant Ops -> Classic's small metric cards
+ * (TenantOpsHome.tsx's "Collected" hero tile): Card + semantic color tokens,
+ * a rounded pill for the week-on-week change.
  */
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowDown, ArrowUp, Minus, Users } from 'lucide-react';
+import { Users } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { useTenantOpsWeeklyPerformance } from '@/hooks/useTenantOpsWeeklyPerformance';
 
 export function TenantSelfPaymentWeeklyTrend() {
@@ -22,37 +27,33 @@ export function TenantSelfPaymentWeeklyTrend() {
 
   const { current, previous, delta } = data;
   const rate = delta.self_payment_increase_pct;
-  const trendTone =
-    delta.self_payment_tenants > 0 ? 'text-emerald-600' : delta.self_payment_tenants < 0 ? 'text-destructive' : 'text-muted-foreground';
-  const TrendIcon = delta.self_payment_tenants > 0 ? ArrowUp : delta.self_payment_tenants < 0 ? ArrowDown : Minus;
+  const rose = delta.self_payment_tenants > 0;
+  const fell = delta.self_payment_tenants < 0;
 
   return (
-    <Card>
-      <CardHeader className="pb-2">
+    <Card className="border-primary/20 bg-gradient-to-br from-primary/[0.06] via-card to-card shadow-sm">
+      <CardHeader className="px-3 pb-2 sm:px-4">
         <CardTitle className="flex items-center gap-2 text-sm font-semibold">
           <Users className="h-4 w-4 text-primary" />
           Tenant Self-Payments via Merchant
         </CardTitle>
       </CardHeader>
-      <CardContent>
-        <div className="flex flex-wrap items-end gap-4">
+      <CardContent className="px-3 pb-3 sm:px-4">
+        <div className="flex flex-wrap items-end gap-3">
           <div>
-            <p className="text-[11px] text-muted-foreground">This week</p>
-            <p className="text-2xl font-bold tabular-nums">{current.self_payment_tenants}</p>
-            <p className="text-[11px] text-muted-foreground">tenants paid themselves via a merchant</p>
+            <p className="text-2xl font-bold leading-none tabular-nums">{current.self_payment_tenants}</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">tenants paid themselves via a merchant this week</p>
           </div>
-          <div className={`flex items-center gap-1 text-sm font-semibold ${trendTone}`}>
-            <TrendIcon className="h-3.5 w-3.5" />
+          <span
+            className={cn(
+              'rounded-full px-2.5 py-1 text-[11px] font-semibold',
+              rose ? 'bg-success/10 text-success' : fell ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground',
+            )}
+          >
             {delta.self_payment_tenants > 0 ? '+' : ''}
             {delta.self_payment_tenants}
-            {rate !== null && (
-              <span className="text-xs font-medium">
-                ({rate > 0 ? '+' : ''}
-                {rate}%)
-              </span>
-            )}
-            <span className="text-xs font-normal text-muted-foreground">vs last week ({previous.self_payment_tenants})</span>
-          </div>
+            {rate !== null ? ` (${rate > 0 ? '+' : ''}${rate}%)` : ''} vs last week ({previous.self_payment_tenants})
+          </span>
         </div>
       </CardContent>
     </Card>

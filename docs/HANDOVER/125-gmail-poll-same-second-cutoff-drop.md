@@ -1,8 +1,7 @@
 # 125 — Gmail poller silently dropped same-second messages (tenant direct rent payment lost)
 
-**Status (2026-09-24):** code fix committed in `gmail-poll-transactions`; **edge function deploy
-and the recovery rescan are pending** — until both are done, TID157162005754 is still not in the
-system.
+**Status (2026-09-25): RESOLVED.** Fix confirmed deployed (rescan response carries a `rescan`
+object) and Martha's payment recovered via handover 127's selective rescan — see 127 "Recovery log".
 
 ## Report
 

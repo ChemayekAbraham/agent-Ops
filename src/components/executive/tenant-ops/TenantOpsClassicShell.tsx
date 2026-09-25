@@ -14,6 +14,7 @@ import { useTenantOpsToolCounts } from '@/hooks/useTenantOpsToolCounts';
 const PortfolioPerformanceReport = lazy(() => import('@/pages/tenant-ops/PortfolioPerformanceReport'));
 const TenantNotificationAnalyticsPage = lazy(() => import('@/pages/tenant-ops/TenantNotificationAnalyticsPage'));
 const TenantOperationsWorkspace = lazy(() => import('@/pages/tenant-ops/TenantOperationsWorkspace'));
+const TenantOpsWeeklyPerformancePage = lazy(() => import('@/pages/tenant-ops/TenantOpsWeeklyPerformancePage'));
 import {
   isTenantOpsAction,
   tenantOpsLabelFor,
@@ -101,6 +102,13 @@ export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGe
         </Suspense>
       );
     }
+    if (active === 'tenant-ops-weekly-performance') {
+      return (
+        <Suspense fallback={<div className="flex min-h-64 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>}>
+          <TenantOpsWeeklyPerformancePage />
+        </Suspense>
+      );
+    }
     if (active === 'calling-hub') return <CallingHub subjectType="tenant" />;
     if (active === 'calling-center') return <TenantCallingCenter />;
     if (active === 'phone-duplicates') return <TenantPhoneDuplicatePanel variant="full" />;
@@ -117,7 +125,8 @@ export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGe
   // to avoid printing the same title twice.
   const selfTitled = active === 'action.portfolio-performance'
     || active === 'action.notifications-analytics'
-    || active === 'tenant-operations-workspace';
+    || active === 'tenant-operations-workspace'
+    || active === 'tenant-ops-weekly-performance';
   const label = active === 'home' || selfTitled ? '' : tenantOpsLabelFor(active);
 
   return (
