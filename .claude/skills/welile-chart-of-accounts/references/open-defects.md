@@ -91,7 +91,32 @@ liability account.
 Found by running the planned Rent Plan changes through the blueprint's
 "adding a new money flow" checklist.
 
-### D8 — cancelling a Rent Plan strands the fee receivable ⚠
+### D8 — cancelling a Rent Plan strands the fee receivable ✅ FIXED 25 Sep 2026
+
+**Fixed** by `reverse_funding_treasury()`, called from
+`cancel_tenant_and_return_landlord_float` before the plan is cancelled. It posts
+the exact mirror — **DR L7 / CR A3** — netted against anything already drawn
+down by repayments and against any previous reversal, so it is safe on a plan
+that repaid something and safe to call twice. Verified on a real plan:
+DR L7 119,000 / CR A3 119,000, balanced on base mapping, which matters because
+both categories are treasury categories and the enforcement trigger raises on
+them rather than logging.
+
+Two things surfaced while fixing it:
+
+- `agent_tenant_float_reversals.original_transaction_group` is NOT NULL with no
+  default and the cancel function never supplied it, so **every cancel of a plan
+  that still had float to return died on that constraint**. The table holds one
+  row. The CFO's own cancel button had never worked. Now records the funding
+  group being reversed.
+- The 241 vs 242 leg asymmetry noted below is not a defect: the extra
+  `treasury_fee_recognised` leg of 940,292 comes from
+  `bd3_pricing_subsidy_population`, a separate posting, not from an unpaired
+  rent request.
+
+Original finding follows.
+
+### D8 (original) — cancelling a Rent Plan strands the fee receivable
 
 `cancel_tenant_and_return_landlord_float` reverses **only the principal**:
 
