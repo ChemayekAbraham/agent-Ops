@@ -2775,6 +2775,56 @@ async function _tryAutoCreditOperationalFloat(
     }
   }
 
+  // ── Merchant desk returns are not deposits ────────────────────────────
+  // Money arriving on a company line FROM an active merchant desk's phone is
+  // the desk handing company float back. Auto-crediting it as an
+  // operational_float deposit raised the desk's float by the amount returned
+  // (TID157335971789 / TID157334845929, 2026-09-25). Leave the receipt
+  // unlinked and raise it for Financial Ops to record against the desk. A
+  // deposit the desk submitted itself was already handled by the late-link
+  // step above. Mirrors the gate in auto_create_deposits_from_gmail_impl.
+  const { data: isMerchantDesk } = await supabase.rpc('is_merchant_agent', { p_user_id: profile.id });
+  if (isMerchantDesk === true) {
+    console.log(
+      `[gmail-poll] inbound from merchant desk user=${profile.id} tid=${parsed.transaction_id} ` +
+      `amt=${parsed.amount} — float return, not auto-credited`,
+    );
+    await logDepositDecision(supabase, {
+      source: 'matcher',
+      decision: 'flagged_for_review',
+      reason: 'merchant_desk_inbound_not_a_deposit',
+      gmail_transaction_id: gmailRow.id,
+      amount: parsed.amount ?? null,
+      actor_id: profile.id,
+      metadata: { gmail_message_id: gmailMessageId, tid: parsed.transaction_id ?? null },
+    });
+    try {
+      await supabase.from('deposit_match_alerts').upsert(
+        {
+          alert_type: 'merchant_float_return',
+          subject_id: gmailRow.id,
+          subject_label: 'Merchant desk sent money to the company - record as a float return',
+          user_id: profile.id,
+          amount: parsed.amount ?? null,
+          transaction_reference: parsed.transaction_id ?? null,
+          severity: 'high',
+          details: {
+            reason: 'merchant_desk_inbound_not_a_deposit',
+            source: 'gmail_poll_auto_credit',
+            counterparty: parsed.counterparty ?? null,
+            observed_at: new Date().toISOString(),
+          },
+          resolved_at: null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'alert_type,subject_id' },
+      );
+    } catch (e) {
+      console.warn('[gmail-poll] merchant float return alert upsert failed:', e);
+    }
+    return;
+  }
+
   const provider = parsed.channel === 'mtn_momo' ? 'mtn' : 'airtel';
 
   // Direct tenant rent payments need no special case here. A tenant paying
