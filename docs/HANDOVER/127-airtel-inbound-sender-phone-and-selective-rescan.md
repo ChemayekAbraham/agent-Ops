@@ -1,7 +1,6 @@
 # 127 — Airtel inbound sender phone never parsed; selective rescan; TID-fragment phone match
 
-**Status (2026-09-24):** code committed; deploy + Martha's recovery pending at time of writing
-(see "Recovery" for what was run).
+**Status (2026-09-25):** deployed and verified; Martha's payment recovered (see "Recovery log").
 
 Follows handover 125 (the same-second cutoff drop) and 126 (tenant direct payments settle via
 `settle_tenant_rent_from_deposit`).
@@ -67,6 +66,21 @@ POST /functions/v1/gmail-poll-transactions
 ```
 
 Then check `tenant_self_repayment_attempts` for tenant `41383cef-a13c-456e-861d-01aa797f192c`.
+
+### Recovery log — 2026-09-25
+
+Invoked from inside the DB via `net.http_post`, reusing the anon apikey from cron job 38681 (the
+per-minute poller), so no key left the database.
+
+1. **Dry run** (`debug=1`, pg_net request 96583): HTTP 200, response carried `rescan` → new code
+   is live. Both message ids → `would_insert_parsed`, TID157162005754, UGX 21,445, counterparty
+   `752251576` (correct sender — the old parser would have read `716200575` out of the TID).
+2. **Live run** (request 96586): `scanned 2, inserted 1` — the two ids are the same SMS, dedup
+   kept one.
+3. **Result:** `gmail_transactions` 99466bf7… linked to deposit_request 9140468c…;
+   `tenant_self_repayment_attempts` 02784110… **outcome `settled`**, applied 21,445 to rent
+   request 660d8178…, status `repaying`, outstanding after **190,667**. Agent commission 5,045
+   (agent 4,036 / parent 1,009) posted, waterfall group fbc65e16….
 
 ## Open
 
