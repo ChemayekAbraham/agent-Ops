@@ -27,7 +27,7 @@ export default function CreateShareholderDialog({ open, onOpenChange }: { open: 
   const [busy, setBusy] = useState(false);
 
   useEffect(() => { const t = setTimeout(() => setDebounced(q.trim()), 300); return () => clearTimeout(t); }, [q]);
-  useEffect(() => { if (!open) { setPicked(null); setQ(''); setAmountStr(''); setNp({ fullName: '', phone: '', email: '' }); } }, [open]);
+  useEffect(() => { if (!open) { setPicked(null); setPayFrom('shareholder'); setQ(''); setAmountStr(''); setNp({ fullName: '', phone: '', email: '' }); } }, [open]);
 
   const { data: people = [], isFetching } = useQuery({
     queryKey: ['share-person-search', debounced],
