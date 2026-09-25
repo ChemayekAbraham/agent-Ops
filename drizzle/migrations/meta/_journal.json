@@ -2220,6 +2220,13 @@
       "when": 1790319209959,
       "tag": "0316_growth_commission_excludes_deleted_users",
       "breakpoints": true
+    },
+    {
+      "idx": 317,
+      "version": "7",
+      "when": 1790322052908,
+      "tag": "0317_next_day_payout_projection",
+      "breakpoints": true
     }
   ]
 }

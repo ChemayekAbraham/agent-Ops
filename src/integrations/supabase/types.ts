@@ -59597,6 +59597,10 @@ export type Database = {
           region: string
         }[]
       }
+      get_next_day_payout_projection: {
+        Args: { p_date?: string }
+        Returns: Json
+      }
       get_oauth_funnel_stats: {
         Args: { p_days?: number }
         Returns: {
@@ -61640,6 +61644,7 @@ export type Database = {
           witness_signed_on: string
         }[]
       }
+      landlord_float_recall_go_live: { Args: never; Returns: string }
       landlord_float_withdrawals_paused: { Args: never; Returns: boolean }
       landlord_has_current_agreement: {
         Args: { p_landlord_id: string }
