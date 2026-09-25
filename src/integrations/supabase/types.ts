@@ -55034,6 +55034,10 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: number
       }
+      auto_verify_waiting_payout_destinations: {
+        Args: { p_user_id?: string }
+        Returns: number
+      }
       award_agent_listing_campaign_bonus: {
         Args: { p_agent_id: string }
         Returns: Json
@@ -63974,6 +63978,14 @@ export type Database = {
         Args: { p_destination_id: string }
         Returns: boolean
       }
+      payout_destination_auto_verdict: {
+        Args: {
+          p_account_name: string
+          p_national_id: string
+          p_user_id: string
+        }
+        Returns: Json
+      }
       payout_destination_is_verified: {
         Args: {
           p_bank_account_number?: string
@@ -64776,6 +64788,7 @@ export type Database = {
         }[]
       }
       receivables_guard: { Args: never; Returns: undefined }
+      recheck_my_payout_destinations: { Args: never; Returns: number }
       recognise_funding_treasury: {
         Args: { p_rent_request_id: string }
         Returns: Json
