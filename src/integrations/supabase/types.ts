@@ -22034,6 +22034,7 @@ export type Database = {
       landlord_float_idle_alerts: {
         Row: {
           acknowledged_at: string | null
+          acknowledged_by: string | null
           agent_id: string | null
           agent_name: string | null
           allocation_id: string
@@ -22048,12 +22049,16 @@ export type Database = {
           payout_attempted: boolean
           rent_request_id: string
           resolved_at: string | null
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
           severity: string
           tenant_name: string | null
           updated_at: string
         }
         Insert: {
           acknowledged_at?: string | null
+          acknowledged_by?: string | null
           agent_id?: string | null
           agent_name?: string | null
           allocation_id: string
@@ -22068,12 +22073,16 @@ export type Database = {
           payout_attempted?: boolean
           rent_request_id: string
           resolved_at?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           severity?: string
           tenant_name?: string | null
           updated_at?: string
         }
         Update: {
           acknowledged_at?: string | null
+          acknowledged_by?: string | null
           agent_id?: string | null
           agent_name?: string | null
           allocation_id?: string
@@ -22088,6 +22097,9 @@ export type Database = {
           payout_attempted?: boolean
           rent_request_id?: string
           resolved_at?: string | null
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
           severity?: string
           tenant_name?: string | null
           updated_at?: string
@@ -55357,6 +55369,10 @@ export type Database = {
         Returns: boolean
       }
       can_replay_settlement: { Args: { _user_id: string }; Returns: boolean }
+      can_reverse_landlord_float: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       can_review_bike_leases: { Args: { _user_id: string }; Returns: boolean }
       can_review_smartphone_orders: {
         Args: { _user_id: string }
@@ -55372,6 +55388,10 @@ export type Database = {
       }
       can_view_agent_data: {
         Args: { _target_agent_id: string; _viewer_id: string }
+        Returns: boolean
+      }
+      can_view_landlord_float_queue: {
+        Args: { _user_id: string }
         Returns: boolean
       }
       can_view_payout_reconciliation: {
@@ -61766,6 +61786,14 @@ export type Database = {
           witness_name: string
           witness_signed_on: string
         }[]
+      }
+      landlord_float_idle_action: {
+        Args: { p_action: string; p_alert_id: string; p_note: string }
+        Returns: Json
+      }
+      landlord_float_idle_queue: {
+        Args: { p_limit?: number; p_scope?: string }
+        Returns: Json
       }
       landlord_float_recall_go_live: { Args: never; Returns: string }
       landlord_float_withdrawals_paused: { Args: never; Returns: boolean }
