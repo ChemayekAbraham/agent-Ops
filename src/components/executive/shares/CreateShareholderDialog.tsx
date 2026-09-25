@@ -46,9 +46,11 @@ export default function CreateShareholderDialog({ open, onOpenChange }: { open: 
     },
   });
 
-  const { data: balance } = useQuery({
+  const { data: balance, isError: balanceError, isFetching: balanceFetching, refetch: refetchBalance } = useQuery({
     queryKey: ['share-person-balance', picked?.id],
-    enabled: !!picked,
+    enabled: !!picked && open,
+    staleTime: 0,
+    retry: 1,
     queryFn: async () => {
       if (!picked) return 0;
       // Use the canonical spendable operational-float calculation rather than
@@ -107,7 +109,15 @@ export default function CreateShareholderDialog({ open, onOpenChange }: { open: 
               <div className="min-w-0">
                 <p className="flex items-center gap-1.5 font-medium"><UserCheck className="h-4 w-4 text-primary" />{picked.full_name || 'Unnamed'}</p>
                 <p className="truncate text-xs text-muted-foreground">{[picked.phone, picked.email].filter(Boolean).join(' • ')}</p>
-                <p className="mt-1 text-xs">Operational float: <strong>{balance === undefined ? '…' : ugx(balance)}</strong></p>
+                <p className="mt-1 text-xs">Operational float:{' '}
+                  {balanceError ? (
+                    <button type="button" className="font-medium text-destructive underline" onClick={() => refetchBalance()}>
+                      Could not load — tap to retry
+                    </button>
+                  ) : (
+                    <strong>{balance === undefined || balanceFetching ? '…' : ugx(balance)}</strong>
+                  )}
+                </p>
               </div>
               <Button size="sm" variant="ghost" onClick={() => setPicked(null)}>Change</Button>
             </div>
