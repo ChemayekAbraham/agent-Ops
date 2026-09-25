@@ -526,7 +526,7 @@ export default function SupporterDashboard({
           availableRoles={availableRoles}
           onRoleChange={onRoleChange}
           onSignOut={signOut}
-          onMenuClick={() => setMenuOpen(true)}
+          menuItems={supporterMenuItems}
           headerActions={<NotificationBell userId={user.id} />}
           compactInstallPrompt
         />
@@ -683,34 +683,6 @@ export default function SupporterDashboard({
 
         </main>
       </div>
-      <SupporterMenuDrawer
-        open={menuOpen}
-        onOpenChange={setMenuOpen}
-        onAddInvestment={() => setShowPaymentPartners(true)}
-        onOpenCalculator={() => setShowCalculator(true)}
-        onViewAgreement={() => { setViewAgreementTab('summary'); setShowViewAgreementModal(true); }}
-        showCreditRequests
-        isLocked={!effectiveHasAccepted}
-        onLockedClick={() => setShowAgreementModal(true)}
-        onFundCategory={(cat) => {
-          if (!effectiveHasAccepted) {
-            setShowAgreementModal(true);
-            return;
-          }
-          setSelectedPackageCategory(cat);
-          setShowPackageSheet(true);
-        }}
-        onRefreshRef={opportunitiesRefreshRef}
-        onOpenWallet={() => setShowFunderHub(true)}
-        onOpenPortfolios={() => { setInvestmentsTab('accounts'); setShowInvestments(true); }}
-        onShowDirectSupport={() => { setCapitalFeedOrder('rent'); setCapitalView('direct'); document.getElementById('opportunities')?.scrollIntoView({ behavior: 'smooth' }); }}
-        onShowVacantHouses={() => { setCapitalFeedOrder('houses'); setCapitalView('direct'); document.getElementById('opportunities')?.scrollIntoView({ behavior: 'smooth' }); }}
-        onShowManagedSupport={() => { setCapitalView('managed'); document.getElementById('opportunities')?.scrollIntoView({ behavior: 'smooth' }); }}
-        onShowAngelPool={() => { setCapitalView('angel'); document.getElementById('opportunities')?.scrollIntoView({ behavior: 'smooth' }); }}
-        onShowSupportedHouses={() => { setInvestmentsTab('accounts'); setShowInvestments(true); }}
-        onSignOut={signOut}
-      />
-
       <PaymentPartnersDialog 
         open={showPaymentPartners} 
         onOpenChange={setShowPaymentPartners}
