@@ -20,12 +20,16 @@ function isExcludedRoute(pathname: string) {
  * card is mounted, so only one card is ever on screen.
  */
 export default function GlobalInstallPrompt() {
+  const location = useLocation();
+  const excluded = isExcludedRoute(location.pathname);
   const [suppressed, setSuppressed] = useState(() => hasPriorityInstallCard());
 
   useEffect(() => {
     setSuppressed(hasPriorityInstallCard());
     return subscribeInstallCards((count) => setSuppressed(count > 0));
   }, []);
+
+  if (excluded) return null;
 
   return (
     <>
