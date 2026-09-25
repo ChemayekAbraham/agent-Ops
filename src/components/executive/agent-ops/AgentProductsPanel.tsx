@@ -141,7 +141,7 @@ function AgentInlineProfileExpansion({ agentId }: { agentId: string }) {
         (profileRes.data?.national_id && profileRes.data.national_id.trim()) ||
         (proxyRes.data?.nin && proxyRes.data.nin.trim()) ||
         null;
-      const isActive = profileRes.data?.is_active !== false && profileRes.data?.status !== 'suspended' && profileRes.data?.status !== 'inactive';
+      const isActive = profileRes.data?.is_frozen !== true && profileRes.data?.frozen_at == null;
       return {
         ...(detailRes.data as any),
         national_id,
