@@ -112,7 +112,7 @@ export default function CreateShareholderDialog({ open, onOpenChange }: { open: 
       <DialogContent className="max-h-[92vh] w-[calc(100vw-1.5rem)] max-w-lg overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add new shareholder</DialogTitle>
-          <DialogDescription>Shares are paid from the shareholder's operational float when you countersign.</DialogDescription>
+          <DialogDescription>Shares are paid from the operational float you choose below when you countersign.</DialogDescription>
         </DialogHeader>
 
         <Tabs value={mode} onValueChange={(v) => { setMode(v as any); setPicked(null); }}>
