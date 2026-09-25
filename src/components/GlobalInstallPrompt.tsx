@@ -1,7 +1,18 @@
 import { useEffect, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import InstallAppCard from '@/components/InstallAppCard';
 import InstallNagOverlay from '@/components/InstallNagOverlay';
 import { hasPriorityInstallCard, subscribeInstallCards } from '@/lib/installCardRegistry';
+
+/** Routes where no install offer should ever appear (signup funnels, etc.). */
+const INSTALL_PROMPT_EXCLUDED_PREFIXES = ['/funder-onboarding'];
+
+function isExcludedRoute(pathname: string) {
+  return INSTALL_PROMPT_EXCLUDED_PREFIXES.some(
+    (p) => pathname === p || pathname.startsWith(p + '/'),
+  );
+}
+
 
 /**
  * Install offer for visitors who are not inside the signed-in dashboard shell
