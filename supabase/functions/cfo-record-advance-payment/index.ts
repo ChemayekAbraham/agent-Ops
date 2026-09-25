@@ -1,3 +1,26 @@
+// Phase 0 — control fix.
+//
+// This function used to do four things through separate PostgREST calls:
+//   1. insert agent_advance_ledger
+//   2. update agent_advances (balance, status, fee fields)
+//   3. rpc create_ledger_transaction
+//   4. insert audit_logs
+//
+// Step 3 was best-effort:
+//
+//     if (rpcErr) console.error('[cfo-record-advance-payment] RPC error:', rpcErr);
+//
+// The error was logged and swallowed, so a failed posting still reduced the
+// balance and still wrote an audit row claiming a completed payment. Thirteen
+// entries failed that way (UGX 6,785,998.18 across six advances) because the
+// wallet leg cannot clear `create_ledger_transaction`'s solvency check against
+// an empty agent wallet.
+//
+// All four writes now happen inside public.cfo_record_advance_payment, one
+// SECURITY DEFINER transaction. Any failure rolls back all of them and returns
+// a non-2xx. The failure is recorded in system_events AFTER the rollback, so
+// the diagnostic survives without creating a financial record.
+
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
@@ -5,128 +28,122 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const json = (body: unknown, status: number) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  });
+
+// Postgres SQLSTATE -> HTTP. Anything unrecognised is a 500.
+function statusForPgError(code?: string): number {
+  switch (code) {
+    case '28000': return 401; // not authenticated
+    case '42501': return 403; // wrong role
+    case '22023': return 400; // bad argument
+    case '0A000': return 422; // unsupported payment method
+    case 'P0002': return 404; // advance not found
+    default:      return 500;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
-  try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const adminClient = createClient(supabaseUrl, serviceKey);
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+  const adminClient = createClient(supabaseUrl, serviceKey);
 
+  let recordedBy: string | null = null;
+  let payload: Record<string, unknown> = {};
+
+  try {
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader) return new Response(JSON.stringify({ error: 'Missing auth' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    if (!authHeader) return json({ error: 'Missing auth' }, 401);
     const token = authHeader.replace('Bearer ', '');
+
     const { data: userData, error: userErr } = await adminClient.auth.getUser(token);
-    if (userErr || !userData.user) return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    const recordedBy = userData.user.id;
+    if (userErr || !userData.user) return json({ error: 'Unauthorized' }, 401);
+    recordedBy = userData.user.id;
 
     const body = await req.json();
     const { advance_id, amount, payment_method, reference, notes } = body;
-    if (!advance_id || !amount || amount <= 0) {
-      return new Response(JSON.stringify({ error: 'advance_id and positive amount required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    payload = { advance_id, amount, payment_method, reference };
+
+    // Cheap client-side rejects. The RPC re-checks all of these — these exist
+    // only to avoid a round trip, never as the control itself.
+    if (!advance_id) return json({ error: 'advance_id is required' }, 400);
+    if (!amount || Number(amount) <= 0) return json({ error: 'A positive amount is required' }, 400);
+    if (!reference || String(reference).trim() === '') {
+      return json({ error: 'A payment reference is required' }, 400);
+    }
+    if (!payment_method || String(payment_method).trim() === '') {
+      return json({ error: 'A payment method is required' }, 400);
     }
 
-    // Fetch fresh advance
-    const { data: advance, error: advErr } = await adminClient
-      .from('agent_advances')
-      .select('*')
-      .eq('id', advance_id)
-      .single();
-    if (advErr || !advance) throw new Error('Advance not found');
-    if (advance.status === 'completed') throw new Error('Advance already completed');
-
-    const today = new Date().toISOString().split('T')[0];
-    const openingBalance = Number(advance.outstanding_balance);
-    const amountPaid = Math.min(Number(amount), openingBalance);
-    const closingBalance = Math.max(0, openingBalance - amountPaid);
-
-    // Insert ledger row tagged as manual CFO entry
-    await adminClient.from('agent_advance_ledger').insert({
-      advance_id: advance.id,
-      date: today,
-      opening_balance: openingBalance,
-      interest_accrued: 0,
-      amount_deducted: amountPaid,
-      closing_balance: closingBalance,
-      deduction_status: closingBalance <= 0 ? 'full' : 'partial',
+    // Call as the CALLER, not the service role, so auth.uid() inside the
+    // SECURITY DEFINER function resolves and the CFO/Manager gate applies.
+    const userClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
     });
 
-    // Recompute fee collection state
-    const isOverdue = new Date() > new Date(advance.expires_at);
-    const newStatus = closingBalance <= 0 ? 'completed' : (isOverdue ? 'overdue' : 'active');
-    const advAccessFee = Number(advance.access_fee || 0);
-    const totalPayable = Number(advance.principal) + advAccessFee;
-    const totalDeducted = totalPayable - closingBalance;
-    const feeCollectionRatio = totalPayable > 0 ? Math.min(1, totalDeducted / totalPayable) : 0;
-    const newFeeCollected = Math.round(advAccessFee * feeCollectionRatio);
-    const feeStatus = newFeeCollected >= advAccessFee ? 'settled' : newFeeCollected > 0 ? 'partial' : 'unpaid';
-
-    await adminClient.from('agent_advances').update({
-      outstanding_balance: closingBalance,
-      status: newStatus,
-      access_fee_collected: newFeeCollected,
-      access_fee_status: feeStatus,
-    }).eq('id', advance.id);
-
-    // Record balanced ledger transaction (cash_in to platform from agent's external repayment)
-    const description = `CFO-recorded advance payment${reference ? ` · ref ${reference}` : ''}${payment_method ? ` · ${payment_method}` : ''}${notes ? ` · ${notes}` : ''}`;
-    const { error: rpcErr } = await adminClient.rpc('create_ledger_transaction', {
-      entries: [
-        {
-          user_id: advance.agent_id,
-          ledger_scope: 'wallet',
-          direction: 'cash_out',
-          amount: amountPaid,
-          category: 'agent_repayment',
-          source_table: 'agent_advances',
-          source_id: advance.id,
-          description,
-          currency: 'UGX',
-          transaction_date: today,
-        },
-        {
-          user_id: advance.agent_id,
-          ledger_scope: 'platform',
-          direction: 'cash_in',
-          amount: amountPaid,
-          category: 'agent_repayment',
-          source_table: 'agent_advances',
-          source_id: advance.id,
-          description,
-          currency: 'UGX',
-          transaction_date: today,
-        },
-      ],
+    const { data, error } = await userClient.rpc('cfo_record_advance_payment', {
+      p_advance_id:     advance_id,
+      p_amount:         Number(amount),
+      p_payment_method: String(payment_method),
+      p_reference:      String(reference),
+      p_notes:          notes ?? null,
     });
-    if (rpcErr) console.error('[cfo-record-advance-payment] RPC error:', rpcErr);
 
-    await adminClient.from('audit_logs').insert({
+    if (error) {
+      // The transaction has already rolled back. Nothing was written: no
+      // subledger row, no balance change, no audit record. Record the
+      // diagnostic separately so the reason is not lost to a console log —
+      // this is an event, not a financial entry.
+      await adminClient.from('system_events').insert({
+        event_type: 'cfo_advance_payment_failed',
+        user_id: recordedBy,
+        related_entity_type: 'agent_advances',
+        related_entity_id: advance_id,
+        description: 'CFO advance payment rejected; transaction rolled back, nothing recorded',
+        source: 'cfo-record-advance-payment',
+        metadata: {
+          pg_code: error.code ?? null,
+          pg_message: error.message ?? null,
+          pg_details: error.details ?? null,
+          attempted: payload,
+          rolled_back: true,
+        },
+      }).then(
+        () => undefined,
+        (e: unknown) => console.error('[cfo-record-advance-payment] failure-log insert failed:', e),
+      );
+
+      console.error('[cfo-record-advance-payment] rejected:', error.code, error.message);
+      return json(
+        { error: error.message, code: error.code ?? null, recorded: false, rolled_back: true },
+        statusForPgError(error.code),
+      );
+    }
+
+    return json({ ...(data as Record<string, unknown>), recorded: true }, 200);
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e);
+    console.error('[cfo-record-advance-payment] unhandled:', message);
+
+    await adminClient.from('system_events').insert({
+      event_type: 'cfo_advance_payment_failed',
       user_id: recordedBy,
-      action_type: 'cfo_advance_payment_recorded',
-      table_name: 'agent_advances',
-      record_id: advance.id,
-      reason: (notes || `manual payment ${reference || ''}`).slice(0, 200).padEnd(10, '.'),
-      metadata: {
-        amount: amountPaid,
-        payment_method,
-        reference,
-        opening_balance: openingBalance,
-        closing_balance: closingBalance,
-        new_status: newStatus,
-      },
-    });
+      related_entity_type: 'agent_advances',
+      related_entity_id: (payload.advance_id as string) ?? null,
+      description: 'CFO advance payment aborted before or during the atomic call',
+      source: 'cfo-record-advance-payment',
+      metadata: { error: message, attempted: payload, rolled_back: true },
+    }).then(
+      () => undefined,
+      (err: unknown) => console.error('[cfo-record-advance-payment] failure-log insert failed:', err),
+    );
 
-    return new Response(JSON.stringify({
-      success: true,
-      amount_recorded: amountPaid,
-      closing_balance: closingBalance,
-      new_status: newStatus,
-    }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-  } catch (error: any) {
-    console.error('[cfo-record-advance-payment] error:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    return json({ error: message, recorded: false, rolled_back: true }, 500);
   }
 });
