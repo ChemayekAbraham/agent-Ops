@@ -70,25 +70,35 @@ Deno.serve(async (req) => {
     const amount = Number(row.amount);
     const shares = Number(row.shares);
 
-    const [committed, { data: wallet, error: walletErr }] = await Promise.all([
+    // Payer is the creating staff member when funding_source = 'creator',
+    // otherwise the shareholder. The shareholder always receives the shares.
+    const creatorFunded = row.funding_source === "creator" && !!row.funder_user_id;
+    const payerId: string = creatorFunded ? row.funder_user_id : row.shareholder_id;
+
+    const [committed, { data: wallet, error: walletErr }, { data: floatAvail, error: floatErr }, { data: holder }] = await Promise.all([
       sharesCommitted(admin, row.id),
-      admin.from("wallets").select("id, float_balance").eq("user_id", row.shareholder_id).maybeSingle(),
+      admin.from("wallets").select("id").eq("user_id", payerId).maybeSingle(),
+      admin.rpc("get_user_float_available_balance", { p_user_id: payerId }),
+      admin.from("profiles").select("full_name").eq("id", row.shareholder_id).maybeSingle(),
     ]);
     if (walletErr) throw walletErr;
+    if (floatErr) throw floatErr;
     if (committed + shares > ANGEL_TOTAL_SHARES) return json({ error: "Not enough shares left in the pool" }, 400);
-    if (!wallet) return json({ error: "The shareholder has no wallet yet" }, 400);
-    // Shares are funded from the shareholder's operational float, not the
-    // withdrawable bucket. The wallet leg below is stamped wallet_bucket
-    // 'float', and create_ledger_transaction skips its own balance check for
-    // float legs — so this float gate is the only guard; keep it here.
-    const available = Number(wallet.float_balance ?? 0);
+    const who = creatorFunded ? "The paying staff member's" : "The shareholder's";
+    if (!wallet) return json({ error: `${who} wallet does not exist yet` }, 400);
+    // Shares are funded from operational float, not the withdrawable bucket.
+    // The wallet leg below is stamped wallet_bucket 'float', and
+    // create_ledger_transaction skips its own balance check for float legs —
+    // so this spendable-float gate is the only guard; keep it here.
+    const available = Number(floatAvail ?? 0);
     if (available < amount) {
-      return json({ error: `The shareholder's operational float has UGX ${available.toLocaleString()}; UGX ${amount.toLocaleString()} is needed.` }, 400);
+      return json({ error: `${who} operational float has UGX ${available.toLocaleString()}; UGX ${amount.toLocaleString()} is needed.` }, 400);
     }
 
+    const holderName = row.shareholder_name || holder?.full_name || "shareholder";
     const txDate = new Date().toISOString();
     const leg = (scope: string, direction: string, description: string) => ({
-      user_id: row.shareholder_id, ledger_scope: scope, direction, amount, category: "share_capital",
+      user_id: payerId, ledger_scope: scope, direction, amount, category: "share_capital",
       source_table: "angel_pool_investments", source_id: wallet.id, description, currency: "UGX",
       reference_id: row.reference_id, transaction_date: txDate,
       // Wallet leg debits the operational float bucket, never withdrawable.
@@ -96,8 +106,10 @@ Deno.serve(async (req) => {
     });
     const { data: groupId, error: rpcErr } = await admin.rpc("create_ledger_transaction", {
       entries: [
-        leg("wallet", "cash_out", `Angel Pool shares: ${shares} shares @ UGX ${ANGEL_PRICE_PER_SHARE.toLocaleString()}/share`),
-        leg("platform", "cash_in", "Angel Pool share capital received"),
+        leg("wallet", "cash_out", creatorFunded
+          ? `Angel Pool shares for ${holderName} (${row.reference_id}): ${shares} shares @ UGX ${ANGEL_PRICE_PER_SHARE.toLocaleString()}/share`
+          : `Angel Pool shares: ${shares} shares @ UGX ${ANGEL_PRICE_PER_SHARE.toLocaleString()}/share`),
+        leg("platform", "cash_in", `Angel Pool share capital received (${row.reference_id})`),
       ],
       idempotency_key: `share-onboarding-${row.id}`,
     });
@@ -109,7 +121,9 @@ Deno.serve(async (req) => {
     const { data: inv, error: invErr } = await admin.from("angel_pool_investments").insert({
       investor_id: row.shareholder_id, amount, shares,
       pool_ownership_percent: row.pool_ownership_percent, company_ownership_percent: row.company_ownership_percent,
-      status: "confirmed", reference_id: row.reference_id, funded_by: "investor", payment_method: "wallet",
+      status: "confirmed", reference_id: row.reference_id,
+      funded_by: creatorFunded ? "agent" : "investor", payment_method: "wallet",
+      ...(creatorFunded ? { agent_id: payerId } : {}),
       transaction_group_id: typeof groupId === "string" ? groupId : null,
     }).select("id").single();
     if (invErr) throw invErr;
@@ -164,11 +178,11 @@ Deno.serve(async (req) => {
 
     await Promise.all([
       logSystemEvent(admin, "account_activated", row.shareholder_id, "angel_pool_investments", inv.id,
-        { action: "share_onboarding.completed", reference_id: row.reference_id, request_id: row.id, shares, amount, countersigned_by: user.id }),
+        { action: "share_onboarding.completed", reference_id: row.reference_id, request_id: row.id, shares, amount, countersigned_by: user.id, payer_id: payerId, funding_source: creatorFunded ? "creator" : "shareholder" }),
       admin.from("audit_logs").insert({
         user_id: user.id, action_type: "share_onboarding_completed", table_name: "share_onboarding_requests",
         record_id: row.id, reason: `Shares countersigned and wallet debited (${row.reference_id})`,
-        metadata: { amount, shares, investment_id: inv.id },
+        metadata: { amount, shares, investment_id: inv.id, payer_id: payerId, funding_source: creatorFunded ? "creator" : "shareholder", transaction_group_id: groupId },
       }),
     ]);
 

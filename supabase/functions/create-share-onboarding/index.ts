@@ -17,6 +17,7 @@ const json = (b: unknown, s = 200) =>
 const Body = z.object({
   amount: z.number().int().min(ANGEL_PRICE_PER_SHARE),
   shareholderId: z.string().uuid().optional(),
+  fundingSource: z.enum(["shareholder", "creator"]).optional(),
   newPerson: z.object({
     fullName: z.string().trim().min(3).max(120),
     phone: z.string().trim().min(7).max(32),
@@ -63,10 +64,20 @@ Deno.serve(async (req) => {
       return json({ error: `Only ${(ANGEL_TOTAL_SHARES - committed).toLocaleString()} shares remaining in the pool` }, 400);
     }
 
-    const [{ data: prof }, { data: walletRow }] = await Promise.all([
+    // Payer: the shareholder's own float, or the creating staff member's float.
+    // A brand-new person has no float yet, so their shares are always creator-funded.
+    const fundingSource = newPerson ? "creator" : (parsed.data.fundingSource ?? "shareholder");
+    const payerId = fundingSource === "creator" ? user.id : shareholderId!;
+
+    const [{ data: prof }, { data: floatAvail, error: floatErr }] = await Promise.all([
       admin.from("profiles").select("full_name, phone, email").eq("id", shareholderId).maybeSingle(),
-      admin.from("wallets").select("float_balance").eq("user_id", shareholderId).maybeSingle(),
+      admin.rpc("get_user_float_available_balance", { p_user_id: payerId }),
     ]);
+    if (floatErr) throw floatErr;
+    const available = Number(floatAvail ?? 0);
+    if (fundingSource === "creator" && available < calc.amount) {
+      return json({ error: `Your operational float has UGX ${available.toLocaleString()}; UGX ${calc.amount.toLocaleString()} is needed.` }, 400);
+    }
 
     const referenceId = newAngelReference();
     const { data: row, error: insErr } = await admin.from("share_onboarding_requests").insert({
@@ -75,6 +86,8 @@ Deno.serve(async (req) => {
       pool_ownership_percent: calc.poolOwnershipPercent,
       company_ownership_percent: calc.companyOwnershipPercent,
       reference_id: referenceId,
+      funding_source: fundingSource,
+      funder_user_id: fundingSource === "creator" ? user.id : null,
       prefill_name: prof?.full_name || null, prefill_phone: prof?.phone || null, prefill_email: prof?.email || null,
     }).select("*").single();
     if (insErr) throw insErr;
@@ -84,17 +97,17 @@ Deno.serve(async (req) => {
 
     await Promise.all([
       logSystemEvent(admin, "account_activated", shareholderId!, "share_onboarding_requests", row.id,
-        { action: "share_onboarding.created", reference_id: referenceId, amount: calc.amount, shares: calc.shares, created_by: user.id, emailed: invite.emailed }),
+        { action: "share_onboarding.created", reference_id: referenceId, amount: calc.amount, shares: calc.shares, created_by: user.id, emailed: invite.emailed, funding_source: fundingSource, payer_id: payerId }),
       admin.from("audit_logs").insert({
         user_id: user.id, action_type: "share_onboarding_created", table_name: "share_onboarding_requests",
         record_id: row.id, reason: `Angel Pool shares created for shareholder (${referenceId})`,
-        metadata: { amount: calc.amount, shares: calc.shares, shareholder_id: shareholderId },
+        metadata: { amount: calc.amount, shares: calc.shares, shareholder_id: shareholderId, funding_source: fundingSource, payer_id: payerId },
       }),
     ]);
 
     return json({
-      ok: true, id: row.id, reference_id: referenceId, shares: calc.shares,
-      available_balance: Number(walletRow?.float_balance ?? 0), emailed: invite.emailed, email: invite.email, signing_url: invite.url,
+      ok: true, id: row.id, reference_id: referenceId, shares: calc.shares, funding_source: fundingSource,
+      available_balance: available, emailed: invite.emailed, email: invite.email, signing_url: invite.url,
     });
   } catch (e) {
     console.error("[create-share-onboarding]", (e as Error)?.message || e);

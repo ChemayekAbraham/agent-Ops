@@ -39997,6 +39997,8 @@ export type Database = {
           countersigned_by: string | null
           created_at: string
           created_by: string
+          funder_user_id: string | null
+          funding_source: string
           id: string
           pdf_path: string | null
           pool_ownership_percent: number
@@ -40026,6 +40028,8 @@ export type Database = {
           countersigned_by?: string | null
           created_at?: string
           created_by: string
+          funder_user_id?: string | null
+          funding_source?: string
           id?: string
           pdf_path?: string | null
           pool_ownership_percent: number
@@ -40055,6 +40059,8 @@ export type Database = {
           countersigned_by?: string | null
           created_at?: string
           created_by?: string
+          funder_user_id?: string | null
+          funding_source?: string
           id?: string
           pdf_path?: string | null
           pool_ownership_percent?: number

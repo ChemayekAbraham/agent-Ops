@@ -27,7 +27,7 @@ export default function CreateShareholderDialog({ open, onOpenChange }: { open: 
   const [busy, setBusy] = useState(false);
 
   useEffect(() => { const t = setTimeout(() => setDebounced(q.trim()), 300); return () => clearTimeout(t); }, [q]);
-  useEffect(() => { if (!open) { setPicked(null); setQ(''); setAmountStr(''); setNp({ fullName: '', phone: '', email: '' }); } }, [open]);
+  useEffect(() => { if (!open) { setPicked(null); setPayFrom('shareholder'); setQ(''); setAmountStr(''); setNp({ fullName: '', phone: '', email: '' }); } }, [open]);
 
   const { data: people = [], isFetching } = useQuery({
     queryKey: ['share-person-search', debounced],
@@ -61,13 +61,31 @@ export default function CreateShareholderDialog({ open, onOpenChange }: { open: 
     },
   });
 
+  const { data: myBalance, isError: myBalanceError, refetch: refetchMine } = useQuery({
+    queryKey: ['share-creator-balance'],
+    enabled: open,
+    staleTime: 0,
+    retry: 1,
+    queryFn: async () => {
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth.user) return 0;
+      const { data, error } = await supabase.rpc('get_user_float_available_balance', { p_user_id: auth.user.id });
+      if (error) throw error;
+      return Number(data ?? 0);
+    },
+  });
+
+  const [payFrom, setPayFrom] = useState<'shareholder' | 'creator'>('shareholder');
+  const effectivePayFrom: 'shareholder' | 'creator' = mode === 'new' ? 'creator' : payFrom;
+  const payerBalance = effectivePayFrom === 'creator' ? myBalance : (picked ? balance : undefined);
+
   const amount = Number(amountStr.replace(/[^0-9]/g, '')) || 0;
   const calc = useMemo(() => {
     const shares = amount / PRICE;
     return { shares, pool: (shares / TOTAL) * 100, company: (shares / TOTAL) * POOL };
   }, [amount]);
 
-  const canSubmit = amount >= PRICE && (mode === 'existing' ? !!picked && balance !== undefined && amount <= balance
+  const canSubmit = amount >= PRICE && payerBalance !== undefined && amount <= payerBalance && (mode === 'existing' ? !!picked
     : np.fullName.trim().length >= 3 && np.phone.trim().length >= 7 && /\S+@\S+\.\S+/.test(np.email));
 
   const submit = async () => {
@@ -75,6 +93,7 @@ export default function CreateShareholderDialog({ open, onOpenChange }: { open: 
     try {
       const res = await invokeShareFn('create-share-onboarding', {
         amount,
+        fundingSource: effectivePayFrom,
         ...(mode === 'existing' ? { shareholderId: picked!.id } : { newPerson: np }),
       });
       toast({
@@ -93,7 +112,7 @@ export default function CreateShareholderDialog({ open, onOpenChange }: { open: 
       <DialogContent className="max-h-[92vh] w-[calc(100vw-1.5rem)] max-w-lg overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add new shareholder</DialogTitle>
-          <DialogDescription>Shares are paid from the shareholder's operational float when you countersign.</DialogDescription>
+          <DialogDescription>Shares are paid from the operational float you choose below when you countersign.</DialogDescription>
         </DialogHeader>
 
         <Tabs value={mode} onValueChange={(v) => { setMode(v as any); setPicked(null); }}>
@@ -146,21 +165,42 @@ export default function CreateShareholderDialog({ open, onOpenChange }: { open: 
               <div><Label>Phone</Label><Input value={np.phone} onChange={(e) => setNp({ ...np, phone: e.target.value })} /></div>
               <div><Label>Email</Label><Input type="email" value={np.email} onChange={(e) => setNp({ ...np, email: e.target.value })} /></div>
             </div>
-            <p className="text-xs text-muted-foreground">An account is created for them. They need money in their operational float before you can countersign.</p>
+            <p className="text-xs text-muted-foreground">An account is created for them. These shares are paid from your operational float.</p>
           </div>
         )}
+
+        <div className="space-y-2 rounded-lg border p-3">
+          <p className="text-xs font-medium">Pay from</p>
+          {mode === 'existing' && (
+            <label className="flex items-center gap-2 text-sm">
+              <input type="radio" name="payFrom" checked={effectivePayFrom === 'shareholder'} disabled={!picked}
+                onChange={() => { setPayFrom('shareholder'); setAmountStr(''); }} />
+              Shareholder's float{picked && balance !== undefined ? ` (${ugx(balance)})` : ''}
+            </label>
+          )}
+          <label className="flex items-center gap-2 text-sm">
+            <input type="radio" name="payFrom" checked={effectivePayFrom === 'creator'}
+              onChange={() => { setPayFrom('creator'); setAmountStr(''); }} />
+            My operational float:{' '}
+            {myBalanceError ? (
+              <button type="button" className="font-medium text-destructive underline" onClick={() => refetchMine()}>Could not load — tap to retry</button>
+            ) : (
+              <strong>{myBalance === undefined ? '…' : ugx(myBalance)}</strong>
+            )}
+          </label>
+        </div>
 
         <div>
           <Label>Amount (UGX)</Label>
           <Input inputMode="numeric" placeholder="e.g. 1,000,000" value={amount ? amount.toLocaleString('en-US') : amountStr}
             onChange={(e) => {
               const n = Number(e.target.value.replace(/[^0-9]/g, '')) || 0;
-              const cap = mode === 'existing' && picked && balance !== undefined ? balance : Infinity;
+              const cap = payerBalance !== undefined ? payerBalance : Infinity;
               setAmountStr(String(Math.min(n, Math.floor(cap))));
             }} />
           <p className="mt-1 text-xs text-muted-foreground">
             UGX 20,000 per share • minimum 1 share
-            {mode === 'existing' && picked && balance !== undefined && <> • maximum {ugx(balance)}</>}
+            {payerBalance !== undefined && <> • maximum {ugx(payerBalance)}</>}
           </p>
         </div>
 
@@ -169,8 +209,8 @@ export default function CreateShareholderDialog({ open, onOpenChange }: { open: 
           <div><p className="text-[11px] text-muted-foreground">Pool</p><p className="font-semibold">{calc.pool.toFixed(4)}%</p></div>
           <div><p className="text-[11px] text-muted-foreground">Company</p><p className="font-semibold">{calc.company.toFixed(4)}%</p></div>
         </div>
-        {picked && balance !== undefined && amount > balance && (
-          <p className="text-xs text-destructive">Operational float is below this amount — countersigning will be refused until it is topped up.</p>
+        {payerBalance !== undefined && amount > payerBalance && (
+          <p className="text-xs text-destructive">The chosen operational float is below this amount.</p>
         )}
 
         <Button className="w-full" disabled={!canSubmit || busy} onClick={submit}>
