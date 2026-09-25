@@ -7,7 +7,7 @@ import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useOffline } from '@/contexts/OfflineContext';
 import { Button } from '@/components/ui/button';
-import { Calculator, BadgeCheck, MapPin, Wallet } from 'lucide-react';
+import { Calculator, BadgeCheck, MapPin, Wallet, CreditCard, TrendingUp, History, FileText, Receipt, Share2, Zap, Home, ScrollText } from 'lucide-react';
 import { formatUGX as _formatUGX } from '@/lib/rentCalculations';
 import { useToast } from '@/hooks/use-toast';
 import { AppRole } from '@/hooks/useAuth';
@@ -35,16 +35,13 @@ import {
 } from '@/components/supporter/agreement';
 import { SupporterAgreementViewModal } from '@/components/supporter/agreement/SupporterAgreementCard';
 
-// Menu drawer
-import { SupporterMenuDrawer } from '@/components/supporter/SupporterMenuDrawer';
 import { hapticTap } from '@/lib/haptics';
 // motion removed — static rendering for low-end devices
 
 // Virtual Houses components
 import { VirtualHouse } from '@/components/supporter/VirtualHouseCard';
 import { VirtualHouseDetailsSheet } from '@/components/supporter/VirtualHouseDetailsSheet';
-import { RentCategoryFeed, RentCategory } from '@/components/supporter/RentCategoryFeed';
-import { CreditRequestsFeed } from '@/components/supporter/CreditRequestsFeed';
+import { RentCategory } from '@/components/supporter/RentCategoryFeed';
 import { InvestmentPackageSheet } from '@/components/supporter/InvestmentPackageSheet';
 // FundingPoolCard removed from direct import
 import { FunderCapitalOpportunities } from '@/components/supporter/FunderCapitalOpportunities';
