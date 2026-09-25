@@ -122,12 +122,32 @@ function AgentInlineProfileExpansion({ agentId }: { agentId: string }) {
   const { data, isLoading } = useQuery({
     queryKey: ['agent-product-detail-inline', agentId],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('get_agent_product_detail' as any, {
-        p_agent_id: agentId,
-        p_category: null,
-      });
-      if (error) throw error;
-      return data as any;
+      const [detailRes, profileRes, proxyRes, tenantsRes] = await Promise.all([
+        supabase.rpc('get_agent_product_detail' as any, {
+          p_agent_id: agentId,
+          p_category: null,
+        }),
+        supabase.from('profiles').select('national_id, is_frozen, frozen_at').eq('id', agentId).maybeSingle(),
+        supabase.from('proxy_agent_identity').select('nin').eq('agent_user_id', agentId).maybeSingle(),
+        supabase
+          .from('rent_requests')
+          .select('id', { count: 'exact', head: true })
+          .eq('agent_id', agentId)
+          .in('status', ['funded', 'repaying'])
+          .eq('tenancy_status', 'active'),
+      ]);
+      if (detailRes.error) throw detailRes.error;
+      const national_id =
+        (profileRes.data?.national_id && profileRes.data.national_id.trim()) ||
+        (proxyRes.data?.nin && proxyRes.data.nin.trim()) ||
+        null;
+      const isActive = profileRes.data?.is_frozen !== true && profileRes.data?.frozen_at == null;
+      return {
+        ...(detailRes.data as any),
+        national_id,
+        is_active: isActive,
+        active_tenant_count: tenantsRes.count ?? 0,
+      };
     },
     staleTime: 60_000,
   });
@@ -153,6 +173,17 @@ function AgentInlineProfileExpansion({ agentId }: { agentId: string }) {
       {/* Roles & Profile info */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-1.5">
+          {data?.is_active !== undefined && (
+            data.is_active ? (
+              <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/20 font-medium">
+                Active Agent
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-600 border-amber-500/20 font-medium">
+                Inactive
+              </Badge>
+            )
+          )}
           {(agent?.roles ?? []).length > 0 ? (
             (agent.roles as string[]).map((r) => (
               <Badge key={r} variant="secondary" className="text-[10px] capitalize">
@@ -162,6 +193,19 @@ function AgentInlineProfileExpansion({ agentId }: { agentId: string }) {
           ) : (
             <Badge variant="outline" className="text-[10px]">Registered Agent</Badge>
           )}
+          {data?.national_id ? (
+            <Badge variant="outline" className="text-[10px] font-mono bg-background">
+              NIN: {data.national_id}
+            </Badge>
+          ) : (
+            <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-500/30">
+              No NIN
+            </Badge>
+          )}
+          <Badge variant="secondary" className="text-[10px] font-medium gap-1">
+            <Users className="h-3 w-3 text-primary" />
+            {data?.active_tenant_count ?? 0} active tenants
+          </Badge>
           {agent?.email && (
             <span className="text-[11px] text-muted-foreground flex items-center gap-1 truncate max-w-[200px]">
               <Mail className="h-3 w-3 shrink-0" /> {agent.email}
@@ -359,32 +403,55 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
     onError: (e: any) => toast.error(e?.message || 'Could not reject application'),
   });
 
-  // Extra agent context shown in the reject dialog so the reviewer can decide
-  // without opening the full Agent 360 modal.
-  const { data: rejectAgentContext } = useQuery({
-    queryKey: ['agent-products-reject-context', rejectTarget?.agent_id],
-    enabled: !!rejectTarget?.agent_id,
+  // Extra agent profile context (NIN, active status, active tenants, sale terms)
+  // shown in the application details & reject dialogs without leaving the review flow.
+  const activeAgentIdForModal = appDetail?.agent_id || rejectTarget?.agent_id || null;
+  const activeSaleIdForModal = appDetail?.sale_id || rejectTarget?.sale_id || null;
+
+  const { data: modalAgentContext } = useQuery({
+    queryKey: ['agent-products-modal-context', activeAgentIdForModal, activeSaleIdForModal],
+    enabled: !!activeAgentIdForModal || !!activeSaleIdForModal,
     queryFn: async () => {
-      const agentId = rejectTarget!.agent_id!;
-      const [profileRes, proxyRes, tenantsRes] = await Promise.all([
-        supabase.from('profiles').select('national_id, full_name, phone').eq('id', agentId).maybeSingle(),
-        supabase.from('proxy_agent_identity').select('nin').eq('agent_user_id', agentId).maybeSingle(),
-        supabase
-          .from('rent_requests')
-          .select('id', { count: 'exact', head: true })
-          .eq('agent_id', agentId)
-          .in('status', ['funded', 'repaying'])
-          .eq('tenancy_status', 'active'),
+      const [profileRes, proxyRes, tenantsRes, saleRes] = await Promise.all([
+        activeAgentIdForModal
+          ? supabase.from('profiles').select('national_id, full_name, phone, is_active, status, email, district, territory').eq('id', activeAgentIdForModal).maybeSingle()
+          : Promise.resolve({ data: null }),
+        activeAgentIdForModal
+          ? supabase.from('proxy_agent_identity').select('nin').eq('agent_user_id', activeAgentIdForModal).maybeSingle()
+          : Promise.resolve({ data: null }),
+        activeAgentIdForModal
+          ? supabase
+              .from('rent_requests')
+              .select('id', { count: 'exact', head: true })
+              .eq('agent_id', activeAgentIdForModal)
+              .in('status', ['funded', 'repaying'])
+              .eq('tenancy_status', 'active')
+          : Promise.resolve({ count: 0 }),
+        activeSaleIdForModal
+          ? supabase
+              .from('merchandise_sales')
+              .select('payment_plan, access_daily_amount, access_repayment_days, advance_period_months, unit_cost, unit_price, total_amount, total_revenue, repayment_starts_on')
+              .eq('id', activeSaleIdForModal)
+              .maybeSingle()
+          : Promise.resolve({ data: null }),
       ]);
+
       const national_id =
         (profileRes.data?.national_id && profileRes.data.national_id.trim()) ||
         (proxyRes.data?.nin && proxyRes.data.nin.trim()) ||
         null;
+
+      const profileStatus = profileRes.data?.status;
+      const isActive = profileRes.data?.is_active !== false && profileStatus !== 'suspended' && profileStatus !== 'inactive';
+
       return {
         national_id,
-        full_name: profileRes.data?.full_name ?? rejectTarget!.full_name,
-        phone: profileRes.data?.phone ?? rejectTarget!.phone,
+        is_active: isActive,
+        status: profileStatus || (isActive ? 'active' : 'inactive'),
+        full_name: profileRes.data?.full_name ?? null,
+        phone: profileRes.data?.phone ?? null,
         active_tenant_count: tenantsRes.count ?? 0,
+        sale: saleRes.data ?? null,
       };
     },
     staleTime: 60_000,
@@ -1067,6 +1134,32 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
             const item = [appDetail.brand, appDetail.model_type].filter(Boolean).join(' ') || appDetail.item_name || '—';
             const centre = (appDetail.agent_id && centreByAgent.get(appDetail.agent_id)) || 'No service center';
             const busy = approveApp.isPending || rejectApp.isPending;
+
+            const catalogHit = (data?.catalog || []).find(
+              (c) =>
+                c.item_name?.toLowerCase() === (appDetail.item_name || '').toLowerCase() ||
+                c.item_name?.toLowerCase() === ([appDetail.brand, appDetail.model_type].filter(Boolean).join(' ') || '').toLowerCase() ||
+                (appDetail.item_name && c.item_name?.toLowerCase().includes(appDetail.item_name.toLowerCase()))
+            );
+            const unitCost = Number(modalAgentContext?.sale?.unit_cost || catalogHit?.unit_cost || 0);
+            const totalCost = unitCost * qty;
+            const expectedProfit = Math.max(0, total - totalCost);
+            const profitMarginPct = total > 0 && totalCost > 0 ? (((total - totalCost) / total) * 100).toFixed(1) : (unitCost === 0 && total > 0 ? '100' : '0');
+
+            const saleData = modalAgentContext?.sale;
+            const paymentPeriodText = (() => {
+              if (saleData?.access_daily_amount && saleData.access_daily_amount > 0) {
+                return `Daily deduction · ${formatUGX(saleData.access_daily_amount)}/day (${saleData.access_repayment_days || '—'} days)`;
+              }
+              if (saleData?.advance_period_months) {
+                return `${saleData.advance_period_months} month(s) repayment period`;
+              }
+              if (saleData?.payment_plan && saleData.payment_plan !== 'full_upfront') {
+                return `${saleData.payment_plan.replace(/_/g, ' ')} plan`;
+              }
+              return 'Daily commission deduction plan';
+            })();
+
             return (
               <div className="space-y-4">
                 {/* Agent profile card - inline expansion */}
@@ -1075,8 +1168,21 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
                     <div className="flex items-center gap-3 min-w-0">
                       <UserAvatar avatarUrl={appDetail.avatar_url} fullName={appDetail.full_name || undefined} size="lg" />
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold truncate text-foreground">{appDetail.full_name || 'Unknown agent'}</p>
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-0.5">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="text-sm font-semibold truncate text-foreground">{appDetail.full_name || 'Unknown agent'}</p>
+                          {modalAgentContext?.is_active !== undefined && (
+                            modalAgentContext.is_active ? (
+                              <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/20 font-medium py-0 h-4">
+                                Active Agent
+                              </Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-600 border-amber-500/20 font-medium py-0 h-4">
+                                Inactive
+                              </Badge>
+                            )
+                          )}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground mt-1">
                           {appDetail.phone ? (
                             <a href={`tel:${appDetail.phone}`} className="inline-flex items-center gap-1 hover:text-foreground font-medium">
                               <Phone className="h-3 w-3 text-primary" /> {appDetail.phone}
@@ -1087,6 +1193,21 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
                           <span className="inline-flex items-center gap-1">
                             <MapPin className="h-3 w-3 text-muted-foreground" /> {centre}
                           </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                          {modalAgentContext?.national_id ? (
+                            <Badge variant="outline" className="text-[10px] font-mono bg-background text-foreground">
+                              NIN: {modalAgentContext.national_id}
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[10px] text-amber-600 border-amber-500/30">
+                              No NIN
+                            </Badge>
+                          )}
+                          <Badge variant="secondary" className="text-[10px] font-medium gap-1">
+                            <Users className="h-3 w-3 text-primary" />
+                            {modalAgentContext?.active_tenant_count ?? 0} active tenants
+                          </Badge>
                         </div>
                       </div>
                     </div>
@@ -1109,8 +1230,8 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
                   )}
                 </div>
 
-                {/* Order specs */}
-                <div className="rounded-xl border border-border divide-y divide-border text-xs">
+                {/* Order specs & Profitability metrics */}
+                <div className="rounded-xl border border-border divide-y divide-border text-xs overflow-hidden">
                   <div className="flex items-center justify-between p-2.5">
                     <span className="text-muted-foreground">Requested item</span>
                     <span className="font-semibold text-foreground">{item}</span>
@@ -1124,8 +1245,36 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
                     <span className="font-bold text-sm text-foreground tabular-nums">{formatUGX(total)}</span>
                   </div>
                   <div className="flex items-center justify-between p-2.5">
-                    <span className="text-muted-foreground">Request date</span>
-                    <span className="font-medium text-muted-foreground">
+                    <span className="text-muted-foreground flex items-center gap-1">
+                      <Clock className="h-3.5 w-3.5 text-muted-foreground" /> Payment period
+                    </span>
+                    <span className="font-medium text-foreground">{paymentPeriodText}</span>
+                  </div>
+                  {unitCost > 0 && (
+                    <div className="flex items-center justify-between p-2.5">
+                      <span className="text-muted-foreground">Cost of goods (COGS)</span>
+                      <span className="font-medium tabular-nums text-muted-foreground">
+                        {qty} × {formatUGX(unitCost)} ({formatUGX(totalCost)})
+                      </span>
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between p-2.5 bg-emerald-500/10 border-t border-emerald-500/20">
+                    <div className="flex items-center gap-1.5">
+                      <TrendingUp className="h-4 w-4 text-emerald-600" />
+                      <span className="font-semibold text-emerald-950 dark:text-emerald-200">Expected Returns (Profit)</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="font-bold text-sm text-emerald-600 tabular-nums">+{formatUGX(expectedProfit)}</span>
+                      {profitMarginPct !== '0' && (
+                        <span className="text-[10px] font-semibold text-emerald-700 dark:text-emerald-400 ml-1.5">
+                          ({profitMarginPct}% margin)
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between p-2.5 text-muted-foreground">
+                    <span>Request date</span>
+                    <span className="font-medium">
                       {appDetail.created_at ? format(new Date(appDetail.created_at), 'dd MMM yyyy HH:mm') : '—'}
                     </span>
                   </div>
@@ -1168,15 +1317,28 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
               const unit = total / qty;
               const item = [rejectTarget.brand, rejectTarget.model_type].filter(Boolean).join(' ') || rejectTarget.item_name || '—';
               const centre = (rejectTarget.agent_id && centreByAgent.get(rejectTarget.agent_id)) || 'No service center';
-              const ctx = rejectAgentContext;
+              const ctx = modalAgentContext;
               return (
                 <div className="rounded-xl border border-border bg-muted/30 p-3 space-y-3">
                   {/* Agent profile */}
                   <div className="flex items-start gap-3">
                     <UserAvatar avatarUrl={rejectTarget.avatar_url} fullName={rejectTarget.full_name || undefined} size="md" />
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold truncate">{rejectTarget.full_name || 'Unknown agent'}</p>
-                      <p className="text-xs text-muted-foreground truncate">{ctx?.phone || rejectTarget.phone || 'No phone on file'}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-semibold truncate">{rejectTarget.full_name || 'Unknown agent'}</p>
+                        {ctx?.is_active !== undefined && (
+                          ctx.is_active ? (
+                            <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-600 border-emerald-500/20 font-medium py-0 h-4">
+                              Active Agent
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-[10px] bg-amber-500/10 text-amber-600 border-amber-500/20 font-medium py-0 h-4">
+                              Inactive
+                            </Badge>
+                          )
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate mt-0.5">{ctx?.phone || rejectTarget.phone || 'No phone on file'}</p>
                       <div className="flex flex-wrap items-center gap-1.5 mt-1">
                         <Badge variant="secondary" className="text-[10px]">{centre}</Badge>
                         {ctx?.national_id ? (
