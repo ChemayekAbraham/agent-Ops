@@ -44,6 +44,7 @@ Bring an investor who funds rent → earn *2%* of their investment (1% on Angel 
 • List an empty house (paid after verification) → *UGX 2,000*
 • A tenant moves into a house you listed → *UGX 10,000*
 • Pay the landlord from your float → *1% of the amount*
+• Capture a contact's location → *UGX 100*
 • Sub-agent's house listing verified → *UGX 2,000*
 • Register a new agent under you → *UGX 10,000*
 • Set up a Welile Service Centre → *UGX 25,000*
@@ -322,6 +323,17 @@ Bring an investor who funds rent → earn *2%* of their investment (1% on Angel 
 
 
                 <div className="px-3 py-2.5 flex items-start gap-2.5">
+                  <MapPin className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+                  <div className="flex-1">
+                    <div className="flex justify-between items-start">
+                      <p className="text-sm font-semibold text-foreground">Capture a Contact&apos;s Location</p>
+                      <span className="text-xs font-bold text-primary whitespace-nowrap">UGX 100</span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">Record the GPS location of a tenant or landlord you manage — paid once per contact</p>
+                  </div>
+                </div>
+
+                <div className="px-3 py-2.5 flex items-start gap-2.5">
                   <Users className="h-4 w-4 text-primary mt-0.5 shrink-0" />
                   <div className="flex-1">
                     <div className="flex justify-between items-start">
@@ -554,6 +566,13 @@ Bring an investor who funds rent → earn *2%* of their investment (1% on Angel 
                           <p className="text-sm text-muted-foreground">Your #1 priority — paid once when a NEW landlord is verified</p>
                         </div>
                         <span className="font-bold text-primary whitespace-nowrap">UGX 5,000</span>
+                      </div>
+                      <div className="flex justify-between items-center px-3 py-3">
+                        <div>
+                          <p className="text-sm font-medium text-foreground">Capture a contact&apos;s location</p>
+                          <p className="text-xs text-muted-foreground">Record the GPS location of a tenant or landlord you manage</p>
+                        </div>
+                        <span className="font-bold text-primary whitespace-nowrap">UGX 100</span>
                       </div>
                       <div className="flex justify-between items-center px-3 py-3">
                         <div>

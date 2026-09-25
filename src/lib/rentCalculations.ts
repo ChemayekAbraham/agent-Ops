@@ -102,6 +102,8 @@ export const RECRUITER_RATE = 0.02;        // Recruiter override: 2% (manager dr
 // rent_request_posted (5,000) and tenant_replacement (20,000).
 // See docs/rent-plan-new-flow-full-report.md.
 export const EVENT_BONUSES = {
+  /** credit_agent_event_bonus('contact_location_capture') — once per agent per contact */
+  contact_location_capture: 100,
   /** credit_agent_event_bonus('house_listed') — via credit-listing-bonus */
   house_listed: 2000,
   /** pay_landlord_registration_verified_bonus — once per NEW landlord, ever */

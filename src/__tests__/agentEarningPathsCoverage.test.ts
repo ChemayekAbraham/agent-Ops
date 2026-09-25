@@ -84,6 +84,12 @@ const RECURRING_PATHS: EarningPath[] = [
 ];
 
 const EVENT_BONUS_PATHS: EarningPath[] = [
+  {
+    label: "Contact location capture bonus",
+    // The amount alone is not a safe needle: "UGX 100" is a substring of the
+    // "UGX 100,000" repayment example, so assert the label instead.
+    needles: ["Capture a Contact&apos;s Location", ugx(EVENT_BONUSES.contact_location_capture)],
+  },
   { label: "New landlord verified bonus", needles: [ugx(EVENT_BONUSES.landlord_verified)] },
   { label: "List an empty house bonus", needles: [ugx(EVENT_BONUSES.house_listed)] },
   { label: "Register a new agent bonus", needles: [ugx(EVENT_BONUSES.subagent_registration)] },
@@ -180,6 +186,7 @@ describe("How You Earn page — backend earning-rule coverage", () => {
 describe("Backend earning constants snapshot (guards silent rate drift)", () => {
   it("EVENT_BONUSES match the figures the page is verified against", () => {
     expect(EVENT_BONUSES).toEqual({
+      contact_location_capture: 100,
       house_listed: 2000,
       landlord_verified: 5000,
       lc1_verified: 2000,
