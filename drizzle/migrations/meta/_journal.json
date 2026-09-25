@@ -2248,6 +2248,13 @@
       "when": 1790330396543,
       "tag": "0320_cfo_period_breakdown_by_pool",
       "breakpoints": true
+    },
+    {
+      "idx": 321,
+      "version": "7",
+      "when": 1790332575180,
+      "tag": "0321_cfo_treasury_wallet_flow_summary",
+      "breakpoints": true
     }
   ]
 }
