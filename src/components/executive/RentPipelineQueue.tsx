@@ -671,28 +671,14 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
       toast({ title: '✅ Approved', description: `${req.tenant_name} → ${finalStatus}` });
       invalidateAllPipelineQueries();
 
-      // Credit the agent's UGX 5,000 landlord-verification bonus in the
-      // background. This is a non-critical, slow edge call (cold start +
-      // ledger RPC) — awaiting it made the approval take many seconds and
-      // surfaced network errors to the operator. Fire-and-forget instead.
-      if (config.showLandlordChecklist && !isOutstanding) {
-        supabase.functions
-          .invoke('credit-landlord-verification-bonus', { body: { rent_request_id: req.id } })
-          .then(({ error: bonusErr }) => {
-            recordLandlordApprovalAudit(
-              req,
-              statusChangedAt,
-              !bonusErr,
-              bonusErr ? `Bonus queue failed: ${bonusErr.message}` : 'Bonus credit queued',
-            );
-          })
-          .catch((bonusErr) => {
-            console.warn('Landlord verification bonus failed:', bonusErr);
-            recordLandlordApprovalAudit(req, statusChangedAt, false, `Bonus queue error: ${bonusErr?.message ?? 'unknown'}`);
-          });
-      } else if (config.showLandlordChecklist && isOutstanding) {
-        // Outstanding-balance approvals have no agent bonus to queue.
-        recordLandlordApprovalAudit(req, statusChangedAt, false, 'No bonus applicable (outstanding balance)');
+      // No bonus is paid from the rent pipeline. The landlord bonus is paid
+      // once per NEW landlord, by pay_landlord_registration_verified_bonus on
+      // the landlords.verified transition — not once per rent request naming
+      // that landlord. Paying here credited the same landlord again for every
+      // request that mentioned them. See docs/rent-plan-new-flow-full-report.md.
+      // The approval audit trail is still recorded.
+      if (config.showLandlordChecklist) {
+        recordLandlordApprovalAudit(req, statusChangedAt, false, 'No bonus payable from the pipeline');
       }
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });
@@ -1088,28 +1074,10 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
       setPayoutRef('');
       invalidateAllPipelineQueries();
 
-      // Credit the agent's UGX 5,000 landlord-verification bonus in the
-      // background (non-critical, slow edge call). Awaiting it delayed the
-      // approval feedback and exposed network errors to the operator.
-      if (config.showLandlordChecklist && !isOutstanding && stage !== 'coo_approved') {
-        const bonusReqId = selectedRequest.id;
-        const auditReq = selectedRequest;
-        supabase.functions
-          .invoke('credit-landlord-verification-bonus', { body: { rent_request_id: bonusReqId } })
-          .then(({ error: bonusErr }) => {
-            recordLandlordApprovalAudit(
-              auditReq,
-              statusChangedAt,
-              !bonusErr,
-              bonusErr ? `Bonus queue failed: ${bonusErr.message}` : 'Bonus credit queued',
-            );
-          })
-          .catch((bonusErr) => {
-            console.warn('Landlord verification bonus failed:', bonusErr);
-            recordLandlordApprovalAudit(auditReq, statusChangedAt, false, `Bonus queue error: ${bonusErr?.message ?? 'unknown'}`);
-          });
-      } else if (config.showLandlordChecklist && isOutstanding) {
-        recordLandlordApprovalAudit(selectedRequest, statusChangedAt, false, 'No bonus applicable (outstanding balance)');
+      // No bonus is paid from the rent pipeline — see the note on the quick
+      // approval path above. Audit only.
+      if (config.showLandlordChecklist) {
+        recordLandlordApprovalAudit(selectedRequest, statusChangedAt, false, 'No bonus payable from the pipeline');
       }
     } catch (err: any) {
       toast({ title: 'Error', description: err.message, variant: 'destructive' });

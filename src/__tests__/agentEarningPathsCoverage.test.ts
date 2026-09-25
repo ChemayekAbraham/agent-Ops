@@ -7,6 +7,8 @@ import {
   SOURCE_RATE,
   MANAGER_RATE,
   RECRUITER_RATE,
+  RECRUITER_VERIFICATION_OVERRIDE,
+  LANDLORD_PAYOUT_COMMISSION_RATE,
 } from "@/lib/rentCalculations";
 
 /**
@@ -36,16 +38,12 @@ const ugx = (n: number) => `UGX ${n.toLocaleString("en-US")}`;
 const pct = (rate: number) => `${Math.round(rate * 100)}%`;
 
 /**
- * Canonical bonus amounts paid by `credit_agent_event_bonus(...)` /
- * `credit_recruiter_override(...)` SQL helpers (see project memory:
- * tenant-placement-bounty, recruiter-override-3000). Not present in
- * EVENT_BONUSES because they are credited entirely server-side.
+ * Every flat bonus now lives in EVENT_BONUSES, each entry naming the backend
+ * path that pays it. Four entries were removed on 2026-09-25 because they had
+ * never paid: rent_posted_listed, rent_landlord_verified, rent_request_posted
+ * and tenant_replacement. The landlord and LC1 recruiter overrides went at the
+ * same time, leaving RECRUITER_VERIFICATION_OVERRIDE for house listings only.
  */
-const DB_EVENT_BONUSES = {
-  tenant_placement: 10000,
-  service_centre_setup: 25000,
-  recruiter_override_verification: 2000,
-} as const;
 
 /** Investment commission an agent earns on funders they bring in. */
 const INVESTMENT_COMMISSION_RATE = 0.02; // proxy/partner investment
@@ -86,18 +84,30 @@ const RECURRING_PATHS: EarningPath[] = [
 ];
 
 const EVENT_BONUS_PATHS: EarningPath[] = [
-  { label: "Rent request posted & listed bonus", needles: [ugx(EVENT_BONUSES.rent_posted_listed)] },
-  { label: "Landlord verified bonus", needles: [ugx(EVENT_BONUSES.rent_landlord_verified)] },
-  { label: "Help a tenant apply for rent bonus", needles: [ugx(EVENT_BONUSES.rent_request_posted)] },
+  { label: "New landlord verified bonus", needles: [ugx(EVENT_BONUSES.landlord_verified)] },
   { label: "List an empty house bonus", needles: [ugx(EVENT_BONUSES.house_listed)] },
-  { label: "Replace a tenant bonus", needles: [ugx(EVENT_BONUSES.tenant_replacement)] },
   { label: "Register a new agent bonus", needles: [ugx(EVENT_BONUSES.subagent_registration)] },
-  { label: "Tenant placement bounty", needles: [ugx(DB_EVENT_BONUSES.tenant_placement)] },
-  { label: "Service Centre setup bonus", needles: [ugx(DB_EVENT_BONUSES.service_centre_setup)] },
+  { label: "Tenant placement bounty", needles: [ugx(EVENT_BONUSES.tenant_placement)] },
+  { label: "Service Centre setup bonus", needles: [ugx(EVENT_BONUSES.service_centre_setup)] },
   {
     label: "Sub-agent verification override bonus",
-    needles: [ugx(DB_EVENT_BONUSES.recruiter_override_verification)],
+    needles: [ugx(RECRUITER_VERIFICATION_OVERRIDE)],
   },
+  {
+    label: "Landlord payout commission (1%)",
+    needles: [pct(LANDLORD_PAYOUT_COMMISSION_RATE)],
+  },
+];
+
+/**
+ * Amounts that must NOT appear on the page any more — the bonuses that were
+ * removed on 2026-09-25. Guards against a revert quietly re-advertising them.
+ */
+const RETIRED_AMOUNTS: { label: string; amount: number }[] = [
+  { label: "rent request posted & listed (1,000)", amount: 1000 },
+  { label: "landlord verified, old per-request figure (4,000)", amount: 4000 },
+  { label: "replace a tenant (20,000)", amount: 20000 },
+  { label: "recruiter verification override, old figure (3,000)", amount: 3000 },
 ];
 
 const CAREER_PATHS: EarningPath[] = [
@@ -133,6 +143,14 @@ describe("How You Earn page — backend earning-rule coverage", () => {
     }
   });
 
+  describe("retired bonuses are no longer advertised", () => {
+    for (const retired of RETIRED_AMOUNTS) {
+      it(`does not offer ${retired.label}`, () => {
+        expect(source).not.toContain(ugx(retired.amount));
+      });
+    }
+  });
+
   describe("career-growth earning paths are present", () => {
     for (const path of CAREER_PATHS) {
       it(`presents ${path.label}`, () => {
@@ -145,15 +163,11 @@ describe("How You Earn page — backend earning-rule coverage", () => {
 
   describe("WhatsApp share text mirrors the cash bonuses", () => {
     const shareNeedles = [
-      ugx(EVENT_BONUSES.rent_request_posted),
+      ugx(EVENT_BONUSES.landlord_verified),
       ugx(EVENT_BONUSES.house_listed),
-      ugx(EVENT_BONUSES.rent_landlord_verified),
-      ugx(EVENT_BONUSES.rent_posted_listed),
-      ugx(EVENT_BONUSES.tenant_replacement),
       ugx(EVENT_BONUSES.subagent_registration),
-      ugx(DB_EVENT_BONUSES.tenant_placement),
-      ugx(DB_EVENT_BONUSES.service_centre_setup),
-      ugx(DB_EVENT_BONUSES.recruiter_override_verification),
+      ugx(EVENT_BONUSES.tenant_placement),
+      ugx(EVENT_BONUSES.service_centre_setup),
     ];
     for (const needle of shareNeedles) {
       it(`share text mentions ${needle}`, () => {
@@ -166,13 +180,16 @@ describe("How You Earn page — backend earning-rule coverage", () => {
 describe("Backend earning constants snapshot (guards silent rate drift)", () => {
   it("EVENT_BONUSES match the figures the page is verified against", () => {
     expect(EVENT_BONUSES).toEqual({
-      rent_posted_listed: 1000,
-      rent_landlord_verified: 4000,
-      rent_request_posted: 5000,
       house_listed: 2000,
-      tenant_replacement: 20000,
+      landlord_verified: 5000,
+      lc1_verified: 2000,
       subagent_registration: 10000,
+      three_verified_houses: 10000,
+      tenant_placement: 10000,
+      service_centre_setup: 25000,
     });
+    expect(RECRUITER_VERIFICATION_OVERRIDE).toBe(2000);
+    expect(LANDLORD_PAYOUT_COMMISSION_RATE).toBe(0.01);
   });
 
   it("commission rates match the figures the page is verified against", () => {
