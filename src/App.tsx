@@ -260,6 +260,7 @@ const LandlordOpsPage = lazy(() => import('./pages/landlord-ops/LandlordOpsPage'
 const AdminUsersPage = lazy(() => import('./pages/admin/Users'));
 const AdminAccessAuditPage = lazy(() => import('./pages/admin/AccessAudit'));
 const AdminFinancialOpsPage = lazy(() => import('./pages/admin/FinancialOps'));
+const MerchantDeskFundingPage = lazy(() => import('./pages/admin/MerchantDeskFundingPage'));
 const AdminReferralsPage = lazy(() => import('./pages/admin/Referrals'));
 const AdminOAuthFailuresPage = lazy(() => import('./pages/admin/OAuthFailures'));
 const AdminRecoverySmsLogPage = lazy(() => import('./pages/admin/RecoverySmsLog'));
@@ -731,6 +732,7 @@ function AppRoutes() {
           <Route path="/admin/users" element={<RoleGuard allowedRoles={['super_admin', 'manager', 'cto']} requiredPermission="company-ops"><AdminUsersPage /></RoleGuard>} />
           <Route path="/admin/access-audit" element={<RoleGuard allowedRoles={['super_admin', 'manager', 'cto']}><AdminAccessAuditPage /></RoleGuard>} />
           <Route path="/admin/financial-ops" element={<RoleGuard allowedRoles={['super_admin', 'manager', 'coo', 'cfo', 'employee', 'operations']} requiredPermission="financial-ops"><AdminFinancialOpsPage /></RoleGuard>} />
+          <Route path="/admin/financial-ops/merchant-desk-funding" element={<RoleGuard allowedRoles={['cfo', 'financial_ops', 'super_admin', 'ceo', 'coo', 'manager']}><MerchantDeskFundingPage /></RoleGuard>} />
           {/* Legacy/bookmarked paths staff type or tap from older links — these
               previously fell through to the catch-all NotFound (404). */}
           <Route path="/financial-ops" element={<Navigate to="/admin/financial-ops" replace />} />
