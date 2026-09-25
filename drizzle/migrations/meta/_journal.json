@@ -2227,6 +2227,20 @@
       "when": 1790322052908,
       "tag": "0317_next_day_payout_projection",
       "breakpoints": true
+    },
+    {
+      "idx": 318,
+      "version": "7",
+      "when": 1790322877036,
+      "tag": "0318_share_onboarding_funding_source",
+      "breakpoints": true
+    },
+    {
+      "idx": 319,
+      "version": "7",
+      "when": 1790324705632,
+      "tag": "0319_payout_projection_no_landlord_double_count",
+      "breakpoints": true
     }
   ]
 }

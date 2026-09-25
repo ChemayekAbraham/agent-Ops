@@ -7,7 +7,7 @@ import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useOffline } from '@/contexts/OfflineContext';
 import { Button } from '@/components/ui/button';
-import { Calculator, BadgeCheck, MapPin, Wallet } from 'lucide-react';
+import { Calculator, BadgeCheck, MapPin, Wallet, CreditCard, TrendingUp, History, FileText, Receipt, Share2, Zap, Home, ScrollText } from 'lucide-react';
 import { formatUGX as _formatUGX } from '@/lib/rentCalculations';
 import { useToast } from '@/hooks/use-toast';
 import { AppRole } from '@/hooks/useAuth';
@@ -35,16 +35,13 @@ import {
 } from '@/components/supporter/agreement';
 import { SupporterAgreementViewModal } from '@/components/supporter/agreement/SupporterAgreementCard';
 
-// Menu drawer
-import { SupporterMenuDrawer } from '@/components/supporter/SupporterMenuDrawer';
 import { hapticTap } from '@/lib/haptics';
 // motion removed — static rendering for low-end devices
 
 // Virtual Houses components
 import { VirtualHouse } from '@/components/supporter/VirtualHouseCard';
 import { VirtualHouseDetailsSheet } from '@/components/supporter/VirtualHouseDetailsSheet';
-import { RentCategoryFeed, RentCategory } from '@/components/supporter/RentCategoryFeed';
-import { CreditRequestsFeed } from '@/components/supporter/CreditRequestsFeed';
+import { RentCategory } from '@/components/supporter/RentCategoryFeed';
 import { InvestmentPackageSheet } from '@/components/supporter/InvestmentPackageSheet';
 // FundingPoolCard removed from direct import
 import { FunderCapitalOpportunities } from '@/components/supporter/FunderCapitalOpportunities';
@@ -118,7 +115,6 @@ export default function SupporterDashboard({
   const [justAccepted, setJustAccepted] = useState(false);
   const [showCalculator, setShowCalculator] = useState(false);
   const [showMap, setShowMap] = useState(false);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [mapExpanded, setMapExpanded] = useState(false);
 
   useEffect(() => {
@@ -496,6 +492,23 @@ export default function SupporterDashboard({
     ]);
   };
 
+  // Same dropdown menu as every other dashboard (DashboardHeader), with the
+  // funder-specific actions from the old side drawer passed as menuItems.
+  const supporterMenuItems = [
+    { icon: CreditCard, label: 'Add Funds', onClick: () => setShowPaymentPartners(true) },
+    { icon: Wallet, label: 'My Wallet', onClick: () => setShowFunderHub(true) },
+    { icon: TrendingUp, label: 'My Portfolios', onClick: () => { setInvestmentsTab('accounts'); setShowInvestments(true); } },
+    { icon: Home, label: 'Houses I Support', onClick: () => { setInvestmentsTab('accounts'); setShowInvestments(true); } },
+    { icon: Zap, label: 'Angel Pool', onClick: () => { setCapitalView('angel'); document.getElementById('opportunities')?.scrollIntoView({ behavior: 'smooth' }); } },
+    { icon: Calculator, label: 'Returns Calculator', onClick: () => setShowCalculator(true) },
+    { icon: TrendingUp, label: 'Returns Analytics', onClick: () => navigate('/supporter-earnings') },
+    { icon: History, label: 'History', onClick: () => navigate('/transactions') },
+    { icon: FileText, label: 'Statement', onClick: () => navigate('/financial-statement') },
+    { icon: Receipt, label: 'Receipts', onClick: () => navigate('/my-receipts') },
+    { icon: Share2, label: 'Referrals', onClick: () => navigate('/referrals'), separator: true },
+    { icon: ScrollText, label: 'Agreement', onClick: () => { setViewAgreementTab('summary'); setShowViewAgreementModal(true); } },
+  ];
+
   return (
     <div className="h-dvh bg-background flex flex-col overflow-hidden">
       {/* Inactivity lock overlay */}
@@ -513,7 +526,7 @@ export default function SupporterDashboard({
           availableRoles={availableRoles}
           onRoleChange={onRoleChange}
           onSignOut={signOut}
-          onMenuClick={() => setMenuOpen(true)}
+          menuItems={supporterMenuItems}
           headerActions={<NotificationBell userId={user.id} />}
           compactInstallPrompt
         />
@@ -670,34 +683,6 @@ export default function SupporterDashboard({
 
         </main>
       </div>
-      <SupporterMenuDrawer
-        open={menuOpen}
-        onOpenChange={setMenuOpen}
-        onAddInvestment={() => setShowPaymentPartners(true)}
-        onOpenCalculator={() => setShowCalculator(true)}
-        onViewAgreement={() => { setViewAgreementTab('summary'); setShowViewAgreementModal(true); }}
-        showCreditRequests
-        isLocked={!effectiveHasAccepted}
-        onLockedClick={() => setShowAgreementModal(true)}
-        onFundCategory={(cat) => {
-          if (!effectiveHasAccepted) {
-            setShowAgreementModal(true);
-            return;
-          }
-          setSelectedPackageCategory(cat);
-          setShowPackageSheet(true);
-        }}
-        onRefreshRef={opportunitiesRefreshRef}
-        onOpenWallet={() => setShowFunderHub(true)}
-        onOpenPortfolios={() => { setInvestmentsTab('accounts'); setShowInvestments(true); }}
-        onShowDirectSupport={() => { setCapitalFeedOrder('rent'); setCapitalView('direct'); document.getElementById('opportunities')?.scrollIntoView({ behavior: 'smooth' }); }}
-        onShowVacantHouses={() => { setCapitalFeedOrder('houses'); setCapitalView('direct'); document.getElementById('opportunities')?.scrollIntoView({ behavior: 'smooth' }); }}
-        onShowManagedSupport={() => { setCapitalView('managed'); document.getElementById('opportunities')?.scrollIntoView({ behavior: 'smooth' }); }}
-        onShowAngelPool={() => { setCapitalView('angel'); document.getElementById('opportunities')?.scrollIntoView({ behavior: 'smooth' }); }}
-        onShowSupportedHouses={() => { setInvestmentsTab('accounts'); setShowInvestments(true); }}
-        onSignOut={signOut}
-      />
-
       <PaymentPartnersDialog 
         open={showPaymentPartners} 
         onOpenChange={setShowPaymentPartners}

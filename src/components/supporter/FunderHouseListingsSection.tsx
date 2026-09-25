@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Home, ListFilter, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { formatDynamic } from '@/lib/currencyFormat';
@@ -12,8 +12,13 @@ import EmptyHouseDetailSheet from '@/components/agent/EmptyHouseDetailSheet';
 import { SelfPortfolioPlanDetailSheet } from '@/components/partner/SelfPortfolioPlanDetailSheet';
 import { FunderNewHouseCard } from '@/components/funder-new/FunderNewHouseCard';
 import { FunderNewReviewDialog, FunderNewSelectionBar } from '@/components/funder-new/FunderNewSelectionPanel';
+import { FunderNewFilterDrawer } from '@/components/funder-new/FunderNewFilterDrawer';
 import { useFunderNewLocation } from '@/components/funder-new/useFunderNewLocation';
-import { useFunderNewEmptyHouses, useFunderNewReadyPlans } from '@/components/funder-new/useFunderNewOpportunities';
+import {
+  useFunderNewEmptyHouses,
+  useFunderNewMarketSummary,
+  useFunderNewReadyPlans,
+} from '@/components/funder-new/useFunderNewOpportunities';
 import type {
   FunderNewCategory,
   FunderNewEmptyHouse,
@@ -21,107 +26,329 @@ import type {
   FunderNewOrigin,
   FunderNewReadyPlan,
   FunderNewSelectionItem,
+  FunderNewSort,
 } from '@/components/funder-new/types';
-import { itemId, itemCoordinates, toSelectionItem } from '@/components/funder-new/utils';
+import { itemAmount, itemCoordinates, itemId, placeCase, sortLabel, toSelectionItem } from '@/components/funder-new/utils';
 import { straightLineDistance } from '@/components/funder-new/distance';
 
-const FILTERS: FunderNewFilters = {
-  search: '',
-  location: '',
-  amount: 'all',
-  sort: 'recommended',
-  rentMin: null,
-  rentMax: null,
-  radiusKm: 'all',
-  withinFloat: false,
-};
+/** Same saved-homes storage as /dashboard/funder-new, so saves carry over. */
+const SAVED_KEY = 'rentflow:funder-new:saved:v1';
+
+interface SavedState {
+  empty: string[];
+  ready: string[];
+}
+
+const DEFAULT_SAVED: SavedState = { empty: [], ready: [] };
+
+function readSaved(): SavedState {
+  try {
+    const raw = window.localStorage.getItem(SAVED_KEY);
+    if (!raw) return DEFAULT_SAVED;
+    const parsed = JSON.parse(raw) as Partial<SavedState>;
+    return {
+      empty: Array.isArray(parsed.empty) ? parsed.empty.filter((id): id is string => typeof id === 'string') : [],
+      ready: Array.isArray(parsed.ready) ? parsed.ready.filter((id): id is string => typeof id === 'string') : [],
+    };
+  } catch {
+    return DEFAULT_SAVED;
+  }
+}
+
+function saveSaved(value: SavedState) {
+  try {
+    window.localStorage.setItem(SAVED_KEY, JSON.stringify(value));
+  } catch {
+    // Route-scoped browsing aid only.
+  }
+}
 
 interface FeedEntry {
   category: FunderNewCategory;
   item: FunderNewEmptyHouse | FunderNewReadyPlan;
 }
 
-/** House listings grid (same cards and data as /dashboard/funder-new), shown on /dashboard/funder. */
+/**
+ * Single combined listing for /dashboard/funder — the exact cards, filters and
+ * data of /dashboard/funder-new, with Rent Plans first and empty houses below.
+ * There are no tabs: one feed, one list.
+ */
 export function FunderHouseListingsSection() {
   const { user } = useAuth();
   const wallet = useWalletBalance(user?.id);
   const location = useFunderNewLocation();
-  const origin: FunderNewOrigin | null = null;
-  const deviceOrigin = location.coords ? { lat: location.coords.lat, lng: location.coords.lng } : null;
+  const summary = useFunderNewMarketSummary();
 
-  const emptyQuery = useFunderNewEmptyHouses(FILTERS, origin, true);
-  const readyQuery = useFunderNewReadyPlans(FILTERS, true);
-
-  const items = useMemo<FeedEntry[]>(
-    () => [
-      ...(emptyQuery.data?.pages ?? []).flatMap((p) => p.items).map((item) => ({ category: 'empty' as const, item })),
-      ...(readyQuery.data?.pages ?? []).flatMap((p) => p.items).map((item) => ({ category: 'ready' as const, item })),
-    ],
-    [emptyQuery.data, readyQuery.data],
-  );
-
+  const [filters, setFilters] = useState<FunderNewFilters>({
+    search: '',
+    location: '',
+    amount: 'all',
+    sort: 'recommended',
+    rentMin: null,
+    rentMax: null,
+    radiusKm: 'all',
+    withinFloat: false,
+  });
+  const [sortTouched, setSortTouched] = useState(false);
+  const [saved, setSaved] = useState<SavedState>(() => readSaved());
   const [selectedCategory, setSelectedCategory] = useState<FunderNewCategory | null>(null);
   const [selectedItems, setSelectedItems] = useState<FunderNewSelectionItem[]>([]);
   const [detailHouse, setDetailHouse] = useState<FunderNewEmptyHouse | null>(null);
   const [detailPlan, setDetailPlan] = useState<FunderNewReadyPlan | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   // Top-up launched from the detail sheet's Fund button when the balance
   // doesn't cover the house's rent — the deposit opens with the shortfall.
   const [topUpAmount, setTopUpAmount] = useState<number | null>(null);
 
-  const availableBalance = wallet.isLoading || wallet.error ? null : wallet.withdrawable;
-  const loading = emptyQuery.isLoading || readyQuery.isLoading;
-  const error = emptyQuery.isError && readyQuery.isError;
-  const hasNext = emptyQuery.hasNextPage || readyQuery.hasNextPage;
-  const fetchingNext = emptyQuery.isFetchingNextPage || readyQuery.isFetchingNextPage;
+  useEffect(() => {
+    saveSaved(saved);
+  }, [saved]);
 
-  const fetchNext = () => {
-    if (emptyQuery.hasNextPage) emptyQuery.fetchNextPage();
-    else if (readyQuery.hasNextPage) readyQuery.fetchNextPage();
+  /**
+   * Single origin for distance labels and the nearest-first sort: the device
+   * position. There is no map area picker on this dashboard.
+   */
+  const origin: FunderNewOrigin | null = useMemo(() => {
+    const chosenRadius = filters.radiusKm === 'all' ? null : filters.radiusKm;
+    if (location.coords) {
+      return {
+        lat: location.coords.lat,
+        lng: location.coords.lng,
+        source: 'device',
+        radiusKm: chosenRadius ?? 25,
+        label: 'your location',
+      };
+    }
+    return null;
+  }, [location.coords, filters.radiusKm]);
+
+  /** Distance labels always measure from the real device position. */
+  const deviceOrigin = location.coords ? { lat: location.coords.lat, lng: location.coords.lng } : null;
+
+  // Nearest-first becomes the default the moment an origin exists, unless the
+  // user has already chosen a sort themselves.
+  const appliedOriginRef = useRef(false);
+  useEffect(() => {
+    if (!origin || sortTouched || appliedOriginRef.current) return;
+    appliedOriginRef.current = true;
+    setFilters((current) => ({ ...current, sort: 'nearest' }));
+  }, [origin, sortTouched]);
+
+  const emptyQuery = useFunderNewEmptyHouses(filters, origin, true);
+  const readyQuery = useFunderNewReadyPlans(filters, true);
+
+  const emptyItems = useMemo(
+    () => (emptyQuery.data?.pages ?? []).flatMap((page) => page.items),
+    [emptyQuery.data],
+  );
+  const readyItems = useMemo(
+    () => (readyQuery.data?.pages ?? []).flatMap((page) => page.items),
+    [readyQuery.data],
+  );
+
+  /** Rent Plans first, empty houses below — one list, no tabs. */
+  const loadedItems = useMemo<FeedEntry[]>(
+    () => [
+      ...readyItems.map((item): FeedEntry => ({ category: 'ready', item })),
+      ...emptyItems.map((item): FeedEntry => ({ category: 'empty', item })),
+    ],
+    [readyItems, emptyItems],
+  );
+
+  const feedLoading = emptyQuery.isLoading || readyQuery.isLoading;
+  const feedError = emptyQuery.error || readyQuery.error;
+  const feedFetching = emptyQuery.isFetching || readyQuery.isFetching;
+  const feedFetchingNext = emptyQuery.isFetchingNextPage || readyQuery.isFetchingNextPage;
+  const feedHasNext = !!emptyQuery.hasNextPage || !!readyQuery.hasNextPage;
+  const refetchFeed = () => {
+    emptyQuery.refetch();
+    readyQuery.refetch();
+  };
+  const fetchNextFeed = () => {
+    if (emptyQuery.hasNextPage && !emptyQuery.isFetchingNextPage) emptyQuery.fetchNextPage();
+    if (readyQuery.hasNextPage && !readyQuery.isFetchingNextPage) readyQuery.fetchNextPage();
+  };
+
+  const filteredTotal = (readyQuery.data?.pages?.[0]?.total ?? 0) + (emptyQuery.data?.pages?.[0]?.total ?? 0);
+
+  const availableBalance = wallet.isLoading || wallet.error ? null : wallet.withdrawable;
+
+  /**
+   * District chip lists every district in the whole market (from the summary
+   * service), not just the page of homes currently loaded. Any district found
+   * on loaded homes but missing from the summary is merged in so the select
+   * never hides the active filter value.
+   */
+  const districtOptions = useMemo(() => {
+    const counts = new Map<string, { label: string; count: number }>();
+    (summary.data?.districts ?? []).forEach((item) => {
+      counts.set(item.value, { label: item.label, count: item.count });
+    });
+    loadedItems.forEach(({ item }) => {
+      const raw = (item as unknown as Record<string, unknown>).district;
+      const value = typeof raw === 'string' ? raw.trim() : '';
+      if (!value || counts.has(value)) return;
+      counts.set(value, { label: placeCase(value) || value, count: 0 });
+    });
+    return [...counts.entries()]
+      .map(([value, meta]) => ({ value, label: meta.label, count: meta.count }))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+  }, [summary.data, loadedItems]);
+
+  /**
+   * The within-balance chip is applied to the homes already loaded, because the
+   * read service has no balance parameter. The chip row says so.
+   */
+  const items = useMemo(() => {
+    if (!filters.withinFloat || availableBalance === null) return loadedItems;
+    return loadedItems.filter((entry) => {
+      const amount = itemAmount(entry.category, entry.item);
+      return amount > 0 && amount <= availableBalance;
+    });
+  }, [loadedItems, filters.withinFloat, availableBalance]);
+
+  const effectiveSort: FunderNewSort = filters.sort === 'nearest' && !origin ? 'recommended' : filters.sort;
+
+  const filtersActive =
+    filters.search.trim() !== '' ||
+    filters.location.trim() !== '' ||
+    filters.amount !== 'all' ||
+    filters.rentMin !== null ||
+    filters.rentMax !== null ||
+    filters.radiusKm !== 'all' ||
+    filters.withinFloat;
+
+  const resetFilters = () => {
+    setFilters((current) => ({
+      search: '',
+      location: '',
+      amount: 'all',
+      sort: current.sort,
+      rentMin: null,
+      rentMax: null,
+      radiusKm: 'all',
+      withinFloat: false,
+    }));
+  };
+
+  const changeSort = (value: FunderNewSort) => {
+    setSortTouched(true);
+    setFilters((current) => ({ ...current, sort: value }));
+  };
+
+  const toggleSave = (category: FunderNewCategory, id: string) => {
+    setSaved((current) => {
+      const list = current[category];
+      const nextList = list.includes(id) ? list.filter((savedId) => savedId !== id) : [...list, id];
+      return { ...current, [category]: nextList };
+    });
   };
 
   const toggleSelect = useCallback((category: FunderNewCategory, item: FunderNewEmptyHouse | FunderNewReadyPlan) => {
     const next = toSelectionItem(category, item);
-    setSelectedCategory(category);
+    setSelectedCategory((current) => (current && current !== category ? category : current ?? category));
     setSelectedItems((current) => {
-      const same = current.filter((e) => e.category === category);
-      const exists = same.some((e) => e.id === next.id);
-      const list = exists ? same.filter((e) => e.id !== next.id) : [...same, next];
-      if (list.length === 0) setSelectedCategory(null);
-      return list;
+      const sameCategory = current.filter((entry) => entry.category === category);
+      const exists = sameCategory.some((entry) => entry.id === next.id);
+      const nextList = exists ? sameCategory.filter((entry) => entry.id !== next.id) : [...sameCategory, next];
+      if (nextList.length === 0) setSelectedCategory(null);
+      return nextList;
     });
   }, []);
 
   const removeSelected = (item: FunderNewSelectionItem) => {
     setSelectedItems((current) => {
-      const list = current.filter((e) => !(e.category === item.category && e.id === item.id));
-      if (list.length === 0) setSelectedCategory(null);
-      return list;
+      const nextList = current.filter((entry) => !(entry.category === item.category && entry.id === item.id));
+      if (nextList.length === 0) setSelectedCategory(null);
+      return nextList;
     });
   };
 
+  const openDetail = useCallback((category: FunderNewCategory, item: FunderNewEmptyHouse | FunderNewReadyPlan) => {
+    if (category === 'empty') {
+      setDetailHouse(item as FunderNewEmptyHouse);
+      return;
+    }
+    setDetailPlan(item as FunderNewReadyPlan);
+  }, []);
+
+  const remaining = Math.max(0, filteredTotal - items.length);
+
   return (
-    <section className="space-y-4">
-      {loading ? (
+    <section className="space-y-3">
+      {/* Compact filters row — same as /dashboard/funder-new */}
+      <div className="flex flex-wrap gap-2 rounded-2xl border bg-card p-2.5 shadow-sm sm:p-3">
+        <Button
+          variant="outline"
+          className="relative h-11 min-w-0 basis-[calc(50%-0.25rem)] rounded-xl text-sm sm:flex-none sm:basis-auto"
+          onClick={() => setFiltersOpen(true)}
+        >
+          <ListFilter className="h-4 w-4" aria-hidden />
+          Filters
+          {filtersActive ? (
+            <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-primary" aria-hidden />
+          ) : null}
+        </Button>
+      </div>
+
+      <FunderNewFilterDrawer
+        open={filtersOpen}
+        onOpenChange={setFiltersOpen}
+        filters={filters}
+        districts={districtOptions}
+        supportsSort
+        hasOrigin={!!origin}
+        availableBalance={availableBalance}
+        floatBalance={wallet.isLoading || wallet.error ? null : wallet.floatBalance}
+        resultCount={
+          filters.withinFloat && availableBalance !== null ? items.length : filteredTotal
+        }
+        resultCounting={feedLoading || feedFetching}
+        onChange={(next) => setFilters((current) => ({ ...current, ...next }))}
+        onSortChange={changeSort}
+        onReset={resetFilters}
+      />
+
+      {filters.withinFloat && availableBalance !== null ? (
+        <p className="px-1 text-xs text-muted-foreground">
+          Within-balance is applied to the homes already loaded, because the read service has no balance filter.
+        </p>
+      ) : null}
+
+      {/* Applied context: what is loaded, and by which order */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+        <span className="font-medium text-foreground">{sortLabel(effectiveSort)}</span>
+        {feedLoading ? (
+          <span>Loading…</span>
+        ) : (
+          <span>
+            Showing {items.length} of {filteredTotal.toLocaleString()} matching{' '}
+            {filteredTotal === 1 ? 'home' : 'homes'}
+          </span>
+        )}
+        {effectiveSort === 'nearest' && origin ? (
+          <span>
+            Within {origin.radiusKm} km of {origin.label}
+          </span>
+        ) : null}
+        {filters.sort === 'nearest' && !origin ? <span>Nearest needs your location</span> : null}
+      </div>
+
+      {/* Listings — Rent Plans first, then empty houses */}
+      {feedLoading ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-40 rounded-2xl" />
+          {Array.from({ length: 6 }).map((_, index) => (
+            <Skeleton key={index} className="h-40 rounded-2xl" />
           ))}
         </div>
-      ) : error ? (
+      ) : feedError ? (
         <Alert variant="warning" className="rounded-2xl border-warning/40 bg-warning/10">
           <AlertTriangle className="h-4 w-4" />
           <AlertTitle>These homes could not be loaded</AlertTitle>
           <AlertDescription>
             Check your connection and try again.
-            <Button
-              variant="link"
-              className="h-auto px-1 py-0"
-              onClick={() => {
-                emptyQuery.refetch();
-                readyQuery.refetch();
-              }}
-            >
+            <Button variant="link" className="h-auto px-1 py-0" onClick={refetchFeed}>
               Retry
             </Button>
           </AlertDescription>
@@ -129,11 +356,31 @@ export function FunderHouseListingsSection() {
       ) : items.length === 0 ? (
         <div className="rounded-2xl border bg-primary/5 p-8 text-center">
           <ListFilter className="mx-auto h-8 w-8 text-primary/60" aria-hidden />
-          <p className="mt-3 text-sm font-semibold">No homes available yet</p>
+          <p className="mt-3 text-sm font-semibold">
+            {effectiveSort === 'nearest' && origin
+              ? `No homes within ${origin.radiusKm} km of ${origin.label}`
+              : 'No homes match yet'}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {effectiveSort === 'nearest' && origin
+              ? 'Widen the search to look further out.'
+              : 'Try a different district, amount, or clear your filters.'}
+          </p>
+          {effectiveSort === 'nearest' && origin ? (
+            <Button variant="soft" className="mt-4 h-11 rounded-xl" onClick={() => changeSort('recommended')}>
+              Search the whole market
+            </Button>
+          ) : null}
         </div>
       ) : (
         <div className="space-y-4">
-          <div className="grid gap-0 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3">
+          <div
+            className={
+              feedFetching && !feedFetchingNext
+                ? 'grid gap-0 opacity-70 transition-opacity sm:grid-cols-2 sm:gap-3 lg:grid-cols-3'
+                : 'grid gap-0 sm:grid-cols-2 sm:gap-3 lg:grid-cols-3'
+            }
+          >
             {items.map((entry) => {
               const id = itemId(entry.category, entry.item);
               const coords = itemCoordinates(entry.item, entry.category);
@@ -142,25 +389,35 @@ export function FunderHouseListingsSection() {
                   key={`${entry.category}:${id}`}
                   category={entry.category}
                   item={entry.item}
-                  saved={false}
-                  selected={selectedItems.some((s) => s.category === entry.category && s.id === id)}
+                  saved={saved[entry.category].includes(id)}
+                  selected={selectedItems.some(
+                    (selected) => selected.category === entry.category && selected.id === id,
+                  )}
                   distance={coords ? straightLineDistance(deviceOrigin, coords) : null}
-                  onSave={() => undefined}
+                  onSave={() => toggleSave(entry.category, id)}
                   onSelect={() => toggleSelect(entry.category, entry.item)}
-                  onDetail={() =>
-                    entry.category === 'empty'
-                      ? setDetailHouse(entry.item as FunderNewEmptyHouse)
-                      : setDetailPlan(entry.item as FunderNewReadyPlan)
-                  }
+                  onDetail={() => openDetail(entry.category, entry.item)}
                 />
               );
             })}
           </div>
-          {hasNext ? (
+
+          {feedHasNext ? (
             <div className="flex justify-center">
-              <Button className="h-11 rounded-md px-6" onClick={fetchNext} disabled={fetchingNext}>
-                {fetchingNext ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Home className="h-4 w-4" aria-hidden />}
-                {fetchingNext ? 'Loading' : 'Show more homes'}
+              <Button
+                variant="default"
+                className="h-11 rounded-md px-6"
+                onClick={fetchNextFeed}
+                disabled={feedFetchingNext}
+              >
+                {feedFetchingNext ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                ) : (
+                  <Home className="h-4 w-4" aria-hidden />
+                )}
+                {feedFetchingNext
+                  ? 'Loading'
+                  : `Show more homes${remaining > 0 ? ` (${remaining.toLocaleString()} left)` : ''}`}
               </Button>
             </div>
           ) : null}

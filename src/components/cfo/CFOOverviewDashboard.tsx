@@ -30,7 +30,18 @@ import airtelLogoAsset from '@/assets/airtel-logo.png.asset.json';
 
 import { CFOActionsLog } from '@/components/cfo/CFOActionsLog';
 import { ReceiptNumberLookupPanel } from '@/components/financial-ops/ReceiptNumberLookupPanel';
+import { lazy, Suspense } from 'react';
 
+// Same transaction views the Financial Ops dashboard exposes, so the CFO can
+// see every transaction without switching dashboards.
+const TransactionSearch = lazy(() =>
+  import('@/components/financial-ops/TransactionSearch').then((m) => ({ default: m.TransactionSearch })),
+);
+const EmailTransactionsPanel = lazy(() =>
+  import('@/components/financial-ops/EmailTransactionsPanel').then((m) => ({ default: m.EmailTransactionsPanel })),
+);
+
+import { TransactionPeriodTotals } from '@/components/cfo/TransactionPeriodTotals';
 import { ReceivablesCardDrilldown } from '@/components/cfo/ReceivablesCardDrilldown';
 import { ServiceCentreReceivablesPanel } from '@/components/cfo/ServiceCentreReceivablesPanel';
 import { PayablesCardDrilldown } from '@/components/cfo/PayablesCardDrilldown';
@@ -497,7 +508,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
         {/* ─────────── 3 · CASH MOVEMENT ─────────── */}
         <Band
           title="Cash Movement"
-          subtitle="Money in and out — today, and across the last 7 days"
+          subtitle="Money in and out — today, the last 7 days, and daily / weekly / monthly totals"
           open={isOpen('movement')}
           onToggle={() => toggleSection('movement')}
         >
@@ -591,6 +602,10 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               </CardContent>
             </Card>
           </div>
+
+          {/* Daily / weekly / monthly transaction totals — same ledger
+              aggregation as the 7-day chart, rolled up per period. */}
+          <TransactionPeriodTotals />
         </Band>
 
         {/* ─────────── 4 · TOOLS & AUDIT TRAIL ─────────── */}
@@ -603,6 +618,12 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
           onToggle={() => toggleSection('tools')}
         >
           <ReceiptNumberLookupPanel className="rounded-2xl shadow-sm" />
+          <Suspense fallback={<Card className="p-4 text-sm text-muted-foreground">Loading transactions…</Card>}>
+            <EmailTransactionsPanel />
+          </Suspense>
+          <Suspense fallback={<Card className="p-4 text-sm text-muted-foreground">Loading transaction search…</Card>}>
+            <TransactionSearch />
+          </Suspense>
           <CFOActionsLog />
         </Band>
       </div>
