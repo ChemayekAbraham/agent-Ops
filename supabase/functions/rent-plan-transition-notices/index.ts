@@ -1,6 +1,6 @@
 // Rent Plan transition notices — Phase 3, items 11 and 13.
 //
-// Three messages, one drain:
+// Five messages, one drain:
 //   A1  to the AGENT   when landlord float lands in their wallet and the
 //                      landlord has not been paid yet.
 //   T1  to the TENANT  when the landlord has actually been paid, telling them
@@ -8,6 +8,13 @@
 //   AP  to the AGENT   on the same event: their landlord is paid, with the
 //                      receipt number, when the tenant starts, and the 1% they
 //                      earned.
+//   A2/A3 to the AGENT at 6h and 18h, when landlord float is still unpaid and
+//                      the 24-hour recall is approaching. Suppressed between
+//                      22:00 and 06:00 by the RPC, because landlord payouts are
+//                      blocked then anyway.
+//   T2  to the TENANT  when a Rent Plan was auto-cancelled because the landlord
+//                      was never paid. Nothing is owed by them, and the request
+//                      can be submitted again.
 //
 // The LANDLORD's own message is NOT sent from here. `landlord-rent-receipt`
 // already issues the permanent receipt and SMSes them the number and public
@@ -75,6 +82,27 @@ interface AgentPaidNotice {
   receipt_number: string | null;
   /** Only present when the commission leg actually exists in general_ledger. */
   commission_ugx: number | null;
+}
+
+interface AgentNudgeNotice {
+  rent_request_id: string;
+  agent_id: string;
+  agent_phone: string;
+  agent_name: string | null;
+  landlord_name: string | null;
+  tenant_name: string | null;
+  amount: number;
+  severity: 'reminder' | 'warning';
+  hours_left: number;
+}
+
+interface TenantCancelledNotice {
+  rent_request_id: string;
+  tenant_id: string;
+  tenant_phone: string;
+  tenant_first_name: string | null;
+  rent_amount: number;
+  landlord_name: string | null;
 }
 
 interface TenantNotice {
@@ -148,6 +176,40 @@ Please upload the receipt.`
   );
 }
 
+function agentNudgeMessage(n: AgentNudgeNotice): string {
+  const who = n.landlord_name || 'the landlord';
+  const tenant = n.tenant_name ? ` for ${n.tenant_name}` : '';
+  const hours = Math.max(0, Math.round(n.hours_left));
+  if (n.severity === 'warning') {
+    return (
+      `Reminder: ${ugx(n.amount)} for landlord ${who}${tenant} is still in your wallet.
+
+` +
+      `About ${hours} hours left. If the landlord is not paid, the float is returned ` +
+      `and the Rent Plan is cancelled.
+
+Payouts run 06:00-22:00.`
+    );
+  }
+  return (
+    `${ugx(n.amount)} for landlord ${who}${tenant} is still in your wallet.
+
+` +
+    `Please pay the landlord and submit the TID and receipt. Payouts run 06:00-22:00.`
+  );
+}
+
+function tenantCancelledMessage(n: TenantCancelledNotice): string {
+  const name = n.tenant_first_name ? `${n.tenant_first_name}, ` : '';
+  return (
+    `${name}the Rent Plan for your rent of ${ugx(n.rent_amount)} could not be ` +
+    `completed because the landlord payment was not made in time.
+
+` +
+    `Nothing is owed by you. Your agent can submit the request again.`
+  );
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
@@ -160,6 +222,8 @@ Deno.serve(async (req) => {
     agent_sent: 0, agent_failed: 0,
     tenant_sent: 0, tenant_failed: 0,
     agent_paid_sent: 0, agent_paid_failed: 0,
+    nudge_sent: 0, nudge_failed: 0,
+    cancelled_sent: 0, cancelled_failed: 0,
   };
 
   try {
@@ -172,6 +236,8 @@ Deno.serve(async (req) => {
     const agents = (data?.agent_float_funded ?? []) as AgentNotice[];
     const tenants = (data?.tenant_welcome ?? []) as TenantNotice[];
     const agentsPaid = (data?.agent_landlord_paid ?? []) as AgentPaidNotice[];
+    const nudges = (data?.agent_nudge ?? []) as AgentNudgeNotice[];
+    const cancelled = (data?.tenant_cancelled ?? []) as TenantCancelledNotice[];
 
     for (const n of agents) {
       const ok = await sendSMS(n.agent_phone, agentMessage(n), {
@@ -207,6 +273,30 @@ Deno.serve(async (req) => {
         idempotencyKey: `rent-plan-ap:${n.rent_request_id}`,
       });
       ok ? result.agent_paid_sent++ : result.agent_paid_failed++;
+    }
+
+    for (const n of nudges) {
+      const ok = await sendSMS(n.agent_phone, agentNudgeMessage(n), {
+        admin,
+        source: `rent_plan_float_${n.severity}`,
+        reference_id: n.rent_request_id,
+        recipient_user_id: n.agent_id,
+        recipient_name: n.agent_name,
+        idempotencyKey: `rent-plan-${n.severity}:${n.rent_request_id}`,
+      });
+      ok ? result.nudge_sent++ : result.nudge_failed++;
+    }
+
+    for (const n of cancelled) {
+      const ok = await sendSMS(n.tenant_phone, tenantCancelledMessage(n), {
+        admin,
+        source: 'rent_plan_cancelled',
+        reference_id: n.rent_request_id,
+        recipient_user_id: n.tenant_id,
+        recipient_name: n.tenant_first_name,
+        idempotencyKey: `rent-plan-t2:${n.rent_request_id}`,
+      });
+      ok ? result.cancelled_sent++ : result.cancelled_failed++;
     }
 
     return new Response(JSON.stringify({ success: true, ...result }), {
