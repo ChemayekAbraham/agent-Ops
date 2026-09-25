@@ -122,7 +122,7 @@ Deno.serve(async (req) => {
       investor_id: row.shareholder_id, amount, shares,
       pool_ownership_percent: row.pool_ownership_percent, company_ownership_percent: row.company_ownership_percent,
       status: "confirmed", reference_id: row.reference_id,
-      funded_by: creatorFunded ? "staff_float" : "investor", payment_method: "wallet",
+      funded_by: creatorFunded ? "agent" : "investor", payment_method: "wallet",
       ...(creatorFunded ? { agent_id: payerId } : {}),
       transaction_group_id: typeof groupId === "string" ? groupId : null,
     }).select("id").single();
