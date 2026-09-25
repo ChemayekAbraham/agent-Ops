@@ -531,6 +531,17 @@ Each phase is independently shippable. Nothing has been applied.
 
 ## 9. Risks and what to watch
 
+> **Verified against production 25 September 2026.** Every risk below was
+> re-measured and every phase smoke-tested as a live Landlord Ops account:
+> [`section-9-verification-and-smoke-test.md`](./section-9-verification-and-smoke-test.md).
+> The figures in this section were read on 23 September and several have moved —
+> `funded` plans 103 → 87, `service_center_review` 3,795 → 3,804, and
+> `agent_earnings` is stale since 20 July rather than April. Item 12 is
+> confirmed correct on 24 live plans. Two new consequences were measured that
+> this section could not have known about: 17 `funded` plans carrying
+> **1,316,711** of bill written before their landlord was paid, and one plan
+> holding 41,901 of phantom day-1 arrears.
+
 ### The one that must not be got wrong — item 12
 
 Everything else is recoverable. Stamping the wrong `repayment_starts_on` writes
