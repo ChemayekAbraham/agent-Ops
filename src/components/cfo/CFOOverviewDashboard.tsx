@@ -30,6 +30,16 @@ import airtelLogoAsset from '@/assets/airtel-logo.png.asset.json';
 
 import { CFOActionsLog } from '@/components/cfo/CFOActionsLog';
 import { ReceiptNumberLookupPanel } from '@/components/financial-ops/ReceiptNumberLookupPanel';
+import { lazy, Suspense } from 'react';
+
+// Same transaction views the Financial Ops dashboard exposes, so the CFO can
+// see every transaction without switching dashboards.
+const TransactionSearch = lazy(() =>
+  import('@/components/financial-ops/TransactionSearch').then((m) => ({ default: m.TransactionSearch })),
+);
+const EmailTransactionsPanel = lazy(() =>
+  import('@/components/financial-ops/EmailTransactionsPanel').then((m) => ({ default: m.EmailTransactionsPanel })),
+);
 
 import { ReceivablesCardDrilldown } from '@/components/cfo/ReceivablesCardDrilldown';
 import { ServiceCentreReceivablesPanel } from '@/components/cfo/ServiceCentreReceivablesPanel';
