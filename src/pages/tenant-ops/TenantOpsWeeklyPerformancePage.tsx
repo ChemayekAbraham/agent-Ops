@@ -32,12 +32,19 @@ export default function TenantOpsWeeklyPerformancePage() {
               <CalendarX2 className="mr-1.5 h-3.5 w-3.5" />
               20+ Days No Payment
             </TabsTrigger>
+            <TabsTrigger value="promo_reach" className={TAB_TRIGGER_CLASS}>
+              <Megaphone className="mr-1.5 h-3.5 w-3.5" />
+              Rent-Access Promo
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="weekly" className="mt-3">
             <WeeklyPerformanceTab />
           </TabsContent>
           <TabsContent value="no_payment" className="mt-3">
             <NoPaymentTab />
+          </TabsContent>
+          <TabsContent value="promo_reach" className="mt-3">
+            <RentAccessPromoStatsCard />
           </TabsContent>
         </Tabs>
       </CardContent>
