@@ -38,7 +38,7 @@ export function AgentOverdueCallDrive({
   return (
     <Html lang="en" dir="ltr">
       <Head />
-      <Preview>Call {count} tenant{count === 1 ? '' : 's'} now — {fmt(arrears_total)} is overdue</Preview>
+      <Preview>{`Call ${count} tenant${count === 1 ? '' : 's'} now — ${fmt(arrears_total)} is overdue`}</Preview>
       <Body style={main}>
         <Container style={container}>
           <Section style={accentBar} />

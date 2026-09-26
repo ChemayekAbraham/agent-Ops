@@ -19,11 +19,23 @@ export async function applyAdvanceTopupForRequest(req: any, amount?: number, ext
   if (!Number.isFinite(days) || days <= 0) throw new Error('Top-up requires the number of days to extend by');
   if (!req.parent_advance_id) throw new Error('Top-up request is missing the advance it tops up');
 
+  // All six arguments are passed explicitly. A four-argument call used to be
+  // ambiguous between two overloads (SQLSTATE 42725) because the six-argument
+  // signature defaults its last two parameters; the four-argument overload was
+  // dropped on 2026-09-26 because it also posted no ledger entry. Sending the
+  // full argument list keeps resolution unambiguous if a shorter overload is
+  // ever reintroduced.
+  //
+  // `p_override_eligibility: false` preserves the previous behaviour of this
+  // path exactly: the database re-validates eligibility, and no reason is
+  // required because nothing is being overridden.
   const { data, error } = await supabase.rpc('apply_advance_topup' as any, {
     p_advance_id: req.parent_advance_id,
     p_amount: topupAmount,
     p_extend_days: days,
     p_request_id: req.id,
+    p_reason: null,
+    p_override_eligibility: false,
   } as any);
   if (error) throw error;
   return data as any;
