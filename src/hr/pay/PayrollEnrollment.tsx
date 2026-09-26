@@ -112,6 +112,63 @@ function bothApply(row: EnrollmentRow, openPeriodCutOff: string | null): boolean
   );
 }
 
+/** Monday–Friday days from `from` to `to`, both inclusive (YYYY-MM-DD). */
+function weekdaysBetween(from: string, to: string): number {
+  const start = new Date(`${from}T00:00:00Z`);
+  const end = new Date(`${to}T00:00:00Z`);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || start > end) return 0;
+  let count = 0;
+  for (const day = new Date(start); day <= end; day.setUTCDate(day.getUTCDate() + 1)) {
+    const dow = day.getUTCDay();
+    if (dow !== 0 && dow !== 6) count++;
+  }
+  return count;
+}
+
+/** First and last calendar day of the month containing `isoDate`. */
+function monthBounds(isoDate: string): { first: string; last: string } {
+  const year = Number(isoDate.slice(0, 4));
+  const month = Number(isoDate.slice(5, 7));
+  const lastDay = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const mm = String(month).padStart(2, '0');
+  return { first: `${year}-${mm}-01`, last: `${year}-${mm}-${String(lastDay).padStart(2, '0')}` };
+}
+
+type PartMonthCalc =
+  | { ok: true; worked: number; inMonth: number; amount: number }
+  | { ok: false; message: string };
+
+/**
+ * Part-month pay by Monday–Friday working days: basic × days worked ÷ working
+ * days in the calendar month. Public holidays count as paid working days.
+ */
+function partMonthCalc(
+  basic: number | null,
+  start: string,
+  end: string,
+  monthFirst: string,
+  monthLast: string,
+): PartMonthCalc {
+  if (basic === null || basic <= 0) {
+    return { ok: false, message: 'Set this person’s basic pay first — the amount is worked out from it.' };
+  }
+  if (!start) return { ok: false, message: 'Pick the first day they worked.' };
+  if (!end) return { ok: false, message: 'Pick the last day they worked.' };
+  if (start < monthFirst || start > monthLast || end < monthFirst || end > monthLast) {
+    return {
+      ok: false,
+      message: `Both dates must fall between ${formatDate(monthFirst)} and ${formatDate(monthLast)}.`,
+    };
+  }
+  if (start > end) return { ok: false, message: 'The first day cannot be after the last day.' };
+  const inMonth = weekdaysBetween(monthFirst, monthLast);
+  const worked = weekdaysBetween(start, end);
+  if (worked === 0) {
+    return { ok: false, message: 'Those dates contain no working day (Monday to Friday).' };
+  }
+  return { ok: true, worked, inMonth, amount: Math.round((basic * worked) / inMonth) };
+}
+
 export default function PayrollEnrollment() {
   const [rows, setRows] = useState<EnrollmentRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -127,6 +184,8 @@ export default function PayrollEnrollment() {
   const [pmAmount, setPmAmount] = useState('');
   const [pmReason, setPmReason] = useState('');
   const [pmError, setPmError] = useState('');
+  const [pmStart, setPmStart] = useState('');
+  const [pmEnd, setPmEnd] = useState('');
 
   // Statutory dialog state
   const [statRow, setStatRow] = useState<EnrollmentRow | null>(null);
@@ -343,11 +402,28 @@ export default function PayrollEnrollment() {
     [rows],
   );
 
+  const pmBounds = periodStart ? monthBounds(periodStart) : null;
+
   function openPartMonth(row: EnrollmentRow) {
     setPmRow(row);
     setPmAmount(row.partMonthAmount > 0 ? String(row.partMonthAmount) : '');
     setPmReason('');
     setPmError('');
+    setPmStart('');
+    setPmEnd(periodStart ? monthBounds(periodStart).last : '');
+  }
+
+  /** Fill the amount and the reason from the dates. The amount stays editable. */
+  function recalcPartMonth(start: string, end: string) {
+    if (!pmRow || !pmBounds) return;
+    const calc = partMonthCalc(pmRow.basicAmount, start, end, pmBounds.first, pmBounds.last);
+    if (!calc.ok) return;
+    setPmAmount(String(calc.amount));
+    setPmReason(
+      `First day ${formatDate(start)}, last day ${formatDate(end)}. ` +
+        `${calc.worked} of ${calc.inMonth} working days (Mon–Fri). ` +
+        `${formatAmount(pmRow.basicAmount ?? 0)} × ${calc.worked} ÷ ${calc.inMonth} = ${formatAmount(calc.amount)}.`,
+    );
   }
 
   async function savePartMonth() {
@@ -1392,6 +1468,60 @@ export default function PayrollEnrollment() {
               <p className="text-xs text-muted-foreground">
                 Period {periodCode} — {formatDate(periodStart)} to {formatDate(periodCutOff)}
               </p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="pm-start">First day worked</Label>
+                  <Input
+                    id="pm-start"
+                    type="date"
+                    min={pmBounds?.first}
+                    max={pmBounds?.last}
+                    value={pmStart}
+                    onChange={(e) => {
+                      setPmStart(e.target.value);
+                      setPmError('');
+                      recalcPartMonth(e.target.value, pmEnd);
+                    }}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="pm-end">Last day worked</Label>
+                  <Input
+                    id="pm-end"
+                    type="date"
+                    min={pmBounds?.first}
+                    max={pmBounds?.last}
+                    value={pmEnd}
+                    onChange={(e) => {
+                      setPmEnd(e.target.value);
+                      setPmError('');
+                      recalcPartMonth(pmStart, e.target.value);
+                    }}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Leave as the month end unless they left early.
+                  </p>
+                </div>
+              </div>
+              {(() => {
+                if (!pmRow || !pmBounds) return null;
+                const calc = partMonthCalc(
+                  pmRow.basicAmount,
+                  pmStart,
+                  pmEnd,
+                  pmBounds.first,
+                  pmBounds.last,
+                );
+                return calc.ok ? (
+                  <p className="rounded-md bg-muted p-2 text-sm">
+                    {calc.worked} of {calc.inMonth} working days × UGX{' '}
+                    {formatAmount(pmRow.basicAmount ?? 0)} ={' '}
+                    <strong>UGX {formatAmount(calc.amount)}</strong>
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">{(calc as { ok: false; message: string }).message}</p>
+                );
+              })()}
               <div className="space-y-1.5">
                 <Label htmlFor="pm-amount">Amount</Label>
                 <Input
@@ -1404,6 +1534,10 @@ export default function PayrollEnrollment() {
                     setPmError('');
                   }}
                 />
+                <p className="text-xs text-muted-foreground">
+                  Worked out from the dates above. You can adjust it — if you do, say why in the
+                  reason.
+                </p>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="pm-reason">Reason</Label>
