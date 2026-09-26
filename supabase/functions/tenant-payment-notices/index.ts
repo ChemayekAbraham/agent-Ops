@@ -41,6 +41,8 @@ import {
   cycleSentence,
   accessSentence,
   nextLevelSentence,
+  growthSentence,
+  loadRentAccessCap,
   careSentence,
   renderTemplate,
   type NotificationEvent,

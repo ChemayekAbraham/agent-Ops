@@ -5,6 +5,8 @@ import {
   accessSentence,
   firstName,
   formatUGX,
+  growthSentence,
+  loadRentAccessCap,
   loadTenantPaymentMessageVars,
   nextLevelSentence,
 } from "../_shared/tenantTemplates.ts";

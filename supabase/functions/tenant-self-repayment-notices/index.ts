@@ -19,6 +19,8 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { sendSMS, isUgandanPhone } from "../_shared/sendSmsMultiProvider.ts";
 import {
   accessSentence,
+  growthSentence,
+  loadRentAccessCap,
   loadTenantPaymentMessageVars,
   nextLevelSentence,
 } from "../_shared/tenantTemplates.ts";
