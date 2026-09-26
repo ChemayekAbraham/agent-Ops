@@ -1,8 +1,9 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { CalendarX2, TrendingUp } from 'lucide-react';
+import { CalendarX2, Megaphone, TrendingUp } from 'lucide-react';
 import { WeeklyPerformanceTab } from '@/components/executive/tenant-ops/workspace/WeeklyPerformanceTab';
 import NoPaymentTab from '@/components/executive/tenant-ops/workspace/NoPaymentTab';
+import RentAccessPromoStatsCard from '@/components/tenant-ops/RentAccessPromoStatsCard';
 
 const TAB_TRIGGER_CLASS =
   'h-9 shrink-0 whitespace-nowrap rounded-lg px-2.5 text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm';
