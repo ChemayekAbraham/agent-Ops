@@ -1519,7 +1519,7 @@ export default function PayrollEnrollment() {
                     <strong>UGX {formatAmount(calc.amount)}</strong>
                   </p>
                 ) : (
-                  <p className="text-xs text-muted-foreground">{calc.message}</p>
+                  <p className="text-xs text-muted-foreground">{(calc as { ok: false; message: string }).message}</p>
                 );
               })()}
               <div className="space-y-1.5">
