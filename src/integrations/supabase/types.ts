@@ -67103,6 +67103,17 @@ export type Database = {
         Returns: boolean
       }
       tops_is_workspace_enabled: { Args: never; Returns: boolean }
+      tops_plan_pipeline_stages: {
+        Args: { p_rent_request_id: string }
+        Returns: {
+          actor_id: string
+          actor_name: string
+          age_days: number
+          occurred_at: string
+          stage_key: string
+          stage_label: string
+        }[]
+      }
       tops_plan_position: {
         Args: { p_as_at?: string; p_rent_request_id: string }
         Returns: {
