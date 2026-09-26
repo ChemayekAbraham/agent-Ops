@@ -30,6 +30,10 @@ export async function signUp(
   // non-empty string so the Postgres `handle_new_user` trigger persists it
   // verbatim into `profiles.signup_source` (it NULLIFs empty strings).
   const data: Record<string, unknown> = { full_name: fullName, phone, role };
+  // Forwarded so handle_new_user can enforce one account per device per 24
+  // hours. The preflight RPC above is advisory and skippable; the auth.users
+  // trigger is not, and it reads the fingerprint from this metadata.
+  if (guard.device_fp) data.device_fp = guard.device_fp;
   const campaignAttributionToken = getStoredAttributionToken();
   if (campaignAttributionToken) data.campaign_attribution_token = campaignAttributionToken;
   const trimmedSource = (signupSource ?? '').trim();
@@ -75,6 +79,7 @@ export async function signUpWithoutRole(email: string, password: string, fullNam
     referrer_id: referrerId || null,
     intended_role: intendedRole || null,
   };
+  if (guard.device_fp) data.device_fp = guard.device_fp;
   const campaignAttributionToken = getStoredAttributionToken();
   if (campaignAttributionToken) data.campaign_attribution_token = campaignAttributionToken;
   // Only include `signup_source` when it is a non-empty string so the Postgres
