@@ -1,3 +1,4 @@
+begin;
 
 -- Fingerprint. RentFlow only: public.user_roles.enabled does not exist in welile.com.
 do $$
@@ -104,4 +105,3 @@ as $fn$
 $fn$;
 
 commit;
-
