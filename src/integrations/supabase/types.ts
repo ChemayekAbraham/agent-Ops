@@ -54721,27 +54721,17 @@ export type Database = {
           registration_fee_component: number
         }[]
       }
-      apply_advance_topup:
-        | {
-            Args: {
-              p_advance_id: string
-              p_amount: number
-              p_extend_days: number
-              p_request_id?: string
-            }
-            Returns: Json
-          }
-        | {
-            Args: {
-              p_advance_id: string
-              p_amount: number
-              p_extend_days: number
-              p_override_eligibility?: boolean
-              p_reason?: string
-              p_request_id?: string
-            }
-            Returns: Json
-          }
+      apply_advance_topup: {
+        Args: {
+          p_advance_id: string
+          p_amount: number
+          p_extend_days: number
+          p_override_eligibility?: boolean
+          p_reason?: string
+          p_request_id?: string
+        }
+        Returns: Json
+      }
       apply_layer_a_writedown: {
         Args: { p_dry_run?: boolean; p_user_id: string }
         Returns: Json
@@ -63981,6 +63971,9 @@ export type Database = {
       payout_destination_auto_verdict: {
         Args: {
           p_account_name: string
+          p_code_confirmed_at: string
+          p_destination_type: string
+          p_momo_number: string
           p_national_id: string
           p_user_id: string
         }
@@ -64912,6 +64905,46 @@ export type Database = {
       }
       reconcile_wallets_batch: {
         Args: { p_limit?: number; p_threshold?: number }
+        Returns: Json
+      }
+      record_advance_deduction_atomic: {
+        Args: {
+          p_advance_id: string
+          p_agent_id: string
+          p_amount_deducted: number
+          p_closing_balance: number
+          p_date: string
+          p_deduction_status: string
+          p_fee_status: string
+          p_interest_accrued: number
+          p_new_arrears: number
+          p_new_fee_collected: number
+          p_new_status: string
+          p_opening_balance: number
+          p_penalty_description?: string
+          p_penalty_meta?: Json
+          p_repayment_description?: string
+          p_repayment_meta?: Json
+        }
+        Returns: Json
+      }
+      record_advance_voluntary_repayment_atomic: {
+        Args: {
+          p_advance_id: string
+          p_agent_id: string
+          p_amount: number
+          p_closing_balance: number
+          p_date: string
+          p_fee_status: string
+          p_idempotency_key: string
+          p_meta?: Json
+          p_new_arrears: number
+          p_new_fee_collected: number
+          p_new_status: string
+          p_opening_balance: number
+          p_prepaid_remaining: number
+          p_wallet_description: string
+        }
         Returns: Json
       }
       record_agent_assisted_signup: {
