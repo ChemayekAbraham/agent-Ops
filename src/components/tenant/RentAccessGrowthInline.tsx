@@ -1,11 +1,17 @@
 import { TrendingUp } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { useRentAccessLimitParams } from '@/hooks/useRentAccessLimitParams';
+import {
+  useRentAccessPromoTracking,
+  type RentAccessPromoSurface,
+} from '@/hooks/useRentAccessPromoTracking';
 
 interface RentAccessGrowthInlineProps {
   /** 'onPrimary' for use inside primary-gradient cards, 'default' otherwise */
   variant?: 'default' | 'onPrimary';
   className?: string;
+  /** Which payment screen this instance appears on (analytics) */
+  surface: RentAccessPromoSurface;
 }
 
 /**
