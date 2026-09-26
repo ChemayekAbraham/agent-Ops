@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 const ALLOWED_ROLES = ['coo', 'ceo', 'cto', 'cmo', 'crm', 'super_admin', 'manager'];
-const VALID_AUDIENCES = ['tenant', 'agent', 'landlord'] as const;
+const VALID_AUDIENCES = ['tenant', 'agent', 'landlord', 'tenants_with_balance'] as const;
 type Audience = (typeof VALID_AUDIENCES)[number];
 
 function formatPhoneInternational(phone: string): string {
@@ -153,6 +153,25 @@ async function fetchRoleUserPhones(admin: any, role: Audience): Promise<{ user_i
   // canonical definition agent_ops_strict_agent_ids() already uses elsewhere
   // (get_agent_ops_overview, get_agent_ops_top_agents) so this can't drift
   // from what the rest of the product calls an agent.
+  // "Tenants with balances" means tenants who currently owe rent — anyone whose
+  // outstanding balance in the canonical day-state view is above zero. This is
+  // the same source the payment-notice messages use for their {{balance}} line,
+  // so the audience can't drift from what the product calls a balance.
+  if (role === 'tenants_with_balance') {
+    const { data, error } = await admin.rpc('get_tenant_payment_day_state', {});
+    if (error) throw error;
+    const userIds = Array.from(new Set(
+      (data || []).filter((r: any) => Number(r.outstanding) > 0).map((r: any) => r.tenant_id).filter(Boolean),
+    ));
+    const CHUNK = 200;
+    for (let i = 0; i < userIds.length; i += CHUNK) {
+      const slice = userIds.slice(i, i + CHUNK);
+      const { data: profs } = await admin.from('profiles').select('id, phone').in('id', slice).is('deleted_at', null);
+      for (const p of profs || []) out.push({ user_id: p.id, phone: p.phone });
+    }
+    return out;
+  }
+
   if (role === 'agent') {
     const { data, error } = await admin.rpc('agent_ops_strict_agent_ids');
     if (error) throw error;
