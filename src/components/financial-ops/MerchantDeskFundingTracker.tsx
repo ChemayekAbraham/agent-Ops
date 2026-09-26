@@ -130,7 +130,7 @@ function renderTableBalanceCell(amount: number) {
 }
 
 export function MerchantDeskFundingTracker() {
-  const { roles, isLoading: authLoading } = useAuth();
+  const { roles, loading: authLoading } = useAuth();
   const hasRoleAccess = useMemo(() => {
     return Array.isArray(roles) && roles.some((r) => (ALLOWED_ROLES as readonly string[]).includes(r));
   }, [roles]);
