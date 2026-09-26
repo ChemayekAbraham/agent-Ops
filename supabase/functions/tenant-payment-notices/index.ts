@@ -225,6 +225,7 @@ Deno.serve(async (req) => {
         admin,
         rows.map((row) => row.tenant_id),
       );
+      const accessCap = await loadRentAccessCap(admin);
 
       for (const row of rows) {
         const phone = String(row.tenant_phone ?? "").trim();
@@ -246,6 +247,7 @@ Deno.serve(async (req) => {
           cycle_timing: cycleSentence(planVars.get(row.tenant_id)),
           access_now: accessSentence(planVars.get(row.tenant_id)),
           next_level: nextLevelSentence(planVars.get(row.tenant_id)),
+          growth_note: growthSentence(accessCap),
           pay_direct: payDirectSentence(channels),
           care_note: careNote,
         };
