@@ -5,6 +5,8 @@ import {
   accessSentence,
   firstName,
   formatUGX,
+  growthSentence,
+  loadRentAccessCap,
   loadTenantPaymentMessageVars,
   nextLevelSentence,
 } from "../_shared/tenantTemplates.ts";
@@ -401,6 +403,7 @@ Deno.serve(async (req) => {
 
         const planVars = await loadTenantPaymentMessageVars(supabaseAdmin, [tenantId]);
         const vars = planVars.get(tenantId);
+        const accessCap = await loadRentAccessCap(supabaseAdmin);
 
         const outcome = await routeTenantNotification({
           admin: supabaseAdmin,
@@ -413,6 +416,7 @@ Deno.serve(async (req) => {
             balance: formatUGX(remainingBalance),
             access_now: accessSentence(vars),
             next_level: nextLevelSentence(vars),
+            growth_note: growthSentence(accessCap),
             share_url: shareUrl,
           },
           phone,

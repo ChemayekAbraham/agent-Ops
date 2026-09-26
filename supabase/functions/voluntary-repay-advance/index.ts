@@ -84,28 +84,7 @@ Deno.serve(async (req) => {
       days_ahead: daysAhead,
     };
 
-    const { error: rpcErr } = await admin.rpc('create_ledger_transaction', {
-      entries: [
-        {
-          user_id: userId, ledger_scope: 'wallet', direction: 'cash_out', amount,
-          category: 'agent_repayment', recipient_type: 'user',
-          source_table: 'agent_advances', source_id: advance.id,
-          description: `Voluntary advance repayment (${daysAhead} day${daysAhead === 1 ? '' : 's'} ahead)`,
-          currency: 'UGX', transaction_date: today, metadata: meta,
-        },
-        {
-          user_id: userId, ledger_scope: 'platform', direction: 'cash_in', amount,
-          category: 'agent_repayment', recipient_type: 'operational_wallet',
-          source_table: 'agent_advances', source_id: advance.id,
-          description: 'Voluntary advance repayment received',
-          currency: 'UGX', transaction_date: today, metadata: meta,
-        },
-      ],
-      idempotency_key: idem,
-    });
-    if (rpcErr) return new Response(JSON.stringify({ error: rpcErr.message }), { status: 500, headers: corsHeaders });
-
-    // Update advance: outstanding, arrears, status, prepaid counter, access fee.
+    // Compute the post-payment state before writing anything.
     const closing = Math.max(0, outstanding - amount);
     const currentArrears = Number(advance.arrears_balance || 0);
     const newArrears = Math.max(0, Math.min(currentArrears - amount, closing));
@@ -115,28 +94,45 @@ Deno.serve(async (req) => {
     const newFeeCollected = Math.round(Number(advance.access_fee || 0) * feeRatio);
     const feeStatus = newFeeCollected >= Number(advance.access_fee || 0) ? 'settled' : newFeeCollected > 0 ? 'partial' : 'unpaid';
 
-    // Only add prepaid installments for days that AREN'T today (today already has ledger row we'll write below).
+    // Only add prepaid installments for days that AREN'T today (today already has the daybook row).
     const prepaidToAdd = closing > 0 ? Math.max(0, daysAhead) : 0;
+    const prepaidRemaining = Number(advance.prepaid_installments_remaining || 0) + prepaidToAdd;
 
-    await admin.from('agent_advances').update({
-      outstanding_balance: closing,
-      status: newStatus,
-      access_fee_collected: newFeeCollected,
-      access_fee_status: feeStatus,
-      arrears_balance: newArrears,
-      prepaid_installments_remaining: Number(advance.prepaid_installments_remaining || 0) + prepaidToAdd,
-    }).eq('id', advance.id);
-
-    // Ledger daybook row for today (voluntary payment).
-    await admin.from('agent_advance_ledger').insert({
-      advance_id: advance.id,
-      date: today,
-      opening_balance: outstanding,
-      interest_accrued: 0,
-      amount_deducted: amount,
-      closing_balance: closing,
-      deduction_status: 'voluntary_payment',
+    // ── ONE TRANSACTION ─────────────────────────────────────────────────────
+    // Daybook row, ledger legs and the advance balance commit or roll back
+    // together. Previously the ledger post, the balance update and the daybook
+    // insert were three separate calls with only the first checked for errors.
+    //
+    // The daybook row is now written FIRST. It used to be written last, with
+    // opening_balance set to the pre-payment balance while the advance row had
+    // already been reduced — so zz_guard_agent_advance_double_charge saw a
+    // stale opening balance and raised, and nobody checked the error. Evidence:
+    // 82 voluntary ledger legs totalling 4,498,069.32 against only 19 daybook
+    // rows totalling 906,303.16. Writing it first lets the guard validate
+    // against the pre-payment state, which is what it was designed to see.
+    //
+    // The legs themselves are unchanged: wallet cash_out / platform cash_in,
+    // `agent_repayment`, recipient_type 'user' and 'operational_wallet', same
+    // idempotency key. No change to the amount taken or where it comes from.
+    const { error: postErr } = await admin.rpc('record_advance_voluntary_repayment_atomic', {
+      p_advance_id: advance.id,
+      p_agent_id: userId,
+      p_date: today,
+      p_amount: amount,
+      p_opening_balance: outstanding,
+      p_closing_balance: closing,
+      p_new_status: newStatus,
+      p_new_fee_collected: newFeeCollected,
+      p_fee_status: feeStatus,
+      p_new_arrears: newArrears,
+      p_prepaid_remaining: prepaidRemaining,
+      p_idempotency_key: idem,
+      p_wallet_description: `Voluntary advance repayment (${daysAhead} day${daysAhead === 1 ? '' : 's'} ahead)`,
+      p_meta: meta,
     });
+    if (postErr) {
+      return new Response(JSON.stringify({ error: postErr.message }), { status: 500, headers: corsHeaders });
+    }
 
     // SMS agent.
     const { data: prof } = await admin.from('profiles').select('phone, full_name').eq('id', userId).maybeSingle();

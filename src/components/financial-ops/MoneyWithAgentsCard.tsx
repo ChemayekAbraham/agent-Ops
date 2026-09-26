@@ -15,6 +15,7 @@ import { MerchantReconcileDialog } from './MerchantReconcileDialog';
 import { useFinancialOpsEditAccess } from '@/hooks/useFinancialOpsEditAccess';
 import { MerchantFloatStatementDialog } from './MerchantFloatStatementDialog';
 import { MerchantOwnMoneyReviewPanel } from './MerchantOwnMoneyReviewPanel';
+import { MerchantDeskFundingSummaryCard } from './MerchantDeskFundingSummaryCard';
 import { MerchantDebtSettlementDialog } from './MerchantDebtSettlementDialog';
 import { useMerchantAgentFloatAllocation } from '@/hooks/useMerchantAgentFloatAllocation';
 import { computeMerchantCapacities, capacityLabel } from '@/lib/merchantFloatCapacity';
@@ -783,6 +784,10 @@ export function MoneyWithAgentsCard({ onOpenTimeline }: { onOpenTimeline?: () =>
 
       <div className="mt-4">
         <MerchantOwnMoneyReviewPanel />
+      </div>
+
+      <div className="mt-4">
+        <MerchantDeskFundingSummaryCard />
       </div>
     </div>
   );

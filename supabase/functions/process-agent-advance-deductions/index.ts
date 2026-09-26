@@ -391,41 +391,6 @@ Deno.serve(async (req) => {
       else if (amountDeducted > 0) deductionStatus = 'partial';
       else deductionStatus = 'none';
 
-      // The DB guard (zz_guard_agent_advance_double_charge) locks the advance and
-      // rejects this row when another recovery path already collected the same
-      // installment (stale opening balance) or when the same-day cap is reached.
-      // A rejection MUST abort before the wallet is debited, otherwise the agent
-      // pays twice for one installment.
-      const { error: ledgerRowErr } = await supabase.from('agent_advance_ledger').insert({
-        advance_id: advance.id,
-        date: today,
-        opening_balance: openingBalance,
-        interest_accrued: interestAccrued,
-        amount_deducted: amountDeducted,
-        closing_balance: closingBalance,
-        deduction_status: deductionStatus,
-      });
-
-      if (ledgerRowErr) {
-        console.error(
-          `[process-agent-advance-deductions] ledger row rejected for advance ${advance.id} — no wallet debit:`,
-          ledgerRowErr.message,
-        );
-        await supabase.from('system_events').insert({
-          event_type: 'repayment_skipped_insufficient_balance',
-          payload: {
-            source: 'cron_advance_deduction',
-            reason: 'ledger_guard_rejected',
-            guard_error: ledgerRowErr.message,
-            advance_id: advance.id,
-            user_id: advance.agent_id,
-            attempted_amount: amountDeducted,
-          },
-        }).then(() => {}, () => {});
-        skipped.push(advance.id);
-        continue;
-      }
-
       const newStatus = closingBalance <= 0 ? 'completed' : (isOverdue ? 'overdue' : 'active');
       const advAccessFee = Number(advance.access_fee || 0);
       const totalPayable = Number(advance.principal) + advAccessFee;
@@ -449,106 +414,110 @@ Deno.serve(async (req) => {
       let newArrears = currentArrears + (arrearsAdjustmentTarget - amountDeducted);
       newArrears = Math.max(0, Math.min(newArrears, Math.max(0, closingBalance)));
 
-      await supabase.from('agent_advances').update({
-        outstanding_balance: Math.max(0, closingBalance),
-        status: newStatus,
-        access_fee_collected: newFeeCollected,
-        access_fee_status: feeStatus,
-        arrears_balance: newArrears,
-      }).eq('id', advance.id);
+      const penaltyMeta = {
+        source: 'cron_advance_penalty_accrual',
+        advance_id: advance.id,
+        days_overdue: Math.max(
+          0,
+          Math.floor((Date.now() - new Date(advance.expires_at).getTime()) / 86400000),
+        ),
+        daily_rate: dailyInterestRate,
+        monthly_rate: advanceMonthlyRate,
+        opening_balance: openingBalance,
+        outstanding_after_interest: balanceAfterInterest,
+        accrual_date: today,
+      };
+      const repaymentMeta = {
+        source: 'cron_advance_deduction',
+        advance_id: advance.id,
+        withdrawable_snapshot: withdrawableSnapshot,
+        bucket_intent: 'advance_balance_recovery',
+      };
 
-      // ── Penalty interest must be LEDGER-VISIBLE ────────────────────────────
-      // Before this, `interest_accrued` moved silently inside agent_advances /
-      // agent_advance_ledger, so the agent watched the balance grow with no row
-      // in Transaction History explaining why, and CFO receivables saw nothing.
+      // ── ONE TRANSACTION ───────────────────────────────────────────────────
+      // Daybook row, advance balance, penalty legs and repayment legs commit or
+      // roll back together. Previously these were four separate PostgREST calls
+      // with the balance update second, so a failed ledger post still left the
+      // balance reduced — 10,862,683.34 of collection diverged from the ledger
+      // that way. `record_advance_deduction_atomic` carries no exception
+      // handler, so any failure (double-charge guard, solvency check, mapped
+      // balance) discards the whole unit.
       //
-      // Post ONE balanced pair per accrual, forward-only (no backfill, no
-      // correction of historical accruals):
+      // Every amount, category, recipient_type, bucket and idempotency key is
+      // unchanged — the RPC posts exactly what this loop used to post. All
+      // selection and arithmetic stays here.
+      //
+      // Penalty interest remains LEDGER-VISIBLE:
       //   wallet leg   → cash_in  `agent_advance_credit`, wallet_bucket
-      //                  'advance_credit'  → raises the advance LIABILITY only.
-      //                  The bucket is set EXPLICITLY so the recipient_type
-      //                  stamp cannot route it to 'withdrawable' — an accrual
-      //                  must never add to or subtract from spendable cash.
-      //   platform leg → cash_out `interest_expense` (the receivable/earned
-      //                  penalty side) so it lands in CFO reporting.
-      // Idempotent per advance per day; a failure is recorded but never blocks
-      // the sweep. Only ever computed on the first attempt of the day (above),
-      // so this block only runs once per advance per day regardless of cadence.
-      if (interestAccrued > 0) {
-        const penaltyMeta = {
-          source: 'cron_advance_penalty_accrual',
-          advance_id: advance.id,
-          days_overdue: Math.max(
-            0,
-            Math.floor((Date.now() - new Date(advance.expires_at).getTime()) / 86400000),
-          ),
-          daily_rate: dailyInterestRate,
-          monthly_rate: advanceMonthlyRate,
-          opening_balance: openingBalance,
-          outstanding_after_interest: balanceAfterInterest,
-          accrual_date: today,
-        };
-        const { error: penaltyErr } = await supabase.rpc('create_ledger_transaction', {
-          entries: [
-            {
-              user_id: advance.agent_id,
-              ledger_scope: 'wallet',
-              direction: 'cash_in',
-              amount: interestAccrued,
-              category: 'agent_advance_credit',
-              recipient_type: 'user',
-              wallet_bucket: 'advance_credit',
-              source_table: 'agent_advances',
-              source_id: advance.id,
-              description: `Overdue advance penalty interest (${(dailyInterestRate * 100).toFixed(4)}%/day on ${fmtUGX(openingBalance)})`,
-              currency: 'UGX',
-              transaction_date: today,
-              metadata: penaltyMeta,
-            },
-            {
-              user_id: advance.agent_id,
-              ledger_scope: 'platform',
-              direction: 'cash_out',
-              amount: interestAccrued,
-              category: 'interest_expense',
-              source_table: 'agent_advances',
-              source_id: advance.id,
-              description: 'Overdue advance penalty interest accrued (receivable)',
-              currency: 'UGX',
-              transaction_date: today,
-              metadata: penaltyMeta,
-            },
-          ],
-          idempotency_key: `advance_penalty_interest:${advance.id}:${today}`,
-        });
-        if (penaltyErr) {
-          console.error(
-            `[process-agent-advance-deductions] penalty interest ledger post failed for advance ${advance.id}:`,
-            penaltyErr,
-          );
-          await supabase.from('system_events').insert({
-            event_type: 'advance_penalty_interest_post_failed',
-            payload: {
-              ...penaltyMeta,
-              user_id: advance.agent_id,
-              amount: interestAccrued,
-              reason: 'penalty_interest_ledger_post_failed',
-              error: String(penaltyErr.message ?? penaltyErr),
-            },
-          }).then(() => {}, () => {});
-        } else {
-          await supabase.from('system_events').insert({
-            event_type: 'advance_penalty_interest_accrued',
-            payload: {
-              ...penaltyMeta,
-              user_id: advance.agent_id,
-              amount: interestAccrued,
-            },
-          }).then(() => {}, () => {});
-        }
+      //                  'advance_credit' — set explicitly so the
+      //                  recipient_type stamp cannot route it to
+      //                  'withdrawable'. An accrual must never add to or
+      //                  subtract from spendable cash.
+      //   platform leg → cash_out `interest_expense`.
+      // Idempotent per advance per day, and only computed on the first attempt
+      // of the day, so it posts once regardless of cron cadence.
+      const { error: postErr } = await supabase.rpc('record_advance_deduction_atomic', {
+        p_advance_id: advance.id,
+        p_agent_id: advance.agent_id,
+        p_date: today,
+        p_opening_balance: openingBalance,
+        p_interest_accrued: interestAccrued,
+        p_amount_deducted: amountDeducted,
+        p_closing_balance: closingBalance,
+        p_deduction_status: deductionStatus,
+        p_new_status: newStatus,
+        p_new_fee_collected: newFeeCollected,
+        p_fee_status: feeStatus,
+        p_new_arrears: newArrears,
+        p_penalty_description: interestAccrued > 0
+          ? `Overdue advance penalty interest (${(dailyInterestRate * 100).toFixed(4)}%/day on ${fmtUGX(openingBalance)})`
+          : null,
+        p_penalty_meta: penaltyMeta,
+        p_repayment_description: interestAccrued > 0
+          ? `Advance ${advFreqLabel} deduction - Overdue penalty: ${interestAccrued}`
+          : `Advance ${advFreqLabel} deduction`,
+        p_repayment_meta: repaymentMeta,
+      });
+
+      if (postErr) {
+        const msg = String(postErr.message ?? postErr);
+        // The double-charge guard rejecting this row is an expected outcome,
+        // not a fault: another recovery path already took today's installment.
+        // Nothing was written, so the advance is simply skipped, exactly as it
+        // was when the daybook insert was a separate call.
+        const guardRejected = msg.includes('ADVANCE_LEDGER_STALE_OPENING')
+          || msg.includes('ADVANCE_LEDGER_OVER_COLLECTION')
+          || msg.includes('ADVANCE_LEDGER_DAILY_CAP');
+        console.error(
+          `[process-agent-advance-deductions] atomic post ${guardRejected ? 'rejected by guard' : 'failed'} for advance ${advance.id} — nothing written:`,
+          msg,
+        );
+        await supabase.from('system_events').insert({
+          event_type: guardRejected ? 'repayment_skipped_insufficient_balance' : 'repayment_failed',
+          payload: {
+            ...repaymentMeta,
+            user_id: advance.agent_id,
+            reason: guardRejected ? 'ledger_guard_rejected' : 'atomic_post_failed',
+            guard_error: msg,
+            error: msg,
+            attempted_amount: amountDeducted,
+            rolled_back: true,
+          },
+        }).then(() => {}, () => {});
+        skipped.push(advance.id);
+        continue;
       }
 
-
+      if (interestAccrued > 0) {
+        await supabase.from('system_events').insert({
+          event_type: 'advance_penalty_interest_accrued',
+          payload: {
+            ...penaltyMeta,
+            user_id: advance.agent_id,
+            amount: interestAccrued,
+          },
+        }).then(() => {}, () => {});
+      }
 
       if (amountDeducted <= 0) {
         // Skipped — no withdrawable to recover from. Float is intentionally untouched.
@@ -573,67 +542,16 @@ Deno.serve(async (req) => {
           );
         }
       } else {
-        // Deduct from wallet via balanced RPC with EXPLICIT Wallet Routing v2 tags.
-        // wallet leg → recipient_type='user' forces withdrawable bucket;
-        // platform leg → recipient_type='operational_wallet'.
-        const repaymentMeta = {
-          source: 'cron_advance_deduction',
-          advance_id: advance.id,
-          withdrawable_snapshot: withdrawableSnapshot,
-          bucket_intent: 'advance_balance_recovery',
-        };
-        const { error: rpcErr } = await supabase.rpc('create_ledger_transaction', {
-          entries: [
-            {
-              user_id: advance.agent_id,
-              ledger_scope: 'wallet',
-              direction: 'cash_out',
-              amount: amountDeducted,
-              category: 'agent_repayment',
-              recipient_type: 'user',
-              source_table: 'agent_advances',
-              source_id: advance.id,
-              description: interestAccrued > 0
-                ? `Advance ${advFreqLabel} deduction - Overdue penalty: ${interestAccrued}`
-                : `Advance ${advFreqLabel} deduction`,
-              currency: 'UGX',
-              transaction_date: today,
-              metadata: repaymentMeta,
-            },
-          {
-            user_id: advance.agent_id,
-            ledger_scope: 'platform',
-            direction: 'cash_in',
-            amount: amountDeducted,
-            category: 'agent_repayment',
-            recipient_type: 'operational_wallet',
-            source_table: 'agent_advances',
-            source_id: advance.id,
-            description: `Advance repayment received from agent`,
-            currency: 'UGX',
-            transaction_date: today,
-            metadata: repaymentMeta,
-          },
-          ],
-        });
-        if (rpcErr) {
-          console.error(`[process-agent-advance-deductions] RPC error for advance ${advance.id}:`, rpcErr);
-          await supabase.from('system_events').insert({
-            event_type: 'repayment_failed',
-            payload: { ...repaymentMeta, user_id: advance.agent_id, error: String(rpcErr.message ?? rpcErr) },
-          }).then(() => {}, () => {});
-        } else {
-          await supabase.from('system_events').insert({
-            event_type: 'repayment_successful',
-            payload: { ...repaymentMeta, user_id: advance.agent_id, amount: amountDeducted },
-          }).then(() => {}, () => {});
-          // Notify the agent where the money went (also visible in transactions).
-          await notifyAgent(
-            advance.agent_id,
-            `WELILE: ${fmtUGX(amountDeducted)} was deducted from your wallet today towards your ${advFreqLabel} advance installment. Remaining balance ${fmtUGX(closingBalance)}. See your transactions for details.`,
-            'advance_deduction_success',
-          );
-        }
+        await supabase.from('system_events').insert({
+          event_type: 'repayment_successful',
+          payload: { ...repaymentMeta, user_id: advance.agent_id, amount: amountDeducted },
+        }).then(() => {}, () => {});
+        // Notify the agent where the money went (also visible in transactions).
+        await notifyAgent(
+          advance.agent_id,
+          `WELILE: ${fmtUGX(amountDeducted)} was deducted from your wallet today towards your ${advFreqLabel} advance installment. Remaining balance ${fmtUGX(closingBalance)}. See your transactions for details.`,
+          'advance_deduction_success',
+        );
       }
 
       results.push({
