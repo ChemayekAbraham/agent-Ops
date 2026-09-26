@@ -74,11 +74,18 @@ inbound receipt.
 
 ## Known gaps / follow-ups
 
-- **The platform leg has no `ledger_account_map` row** and resolves to A9 (suspense).
-  This is already true of the manual write-down route. The economically right
-  counterpart is probably A8 (the mirror of `agent_float_deposit`'s platform leg).
-  Adding that mapping would also re-state the two manual rows from 2026-09-25, so it
-  needs a CFO decision. It isn't done here.
+- **Suspense removed (migration `20260926110000`, NOT yet applied).** On the CEO's
+  instruction ("Remove suspense account. Actual should be actual."), the platform leg
+  of `merchant_float_correction_writedown` now maps to A8 (DR when cash_in), which mirrors
+  the CR A8 posted when float is sent to a merchant agent. The 9M from 2026-09-25 leaves A9, and
+  the wrong deposits and their write-downs cancel in A8. The same migration posts
+  automatic returns as `production` rather than `admin_correction`, because the resolver drops
+  admin_correction legs that aren't from `merchant_float_reconciliations`.
+- **Mercy's Equity account → merchant agent does NOT raise MAF.** `merchant_desk_external_funding`
+  holds 54 sends (UGX 581,263,706, 1–25 Sep) to the IMMACULATE NAMULINDWA desk
+  (1a88b1b8, paid into NABAGGALA CATHERINE's Equity account), all `suggested`, none
+  credited to float. MTN and Airtel sends are auto-credited via `merchant_float_deliveries`.
+  This is why the two returning desks had 0 MAF on the books. It's pending a decision.
 - The Gmail row stays `linked_deposit_request_id IS NULL`, because
   `auto_match_method` has a CHECK constraint. Any unmatched-receipt report may
   still list it. `merchant_float_returns.gmail_transaction_id` is the link.
