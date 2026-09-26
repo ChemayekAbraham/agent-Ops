@@ -103,6 +103,20 @@ export function FunderHouseListingsSection() {
   // doesn't cover the house's rent — the deposit opens with the shortfall.
   const [topUpAmount, setTopUpAmount] = useState<number | null>(null);
 
+  // Quick search bar next to the Filters button. Debounced so the listing
+  // queries don't refetch on every keystroke. The same text feeds BOTH the
+  // empty-house read (server-side fuzzy match on house type, district,
+  // village, sub-county) and the rent-plan read (client-side match), so a
+  // search unions both sets; empty houses are matched first and rent plans
+  // act as the fallback when no empty house matches.
+  const [searchInput, setSearchInput] = useState('');
+  const debouncedSearch = useDebouncedValue(searchInput, 300);
+  useEffect(() => {
+    setFilters((current) =>
+      current.search === debouncedSearch ? current : { ...current, search: debouncedSearch },
+    );
+  }, [debouncedSearch]);
+
   useEffect(() => {
     saveSaved(saved);
   }, [saved]);
