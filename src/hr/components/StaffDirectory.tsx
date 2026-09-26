@@ -253,6 +253,13 @@ export default function StaffDirectory() {
           primary?.position_title ?? '',
           primary?.department_name ?? '',
           reportsTo,
+          s.joined_at
+            ? new Date(s.joined_at).toLocaleDateString('en-GB', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+              })
+            : '',
           s.email,
           s.phone,
           ...(hasExited
