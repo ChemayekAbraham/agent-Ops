@@ -121,7 +121,7 @@ export function useMerchantDeskExternalFunding(agentIds: string[], enabled = tru
         .order('funded_at', { ascending: false });
 
       if (error) throw error;
-      return (data || []) as MerchantExternalFundingTransfer[];
+      return (data || []) as unknown as MerchantExternalFundingTransfer[];
     },
   });
 }

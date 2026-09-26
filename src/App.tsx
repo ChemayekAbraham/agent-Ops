@@ -732,7 +732,7 @@ function AppRoutes() {
           <Route path="/admin/users" element={<RoleGuard allowedRoles={['super_admin', 'manager', 'cto']} requiredPermission="company-ops"><AdminUsersPage /></RoleGuard>} />
           <Route path="/admin/access-audit" element={<RoleGuard allowedRoles={['super_admin', 'manager', 'cto']}><AdminAccessAuditPage /></RoleGuard>} />
           <Route path="/admin/financial-ops" element={<RoleGuard allowedRoles={['super_admin', 'manager', 'coo', 'cfo', 'employee', 'operations']} requiredPermission="financial-ops"><AdminFinancialOpsPage /></RoleGuard>} />
-          <Route path="/admin/financial-ops/merchant-desk-funding" element={<RoleGuard allowedRoles={['cfo', 'financial_ops', 'super_admin', 'ceo', 'coo', 'manager']}><MerchantDeskFundingPage /></RoleGuard>} />
+          <Route path="/admin/financial-ops/merchant-desk-funding" element={<RoleGuard allowedRoles={['cfo', 'super_admin', 'ceo', 'coo', 'manager']}><MerchantDeskFundingPage /></RoleGuard>} />
           {/* Legacy/bookmarked paths staff type or tap from older links — these
               previously fell through to the catch-all NotFound (404). */}
           <Route path="/financial-ops" element={<Navigate to="/admin/financial-ops" replace />} />
