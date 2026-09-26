@@ -81,11 +81,16 @@ inbound receipt.
   the wrong deposits and their write-downs cancel in A8. The same migration posts
   automatic returns as `production` rather than `admin_correction`, because the resolver drops
   admin_correction legs that aren't from `merchant_float_reconciliations`.
-- **Mercy's Equity account → merchant agent does NOT raise MAF.** `merchant_desk_external_funding`
-  holds 54 sends (UGX 581,263,706, 1–25 Sep) to the IMMACULATE NAMULINDWA desk
-  (1a88b1b8, paid into NABAGGALA CATHERINE's Equity account), all `suggested`, none
-  credited to float. MTN and Airtel sends are auto-credited via `merchant_float_deliveries`.
-  This is why the two returning desks had 0 MAF on the books. It's pending a decision.
+- **Mercy's Equity → merchant agent now credits MAF (migration `20260926120000`, NOT yet applied).**
+  `equity_outgoing_to_account` rules get `auto_credit_from = now()` at apply time;
+  every later send is credited through `record_merchant_float_delivery` (same legs as
+  MTN/Airtel, TID `EQ<gmail id>`) and the row goes to `confirmed`. Runs inside
+  `suggest_merchant_desk_external_funding` (cron every 15 min).
+  **The 54 earlier rows (UGX 581,263,706, 1–25 Sep) are NOT credited, on instruction**
+  ("DON'T CREDIT THE 581M TO THAT FLOAT DESK"); they stay `suggested`.
+  `mtn_to_equity` rows are not auto-credited, because the MTN SMS doesn't name the destination.
+  The only live rule attributes Mercy → NABAGGALA CATHERINE …9292 to desk BAITA
+  (IMMACULATE NAMULINDWA 1a88b1b8). That attribution was inferred from timing.
 - The Gmail row stays `linked_deposit_request_id IS NULL`, because
   `auto_match_method` has a CHECK constraint. Any unmatched-receipt report may
   still list it. `merchant_float_returns.gmail_transaction_id` is the link.
