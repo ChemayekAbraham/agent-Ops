@@ -19,8 +19,9 @@ interface RentAccessGrowthInlineProps {
  * tenant sees, at the moment of paying, that daily payments grow their rent
  * access up to the configured maximum. Figures come live from system settings.
  */
-export function RentAccessGrowthInline({ variant = 'default', className = '' }: RentAccessGrowthInlineProps) {
+export function RentAccessGrowthInline({ variant = 'default', className = '', surface }: RentAccessGrowthInlineProps) {
   const { params } = useRentAccessLimitParams();
+  const { trackClick } = useRentAccessPromoTracking(surface);
 
   const wrapper =
     variant === 'onPrimary'
@@ -28,7 +29,10 @@ export function RentAccessGrowthInline({ variant = 'default', className = '' }: 
       : 'bg-primary/10 text-primary border border-primary/20';
 
   return (
-    <div className={`flex items-start gap-2 rounded-lg px-3 py-2 ${wrapper} ${className}`}>
+    <div
+      onClick={trackClick}
+      className={`flex items-start gap-2 rounded-lg px-3 py-2 cursor-pointer ${wrapper} ${className}`}
+    >
       <TrendingUp className="h-4 w-4 mt-0.5 shrink-0" />
       <p className="text-xs leading-snug font-medium">
         Every day you pay adds <span className="font-bold">+{formatUGX(params.paid_increment_ugx)}</span> to your

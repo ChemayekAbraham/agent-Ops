@@ -316,7 +316,7 @@ export default function PayRentFlow({
       isComplete={isComplete}
     >
       {currentStep < 3 && !isProcessing && !isComplete && (
-        <RentAccessGrowthInline className="mb-3" />
+        <RentAccessGrowthInline surface="pay_rent_flow" className="mb-3" />
       )}
       {renderStep()}
     </StepperModal>

@@ -1,6 +1,7 @@
 import { TrendingUp, CalendarCheck } from 'lucide-react';
 import { useRentAccessLimitParams } from '@/hooks/useRentAccessLimitParams';
 import { formatUGX } from '@/lib/rentCalculations';
+import { useRentAccessPromoTracking } from '@/hooks/useRentAccessPromoTracking';
 
 /**
  * Major marketing banner on the tenant dashboard: tenants can grow their
@@ -8,9 +9,11 @@ import { formatUGX } from '@/lib/rentCalculations';
  */
 export function RentAccessGrowthBanner() {
   const { params } = useRentAccessLimitParams();
+  const { trackClick } = useRentAccessPromoTracking('tenant_dashboard');
   return (
     <section
       aria-label="Rent access growth"
+      onClick={trackClick}
       className="animate-fade-in relative overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/15 via-primary/5 to-background p-4 shadow-sm"
     >
       <div className="flex items-start gap-3">
