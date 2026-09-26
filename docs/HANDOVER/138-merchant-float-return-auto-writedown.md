@@ -1,9 +1,16 @@
 # 138 — Merchant desk float returns are recorded automatically
 
-**Status (2026-09-26): committed on `lovable`, NOT applied.** Migrations
-`20260926090000` and `20260926100000` must both be applied, in that order, and
-the edge function `gmail-poll-transactions` deployed. Until then, a desk sending
-money back to a company line is still credited to its float as a deposit.
+**Status (2026-09-26 10:08 UTC): database side LIVE, edge function NOT deployed.**
+Both migrations are applied and verified in production: the alert type is allowed,
+`auto_create_deposits_from_gmail_impl` calls `auto_record_merchant_float_return`,
+and anon/authenticated cannot execute it. `gmail-poll-transactions` still has
+to be deployed; until then a return picked up by the edge path is still credited
+as a deposit.
+
+**Apply order matters.** `20260926090000` re-creates the impl as alert-only. Running
+it after `20260926100000` silently reverts the automatic write-down; this happened
+once on 2026-09-26 and was fixed by re-running `20260926100000`. Never re-run
+`20260926090000` on its own.
 
 ## Why
 
