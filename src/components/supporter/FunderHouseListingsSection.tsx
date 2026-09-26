@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, Home, ListFilter, Loader2 } from 'lucide-react';
+import { AlertTriangle, Home, ListFilter, Loader2, Search, X } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { toast } from 'sonner';
 import { formatDynamic } from '@/lib/currencyFormat';
 import DepositFlow from '@/components/payments/DepositFlow';
