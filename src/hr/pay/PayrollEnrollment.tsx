@@ -140,7 +140,8 @@ type PartMonthCalc =
 
 /**
  * Part-month pay by Monday–Friday working days: basic × days worked ÷ working
- * days in the calendar month. Public holidays count as paid working days.
+ * days in the pay period (the day after the previous cut-off to this cut-off,
+ * e.g. 29 Aug – 28 Sep). Public holidays count as paid working days.
  */
 function partMonthCalc(
   basic: number | null,
@@ -177,6 +178,7 @@ export default function PayrollEnrollment() {
   const [periodCode, setPeriodCode] = useState<string | null>(null);
   const [periodStart, setPeriodStart] = useState<string | null>(null);
   const [periodCutOff, setPeriodCutOff] = useState<string | null>(null);
+  const [periodWindowStart, setPeriodWindowStart] = useState<string | null>(null);
   const [advances, setAdvances] = useState<AdvanceRow[]>([]);
 
   // Part-month pay dialog state
@@ -247,6 +249,7 @@ export default function PayrollEnrollment() {
       setPeriodCode(result.openPeriodCode);
       setPeriodStart(result.openPeriodStart);
       setPeriodCutOff(result.openPeriodCutOff);
+      setPeriodWindowStart(result.payWindowStart);
       try {
         setAdvances(await listAdvances());
       } catch (advanceError) {
@@ -402,7 +405,10 @@ export default function PayrollEnrollment() {
     [rows],
   );
 
-  const pmBounds = periodStart ? monthBounds(periodStart) : null;
+  /** The pay period: day after the previous cut-off, to this period's cut-off. */
+  const pmBounds = periodCutOff
+    ? { first: periodWindowStart ?? monthBounds(periodCutOff).first, last: periodCutOff }
+    : null;
 
   function openPartMonth(row: EnrollmentRow) {
     setPmRow(row);
@@ -410,7 +416,7 @@ export default function PayrollEnrollment() {
     setPmReason('');
     setPmError('');
     setPmStart('');
-    setPmEnd(periodStart ? monthBounds(periodStart).last : '');
+    setPmEnd(periodCutOff ?? '');
   }
 
   /** Fill the amount and the reason from the dates. The amount stays editable. */
@@ -1466,7 +1472,8 @@ export default function PayrollEnrollment() {
                 period only. Their full salary starts from the month their basic pay record begins.
               </p>
               <p className="text-xs text-muted-foreground">
-                Period {periodCode} — {formatDate(periodStart)} to {formatDate(periodCutOff)}
+                Pay period {periodCode} — {formatDate(pmBounds?.first ?? periodStart)} to{' '}
+                {formatDate(pmBounds?.last ?? periodCutOff)}
               </p>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
@@ -1499,7 +1506,7 @@ export default function PayrollEnrollment() {
                     }}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Leave as the month end unless they left early.
+                    Leave as the period end unless they left early.
                   </p>
                 </div>
               </div>
