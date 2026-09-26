@@ -234,6 +234,7 @@ export default function StaffDirectory() {
       'Position',
       'Department',
       'Reports to',
+      'Enrolled',
       'Email',
       'Phone',
       ...(hasExited ? ['Exited on'] : []),
