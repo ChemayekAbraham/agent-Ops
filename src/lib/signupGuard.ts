@@ -7,6 +7,13 @@ export type SignupGuardResult = {
   reason: string | null;
   attempt_id: string | null;
   is_staff: boolean;
+  /**
+   * The validated fingerprint, returned so the caller can forward it into the
+   * signup metadata. handle_new_user enforces one account per device per 24
+   * hours from there — this preflight RPC is advisory and can be skipped, the
+   * auth.users trigger cannot.
+   */
+  device_fp: string | null;
 };
 
 function readUtm() {
@@ -62,7 +69,7 @@ export async function preflightSignup(params: {
     // Bots hit the trigger + duplicate-account guards downstream.
     // eslint-disable-next-line no-console
     console.warn('[signupGuard] preflight rpc error, allowing:', error.message);
-    return { allowed: true, status: 'rpc_error', reason: null, attempt_id: null, is_staff: false };
+    return { allowed: true, status: 'rpc_error', reason: null, attempt_id: null, is_staff: false, device_fp: deviceFp };
   }
   const row = (data ?? {}) as Record<string, unknown>;
   return {
@@ -71,6 +78,7 @@ export async function preflightSignup(params: {
     reason: (row.reason as string | null) ?? null,
     attempt_id: (row.attempt_id as string | null) ?? null,
     is_staff: Boolean(row.is_staff),
+    device_fp: deviceFp,
   };
 }
 

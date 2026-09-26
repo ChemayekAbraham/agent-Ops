@@ -26994,6 +26994,7 @@ export type Database = {
           active: boolean
           active_from: string
           agent_id: string
+          auto_credit_from: string | null
           body_pattern: string | null
           created_at: string
           id: string
@@ -27004,6 +27005,7 @@ export type Database = {
           active?: boolean
           active_from?: string
           agent_id: string
+          auto_credit_from?: string | null
           body_pattern?: string | null
           created_at?: string
           id?: string
@@ -27014,6 +27016,7 @@ export type Database = {
           active?: boolean
           active_from?: string
           agent_id?: string
+          auto_credit_from?: string | null
           body_pattern?: string | null
           created_at?: string
           id?: string
@@ -55084,6 +55087,10 @@ export type Database = {
       }
       auto_create_deposits_from_gmail_impl: {
         Args: { p_window_hours?: number }
+        Returns: number
+      }
+      auto_credit_merchant_desk_external_funding: {
+        Args: never
         Returns: number
       }
       auto_dispatch_withdrawals: {

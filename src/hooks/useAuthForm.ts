@@ -19,6 +19,7 @@ import {
 import { roleToSlug } from '@/lib/roleRoutes';
 import { getStoredAttributionToken } from '@/lib/campaignAttribution';
 import { captureReferralAttribution, getStoredReferrerId } from '@/lib/referralAttribution';
+import { getDeviceFingerprint, isValidFingerprintShape } from '@/lib/deviceFingerprint';
 
 const VALID_SIGNUP_ROLES = ['tenant', 'agent', 'landlord', 'supporter'] as const;
 
@@ -555,6 +556,12 @@ export function useAuthForm() {
     // sign in immediately. Real-email signups keep the normal client signUp +
     // email-verification flow.
     if (!hasRealEmail) {
+      // The fingerprint travels with the request so `phone-signup` can put it in
+      // the auth metadata, where handle_new_user enforces one account per device
+      // per 24 hours. This path never touches the client-side preflight guard,
+      // so without this the phone-only signup route had no device limit at all.
+      const rawFp = await getDeviceFingerprint().catch(() => null);
+      const deviceFp = isValidFingerprintShape(rawFp) ? rawFp : null;
       const { data: fnData, error: fnError } = await supabase.functions.invoke('phone-signup', {
         body: {
           email: authEmail,
@@ -565,6 +572,7 @@ export function useAuthForm() {
           intended_role: effectiveIntendedRole || null,
           signup_source: storedSignupSource || null,
           campaign_attribution_token: campaignAttributionToken || null,
+          device_fp: deviceFp,
         },
       });
       // When the edge function returns a non-2xx status, supabase-js sets `fnError`

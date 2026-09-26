@@ -40,6 +40,17 @@ Deno.serve(async (req) => {
     const campaignAttributionToken = body.campaign_attribution_token
       ? String(body.campaign_attribution_token).trim()
       : null;
+    // Device fingerprint, forwarded into user_metadata so handle_new_user can
+    // enforce one account per device per 24 hours. That gate lives on the
+    // auth.users trigger precisely because this edge function, and the
+    // client-side signupGuard, can both be skipped by posting at the Auth REST
+    // endpoint directly. Shape-checked here as well so a junk value never
+    // reaches the trigger and dodges the count by matching nothing.
+    const rawDeviceFp = body.device_fp ? String(body.device_fp).trim() : "";
+    const deviceFp =
+      /^[a-f0-9]{64}$/.test(rawDeviceFp) || /^fb_[a-f0-9]{1,64}$/.test(rawDeviceFp)
+        ? rawDeviceFp
+        : null;
 
     // Only synthetic phone-only accounts are allowed through this path.
     if (!email.endsWith("@welile.user") && !email.endsWith("@welile.agent")) {
@@ -97,6 +108,7 @@ Deno.serve(async (req) => {
       intended_role: intendedRole || null,
     };
     if (signupSource) meta.signup_source = signupSource;
+    if (deviceFp) meta.device_fp = deviceFp;
     if (campaignAttributionToken) meta.campaign_attribution_token = campaignAttributionToken;
 
     const { data: created, error: createErr } = await adminClient.auth.admin.createUser({

@@ -34,6 +34,7 @@ import { BrandSerpVisibilityPanel } from './BrandSerpVisibilityPanel';
 import { ChangeOfAddressMonitorPanel } from './ChangeOfAddressMonitorPanel';
 import { RedirectHealthAlertsPanel } from './RedirectHealthAlertsPanel';
 import { SignupSourceLogPanel } from './SignupSourceLogPanel';
+import { SignupDeviceAbusePanel } from './SignupDeviceAbusePanel';
 import { DepositBridgeHealthPanel } from '@/components/bridge/DepositBridgeHealthPanel';
 import { DeletedAccountsPanel } from '@/components/cto/DeletedAccountsPanel';
 import { FakeAccountRadarPanel } from '@/components/cto/FakeAccountRadarPanel';
@@ -80,7 +81,14 @@ export function CTODashboard({ activeTab }: { activeTab?: string }) {
     return <MerchantInviteLinksManager />;
   }
   if (activeTab === 'signup-log') {
-    return <SignupSourceLogPanel />;
+    // Device view first: during a ring the question is "which devices are
+    // farming accounts", which the time-ordered attempt log below cannot show.
+    return (
+      <div className="space-y-4">
+        <SignupDeviceAbusePanel />
+        <SignupSourceLogPanel />
+      </div>
+    );
   }
   if (activeTab === 'bridge-health') {
     return <DepositBridgeHealthPanel />;
