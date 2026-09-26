@@ -92,8 +92,8 @@ export default function NoPaymentTab() {
         <CardContent className="px-3 pb-3 sm:px-4">
           <Popover open={agentPickerOpen} onOpenChange={setAgentPickerOpen}>
             <PopoverTrigger asChild>
-              <Button variant="outline" role="combobox" aria-expanded={agentPickerOpen} aria-label="Filter by agent" className="flex h-11 w-full min-w-0 justify-between gap-3 px-3 text-left font-normal sm:max-w-sm">
-                <span className="min-w-0 truncate font-medium">{selectedAgent?.label ?? 'All agents'}</span>
+              <Button variant="outline" role="combobox" aria-expanded={agentPickerOpen} aria-label="Filter by agent" className="flex h-auto min-h-11 w-full min-w-0 justify-between gap-3 px-3 py-2 text-left font-normal sm:max-w-sm">
+                <span className="min-w-0 whitespace-normal break-words font-medium">{selectedAgent?.label ?? 'All agents'}</span>
                 <span className="ml-auto flex shrink-0 items-center gap-2">
                   <Badge variant="secondary" className="tabular-nums">{selectedAgent?.gte_20 ?? totals.gte_20}</Badge>
                   <ChevronsUpDown className="h-4 w-4 text-muted-foreground" />
