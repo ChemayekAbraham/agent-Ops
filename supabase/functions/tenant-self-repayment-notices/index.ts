@@ -19,6 +19,8 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { sendSMS, isUgandanPhone } from "../_shared/sendSmsMultiProvider.ts";
 import {
   accessSentence,
+  growthSentence,
+  loadRentAccessCap,
   loadTenantPaymentMessageVars,
   nextLevelSentence,
 } from "../_shared/tenantTemplates.ts";
@@ -55,6 +57,7 @@ Deno.serve(async (req) => {
       .filter((n) => n.recipient_role === "tenant")
       .map((n) => n.recipient_user_id);
     const planVars = await loadTenantPaymentMessageVars(admin, tenantRecipientIds);
+    const accessCap = await loadRentAccessCap(admin);
 
     let sent = 0;
     let failed = 0;
@@ -75,6 +78,7 @@ Deno.serve(async (req) => {
         ? n.sms_text
           + accessSentence(planVars.get(n.recipient_user_id))
           + nextLevelSentence(planVars.get(n.recipient_user_id))
+          + growthSentence(accessCap)
         : n.sms_text;
 
       const ref = `tsr-${n.deposit_request_id}-${n.recipient_role}`;

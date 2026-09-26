@@ -26994,6 +26994,7 @@ export type Database = {
           active: boolean
           active_from: string
           agent_id: string
+          auto_credit_from: string | null
           body_pattern: string | null
           created_at: string
           id: string
@@ -27004,6 +27005,7 @@ export type Database = {
           active?: boolean
           active_from?: string
           agent_id: string
+          auto_credit_from?: string | null
           body_pattern?: string | null
           created_at?: string
           id?: string
@@ -27014,6 +27016,7 @@ export type Database = {
           active?: boolean
           active_from?: string
           agent_id?: string
+          auto_credit_from?: string | null
           body_pattern?: string | null
           created_at?: string
           id?: string
@@ -27292,6 +27295,79 @@ export type Database = {
           withdrawal_id?: string
         }
         Relationships: []
+      }
+      merchant_float_returns: {
+        Row: {
+          agent_id: string
+          amount_received: number
+          amount_written_down: number
+          created_at: string
+          desk_id: string
+          excess_amount: number
+          float_after: number | null
+          float_before: number | null
+          gmail_transaction_id: string
+          id: string
+          ledger_group_id: string | null
+          match_method: string | null
+          status: string
+          transaction_id: string
+        }
+        Insert: {
+          agent_id: string
+          amount_received: number
+          amount_written_down?: number
+          created_at?: string
+          desk_id: string
+          excess_amount?: number
+          float_after?: number | null
+          float_before?: number | null
+          gmail_transaction_id: string
+          id?: string
+          ledger_group_id?: string | null
+          match_method?: string | null
+          status: string
+          transaction_id: string
+        }
+        Update: {
+          agent_id?: string
+          amount_received?: number
+          amount_written_down?: number
+          created_at?: string
+          desk_id?: string
+          excess_amount?: number
+          float_after?: number | null
+          float_before?: number | null
+          gmail_transaction_id?: string
+          id?: string
+          ledger_group_id?: string | null
+          match_method?: string | null
+          status?: string
+          transaction_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "merchant_float_returns_desk_id_fkey"
+            columns: ["desk_id"]
+            isOneToOne: false
+            referencedRelation: "cashout_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "merchant_float_returns_desk_id_fkey"
+            columns: ["desk_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchant_float_ledger_variance"
+            referencedColumns: ["desk_id"]
+          },
+          {
+            foreignKeyName: "merchant_float_returns_desk_id_fkey"
+            columns: ["desk_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchant_float_position"
+            referencedColumns: ["desk_id"]
+          },
+        ]
       }
       merchant_float_variance_alerts: {
         Row: {
@@ -36852,6 +36928,39 @@ export type Database = {
           skipped?: number
           triggered_by?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      rent_access_promo_engagement: {
+        Row: {
+          clicks: number
+          event_date: string
+          first_event_at: string
+          id: string
+          impressions: number
+          last_event_at: string
+          surface: string
+          user_id: string
+        }
+        Insert: {
+          clicks?: number
+          event_date: string
+          first_event_at?: string
+          id?: string
+          impressions?: number
+          last_event_at?: string
+          surface: string
+          user_id: string
+        }
+        Update: {
+          clicks?: number
+          event_date?: string
+          first_event_at?: string
+          id?: string
+          impressions?: number
+          last_event_at?: string
+          surface?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -54980,6 +55089,10 @@ export type Database = {
         Args: { p_window_hours?: number }
         Returns: number
       }
+      auto_credit_merchant_desk_external_funding: {
+        Args: never
+        Returns: number
+      }
       auto_dispatch_withdrawals: {
         Args: { p_batch_size?: number }
         Returns: Json
@@ -55006,6 +55119,14 @@ export type Database = {
           subject: string
           user_id: string
         }[]
+      }
+      auto_record_merchant_float_return: {
+        Args: {
+          p_agent_id: string
+          p_gmail_transaction_id: string
+          p_match_method?: string
+        }
+        Returns: Json
       }
       auto_reject_unmatched_deposits: {
         Args: { p_age_hours?: number; p_email_lookback_hours?: number }
@@ -60297,6 +60418,16 @@ export type Database = {
       }
       get_receivables_total: { Args: never; Returns: Json }
       get_referral_progress: { Args: { p_referred_id: string }; Returns: Json }
+      get_rent_access_promo_stats: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: {
+          click_through_rate: number
+          clicks: number
+          impressions: number
+          surface: string
+          unique_tenants: number
+        }[]
+      }
       get_rent_disbursement_report: {
         Args: { p_end: string; p_start: string }
         Returns: Json
@@ -66738,6 +66869,7 @@ export type Database = {
         Args: { p_as_at: string; p_granularity: string }
         Returns: Json
       }
+      tppo_refresh_daily_snapshot: { Args: never; Returns: Json }
       tpsp_projection: {
         Args: {
           p_agent_id?: string
@@ -66809,6 +66941,10 @@ export type Database = {
           total_count: number
           unmapped: boolean
         }[]
+      }
+      track_rent_access_promo: {
+        Args: { p_event?: string; p_surface: string }
+        Returns: undefined
       }
       treasury_waterfall_go_live: { Args: never; Returns: string }
       treasury_waterfall_go_live_at: { Args: never; Returns: string }

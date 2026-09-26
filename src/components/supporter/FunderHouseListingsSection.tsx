@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, Home, ListFilter, Loader2 } from 'lucide-react';
+import { AlertTriangle, Home, ListFilter, Loader2, Search, X } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { toast } from 'sonner';
 import { formatDynamic } from '@/lib/currencyFormat';
 import DepositFlow from '@/components/payments/DepositFlow';
@@ -100,6 +102,20 @@ export function FunderHouseListingsSection() {
   // Top-up launched from the detail sheet's Fund button when the balance
   // doesn't cover the house's rent — the deposit opens with the shortfall.
   const [topUpAmount, setTopUpAmount] = useState<number | null>(null);
+
+  // Quick search bar next to the Filters button. Debounced so the listing
+  // queries don't refetch on every keystroke. The same text feeds BOTH the
+  // empty-house read (server-side fuzzy match on house type, district,
+  // village, sub-county) and the rent-plan read (client-side match), so a
+  // search unions both sets; empty houses are matched first and rent plans
+  // act as the fallback when no empty house matches.
+  const [searchInput, setSearchInput] = useState('');
+  const debouncedSearch = useDebouncedValue(searchInput, 300);
+  useEffect(() => {
+    setFilters((current) =>
+      current.search === debouncedSearch ? current : { ...current, search: debouncedSearch },
+    );
+  }, [debouncedSearch]);
 
   useEffect(() => {
     saveSaved(saved);
@@ -277,11 +293,34 @@ export function FunderHouseListingsSection() {
 
   return (
     <section className="space-y-3">
-      {/* Compact filters row — same as /dashboard/funder-new */}
+      {/* Search + compact filters row */}
       <div className="flex flex-wrap gap-2 rounded-2xl border bg-card p-2.5 shadow-sm sm:p-3">
+        <div className="relative min-w-0 flex-1 basis-full sm:basis-auto">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
+          <Input
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+            placeholder="Search house type or location…"
+            aria-label="Search houses and rent plans by type or location"
+            className="h-11 rounded-xl pl-9 pr-9 text-sm"
+          />
+          {searchInput ? (
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={() => setSearchInput('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <X className="h-4 w-4" aria-hidden />
+            </button>
+          ) : null}
+        </div>
         <Button
           variant="outline"
-          className="relative h-11 min-w-0 basis-[calc(50%-0.25rem)] rounded-xl text-sm sm:flex-none sm:basis-auto"
+          className="relative h-11 min-w-0 rounded-xl text-sm sm:flex-none"
           onClick={() => setFiltersOpen(true)}
         >
           <ListFilter className="h-4 w-4" aria-hidden />
@@ -319,14 +358,6 @@ export function FunderHouseListingsSection() {
       {/* Applied context: what is loaded, and by which order */}
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
         <span className="font-medium text-foreground">{sortLabel(effectiveSort)}</span>
-        {feedLoading ? (
-          <span>Loading…</span>
-        ) : (
-          <span>
-            Showing {items.length} of {filteredTotal.toLocaleString()} matching{' '}
-            {filteredTotal === 1 ? 'home' : 'homes'}
-          </span>
-        )}
         {effectiveSort === 'nearest' && origin ? (
           <span>
             Within {origin.radiusKm} km of {origin.label}

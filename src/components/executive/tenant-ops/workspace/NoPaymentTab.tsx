@@ -4,26 +4,26 @@
  * Presentation only — every figure (days since last payment, progress %, the
  * per-agent 20+/30+/40+ counts) comes from get_tenant_ops_no_payment_report()
  * via useTenantOpsNoPaymentReport. No client-side arithmetic beyond
- * formatting and the agent-pill filter, which just re-issues the same RPC
+ * formatting and the agent selector, which just re-issues the same RPC
  * with p_agent_id set — the server does the filtering.
  *
  * Visual language matched to the rest of Tenant Ops -> Classic: KPICard with
  * the success/warning/destructive/primary semantic color tokens
  * (TenantOpsHome.tsx, ManagementOverviewTab.tsx), section content wrapped in
  * a Card the same way TenantCommunicationsTab.tsx wraps its list, and the
- * filter-pill idiom from MissedDaysTracker.tsx.
+ * searchable selector idiom used in other executive reports.
  */
 import { useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { AlertTriangle, CalendarX2, Users } from 'lucide-react';
+import { AlertTriangle, CalendarX2, Check, ChevronsUpDown, Users } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
-import {
-  useTenantOpsNoPaymentReport,
-  type TenantOpsAgentNoPaymentSummary,
-} from '@/hooks/useTenantOpsNoPaymentReport';
+import { useTenantOpsNoPaymentReport } from '@/hooks/useTenantOpsNoPaymentReport';
 import { KPICard } from '@/components/executive/KPICard';
 import { WorkspaceEmptyState } from '@/components/executive/tenant-ops/workspace/WorkspaceEmptyState';
 import { WorkspaceMobileRow } from '@/components/executive/tenant-ops/workspace/WorkspaceMobileRow';
@@ -34,34 +34,9 @@ const dayLabel = (iso: string | null) =>
 const dormancyTone = (days: number) =>
   days >= 40 ? 'text-destructive' : days >= 30 ? 'text-warning' : 'text-foreground';
 
-function AgentPill({
-  agent,
-  active,
-  onClick,
-}: {
-  agent: TenantOpsAgentNoPaymentSummary | { agent_id: null; label: string; gte_20: number };
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={`flex items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-xs font-medium transition-all touch-manipulation ${
-        active
-          ? 'bg-primary/10 text-primary ring-1 ring-primary/30'
-          : 'bg-muted/50 text-muted-foreground active:bg-muted'
-      }`}
-    >
-      {agent.label}
-      <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
-        {agent.gte_20}
-      </Badge>
-    </button>
-  );
-}
-
 export default function NoPaymentTab() {
   const [agentId, setAgentId] = useState<string | null>(null);
+  const [agentPickerOpen, setAgentPickerOpen] = useState(false);
   const { data, isLoading } = useTenantOpsNoPaymentReport(agentId);
 
   const agents = data?.agent_summary ?? [];
@@ -79,6 +54,11 @@ export default function NoPaymentTab() {
   );
 
   const tenants = data?.tenants ?? [];
+  const selectedAgent = agents.find((agent) => agent.agent_id === agentId && agentId !== null);
+  const chooseAgent = (id: string | null) => {
+    setAgentId(id);
+    setAgentPickerOpen(false);
+  };
 
   if (isLoading) {
     return (
@@ -104,27 +84,43 @@ export default function NoPaymentTab() {
         <KPICard title="40+ days" value={totals.gte_40} icon={AlertTriangle} color="bg-destructive/10 text-destructive" />
       </div>
 
-      <Card className="border shadow-sm">
+      <Card className="min-w-0 border shadow-sm">
         <CardHeader className="px-3 pb-2 sm:px-4">
           <CardTitle className="text-sm font-semibold">Agent Accountability</CardTitle>
-          <p className="text-[11px] text-muted-foreground">Filter the list below by agent</p>
+          <p className="text-xs text-muted-foreground">Filter the list below by agent</p>
         </CardHeader>
         <CardContent className="px-3 pb-3 sm:px-4">
-          <div className="flex gap-2 overflow-x-auto scrollbar-none -mx-1 px-1">
-            <AgentPill
-              agent={{ agent_id: null, label: `All agents`, gte_20: totals.gte_20 }}
-              active={agentId === null}
-              onClick={() => setAgentId(null)}
-            />
-            {agents.map((a) => (
-              <AgentPill
-                key={a.agent_id ?? 'unassigned'}
-                agent={a}
-                active={agentId === a.agent_id}
-                onClick={() => setAgentId(a.agent_id)}
-              />
-            ))}
-          </div>
+          <Popover open={agentPickerOpen} onOpenChange={setAgentPickerOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" role="combobox" aria-expanded={agentPickerOpen} aria-label="Filter by agent" className="flex h-auto min-h-11 w-full min-w-0 justify-between gap-3 px-3 py-2 text-left font-normal sm:max-w-sm">
+                <span className="min-w-0 whitespace-normal break-words font-medium">{selectedAgent?.label ?? 'All agents'}</span>
+                <span className="ml-auto flex shrink-0 items-center gap-2">
+                  <Badge variant="secondary" className="tabular-nums">{selectedAgent?.gte_20 ?? totals.gte_20}</Badge>
+                  <ChevronsUpDown className="h-4 w-4 text-muted-foreground" />
+                </span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="w-[min(22rem,calc(100vw-2rem))] p-0">
+              <Command>
+                <CommandInput placeholder="Search agent name…" aria-label="Search agents" />
+                <CommandList className="max-h-72">
+                  <CommandEmpty>No agents found.</CommandEmpty>
+                  <CommandItem value="All agents" onSelect={() => chooseAgent(null)} className="min-h-11 gap-2">
+                    <Check className={`h-4 w-4 shrink-0 ${agentId === null ? 'opacity-100' : 'opacity-0'}`} />
+                    <span className="min-w-0 flex-1 truncate">All agents</span>
+                    <Badge variant="secondary" className="shrink-0 tabular-nums">{totals.gte_20}</Badge>
+                  </CommandItem>
+                  {agents.map((agent) => (
+                    <CommandItem key={agent.agent_id ?? 'unassigned'} value={`${agent.label} ${agent.agent_id ?? ''}`} onSelect={() => chooseAgent(agent.agent_id)} className="min-h-11 gap-2">
+                      <Check className={`h-4 w-4 shrink-0 ${agentId !== null && agentId === agent.agent_id ? 'opacity-100' : 'opacity-0'}`} />
+                      <span className="min-w-0 flex-1 whitespace-normal break-words leading-snug">{agent.label}</span>
+                      <Badge variant="secondary" className="shrink-0 tabular-nums">{agent.gte_20}</Badge>
+                    </CommandItem>
+                  ))}
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
         </CardContent>
       </Card>
 
