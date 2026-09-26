@@ -2369,7 +2369,11 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
             requests.find(r => ACTIVE_STATUSES.includes((r.status || '').toLowerCase())) ||
             requests[0];
           if (!active) return null;
-          const startIso = (active as any).disbursed_at || active.created_at;
+          // Repayment clock starts on repayment_starts_on, not funding/disbursement
+          // — the same house convention v_rent_plan_schedule and (as of
+          // 2026-09-26) the Calling Center's own views use. Falls back to
+          // disbursed_at/created_at only when no start date is set.
+          const startIso = (active as any).repayment_starts_on || (active as any).disbursed_at || active.created_at;
           const duration = Number(active.duration_days) || 0;
           const daily = Number(active.daily_repayment) || 0;
           if (!startIso || duration <= 0 || daily <= 0) return null;
