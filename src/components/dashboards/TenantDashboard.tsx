@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { FindAHouseCTA } from '@/components/tenant/FindAHouseCTA';
 import { RentAccessGrowthBanner } from '@/components/tenant/RentAccessGrowthBanner';
+import { RentAccessProgressTracker } from '@/components/tenant/RentAccessProgressTracker';
 import { TenantRentRequestCard } from '@/components/tenant/TenantRentRequestCard';
 import { WidgetErrorBoundary } from '@/components/shared/WidgetErrorBoundary';
 
@@ -331,6 +332,7 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
           <TenantAgreementNotice onAcceptClick={() => setShowAgreementModal(true)} />
 
           <RentAccessGrowthBanner />
+          <RentAccessProgressTracker userId={user.id} />
 
 
 
