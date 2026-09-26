@@ -27293,6 +27293,79 @@ export type Database = {
         }
         Relationships: []
       }
+      merchant_float_returns: {
+        Row: {
+          agent_id: string
+          amount_received: number
+          amount_written_down: number
+          created_at: string
+          desk_id: string
+          excess_amount: number
+          float_after: number | null
+          float_before: number | null
+          gmail_transaction_id: string
+          id: string
+          ledger_group_id: string | null
+          match_method: string | null
+          status: string
+          transaction_id: string
+        }
+        Insert: {
+          agent_id: string
+          amount_received: number
+          amount_written_down?: number
+          created_at?: string
+          desk_id: string
+          excess_amount?: number
+          float_after?: number | null
+          float_before?: number | null
+          gmail_transaction_id: string
+          id?: string
+          ledger_group_id?: string | null
+          match_method?: string | null
+          status: string
+          transaction_id: string
+        }
+        Update: {
+          agent_id?: string
+          amount_received?: number
+          amount_written_down?: number
+          created_at?: string
+          desk_id?: string
+          excess_amount?: number
+          float_after?: number | null
+          float_before?: number | null
+          gmail_transaction_id?: string
+          id?: string
+          ledger_group_id?: string | null
+          match_method?: string | null
+          status?: string
+          transaction_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "merchant_float_returns_desk_id_fkey"
+            columns: ["desk_id"]
+            isOneToOne: false
+            referencedRelation: "cashout_agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "merchant_float_returns_desk_id_fkey"
+            columns: ["desk_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchant_float_ledger_variance"
+            referencedColumns: ["desk_id"]
+          },
+          {
+            foreignKeyName: "merchant_float_returns_desk_id_fkey"
+            columns: ["desk_id"]
+            isOneToOne: false
+            referencedRelation: "v_merchant_float_position"
+            referencedColumns: ["desk_id"]
+          },
+        ]
+      }
       merchant_float_variance_alerts: {
         Row: {
           agent_id: string | null
@@ -55039,6 +55112,14 @@ export type Database = {
           subject: string
           user_id: string
         }[]
+      }
+      auto_record_merchant_float_return: {
+        Args: {
+          p_agent_id: string
+          p_gmail_transaction_id: string
+          p_match_method?: string
+        }
+        Returns: Json
       }
       auto_reject_unmatched_deposits: {
         Args: { p_age_hours?: number; p_email_lookback_hours?: number }
