@@ -291,6 +291,35 @@ export function accessSentence(vars: TenantPaymentMessageVars | undefined): stri
   return ` You have qualified for rent of up to ${formatUGX(access)} next time, the same as your current rent.`;
 }
 
+/**
+ * The programme ceiling, read from system_config.rent_access_limit_params
+ * (max_limit_ugx). Returns null when the config row is missing so senders can
+ * simply omit the growth line rather than state a stale figure.
+ */
+export async function loadRentAccessCap(admin: any): Promise<number | null> {
+  const { data, error } = await admin
+    .from("system_config")
+    .select("value")
+    .eq("key", "rent_access_limit_params")
+    .maybeSingle();
+  if (error) {
+    console.error("[tenantTemplates] rent access cap load failed:", error.message);
+    return null;
+  }
+  const cap = Number((data as any)?.value?.max_limit_ugx);
+  return cap > 0 ? cap : null;
+}
+
+/**
+ * Whole marketing sentence telling the tenant that paying on time every day
+ * grows their rent access up to the programme ceiling. "" when the cap is
+ * unknown — never state a figure the system did not supply.
+ */
+export function growthSentence(cap: number | null | undefined): string {
+  if (!cap || !(Number(cap) > 0)) return "";
+  return ` Keep paying on time every day and your rent access can grow up to ${formatUGX(cap)}.`;
+}
+
 /** The exact amount to the next level and what it unlocks. */
 export function nextLevelSentence(vars: TenantPaymentMessageVars | undefined): string {
   if (!vars) return "";
