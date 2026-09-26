@@ -584,7 +584,7 @@ export default function FunderDashboardNew() {
 
               {deviceOrigin ? (
                 <p className="text-center text-xs text-muted-foreground">
-                  Building Africa's <span className="font-bold text-primary">financial identity </span>infrastructure.
+                  {"Turning\u00a0Rent\u00a0into a financial asset..."}
                 </p>
               ) : null}
             </div>
