@@ -66738,6 +66738,7 @@ export type Database = {
         Args: { p_as_at: string; p_granularity: string }
         Returns: Json
       }
+      tppo_refresh_daily_snapshot: { Args: never; Returns: Json }
       tpsp_projection: {
         Args: {
           p_agent_id?: string
