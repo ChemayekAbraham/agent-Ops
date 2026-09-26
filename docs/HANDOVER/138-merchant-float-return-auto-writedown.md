@@ -28,6 +28,34 @@ the write-down. The CEO then asked for the system to handle it: *"If they send
 back the system should automatically detect that and do reactive changes."*
 The scope is merchant agents only.
 
+## What actually happened to the 9M (explained to the CEO)
+
+The CEO asked why Actual Float didn't go "24.9M + 9M" when MAF went 21.4M → 12.4M.
+Airtel company line balances come from the provider SMS. Times are 25 Sep, EAT.
+
+| Time | Event | Actual Float | MAF |
+|---|---|---|---|
+| 18:55 | Catherine Nabaggala (0743049289) sends 4,000,000 to company Airtel. Balance 1,956,298 → 5,956,298 | +4M ✅ | — |
+| 18:57 | Matcher auto-credits it as an `agent_float_deposit` (deposit d8cf7efa) | — | +4M ❌ |
+| 19:05 | Namulindwa Immeculate (0741003567) sends 5,000,000. Balance → 10,881,298 | +5M ✅ | — |
+| 19:06 | Same (deposit da6eb305) | — | +5M ❌ |
+| 19:06–23:31 | The 9M is counted twice. The 23:05 dashboard (MAF 21,368,170, Actual 24,990,276) is from this window | | |
+| 23:31/23:32 | Josh posts two evidenced write-downs | no change ✅ | 21.4M → 12.4M ✅ |
+
+- **Actual didn't rise again at 23:31** because the cash had already arrived at
+  18:55/19:05. Actual reads the real MTN/Airtel/Mercy balances, not ledger labels, so
+  adding 9M again would count it twice. The same evening Alexander Yemane Yigzaw sent
+  +10M, and 12M went out as 2M to six merchant agents (auto-credited to their MAF via
+  `merchant_float_deliveries`).
+- **Why the direction was wrong:** both desks held 0 MAF on the books, because their float
+  arrived via WELILE Equity …5259 → Bayo Mercy …7542 → NABAGGALA CATHERINE …9292,
+  which never reached MAF. So a return had nothing to reduce and was taken for a deposit.
+
+**CEO email sent 2026-09-26** to benjamin@welile.com from weliletenants@gmail.com
+(Gmail message `1a0dd8ada7983209`), signed by Josh. It covers the timeline above and
+the movement table (Actual ↓/MAF ↑ for company → MA, including Mercy → Catherine → BAITA; Actual ↑/MAF ↓ for returns).
+It also says suspense was removed and the 581M was not credited.
+
 ## What happens now
 
 When an inbound MTN/Airtel receipt resolves to an **active merchant desk**
