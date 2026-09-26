@@ -1,13 +1,18 @@
 // Daily Payout Projection Report
 // Every evening, emails the CEO (CC Josh) everything scheduled or queued to
-// leave the company the following day: Supporter Returns, landlord payouts and
-// withdrawals. All figures come from get_next_day_payout_projection — this
-// function only formats and sends.
+// leave the company on the next payout day: Supporter Returns, landlord payouts
+// and withdrawals. Returns are not paid on Saturday or Sunday, so the Friday,
+// Saturday and Sunday emails all plan Monday and cover every Returns date since
+// the last payout day (Sat-Mon). Compounding Returns are listed but never
+// counted as cash. A cushion line (default 10%) is added on top of the base.
+// All figures come from get_next_day_payout_projection — this function only
+// formats and sends.
 //
 // Invocation:
 //   POST /daily-payout-projection-report                  → tomorrow (Kampala), default recipients (cron)
-//   POST body: { "date": "YYYY-MM-DD", "to": [...], "cc": [...], "dry_run": true }
-//     - "date", "to", "cc" and "dry_run" are honoured only for a signed-in
+//   POST body: { "date": "YYYY-MM-DD", "from": "YYYY-MM-DD", "cushion_pct": 10,
+//                "to": [...], "cc": [...], "dry_run": true }
+//     - "date", "from", "cushion_pct", "to", "cc" and "dry_run" are honoured only for a signed-in
 //       executive (CEO/CFO/COO/manager/super_admin). Anyone else gets the
 //       default run, so the public anon key can't redirect payout details
 //       to an arbitrary inbox or read them back.
@@ -41,6 +46,16 @@ function prettyDate(iso: string) {
   return d.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
 }
 
+function shortDate(iso: string) {
+  const d = new Date(`${iso}T12:00:00Z`);
+  return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
+}
+
+/** "Returns due Sat 26 Sep – Mon 28 Sep" when the range spans more than one day. */
+function rangeLabel(p: Json) {
+  return Number(p.days) > 1 ? `Returns due ${shortDate(p.from)} – ${shortDate(p.date)}` : '';
+}
+
 function groupBy<T>(items: T[], key: (t: T) => string): [string, T[]][] {
   const m = new Map<string, T[]>();
   for (const it of items) {
@@ -67,12 +82,17 @@ function render(p: Json) {
   const cap: Json[] = p.partner_capital.items;
   const grandTotal =
     Number(p.roi.cash_total) + Number(p.landlord.total) + Number(p.withdrawals.total) + Number(p.partner_capital.total);
+  const cushionPct = Number(p.plan?.cushion_pct ?? 0);
+  const cushion = Number(p.plan?.cushion ?? 0);
+  const planTotal = grandTotal + cushion;
+  const range = rangeLabel(p);
+  const byDay: Json[] = p.roi.by_day ?? [];
 
   const flags: string[] = [];
   for (const r of cashRoi) {
     if (r.early_first_payout) {
       flags.push(`${r.partner_name} (${r.portfolio_code}) — ${ugx(r.amount)} is due only ${
-        Math.round((Date.parse(`${date}T00:00:00Z`) - Date.parse(`${r.funded_on}T00:00:00Z`)) / 86400000)
+        Math.round((Date.parse(`${r.due_date ?? date}T00:00:00Z`) - Date.parse(`${r.funded_on}T00:00:00Z`)) / 86400000)
       } day(s) after funding on ${r.funded_on}. Check the payout date before paying.`);
     }
     if (r.channel === 'DESTINATION NOT SET' || !r.destination_number) {
@@ -84,17 +104,28 @@ function render(p: Json) {
   const h: string[] = [];
   const line = '━━━━━━━━━━━━━━━━━━';
 
-  t.push(`WELILE PAYOUTS PROJECTION — ${prettyDate(date).toUpperCase()}`, line);
+  t.push(`WELILE PAYOUTS PROJECTION — ${prettyDate(date).toUpperCase()}`);
+  if (range) t.push(range);
+  t.push(line);
   t.push(`TOTAL CASH OUT: ${ugx(grandTotal)}`);
   t.push(`  Supporter Returns: ${p.roi.cash_count} — ${ugx(p.roi.cash_total)}`);
   t.push(`  Landlord payouts: ${p.landlord.count} — ${ugx(p.landlord.total)}`);
   t.push(`  Wallet withdrawals: ${p.withdrawals.count} — ${ugx(p.withdrawals.total)}`);
   t.push(`  Partner capital withdrawals: ${p.partner_capital.count} — ${ugx(p.partner_capital.total)}`);
+  if (cushion > 0) {
+    t.push(`Cushion (${cushionPct}%): ${ugx(cushion)}`);
+    t.push(`HAVE READY: ${ugx(planTotal)}`);
+  }
   t.push(`Compounding (no cash): ${p.roi.compounding_count} — ${ugx(p.roi.compounding_total)}`, line);
+  if (byDay.length > 1) {
+    t.push('SUPPORTER RETURNS BY DUE DATE');
+    byDay.forEach((d) => t.push(`  ${shortDate(d.due_date)}: cash ${d.cash_count} — ${ugx(d.cash_total)} | compounding ${d.compounding_count} — ${ugx(d.compounding_total)}`));
+    t.push(line);
+  }
 
   h.push(`<div style="font-family:Arial,Helvetica,sans-serif;max-width:720px;color:#111">`);
   h.push(`<h2 style="margin:0 0 4px">Welile Payouts Projection</h2>`);
-  h.push(`<div style="color:#555;margin-bottom:16px">${esc(prettyDate(date))}</div>`);
+  h.push(`<div style="color:#555;margin-bottom:16px">${esc(prettyDate(date))}${range ? ` &middot; ${esc(range)}` : ''}</div>`);
   h.push(`<table cellpadding="6" style="border-collapse:collapse;width:100%;margin-bottom:16px;border:1px solid #ddd">`);
   const sumRow = (label: string, count: unknown, amt: unknown, bold = false) =>
     h.push(`<tr style="${bold ? 'font-weight:bold;background:#f3f4f6' : ''}"><td style="border-bottom:1px solid #eee">${esc(label)}</td><td align="right" style="border-bottom:1px solid #eee">${esc(count)}</td><td align="right" style="border-bottom:1px solid #eee">${esc(ugx(amt))}</td></tr>`);
@@ -103,8 +134,20 @@ function render(p: Json) {
   sumRow('Wallet withdrawals', p.withdrawals.count, p.withdrawals.total);
   sumRow('Partner capital withdrawals', p.partner_capital.count, p.partner_capital.total);
   sumRow('TOTAL CASH OUT', '', grandTotal, true);
+  if (cushion > 0) {
+    sumRow(`Cushion (${cushionPct}%)`, '', cushion);
+    sumRow('HAVE READY', '', planTotal, true);
+  }
   sumRow('Compounding — reinvested, no cash', p.roi.compounding_count, p.roi.compounding_total);
   h.push(`</table>`);
+  if (byDay.length > 1) {
+    const td = (v: unknown, right = true) => `<td ${right ? 'align="right" ' : ''}style="border-bottom:1px solid #eee">${esc(v)}</td>`;
+    h.push(`<h3 style="margin:18px 0 6px">Supporter Returns by due date</h3>`);
+    h.push(`<table cellpadding="5" style="border-collapse:collapse;width:100%;font-size:13px;margin-bottom:16px">`);
+    h.push(`<tr style="background:#f3f4f6"><th align="left">Due</th><th align="right">Cash payouts</th><th align="right">Cash amount</th><th align="right">Compounding (no cash)</th></tr>`);
+    byDay.forEach((d) => h.push(`<tr>${td(shortDate(d.due_date), false)}${td(d.cash_count)}${td(ugx(d.cash_total))}${td(`${d.compounding_count} — ${ugx(d.compounding_total)}`)}</tr>`));
+    h.push(`</table>`);
+  }
 
   if (flags.length) {
     t.push('⚠️ CHECK BEFORE PAYING');
@@ -136,12 +179,15 @@ function render(p: Json) {
     t.push('', `${channel} — ${items.length} — ${ugx(sub)}`);
     for (const r of items) {
       n += 1;
-      t.push(`${n}. ${r.partner_name} — ${ugx(r.amount)}`);
+      t.push(`${n}. ${r.partner_name} — ${ugx(r.amount)}${range ? ` (due ${shortDate(r.due_date)})` : ''}`);
       if (r.destination_name) t.push(`   Name: ${r.destination_name}`);
       t.push(`   ${channel.includes('MOBILE') ? 'No' : 'A/C'}: ${r.destination_number ?? 'NOT SET'}`);
     }
-    table(`${channel} — ${items.length} — ${ugx(sub)}`, ['Supporter', 'Account name', 'A/C / No.', 'Amount'],
-      items.map((r) => [r.partner_name, r.destination_name ?? '', r.destination_number ?? 'NOT SET', ugx(r.amount)]));
+    table(`${channel} — ${items.length} — ${ugx(sub)}`,
+      range ? ['Supporter', 'Due', 'Account name', 'A/C / No.', 'Amount'] : ['Supporter', 'Account name', 'A/C / No.', 'Amount'],
+      items.map((r) => range
+        ? [r.partner_name, shortDate(r.due_date), r.destination_name ?? '', r.destination_number ?? 'NOT SET', ugx(r.amount)]
+        : [r.partner_name, r.destination_name ?? '', r.destination_number ?? 'NOT SET', ugx(r.amount)]));
   }
   if (!cashRoi.length) t.push('None.');
 
@@ -183,10 +229,11 @@ function render(p: Json) {
   h.push(`</ul><div style="color:#888;font-size:12px;margin-top:18px">Generated ${esc(p.generated_at)} from get_next_day_payout_projection.</div></div>`);
 
   return {
-    subject: `Welile Payouts Projection — ${prettyDate(date)} — ${ugx(grandTotal)}`,
+    subject: `Welile Payouts Projection — ${prettyDate(date)}${range ? ` (${range})` : ''} — ${ugx(cushion > 0 ? planTotal : grandTotal)}${cushion > 0 ? ` incl. ${cushionPct}% cushion` : ''}`,
     text: t.join('\n'),
     html: h.join('\n'),
     grandTotal,
+    planTotal,
     flags,
   };
 }
@@ -194,12 +241,13 @@ function render(p: Json) {
 // ---- Attachments --------------------------------------------------------
 // One flat row per payment, shared by the PDF tables and the CSV so the two
 // attachments list exactly the same items.
-interface PayRow { section: string; channel: string; name: string; accountName: string; number: string; reference: string; amount: number; note: string; warn: boolean }
+interface PayRow { due?: string; section: string; channel: string; name: string; accountName: string; number: string; reference: string; amount: number; note: string; warn: boolean }
 
 function payRows(p: Json): PayRow[] {
   const rows: PayRow[] = [];
   for (const r of p.roi.items as Json[]) {
     rows.push({
+      due: r.due_date,
       section: r.compounding ? 'Compounding (no cash)' : 'Supporter Returns',
       channel: r.compounding ? '' : r.channel, name: r.partner_name, accountName: r.destination_name ?? '',
       number: r.compounding ? '' : (r.destination_number ?? 'NOT SET'), reference: r.portfolio_code,
@@ -235,10 +283,10 @@ function payRows(p: Json): PayRow[] {
 
 function buildCsv(p: Json): string {
   const q = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-  const lines = [['Date', 'Section', 'Bank / Network', 'Name', 'Account name', 'A/C / Phone', 'Reference', 'Amount (UGX)', 'Note'].map(q).join(',')];
+  const lines = [['Due date', 'Section', 'Bank / Network', 'Name', 'Account name', 'A/C / Phone', 'Reference', 'Amount (UGX)', 'Note'].map(q).join(',')];
   for (const r of payRows(p)) {
     // ="0781..." keeps Excel from stripping leading zeros off phone / account numbers.
-    lines.push([p.date, r.section, r.channel, r.name, r.accountName, r.number ? `="${r.number}"` : '', r.reference, r.amount, r.note]
+    lines.push([r.due ?? p.date, r.section, r.channel, r.name, r.accountName, r.number ? `="${r.number}"` : '', r.reference, r.amount, r.note]
       .map((v, i) => (i === 5 && String(v).startsWith('=') ? String(v) : q(v))).join(','));
   }
   return '﻿' + lines.join('\r\n');
@@ -272,7 +320,7 @@ async function buildPdf(p: Json, grandTotal: number, flags: string[]): Promise<U
   // Header band
   page.drawRectangle({ x: 0, y: H - 78, width: W, height: 78, color: brand });
   text('WELILE', M, H - 30, 10, bold, rgb(1, 1, 1));
-  text(`Payouts Projection - ${prettyDate(p.date)}`, M, H - 52, 17, bold, rgb(1, 1, 1));
+  text(`Payouts Projection - ${prettyDate(p.date)}${rangeLabel(p) ? ` (${rangeLabel(p)})` : ''}`, M, H - 52, 17, bold, rgb(1, 1, 1));
   text(`Generated ${new Date(p.generated_at).toISOString().replace('T', ' ').slice(0, 16)} UTC`, M, H - 68, 8, font, rgb(0.9, 0.86, 0.96));
   y = H - 100;
 
@@ -290,6 +338,13 @@ async function buildPdf(p: Json, grandTotal: number, flags: string[]): Promise<U
   page.drawLine({ start: { x: M, y: y + 10 }, end: { x: M + 420, y: y + 10 }, thickness: 0.6, color: line });
   text('TOTAL CASH OUT', M, y - 4, 11, bold); text(ugx(grandTotal), M + 420 - bold.widthOfTextAtSize(ugx(grandTotal), 11), y - 4, 11, bold);
   y -= 20;
+  if (Number(p.plan?.cushion ?? 0) > 0) {
+    const c = Number(p.plan.cushion), tot = grandTotal + c;
+    text(`Cushion (${p.plan.cushion_pct}%)`, M, y, 10); text(ugx(c), M + 420 - font.widthOfTextAtSize(ugx(c), 10), y, 10);
+    y -= 15;
+    text('HAVE READY', M, y, 11, bold); text(ugx(tot), M + 420 - bold.widthOfTextAtSize(ugx(tot), 11), y, 11, bold);
+    y -= 20;
+  }
   text(`Compounding - reinvested, no cash: ${p.roi.compounding_count} - ${ugx(p.roi.compounding_total)}`, M, y, 9, font, muted);
   y -= 22;
 
@@ -379,7 +434,7 @@ Deno.serve(async (req) => {
     }
 
     const body: Json = req.method === 'POST' ? await req.json().catch(() => ({})) : {};
-    const wantsOverrides = body.date || body.to || body.cc || body.dry_run;
+    const wantsOverrides = body.date || body.from || body.cushion_pct !== undefined || body.to || body.cc || body.dry_run;
 
     // Overrides only for a signed-in executive: running the RPC under their own
     // token lets the RPC's role check decide.
@@ -397,12 +452,18 @@ Deno.serve(async (req) => {
       return json({ error: 'Overrides (date/to/cc/dry_run) require an executive sign-in' }, 403);
     }
 
-    const date = isExec && typeof body.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.date) ? body.date : null;
+    const isoDate = (v: unknown) => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null);
+    const date = isExec ? isoDate(body.date) : null;
+    const from = isExec ? isoDate(body.from) : null;
+    const cushionPct = isExec && body.cushion_pct !== undefined && Number.isFinite(Number(body.cushion_pct))
+      ? Math.max(0, Number(body.cushion_pct)) : 10;
     const to = (isExec && validEmails(body.to)) || DEFAULT_TO;
     const cc = isExec && body.cc !== undefined ? (validEmails(body.cc) ?? []) : DEFAULT_CC;
 
     const admin = createClient(supabaseUrl, serviceKey);
-    const { data: projection, error } = await admin.rpc('get_next_day_payout_projection', { p_date: date });
+    const { data: projection, error } = await admin.rpc('get_next_day_payout_projection', {
+      p_date: date, p_from: from, p_cushion_pct: cushionPct,
+    });
     if (error || !projection) {
       console.error('projection rpc failed', error);
       return json({ error: 'projection_failed', details: error?.message }, 500);
@@ -411,7 +472,10 @@ Deno.serve(async (req) => {
     const email = render(projection as Json);
     const summary = {
       date: (projection as Json).date,
+      from: (projection as Json).from,
       grand_total: email.grandTotal,
+      cushion: (projection as Json).plan?.cushion ?? 0,
+      plan_total: email.planTotal,
       roi_cash: (projection as Json).roi.cash_total,
       landlord: (projection as Json).landlord.total,
       withdrawals: (projection as Json).withdrawals.total,
