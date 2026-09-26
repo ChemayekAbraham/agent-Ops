@@ -90,7 +90,12 @@ inbound receipt.
   ("DON'T CREDIT THE 581M TO THAT FLOAT DESK"); they stay `suggested`.
   `mtn_to_equity` rows are not auto-credited, because the MTN SMS doesn't name the destination.
   The only live rule attributes Mercy → NABAGGALA CATHERINE …9292 to desk BAITA
-  (IMMACULATE NAMULINDWA 1a88b1b8). That attribution was inferred from timing.
+  (IMMACULATE NAMULINDWA 1a88b1b8). That attribution was inferred from timing. **Confirmed by Josh 2026-09-26:** WELILE
+  Technologies (Equity …5259) → Bayo Mercy (Equity …7542) → NABAGGALA CATHERINE (…9292)
+  credits Immaculate's desk. On the FinOps Actual Float card (`WalletBucketsPanel`, which
+  already includes Mercy's balance as "Money at Bank — Bayo Mercy account"), the first leg
+  raises Actual, the second lowers Actual and now raises BAITA's MAF. Migrations
+  `20260926110000` + `20260926120000` were applied and verified 2026-09-26 11:36 UTC.
 - The Gmail row stays `linked_deposit_request_id IS NULL`, because
   `auto_match_method` has a CHECK constraint. Any unmatched-receipt report may
   still list it. `merchant_float_returns.gmail_transaction_id` is the link.
