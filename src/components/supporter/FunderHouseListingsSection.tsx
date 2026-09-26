@@ -293,11 +293,34 @@ export function FunderHouseListingsSection() {
 
   return (
     <section className="space-y-3">
-      {/* Compact filters row — same as /dashboard/funder-new */}
+      {/* Search + compact filters row */}
       <div className="flex flex-wrap gap-2 rounded-2xl border bg-card p-2.5 shadow-sm sm:p-3">
+        <div className="relative min-w-0 flex-1 basis-full sm:basis-auto">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
+          <Input
+            value={searchInput}
+            onChange={(event) => setSearchInput(event.target.value)}
+            placeholder="Search house type or location…"
+            aria-label="Search houses and rent plans by type or location"
+            className="h-11 rounded-xl pl-9 pr-9 text-sm"
+          />
+          {searchInput ? (
+            <button
+              type="button"
+              aria-label="Clear search"
+              onClick={() => setSearchInput('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              <X className="h-4 w-4" aria-hidden />
+            </button>
+          ) : null}
+        </div>
         <Button
           variant="outline"
-          className="relative h-11 min-w-0 basis-[calc(50%-0.25rem)] rounded-xl text-sm sm:flex-none sm:basis-auto"
+          className="relative h-11 min-w-0 rounded-xl text-sm sm:flex-none"
           onClick={() => setFiltersOpen(true)}
         >
           <ListFilter className="h-4 w-4" aria-hidden />
