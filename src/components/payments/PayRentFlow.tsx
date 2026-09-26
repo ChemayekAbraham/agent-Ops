@@ -11,6 +11,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/paymentMethods';
 import { PaymentMethod } from './PaymentMethodCard';
 import { Home, Calendar, User, Wallet } from 'lucide-react';
+import { RentAccessGrowthInline } from '@/components/tenant/RentAccessGrowthInline';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -314,6 +315,9 @@ export default function PayRentFlow({
       isProcessing={isProcessing}
       isComplete={isComplete}
     >
+      {currentStep < 3 && !isProcessing && !isComplete && (
+        <RentAccessGrowthInline className="mb-3" />
+      )}
       {renderStep()}
     </StepperModal>
   );
