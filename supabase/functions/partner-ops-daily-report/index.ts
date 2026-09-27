@@ -149,6 +149,7 @@ interface Report {
     weekend_total: number; weekend_count: number;
   };
   mix: { by_mode: any[]; by_band: any[] };
+  outlook?: any;
 }
 
 async function loadReport(admin: Admin, start: string, end: string): Promise<Report> {
@@ -163,6 +164,8 @@ async function loadReport(admin: Admin, start: string, end: string): Promise<Rep
   r.forecast = r.forecast || { days: [], weekdays_total: 0, weekdays_count: 0, weekend_total: 0, weekend_count: 0 };
   r.forecast.days = r.forecast.days || [];
   r.mix = r.mix || { by_mode: [], by_band: [] };
+  const { data: ol, error: olErr } = await admin.rpc("get_partner_ops_compound_topup_outlook", { p_end: end });
+  r.outlook = olErr ? null : ol;
   return r;
 }
 
@@ -486,6 +489,34 @@ function buildPdf(r: Report, win: { title: string; pretty: string }, logo: Uint8
     finishSection(cur);
   }
 
+  // 4b — Compounding & top-ups outlook
+  if (r.outlook) {
+    const o = r.outlook;
+    const cc = o.compound_current || {}, cf = o.compound_forecast || {};
+    const tc = o.topup_current || {}, tf = o.topup_forecast || {};
+    let cur = drawSectionHead(
+      "Compounding portfolios - now and next 7 days",
+      "Active portfolios that reinvest returns into principal. Forecast = portfolios with a returns date in the next 7 days, valued at principal times monthly rate.",
+    );
+    cur = drawTiles([
+      { label: "Compounding portfolios (now)", value: fmtUGX(cc.value), sub: `${num(cc.count)} portfolios` },
+      { label: "To compound in 7 days", value: fmtUGX(cf.amount), sub: `${num(cf.count)} portfolios`, kind: "good" },
+      { label: "Compounding value in 7 days", value: fmtUGX(cf.value_after), sub: "current + forecast compounding" },
+    ], cur);
+    finishSection(cur);
+    cur = drawSectionHead(
+      "Top-ups - now and next 7 days",
+      "Top-ups waiting to merge into portfolios. Forecast = approved top-ups whose portfolio returns date falls within the next 7 days (or is overdue).",
+    );
+    cur = drawTiles([
+      { label: "Top-ups waiting (now)", value: fmtUGX(tc.value), sub: `${num(tc.count)} top-ups - ${num(tc.approved_count)} approved` },
+      { label: "Top-ups to apply in 7 days", value: fmtUGX(tf.amount), sub: `${num(tf.count)} top-ups`, kind: "good" },
+    ], cur);
+    const rows = (o.days || []).map((d: any) => [shortDate(d.day), num(d.compound_count), fmtUGX(d.compound_amount), num(d.topup_count), fmtUGX(d.topup_amount)]);
+    if (rows.length) cur = drawTable(["Day", "Compounding", "Compound value", "Top-ups", "Top-up value"], rows, cur);
+    finishSection(cur);
+  }
+
   // 5 — Portfolio mix
   {
     const modeRows = (r.mix?.by_mode || []).map((m: any) => [ascii(m.label ?? m.mode), num(m.portfolios ?? m.count), fmtUGX(m.amount ?? m.volume)]);
@@ -737,6 +768,16 @@ function buildHtml(r: Report, win: { title: string; pretty: string }): string {
     ${(modeRows.length || bandRows.length) ? section("Portfolio mix", "Book composition by payout mode and ticket size at window close.",
       (modeRows.length ? dataTable(["Payout mode", "Portfolios", "Volume"], modeRows) : "") +
       (bandRows.length ? dataTable(["Ticket band", "Portfolios", "Volume"], bandRows) : "")) : ""}
+
+    ${r.outlook ? (() => { const o = r.outlook; const cc = o.compound_current || {}, cf = o.compound_forecast || {}, tc = o.topup_current || {}, tf = o.topup_forecast || {};
+      return section("Compounding portfolios - now and next 7 days", "Active portfolios that reinvest returns into principal. Forecast = portfolios with a returns date in the next 7 days, valued at principal times monthly rate.", tiles([
+        tile("Compounding portfolios (now)", fmtUGX(cc.value), `${num(cc.count)} portfolios`),
+        tile("To compound in 7 days", fmtUGX(cf.amount), `${num(cf.count)} portfolios`, "good"),
+        tile("Compounding value in 7 days", fmtUGX(cf.value_after), "current + forecast compounding"),
+      ])) + section("Top-ups - now and next 7 days", "Top-ups waiting to merge into portfolios. Forecast = approved top-ups whose portfolio returns date falls within the next 7 days (or is overdue).", tiles([
+        tile("Top-ups waiting (now)", fmtUGX(tc.value), `${num(tc.count)} top-ups · ${num(tc.approved_count)} approved`),
+        tile("Top-ups to apply in 7 days", fmtUGX(tf.amount), `${num(tf.count)} top-ups`, "good"),
+      ]) + dataTable(["Day", "Compounding", "Compound value", "Top-ups", "Top-up value"], (o.days || []).map((d: any) => [shortDate(d.day), num(d.compound_count), fmtUGX(d.compound_amount), num(d.topup_count), fmtUGX(d.topup_amount)]))); })() : ""}
 
     ${section("Promissory notes", "Signed partner commitments straight from the promissory notes book. Pending notes are commitments, not capital - they are excluded from capital live and from capital in until activated.", tiles([
       tile(`Created (${days === 1 ? "this day" : "this window"})`, fmtUGX(pn.created_amount), `${num(pn.created_count)} notes`, "good"),
