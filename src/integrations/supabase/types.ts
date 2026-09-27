@@ -62270,6 +62270,14 @@ export type Database = {
         Args: { _gross: number; _run_id: string; _staff_id: string }
         Returns: number
       }
+      hr_pay_advance_people: {
+        Args: never
+        Returns: {
+          advance_id: string
+          full_name: string
+          staff_ref: string
+        }[]
+      }
       hr_pay_advance_recovered_totals: {
         Args: never
         Returns: {

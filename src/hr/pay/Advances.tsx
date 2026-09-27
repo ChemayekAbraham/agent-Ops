@@ -72,7 +72,14 @@ const STAGE_LABEL: Record<string, string> = {
 const ACTION_LABEL: Record<string, string> = {
   requested: 'HR approve',
   hr_approved: 'CEO approve',
-  ceo_approved: 'Disburse',
+  ceo_approved: 'Record disbursement',
+};
+
+/** Confirmation shown after each step. Recording a disbursement moves no money. */
+const DONE_LABEL: Record<string, string> = {
+  requested: 'HR approval recorded.',
+  hr_approved: 'CEO approval recorded.',
+  ceo_approved: 'Disbursement recorded. No money was moved; recovery starts on the next payroll.',
 };
 
 function isActionable(status: string): boolean {
@@ -191,7 +198,7 @@ export default function Advances() {
     setBusyId(row.id);
     try {
       await decideAdvance(row.id, true, '');
-      toast.success(`${ACTION_LABEL[row.status] ?? 'Approve'} recorded.`);
+      toast.success(DONE_LABEL[row.status] ?? 'Approval recorded.');
       await load();
     } catch (err) {
       toast.error((err as Error).message);
@@ -275,7 +282,7 @@ export default function Advances() {
   return (
     <HRPlaceholderPage
       heading="Salary advances"
-      subtitle="Requested by staff or raised by HR, approved by HR then the CEO, disbursed by the CFO, recovered automatically from payroll."
+      subtitle="Requested by staff or raised by HR, approved by HR then the CEO, paid out by the CFO and recorded here, then recovered automatically from payroll. Recording a disbursement sends no money."
     >
       {isPreparer && (
         <div>
@@ -374,6 +381,11 @@ export default function Advances() {
                       <Button
                         size="sm"
                         disabled={busyId === row.id}
+                        title={
+                          row.status === 'ceo_approved'
+                            ? 'Records that this advance has been paid out. It sends no money — pay the staff member first, then record it here.'
+                            : undefined
+                        }
                         onClick={() => void approve(row)}
                       >
                         {ACTION_LABEL[row.status]}

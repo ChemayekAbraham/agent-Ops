@@ -412,6 +412,9 @@ export default function SmartphoneOrderStatus({
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
+                    <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      Down payment funded by Welile
+                    </p>
                     <p className="text-sm font-semibold">{formatUGX(accessFee(o))}</p>
                     <p className="text-[11px] text-muted-foreground">
                       Ordered {format(new Date(o.created_at), 'd MMM yyyy, HH:mm')}
