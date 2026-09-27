@@ -402,6 +402,8 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
             <PaymentTimeline />
           </WidgetErrorBoundary>
 
+          <RentAccessProgressTracker userId={user.id} />
+
           <RentAccessGrowthBanner />
 
           <WidgetErrorBoundary label="Suggested houses">
