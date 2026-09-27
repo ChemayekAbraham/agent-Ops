@@ -1,4 +1,3 @@
-
 begin;
 
 -- Fingerprint. RentFlow only: public.user_roles.enabled does not exist in welile.com.
@@ -92,4 +91,3 @@ revoke all on function public.hr_pay_advance_people() from anon;
 grant execute on function public.hr_pay_advance_people() to authenticated;
 
 commit;
-
