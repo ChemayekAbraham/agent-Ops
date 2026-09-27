@@ -358,6 +358,11 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                   supplier directly; you receive the phone, not cash.
                 </li>
                 <li>
+                  <span className="font-medium text-foreground">Cash top-up:</span> you must bring an extra
+                  50% of the down payment in cash on collection day. Welile funds the down payment; your cash
+                  top-up reduces the overall repayment burden.
+                </li>
+                <li>
                   <span className="font-medium text-foreground">Repayment:</span> a daily amount is deducted
                   from your Welile Wallet over the period you choose (1 to 12 months). The amount
                   reduces every month as your balance comes down.
