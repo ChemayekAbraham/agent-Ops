@@ -202,7 +202,6 @@ const AgentManagedUsersSheet = lazy(() => import('@/components/agent/AgentManage
 const AgentTopUpTenantDialog = lazy(() => import('@/components/agent/AgentTopUpTenantDialog').then(m => ({ default: m.AgentTopUpTenantDialog })));
 const AgentInvestForPartnerDialog = lazy(() => import('@/components/agent/AgentInvestForPartnerDialog').then(m => ({ default: m.AgentInvestForPartnerDialog })));
 const ProxyInvestmentHistorySheet = lazy(() => import('@/components/agent/ProxyInvestmentHistorySheet').then(m => ({ default: m.ProxyInvestmentHistorySheet })));
-const AgentAngelPoolInvestDialog = lazy(() => import('@/components/agent/AgentAngelPoolInvestDialog').then(m => ({ default: m.AgentAngelPoolInvestDialog })));
 const AgentReceiptDialog = lazy(() => import('@/components/agent/AgentReceiptDialog').then(m => ({ default: m.AgentReceiptDialog })));
 const AgentLandlordMapSheet = lazy(() => import('@/components/agent/AgentLandlordMapSheet').then(m => ({ default: m.AgentLandlordMapSheet })));
 const RentalFinderSheet = lazy(() => import('@/components/agent/RentalFinderSheet').then(m => ({ default: m.RentalFinderSheet })));
@@ -518,7 +517,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   }, [pendingReceiptCount]);
   const [floatHistoryOpen, setFloatHistoryOpen] = useState(false);
   const [requisitionOpen, setRequisitionOpen] = useState(false);
-  const [angelPoolInvestOpen, setAngelPoolInvestOpen] = useState(false);
   const [rentPosterOpen, setRentPosterOpen] = useState(false);
   const [regFormKind, setRegFormKind] = useState<'landlord' | 'tenant' | null>(null);
   const [advanceRequestOpen, setAdvanceRequestOpen] = useState(false);
@@ -1834,7 +1832,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         onManageFunders={() => { setMenuOpen(false); setFunderSheetOpen(true); }}
         onOpenPartnerDashboard={() => { setMenuOpen(false); setPartnerDashboardOpen(true); }}
         onOpenRequisition={() => { setMenuOpen(false); setRequisitionOpen(true); }}
-        onAngelPoolFunding={() => { setMenuOpen(false); setAngelPoolInvestOpen(true); }}
         isFinancialAgent={isFinancialAgent}
         onInviteFunder={async () => {
           setMenuOpen(false);
@@ -2079,9 +2076,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
       </LazyModal>
       <LazyModal when={proxyHistoryOpen}>
       <ProxyInvestmentHistorySheet open={proxyHistoryOpen} onOpenChange={setProxyHistoryOpen} />
-      </LazyModal>
-      <LazyModal when={angelPoolInvestOpen}>
-      <AgentAngelPoolInvestDialog open={angelPoolInvestOpen} onOpenChange={setAngelPoolInvestOpen} onSuccess={() => { refreshOfflineData(); refreshWallet(); }} />
       </LazyModal>
       <LazyModal when={receiptOpen}>
       <AgentReceiptDialog open={receiptOpen} onOpenChange={setReceiptOpen} />

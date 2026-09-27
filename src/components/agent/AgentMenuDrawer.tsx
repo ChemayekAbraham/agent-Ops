@@ -75,7 +75,6 @@ interface AgentMenuDrawerProps {
   onInviteFunder?: () => void;
   onInviteAngelPartner?: () => void;
   onOpenRequisition?: () => void;
-  onAngelPoolFunding?: () => void;
   onShareTenantForm?: () => void;
   onInviteTenant?: () => void;
   onSharePartnerForm?: () => void;
@@ -138,7 +137,6 @@ export function AgentMenuDrawer({
   onInviteFunder,
   onInviteAngelPartner,
   onOpenRequisition,
-  onAngelPoolFunding,
   onShareTenantForm,
   onInviteTenant,
   onSharePartnerForm,
@@ -183,7 +181,6 @@ export function AgentMenuDrawer({
         { icon: ArrowDownCircle, label: 'Deposit', description: 'Add funds to wallet', onClick: onDeposit, accent: 'success' },
         { icon: Wallet, label: 'Top Up Wallet', description: 'Deposit to tenant wallet', onClick: onTopUpTenant, accent: 'emerald-500' },
         { icon: HandCoins, label: 'Fund Partner', description: 'Proxy funding', onClick: onFundPartner, accent: 'emerald-600', badge: 'Proxy' },
-        { icon: PiggyBank, label: 'Angel Pool', description: 'Buy shares in the equity pool', onClick: onAngelPoolFunding, accent: 'emerald-500', badge: 'Angel' },
         { icon: Receipt, label: 'Issue Receipt', description: 'Record cash payment', onClick: onIssueReceipt, accent: 'amber-500' },
         { icon: Banknote, label: 'Cash, Mobile Money & Bank Payouts', description: 'Verify & pay cash-outs', path: '/agent/cash-payouts', accent: 'orange-500', badge: '💵' },
         { icon: Wallet, label: 'Request Advance', description: 'Get funds to your wallet', onClick: onRequestAdvance, accent: 'purple-500', badge: '💰' },
