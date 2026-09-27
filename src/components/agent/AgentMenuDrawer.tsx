@@ -80,8 +80,6 @@ interface AgentMenuDrawerProps {
   onInviteTenant?: () => void;
   onSharePartnerForm?: () => void;
   onShareLandlordSignup?: () => void;
-  onCreatePromissoryNote?: () => void;
-  onViewPromissoryNotes?: () => void;
   onRequestAdvance?: () => void;
   onViewCreditAccess?: () => void;
   onViewSavedDrafts?: () => void;
@@ -145,8 +143,6 @@ export function AgentMenuDrawer({
   onInviteTenant,
   onSharePartnerForm,
   onShareLandlordSignup,
-  onCreatePromissoryNote,
-  onViewPromissoryNotes,
   onRequestAdvance,
   onViewCreditAccess,
   onViewSavedDrafts,
@@ -224,8 +220,6 @@ export function AgentMenuDrawer({
         { icon: HandCoins, label: 'My Funders', description: 'No-smartphone partners', onClick: onManageFunders, accent: 'primary', badge: '📱' },
         { icon: Handshake, label: 'Register Sub-Agent', description: 'Add to your team', onClick: onInviteSubAgent, accent: 'amber-500', badge: '500' },
         { icon: Users, label: 'My Sub-Agents', description: 'View your team', onClick: onViewSubAgents, accent: 'orange-500' },
-        { icon: FileText, label: 'Promissory Note', description: 'Capture commitment', onClick: onCreatePromissoryNote, accent: 'purple-600', badge: '📝' },
-        { icon: FileText, label: 'My Promissory Notes', description: 'View notes & earnings', onClick: onViewPromissoryNotes, accent: 'purple-500', badge: '📋' },
       ].filter(i => i.onClick !== undefined || i.path !== undefined),
     },
     {
