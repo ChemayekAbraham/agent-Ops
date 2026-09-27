@@ -93,6 +93,8 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
   const selected = options.find((c) => c.id === catalogId);
   const dpCopy = downPaymentCopy(selected?.brand ?? (osType === 'ios' ? 'Apple' : 'Android'), selected?.model_name);
   const price = Math.max(0, Math.round(Number(selected?.default_amount ?? 0)));
+  const cashTopUp = Math.round(price / 2);
+  const totalOnCollection = price + cashTopUp;
 
   useEffect(() => {
     setCatalogId('');
