@@ -331,7 +331,6 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
           {/* Terms Acceptance Notice */}
           <TenantAgreementNotice onAcceptClick={() => setShowAgreementModal(true)} />
 
-          <RentAccessGrowthBanner />
           <RentAccessProgressTracker userId={user.id} />
 
 
@@ -407,6 +406,8 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
           <WidgetErrorBoundary label="Payment timeline">
             <PaymentTimeline />
           </WidgetErrorBoundary>
+
+          <RentAccessGrowthBanner />
 
           <WidgetErrorBoundary label="Suggested houses">
             <SuggestedHousesCard userId={user.id} onViewAll={goToAllHouses} />
