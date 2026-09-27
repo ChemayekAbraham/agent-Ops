@@ -234,6 +234,7 @@ export default function StaffDirectory() {
       'Position',
       'Department',
       'Reports to',
+      'Enrolled',
       'Email',
       'Phone',
       ...(hasExited ? ['Exited on'] : []),
@@ -252,6 +253,13 @@ export default function StaffDirectory() {
           primary?.position_title ?? '',
           primary?.department_name ?? '',
           reportsTo,
+          s.joined_at
+            ? new Date(s.joined_at).toLocaleDateString('en-GB', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+              })
+            : '',
           s.email,
           s.phone,
           ...(hasExited
@@ -426,6 +434,7 @@ export default function StaffDirectory() {
                     </TableHead>
                     <TableHead>Role</TableHead>
                     <TableHead>Reports to</TableHead>
+                    <TableHead className="whitespace-nowrap">Enrolled</TableHead>
                     <TableHead>Contact</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -482,6 +491,15 @@ export default function StaffDirectory() {
                           <TableCell>
                             {s.current_assignment?.manager_employee_id
                               ? positionTitleById[s.current_assignment.manager_employee_id] ?? '—'
+                              : '—'}
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap">
+                            {s.joined_at
+                              ? new Date(s.joined_at).toLocaleDateString('en-GB', {
+                                  day: '2-digit',
+                                  month: 'short',
+                                  year: 'numeric',
+                                })
                               : '—'}
                           </TableCell>
                           <TableCell>
@@ -566,7 +584,7 @@ export default function StaffDirectory() {
                         {isOpen && (
                           <TableRow className="bg-muted/30 hover:bg-muted/30">
                             <TableCell />
-                            <TableCell colSpan={5} className="py-3">
+                            <TableCell colSpan={6} className="py-3">
                               {rows.length === 0 ? (
                                 <p className="text-sm text-muted-foreground">
                                   No active positions for this person yet.

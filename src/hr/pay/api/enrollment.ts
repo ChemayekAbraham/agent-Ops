@@ -38,6 +38,12 @@ export interface EnrollmentResult {
   openPeriodCode: string | null;
   openPeriodStart: string | null;
   openPeriodCutOff: string | null;
+  /**
+   * First day of the open pay period: the day after the previous period's
+   * cut-off (e.g. 29 Aug for a period with cut-off 28 Sep). The first of the
+   * month when there is no earlier period.
+   */
+  payWindowStart: string | null;
 }
 
 type StaffRow = {
@@ -128,8 +134,25 @@ export async function listEnrollment(): Promise<EnrollmentResult> {
   const openPeriodStart = period ? firstDayOf(period.period_month) : null;
   const openPeriodCutOff = period?.cut_off_date ?? null;
 
+  let payWindowStart: string | null = openPeriodStart;
+  if (period) {
+    const prevRes = await supabase
+      .from('hr_pay_periods')
+      .select('cut_off_date')
+      .lt('period_month', period.period_month)
+      .order('period_month', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const prev = unwrap(prevRes) as { cut_off_date: string } | null;
+    if (prev?.cut_off_date) {
+      const next = new Date(`${prev.cut_off_date}T00:00:00Z`);
+      next.setUTCDate(next.getUTCDate() + 1);
+      payWindowStart = next.toISOString().slice(0, 10);
+    }
+  }
+
   if (staff.length === 0) {
-    return { rows: [], openPeriodCode, openPeriodStart, openPeriodCutOff };
+    return { rows: [], openPeriodCode, openPeriodStart, openPeriodCutOff, payWindowStart };
   }
 
   const staffIds = staff.map((s) => s.id);
@@ -255,7 +278,7 @@ export async function listEnrollment(): Promise<EnrollmentResult> {
     })
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  return { rows: mapped, openPeriodCode, openPeriodStart, openPeriodCutOff };
+  return { rows: mapped, openPeriodCode, openPeriodStart, openPeriodCutOff, payWindowStart };
 }
 
 /**

@@ -2775,6 +2775,110 @@ async function _tryAutoCreditOperationalFloat(
     }
   }
 
+  // ── Merchant desk returns are not deposits ────────────────────────────
+  // Money arriving on a company line FROM an active merchant desk's phone is
+  // the desk handing company float back. Auto-crediting it as an
+  // operational_float deposit raised the desk's float by the amount returned
+  // (TID157335971789 / TID157334845929, 2026-09-25). Instead the return is
+  // recorded against the desk automatically (auto_record_merchant_float_return
+  // reduces its float, capped at the float on the books, and alerts Financial
+  // Ops on anything it cannot post). Only a phone match is trusted to move the
+  // desk's float; a name-only match is raised for Financial Ops. A deposit the
+  // desk submitted itself was already handled by the late-link step above.
+  // Mirrors auto_create_deposits_from_gmail_impl.
+  const { data: isMerchantDesk } = await supabase.rpc('is_merchant_agent', { p_user_id: profile.id });
+  if (isMerchantDesk === true) {
+    const raiseReturnAlert = async (reason: string, extra: Record<string, unknown> = {}) => {
+      try {
+        await supabase.from('deposit_match_alerts').upsert(
+          {
+            alert_type: 'merchant_float_return',
+            subject_id: gmailRow.id,
+            subject_label: 'Merchant desk sent money to the company - check the float return',
+            user_id: profile!.id,
+            amount: parsed.amount ?? null,
+            transaction_reference: parsed.transaction_id ?? null,
+            severity: 'high',
+            details: {
+              reason,
+              source: 'gmail_poll_auto_credit',
+              match_method: matchMethod,
+              phone_source: phoneSource,
+              counterparty: parsed.counterparty ?? null,
+              observed_at: new Date().toISOString(),
+              ...extra,
+            },
+            resolved_at: null,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'alert_type,subject_id' },
+        );
+      } catch (e) {
+        console.warn('[gmail-poll] merchant float return alert upsert failed:', e);
+      }
+    };
+
+    if (matchMethod !== 'phone') {
+      console.log(
+        `[gmail-poll] inbound from merchant desk user=${profile.id} tid=${parsed.transaction_id} ` +
+        `amt=${parsed.amount} matched by name only — float return raised for review`,
+      );
+      await logDepositDecision(supabase, {
+        source: 'matcher',
+        decision: 'flagged_for_review',
+        reason: 'merchant_float_return_name_match_only',
+        gmail_transaction_id: gmailRow.id,
+        amount: parsed.amount ?? null,
+        actor_id: profile.id,
+        metadata: { gmail_message_id: gmailMessageId, tid: parsed.transaction_id ?? null },
+      });
+      await raiseReturnAlert('name_match_only_not_auto_recorded');
+      return;
+    }
+
+    const { data: ret, error: retErr } = await supabase.rpc('auto_record_merchant_float_return', {
+      p_gmail_transaction_id: gmailRow.id,
+      p_agent_id: profile.id,
+      p_match_method: `phone_${phoneSource ?? 'unknown'}`,
+    });
+    const outcome = (ret as any)?.outcome ?? null;
+    if (retErr || !(ret as any)?.ok) {
+      console.warn(
+        `[gmail-poll] merchant float return not recorded user=${profile.id} tid=${parsed.transaction_id} ` +
+        `outcome=${outcome} err=${retErr?.message ?? ''}`,
+      );
+      await logDepositDecision(supabase, {
+        source: 'matcher',
+        decision: retErr ? 'failed' : 'flagged_for_review',
+        reason: retErr ? 'merchant_float_return_rpc_error' : `merchant_float_return_${outcome}`,
+        gmail_transaction_id: gmailRow.id,
+        amount: parsed.amount ?? null,
+        actor_id: profile.id,
+        metadata: { gmail_message_id: gmailMessageId, tid: parsed.transaction_id ?? null, error: retErr?.message ?? null },
+      });
+      // The RPC raises its own alert for the cases it declines; an RPC error
+      // rolled everything back, so raise it here.
+      if (retErr) await raiseReturnAlert('auto_record_failed', { error: retErr.message });
+      return;
+    }
+
+    console.log(
+      `[gmail-poll] merchant float return recorded user=${profile.id} tid=${parsed.transaction_id} ` +
+      `amt=${parsed.amount} outcome=${outcome} written_down=${(ret as any)?.written_down}`,
+    );
+    await logDepositDecision(supabase, {
+      source: 'matcher',
+      // 'partial' / 'no_float' post what they can and raise the rest.
+      decision: outcome === 'posted' || outcome === 'already_recorded' ? 'matched' : 'flagged_for_review',
+      reason: `merchant_float_return_${outcome}`,
+      gmail_transaction_id: gmailRow.id,
+      amount: parsed.amount ?? null,
+      actor_id: profile.id,
+      metadata: { gmail_message_id: gmailMessageId, tid: parsed.transaction_id ?? null, result: ret },
+    });
+    return;
+  }
+
   const provider = parsed.channel === 'mtn_momo' ? 'mtn' : 'airtel';
 
   // Direct tenant rent payments need no special case here. A tenant paying

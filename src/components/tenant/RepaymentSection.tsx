@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { formatUGX } from '@/lib/rentCalculations';
 import { TrendingUp, Calendar, CheckCircle2, Clock, AlertTriangle, XCircle, CalendarDays, CreditCard, Smartphone, Zap, FileDown, Loader2 } from 'lucide-react';
 import { RepaymentHistoryDrawer } from './RepaymentHistoryDrawer';
+import { RentAccessGrowthInline } from './RentAccessGrowthInline';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { differenceInDays, format, eachDayOfInterval, isSameDay, startOfDay } from 'date-fns';
@@ -280,6 +281,7 @@ export default function RepaymentSection({
                     <p className="text-sm text-primary-foreground/80">
                       Pay <span className="font-bold">{formatUGX(Number(activeRequest.daily_repayment))}</span> via MTN or Airtel
                     </p>
+                    <RentAccessGrowthInline surface="daily_payment_card" variant="onPrimary" className="mt-2" />
                     <div className="flex items-center gap-2 mt-2">
                       <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-yellow-500/20">
                         <div className="w-4 h-4 rounded-full bg-yellow-500 flex items-center justify-center">
@@ -632,6 +634,7 @@ export default function RepaymentSection({
           <ScrollArea className="max-h-[calc(90vh-80px)] p-4 pt-2">
             {activeRequest && (
               <div className="space-y-4">
+                <RentAccessGrowthInline surface="repayment_dialog" />
                 {/* Amount Info */}
                 <Card className="border-0 bg-primary/5">
                   <CardContent className="p-4">

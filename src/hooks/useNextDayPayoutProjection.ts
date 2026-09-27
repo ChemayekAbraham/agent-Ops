@@ -11,6 +11,8 @@ export interface ProjectionRoiItem {
   portfolio_id: string;
   portfolio_code: string;
   partner_name: string;
+  /** Returns due date; the range can span several days (Sat-Mon). */
+  due_date: string;
   amount: number;
   principal: number;
   roi_percentage: number;
@@ -59,11 +61,25 @@ export interface ProjectionPartnerCapitalItem {
 
 interface CountAmount { count: number; amount: number }
 
+export interface ProjectionRoiDay {
+  due_date: string;
+  cash_count: number;
+  cash_total: number;
+  compounding_count: number;
+  compounding_total: number;
+}
+
 export interface NextDayPayoutProjection {
+  /** Payout day. Defaults to the next weekday after today (Kampala). */
   date: string;
+  /** First Returns due date covered: the day after the previous payout day. */
+  from: string;
+  /** Number of due dates covered (3 for a Monday: Sat, Sun, Mon). */
+  days: number;
   generated_at: string;
   roi: {
     items: ProjectionRoiItem[];
+    by_day: ProjectionRoiDay[];
     cash_count: number;
     cash_total: number;
     compounding_count: number;
@@ -72,6 +88,8 @@ export interface NextDayPayoutProjection {
   landlord: { items: ProjectionLandlordItem[]; count: number; total: number };
   withdrawals: { items: ProjectionWithdrawalItem[]; count: number; total: number };
   partner_capital: { items: ProjectionPartnerCapitalItem[]; count: number; total: number };
+  /** base_total = cash out (compounding excluded); total = base_total + cushion. */
+  plan: { base_total: number; cushion_pct: number; cushion: number; total: number };
   /** Older items kept OUT of the totals. */
   backlog: {
     roi_past_due: CountAmount;
@@ -85,12 +103,18 @@ export function projectionCashTotal(p: NextDayPayoutProjection): number {
   return Number(p.roi.cash_total) + Number(p.landlord.total) + Number(p.withdrawals.total) + Number(p.partner_capital.total);
 }
 
-/** @param date YYYY-MM-DD; omit for tomorrow in Africa/Kampala. */
-export function useNextDayPayoutProjection(date?: string) {
+/**
+ * @param date YYYY-MM-DD payout day; omit for the next weekday in Africa/Kampala.
+ * @param cushionPct cushion added on top of the base cash-out (default 10).
+ */
+export function useNextDayPayoutProjection(date?: string, cushionPct = 10) {
   return useQuery({
-    queryKey: ['next-day-payout-projection', date ?? 'tomorrow'],
+    queryKey: ['next-day-payout-projection', date ?? 'next-payout-day', cushionPct],
     queryFn: async () => {
-      const { data, error } = await (supabase.rpc as any)('get_next_day_payout_projection', { p_date: date ?? null });
+      const { data, error } = await (supabase.rpc as any)('get_next_day_payout_projection', {
+        p_date: date ?? null,
+        p_cushion_pct: cushionPct,
+      });
       if (error) throw error;
       return data as NextDayPayoutProjection;
     },

@@ -139,7 +139,11 @@ Deno.serve(async (req) => {
       const tempPassword = crypto.randomUUID().slice(0, 12) + "Aa1!";
       const { data: authData, error: createErr } = await supabaseAdmin.auth.admin.createUser({
         email: virtualEmail, password: tempPassword, email_confirm: true,
-        user_metadata: { full_name, phone: cleanPhone },
+        // Tenant registration is exempt from the one-account-per-device-per-day
+        // rule in handle_new_user: one agent legitimately registers many tenants
+        // from one phone. Capped separately by record_agent_assisted_signup at
+        // 5/hour and 15/day per device.
+        user_metadata: { full_name, phone: cleanPhone, signup_channel: 'agent_assisted' },
       });
 
       if (createErr) {
