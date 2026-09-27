@@ -70,8 +70,10 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
   });
   const [search, setSearch] = useState('');
   const [isCollapsed, setIsCollapsed] = useState(() => {
-    const saved = localStorage.getItem('promissory-overview-collapsed');
-    return saved === 'true';
+    // Collapsed by default: the panel stays shut until someone opens it on purpose.
+    // v2 key so the new default beats any older saved preference.
+    const saved = localStorage.getItem('promissory-overview-collapsed-v2');
+    return saved !== 'false';
   });
   const [approveTarget, setApproveTarget] = useState<any>(null);
   const [approveReason, setApproveReason] = useState('');
@@ -188,7 +190,7 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
   }, [selected]);
 
   React.useEffect(() => {
-    localStorage.setItem('promissory-overview-collapsed', String(isCollapsed));
+    localStorage.setItem('promissory-overview-collapsed-v2', String(isCollapsed));
   }, [isCollapsed]);
 
   const openLabel = {
@@ -226,7 +228,7 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
               )}
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {isCollapsed ? 'Tap to expand filters & queue preview' : 'Review partner commitments, approve notes &amp; track collections'}
+              {isCollapsed ? 'Tap to expand filters & queue preview' : 'Review partner commitments, approve notes & track collections'}
             </p>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
