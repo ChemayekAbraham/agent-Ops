@@ -16,7 +16,7 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const FROM = "Welile Reports <info@welile.com>";
 const SENDER_DOMAIN = "notify.welile.com";
-const DEFAULT_RECIPIENTS = ["jlukodda@gmail.com", "pexpert46@gmail.com"];
+const DEFAULT_RECIPIENTS = ["jlukodda@gmail.com", "ssenkaali.pius@welile.com"];
 
 const fmtUGX = (n: unknown) =>
   `UGX ${Math.round(Number(n) || 0).toLocaleString("en-US")}`;

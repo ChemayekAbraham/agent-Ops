@@ -6,7 +6,7 @@ const corsHeaders = {
 };
 
 const FROM = 'Welile Security <security@welile.com>';
-const RECIPIENTS = ['joshwanda17@gmail.com', 'pexpert46@gmail.com', 'markbwayo@gmail.com'];
+const RECIPIENTS = ['joshwanda17@gmail.com', 'ssenkaali.pius@welile.com', 'markbwayo@gmail.com'];
 
 function eat(iso: string | null) {
   if (!iso) return '—';
