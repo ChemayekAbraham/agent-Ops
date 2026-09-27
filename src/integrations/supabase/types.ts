@@ -6630,6 +6630,7 @@ export type Database = {
       }
       backup_runs: {
         Row: {
+          backup_kind: string
           created_at: string
           error_message: string | null
           id: string
@@ -6641,6 +6642,7 @@ export type Database = {
           table_count: number | null
         }
         Insert: {
+          backup_kind?: string
           created_at?: string
           error_message?: string | null
           id?: string
@@ -6652,6 +6654,7 @@ export type Database = {
           table_count?: number | null
         }
         Update: {
+          backup_kind?: string
           created_at?: string
           error_message?: string | null
           id?: string
@@ -45340,6 +45343,42 @@ export type Database = {
         }
         Relationships: []
       }
+      tops_float_adequacy_snapshots: {
+        Row: {
+          adequacy_ratio: number | null
+          agent_id: string
+          captured_at: string
+          expected_obligation_ugx: number
+          float_balance_ugx: number
+          for_date: string
+          id: string
+          shortfall_ugx: number
+          tenants_at_risk: number
+        }
+        Insert: {
+          adequacy_ratio?: number | null
+          agent_id: string
+          captured_at?: string
+          expected_obligation_ugx: number
+          float_balance_ugx: number
+          for_date: string
+          id?: string
+          shortfall_ugx: number
+          tenants_at_risk: number
+        }
+        Update: {
+          adequacy_ratio?: number | null
+          agent_id?: string
+          captured_at?: string
+          expected_obligation_ugx?: number
+          float_balance_ugx?: number
+          for_date?: string
+          id?: string
+          shortfall_ugx?: number
+          tenants_at_risk?: number
+        }
+        Relationships: []
+      }
       tops_instalment_settlements: {
         Row: {
           amount_ugx: number
@@ -54567,6 +54606,16 @@ export type Database = {
         Returns: undefined
       }
       agent_advance_activity: { Args: { p_user_id: string }; Returns: Json }
+      agent_advance_allocation_entries: {
+        Args: {
+          p_advance_id: string
+          p_agent_id: string
+          p_amount: number
+          p_external?: boolean
+          p_transaction_date?: string
+        }
+        Returns: Json
+      }
       agent_advance_blocking_gates: {
         Args: {
           p_agent_id: string
@@ -54575,10 +54624,25 @@ export type Database = {
         }
         Returns: Json
       }
+      agent_advance_component_state: {
+        Args: { p_advance_id: string }
+        Returns: {
+          access_fee: number
+          late_fee: number
+          principal: number
+          registration_fee: number
+          unearned_late_fee: number
+        }[]
+      }
+      agent_advance_is_post_effective: {
+        Args: { p_advance_id: string }
+        Returns: boolean
+      }
       agent_advance_topup_eligibility: {
         Args: { p_agent_id: string }
         Returns: Json
       }
+      agent_advance_waterfall_from: { Args: never; Returns: string }
       agent_allocate_tenant_payment: {
         Args: {
           p_agent_id: string
@@ -58521,6 +58585,10 @@ export type Database = {
           staff_ref: string
           topups: number
         }[]
+      }
+      general_ledger_backup_boundaries: {
+        Args: { p_step?: number }
+        Returns: Json
       }
       generate_campaign_short_code: { Args: never; Returns: string }
       generate_daily_merchant_commission_report: {
@@ -67250,6 +67318,80 @@ export type Database = {
           is_hidden: boolean
         }[]
       }
+      tops_agent_arrears_book: {
+        Args: { p_as_at?: string }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          arrears_ugx: number
+          bucket: string
+          plan_count: number
+        }[]
+      }
+      tops_agent_attainment: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          attribution_caveat: string
+          basis: string
+          collected_on_schedule_ugx: number
+          coverage_pct: number
+          expected_ugx: number
+        }[]
+      }
+      tops_agent_capacity_eligibility: {
+        Args: never
+        Returns: {
+          active_count: number
+          agent_id: string
+          agent_name: string
+          coverage_today: number
+          effective_pct: number
+          expected_daily: number
+          paid_today: number
+          tenants_due: number
+          tenants_paid_today: number
+          today_pct: number
+          weekly_lapsed_count: number
+          weekly_plan_count: number
+        }[]
+      }
+      tops_agent_float_adequacy: {
+        Args: { p_for_date: string }
+        Returns: {
+          adequacy_ratio: number
+          agent_id: string
+          agent_name: string
+          expected_obligation_ugx: number
+          float_balance_ugx: number
+          shortfall_ugx: number
+          tenants_at_risk: number
+        }[]
+      }
+      tops_agent_float_adequacy_internal: {
+        Args: { p_for_date: string }
+        Returns: {
+          adequacy_ratio: number
+          agent_id: string
+          agent_name: string
+          expected_obligation_ugx: number
+          float_balance_ugx: number
+          shortfall_ugx: number
+          tenants_at_risk: number
+        }[]
+      }
+      tops_agent_integrity_signals: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          balance_correction_count: number
+          reversed_collections_count: number
+          reversed_collections_ugx: number
+          transfer_churn_count: number
+        }[]
+      }
       tops_allocate_collection: {
         Args: { p_collection_id: string }
         Returns: number
@@ -67399,6 +67541,29 @@ export type Database = {
           term_expired: boolean
         }[]
       }
+      tops_plan_position_internal: {
+        Args: { p_as_at?: string; p_rent_request_id: string }
+        Returns: {
+          as_at: string
+          basis: string
+          cadence: string
+          cadence_source: string
+          catch_up_daily_ugx: number
+          clock_source: string
+          clock_start: string
+          days_ahead: number
+          days_behind: number
+          days_past_due: number
+          expected_to_date_ugx: number
+          outstanding_ugx: number
+          paid_to_date_ugx: number
+          periods_due: number
+          position_ugx: number
+          rent_request_id: string
+          term_end_date: string
+          term_expired: boolean
+        }[]
+      }
       tops_plan_schedule_ledger: {
         Args: { p_rent_request_id: string }
         Returns: {
@@ -67438,6 +67603,7 @@ export type Database = {
         Returns: undefined
       }
       tops_resolve_promises: { Args: { p_as_at?: string }; Returns: number }
+      tops_snapshot_agent_float_adequacy: { Args: never; Returns: number }
       tops_snooze_work_item: {
         Args: { p_new_sla_due_at: string; p_work_item_id: string }
         Returns: undefined
