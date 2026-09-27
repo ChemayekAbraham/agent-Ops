@@ -81,7 +81,7 @@ export function WelileHomesAdminPanel() {
   const runPayouts = async () => {
     setRunning(true);
     try {
-      const { data, error } = await supabase.rpc('welile_home_run_landlord_payouts', { p_as_of: new Date().toISOString().slice(0, 10) });
+      const { data, error } = await supabase.rpc('staff_welile_home_run_landlord_payouts', { p_as_of: new Date().toISOString().slice(0, 10) });
       if (error) throw error;
       const res = data as any;
       toast.success(`Paid ${res?.payouts ?? 0} landlord(s) · ${formatUGX(res?.total_paid ?? 0)}`);

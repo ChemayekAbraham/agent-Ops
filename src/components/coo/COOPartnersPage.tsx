@@ -599,7 +599,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
       if (upErr) throw upErr;
 
       // Double-entry ledger: roi_expense + roi_reinvestment
-      const { error: ledgerErr } = await supabase.rpc('create_ledger_transaction', {
+      const { error: ledgerErr } = await supabase.rpc('staff_create_ledger_transaction', {
         entries: [
           {
             user_id: detailPartner.profile.id,
@@ -5101,7 +5101,7 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
       if (upErr) throw upErr;
 
       // Reinvest ledger via RPC (double-entry: roi_expense + roi_reinvestment)
-      const { error: ledgerErr } = await supabase.rpc('create_ledger_transaction', {
+      const { error: ledgerErr } = await supabase.rpc('staff_create_ledger_transaction', {
         entries: [
           {
             user_id: p.investorId,
@@ -5579,7 +5579,7 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
       }
 
       // Reinvest ledger via RPC (double-entry: roi_expense + roi_reinvestment)
-      const { error: ledgerErr } = await supabase.rpc('create_ledger_transaction', {
+      const { error: ledgerErr } = await supabase.rpc('staff_create_ledger_transaction', {
         entries: [
           {
             user_id: p.investorId,

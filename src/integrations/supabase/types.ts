@@ -55043,6 +55043,15 @@ export type Database = {
         }
         Returns: Json
       }
+      agent_welile_home_record_collection: {
+        Args: {
+          p_amount: number
+          p_notes?: string
+          p_source?: string
+          p_subscription_id: string
+        }
+        Returns: Json
+      }
       allocate_instalment: {
         Args: { p_instalment_amount: number; p_rent_request_id: string }
         Returns: {
@@ -66551,6 +66560,19 @@ export type Database = {
           transaction_group_id: string
         }[]
       }
+      staff_create_ledger_transaction: {
+        Args: { entries: Json; idempotency_key?: string }
+        Returns: string
+      }
+      staff_credit_agent_event_bonus: {
+        Args: {
+          p_agent_id: string
+          p_event_type: string
+          p_source_id?: string
+          p_tenant_id?: string
+        }
+        Returns: Json
+      }
       staff_loan_accrue_interest: {
         Args: never
         Returns: {
@@ -66711,6 +66733,10 @@ export type Database = {
           final_stage: string
           stage: string
         }[]
+      }
+      staff_welile_home_run_landlord_payouts: {
+        Args: { p_as_of?: string }
+        Returns: Json
       }
       stamp_float_request_settlement: {
         Args: { p_reference: string; p_request_id: string }

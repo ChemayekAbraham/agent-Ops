@@ -1,4 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { forbidden, isServiceRoleRequest } from "../_shared/callerAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,6 +17,10 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
+
+  // Internal job: no scheduler or UI calls this. verify_jwt is off, so without
+  // this check anyone holding the public anon key could trigger it.
+  if (!isServiceRoleRequest(req)) return forbidden(corsHeaders, 401);
 
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
