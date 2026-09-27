@@ -251,6 +251,27 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
               </Select>
             </div>
 
+            {selected && price > 0 && (
+              <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">{dpCopy.amountLabelShort} Welile funds</span>
+                  <span className="font-bold tabular-nums">{formatUGX(price)}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Cash you bring (50% of the down payment)</span>
+                  <span className="font-bold tabular-nums text-primary">{formatUGX(Math.round(price / 2))}</span>
+                </div>
+                <p className="text-[11px] text-muted-foreground flex gap-1.5 pt-1 border-t border-border">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600" />
+                  <span>
+                    To qualify, come with an extra <span className="font-medium text-foreground">{formatUGX(Math.round(price / 2))}</span> in
+                    cash — half of the down payment. Welile funds the down payment and your cash top-up
+                    reduces what you repay overall.
+                  </span>
+                </p>
+              </div>
+            )}
+
             <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-2">
               <p className="text-xs font-semibold">
                 {dpCopy.partner ? `How the ${dpCopy.partner} iPhone works` : 'How this phone works'}
@@ -335,6 +356,11 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                 <li>
                   <span className="font-medium text-foreground">Supplier:</span> Welile pays the registered
                   supplier directly; you receive the phone, not cash.
+                </li>
+                <li>
+                  <span className="font-medium text-foreground">Cash top-up:</span> you must bring an extra
+                  50% of the down payment in cash on collection day. Welile funds the down payment; your cash
+                  top-up reduces the overall repayment burden.
                 </li>
                 <li>
                   <span className="font-medium text-foreground">Repayment:</span> a daily amount is deducted
