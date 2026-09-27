@@ -39,6 +39,8 @@ interface Eligibility {
   has_national_id: boolean;
   has_workplace_verification: boolean;
   has_open_application: boolean;
+  has_active_advance?: boolean;
+  advance_outstanding?: number;
   eligible: boolean;
 }
 
@@ -117,11 +119,14 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
   const scheduleRows = schedule?.schedule.rows ?? [];
 
   // Applications are open to every agent — only a duplicate open application
-  // stops a submission. Portfolio and document checks are review inputs shown
-  // to the Agent Ops manager, never a block here.
+  // or a running advance repayment stops a submission. Portfolio and document
+  // checks are review inputs shown to the Agent Ops manager, never a block here.
   const hasOpenApplication = !!eligibility?.has_open_application;
+  const hasActiveAdvance = !!eligibility?.has_active_advance;
+  const advanceOutstanding = Math.max(0, Math.round(Number(eligibility?.advance_outstanding ?? 0)));
+  const blocked = hasOpenApplication || hasActiveAdvance;
   const canSubmit =
-    !hasOpenApplication && !!selected && price > 0 && docsReady && (paymentMethod === 'full' || !!period);
+    !blocked && !!selected && price > 0 && docsReady && (paymentMethod === 'full' || !!period);
 
   const reset = () => {
     setOsType('android');
@@ -193,6 +198,17 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                   decided.
                 </p>
               </div>
+            ) : hasActiveAdvance ? (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-1">
+                <p className="text-xs font-semibold flex items-center gap-1.5 text-destructive">
+                  <AlertTriangle className="h-3.5 w-3.5" /> Clear your advance first
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  You still have an advance repayment running
+                  {advanceOutstanding > 0 ? ` (UGX ${advanceOutstanding.toLocaleString()} outstanding)` : ''}.
+                  You become eligible for a smartphone once the advance is fully cleared.
+                </p>
+              </div>
             ) : null}
 
             <div className="space-y-2">
@@ -200,7 +216,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  disabled={hasOpenApplication}
+                  disabled={blocked}
                   onClick={() => setOsType('android')}
                   className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${
                     osType === 'android'
@@ -212,7 +228,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                 </button>
                 <button
                   type="button"
-                  disabled={hasOpenApplication}
+                  disabled={blocked}
                   onClick={() => setOsType('ios')}
                   className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${
                     osType === 'ios'
@@ -230,7 +246,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
               <Select
                 value={options.some((o) => o.id === catalogId) ? catalogId : ''}
                 onValueChange={setCatalogId}
-                disabled={catalogLoading || hasOpenApplication || options.length === 0}
+                disabled={catalogLoading || blocked || options.length === 0}
               >
                 <SelectTrigger>
                   <SelectValue
@@ -304,7 +320,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  disabled={hasOpenApplication}
+                  disabled={blocked}
                   onClick={() => setPaymentMethod('full')}
                   className={`rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${
                     paymentMethod === 'full'
@@ -316,7 +332,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                 </button>
                 <button
                   type="button"
-                  disabled={hasOpenApplication}
+                  disabled={blocked}
                   onClick={() => setPaymentMethod('installments')}
                   className={`rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${
                     paymentMethod === 'installments'
@@ -332,7 +348,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
             {paymentMethod === 'installments' && (
               <div className="space-y-1">
                 <Label className="text-xs">Repayment period</Label>
-                <Select value={months} onValueChange={setMonths} disabled={hasOpenApplication}>
+                <Select value={months} onValueChange={setMonths} disabled={blocked}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a period" />
                   </SelectTrigger>
@@ -441,7 +457,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                 id="docs-ready"
                 checked={docsReady}
                 onCheckedChange={(v) => setDocsReady(v === true)}
-                disabled={hasOpenApplication}
+                disabled={blocked}
                 className="mt-0.5"
               />
               <Label htmlFor="docs-ready" className="text-[11px] leading-snug text-muted-foreground font-normal cursor-pointer">
