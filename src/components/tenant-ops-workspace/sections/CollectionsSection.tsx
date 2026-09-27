@@ -16,7 +16,25 @@ import { useCollectionsDueToday } from '@/hooks/tenantOpsWorkspace/useCollection
 import { useArrearsAgeing, type ArrearsBucket } from '@/hooks/tenantOpsWorkspace/useArrearsAgeing';
 import { useCollectionsMovement } from '@/hooks/tenantOpsWorkspace/useCollectionsMovement';
 import { useNeverBilled } from '@/hooks/tenantOpsWorkspace/useNeverBilled';
+import { useWorkItemsByRentRequestIds, type WorkItemBadge } from '@/hooks/tenantOpsWorkspace/useWorkItemsByRentRequestIds';
 import { TenantDrawer } from '../tenant/TenantDrawer';
+
+const BUCKET_BADGE_CLASS: Record<string, string> = {
+  critical: 'bg-destructive/10 text-destructive',
+  at_risk: 'bg-warning/10 text-warning',
+  watch: 'bg-muted text-foreground',
+  new: 'bg-primary/10 text-primary',
+};
+
+/** Our own work-item bucket/assignment badge — informational only, never changes this row's order. */
+function WorkItemBadgeChip({ workItem }: { workItem: WorkItemBadge | undefined }) {
+  if (!workItem) return null;
+  return (
+    <Badge variant="outline" className={`text-[10px] capitalize ${BUCKET_BADGE_CLASS[workItem.bucket]}`}>
+      {workItem.bucket.replace('_', ' ')}{workItem.assignedTo ? ' · assigned' : ''}
+    </Badge>
+  );
+}
 
 const PAGE_SIZE = 20;
 const BUCKETS: ArrearsBucket[] = ['1-7', '8-14', '15-30', '30+'];
@@ -27,9 +45,10 @@ const dayLabel = (iso: string | null | undefined) =>
 const todayIso = () => new Date().toISOString().slice(0, 10);
 const daysAgoIso = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
 
-function QuickActions({ }: { rentRequestId: string }) {
+function QuickActions({ workItem }: { rentRequestId: string; workItem?: WorkItemBadge }) {
   return (
-    <div className="flex gap-1">
+    <div className="flex flex-wrap items-center gap-1">
+      <WorkItemBadgeChip workItem={workItem} />
       <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-[10px]">
         <a
           href="/executive-hub?tab=tenant-ops&mode=classic&view=collect-rent"
@@ -103,6 +122,16 @@ export default function CollectionsSection() {
 
   const bucketSummary = arrears.data?.summary ?? {};
 
+  const visibleRentRequestIds =
+    tab === 'due-today'
+      ? (dueToday.data?.rows ?? []).map((r) => r.rent_request_id)
+      : tab === 'arrears'
+        ? (arrears.data?.rows ?? []).map((r) => r.rent_request_id)
+        : tab === 'movement'
+          ? (movement.data?.rows ?? []).map((r) => r.rent_request_id)
+          : (neverBilled.data?.rows ?? []).map((r) => r.rent_request_id);
+  const { data: workItems } = useWorkItemsByRentRequestIds(visibleRentRequestIds);
+
   return (
     <div className="space-y-4">
       <Card className="border shadow-sm">
@@ -172,7 +201,7 @@ export default function CollectionsSection() {
                       <TableCell className="text-xs">
                         <Badge variant="outline" className="text-[10px] capitalize">{row.status}</Badge>
                       </TableCell>
-                      <TableCell><QuickActions rentRequestId={row.rent_request_id} /></TableCell>
+                      <TableCell><QuickActions rentRequestId={row.rent_request_id} workItem={workItems?.get(row.rent_request_id)} /></TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -226,7 +255,7 @@ export default function CollectionsSection() {
                         <TableCell className="text-xs">{dayLabel(row.oldest_due_date)}</TableCell>
                         <TableCell className="text-xs">{row.age_days}d</TableCell>
                         <TableCell className="text-xs"><Badge variant="outline" className="text-[10px]">{row.bucket}</Badge></TableCell>
-                        <TableCell><QuickActions rentRequestId={row.rent_request_id} /></TableCell>
+                        <TableCell><QuickActions rentRequestId={row.rent_request_id} workItem={workItems?.get(row.rent_request_id)} /></TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -269,7 +298,7 @@ export default function CollectionsSection() {
                       <TableCell className="text-xs">{row.agent_name ?? '—'}</TableCell>
                       <TableCell className="text-xs"><Badge variant="outline" className="text-[10px]">{row.movement_type.replace('_', ' ')}</Badge></TableCell>
                       <TableCell className="text-xs">{formatUGX(row.amount_ugx)}</TableCell>
-                      <TableCell><QuickActions rentRequestId={row.rent_request_id} /></TableCell>
+                      <TableCell><QuickActions rentRequestId={row.rent_request_id} workItem={workItems?.get(row.rent_request_id)} /></TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -307,7 +336,7 @@ export default function CollectionsSection() {
                       <TableCell className="text-xs">{row.agent_name ?? '—'}</TableCell>
                       <TableCell className="text-xs">{formatUGX(row.never_billed_arrears_ugx)}</TableCell>
                       <TableCell className="text-xs">{dayLabel(row.earliest_due_date)}</TableCell>
-                      <TableCell><QuickActions rentRequestId={row.rent_request_id} /></TableCell>
+                      <TableCell><QuickActions rentRequestId={row.rent_request_id} workItem={workItems?.get(row.rent_request_id)} /></TableCell>
                     </TableRow>
                   ))}
                 </TableBody>

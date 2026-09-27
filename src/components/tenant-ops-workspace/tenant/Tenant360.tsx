@@ -31,7 +31,7 @@ export default function Tenant360({ rentRequestId }: Tenant360Props) {
       <ContactHistoryBlock />
       <RentAccessLimitBlock rentRequestId={rentRequestId} />
       <RiskBlock rentRequestId={rentRequestId} />
-      <ActionsRow />
+      <ActionsRow rentRequestId={rentRequestId} />
     </div>
   );
 }
