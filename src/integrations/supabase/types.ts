@@ -67078,6 +67078,17 @@ export type Database = {
         Returns: number
       }
       tops_allocate_pending: { Args: { p_limit?: number }; Returns: number }
+      tops_arrears_ageing: {
+        Args: {
+          p_as_at?: string
+          p_bucket?: string
+          p_dir?: string
+          p_limit?: number
+          p_offset?: number
+        }
+        Returns: Json
+      }
+      tops_blocked_items: { Args: never; Returns: Json }
       tops_build_plan_instalments: {
         Args: { p_rent_request_id: string }
         Returns: number
@@ -67098,11 +67109,52 @@ export type Database = {
           total_cash_in_ugx: number
         }[]
       }
+      tops_collections_due_today: {
+        Args: {
+          p_as_at?: string
+          p_dir?: string
+          p_limit?: number
+          p_offset?: number
+          p_sort?: string
+        }
+        Returns: Json
+      }
+      tops_collections_movement: {
+        Args: {
+          p_from: string
+          p_limit?: number
+          p_offset?: number
+          p_to: string
+        }
+        Returns: Json
+      }
       tops_is_collection_reversed: {
         Args: { p_collection_id: string }
         Returns: boolean
       }
       tops_is_workspace_enabled: { Args: never; Returns: boolean }
+      tops_never_billed: {
+        Args: {
+          p_as_at?: string
+          p_dir?: string
+          p_limit?: number
+          p_offset?: number
+        }
+        Returns: Json
+      }
+      tops_open_instalments_asof: {
+        Args: { p_as_at: string }
+        Returns: {
+          amount_ugx: number
+          due_date: string
+          instalment_id: string
+          never_billed: boolean
+          outstanding_ugx: number
+          rent_request_id: string
+          settled_ugx: number
+        }[]
+      }
+      tops_overnight_changes: { Args: { p_as_at?: string }; Returns: Json }
       tops_plan_pipeline_stages: {
         Args: { p_rent_request_id: string }
         Returns: {
