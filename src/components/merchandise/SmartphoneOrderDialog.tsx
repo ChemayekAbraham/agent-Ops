@@ -39,6 +39,8 @@ interface Eligibility {
   has_national_id: boolean;
   has_workplace_verification: boolean;
   has_open_application: boolean;
+  has_active_advance?: boolean;
+  advance_outstanding?: number;
   eligible: boolean;
 }
 
@@ -117,11 +119,14 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
   const scheduleRows = schedule?.schedule.rows ?? [];
 
   // Applications are open to every agent — only a duplicate open application
-  // stops a submission. Portfolio and document checks are review inputs shown
-  // to the Agent Ops manager, never a block here.
+  // or a running advance repayment stops a submission. Portfolio and document
+  // checks are review inputs shown to the Agent Ops manager, never a block here.
   const hasOpenApplication = !!eligibility?.has_open_application;
+  const hasActiveAdvance = !!eligibility?.has_active_advance;
+  const advanceOutstanding = Math.max(0, Math.round(Number(eligibility?.advance_outstanding ?? 0)));
+  const blocked = hasOpenApplication || hasActiveAdvance;
   const canSubmit =
-    !hasOpenApplication && !!selected && price > 0 && docsReady && (paymentMethod === 'full' || !!period);
+    !blocked && !!selected && price > 0 && docsReady && (paymentMethod === 'full' || !!period);
 
   const reset = () => {
     setOsType('android');
