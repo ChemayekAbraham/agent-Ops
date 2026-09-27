@@ -29,6 +29,7 @@ import { usePromiseKeptRate } from '@/hooks/tenantOpsWorkspace/usePromiseKeptRat
 import { usePlanPosition } from '@/hooks/tenantOpsWorkspace/usePlanPosition';
 import { useCcSubjectCallHistory } from '@/hooks/useCcSubjectCallHistory';
 import PositionCard from '../tenant/PositionCard';
+import { TenantBriefBlock } from '../tenant/blocks/TenantBriefBlock';
 
 const BUCKET_BADGE_CLASS: Record<string, string> = {
   critical: 'bg-destructive/10 text-destructive',
@@ -126,6 +127,8 @@ function CallPanel({
 
   return (
     <div className="space-y-4">
+      {rentRequestId && <TenantBriefBlock rentRequestId={rentRequestId} />}
+
       <Card className="border shadow-sm">
         <CardContent className="py-3">
           <p className="text-xs text-muted-foreground">Phone</p>
