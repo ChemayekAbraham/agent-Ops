@@ -16,9 +16,9 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const FROM = "Welile Reports <info@welile.com>";
 const SENDER_DOMAIN = "notify.welile.com";
-// Rent fee edit alerts go to pexpert46@gmail.com ONLY.
+// Rent fee edit alerts go to ssenkaali.pius@welile.com ONLY.
 // Do NOT source recipients from finance_anomaly_alert_config.
-const DEFAULT_RECIPIENTS = ["pexpert46@gmail.com"];
+const DEFAULT_RECIPIENTS = ["ssenkaali.pius@welile.com"];
 const DEFAULT_PHONES: string[] = [];
 
 const fmtUGX = (n: unknown) =>

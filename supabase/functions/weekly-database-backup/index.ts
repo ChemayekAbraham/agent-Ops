@@ -5,7 +5,7 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const RECIPIENTS = ["joshwanda17@gmail.com", "weliletechnologies@gmail.com", "pexpert46@gmail.com"];
+const RECIPIENTS = ["joshwanda17@gmail.com", "weliletechnologies@gmail.com", "ssenkaali.pius@welile.com"];
 const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
 // Previously this function built every INSERT statement row-by-row in JS, which
 // burned the worker CPU budget (546 WORKER_RESOURCE_LIMIT) and forced a 20s soft

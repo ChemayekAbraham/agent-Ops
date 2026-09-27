@@ -23,7 +23,7 @@ const corsHeaders = {
 
 const TZ = 'Africa/Kampala';
 const DEFAULT_FROM = 'Welile Reports <reports@welile.com>';
-const DEFAULT_RECIPIENTS = ['benjamin@welile.com', 'pexpert46@gmail.com'];
+const DEFAULT_RECIPIENTS = ['benjamin@welile.com', 'ssenkaali.pius@welile.com'];
 
 
 const eatToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: TZ }).format(new Date());
