@@ -255,17 +255,17 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
 
             {selected && price > 0 && (
               <div className="rounded-lg border border-border bg-muted/40 p-3 space-y-2">
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">{dpCopy.amountLabelShort} Welile funds</span>
-                  <span className="font-bold tabular-nums">{formatUGX(price)}</span>
+                <div className="flex items-center justify-between gap-3 text-xs">
+                  <span className="min-w-0 text-muted-foreground">{dpCopy.amountLabelShort} Welile funds</span>
+                  <span className="shrink-0 font-bold tabular-nums">{formatUGX(price)}</span>
                 </div>
-                <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">Cash you bring (50% of the down payment)</span>
-                  <span className="font-bold tabular-nums text-primary">{formatUGX(cashTopUp)}</span>
+                <div className="flex items-center justify-between gap-3 text-xs">
+                  <span className="min-w-0 text-muted-foreground">Cash you bring (50% of it)</span>
+                  <span className="shrink-0 font-bold tabular-nums text-primary">{formatUGX(cashTopUp)}</span>
                 </div>
-                <div className="flex items-center justify-between text-xs border-t border-border pt-2">
-                  <span className="font-semibold text-foreground">Total on collection day</span>
-                  <span className="font-bold tabular-nums">{formatUGX(totalOnCollection)}</span>
+                <div className="flex items-center justify-between gap-3 border-t border-border pt-2 text-xs">
+                  <span className="min-w-0 font-semibold text-foreground">Total on collection day</span>
+                  <span className="shrink-0 font-bold tabular-nums">{formatUGX(totalOnCollection)}</span>
                 </div>
                 <p className="text-[11px] text-muted-foreground flex gap-1.5 pt-1 border-t border-border">
                   <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600" />
