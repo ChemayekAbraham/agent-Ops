@@ -2283,6 +2283,13 @@
       "when": 1790511186230,
       "tag": "0325_league_stats_fix_reversals_and_membership_overlap",
       "breakpoints": true
+    },
+    {
+      "idx": 326,
+      "version": "7",
+      "when": 1790539597113,
+      "tag": "0326_smartphone_eligibility_blocks_active_advance",
+      "breakpoints": true
     }
   ]
 }
