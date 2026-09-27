@@ -29,6 +29,14 @@ import { usePromiseKeptRate } from '@/hooks/tenantOpsWorkspace/usePromiseKeptRat
 import { usePlanPosition } from '@/hooks/tenantOpsWorkspace/usePlanPosition';
 import { useCcSubjectCallHistory } from '@/hooks/useCcSubjectCallHistory';
 import PositionCard from '../tenant/PositionCard';
+import { TenantBriefBlock } from '../tenant/blocks/TenantBriefBlock';
+
+const BUCKET_BADGE_CLASS: Record<string, string> = {
+  critical: 'bg-destructive/10 text-destructive',
+  at_risk: 'bg-warning/10 text-warning',
+  watch: 'bg-muted text-foreground',
+  new: 'bg-primary/10 text-primary',
+};
 
 const STATE_TABS: { key: CcRowState; label: string }[] = [
   { key: 'to_call', label: 'To call' },
@@ -119,6 +127,8 @@ function CallPanel({
 
   return (
     <div className="space-y-4">
+      {rentRequestId && <TenantBriefBlock rentRequestId={rentRequestId} />}
+
       <Card className="border shadow-sm">
         <CardContent className="py-3">
           <p className="text-xs text-muted-foreground">Phone</p>
@@ -273,6 +283,7 @@ export default function CallingSection() {
                   <TableHead className="text-xs">District</TableHead>
                   <TableHead className="text-xs">Agent</TableHead>
                   <TableHead className="text-xs">Money at risk</TableHead>
+                  <TableHead className="text-xs">Work item</TableHead>
                   <TableHead className="text-xs">Attempts</TableHead>
                   <TableHead className="text-xs">Action</TableHead>
                 </TableRow>
@@ -285,6 +296,15 @@ export default function CallingSection() {
                     <TableCell className="text-xs">{row.linkedAgentName ?? '—'}</TableCell>
                     <TableCell className="text-xs">
                       {row.moneyAtRiskUgx != null ? formatUGX(row.moneyAtRiskUgx) : '—'}
+                    </TableCell>
+                    <TableCell className="text-xs">
+                      {row.workItem ? (
+                        <Badge variant="outline" className={`text-[10px] capitalize ${BUCKET_BADGE_CLASS[row.workItem.bucket]}`}>
+                          {row.workItem.bucket.replace('_', ' ')}{row.workItem.assignedTo ? ' · assigned' : ''}
+                        </Badge>
+                      ) : (
+                        '—'
+                      )}
                     </TableCell>
                     <TableCell className="text-xs">{row.attemptsMade}</TableCell>
                     <TableCell>

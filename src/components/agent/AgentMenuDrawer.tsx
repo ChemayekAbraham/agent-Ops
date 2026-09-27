@@ -75,13 +75,10 @@ interface AgentMenuDrawerProps {
   onInviteFunder?: () => void;
   onInviteAngelPartner?: () => void;
   onOpenRequisition?: () => void;
-  onAngelPoolFunding?: () => void;
   onShareTenantForm?: () => void;
   onInviteTenant?: () => void;
   onSharePartnerForm?: () => void;
   onShareLandlordSignup?: () => void;
-  onCreatePromissoryNote?: () => void;
-  onViewPromissoryNotes?: () => void;
   onRequestAdvance?: () => void;
   onViewCreditAccess?: () => void;
   onViewSavedDrafts?: () => void;
@@ -140,13 +137,10 @@ export function AgentMenuDrawer({
   onInviteFunder,
   onInviteAngelPartner,
   onOpenRequisition,
-  onAngelPoolFunding,
   onShareTenantForm,
   onInviteTenant,
   onSharePartnerForm,
   onShareLandlordSignup,
-  onCreatePromissoryNote,
-  onViewPromissoryNotes,
   onRequestAdvance,
   onViewCreditAccess,
   onViewSavedDrafts,
@@ -187,7 +181,6 @@ export function AgentMenuDrawer({
         { icon: ArrowDownCircle, label: 'Deposit', description: 'Add funds to wallet', onClick: onDeposit, accent: 'success' },
         { icon: Wallet, label: 'Top Up Wallet', description: 'Deposit to tenant wallet', onClick: onTopUpTenant, accent: 'emerald-500' },
         { icon: HandCoins, label: 'Fund Partner', description: 'Proxy funding', onClick: onFundPartner, accent: 'emerald-600', badge: 'Proxy' },
-        { icon: PiggyBank, label: 'Angel Pool', description: 'Buy shares in the equity pool', onClick: onAngelPoolFunding, accent: 'emerald-500', badge: 'Angel' },
         { icon: Receipt, label: 'Issue Receipt', description: 'Record cash payment', onClick: onIssueReceipt, accent: 'amber-500' },
         { icon: Banknote, label: 'Cash, Mobile Money & Bank Payouts', description: 'Verify & pay cash-outs', path: '/agent/cash-payouts', accent: 'orange-500', badge: '💵' },
         { icon: Wallet, label: 'Request Advance', description: 'Get funds to your wallet', onClick: onRequestAdvance, accent: 'purple-500', badge: '💰' },
@@ -224,8 +217,6 @@ export function AgentMenuDrawer({
         { icon: HandCoins, label: 'My Funders', description: 'No-smartphone partners', onClick: onManageFunders, accent: 'primary', badge: '📱' },
         { icon: Handshake, label: 'Register Sub-Agent', description: 'Add to your team', onClick: onInviteSubAgent, accent: 'amber-500', badge: '500' },
         { icon: Users, label: 'My Sub-Agents', description: 'View your team', onClick: onViewSubAgents, accent: 'orange-500' },
-        { icon: FileText, label: 'Promissory Note', description: 'Capture commitment', onClick: onCreatePromissoryNote, accent: 'purple-600', badge: '📝' },
-        { icon: FileText, label: 'My Promissory Notes', description: 'View notes & earnings', onClick: onViewPromissoryNotes, accent: 'purple-500', badge: '📋' },
       ].filter(i => i.onClick !== undefined || i.path !== undefined),
     },
     {

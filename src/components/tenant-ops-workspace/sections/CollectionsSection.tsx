@@ -16,7 +16,157 @@ import { useCollectionsDueToday } from '@/hooks/tenantOpsWorkspace/useCollection
 import { useArrearsAgeing, type ArrearsBucket } from '@/hooks/tenantOpsWorkspace/useArrearsAgeing';
 import { useCollectionsMovement } from '@/hooks/tenantOpsWorkspace/useCollectionsMovement';
 import { useNeverBilled } from '@/hooks/tenantOpsWorkspace/useNeverBilled';
+import { useWorkItemsByRentRequestIds, type WorkItemBadge } from '@/hooks/tenantOpsWorkspace/useWorkItemsByRentRequestIds';
+import {
+  useCollectionAnomalies,
+  useAcknowledgeCollectionAnomaly,
+  useResolveCollectionAnomaly,
+  type CollectionAnomaly,
+} from '@/hooks/tenantOpsWorkspace/useCollectionAnomalies';
+import { useUnknownCadencePlans, useSetPlanCadence, type UnknownCadencePlanRow } from '@/hooks/tenantOpsWorkspace/useUnknownCadencePlans';
 import { TenantDrawer } from '../tenant/TenantDrawer';
+
+function CadenceRow({ plan }: { plan: UnknownCadencePlanRow }) {
+  const [mode, setMode] = useState<'none' | 'daily' | 'weekly'>('none');
+  const [reason, setReason] = useState('');
+  const setCadence = useSetPlanCadence();
+
+  const reset = () => {
+    setMode('none');
+    setReason('');
+  };
+
+  return (
+    <TableRow>
+      <TableCell className="text-xs">{plan.tenant_name ?? 'Unnamed'}</TableCell>
+      <TableCell className="text-xs">{plan.agent_name ?? '—'}</TableCell>
+      <TableCell className="text-xs capitalize">
+        {plan.repayment_frequency ?? '—'}{plan.repayment_frequency_locked ? ' (locked)' : ' (unlocked)'}
+      </TableCell>
+      <TableCell className="text-xs">{formatUGX(plan.total_repayment_ugx)}</TableCell>
+      <TableCell>
+        {mode === 'none' ? (
+          <div className="flex gap-1">
+            <Button variant="outline" size="sm" className="h-7 px-2 text-[10px]" onClick={() => setMode('daily')}>Set daily</Button>
+            <Button variant="outline" size="sm" className="h-7 px-2 text-[10px]" onClick={() => setMode('weekly')}>Set weekly</Button>
+          </div>
+        ) : (
+          <div className="flex min-w-[220px] flex-col gap-1">
+            <p className="text-[10px] text-muted-foreground">Setting cadence to <strong>{mode}</strong></p>
+            <Input
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Reason (required)"
+              className="h-7 text-[11px]"
+            />
+            <div className="flex gap-1">
+              <Button
+                size="sm"
+                className="h-7 text-[10px]"
+                disabled={!reason.trim() || setCadence.isPending}
+                onClick={() =>
+                  setCadence.mutate(
+                    { rentRequestId: plan.rent_request_id, cadence: mode, reason: reason.trim() },
+                    { onSuccess: reset },
+                  )
+                }
+              >
+                Confirm
+              </Button>
+              <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={reset}>Cancel</Button>
+            </div>
+          </div>
+        )}
+      </TableCell>
+    </TableRow>
+  );
+}
+
+const SEVERITY_BADGE_CLASS: Record<string, string> = {
+  critical: 'bg-destructive/10 text-destructive',
+  high: 'bg-warning/10 text-warning',
+  medium: 'bg-muted text-foreground',
+  low: 'bg-primary/10 text-primary',
+};
+
+function AnomalyRow({ anomaly }: { anomaly: CollectionAnomaly }) {
+  const [mode, setMode] = useState<'none' | 'acknowledge' | 'resolve'>('none');
+  const [note, setNote] = useState('');
+  const acknowledge = useAcknowledgeCollectionAnomaly();
+  const resolve = useResolveCollectionAnomaly();
+
+  const reset = () => {
+    setMode('none');
+    setNote('');
+  };
+
+  return (
+    <TableRow>
+      <TableCell className="text-xs">
+        <Badge variant="outline" className={`text-[10px] ${SEVERITY_BADGE_CLASS[anomaly.severity]}`}>{anomaly.severity}</Badge>
+      </TableCell>
+      <TableCell className="text-xs">{anomaly.rule_fired.replace(/_/g, ' ')}</TableCell>
+      <TableCell className="text-xs">{anomaly.collection_channel}</TableCell>
+      <TableCell className="text-xs">{anomaly.agent_name ?? '—'}</TableCell>
+      <TableCell className="text-xs">{dayLabel(anomaly.detected_at)}</TableCell>
+      <TableCell className="text-xs text-muted-foreground">
+        {String(anomaly.detail.observed_direction ?? anomaly.detail.observed_ratio ?? '')}
+      </TableCell>
+      <TableCell>
+        {anomaly.status === 'open' && mode === 'none' && (
+          <div className="flex gap-1">
+            <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px]" onClick={() => setMode('acknowledge')}>Acknowledge</Button>
+            <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px]" onClick={() => setMode('resolve')}>Resolve</Button>
+          </div>
+        )}
+        {mode !== 'none' && (
+          <div className="flex min-w-[220px] flex-col gap-1">
+            <Input
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Reason (required)"
+              className="h-7 text-[11px]"
+            />
+            <div className="flex gap-1">
+              <Button
+                size="sm"
+                className="h-7 text-[10px]"
+                disabled={!note.trim() || acknowledge.isPending || resolve.isPending}
+                onClick={() => {
+                  const mutation = mode === 'acknowledge' ? acknowledge : resolve;
+                  mutation.mutate({ anomalyId: anomaly.id, note: note.trim() }, { onSuccess: reset });
+                }}
+              >
+                Confirm {mode}
+              </Button>
+              <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={reset}>Cancel</Button>
+            </div>
+          </div>
+        )}
+        {anomaly.status === 'acknowledged' && mode === 'none' && (
+          <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px]" onClick={() => setMode('resolve')}>Resolve</Button>
+        )}
+      </TableCell>
+    </TableRow>
+  );
+}
+
+const BUCKET_BADGE_CLASS: Record<string, string> = {
+  critical: 'bg-destructive/10 text-destructive',
+  at_risk: 'bg-warning/10 text-warning',
+  watch: 'bg-muted text-foreground',
+  new: 'bg-primary/10 text-primary',
+};
+
+/** Our own work-item bucket/assignment badge — informational only, never changes this row's order. */
+function WorkItemBadgeChip({ workItem }: { workItem: WorkItemBadge | undefined }) {
+  if (!workItem) return null;
+  return (
+    <Badge variant="outline" className={`text-[10px] capitalize ${BUCKET_BADGE_CLASS[workItem.bucket]}`}>
+      {workItem.bucket.replace('_', ' ')}{workItem.assignedTo ? ' · assigned' : ''}
+    </Badge>
+  );
+}
 
 const PAGE_SIZE = 20;
 const BUCKETS: ArrearsBucket[] = ['1-7', '8-14', '15-30', '30+'];
@@ -27,9 +177,10 @@ const dayLabel = (iso: string | null | undefined) =>
 const todayIso = () => new Date().toISOString().slice(0, 10);
 const daysAgoIso = (n: number) => new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 10);
 
-function QuickActions({ }: { rentRequestId: string }) {
+function QuickActions({ workItem }: { rentRequestId: string; workItem?: WorkItemBadge }) {
   return (
-    <div className="flex gap-1">
+    <div className="flex flex-wrap items-center gap-1">
+      <WorkItemBadgeChip workItem={workItem} />
       <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-[10px]">
         <a
           href="/executive-hub?tab=tenant-ops&mode=classic&view=collect-rent"
@@ -100,8 +251,20 @@ export default function CollectionsSection() {
   const arrears = useArrearsAgeing({ asAt, bucket, limit: PAGE_SIZE, offset: page * PAGE_SIZE });
   const movement = useCollectionsMovement({ from: daysAgoIso(7), to: asAt, limit: PAGE_SIZE, offset: page * PAGE_SIZE });
   const neverBilled = useNeverBilled({ asAt, limit: PAGE_SIZE, offset: page * PAGE_SIZE });
+  const anomalies = useCollectionAnomalies('open');
+  const unknownCadence = useUnknownCadencePlans(PAGE_SIZE, page * PAGE_SIZE);
 
   const bucketSummary = arrears.data?.summary ?? {};
+
+  const visibleRentRequestIds =
+    tab === 'due-today'
+      ? (dueToday.data?.rows ?? []).map((r) => r.rent_request_id)
+      : tab === 'arrears'
+        ? (arrears.data?.rows ?? []).map((r) => r.rent_request_id)
+        : tab === 'movement'
+          ? (movement.data?.rows ?? []).map((r) => r.rent_request_id)
+          : (neverBilled.data?.rows ?? []).map((r) => r.rent_request_id);
+  const { data: workItems } = useWorkItemsByRentRequestIds(visibleRentRequestIds);
 
   return (
     <div className="space-y-4">
@@ -131,6 +294,8 @@ export default function CollectionsSection() {
           <TabsTrigger value="arrears">Arrears ageing</TabsTrigger>
           <TabsTrigger value="movement">Movement</TabsTrigger>
           <TabsTrigger value="never-billed">Never billed</TabsTrigger>
+          <TabsTrigger value="anomalies">Anomalies</TabsTrigger>
+          <TabsTrigger value="cadence">Cadence</TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -172,7 +337,7 @@ export default function CollectionsSection() {
                       <TableCell className="text-xs">
                         <Badge variant="outline" className="text-[10px] capitalize">{row.status}</Badge>
                       </TableCell>
-                      <TableCell><QuickActions rentRequestId={row.rent_request_id} /></TableCell>
+                      <TableCell><QuickActions rentRequestId={row.rent_request_id} workItem={workItems?.get(row.rent_request_id)} /></TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -226,7 +391,7 @@ export default function CollectionsSection() {
                         <TableCell className="text-xs">{dayLabel(row.oldest_due_date)}</TableCell>
                         <TableCell className="text-xs">{row.age_days}d</TableCell>
                         <TableCell className="text-xs"><Badge variant="outline" className="text-[10px]">{row.bucket}</Badge></TableCell>
-                        <TableCell><QuickActions rentRequestId={row.rent_request_id} /></TableCell>
+                        <TableCell><QuickActions rentRequestId={row.rent_request_id} workItem={workItems?.get(row.rent_request_id)} /></TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -269,7 +434,7 @@ export default function CollectionsSection() {
                       <TableCell className="text-xs">{row.agent_name ?? '—'}</TableCell>
                       <TableCell className="text-xs"><Badge variant="outline" className="text-[10px]">{row.movement_type.replace('_', ' ')}</Badge></TableCell>
                       <TableCell className="text-xs">{formatUGX(row.amount_ugx)}</TableCell>
-                      <TableCell><QuickActions rentRequestId={row.rent_request_id} /></TableCell>
+                      <TableCell><QuickActions rentRequestId={row.rent_request_id} workItem={workItems?.get(row.rent_request_id)} /></TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -307,13 +472,99 @@ export default function CollectionsSection() {
                       <TableCell className="text-xs">{row.agent_name ?? '—'}</TableCell>
                       <TableCell className="text-xs">{formatUGX(row.never_billed_arrears_ugx)}</TableCell>
                       <TableCell className="text-xs">{dayLabel(row.earliest_due_date)}</TableCell>
-                      <TableCell><QuickActions rentRequestId={row.rent_request_id} /></TableCell>
+                      <TableCell><QuickActions rentRequestId={row.rent_request_id} workItem={workItems?.get(row.rent_request_id)} /></TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
             </div>
             <PagerFooter page={page} totalRows={neverBilled.data?.total_row_count ?? 0} onPage={setPage} />
+          </CardContent>
+        </Card>
+      )}
+
+      {tab === 'anomalies' && (
+        <Card className="border shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold">
+              Open anomalies
+              <Badge variant="outline" className="ml-2 text-[10px]">{anomalies.data?.length ?? 0}</Badge>
+            </CardTitle>
+            <p className="text-[11px] text-muted-foreground">
+              Collections whose ledger legs don't match the expected shape for their channel — detection only, checked every 10 minutes.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-auto rounded-lg border">
+              <Table>
+                <TableHeader className="bg-muted/50">
+                  <TableRow>
+                    <TableHead className="text-xs">Severity</TableHead>
+                    <TableHead className="text-xs">Rule</TableHead>
+                    <TableHead className="text-xs">Channel</TableHead>
+                    <TableHead className="text-xs">Agent</TableHead>
+                    <TableHead className="text-xs">Detected</TableHead>
+                    <TableHead className="text-xs">Observed</TableHead>
+                    <TableHead className="text-xs">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(anomalies.data ?? []).map((a) => (
+                    <AnomalyRow key={a.id} anomaly={a} />
+                  ))}
+                  {(anomalies.data ?? []).length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center text-xs text-muted-foreground">
+                        {anomalies.isLoading ? 'Loading…' : 'No open anomalies.'}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {tab === 'cadence' && (
+        <Card className="border shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold">
+              Unknown cadence
+              <Badge variant="outline" className="ml-2 text-[10px]">{unknownCadence.data?.total_row_count ?? 0}</Badge>
+            </CardTitle>
+            <p className="text-[11px] text-muted-foreground">
+              Active plans whose repayment clock cannot compute a Rent Plan schedule until a cadence is set — setting one
+              rebuilds this plan's instalments immediately and only touches this plan's own clock, nothing else.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-auto rounded-lg border">
+              <Table>
+                <TableHeader className="bg-muted/50">
+                  <TableRow>
+                    <TableHead className="text-xs">Tenant</TableHead>
+                    <TableHead className="text-xs">Agent</TableHead>
+                    <TableHead className="text-xs">Raw frequency</TableHead>
+                    <TableHead className="text-xs">Total repayment</TableHead>
+                    <TableHead className="text-xs">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(unknownCadence.data?.rows ?? []).map((plan) => (
+                    <CadenceRow key={plan.rent_request_id} plan={plan} />
+                  ))}
+                  {(unknownCadence.data?.rows ?? []).length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-xs text-muted-foreground">
+                        {unknownCadence.isLoading ? 'Loading…' : 'No plans with unknown cadence.'}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+            <PagerFooter page={page} totalRows={unknownCadence.data?.total_row_count ?? 0} onPage={setPage} />
           </CardContent>
         </Card>
       )}

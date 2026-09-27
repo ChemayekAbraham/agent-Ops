@@ -7,9 +7,17 @@
  * the existing RPC's own sort options don't know that concept. This reorders
  * only the rows already on this page — it does not change what the server's
  * own search/state/pagination decided belongs on it.
+ *
+ * Bucket (tops_work_items, when a work item exists for the plan) is folded
+ * into that same already-accepted page reorder as the primary key —
+ * critical/at_risk/watch/new, then still-highest-money-first within a
+ * bucket/no-bucket group — since it is the more current, human-relevant
+ * ranking the work-item layer establishes; a plan with no work item yet
+ * (refresh runs hourly) simply falls back to money-only ordering.
  */
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchWorkItemsByRentRequestIds, BUCKET_RANK, type WorkItemBadge } from './useWorkItemsByRentRequestIds';
 
 const anyDb = supabase as any;
 
@@ -29,6 +37,7 @@ export interface CallingQueueRow {
   metricValue: number | null;
   rentRequestId: string | null;
   moneyAtRiskUgx: number | null;
+  workItem: WorkItemBadge | null;
 }
 
 const PAGE_SIZE = 50;
@@ -61,8 +70,17 @@ async function fetchQueuePage(state: CcRowState, search: string, page: number): 
     );
   }
 
+  const resolvedRentRequestIds = Array.from(
+    new Set(Array.from(riskByTenant.values()).map((v) => v.rentRequestId).filter((id): id is string => !!id)),
+  );
+  const workItemByRentRequest =
+    resolvedRentRequestIds.length > 0
+      ? await fetchWorkItemsByRentRequestIds(resolvedRentRequestIds)
+      : new Map<string, WorkItemBadge>();
+
   const rows: CallingQueueRow[] = list.map((r) => {
     const risk = riskByTenant.get(String(r.subject_id));
+    const workItem = risk?.rentRequestId ? workItemByRentRequest.get(risk.rentRequestId) ?? null : null;
     return {
       cycleRowId: String(r.cycle_row_id),
       tenantId: String(r.subject_id),
@@ -77,11 +95,17 @@ async function fetchQueuePage(state: CcRowState, search: string, page: number): 
       metricValue: r.metric_value != null ? Number(r.metric_value) : null,
       rentRequestId: risk?.rentRequestId ?? null,
       moneyAtRiskUgx: risk?.moneyAtRiskUgx ?? null,
+      workItem,
     };
   });
 
-  // Reorder this page only — highest money at risk first.
-  rows.sort((a, b) => (b.moneyAtRiskUgx ?? -1) - (a.moneyAtRiskUgx ?? -1));
+  // Reorder this page only — bucket severity first (no work item ranks last), then highest money at risk.
+  rows.sort((a, b) => {
+    const rankA = a.workItem ? BUCKET_RANK[a.workItem.bucket] : BUCKET_RANK.new + 1;
+    const rankB = b.workItem ? BUCKET_RANK[b.workItem.bucket] : BUCKET_RANK.new + 1;
+    if (rankA !== rankB) return rankA - rankB;
+    return (b.moneyAtRiskUgx ?? -1) - (a.moneyAtRiskUgx ?? -1);
+  });
 
   return { rows, total };
 }

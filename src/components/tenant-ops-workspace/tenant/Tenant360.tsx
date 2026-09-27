@@ -6,6 +6,7 @@
  */
 import PositionCard from './PositionCard';
 import ScheduleLedger from './ScheduleLedger';
+import { TenantBriefBlock } from './blocks/TenantBriefBlock';
 import { TenantHeaderBlock } from './blocks/TenantHeaderBlock';
 import { MoneyPipelineBlock } from './blocks/MoneyPipelineBlock';
 import { PlaceBlock } from './blocks/PlaceBlock';
@@ -22,6 +23,7 @@ export interface Tenant360Props {
 export default function Tenant360({ rentRequestId }: Tenant360Props) {
   return (
     <div className="space-y-4">
+      <TenantBriefBlock rentRequestId={rentRequestId} />
       <TenantHeaderBlock rentRequestId={rentRequestId} />
       <PositionCard rentRequestId={rentRequestId} />
       <ScheduleLedger rentRequestId={rentRequestId} />
@@ -31,7 +33,7 @@ export default function Tenant360({ rentRequestId }: Tenant360Props) {
       <ContactHistoryBlock />
       <RentAccessLimitBlock rentRequestId={rentRequestId} />
       <RiskBlock rentRequestId={rentRequestId} />
-      <ActionsRow />
+      <ActionsRow rentRequestId={rentRequestId} />
     </div>
   );
 }

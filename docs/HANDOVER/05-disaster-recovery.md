@@ -5,6 +5,8 @@ someone has to bring Welile back.
 
 ---
 
+> **2026-09-27 correction (doc 141):** the weekly backup only ever captured the first 1000 rows of each table (PostgREST row cap). Its `row_count` is misleading. The ledger now has its own verified backup; see `141-general-ledger-backup-emailed-to-josh.md`.
+
 ## Read this first — the backup you have is not the backup you need
 
 `weekly-database-backup` runs Sundays at 02:00 UTC and is genuinely working. Last successful run
