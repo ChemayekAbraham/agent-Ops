@@ -198,6 +198,17 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                   decided.
                 </p>
               </div>
+            ) : hasActiveAdvance ? (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 space-y-1">
+                <p className="text-xs font-semibold flex items-center gap-1.5 text-destructive">
+                  <AlertTriangle className="h-3.5 w-3.5" /> Clear your advance first
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  You still have an advance repayment running
+                  {advanceOutstanding > 0 ? ` (UGX ${advanceOutstanding.toLocaleString()} outstanding)` : ''}.
+                  You become eligible for a smartphone once the advance is fully cleared.
+                </p>
+              </div>
             ) : null}
 
             <div className="space-y-2">
