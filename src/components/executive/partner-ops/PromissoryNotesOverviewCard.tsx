@@ -228,7 +228,7 @@ export function PromissoryNotesOverviewCard({ onOpen }: { onOpen: (filter?: Prom
               )}
             </div>
             <p className="text-xs text-muted-foreground mt-0.5">
-              {isCollapsed ? 'Tap to expand filters & queue preview' : 'Review partner commitments, approve notes &amp; track collections'}
+              {isCollapsed ? 'Tap to expand filters & queue preview' : 'Review partner commitments, approve notes & track collections'}
             </p>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
