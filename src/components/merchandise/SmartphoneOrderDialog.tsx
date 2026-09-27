@@ -216,7 +216,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  disabled={hasOpenApplication}
+                  disabled={blocked}
                   onClick={() => setOsType('android')}
                   className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${
                     osType === 'android'
@@ -228,7 +228,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                 </button>
                 <button
                   type="button"
-                  disabled={hasOpenApplication}
+                  disabled={blocked}
                   onClick={() => setOsType('ios')}
                   className={`flex items-center justify-center gap-2 rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${
                     osType === 'ios'
@@ -246,7 +246,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
               <Select
                 value={options.some((o) => o.id === catalogId) ? catalogId : ''}
                 onValueChange={setCatalogId}
-                disabled={catalogLoading || hasOpenApplication || options.length === 0}
+                disabled={catalogLoading || blocked || options.length === 0}
               >
                 <SelectTrigger>
                   <SelectValue
@@ -320,7 +320,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
-                  disabled={hasOpenApplication}
+                  disabled={blocked}
                   onClick={() => setPaymentMethod('full')}
                   className={`rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${
                     paymentMethod === 'full'
@@ -332,7 +332,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                 </button>
                 <button
                   type="button"
-                  disabled={hasOpenApplication}
+                  disabled={blocked}
                   onClick={() => setPaymentMethod('installments')}
                   className={`rounded-xl border px-3 py-2.5 text-sm font-medium transition-colors ${
                     paymentMethod === 'installments'
@@ -348,7 +348,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
             {paymentMethod === 'installments' && (
               <div className="space-y-1">
                 <Label className="text-xs">Repayment period</Label>
-                <Select value={months} onValueChange={setMonths} disabled={hasOpenApplication}>
+                <Select value={months} onValueChange={setMonths} disabled={blocked}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select a period" />
                   </SelectTrigger>
@@ -457,7 +457,7 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                 id="docs-ready"
                 checked={docsReady}
                 onCheckedChange={(v) => setDocsReady(v === true)}
-                disabled={hasOpenApplication}
+                disabled={blocked}
                 className="mt-0.5"
               />
               <Label htmlFor="docs-ready" className="text-[11px] leading-snug text-muted-foreground font-normal cursor-pointer">
