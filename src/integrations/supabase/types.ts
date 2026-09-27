@@ -45343,6 +45343,111 @@ export type Database = {
         }
         Relationships: []
       }
+      tops_collection_anomalies: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          acknowledged_note: string | null
+          agent_id: string | null
+          collection_channel: string
+          collection_id: string
+          detail: Json
+          detected_at: string
+          id: string
+          rent_request_id: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          resolved_note: string | null
+          rule_fired: string
+          severity: string
+          status: string
+          tenant_id: string | null
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          acknowledged_note?: string | null
+          agent_id?: string | null
+          collection_channel: string
+          collection_id: string
+          detail: Json
+          detected_at?: string
+          id?: string
+          rent_request_id?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_note?: string | null
+          rule_fired: string
+          severity: string
+          status?: string
+          tenant_id?: string | null
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          acknowledged_note?: string | null
+          agent_id?: string | null
+          collection_channel?: string
+          collection_id?: string
+          detail?: Json
+          detected_at?: string
+          id?: string
+          rent_request_id?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_note?: string | null
+          rule_fired?: string
+          severity?: string
+          status?: string
+          tenant_id?: string | null
+        }
+        Relationships: []
+      }
+      tops_collection_expectations: {
+        Row: {
+          collection_channel: string
+          commission_ratio_max: number
+          commission_ratio_min: number
+          expected_float_direction: string
+          expected_float_sign: number
+          float_ratio_max: number
+          float_ratio_min: number
+          id: string
+          sample_size: number
+          seeded_at: string
+          seeded_from: string
+          seeded_to: string
+        }
+        Insert: {
+          collection_channel: string
+          commission_ratio_max?: number
+          commission_ratio_min?: number
+          expected_float_direction: string
+          expected_float_sign: number
+          float_ratio_max?: number
+          float_ratio_min?: number
+          id?: string
+          sample_size: number
+          seeded_at?: string
+          seeded_from: string
+          seeded_to: string
+        }
+        Update: {
+          collection_channel?: string
+          commission_ratio_max?: number
+          commission_ratio_min?: number
+          expected_float_direction?: string
+          expected_float_sign?: number
+          float_ratio_max?: number
+          float_ratio_min?: number
+          id?: string
+          sample_size?: number
+          seeded_at?: string
+          seeded_from?: string
+          seeded_to?: string
+        }
+        Relationships: []
+      }
       tops_float_adequacy_snapshots: {
         Row: {
           adequacy_ratio: number | null
@@ -45677,6 +45782,66 @@ export type Database = {
           status?: string
           taken_by?: string
           tenant_user_id?: string
+        }
+        Relationships: []
+      }
+      tops_restructure_register: {
+        Row: {
+          first_seen_at: string
+          id: string
+          rent_request_id: string
+          restructure_type: string
+          source_detail: string | null
+        }
+        Insert: {
+          first_seen_at?: string
+          id?: string
+          rent_request_id: string
+          restructure_type: string
+          source_detail?: string | null
+        }
+        Update: {
+          first_seen_at?: string
+          id?: string
+          rent_request_id?: string
+          restructure_type?: string
+          source_detail?: string | null
+        }
+        Relationships: []
+      }
+      tops_tenant_brief_log: {
+        Row: {
+          degraded_to_facts_only: boolean
+          error_detail: string | null
+          id: string
+          model: string
+          rent_request_id: string
+          requested_at: string
+          requested_by: string
+          sentence_count: number | null
+          validation_passed: boolean
+        }
+        Insert: {
+          degraded_to_facts_only: boolean
+          error_detail?: string | null
+          id?: string
+          model: string
+          rent_request_id: string
+          requested_at?: string
+          requested_by: string
+          sentence_count?: number | null
+          validation_passed: boolean
+        }
+        Update: {
+          degraded_to_facts_only?: boolean
+          error_detail?: string | null
+          id?: string
+          model?: string
+          rent_request_id?: string
+          requested_at?: string
+          requested_by?: string
+          sentence_count?: number | null
+          validation_passed?: boolean
         }
         Relationships: []
       }
@@ -67318,6 +67483,14 @@ export type Database = {
           is_hidden: boolean
         }[]
       }
+      tops_acknowledge_collection_anomaly: {
+        Args: { p_anomaly_id: string; p_note: string }
+        Returns: undefined
+      }
+      tops_agent_area_coverage: {
+        Args: { p_level?: string; p_limit?: number; p_offset?: number }
+        Returns: Json
+      }
       tops_agent_arrears_book: {
         Args: { p_as_at?: string }
         Returns: {
@@ -67397,6 +67570,18 @@ export type Database = {
         Returns: number
       }
       tops_allocate_pending: { Args: { p_limit?: number }; Returns: number }
+      tops_area_book: {
+        Args: { p_as_at?: string; p_level: string }
+        Returns: {
+          area_key: string
+          area_name: string
+          arrears_plan_count: number
+          arrears_rate: number
+          money_at_risk_ugx: number
+          plan_count: number
+          region: string
+        }[]
+      }
       tops_arrears_ageing: {
         Args: {
           p_as_at?: string
@@ -67441,6 +67626,28 @@ export type Database = {
         Args: { p_outcome: string; p_work_item_id: string }
         Returns: undefined
       }
+      tops_collection_anomalies_list: {
+        Args: { p_status?: string }
+        Returns: {
+          acknowledged_at: string
+          acknowledged_by_name: string
+          acknowledged_note: string
+          agent_name: string
+          collection_channel: string
+          collection_id: string
+          detail: Json
+          detected_at: string
+          id: string
+          rent_request_id: string
+          resolved_at: string
+          resolved_by_name: string
+          resolved_note: string
+          rule_fired: string
+          severity: string
+          status: string
+          tenant_name: string
+        }[]
+      }
       tops_collection_scoreboard: {
         Args: { p_from: string; p_to: string }
         Returns: {
@@ -67472,6 +67679,10 @@ export type Database = {
         }
         Returns: Json
       }
+      tops_detect_collection_anomalies: {
+        Args: { p_since: string }
+        Returns: number
+      }
       tops_escalate_work_item: {
         Args: {
           p_escalated_to: string
@@ -67494,6 +67705,7 @@ export type Database = {
         }
         Returns: Json
       }
+      tops_never_billed_summary: { Args: { p_as_at?: string }; Returns: Json }
       tops_open_instalments_asof: {
         Args: { p_as_at: string }
         Returns: {
@@ -67507,6 +67719,21 @@ export type Database = {
         }[]
       }
       tops_overnight_changes: { Args: { p_as_at?: string }; Returns: Json }
+      tops_pipeline_queue: {
+        Args: never
+        Returns: {
+          age_days: number
+          agent_name: string
+          current_stage_key: string
+          current_stage_label: string
+          gap_label: string
+          owner_id: string
+          owner_name: string
+          rent_request_id: string
+          stage_entered_at: string
+          tenant_name: string
+        }[]
+      }
       tops_plan_pipeline_stages: {
         Args: { p_rent_request_id: string }
         Returns: {
@@ -67577,6 +67804,7 @@ export type Database = {
           settled_ugx: number
         }[]
       }
+      tops_portfolio_quality: { Args: { p_as_at?: string }; Returns: Json }
       tops_promise_kept_rate: {
         Args: { p_from: string; p_to: string; p_user_id?: string }
         Returns: {
@@ -67597,16 +67825,44 @@ export type Database = {
           sample_size_first_action: number
         }[]
       }
+      tops_refresh_restructure_register: { Args: never; Returns: number }
       tops_refresh_work_items: { Args: never; Returns: number }
+      tops_resolve_collection_anomaly: {
+        Args: { p_anomaly_id: string; p_note: string }
+        Returns: undefined
+      }
       tops_resolve_plan_clock: {
         Args: { p_rent_request_id: string }
         Returns: undefined
       }
       tops_resolve_promises: { Args: { p_as_at?: string }; Returns: number }
+      tops_seed_collection_expectations: {
+        Args: { p_days?: number }
+        Returns: number
+      }
+      tops_set_plan_cadence: {
+        Args: { p_cadence: string; p_reason: string; p_rent_request_id: string }
+        Returns: undefined
+      }
       tops_snapshot_agent_float_adequacy: { Args: never; Returns: number }
       tops_snooze_work_item: {
         Args: { p_new_sla_due_at: string; p_work_item_id: string }
         Returns: undefined
+      }
+      tops_unknown_cadence_plans: {
+        Args: { p_limit?: number; p_offset?: number }
+        Returns: Json
+      }
+      tops_unmapped_tenants_worklist: {
+        Args: { p_limit?: number }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          legacy_location: string
+          rent_request_id: string
+          tenant_id: string
+          tenant_name: string
+        }[]
       }
       topup_dedup_bucket: { Args: { ts: string }; Returns: string }
       tppo_arrears_movement: {
