@@ -45310,6 +45310,36 @@ export type Database = {
           },
         ]
       }
+      tops_call_outcomes: {
+        Row: {
+          cc_call_id: string | null
+          id: string
+          note: string | null
+          outcome: string
+          recorded_at: string
+          recorded_by: string
+          rent_request_id: string
+        }
+        Insert: {
+          cc_call_id?: string | null
+          id?: string
+          note?: string | null
+          outcome: string
+          recorded_at?: string
+          recorded_by: string
+          rent_request_id: string
+        }
+        Update: {
+          cc_call_id?: string | null
+          id?: string
+          note?: string | null
+          outcome?: string
+          recorded_at?: string
+          recorded_by?: string
+          rent_request_id?: string
+        }
+        Relationships: []
+      }
       tops_instalment_settlements: {
         Row: {
           amount_ugx: number
@@ -45380,6 +45410,44 @@ export type Database = {
           version?: number
         }
         Relationships: []
+      }
+      tops_notifications: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          read_at: string | null
+          title: string
+          user_id: string
+          work_item_id: string | null
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          read_at?: string | null
+          title: string
+          user_id: string
+          work_item_id?: string | null
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          read_at?: string | null
+          title?: string
+          user_id?: string
+          work_item_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tops_notifications_work_item_id_fkey"
+            columns: ["work_item_id"]
+            isOneToOne: false
+            referencedRelation: "tops_work_items"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tops_plan_clock: {
         Row: {
@@ -45525,6 +45593,111 @@ export type Database = {
           rent_request_id?: string
           seq?: number
           updated_at?: string
+        }
+        Relationships: []
+      }
+      tops_promises_to_pay: {
+        Row: {
+          cc_call_id: string | null
+          channel: string
+          created_at: string
+          id: string
+          promised_amount_ugx: number
+          promised_date: string
+          rent_request_id: string
+          resolved_at: string | null
+          settled_amount_ugx: number
+          status: string
+          taken_by: string
+          tenant_user_id: string
+        }
+        Insert: {
+          cc_call_id?: string | null
+          channel: string
+          created_at?: string
+          id?: string
+          promised_amount_ugx: number
+          promised_date: string
+          rent_request_id: string
+          resolved_at?: string | null
+          settled_amount_ugx?: number
+          status?: string
+          taken_by: string
+          tenant_user_id: string
+        }
+        Update: {
+          cc_call_id?: string | null
+          channel?: string
+          created_at?: string
+          id?: string
+          promised_amount_ugx?: number
+          promised_date?: string
+          rent_request_id?: string
+          resolved_at?: string | null
+          settled_amount_ugx?: number
+          status?: string
+          taken_by?: string
+          tenant_user_id?: string
+        }
+        Relationships: []
+      }
+      tops_work_items: {
+        Row: {
+          assigned_at: string | null
+          assigned_to: string | null
+          bucket: string
+          closed_at: string | null
+          closed_by: string | null
+          closed_outcome: string | null
+          created_at: string
+          escalated_at: string | null
+          escalated_to: string | null
+          escalation_note: string | null
+          id: string
+          reason: string
+          rent_request_id: string
+          sla_due_at: string | null
+          status: string
+          updated_at: string
+          value_at_risk_ugx: number
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_to?: string | null
+          bucket: string
+          closed_at?: string | null
+          closed_by?: string | null
+          closed_outcome?: string | null
+          created_at?: string
+          escalated_at?: string | null
+          escalated_to?: string | null
+          escalation_note?: string | null
+          id?: string
+          reason: string
+          rent_request_id: string
+          sla_due_at?: string | null
+          status?: string
+          updated_at?: string
+          value_at_risk_ugx: number
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_to?: string | null
+          bucket?: string
+          closed_at?: string | null
+          closed_by?: string | null
+          closed_outcome?: string | null
+          created_at?: string
+          escalated_at?: string | null
+          escalated_to?: string | null
+          escalation_note?: string | null
+          id?: string
+          reason?: string
+          rent_request_id?: string
+          sla_due_at?: string | null
+          status?: string
+          updated_at?: string
+          value_at_risk_ugx?: number
         }
         Relationships: []
       }
@@ -60304,6 +60477,10 @@ export type Database = {
         Args: { p_end: string; p_start: string }
         Returns: Json
       }
+      get_partner_ops_compound_topup_outlook: {
+        Args: { p_end: string }
+        Returns: Json
+      }
       get_partner_ops_daily_report: { Args: { p_date?: string }; Returns: Json }
       get_partner_ops_promissory_block: {
         Args: { p_end: string; p_start: string }
@@ -67088,6 +67265,10 @@ export type Database = {
         }
         Returns: Json
       }
+      tops_assign_work_item: {
+        Args: { p_assigned_to: string; p_work_item_id: string }
+        Returns: undefined
+      }
       tops_blocked_items: { Args: never; Returns: Json }
       tops_build_plan_instalments: {
         Args: { p_rent_request_id: string }
@@ -67096,6 +67277,27 @@ export type Database = {
       tops_build_schedules_batch: {
         Args: { p_limit?: number }
         Returns: number
+      }
+      tops_calling_gap: {
+        Args: never
+        Returns: {
+          arrears_amount: number
+          outstanding: number
+          rent_request_id: string
+          tenant_id: string
+        }[]
+      }
+      tops_calling_money_at_risk: {
+        Args: { p_tenant_ids: string[] }
+        Returns: {
+          money_at_risk_ugx: number
+          rent_request_id: string
+          tenant_id: string
+        }[]
+      }
+      tops_close_work_item: {
+        Args: { p_outcome: string; p_work_item_id: string }
+        Returns: undefined
       }
       tops_collection_scoreboard: {
         Args: { p_from: string; p_to: string }
@@ -67127,6 +67329,14 @@ export type Database = {
           p_to: string
         }
         Returns: Json
+      }
+      tops_escalate_work_item: {
+        Args: {
+          p_escalated_to: string
+          p_note?: string
+          p_work_item_id: string
+        }
+        Returns: undefined
       }
       tops_is_collection_reversed: {
         Args: { p_collection_id: string }
@@ -67202,8 +67412,34 @@ export type Database = {
           settled_ugx: number
         }[]
       }
+      tops_promise_kept_rate: {
+        Args: { p_from: string; p_to: string; p_user_id?: string }
+        Returns: {
+          broken: number
+          kept: number
+          kept_rate_pct: number
+          partial: number
+          still_open: number
+          taken: number
+        }[]
+      }
+      tops_queue_latency: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          median_time_to_close_hours: number
+          median_time_to_first_action_hours: number
+          sample_size_closed: number
+          sample_size_first_action: number
+        }[]
+      }
+      tops_refresh_work_items: { Args: never; Returns: number }
       tops_resolve_plan_clock: {
         Args: { p_rent_request_id: string }
+        Returns: undefined
+      }
+      tops_resolve_promises: { Args: { p_as_at?: string }; Returns: number }
+      tops_snooze_work_item: {
+        Args: { p_new_sla_due_at: string; p_work_item_id: string }
         Returns: undefined
       }
       topup_dedup_bucket: { Args: { ts: string }; Returns: string }
