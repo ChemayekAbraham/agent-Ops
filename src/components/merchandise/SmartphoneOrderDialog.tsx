@@ -261,12 +261,16 @@ export default function SmartphoneOrderDialog({ open, onOpenChange, userId }: Pr
                 </div>
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">Cash you bring (50% of the down payment)</span>
-                  <span className="font-bold tabular-nums text-primary">{formatUGX(Math.round(price / 2))}</span>
+                  <span className="font-bold tabular-nums text-primary">{formatUGX(cashTopUp)}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs border-t border-border pt-2">
+                  <span className="font-semibold text-foreground">Total on collection day</span>
+                  <span className="font-bold tabular-nums">{formatUGX(totalOnCollection)}</span>
                 </div>
                 <p className="text-[11px] text-muted-foreground flex gap-1.5 pt-1 border-t border-border">
                   <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-600" />
                   <span>
-                    To qualify, come with an extra <span className="font-medium text-foreground">{formatUGX(Math.round(price / 2))}</span> in
+                    To qualify, come with an extra <span className="font-medium text-foreground">{formatUGX(cashTopUp)}</span> in
                     cash — half of the down payment. Welile funds the down payment and your cash top-up
                     reduces what you repay overall.
                   </span>
