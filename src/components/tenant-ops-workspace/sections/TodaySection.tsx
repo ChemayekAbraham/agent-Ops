@@ -14,6 +14,7 @@ import { useBlockedItems } from '@/hooks/tenantOpsWorkspace/useBlockedItems';
 import { useMyWorkItems, type MyWorkItem } from '@/hooks/tenantOpsWorkspace/useMyWorkItems';
 import { useOpsTeamMembers } from '@/hooks/tenantOpsWorkspace/useOpsTeamMembers';
 import { useCloseWorkItem, useEscalateWorkItem } from '@/hooks/tenantOpsWorkspace/useWorkItemMutations';
+import { useNeverBilledSummary } from '@/hooks/tenantOpsWorkspace/useNeverBilledSummary';
 import { TenantDrawer } from '../tenant/TenantDrawer';
 
 const BUCKET_BADGE_CLASS: Record<MyWorkItem['bucket'], string> = {
@@ -179,6 +180,7 @@ export default function TodaySection() {
   const { data: scoreboard, isLoading: scoreboardLoading } = useCollectionScoreboard(asAt, asAt);
   const { data: overnight, isLoading: overnightLoading } = useOvernightChanges(asAt);
   const { data: blocked, isLoading: blockedLoading } = useBlockedItems();
+  const { data: neverBilledSummary, isLoading: neverBilledLoading } = useNeverBilledSummary();
   const { data: myWork, isLoading: myWorkLoading } = useMyWorkItems();
   const [openTenant, setOpenTenant] = useState<string | null>(null);
 
@@ -281,7 +283,7 @@ export default function TodaySection() {
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-semibold">What is blocked</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-3">
+        <CardContent className="grid gap-4 sm:grid-cols-4">
           <div>
             <p className="flex items-center gap-2 text-xs font-semibold">
               <Landmark className="h-3.5 w-3.5" />
@@ -329,6 +331,19 @@ export default function TodaySection() {
                 )}
               </ul>
             )}
+          </div>
+          <div>
+            <button
+              type="button"
+              onClick={() => goToCollections('never-billed')}
+              className="flex items-center gap-2 text-left text-xs font-semibold hover:underline"
+            >
+              Never billed (quarantined)
+              <Badge variant="outline" className="text-[10px]">{neverBilledLoading ? '…' : neverBilledSummary?.count ?? 0}</Badge>
+            </button>
+            <p className="text-xs text-muted-foreground">
+              {neverBilledLoading ? '…' : formatUGX(neverBilledSummary?.arrears_ugx ?? 0)} excluded from every arrears total on this tab — a due date that never appeared in the pinned bill, never corrected here.
+            </p>
           </div>
         </CardContent>
       </Card>

@@ -23,7 +23,64 @@ import {
   useResolveCollectionAnomaly,
   type CollectionAnomaly,
 } from '@/hooks/tenantOpsWorkspace/useCollectionAnomalies';
+import { useUnknownCadencePlans, useSetPlanCadence, type UnknownCadencePlanRow } from '@/hooks/tenantOpsWorkspace/useUnknownCadencePlans';
 import { TenantDrawer } from '../tenant/TenantDrawer';
+
+function CadenceRow({ plan }: { plan: UnknownCadencePlanRow }) {
+  const [mode, setMode] = useState<'none' | 'daily' | 'weekly'>('none');
+  const [reason, setReason] = useState('');
+  const setCadence = useSetPlanCadence();
+
+  const reset = () => {
+    setMode('none');
+    setReason('');
+  };
+
+  return (
+    <TableRow>
+      <TableCell className="text-xs">{plan.tenant_name ?? 'Unnamed'}</TableCell>
+      <TableCell className="text-xs">{plan.agent_name ?? '—'}</TableCell>
+      <TableCell className="text-xs capitalize">
+        {plan.repayment_frequency ?? '—'}{plan.repayment_frequency_locked ? ' (locked)' : ' (unlocked)'}
+      </TableCell>
+      <TableCell className="text-xs">{formatUGX(plan.total_repayment_ugx)}</TableCell>
+      <TableCell>
+        {mode === 'none' ? (
+          <div className="flex gap-1">
+            <Button variant="outline" size="sm" className="h-7 px-2 text-[10px]" onClick={() => setMode('daily')}>Set daily</Button>
+            <Button variant="outline" size="sm" className="h-7 px-2 text-[10px]" onClick={() => setMode('weekly')}>Set weekly</Button>
+          </div>
+        ) : (
+          <div className="flex min-w-[220px] flex-col gap-1">
+            <p className="text-[10px] text-muted-foreground">Setting cadence to <strong>{mode}</strong></p>
+            <Input
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Reason (required)"
+              className="h-7 text-[11px]"
+            />
+            <div className="flex gap-1">
+              <Button
+                size="sm"
+                className="h-7 text-[10px]"
+                disabled={!reason.trim() || setCadence.isPending}
+                onClick={() =>
+                  setCadence.mutate(
+                    { rentRequestId: plan.rent_request_id, cadence: mode, reason: reason.trim() },
+                    { onSuccess: reset },
+                  )
+                }
+              >
+                Confirm
+              </Button>
+              <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={reset}>Cancel</Button>
+            </div>
+          </div>
+        )}
+      </TableCell>
+    </TableRow>
+  );
+}
 
 const SEVERITY_BADGE_CLASS: Record<string, string> = {
   critical: 'bg-destructive/10 text-destructive',
@@ -195,6 +252,7 @@ export default function CollectionsSection() {
   const movement = useCollectionsMovement({ from: daysAgoIso(7), to: asAt, limit: PAGE_SIZE, offset: page * PAGE_SIZE });
   const neverBilled = useNeverBilled({ asAt, limit: PAGE_SIZE, offset: page * PAGE_SIZE });
   const anomalies = useCollectionAnomalies('open');
+  const unknownCadence = useUnknownCadencePlans(PAGE_SIZE, page * PAGE_SIZE);
 
   const bucketSummary = arrears.data?.summary ?? {};
 
@@ -237,6 +295,7 @@ export default function CollectionsSection() {
           <TabsTrigger value="movement">Movement</TabsTrigger>
           <TabsTrigger value="never-billed">Never billed</TabsTrigger>
           <TabsTrigger value="anomalies">Anomalies</TabsTrigger>
+          <TabsTrigger value="cadence">Cadence</TabsTrigger>
         </TabsList>
       </Tabs>
 
@@ -463,6 +522,49 @@ export default function CollectionsSection() {
                 </TableBody>
               </Table>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {tab === 'cadence' && (
+        <Card className="border shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-semibold">
+              Unknown cadence
+              <Badge variant="outline" className="ml-2 text-[10px]">{unknownCadence.data?.total_row_count ?? 0}</Badge>
+            </CardTitle>
+            <p className="text-[11px] text-muted-foreground">
+              Active plans whose repayment clock cannot compute a Rent Plan schedule until a cadence is set — setting one
+              rebuilds this plan's instalments immediately and only touches this plan's own clock, nothing else.
+            </p>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-auto rounded-lg border">
+              <Table>
+                <TableHeader className="bg-muted/50">
+                  <TableRow>
+                    <TableHead className="text-xs">Tenant</TableHead>
+                    <TableHead className="text-xs">Agent</TableHead>
+                    <TableHead className="text-xs">Raw frequency</TableHead>
+                    <TableHead className="text-xs">Total repayment</TableHead>
+                    <TableHead className="text-xs">Action</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {(unknownCadence.data?.rows ?? []).map((plan) => (
+                    <CadenceRow key={plan.rent_request_id} plan={plan} />
+                  ))}
+                  {(unknownCadence.data?.rows ?? []).length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-xs text-muted-foreground">
+                        {unknownCadence.isLoading ? 'Loading…' : 'No plans with unknown cadence.'}
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+            <PagerFooter page={page} totalRows={unknownCadence.data?.total_row_count ?? 0} onPage={setPage} />
           </CardContent>
         </Card>
       )}
