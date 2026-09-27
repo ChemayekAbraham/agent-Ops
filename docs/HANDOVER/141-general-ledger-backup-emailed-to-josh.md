@@ -1,6 +1,6 @@
 # 141: Dedicated general_ledger backup, emailed to Josh
 
-**Status (2026-09-27):** migration `20260927160000` has been **applied live** (verified: the RPC returns 624,989 rows and 694 boundaries, anon cannot execute it, and `backup_runs.backup_kind` exists). Edge functions `general-ledger-backup` and `resend-database-backup-link` (changed) still need to be **deployed**. The nightly cron migration `20260927160100` stays **unapplied** until a manual run has been verified.
+**Status (2026-09-27 15:10 UTC): LIVE and verified.** Migrations `20260927160000` and `20260927160100` are applied (cron `general-ledger-backup-0100-eat`, `0 22 * * *` UTC, active). Edge functions are deployed via Lovable. First run at 15:08 UTC exported **624,989 / 624,989 rows** in 8 parts (298 MB) in 18 s. Email `sent` to joshwanda17@gmail.com (email_send_log). The part row counts sum exactly to the table count.
 
 ## Read this first: the weekly "full" backup never held the ledger
 
