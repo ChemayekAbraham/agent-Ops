@@ -154,7 +154,6 @@ import { AgentTenantRentRequestsList } from '@/components/agent/AgentTenantRentR
 import { ShareRentRecorderCard } from '@/components/agent/ShareRentRecorderCard';
 import { TodayCollectionsCard } from '@/components/agent/TodayCollectionsCard';
 import { AgentPriorityGrid } from '@/components/agent/AgentPriorityGrid';
-import { AgentPromissoryNotesTile } from '@/components/agent/AgentPromissoryNotesTile';
 import { MERCHANT_RESTRICTION_MESSAGE, useIsMerchantAgent } from '@/hooks/useIsMerchantAgent';
 import { MerchantDashboardHome } from '@/components/agent/MerchantDashboardHome';
 import { AgentTenantInlineList } from '@/components/agent/AgentTenantInlineList';
@@ -224,8 +223,6 @@ const AgentPartnerDashboardSheet = lazy(() => import('@/components/agent/AgentPa
 const FinancialAgentSection = lazy(() => import('@/components/agent/FinancialAgentSection').then(m => ({ default: m.FinancialAgentSection })));
 const LendingAgentPortal = lazy(() => import('@/components/vouch/agent/LendingAgentPortal'));
 const BorrowLoanSheet = lazy(() => import('@/components/vouch/borrower/BorrowLoanSheet'));
-const PromissoryNoteDialog = lazy(() => import('@/components/agent/PromissoryNoteDialog').then(m => ({ default: m.PromissoryNoteDialog })));
-const AgentPromissoryNotesList = lazy(() => import('@/components/agent/AgentPromissoryNotesList').then(m => ({ default: m.AgentPromissoryNotesList })));
 const AgentAdvanceRequestForm = lazy(() => import('@/components/agent/AgentAdvanceRequestForm').then(m => ({ default: m.AgentAdvanceRequestForm })));
 const CreditAccessCard = lazy(() => import('@/components/CreditAccessCard').then(m => ({ default: m.CreditAccessCard })));
 const AgentCashPayoutsTab = lazy(() => import('@/components/agent/AgentCashPayoutsTab').then(m => ({ default: m.AgentCashPayoutsTab })));
@@ -522,10 +519,8 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   const [floatHistoryOpen, setFloatHistoryOpen] = useState(false);
   const [requisitionOpen, setRequisitionOpen] = useState(false);
   const [angelPoolInvestOpen, setAngelPoolInvestOpen] = useState(false);
-  const [promissoryNoteOpen, setPromissoryNoteOpen] = useState(false);
   const [rentPosterOpen, setRentPosterOpen] = useState(false);
   const [regFormKind, setRegFormKind] = useState<'landlord' | 'tenant' | null>(null);
-  const [promissoryListOpen, setPromissoryListOpen] = useState(false);
   const [advanceRequestOpen, setAdvanceRequestOpen] = useState(false);
   const [advanceGuideOpen, setAdvanceGuideOpen] = useState(false);
   const [shareLandlordOpen, setShareLandlordOpen] = useState(false);
@@ -1239,11 +1234,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
             )}
 
 
-            {/* Promissory notes — date recorded, date promised, partner, quick edit */}
-            {!isMerchant && (
-              <AgentPromissoryNotesTile agentId={user.id} onSeeAll={() => setPromissoryListOpen(true)} />
-            )}
-
             {/* 2) Today's collected total — single most useful at-a-glance number */}
             {!isMerchant && <FieldCollectDailyTotals live />}
 
@@ -1932,14 +1922,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
           setMenuOpen(false);
           handleShareLandlordSignup();
         }}
-        onCreatePromissoryNote={() => {
-          setMenuOpen(false);
-          setPromissoryNoteOpen(true);
-        }}
-        onViewPromissoryNotes={() => {
-          setMenuOpen(false);
-          setPromissoryListOpen(true);
-        }}
         onRequestAdvance={() => {
           setMenuOpen(false);
           setAdvanceRequestOpen(true);
@@ -2225,12 +2207,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
       </Dialog>
       )}
 
-      <LazyModal when={promissoryNoteOpen}>
-      <PromissoryNoteDialog open={promissoryNoteOpen} onOpenChange={setPromissoryNoteOpen} />
-      </LazyModal>
-      <LazyModal when={promissoryListOpen}>
-      <AgentPromissoryNotesList open={promissoryListOpen} onOpenChange={setPromissoryListOpen} />
-      </LazyModal>
       <LazyModal when={advanceRequestOpen}>
       <AgentAdvanceRequestForm open={advanceRequestOpen} onOpenChange={setAdvanceRequestOpen} />
       </LazyModal>
