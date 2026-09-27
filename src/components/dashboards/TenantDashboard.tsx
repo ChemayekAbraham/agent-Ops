@@ -331,11 +331,6 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
           {/* Terms Acceptance Notice */}
           <TenantAgreementNotice onAcceptClick={() => setShowAgreementModal(true)} />
 
-          <RentAccessProgressTracker userId={user.id} />
-
-
-
-
           {/* Profile Row */}
           <div className="animate-fade-in flex items-center gap-3">
             <ProfileSummaryPopover
