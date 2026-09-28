@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
+import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -16,7 +17,7 @@ export type DrilldownPreset = {
 export type DrillColumn = { head: string; cell: (r: any) => React.ReactNode; csv: (r: any) => unknown; className?: string };
 
 export type DrillConfig = {
-  title: string; description: string; rpc: string; payerParam: string; filename: string;
+  title: string; description: string; rpc: string; kind: 'paid_out' | 'received'; payerParam: string; filename: string;
   personLabel: string; confirmedLabel: string;
   types: string[];
   statuses: { value: string; label: string }[];
@@ -28,8 +29,18 @@ export const kampalaDate = (d = new Date()) => d.toLocaleDateString('en-CA', { t
 export const monthStart = () => kampalaDate().slice(0, 8) + '01';
 export const allTime = () => ({ from: SINCE, to: kampalaDate() });
 const sel = 'h-9 rounded-md border border-input bg-background px-2 text-sm';
+const PAGE = 50;
+const EXPORT_CHUNK = 1000;
 
-/** Read-only drill-down. Totals come from the server over the full filtered set, so they reconcile even if rows are capped. */
+const errText = (e: any) => {
+  const m = String(e?.message ?? e ?? '');
+  if (/not authorized/i.test(m)) return 'Only CFO, CEO and super admin accounts can open this report.';
+  if (/timeout|canceling statement/i.test(m)) return 'The report took too long. Narrow the date range or add a filter, then try again.';
+  if (/fetch|network/i.test(m)) return 'Network problem — check your connection and try again.';
+  return `Could not load the report${m ? `: ${m}` : ''}.`;
+};
+
+/** Read-only drill-down. Totals come from a separate server aggregate over the full filtered set; rows are paged. */
 export function MoneyDrilldownReport({ open, onOpenChange, preset, config }: {
   open: boolean; onOpenChange: (o: boolean) => void; preset?: DrilldownPreset | null; config: DrillConfig;
 }) {
@@ -41,6 +52,7 @@ export function MoneyDrilldownReport({ open, onOpenChange, preset, config }: {
   const [person, setPerson] = useState('');
   const [params, setParams] = useState<Record<string, string> | null>(null);
   const [active, setActive] = useState<DrilldownPreset | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -53,49 +65,82 @@ export function MoneyDrilldownReport({ open, onOpenChange, preset, config }: {
 
   const generate = () => { setActive(null); setParams({ from, to, status, method, type, person }); };
 
-  const q = useQuery({
-    queryKey: [config.rpc, params],
+  const filterArgs = () => {
+    const p = params!;
+    const end = new Date(p.to + 'T00:00:00Z'); end.setUTCDate(end.getUTCDate() + 1);
+    return {
+      p_from: new Date(p.from + 'T00:00:00+03:00').toISOString(),
+      p_to: new Date(end.toISOString().slice(0, 10) + 'T00:00:00+03:00').toISOString(),
+      p_status: p.status || null, p_method: p.method || null, p_type: p.type || null,
+      person: p.person.trim() || null,
+    };
+  };
+  const fetchPage = async (offset: number, limit: number) => {
+    const { person: who, ...a } = filterArgs();
+    const { data, error } = await (supabase.rpc as any)(config.rpc, { ...a, [config.payerParam]: who, p_offset: offset, p_limit: limit });
+    if (error) throw error;
+    return (data ?? []) as any[];
+  };
+
+  const totalsQ = useQuery({
+    queryKey: [config.kind, 'totals', params],
     enabled: open && !!params,
     queryFn: async () => {
-      const p = params!;
-      const end = new Date(p.to + 'T00:00:00Z'); end.setUTCDate(end.getUTCDate() + 1);
-      const { data, error } = await (supabase.rpc as any)(config.rpc, {
-        p_from: new Date(p.from + 'T00:00:00+03:00').toISOString(),
-        p_to: new Date(end.toISOString().slice(0, 10) + 'T00:00:00+03:00').toISOString(),
-        p_status: p.status || null, p_method: p.method || null, p_type: p.type || null,
-        [config.payerParam]: p.person.trim() || null, p_limit: 10000,
-      });
+      const { person: who, ...a } = filterArgs();
+      const { data, error } = await (supabase.rpc as any)('get_cfo_money_drilldown_totals', { p_kind: config.kind, ...a, p_person: who });
       if (error) throw error;
-      return (data ?? []) as any[];
+      const r = (data ?? [])[0] ?? {};
+      return {
+        count: Number(r.match_count ?? 0), confirmedCount: Number(r.confirmed_count ?? 0), pendingCount: Number(r.pending_count ?? 0),
+        confirmed: Number(r.confirmed_amount ?? 0), pending: Number(r.pending_amount ?? 0),
+      };
     },
   });
-  const rows = q.data ?? [];
-  const matchCount = Number(rows[0]?.match_count ?? 0);
-  const confirmed = Number(rows[0]?.match_confirmed_amount ?? 0);
-  const pending = Number(rows[0]?.match_pending_amount ?? 0);
-  const confirmedCount = rows.filter(r => !['pending'].includes(r.status)).length;
+
+  const q = useInfiniteQuery({
+    queryKey: [config.rpc, 'pages', params],
+    enabled: open && !!params,
+    initialPageParam: 0,
+    queryFn: ({ pageParam }) => fetchPage(pageParam as number, PAGE),
+    getNextPageParam: (last, all) => (last.length < PAGE ? undefined : all.length * PAGE),
+  });
+  const rows = q.data?.pages.flat() ?? [];
+  const t = totalsQ.data;
+  const matchCount = t?.count ?? 0;
 
   let recon: { ok: boolean; text: string } | null = null;
-  if (active?.expected && q.data) {
+  if (active?.expected && t) {
     const e = active.expected;
-    const got = e.basis === 'pending' ? pending : confirmed;
-    const gotCount = e.basis === 'pending' ? rows.filter(r => r.status === 'pending').length : confirmedCount;
-    const ok = Math.round(got) === Math.round(e.amount) && (matchCount > rows.length || gotCount === e.count);
+    const got = e.basis === 'pending' ? t.pending : t.confirmed;
+    const gotCount = e.basis === 'pending' ? t.pendingCount : t.confirmedCount;
+    const ok = Math.round(got) === Math.round(e.amount) && gotCount === e.count;
     recon = { ok, text: ok
       ? `Reconciles to the card: ${formatUGX(e.amount)} across ${e.count.toLocaleString()} transactions.`
       : `Does not match the card (card ${formatUGX(e.amount)} / ${e.count.toLocaleString()}; report ${formatUGX(got)} / ${gotCount.toLocaleString()}). The figures may have changed since the card loaded — refresh and try again.` };
   }
 
-  const exportCsv = () => {
-    const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-    const lines = rows.map(r => config.columns.map(c => esc(c.csv(r))).join(','));
-    const blob = new Blob([[config.columns.map(c => esc(c.head)).join(','), ...lines].join('\n')], { type: 'text/csv' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `${config.filename}_${params?.from}_${params?.to}.csv`;
-    a.click();
-    URL.revokeObjectURL(a.href);
+  const exportCsv = async () => {
+    setExporting(true);
+    try {
+      const all: any[] = [];
+      for (let off = 0; ; off += EXPORT_CHUNK) {
+        const chunk = await fetchPage(off, EXPORT_CHUNK);
+        all.push(...chunk);
+        if (chunk.length < EXPORT_CHUNK) break;
+      }
+      const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+      const lines = all.map(r => config.columns.map(c => esc(c.csv(r))).join(','));
+      const blob = new Blob([[config.columns.map(c => esc(c.head)).join(','), ...lines].join('\n')], { type: 'text/csv' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${config.filename}_${params?.from}_${params?.to}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch (e) {
+      toast.error(errText(e));
+    } finally { setExporting(false); }
   };
+  const loading = q.isFetching || totalsQ.isFetching;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
