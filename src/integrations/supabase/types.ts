@@ -55121,6 +55121,24 @@ export type Database = {
         }
         Returns: Json
       }
+      agent_ops_silent_collectors: {
+        Args: { p_limit?: number; p_min_days_silent?: number }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          arrears: number
+          blocker: string
+          collection_float: number
+          days_silent: number
+          landlord_float_held: number
+          last_collected: string
+          owed_today: number
+          phone: string
+          tenants_behind: number
+          tenants_today: number
+          withdrawable: number
+        }[]
+      }
       agent_ops_strict_agent_ids: {
         Args: never
         Returns: {
