@@ -83,6 +83,12 @@ BEGIN
   v_amt := ROUND(COALESCE(p_amount,0));
   IF v_amt <= 0 THEN RETURN jsonb_build_object('status','no_op'); END IF;
 
+  -- A reversed collection is not standing cash: never split it (marker copied, nothing posted).
+  IF p_source_table = 'agent_collections' AND EXISTS (
+       SELECT 1 FROM agent_collections ac WHERE ac.id = p_source_id AND ac.reversed_at IS NOT NULL) THEN
+    RETURN jsonb_build_object('status','source_reversed');
+  END IF;
+
   IF EXISTS (SELECT 1 FROM instalment_allocations ia
               WHERE ia.rent_request_id=p_rent_request_id AND ia.source_table=p_source_table
                 AND ia.source_id=p_source_id) THEN
