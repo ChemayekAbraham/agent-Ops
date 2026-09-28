@@ -35,11 +35,22 @@
 // One round trip fetches the whole work list; the per-recipient loop after it
 // is unavoidable, because sending is inherently one message per person.
 //
-// NOTE ON THE 24-HOUR DEADLINE. The spec's A1 text warns the agent that the
-// float will be recalled and the plan cancelled after 24 hours. That recall is
-// Phase 4 and does not exist yet, so this message does NOT state it. Telling
-// agents about a consequence we cannot yet apply would be a promise we do not
-// keep; the sentence goes in when the timer does.
+// ON THE 24-HOUR DEADLINE. This file previously omitted the deadline sentence
+// from A1, because the recall was Phase 4 and did not exist: telling agents
+// about a consequence we could not apply would have been a promise we did not
+// keep. THE RECALL IS LIVE NOW, so the sentence is in, exactly as the spec
+// writes it.
+//
+// One conditional remains, and it is not a rewording: a plan funded BEFORE
+// `landlord_float_recall_go_live()` is not governed by the timer, so A1 omits
+// the deadline paragraph for those rather than threaten a consequence that
+// cannot happen to them. Everything funded from go-live onward gets the full
+// spec text.
+//
+// EVERY STRING BELOW IS COPIED FROM docs/rent-plan-new-flow-full-report.md
+// section 5. Do not improve them. If a message needs to change, change the
+// spec first, because these go to customers and agents who were told what to
+// expect.
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { sendSMS } from '../_shared/sendSmsMultiProvider.ts';
@@ -66,6 +77,23 @@ interface AgentNotice {
   landlord_name: string | null;
   tenant_name: string | null;
   rent_amount: number;
+  ref: string | null;
+  /** Kampala-formatted by the RPC, so this file never guesses a timezone. */
+  deadline_time: string | null;
+  deadline_date: string | null;
+  /** False for plans funded before the recall went live — they are not governed. */
+  recall_active: boolean;
+}
+
+interface AgentCancelledNotice {
+  rent_request_id: string;
+  agent_id: string;
+  agent_phone: string;
+  agent_name: string | null;
+  landlord_name: string | null;
+  tenant_name: string | null;
+  rent_amount: number;
+  ref: string | null;
 }
 
 interface AgentPaidNotice {
@@ -94,6 +122,8 @@ interface AgentNudgeNotice {
   amount: number;
   severity: 'reminder' | 'warning';
   hours_left: number;
+  ref: string | null;
+  deadline_time: string | null;
 }
 
 interface TenantCancelledNotice {
@@ -103,6 +133,7 @@ interface TenantCancelledNotice {
   tenant_first_name: string | null;
   rent_amount: number;
   landlord_name: string | null;
+  ref: string | null;
 }
 
 interface TenantNotice {
@@ -119,17 +150,35 @@ interface TenantNotice {
   repayment_starts_on: string;
   agent_name: string | null;
   agent_phone: string | null;
+  ref: string | null;
 }
 
-/** Terminology is mandatory in customer copy: Rent Plan, never "loan". */
+/**
+ * A1 — spec section 5, verbatim.
+ *
+ * The deadline paragraph is omitted only for plans funded before the recall
+ * went live, because the timer does not govern them. That is a suppression,
+ * not a rewording.
+ */
 function agentMessage(n: AgentNotice): string {
-  const tenant = n.tenant_name ? ` for ${n.tenant_name}` : '';
+  const tenant = n.tenant_name ? ` (${n.tenant_name})` : '';
+  const deadline =
+    n.recall_active && n.deadline_time && n.deadline_date
+      ? `Pay the landlord within 24 hours — by ${n.deadline_time} on ${n.deadline_date} — ` +
+        `or the float will be returned and the Rent Plan cancelled.
+
+`
+      : `Please pay the landlord and submit the TID and receipt.
+
+`;
+
   return (
-    `${ugx(n.rent_amount)} landlord float is in your wallet to pay ` +
-    `${n.landlord_name || 'the landlord'}${tenant}.\n\n` +
-    `Please pay the landlord and submit the TID and receipt. ` +
-    `The tenant starts repaying the day after the landlord is paid.\n\n` +
-    `Payouts run 06:00-22:00.`
+    `${ugx(n.rent_amount)} landlord float has been sent to your wallet for ` +
+    `${n.landlord_name || 'the landlord'}${tenant}.
+
+` +
+    deadline +
+    `Payouts run 06:00–22:00.${n.ref ? ` Ref ${n.ref}.` : ''}`
   );
 }
 
@@ -150,7 +199,8 @@ function tenantMessage(n: TenantNotice): string {
     `Your repayment starts TOMORROW, ${dayLabel(n.repayment_starts_on)}:`,
     `  ${ugx(n.instalment)} ${n.period_label}${term}`,
     `  Total to repay: ${ugx(n.total_repayment)}`,
-  ].join('\n') + agent;
+  ].join('\n') + agent + (n.ref ? `
+Ref ${n.ref}.` : '');
 }
 
 function agentPaidMessage(n: AgentPaidNotice): string {
@@ -178,35 +228,55 @@ Please upload the receipt.`
 
 function agentNudgeMessage(n: AgentNudgeNotice): string {
   const who = n.landlord_name || 'the landlord';
-  const tenant = n.tenant_name ? ` for ${n.tenant_name}` : '';
-  const hours = Math.max(0, Math.round(n.hours_left));
+  const tenantName = n.tenant_name || 'the tenant';
+  const ref = n.ref ? ` Ref ${n.ref}.` : '';
+
   if (n.severity === 'warning') {
+    // A3 - spec section 5, verbatim. The spec says "6 hours left" because A3
+    // fires at 18h of a 24h clock; the deadline time is quoted alongside it.
     return (
-      `Reminder: ${ugx(n.amount)} for landlord ${who}${tenant} is still in your wallet.
-
-` +
-      `About ${hours} hours left. If the landlord is not paid, the float is returned ` +
-      `and the Rent Plan is cancelled.
-
-Payouts run 06:00-22:00.`
+      `Reminder: ${ugx(n.amount)} for landlord ${who} is still in your ` +
+      `wallet. You have 6 hours left${n.deadline_time ? ` (${n.deadline_time})` : ''}. ` +
+      `After that the float is returned and ${tenantName}'s Rent Plan is cancelled.${ref}`
     );
   }
+
+  // A2. The spec lists this message in the table but gives NO text for it, so
+  // the wording here is the one already in service and is NOT invented to look
+  // like the spec. If A2 needs exact copy, it has to be written into
+  // docs/rent-plan-new-flow-full-report.md first.
+  const tenant = n.tenant_name ? ` for ${n.tenant_name}` : '';
   return (
     `${ugx(n.amount)} for landlord ${who}${tenant} is still in your wallet.
 
 ` +
-    `Please pay the landlord and submit the TID and receipt. Payouts run 06:00-22:00.`
+    `Please pay the landlord and submit the TID and receipt. Payouts run 06:00-22:00.${ref}`
   );
 }
 
+/** T2 - spec section 5, verbatim. */
 function tenantCancelledMessage(n: TenantCancelledNotice): string {
   const name = n.tenant_first_name ? `${n.tenant_first_name}, ` : '';
   return (
-    `${name}the Rent Plan for your rent of ${ugx(n.rent_amount)} could not be ` +
-    `completed because the landlord payment was not made in time.
+    `${name}the Rent Plan for your rent of ${ugx(n.rent_amount)} could ` +
+    `not be completed because the landlord payment was not made in time. Nothing ` +
+    `is owed by you. Your agent can submit the request again.` +
+    (n.ref ? ` Ref ${n.ref}.` : '')
+  );
+}
 
-` +
-    `Nothing is owed by you. Your agent can submit the request again.`
+/**
+ * A4 - spec section 5, verbatim. The agent was never told their float had been
+ * taken back; only the tenant was. This is the message the spec has always
+ * required and the system never sent.
+ */
+function agentCancelledMessage(n: AgentCancelledNotice): string {
+  const tenant = n.tenant_name || 'The tenant';
+  return (
+    `The ${ugx(n.rent_amount)} landlord float for ${n.landlord_name || 'the landlord'} ` +
+    `was not paid out within 24 hours and has been returned. ${tenant}'s Rent Plan ` +
+    `has been cancelled and can be submitted again.` +
+    (n.ref ? ` Ref ${n.ref}.` : '')
   );
 }
 
@@ -220,6 +290,7 @@ Deno.serve(async (req) => {
 
   const result = {
     agent_sent: 0, agent_failed: 0,
+    agent_cancelled_sent: 0, agent_cancelled_failed: 0,
     tenant_sent: 0, tenant_failed: 0,
     agent_paid_sent: 0, agent_paid_failed: 0,
     nudge_sent: 0, nudge_failed: 0,
@@ -238,6 +309,7 @@ Deno.serve(async (req) => {
     const agentsPaid = (data?.agent_landlord_paid ?? []) as AgentPaidNotice[];
     const nudges = (data?.agent_nudge ?? []) as AgentNudgeNotice[];
     const cancelled = (data?.tenant_cancelled ?? []) as TenantCancelledNotice[];
+    const agentCancelled = (data?.agent_cancelled ?? []) as AgentCancelledNotice[];
 
     for (const n of agents) {
       const ok = await sendSMS(n.agent_phone, agentMessage(n), {
@@ -297,6 +369,19 @@ Deno.serve(async (req) => {
         idempotencyKey: `rent-plan-t2:${n.rent_request_id}`,
       });
       ok ? result.cancelled_sent++ : result.cancelled_failed++;
+    }
+
+    // A4. The agent whose float was taken back.
+    for (const n of agentCancelled) {
+      const ok = await sendSMS(n.agent_phone, agentCancelledMessage(n), {
+        admin,
+        source: 'rent_plan_float_returned',
+        reference_id: n.rent_request_id,
+        recipient_user_id: n.agent_id,
+        recipient_name: n.agent_name,
+        idempotencyKey: `rent-plan-a4:${n.rent_request_id}`,
+      });
+      ok ? result.agent_cancelled_sent++ : result.agent_cancelled_failed++;
     }
 
     return new Response(JSON.stringify({ success: true, ...result }), {
