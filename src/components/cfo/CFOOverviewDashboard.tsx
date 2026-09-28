@@ -11,7 +11,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
   Loader2, ArrowDownRight, ArrowUpRight, Scale, Wallet,
-  ChevronRight, Info, CalendarDays, Download,
+  ChevronRight, CalendarDays, Download,
   PiggyBank, BarChart3, Package, ChevronDown,
   Landmark, Vault, CheckCircle2, AlertTriangle,
 } from 'lucide-react';
@@ -45,6 +45,7 @@ import { ReceivablesCardDrilldown } from '@/components/cfo/ReceivablesCardDrilld
 import { PayablesCardDrilldown } from '@/components/cfo/PayablesCardDrilldown';
 import { GeneralPayoutActivities } from '@/components/cfo/GeneralPayoutActivities';
 import { WithdrawableCreditsLivePanel } from '@/components/cfo/WithdrawableCreditsLivePanel';
+import { HeroCard } from '@/components/cfo/HeroCard';
 
 
 
