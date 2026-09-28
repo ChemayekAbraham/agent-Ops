@@ -327,7 +327,7 @@ export function PromissoryPlanMatcher({
 
   return (
     <div className="rounded-xl border border-border p-3 space-y-2.5">
-      <div className="flex items-start justify-between gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
         <div className="min-w-0">
           <p className="text-xs font-semibold">
             Empty houses &amp; rent plans{' '}
@@ -342,7 +342,7 @@ export function PromissoryPlanMatcher({
           type="button"
           size="sm"
           variant="outline"
-          className="h-7 gap-1 text-[11px] shrink-0"
+          className="h-7 gap-1 text-[11px] shrink-0 self-start"
           onClick={autoFill}
           disabled={disabled || anythingLoading || targetAmount <= 0 || (plans.length === 0 && houses.length === 0)}
         >
@@ -381,15 +381,15 @@ export function PromissoryPlanMatcher({
             </div>
           )}
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search house, tenant, city or landlord"
-              className="h-8 text-xs flex-1"
+              className="h-8 text-xs flex-1 w-full"
               disabled={disabled}
             />
-            <div className="flex items-center rounded-lg border border-border overflow-hidden shrink-0">
+            <div className="flex items-center rounded-lg border border-border overflow-hidden shrink-0 w-full sm:w-auto">
               {(
                 [
                   { key: 'houses', label: 'Houses first' },
@@ -400,7 +400,7 @@ export function PromissoryPlanMatcher({
                   key={opt.key}
                   type="button"
                   onClick={() => setSortMode(opt.key)}
-                  className={`px-2 h-8 text-[10px] font-semibold flex items-center gap-1 transition-colors ${
+                  className={`px-2 h-8 text-[10px] font-semibold flex items-center justify-center gap-1 flex-1 sm:flex-none transition-colors ${
                     sortMode === opt.key
                       ? 'bg-primary text-primary-foreground'
                       : 'text-muted-foreground hover:text-foreground'
