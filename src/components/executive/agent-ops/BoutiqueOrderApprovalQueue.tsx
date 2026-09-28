@@ -17,7 +17,7 @@ interface Row {
 }
 
 const STATUS_LABEL: Record<string, string> = {
-  pending_approval: 'Awaiting COO', submitted: 'Awaiting COO', processing: 'Awaiting COO',
+  pending_approval: 'Awaiting Agent Ops', submitted: 'Awaiting Agent Ops', processing: 'Awaiting Agent Ops',
   ops_approved: 'Awaiting COO', coo_approved: 'COO approved — awaiting CFO',
   issued: 'Issued', completed: 'Issued · fully paid',
 };
