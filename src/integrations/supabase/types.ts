@@ -58551,6 +58551,10 @@ export type Database = {
         Args: { p_id: string; p_reason?: string }
         Returns: Json
       }
+      finops_auto_approve_waiting_payout_destinations: {
+        Args: never
+        Returns: Json
+      }
       finops_decide_payout_destination: {
         Args: {
           p_call_outcome?: string
