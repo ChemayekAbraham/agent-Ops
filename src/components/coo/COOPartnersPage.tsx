@@ -4859,7 +4859,7 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
       list = list.filter(p => inRange(p.nextPayoutDate, weekMonday, weekFriday));
     } else if (rangeFilter === 'weekend') {
       // Saturday & Sunday of the current week
-      list = list.filter(p => inRange(p.nextPayoutDate, weekSaturday, weekSunday));
+      list = list.filter(p => inRange(p.nextPayoutDate, lastWeekSaturday, lastWeekSunday));
     } else if (rangeFilter === '7') {
       list = list.filter(p => p.daysUntil >= -30 && p.daysUntil <= 7);
     } else if (rangeFilter === '14') {
@@ -4901,7 +4901,7 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
       case 'today':   return 'Due today';
       case 'tomorrow': return 'Due tomorrow';
       case '5':       return 'This week (Mon–Fri)';
-      case 'weekend': return 'This weekend (Sat & Sun)';
+      case 'weekend': return 'Last weekend (Sat & Sun)';
       case '7':       return 'Next 7 days (incl. overdue ≤ 30d)';
       case '14':      return 'Next 14 days (incl. overdue ≤ 30d)';
       case '30':      return 'Next 30 days (incl. overdue ≤ 30d)';
