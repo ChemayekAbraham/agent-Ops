@@ -13,9 +13,16 @@
 // pause are skipped. Nothing about wallets, plans, repayments or collections
 // is written - this function only sends reminders and raises follow-up rows,
 // and records each one in tenant_arrears_escalations for audit.
+//
+// SMS controls (system_config, see _shared/reminderSmsControls.ts):
+//   reminder_sms_enabled (kill switch, missing = OFF, re-read before sends),
+//   reminder_sms_max_per_tenant_per_day, reminder_sms_max_per_run.
+// The kill switch and caps gate SMS only. Agent tasks and calling-centre rows
+// are follow-up work, not messages, and still get raised when SMS is off.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendSMS, isUgandanPhone } from "../_shared/sendSmsMultiProvider.ts";
 import { suppressSignupPrompt } from "../_shared/smsSignupPrompt.ts";
+import { ReminderSmsGuard, reminderCopyViolation } from "../_shared/reminderSmsControls.ts";
 
 suppressSignupPrompt();
 
@@ -91,11 +98,33 @@ Deno.serve(async (req) => {
     tenants_texted: 0, tenants_skipped_no_phone: 0,
     agents_escalated: 0, agents_skipped_no_phone: 0, agent_tasks_raised: 0,
     call_tasks_raised: 0, call_tasks_already_queued: 0,
+    sms_controls: null as unknown,
+    sms_stopped_reason: null as string | null,
+    tenants_skipped_daily_cap: 0, sms_skipped_cap_check_failed: 0,
+    sms_blocked_copy: 0,
     errors: [] as string[],
     preview: [] as { kind: string; to: string; message: string }[],
   };
 
+  const guard = new ReminderSmsGuard(admin, { enforceKillSwitch: !dryRun });
+  let smsStopped = false;
+  /** One gate for every reminder SMS: kill switch, run cap, tenant daily cap, copy. */
+  const mayText = async (message: string, tenantId?: string | null): Promise<boolean> => {
+    if (smsStopped) return false;
+    const bad = reminderCopyViolation(message);
+    if (bad) { summary.sms_blocked_copy++; summary.errors.push(`copy blocked: "${bad}"`); return false; }
+    const d = await guard.beforeSend(tenantId);
+    if (d.ok) return true;
+    if (d.stopRun) { smsStopped = true; summary.sms_stopped_reason = d.reason; }
+    else if (d.reason === "tenant_daily_cap_reached") summary.tenants_skipped_daily_cap++;
+    else summary.sms_skipped_cap_check_failed++;
+    return false;
+  };
+
   try {
+    summary.sms_controls = await guard.load();
+    if (!guard.snapshot.enabled && !dryRun) { smsStopped = true; summary.sms_stopped_reason = "reminder_sms_disabled"; }
+
     const { data: rawArrears, error: arrErr } = await admin
       .from("v_rent_plan_arrears")
       .select("rent_request_id, tenant_id, agent_id, days_behind, arrears_ugx")
@@ -183,7 +212,8 @@ Deno.serve(async (req) => {
     const tenantQueue = [...byTenant.entries()].filter(([, list]) => {
       const worst = Math.max(...list.map((r) => Number(r.days_behind || 0)));
       return worst % CADENCE === 1; // days 1, 4, 7, 10 ...
-    });
+    }).sort(([, a], [, b]) =>
+      b.reduce((s, r) => s + Number(r.arrears_ugx || 0), 0) - a.reduce((s, r) => s + Number(r.arrears_ugx || 0), 0));
 
     const tenantWorker = async () => {
       while (tenantQueue.length) {
@@ -191,6 +221,7 @@ Deno.serve(async (req) => {
         const phone = person.get(tenantId)?.phone ?? null;
         const message = tenantMessage(list);
         if (!phone || !isUgandanPhone(phone)) { summary.tenants_skipped_no_phone++; continue; }
+        if (!(await mayText(message, tenantId))) continue;
         if (dryRun) {
           summary.preview.push({ kind: "tenant", to: nameOf(tenantId), message });
           summary.tenants_texted++;
@@ -239,7 +270,8 @@ Deno.serve(async (req) => {
     const agentQueue = [...byAgent.entries()].filter(([, list]) => {
       const worst = Math.max(...list.map((r) => Number(r.days_behind || 0)));
       return worst % CADENCE === 0; // days 3, 6, 9 ...
-    });
+    }).sort(([, a], [, b]) =>
+      b.reduce((s, r) => s + Number(r.arrears_ugx || 0), 0) - a.reduce((s, r) => s + Number(r.arrears_ugx || 0), 0));
 
     const agentWorker = async () => {
       while (agentQueue.length) {
@@ -289,6 +321,10 @@ Deno.serve(async (req) => {
         if (!phone || !isUgandanPhone(phone)) {
           summary.agents_skipped_no_phone++;
           await markSent(id, false, "no_valid_phone");
+          continue;
+        }
+        if (!(await mayText(message))) {
+          await markSent(id, false, summary.sms_stopped_reason ?? "sms_gated");
           continue;
         }
         let ok = false; let err: string | null = null;
