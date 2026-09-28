@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, Home, ListFilter, Loader2, Search, X } from 'lucide-react';
+import { AlertTriangle, Filter, Home, ListFilter, Loader2, Search, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { toast } from 'sonner';
@@ -295,7 +295,7 @@ export function FunderHouseListingsSection() {
     <section className="space-y-3">
       {/* Search + compact filters row */}
       <div className="flex flex-wrap gap-2 rounded-2xl border bg-card p-2.5 shadow-sm sm:p-3">
-        <div className="relative min-w-0 flex-1 basis-full sm:basis-auto">
+        <div className="relative min-w-0 flex-1">
           <Search
             className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
             aria-hidden
@@ -320,13 +320,16 @@ export function FunderHouseListingsSection() {
         </div>
         <Button
           variant="outline"
-          className="relative h-11 min-w-0 rounded-xl text-sm sm:flex-none"
+          aria-label="Filters"
+          className="relative h-11 w-11 shrink-0 justify-center rounded-xl p-0 text-sm md:w-auto md:justify-start md:px-4"
           onClick={() => setFiltersOpen(true)}
         >
-          <ListFilter className="h-4 w-4" aria-hidden />
-          Filters
+          {/* Phones: funnel icon only. Tablets and up: the original labelled button. */}
+          <Filter className="h-4 w-4 md:hidden" aria-hidden />
+          <ListFilter className="hidden h-4 w-4 md:block" aria-hidden />
+          <span className="hidden md:inline">Filters</span>
           {filtersActive ? (
-            <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-primary" aria-hidden />
+            <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-primary md:right-2 md:top-2" aria-hidden />
           ) : null}
         </Button>
       </div>
