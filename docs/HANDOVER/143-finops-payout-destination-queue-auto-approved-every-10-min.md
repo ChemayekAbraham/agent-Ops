@@ -27,7 +27,7 @@ The cron job `finops-auto-approve-waiting-payout-destinations` runs `*/10`. It *
 - **Rows without an ID photo and selfie** (about 2,700 platform-wide). They never reach the queue and are not touched.
 - **Wallet withdrawals.** `enforce_withdrawal_payout_account_lock` means they still pay only to `profiles.mobile_money_number`. Changing that number goes through the Financial Ops number-change queue.
 
-## Shared National ID with owner consent (follow-up migration `20260928180000`)
+## Shared National ID with owner consent (follow-up migration `20260928181000`)
 
 Josh: a National ID already used on another account must **not** be rejected if the owner has consented.
 
