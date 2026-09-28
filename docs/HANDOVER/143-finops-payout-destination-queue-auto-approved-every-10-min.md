@@ -27,6 +27,15 @@ The cron job `finops-auto-approve-waiting-payout-destinations` runs `*/10`. It *
 - **Rows without an ID photo and selfie** (about 2,700 platform-wide). They never reach the queue and are not touched.
 - **Wallet withdrawals.** `enforce_withdrawal_payout_account_lock` means they still pay only to `profiles.mobile_money_number`. Changing that number goes through the Financial Ops number-change queue.
 
+## Shared National ID with owner consent (follow-up migration `20260928100000`)
+
+Josh: a National ID already used on another account must **not** be rejected if the owner has consented.
+
+- **Rejection already honours consent.** `duplicate_national_id_owner()` skips any account paired with the user through `national_id_link_requests` in `owner_approved` or `active`, so `trg_auto_reject_duplicate_national_id` doesn't fire for them. On 2026-09-28, no destination was rejected for a duplicate ID.
+- **The gap was this cron's queue filter.** It excluded everyone in `mv_identity_double_users`, which ignores consent. A consented user's destinations would have stayed `waiting` forever. When checked, one consented user was in the view with 0 waiting destinations.
+- **The follow-up migration** lets a double through when its first account is linked to it by a consented request. `identity_double_submission()` and the view are unchanged, because other gates read them.
+- **The Financial Ops count still shows these rows under "double", not "waiting".** That's a count and UI matter, left to Gemini.
+
 ## Risk accepted
 
 With this live, **any** number added in **anyone's** name is verified within 10 minutes of the ID and selfie being on file. There is no call, SMS code, name match or face check. That includes destinations a person rejected that come back as "Resubmitted after rejection". Josh approved this knowing the tradeoff.
