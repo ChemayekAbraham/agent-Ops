@@ -1,4 +1,4 @@
-/** Reads tops_collection_anomalies_list() and wraps the acknowledge/resolve mutations. */
+/** Reads tops_collection_anomalies_list(p_status, p_limit, p_offset), server-paginated, and wraps the acknowledge/resolve mutations. */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -24,16 +24,24 @@ export interface CollectionAnomaly {
   resolved_note: string | null;
 }
 
-async function fetchCollectionAnomalies(status: string | null): Promise<CollectionAnomaly[]> {
-  const { data, error } = await anyDb.rpc('tops_collection_anomalies_list', { p_status: status });
+async function fetchCollectionAnomalies(
+  status: string | null,
+  limit: number,
+  offset: number,
+): Promise<{ rows: CollectionAnomaly[]; totalRowCount: number }> {
+  const [{ data, error }, { data: count, error: countError }] = await Promise.all([
+    anyDb.rpc('tops_collection_anomalies_list', { p_status: status, p_limit: limit, p_offset: offset }),
+    anyDb.rpc('tops_collection_anomalies_count', { p_status: status }),
+  ]);
   if (error) throw error;
-  return (data ?? []) as CollectionAnomaly[];
+  if (countError) throw countError;
+  return { rows: (data ?? []) as CollectionAnomaly[], totalRowCount: Number(count ?? 0) };
 }
 
-export function useCollectionAnomalies(status: string | null = 'open') {
+export function useCollectionAnomalies(status: string | null, limit: number, offset: number) {
   return useQuery({
-    queryKey: ['tenantOpsWorkspace', 'collectionAnomalies', status],
-    queryFn: () => fetchCollectionAnomalies(status),
+    queryKey: ['tenantOpsWorkspace', 'collectionAnomalies', status, limit, offset],
+    queryFn: () => fetchCollectionAnomalies(status, limit, offset),
     staleTime: 30_000,
   });
 }

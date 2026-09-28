@@ -37,13 +37,13 @@ export default function AgentsSection() {
   const arrearsBook = useAgentArrearsBook(bookAsAt);
   const integrity = useAgentIntegritySignals(integrityFrom, integrityTo);
 
-  const sortedFloat = [...(floatAdequacy.data ?? [])].sort((a, b) => b.shortfall_ugx - a.shortfall_ugx);
-  const sortedAttainment = [...(attainment.data ?? [])].sort((a, b) => (a.agent_name ?? '').localeCompare(b.agent_name ?? ''));
-  const sortedCapacity = [...(capacity.data ?? [])].sort((a, b) => a.effective_pct - b.effective_pct);
-  const sortedIntegrity = [...(integrity.data ?? [])].sort(
-    (a, b) => (b.reversed_collections_count + b.balance_correction_count + b.transfer_churn_count)
-      - (a.reversed_collections_count + a.balance_correction_count + a.transfer_churn_count),
-  );
+  // All four RPCs below already return server-sorted rows (shortfall desc,
+  // agent name asc, effective_pct asc, signal count desc respectively) — no
+  // client-side re-sort needed.
+  const sortedFloat = floatAdequacy.data ?? [];
+  const sortedAttainment = attainment.data ?? [];
+  const sortedCapacity = capacity.data ?? [];
+  const sortedIntegrity = integrity.data ?? [];
 
   return (
     <div className="space-y-4">

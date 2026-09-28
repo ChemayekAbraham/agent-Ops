@@ -1,4 +1,4 @@
-/** Reads tops_agent_area_coverage(p_level) — which agents cover which area, and how many live plans each holds there. */
+/** Reads tops_agent_area_coverage(p_level, p_limit, p_offset) — which agents cover which area, and how many live plans each holds there. Server-paginated. */
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { AreaLevel } from './useAreaBook';
@@ -13,22 +13,21 @@ export interface AgentAreaCoverageRow {
   plan_count: number;
 }
 
-async function fetchAgentAreaCoverage(level: AreaLevel): Promise<AgentAreaCoverageRow[]> {
-  const { data, error } = await anyDb.rpc('tops_agent_area_coverage', { p_level: level });
-  if (error) throw error;
-  return ((data ?? []) as Record<string, any>[]).map((r) => ({
-    area_key: r.area_key ?? null,
-    area_name: r.area_name,
-    agent_id: r.agent_id,
-    agent_name: r.agent_name ?? null,
-    plan_count: Number(r.plan_count),
-  }));
+export interface AgentAreaCoveragePage {
+  total_row_count: number;
+  rows: AgentAreaCoverageRow[];
 }
 
-export function useAgentAreaCoverage(level: AreaLevel) {
+async function fetchAgentAreaCoverage(level: AreaLevel, limit: number, offset: number): Promise<AgentAreaCoveragePage> {
+  const { data, error } = await anyDb.rpc('tops_agent_area_coverage', { p_level: level, p_limit: limit, p_offset: offset });
+  if (error) throw error;
+  return data as AgentAreaCoveragePage;
+}
+
+export function useAgentAreaCoverage(level: AreaLevel, limit: number, offset: number) {
   return useQuery({
-    queryKey: ['tenantOpsWorkspace', 'agentAreaCoverage', level],
-    queryFn: () => fetchAgentAreaCoverage(level),
+    queryKey: ['tenantOpsWorkspace', 'agentAreaCoverage', level, limit, offset],
+    queryFn: () => fetchAgentAreaCoverage(level, limit, offset),
     staleTime: 60_000,
   });
 }

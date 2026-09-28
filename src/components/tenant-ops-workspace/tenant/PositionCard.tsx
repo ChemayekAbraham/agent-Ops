@@ -37,18 +37,21 @@ export default function PositionCard({
   cadenceRemediationHref = '/tenant-ops/workspace?section=tenants',
 }: PositionCardProps) {
   const { data: position, isLoading, error } = usePlanPosition(rentRequestId, asAt);
-  const { data: ledger } = usePlanScheduleLedger(rentRequestId);
+  // Only the most recent settlement date is needed here, not the whole
+  // schedule — one full-width page comfortably covers it without a second
+  // paginated fetch loop.
+  const { data: ledgerPage } = usePlanScheduleLedger(rentRequestId, 500, 0);
 
   const lastPaymentDate = useMemo(() => {
-    if (!ledger) return null;
+    if (!ledgerPage) return null;
     let latest: string | null = null;
-    for (const row of ledger) {
+    for (const row of ledgerPage.rows) {
       for (const settlement of row.settled_by ?? []) {
         if (!latest || settlement.date > latest) latest = settlement.date;
       }
     }
     return latest;
-  }, [ledger]);
+  }, [ledgerPage]);
 
   if (isLoading) {
     return (

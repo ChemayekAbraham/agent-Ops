@@ -1,12 +1,12 @@
-/** Presentation only — every row comes from tops_pipeline_queue(). Stalled items are the point: default sort is age descending. */
-import { useMemo, useState } from 'react';
+/** Presentation only — every row comes from tops_pipeline_queue(p_gap_label, p_owner_id), filtered server-side. Stalled items are the point: default sort is age descending. */
+import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { useAuth } from '@/hooks/useAuth';
-import { usePipelineQueue, type PipelineQueueRow } from '@/hooks/tenantOpsWorkspace/usePipelineQueue';
+import { usePipelineQueue, usePipelineGapCounts, type PipelineQueueRow } from '@/hooks/tenantOpsWorkspace/usePipelineQueue';
 import { TenantDrawer } from '../tenant/TenantDrawer';
 
 const GAP_TABS = [
@@ -23,20 +23,14 @@ export default function PipelineSection() {
   const [tab, setTab] = useState<(typeof GAP_TABS)[number]['key']>('all');
   const [myDeskOnly, setMyDeskOnly] = useState(false);
   const [openTenant, setOpenTenant] = useState<string | null>(null);
-  const { data, isLoading } = usePipelineQueue();
+  const { data, isLoading } = usePipelineQueue(
+    tab === 'all' ? null : tab,
+    myDeskOnly ? user?.id ?? null : null,
+  );
+  const gapCounts = usePipelineGapCounts();
 
-  const rows = useMemo(() => {
-    let list = data ?? [];
-    if (tab !== 'all') list = list.filter((r) => r.gap_label === tab);
-    if (myDeskOnly && user?.id) list = list.filter((r) => r.owner_id === user.id);
-    return list;
-  }, [data, tab, myDeskOnly, user?.id]);
-
-  const countsByGap = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const r of data ?? []) counts[r.gap_label] = (counts[r.gap_label] ?? 0) + 1;
-    return counts;
-  }, [data]);
+  const rows = data ?? [];
+  const countsByGap = gapCounts.data ?? {};
 
   return (
     <div className="space-y-4">
