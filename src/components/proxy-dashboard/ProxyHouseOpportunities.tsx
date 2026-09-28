@@ -140,7 +140,7 @@ export function ProxyHouseOpportunities({ onCreateNote }: { onCreateNote: (h: Ho
               return (
                 <Card key={h.house_id} className="flex flex-col overflow-hidden p-0">
                   {photo ? (
-                    <img src={photo} alt={h.house_category || h.title || 'House'} loading="lazy" className="h-40 w-full bg-muted object-cover" />
+                    <img src={photo} alt={houseLabel(h)} loading="lazy" className="h-40 w-full bg-muted object-cover" />
                   ) : (
                     <div className="flex h-40 w-full items-center justify-center bg-muted"><Home className="h-8 w-8 text-muted-foreground" /></div>
                   )}
