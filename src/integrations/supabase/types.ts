@@ -60012,6 +60012,14 @@ export type Database = {
         Returns: Json
       }
       get_cfo_weekly_report: { Args: { p_end?: string }; Returns: Json }
+      get_cfo_withdrawable_credits_today: {
+        Args: never
+        Returns: {
+          category: string
+          credits: number
+          total: number
+        }[]
+      }
       get_chain_health_summary: {
         Args: never
         Returns: {
