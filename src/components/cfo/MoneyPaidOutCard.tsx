@@ -5,7 +5,7 @@ import { formatUGX } from '@/lib/creditFeeCalculations';
 import { ArrowUpRight, FileText } from 'lucide-react';
 import { useState } from 'react';
 import { allTime, kampalaDate, monthStart, type DrilldownPreset } from '@/components/cfo/MoneyDrilldownReport';
-
+import { MoneyPaidOutReport } from '@/components/cfo/MoneyPaidOutReport';
 type Row = {
   total_paid: number; total_count: number; today_paid: number; today_count: number;
   month_paid: number; month_count: number; pending_amount: number; pending_count: number;
