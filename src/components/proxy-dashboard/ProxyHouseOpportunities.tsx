@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react';
+import { ChevronRight } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { useQuery } from '@tanstack/react-query';
 import { MapPin, Search, SlidersHorizontal, Share2, Eye, FilePlus2, Home } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,7 +25,14 @@ const houseLabel = (h: HouseOpportunity) =>
     .replace(/\b\w/g, (c) => c.toUpperCase());
 
 /** Reuses the existing empty-house source (agent_list_empty_house_opportunities). */
-export function ProxyHouseOpportunities({ onCreateNote }: { onCreateNote: (h: HouseOpportunity) => void }) {
+export function ProxyHouseOpportunities({ onCreateNote, preview, onViewAll }: {
+  onCreateNote: (h: HouseOpportunity) => void;
+  /** Home mode: show only a few recommended houses and a "View all" link. */
+  preview?: boolean;
+  onViewAll?: () => void;
+}) {
+  const isMobile = useIsMobile();
+  const pageSize = preview ? (isMobile ? 3 : 6) : PAGE;
   const [search, setSearch] = useState('');
   const [debounced, setDebounced] = useState('');
   const [sort, setSort] = useState<Sort>('recommended');
@@ -37,14 +46,14 @@ export function ProxyHouseOpportunities({ onCreateNote }: { onCreateNote: (h: Ho
   useEffect(() => { const t = setTimeout(() => { setDebounced(search.trim()); setPage(0); }, 300); return () => clearTimeout(t); }, [search]);
 
   const q = useQuery({
-    queryKey: ['proxy-dash-houses', debounced, sort, minRent, maxRent, near, page],
+    queryKey: ['proxy-dash-houses', debounced, sort, minRent, maxRent, near, page, pageSize],
     staleTime: 60_000,
     placeholderData: (p) => p,
     queryFn: async () => {
       const { data, error } = await supabase.rpc('agent_list_empty_house_opportunities', {
         p_search: debounced || null,
-        p_limit: PAGE,
-        p_offset: page * PAGE,
+        p_limit: pageSize,
+        p_offset: page * pageSize,
         p_min_rent: minRent ? Number(minRent) : null,
         p_max_rent: maxRent ? Number(maxRent) : null,
         p_near_lat: sort === 'nearest' ? near?.lat ?? null : null,
@@ -103,10 +112,12 @@ export function ProxyHouseOpportunities({ onCreateNote }: { onCreateNote: (h: Ho
   return (
     <section className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-bold">Houses You Can Work On</h2>
-        {total > 0 && <span className="text-xs text-muted-foreground">{total.toLocaleString()} available</span>}
+        <h2 className="text-base font-bold md:text-lg">Houses You Can Work On</h2>
+        {preview ? (
+          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={onViewAll}>View all houses<ChevronRight className="ml-0.5 h-3 w-3" /></Button>
+        ) : total > 0 && <span className="text-xs text-muted-foreground">{total.toLocaleString()} available</span>}
       </div>
-      <div className="flex gap-2">
+      <div className={preview ? 'hidden' : 'flex gap-2'}>
         <div className="relative min-w-0 flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input className="pl-9" placeholder="Search location or house type" value={search} onChange={(e) => setSearch(e.target.value)} />
@@ -125,12 +136,11 @@ export function ProxyHouseOpportunities({ onCreateNote }: { onCreateNote: (h: Ho
       {q.isError ? (
         <SectionError label="houses" onRetry={() => q.refetch()} />
       ) : q.isLoading ? (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-40 rounded-lg" />)}</div>
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{Array.from({ length: pageSize > 6 ? 6 : pageSize }).map((_, i) => <Skeleton key={i} className="h-40 rounded-lg" />)}</div>
       ) : total === 0 ? (
         <Card className="flex flex-col items-center gap-2 p-8 text-center">
           <Home className="h-8 w-8 text-muted-foreground" />
-          <p className="font-semibold">No houses available right now</p>
-          <p className="text-sm text-muted-foreground">New houses waiting for support will appear here when they become available.</p>
+          <p className="text-sm text-muted-foreground">No houses are currently available.</p>
         </Card>
       ) : (
         <>
@@ -138,11 +148,11 @@ export function ProxyHouseOpportunities({ onCreateNote }: { onCreateNote: (h: Ho
             {q.data!.houses.map((h) => {
               const photo = h.image_urls?.[0] || h.image_url || null;
               return (
-                <Card key={h.house_id} className="flex flex-col overflow-hidden p-0">
+                <Card key={h.house_id} className="flex flex-col overflow-hidden p-0 shadow-none">
                   {photo ? (
-                    <img src={photo} alt={houseLabel(h)} loading="lazy" className="h-40 w-full bg-muted object-cover" />
+                    <img src={photo} alt={houseLabel(h)} loading="lazy" className="aspect-[16/9] w-full bg-muted object-cover" />
                   ) : (
-                    <div className="flex h-40 w-full items-center justify-center bg-muted"><Home className="h-8 w-8 text-muted-foreground" /></div>
+                    <div className="flex aspect-[16/9] w-full items-center justify-center bg-muted"><Home className="h-8 w-8 text-muted-foreground" /></div>
                   )}
                   <div className="flex flex-1 flex-col p-3">
                     <div className="flex items-start justify-between gap-2">
@@ -153,20 +163,20 @@ export function ProxyHouseOpportunities({ onCreateNote }: { onCreateNote: (h: Ho
                       {h.verified && <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">Verified</span>}
                     </div>
                     <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-                      <div><p className="text-muted-foreground">Amount required</p><p className="text-sm font-bold tabular-nums">{ugx(h.monthly_rent)}</p></div>
-                      <div><p className="text-muted-foreground">Partner returns / month</p><p className="text-sm font-bold tabular-nums">{ugx(h.partner_monthly_return)}</p></div>
+                      <div><p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Amount required</p><p className="text-sm font-bold tabular-nums">{ugx(h.monthly_rent)}</p></div>
+                      <div><p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Partner return</p><p className="text-sm font-bold tabular-nums text-success">{ugx(h.partner_monthly_return)}<span className="text-[10px] font-medium text-muted-foreground"> /mo</span></p></div>
                     </div>
-                    <div className="mt-3 flex gap-2">
-                      <Button size="sm" className="flex-1" onClick={() => onCreateNote(h)}><FilePlus2 className="mr-1 h-4 w-4" />Create Promissory Note</Button>
-                      <Button size="icon" variant="outline" className="h-9 w-9" aria-label="View house" onClick={() => setDetail(h)}><Eye className="h-4 w-4" /></Button>
-                      <Button size="icon" variant="outline" className="h-9 w-9" aria-label="Share" onClick={() => share(h)}><Share2 className="h-4 w-4" /></Button>
+                    <Button size="sm" className="mt-3 w-full" onClick={() => onCreateNote(h)}><FilePlus2 className="mr-1 h-4 w-4" />Create Promissory Note</Button>
+                    <div className="mt-2 grid grid-cols-2 gap-2">
+                      <Button size="sm" variant="outline" onClick={() => setDetail(h)}><Eye className="mr-1 h-4 w-4" />View</Button>
+                      <Button size="sm" variant="outline" onClick={() => share(h)}><Share2 className="mr-1 h-4 w-4" />Share</Button>
                     </div>
                   </div>
                 </Card>
               );
             })}
           </div>
-          {total > PAGE && (
+          {!preview && total > PAGE && (
             <div className="flex items-center justify-center gap-2">
               <Button size="sm" variant="outline" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>Previous</Button>
               <span className="text-xs text-muted-foreground">Page {page + 1} of {Math.ceil(total / PAGE)}</span>
