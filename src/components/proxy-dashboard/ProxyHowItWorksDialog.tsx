@@ -35,16 +35,20 @@ const STEPS = [
   },
 ];
 
-export function ProxyHowItWorksDialog({ noteRate, initialSupportPct, topUpPct }: Props) {
+export function ProxyHowItWorksDialog({ noteRate, initialSupportPct, topUpPct, open, onOpenChange, hideTrigger }: Props & {
+  open?: boolean; onOpenChange?: (o: boolean) => void; hideTrigger?: boolean;
+}) {
   const p: Props = { noteRate, initialSupportPct, topUpPct };
   return (
-    <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm" className="shrink-0 gap-1 px-2.5 text-[11px] md:text-xs">
-          <HelpCircle className="h-3.5 w-3.5" />
-          How it works
-        </Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      {!hideTrigger && (
+        <DialogTrigger asChild>
+          <Button variant="outline" size="sm" className="shrink-0 gap-1 px-2.5 text-[11px] md:text-xs">
+            <HelpCircle className="h-3.5 w-3.5" />
+            How it works
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent className="max-w-lg gap-3 p-4 sm:gap-4 sm:p-5">
         <DialogHeader>
           <DialogTitle>How proxy agents earn</DialogTitle>
