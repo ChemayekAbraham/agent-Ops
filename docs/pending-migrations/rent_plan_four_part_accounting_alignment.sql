@@ -24,6 +24,20 @@ COMMENT ON COLUMN public.instalment_allocations.over_total_amount IS
 COMMENT ON COLUMN public.instalment_allocations.commission_paid_component IS
   'Commission actually paid to wallets for this row by its route (route B only). Accounting commission is agent_commission_component.';
 
+-- 1b. Reversal marker backfill (classification only).
+--     Copies the reversal status of the original agent collection onto its existing
+--     split record so reversed cash is excluded from the standing-cash running total.
+--     No journal entry, no wallet movement, no repayment or tenant balance change.
+--     reversal_group_id stays NULL: no reversal posting is made for these rows.
+UPDATE public.instalment_allocations ia
+   SET reversed_at     = ac.reversed_at,
+       reversal_reason = 'Marker copied from reversed agent collection at four-part migration (no posting)'
+  FROM public.agent_collections ac
+ WHERE ia.source_table = 'agent_collections'
+   AND ia.source_id    = ac.id
+   AND ac.reversed_at IS NOT NULL
+   AND ia.reversed_at IS NULL;
+
 -- 2. Two new accounting-only categories, both revenue (R1), credited by cash_in.
 INSERT INTO public.ledger_account_map (ledger_scope, category, wallet_bucket, account_code, debit_when, notes)
 SELECT 'platform', v.c, NULL, 'R1', 'cash_out', v.n
@@ -68,6 +82,12 @@ BEGIN
 
   v_amt := ROUND(COALESCE(p_amount,0));
   IF v_amt <= 0 THEN RETURN jsonb_build_object('status','no_op'); END IF;
+
+  -- A reversed collection is not standing cash: never split it (marker copied, nothing posted).
+  IF p_source_table = 'agent_collections' AND EXISTS (
+       SELECT 1 FROM agent_collections ac WHERE ac.id = p_source_id AND ac.reversed_at IS NOT NULL) THEN
+    RETURN jsonb_build_object('status','source_reversed');
+  END IF;
 
   IF EXISTS (SELECT 1 FROM instalment_allocations ia
               WHERE ia.rent_request_id=p_rent_request_id AND ia.source_table=p_source_table
