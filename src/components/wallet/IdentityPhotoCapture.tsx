@@ -703,6 +703,58 @@ export default function IdentityPhotoCapture({ compact }: Props) {
     setPendingSelfie(f);
   };
   const [backReading, setBackReading] = useState<NationalIdBackReading | null>(null);
+  /* The back-of-ID reading is editable: the reader can misread the small
+     print, so every line is an input and "Save" applies the corrections to
+     the reading (and fills any matching front-of-ID field still empty, since
+     the front form is what is actually submitted). */
+  const [backEdits, setBackEdits] = useState<Record<string, string>>({});
+  const backDirty =
+    !!backReading &&
+    backReading.details.some((d) => (backEdits[d.label] ?? d.value) !== d.value);
+
+  useEffect(() => {
+    setBackEdits({});
+  }, [backReading]);
+
+  const handleSaveBackDetails = () => {
+    if (!backReading) return;
+    const details = backReading.details
+      .map((d) => ({ ...d, value: (backEdits[d.label] ?? d.value).trim() }))
+      .filter((d) => d.value);
+    const get = (label: string) => details.find((d) => d.label === label)?.value ?? null;
+    const back: NationalIdBackReading['back'] = {
+      ...backReading.back,
+      card_number: get('Card number'),
+      date_of_issue: get('Date of issue'),
+      date_of_expiry: get('Date of expiry'),
+      residence: {
+        district: get('District'),
+        county: get('County'),
+        subcounty: get('Subcounty'),
+        parish: get('Parish'),
+        village: get('Village'),
+      },
+      mrz: {
+        ...backReading.back.mrz,
+        nin: get('NIN'),
+        date_of_birth: get('Date of birth'),
+        sex: get('Sex'),
+        nationality: get('Nationality'),
+      },
+    };
+    setBackReading({ ...backReading, details, back });
+    /* Fill only front-of-ID fields still empty — anything the person already
+       typed or confirmed on the front form stays untouched. */
+    setForm((prev) => ({
+      ...prev,
+      card_number: prev.card_number || get('Card number') || '',
+      nin: prev.nin || get('NIN') || '',
+      date_of_birth: prev.date_of_birth || get('Date of birth') || '',
+      sex: prev.sex || get('Sex') || '',
+    }));
+    setBackEdits({});
+    toast.success('Saved — your corrections will be submitted with your ID.');
+  };
   const [backReadError, setBackReadError] = useState<string | null>(null);
   const [readingBack, setReadingBack] = useState(false);
   /** Set when the photo had to be turned to be readable — front and back. */
