@@ -8,6 +8,7 @@ import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
 import type { ProxyPerformanceDashboard, ProxyRange } from '@/hooks/useProxyPerformanceDashboard';
+import { ProxyHowItWorksDialog } from './ProxyHowItWorksDialog';
 
 export const ugx = (n: number) => `UGX ${Math.round(Number(n) || 0).toLocaleString('en-US')}`;
 export const ugxShort = (n: number) => {
@@ -27,7 +28,9 @@ export function SectionError({ label, onRetry }: { label: string; onRetry: () =>
   );
 }
 
-export function ProxyDashboardHeader({ name, today }: { name: string; today?: string }) {
+export function ProxyDashboardHeader({ name, today, commission }: {
+  name: string; today?: string; commission?: ProxyPerformanceDashboard['commission'];
+}) {
   const h = new Date().getHours();
   const greet = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
   const d = today ? new Date(`${today}T00:00:00`) : new Date();
@@ -37,7 +40,14 @@ export function ProxyDashboardHeader({ name, today }: { name: string; today?: st
         <h1 className="truncate text-xl font-bold tracking-tight md:text-2xl">{greet}, {name}</h1>
         <p className="text-xs text-muted-foreground md:text-sm">Supporting more tenants starts with the Promissory Notes you create and follow up.</p>
       </div>
-      <Badge variant="secondary" className="shrink-0">Today · {d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</Badge>
+      <div className="flex shrink-0 items-center gap-2">
+        <Badge variant="secondary" className="shrink-0">Today · {d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</Badge>
+        <ProxyHowItWorksDialog
+          noteRate={commission?.note_rate}
+          initialSupportPct={commission?.initial_support_pct}
+          topUpPct={commission?.top_up_pct}
+        />
+      </div>
     </div>
   );
 }
@@ -76,12 +86,6 @@ export function ProxyCommissionCard({ d }: { d: ProxyPerformanceDashboard }) {
         <Wallet className="h-4 w-4 text-primary" />
       </div>
       <p className="mt-1 text-xl font-bold tabular-nums md:text-2xl">{ugxShort(c.earned)}</p>
-      <dl className="mt-2 space-y-1 border-t pt-2 text-xs">
-        <Row k={`Promissory Notes (${ugx(c.note_rate)} each)`} v={ugx(c.notes)} />
-        <Row k={`Initial Support — ${c.initial_support_pct}%`} v={ugx(c.initial_support)} />
-        <Row k={`Top-ups — ${c.top_up_pct}%`} v={ugx(c.top_ups)} />
-        <Row k="Pending (not yet earned)" v={ugx(c.pending)} muted />
-      </dl>
     </Card>
   );
 }
