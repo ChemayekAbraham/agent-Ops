@@ -68285,6 +68285,7 @@ export type Database = {
           tenant_id: string
         }[]
       }
+      tops_calling_gap_summary: { Args: never; Returns: Json }
       tops_calling_money_at_risk: {
         Args: { p_tenant_ids: string[] }
         Returns: {
