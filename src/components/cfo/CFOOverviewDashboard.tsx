@@ -41,7 +41,6 @@ const EmailTransactionsPanel = lazy(() =>
   import('@/components/financial-ops/EmailTransactionsPanel').then((m) => ({ default: m.EmailTransactionsPanel })),
 );
 
-import { TransactionPeriodTotals } from '@/components/cfo/TransactionPeriodTotals';
 import { ReceivablesCardDrilldown } from '@/components/cfo/ReceivablesCardDrilldown';
 import { ServiceCentreReceivablesPanel } from '@/components/cfo/ServiceCentreReceivablesPanel';
 import { PayablesCardDrilldown } from '@/components/cfo/PayablesCardDrilldown';
