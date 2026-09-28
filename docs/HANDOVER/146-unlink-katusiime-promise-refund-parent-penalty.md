@@ -1,0 +1,31 @@
+# 146 — Unlinked sub-agent Katusiime Promise; refunded parent's UGX 4,000 penalty
+
+**Status: LIVE 2026-09-28.** Applied to production via `query_database`. The same block is saved as migration
+`20260928130000_unlink_katusiime_promise_refund_parent_penalty.sql`, which is idempotent, so a re-apply is a no-op.
+
+## Request
+Josh asked for two things: unlink sub-agent **Katusiime Promise** (`1eaa4087-a367-463a-8bb0-aba1ed59524f`) from
+parent **PROMROSE KATUSIIME** (`ffadf3bf-8ec7-46b0-b347-a8da55a443a7`), and reverse the parent's
+"Parent-agent penalty: sub-agent Katusiime Promise had 3 listings rejected" charge
+(`general_ledger` `d66edca5-34b6-4ed3-b5ff-eaa22bd7f346`, UGX 4,000, withdrawable, 2026-09-28 09:10 UTC,
+listing `566bb564-…`).
+
+## What was done
+1. **Unlink.** This follows `admin_unlink_subagent`. The `agent_subagents` row `e528ddfa-…` (source `link_signup`, verified
+   2026-06-27) was archived to `agent_subagent_link_archive` and deleted. No pending tenant transfers were cancelled because there were none.
+   Listing blocks set by the parent were lifted, and a `subagent_made_independent` row was added to audit_logs. The sub-agent keeps its 1 active tenant.
+   The RPC itself wasn't called because it needs `auth.uid()` with an ops role.
+2. **Refund.** This uses the same shape as the 2026-07-22 KANUNA KEITH refund (`20260722094752`) and the idempotency key
+   `refund_parent_rejection_penalty:<ledger id>`:
+   - CR parent wallet, withdrawable, `system_balance_correction` cash_in 4,000
+   - `listing_rejection_recovery` platform cash_out 4,000 (undoes the recovery leg)
+   - a `parent_rejection_penalty_refund` row in audit_logs
+
+## Not touched
+- The sub-agent's **own** UGX 4,000 rejection charge on the same listing (`bc0c9490-…`) wasn't part of the request.
+- The `wallets.withdrawable_balance` cache showed 20,000 and was last updated 02:15 UTC. That's before both the penalty and
+  the refund, so it refreshes on its own schedule rather than per posting. Check the parent's wallet screen after the next refresh.
+
+## Note
+The two names, "PROMROSE KATUSIIME" and "Katusiime Promise", look like they could be the same person with two accounts
+(a self-referral). This wasn't investigated or acted on.
