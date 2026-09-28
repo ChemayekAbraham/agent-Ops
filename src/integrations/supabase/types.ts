@@ -59996,6 +59996,31 @@ export type Database = {
           total_paid: number
         }[]
       }
+      get_cfo_money_paid_out_report: {
+        Args: {
+          p_from: string
+          p_limit?: number
+          p_method?: string
+          p_recipient?: string
+          p_status?: string
+          p_to: string
+          p_type?: string
+        }
+        Returns: {
+          amount: number
+          created_at: string
+          description: string
+          id: string
+          paid_at: string
+          payment_method: string
+          payout_reference: string
+          payout_type: string
+          recipient: string
+          recipient_phone: string
+          source_account: string
+          status: string
+        }[]
+      }
       get_cfo_period_breakdown: {
         Args: { p_from: string; p_to: string }
         Returns: {
