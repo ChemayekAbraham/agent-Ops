@@ -11,7 +11,7 @@ import { ChevronRight, Info } from 'lucide-react';
  * rows and a reconciling total. No figure is derived here: every value is
  * passed in already computed.
  */
-export function HeroCard({ icon, iconBg, title, value, percentageLabel, items, footer, footerTone, onClick }: {
+export function HeroCard({ icon, iconBg, title, value, percentageLabel, items, footer, footerTone, onClick, className }: {
   icon: React.ReactNode;
   iconBg: string;
   title: string;
@@ -21,6 +21,8 @@ export function HeroCard({ icon, iconBg, title, value, percentageLabel, items, f
   footer?: string;
   footerTone?: string;
   onClick?: () => void;
+  /** Sizing hooks for the caller's layout (e.g. "flex-1" inside a column). */
+  className?: string;
 }) {
   const [open, setOpen] = useState(false);
   // Colour carries meaning through the icon tile, as in the reference design;
@@ -30,12 +32,13 @@ export function HeroCard({ icon, iconBg, title, value, percentageLabel, items, f
 
   return (
     <>
-      <div className="w-full rounded-2xl border border-border/70 bg-card shadow-sm transition-shadow hover:shadow-md">
+      <div className={`w-full flex flex-col rounded-2xl border border-border/70 bg-card shadow-sm transition-shadow hover:shadow-md ${className ?? ''}`}>
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="w-full text-left p-5 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="w-full text-left p-5 rounded-2xl flex-1 flex flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
+
           <div className="flex items-start justify-between gap-3">
             <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>{icon}</div>
             <span
