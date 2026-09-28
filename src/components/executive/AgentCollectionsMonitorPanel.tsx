@@ -9,7 +9,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
-import { Activity, RefreshCw, CheckCircle2, AlertTriangle, AlertOctagon, Info, ScrollText } from 'lucide-react';
+import {
+  Activity, RefreshCw, CheckCircle2, AlertTriangle, AlertOctagon, Info, ScrollText,
+  ChevronLeft, ChevronRight, Copy,
+} from 'lucide-react';
+import { toast } from 'sonner';
 import { format, parseISO, formatDistanceToNowStrict } from 'date-fns';
 
 /**
@@ -73,18 +77,23 @@ interface DetailRow {
 }
 
 interface ErrorRow {
+  /** Stable per row: `<source>:<uuid>`. Drives selection and prev/next. */
+  event_id: string;
   occurred_at: string;
   source: 'engine' | 'anomaly' | 'app';
   severity: string;
   phase: string | null;
   error_code: string | null;
   message: string;
+  agent_id: string | null;
   agent_name: string | null;
   agent_phone: string | null;
   tenant_name: string | null;
   amount: number | null;
   rent_request_id: string | null;
   detail: string | null;
+  /** The whole payload. This is the reason a row is worth opening. */
+  context: Record<string, unknown> | null;
 }
 
 interface ErrorSummaryRow {
@@ -129,6 +138,9 @@ export function AgentCollectionsMonitorPanel() {
   const [open, setOpen] = useState<CheckRow | null>(null);
   const [source, setSource] = useState<string | null>(null);
   const [showAllErrors, setShowAllErrors] = useState(false);
+  // Index into the FULL result, not the visible slice, so prev/next walks the
+  // whole log rather than stopping at the fold.
+  const [errIndex, setErrIndex] = useState<number | null>(null);
 
   const { data, isLoading, isFetching, error, refetch } = useQuery({
     queryKey: ['agent-collections-monitor', days],
@@ -303,7 +315,11 @@ export function AgentCollectionsMonitorPanel() {
                   {visibleErrors.map((r, i) => {
                     const S = sev(r.severity);
                     return (
-                      <TableRow key={`${r.occurred_at}-${i}`}>
+                      <TableRow
+                        key={r.event_id ?? `${r.occurred_at}-${i}`}
+                        className="cursor-pointer hover:bg-muted/50"
+                        onClick={() => setErrIndex(i)}
+                      >
                         <TableCell className="whitespace-nowrap text-xs">
                           {format(parseISO(r.occurred_at), 'dd MMM HH:mm')}
                           <div className="text-[10px] text-muted-foreground">
@@ -441,6 +457,13 @@ export function AgentCollectionsMonitorPanel() {
         </section>
       </CardContent>
 
+      <ErrorDetailDialog
+        rows={errorRows}
+        index={errIndex}
+        onIndex={setErrIndex}
+        onClose={() => setErrIndex(null)}
+      />
+
       <Dialog open={!!open} onOpenChange={o => !o && setOpen(null)}>
         <DialogContent className="max-w-3xl">
           <DialogHeader>
@@ -485,6 +508,173 @@ export function AgentCollectionsMonitorPanel() {
         </DialogContent>
       </Dialog>
     </Card>
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * Error detail
+ *
+ * A log line is a headline; this is the body. Everything the row had to clip is
+ * shown in full, because the payload is the whole reason to open one —
+ * `float_before` equalling `float_after` on a "Float Leg Missing" row is the
+ * diagnosis, and that was the part being truncated.
+ *
+ * Prev/next walks the FULL result rather than the visible slice, so reading
+ * thirty in a row does not mean closing and scrolling thirty times. Arrow keys
+ * work too: this is a list people page through, not a single lookup.
+ * ------------------------------------------------------------------ */
+
+const ISO_LIKE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+
+/** Values arrive as jsonb, so anything can be anything. Render it readably. */
+function renderValue(v: unknown): string {
+  if (v === null || v === undefined) return '—';
+  if (typeof v === 'object') return JSON.stringify(v, null, 2);
+  if (typeof v === 'boolean') return v ? 'yes' : 'no';
+  const s = String(v);
+  // ISO timestamps are unreadable at a glance, and this is a triage screen.
+  if (ISO_LIKE.test(s)) {
+    try { return format(parseISO(s), 'dd MMM yyyy HH:mm:ss'); } catch { return s; }
+  }
+  return s;
+}
+
+const LABEL: Record<string, string> = {
+  rule_fired: 'Rule', rule_detail: 'Rule payload', collection_id: 'Collection',
+  collection_at: 'Collected at', collection_amount: 'Collection amount',
+  float_before: 'Float before', float_after: 'Float after',
+  rent_request_id: 'Rent Plan', reported_via: 'Reported via', client_ref: 'Client ref',
+  error_code: 'Error code', page_url: 'Page', user_agent: 'Device',
+  app_version: 'App version', ip_address: 'IP', component_stack: 'Component stack',
+  acknowledged_by: 'Acknowledged by', acknowledged_at: 'Acknowledged at',
+  acknowledged_note: 'Acknowledgement note', deposit_request_id: 'Deposit request',
+};
+const labelFor = (k: string) =>
+  LABEL[k] ?? k.replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase());
+
+function ErrorDetailDialog({
+  rows, index, onIndex, onClose,
+}: {
+  rows: ErrorRow[];
+  index: number | null;
+  onIndex: (i: number) => void;
+  onClose: () => void;
+}) {
+  const row = index !== null ? rows[index] : undefined;
+  if (!row || index === null) return null;
+
+  const S = sev(row.severity);
+  const ctx = (row.context ?? {}) as Record<string, unknown>;
+  const entries = Object.entries(ctx).filter(([, v]) => v !== null && v !== undefined && v !== '');
+
+  const go = (delta: number) => {
+    const next = index + delta;
+    if (next >= 0 && next < rows.length) onIndex(next);
+  };
+
+  const copy = () => {
+    const payload = JSON.stringify({ ...row, context: ctx }, null, 2);
+    navigator.clipboard?.writeText(payload)
+      .then(() => toast.success('Full error copied'))
+      .catch(() => toast.error('Could not copy'));
+  };
+
+  return (
+    <Dialog open onOpenChange={o => !o && onClose()}>
+      <DialogContent
+        className="max-w-3xl"
+        onKeyDown={e => {
+          if (e.key === 'ArrowLeft') { e.preventDefault(); go(-1); }
+          if (e.key === 'ArrowRight') { e.preventDefault(); go(1); }
+        }}
+      >
+        <DialogHeader>
+          <DialogTitle className="flex items-start gap-2 text-base">
+            <S.icon className={`mt-0.5 h-4 w-4 shrink-0 ${S.cls}`} />
+            <span>{row.message}</span>
+          </DialogTitle>
+          <DialogDescription className="flex flex-wrap items-center gap-1.5">
+            <Badge variant="outline" className={`px-1 py-0 text-[10px] ${SOURCE_TONE[row.source] ?? ''}`}>
+              {row.source}
+            </Badge>
+            <Badge variant="outline" className="px-1 py-0 text-[10px]">{S.label}</Badge>
+            {row.error_code && (
+              <Badge variant="outline" className="px-1 py-0 font-mono text-[10px]">{row.error_code}</Badge>
+            )}
+            <span className="text-xs">
+              {format(parseISO(row.occurred_at), 'EEE dd MMM yyyy, HH:mm:ss')}
+              {' · '}{formatDistanceToNowStrict(parseISO(row.occurred_at))} ago
+            </span>
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="max-h-[60vh] space-y-4 overflow-auto pr-1">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <Field label="Agent" value={row.agent_name || '—'} sub={row.agent_phone} />
+            <Field label="Tenant" value={row.tenant_name || '—'} />
+            <Field label="Amount" value={row.amount ? formatUGX(num(row.amount)) : '—'} />
+            <Field label="Phase" value={row.phase || '—'} />
+          </div>
+
+          {row.detail && (
+            <p className="rounded-lg border bg-muted/30 p-2.5 text-xs text-muted-foreground">{row.detail}</p>
+          )}
+
+          {entries.length > 0 ? (
+            <div className="rounded-lg border">
+              <div className="border-b px-3 py-1.5 text-[11px] font-medium text-muted-foreground">
+                Full payload
+              </div>
+              <dl className="divide-y">
+                {entries.map(([k, v]) => (
+                  <div key={k} className="grid grid-cols-3 gap-2 px-3 py-2">
+                    <dt className="text-[11px] text-muted-foreground">{labelFor(k)}</dt>
+                    <dd className="col-span-2 break-words font-mono text-[11px]">
+                      {typeof v === 'object'
+                        ? <pre className="whitespace-pre-wrap">{renderValue(v)}</pre>
+                        : renderValue(v)}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              This source records no payload beyond what is shown above.
+            </p>
+          )}
+        </div>
+
+        <div className="flex items-center justify-between gap-2 border-t pt-3">
+          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={copy}>
+            <Copy className="mr-1 h-3 w-3" /> Copy full error
+          </Button>
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] tabular-nums text-muted-foreground">
+              {index + 1} of {rows.length}
+            </span>
+            <Button size="sm" variant="outline" className="h-7" disabled={index === 0} onClick={() => go(-1)}>
+              <ChevronLeft className="h-3.5 w-3.5" />
+              <span className="ml-1 text-xs">Prev</span>
+            </Button>
+            <Button size="sm" variant="outline" className="h-7" disabled={index >= rows.length - 1} onClick={() => go(1)}>
+              <span className="mr-1 text-xs">Next</span>
+              <ChevronRight className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function Field({ label, value, sub }: { label: string; value: string; sub?: string | null }) {
+  return (
+    <div className="rounded-lg border p-2.5">
+      <div className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</div>
+      <div className="mt-0.5 break-words text-xs font-semibold">{value}</div>
+      {sub && <div className="text-[10px] text-muted-foreground">{sub}</div>}
+    </div>
   );
 }
 

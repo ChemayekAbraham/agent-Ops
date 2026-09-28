@@ -10,17 +10,25 @@ import { supabase } from '@/integrations/supabase/client';
  * that hit thirty agents on a Tuesday was invisible until someone noticed a
  * figure looking wrong days later.
  *
- * WHY THIS IS CALLED FROM THE CLIENT AND NOT RAISED INSIDE THE RPC.
- * Postgres has no autonomous transactions: an exception handler inside the
- * allocator that INSERTs a log row has that row rolled back along with the
- * statement it was reporting on. The log would be empty exactly when it
- * mattered. The failure has to be recorded from outside the aborted
- * transaction.
+ * WHY THE EDGE FUNCTION IS TRIED FIRST, AND WHY THE RPC IS STILL HERE
  *
- * NEVER THROWS, NEVER AWAITS THE CALLER'S PATH. It runs on a path that is
- * already handling a failure; a logger that can fail would turn a recoverable
- * error into a crash, and one that blocks would add its own latency to an
- * agent already staring at a spinner. Fire and forget.
+ * The obvious implementation — a Postgres RPC — fails in exactly the cases it
+ * exists to record. It travels over the same connection that just broke, and
+ * `log_agent_collection_error` returns NULL when `auth.uid()` is null, so a
+ * failure caused by an EXPIRED SESSION was previously unloggable by definition.
+ * That is why the log filled with server-written anomalies and almost nothing
+ * from the engine.
+ *
+ * So the order is: edge function (writes with the service role, so a dead
+ * session still logs) → RPC (works when the function is unreachable but the
+ * database is not) → beacon on page-hide (survives the tab closing, which an
+ * awaited fetch does not). Each hop records which path carried it, so a gap in
+ * one is visible rather than silent.
+ *
+ * NEVER THROWS, NEVER BLOCKS THE CALLER. It runs on a path that is already
+ * handling a failure; a logger that can fail would turn a recoverable error
+ * into a crash, and one that blocks would add its own latency to an agent
+ * already staring at a spinner.
  */
 export type CollectionErrorPhase =
   | 'allocate'
@@ -44,25 +52,107 @@ export interface CollectionErrorInput {
   severity?: 'critical' | 'error' | 'warning';
 }
 
+const FUNCTION_NAME = 'log-collection-error';
+
+/** What the device could see at the moment it broke. None of this is in a stack trace. */
+function deviceSnapshot() {
+  let network = 'unknown';
+  try {
+    const conn = (navigator as unknown as {
+      connection?: { effectiveType?: string; downlink?: number };
+    }).connection;
+    network = [
+      navigator.onLine ? 'online' : 'offline',
+      conn?.effectiveType,
+      conn?.downlink != null ? `${conn.downlink}Mbps` : null,
+    ].filter(Boolean).join(' · ');
+  } catch { /* older browsers */ }
+
+  return {
+    user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+    page_url: typeof location !== 'undefined' ? location.href : null,
+    app_version: (import.meta as unknown as { env?: Record<string, string> })?.env?.VITE_APP_VERSION ?? null,
+    network,
+  };
+}
+
+function toPayload(input: CollectionErrorInput) {
+  return {
+    phase: input.phase,
+    message: String(input.message ?? '').slice(0, 2000),
+    error_code: input.errorCode ?? null,
+    tenant_id: input.tenantId ?? null,
+    rent_request_id: input.rentRequestId ?? null,
+    amount: input.amount ?? null,
+    client_ref: input.clientRef ?? null,
+    context: input.context ?? null,
+    severity: input.severity ?? 'error',
+    ...deviceSnapshot(),
+  };
+}
+
+/** Last resort. A beacon has no headers, so the token rides in the body. */
+function beacon(payload: Record<string, unknown>, accessToken: string | null): boolean {
+  try {
+    if (typeof navigator === 'undefined' || !navigator.sendBeacon) return false;
+    const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${FUNCTION_NAME}`;
+    const blob = new Blob(
+      [JSON.stringify({ ...payload, access_token: accessToken, reported_via: 'beacon' })],
+      { type: 'application/json' },
+    );
+    return navigator.sendBeacon(url, blob);
+  } catch {
+    return false;
+  }
+}
+
+async function deliver(input: CollectionErrorInput): Promise<void> {
+  const payload = toPayload(input);
+
+  // 1. Edge function. Survives an expired session, because it writes as the
+  //    service role rather than as the caller.
+  try {
+    const { error } = await supabase.functions.invoke(FUNCTION_NAME, {
+      body: { ...payload, reported_via: 'edge' },
+    });
+    if (!error) return;
+  } catch { /* fall through */ }
+
+  // 2. The RPC. Reaches the database directly when the function is unreachable.
+  try {
+    const { error } = await (supabase as never as {
+      rpc: (fn: string, args: Record<string, unknown>) => Promise<{ error: Error | null }>;
+    }).rpc('log_agent_collection_error', {
+      p_phase: payload.phase,
+      p_message: payload.message,
+      p_error_code: payload.error_code,
+      p_tenant_id: payload.tenant_id,
+      p_rent_request_id: payload.rent_request_id,
+      p_amount: payload.amount,
+      p_client_ref: payload.client_ref,
+      p_context: payload.context,
+      p_severity: payload.severity,
+      p_user_agent: payload.user_agent,
+      p_app_version: payload.app_version,
+      p_page_url: payload.page_url,
+      p_network: payload.network,
+      p_reported_via: 'rpc',
+    });
+    if (!error) return;
+  } catch { /* fall through */ }
+
+  // 3. Beacon. The page may be dying; this is the only thing that outlives it.
+  let token: string | null = null;
+  try {
+    const { data } = await supabase.auth.getSession();
+    token = data.session?.access_token ?? null;
+  } catch { /* unauthenticated report is still worth more than none */ }
+  beacon(payload, token);
+}
+
 export function logCollectionError(input: CollectionErrorInput): void {
   try {
-    const rpc = (supabase as never as {
-      rpc: (fn: string, args: Record<string, unknown>) => Promise<unknown>;
-    }).rpc;
-
-    void Promise.resolve(
-      rpc('log_agent_collection_error', {
-        p_phase: input.phase,
-        p_message: String(input.message ?? '').slice(0, 2000),
-        p_error_code: input.errorCode ?? null,
-        p_tenant_id: input.tenantId ?? null,
-        p_rent_request_id: input.rentRequestId ?? null,
-        p_amount: input.amount ?? null,
-        p_client_ref: input.clientRef ?? null,
-        p_context: input.context ?? null,
-        p_severity: input.severity ?? 'error',
-      }),
-    ).catch(() => {
+    void deliver(input).catch(() => {
       /* A logger that reports its own failure is a loop. */
     });
   } catch {

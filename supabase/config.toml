@@ -56,6 +56,14 @@ project_id = "wirntoujqoyjobfhyelc"
     verify_jwt = false
   [functions.fund-tenants]
     verify_jwt = false
+  # The single most valuable collection error report comes from a device whose
+  # session has just expired, and that device cannot present a JWT. Verifying it
+  # would discard exactly the evidence this function exists to capture. The
+  # function trusts nothing in the payload to identify a user: it verifies the
+  # token itself when one is supplied and stores a null agent_id when it cannot,
+  # with a tighter per-IP rate limit on unattributed rows.
+  [functions.log-collection-error]
+    verify_jwt = false
   [functions.manager-portfolio-topup]
     verify_jwt = false
   [functions.password-reset-sms]
