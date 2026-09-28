@@ -152,6 +152,14 @@ BEGIN
     t := LEAST(d, GREATEST(v_comm_t - v_pc - c, 0));  c  := c  + t; d := d - t;
     pr := pr + d;  -- only reachable if the plan parts are already exhausted
   END IF;
+  -- Historical correction only: the agent route never passes p_commission_paid, so live
+  -- collections are unaffected. When given, Agent Commission is booked at the amount
+  -- ACTUALLY paid (to the cent) and Principal absorbs the rounding difference, so the
+  -- offset equals the commission already credited and no extra commission is implied.
+  IF p_route = 'agent_collection' AND p_commission_paid IS NOT NULL AND v_in > 0 THEN
+    pr := pr + (c - p_commission_paid);
+    c  := p_commission_paid;
+  END IF;
   f  := c + r + pf;
 
   IF c < 0 OR r < 0 OR pf < 0 OR pr < 0 OR (pr + c + r + pf) <> v_in OR (v_in + v_over) <> v_amt THEN
@@ -1388,3 +1396,57 @@ BEGIN
 END $function$;
 REVOKE ALL ON FUNCTION public.rent_fee_deposit_commission_duplicates() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.rent_fee_deposit_commission_duplicates() TO authenticated;
+
+-- 9. Historical correction of older agent collections that were never split.
+--    NOT executed by this migration. Callable only by CFO/CEO/super_admin after CFO sign-off.
+--    Platform-books journal only: no wallet entry, no commission payment, no change to
+--    repayments, tenant balances, agent float or collection records.
+--    Commission is booked at the amount actually paid (agent_commission_payable leg of the
+--    original collection); Principal absorbs the sub-shilling rounding difference.
+--    EXCLUDED pending separate treatment (2026-09-28 instruction):
+--      * plan 39976d4a (over-repaid / exception status under separate reconciliation)
+--      * plan 7a02c339 (cancelled; UGX 55,000 collected; pending CFO treatment)
+--    Reported by plan-id prefix, enforced below by prefix match.
+CREATE OR REPLACE FUNCTION public.rent_fee_correct_unsplit_agent_collections(p_dry_run boolean DEFAULT true)
+RETURNS TABLE(collection_id uuid, rent_request_id uuid, amount numeric, commission_paid numeric,
+              principal numeric, partner_returns numeric, agent_commission numeric,
+              platform_fee numeric, total_allocated numeric, status text)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public'
+AS $function$
+DECLARE c record; v_paid numeric; v_res jsonb;
+BEGIN
+  IF NOT public._has_enabled_role(auth.uid(), ARRAY['cfo','ceo','super_admin']) THEN
+    RAISE EXCEPTION 'not authorised' USING ERRCODE = '42501';
+  END IF;
+  FOR c IN
+    SELECT ac.id, ac.rent_request_id AS rr, ac.amount, ac.created_at
+      FROM agent_collections ac
+     WHERE ac.reversed_at IS NULL AND ac.amount > 0
+       AND ac.created_at >= '2026-09-08' AND ac.created_at < '2026-09-10'
+       AND NOT EXISTS (SELECT 1 FROM instalment_allocations ia
+                        WHERE ia.source_table='agent_collections' AND ia.source_id = ac.id)
+       AND left(ac.rent_request_id::text, 8) NOT IN ('39976d4a','7a02c339')
+       AND public.is_four_part_waterfall_eligible(ac.rent_request_id)
+     ORDER BY ac.created_at, ac.id
+  LOOP
+    SELECT COALESCE(SUM(g.amount),0) INTO v_paid
+      FROM general_ledger g
+     WHERE g.category='agent_commission_payable' AND g.direction='cash_out'
+       AND g.source_table='agent_collections' AND g.source_id = c.rr::text
+       AND abs(extract(epoch FROM g.created_at - c.created_at)) < 10;
+    IF p_dry_run THEN
+      collection_id := c.id; rent_request_id := c.rr; amount := c.amount; commission_paid := v_paid;
+      status := 'dry_run'; RETURN NEXT; CONTINUE;
+    END IF;
+    v_res := public._post_four_part_fee_split(c.rr, c.amount, 'agent_collections', c.id,
+               'agent_collection', v_paid, 'four-part-fee:agent_collections:' || c.id::text);
+    collection_id := c.id; rent_request_id := c.rr; amount := c.amount; commission_paid := v_paid;
+    principal := (v_res->>'principal')::numeric; partner_returns := (v_res->>'partner_returns')::numeric;
+    agent_commission := (v_res->>'agent_commission_accounting')::numeric;
+    platform_fee := (v_res->>'platform_fee')::numeric;
+    total_allocated := principal + partner_returns + agent_commission + platform_fee;
+    status := v_res->>'status'; RETURN NEXT;
+  END LOOP;
+END $function$;
+REVOKE ALL ON FUNCTION public.rent_fee_correct_unsplit_agent_collections(boolean) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.rent_fee_correct_unsplit_agent_collections(boolean) TO authenticated;
