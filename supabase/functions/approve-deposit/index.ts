@@ -5,6 +5,7 @@ import { checkTreasuryGuard } from "../_shared/treasuryGuard.ts";
 import { logDepositDecision } from "../_shared/depositDecisionAudit.ts";
 import { attemptYoolaPrimary } from "../_shared/yoolaPrimary.ts";
 import { resolveOwnedRecipientEmail } from "../_shared/ownedRecipientEmail.ts";
+import { postBalancedLedgerGroup } from "../_shared/balancedLedgerPost.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -795,9 +796,28 @@ Deno.serve(async (req) => {
             }
           }
 
-          const { error: depositLedgerErr } = await supabaseAdmin.rpc('create_ledger_transaction', {
-            entries: depositEntries,
-          });
+          // Physical cash + personal is DR A5 / CR L1: two cash_in legs whose
+          // sides come from ledger_account_map, so create_ledger_transaction's
+          // raw cash_in = cash_out check can never pass it. Every such deposit
+          // failed from f905c1182c (2026-09-24) until this fix, and the
+          // receipt-code path still told the depositor "credited" (doc 144).
+          // Post it through the mapped double-entry assertion instead, the
+          // same route finops-wallet-move uses.
+          let depositLedgerErr: { message: string } | null = null;
+          if (isPhysicalCashChannel && !needsPlatformOffset) {
+            const posted = await postBalancedLedgerGroup(supabaseAdmin, {
+              entries: depositEntries,
+              source: 'approve-deposit',
+              referenceId: depositRequest.id,
+              idempotencyKey: `deposit_credit:${depositRequest.id}`,
+            });
+            if (!posted.ok) depositLedgerErr = { message: posted.error };
+          } else {
+            const { error } = await supabaseAdmin.rpc('create_ledger_transaction', {
+              entries: depositEntries,
+            });
+            depositLedgerErr = error;
+          }
 
           if (depositLedgerErr) {
             console.error(`[approve-deposit] Deposit ledger entry failed for ${depositRequest.id}:`, depositLedgerErr.message);
