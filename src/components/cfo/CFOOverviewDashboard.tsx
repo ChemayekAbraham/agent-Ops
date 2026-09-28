@@ -278,7 +278,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
                     </span>
                   </div>
                   <p className="mt-4 text-[11px] font-medium text-muted-foreground truncate">Money We Have</p>
-                  <p className="mt-1.5 text-[22px] leading-none sm:text-[26px] sm:leading-none font-bold tabular-nums tracking-tight text-foreground">
+                  <p className="mt-1.5 text-[20px] leading-none sm:text-[22px] lg:text-[18px] xl:text-[20px] 2xl:text-[24px] font-bold tabular-nums tracking-tight text-foreground">
                     {actualLoading ? '—' : fmt(actualMoney?.total ?? 0)}
                   </p>
                   <p className="mt-2 text-[11px] font-medium text-muted-foreground">
