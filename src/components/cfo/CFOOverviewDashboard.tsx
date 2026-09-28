@@ -602,11 +602,8 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               </CardContent>
             </Card>
           </div>
-
-          {/* Daily / weekly / monthly transaction totals — same ledger
-              aggregation as the 7-day chart, rolled up per period. */}
-          <TransactionPeriodTotals />
         </Band>
+
 
         {/* ─────────── 4 · TOOLS & AUDIT TRAIL ─────────── */}
         {/* Lookup tools rather than at-a-glance numbers, so this band starts
