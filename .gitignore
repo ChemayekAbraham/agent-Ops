@@ -37,9 +37,3 @@ build-logs
 
 # Supabase CLI temp
 supabase/.temp
-
-# Lovable MCP plugin local artifacts. `.mcp.json` above is the same class.
-# NOTE: only this one file under .agents/ — the directory itself is tracked and
-# holds the chart-of-accounts skill.
-.agents/mcp_config.json
-deno.lock
