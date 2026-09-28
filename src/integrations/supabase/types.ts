@@ -13725,6 +13725,21 @@ export type Database = {
           },
         ]
       }
+      engrep_catalog_cutovers: {
+        Row: {
+          cutover_day: string
+          object_kind: string
+        }
+        Insert: {
+          cutover_day: string
+          object_kind: string
+        }
+        Update: {
+          cutover_day?: string
+          object_kind?: string
+        }
+        Relationships: []
+      }
       engrep_catalog_movement: {
         Row: {
           captured_for: string
