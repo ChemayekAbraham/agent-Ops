@@ -32,6 +32,7 @@ type Row = { category: string; total: number; credits: number };
 
 export function WithdrawableCreditsLivePanel() {
   const [live, setLive] = useState(false);
+  const [open, setOpen] = useState(false);
   const q = useQuery({
     queryKey: ['cfo-withdrawable-credits-today'],
     queryFn: async () => {
