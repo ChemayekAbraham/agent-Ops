@@ -311,6 +311,13 @@ or the float will be returned and the Rent Plan cancelled.
 Payouts run 06:00–22:00. Ref {ref}.
 ```
 
+**A2**
+```
+UGX {rent_amount} landlord float for {landlord_name} ({tenant_name}) is still
+in your wallet. Pay the landlord by {deadline_time} on {deadline_date}.
+Payouts run 06:00–22:00. Ref {ref}.
+```
+
 **A3**
 ```
 Reminder: UGX {rent_amount} for landlord {landlord_name} is still in your

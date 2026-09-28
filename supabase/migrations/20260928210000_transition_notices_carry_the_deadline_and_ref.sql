@@ -40,9 +40,9 @@
 --     the AGENT their float was taken back and the plan cancelled; only the
 --     tenant was ever told. That message did not exist.
 --
--- A2 IS DELIBERATELY UNTOUCHED. The spec lists it in the table but gives no
--- text for it, so the wording already in service stays. Inventing copy that
--- looks like a spec it is not in would be worse than leaving it visible.
+-- A2 NOW HAS SPEC TEXT. It had none when this migration was first written; the
+-- product owner has since written it into section 5, and it quotes the deadline
+-- date as well as the time, so the nudge payload carries both.
 
 CREATE OR REPLACE FUNCTION public.rent_plan_transition_notices_pending(p_lookback_hours integer DEFAULT 48)
 RETURNS jsonb
@@ -148,6 +148,7 @@ AS $function$
       'amount',a.amount,'deadline_at',a.deadline_at,'severity',a.severity,
       'ref', upper(left(a.rent_request_id::text, 8)),
       'deadline_time', to_char(a.deadline_at AT TIME ZONE 'Africa/Kampala', 'HH24:MI'),
+      'deadline_date', to_char(a.deadline_at AT TIME ZONE 'Africa/Kampala', 'FMDay DD FMMonth'),
       'hours_left', GREATEST(0, round(EXTRACT(EPOCH FROM (a.deadline_at - now()))/3600.0, 1))
     ) ORDER BY a.deadline_at) AS rows
     FROM public.landlord_float_idle_alerts a

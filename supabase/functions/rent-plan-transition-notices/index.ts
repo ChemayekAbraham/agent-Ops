@@ -130,6 +130,7 @@ interface AgentNudgeNotice {
   hours_left: number;
   ref: string | null;
   deadline_time: string | null;
+  deadline_date: string | null;
 }
 
 interface TenantCancelledNotice {
@@ -240,16 +241,14 @@ export function agentNudgeMessage(n: AgentNudgeNotice): string {
     );
   }
 
-  // A2. The spec lists this message in the table but gives NO text for it, so
-  // the wording here is the one already in service and is NOT invented to look
-  // like the spec. If A2 needs exact copy, it has to be written into
-  // docs/rent-plan-new-flow-full-report.md first.
-  const tenant = n.tenant_name ? ` for ${n.tenant_name}` : '';
+  // A2 - spec section 5, verbatim. It nudges without threatening: the recall
+  // consequence belongs to A3, twelve hours later.
+  const tenant = n.tenant_name ? ` (${n.tenant_name})` : '';
   return (
-    `${ugx(n.amount)} for landlord ${who}${tenant} is still in your wallet.
-
+    `${ugx(n.amount)} landlord float for ${who}${tenant} is still ` +
+    `in your wallet. Pay the landlord by ${n.deadline_time} on ${n.deadline_date}.
 ` +
-    `Please pay the landlord and submit the TID and receipt. Payouts run 06:00-22:00.${ref}`
+    `Payouts run 06:00–22:00.${ref}`
   );
 }
 

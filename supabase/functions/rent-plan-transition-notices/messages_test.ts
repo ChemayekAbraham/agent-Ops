@@ -130,22 +130,15 @@ not be completed because the landlord payment was not made in time. Nothing
 is owed by you. Your agent can submit the request again. Ref 9C078BF7.`);
 });
 
-/* ------------------------------------------------------------------ *
- * A2 is NOT tested against the document, because the document gives it no
- * text. It has a row in the table and nothing else. Asserting the wording
- * already in service against a spec it is not in would manufacture a pass.
- * The only honest test is that it says something and names the plan.
- * ------------------------------------------------------------------ */
-
-Deno.test('A2 has no specified text, so only its shape is asserted', () => {
+Deno.test('A2 matches the document', () => {
   const actual = agentNudgeMessage({
     rent_request_id: 'r1', agent_id: 'a1', agent_phone: '+256700000000',
     agent_name: 'TIMOTHY', landlord_name: 'John Kibalama', tenant_name: 'Aaron Gwokto',
     amount: 100000, deadline_at: '', severity: 'reminder', hours_left: 18,
-    ref: '9C078BF7', deadline_time: '16:43',
+    ref: '9C078BF7', deadline_time: '16:43', deadline_date: 'Tuesday 29 September',
   });
 
-  if (!actual.includes('100,000') || !actual.includes('John Kibalama') || !actual.includes('9C078BF7')) {
-    throw new Error('A2 must at least state the amount, the landlord and the ref');
-  }
+  same('A2', actual, `UGX 100,000 landlord float for John Kibalama (Aaron Gwokto) is still
+in your wallet. Pay the landlord by 16:43 on Tuesday 29 September.
+Payouts run 06:00–22:00. Ref 9C078BF7.`);
 });
