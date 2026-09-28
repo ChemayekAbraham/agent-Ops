@@ -51459,6 +51459,64 @@ export type Database = {
           },
         ]
       }
+      engrep_commit_survival: {
+        Row: {
+          engineer_id: string | null
+          evidence_ref: string | null
+          files: number | null
+          files_is_revert: number | null
+          files_reverted: number | null
+          same_owner_churn: boolean | null
+          survival: string | null
+        }
+        Relationships: []
+      }
+      engrep_file_survival: {
+        Row: {
+          blob_sha: string | null
+          engineer_id: string | null
+          evidence_ref: string | null
+          path: string | null
+          prev_blob: string | null
+          reverted_by_engineer: string | null
+          reverted_by_ref: string | null
+          status: string | null
+          touched_at: string | null
+          undid_engineer: string | null
+          undid_ref: string | null
+          window_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "engrep_file_touches_engineer_id_fkey"
+            columns: ["engineer_id"]
+            isOneToOne: false
+            referencedRelation: "engrep_engineers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engrep_file_touches_engineer_id_fkey"
+            columns: ["reverted_by_engineer"]
+            isOneToOne: false
+            referencedRelation: "engrep_engineers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "engrep_file_touches_window_id_fkey"
+            columns: ["window_id"]
+            isOneToOne: false
+            referencedRelation: "engrep_window_summary"
+            referencedColumns: ["window_id"]
+          },
+          {
+            foreignKeyName: "engrep_file_touches_window_id_fkey"
+            columns: ["window_id"]
+            isOneToOne: false
+            referencedRelation: "engrep_windows"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       engrep_my_rows: {
         Row: {
           adjudicated_at: string | null
