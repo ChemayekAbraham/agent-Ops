@@ -294,7 +294,9 @@ BEGIN
     INTO v_prior_agent, v_prior_partner, v_cum_access
   FROM instalment_allocations ia WHERE ia.rent_request_id = p_rent_request_id;
 
-  v_agent        := ROUND(a.cumulative_after * 0.10) - v_prior_agent;
+  -- Fixed: 10% of THIS payment only (was ROUND(10% x cumulative of all split rows) - prior
+  -- deposit-route commission, which re-paid commission on earlier agent-route cash).
+  v_agent        := ROUND(ROUND(p_instalment_amount) * 0.10);
   v_plan_partner := ROUND(v_p * 0.15 * (v_d/30.0));
   v_cum_access   := v_cum_access + a.access_fee_component;
   v_partner      := CASE WHEN v_plan_access > 0
@@ -418,12 +420,13 @@ BEGIN
     RETURN jsonb_build_object('status','no_allocation');
   END IF;
 
-  -- Pre-change payment formula, unchanged: ROUND(10% x cumulative instalments) - commission already paid.
-  SELECT COALESCE(SUM(ia.instalment_amount),0),
-         COALESCE(SUM(COALESCE(ia.commission_paid_component, ia.agent_commission_component, 0)),0)
-    INTO v_all_prior, v_prior_paid
-  FROM instalment_allocations ia WHERE ia.rent_request_id = p_rent_request_id;
-  v_paid := ROUND((v_all_prior + ROUND(p_instalment_amount)) * 0.10) - v_prior_paid;
+  -- Deposit-route commission PAYMENT = 10% of THIS deposit payment only.
+  -- Prior agent-route collections (already paid 10% by agent_allocate_tenant_payment_internal)
+  -- and reversed collections are deliberately NOT part of this calculation.
+  -- (Pre-fix formula ROUND(10% x all split rows) - deposit-route commission paid
+  --  re-paid 10% on earlier agent cash: UGX 42,200 on 9 plans to 2026-09-28.)
+  v_all_prior := NULL; v_prior_paid := NULL;
+  v_paid := ROUND(ROUND(p_instalment_amount) * 0.10);
 
   v_res := public._post_four_part_fee_split(p_rent_request_id, p_instalment_amount, p_source_table, p_source_id,
              'deposit_settlement', v_paid,
