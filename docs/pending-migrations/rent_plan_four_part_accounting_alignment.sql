@@ -1413,27 +1413,33 @@ RETURNS TABLE(collection_id uuid, rent_request_id uuid, amount numeric, commissi
               platform_fee numeric, total_allocated numeric, status text)
 LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public'
 AS $function$
-DECLARE c record; v_paid numeric; v_res jsonb;
+DECLARE c record; v_paid numeric; v_n int; v_res jsonb;
 BEGIN
   IF NOT public._has_enabled_role(auth.uid(), ARRAY['cfo','ceo','super_admin']) THEN
     RAISE EXCEPTION 'not authorised' USING ERRCODE = '42501';
   END IF;
   FOR c IN
-    SELECT ac.id, ac.rent_request_id AS rr, ac.amount, ac.created_at
+    SELECT ac.id, ac.rent_request_id AS rr, ac.amount, ac.created_at, ac.agent_id
       FROM agent_collections ac
      WHERE ac.reversed_at IS NULL AND ac.amount > 0
        AND ac.created_at >= '2026-09-08' AND ac.created_at < '2026-09-10'
        AND NOT EXISTS (SELECT 1 FROM instalment_allocations ia
                         WHERE ia.source_table='agent_collections' AND ia.source_id = ac.id)
        AND left(ac.rent_request_id::text, 8) NOT IN ('39976d4a','7a02c339')
+       AND public.is_treasury_waterfall_scope(ac.rent_request_id)   -- 16 in scope; 276 pre-go-live excluded
        AND public.is_four_part_waterfall_eligible(ac.rent_request_id)
      ORDER BY ac.created_at, ac.id
   LOOP
-    SELECT COALESCE(SUM(g.amount),0) INTO v_paid
+    -- Commission actually paid: the original collection's platform payable leg.
+    -- Ledger links it by plan id (source_id = rent_request_id, uuid) at the collection instant.
+    SELECT COALESCE(SUM(g.amount),0), count(*) INTO v_paid, v_n
       FROM general_ledger g
      WHERE g.category='agent_commission_payable' AND g.direction='cash_out'
-       AND g.source_table='agent_collections' AND g.source_id = c.rr::text
+       AND g.source_table='agent_collections' AND g.source_id = c.rr
        AND abs(extract(epoch FROM g.created_at - c.created_at)) < 10;
+    IF v_n <> 1 THEN
+      RAISE EXCEPTION 'collection %: expected exactly 1 commission leg, found %', c.id, v_n;
+    END IF;
     IF p_dry_run THEN
       collection_id := c.id; rent_request_id := c.rr; amount := c.amount; commission_paid := v_paid;
       status := 'dry_run'; RETURN NEXT; CONTINUE;
