@@ -66325,6 +66325,20 @@ export type Database = {
         Returns: Json
       }
       rent_pricing_floor_effective_from: { Args: never; Returns: string }
+      rent_request_agent_financials_ok: {
+        Args: {
+          _amount_repaid: number
+          _daily_repayment: number
+          _id: string
+          _rent_amount: number
+          _total_repayment: number
+        }
+        Returns: boolean
+      }
+      rent_request_balance_unchanged: {
+        Args: { _amount_repaid: number; _id: string }
+        Returns: boolean
+      }
       rent_request_financials_unchanged: {
         Args: {
           _amount_repaid: number
