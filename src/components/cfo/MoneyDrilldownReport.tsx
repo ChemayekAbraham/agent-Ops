@@ -167,20 +167,24 @@ export function MoneyDrilldownReport({ open, onOpenChange, preset, config }: {
               <option value="">All</option>{config.statuses.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select></label>
           <label className="text-xs">{config.personLabel}<Input placeholder="Name or phone" value={person} onChange={e => setPerson(e.target.value)} /></label>
-          <Button onClick={generate} disabled={q.isFetching}>
-            {q.isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Generate'}
+          <Button onClick={generate} disabled={loading}>
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Generate'}
           </Button>
         </div>
 
-        {params && q.data && (
+        {params && (
           <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
             <span>
-              {matchCount.toLocaleString()} transactions · {config.confirmedLabel} <b>{formatUGX(confirmed)}</b>
-              {pending > 0 && <> · Pending <b>{formatUGX(pending)}</b></>}
-              {matchCount > rows.length && <span className="text-muted-foreground"> · showing first {rows.length.toLocaleString()} rows (totals cover all)</span>}
+              {totalsQ.error ? <span className="text-destructive">{errText(totalsQ.error)}</span>
+                : !t ? <span className="text-muted-foreground inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Calculating totals…</span>
+                : <>
+                    {matchCount.toLocaleString()} transactions · {config.confirmedLabel} <b>{formatUGX(t.confirmed)}</b>
+                    {t.pending > 0 && <> · Pending <b>{formatUGX(t.pending)}</b></>}
+                    {matchCount > rows.length && <span className="text-muted-foreground"> · showing {rows.length.toLocaleString()} (totals cover all)</span>}
+                  </>}
             </span>
-            <Button size="sm" variant="outline" onClick={exportCsv} disabled={!rows.length}>
-              <Download className="h-4 w-4 mr-1" /> Export CSV
+            <Button size="sm" variant="outline" onClick={exportCsv} disabled={!rows.length || exporting}>
+              {exporting ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Download className="h-4 w-4 mr-1" />} Export CSV
             </Button>
           </div>
         )}
@@ -192,21 +196,37 @@ export function MoneyDrilldownReport({ open, onOpenChange, preset, config }: {
 
         <div className="overflow-auto flex-1 border rounded-md">
           {!params ? <p className="p-6 text-sm text-muted-foreground">Choose filters and tap Generate.</p>
-            : q.error ? <p className="p-6 text-sm text-destructive">Could not load the report.</p>
-            : q.isFetching && !q.data ? <p className="p-6 text-sm text-muted-foreground">Loading…</p>
+            : q.error && !rows.length ? (
+              <div className="p-6 text-sm text-destructive space-y-2">
+                <p>{errText(q.error)}</p>
+                <Button size="sm" variant="outline" onClick={() => { q.refetch(); totalsQ.refetch(); }}>Try again</Button>
+              </div>
+            )
+            : q.isLoading ? <p className="p-6 text-sm text-muted-foreground inline-flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" /> Loading first {PAGE} transactions…</p>
+            : !rows.length ? <p className="p-6 text-sm text-muted-foreground">No transactions match these filters.</p>
             : (
-              <table className="w-full text-xs">
-                <thead className="bg-muted sticky top-0">
-                  <tr>{config.columns.map(c => <th key={c.head} className="text-left p-2 whitespace-nowrap">{c.head}</th>)}</tr>
-                </thead>
-                <tbody>
-                  {rows.map(r => (
-                    <tr key={r.id} className="border-t align-top">
-                      {config.columns.map(c => <td key={c.head} className={`p-2 ${c.className ?? ''}`}>{c.cell(r)}</td>)}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <>
+                <table className="w-full text-xs">
+                  <thead className="bg-muted sticky top-0">
+                    <tr>{config.columns.map(c => <th key={c.head} className="text-left p-2 whitespace-nowrap">{c.head}</th>)}</tr>
+                  </thead>
+                  <tbody>
+                    {rows.map(r => (
+                      <tr key={r.id} className="border-t align-top">
+                        {config.columns.map(c => <td key={c.head} className={`p-2 ${c.className ?? ''}`}>{c.cell(r)}</td>)}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                {q.hasNextPage && (
+                  <div className="p-3 flex justify-center">
+                    <Button size="sm" variant="outline" onClick={() => q.fetchNextPage()} disabled={q.isFetchingNextPage}>
+                      {q.isFetchingNextPage ? <Loader2 className="h-4 w-4 animate-spin" /> : `Load ${PAGE} more`}
+                    </Button>
+                  </div>
+                )}
+                {q.error && rows.length > 0 && <p className="p-3 text-xs text-destructive text-center">{errText(q.error)}</p>}
+              </>
             )}
         </div>
       </DialogContent>
