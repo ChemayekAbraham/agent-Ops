@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Sparkles, History, MapPin, Home, BarChart3, FileText, Loader2, ArrowLeft } from 'lucide-react';
+import { Sparkles, History, MapPin, Home, BarChart3, FileText, Loader2, ArrowLeft, Layers } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { TenantOpsDashboardV2 } from './TenantOpsDashboardV2';
 import { TenantOpsGeoCommandCenter } from './tenant-ops/TenantOpsGeoCommandCenter';
@@ -12,10 +12,23 @@ import { TenantPhoneDuplicatePanel } from '@/components/ops/TenantPhoneDuplicate
 import { WelileHomesAdminPanel } from '@/components/ops/WelileHomesAdminPanel';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
+import { useWorkspaceEnabled } from '@/hooks/tenantOpsWorkspace/useWorkspaceEnabled';
+
+// Additive Rule-8 exception (docs/TOPS_BUILD_LOG.md, 2026-09-28): the new
+// Tenant Ops Workspace mounted as a fourth, gated mode alongside the three
+// existing ones. Lazy — same reason TenantOpsHub itself is lazy-loaded one
+// level up in ExecutiveHub.tsx — so a user who never opens this mode never
+// pays for its bundle.
+const LazyWorkspaceShell = lazy(() => import('@/components/tenant-ops-workspace/WorkspaceShell'));
 
 const STORAGE_KEY = 'tenant-ops-view-mode';
 
-type Mode = 'v2' | 'intel' | 'classic';
+// Same five roles TenantOpsWorkspacePage.tsx already gates the standalone
+// /tenant-ops/workspace route on.
+const WORKSPACE_ROLES = ['tenant_ops', 'operations', 'coo', 'ceo', 'super_admin'];
+
+type Mode = 'v2' | 'intel' | 'classic' | 'workspace';
 
 
 export function TenantOpsHub() {
@@ -28,17 +41,32 @@ export function TenantOpsHub() {
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
 
+  // Gated on BOTH the kill switch and the same role list the standalone
+  // /tenant-ops/workspace route already uses — reusing useWorkspaceEnabled()
+  // rather than a second inline RPC call. `data`/`roles` are undefined while
+  // still loading, so canShowWorkspace stays false (never a false positive)
+  // until both have actually resolved.
+  const { roles } = useAuth();
+  const { data: workspaceFlagOn } = useWorkspaceEnabled();
+  const canShowWorkspace = workspaceFlagOn === true && (roles ?? []).some((r) => WORKSPACE_ROLES.includes(r as string));
+
   // URL wins over the stored preference so deep links land on the right mode.
+  // 'workspace' is only ever accepted once canShowWorkspace has actually
+  // resolved true — re-running this effect as that resolves (rather than
+  // gating it out of the dependency array) is what lets a direct
+  // ?mode=workspace deep link still land correctly once the check catches up,
+  // instead of only working on a page that happens to load fast.
   useEffect(() => {
     const fromUrl = params.get('mode');
-    if (fromUrl === 'classic' || fromUrl === 'v2' || fromUrl === 'intel') {
+    const validModes: Mode[] = canShowWorkspace ? ['classic', 'v2', 'intel', 'workspace'] : ['classic', 'v2', 'intel'];
+    if (fromUrl && (validModes as string[]).includes(fromUrl)) {
       setMode(fromUrl as Mode);
       return;
     }
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (saved === 'classic' || saved === 'v2' || saved === 'intel') setMode(saved as Mode);
+    if (saved && (validModes as string[]).includes(saved)) setMode(saved as Mode);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.get('mode')]);
+  }, [params.get('mode'), canShowWorkspace]);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setOpsUserId(data.user?.id ?? null));
@@ -96,7 +124,7 @@ export function TenantOpsHub() {
     <div className="space-y-3">
       <AgentInactiveAlertBanner opsUserId={opsUserId} onOpenBehavior={setBehaviorTenantId} />
 
-      {mode !== 'classic' && (
+      {mode !== 'classic' && mode !== 'workspace' && (
         <TenantPhoneDuplicatePanel
           variant="summary"
           onOpenHub={() => { setDuplicatesHubOpen(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
@@ -109,12 +137,13 @@ export function TenantOpsHub() {
         <div
           role="tablist"
           aria-label="Tenant Operations workspace"
-          className="grid grid-cols-3 gap-1 rounded-lg border bg-muted/40 p-1 sm:flex sm:w-auto sm:justify-end sm:border-0 sm:bg-transparent sm:p-0 sm:gap-2"
+          className={`grid gap-1 rounded-lg border bg-muted/40 p-1 sm:flex sm:w-auto sm:justify-end sm:border-0 sm:bg-transparent sm:p-0 sm:gap-2 ${canShowWorkspace ? 'grid-cols-4' : 'grid-cols-3'}`}
         >
           {([
             { key: 'v2' as Mode, label: 'New', icon: Sparkles },
             { key: 'intel' as Mode, label: 'Operations Intelligence', short: 'Intelligence', icon: BarChart3 },
             { key: 'classic' as Mode, label: 'Classic', icon: History },
+            ...(canShowWorkspace ? [{ key: 'workspace' as Mode, label: 'Workspace', icon: Layers }] : []),
           ]).map(({ key, label, short, icon: Icon }) => (
             <Button
               key={key}
@@ -134,8 +163,8 @@ export function TenantOpsHub() {
           ))}
         </div>
 
-        {/* Secondary tools — in Classic these live in the sidebar instead */}
-        {mode !== 'classic' && (
+        {/* Secondary tools — in Classic these live in the sidebar instead; Workspace has its own complete nav/shell, same reason */}
+        {mode !== 'classic' && mode !== 'workspace' && (
           <div className="grid grid-cols-3 gap-2 sm:flex sm:items-center sm:justify-start">
             <Button
               variant="outline"
@@ -172,6 +201,10 @@ export function TenantOpsHub() {
         <TenantOpsDashboardV2 />
       ) : mode === 'intel' ? (
         <TenantOpsGeoCommandCenter />
+      ) : mode === 'workspace' && canShowWorkspace ? (
+        <Suspense fallback={<div className="animate-pulse text-sm text-muted-foreground">Loading…</div>}>
+          <LazyWorkspaceShell embedded />
+        </Suspense>
       ) : (
         <TenantOpsClassicShell
           onOpenLocations={() => navigate('/executive-hub?tab=locations')}

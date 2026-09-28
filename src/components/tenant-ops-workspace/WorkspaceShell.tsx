@@ -23,9 +23,18 @@ const SECTION_IDS = new Set(WORKSPACE_NAV_SECTIONS.map((s) => s.id));
 export interface WorkspaceShellProps {
   /** Money at risk per section, in UGX. A section with no entry shows no badge — filled in by later prompts. */
   moneyAtRiskBySection?: Partial<Record<WorkspaceSectionId, number>>;
+  /**
+   * True when mounted inside an existing page shell (e.g. the Tenant Ops
+   * Hub's "Workspace" mode) that already owns the viewport, scroll and
+   * padding. Drops `min-h-screen` so this component doesn't force its own
+   * full-viewport height inside someone else's page. The standalone
+   * /tenant-ops/workspace route omits this prop and renders exactly as
+   * before.
+   */
+  embedded?: boolean;
 }
 
-export default function WorkspaceShell({ moneyAtRiskBySection }: WorkspaceShellProps) {
+export default function WorkspaceShell({ moneyAtRiskBySection, embedded = false }: WorkspaceShellProps) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [drawerOpen, setDrawerOpen] = useState(false);
 
@@ -82,7 +91,7 @@ export default function WorkspaceShell({ moneyAtRiskBySection }: WorkspaceShellP
   );
 
   return (
-    <div className="flex min-h-screen w-full flex-col md:flex-row">
+    <div className={`flex w-full flex-col md:flex-row ${embedded ? '' : 'min-h-screen'}`}>
       <aside className="hidden shrink-0 border-r bg-card px-3 py-4 md:block md:w-60">
         {renderNavList()}
       </aside>

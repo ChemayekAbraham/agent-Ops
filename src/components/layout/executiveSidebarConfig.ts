@@ -282,7 +282,6 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Partner Ops',   icon: Handshake,     id: 'reports-partner-ops',   route: '/coo/reports/partner-ops' },
         { label: 'Agent Ops',     icon: Users,         id: 'reports-agent-ops',     route: '/coo/reports/agent-ops' },
         { label: 'Tenant Ops',    icon: Home,          id: 'reports-tenant-ops',    route: '/coo/reports/tenant-ops' },
-        { label: 'Tenant Ops Workspace', icon: Layers, id: 'tenant-ops-workspace',  route: '/tenant-ops/workspace' },
         { label: 'Portfolio Performance', icon: BarChart3, id: 'reports-tenant-portfolio-performance', route: '/coo/reports/tenant-portfolio-performance' },
         { label: 'Financial Ops', icon: Wallet,        id: 'reports-financial-ops', route: '/coo/reports/financial-ops' },
         { label: 'System Overview', icon: Activity,    id: 'reports-system-overview', route: '/coo/reports/system-overview' },

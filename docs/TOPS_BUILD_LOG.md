@@ -544,3 +544,166 @@ No new features. Brief: produce `docs/TOPS_ACCEPTANCE.md`, verifying 20 numbered
 **New permanent test coverage added:** `e2e/tenant-ops-workspace-flag-gate.spec.ts` — the kill-switch's flag-on/flag-off behavior, run live against a real Chromium instance for both states, kept as permanent regression coverage (not a throwaway acceptance-only check) since it's a core safety property of the whole "purely additive, always revertible" design.
 
 **Recommendation about an existing object, not acted on:** none new this task beyond the background follow-up task already spawned above for the ~10 non-RPC'd figures.
+
+## 2026-09-28 — Workspace mounted into the Tenant Ops Hub switcher (authorised exception to Rule 8)
+
+**This task carried an explicit, scoped, user-authorised exception to Rule 8** ("never touch an existing Tenant Ops file"): permission to edit `src/components/executive/TenantOpsHub.tsx` — and only that file — to register the workspace as a fourth view mode in the Hub's existing switcher. **Reason given:** officers work in the hub, and a workspace reachable only from a COO reports menu will not be adopted. `TenantOpsClassicShell.tsx`, `tenantOpsNav.ts` and `TenantOpsHome.tsx` were explicitly off-limits and were not touched (confirmed below).
+
+**Step 1 — pre-edit report (as required before writing anything):**
+
+- `TenantOpsHub.tsx` defined view modes as `type Mode = 'v2' | 'intel' | 'classic'`, held in `useState<Mode>('classic')` (Classic is the hardcoded default). The switcher was a `role="tablist"` of three `Button`s in a `grid-cols-3` container, each setting mode via `setAndSave()`. The URL was read in a `useEffect` keyed on `params.get('mode')`: an allowed value (`'classic'|'v2'|'intel'`) from the URL wins outright; otherwise it fell back to `localStorage.getItem('tenant-ops-view-mode')`. `setAndSave()` persisted a new mode to the same `localStorage` key and pushed it into the URL's `?mode=` param.
+- Mode → component: `'v2'` → `<TenantOpsDashboardV2 />`, `'intel'` → `<TenantOpsGeoCommandCenter />`, everything else (the ternary's final `else`, i.e. `'classic'` or any unrecognised value) → `<TenantOpsClassicShell />`. All three were direct, non-lazy imports at the top of the file — none of the existing modes were code-split.
+- Roles able to reach the hub today: two independent layers, neither touched by this task — the route-level `RoleGuard allowedRoles={[...]}` wrapping `/executive-hub` (a broad list including `manager`/`employee`), and, inside `ExecutiveHubPage`, a `useStaffPermissions().hasPermission('tenant-ops')` check gating whether the Tenant Ops tab renders at all (else `<NotFound/>`). The Hub itself does no further role check once mounted.
+
+**Step 2 — the mode added**, following the existing pattern exactly:
+
+- `type Mode` extended to `'v2' | 'intel' | 'classic' | 'workspace'`. The URL-read effect's allow-list is now computed (`canShowWorkspace ? [...,'workspace'] : [...]`) rather than a fixed literal, so `'workspace'` is only ever accepted from the URL or `localStorage` once the gate has actually resolved true — same `setAndSave`/persistence mechanism, unchanged for the three existing modes.
+- Gate: `canShowWorkspace = workspaceFlagOn === true && (roles ?? []).some(r => WORKSPACE_ROLES.includes(r))`, reading `roles` from the existing `useAuth()` hook (already used elsewhere in this file for `opsUserId`) and `workspaceFlagOn` from the new shared `useWorkspaceEnabled()` hook — the same five roles (`tenant_ops`, `operations`, `coo`, `ceo`, `super_admin`) `TenantOpsWorkspacePage.tsx` already gates the standalone route on. Both source values are `undefined` while loading, and `undefined === true` is `false`, so the gate defaults closed with no flash of a false positive.
+- Switcher: the tab array gained one conditional entry (`{ key: 'workspace', label: 'Workspace', icon: Layers }`, only when `canShowWorkspace`), and the container's `grid-cols-3` became a computed `canShowWorkspace ? 'grid-cols-4' : 'grid-cols-3'`. No existing tab's key, label, icon, or click handler changed.
+- Render: one new ternary branch, `mode === 'workspace' && canShowWorkspace ? <Suspense fallback={...}><LazyWorkspaceShell embedded /></Suspense> : ...`, inserted before the existing final `else` (`TenantOpsClassicShell`), which is otherwise untouched. `LazyWorkspaceShell = lazy(() => import('@/components/tenant-ops-workspace/WorkspaceShell'))` — code-split (the literal instruction), while using the exact same conditional-mount/unmount pattern the three existing modes already use for switching (the existing ternary fully unmounts whichever mode isn't active; none of the three preserve state across a switch today, so the new branch introduces no regression in that respect — there was nothing to disturb).
+- The two `mode !== 'classic'` conditionals (the duplicate-tenant summary panel and the secondary-tools row) were extended to `mode !== 'classic' && mode !== 'workspace'`. Reasoning: Workspace, like Classic, owns a complete, self-contained nav/shell of its own (`WorkspaceShell`'s sidebar/drawer nav) — showing the Hub's v2/intel-oriented secondary tools above it would be redundant clutter, not a fix to something broken. Judged as the minimal necessary touch, not a reorder/restyle of existing content.
+- The stored default was not changed — a user with no saved preference and no `?mode=` param still lands on Classic, workspace-eligible or not.
+
+**Extracted shared flag hook** (required by the brief rather than a second inline RPC call): `src/hooks/tenantOpsWorkspace/useWorkspaceEnabled.ts` (new file) wraps `supabase.rpc('tops_is_workspace_enabled')` in a `useQuery`. `TenantOpsWorkspacePage.tsx` (the standalone `/tenant-ops/workspace` route) was refactored to consume this hook instead of its own inline `useEffect`/`useState` RPC call — behaviourally identical (same loading/unavailable/hasAccess logic, same RPC, same result shape), just no longer a duplicate network call when both surfaces are mounted in the same session.
+
+**`WorkspaceShell.tsx` embedding fix** (required so the same component works standalone and inside the Hub): added an `embedded?: boolean` prop (default `false`). When true, the shell's root drops `min-h-screen` so it doesn't force full-viewport height inside the Hub's own page shell. The standalone route omits the prop and renders byte-for-byte as before. Nothing else in the component changed.
+
+**Step 4 — verification, by running it, not by reading the diff:**
+
+- **New component test**, `src/components/executive/TenantOpsHub.test.tsx` (6 tests, `@testing-library/react` against the real `TenantOpsHub`, with `TenantOpsDashboardV2`/`TenantOpsGeoCommandCenter`/`TenantOpsClassicShell`/`WorkspaceShell` and the two data hooks mocked): flag ON + a workspace role shows a fourth "Workspace" tab while Classic still opens by default; selecting Workspace mounts `WorkspaceShell` with `embedded=true` and switching to Classic/"New" afterward still works (no state carried over, none expected); flag OFF renders exactly the original three tabs; a wrong role with the flag on is identical to flag off; a `?mode=workspace` deep link is honoured once the gate resolves true; the same deep link with the gate false falls back to Classic, not an empty state. All 6 pass (confirmed both in the full workspace suite and in two isolated re-runs, ~1.3s total — one transient 5000ms timeout on the "selecting the Workspace tab" test during a single busy run was confirmed non-reproducing, see below).
+- **Existing permanent E2E**, `e2e/tenant-ops-workspace-flag-gate.spec.ts` (unchanged assertions, exercising the standalone `/tenant-ops/workspace` route after the `useWorkspaceEnabled()` refactor): both flag-ON and flag-OFF cases pass (16.5s, 16.6s) against a freshly started dev server. **Caught and diagnosed a false alarm along the way:** the first two re-runs of this spec (once during heavy background `tsc` CPU contention, once immediately after on a dev server that had just recompiled several edited files for the first time) both failed with the app's own client-side "This is taking longer than usual" retry banner (`src/main.tsx`'s 10s blank-screen watchdog) rather than any assertion about the workspace itself — the page was still mounting when the test's fixed `waitForTimeout(3000)` ran out. A hand-written repro script with console/network logging confirmed the app itself booted correctly and reached the workspace with no JS error once given more time (auth resolution alone took ~15-18s on a cold Vite compile, including a `[Auth] Init timeout after 8s — forcing loading off` warning that is itself pre-existing, unrelated behaviour). A third run, once Vite's dep cache was warm and the CPU was idle, passed cleanly. **Conclusion: no regression** — both failures were dev-server/Vite cold-start latency exceeding the test's fixed wait, not a defect in this task's code; recorded here rather than silently retried away, since a flaky-looking failure deserves a stated cause, not just a green re-run.
+- `node scripts/run-with-heap.mjs tsc --noEmit -p tsconfig.app.json`: **zero errors.**
+- `npm run guard:all`: all 9 guards pass, including the new `guard:tops-client-math` from the prior task. (The schema-types fingerprint guard reported its standing advisory drift — pre-existing, unrelated to this task, not a new finding.)
+- `npm run build`: succeeds — `✓ built in 7m 20s`, `[dist-preflight] verified upload artifact: 989 files, 29.0 MiB, 0 house shells, valid sitemaps`.
+- `git status --porcelain`: exactly `TenantOpsHub.tsx`, `TenantOpsHub.test.tsx` (new), `TenantOpsWorkspacePage.tsx`, `WorkspaceShell.tsx`, `useWorkspaceEnabled.ts` (new), and `executiveSidebarConfig.ts` — nothing else, and specifically **not** `TenantOpsClassicShell.tsx`, `tenantOpsNav.ts`, or `TenantOpsHome.tsx`, confirming the Rule-8 exception's boundary was respected. The recurring `predev` side-effect files (`public/sitemap*.xml`, `supabase/functions/mcp-public/index.ts`) reappeared from starting a standalone dev server for the Playwright re-runs — left as-is per standing practice of not touching files that were already dirty before this session began. `test-results/` (untracked Playwright output) and the leftover standalone dev server were cleaned up / stopped after verification.
+
+**Step 3 — moved the entry point:** removed the `{ label: 'Tenant Ops Workspace', icon: Layers, id: 'tenant-ops-workspace', route: '/tenant-ops/workspace' }` item from `src/components/layout/executiveSidebarConfig.ts`'s COO "Reports" section (one line). The `/tenant-ops/workspace` route registration in `src/App.tsx` (`RoleGuard`-wrapped, same five roles) was not touched and still resolves as a working direct deep link — confirmed above via the passing flag-gate E2E, which exercises exactly that route.
+
+**Full `git diff` for `TenantOpsHub.tsx`** (the one file this task was authorised to touch under the Rule-8 exception):
+
+```diff
+diff --git a/src/components/executive/TenantOpsHub.tsx b/src/components/executive/TenantOpsHub.tsx
+index 438c3f26ee..908c134468 100644
+--- a/src/components/executive/TenantOpsHub.tsx
++++ b/src/components/executive/TenantOpsHub.tsx
+@@ -1,7 +1,7 @@
+-import { useState, useEffect } from 'react';
++import { useState, useEffect, lazy, Suspense } from 'react';
+ import { useNavigate, useSearchParams } from 'react-router-dom';
+ import { Button } from '@/components/ui/button';
+-import { Sparkles, History, MapPin, Home, BarChart3, FileText, Loader2, ArrowLeft } from 'lucide-react';
++import { Sparkles, History, MapPin, Home, BarChart3, FileText, Loader2, ArrowLeft, Layers } from 'lucide-react';
+ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+ import { TenantOpsDashboardV2 } from './TenantOpsDashboardV2';
+ import { TenantOpsGeoCommandCenter } from './tenant-ops/TenantOpsGeoCommandCenter';
+@@ -12,10 +12,23 @@ import { TenantPhoneDuplicatePanel } from '@/components/ops/TenantPhoneDuplicate
+ import { WelileHomesAdminPanel } from '@/components/ops/WelileHomesAdminPanel';
+ import { supabase } from '@/integrations/supabase/client';
+ import { toast } from 'sonner';
++import { useAuth } from '@/hooks/useAuth';
++import { useWorkspaceEnabled } from '@/hooks/tenantOpsWorkspace/useWorkspaceEnabled';
++
++// Additive Rule-8 exception (docs/TOPS_BUILD_LOG.md, 2026-09-28): the new
++// Tenant Ops Workspace mounted as a fourth, gated mode alongside the three
++// existing ones. Lazy — same reason TenantOpsHub itself is lazy-loaded one
++// level up in ExecutiveHub.tsx — so a user who never opens this mode never
++// pays for its bundle.
++const LazyWorkspaceShell = lazy(() => import('@/components/tenant-ops-workspace/WorkspaceShell'));
+ 
+ const STORAGE_KEY = 'tenant-ops-view-mode';
+ 
+-type Mode = 'v2' | 'intel' | 'classic';
++// Same five roles TenantOpsWorkspacePage.tsx already gates the standalone
++// /tenant-ops/workspace route on.
++const WORKSPACE_ROLES = ['tenant_ops', 'operations', 'coo', 'ceo', 'super_admin'];
++
++type Mode = 'v2' | 'intel' | 'classic' | 'workspace';
+ 
+ 
+ export function TenantOpsHub() {
+@@ -28,17 +41,32 @@ export function TenantOpsHub() {
+   const navigate = useNavigate();
+   const [params, setParams] = useSearchParams();
+ 
++  // Gated on BOTH the kill switch and the same role list the standalone
++  // /tenant-ops/workspace route already uses — reusing useWorkspaceEnabled()
++  // rather than a second inline RPC call. `data`/`roles` are undefined while
++  // still loading, so canShowWorkspace stays false (never a false positive)
++  // until both have actually resolved.
++  const { roles } = useAuth();
++  const { data: workspaceFlagOn } = useWorkspaceEnabled();
++  const canShowWorkspace = workspaceFlagOn === true && (roles ?? []).some((r) => WORKSPACE_ROLES.includes(r as string));
++
+   // URL wins over the stored preference so deep links land on the right mode.
++  // 'workspace' is only ever accepted once canShowWorkspace has actually
++  // resolved true — re-running this effect as that resolves (rather than
++  // gating it out of the dependency array) is what lets a direct
++  // ?mode=workspace deep link still land correctly once the check catches up,
++  // instead of only working on a page that happens to load fast.
+   useEffect(() => {
+     const fromUrl = params.get('mode');
+-    if (fromUrl === 'classic' || fromUrl === 'v2' || fromUrl === 'intel') {
++    const validModes: Mode[] = canShowWorkspace ? ['classic', 'v2', 'intel', 'workspace'] : ['classic', 'v2', 'intel'];
++    if (fromUrl && (validModes as string[]).includes(fromUrl)) {
+       setMode(fromUrl as Mode);
+       return;
+     }
+     const saved = localStorage.getItem(STORAGE_KEY);
+-    if (saved === 'classic' || saved === 'v2' || saved === 'intel') setMode(saved as Mode);
++    if (saved && (validModes as string[]).includes(saved)) setMode(saved as Mode);
+     // eslint-disable-next-line react-hooks/exhaustive-deps
+-  }, [params.get('mode')]);
++  }, [params.get('mode'), canShowWorkspace]);
+ 
+   useEffect(() => {
+     supabase.auth.getUser().then(({ data }) => setOpsUserId(data.user?.id ?? null));
+@@ -96,7 +124,7 @@ export function TenantOpsHub() {
+     <div className="space-y-3">
+       <AgentInactiveAlertBanner opsUserId={opsUserId} onOpenBehavior={setBehaviorTenantId} />
+ 
+-      {mode !== 'classic' && (
++      {mode !== 'classic' && mode !== 'workspace' && (
+         <TenantPhoneDuplicatePanel
+           variant="summary"
+           onOpenHub={() => { setDuplicatesHubOpen(true); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+@@ -109,12 +137,13 @@ export function TenantOpsHub() {
+         <div
+           role="tablist"
+           aria-label="Tenant Operations workspace"
+-          className="grid grid-cols-3 gap-1 rounded-lg border bg-muted/40 p-1 sm:flex sm:w-auto sm:justify-end sm:border-0 sm:bg-transparent sm:p-0 sm:gap-2"
++          className={`grid gap-1 rounded-lg border bg-muted/40 p-1 sm:flex sm:w-auto sm:justify-end sm:border-0 sm:bg-transparent sm:p-0 sm:gap-2 ${canShowWorkspace ? 'grid-cols-4' : 'grid-cols-3'}`}
+         >
+           {([
+             { key: 'v2' as Mode, label: 'New', icon: Sparkles },
+             { key: 'intel' as Mode, label: 'Operations Intelligence', short: 'Intelligence', icon: BarChart3 },
+             { key: 'classic' as Mode, label: 'Classic', icon: History },
++            ...(canShowWorkspace ? [{ key: 'workspace' as Mode, label: 'Workspace', icon: Layers }] : []),
+           ]).map(({ key, label, short, icon: Icon }) => (
+             <Button
+               key={key}
+@@ -134,8 +163,8 @@ export function TenantOpsHub() {
+           ))}
+         </div>
+ 
+-        {/* Secondary tools — in Classic these live in the sidebar instead */}
+-        {mode !== 'classic' && (
++        {/* Secondary tools — in Classic these live in the sidebar instead; Workspace has its own complete nav/shell, same reason */}
++        {mode !== 'classic' && mode !== 'workspace' && (
+           <div className="grid grid-cols-3 gap-2 sm:flex sm:items-center sm:justify-start">
+             <Button
+               variant="outline"
+@@ -172,6 +201,10 @@ export function TenantOpsHub() {
+         <TenantOpsDashboardV2 />
+       ) : mode === 'intel' ? (
+         <TenantOpsGeoCommandCenter />
++      ) : mode === 'workspace' && canShowWorkspace ? (
++        <Suspense fallback={<div className="animate-pulse text-sm text-muted-foreground">Loading…</div>}>
++          <LazyWorkspaceShell embedded />
++        </Suspense>
+       ) : (
+         <TenantOpsClassicShell
+           onOpenLocations={() => navigate('/executive-hub?tab=locations')}
+</diff>
+```
+
+**Recommendation about an existing object, not acted on:** none new this task.

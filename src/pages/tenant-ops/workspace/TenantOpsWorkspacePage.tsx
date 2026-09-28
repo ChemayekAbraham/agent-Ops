@@ -10,15 +10,13 @@
  * not fix (editing that file is outside the two permitted single-line
  * edits). The check below compares against the raw role strings rather than
  * routing through AppRole, so it still recognises 'tenant_ops' at runtime.
+ *
+ * The flag read is shared with the Tenant Ops Hub's "Workspace" mode via
+ * useWorkspaceEnabled() — one RPC call, not a second inline one per surface.
  */
-import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/integrations/supabase/client';
+import { useWorkspaceEnabled } from '@/hooks/tenantOpsWorkspace/useWorkspaceEnabled';
 import WorkspaceShell from '@/components/tenant-ops-workspace/WorkspaceShell';
-
-// TODO(schema-types): run `npm run schema:accept-types` once tops_* RPCs are
-// generated, then this cast can be dropped in favour of a typed rpc() call.
-const anyDb = supabase as any;
 
 const ALLOWED_ROLES = ['tenant_ops', 'operations', 'coo', 'ceo', 'super_admin'];
 
@@ -32,20 +30,7 @@ function UnavailableState() {
 
 export default function TenantOpsWorkspacePage() {
   const { roles, loading: authLoading, rolesResolved } = useAuth();
-  const [flagLoading, setFlagLoading] = useState(true);
-  const [enabled, setEnabled] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    anyDb.rpc('tops_is_workspace_enabled').then(({ data, error }: { data: unknown; error: unknown }) => {
-      if (cancelled) return;
-      setEnabled(!error && data === true);
-      setFlagLoading(false);
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { data: enabled, isLoading: flagLoading } = useWorkspaceEnabled();
 
   if (authLoading || !rolesResolved || flagLoading) {
     return (
