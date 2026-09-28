@@ -126,19 +126,25 @@ export function RentApprovalConfirmDialog({
 
           {/* Breakdown */}
           <div className="rounded-xl border bg-muted/30 divide-y">
-            <Row label="Rent Amount" value={formatUGX(request.rent_amount)} />
+            {(() => {
+              const total = display.total_repayment || 0;
+              const principal = request.rent_amount || 0;
+              const partner = Math.round(principal * 0.15);
+              const agent = Math.round(total * 0.1);
+              const platform = Math.max(0, total - principal - partner - agent);
+              const pct = (v: number) =>
+                total > 0 ? `${((v / total) * 100).toFixed(2)}%` : '0.00%';
+              return (
+                <>
+                  <Row label={`Principal — ${pct(principal)}`} value={formatUGX(principal)} />
+                  <Row label={`Supporter Returns — ${pct(partner)}`} value={formatUGX(partner)} />
+                  <Row label={`Agent Commission — ${pct(agent)}`} value={formatUGX(agent)} />
+                  <Row label={`Platform Fee — ${pct(platform)}`} value={formatUGX(platform)} />
+                </>
+              );
+            })()}
             <Row
-              label={`Access Fee (1.33^${(request.duration_days / 30).toFixed(2)} − 1)`}
-              value={formatUGX(display.access_fee)}
-            />
-            <Row
-              label={`Registration Fee (${
-                request.rent_amount <= 200000 ? '≤200k tier' : '>200k tier'
-              })`}
-              value={formatUGX(display.request_fee)}
-            />
-            <Row
-              label="Total Repayment"
+              label="Total Repayment — 100.00%"
               value={formatUGX(display.total_repayment)}
               bold
             />
