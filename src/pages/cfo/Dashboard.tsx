@@ -67,6 +67,7 @@ import { WalletRetractionsFeed } from '@/components/cfo/WalletRetractionsFeed';
 import { CFOAdvancesManager } from '@/components/cfo/CFOAdvancesManager';
 import { CFOAdvanceRequestPayments } from '@/components/cfo/CFOAdvanceRequestPayments';
 import { BikeLeaseApprovalQueue } from '@/components/executive/agent-ops/BikeLeaseApprovalQueue';
+import { BoutiqueOrderApprovalQueue } from '@/components/executive/agent-ops/BoutiqueOrderApprovalQueue';
 import { SmartphoneOrderApprovalQueue } from '@/components/executive/agent-ops/SmartphoneOrderApprovalQueue';
 import { AdvancesAnalyticsView } from '@/components/advances/AdvancesAnalyticsView';
 import { AllAdvancesReportPanel } from '@/components/advances/AllAdvancesReportPanel';
@@ -442,6 +443,18 @@ export default function CFODashboardPage() {
               </p>
             </div>
             <SmartphoneOrderApprovalQueue stage="cfo" />
+          </div>
+        );
+      case 'agent-products-boutique':
+        return (
+          <div className="space-y-4">
+            <div>
+              <h1 className="text-xl font-bold">Agent Boutique</h1>
+              <p className="text-sm text-muted-foreground">
+                Boutique orders approved by the COO. Your approval is final and issues the item to the agent; repayment follows the order's existing plan. Orders issued in the last 30 days stay listed here.
+              </p>
+            </div>
+            <BoutiqueOrderApprovalQueue stage="cfo" />
           </div>
         );
       case 'advances-analytics':
