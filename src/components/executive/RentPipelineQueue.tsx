@@ -730,11 +730,11 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
         landlordIds.length > 0
           ? supabase
               .from('landlords')
-              .select('id, name, phone, mobile_money_number, property_address, region, district, sub_county, village')
+              .select('id, name, phone, mobile_money_number, property_address, region, district, sub_county, village, verified, verification_status, registered_by')
               .in('id', landlordIds)
           : { data: [] },
         lc1Ids.length > 0
-          ? supabase.from('lc1_chairpersons').select('id, name, phone, village, parish, district, region').in('id', lc1Ids)
+          ? supabase.from('lc1_chairpersons').select('id, name, phone, village, parish, district, region, verified, registered_by').in('id', lc1Ids)
           : { data: [] },
       ]);
 
@@ -795,6 +795,12 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
           agent_email: agentProfile?.email || '',
           assigned_agent_name: r.assigned_agent_id ? (profileMap.get(r.assigned_agent_id)?.full_name || '') : '',
           landlord_name: landlord?.name || 'Unknown',
+          // "New" means an agent registered this landlord and nobody has
+          // verified them yet — which is exactly when Landlord Ops has real
+          // work to do, and when the agent's UGX 5,000 registration bonus is
+          // still owed. A landlord already on file needs neither.
+          landlord_is_new: !!landlord?.registered_by && landlord?.verification_status !== 'verified',
+          lc1_is_new: !!lc1?.registered_by && !lc1?.verified,
           landlord_phone: landlord?.phone || '',
           landlord_momo: landlord?.mobile_money_number || landlord?.phone || '',
           landlord_district: landlord?.district || '',
@@ -1806,6 +1812,16 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                           <Home className="h-3 w-3" />
                           {req.landlord_name}
                         </span>
+                      )}
+                      {req.landlord_is_new && (
+                        <Badge variant="outline" className="border-amber-500/50 px-1 py-0 text-[9px] text-amber-600 dark:text-amber-400">
+                          new landlord
+                        </Badge>
+                      )}
+                      {req.lc1_is_new && (
+                        <Badge variant="outline" className="border-amber-500/50 px-1 py-0 text-[9px] text-amber-600 dark:text-amber-400">
+                          new LC1
+                        </Badge>
                       )}
                       {(req.assigned_agent_id || req.agent_id) ? (
                         <span
