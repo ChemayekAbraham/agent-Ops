@@ -2297,6 +2297,13 @@
       "when": 1790578202259,
       "tag": "0327_boutique_coo_cfo_approval",
       "breakpoints": true
+    },
+    {
+      "idx": 328,
+      "version": "7",
+      "when": 1790578478500,
+      "tag": "0328_boutique_coo_requires_ops_first",
+      "breakpoints": true
     }
   ]
 }
