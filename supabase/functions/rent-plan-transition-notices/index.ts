@@ -66,7 +66,13 @@ const dayLabel = (iso: unknown) => {
   if (!iso) return '';
   const d = new Date(String(iso));
   if (Number.isNaN(d.getTime())) return String(iso);
-  return d.toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long' });
+  // en-GB yields "Tuesday, 29 September", which lands inside a sentence that
+  // already has a comma before it: "starts TOMORROW, Tuesday, 29 September:".
+  // The document writes it without one, and Postgres formats A1's deadline_date
+  // the same way (FMDay DD FMMonth), so the two dates now read alike.
+  return d
+    .toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long' })
+    .replace(',', '');
 };
 
 interface AgentNotice {
@@ -160,7 +166,7 @@ interface TenantNotice {
  * went live, because the timer does not govern them. That is a suppression,
  * not a rewording.
  */
-function agentMessage(n: AgentNotice): string {
+export function agentMessage(n: AgentNotice): string {
   const tenant = n.tenant_name ? ` (${n.tenant_name})` : '';
   return (
     `${ugx(n.rent_amount)} landlord float has been sent to your wallet for ` +
@@ -175,7 +181,7 @@ function agentMessage(n: AgentNotice): string {
   );
 }
 
-function tenantMessage(n: TenantNotice): string {
+export function tenantMessage(n: TenantNotice): string {
   const name = n.tenant_first_name ? `, ${n.tenant_first_name}` : '';
   const landlord = (n.landlord_name || '').trim();
   const paidTo = landlord ? `your landlord ${landlord}` : 'your landlord';
@@ -196,7 +202,7 @@ function tenantMessage(n: TenantNotice): string {
 Ref ${n.ref}.` : '');
 }
 
-function agentPaidMessage(n: AgentPaidNotice): string {
+export function agentPaidMessage(n: AgentPaidNotice): string {
   const tenant = n.tenant_first_name || 'your tenant';
   const receipt = n.receipt_number ? ` Receipt No ${n.receipt_number}.` : '';
   // Only claim the commission when the ledger leg is really there.
@@ -219,7 +225,7 @@ Please upload the receipt.`
   );
 }
 
-function agentNudgeMessage(n: AgentNudgeNotice): string {
+export function agentNudgeMessage(n: AgentNudgeNotice): string {
   const who = n.landlord_name || 'the landlord';
   const tenantName = n.tenant_name || 'the tenant';
   const ref = n.ref ? ` Ref ${n.ref}.` : '';
@@ -248,7 +254,7 @@ function agentNudgeMessage(n: AgentNudgeNotice): string {
 }
 
 /** T2 - spec section 5, verbatim. */
-function tenantCancelledMessage(n: TenantCancelledNotice): string {
+export function tenantCancelledMessage(n: TenantCancelledNotice): string {
   const name = n.tenant_first_name ? `${n.tenant_first_name}, ` : '';
   return (
     `${name}the Rent Plan for your rent of ${ugx(n.rent_amount)} could ` +
@@ -263,7 +269,7 @@ function tenantCancelledMessage(n: TenantCancelledNotice): string {
  * taken back; only the tenant was. This is the message the spec has always
  * required and the system never sent.
  */
-function agentCancelledMessage(n: AgentCancelledNotice): string {
+export function agentCancelledMessage(n: AgentCancelledNotice): string {
   const tenant = n.tenant_name || 'The tenant';
   return (
     `The ${ugx(n.rent_amount)} landlord float for ${n.landlord_name || 'the landlord'} ` +
