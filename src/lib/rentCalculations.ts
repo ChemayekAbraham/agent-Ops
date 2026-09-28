@@ -78,6 +78,74 @@ export function calculateRentRepayment(rentAmount: number, durationDays: number,
 }
 
 /**
+ * Partner (Supporter) reward carried inside a Rent Plan's Access Fee:
+ * 15% of the principal per 30 days. Mirrors v_plan_partner in
+ * post_instalment_waterfall(). Capped at the Access Fee it is paid from.
+ */
+export function calculatePlanPartnerReward(rentAmount: number, durationDays: number, accessFee: number): number {
+  return Math.min(Math.round(rentAmount * 0.15 * (durationDays / 30)), Math.max(0, accessFee));
+}
+
+export interface RepaymentShare {
+  /** Share of the given installment (or of the whole repayment), UGX to 2 dp. */
+  amount: number;
+  /** Share of total repayment, percent to 2 dp. */
+  percent: number;
+}
+
+export interface RepaymentBreakdown {
+  /** Goes back to the landlord float. */
+  principal: RepaymentShare;
+  /** Access Fee = partnerReward + platformFee. */
+  accessFee: RepaymentShare;
+  partnerReward: RepaymentShare;
+  /** What the platform keeps from the Access Fee after the partner reward. */
+  platformFee: RepaymentShare;
+  registrationFee: RepaymentShare;
+  /** The amount being split. */
+  total: number;
+}
+
+/**
+ * Break a Rent Plan repayment into percentages of total repayment, and apply
+ * them to one installment (defaults to the daily installment).
+ *
+ *   100,000 / 30 days -> total 143,000
+ *     principal         100,000  69.93%   (landlord float)
+ *     access fee         33,000  23.08%
+ *       partner reward   15,000  10.49%
+ *       platform fee     18,000  12.59%
+ *     registration fee   10,000   6.99%
+ *
+ * Installment amounts are rounded to 2 dp; the principal absorbs the rounding
+ * so the parts always add up to the installment. The whole-shilling split
+ * actually posted to the ledger is compute_instalment_allocation() in the DB.
+ */
+export function calculateRepaymentBreakdown(
+  calc: RentCalculation,
+  installment: number = calc.dailyRepayment,
+): RepaymentBreakdown {
+  const total = calc.totalRepayment;
+  const partner = calculatePlanPartnerReward(calc.rentAmount, calc.durationDays, calc.accessFee);
+  const r2 = (n: number) => Math.round(n * 100) / 100;
+  const share = (part: number): RepaymentShare =>
+    total > 0
+      ? { amount: r2((installment * part) / total), percent: r2((part / total) * 100) }
+      : { amount: 0, percent: 0 };
+
+  const partnerReward = share(partner);
+  const platformFee = share(calc.accessFee - partner);
+  const registrationFee = share(calc.requestFee);
+  const accessFee = { amount: r2(partnerReward.amount + platformFee.amount), percent: share(calc.accessFee).percent };
+  const principal = {
+    amount: r2(installment - accessFee.amount - registrationFee.amount),
+    percent: share(calc.rentAmount).percent,
+  };
+
+  return { principal, accessFee, partnerReward, platformFee, registrationFee, total: installment };
+}
+
+/**
  * Calculate instalment amount for a given period
  */
 export function calculateInstalment(totalRepayment: number, durationDays: number, periodDays: number): { amount: number; count: number } {
