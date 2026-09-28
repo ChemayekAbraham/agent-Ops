@@ -483,7 +483,18 @@ Deno.serve(async (req) => {
       }),
     });
     const approveJson = await approveRes.json().catch(() => ({}));
-    if (!approveRes.ok || (approveJson?.error && !approveJson?.success && !approveJson?.already_processed)) {
+    // "already_processed" only means approve-deposit found no PENDING row. A
+    // deposit its first attempt marked 'failed' reads the same way, so the
+    // retry used to log "credited" and SMS the depositor with nothing posted
+    // (doc 145). Only an 'approved' deposit_requests row counts as credited.
+    const { data: afterApprove } = await admin
+      .from("deposit_requests")
+      .select("status")
+      .eq("id", depositId)
+      .maybeSingle();
+    const creditedForReal = (afterApprove as any)?.status === "approved";
+    if (!approveRes.ok || !creditedForReal ||
+        (approveJson?.error && !approveJson?.success && !approveJson?.already_processed)) {
       // Crediting failed — roll the verification back so the user can retry.
       await admin
         .from("cash_deposit_verifications")
@@ -494,7 +505,11 @@ Deno.serve(async (req) => {
         verification_id: ver.id, deposit_request_id: depositId, user_id: depositorId,
         event_type: "credit_failed", amount: Number(ver.amount),
         detail: "Code verified but wallet crediting failed — verification rolled back.",
-        metadata: { approve_status: approveRes.status, approve_response: approveJson },
+        metadata: {
+          approve_status: approveRes.status,
+          approve_response: approveJson,
+          deposit_status: (afterApprove as any)?.status ?? null,
+        },
       });
       return json(502, {
         error: "credit_failed",

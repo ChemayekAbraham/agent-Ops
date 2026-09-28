@@ -1755,44 +1755,62 @@ export type Database = {
         Row: {
           agent_id: string | null
           amount: number | null
+          app_version: string | null
           client_ref: string | null
           context: Json | null
           error_code: string | null
           id: string
+          ip_address: string | null
           message: string
+          network: string | null
           occurred_at: string
+          page_url: string | null
           phase: string
           rent_request_id: string | null
+          reported_via: string
           severity: string
           tenant_id: string | null
+          user_agent: string | null
         }
         Insert: {
           agent_id?: string | null
           amount?: number | null
+          app_version?: string | null
           client_ref?: string | null
           context?: Json | null
           error_code?: string | null
           id?: string
+          ip_address?: string | null
           message: string
+          network?: string | null
           occurred_at?: string
+          page_url?: string | null
           phase: string
           rent_request_id?: string | null
+          reported_via?: string
           severity?: string
           tenant_id?: string | null
+          user_agent?: string | null
         }
         Update: {
           agent_id?: string | null
           amount?: number | null
+          app_version?: string | null
           client_ref?: string | null
           context?: Json | null
           error_code?: string | null
           id?: string
+          ip_address?: string | null
           message?: string
+          network?: string | null
           occurred_at?: string
+          page_url?: string | null
           phase?: string
           rent_request_id?: string | null
+          reported_via?: string
           severity?: string
           tenant_id?: string | null
+          user_agent?: string | null
         }
         Relationships: [
           {
@@ -55047,11 +55065,14 @@ export type Database = {
       agent_collections_error_log: {
         Args: { p_days?: number; p_limit?: number; p_source?: string }
         Returns: {
+          agent_id: string
           agent_name: string
           agent_phone: string
           amount: number
+          context: Json
           detail: string
           error_code: string
+          event_id: string
           message: string
           occurred_at: string
           phase: string
@@ -63370,20 +63391,40 @@ export type Database = {
         }
         Returns: Json
       }
-      log_agent_collection_error: {
-        Args: {
-          p_amount?: number
-          p_client_ref?: string
-          p_context?: Json
-          p_error_code?: string
-          p_message: string
-          p_phase: string
-          p_rent_request_id?: string
-          p_severity?: string
-          p_tenant_id?: string
-        }
-        Returns: string
-      }
+      log_agent_collection_error:
+        | {
+            Args: {
+              p_amount?: number
+              p_client_ref?: string
+              p_context?: Json
+              p_error_code?: string
+              p_message: string
+              p_phase: string
+              p_rent_request_id?: string
+              p_severity?: string
+              p_tenant_id?: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_amount?: number
+              p_app_version?: string
+              p_client_ref?: string
+              p_context?: Json
+              p_error_code?: string
+              p_message: string
+              p_network?: string
+              p_page_url?: string
+              p_phase: string
+              p_rent_request_id?: string
+              p_reported_via?: string
+              p_severity?: string
+              p_tenant_id?: string
+              p_user_agent?: string
+            }
+            Returns: string
+          }
       log_archived_login_attempt: {
         Args: {
           p_archived_at?: string

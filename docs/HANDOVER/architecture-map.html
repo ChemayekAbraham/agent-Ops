@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
-  <title>Welile Platform Architecture: External Rails to Double-Entry Ledger</title>
+  <title>Welile Platform Architecture</title>
   <style>
     :root {
       --bg-space: #060b17;
@@ -605,7 +605,7 @@
       </div>
       <div class="header-titles">
         <div id="main-header-title" class="header-title">WELILE PLATFORM ARCHITECTURE: External Rails to Double-Entry Ledger</div>
-        <div id="main-header-sub" class="header-sub">Engineer Survival Blueprint &bull; 460,457 Ledger Rows &bull; 342 Edge Functions &bull; 19 Kill Switches</div>
+        <div id="main-header-sub" class="header-sub">Engineer Survival Blueprint &bull; 627,405 Ledger Rows &bull; 388 Edge Functions &bull; 22 Treasury Switches &bull; Verified 2026-09-28</div>
       </div>
     </div>
 
@@ -618,6 +618,7 @@
       <button class="doc-pill" onclick="openHandoverDoc('05')">05 DR Recovery</button>
       <button class="doc-pill" onclick="openHandoverDoc('06')">06 Verification</button>
       <button class="doc-pill" onclick="openHandoverDoc('07')">07 Tribal Traps</button>
+      <button class="doc-pill urgent" onclick="openHandoverDoc('08')">08 Known Gaps</button>
     </div>
 
     <div class="header-right">
@@ -631,10 +632,6 @@
         <input type="text" id="node-search" class="search-input" placeholder="Search tables, RPCs, locks..." />
       </div>
 
-      <div class="mode-toggle">
-        <button id="btn-mode-welile" class="mode-btn active" onclick="switchMode('welile')">Welile Handover</button>
-        <button id="btn-mode-ai" class="mode-btn" onclick="switchMode('ai')">AI Assistant Spec</button>
-      </div>
     </div>
   </header>
 
@@ -642,7 +639,7 @@
   <div id="sim-banner">
     <div style="display: flex; align-items: center; gap: 0.75rem;">
       <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #00d2ff; box-shadow: 0 0 8px #00d2ff;"></span>
-      <span id="sim-step-text">STEP 1 / 8: Mobile Money repayment webhook arrives</span>
+      <span id="sim-step-text">STEP 1 / 8: Tenant pays by MoMo / Airtel</span>
     </div>
     <div style="display: flex; gap: 0.5rem;">
       <button onclick="prevSimStep()" style="background: rgba(15,23,42,0.8); border: 1px solid #00d2ff; color: #fff; padding: 0.15rem 0.5rem; border-radius: 3px; cursor: pointer; font-size: 0.7rem;">&larr; Prev</button>
@@ -863,7 +860,7 @@
       <!-- ========================================================================= -->
       <!-- BOX 1: PWA CLIENT PORTAL (TOP LEFT)                                       -->
       <!-- ========================================================================= -->
-      <g id="box-dev-ide" class="arch-node" onclick="inspectNode('dev-ide')" color="#00d2ff">
+      <g id="box-client" class="arch-node" onclick="inspectNode('client')" color="#00d2ff">
         <rect class="node-frame" x="50" y="95" width="270" height="185" rx="10" fill="url(#grad-panel-cyan)" stroke="#00d2ff" stroke-width="1.8"/>
         <rect x="50" y="95" width="270" height="26" rx="10" fill="rgba(0, 210, 255, 0.18)"/>
         <rect x="62" y="103" width="8" height="8" rx="1.5" fill="#00d2ff"/>
@@ -888,38 +885,38 @@
       <!-- ========================================================================= -->
       <g id="context-tiles-grid">
         <!-- ROW 1: MTN MOMO & AIRTEL MONEY -->
-        <g class="arch-node" onclick="inspectNode('source-code')" color="#00d2ff">
+        <g class="arch-node" onclick="inspectNode('telco-sms')" color="#00d2ff">
           <rect class="node-frame" x="50" y="300" width="130" height="62" rx="6" fill="rgba(8, 16, 34, 0.9)" stroke="#00d2ff" stroke-width="1.3"/>
           <rect x="75" y="310" width="16" height="20" rx="1.5" fill="none" stroke="#00d2ff" stroke-width="1"/>
           <rect x="80" y="314" width="16" height="20" rx="1.5" fill="none" stroke="#38bdf8" stroke-width="1"/>
           <rect x="85" y="318" width="16" height="20" rx="1.5" fill="rgba(0, 210, 255, 0.2)" stroke="#00d2ff" stroke-width="1.2"/>
-          <text id="lbl-t1-title" x="115" y="352" fill="#f8fafc" font-size="8.8" font-weight="800" text-anchor="middle">MTN MOMO</text>
+          <text id="lbl-t1-title" x="115" y="352" fill="#f8fafc" font-size="7.6" font-weight="800" text-anchor="middle">MOMO/AIRTEL→IFTTT</text>
         </g>
 
         <path d="M 180 331 L 190 331" stroke="#00d2ff" stroke-width="1.5" marker-end="url(#arrowhead-cyan)"/>
 
-        <g class="arch-node" onclick="inspectNode('project-files')" color="#00d2ff">
+        <g class="arch-node" onclick="inspectNode('ussd-callback')" color="#00d2ff">
           <rect class="node-frame" x="190" y="300" width="125" height="62" rx="6" fill="rgba(8, 16, 34, 0.9)" stroke="#00d2ff" stroke-width="1.3"/>
           <path d="M 215 314 L 225 314 L 228 318 L 245 318 L 245 334 L 215 334 Z" fill="rgba(0, 210, 255, 0.15)" stroke="#00d2ff" stroke-width="1.2"/>
           <text x="250" y="322" fill="#64748b" font-size="6.5" font-family="var(--font-mono)">ussd</text>
-          <text x="250" y="331" fill="#64748b" font-size="6.5" font-family="var(--font-mono)">tills</text>
-          <text id="lbl-t2-title" x="252" y="352" fill="#f8fafc" font-size="8.8" font-weight="800" text-anchor="middle">AIRTEL MONEY</text>
+          <text x="250" y="331" fill="#64748b" font-size="6.5" font-family="var(--font-mono)">session</text>
+          <text id="lbl-t2-title" x="252" y="352" fill="#f8fafc" font-size="8.8" font-weight="800" text-anchor="middle">USSD CALLBACK</text>
         </g>
 
         <!-- ROW 2: GMAIL POLL & YOOLA SMS -->
-        <g class="arch-node" onclick="inspectNode('git-repo')" color="#c084fc">
+        <g class="arch-node" onclick="inspectNode('gmail-poller')" color="#c084fc">
           <rect class="node-frame" x="50" y="375" width="130" height="62" rx="6" fill="rgba(8, 16, 34, 0.9)" stroke="#c084fc" stroke-width="1.3"/>
           <polygon points="115,385 127,397 115,409 103,397" fill="rgba(192, 132, 252, 0.2)" stroke="#c084fc" stroke-width="1.3"/>
           <circle cx="111" cy="397" r="1.8" fill="#ffffff"/>
           <circle cx="119" cy="393" r="1.8" fill="#ffffff"/>
           <circle cx="119" cy="401" r="1.8" fill="#ffffff"/>
           <path d="M 111 397 L 119 393 M 111 397 L 119 401" stroke="#ffffff" stroke-width="1"/>
-          <text id="lbl-t3-title" x="115" y="427" fill="#f8fafc" font-size="8.8" font-weight="800" text-anchor="middle">GMAIL POLL (2M)</text>
+          <text id="lbl-t3-title" x="115" y="427" fill="#f8fafc" font-size="8.8" font-weight="800" text-anchor="middle">GMAIL POLL (1M)</text>
         </g>
 
         <path d="M 180 406 L 190 406" stroke="#00d2ff" stroke-width="1.5" marker-end="url(#arrowhead-cyan)"/>
 
-        <g class="arch-node" onclick="inspectNode('git-branch')" color="#00d2ff">
+        <g class="arch-node" onclick="inspectNode('yoola-sms')" color="#00d2ff">
           <rect class="node-frame" x="190" y="375" width="125" height="62" rx="6" fill="rgba(8, 16, 34, 0.9)" stroke="#00d2ff" stroke-width="1.3"/>
           <text x="210" y="390" fill="#94a3b8" font-size="7.5" font-weight="700">OTP Rail</text>
           <line x1="210" y1="395" x2="210" y2="415" stroke="#00d2ff" stroke-width="1.2"/>
@@ -931,7 +928,7 @@
         </g>
 
         <!-- ROW 3: AFRICA'S TALKING & 27 S3 BUCKETS -->
-        <g class="arch-node" onclick="inspectNode('documentation')" color="#00d2ff">
+        <g class="arch-node" onclick="inspectNode('africas-talking')" color="#00d2ff">
           <rect class="node-frame" x="50" y="450" width="130" height="62" rx="6" fill="rgba(8, 16, 34, 0.9)" stroke="#00d2ff" stroke-width="1.3"/>
           <path d="M 103 463 Q 115 461 115 476 Q 115 461 127 463 L 127 476 Q 115 474 115 481 Q 115 474 103 476 Z" fill="rgba(0, 210, 255, 0.2)" stroke="#00d2ff" stroke-width="1.2"/>
           <text x="109" y="471" fill="#38bdf8" font-size="5.5" font-weight="900">SMS</text>
@@ -940,68 +937,68 @@
 
         <path d="M 180 481 L 190 481" stroke="#00d2ff" stroke-width="1.5" marker-end="url(#arrowhead-cyan)"/>
 
-        <g class="arch-node" onclick="inspectNode('dependencies')" color="#00d2ff">
+        <g class="arch-node" onclick="inspectNode('storage')" color="#00d2ff">
           <rect class="node-frame" x="190" y="450" width="125" height="62" rx="6" fill="rgba(8, 16, 34, 0.9)" stroke="#00d2ff" stroke-width="1.3"/>
           <circle cx="242" cy="468" r="7" fill="none" stroke="#00d2ff" stroke-width="1.8"/>
           <circle cx="256" cy="478" r="6" fill="none" stroke="#38bdf8" stroke-width="1.6"/>
           <text x="210" y="468" fill="#64748b" font-size="6" font-family="var(--font-mono)">agreements</text>
           <text x="265" y="480" fill="#64748b" font-size="6" font-family="var(--font-mono)">proofs</text>
-          <text id="lbl-t6-title" x="252" y="502" fill="#f8fafc" font-size="8.8" font-weight="800" text-anchor="middle">27 S3 BUCKETS</text>
+          <text id="lbl-t6-title" x="252" y="502" fill="#f8fafc" font-size="8.8" font-weight="800" text-anchor="middle">31 BUCKETS</text>
         </g>
 
         <!-- ROW 4: AGENT ADVANCE SWEEP & DEPOSIT BRIDGE -->
-        <g class="arch-node" onclick="inspectNode('terminal-1')" color="#00d2ff">
+        <g class="arch-node" onclick="inspectNode('advance-sweep')" color="#00d2ff">
           <rect class="node-frame" x="50" y="525" width="130" height="62" rx="6" fill="rgba(8, 16, 34, 0.9)" stroke="#00d2ff" stroke-width="1.3"/>
           <rect x="95" y="534" width="40" height="23" rx="2" fill="#040814" stroke="#00d2ff" stroke-width="0.9"/>
           <circle cx="99" cy="538" r="1" fill="#f43f5e"/>
           <circle cx="102" cy="538" r="1" fill="#f59e0b"/>
           <circle cx="105" cy="538" r="1" fill="#10b981"/>
           <text x="98" y="546" fill="#38bdf8" font-size="5" font-family="var(--font-mono)">16:50 UTC</text>
-          <text x="98" y="553" fill="#10b981" font-size="4.8" font-family="var(--font-mono)">pg_cron 151</text>
+          <text x="98" y="553" fill="#10b981" font-size="4.8" font-family="var(--font-mono)">pg_cron 204</text>
           <text id="lbl-t7-title" x="115" y="577" fill="#f8fafc" font-size="8.8" font-weight="800" text-anchor="middle">ADVANCE SWEEP</text>
         </g>
 
         <path d="M 180 556 L 190 556" stroke="#00d2ff" stroke-width="1.5" marker-end="url(#arrowhead-cyan)"/>
 
-        <g class="arch-node" onclick="inspectNode('terminal-2')" color="#00d2ff">
+        <g class="arch-node" onclick="inspectNode('deposit-bridge')" color="#00d2ff">
           <rect class="node-frame" x="190" y="525" width="125" height="62" rx="6" fill="rgba(8, 16, 34, 0.9)" stroke="#00d2ff" stroke-width="1.3"/>
           <rect x="232" y="534" width="40" height="23" rx="2" fill="#040814" stroke="#00d2ff" stroke-width="0.9"/>
           <path d="M 238 542 L 243 545 L 238 548" fill="none" stroke="#38bdf8" stroke-width="1.2"/>
           <line x1="245" y1="548" x2="251" y2="548" stroke="#38bdf8" stroke-width="1.2"/>
-          <text id="lbl-t8-title" x="252" y="577" fill="#f8fafc" font-size="8.8" font-weight="800" text-anchor="middle">DEPOSIT BRIDGE</text>
+          <text id="lbl-t8-title" x="252" y="577" fill="#f8fafc" font-size="8.8" font-weight="800" text-anchor="middle">DEPOSIT MATCH</text>
         </g>
 
         <!-- ROW 5: IMBALANCE ALERTS & PHANTOM DRIFT -->
-        <g class="arch-node" onclick="inspectNode('diagnostics')" color="#f43f5e">
+        <g class="arch-node" onclick="inspectNode('imbalance-detector')" color="#f43f5e">
           <rect class="node-frame" x="50" y="600" width="130" height="62" rx="6" fill="rgba(8, 16, 34, 0.9)" stroke="#f43f5e" stroke-width="1.3"/>
           <polygon points="107,624 113,613 119,624" fill="none" stroke="#f59e0b" stroke-width="1.3"/>
           <line x1="113" y1="617" x2="113" y2="620" stroke="#f59e0b" stroke-width="1"/>
           <circle cx="113" cy="622" r="0.6" fill="#f59e0b"/>
-          <text x="122" y="620" fill="#f59e0b" font-size="6" font-weight="700">0 in 30d</text>
+          <text x="122" y="620" fill="#f43f5e" font-size="6" font-weight="700">2,195 open</text>
           <circle cx="110" cy="633" r="3.8" fill="none" stroke="#f43f5e" stroke-width="1.1"/>
-          <text x="117" y="635" fill="#10b981" font-size="6" font-weight="700">Baseline OK</text>
+          <text x="117" y="635" fill="#f43f5e" font-size="6" font-weight="700">NO CRON</text>
           <text id="lbl-t9-title" x="115" y="652" fill="#f8fafc" font-size="8.5" font-weight="800" text-anchor="middle">IMBALANCE ALERTS</text>
         </g>
 
         <path d="M 180 631 L 190 631" stroke="#00d2ff" stroke-width="1.5" marker-end="url(#arrowhead-cyan)"/>
 
-        <g class="arch-node" onclick="inspectNode('conversation-history')" color="#00d2ff">
+        <g class="arch-node" onclick="inspectNode('projection-drift')" color="#00d2ff">
           <rect class="node-frame" x="190" y="600" width="125" height="62" rx="6" fill="rgba(8, 16, 34, 0.9)" stroke="#00d2ff" stroke-width="1.3"/>
           <rect x="235" y="612" width="22" height="11" rx="2" fill="none" stroke="#00d2ff" stroke-width="1.1"/>
           <line x1="239" y1="617" x2="251" y2="617" stroke="#00d2ff" stroke-width="0.8"/>
           <rect x="245" y="624" width="22" height="11" rx="2" fill="rgba(0, 210, 255, 0.2)" stroke="#38bdf8" stroke-width="1.1"/>
           <line x1="249" y1="629" x2="261" y2="629" stroke="#38bdf8" stroke-width="0.8"/>
-          <text id="lbl-t10-title" x="252" y="647" fill="#f8fafc" font-size="7.5" font-weight="800" text-anchor="middle">PHANTOM</text>
-          <text id="lbl-t10-sub" x="252" y="655" fill="#f8fafc" font-size="7.5" font-weight="800" text-anchor="middle">DRIFT DETECTOR</text>
+          <text id="lbl-t10-title" x="252" y="647" fill="#f8fafc" font-size="7.5" font-weight="800" text-anchor="middle">PROJECTION</text>
+          <text id="lbl-t10-sub" x="252" y="655" fill="#f8fafc" font-size="7.5" font-weight="800" text-anchor="middle">DRIFT (15 MIN)</text>
         </g>
       </g>
 
       <!-- ========================================================================= -->
-      <!-- BOX 2: 342 EDGE FUNCTIONS GATEWAY (3D CANISTER)                           -->
+      <!-- BOX 2: 388 EDGE FUNCTIONS GATEWAY (3D CANISTER)                           -->
       <!-- ========================================================================= -->
-      <g id="box-context-collection" class="arch-node" onclick="inspectNode('context-collection')" color="#00d2ff">
+      <g id="box-edge-functions" class="arch-node" onclick="inspectNode('edge-functions')" color="#00d2ff">
         <rect x="420" y="365" width="210" height="26" rx="6" fill="rgba(0, 210, 255, 0.18)" stroke="#00d2ff" stroke-width="1.2"/>
-        <text id="lbl-cylinder-title" x="525" y="382" fill="#00d2ff" font-size="10.5" font-weight="900" text-anchor="middle" letter-spacing="0.8">342 EDGE FUNCTIONS</text>
+        <text id="lbl-cylinder-title" x="525" y="382" fill="#00d2ff" font-size="10.5" font-weight="900" text-anchor="middle" letter-spacing="0.8">388 EDGE FUNCTIONS</text>
 
         <!-- 3D Cylindrical Glass Canister -->
         <path class="node-frame" d="M 445 435 C 445 408, 605 408, 605 435 L 605 645 C 605 672, 445 672, 445 645 Z" fill="url(#grad-cylinder)" stroke="#00d2ff" stroke-width="2.6" filter="url(#glow-cyan)"/>
@@ -1027,15 +1024,15 @@
           <rect x="0" y="0" width="56" height="42" rx="3" fill="rgba(4, 12, 30, 0.95)" stroke="#00d2ff" stroke-width="1.3"/>
           <line x1="8" y1="10" x2="48" y2="10" stroke="#f97316" stroke-width="1.4"/>
           <line x1="8" y1="16" x2="40" y2="16" stroke="#f97316" stroke-width="1.4"/>
-          <text id="lbl-c-card3" x="28" y="28" fill="#f8fafc" font-size="6" font-weight="800" text-anchor="middle">webhook-</text>
-          <text x="28" y="36" fill="#f8fafc" font-size="6" font-weight="800" text-anchor="middle">handlers</text>
+          <text id="lbl-c-card3" x="28" y="28" fill="#f8fafc" font-size="6" font-weight="800" text-anchor="middle">gmail-poll-</text>
+          <text x="28" y="36" fill="#f8fafc" font-size="6" font-weight="800" text-anchor="middle">transactions</text>
         </g>
 
         <g transform="translate(460, 560)">
           <rect x="4" y="0" width="48" height="28" rx="2" fill="none" stroke="rgba(0,210,255,0.4)" stroke-width="0.8"/>
           <rect x="0" y="4" width="48" height="28" rx="2" fill="rgba(4, 12, 30, 0.9)" stroke="#00d2ff" stroke-width="1"/>
-          <text id="lbl-c-card4" x="24" y="16" fill="#f8fafc" font-size="5.8" font-weight="800" text-anchor="middle">tenant-</text>
-          <text x="24" y="24" fill="#f8fafc" font-size="5.8" font-weight="800" text-anchor="middle">invites</text>
+          <text id="lbl-c-card4" x="24" y="16" fill="#f8fafc" font-size="5.8" font-weight="800" text-anchor="middle">ussd-</text>
+          <text x="24" y="24" fill="#f8fafc" font-size="5.8" font-weight="800" text-anchor="middle">callback</text>
         </g>
 
         <path d="M 506 485 C 520 485, 525 510, 535 528" fill="none" stroke="#00d2ff" stroke-width="1.2"/>
@@ -1046,7 +1043,7 @@
       <!-- ========================================================================= -->
       <!-- BOX 3: PRE-FLIGHT ADVISORY LOCKS & ALLOWLIST (TOP CENTER)                 -->
       <!-- ========================================================================= -->
-      <g id="box-processing" class="arch-node" onclick="inspectNode('context-processing')" color="#00d2ff">
+      <g id="box-preflight" class="arch-node" onclick="inspectNode('preflight')" color="#00d2ff">
         <rect class="node-frame" x="730" y="95" width="370" height="215" rx="10" fill="url(#grad-panel-cyan)" stroke="#00d2ff" stroke-width="1.8"/>
         <rect x="730" y="95" width="370" height="26" rx="10" fill="rgba(0, 210, 255, 0.18)"/>
         <text id="lbl-proc-title" x="915" y="113" fill="#00d2ff" font-size="10" font-weight="900" text-anchor="middle" letter-spacing="0.8">PRE-FLIGHT ADVISORY LOCKS &amp; ALLOWLIST</text>
@@ -1067,7 +1064,7 @@
 
         <path d="M 915 210 L 930 210" stroke="#00d2ff" stroke-width="1.8" marker-end="url(#arrowhead-cyan)"/>
 
-        <!-- SUB-PANEL 2: 120 Categories Allowlist -->
+        <!-- SUB-PANEL 2: 160 Categories Allowlist -->
         <g transform="translate(925, 135)">
           <rect x="0" y="0" width="160" height="160" rx="8" fill="rgba(4, 12, 30, 0.6)" stroke="rgba(0, 210, 255, 0.3)" stroke-width="1"/>
           <text id="lbl-proc-sub2" x="80" y="22" fill="#38bdf8" font-size="10.5" font-weight="800" text-anchor="middle">Allowlist Gate</text>
@@ -1082,7 +1079,7 @@
             <path d="M 48 12 L 54 12 M 48 20 L 54 20 M 48 28 L 54 28 M 48 36 L 54 36" stroke="#00d2ff" stroke-width="1.8"/>
           </g>
 
-          <text id="lbl-proc-desc3" x="80" y="125" fill="#f8fafc" font-size="9" font-weight="700" text-anchor="middle">120 Allowed Categories</text>
+          <text id="lbl-proc-desc3" x="80" y="125" fill="#f8fafc" font-size="9" font-weight="700" text-anchor="middle">160 Allowed Categories</text>
           <text id="lbl-proc-desc4" x="80" y="142" fill="#94a3b8" font-size="8" text-anchor="middle">ledger_category_allowlist()</text>
         </g>
       </g>
@@ -1090,7 +1087,7 @@
       <!-- ========================================================================= -->
       <!-- BOX 4: DOUBLE-ENTRY TRANSACTION PACKING (TOP RIGHT)                       -->
       <!-- ========================================================================= -->
-      <g id="box-prompt" class="arch-node" onclick="inspectNode('prompt-construction')" color="#00d2ff">
+      <g id="box-packing" class="arch-node" onclick="inspectNode('packing')" color="#00d2ff">
         <rect class="node-frame" x="1180" y="95" width="280" height="215" rx="10" fill="url(#grad-panel-cyan)" stroke="#00d2ff" stroke-width="1.8"/>
         <rect x="1180" y="95" width="280" height="26" rx="10" fill="rgba(0, 210, 255, 0.18)"/>
         <text id="lbl-prompt-title" x="1320" y="113" fill="#00d2ff" font-size="10.5" font-weight="900" text-anchor="middle" letter-spacing="0.8">TRANSACTION PACKING</text>
@@ -1129,22 +1126,22 @@
       <!-- ========================================================================= -->
       <!-- BOX 5: THE DOUBLE-ENTRY LEDGER CORE (CENTER PURPLE)                       -->
       <!-- ========================================================================= -->
-      <g id="box-ai-model" class="arch-node" onclick="inspectNode('ai-model')" color="#c084fc">
+      <g id="box-ledger-core" class="arch-node" onclick="inspectNode('ledger-core')" color="#c084fc">
         <rect class="node-frame" x="730" y="365" width="440" height="295" rx="14" fill="url(#grad-panel-purple)" stroke="#c084fc" stroke-width="2.2" filter="url(#glow-purple)"/>
         <rect x="730" y="365" width="440" height="32" rx="14" fill="rgba(192, 132, 252, 0.28)"/>
-        <text id="lbl-ai-model-title" x="950" y="387" fill="#ffffff" font-size="12" font-weight="900" text-anchor="middle" letter-spacing="1.2">THE DOUBLE-ENTRY CORE: general_ledger</text>
+        <text id="lbl-ledger-title" x="950" y="387" fill="#ffffff" font-size="12" font-weight="900" text-anchor="middle" letter-spacing="1.2">THE DOUBLE-ENTRY CORE: general_ledger</text>
 
         <!-- Left Column of 4 Feature Pills -->
         <g transform="translate(745, 415)">
-          <g id="pill-llm" class="arch-pill" onclick="event.stopPropagation(); inspectNode('ai-model')">
+          <g id="pill-llm" class="arch-pill" onclick="event.stopPropagation(); inspectNode('ledger-core')">
             <rect x="0" y="0" width="135" height="34" rx="6" fill="rgba(4, 12, 30, 0.85)" stroke="#c084fc" stroke-width="1.2"/>
             <text id="lbl-aim-p1" x="67" y="15" fill="#f8fafc" font-size="8" font-weight="800" text-anchor="middle">general_ledger</text>
-            <text id="lbl-aim-p1b" x="67" y="26" fill="#38bdf8" font-size="8" font-weight="800" text-anchor="middle">460,457 Rows</text>
+            <text id="lbl-aim-p1b" x="67" y="26" fill="#38bdf8" font-size="8" font-weight="800" text-anchor="middle">627,405 Rows</text>
           </g>
           <path d="M 135 17 L 175 17 L 195 40" fill="none" stroke="#c084fc" stroke-width="1.2"/>
           <circle cx="195" cy="40" r="2" fill="#ffffff"/>
 
-          <g id="pill-attn" class="arch-pill" onclick="event.stopPropagation(); inspectNode('ai-model')" transform="translate(0, 46)">
+          <g id="pill-attn" class="arch-pill" onclick="event.stopPropagation(); inspectNode('ledger-core')" transform="translate(0, 46)">
             <rect x="0" y="0" width="135" height="34" rx="6" fill="rgba(4, 12, 30, 0.85)" stroke="#c084fc" stroke-width="1.2"/>
             <text id="lbl-aim-p2" x="67" y="15" fill="#f8fafc" font-size="8" font-weight="800" text-anchor="middle">Append-Only</text>
             <text id="lbl-aim-p2b" x="67" y="26" fill="#10b981" font-size="8" font-weight="800" text-anchor="middle">Zero Deletes</text>
@@ -1152,7 +1149,7 @@
           <path d="M 135 63 L 180 63" fill="none" stroke="#c084fc" stroke-width="1.2"/>
           <circle cx="180" cy="63" r="2" fill="#ffffff"/>
 
-          <g id="pill-reason" class="arch-pill" onclick="event.stopPropagation(); inspectNode('ai-model')" transform="translate(0, 92)">
+          <g id="pill-reason" class="arch-pill" onclick="event.stopPropagation(); inspectNode('ledger-core')" transform="translate(0, 92)">
             <rect x="0" y="0" width="135" height="34" rx="6" fill="rgba(4, 12, 30, 0.85)" stroke="#c084fc" stroke-width="1.2"/>
             <text id="lbl-aim-p3" x="67" y="15" fill="#f8fafc" font-size="8" font-weight="800" text-anchor="middle">Zero-Sum Invariant</text>
             <text id="lbl-aim-p3b" x="67" y="26" fill="#f8fafc" font-size="8" font-weight="800" text-anchor="middle">Sum(In) = Sum(Out)</text>
@@ -1160,9 +1157,9 @@
           <path d="M 135 109 L 185 109 L 205 95" fill="none" stroke="#c084fc" stroke-width="1.2"/>
           <circle cx="205" cy="95" r="2" fill="#ffffff"/>
 
-          <g id="pill-spec" class="arch-pill" onclick="event.stopPropagation(); inspectNode('ai-model')" transform="translate(0, 138)">
+          <g id="pill-spec" class="arch-pill" onclick="event.stopPropagation(); inspectNode('ledger-core')" transform="translate(0, 138)">
             <rect x="0" y="0" width="135" height="34" rx="6" fill="rgba(4, 12, 30, 0.85)" stroke="#c084fc" stroke-width="1.2"/>
-            <text id="lbl-aim-p4" x="67" y="22" fill="#f8fafc" font-size="8" font-weight="800" text-anchor="middle">Single Door RPC Only</text>
+            <text id="lbl-aim-p4" x="67" y="22" fill="#f8fafc" font-size="8" font-weight="800" text-anchor="middle">Main Door + 13 Direct</text>
           </g>
           <path d="M 135 155 L 195 155 L 210 135" fill="none" stroke="#c084fc" stroke-width="1.2"/>
           <circle cx="210" cy="135" r="2" fill="#ffffff"/>
@@ -1227,15 +1224,15 @@
 
         <!-- Right Side: 3 Stacked Ledger Legs -->
         <g transform="translate(1065, 450)">
-          <g class="token-chip" onclick="event.stopPropagation(); inspectNode('ai-model')">
+          <g class="token-chip" onclick="event.stopPropagation(); inspectNode('ledger-core')">
             <rect x="0" y="0" width="62" height="20" rx="3" fill="#040814" stroke="#00d2ff" stroke-width="1"/>
             <text id="lbl-stack-1" x="31" y="14" fill="#38bdf8" font-size="7" font-family="var(--font-mono)" text-anchor="middle">[CASH_IN]</text>
           </g>
-          <g class="token-chip" onclick="event.stopPropagation(); inspectNode('ai-model')" transform="translate(0, 24)">
+          <g class="token-chip" onclick="event.stopPropagation(); inspectNode('ledger-core')" transform="translate(0, 24)">
             <rect x="0" y="0" width="62" height="20" rx="3" fill="#040814" stroke="#f43f5e" stroke-width="1"/>
             <text id="lbl-stack-2" x="31" y="14" fill="#fb7185" font-size="7" font-family="var(--font-mono)" text-anchor="middle">[CASH_OUT]</text>
           </g>
-          <g class="token-chip" onclick="event.stopPropagation(); inspectNode('ai-model')" transform="translate(0, 48)">
+          <g class="token-chip" onclick="event.stopPropagation(); inspectNode('ledger-core')" transform="translate(0, 48)">
             <rect x="0" y="0" width="62" height="20" rx="3" fill="#040814" stroke="#10b981" stroke-width="1"/>
             <text id="lbl-stack-3" x="31" y="14" fill="#34d399" font-size="7" font-family="var(--font-mono)" text-anchor="middle">[BAL: 0]</text>
           </g>
@@ -1273,7 +1270,7 @@
       <!-- ========================================================================= -->
       <!-- BOX 6: DISBURSEMENTS & WALLETS PROJECTION (RIGHT COLUMN)                  -->
       <!-- ========================================================================= -->
-      <g id="box-completion" class="arch-node" onclick="inspectNode('code-completion')" color="#f97316">
+      <g id="box-settlement" class="arch-node" onclick="inspectNode('settlement')" color="#f97316">
         <rect class="node-frame" x="1230" y="400" width="230" height="285" rx="10" fill="url(#grad-panel-orange)" stroke="#f97316" stroke-width="1.8"/>
         <rect x="1230" y="400" width="230" height="34" rx="10" fill="rgba(249, 115, 22, 0.25)"/>
         <text id="lbl-comp-title" x="1345" y="415" fill="#f97316" font-size="8.8" font-weight="900" text-anchor="middle" letter-spacing="0.5">SETTLEMENT &amp;</text>
@@ -1307,17 +1304,17 @@
       </g>
 
       <!-- ========================================================================= -->
-      <!-- BOX 7: TREASURY CONTROLS & 19 KILL SWITCHES (BOTTOM CENTER)               -->
+      <!-- BOX 7: TREASURY CONTROLS & 22 SWITCHES (BOTTOM CENTER)               -->
       <!-- ========================================================================= -->
-      <g id="box-feedback" class="arch-node" onclick="inspectNode('feedback-loop')" color="#00d2ff">
+      <g id="box-treasury" class="arch-node" onclick="inspectNode('treasury-controls')" color="#00d2ff">
         <rect class="node-frame" x="730" y="710" width="440" height="225" rx="12" fill="url(#grad-panel-cyan)" stroke="#00d2ff" stroke-width="1.8"/>
         <rect x="730" y="710" width="440" height="26" rx="12" fill="rgba(0, 210, 255, 0.18)"/>
-        <text id="lbl-fb-title" x="950" y="728" fill="#00d2ff" font-size="10.5" font-weight="900" text-anchor="middle" letter-spacing="0.8">TREASURY CONTROLS &amp; 19 KILL SWITCHES</text>
+        <text id="lbl-fb-title" x="950" y="728" fill="#00d2ff" font-size="10.5" font-weight="900" text-anchor="middle" letter-spacing="0.8">TREASURY CONTROLS &amp; 22 SWITCHES</text>
 
         <!-- Left Column: 4 Safety Pills with Pointers to Editor -->
         <g transform="translate(745, 748)">
           <rect x="0" y="0" width="125" height="32" rx="6" fill="rgba(4, 12, 30, 0.85)" stroke="#00d2ff" stroke-width="1"/>
-          <text id="lbl-fb-p1" x="62" y="20" fill="#f8fafc" font-size="8.2" font-weight="700" text-anchor="middle">19 Kill Switches</text>
+          <text id="lbl-fb-p1" x="62" y="20" fill="#f8fafc" font-size="8.2" font-weight="700" text-anchor="middle">22 Switches</text>
           <path d="M 125 16 C 145 16, 150 25, 175 25" fill="none" stroke="#00d2ff" stroke-width="1.2"/>
 
           <rect x="0" y="40" width="125" height="32" rx="6" fill="rgba(4, 12, 30, 0.85)" stroke="#f43f5e" stroke-width="1.2"/>
@@ -1327,11 +1324,11 @@
 
           <rect x="0" y="80" width="125" height="32" rx="6" fill="rgba(4, 12, 30, 0.85)" stroke="#f59e0b" stroke-width="1"/>
           <text id="lbl-fb-p3" x="62" y="94" fill="#f59e0b" font-size="7.5" font-weight="800" text-anchor="middle">maintenance_mode</text>
-          <text x="62" y="104" fill="#f59e0b" font-size="7" font-weight="700" text-anchor="middle">(Big Red Button)</text>
+          <text x="62" y="104" fill="#f59e0b" font-size="7" font-weight="700" text-anchor="middle">(UI-only, no DB lock)</text>
           <path d="M 125 96 C 145 96, 155 105, 175 105" fill="none" stroke="#00d2ff" stroke-width="1.2"/>
 
           <rect x="0" y="120" width="125" height="32" rx="6" fill="rgba(4, 12, 30, 0.85)" stroke="#00d2ff" stroke-width="1"/>
-          <text id="lbl-fb-p4" x="62" y="140" fill="#f8fafc" font-size="8" font-weight="700" text-anchor="middle">7 Tribal Traps Guard</text>
+          <text id="lbl-fb-p4" x="62" y="140" fill="#f8fafc" font-size="8" font-weight="700" text-anchor="middle">9 Tribal Traps</text>
           <path d="M 125 136 C 145 136, 155 145, 175 145" fill="none" stroke="#00d2ff" stroke-width="1.2"/>
         </g>
 
@@ -1349,17 +1346,17 @@
             <rect x="25" y="56" width="195" height="52" rx="4" fill="rgba(8, 28, 62, 0.95)" stroke="#00d2ff" stroke-width="1.2"/>
             <text x="35" y="70" fill="#fb7185" font-size="7.5" font-weight="800">advance_withdrawals_paused: true</text>
             <text x="35" y="82" fill="#10b981" font-size="7.2" font-family="var(--font-mono)">maintenance_mode: false</text>
-            <text x="35" y="94" fill="#38bdf8" font-size="7.2" font-family="var(--font-mono)">strict_mode: true | cash_guard: true</text>
+            <text x="35" y="94" fill="#fb7185" font-size="7.2" font-family="var(--font-mono)">landlord_payouts_blocked: true</text>
             <circle cx="185" cy="82" r="3.5" fill="#00d2ff" filter="url(#glow-cyan)"/>
           </g>
 
-          <text x="14" y="125" fill="#94a3b8" font-size="7.2" font-family="var(--font-mono)">trg_enforce_ledger_rpc_only: ACTIVE</text>
+          <text x="14" y="125" fill="#f43f5e" font-size="7.2" font-family="var(--font-mono)">imbalance detector: NOT SCHEDULED</text>
 
           <!-- Interactive Emergency Actions -->
           <g transform="translate(25, 136)">
             <g class="arch-pill" onclick="event.stopPropagation(); toggleEmergencyPause()">
               <rect id="btn-emergency-rect" x="0" y="0" width="85" height="20" rx="3" fill="#f43f5e"/>
-              <text id="btn-emergency-text" x="42" y="13" fill="#ffffff" font-size="7.2" font-weight="900" text-anchor="middle">Emergency Pause</text>
+              <text id="btn-emergency-text" x="42" y="13" fill="#ffffff" font-size="7.2" font-weight="900" text-anchor="middle">Pause (demo)</text>
             </g>
 
             <g class="arch-pill" onclick="event.stopPropagation(); openHandoverDoc('04')" transform="translate(95, 0)">
@@ -1482,7 +1479,7 @@
       }
     }
 
-    // Emergency Simulation Switch
+    // Emergency Pause: DEMO ONLY. This button changes nothing outside this page.
     let isEmergencyPaused = false;
     function toggleEmergencyPause() {
       isEmergencyPaused = !isEmergencyPaused;
@@ -1490,12 +1487,12 @@
       const btnText = document.getElementById('btn-emergency-text');
       if (isEmergencyPaused) {
         btnRect.setAttribute('fill', '#10b981');
-        btnText.textContent = 'Resume System';
-        showNotification('EMERGENCY PAUSE ENGAGED! maintenance_mode.enabled = true. All writes locked.');
+        btnText.textContent = 'Demo: Resume';
+        showNotification('DEMO ONLY: nothing was changed. Real maintenance_mode only locks the UI and 32 of 388 edge functions; the DB keeps accepting ledger writes. See Runbook 1.');
       } else {
         btnRect.setAttribute('fill', '#f43f5e');
-        btnText.textContent = 'Emergency Pause';
-        showNotification('Platform Resumed. maintenance_mode.enabled = false.');
+        btnText.textContent = 'Pause (demo)';
+        showNotification('DEMO ONLY: nothing was changed.');
       }
     }
 
@@ -1506,7 +1503,7 @@
       text.textContent = msg;
       setTimeout(() => {
         if (!isSimulating) banner.classList.remove('visible');
-      }, 4000);
+      }, 6000);
     }
 
     // Pipeline Flow Simulation (Money Flow)
@@ -1514,44 +1511,36 @@
     let simStep = 0;
     const SIM_STEPS = [
       {
-        node: 'source-code',
-        text: 'STEP 1 / 8: Tenant makes mobile money repayment via MTN MoMo / Airtel till',
+        text: 'STEP 1 / 8: Tenant pays by MTN MoMo / Airtel. There is NO telco webhook: the payment SMS is forwarded by IFTTT into the Gmail inbox (or arrives via ussd-callback)',
         action: () => highlightNodeTemporary('context-tiles-grid', '#00d2ff')
       },
       {
-        node: 'box-context-collection',
-        text: 'STEP 2 / 8: Ingestion Webhook arrives at 342 Edge Functions Gateway with verify_jwt validation',
-        action: () => highlightNodeTemporary('box-context-collection', '#00d2ff')
+        text: 'STEP 2 / 8: gmail-poll-transactions (every 1 min) ingests the email into gmail_transactions; email-auto-create-deposits (every 2 min) matches it by TID to a pending deposit',
+        action: () => highlightNodeTemporary('box-edge-functions', '#00d2ff')
       },
       {
-        node: 'box-processing',
-        text: 'STEP 3 / 8: Pre-flight advisory lock pg_advisory_xact_lock(hashtext(key)) blocks duplicate replays',
-        action: () => highlightNodeTemporary('box-processing', '#00d2ff')
+        text: 'STEP 3 / 8: Advisory lock on the idempotency key stops the same TID being credited twice (cross-user TID collisions are flagged, not auto-resolved)',
+        action: () => highlightNodeTemporary('box-preflight', '#00d2ff')
       },
       {
-        node: 'box-processing',
-        text: 'STEP 4 / 8: Category Allowlist Gate verifies category against 120 allowed ledger movement types',
-        action: () => highlightNodeTemporary('box-processing', '#00d2ff')
+        text: 'STEP 4 / 8: Category is checked against the 160 entries in ledger_category_allowlist()',
+        action: () => highlightNodeTemporary('box-preflight', '#00d2ff')
       },
       {
-        node: 'box-prompt',
-        text: 'STEP 5 / 8: Atomic Transaction Packing constructs balanced JSON array [cash_in, cash_out]',
-        action: () => highlightNodeTemporary('box-prompt', '#00d2ff')
+        text: 'STEP 5 / 8: Legs are packed into one transaction_group_id with an idempotency key',
+        action: () => highlightNodeTemporary('box-packing', '#00d2ff')
       },
       {
-        node: 'box-ai-model',
-        text: 'STEP 6 / 8: The Single Door create_ledger_transaction posts append-only rows to general_ledger',
-        action: () => highlightNodeTemporary('box-ai-model', '#c084fc')
+        text: 'STEP 6 / 8: create_ledger_transaction appends the rows to general_ledger (13 other functions also insert directly; see the Ledger Core drawer)',
+        action: () => highlightNodeTemporary('box-ledger-core', '#c084fc')
       },
       {
-        node: 'box-completion',
-        text: 'STEP 7 / 8: wallet_balances_projection updates materialized balance cache; settlements route',
-        action: () => highlightNodeTemporary('box-completion', '#f97316')
+        text: 'STEP 7 / 8: Ledger triggers update wallet_balances_projection; payouts then route (landlord payouts currently BLOCKED by treasury_controls)',
+        action: () => highlightNodeTemporary('box-settlement', '#f97316')
       },
       {
-        node: 'box-feedback',
-        text: 'STEP 8 / 8: Treasury Controls & anomaly detectors verify 0 unbalanced multi-leg groups in 30d',
-        action: () => highlightNodeTemporary('box-feedback', '#00d2ff')
+        text: 'STEP 8 / 8: wallet-projection-drift runs every 15 min. The imbalance detector is NOT scheduled (last run 2026-07-23, 2,195 open alerts)',
+        action: () => highlightNodeTemporary('box-treasury', '#00d2ff')
       }
     ];
 
@@ -1600,9 +1589,7 @@
       }, 1500);
     }
 
-    // Comprehensive Handover Documentation Integration
-    let currentMode = 'welile';
-
+    // Handover chapters. All figures verified against production on 2026-09-28.
     const HANDOVER_CHAPTERS = {
       '01': {
         badge: 'HANDOVER CHAPTER 1',
@@ -1616,19 +1603,20 @@
               Everything in this platform runs on external vendor infrastructure. If you are locked out, start here:
             </p>
             <ul style="padding-left: 1.2rem; font-size: 0.78rem; color: #94a3b8; line-height: 1.6; margin-top: 0.5rem;">
-              <li><strong>Supabase:</strong> Primary database (Frankfurt eu-central-1), Auth, Storage, Edge Functions</li>
-              <li><strong>Cloudflare:</strong> DNS registrar and edge proxy for welileapp.com</li>
-              <li><strong>MTN MoMo:</strong> Uganda Open API portal for tenant till collections and push USSD</li>
-              <li><strong>Airtel Money:</strong> B2B mobile money portal for collections and agent cashouts</li>
-              <li><strong>Yoola SMS:</strong> Primary Ugandan OTP gateway (Warning: never force "WELILE" sender ID)</li>
-              <li><strong>Africa's Talking:</strong> Secondary SMS failover and telephony rail</li>
-              <li><strong>Resend:</strong> Transactional receipt email delivery</li>
+              <li><strong>Lovable / Supabase:</strong> Primary database, Auth, Storage, Edge Functions. Live SQL goes through the Lovable project UUID, not the Supabase ref.</li>
+              <li><strong>Cloudflare:</strong> DNS and edge proxy for welileapp.com</li>
+              <li><strong>Gmail (payments inbox):</strong> The real money-in rail. Every MoMo/Airtel receipt reaches the platform as an email that <code>gmail-poll-transactions</code> reads.</li>
+              <li><strong>IFTTT:</strong> Forwards the telco payment SMS into that inbox. If IFTTT stops, deposits stop matching.</li>
+              <li><strong>MTN MoMo / Airtel Money:</strong> Tills and merchant accounts. There is <strong>no API or webhook integration</strong>; payouts are made by people and evidenced back into the system.</li>
+              <li><strong>Yoola SMS:</strong> Primary Ugandan OTP gateway (never force the "WELILE" sender ID)</li>
+              <li><strong>Africa's Talking:</strong> Secondary SMS failover</li>
+              <li><strong>Resend:</strong> Transactional email</li>
             </ul>
           </div>
           <div class="detail-card warning">
             <div class="detail-card-title" style="color: #f59e0b;">Founder Escrow Keys</div>
             <p style="font-size: 0.78rem; color: #fde68a; line-height: 1.5;">
-              Ensure the founder has deposited master 2FA recovery codes and banking root credentials in physical escrow before handoff.
+              Ensure the founder has deposited master 2FA recovery codes and banking root credentials in physical escrow before handoff. The payments Gmail account belongs on that list: losing it stops all automatic deposit matching.
             </p>
           </div>
         `
@@ -1637,7 +1625,7 @@
         badge: 'HANDOVER CHAPTER 2',
         color: '#f43f5e',
         title: '02. Danger Zones — Irreversible Operations',
-        sub: 'Master Kill Switches • 19 treasury_controls • Destructive RPCs',
+        sub: 'Kill Switches • 22 treasury_controls • Destructive RPCs',
         content: `
           <div class="detail-card danger">
             <div class="detail-card-title" style="color: #f43f5e;">Master Safety Principle</div>
@@ -1647,7 +1635,7 @@
           </div>
 
           <div class="detail-card">
-            <div class="detail-card-title" style="color: #00d2ff;">19 Kill Switches in treasury_controls</div>
+            <div class="detail-card-title" style="color: #00d2ff;">22 Switches in treasury_controls</div>
             <p style="font-size: 0.78rem; color: #cbd5e1; line-height: 1.5; margin-bottom: 0.5rem;">
               Check <code>treasury_controls</code> <strong>first</strong> in any incident: a platform that looks broken may simply be paused.
             </p>
@@ -1657,6 +1645,9 @@ SELECT control_key, enabled, value, updated_at
 FROM public.treasury_controls
 ORDER BY control_key;
             </div>
+            <p style="font-size: 0.75rem; color: #fb7185; margin-top: 0.4rem;">
+              As of 2026-09-28: <strong>landlord_payouts_blocked = true</strong> (since 2026-09-25), advance_withdrawals_paused = true, maintenance_mode = false, withdrawals_paused = false.
+            </p>
           </div>
 
           <div class="detail-card warning">
@@ -1667,15 +1658,22 @@ ORDER BY control_key;
           </div>
 
           <div class="detail-card danger">
+            <div class="detail-card-title" style="color: #f43f5e;">maintenance_mode does NOT stop money moving</div>
+            <p style="font-size: 0.78rem; color: #fecdd3; line-height: 1.5;">
+              No database function reads it. It shows the UI lock screen and is honoured by only the 32 edge functions that import <code>treasuryGuard</code>. The other 356 edge functions, all 204 cron jobs and direct RPC calls keep writing to the ledger. Treat it as "hide the app", not "freeze the books".
+            </p>
+          </div>
+
+          <div class="detail-card danger">
             <div class="detail-card-title" style="color: #f43f5e;">The 8 Absolute "NEVER" Rules</div>
             <ul style="padding-left: 1.2rem; font-size: 0.78rem; color: #fecdd3; line-height: 1.6;">
-              <li><strong>1. Never UPDATE or DELETE general_ledger:</strong> 460,457 rows of history. Reversals must be new balanced compensating rows recorded in <code>voided_ledger_entries</code>.</li>
+              <li><strong>1. Never UPDATE or DELETE general_ledger:</strong> 627,405 rows of history. Reversals must be new balanced compensating rows recorded in <code>voided_ledger_entries</code>.</li>
               <li><strong>2. Never UPDATE wallets:</strong> Wallets is a view; <code>apply_wallet_movement</code> is the sole legitimate writer.</li>
-              <li><strong>3. Never deploy all 342 edge functions at once:</strong> Deploy 1-at-a-time via GitHub Actions manual workflow.</li>
+              <li><strong>3. Never bulk-deploy the 388 edge functions:</strong> Deploy 1-at-a-time via the GitHub Actions manual workflow.</li>
               <li><strong>4. Never run absolute "set float to X":</strong> Re-credits spent float (Sky Bubbles UGX 10.2M incident). Use delta operations.</li>
               <li><strong>5. Never force sender ID "WELILE" on SMS:</strong> Unregistered; carriers drop OTPs silently.</li>
-              <li><strong>6. Never reintroduce client service workers:</strong> Deliberately removed; causes stale chunk disasters on mobile.</li>
-              <li><strong>7. Never trust supabase/migrations/ as live schema:</strong> 3,203 migrations have drifted; query Postgres catalog directly.</li>
+              <li><strong>6. Never add a caching service worker:</strong> <code>public/sw.js</code> exists but is push-notification only with no fetch/caching handler. Keep it that way; caching workers caused stale-chunk lockouts on mobile.</li>
+              <li><strong>7. Never trust supabase/migrations/ as live schema:</strong> 3,549 files, and pushed migrations sometimes auto-apply and sometimes never do. Check the live object (<code>pg_get_functiondef</code>, <code>information_schema.columns</code>) after every push.</li>
               <li><strong>8. Never write ledger/wallet state from frontend:</strong> Enforced by build guard <code>guard-frontend-ledger-writes.mjs</code>.</li>
             </ul>
           </div>
@@ -1685,16 +1683,16 @@ ORDER BY control_key;
         badge: 'HANDOVER CHAPTER 3',
         color: '#00d2ff',
         title: '03. Money Invariants — The Financial Contract',
-        sub: 'The 5 Invariants • The Single Door create_ledger_transaction • Solvency Checks',
+        sub: 'The 5 Invariants • What Holds, What Leaks • Health Checks',
         content: `
           <div class="detail-card">
-            <div class="detail-card-title" style="color: #00d2ff;">The 5 Invariants (Verified 2026-09-09)</div>
+            <div class="detail-card-title" style="color: #00d2ff;">The 5 Invariants (re-verified 2026-09-28)</div>
             <ul style="padding-left: 1.2rem; font-size: 0.78rem; color: #94a3b8; line-height: 1.6;">
-              <li><strong>1. general_ledger is the single source of truth:</strong> 460,457 rows, append-only, double-entry.</li>
-              <li><strong>2. Wallets are a cache:</strong> Never authoritative, derived from ledger entries.</li>
-              <li><strong>3. Every write goes through create_ledger_transaction:</strong> Enforced by <code>trg_enforce_ledger_rpc_only</code>.</li>
-              <li><strong>4. Every transaction group balances:</strong> <code>sum(cash_in) = sum(cash_out)</code> per group. <strong>0 unbalanced in 30 days.</strong></li>
-              <li><strong>5. Categories are allowlisted:</strong> Exactly 120 categories in <code>ledger_category_allowlist()</code>.</li>
+              <li><strong>1. general_ledger is the single source of truth:</strong> 627,405 rows in 297,457 groups, append-only. <span style="color:#10b981">Holds.</span></li>
+              <li><strong>2. Wallets are a cache:</strong> Derived from ledger rows by triggers into <code>wallet_balances_projection</code>. <span style="color:#10b981">Holds</span>; drift is checked every 15 min by <code>detect_wallet_projection_drift</code>.</li>
+              <li><strong>3. Writes go through create_ledger_transaction:</strong> <span style="color:#f59e0b">Partly.</span> 13 other SECURITY DEFINER functions also <code>INSERT INTO general_ledger</code> directly (e.g. <code>record_double_entry</code>, <code>sync_collection_to_ledger</code>, <code>credit_agent_rent_commission</code>, <code>reconcile_negative_wallets</code>). The frontend cannot write, but "one door" is not literally true.</li>
+              <li><strong>4. Every transaction group balances:</strong> <span style="color:#f59e0b">Multi-leg groups only.</span> 0 unbalanced multi-leg groups in 30 days, but <strong>1,256 single-leg groups (~UGX 146M)</strong> in the same window are excluded by the check (mostly <code>interest_expense</code>, plus wallet deposits and float assignments). Some may be balanced by synthetic legs in the <code>sofp_ledger_legs</code> resolver; that is unconfirmed.</li>
+              <li><strong>5. Categories are allowlisted:</strong> 160 categories in <code>ledger_category_allowlist()</code>. <span style="color:#10b981">Holds.</span></li>
             </ul>
           </div>
 
@@ -1704,6 +1702,7 @@ ORDER BY control_key;
               <button class="code-copy-btn" onclick="navigator.clipboard.writeText(this.parentElement.innerText)">Copy SQL</button>
 WITH g AS (
   SELECT transaction_group_id, count(*) AS legs,
+         SUM(amount) AS amt,
          SUM(CASE WHEN direction IN ('cash_in','credit') THEN amount ELSE -amount END) AS net
   FROM public.general_ledger
   WHERE classification = 'production'
@@ -1711,11 +1710,13 @@ WITH g AS (
   GROUP BY transaction_group_id
 )
 SELECT count(*) AS groups_30d,
-       count(*) FILTER (WHERE abs(net) > 0.005 AND legs > 1) AS unbalanced_multileg
+       count(*) FILTER (WHERE abs(net) > 0.005 AND legs > 1) AS unbalanced_multileg,
+       count(*) FILTER (WHERE legs = 1) AS single_leg,
+       sum(amt) FILTER (WHERE legs = 1) AS single_leg_amount
 FROM g;
             </div>
             <p style="font-size: 0.75rem; color: #10b981; margin-top: 0.4rem;">
-              Baseline: <strong>unbalanced_multileg MUST BE ZERO</strong>.
+              Baseline: <strong>unbalanced_multileg MUST BE ZERO</strong>. Watch <strong>single_leg</strong> too (1,256 on 2026-09-28): a jump there is an imbalance the first column cannot see.
             </p>
           </div>
         `
@@ -1729,26 +1730,32 @@ FROM g;
           <div class="detail-card danger">
             <div class="detail-card-title" style="color: #f43f5e;">Runbook 1: Ledger Imbalance Emergency</div>
             <p style="font-size: 0.78rem; color: #fecdd3; line-height: 1.5;">
-              <strong>Symptom:</strong> <code>unbalanced_multileg > 0</code> in health check.<br/>
-              <strong>Action:</strong> 1. Pause platform immediately: <code>UPDATE treasury_controls SET enabled = true WHERE control_key = 'maintenance_mode';</code><br/>
-              2. Query <code>ledger_group_imbalance_alerts</code> to identify the flawed RPC or edge function.<br/>
+              <strong>Symptom:</strong> <code>unbalanced_multileg > 0</code> or a jump in <code>single_leg</code> in the health check.<br/>
+              <strong>Action:</strong> 1. Find the writer first. <code>maintenance_mode</code> will <strong>not</strong> stop it (UI + 32 edge functions only). Stop the specific source: unschedule its cron job (<code>cron.alter_job(jobid, active := false)</code>) or pause the relevant control (<code>withdrawals_paused</code>, <code>credits_paused</code>, <code>landlord_payouts_blocked</code>).<br/>
+              2. Run <code>detect_ledger_group_imbalances()</code> by hand. It is not scheduled, and <code>ledger_group_imbalance_alerts</code> still holds 2,195 unresolved rows from its only run (2026-07-23), so filter to recent groups.<br/>
               3. DO NOT EDIT ROWS. Post a compensating transaction with <code>create_ledger_transaction</code>.
             </p>
           </div>
 
           <div class="detail-card">
-            <div class="detail-card-title" style="color: #f97316;">Runbook 2: Stuck Payouts / Float Starvation</div>
+            <div class="detail-card-title" style="color: #f97316;">Runbook 2: Stuck Payouts</div>
             <p style="font-size: 0.78rem; color: #cbd5e1; line-height: 1.5;">
-              <strong>Symptom:</strong> Landlord rent or Supporter withdrawals pending in queue.<br/>
-              <strong>Check:</strong> Float desk balance in <code>wallet_balances_projection</code>. Re-fund operational till via bank bridge. Never re-credit absolute float.
+              <strong>Symptom:</strong> Landlord rent or Supporter withdrawals sit pending.<br/>
+              <strong>Check first:</strong> <code>treasury_controls</code>: <code>landlord_payouts_blocked</code> (true since 2026-09-25), <code>payouts_ui_enabled</code>, <code>withdrawals_paused</code>, <code>landlord_float_withdrawals_paused</code>. A switch is the most common cause.<br/>
+              <strong>Then:</strong> the merchant/cashout desk's float. Fund it with a delta top-up, never an absolute "set float to X".
             </p>
           </div>
 
           <div class="detail-card">
-            <div class="detail-card-title" style="color: #38bdf8;">Runbook 3: MoMo Webhook Storm / Replays</div>
+            <div class="detail-card-title" style="color: #38bdf8;">Runbook 3: Deposit Paid but Not Credited</div>
             <p style="font-size: 0.78rem; color: #cbd5e1; line-height: 1.5;">
-              <strong>Symptom:</strong> Rapid duplicate callbacks from MTN or Airtel.<br/>
-              <strong>Check:</strong> Verify <code>pg_advisory_xact_lock(hashtext(idempotency_key))</code> is taking hold. Check for duplicate <code>transaction_reference</code>.
+              <strong>Symptom:</strong> "I paid, my balance didn't move." (The old "MoMo webhook storm" runbook was removed: there is no MoMo/Airtel webhook.)<br/>
+              <strong>Check, in order:</strong><br/>
+              1. Is the row in <code>gmail_transactions</code>? Search the payments Gmail inbox for the TID before saying "it never arrived" (a same-second cutoff bug dropped emails until 2026-09-24).<br/>
+              2. Is the poller alive? <code>gmail-poll-transactions-every-1min</code> and <code>gmail-poll-heartbeat</code>.<br/>
+              3. MTN till receipts carry the <strong>name only</strong>, no phone: name-only matches are fuzzy-flagged, not auto-credited.<br/>
+              4. Cross-user TID collisions are flagged and re-flagged forever by the relink job; they need a FinOps decision, not a retry.<br/>
+              5. Never diagnose from the payer's SMS screenshot; check the merchant-side row actually ingested.
             </p>
           </div>
         `
@@ -1757,20 +1764,27 @@ FROM g;
         badge: 'HANDOVER CHAPTER 5',
         color: '#00d2ff',
         title: '05. Disaster Recovery — Rebuild Order',
-        sub: 'Total Infrastructure Loss • Sequential Restoration • 9-Phase Dependency Chain',
+        sub: 'Total Infrastructure Loss • Sequential Restoration • 10-Phase Dependency Chain',
         content: `
+          <div class="detail-card danger">
+            <div class="detail-card-title" style="color: #f43f5e;">Data backup is the weak link</div>
+            <p style="font-size: 0.78rem; color: #fecdd3; line-height: 1.5;">
+              The steps below rebuild the <strong>structure</strong>. Restoring the <strong>money</strong> depends on backups: the old weekly full backup only ever captured 1,000 rows per table (PostgREST cap). A complete general ledger backup has existed only since 2026-09-27 (nightly email to joshwanda17@gmail.com, handover doc 141) and covers the ledger only. Supabase's own point-in-time recovery is the only full copy of every other table; confirm it is enabled on the plan.
+            </p>
+          </div>
           <div class="detail-card">
             <div class="detail-card-title" style="color: #00d2ff;">Strict Rebuild Sequence</div>
             <ol style="padding-left: 1.2rem; font-size: 0.78rem; color: #94a3b8; line-height: 1.6;">
-              <li><strong>1. Extensions:</strong> <code>pgcrypto</code>, <code>pg_cron</code>, <code>pg_net</code>, <code>pgjwt</code>, <code>vector</code></li>
-              <li><strong>2. Enums:</strong> 33 custom PostgreSQL enum types</li>
-              <li><strong>3. Core Schema & Tables:</strong> 641 tables and foreign keys</li>
-              <li><strong>4. Row-Level Security:</strong> 1,552 RLS policies</li>
-              <li><strong>5. Security Definer RPCs:</strong> 1,907 functions (including <code>create_ledger_transaction</code>)</li>
-              <li><strong>6. Triggers:</strong> 601 triggers (prevent_update, prevent_delete, balance check)</li>
-              <li><strong>7. Scheduled Crons:</strong> 151 pg_cron jobs</li>
-              <li><strong>8. Edge Functions:</strong> 342 functions deployed 1-at-a-time via manual workflow</li>
-              <li><strong>9. Wallet Re-Anchoring:</strong> <code>reconcile_wallet_from_ledger</code></li>
+              <li><strong>1. Extensions:</strong> <code>pgcrypto</code>, <code>pg_cron</code>, <code>pg_net</code>, <code>pgmq</code>, <code>postgis</code>, <code>pg_trgm</code>, <code>pg_stat_statements</code>, <code>supabase_vault</code>, <code>uuid-ossp</code> (not <code>pgjwt</code> or <code>vector</code>; neither is installed)</li>
+              <li><strong>2. Enums:</strong> 33 custom enum types</li>
+              <li><strong>3. Core Schema & Tables:</strong> 763 tables and foreign keys</li>
+              <li><strong>4. Row-Level Security:</strong> 1,714 RLS policies</li>
+              <li><strong>5. Functions:</strong> 2,473 public functions (including <code>create_ledger_transaction</code>)</li>
+              <li><strong>6. Triggers:</strong> 682 triggers, 39 of them on <code>general_ledger</code></li>
+              <li><strong>7. Data:</strong> restore from PITR or backups (see warning above). Ledger before wallets.</li>
+              <li><strong>8. Scheduled Crons:</strong> 204 pg_cron jobs (9 inactive; keep them inactive)</li>
+              <li><strong>9. Edge Functions:</strong> 388 functions, 1-at-a-time via the manual workflow</li>
+              <li><strong>10. Wallet Re-Anchoring:</strong> <code>reconcile_wallet_from_ledger</code>, then confirm <code>detect_wallet_projection_drift</code> is clean</li>
             </ol>
           </div>
         `
@@ -1782,39 +1796,78 @@ FROM g;
         sub: 'Live Database Counts • Catalog SQL Scripts • Drift Detection Queries',
         content: `
           <div class="detail-card">
-            <div class="detail-card-title" style="color: #00d2ff;">Production Catalog Counts (2026-09-09)</div>
+            <div class="detail-card-title" style="color: #00d2ff;">Production Catalog Counts (2026-09-28)</div>
             <div class="code-box">
-Tables:            641
-Public Functions:  1,907
-Triggers:          601
-RLS Policies:      1,552
-Views / MatViews:  71 / 6
-Storage Buckets:   27
-Edge Functions:    342
-pg_cron Jobs:      151 (9 inactive)
-Auth Users:        62,098
-Ledger Rows:       460,457
-Transaction Groups:215,482
+Tables:             763
+Public Functions:   2,473
+Triggers:           682 (39 on general_ledger)
+RLS Policies:       1,714
+Views / MatViews:   96 / 7
+Storage Buckets:    31
+Edge Functions:     388 (32 honour maintenance_mode)
+pg_cron Jobs:       204 (9 inactive)
+treasury_controls:  22
+Ledger Categories:  160
+Auth Users:         96,974
+Ledger Rows:        627,405
+Transaction Groups: 297,457
             </div>
+            <p style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.4rem;">
+              These counts move weekly. Re-run the catalog queries rather than trusting this box; the previous edition (2026-09-09) was off by a third within three weeks.
+            </p>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title" style="color: #38bdf8;">Did my migration actually land?</div>
+            <p style="font-size: 0.78rem; color: #94a3b8; line-height: 1.5;">
+              <code>schema_migrations</code> does not reliably record it. Check the object itself: <code>SELECT pg_get_functiondef('public.fn_name'::regproc);</code> or <code>information_schema.columns</code>. Watched functions are also compared every 5 min against <code>critical_function_baselines</code> (cron <code>scan-critical-function-drift</code>); if you deliberately change one, re-baseline it in the same migration or it raises a drift alert.
+            </p>
           </div>
         `
       },
       '07': {
         badge: 'HANDOVER CHAPTER 7',
         color: '#f43f5e',
-        title: '07. Tribal Knowledge — The 7 Costly Traps',
+        title: '07. Tribal Knowledge — The Costly Traps',
         sub: 'Bugs That Already Cost Money • Latent Landmines • Hard Lessons',
         content: `
           <div class="detail-card danger">
-            <div class="detail-card-title" style="color: #f43f5e;">The 7 Traps Already Paid For in Real Money</div>
+            <div class="detail-card-title" style="color: #f43f5e;">Traps Already Paid For in Real Money</div>
             <ul style="padding-left: 1.2rem; font-size: 0.78rem; color: #fecdd3; line-height: 1.6;">
               <li><strong>Trap 1: Never force "WELILE" sender ID on SMS:</strong> Unregistered carrier trap; OTPs silently drop.</li>
-              <li><strong>Trap 2: Deposit bridge 30s lock:</strong> Two tabs approving the same deposit causes double crediting without <code>advisory_xact_lock</code>.</li>
-              <li><strong>Trap 3: Agent advance sweep schedule:</strong> Runs at 16:50 UTC, not 15 minutes. Deductions run every 6 hours.</li>
-              <li><strong>Trap 4: Float desk segregation:</strong> Never mix tenant collections float with landlord payout float.</li>
-              <li><strong>Trap 5: get_user_available_balance reads projection:</strong> Reads <code>wallet_balances_projection</code>, not <code>v_user_wallet_strict</code>.</li>
-              <li><strong>Trap 6: Never re-add service workers:</strong> Stale cache locks users out of mobile app.</li>
-              <li><strong>Trap 7: Sky Bubbles float re-credit incident:</strong> Over-credited UGX 10.2M by running absolute set float. Always use delta operations.</li>
+              <li><strong>Trap 2: Deposit approval race:</strong> Two tabs approving the same deposit double-credit without the advisory lock.</li>
+              <li><strong>Trap 3: Agent advance sweep schedule:</strong> Runs at 16:50 UTC, not every 15 minutes.</li>
+              <li><strong>Trap 4: Float desk segregation:</strong> Only Gmail-matched, TID-backed deposits may fund tenant rent-collection float. Never mix it with landlord payout float.</li>
+              <li><strong>Trap 5: get_user_available_balance reads the projection:</strong> <code>wallet_balances_projection</code>, not <code>v_user_wallet_strict</code>.</li>
+              <li><strong>Trap 6: No caching service worker:</strong> The push-only <code>public/sw.js</code> is fine; adding fetch caching locks mobile users onto stale chunks.</li>
+              <li><strong>Trap 7: Sky Bubbles float re-credit:</strong> Over-credited UGX 10.2M by an absolute "set float". Always use delta operations.</li>
+              <li><strong>Trap 8: Treasury figure:</strong> <code>get_treasury_cash_position</code> (A1+A5) is correct. <code>get_treasury_snapshot</code> is superseded and shows a malformed negative that looks like a deficit.</li>
+              <li><strong>Trap 9: Merchant "owed" buckets:</strong> Rejected OOP claims and ledger-vs-withdrawal gaps were settled off-system. They are not debt; do not publish them as such.</li>
+            </ul>
+          </div>
+        `
+      },
+      '08': {
+        badge: 'HANDOVER CHAPTER 8',
+        color: '#f59e0b',
+        title: '08. Known Gaps — Not Yet Fixed',
+        sub: 'Open as of 2026-09-28 • Read before trusting any safety net above',
+        content: `
+          <div class="detail-card danger">
+            <div class="detail-card-title" style="color: #f43f5e;">Safety nets that don't work as named</div>
+            <ul style="padding-left: 1.2rem; font-size: 0.78rem; color: #fecdd3; line-height: 1.6;">
+              <li><strong>maintenance_mode is UI-only.</strong> No DB guard in <code>create_ledger_transaction</code>; crons and 356 edge functions ignore it. Fix proposed (DB-level guard), needs sign-off because it touches the money path.</li>
+              <li><strong>Imbalance detector unscheduled.</strong> <code>detect_ledger_group_imbalances()</code> has no cron job; ran once on 2026-07-23 and left 2,195 alerts (~UGX 293M) untriaged.</li>
+              <li><strong>Balance check skips single-leg groups.</strong> 1,256 in 30 days (~UGX 146M). Unconfirmed whether the resolver's synthetic legs cover them.</li>
+            </ul>
+          </div>
+          <div class="detail-card warning">
+            <div class="detail-card-title" style="color: #f59e0b;">Subsystems with no box on this map yet</div>
+            <ul style="padding-left: 1.2rem; font-size: 0.78rem; color: #fde68a; line-height: 1.6;">
+              <li><strong>Merchant float, desk funding and out-of-pocket claims:</strong> the area with the most money incidents this quarter (<code>get_merchant_desk_funding_tracker</code>, float returns, OOP attestation/settlement).</li>
+              <li><strong>Realtime:</strong> listeners on busy tables without filters; suspected source of rollback-rate spikes.</li>
+              <li><strong>Critical-function drift detection:</strong> <code>critical_function_baselines</code> + 5-min scan catches silent reverts of watched function bodies.</li>
+              <li><strong>Auth:</strong> a client-side sign-in race plus a high wrong-password rate dominate auth failures in the CTO report.</li>
+              <li><strong>Backups:</strong> ledger-only nightly backup since 2026-09-27; nothing else is exported in full.</li>
             </ul>
           </div>
         `
@@ -1822,293 +1875,272 @@ Transaction Groups:215,482
     };
 
     const NODE_DATA = {
-      welile: {
-        'dev-ide': {
-          badge: 'CLIENT LAYER',
-          color: '#00d2ff',
-          title: 'PWA CLIENT APP & PORTAL',
-          sub: '2,503 TypeScript/TSX Files • React 18 • Vite • Low-Bandwidth Mobile PWA',
-          content: `
-            <div class="detail-card">
-              <div class="detail-card-title" style="color: #00d2ff;">Frontend Client Role</div>
-              <p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">
-                The primary portal serving Ugandan Tenants, Supporters, Field Agents, Landlords, and Internal Ops.
-              </p>
-            </div>
-            <div class="detail-card danger">
-              <div class="detail-card-title" style="color: #f43f5e;">02-Danger-Zones §8 Enforced</div>
-              <p style="font-size: 0.78rem; color: #fecdd3; line-height: 1.5;">
-                <strong>Never write ledger/wallet state from frontend code.</strong> All monetary actions call security-definer RPCs or edge functions. Enforced at build time by <code>scripts/guard-frontend-ledger-writes.mjs</code>.
-              </p>
-            </div>
-            <div class="detail-card">
-              <div class="detail-card-title" style="color: #38bdf8;">Regulatory Copy Enforcement</div>
-              <p style="font-size: 0.78rem; color: #94a3b8; line-height: 1.5;">
-                Always use "Rent Plan" (never "loan"), "Supporter" (never "lender"), and "Returns" (never "ROI" or "interest").
-              </p>
-            </div>
-          `
-        },
-        'context-collection': {
-          badge: 'INGESTION ROUTER',
-          color: '#00d2ff',
-          title: '342 EDGE FUNCTIONS GATEWAY',
-          sub: 'Deno Runtime • verify_jwt Handlers • Webhooks • Rate Limiting',
-          content: `
-            <div class="detail-card">
-              <div class="detail-card-title" style="color: #00d2ff;">Serverless Gateway Canister</div>
-              <p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">
-                Ingests all external callbacks (MTN MoMo push USSD, Airtel Pay, Gmail scrape poller) and authenticates client actions with JWT validation.
-              </p>
-            </div>
-            <div class="detail-card danger">
-              <div class="detail-card-title" style="color: #f43f5e;">02-Danger-Zones §3: Deploy 1-at-a-time!</div>
-              <p style="font-size: 0.78rem; color: #fecdd3; line-height: 1.5;">
-                <strong>NEVER run bulk deploys.</strong> Deploying all 342 functions pushes unreviewed git code and triggers rate-limit failures. Use <code>.github/workflows/deploy-edge-function.yml</code> with typed DEPLOY confirmation.
-              </p>
-            </div>
-          `
-        },
-        'context-processing': {
-          badge: 'PRE-FLIGHT GATE',
-          color: '#00d2ff',
-          title: 'PRE-FLIGHT ADVISORY LOCKS & ALLOWLIST',
-          sub: 'pg_advisory_xact_lock • 120-Category Allowlist • Replay Prevention',
-          content: `
-            <div class="detail-card">
-              <div class="detail-card-title" style="color: #00d2ff;">Two-Stage Pre-Flight Verification</div>
-              <p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">
-                <strong>1. Transaction Replay Lock:</strong> Takes <code>pg_advisory_xact_lock(hashtext(idempotency_key))</code> to prevent race conditions across parallel webhooks.<br/>
-                <strong>2. Category Allowlist:</strong> Validates the movement tag against exactly 120 categories in <code>ledger_category_allowlist()</code>. An invented category raises immediately.
-              </p>
-            </div>
-          `
-        },
-        'prompt-construction': {
-          badge: 'TRANSACTION PACKING',
-          color: '#00d2ff',
-          title: 'DOUBLE-ENTRY TRANSACTION PACKING',
-          sub: 'Multi-Leg JSON Array Construction • Zero-Sum SumCheck Pre-Validation',
-          content: `
-            <div class="detail-card">
-              <div class="detail-card-title" style="color: #00d2ff;">03-Money-Invariants §4: Group Balancing</div>
-              <p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">
-                Packs balanced legs: <code>sum(cash_in) == sum(cash_out)</code> per <code>transaction_group_id</code>. Verified baseline: <strong>0 unbalanced multi-leg groups in 30 days</strong>.
-              </p>
-            </div>
-            <div class="detail-card">
-              <div class="detail-card-title" style="color: #c084fc;">RPC Invocation Signature</div>
-              <div class="code-box">
-                <button class="code-copy-btn" onclick="navigator.clipboard.writeText(this.parentElement.innerText)">Copy</button>
-<span style="color:#64748b">// Edge Function calling Single Door RPC</span>
+      'client': {
+        badge: 'CLIENT LAYER',
+        color: '#00d2ff',
+        title: 'PWA CLIENT APP & PORTAL',
+        sub: 'React 18 • Vite • Low-Bandwidth Mobile PWA',
+        content: `
+          <div class="detail-card">
+            <div class="detail-card-title" style="color: #00d2ff;">Frontend Client Role</div>
+            <p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">
+              The portal serving Tenants, Supporters, Field Agents, Landlords, merchant/cashout desks and internal Ops.
+            </p>
+          </div>
+          <div class="detail-card danger">
+            <div class="detail-card-title" style="color: #f43f5e;">Never write ledger/wallet state from the frontend</div>
+            <p style="font-size: 0.78rem; color: #fecdd3; line-height: 1.5;">
+              All monetary actions call SECURITY DEFINER RPCs or edge functions. Enforced at build time by <code>scripts/guard-frontend-ledger-writes.mjs</code>.
+            </p>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title" style="color: #38bdf8;">Regulatory Copy Enforcement</div>
+            <p style="font-size: 0.78rem; color: #94a3b8; line-height: 1.5;">
+              Always use "Rent Plan" (never "loan"), "Supporter" (never "lender"), and "Returns" (never "ROI" or "interest").
+            </p>
+          </div>
+          <div class="detail-card warning">
+            <div class="detail-card-title" style="color: #f59e0b;">Known client issues</div>
+            <p style="font-size: 0.78rem; color: #fde68a; line-height: 1.5;">
+              Sign-in race (client-side) is unfixed. <code>public/sw.js</code> is a push-only worker; never give it a fetch/caching handler. Mobile browsers discard backgrounded pages, so anything the user must not lose mid-payment is cached in localStorage.
+            </p>
+          </div>
+        `
+      },
+      'edge-functions': {
+        badge: 'EDGE FUNCTIONS',
+        color: '#00d2ff',
+        title: '388 EDGE FUNCTIONS',
+        sub: 'Deno Runtime • verify_jwt • Pollers & Callbacks (no telco webhooks)',
+        content: `
+          <div class="detail-card">
+            <div class="detail-card-title" style="color: #00d2ff;">What actually comes in</div>
+            <p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">
+              There is <strong>no MTN MoMo or Airtel webhook</strong>. Money-in arrives through <code>gmail-poll-transactions</code> (every 1 min, reading IFTTT-forwarded payment SMS from the payments inbox), <code>email-auto-create-deposits</code> (every 2 min) and <code>ussd-callback</code>. Everything else authenticates client actions with JWT.
+            </p>
+          </div>
+          <div class="detail-card warning">
+            <div class="detail-card-title" style="color: #f59e0b;">Only 32 of 388 honour the kill switch</div>
+            <p style="font-size: 0.78rem; color: #fde68a; line-height: 1.5;">
+              Functions that import <code>_shared/treasuryGuard</code> refuse work under <code>maintenance_mode</code>. The other 356 don't check it.
+            </p>
+          </div>
+          <div class="detail-card danger">
+            <div class="detail-card-title" style="color: #f43f5e;">Deploy 1-at-a-time</div>
+            <p style="font-size: 0.78rem; color: #fecdd3; line-height: 1.5;">
+              <strong>Never bulk-deploy.</strong> Use <code>.github/workflows/deploy-edge-function.yml</code> with typed DEPLOY confirmation. After a local Windows <code>npm run build</code>, check <code>supabase/functions/mcp(-public)/index.ts</code> wasn't overwritten before committing.
+            </p>
+          </div>
+        `
+      },
+      'preflight': {
+        badge: 'PRE-FLIGHT GATE',
+        color: '#00d2ff',
+        title: 'PRE-FLIGHT ADVISORY LOCKS & ALLOWLIST',
+        sub: 'pg_advisory_xact_lock • 160-Category Allowlist • Replay Prevention',
+        content: `
+          <div class="detail-card">
+            <div class="detail-card-title" style="color: #00d2ff;">Two-Stage Pre-Flight Verification</div>
+            <p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">
+              <strong>1. Replay lock:</strong> <code>pg_advisory_xact_lock(hashtext(idempotency_key))</code> prevents the same key posting twice under concurrency.<br/>
+              <strong>2. Category allowlist:</strong> the tag must be one of the 160 in <code>ledger_category_allowlist()</code>. An invented category raises immediately.
+            </p>
+          </div>
+          <div class="detail-card warning">
+            <div class="detail-card-title" style="color: #f59e0b;">Idempotency is per key, not per payment</div>
+            <p style="font-size: 0.78rem; color: #fde68a; line-height: 1.5;">
+              Two callers that build different keys for the same payment both post. The float guard once took over the telecom fee's idempotency key and ~770 fees went unposted. When adding a flow, reuse the payment's existing key scheme.
+            </p>
+          </div>
+        `
+      },
+      'packing': {
+        badge: 'TRANSACTION PACKING',
+        color: '#00d2ff',
+        title: 'DOUBLE-ENTRY TRANSACTION PACKING',
+        sub: 'Multi-Leg Entries • Idempotency Key • Zero-Sum Check',
+        content: `
+          <div class="detail-card">
+            <div class="detail-card-title" style="color: #00d2ff;">Group Balancing</div>
+            <p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">
+              Packs legs so <code>sum(cash_in) == sum(cash_out)</code> per <code>transaction_group_id</code>. Verified: 0 unbalanced <strong>multi-leg</strong> groups in 30 days. Single-leg groups (1,256 in the same window) are not covered by this check; see Chapter 03.
+            </p>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title" style="color: #c084fc;">RPC Invocation Shape (illustrative)</div>
+            <div class="code-box">
+              <button class="code-copy-btn" onclick="navigator.clipboard.writeText(this.parentElement.innerText)">Copy</button>
+<span style="color:#64748b">// Check the live signature first: pg_get_functiondef('public.create_ledger_transaction'::regproc)</span>
 <span style="color:#38bdf8">const</span> { data: groupId, error } = <span style="color:#38bdf8">await</span> adminClient.rpc(<span style="color:#38bdf8">'create_ledger_transaction'</span>, {
   entries: [
     { user_id: userId, category: <span style="color:#38bdf8">'wallet_deposit'</span>, amount: <span style="color:#f97316">50000</span>,
-      direction: <span style="color:#38bdf8">'cash_in'</span>, ledger_scope: <span style="color:#38bdf8">'wallet'</span>, recipient_type: <span style="color:#38bdf8">'user'</span> },
-    { category: <span style="color:#38bdf8">'momo_collection_clearing'</span>, amount: <span style="color:#f97316">50000</span>,
-      direction: <span style="color:#38bdf8">'cash_out'</span>, ledger_scope: <span style="color:#38bdf8">'platform'</span>, recipient_type: <span style="color:#38bdf8">'operational_wallet'</span> }
+      direction: <span style="color:#38bdf8">'cash_in'</span>, ledger_scope: <span style="color:#38bdf8">'wallet'</span> },
+    { category: <span style="color:#38bdf8">'...'</span>, amount: <span style="color:#f97316">50000</span>,
+      direction: <span style="color:#38bdf8">'cash_out'</span>, ledger_scope: <span style="color:#38bdf8">'platform'</span> }
   ],
-  idempotency_key: <span style="color:#38bdf8">\`momo:\${depositId}\`</span>
+  idempotency_key: <span style="color:#38bdf8">\`deposit:\${depositId}\`</span>
 });
-              </div>
             </div>
-          `
-        },
-        'ai-model': {
-          badge: 'THE FINANCIAL HEART',
-          color: '#c084fc',
-          title: 'THE DOUBLE-ENTRY CORE: general_ledger',
-          sub: '460,457 Append-Only Rows • 215,482 Groups • The Single Door Doorway',
-          content: `
-            <div class="detail-card">
-              <div class="detail-card-title" style="color: #c084fc;">The Single Source of Truth</div>
-              <p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">
-                Every monetary movement in Uganda flows through <code>create_ledger_transaction</code> into immutable <code>general_ledger</code>.
-              </p>
-            </div>
-            <div class="detail-card danger">
-              <div class="detail-card-title" style="color: #f43f5e;">The Iron Rule: Zero Updates or Deletes</div>
-              <p style="font-size: 0.78rem; color: #fecdd3; line-height: 1.5;">
-                Protected by <code>trg_prevent_ledger_update</code> and <code>trg_prevent_ledger_delete</code>. Reversals are posted as new rows and recorded in <code>voided_ledger_entries</code>.
-              </p>
-            </div>
-            <div class="detail-card">
-              <div class="detail-card-title" style="color: #38bdf8;">Solvency Verification Check</div>
-              <p style="font-size: 0.78rem; color: #94a3b8; line-height: 1.5;">
-                Checks available ledger balance before allowing any debit leg. Caching can only ever reduce spendable balance, never raise it.
-              </p>
-            </div>
-          `
-        },
-        'code-completion': {
-          badge: 'SETTLEMENT',
-          color: '#f97316',
-          title: 'DISBURSEMENTS & WALLETS PROJECTION',
-          sub: 'wallet_balances_projection • Landlord Payouts • Supporter Returns',
-          content: `
-            <div class="detail-card">
-              <div class="detail-card-title" style="color: #f97316;">Materialized Projection Caching</div>
-              <p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">
-                Wallets is a view over <code>wallet_balances_projection</code>. <code>get_user_available_balance</code> computes withdrawable cash by subtracting holds and advance locks.
-              </p>
-            </div>
-            <div class="detail-card danger">
-              <div class="detail-card-title" style="color: #f43f5e;">02-Danger-Zones §4: Never Set Float to X</div>
-              <p style="font-size: 0.78rem; color: #fecdd3; line-height: 1.5;">
-                Setting agent float to an absolute figure re-credits spent funds. Always use delta operations.
-              </p>
-            </div>
-          `
-        },
-        'feedback-loop': {
-          badge: 'CIRCUIT BREAKERS',
-          color: '#00d2ff',
-          title: 'TREASURY CONTROLS & 19 KILL SWITCHES',
-          sub: 'advance_withdrawals_paused = true • maintenance_mode • Drift Detectors',
-          content: `
-            <div class="detail-card danger">
-              <div class="detail-card-title" style="color: #f43f5e;">Master Kill Switches (02-Danger-Zones §Kill switches)</div>
-              <p style="font-size: 0.8rem; color: #fecdd3; line-height: 1.6;">
-                <strong>maintenance_mode:</strong> The big red button. Locks all writes immediately.<br/>
-                <strong>advance_withdrawals_paused = true:</strong> Load-bearing. Deducts advance obligations from available balances.
-              </p>
-            </div>
-            <div class="detail-card">
-              <div class="detail-card-title" style="color: #00d2ff;">Automated Anomaly Detectors</div>
-              <ul style="padding-left: 1.2rem; font-size: 0.78rem; color: #94a3b8; line-height: 1.6;">
-                <li><code>ledger_group_imbalance_alerts</code>: Flags unbalanced transactions</li>
-                <li><code>phantom_wallet_drift</code>: Flags when cache exceeds ledger</li>
-                <li><code>wallet_routing_violations</code>: Flags illegal category routes</li>
-              </ul>
-            </div>
-          `
-        },
-        'source-code': {
-          badge: 'INGESTION RAIL',
-          color: '#00d2ff',
-          title: 'MTN MOMO API',
-          sub: 'Push USSD & Till Collections',
-          content: '<p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Primary tenant micro-repayment conduit across Uganda via mobile money USSD prompt.</p>'
-        },
-        'project-files': {
-          badge: 'INGESTION RAIL',
-          color: '#00d2ff',
-          title: 'AIRTEL MONEY',
-          sub: 'Airtel Pay Collections & Payouts',
-          content: '<p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Secondary mobile payment rail for collections and agent commission disbursements.</p>'
-        },
-        'git-repo': {
-          badge: 'INGESTION RAIL',
-          color: '#c084fc',
-          title: 'GMAIL POLL (2 MIN)',
-          sub: 'gmail_transactions Poller Cron',
-          content: '<p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Scrapes incoming payment receipts every 2 minutes for automatic deposit reconciliation.</p>'
-        },
-        'git-branch': {
-          badge: 'INGESTION RAIL',
-          color: '#00d2ff',
-          title: 'YOOLA SMS',
-          sub: 'Primary OTP Delivery Channel',
-          content: '<p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Delivers authentication OTPs. <strong>Trap 1: Never force sender ID "WELILE"</strong> — carriers drop unregistered IDs silently.</p>'
-        },
-        'documentation': {
-          badge: 'INGESTION RAIL',
-          color: '#00d2ff',
-          title: "AFRICA'S TALKING",
-          sub: 'Fallback SMS & Telephony Gateway',
-          content: '<p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Secondary failover SMS pipeline engaged when Yoola encounters latency or carrier outages.</p>'
-        },
-        'dependencies': {
-          badge: 'STORAGE RAIL',
-          color: '#00d2ff',
-          title: '27 S3 STORAGE BUCKETS',
-          sub: 'Agreements, National IDs, Proofs',
-          content: '<p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Supabase S3 storage buckets protected by row-level policies for KYC documents and signed contracts.</p>'
-        },
-        'terminal-1': {
-          badge: 'CRON SWEEP',
-          color: '#00d2ff',
-          title: 'AGENT ADVANCE SWEEP',
-          sub: 'Daily at 16:50 UTC (Trap 3)',
-          content: '<p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Sweeps agent advance repayments from commissions daily at 16:50 UTC (not 15 minutes!).</p>'
-        },
-        'terminal-2': {
-          badge: 'CRON SWEEP',
-          color: '#00d2ff',
-          title: 'DEPOSIT BRIDGE WORKER',
-          sub: '30-second reconciliation lock (Trap 2)',
-          content: '<p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Reconciliation poller protected by <code>advisory_xact_lock</code> to prevent double approvals.</p>'
-        },
-        'diagnostics': {
-          badge: 'SAFETY DETECTOR',
-          color: '#f43f5e',
-          title: 'IMBALANCE DETECTORS',
-          sub: 'ledger_group_imbalance_alerts',
-          content: '<p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Watches double-entry consistency. Production baseline: exactly 0 unbalanced multi-leg groups in 30 days.</p>'
-        },
-        'conversation-history': {
-          badge: 'SAFETY DETECTOR',
-          color: '#00d2ff',
-          title: 'PHANTOM DRIFT DETECTOR',
-          sub: 'phantom_wallet_drift Checks',
-          content: '<p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Alerts whenever wallet cache exceeds underlying ledger balance, preventing overdraw incidents.</p>'
-        }
+          </div>
+        `
       },
-      ai: {
-        'dev-ide': {
-          badge: 'CLIENT ENVIRONMENT',
-          color: '#00d2ff',
-          title: 'DEVELOPER + IDE',
-          sub: 'Active Editor Workspace • Code Inspection • Cursor Tracking',
-          content: '<p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">The Developer IDE where keystrokes, cursor position, selection events, and active file buffers originate.</p>'
-        },
-        'context-collection': {
-          badge: 'CANISTER HUB',
-          color: '#00d2ff',
-          title: 'CONTEXT COLLECTION',
-          sub: 'Multi-Source Context Assembly Canister',
-          content: '<p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Canister aggregating 10 IDE context feeds into memory buffers.</p>'
-        },
-        'context-processing': {
-          badge: 'PROCESSING & RETRIEVAL',
-          color: '#00d2ff',
-          title: 'CONTEXT PROCESSING / RETRIEVAL',
-          sub: 'Vector Semantic Search & Code Analysis',
-          content: '<p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Semantic search and AST import resolution pipeline.</p>'
-        },
-        'prompt-construction': {
-          badge: 'PROMPT PACKING',
-          color: '#00d2ff',
-          title: 'PROMPT CONSTRUCTION',
-          sub: 'System Prompt • Context Windows • Token Budgeting',
-          content: '<p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Packs system prompt, user prompt, and retrieved snippets into context window budget.</p>'
-        },
-        'ai-model': {
-          badge: 'NEURAL CORE',
-          color: '#c084fc',
-          title: 'AI CODING MODEL',
-          sub: 'Large Language Model • Attention Mechanisms • Token Generation',
-          content: '<p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Central neural model generating autoregressive token streams.</p>'
-        },
-        'code-completion': {
-          badge: 'GENERATION',
-          color: '#f97316',
-          title: 'CODE COMPLETION / GENERATION',
-          sub: 'Snippet Generation • Inline Completion • Refactoring',
-          content: '<p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Synthesizes code snippets, diff views, and documentation.</p>'
-        },
-        'feedback-loop': {
-          badge: 'INTERACTIVE LOOP',
-          color: '#00d2ff',
-          title: 'IDE FEEDBACK LOOP',
-          sub: 'Inline Suggestions • Diff View • Accept/Reject Options',
-          content: '<p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Developer decision gate presenting inline code suggestions.</p>'
-        }
+      'ledger-core': {
+        badge: 'THE FINANCIAL HEART',
+        color: '#c084fc',
+        title: 'THE DOUBLE-ENTRY CORE: general_ledger',
+        sub: '627,405 Append-Only Rows • 297,457 Groups • 39 Triggers',
+        content: `
+          <div class="detail-card">
+            <div class="detail-card-title" style="color: #c084fc;">The Single Source of Truth</div>
+            <p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">
+              Every monetary movement ends up as rows in append-only <code>general_ledger</code>. Wallet balances, reports and the balance sheet are all derived from it.
+            </p>
+          </div>
+          <div class="detail-card warning">
+            <div class="detail-card-title" style="color: #f59e0b;">More than one door</div>
+            <p style="font-size: 0.78rem; color: #fde68a; line-height: 1.5;">
+              <code>create_ledger_transaction</code> is the main door, but 13 other functions also insert directly: <code>admin_void_unverified_collection</code>, <code>agent_deposit_to_partner</code>, <code>agent_reverse_tenant_allocation</code>, <code>bulk_recover_gap_alerts</code>, <code>credit_agent_rent_commission</code>, <code>credit_proxy_approval</code> (2 overloads), <code>log_agent_earning_to_ledger</code>, <code>log_platform_transaction_to_ledger</code>, <code>reconcile_negative_wallets</code>, <code>record_double_entry</code>, <code>reseed_wallets_to_cached_balance</code>, <code>sync_collection_to_ledger</code>. Any rule you add to the main door must be added to these too.
+            </p>
+          </div>
+          <div class="detail-card danger">
+            <div class="detail-card-title" style="color: #f43f5e;">The Iron Rule: Zero Updates or Deletes</div>
+            <p style="font-size: 0.78rem; color: #fecdd3; line-height: 1.5;">
+              Update/delete are blocked by triggers. Reversals are new rows recorded in <code>voided_ledger_entries</code>. There are 39 triggers on the table in total (wallet-projection sync, TID uniqueness, anti-inflation and routing guards among them); read them before assuming what an insert will do: <code>SELECT tgname FROM pg_trigger WHERE tgrelid = 'public.general_ledger'::regclass AND NOT tgisinternal;</code>
+            </p>
+          </div>
+        `
+      },
+      'settlement': {
+        badge: 'SETTLEMENT',
+        color: '#f97316',
+        title: 'DISBURSEMENTS & WALLETS PROJECTION',
+        sub: 'wallet_balances_projection • Landlord Payouts • Supporter Returns • Merchant Desks',
+        content: `
+          <div class="detail-card">
+            <div class="detail-card-title" style="color: #f97316;">Projection Caching</div>
+            <p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">
+              Wallets is a view over <code>wallet_balances_projection</code>, kept in sync by ledger triggers. <code>get_user_available_balance</code> computes withdrawable cash by subtracting holds and advance locks.
+            </p>
+          </div>
+          <div class="detail-card warning">
+            <div class="detail-card-title" style="color: #f59e0b;">Current state: landlord payouts blocked</div>
+            <p style="font-size: 0.78rem; color: #fde68a; line-height: 1.5;">
+              <code>landlord_payouts_blocked = true</code> since 2026-09-25. Payouts are made by people on merchant/cashout desks from their float, then evidenced; there is no telco payout API.
+            </p>
+          </div>
+          <div class="detail-card danger">
+            <div class="detail-card-title" style="color: #f43f5e;">Never Set Float to X</div>
+            <p style="font-size: 0.78rem; color: #fecdd3; line-height: 1.5;">
+              Setting a desk's float to an absolute figure re-credits spent funds. Always use delta operations. The telecom fee is part of the same atomic float debit (UGX 5,000 payout + 500 fee = one 5,500 debit).
+            </p>
+          </div>
+        `
+      },
+      'treasury-controls': {
+        badge: 'CIRCUIT BREAKERS',
+        color: '#00d2ff',
+        title: 'TREASURY CONTROLS & 22 SWITCHES',
+        sub: 'landlord_payouts_blocked = true • advance_withdrawals_paused = true • Detectors',
+        content: `
+          <div class="detail-card danger">
+            <div class="detail-card-title" style="color: #f43f5e;">What the switches really do</div>
+            <p style="font-size: 0.8rem; color: #fecdd3; line-height: 1.6;">
+              <strong>maintenance_mode:</strong> UI lock screen + 32 edge functions. Does <strong>not</strong> block DB writes, crons or other edge functions.<br/>
+              <strong>advance_withdrawals_paused = true:</strong> Load-bearing. Deducts advance obligations from available balances.<br/>
+              <strong>landlord_payouts_blocked = true:</strong> Set 2026-09-25. First thing to check for "landlord not paid".
+            </p>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title" style="color: #00d2ff;">Detectors and whether they actually run</div>
+            <ul style="padding-left: 1.2rem; font-size: 0.78rem; color: #94a3b8; line-height: 1.6;">
+              <li><code>detect_wallet_projection_drift</code>: <span style="color:#10b981">every 15 min</span> (cron <code>wallet-projection-drift</code>).</li>
+              <li><code>critical_function_baselines</code> scan: <span style="color:#10b981">every 5 min</span>, catches silent reverts of watched function bodies.</li>
+              <li><code>detect_ledger_group_imbalances</code> → <code>ledger_group_imbalance_alerts</code>: <span style="color:#f43f5e">NOT scheduled.</span> One run (2026-07-23), 2,195 open alerts.</li>
+              <li><code>wallet_routing_violations</code>: flags illegal category routes.</li>
+            </ul>
+          </div>
+          <div class="detail-card warning">
+            <div class="detail-card-title" style="color: #f59e0b;">The "Pause" button on this map is a demo</div>
+            <p style="font-size: 0.78rem; color: #fde68a; line-height: 1.5;">
+              It only recolours itself. It does not touch <code>treasury_controls</code>.
+            </p>
+          </div>
+        `
+      },
+      'telco-sms': {
+        badge: 'MONEY-IN RAIL',
+        color: '#00d2ff',
+        title: 'MTN MOMO / AIRTEL → IFTTT',
+        sub: 'No API, no webhook: payment SMS forwarded by IFTTT',
+        content: '<p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Tenants and agents pay into MTN/Airtel tills and merchant numbers. The telco confirmation SMS is forwarded by IFTTT into the payments Gmail inbox; per-agent phones forward their own merchant-float top-ups. MTN till receipts carry the payer\'s <strong>name only</strong>, so exact matching can orphan a deposit; name-only matches are fuzzy-flagged for review.</p>'
+      },
+      'ussd-callback': {
+        badge: 'MONEY-IN RAIL',
+        color: '#00d2ff',
+        title: 'USSD CALLBACK',
+        sub: 'ussd-callback edge function',
+        content: '<p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">USSD session callbacks handled by the <code>ussd-callback</code> edge function. It does not honour <code>maintenance_mode</code> unless it imports treasuryGuard; check before relying on the kill switch.</p>'
+      },
+      'gmail-poller': {
+        badge: 'MONEY-IN RAIL',
+        color: '#c084fc',
+        title: 'GMAIL POLL (1 MIN)',
+        sub: 'gmail-poll-transactions → gmail_transactions',
+        content: '<p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Cron <code>gmail-poll-transactions-every-1min</code> ingests payment emails into <code>gmail_transactions</code>; <code>email-auto-create-deposits-24h</code> (every 2 min) matches them to deposits and <code>gmail-withdrawal-backfill-every-5min</code> backfills withdrawals. <code>gmail-poll-heartbeat</code> watches the poller. A same-second cutoff bug silently dropped emails until the 2026-09-24 fix: search the inbox for the TID before concluding a payment never arrived.</p>'
+      },
+      'yoola-sms': {
+        badge: 'OUTBOUND RAIL',
+        color: '#00d2ff',
+        title: 'YOOLA SMS',
+        sub: 'Primary OTP Delivery Channel',
+        content: '<p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Delivers OTPs and notifications; <code>sms-yoola-delivery-sweep</code> reconciles delivery reports. <strong>Never force sender ID "WELILE"</strong>: carriers drop unregistered IDs silently.</p>'
+      },
+      'africas-talking': {
+        badge: 'OUTBOUND RAIL',
+        color: '#00d2ff',
+        title: "AFRICA'S TALKING",
+        sub: 'Fallback SMS Gateway',
+        content: '<p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Secondary SMS pipeline used when Yoola fails. <code>sms-failure-daily-alert</code> reports delivery failures.</p>'
+      },
+      'storage': {
+        badge: 'STORAGE',
+        color: '#00d2ff',
+        title: '31 STORAGE BUCKETS',
+        sub: 'Agreements, National IDs, Payout Proofs',
+        content: '<p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Supabase Storage buckets protected by policies for KYC documents, signed agreements and payout evidence. Not covered by the nightly ledger backup.</p>'
+      },
+      'advance-sweep': {
+        badge: 'CRON SWEEP',
+        color: '#00d2ff',
+        title: 'AGENT ADVANCE SWEEP',
+        sub: 'Daily at 16:50 UTC (Trap 3)',
+        content: '<p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Sweeps agent advance repayments from earnings daily at 16:50 UTC (not every 15 minutes). One of 204 pg_cron jobs.</p>'
+      },
+      'deposit-bridge': {
+        badge: 'CRON SWEEP',
+        color: '#00d2ff',
+        title: 'DEPOSIT MATCH & RELINK',
+        sub: 'email-auto-create-deposits • relink retries',
+        content: '<p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Matches ingested emails to pending deposits by TID, protected by an advisory lock against double approval. The relink job no longer abandons deposits after 14 days (fixed 2026-09-01), but cross-user TID collisions are re-flagged indefinitely and need a FinOps decision.</p>'
+      },
+      'imbalance-detector': {
+        badge: 'SAFETY DETECTOR',
+        color: '#f43f5e',
+        title: 'IMBALANCE DETECTOR: NOT RUNNING',
+        sub: 'detect_ledger_group_imbalances → ledger_group_imbalance_alerts',
+        content: '<p style="font-size: 0.8rem; color: #fecdd3; line-height: 1.6;"><strong>No cron job calls it.</strong> It ran once, on 2026-07-23, and left 2,195 alerts (~UGX 293M) that were never resolved. An empty result since then means nobody checked, not that the ledger is clean. Run it by hand and filter to recent groups; scheduling and triage are open work (Chapter 08).</p>'
+      },
+      'projection-drift': {
+        badge: 'SAFETY DETECTOR',
+        color: '#00d2ff',
+        title: 'WALLET PROJECTION DRIFT',
+        sub: 'detect_wallet_projection_drift • every 15 min',
+        content: '<p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Cron <code>wallet-projection-drift</code> compares <code>wallet_balances_projection</code> with the ledger every 15 minutes. (Earlier editions called this <code>phantom_wallet_drift</code>; no such object exists.) Note: single-bucket negative-balance sweeps look alarming but are an isolation artifact; look across all buckets.</p>'
       }
     };
 
     function inspectNode(nodeKey) {
-      const data = (NODE_DATA[currentMode] && NODE_DATA[currentMode][nodeKey]) || NODE_DATA['welile'][nodeKey];
+      const data = NODE_DATA[nodeKey];
       if (!data) return;
 
       const drawer = document.getElementById('node-drawer');
@@ -2158,118 +2190,6 @@ Transaction Groups:215,482
     function closeNodeDrawer() {
       document.getElementById('node-drawer').classList.remove('active');
       document.getElementById('drawer-backdrop').classList.remove('active');
-    }
-
-    // Switch between Welile Platform Architecture (Handover) and AI Spec
-    function switchMode(mode) {
-      currentMode = mode;
-      document.getElementById('btn-mode-welile').classList.toggle('active', mode === 'welile');
-      document.getElementById('btn-mode-ai').classList.toggle('active', mode === 'ai');
-
-      const isWelile = mode === 'welile';
-
-      document.getElementById('main-header-title').textContent = isWelile
-        ? 'WELILE PLATFORM ARCHITECTURE: External Rails to Double-Entry Ledger'
-        : 'AI CODING ASSISTANT ARCHITECTURE: IDE Context to Generated Code';
-
-      document.getElementById('main-header-sub').textContent = isWelile
-        ? 'Engineer Survival Blueprint • 460,457 Ledger Rows • 342 Edge Functions • 19 Kill Switches'
-        : 'Interactive Blueprint • Vector Conduits • Context Collection • Neural Generation';
-
-      document.getElementById('canvas-main-title').textContent = isWelile
-        ? 'WELILE PLATFORM ARCHITECTURE: External Rails to Double-Entry Ledger'
-        : 'AI CODING ASSISTANT ARCHITECTURE: IDE Context to Generated Code';
-
-      // Box 1: Dev IDE
-      document.getElementById('lbl-dev-ide-title').textContent = isWelile ? 'PWA CLIENT PORTAL' : 'DEVELOPER + IDE';
-      document.getElementById('lbl-dev-ide-code1').textContent = isWelile ? 'const { user } = useAuth();' : 'def calculate_metrics (df):';
-      document.getElementById('lbl-dev-ide-code2').textContent = isWelile ? '// 02-Danger-Zones §8: Never write' : '# calculate mean';
-      document.getElementById('lbl-dev-ide-code3').textContent = isWelile ? '// ledger directly from frontend!' : 'calculated_mean = df';
-      document.getElementById('lbl-dev-ide-code4').textContent = isWelile ? "await invoke('submit-rent-request')" : 'return ...';
-
-      // 10 Context Tiles
-      document.getElementById('lbl-t1-title').textContent = isWelile ? 'MTN MOMO' : 'SOURCE CODE';
-      document.getElementById('lbl-t2-title').textContent = isWelile ? 'AIRTEL MONEY' : 'PROJECT FILES';
-      document.getElementById('lbl-t3-title').textContent = isWelile ? 'GMAIL POLL (2M)' : 'GIT REPOSITORY';
-      document.getElementById('lbl-t4-title').textContent = isWelile ? 'YOOLA SMS' : 'GIT';
-      document.getElementById('lbl-t5-title').textContent = isWelile ? "AFRICA'S TALKING" : 'DOCUMENTATION';
-      document.getElementById('lbl-t6-title').textContent = isWelile ? '27 S3 BUCKETS' : 'DEPENDENCIES';
-      document.getElementById('lbl-t7-title').textContent = isWelile ? 'ADVANCE SWEEP' : 'TERMINAL OUTPUT';
-      document.getElementById('lbl-t8-title').textContent = isWelile ? 'DEPOSIT BRIDGE' : 'TERMINAL OUTPUT';
-      document.getElementById('lbl-t9-title').textContent = isWelile ? 'IMBALANCE ALERTS' : 'DIAGNOSTICS';
-      document.getElementById('lbl-t10-title').textContent = isWelile ? 'PHANTOM' : 'CONVERSATION';
-      document.getElementById('lbl-t10-sub').textContent = isWelile ? 'DRIFT DETECTOR' : 'HISTORY';
-
-      // Gateway Cylinder
-      document.getElementById('lbl-cylinder-title').textContent = isWelile ? '342 EDGE FUNCTIONS' : 'CONTEXT COLLECTION';
-      document.getElementById('lbl-c-card1').textContent = isWelile ? 'verify_jwt' : 'Open Files';
-      document.getElementById('lbl-c-card2').textContent = isWelile ? 'approve-' : 'Cursor';
-      document.getElementById('lbl-c-card3').textContent = isWelile ? 'webhook-' : 'Selected';
-      document.getElementById('lbl-c-card4').textContent = isWelile ? 'tenant-' : 'Repository';
-
-      // Pre-Flight Processing
-      document.getElementById('lbl-proc-title').textContent = isWelile ? 'PRE-FLIGHT ADVISORY LOCKS & ALLOWLIST' : 'CONTEXT PROCESSING / RETRIEVAL';
-      document.getElementById('lbl-proc-sub1').textContent = isWelile ? 'Advisory Locks' : 'Retrieval';
-      document.getElementById('lbl-proc-desc1').textContent = isWelile ? 'pg_advisory_xact_lock' : 'Semantic Search';
-      document.getElementById('lbl-proc-desc2').textContent = isWelile ? 'Replay Attack Prevention' : 'Relevant Code Finding';
-      document.getElementById('lbl-proc-sub2').textContent = isWelile ? 'Allowlist Gate' : 'Processing';
-      document.getElementById('lbl-proc-desc3').textContent = isWelile ? '120 Allowed Categories' : 'Code Analysis';
-      document.getElementById('lbl-proc-desc4').textContent = isWelile ? 'ledger_category_allowlist()' : 'Import Resolution';
-
-      // Prompt Construction
-      document.getElementById('lbl-prompt-title').textContent = isWelile ? 'TRANSACTION PACKING' : 'PROMPT CONSTRUCTION';
-      document.getElementById('lbl-p-b1').textContent = isWelile ? 'Multi-Leg Entries' : 'System Prompt';
-      document.getElementById('lbl-p-b2').textContent = isWelile ? 'Idempotency Key' : 'User Context';
-      document.getElementById('lbl-p-b3').textContent = isWelile ? 'Zero-Sum Check' : 'Code Snippets';
-      document.getElementById('lbl-p-b4').textContent = isWelile ? 'Recipient Routing' : 'Instructions';
-
-      document.getElementById('lbl-p-box1').textContent = isWelile ? 'create_ledger_transaction({' : '[SYSTEM] You are an AI coding assistant...';
-      document.getElementById('lbl-p-box2').textContent = isWelile ? '  entries: [cash_in, cash_out],' : '[USER] Complete this function...';
-      document.getElementById('lbl-p-box3').textContent = isWelile ? '  idempotency_key: "tx_99812",' : '[CONTEXT] ... code ...';
-      document.getElementById('lbl-p-box4').textContent = isWelile ? '  skip_balance_check: false });' : '';
-
-      // Core Engine
-      document.getElementById('lbl-ai-model-title').textContent = isWelile ? 'THE DOUBLE-ENTRY CORE: general_ledger' : 'AI CODING MODEL';
-      document.getElementById('lbl-aim-p1').textContent = isWelile ? 'general_ledger' : 'Large Language';
-      document.getElementById('lbl-aim-p1b').textContent = isWelile ? '460,457 Rows' : 'Model';
-      document.getElementById('lbl-aim-p2').textContent = isWelile ? 'Append-Only' : 'Attention';
-      document.getElementById('lbl-aim-p2b').textContent = isWelile ? 'Zero Deletes' : 'Mechanisms';
-      document.getElementById('lbl-aim-p3').textContent = isWelile ? 'Zero-Sum Invariant' : 'Reasoning &';
-      document.getElementById('lbl-aim-p3b').textContent = isWelile ? 'Sum(In) = Sum(Out)' : 'Generation';
-      document.getElementById('lbl-aim-p4').textContent = isWelile ? 'Single Door RPC Only' : 'Code Specialization';
-
-      document.getElementById('lbl-stack-1').textContent = isWelile ? '[CASH_IN]' : '[TOKEN]';
-      document.getElementById('lbl-stack-2').textContent = isWelile ? '[CASH_OUT]' : '[TOKEN]';
-      document.getElementById('lbl-stack-3').textContent = isWelile ? '[BAL: 0]' : '[TOKEN]';
-
-      document.getElementById('lbl-tok1').textContent = isWelile ? '[CREDIT]' : '[TOKEN]';
-      document.getElementById('lbl-tok2').textContent = isWelile ? '[DEBIT]' : '[TOKEN]';
-
-      // Completion
-      document.getElementById('lbl-comp-title').textContent = isWelile ? 'SETTLEMENT &' : 'CODE COMPLETION /';
-      document.getElementById('lbl-comp-title2').textContent = isWelile ? 'DISBURSEMENT PIPELINE' : 'GENERATION / REFACTORING';
-      document.getElementById('lbl-comp-sub').textContent = isWelile ? 'wallet_balances_projection' : 'Snippet Generation';
-      document.getElementById('lbl-comp-code1').textContent = isWelile ? '-- Wallets are a cache, never' : '// Generated function...';
-      document.getElementById('lbl-comp-code2').textContent = isWelile ? '-- directly updated (02-Danger §2)' : 'def calculate_metrics (df):';
-      document.getElementById('lbl-comp-code3').textContent = isWelile ? 'get_user_available_balance()' : 'return metrics';
-
-      document.getElementById('lbl-comp-p1').textContent = isWelile ? 'Landlord Rent' : 'Snippet Generation';
-      document.getElementById('lbl-comp-p2').textContent = isWelile ? 'Returns Pool' : 'Refactoring';
-      document.getElementById('lbl-comp-p3').textContent = isWelile ? 'Commissions' : 'Inline Completion';
-      document.getElementById('lbl-comp-p4').textContent = isWelile ? 'Float Desks' : 'Documentation';
-
-      // Feedback / Treasury Controls
-      document.getElementById('lbl-fb-title').textContent = isWelile ? 'TREASURY CONTROLS & 19 KILL SWITCHES' : 'IDE FEEDBACK LOOP';
-      document.getElementById('lbl-fb-p1').textContent = isWelile ? '19 Kill Switches' : 'Code Insertion';
-      document.getElementById('lbl-fb-p2').textContent = isWelile ? 'advance_withdrawals' : 'Inline Suggestions';
-      document.getElementById('lbl-fb-p3').textContent = isWelile ? 'maintenance_mode' : 'Diff View';
-      document.getElementById('lbl-fb-p4').textContent = isWelile ? '7 Tribal Traps Guard' : 'Accept / Reject';
-
-      // Legend
-      document.getElementById('lbl-leg-1').textContent = isWelile ? 'External Ingest Rail' : 'Data-Flow';
-      document.getElementById('lbl-leg-2').textContent = isWelile ? 'Internal Route / RPC' : 'Connection Line';
-      document.getElementById('lbl-leg-3').textContent = isWelile ? 'Financial Cash Move' : 'Control Processing';
-      document.getElementById('lbl-leg-4').textContent = isWelile ? 'Security Subsystems' : 'Module Types';
     }
 
     // Live Search Filtering

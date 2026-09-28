@@ -517,6 +517,7 @@ function AppRoutes() {
           <Route path="/dashboard/tenant" element={<Dashboard />} />
           <Route path="/dashboard/agent" element={<Dashboard />} />
           <Route path="/dashboard/agent/proxy" element={<ProxyAgentGuard><ProxyPerformanceDashboard /></ProxyAgentGuard>} />
+          <Route path="/dashboard/agent/proxy/:section" element={<ProxyAgentGuard><ProxyPerformanceDashboard /></ProxyAgentGuard>} />
           <Route path="/dashboard/landlord" element={<Dashboard />} />
           <Route path="/dashboard/funder" element={<Dashboard />} />
           <Route path="/dashboard/funder-new" element={<RoleGuard allowedRoles={['supporter']}><FunderDashboardNew /></RoleGuard>} />
