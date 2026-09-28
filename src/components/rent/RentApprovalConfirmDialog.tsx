@@ -137,7 +137,7 @@ export function RentApprovalConfirmDialog({
               return (
                 <>
                   <Row label={`Principal — ${pct(principal)}`} value={formatUGX(principal)} />
-                  <Row label={`Supporter Returns — ${pct(partner)}`} value={formatUGX(partner)} />
+                  <Row label={`Partner Returns — ${pct(partner)}`} value={formatUGX(partner)} />
                   <Row label={`Agent Commission — ${pct(agent)}`} value={formatUGX(agent)} />
                   <Row label={`Platform Fee — ${pct(platform)}`} value={formatUGX(platform)} />
                 </>
