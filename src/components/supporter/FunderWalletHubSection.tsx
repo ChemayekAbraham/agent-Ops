@@ -134,7 +134,6 @@ export default function FunderWalletHubSection({ open, onOpenChange }: FunderWal
                     disableTap
                     hideSupporterMetrics
                     hideSecondaryRow
-                    hidePayrollGrowth
                     hideFooter
                     quickActions={
                       <FunderQuickActions

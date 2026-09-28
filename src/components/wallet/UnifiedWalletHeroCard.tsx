@@ -1,11 +1,10 @@
 import { ReactNode, useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Wallet, ChevronRight, ChevronDown, Shield, Home, TrendingUp, Rocket, PiggyBank, Coins, Sparkles, Clock, Users, Eye, EyeOff } from 'lucide-react';
+import { Wallet, ChevronRight, ChevronDown, Shield, Home, TrendingUp, Rocket, PiggyBank, Coins, Clock, Users, Eye, EyeOff } from 'lucide-react';
 import { hapticTap } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
 import { useCurrency } from '@/hooks/useCurrency';
 import { useAuth } from '@/hooks/useAuth';
-import { usePayrollGrowth } from '@/hooks/usePayrollGrowth';
 import { useAvailableBalance } from '@/hooks/useAvailableBalance';
 import { WalletHoldNotice } from '@/components/wallet/WalletHoldNotice';
 
@@ -55,8 +54,6 @@ interface UnifiedWalletHeroCardProps {
   hideSupporterMetrics?: boolean;
   /** Hide the secondary label/value row (e.g. Deposits Float). */
   hideSecondaryRow?: boolean;
-  /** Hide the payroll-growth bonus indicator. */
-  hidePayrollGrowth?: boolean;
   /** Hide the footer trust badge and View Wallet button. */
   hideFooter?: boolean;
   /** Disable tap/click on the balance area and footer; card becomes purely informational. */
@@ -113,13 +110,11 @@ export function UnifiedWalletHeroCard({
   collapsible = true,
   hideSupporterMetrics = false,
   hideSecondaryRow = false,
-  hidePayrollGrowth = false,
   hideFooter = false,
   disableTap = false,
 }: UnifiedWalletHeroCardProps) {
   const { formatAmount } = useCurrency();
   const { user } = useAuth();
-  const payrollGrowth = usePayrollGrowth(user?.id);
   // Strict ledger-backed available balance (subtracts pending withdrawal_requests).
   // Used for the headline so the wallet never shows money already promised to an
   // in-flight withdrawal. Cached `balance` prop is shown as a smaller "Total" line.
