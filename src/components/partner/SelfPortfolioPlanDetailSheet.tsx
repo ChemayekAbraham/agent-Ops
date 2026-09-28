@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { formatDynamic } from '@/lib/currencyFormat';
-import { ChevronLeft, ChevronRight, Home, MapPin, Phone, ShieldCheck, User, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { ChevronLeft, ChevronRight, Home, MapPin, Phone, ShieldCheck, User, Wallet, X } from 'lucide-react';
 import tenantPhotoPlaceholder from '@/assets/tenant-photo-placeholder.jpg';
 import { cn } from '@/lib/utils';
 import { PlanShareButton } from './PlanShareButton';
@@ -196,11 +197,14 @@ export function SelfPortfolioPlanDetailSheet({
   open,
   onOpenChange,
   isFunded,
+  onFund,
 }: {
   plan: PlanDetail | null;
   open: boolean;
   onOpenChange: (v: boolean) => void;
   isFunded: boolean;
+  /** Renders the Fund button and receives the plan when tapped. */
+  onFund?: (plan: PlanDetail) => void;
 }) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [heroIndex, setHeroIndex] = useState(0);
@@ -310,6 +314,17 @@ export function SelfPortfolioPlanDetailSheet({
             <MapPin className="h-3.5 w-3.5 flex-none mt-0.5" />
             <span>{fullAddress}</span>
           </p>
+
+          {/* Fund CTA — mirrors the empty-house sheet's Fund button */}
+          {onFund && !isFunded && (
+            <Button
+              className="mt-4 h-12 w-full gap-2 bg-emerald-600 text-base font-bold text-white hover:bg-emerald-700"
+              onClick={() => onFund(plan)}
+            >
+              <Wallet className="h-4 w-4" />
+              Fund this tenant — {formatDynamic(plan.funding_amount)}
+            </Button>
+          )}
 
           {/* Invite others to support this plan */}
           <div className="mt-4 rounded-2xl border border-primary/30 bg-primary/5 p-3">
