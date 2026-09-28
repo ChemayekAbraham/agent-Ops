@@ -1778,14 +1778,34 @@ export default function IdentityPhotoCapture({ compact }: Props) {
             ) : null}
 
             {backReading.details.length > 0 ? (
-              <ul className="space-y-1">
-                {backReading.details.map((d) => (
-                  <li key={d.label} className="flex justify-between gap-3 text-xs">
-                    <span className="text-muted-foreground">{d.label}</span>
-                    <span className="text-right font-bold">{d.value}</span>
-                  </li>
-                ))}
-              </ul>
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  Check every line against your card and correct anything that is wrong.
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {backReading.details.map((d) => (
+                    <div key={d.label} className="space-y-1">
+                      <Label htmlFor={`nid-back-${d.label}`} className="text-xs">
+                        {d.label}
+                      </Label>
+                      <Input
+                        id={`nid-back-${d.label}`}
+                        value={backEdits[d.label] ?? d.value}
+                        onChange={(e) =>
+                          setBackEdits((prev) => ({ ...prev, [d.label]: e.target.value }))
+                        }
+                        className="h-9 text-sm"
+                      />
+                    </div>
+                  ))}
+                </div>
+                {backDirty && (
+                  <Button size="sm" className="w-full" onClick={handleSaveBackDetails}>
+                    <Save className="mr-2 h-4 w-4" />
+                    Save corrections
+                  </Button>
+                )}
+              </div>
             ) : (
               <p className="text-xs text-muted-foreground">
                 We could not read the small print on the back. Your photo is still saved and
