@@ -15,6 +15,13 @@ import { SectionError, ugx } from './ProxyDashboardParts';
 const PAGE = 12;
 type Sort = 'recommended' | 'nearest' | 'rent_low' | 'rent_high' | 'newest';
 
+/** "two_bedroom" -> "Two Bedroom" */
+const houseLabel = (h: HouseOpportunity) =>
+  (h.house_category || h.title || 'House')
+    .replace(/[_-]+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+
 /** Reuses the existing empty-house source (agent_list_empty_house_opportunities). */
 export function ProxyHouseOpportunities({ onCreateNote }: { onCreateNote: (h: HouseOpportunity) => void }) {
   const [search, setSearch] = useState('');
@@ -66,7 +73,7 @@ export function ProxyHouseOpportunities({ onCreateNote }: { onCreateNote: (h: Ho
   };
 
   const share = async (h: HouseOpportunity) => {
-    const text = `${h.house_category || h.title || 'House'} in ${housePlace(h)} needs ${ugx(h.monthly_rent)} of support on Welile.`;
+    const text = `${houseLabel(h)} in ${housePlace(h)} needs ${ugx(h.monthly_rent)} of support on Welile.`;
     try {
       if (navigator.share) await navigator.share({ title: 'Welile house', text, url: 'https://welileapp.com' });
       else { await navigator.clipboard.writeText(`${text} https://welileapp.com`); toast.success('Copied to clipboard'); }
@@ -128,25 +135,36 @@ export function ProxyHouseOpportunities({ onCreateNote }: { onCreateNote: (h: Ho
       ) : (
         <>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {q.data!.houses.map((h) => (
-              <Card key={h.house_id} className="flex flex-col p-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="truncate font-semibold">{h.house_category || h.title || 'House'}</p>
-                    <p className="flex items-center gap-1 truncate text-xs text-muted-foreground"><MapPin className="h-3 w-3 shrink-0" />{housePlace(h)}{typeof h.distance_km === 'number' ? ` · ${h.distance_km.toFixed(1)} km` : ''}</p>
+            {q.data!.houses.map((h) => {
+              const photo = h.image_urls?.[0] || h.image_url || null;
+              return (
+                <Card key={h.house_id} className="flex flex-col overflow-hidden p-0">
+                  {photo ? (
+                    <img src={photo} alt={houseLabel(h)} loading="lazy" className="h-40 w-full bg-muted object-cover" />
+                  ) : (
+                    <div className="flex h-40 w-full items-center justify-center bg-muted"><Home className="h-8 w-8 text-muted-foreground" /></div>
+                  )}
+                  <div className="flex flex-1 flex-col p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="truncate font-semibold">{houseLabel(h)}</p>
+                        <p className="flex items-center gap-1 truncate text-xs text-muted-foreground"><MapPin className="h-3 w-3 shrink-0" />{housePlace(h)}{typeof h.distance_km === 'number' ? ` · ${h.distance_km.toFixed(1)} km` : ''}</p>
+                      </div>
+                      {h.verified && <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">Verified</span>}
+                    </div>
+                    <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
+                      <div><p className="text-muted-foreground">Amount required</p><p className="text-sm font-bold tabular-nums">{ugx(h.monthly_rent)}</p></div>
+                      <div><p className="text-muted-foreground">Partner returns / month</p><p className="text-sm font-bold tabular-nums">{ugx(h.partner_monthly_return)}</p></div>
+                    </div>
+                    <div className="mt-3 flex gap-2">
+                      <Button size="sm" className="flex-1" onClick={() => onCreateNote(h)}><FilePlus2 className="mr-1 h-4 w-4" />Create Promissory Note</Button>
+                      <Button size="icon" variant="outline" className="h-9 w-9" aria-label="View house" onClick={() => setDetail(h)}><Eye className="h-4 w-4" /></Button>
+                      <Button size="icon" variant="outline" className="h-9 w-9" aria-label="Share" onClick={() => share(h)}><Share2 className="h-4 w-4" /></Button>
+                    </div>
                   </div>
-                </div>
-                <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-                  <div><p className="text-muted-foreground">Amount required</p><p className="text-sm font-bold tabular-nums">{ugx(h.monthly_rent)}</p></div>
-                  <div><p className="text-muted-foreground">Partner returns / month</p><p className="text-sm font-bold tabular-nums">{ugx(h.partner_monthly_return)}</p></div>
-                </div>
-                <div className="mt-3 flex gap-2">
-                  <Button size="sm" className="flex-1" onClick={() => onCreateNote(h)}><FilePlus2 className="mr-1 h-4 w-4" />Create Promissory Note</Button>
-                  <Button size="icon" variant="outline" className="h-9 w-9" aria-label="View house" onClick={() => setDetail(h)}><Eye className="h-4 w-4" /></Button>
-                  <Button size="icon" variant="outline" className="h-9 w-9" aria-label="Share" onClick={() => share(h)}><Share2 className="h-4 w-4" /></Button>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
           </div>
           {total > PAGE && (
             <div className="flex items-center justify-center gap-2">

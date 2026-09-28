@@ -8,7 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
  * Brought In = note status 'activated' (the lifecycle's confirmed state).
  * Earned commission = posted wallet ledger credits; Pending = unpaid note rewards.
  */
-export type ProxyRange = '7d' | '30d' | 'month';
+export type ProxyRange = 'today' | 'yesterday' | '7d' | '30d' | 'month';
 
 export interface ProxyPerformanceDashboard {
   agent_id: string;
