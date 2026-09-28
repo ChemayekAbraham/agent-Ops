@@ -65067,6 +65067,10 @@ export type Database = {
         }[]
       }
       proxy_cc_resolve_agent: { Args: { p_agent_id: string }; Returns: string }
+      proxy_dashboard_note_house_count: {
+        Args: { p_note: string }
+        Returns: number
+      }
       proxy_earning_categories: { Args: never; Returns: string[] }
       proxy_pv_agent_rows: {
         Args: { p_month: string }
