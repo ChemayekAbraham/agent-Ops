@@ -4827,7 +4827,8 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
   const filtered = useMemo(() => {
     let list = localPortfolios;
     // Compute the current week boundaries (Mon–Sun) so the "5 days" (weekdays)
-    // and "Weekend" (Sat & Sun) filters scope to the given week, not a rolling window.
+    // filter scopes to the given week, and "Weekend" scopes to the weekend
+    // that has just passed (last week's Sat & Sun), not the coming one.
     const now = new Date();
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const dow = startOfToday.getDay(); // 0=Sun … 6=Sat
@@ -4837,6 +4838,9 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
     const weekFriday = new Date(weekMonday); weekFriday.setDate(weekMonday.getDate() + 4); // Mon..Fri
     const weekSaturday = new Date(weekMonday); weekSaturday.setDate(weekMonday.getDate() + 5);
     const weekSunday = new Date(weekMonday); weekSunday.setDate(weekMonday.getDate() + 6);
+    // Previous weekend = last week's Saturday & Sunday (7 days before this week's).
+    const lastWeekSaturday = new Date(weekSaturday); lastWeekSaturday.setDate(weekSaturday.getDate() - 7);
+    const lastWeekSunday = new Date(weekSunday); lastWeekSunday.setDate(weekSunday.getDate() - 7);
     const inRange = (dateStr: string, from: Date, to: Date) => {
       if (!dateStr) return false;
       const d = new Date(dateStr);
