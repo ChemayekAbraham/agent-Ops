@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-28 · **Instructed by:** Josh Wanda ("whoever is on waiting, on phone verification on Financial Ops create a cron job to run every 10 minutes it should verify automatically")
 **Migration:** `supabase/migrations/20260928090000_finops_auto_approve_waiting_payout_destinations.sql`
-**Status:** written and committed, **NOT applied**. Josh chose to apply it by hand. Claude Code's auto-mode safety check blocked Claude from applying it, because it removes a verification control.
+**Status: LIVE 2026-09-28.** Josh applied it by hand; the cron is jobid 41752. The first run, at 09:30 UTC, succeeded: it verified all 6 queued rows, wrote 6 audit rows, and left the queue at 0. Claude had been blocked from applying it itself by Claude Code's auto-mode safety check, because it removes a verification control.
 **Follows:** doc 136 (auto-verify rules plus a 10-minute rules sweep) and doc 137 (one-off bulk approval of 62 rows). This change makes doc 137's approval permanent.
 
 ## What changes
