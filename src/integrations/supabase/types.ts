@@ -59983,6 +59983,19 @@ export type Database = {
           wallet_bucket: string
         }[]
       }
+      get_cfo_money_paid_out: {
+        Args: never
+        Returns: {
+          month_count: number
+          month_paid: number
+          pending_amount: number
+          pending_count: number
+          today_count: number
+          today_paid: number
+          total_count: number
+          total_paid: number
+        }[]
+      }
       get_cfo_period_breakdown: {
         Args: { p_from: string; p_to: string }
         Returns: {
