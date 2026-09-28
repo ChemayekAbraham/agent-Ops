@@ -147,23 +147,40 @@ export function ProxyPerformanceChart({ d, range, onRange, fetching }: { d: Prox
     <Card className="p-4">
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-semibold">Brought In vs Pending</p>
-        <div className={cn('flex gap-1', fetching && 'opacity-60')}>
-          {([['7d', '7 Days'], ['30d', '30 Days'], ['month', 'This Month']] as const).map(([k, l]) => (
-            <Button key={k} size="sm" variant={range === k ? 'default' : 'outline'} className="h-7 px-2 text-xs" onClick={() => onRange(k)}>{l}</Button>
-          ))}
-        </div>
+        <Select value={range} onValueChange={(v) => onRange(v as ProxyRange)}>
+          <SelectTrigger className="h-8 w-[130px] rounded-lg px-3 text-xs" disabled={fetching} aria-label="Chart period">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="today">Today</SelectItem>
+            <SelectItem value="yesterday">Yesterday</SelectItem>
+            <SelectItem value="7d">7 Days</SelectItem>
+            <SelectItem value="30d">30 Days</SelectItem>
+            <SelectItem value="month">This Month</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
       <div className="h-56 w-full md:h-64">
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
+          <AreaChart data={data} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
+            <defs>
+              <linearGradient id="biGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="hsl(142 71% 45%)" stopOpacity={0.35} />
+                <stop offset="100%" stopColor="hsl(142 71% 45%)" stopOpacity={0.02} />
+              </linearGradient>
+              <linearGradient id="peGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="hsl(0 84% 60%)" stopOpacity={0.30} />
+                <stop offset="100%" stopColor="hsl(0 84% 60%)" stopOpacity={0.02} />
+              </linearGradient>
+            </defs>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
             <XAxis dataKey="label" tick={{ fontSize: 11 }} interval="preserveStartEnd" minTickGap={12} stroke="hsl(var(--muted-foreground))" />
             <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
             <Tooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
             <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Bar dataKey="brought_in" name="Brought In" fill="hsl(var(--primary))" radius={[3, 3, 0, 0]} />
-            <Bar dataKey="pending" name="Pending" fill="hsl(var(--muted-foreground) / 0.45)" radius={[3, 3, 0, 0]} />
-          </BarChart>
+            <Area type="monotone" dataKey="brought_in" name="Brought In" stroke="hsl(142 71% 45%)" strokeWidth={2} fill="url(#biGrad)" dot={{ r: 2.5, fill: 'hsl(142 71% 45%)', strokeWidth: 0 }} activeDot={{ r: 4 }} />
+            <Area type="monotone" dataKey="pending" name="Pending" stroke="hsl(0 84% 60%)" strokeWidth={2} fill="url(#peGrad)" dot={{ r: 2.5, fill: 'hsl(0 84% 60%)', strokeWidth: 0 }} activeDot={{ r: 4 }} />
+          </AreaChart>
         </ResponsiveContainer>
       </div>
       <p className="mt-1 text-[11px] text-muted-foreground">Brought In by the day money was confirmed; Pending by the day the note was created.</p>
