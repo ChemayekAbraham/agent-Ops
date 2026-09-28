@@ -65,36 +65,62 @@ export function WithdrawableCreditsLivePanel() {
   const total = rows.reduce((s, [, g]) => s + g.total, 0);
   const count = rows.reduce((s, [, g]) => s + g.credits, 0);
 
+  const breakdown = (
+    <div className="divide-y rounded-md border">
+      {rows.length === 0 && <p className="p-3 text-sm text-muted-foreground">{q.isLoading ? 'Loading…' : 'No credits yet today.'}</p>}
+      {rows.map(([k, g]) => (
+        <div key={k} className="flex items-center justify-between gap-2 p-2 text-sm">
+          <span className="min-w-0 truncate">{k} <span className="text-xs text-muted-foreground">({g.credits})</span></span>
+          <span className="font-medium">{formatUGX(g.total)}</span>
+        </div>
+      ))}
+    </div>
+  );
+
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-base">
-          <span>Withdrawable credits today</span>
-          <span className="flex items-center gap-1 text-xs font-normal text-muted-foreground">
-            <Radio className={`h-3 w-3 ${live ? 'text-primary animate-pulse' : ''}`} />
-            {live ? 'Live' : 'Auto-refresh'} · updated {q.dataUpdatedAt ? new Date(q.dataUpdatedAt).toLocaleTimeString() : '—'}
-          </span>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {q.error ? <p className="text-sm text-destructive">Could not load credits.</p> : (
-          <>
-            <div>
-              <p className="text-2xl font-bold">{formatUGX(total)}</p>
-              <p className="text-xs text-muted-foreground">{count.toLocaleString()} credits since midnight (Kampala)</p>
+    <>
+      <Card
+        role="button"
+        tabIndex={0}
+        onClick={() => setOpen(true)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(true); } }}
+        className="cursor-pointer transition-colors hover:border-primary/40 hover:bg-muted/40"
+      >
+        <CardHeader className="pb-2">
+          <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-base">
+            <span>Withdrawable credits today</span>
+            <span className="flex items-center gap-1 text-xs font-normal text-muted-foreground">
+              <Radio className={`h-3 w-3 ${live ? 'text-primary animate-pulse' : ''}`} />
+              {live ? 'Live' : 'Auto-refresh'} · updated {q.dataUpdatedAt ? new Date(q.dataUpdatedAt).toLocaleTimeString() : '—'}
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {q.error ? <p className="text-sm text-destructive">Could not load credits.</p> : (
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <p className="text-2xl font-bold">{formatUGX(total)}</p>
+                <p className="text-xs text-muted-foreground">{count.toLocaleString()} credits since midnight (Kampala)</p>
+              </div>
+              <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-primary">
+                View breakdown <ChevronRight className="h-3 w-3" />
+              </span>
             </div>
-            <div className="divide-y rounded-md border">
-              {rows.length === 0 && <p className="p-3 text-sm text-muted-foreground">{q.isLoading ? 'Loading…' : 'No credits yet today.'}</p>}
-              {rows.map(([k, g]) => (
-                <div key={k} className="flex items-center justify-between gap-2 p-2 text-sm">
-                  <span className="min-w-0 truncate">{k} <span className="text-xs text-muted-foreground">({g.credits})</span></span>
-                  <span className="font-medium">{formatUGX(g.total)}</span>
-                </div>
-              ))}
-            </div>
-          </>
-        )}
-      </CardContent>
-    </Card>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Withdrawable credits today</DialogTitle>
+            <DialogDescription>
+              {formatUGX(total)} · {count.toLocaleString()} credits since midnight (Kampala)
+            </DialogDescription>
+          </DialogHeader>
+          {q.error ? <p className="text-sm text-destructive">Could not load credits.</p> : breakdown}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
