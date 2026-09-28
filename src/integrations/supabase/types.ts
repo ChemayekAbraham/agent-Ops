@@ -18701,6 +18701,53 @@ export type Database = {
         }
         Relationships: []
       }
+      hr_pay_prompts: {
+        Row: {
+          approver_id: string
+          created_at: string
+          id: string
+          kind: string
+          resolution: string | null
+          resolved_at: string | null
+          run_id: string
+          snooze_count: number
+          snooze_until: string | null
+          state: string
+        }
+        Insert: {
+          approver_id: string
+          created_at?: string
+          id?: string
+          kind: string
+          resolution?: string | null
+          resolved_at?: string | null
+          run_id: string
+          snooze_count?: number
+          snooze_until?: string | null
+          state?: string
+        }
+        Update: {
+          approver_id?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          resolution?: string | null
+          resolved_at?: string | null
+          run_id?: string
+          snooze_count?: number
+          snooze_until?: string | null
+          state?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_pay_prompts_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "hr_pay_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hr_pay_rule_versions: {
         Row: {
           code: string
@@ -62344,6 +62391,7 @@ export type Database = {
           recovered: number
         }[]
       }
+      hr_pay_authority_user_ids: { Args: { _fn: string }; Returns: string[] }
       hr_pay_correct_compensation: {
         Args: {
           _amount: number
@@ -62400,7 +62448,44 @@ export type Database = {
         }[]
       }
       hr_pay_my_positions: { Args: never; Returns: string[] }
+      hr_pay_pending_prompt: {
+        Args: never
+        Returns: {
+          employees: number
+          kind: string
+          period_code: string
+          prompt_id: string
+          raised_at: string
+          run_id: string
+          run_type: string
+          snooze_count: number
+          total_net: number
+          unpaid_count: number
+          unpaid_net: number
+        }[]
+      }
       hr_pay_position_for: { Args: { _fn: string }; Returns: string }
+      hr_pay_prompt_snooze: {
+        Args: { _prompt_id: string }
+        Returns: {
+          approver_id: string
+          created_at: string
+          id: string
+          kind: string
+          resolution: string | null
+          resolved_at: string | null
+          run_id: string
+          snooze_count: number
+          snooze_until: string | null
+          state: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "hr_pay_prompts"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       hr_pay_provisional_exposure: {
         Args: never
         Returns: {
