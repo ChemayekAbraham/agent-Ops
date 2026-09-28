@@ -37100,6 +37100,7 @@ export type Database = {
           old_request_fee: number | null
           old_total_repayment: number | null
           rent_request_id: string
+          source: string | null
           status: string | null
           tenant_id: string | null
         }
@@ -37125,6 +37126,7 @@ export type Database = {
           old_request_fee?: number | null
           old_total_repayment?: number | null
           rent_request_id: string
+          source?: string | null
           status?: string | null
           tenant_id?: string | null
         }
@@ -37150,6 +37152,7 @@ export type Database = {
           old_request_fee?: number | null
           old_total_repayment?: number | null
           rent_request_id?: string
+          source?: string | null
           status?: string | null
           tenant_id?: string | null
         }
@@ -43362,7 +43365,11 @@ export type Database = {
       tenant_balance_edits: {
         Row: {
           agent_id: string | null
+          applied_at: string | null
           created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
           editor_id: string
           editor_name: string | null
           id: string
@@ -43378,11 +43385,20 @@ export type Database = {
           old_total_repayment: number | null
           reason: string
           rent_request_id: string
+          source: string
+          status: string
+          target: Json | null
+          target_outstanding: number | null
+          target_rent_amount: number | null
           tenant_id: string
         }
         Insert: {
           agent_id?: string | null
+          applied_at?: string | null
           created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
           editor_id: string
           editor_name?: string | null
           id?: string
@@ -43398,11 +43414,20 @@ export type Database = {
           old_total_repayment?: number | null
           reason: string
           rent_request_id: string
+          source?: string
+          status?: string
+          target?: Json | null
+          target_outstanding?: number | null
+          target_rent_amount?: number | null
           tenant_id: string
         }
         Update: {
           agent_id?: string | null
+          applied_at?: string | null
           created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_note?: string | null
           editor_id?: string
           editor_name?: string | null
           id?: string
@@ -43418,6 +43443,11 @@ export type Database = {
           old_total_repayment?: number | null
           reason?: string
           rent_request_id?: string
+          source?: string
+          status?: string
+          target?: Json | null
+          target_outstanding?: number | null
+          target_rent_amount?: number | null
           tenant_id?: string
         }
         Relationships: []
@@ -64353,7 +64383,11 @@ export type Database = {
         Args: { p_rent_request_id: string }
         Returns: {
           agent_id: string | null
+          applied_at: string | null
           created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          decision_note: string | null
           editor_id: string
           editor_name: string | null
           id: string
@@ -64369,6 +64403,11 @@ export type Database = {
           old_total_repayment: number | null
           reason: string
           rent_request_id: string
+          source: string
+          status: string
+          target: Json | null
+          target_outstanding: number | null
+          target_rent_amount: number | null
           tenant_id: string
         }[]
         SetofOptions: {
