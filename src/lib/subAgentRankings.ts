@@ -9,7 +9,7 @@
 import type { ServiceCenterSubAgent, ServiceCenterTenant } from '@/hooks/useAgentServiceCenter';
 
 /** What the board sorts on. `outstanding` is a follow-up list, not a podium. */
-export type SubAgentRankMetric = 'collected' | 'rate' | 'outstanding';
+export type SubAgentRankMetric = 'repaid' | 'rate' | 'outstanding';
 
 export interface SubAgentRankRow {
   /** Competition rank on the active metric: equal scores share a rank. */
@@ -18,7 +18,22 @@ export interface SubAgentRankRow {
   name: string;
   avatarUrl: string | null;
   suspended: boolean;
-  /** Σ `amount_repaid` across creditable rent plans. */
+  /**
+   * Σ `amount_repaid` across creditable rent plans, ALL TIME.
+   *
+   * This is the plan BALANCE, not the receipt book. `amount_repaid` has
+   * fifteen writers — agent collection, deposit settlement, tenant self-
+   * payment, ops balance edits, administrative completion — so it is what the
+   * tenant has been credited with, from any route, since the plan was funded.
+   * The metric is called `repaid` for that reason: calling it "collected"
+   * implied the sub-agent personally took the cash, and on 2026-09-28 the
+   * board was reading 13,350,179 for an agent whose own collections came to
+   * 7,445,779.
+   *
+   * It is also why reversed collections could surface here long after the
+   * reader-side sweep: a reversed row can be filtered, a column cannot. See
+   * `docs/reversed-collections-surface-audit.md`.
+   */
   collected: number;
   /** Σ `total_repayment` across creditable rent plans. */
   expected: number;
@@ -125,7 +140,7 @@ function scoreFor(row: Omit<SubAgentRankRow, 'rank' | 'score'>, metric: SubAgent
       return row.collectionRate ?? -1;
     case 'outstanding':
       return row.outstanding;
-    case 'collected':
+    case 'repaid':
     default:
       return row.collected;
   }
@@ -141,7 +156,7 @@ function scoreFor(row: Omit<SubAgentRankRow, 'rank' | 'score'>, metric: SubAgent
  */
 export function rankSubAgents(
   subAgents: ServiceCenterSubAgent[],
-  metric: SubAgentRankMetric = 'collected',
+  metric: SubAgentRankMetric = 'repaid',
 ): SubAgentRankRow[] {
   const scored = subAgents.map((s) => {
     const measured = measureSubAgent(s);

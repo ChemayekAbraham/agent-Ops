@@ -99,7 +99,7 @@ describe('rankSubAgents', () => {
   const bottom = subAgent('c', [plan({ total_repayment: 2_000_000, amount_repaid: 100_000 })]);
 
   it('ranks by rent collected, highest first', () => {
-    const rows = rankSubAgents([bottom, middle, top], 'collected');
+    const rows = rankSubAgents([bottom, middle, top], 'repaid');
     expect(rows.map((r) => r.subAgentId)).toEqual(['a', 'b', 'c']);
     expect(rows.map((r) => r.rank)).toEqual([1, 2, 3]);
   });
@@ -134,20 +134,20 @@ describe('rankSubAgents', () => {
       full_name: 'Carol',
     });
 
-    const rows = rankSubAgents([lower, tieB, tieA], 'collected');
+    const rows = rankSubAgents([lower, tieB, tieA], 'repaid');
     expect(rows.map((r) => r.rank)).toEqual([1, 1, 3]);
     // Deterministic order within the tie keeps the board stable across refetches.
     expect(rows.map((r) => r.name)).toEqual(['Aisha', 'Bosco', 'Carol']);
   });
 
   it('is stable when called twice on a reshuffled roster', () => {
-    const first = rankSubAgents([top, bottom, middle], 'collected').map((r) => r.subAgentId);
-    const second = rankSubAgents([middle, top, bottom], 'collected').map((r) => r.subAgentId);
+    const first = rankSubAgents([top, bottom, middle], 'repaid').map((r) => r.subAgentId);
+    const second = rankSubAgents([middle, top, bottom], 'repaid').map((r) => r.subAgentId);
     expect(first).toEqual(second);
   });
 
   it('returns nothing for an empty roster', () => {
-    expect(rankSubAgents([], 'collected')).toEqual([]);
+    expect(rankSubAgents([], 'repaid')).toEqual([]);
   });
 });
 
@@ -159,7 +159,7 @@ describe('summariseSubAgentRankings', () => {
         subAgent('b', [plan({ total_repayment: 3_000_000, amount_repaid: 300_000, daily_repayment: 20_000 })]),
         subAgent('c', []),
       ],
-      'collected',
+      'repaid',
     );
 
     const summary = summariseSubAgentRankings(rows);
@@ -175,7 +175,7 @@ describe('summariseSubAgentRankings', () => {
   });
 
   it('reports no rate for a team with nothing due', () => {
-    const summary = summariseSubAgentRankings(rankSubAgents([subAgent('a', [])], 'collected'));
+    const summary = summariseSubAgentRankings(rankSubAgents([subAgent('a', [])], 'repaid'));
     expect(summary.collectionRate).toBeNull();
     expect(summary.collected).toBe(0);
   });

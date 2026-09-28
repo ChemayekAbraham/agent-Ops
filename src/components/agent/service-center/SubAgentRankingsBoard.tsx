@@ -30,15 +30,16 @@ const METRICS: {
   podium: boolean;
 }[] = [
   {
-    value: 'collected',
-    label: 'Collected',
-    caption: 'Ranked by rent repayments collected on their own tenants’ plans.',
+    value: 'repaid',
+    label: 'Repaid',
+    caption:
+      'All-time rent repaid on their own tenants’ Rent Plans — every payment route, not only what the sub-agent collected in person.',
     podium: true,
   },
   {
     value: 'rate',
     label: 'Rate',
-    caption: 'Ranked by share of the amount due that has actually come in.',
+    caption: 'Share of each Rent Plan’s total repayment that has come in, all time.',
     podium: true,
   },
   {
@@ -86,10 +87,10 @@ function rowHeadline(row: SubAgentRankRow, metric: SubAgentRankMetric) {
     case 'rate':
       return { value: ratePercent(row.collectionRate), sub: `${formatUGX(row.collected)} in` };
     case 'outstanding':
-      return { value: formatUGX(row.outstanding), sub: `${ratePercent(row.collectionRate)} collected` };
-    case 'collected':
+      return { value: formatUGX(row.outstanding), sub: `${ratePercent(row.collectionRate)} repaid` };
+    case 'repaid':
     default:
-      return { value: formatUGX(row.collected), sub: `${ratePercent(row.collectionRate)} of due` };
+      return { value: formatUGX(row.collected), sub: `${ratePercent(row.collectionRate)} of plan total` };
   }
 }
 
@@ -200,7 +201,7 @@ export function SubAgentRankingsBoard({
   onOpenSubAgent?: (subAgentId: string) => void;
 }) {
   const [open, setOpen] = useState(true);
-  const [metric, setMetric] = useState<SubAgentRankMetric>('collected');
+  const [metric, setMetric] = useState<SubAgentRankMetric>('repaid');
   const [showAll, setShowAll] = useState(false);
 
   const rows = useMemo(() => rankSubAgents(subAgents, metric), [subAgents, metric]);
@@ -226,8 +227,8 @@ export function SubAgentRankingsBoard({
                 {isLoading
                   ? 'Loading your team…'
                   : summary.collected > 0
-                    ? `${formatUGX(summary.collected)} collected by ${summary.ranked} of ${summary.subAgents} sub-agents`
-                    : 'How your sub-agents compare on rent collected'}
+                    ? `${formatUGX(summary.collected)} repaid, all time, across ${summary.ranked} of ${summary.subAgents} sub-agents`
+                    : 'How your sub-agents compare on rent repaid'}
               </div>
             </div>
             <ChevronDown
@@ -270,9 +271,9 @@ export function SubAgentRankingsBoard({
               <>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {[
-                    { label: 'Team collected', value: formatUGX(summary.collected) },
+                    { label: 'Repaid, all time', value: formatUGX(summary.collected) },
                     { label: 'Still owed', value: formatUGX(summary.outstanding) },
-                    { label: 'Collection rate', value: ratePercent(summary.collectionRate) },
+                    { label: 'Repaid share', value: ratePercent(summary.collectionRate) },
                     { label: 'Due per day', value: formatUGX(summary.dailyTarget) },
                   ].map((s) => (
                     <div key={s.label} className="rounded-lg border border-border/60 bg-muted/30 p-2">
