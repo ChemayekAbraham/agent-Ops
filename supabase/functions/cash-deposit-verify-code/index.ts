@@ -486,7 +486,7 @@ Deno.serve(async (req) => {
     // "already_processed" only means approve-deposit found no PENDING row. A
     // deposit its first attempt marked 'failed' reads the same way, so the
     // retry used to log "credited" and SMS the depositor with nothing posted
-    // (doc 144). Only an 'approved' deposit_requests row counts as credited.
+    // (doc 145). Only an 'approved' deposit_requests row counts as credited.
     const { data: afterApprove } = await admin
       .from("deposit_requests")
       .select("status")

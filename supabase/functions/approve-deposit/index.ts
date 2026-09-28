@@ -800,7 +800,7 @@ Deno.serve(async (req) => {
           // sides come from ledger_account_map, so create_ledger_transaction's
           // raw cash_in = cash_out check can never pass it. Every such deposit
           // failed from f905c1182c (2026-09-24) until this fix, and the
-          // receipt-code path still told the depositor "credited" (doc 144).
+          // receipt-code path still told the depositor "credited" (doc 145).
           // Post it through the mapped double-entry assertion instead, the
           // same route finops-wallet-move uses.
           let depositLedgerErr: { message: string } | null = null;

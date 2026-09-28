@@ -1,4 +1,4 @@
-# 144 — Cash personal deposits never credited since 09-24, but the depositor was told "credited"
+# 145 — Cash personal deposits never credited since 09-24, but the depositor was told "credited"
 
 **Date:** 2026-09-28 · **Reported by:** Josh (an SMS screenshot: "UGX 6,000,000 credited … receipt code 5602 … New balance UGX 638,076")
 **Code changed:** `supabase/functions/approve-deposit/index.ts`, `supabase/functions/cash-deposit-verify-code/index.ts`
