@@ -1532,17 +1532,24 @@ export default function IdentityPhotoCapture({ compact }: Props) {
           </p>
         )}
 
-        {!reading && idReading && (
+        {!reading && (idReading || showSavedDetailsForm) && (
           <div className="space-y-3 rounded-lg border p-3">
             <p className="flex items-center gap-2 text-sm font-semibold">
               <ScanLine className="h-4 w-4 text-primary" />
-              What we read on your ID
+              {idReading ? 'What we read on your ID' : 'The details on your National ID'}
             </p>
+
+            {!idReading && (
+              <p className="text-xs text-muted-foreground">
+                Your ID photo is already on file, so you do not need to take it again. Check the
+                details below against your card, fill in anything missing, and send.
+              </p>
+            )}
 
             {/* The reader refuses a field it could not read rather than
                 guessing, so `incomplete` is the normal failure and it names
                 exactly what to fix. `invalid` means it is not an ID at all. */}
-            {readingGuidance(idReading) && (
+            {idReading && readingGuidance(idReading) && (
               <p
                 className={`rounded-md border p-2 text-xs ${
                   idReading.status === 'invalid'
@@ -1554,7 +1561,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
               </p>
             )}
 
-            {idReading.status !== 'invalid' && (
+            {idReading?.status !== 'invalid' && (
               <>
                 <p className="text-xs text-muted-foreground">
                   Check every line against your card and correct anything that is wrong.
@@ -1562,7 +1569,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
 
                 <div className="grid gap-2 sm:grid-cols-2">
                   {(Object.keys(EMPTY_ID_DATA) as (keyof NationalIdData)[]).map((key) => {
-                    const readOk = idReading.fields?.[key]?.valid === true;
+                    const readOk = idReading ? idReading.fields?.[key]?.valid === true : true;
                     return (
                       <div key={key} className={key === 'sex' ? '' : 'sm:col-span-1'}>
                         <Label htmlFor={`nid-${key}`} className="text-xs">
