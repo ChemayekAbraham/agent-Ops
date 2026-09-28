@@ -98,7 +98,9 @@ DECLARE
   d numeric; t numeric;
   v_inst uuid := gen_random_uuid(); v_grp uuid; v_key text; v_offset_cat text; v_legs jsonb; v_res jsonb;
 BEGIN
-  IF p_route NOT IN ('agent_collection','deposit_settlement') THEN
+  -- 'engine_paid' (2026-09-29): commission paid by credit_agent_rent_commission, which books it
+  -- as marketing_expense (X1). The offset credits that same line so the cost is counted once.
+  IF p_route NOT IN ('agent_collection','deposit_settlement','engine_paid') THEN
     RAISE EXCEPTION 'unknown route %', p_route;
   END IF;
 
@@ -215,7 +217,7 @@ BEGIN
      split_version, over_total_amount, commission_paid_component)
   VALUES (p_rent_request_id, v_inst, v_amt, pr, f_reg, f_acc, r, c, pf,
           p_source_table, p_source_id, 'four_part_v1', v_over,
-          CASE WHEN p_route = 'agent_collection' THEN 0 ELSE p_commission_paid END);
+          CASE WHEN p_route IN ('agent_collection','engine_paid') THEN 0 ELSE p_commission_paid END);
 
   IF v_over > 0 THEN
     INSERT INTO rent_fee_collection_exceptions
@@ -229,6 +231,7 @@ BEGIN
 
   IF f > 0 THEN
     v_offset_cat := CASE WHEN p_route = 'agent_collection' THEN 'agent_commission_payable'
+                         WHEN p_route = 'engine_paid' THEN 'marketing_expense'
                          ELSE 'agent_commission_settled' END;
     v_key := COALESCE(p_idempotency_key, 'four-part-fee:' || p_source_table || ':' || p_source_id::text);
     v_legs := jsonb_build_array(jsonb_build_object(
@@ -547,7 +550,7 @@ BEGIN
   -- manual_collect_rent added 2026-09-29: manual-collect-rent pays 10% itself and books X3.
   IF p_source_table IN ('subscription_charges','agent_deposits','tenant_pay_rent','manual_collect_rent') THEN
     v_res := public._post_four_part_fee_split(p_rent_request_id, p_instalment_amount, p_source_table, p_source_id,
-               'agent_collection', NULL,
+               CASE WHEN p_source_table = 'manual_collect_rent' THEN 'agent_collection' ELSE 'engine_paid' END, NULL,
                COALESCE(p_idempotency_key, 'four-part-fee:' || p_source_table || ':' || p_source_id::text));
     v_paid := 0;
   ELSE
