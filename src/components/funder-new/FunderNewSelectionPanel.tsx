@@ -1,4 +1,4 @@
-import { Home, Info, ShieldCheck, Trash2, X } from 'lucide-react';
+import { Home, Info, ShieldCheck, Trash2, Wallet, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -75,6 +75,7 @@ export function FunderNewReviewDialog({
   walletLoading,
   walletError,
   onRemove,
+  onFund,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -83,6 +84,8 @@ export function FunderNewReviewDialog({
   walletLoading: boolean;
   walletError: unknown;
   onRemove: (item: FunderNewSelectionItem) => void;
+  /** Called with the total and the shortfall (0 when the balance covers it). */
+  onFund?: (total: number, shortfall: number) => void;
 }) {
   const total = items.reduce((sum, item) => sum + item.amount, 0);
   const shortfall = available === null ? null : Math.max(0, total - available);
@@ -158,6 +161,19 @@ export function FunderNewReviewDialog({
           Selecting and reviewing homes is planning only. Support starts after you confirm and the usual approval step is
           completed. Returns shown are estimates at the current 15% rate.
         </p>
+
+        {onFund && items.length > 0 ? (
+          <Button
+            className="h-12 w-full gap-2 bg-emerald-600 text-base font-bold text-white hover:bg-emerald-700"
+            disabled={walletLoading || available === null}
+            onClick={() => onFund(total, shortfall ?? 0)}
+          >
+            <Wallet className="h-4 w-4" />
+            {shortfall !== null && shortfall > 0
+              ? `Fund — top up ${formatDynamic(shortfall)}`
+              : `Fund this plan — ${formatDynamic(total)}`}
+          </Button>
+        ) : null}
       </DialogContent>
     </Dialog>
   );

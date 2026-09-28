@@ -520,6 +520,19 @@ export function FunderHouseListingsSection() {
         walletLoading={wallet.isLoading}
         walletError={wallet.error}
         onRemove={removeSelected}
+        onFund={(total, shortfall) => {
+          if (shortfall > 0) {
+            // Not enough balance: open the deposit sheet with the exact shortfall.
+            toast.info(`Not enough balance. Deposit ${formatDynamic(shortfall)} to fund this plan.`);
+            setReviewOpen(false);
+            setTopUpAmount(Math.ceil(shortfall));
+          } else {
+            toast.success(
+              `Your balance covers ${formatDynamic(total)}. Support starts after the usual approval step is completed.`,
+            );
+            setReviewOpen(false);
+          }
+        }}
       />
       <FunderNewSelectionBar
         items={selectedItems}
