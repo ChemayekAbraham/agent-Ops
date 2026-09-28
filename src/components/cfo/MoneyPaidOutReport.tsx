@@ -7,7 +7,7 @@ const meth = (r: any) => (r.payment_method ?? '').replace(/_/g, ' ');
 const config: DrillConfig = {
   title: 'Money Paid Out',
   description: 'Completed payouts to mobile money, bank and cash, plus pending requests. Wallet credits and internal transfers are excluded.',
-  rpc: 'get_cfo_money_paid_out_drilldown', payerParam: 'p_recipient', filename: 'money-paid-out',
+  rpc: 'get_cfo_money_paid_out_page', kind: 'paid_out', payerParam: 'p_recipient', filename: 'money-paid-out',
   personLabel: 'Recipient', confirmedLabel: 'Paid out',
   types: ['Wallet withdrawal', 'Supporter returns', 'Commission', 'Landlord', 'Salary'],
   statuses: [{ value: 'confirmed', label: 'Paid (completed + paid)' }, { value: 'completed', label: 'Completed' }, { value: 'paid', label: 'Paid' }, { value: 'pending', label: 'Pending' }],

@@ -1,4 +1,4 @@
-/** Reads tops_agent_arrears_book(p_as_at) — one row per (agent, bucket) on the same 1-7/8-14/15-30/30+ ladder tops_arrears_ageing uses. */
+/** Reads tops_agent_arrears_book(p_as_at) — one row per (agent, bucket), server-ordered by that agent's total arrears descending. */
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -41,6 +41,10 @@ export function useAgentArrearsBook(asAt: string | null) {
     staleTime: 30_000,
   });
 
+  // tops_agent_arrears_book() orders its rows so a given agent's bucket rows
+  // are contiguous and ordered by that agent's total arrears descending —
+  // building this Map in row order (Map iterates in insertion order)
+  // reproduces that same ordering without a second, client-side sort.
   const byAgent = useMemo(() => {
     const map = new Map<string, AgentArrearsBook>();
     for (const row of query.data ?? []) {
@@ -62,7 +66,7 @@ export function useAgentArrearsBook(asAt: string | null) {
       entry.byBucket[row.bucket] = { planCount: row.plan_count, arrearsUgx: row.arrears_ugx };
       entry.totalArrearsUgx += row.arrears_ugx;
     }
-    return Array.from(map.values()).sort((a, b) => b.totalArrearsUgx - a.totalArrearsUgx);
+    return Array.from(map.values());
   }, [query.data]);
 
   return { ...query, byAgent };

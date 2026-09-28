@@ -11,7 +11,7 @@ import { ChevronRight, Info } from 'lucide-react';
  * rows and a reconciling total. No figure is derived here: every value is
  * passed in already computed.
  */
-export function HeroCard({ icon, iconBg, title, value, percentageLabel, items, footer, footerTone, onClick }: {
+export function HeroCard({ icon, iconBg, title, value, percentageLabel, items, footer, footerTone, onClick, className, action }: {
   icon: React.ReactNode;
   iconBg: string;
   title: string;
@@ -21,7 +21,12 @@ export function HeroCard({ icon, iconBg, title, value, percentageLabel, items, f
   footer?: string;
   footerTone?: string;
   onClick?: () => void;
+  /** Sizing hooks for the caller's layout (e.g. "flex-1" inside a column). */
+  className?: string;
+  /** Optional control rendered inside the card, below the tappable summary. */
+  action?: React.ReactNode;
 }) {
+
   const [open, setOpen] = useState(false);
   // Colour carries meaning through the icon tile, as in the reference design;
   // the amount stays foreground so the cards read as one set. A negative figure
@@ -30,12 +35,13 @@ export function HeroCard({ icon, iconBg, title, value, percentageLabel, items, f
 
   return (
     <>
-      <div className="w-full rounded-2xl border border-border/70 bg-card shadow-sm transition-shadow hover:shadow-md">
+      <div className={`w-full flex flex-col rounded-2xl border border-border/70 bg-card shadow-sm transition-shadow hover:shadow-md ${className ?? ''}`}>
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="w-full text-left p-5 rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="w-full text-left p-5 rounded-2xl flex-1 flex flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
+
           <div className="flex items-start justify-between gap-3">
             <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>{icon}</div>
             <span
@@ -48,14 +54,16 @@ export function HeroCard({ icon, iconBg, title, value, percentageLabel, items, f
 
           <p className="mt-4 text-[11px] font-medium text-muted-foreground truncate">{title}</p>
           <p
-            className={`mt-1.5 text-[22px] leading-none sm:text-[26px] sm:leading-none font-bold tabular-nums tracking-tight ${negative ? 'text-destructive' : 'text-foreground'}`}
+            className={`mt-1.5 text-[20px] leading-none sm:text-[22px] xl:text-[19px] 2xl:text-[24px] font-bold tabular-nums tracking-tight ${negative ? 'text-destructive' : 'text-foreground'}`}
           >
             {value}
           </p>
           {percentageLabel ? <p className="mt-2 text-[11px] font-medium text-muted-foreground">{percentageLabel}</p> : null}
           {footer ? <p className="mt-2.5 text-[11px] text-muted-foreground line-clamp-2">{footer}</p> : null}
         </button>
+        {action ? <div className="px-5 pb-5">{action}</div> : null}
       </div>
+
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-md">

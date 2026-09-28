@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Plus, TrendingUp, AlertTriangle, DollarSign, Shield, Percent, Calculator, Receipt, Trash2, RefreshCw, Download, FileText, Ban, Pencil, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, TrendingUp, AlertTriangle, DollarSign, Shield, Percent, Calculator, Receipt, Trash2, RefreshCw, Download, FileText, Ban, Pencil, ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
 import { exportAdvanceStatements, exportConsolidatedPayments } from '@/lib/agentAdvancePdfExport';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -58,6 +58,7 @@ export function CFOAdvancesManager() {
   const [cancelAdvance, setCancelAdvance] = useState<any | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [search, setSearch] = useState('');
 
 
   const handleExportPayments = async () => {
@@ -121,9 +122,18 @@ export function CFOAdvancesManager() {
   });
 
   const filtered = useMemo(() => {
-    if (filter === 'all') return advances;
-    return advances.filter((a: any) => a.status === filter);
-  }, [advances, filter]);
+    let rows = advances;
+    if (filter !== 'all') rows = rows.filter((a: any) => a.status === filter);
+    const q = search.trim().toLowerCase();
+    if (q) {
+      rows = rows.filter((a: any) => {
+        const name = (a.profiles?.full_name || '').toLowerCase();
+        const phone = (a.profiles?.phone || '').toLowerCase();
+        return name.includes(q) || phone.includes(q);
+      });
+    }
+    return rows;
+  }, [advances, filter, search]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, totalPages);
@@ -140,7 +150,8 @@ export function CFOAdvancesManager() {
 
   useEffect(() => {
     setPage(1);
-  }, [filter, pageSize]);
+  }, [filter, pageSize, search]);
+
 
 
   const pageNumbers = useMemo(() => {
@@ -351,14 +362,36 @@ export function CFOAdvancesManager() {
       <DailyRecoveryRateCard />
 
       {/* Filters */}
-      <Tabs value={filter} onValueChange={(v) => { setFilter(v as any); setSelectedIds(new Set()); }}>
-        <TabsList>
-          <TabsTrigger value="all">All ({advances.length})</TabsTrigger>
-          <TabsTrigger value="active">Active ({advances.filter((a: any) => a.status === 'active').length})</TabsTrigger>
-          <TabsTrigger value="completed">Completed ({advances.filter((a: any) => a.status === 'completed').length})</TabsTrigger>
-          <TabsTrigger value="overdue">Overdue ({advances.filter((a: any) => a.status === 'overdue').length})</TabsTrigger>
-        </TabsList>
-      </Tabs>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <Tabs value={filter} onValueChange={(v) => { setFilter(v as any); setSelectedIds(new Set()); }}>
+          <TabsList>
+            <TabsTrigger value="all">All ({advances.length})</TabsTrigger>
+            <TabsTrigger value="active">Active ({advances.filter((a: any) => a.status === 'active').length})</TabsTrigger>
+            <TabsTrigger value="completed">Completed ({advances.filter((a: any) => a.status === 'completed').length})</TabsTrigger>
+            <TabsTrigger value="overdue">Overdue ({advances.filter((a: any) => a.status === 'overdue').length})</TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <div className="relative sm:ml-auto w-full sm:w-64">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search agent by name or phone..."
+            className="pl-9 pr-9"
+            aria-label="Search advances by agent name or phone"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground hover:text-foreground"
+              aria-label="Clear search"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      </div>
 
       {/* Sticky Selection Action Bar */}
       {selectedIds.size > 0 && (

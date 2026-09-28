@@ -1,5 +1,5 @@
-/** Presentation only — every figure comes straight from tops_plan_schedule_ledger(). */
-import { useMemo, useState } from 'react';
+/** Presentation only — every figure comes straight from tops_plan_schedule_ledger(), paged server-side. */
+import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -65,15 +65,12 @@ export interface ScheduleLedgerProps {
 }
 
 export default function ScheduleLedger({ rentRequestId }: ScheduleLedgerProps) {
-  const { data, isLoading, error } = usePlanScheduleLedger(rentRequestId);
   const [page, setPage] = useState(0);
+  const { data, isLoading, error } = usePlanScheduleLedger(rentRequestId, PAGE_SIZE, page * PAGE_SIZE);
 
-  const rows = data ?? [];
-  const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
-  const pageRows = useMemo(
-    () => rows.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE),
-    [rows, page],
-  );
+  const pageRows = data?.rows ?? [];
+  const totalRowCount = data?.totalRowCount ?? 0;
+  const pageCount = Math.max(1, Math.ceil(totalRowCount / PAGE_SIZE));
 
   if (isLoading) {
     return (
@@ -93,7 +90,7 @@ export default function ScheduleLedger({ rentRequestId }: ScheduleLedgerProps) {
     );
   }
 
-  if (rows.length === 0) {
+  if (totalRowCount === 0) {
     return (
       <Card className="border shadow-sm">
         <CardContent className="py-8 text-center text-sm text-muted-foreground">

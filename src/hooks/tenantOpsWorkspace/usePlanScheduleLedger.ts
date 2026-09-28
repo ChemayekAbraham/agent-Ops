@@ -1,4 +1,4 @@
-/** Reads tops_plan_schedule_ledger() — one row per instalment. No client-side arithmetic. */
+/** Reads tops_plan_schedule_ledger(p_rent_request_id, p_limit, p_offset) — one page of instalments, plus tops_plan_schedule_ledger_count() for the total. No client-side arithmetic. */
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -21,16 +21,24 @@ export interface PlanScheduleLedgerRow {
   never_billed: boolean;
 }
 
-async function fetchPlanScheduleLedger(rentRequestId: string): Promise<PlanScheduleLedgerRow[]> {
-  const { data, error } = await anyDb.rpc('tops_plan_schedule_ledger', { p_rent_request_id: rentRequestId });
+async function fetchPlanScheduleLedgerPage(
+  rentRequestId: string,
+  limit: number,
+  offset: number,
+): Promise<{ rows: PlanScheduleLedgerRow[]; totalRowCount: number }> {
+  const [{ data, error }, { data: count, error: countError }] = await Promise.all([
+    anyDb.rpc('tops_plan_schedule_ledger', { p_rent_request_id: rentRequestId, p_limit: limit, p_offset: offset }),
+    anyDb.rpc('tops_plan_schedule_ledger_count', { p_rent_request_id: rentRequestId }),
+  ]);
   if (error) throw error;
-  return (data ?? []) as PlanScheduleLedgerRow[];
+  if (countError) throw countError;
+  return { rows: (data ?? []) as PlanScheduleLedgerRow[], totalRowCount: Number(count ?? 0) };
 }
 
-export function usePlanScheduleLedger(rentRequestId: string | undefined) {
+export function usePlanScheduleLedger(rentRequestId: string | undefined, limit: number, offset: number) {
   return useQuery({
-    queryKey: ['tenantOpsWorkspace', 'planScheduleLedger', rentRequestId],
-    queryFn: () => fetchPlanScheduleLedger(rentRequestId as string),
+    queryKey: ['tenantOpsWorkspace', 'planScheduleLedger', rentRequestId, limit, offset],
+    queryFn: () => fetchPlanScheduleLedgerPage(rentRequestId as string, limit, offset),
     enabled: !!rentRequestId,
     staleTime: 60_000,
   });

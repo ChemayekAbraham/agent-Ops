@@ -32,8 +32,10 @@ export function MoneyPaidOutCard() {
   const total = () => d && drill({ label: 'All time', ...allTime(), status: conf, expected: { amount: n(d.total_paid), count: n(d.total_count), basis: 'confirmed' } });
   const n = (v?: number) => Number(v ?? 0);
   return (
-    <div className="flex flex-col gap-2">
+    <>
     <HeroCard
+
+
       icon={<ArrowUpRight className="h-5 w-5 text-rose-50" />}
       iconBg="bg-rose-600"
       title="Money Paid Out"
@@ -47,9 +49,10 @@ export function MoneyPaidOutCard() {
       ] : []}
       onClick={() => { total(); }}
       footer={q.error ? 'Could not load payouts' : 'Excludes wallet credits and internal transfers'}
+      action={<Button variant="outline" size="sm" className="w-full" onClick={() => drill(null)}><FileText className="h-4 w-4 mr-1" /> View Report</Button>}
     />
-    <Button variant="outline" size="sm" onClick={() => drill(null)}><FileText className="h-4 w-4 mr-1" /> View Report</Button>
     <MoneyPaidOutReport open={report} onOpenChange={setReport} preset={preset} />
-    </div>
+    </>
+
   );
 }

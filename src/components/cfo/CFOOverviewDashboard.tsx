@@ -258,7 +258,11 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
           open={isOpen('position')}
           onToggle={() => toggleSection('position')}
         >
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {/* Four across and two down on wide screens; two across on tablets
+              and one on phones, because below ~1280px the UGX amounts stop
+              fitting on one line inside a quarter of the page. */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+
             <Card className="rounded-2xl border border-border/70 bg-card shadow-sm transition-shadow hover:shadow-md overflow-hidden h-full">
               <CardContent className="p-5 h-full flex flex-col">
                 <button
@@ -278,7 +282,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
                     </span>
                   </div>
                   <p className="mt-4 text-[11px] font-medium text-muted-foreground truncate">Money We Have</p>
-                  <p className="mt-1.5 text-[22px] leading-none sm:text-[26px] sm:leading-none font-bold tabular-nums tracking-tight text-foreground">
+                  <p className="mt-1.5 text-[20px] leading-none sm:text-[22px] xl:text-[19px] 2xl:text-[24px] font-bold tabular-nums tracking-tight text-foreground">
                     {actualLoading ? '—' : fmt(actualMoney?.total ?? 0)}
                   </p>
                   <p className="mt-2 text-[11px] font-medium text-muted-foreground">
@@ -429,14 +433,11 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               ]}
               onClick={() => setActiveBreakdown('earnings')}
             />
-          </div>
 
-          {/* Transaction-level reconciliation behind Money We Can Use. */}
-          <MoneyWeCanUseBreakdown />
+          {/* Where that same cash sits, plus what has moved out and in — all
+              eight cards share one shell and one grid, so the band reads as a
+              single 4 × 2 board rather than two rows of different widths. */}
 
-          {/* Where that same cash sits — a split of "Money We Have", so it
-              belongs directly beneath it rather than further down the page. */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {/* Treasury / platform cash shows the REAL money the platform holds
                 outside the bank — live MTN and Airtel line balances plus verified
                 cash collected but not yet banked — so it partitions the actual
@@ -488,13 +489,14 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               onClick={() => setActualMoneyLine('banked_cash')}
             />
 
-            {/* Last in the row, so it sits on the right as the companion to the
-                treasury and bank cards — and it is the same card shell, so the
-                three read as one set. */}
             <WithdrawableCreditsLivePanel />
             <MoneyPaidOutCard />
             <MoneyReceivedCard />
           </div>
+
+          {/* Transaction-level reconciliation behind Money We Can Use. */}
+          <MoneyWeCanUseBreakdown />
+
         </Band>
 
         {/* ─────────── 2 · RECEIVABLES & PAYABLES ─────────── */}

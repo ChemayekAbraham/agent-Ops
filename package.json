@@ -15,6 +15,7 @@
     "guard:deposit-purpose": "node scripts/guard-deposit-purpose.mjs",
     "guard:canonical-tags": "node scripts/guard-canonical-tags.mjs",
     "guard:function-grants": "node scripts/guard-privileged-function-grants.mjs",
+    "guard:tops-client-math": "node scripts/guard-tops-client-math.mjs",
     "guard:schema-types": "node scripts/guard-schema-types.mjs",
     "check:runtime-env": "node scripts/check-runtime-env.mjs",
     "verify:dist": "node scripts/verify-dist.mjs",

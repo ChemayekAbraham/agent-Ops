@@ -7,7 +7,7 @@ const meth = (r: any) => (r.payment_method ?? '').replace(/_/g, ' ');
 const config: DrillConfig = {
   title: 'Money Received',
   description: 'Confirmed deposits by mobile money, bank and cash, plus pending ones. Internal transfers and accounting corrections are excluded.',
-  rpc: 'get_cfo_money_received_drilldown', payerParam: 'p_payer', filename: 'money-received',
+  rpc: 'get_cfo_money_received_page', kind: 'received', payerParam: 'p_payer', filename: 'money-received',
   personLabel: 'Source/payer', confirmedLabel: 'Received',
   types: ['Operational float', 'Personal deposit', 'Partnership deposit', 'Rent repayment', 'Other'],
   statuses: [{ value: 'approved', label: 'Confirmed' }, { value: 'pending', label: 'Pending' }],

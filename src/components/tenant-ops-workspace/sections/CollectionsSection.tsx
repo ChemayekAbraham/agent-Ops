@@ -251,7 +251,7 @@ export default function CollectionsSection() {
   const arrears = useArrearsAgeing({ asAt, bucket, limit: PAGE_SIZE, offset: page * PAGE_SIZE });
   const movement = useCollectionsMovement({ from: daysAgoIso(7), to: asAt, limit: PAGE_SIZE, offset: page * PAGE_SIZE });
   const neverBilled = useNeverBilled({ asAt, limit: PAGE_SIZE, offset: page * PAGE_SIZE });
-  const anomalies = useCollectionAnomalies('open');
+  const anomalies = useCollectionAnomalies('open', PAGE_SIZE, page * PAGE_SIZE);
   const unknownCadence = useUnknownCadencePlans(PAGE_SIZE, page * PAGE_SIZE);
 
   const bucketSummary = arrears.data?.summary ?? {};
@@ -488,7 +488,7 @@ export default function CollectionsSection() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-semibold">
               Open anomalies
-              <Badge variant="outline" className="ml-2 text-[10px]">{anomalies.data?.length ?? 0}</Badge>
+              <Badge variant="outline" className="ml-2 text-[10px]">{anomalies.data?.totalRowCount ?? 0}</Badge>
             </CardTitle>
             <p className="text-[11px] text-muted-foreground">
               Collections whose ledger legs don't match the expected shape for their channel — detection only, checked every 10 minutes.
@@ -509,10 +509,10 @@ export default function CollectionsSection() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(anomalies.data ?? []).map((a) => (
+                  {(anomalies.data?.rows ?? []).map((a) => (
                     <AnomalyRow key={a.id} anomaly={a} />
                   ))}
-                  {(anomalies.data ?? []).length === 0 && (
+                  {(anomalies.data?.rows ?? []).length === 0 && (
                     <TableRow>
                       <TableCell colSpan={7} className="text-center text-xs text-muted-foreground">
                         {anomalies.isLoading ? 'Loading…' : 'No open anomalies.'}
@@ -522,6 +522,7 @@ export default function CollectionsSection() {
                 </TableBody>
               </Table>
             </div>
+            <PagerFooter page={page} totalRows={anomalies.data?.totalRowCount ?? 0} onPage={setPage} />
           </CardContent>
         </Card>
       )}

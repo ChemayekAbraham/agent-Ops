@@ -54783,6 +54783,41 @@ export type Database = {
           roi_percentage: number
         }[]
       }
+      _cfo_paid_out_base: {
+        Args: {
+          p_from: string
+          p_method: string
+          p_recipient: string
+          p_status: string
+          p_to: string
+          p_type: string
+        }
+        Returns: {
+          amount: number
+          id: string
+          pn: string
+          pp: string
+          ptype: string
+          status: string
+          ts: string
+        }[]
+      }
+      _cfo_received_base: {
+        Args: {
+          p_from: string
+          p_method: string
+          p_payer: string
+          p_status: string
+          p_to: string
+          p_type: string
+        }
+        Returns: {
+          amount: number
+          id: string
+          status: string
+          ts: string
+        }[]
+      }
       _classify_daily_rating:
         | { Args: { p_active_count: number; p_ratio: number }; Returns: string }
         | {
@@ -59983,6 +60018,24 @@ export type Database = {
           wallet_bucket: string
         }[]
       }
+      get_cfo_money_drilldown_totals: {
+        Args: {
+          p_from: string
+          p_kind: string
+          p_method?: string
+          p_person?: string
+          p_status?: string
+          p_to: string
+          p_type?: string
+        }
+        Returns: {
+          confirmed_amount: number
+          confirmed_count: number
+          match_count: number
+          pending_amount: number
+          pending_count: number
+        }[]
+      }
       get_cfo_money_paid_out: {
         Args: never
         Returns: {
@@ -60015,6 +60068,33 @@ export type Database = {
           match_confirmed_amount: number
           match_count: number
           match_pending_amount: number
+          paid_at: string
+          payment_method: string
+          payout_reference: string
+          payout_type: string
+          recipient: string
+          recipient_phone: string
+          source_account: string
+          status: string
+        }[]
+      }
+      get_cfo_money_paid_out_page: {
+        Args: {
+          p_from: string
+          p_limit?: number
+          p_method?: string
+          p_offset?: number
+          p_recipient?: string
+          p_status?: string
+          p_to: string
+          p_type?: string
+        }
+        Returns: {
+          amount: number
+          created_at: string
+          description: string
+          id: string
+          ledger_reference: string
           paid_at: string
           payment_method: string
           payout_reference: string
@@ -60082,6 +60162,32 @@ export type Database = {
           match_confirmed_amount: number
           match_count: number
           match_pending_amount: number
+          payer: string
+          payer_phone: string
+          payment_method: string
+          receipt_reference: string
+          receipt_type: string
+          received_at: string
+          status: string
+        }[]
+      }
+      get_cfo_money_received_page: {
+        Args: {
+          p_from: string
+          p_limit?: number
+          p_method?: string
+          p_offset?: number
+          p_payer?: string
+          p_status?: string
+          p_to: string
+          p_type?: string
+        }
+        Returns: {
+          amount: number
+          description: string
+          destination: string
+          id: string
+          ledger_reference: string
           payer: string
           payer_phone: string
           payment_method: string

@@ -2360,6 +2360,13 @@
       "when": 1790599473639,
       "tag": "0336_cfo_money_drilldown",
       "breakpoints": true
+    },
+    {
+      "idx": 337,
+      "version": "7",
+      "when": 1790601607716,
+      "tag": "0337_cfo_money_drilldown_paged",
+      "breakpoints": true
     }
   ]
 }

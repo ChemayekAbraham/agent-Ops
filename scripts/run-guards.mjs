@@ -25,6 +25,7 @@ const GUARDS = [
   ['guard-location-freetext.mjs', 'free-text admin location capture'],
   ['guard-canonical-tags.mjs', 'canonical tags'],
   ['guard-privileged-function-grants.mjs', 'privileged function EXECUTE grants'],
+  ['guard-tops-client-math.mjs', 'tenant ops workspace client-side money math'],
 ];
 
 const bar = '='.repeat(78);

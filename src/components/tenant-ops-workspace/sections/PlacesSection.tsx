@@ -25,16 +25,26 @@ const LEVELS: { key: AreaLevel; label: string }[] = [
 ];
 
 const CORRECTION_HUB_URL = '/executive-hub?tab=tenant-ops&mode=classic&view=location-corrections';
+const COVERAGE_PAGE_SIZE = 50;
 
 export default function PlacesSection() {
   const [level, setLevel] = useState<AreaLevel>('district');
+  const [coveragePage, setCoveragePage] = useState(0);
   const areaBook = useAreaBook(level, null);
-  const coverage = useAgentAreaCoverage(level);
+  const coverage = useAgentAreaCoverage(level, COVERAGE_PAGE_SIZE, coveragePage * COVERAGE_PAGE_SIZE);
   const unmapped = useUnmappedTenantsWorklist(200);
+
+  const changeLevel = (next: AreaLevel) => {
+    setLevel(next);
+    setCoveragePage(0);
+  };
+
+  const coverageTotal = coverage.data?.total_row_count ?? 0;
+  const coveragePageCount = Math.max(1, Math.ceil(coverageTotal / COVERAGE_PAGE_SIZE));
 
   return (
     <div className="space-y-4">
-      <Tabs value={level} onValueChange={(v) => setLevel(v as AreaLevel)}>
+      <Tabs value={level} onValueChange={(v) => changeLevel(v as AreaLevel)}>
         <TabsList>
           {LEVELS.map((l) => (
             <TabsTrigger key={l.key} value={l.key}>{l.label}</TabsTrigger>
@@ -104,14 +114,14 @@ export default function PlacesSection() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(coverage.data ?? []).slice(0, 50).map((row, i) => (
+                {(coverage.data?.rows ?? []).map((row, i) => (
                   <TableRow key={`${row.area_key ?? 'unmapped'}-${row.agent_id}-${i}`}>
                     <TableCell className="text-xs">{row.area_name}</TableCell>
                     <TableCell className="text-xs">{row.agent_name ?? 'Unnamed'}</TableCell>
                     <TableCell className="text-xs">{row.plan_count}</TableCell>
                   </TableRow>
                 ))}
-                {(coverage.data ?? []).length === 0 && (
+                {(coverage.data?.rows ?? []).length === 0 && (
                   <TableRow>
                     <TableCell colSpan={3} className="text-center text-xs text-muted-foreground">
                       {coverage.isLoading ? 'Loading…' : 'No coverage rows.'}
@@ -121,8 +131,28 @@ export default function PlacesSection() {
               </TableBody>
             </Table>
           </div>
-          {(coverage.data ?? []).length > 50 && (
-            <p className="pt-2 text-[11px] text-muted-foreground">Showing the top 50 of {coverage.data!.length} rows.</p>
+          {coverageTotal > 0 && (
+            <div className="flex items-center justify-between pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={coveragePage === 0}
+                onClick={() => setCoveragePage((p) => Math.max(0, p - 1))}
+              >
+                Previous
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Page {coveragePage + 1} of {coveragePageCount} ({coverageTotal} total)
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={coveragePage >= coveragePageCount - 1}
+                onClick={() => setCoveragePage((p) => Math.min(coveragePageCount - 1, p + 1))}
+              >
+                Next
+              </Button>
+            </div>
           )}
         </CardContent>
       </Card>
