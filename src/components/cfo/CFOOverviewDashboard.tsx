@@ -487,6 +487,10 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               onClick={() => setActualMoneyLine('banked_cash')}
             />
 
+            {/* Last in the row, so it sits on the right as the companion to the
+                treasury and bank cards — and it is the same card shell, so the
+                three read as one set. */}
+            <WithdrawableCreditsLivePanel />
           </div>
         </Band>
 
