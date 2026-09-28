@@ -35,7 +35,7 @@ export default function ProxyPerformanceDashboard() {
         <Button variant="ghost" size="sm" className="-ml-2 h-8" onClick={() => navigate('/dashboard/agent')}><ArrowLeft className="mr-1 h-4 w-4" />Agent dashboard</Button>
         <Button size="sm" className="h-8" onClick={() => setNoteOpen(true)}><FilePlus2 className="mr-1 h-4 w-4" />Create Promissory Note</Button>
       </div>
-      <ProxyDashboardHeader name={name} today={d?.today} />
+      <ProxyDashboardHeader name={name} today={d?.today} commission={d?.commission} />
 
       {q.isLoading && !d ? <ProxyDashboardSkeleton /> : q.isError && !d ? (
         <SectionError label="your performance" onRetry={() => q.refetch()} />
