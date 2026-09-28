@@ -1,6 +1,6 @@
 # Rent Plan scoring — SHADOW MODE (v0)
 
-Migration: `supabase/migrations/20260928100000_rent_plan_shadow_scoring.sql`
+Migration: `supabase/migrations/20260928170000_rent_plan_shadow_scoring.sql`
 
 - Scores each Rent Plan request once (`rent_plan_shadow_scores`), from four inputs:
   the tenant's repayment history, the tenant's arrears band on other plans, the agent's
