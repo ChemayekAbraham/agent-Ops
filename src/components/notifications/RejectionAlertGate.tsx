@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { usePolling } from "@/hooks/usePolling";
 import {
   Dialog,
   DialogContent,
@@ -81,12 +82,20 @@ export function RejectionAlertGate() {
     });
   }, []);
 
-  // Load recent existing rejections once, so a user who was offline when the
-  // rejection landed still sees the warning next time they open the app.
+  // Load recent rejections on mount and every 60s (+ on focus), so a user who
+  // was offline when the rejection landed still sees it, and new house-listing
+  // rejections surface while the app is open. enqueue() de-dupes by key, so
+  // re-running the lookback never re-alerts. (House-listing rejections used a
+  // Realtime INSERT listener on agent_listing_rejections, which is not in the
+  // publication and never fired — doc 147.)
+  const cancelledRef = useRef(false);
   useEffect(() => {
+    cancelledRef.current = false;
+    return () => { cancelledRef.current = true; };
+  }, []);
+  const loadRecent = useCallback(async () => {
     if (!user) return;
-    let cancelled = false;
-    (async () => {
+    {
       const sinceIso = new Date(Date.now() - LOOKBACK_MS).toISOString();
 
       const [listingRes, landlordRes] = await Promise.all([
@@ -107,7 +116,7 @@ export function RejectionAlertGate() {
           .limit(20),
       ]);
 
-      if (cancelled) return;
+      if (cancelledRef.current) return;
 
       const listingItems: RejectionItem[] = [];
       const listingRows = (listingRes.data ?? []) as Array<{
@@ -157,50 +166,17 @@ export function RejectionAlertGate() {
       }));
 
       enqueue([...listingItems, ...landlordItems]);
-    })();
-    return () => {
-      cancelled = true;
-    };
+    }
   }, [user, enqueue]);
+  usePolling(loadRecent, 60_000, { enabled: !!user, immediate: true });
 
-  // Realtime: surface new rejections the moment Ops posts them.
+  // Realtime (landlord rejections only — landlord_verification_requests is
+  // published): surface them the moment Ops posts them.
   useEffect(() => {
     if (!user) return;
 
     const channel = supabase
       .channel(`rejection-alerts-${user.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "agent_listing_rejections",
-          filter: `agent_id=eq.${user.id}`,
-        },
-        async (payload) => {
-          const row = payload.new as {
-            id: string; listing_id: string | null; reason: string; rejected_at: string;
-          };
-          let itemLabel = "House listing";
-          if (row.listing_id) {
-            const { data: h } = await supabase
-              .from("house_listings")
-              .select("title, region")
-              .eq("id", row.listing_id)
-              .maybeSingle();
-            const parts = [(h as any)?.title, (h as any)?.region].filter(Boolean);
-            if (parts.length) itemLabel = parts.join(" — ");
-          }
-          enqueue([{
-            key: `house:${row.id}`,
-            kind: "house",
-            title: "House listing rejected",
-            itemLabel,
-            reason: row.reason || "No reason provided.",
-            rejectedAt: row.rejected_at,
-          }]);
-        },
-      )
       .on(
         "postgres_changes",
         {

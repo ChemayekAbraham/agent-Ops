@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { usePolling } from '@/hooks/usePolling';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -70,41 +71,17 @@ export function useBikeLeaseRepayment(userId?: string, saleId?: string) {
     },
   });
 
-  /** Every recorded deduction refreshes the tracker immediately. */
-  useEffect(() => {
-    if (!userId) return;
-    const channel = supabase
-      .channel(`bike-lease-repayment-${userId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'merchandise_recovery_deductions',
-          filter: `customer_id=eq.${userId}`,
-        },
-        () => {
-          qc.invalidateQueries({ queryKey: ['bike-lease-plan', userId, saleId] });
-          qc.invalidateQueries({ queryKey: ['bike-lease-deductions', planId] });
-        },
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'merchandise_recovery_plans',
-          filter: `customer_id=eq.${userId}`,
-        },
-        () => {
-          qc.invalidateQueries({ queryKey: ['bike-lease-plan', userId, saleId] });
-        },
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [userId, saleId, planId, qc]);
+  /** Polled every 60s (+ on focus) so a newly recorded deduction shows up.
+   *  Was a Realtime listener on merchandise_recovery_deductions/_plans, which
+   *  are not in the publication, so it never fired (doc 147). */
+  usePolling(
+    () => Promise.all([
+      qc.invalidateQueries({ queryKey: ['bike-lease-plan', userId, saleId] }),
+      qc.invalidateQueries({ queryKey: ['bike-lease-deductions', planId] }),
+    ]),
+    60_000,
+    { enabled: !!userId },
+  );
 
   const paid = Number(plan.data?.amount_recovered || 0);
   const original = Number(plan.data?.original_amount || 0);

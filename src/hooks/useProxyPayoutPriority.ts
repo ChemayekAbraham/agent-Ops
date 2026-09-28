@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { usePolling } from '@/hooks/usePolling';
 
 /**
  * Reads the CTO Platform Controls flag `proxy_payout_priority` from
@@ -13,48 +14,31 @@ import { supabase } from '@/integrations/supabase/client';
  *
  * The database is still the enforcing authority
  * (`assert_no_urgent_proxy_priority` reads the same row); this hook keeps the UI
- * identical to what the server will allow. Realtime so every open queue reacts
- * the moment the CTO flips the switch.
+ * identical to what the server will allow. Polled (60s + on focus):
+ * treasury_controls is not in the Realtime publication, so the old listener
+ * never fired (doc 147).
  */
-export function useProxyPayoutPriority(): { enforced: boolean; loading: boolean } {
+export function useProxyPayoutPriority(): {
+  enforced: boolean;
+  loading: boolean;
+  lastUpdatedAt: Date | null;
+  refresh: () => Promise<void>;
+} {
   const [enforced, setEnforced] = useState(true);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      const { data } = await supabase
-        .from('treasury_controls')
-        .select('enabled')
-        .eq('control_key', 'proxy_payout_priority')
-        .maybeSingle();
-      if (!cancelled) {
-        // Default to enforced when the row is unreadable/missing (fail safe).
-        setEnforced(data ? !!data.enabled : true);
-        setLoading(false);
-      }
-    };
-    void load();
+  const { lastUpdatedAt, refresh } = usePolling(async () => {
+    const { data } = await supabase
+      .from('treasury_controls')
+      .select('enabled')
+      .eq('control_key', 'proxy_payout_priority')
+      .maybeSingle();
+    // Default to enforced when the row is unreadable/missing (fail safe).
+    setEnforced(data ? !!data.enabled : true);
+    setLoading(false);
+  }, 60_000, { immediate: true });
 
-    const channel = supabase
-      .channel('proxy_payout_priority_flag')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'treasury_controls', filter: 'control_key=eq.proxy_payout_priority' },
-        (payload: any) => {
-          const next = payload?.new?.enabled;
-          if (typeof next === 'boolean') setEnforced(next);
-        },
-      )
-      .subscribe();
-
-    return () => {
-      cancelled = true;
-      void supabase.removeChannel(channel);
-    };
-  }, []);
-
-  return { enforced, loading };
+  return { enforced, loading, lastUpdatedAt, refresh };
 }
 
 export default useProxyPayoutPriority;

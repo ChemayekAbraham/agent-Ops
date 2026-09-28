@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import { useQueries, useQueryClient, type UseQueryResult } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -26,8 +25,8 @@ import { supabase } from '@/integrations/supabase/client';
  * showing their correct counts and only the affected category is reported as
  * unavailable.
  *
- * No approval logic is duplicated here — counts only. Kept live via realtime
- * so the badge falls away as soon as items are approved/rejected/cancelled.
+ * No approval logic is duplicated here — counts only. Polled every 60s (see
+ * refetchInterval); exposes lastUpdatedAt + refresh() for the popover.
  */
 export type CfoApprovalNotificationKey =
   | 'roi'
@@ -217,24 +216,15 @@ export function useCfoApprovalNotifications() {
     })),
   }) as UseQueryResult<number>[];
 
-  useEffect(() => {
-    const invalidate = () => {
-      queryClient.invalidateQueries({ queryKey: ['cfo-approval-notifications'] });
-    };
-    const tables = Array.from(new Set(DEFINITIONS.map((d) => d.table)));
-    let channel = supabase.channel('cfo-approval-notifications');
-    tables.forEach((table) => {
-      channel = channel.on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table },
-        invalidate,
-      );
-    });
-    channel.subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [queryClient]);
+  // No Realtime channel: the old one listened unfiltered to 12 tables
+  // (several of them high-churn) and re-ran all 14 count queries on every
+  // change anywhere. The 60s refetchInterval above keeps the badge current
+  // (doc 147). refresh() is for the popover's manual refresh button.
+  const refresh = async () => {
+    await queryClient.refetchQueries({ queryKey: ['cfo-approval-notifications'] });
+  };
+  const updatedAtMs = Math.max(0, ...results.map((r) => r.dataUpdatedAt || 0));
+  const lastUpdatedAt = updatedAtMs > 0 ? new Date(updatedAtMs) : null;
 
   const counts = {} as Record<CfoApprovalNotificationKey, number>;
   DEFINITIONS.forEach((def, i) => {
@@ -265,5 +255,7 @@ export function useCfoApprovalNotifications() {
     total: notifications.reduce((sum, n) => sum + n.count, 0),
     notifications,
     failed,
+    lastUpdatedAt,
+    refresh,
   };
 }

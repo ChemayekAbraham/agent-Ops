@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { usePolling } from '@/hooks/usePolling';
 import { useNavigate } from 'react-router-dom';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
@@ -52,20 +53,11 @@ export function ConcernAssignmentGate() {
   const [open, setOpen] = useState(false);
   const openedOnceRef = useRef(false);
 
-  // Keep the list live: a new hand-off, or being added to an existing concern,
-  // writes a cc_concern_reviewers row for this person.
-  useEffect(() => {
-    if (!user?.id) return;
-    const channel = supabase
-      .channel(`concern-assignment-gate-${user.id}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'cc_concern_reviewers', filter: `user_id=eq.${user.id}` },
-        () => { void refetch(); },
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [user?.id, refetch]);
+  // Keep the list current: a new hand-off, or being added to an existing
+  // concern, writes a cc_concern_reviewers row for this person. Polled every
+  // 60s (+ on focus); the old Realtime listener was on cc_concern_reviewers,
+  // which is not in the publication, so it never fired (doc 147).
+  usePolling(() => refetch(), 60_000, { enabled: !!user?.id });
 
   // Open on first discovery (login, and again after every refresh while
   // anything is still open), then keep re-opening on a timer for as long as

@@ -1810,18 +1810,9 @@ function BatchTimeline({ jobId, jobActive }: { jobId: string; jobActive: boolean
     refetchInterval: jobActive ? 2_000 : false,
   });
 
-  // Realtime subscription for this job's batches
-  useEffect(() => {
-    const ch = supabase
-      .channel(`agent-cap-ops-batches-${jobId}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'agent_capability_ops_job_batches', filter: `job_id=eq.${jobId}` },
-        () => refetch(),
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [jobId, refetch]);
+  // No Realtime listener: agent_capability_ops_job_batches is not in the
+  // publication, so it never fired. refetchInterval (2s while the job is
+  // active) covers batch progress (doc 147).
 
   // Aggregate error breakdown — group by normalized message
   const errorGroups = useMemo(() => {

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { usePolling } from '@/hooks/usePolling';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
@@ -139,6 +140,8 @@ const TicketsPage = () => {
   const [isEngineering, setIsEngineering] = useState(false);
   const [canAssign, setCanAssign] = useState(false);
   const [queue, setQueue] = useState<QueueRow[]>([]);
+  const queueLoadedRef = useRef(false);
+  const knownQueueIdsRef = useRef<Set<string> | null>(null);
   const [mine, setMine] = useState<QueueRow[]>([]);
   const [creatorNames, setCreatorNames] = useState<Record<string, string>>({});
   const [ticketPeople, setTicketPeople] = useState<Record<string, TicketPeople>>({});
@@ -195,6 +198,7 @@ const TicketsPage = () => {
       .is('closed_no_task_at', null)
       .order('raised_at', { ascending: true });
     if (error) return;
+    queueLoadedRef.current = true;
     setQueue((data ?? []) as unknown as QueueRow[]);
   }, []);
 
@@ -250,29 +254,31 @@ const TicketsPage = () => {
     };
   }, [queue, mine]);
 
-  // Only people who can act on the queue get a live subscription.
+  // Only people who can act on the queue get the auto-refresh + new-ticket
+  // alert. Polled every 60s: hr_tickets is not in the Realtime publication,
+  // so the old INSERT listener never fired (doc 147).
+  const notifyNewTickets = !!staff?.id && (isEngineering || canAssign);
+  const { lastUpdatedAt: queueUpdatedAt, refresh: refreshQueue } = usePolling(
+    loadQueue,
+    60_000,
+    { enabled: notifyNewTickets },
+  );
+
+  // Toast + chime for tickets that appear between polls. Skipped until the
+  // first real load so the existing queue never alerts.
   useEffect(() => {
-    if (!staff?.id) return;
-    if (!(isEngineering || canAssign)) return;
-
-    const channel = supabase
-      .channel(`tickets-live-${staff.id}`)
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'hr_tickets' },
-        (payload) => {
-          void loadQueue();
-          const row = payload.new as { title?: string } | null;
-          toast('New ticket raised', { description: row?.title ?? undefined });
-          playChime();
-        },
-      )
-      .subscribe();
-
-    return () => {
-      void supabase.removeChannel(channel);
-    };
-  }, [staff?.id, isEngineering, canAssign, loadQueue]);
+    if (!queueLoadedRef.current) return;
+    const ids = new Set(queue.map((q) => q.id));
+    const known = knownQueueIdsRef.current;
+    knownQueueIdsRef.current = ids;
+    if (!known || !notifyNewTickets) return;
+    const fresh = queue.filter((q) => !known.has(q.id));
+    if (fresh.length === 0) return;
+    toast('New ticket raised', {
+      description: fresh.length === 1 ? fresh[0].title : `${fresh.length} new tickets`,
+    });
+    playChime();
+  }, [queue, notifyNewTickets]);
 
   const claim = async (ticket: QueueRow) => {
     setClaiming(ticket.id);

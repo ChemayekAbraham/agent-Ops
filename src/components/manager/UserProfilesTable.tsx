@@ -121,44 +121,10 @@ export default function UserProfilesTable() {
     fetchUsers();
   }, [debouncedSearch, roleFilter, verificationFilter, sortBy, currentPage]);
 
-  // Realtime: instantly show new users when an agent registers a tenant
-  useEffect(() => {
-    const channel = supabase
-      .channel('manager-profiles-realtime')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'profiles' },
-        (payload) => {
-          const p = payload.new as any;
-          const newUser: UserWithRating = {
-            id: p.id,
-            full_name: p.full_name,
-            email: p.email,
-            phone: p.phone,
-            avatar_url: p.avatar_url ?? null,
-            rent_discount_active: p.rent_discount_active ?? false,
-            monthly_rent: p.monthly_rent ?? null,
-            roles: [],
-            roleEnabledStatus: {},
-            average_rating: null,
-            rating_count: 0,
-            created_at: p.created_at,
-            country: p.country ?? null,
-            city: p.city ?? null,
-            country_code: p.country_code ?? null,
-            verified: p.verified ?? false,
-            whatsapp_verified: p.whatsapp_verified ?? false,
-          };
-          setUsers(prev => [newUser, ...prev]);
-          toast('🆕 New user registered', {
-            description: `${p.full_name} just joined via an agent.`,
-          });
-        }
-      )
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, []);
+  // No live feed of new signups: profiles is not in the Realtime publication,
+  // so the old INSERT listener never fired, and prepending signups would break
+  // the paginated/sorted view anyway. The list loads on mount / filter /
+  // search / page change (doc 147).
 
   const fetchUsers = async () => {
     setLoading(true);

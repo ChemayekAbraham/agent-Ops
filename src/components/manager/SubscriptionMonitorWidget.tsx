@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { usePolling } from '@/hooks/usePolling';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -88,17 +89,12 @@ export function SubscriptionMonitorWidget() {
 
   useEffect(() => {
     fetchData();
-
-    // Realtime subscription
-    const channel = supabase
-      .channel('subscription-charges-monitor')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'subscription_charges' }, () => {
-        fetchData();
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
   }, []);
+
+  // Polled every 60s (+ on focus). The old Realtime listener was on
+  // subscription_charges, which is not in the publication, so it never fired
+  // (doc 147).
+  const { lastUpdatedAt, refresh } = usePolling(() => fetchData(), 60_000);
 
   const triggerAutoCharge = async () => {
     setProcessing(true);

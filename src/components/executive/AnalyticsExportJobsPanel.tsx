@@ -47,18 +47,9 @@ export function AnalyticsExportJobsPanel({ start, end, rangeLabel }: Props) {
     },
   });
 
-  // Realtime updates
-  useEffect(() => {
-    const ch = supabase
-      .channel('analytics-export-jobs')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'analytics_export_jobs' },
-        () => qc.invalidateQueries({ queryKey: ['analytics-export-jobs'] }),
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [qc]);
+  // No Realtime listener: analytics_export_jobs is not in the publication, so
+  // it never fired. The query's refetchInterval (3s while a job is active)
+  // covers progress (doc 147).
 
   const startExport = async () => {
     try {

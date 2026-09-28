@@ -81,16 +81,9 @@ export function EmailMatchAuditLogPanel() {
 
   useEffect(() => { load(); }, [load]);
 
-  // Realtime: append new rows live so operators see activity instantly.
-  useEffect(() => {
-    const ch = supabase
-      .channel('email-match-audit-feed')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'email_match_audit_log' }, () => {
-        load(true);
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [load]);
+  // Audit log: loads on mount + manual refresh. The old Realtime listener was
+  // on email_match_audit_log, which is not in the publication, so it never
+  // fired (doc 147).
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();

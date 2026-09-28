@@ -401,8 +401,7 @@ export default function MyWork({ embedded = false }: MyWorkProps) {
 
   /**
    * Keeps the completion trend current without the person touching anything:
-   * a realtime subscription on their own task rows and task events, a slow
-   * safety poll, and a refresh whenever the tab comes back into view.
+   * a 60s poll and a refresh whenever the tab comes back into view.
    */
   useEffect(() => {
     if (!staff?.id) return;
@@ -410,15 +409,9 @@ export default function MyWork({ embedded = false }: MyWorkProps) {
     let timer: number | undefined;
     const refresh = () => void load({ silent: true });
 
-    const channel = supabase
-      .channel(`my-work-live-${staff.id}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'hr_tasks', filter: `assignee_employee_id=eq.${staff.id}` },
-        refresh,
-      )
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'hr_task_events' }, refresh)
-      .subscribe((status) => setLive(status === 'SUBSCRIBED'));
+    // No Realtime channel: hr_tasks and hr_task_events are not in the
+    // publication, so it never reached a live state (doc 147). The 60s poll
+    // and the on-focus refresh below keep the view current.
 
     timer = window.setInterval(() => {
       if (document.visibilityState === 'visible') refresh();
@@ -435,7 +428,6 @@ export default function MyWork({ embedded = false }: MyWorkProps) {
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('focus', onVisible);
       setLive(false);
-      void supabase.removeChannel(channel);
     };
   }, [staff?.id, load]);
 

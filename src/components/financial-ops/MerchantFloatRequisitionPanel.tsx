@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { usePolling } from '@/hooks/usePolling';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -84,13 +85,9 @@ export function MerchantFloatRequisitionPanel({ mode = 'finops' }: { mode?: 'fin
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  useEffect(() => {
-    const channel = supabase
-      .channel('merchant-float-requisitions')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'merchant_float_requisitions' }, () => fetchData())
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [fetchData]);
+  // Polled every 60s (+ on focus). The old Realtime listener was on merchant_float_requisitions, which
+  // is not in the publication, so it never fired (doc 147).
+  const { lastUpdatedAt, refresh } = usePolling(() => fetchData(), 60_000);
 
   const submit = async () => {
     const amount = Number(form.amount);

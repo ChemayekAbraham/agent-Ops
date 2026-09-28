@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { usePolling } from '@/hooks/usePolling';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -117,20 +118,14 @@ export function RequisitionUsageReportGate() {
     setPending((reqs as unknown as PendingReq[]).filter((r) => !reported.has(r.id)));
   }, [user?.id]);
 
-  // Initial load + refresh whenever a requisition of theirs changes.
+  // Initial load + refresh every 60s (+ on focus) so a newly-paid requisition
+  // is picked up. The old Realtime listener was on staff_requisitions, which
+  // is not in the publication, so it never fired (doc 147).
   useEffect(() => {
     if (!user?.id) return;
     void load();
-    const channel = supabase
-      .channel(`requisition-usage-gate-${user.id}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'staff_requisitions', filter: `requester_id=eq.${user.id}` },
-        () => { void load(); },
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
   }, [user?.id, load]);
+  usePolling(() => load(), 60_000, { enabled: !!user?.id });
 
   // Open immediately on first discovery, then re-open every 5 minutes while
   // a report is still outstanding.

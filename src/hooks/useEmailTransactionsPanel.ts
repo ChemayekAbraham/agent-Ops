@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { usePolling } from '@/hooks/usePolling';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { toast as sonnerToast } from 'sonner';
@@ -797,14 +798,42 @@ export function useEmailTransactionsPanel() {
 
   useEffect(() => {
     load();
-    const ch = supabase
-      .channel('gmail_transactions_feed')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'gmail_transactions' }, (payload) => {
-        setRows((cur) => [payload.new as GmailTx, ...cur].slice(0, 5000));
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
   }, []);
+
+  // New emails: polled every 30s instead of an unfiltered Realtime INSERT
+  // listener on gmail_transactions (doc 147). Same effect as the listener —
+  // prepend rows inserted since the last check — but cursor on the server's
+  // created_at, not internal_date, so late-ingested emails (older
+  // internal_date) are still picked up and client clock skew doesn't matter.
+  const newRowsCursorRef = useRef<string | null>(null);
+  const pollNewEmails = async () => {
+    if (!newRowsCursorRef.current) {
+      const { data } = await (supabase.from('gmail_transactions') as any)
+        .select('created_at')
+        .order('created_at', { ascending: false })
+        .limit(1);
+      newRowsCursorRef.current = data?.[0]?.created_at ?? new Date(0).toISOString();
+      return;
+    }
+    const { data, error } = await (supabase.from('gmail_transactions') as any)
+      .select('id,gmail_message_id,from_email,from_name,subject,snippet,amount,transaction_id,parsed,internal_date,direction,channel,counterparty,counterparty_name,fee,balance,linked_deposit_request_id,auto_matched_at,created_at')
+      .gt('created_at', newRowsCursorRef.current)
+      .order('created_at', { ascending: true })
+      .limit(200);
+    if (error || !data?.length) return;
+    newRowsCursorRef.current = data[data.length - 1].created_at;
+    const fresh = [...(data as GmailTx[])].reverse();
+    setRows((cur) => {
+      const seen = new Set(cur.map((r) => r.id));
+      const add = fresh.filter((r) => !seen.has(r.id));
+      return add.length ? [...add, ...cur].slice(0, 5000) : cur;
+    });
+  };
+  const { lastUpdatedAt: newEmailsCheckedAt, refresh: refreshNewEmails } = usePolling(
+    pollNewEmails,
+    30_000,
+    { immediate: true },
+  );
 
   // Re-run the server-side load whenever the date range or search query
   // changes so the Recent emails list can reach the FULL history (not
@@ -817,8 +846,9 @@ export function useEmailTransactionsPanel() {
   }, [fromDate, toDate, searchQuery, tz]);
 
   // Background load of routing history for the currently visible rows.
-  // Also subscribes to inserts so a fresh re-route shows up instantly
-  // without requiring a refresh.
+  // Re-runs whenever `rows` changes (new emails from the 30s poll, filter
+  // changes). No Realtime listener: email_routing_history is not in the
+  // publication, so the old INSERT listener never fired (doc 147).
   useEffect(() => {
     if (!rows.length) { setRoutingHistory({}); return; }
     let cancelled = false;
@@ -845,16 +875,7 @@ export function useEmailTransactionsPanel() {
       }
       setRoutingHistory(next);
     })();
-    const sub = supabase
-      .channel('email_routing_history_feed')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'email_routing_history' }, (payload) => {
-        const h = payload.new as RoutingHistoryEntry & { gmail_transaction_id: string | null; gmail_message_id: string | null };
-        const rid = h.gmail_transaction_id || rows.find((r) => r.gmail_message_id === h.gmail_message_id)?.id;
-        if (!rid) return;
-        setRoutingHistory((cur) => ({ ...cur, [rid]: [h, ...(cur[rid] ?? [])] }));
-      })
-      .subscribe();
-    return () => { cancelled = true; supabase.removeChannel(sub); };
+    return () => { cancelled = true; };
   }, [rows]);
 
   // Background load of invite/login SMS delivery status for the currently

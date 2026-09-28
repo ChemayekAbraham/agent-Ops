@@ -393,13 +393,8 @@ export default function PlatformSalesOfficersPage() {
           queryClient.invalidateQueries({ queryKey: ['funding-commission-summary'] });
         },
       )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'proxy_commission_queue' },
-        () => {
-          queryClient.invalidateQueries({ queryKey: ['funding-commission-summary'] });
-        },
-      )
+      // (No proxy_commission_queue listener: that table is not in the Realtime
+      // publication, so it never fired; the 60s poll covers it — doc 147.)
       .subscribe();
 
     return () => {

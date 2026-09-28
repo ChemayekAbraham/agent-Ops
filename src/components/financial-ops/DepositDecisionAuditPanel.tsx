@@ -94,15 +94,9 @@ export function DepositDecisionAuditPanel() {
 
   useEffect(() => { load(); }, [load]);
 
-  useEffect(() => {
-    const ch = supabase
-      .channel('deposit-decision-audit-feed')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'deposit_decision_audit' }, () => {
-        load(true);
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [load]);
+  // Audit log: loads on mount + manual refresh. The old Realtime listener was
+  // on deposit_decision_audit, which is not in the publication, so it never
+  // fired (doc 147).
 
   const decisions = useMemo(() => {
     return Array.from(new Set(rows.map((r) => r.decision))).sort();

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { usePolling } from '@/hooks/usePolling';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -159,19 +160,12 @@ export function OfflineSubmissionsQueue() {
 
   useEffect(() => {
     load();
-    const channel = supabase
-      .channel('offline-submissions-admin')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'offline_collection_submissions' },
-        () => load(),
-      )
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Polled every 60s (+ on focus). The old Realtime listener was on offline_collection_submissions, which
+  // is not in the publication, so it never fired (doc 147).
+  const { lastUpdatedAt, refresh } = usePolling(() => load(), 60_000);
 
   const counts = useMemo(() => {
     const c = { all: rows.length, processing: 0, accepted: 0, rejected: 0, needs_attention: 0 };

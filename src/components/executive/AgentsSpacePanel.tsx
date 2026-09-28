@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { usePolling } from '@/hooks/usePolling';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
 import { formatUGX } from '@/lib/creditFeeCalculations';
@@ -295,14 +296,10 @@ export function AgentsSpacePanel({ mode = 'agent', onBack }: AgentsSpacePanelPro
     if (mode === 'ops') void fetchPermissions();
   }, [fetchRows, fetchPermissions, mode]);
 
-  useEffect(() => {
-    const channel = supabase
-      .channel('agents-space-staff-requisitions-feed')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'staff_requisitions' }, () => { void fetchRows(); })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'staff_permissions' }, () => { if (mode === 'ops') void fetchPermissions(); })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [fetchRows, fetchPermissions, mode]);
+  // Requisitions polled every 60s (+ on focus); permissions load on mount only.
+  // The old Realtime listeners were on staff_requisitions and staff_permissions,
+  // neither of which is in the publication, so they never fired (doc 147).
+  const { lastUpdatedAt, refresh } = usePolling(() => fetchRows(), 60_000);
 
   const loadEvents = useCallback(async (id: string) => {
     if (events[id]) return;

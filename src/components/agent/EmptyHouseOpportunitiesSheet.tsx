@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { usePolling } from '@/hooks/usePolling';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Home, Loader2, Search, SlidersHorizontal, Check, Share2, ShieldCheck, MapPin, Users, Phone, MessageSquare, Navigation, ImageIcon, Eye, Clock, CheckCircle2, UserCheck, Wallet, X, CalendarDays, ShoppingCart, ArrowRight, ArrowLeft } from 'lucide-react';
@@ -275,17 +276,23 @@ export function EmptyHouseOpportunitiesSheet({
     return map;
   }, [progressRows]);
 
+  // promissory_notes is published, so it stays live. promissory_note_house_intents
+  // and agent_landlord_payouts are not, so their listeners never fired; they
+  // are covered by a 60s poll while the sheet is open (doc 147).
   useEffect(() => {
     if (!open) return;
     const invalidate = () => { queryClient.invalidateQueries({ queryKey: ['empty-house-progress'] }); };
     const channel = supabase
       .channel('empty-house-progress')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'promissory_note_house_intents' }, invalidate)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'promissory_notes' }, invalidate)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'agent_landlord_payouts' }, invalidate)
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [open, queryClient]);
+  usePolling(
+    () => queryClient.invalidateQueries({ queryKey: ['empty-house-progress'] }),
+    60_000,
+    { enabled: open },
+  );
 
   const houses = data?.houses ?? [];
   const total = data?.total ?? 0;

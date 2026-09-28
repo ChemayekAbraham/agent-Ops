@@ -4246,21 +4246,16 @@ function GmailReconnectAuditPanel() {
     setLoading(false);
   };
 
+  // Loads on mount and on the 'gmail-reconnect-audit-refresh' event the
+  // reconnect flow dispatches. The old Realtime INSERT listener was on
+  // gmail_reconnect_audit, which is not in the publication, so it never fired
+  // (doc 147).
   useEffect(() => {
     load();
     const onRefresh = () => load();
     window.addEventListener('gmail-reconnect-audit-refresh', onRefresh);
-    const ch = supabase
-      .channel('gmail_reconnect_audit_feed')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'gmail_reconnect_audit' },
-        (payload) => setRows((cur) => [payload.new as ReconnectAuditRow, ...cur].slice(0, 25)),
-      )
-      .subscribe();
     return () => {
       window.removeEventListener('gmail-reconnect-audit-refresh', onRefresh);
-      supabase.removeChannel(ch);
     };
   }, []);
 

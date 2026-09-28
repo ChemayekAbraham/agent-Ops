@@ -1,5 +1,6 @@
 import ExecutiveDashboardLayout from '@/components/layout/ExecutiveDashboardLayout';
 import { useEffect, useState, useCallback } from 'react';
+import { usePolling } from '@/hooks/usePolling';
 import { supabase } from '@/integrations/supabase/client';
 import { usePersistedActiveTab } from '@/hooks/usePersistedActiveTab';
 import HROverview from '@/components/hr/HROverview';
@@ -32,18 +33,9 @@ export default function HRDashboard() {
     setPendingLeave(count ?? 0);
   }, []);
 
-  useEffect(() => {
-    void refreshLeaveBeacon();
-    const channel = supabase
-      .channel('hr-leave-beacon')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'leave_requests' },
-        () => { void refreshLeaveBeacon(); },
-      )
-      .subscribe();
-    return () => { void supabase.removeChannel(channel); };
-  }, [refreshLeaveBeacon]);
+  // Polled every 60s (+ on focus). The old Realtime listener was on
+  // leave_requests, which is not in the publication, so it never fired (doc 147).
+  usePolling(refreshLeaveBeacon, 60_000, { immediate: true });
 
   // Opening the tab clears the beacon.
   useEffect(() => {

@@ -1,5 +1,4 @@
-import { useEffect } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Card, CardContent } from '@/components/ui/card';
@@ -15,9 +14,7 @@ interface Props {
 }
 
 export function CashoutPendingWithdrawalsDialog({ open, onOpenChange, agent }: Props) {
-  const qc = useQueryClient();
-
-  const { data: allWithdrawals = [], isLoading } = useQuery({
+  const { data: allWithdrawals = [], isLoading, dataUpdatedAt, refetch } = useQuery({
     queryKey: ['cfo-pending-withdrawals'],
     queryFn: async () => {
       // No FK between withdrawal_requests.user_id and profiles — fetch and join manually.
@@ -48,19 +45,15 @@ export function CashoutPendingWithdrawalsDialog({ open, onOpenChange, agent }: P
     },
     enabled: open,
     staleTime: 15_000,
+    // Polled while open instead of an unfiltered Realtime listener on
+    // withdrawal_requests (doc 147).
+    refetchInterval: open ? 30_000 : false,
+    refetchIntervalInBackground: false,
   });
 
-  // Realtime subscription while dialog is open
-  useEffect(() => {
-    if (!open) return;
-    const channel = supabase
-      .channel('cfo-cashout-pending-withdrawals')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'withdrawal_requests' }, () => {
-        qc.invalidateQueries({ queryKey: ['cfo-pending-withdrawals'] });
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [open, qc]);
+  // For the auto-refresh indicator / refresh button (UI owned by Gemini).
+  const lastUpdatedAt = dataUpdatedAt ? new Date(dataUpdatedAt) : null;
+  const refresh = async () => { await refetch(); };
 
   const cashoutAgentRowId = agent?.id; // cashout_agents.id (FK target for assigned_cashout_agent_id)
   const agentName = agent?.profiles?.full_name || 'Agent';

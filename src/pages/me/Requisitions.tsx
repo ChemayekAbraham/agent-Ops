@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { usePolling } from '@/hooks/usePolling';
 import PersonalLayout from '@/components/layout/PersonalLayout';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
@@ -271,13 +272,9 @@ const MyRequisitions = () => {
     return () => { active = false; };
   }, []);
 
-  useEffect(() => {
-    const channel = supabase
-      .channel('my-staff-requisitions')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'staff_requisitions' }, () => { void fetchRows(); })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [fetchRows]);
+  // Polled every 60s (+ on focus). The old Realtime listener was on staff_requisitions, which
+  // is not in the publication, so it never fired (doc 147).
+  const { lastUpdatedAt, refresh } = usePolling(() => fetchRows(), 60_000);
 
   const loadEvents = useCallback(async (id: string) => {
     if (events[id]) return;

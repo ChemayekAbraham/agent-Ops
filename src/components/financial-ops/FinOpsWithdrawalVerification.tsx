@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { usePolling } from '@/hooks/usePolling';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -380,21 +381,15 @@ export function FinOpsWithdrawalVerification() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [approveOpen, selected?.id]);
 
-  // Realtime: refetch on any insert/update to withdrawal_requests so cards
-  // disappear the moment ANY operator approves/rejects them.
+  // Polled every 30s (+ on focus) so cards disappear soon after ANY operator
+  // approves/rejects them. Was an unfiltered Realtime listener on
+  // withdrawal_requests that refetched on every change to any row (doc 147).
   const fetchRef = useRef(fetchRequests);
   fetchRef.current = fetchRequests;
-  useEffect(() => {
-    const channel = supabase
-      .channel('finops-withdrawals-rt')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'withdrawal_requests' },
-        () => fetchRef.current(),
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, []);
+  const { lastUpdatedAt: requestsUpdatedAt, refresh: refreshRequests } = usePolling(
+    () => fetchRef.current(),
+    30_000,
+  );
 
   /**
    * Customer mobile-money withdrawals are settled by merchant agents from their

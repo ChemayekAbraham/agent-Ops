@@ -61,13 +61,13 @@ export function BulkBankPayoutPanel() {
     }
   };
 
+  // Loads on mount; `load` is the manual-refresh handler. No polling: load()
+  // auto-expands the newest batch, so a timer would keep collapsing whatever
+  // the operator had open. The old Realtime listener was on
+  // bulk_bank_payout_allocations, which is not published, so it never fired
+  // (doc 147).
   useEffect(() => {
     load();
-    const ch = supabase
-      .channel('bulk-bank-payout-allocs')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'bulk_bank_payout_allocations' }, () => load())
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
   }, []);
 
   const loadAllocations = async (emailId: string) => {

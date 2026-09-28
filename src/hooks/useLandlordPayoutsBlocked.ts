@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { usePolling } from '@/hooks/usePolling';
 
 /**
  * Reads the CTO Platform Controls flag `landlord_payouts_blocked` from
@@ -11,46 +12,30 @@ import { supabase } from '@/integrations/supabase/client';
  *        this too — this hook only drives what the queue UI fetches/shows).
  * OFF (default) -> landlord payouts flow normally.
  *
- * Realtime so every open queue reacts the moment the CTO flips the switch.
+ * Polled (60s + on focus). treasury_controls is not in the Realtime
+ * publication, so the old postgres_changes listener never fired and a flip
+ * only showed after reload (doc 147).
  */
-export function useLandlordPayoutsBlocked(): { blocked: boolean; loading: boolean } {
+export function useLandlordPayoutsBlocked(): {
+  blocked: boolean;
+  loading: boolean;
+  lastUpdatedAt: Date | null;
+  refresh: () => Promise<void>;
+} {
   const [blocked, setBlocked] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      const { data } = await supabase
-        .from('treasury_controls')
-        .select('enabled')
-        .eq('control_key', 'landlord_payouts_blocked')
-        .maybeSingle();
-      if (!cancelled) {
-        setBlocked(!!data?.enabled);
-        setLoading(false);
-      }
-    };
-    void load();
+  const { lastUpdatedAt, refresh } = usePolling(async () => {
+    const { data } = await supabase
+      .from('treasury_controls')
+      .select('enabled')
+      .eq('control_key', 'landlord_payouts_blocked')
+      .maybeSingle();
+    setBlocked(!!data?.enabled);
+    setLoading(false);
+  }, 60_000, { immediate: true });
 
-    const channel = supabase
-      .channel('landlord_payouts_blocked_flag')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'treasury_controls', filter: 'control_key=eq.landlord_payouts_blocked' },
-        (payload: any) => {
-          const next = payload?.new?.enabled;
-          if (typeof next === 'boolean') setBlocked(next);
-        },
-      )
-      .subscribe();
-
-    return () => {
-      cancelled = true;
-      void supabase.removeChannel(channel);
-    };
-  }, []);
-
-  return { blocked, loading };
+  return { blocked, loading, lastUpdatedAt, refresh };
 }
 
 export default useLandlordPayoutsBlocked;
