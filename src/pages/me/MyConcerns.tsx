@@ -368,7 +368,18 @@ const MyConcerns = () => {
             ) : mine.length === 0 ? (
               <CCEmpty icon={ClipboardList} title="Nothing has been forwarded to you" hint="Concerns passed to you from the Calling Center will land here." />
             ) : (
-              mine.map((c) => <ConcernCard key={c.id} concern={c} mine reviewerRows={reviewersByConcern.get(c.id) ?? []} />)
+              <>
+                {mine.filter((c) => c.status !== 'completed').map((c) => (
+                  <ConcernCard key={c.id} concern={c} mine reviewerRows={reviewersByConcern.get(c.id) ?? []} />
+                ))}
+                {mine.some((c) => c.status === 'completed') && (
+                  <CompletedGroup
+                    concerns={mine.filter((c) => c.status === 'completed')}
+                    reviewersByConcern={reviewersByConcern}
+                    mine
+                  />
+                )}
+              </>
             )}
           </TabsContent>
 
@@ -378,7 +389,18 @@ const MyConcerns = () => {
             ) : sent.length === 0 ? (
               <CCEmpty icon={ClipboardList} title="You have not forwarded any concerns" hint="Anything you pass on to a colleague will be listed here." />
             ) : (
-              sent.map((c) => <ConcernCard key={c.id} concern={c} mine={false} reviewerRows={reviewersByConcern.get(c.id) ?? []} />)
+              <>
+                {sent.filter((c) => c.status !== 'completed').map((c) => (
+                  <ConcernCard key={c.id} concern={c} mine={false} reviewerRows={reviewersByConcern.get(c.id) ?? []} />
+                ))}
+                {sent.some((c) => c.status === 'completed') && (
+                  <CompletedGroup
+                    concerns={sent.filter((c) => c.status === 'completed')}
+                    reviewersByConcern={reviewersByConcern}
+                    mine={false}
+                  />
+                )}
+              </>
             )}
           </TabsContent>
 
