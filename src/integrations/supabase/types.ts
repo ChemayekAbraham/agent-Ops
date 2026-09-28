@@ -56863,6 +56863,10 @@ export type Database = {
         }
         Returns: Json
       }
+      cfo_decide_tenant_balance_edit: {
+        Args: { p_approve: boolean; p_edit_id: string; p_note?: string }
+        Returns: Json
+      }
       cfo_disburse_bike_lease: {
         Args: { p_note?: string; p_sale_id: string; p_valuation?: number }
         Returns: Json
@@ -64590,6 +64594,10 @@ export type Database = {
             }
             Returns: Json
           }
+      ops_withdraw_tenant_balance_edit: {
+        Args: { p_edit_id: string }
+        Returns: Json
+      }
       partner_house_placement_status: {
         Args: { p_partner_id?: string }
         Returns: {
@@ -67505,6 +67513,7 @@ export type Database = {
         Returns: number
       }
       telecom_sending_charge: { Args: { p_amount: number }; Returns: number }
+      tenant_balance_edits_pending: { Args: never; Returns: Json }
       tenant_location_correction_active_metrics: {
         Args: { p_agent_id?: string }
         Returns: Json
