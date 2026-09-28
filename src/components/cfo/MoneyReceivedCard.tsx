@@ -4,6 +4,7 @@ import { HeroCard } from '@/components/cfo/HeroCard';
 import { formatUGX } from '@/lib/creditFeeCalculations';
 import { ArrowDownLeft, FileText } from 'lucide-react';
 import { useState } from 'react';
+import { allTime, kampalaDate, monthStart, type DrilldownPreset } from '@/components/cfo/MoneyDrilldownReport';
 import { Button } from '@/components/ui/button';
 import { MoneyReceivedReport } from '@/components/cfo/MoneyReceivedReport';
 
@@ -25,6 +26,10 @@ export function MoneyReceivedCard() {
   });
   const d = q.data;
   const [report, setReport] = useState(false);
+  const [preset, setPreset] = useState<DrilldownPreset | null>(null);
+  const conf = 'approved';
+  const drill = (p: DrilldownPreset | null) => { setPreset(p); setReport(true); };
+  const total = () => d && drill({ label: 'All time', ...allTime(), status: conf, expected: { amount: n(d.total_received), count: n(d.total_count), basis: 'confirmed' } });
   const n = (v?: number) => Number(v ?? 0);
   return (
     <div className="flex flex-col gap-2">
@@ -35,15 +40,16 @@ export function MoneyReceivedCard() {
       value={q.isLoading || q.error || !d ? '—' : formatUGX(n(d.total_received))}
       percentageLabel="Confirmed deposits by mobile money, bank & cash"
       items={d ? [
-        { dot: 'bg-emerald-500', label: `Received today (${n(d.today_count).toLocaleString()})`, value: formatUGX(n(d.today_received)) },
-        { dot: 'bg-emerald-400', label: `Received this month (${n(d.month_count).toLocaleString()})`, value: formatUGX(n(d.month_received)) },
-        { dot: 'bg-slate-400', label: 'Number of receipts', value: n(d.total_count).toLocaleString() },
-        { dot: 'bg-amber-500', label: `Pending / unconfirmed (${n(d.pending_count).toLocaleString()})`, value: formatUGX(n(d.pending_amount)) },
+        { dot: 'bg-emerald-500', label: `Received today (${n(d.today_count).toLocaleString()})`, value: formatUGX(n(d.today_received)), onSelect: () => drill({ label: 'Today', from: kampalaDate(), to: kampalaDate(), status: conf, expected: { amount: n(d.today_received), count: n(d.today_count), basis: 'confirmed' } }) },
+        { dot: 'bg-emerald-400', label: `Received this month (${n(d.month_count).toLocaleString()})`, value: formatUGX(n(d.month_received)), onSelect: () => drill({ label: 'This month', from: monthStart(), to: kampalaDate(), status: conf, expected: { amount: n(d.month_received), count: n(d.month_count), basis: 'confirmed' } }) },
+        { dot: 'bg-slate-400', label: 'Number of receipts', value: n(d.total_count).toLocaleString(), onSelect: total },
+        { dot: 'bg-amber-500', label: `Pending / unconfirmed (${n(d.pending_count).toLocaleString()})`, value: formatUGX(n(d.pending_amount)), onSelect: () => drill({ label: 'Pending', ...allTime(), status: 'pending', expected: { amount: n(d.pending_amount), count: n(d.pending_count), basis: 'pending' } }) },
       ] : []}
+      onClick={() => { total(); }}
       footer={q.error ? 'Could not load receipts' : 'Excludes internal transfers and accounting corrections'}
     />
-    <Button variant="outline" size="sm" onClick={() => setReport(true)}><FileText className="h-4 w-4 mr-1" /> View Report</Button>
-    <MoneyReceivedReport open={report} onOpenChange={setReport} />
+    <Button variant="outline" size="sm" onClick={() => drill(null)}><FileText className="h-4 w-4 mr-1" /> View Report</Button>
+    <MoneyReceivedReport open={report} onOpenChange={setReport} preset={preset} />
     </div>
   );
 }

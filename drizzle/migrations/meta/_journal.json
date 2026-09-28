@@ -2353,6 +2353,13 @@
       "when": 1790594079324,
       "tag": "0335_cfo_withdrawable_credits_today",
       "breakpoints": true
+    },
+    {
+      "idx": 336,
+      "version": "7",
+      "when": 1790599473639,
+      "tag": "0336_cfo_money_drilldown",
+      "breakpoints": true
     }
   ]
 }

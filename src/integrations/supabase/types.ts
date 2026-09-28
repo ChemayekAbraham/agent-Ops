@@ -59996,6 +59996,35 @@ export type Database = {
           total_paid: number
         }[]
       }
+      get_cfo_money_paid_out_drilldown: {
+        Args: {
+          p_from: string
+          p_limit?: number
+          p_method?: string
+          p_recipient?: string
+          p_status?: string
+          p_to: string
+          p_type?: string
+        }
+        Returns: {
+          amount: number
+          created_at: string
+          description: string
+          id: string
+          ledger_reference: string
+          match_confirmed_amount: number
+          match_count: number
+          match_pending_amount: number
+          paid_at: string
+          payment_method: string
+          payout_reference: string
+          payout_type: string
+          recipient: string
+          recipient_phone: string
+          source_account: string
+          status: string
+        }[]
+      }
       get_cfo_money_paid_out_report: {
         Args: {
           p_from: string
@@ -60032,6 +60061,34 @@ export type Database = {
           today_received: number
           total_count: number
           total_received: number
+        }[]
+      }
+      get_cfo_money_received_drilldown: {
+        Args: {
+          p_from: string
+          p_limit?: number
+          p_method?: string
+          p_payer?: string
+          p_status?: string
+          p_to: string
+          p_type?: string
+        }
+        Returns: {
+          amount: number
+          description: string
+          destination: string
+          id: string
+          ledger_reference: string
+          match_confirmed_amount: number
+          match_count: number
+          match_pending_amount: number
+          payer: string
+          payer_phone: string
+          payment_method: string
+          receipt_reference: string
+          receipt_type: string
+          received_at: string
+          status: string
         }[]
       }
       get_cfo_money_received_report: {
