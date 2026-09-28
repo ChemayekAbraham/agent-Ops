@@ -1,6 +1,5 @@
-import { useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { ChevronDown, RefreshCw, FileText, CheckCircle2, Clock, Wallet } from 'lucide-react';
+import { RefreshCw, FileText, CheckCircle2, Clock, Wallet } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
