@@ -28,6 +28,7 @@ import { useCallingGap } from '@/hooks/tenantOpsWorkspace/useCallingGap';
 import { usePromiseKeptRate } from '@/hooks/tenantOpsWorkspace/usePromiseKeptRate';
 import { usePlanPosition } from '@/hooks/tenantOpsWorkspace/usePlanPosition';
 import { useCcSubjectCallHistory } from '@/hooks/useCcSubjectCallHistory';
+import { kampalaToday } from '@/hooks/useAgentOpsReportWindow';
 import PositionCard from '../tenant/PositionCard';
 import { TenantBriefBlock } from '../tenant/blocks/TenantBriefBlock';
 
@@ -56,7 +57,15 @@ const OUTCOMES: { key: TopsCallOutcome; label: string }[] = [
   { key: 'other', label: 'Other' },
 ];
 
-const todayIso = () => new Date().toISOString().slice(0, 10);
+/** Uganda calendar day (EAT) — the default "promised by" date the officer sees. */
+const todayIso = () => kampalaToday();
+/**
+ * UTC calendar day, kept ONLY for tops_promise_kept_rate: that RPC buckets by
+ * `created_at::date` in the DB session zone (UTC), so an EAT date here would
+ * point at a window with no rows between 00:00 and 03:00 EAT. Switch to
+ * kampalaToday() once the RPC compares in Africa/Kampala.
+ */
+const utcDayIso = () => new Date().toISOString().slice(0, 10);
 const dayLabel = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) : '—';
 
@@ -228,7 +237,7 @@ export default function CallingSection() {
   const counts = useCallingStateCounts(search);
   const queue = useCallingQueue(state, search, page);
   const gap = useCallingGap();
-  const keptRate = usePromiseKeptRate(todayIso(), todayIso(), user?.id ?? null);
+  const keptRate = usePromiseKeptRate(utcDayIso(), utcDayIso(), user?.id ?? null);
 
   const changeState = (s: CcRowState) => {
     setState(s);

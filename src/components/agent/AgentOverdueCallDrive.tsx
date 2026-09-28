@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { PhoneCall, AlertTriangle } from 'lucide-react';
 import { hapticTap } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
+import { kampalaToday } from '@/hooks/useAgentOpsReportWindow';
 
 /** How long a "I'm calling now" dismissal holds before the prompt returns. */
 const SNOOZE_MS = 10 * 60 * 1000;
@@ -28,7 +29,8 @@ const PLACEHOLDER_DOMAIN_RE = /@(.*\.)?welile\.(user|agent|local|test)$/i;
 const isRealEmail = (e?: string | null) =>
   !!e && EMAIL_RE.test(e.trim()) && !PLACEHOLDER_DOMAIN_RE.test(e.trim());
 
-const today = () => new Date().toISOString().slice(0, 10);
+/** Uganda calendar day (EAT) so the once-a-day email rolls over at local midnight, not 03:00. */
+const today = () => kampalaToday();
 
 export function AgentOverdueCallDrive({ agentId }: { agentId: string }) {
   const { profile } = useProfile();

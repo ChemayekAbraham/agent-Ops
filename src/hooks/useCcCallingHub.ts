@@ -245,6 +245,9 @@ export function useCcCallingHub(
       return data as Record<string, number | string | null> | null;
     },
     staleTime: 15_000,
+    // Other officers record outcomes too; poll so an open Hub tab never freezes.
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
   });
 
   const populationsQ = useQuery({
@@ -423,6 +426,9 @@ export function useCcCallingHub(
       return out;
     },
     staleTime: 15_000,
+    // Tab badges must follow outcomes recorded by other officers while the tab stays open.
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
   });
 
 
