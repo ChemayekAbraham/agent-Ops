@@ -38,10 +38,11 @@ import { AgentNetworkBadge } from '@/components/executive/tenant-ops/AgentNetwor
 import {
   Activity, ClipboardList, Users, Wallet, BarChart3,
   FileText, Banknote, Handshake, UserCheck, UserPlus,
-  TrendingUp, ArrowLeft, ChevronRight, Receipt, Home, CalendarCheck, Megaphone, Globe2, Landmark, Wallet2, Building2, ShieldCheck, Bike, MonitorSmartphone
+  TrendingUp, ArrowLeft, ChevronRight, Receipt, Home, CalendarCheck, Megaphone, Globe2, Landmark, Wallet2, Building2, ShieldCheck, Bike, MonitorSmartphone, ShoppingBag
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { BikeLeaseApprovalQueue } from '@/components/executive/agent-ops/BikeLeaseApprovalQueue';
+import { BoutiqueOrderApprovalQueue } from '@/components/executive/agent-ops/BoutiqueOrderApprovalQueue';
 import { SmartphoneOrderApprovalQueue } from '@/components/executive/agent-ops/SmartphoneOrderApprovalQueue';
 
 interface QuickNavItem {
@@ -74,6 +75,7 @@ const quickNavItems: QuickNavItem[] = [
   { id: 'department-budgets', label: 'Department Budgets', icon: Wallet2, color: 'bg-teal-500/10 text-teal-600 border-teal-500/20', description: 'Approve to CFO' },
   { id: 'agent-products-motorbikes', label: 'Welile Motorbikes', icon: Bike, color: 'bg-lime-500/10 text-lime-600 border-lime-500/20', description: 'Approve to CFO' },
   { id: 'agent-products-smartphones', label: 'Welile Smartphones', icon: MonitorSmartphone, color: 'bg-sky-500/10 text-sky-600 border-sky-500/20', description: 'Approve to CFO' },
+  { id: 'agent-products-boutique', label: 'Agent Boutique', icon: ShoppingBag, color: 'bg-rose-500/10 text-rose-600 border-rose-500/20', description: 'Approve to CFO' },
   { id: 'scale-vision', label: 'At Scale (40M+)', icon: Globe2, color: 'bg-primary/10 text-primary border-primary/20', description: 'Hyperscale vision' },
 ];
 
@@ -139,6 +141,15 @@ export default function COODashboardPage() {
             {renderSectionHeader('Welile Smartphones', MonitorSmartphone)}
             <p className="text-sm text-muted-foreground -mt-2">Smartphone applications verified by Agent Ops. Your approval forwards them to the CFO — approved files stay listed here as “Awaiting CFO” and open read-only.</p>
             <SmartphoneOrderApprovalQueue stage="coo" />
+          </div>
+        );
+      case 'agent-products-boutique':
+        return (
+          <div className="space-y-3">
+            {isMobile && renderBackButton('Overview')}
+            {renderSectionHeader('Agent Boutique', ShoppingBag)}
+            <p className="text-sm text-muted-foreground -mt-2">New boutique orders come to you first. Your approval forwards them to the CFO for final approval and issuance — approved orders stay listed here as “COO approved — awaiting CFO”.</p>
+            <BoutiqueOrderApprovalQueue stage="coo" />
           </div>
         );
       case 'rent-approvals':
