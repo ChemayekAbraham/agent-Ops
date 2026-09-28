@@ -1664,14 +1664,14 @@ export default function IdentityPhotoCapture({ compact }: Props) {
                 {(verdict === 'partial' || verdict === 'mismatch') && (
                   <p className="flex items-start gap-2 text-xs text-amber-600">
                     <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                    These names differ from your account name ({idReading.account_name}). Financial
+                    These names differ from your account name ({idReading?.account_name}). Financial
                     Ops will check this on the call.
                   </p>
                 )}
 
                 {/* A failed cross-check is a reason for a person to look, never
                     proof of anything — the NIN's internal layout is inferred. */}
-                {(idReading.consistency ?? []).length > 0 && (
+                {(idReading?.consistency ?? []).length > 0 && (
                   <p className="flex items-start gap-2 text-xs text-amber-600">
                     <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                     Some details on the card do not agree with each other. Financial Ops will look
