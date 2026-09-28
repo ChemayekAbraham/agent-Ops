@@ -161,6 +161,19 @@ export function FunderNewReviewDialog({
           Selecting and reviewing homes is planning only. Support starts after you confirm and the usual approval step is
           completed. Returns shown are estimates at the current 15% rate.
         </p>
+
+        {onFund && items.length > 0 ? (
+          <Button
+            className="h-12 w-full gap-2 bg-emerald-600 text-base font-bold text-white hover:bg-emerald-700"
+            disabled={walletLoading || available === null}
+            onClick={() => onFund(total, shortfall ?? 0)}
+          >
+            <Wallet className="h-4 w-4" />
+            {shortfall !== null && shortfall > 0
+              ? `Fund — top up ${formatDynamic(shortfall)}`
+              : `Fund this plan — ${formatDynamic(total)}`}
+          </Button>
+        ) : null}
       </DialogContent>
     </Dialog>
   );
