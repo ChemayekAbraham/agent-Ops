@@ -194,45 +194,16 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Update rent request status to 'funded'
-    const { error: updateErr } = await serviceClient
-      .from('rent_requests')
-      .update({
-        status: 'funded',
-        cfo_reviewed_by: user.id,
-        cfo_reviewed_at: now,
-        funded_at: now,
-        approval_comment: notes || null,
-        payout_transaction_reference: transaction_reference || null,
-        payout_method: payout_method || null,
-        updated_at: now,
-      })
-      .eq('id', rent_request_id)
-
-    if (updateErr) {
-      // Business guards raised by DB triggers (e.g. LANDLORD_NOT_VERIFIED) should reach
-      // the operator as plain, actionable text — not wrapped in internal prefixes.
-      const raw = updateErr.message || 'Unknown error'
-      const guard = raw.match(/LANDLORD_NOT_VERIFIED:\s*(.+)$/)
-      if (guard) throw new Error(guard[1].trim())
-      throw new Error(`Failed to update request: ${raw}`)
-    }
-
-    // Record agent_float_funding so it shows in the agent's float history.
-    // `rent_request_id` carries a unique index for active rows, so a retry can
-    // never write a second funding record for the same rent request.
-    const { error: fundingErr } = await serviceClient.from('agent_float_funding').insert({
-      agent_id: bonusAgentId,
-      amount: request.rent_amount,
-      funded_by: user.id,
-      rent_request_id,
-      notes: `CFO funded rent for landlord ${landlord?.name || 'Unknown'} – Request: ${rent_request_id.slice(0, 8)}`,
-    })
-    if (fundingErr && fundingErr.code !== '23505') {
-      console.warn('[fund-float] funding history insert failed:', fundingErr.message)
-    }
-
-    // Record in general ledger via RPC — platform cash out to agent float
+    // Record in general ledger via RPC — platform cash out to agent float.
+    //
+    // Posted BEFORE the status flip, and its error is checked: if the ledger
+    // pair does not post, the request must NOT become 'funded' (a funded
+    // request with no ledger pair can never be retried: the status guard above
+    // 409s it). What is left behind on failure: the allocation (so the agent's
+    // derived landlord float is already credited) and, on a fresh fund, the
+    // total_funded bump. Retrying with the same agent RESUMES on that
+    // allocation (skips the total_funded bump), re-posts under the same
+    // idempotency key (returns the existing group if one landed) and flips.
     const { data: transactionGroupId, error: floatLedgerErr } = await serviceClient.rpc('create_ledger_transaction', {
       entries: [
         {
@@ -264,6 +235,81 @@ Deno.serve(async (req) => {
       ],
       idempotency_key: `fund-agent-landlord-float:${rent_request_id}:float`,
     });
+
+    if (floatLedgerErr) {
+      console.error('[fund-float] Ledger posting failed; request NOT marked funded:',
+                    floatLedgerErr.message, 'rent_request:', rent_request_id,
+                    'allocation:', allocation?.id)
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Ledger posting failed: ${floatLedgerErr.message}. The request was NOT marked funded. Retry to resume.`,
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+
+    // Update rent request status to 'funded'
+    const { data: updatedRows, error: updateErr } = await serviceClient
+      .from('rent_requests')
+      .update({
+        status: 'funded',
+        cfo_reviewed_by: user.id,
+        cfo_reviewed_at: now,
+        funded_at: now,
+        approval_comment: notes || null,
+        payout_transaction_reference: transaction_reference || null,
+        payout_method: payout_method || null,
+        updated_at: now,
+      })
+      .eq('id', rent_request_id)
+      // Compare-and-set: only flip from a fundable status. Two concurrent
+      // clicks both pass the status read above; only one may flip.
+      .in('status', ['approved', 'coo_approved'])
+      .select('id')
+
+    if (updateErr) {
+      // Business guards raised by DB triggers (e.g. LANDLORD_NOT_VERIFIED) should reach
+      // the operator as plain, actionable text — not wrapped in internal prefixes.
+      const raw = updateErr.message || 'Unknown error'
+      const guard = raw.match(/LANDLORD_NOT_VERIFIED:\s*(.+)$/)
+      if (guard) throw new Error(guard[1].trim())
+      throw new Error(`Failed to update request: ${raw}`)
+    }
+    if (!updatedRows || updatedRows.length === 0) {
+      // Lost the race (or the status moved since we read it). The ledger call
+      // above used the per-request idempotency key, so it did not post twice.
+      const { data: current } = await serviceClient
+        .from('rent_requests')
+        .select('status')
+        .eq('id', rent_request_id)
+        .maybeSingle()
+      const isFunded = current?.status === 'funded'
+      return new Response(
+        JSON.stringify({
+          success: false,
+          already_funded: isFunded,
+          error: isFunded
+            ? 'This rent request is already funded. Refusing to re-fund.'
+            : `Rent request status changed to ${current?.status ?? 'unknown'} while funding. Not marked funded.`,
+        }),
+        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+
+    // Record agent_float_funding so it shows in the agent's float history.
+    // `rent_request_id` carries a unique index for active rows, so a retry can
+    // never write a second funding record for the same rent request.
+    const { error: fundingErr } = await serviceClient.from('agent_float_funding').insert({
+      agent_id: bonusAgentId,
+      amount: request.rent_amount,
+      funded_by: user.id,
+      rent_request_id,
+      notes: `CFO funded rent for landlord ${landlord?.name || 'Unknown'} – Request: ${rent_request_id.slice(0, 8)}`,
+    })
+    if (fundingErr && fundingErr.code !== '23505') {
+      console.warn('[fund-float] funding history insert failed:', fundingErr.message)
+    }
 
     // ============================================================
     // LANDLORD FLOW TREASURY RECOGNITION (Phase 2)
