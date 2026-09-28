@@ -58,9 +58,13 @@ WHERE NOT EXISTS (SELECT 1 FROM public.ledger_account_map m
 --                                   -> offset credited to L5.
 --    Split is cumulative over STANDING cash only (reversed rows excluded; balance
 --    corrections never create rows) and capped at the approved Rent Plan total.
+-- Journal date: NULL = now() (live routes, unchanged); the historical correction passes the
+-- original collection date so each journal is dated when the cash was collected.
+DROP FUNCTION IF EXISTS public._post_four_part_fee_split(uuid, numeric, text, uuid, text, numeric, text);
 CREATE OR REPLACE FUNCTION public._post_four_part_fee_split(
   p_rent_request_id uuid, p_amount numeric, p_source_table text, p_source_id uuid,
-  p_route text, p_commission_paid numeric DEFAULT NULL, p_idempotency_key text DEFAULT NULL)
+  p_route text, p_commission_paid numeric DEFAULT NULL, p_idempotency_key text DEFAULT NULL,
+  p_journal_date timestamptz DEFAULT NULL)
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -200,22 +204,22 @@ BEGIN
     v_legs := jsonb_build_array(jsonb_build_object(
         'direction','cash_out','amount', f, 'category','treasury_fee_drawdown',
         'ledger_scope','platform','source_table',p_source_table,'source_id',p_source_id::text,
-        'reference_id',v_inst::text,'currency','UGX','transaction_date',now(),'classification','production',
+        'reference_id',v_inst::text,'currency','UGX','transaction_date',COALESCE(p_journal_date, now()),'classification','production',
         'description','Deferred fee drawn down on tenant rent collection (four-part waterfall)'))
       || CASE WHEN pf > 0 THEN jsonb_build_array(jsonb_build_object(
         'direction','cash_in','amount', pf, 'category','platform_fee_collected',
         'ledger_scope','platform','source_table',p_source_table,'source_id',p_source_id::text,
-        'reference_id',v_inst::text,'currency','UGX','transaction_date',now(),'classification','production',
+        'reference_id',v_inst::text,'currency','UGX','transaction_date',COALESCE(p_journal_date, now()),'classification','production',
         'description','Platform Fee (residual) on tenant rent collection')) ELSE '[]'::jsonb END
       || CASE WHEN r > 0 THEN jsonb_build_array(jsonb_build_object(
         'direction','cash_in','amount', r, 'category','partner_returns_allocated',
         'ledger_scope','platform','source_table',p_source_table,'source_id',p_source_id::text,
-        'reference_id',v_inst::text,'currency','UGX','transaction_date',now(),'classification','production',
+        'reference_id',v_inst::text,'currency','UGX','transaction_date',COALESCE(p_journal_date, now()),'classification','production',
         'description','Partner Returns share of collected fees (held in L7, not revenue; not owed or paid from here)')) ELSE '[]'::jsonb END
       || CASE WHEN c > 0 THEN jsonb_build_array(jsonb_build_object(
         'direction','cash_in','amount', c, 'category', v_offset_cat,
         'ledger_scope','platform','source_table',p_source_table,'source_id',p_source_id::text,
-        'reference_id',v_inst::text,'currency','UGX','transaction_date',now(),'classification','production',
+        'reference_id',v_inst::text,'currency','UGX','transaction_date',COALESCE(p_journal_date, now()),'classification','production',
         'description','Agent Commission funded from collected fees (offsets the commission already paid; no wallet movement)')) ELSE '[]'::jsonb END;
 
     SELECT public.create_ledger_transaction(entries := v_legs, idempotency_key := v_key) INTO v_grp;
@@ -1448,7 +1452,8 @@ BEGIN
       status := 'dry_run'; RETURN NEXT; CONTINUE;
     END IF;
     v_res := public._post_four_part_fee_split(c.rr, c.amount, 'agent_collections', c.id,
-               'agent_collection', v_paid, 'four-part-fee:agent_collections:' || c.id::text);
+               'agent_collection', v_paid, 'four-part-fee:agent_collections:' || c.id::text,
+               c.created_at);
     collection_id := c.id; rent_request_id := c.rr; amount := c.amount; commission_paid := v_paid;
     principal := (v_res->>'principal')::numeric; partner_returns := (v_res->>'partner_returns')::numeric;
     agent_commission := (v_res->>'agent_commission_accounting')::numeric;
