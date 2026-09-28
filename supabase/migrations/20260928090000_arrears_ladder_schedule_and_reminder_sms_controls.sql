@@ -20,6 +20,11 @@
 --    by the ladder at 07:30; the ladder's agent SMS/tasks and day-7 call rows
 --    still run.
 --
+--    Headers carry the public anon key as both apikey and Authorization
+--    Bearer: the function has no config.toml verify_jwt=false entry (default
+--    true), and an apikey-only call is refused by the gateway when
+--    verify_jwt is on (docs/HANDOVER/79).
+--
 --    Lovable's project memory (mem/features/tenant/arrears-escalation-ladder.md)
 --    names a job `tenant-arrears-escalations-0700-eat` (0 4 * * *) that is not
 --    in any repo migration. If it exists in production it is replaced here, so
@@ -52,7 +57,7 @@ select cron.schedule(
   $$
   select net.http_post(
     url:='https://wirntoujqoyjobfhyelc.supabase.co/functions/v1/tenant-arrears-escalations',
-    headers:='{"Content-Type":"application/json","apikey":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indpcm50b3VqcW95am9iZmh5ZWxjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1NjE1MTYsImV4cCI6MjA4MjEzNzUxNn0.5-zxcRPVxvpxNiXhoo5VHpIuvbtuOLfiI3ph8jPIod8"}'::jsonb,
+    headers:='{"Content-Type":"application/json","apikey":"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indpcm50b3VqcW95am9iZmh5ZWxjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1NjE1MTYsImV4cCI6MjA4MjEzNzUxNn0.5-zxcRPVxvpxNiXhoo5VHpIuvbtuOLfiI3ph8jPIod8","Authorization":"Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indpcm50b3VqcW95am9iZmh5ZWxjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1NjE1MTYsImV4cCI6MjA4MjEzNzUxNn0.5-zxcRPVxvpxNiXhoo5VHpIuvbtuOLfiI3ph8jPIod8"}'::jsonb,
     body:='{}'::jsonb
   );
   $$
