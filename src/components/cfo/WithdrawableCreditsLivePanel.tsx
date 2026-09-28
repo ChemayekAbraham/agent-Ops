@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { formatUGX } from '@/lib/creditFeeCalculations';
-import { Radio } from 'lucide-react';
+import { ChevronRight, Radio } from 'lucide-react';
 
 const GROUPS: Record<string, string> = {
   roi_wallet_credit: 'Supporter returns',
