@@ -42,7 +42,6 @@ const EmailTransactionsPanel = lazy(() =>
 );
 
 import { ReceivablesCardDrilldown } from '@/components/cfo/ReceivablesCardDrilldown';
-import { ServiceCentreReceivablesPanel } from '@/components/cfo/ServiceCentreReceivablesPanel';
 import { PayablesCardDrilldown } from '@/components/cfo/PayablesCardDrilldown';
 import { GeneralPayoutActivities } from '@/components/cfo/GeneralPayoutActivities';
 
@@ -501,7 +500,6 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
           </div>
 
           <GeneralPayoutActivities />
-          <ServiceCentreReceivablesPanel />
         </Band>
 
         {/* ─────────── 3 · CASH MOVEMENT ─────────── */}
