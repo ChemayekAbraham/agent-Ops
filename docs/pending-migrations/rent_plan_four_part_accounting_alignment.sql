@@ -38,13 +38,16 @@ UPDATE public.instalment_allocations ia
    AND ac.reversed_at IS NOT NULL
    AND ia.reversed_at IS NULL;
 
--- 2. Two new accounting-only categories, both revenue (R1), credited by cash_in.
+-- 2. Two new accounting-only categories. platform_fee_collected is revenue (R1).
+--    partner_returns_allocated is NOT revenue: it is held in L7 (Platform Treasury holding, the
+--    same account the fee drawdown relieves), pending resolution of BD-2. It is not mapped to
+--    the L3 Partner obligation account and triggers no Supporter Returns payment/cost logic.
 INSERT INTO public.ledger_account_map (ledger_scope, category, wallet_bucket, account_code, debit_when, notes)
-SELECT 'platform', v.c, NULL, 'R1', 'cash_out', v.n
+SELECT 'platform', v.c, NULL, v.a, 'cash_out', v.n
 FROM (VALUES
-  ('platform_fee_collected','Four-part waterfall Platform Fee (residual). Post cash_in to CREDIT R1.'),
-  ('partner_returns_allocated','Four-part waterfall Partner Returns share of collected fees. Separate revenue line only: NOT a liability, NOT a payment. Supporter Returns remain paid and expensed by the monthly returns engine. Post cash_in to CREDIT R1.')
-) v(c, n)
+  ('platform_fee_collected','R1','Four-part waterfall Platform Fee (residual). Post cash_in to CREDIT R1.'),
+  ('partner_returns_allocated','L7','Four-part waterfall Partner Returns share of collected fees. Accounting allocation HELD in L7 (Platform Treasury holding). NOT revenue, NOT the L3 obligation (BD-2 unresolved), NOT a payment. Supporter Returns remain paid and expensed by the monthly returns engine. Post cash_in to CREDIT L7.')
+) v(c, a, n)
 WHERE NOT EXISTS (SELECT 1 FROM public.ledger_account_map m
                   WHERE m.ledger_scope='platform' AND m.category=v.c AND m.wallet_bucket IS NULL);
 
@@ -208,7 +211,7 @@ BEGIN
         'direction','cash_in','amount', r, 'category','partner_returns_allocated',
         'ledger_scope','platform','source_table',p_source_table,'source_id',p_source_id::text,
         'reference_id',v_inst::text,'currency','UGX','transaction_date',now(),'classification','production',
-        'description','Partner Returns share of collected fees (accounting line only; not owed or paid from here)')) ELSE '[]'::jsonb END
+        'description','Partner Returns share of collected fees (held in L7, not revenue; not owed or paid from here)')) ELSE '[]'::jsonb END
       || CASE WHEN c > 0 THEN jsonb_build_array(jsonb_build_object(
         'direction','cash_in','amount', c, 'category', v_offset_cat,
         'ledger_scope','platform','source_table',p_source_table,'source_id',p_source_id::text,
@@ -874,7 +877,7 @@ BEGIN
       WHEN direction = 'cash_in' AND category IN (
         'tenant_access_fee','access_fee','tenant_request_fee','request_fee',
         'platform_service_income','landlord_platform_fee','management_fee',
-        'access_fee_collected','registration_fee_collected','platform_fee_collected','partner_returns_allocated',
+        'access_fee_collected','registration_fee_collected','platform_fee_collected',
         'wallet_deduction'
       )
       THEN amount ELSE 0 END), 0),
@@ -1195,7 +1198,7 @@ BEGIN
       AND gl.category <> 'system_balance_correction'
       AND gl.category IN (
         'tenant_repayment','tenant_repayment_collected','rent_principal_collected','agent_repayment','partner_funding',
-        'wallet_deposit','share_capital','access_fee_collected','registration_fee_collected','platform_fee_collected','partner_returns_allocated',
+        'wallet_deposit','share_capital','access_fee_collected','registration_fee_collected','platform_fee_collected',
         'debt_recovery','platform_service_income','tenant_default_charge','roi_reinvestment'
       )
   ), agg AS (
@@ -1260,7 +1263,7 @@ AS $function$
     'l7_total_collected',(SELECT COALESCE(SUM(collected),0) FROM collected),
     'check_7_non_rent_excluded', jsonb_build_object(
       'non_rent_r1_fee_activity',(SELECT COALESCE(SUM(CASE WHEN gl.direction='cash_in' THEN gl.amount ELSE -gl.amount END),0)
-        FROM general_ledger gl WHERE gl.category IN ('registration_fee_collected','access_fee_collected','platform_fee_collected','partner_returns_allocated')
+        FROM general_ledger gl WHERE gl.category IN ('registration_fee_collected','access_fee_collected','platform_fee_collected')
           AND gl.ledger_scope='platform'
           AND NOT EXISTS (SELECT 1 FROM rent_groups rg WHERE rg.g=gl.transaction_group_id)),
       'note','Exists in R1 but deliberately excluded from every Landlord/Rent figure.'));
