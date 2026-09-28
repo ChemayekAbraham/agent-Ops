@@ -8,6 +8,17 @@
  */
 export const AGENT_OVERDUE_CHASE_ENABLED = true;
 
+/**
+ * Hard modal from this component. OFF on the rebased branch (2026-09-28):
+ * `lovable` already ships AgentOverdueCallDrive (8db2f24d, live on
+ * welileapp.com), a full-stop overdue call modal on the same dashboard.
+ * Two non-dismissable modals stacked on every app open is worse than one, so
+ * this component contributes the banner, % Called, list sheet and touch
+ * tracking only. Flip to true (and unmount AgentOverdueCallDrive) if the
+ * product decision is to use this modal instead.
+ */
+export const AGENT_OVERDUE_CHASE_MODAL_ENABLED = false;
+
 /** In-app re-nudge interval while book is <100% DONE (ms). */
 export const AGENT_OVERDUE_CHASE_NUDGE_MS = 15 * 60 * 1000;
 

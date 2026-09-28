@@ -35,6 +35,7 @@ import {
 } from '@/hooks/useAgentOverdueTouches';
 import {
   AGENT_OVERDUE_CHASE_ENABLED,
+  AGENT_OVERDUE_CHASE_MODAL_ENABLED,
   AGENT_OVERDUE_CHASE_NUDGE_MS,
   AGENT_OVERDUE_CHASE_SMS_REFIRING_ENABLED,
   AGENT_OVERDUE_CHASE_SMS_INTERVAL_MS,
@@ -92,7 +93,7 @@ export function AgentOverdueChase({ agentId }: Props) {
     !hasPressure || (totalCount > 0 && doneCount >= totalCount);
 
   useEffect(() => {
-    if (!enabled || bookComplete) {
+    if (!enabled || bookComplete || !AGENT_OVERDUE_CHASE_MODAL_ENABLED) {
       setModalOpen(false);
       return;
     }
@@ -100,7 +101,7 @@ export function AgentOverdueChase({ agentId }: Props) {
   }, [enabled, bookComplete, nudgeTick]);
 
   useEffect(() => {
-    if (!enabled || bookComplete) return;
+    if (!enabled || bookComplete || !AGENT_OVERDUE_CHASE_MODAL_ENABLED) return;
     const id = window.setInterval(() => {
       setNudgeTick((n) => n + 1);
     }, AGENT_OVERDUE_CHASE_NUDGE_MS);

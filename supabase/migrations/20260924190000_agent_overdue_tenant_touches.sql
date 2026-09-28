@@ -136,7 +136,7 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.agent_overdue_touch_mark(uuid, text, uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.agent_overdue_touch_mark(uuid, text, uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.agent_overdue_touch_mark(uuid, text, uuid) TO authenticated;
 
 -- Today's touch map for the signed-in agent (or staff viewing p_agent_id).
@@ -194,5 +194,5 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.agent_overdue_touches_today(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.agent_overdue_touches_today(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.agent_overdue_touches_today(uuid) TO authenticated;
