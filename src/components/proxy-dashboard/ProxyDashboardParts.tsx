@@ -76,12 +76,6 @@ export function ProxyCommissionCard({ d }: { d: ProxyPerformanceDashboard }) {
         <Wallet className="h-4 w-4 text-primary" />
       </div>
       <p className="mt-1 text-xl font-bold tabular-nums md:text-2xl">{ugxShort(c.earned)}</p>
-      <dl className="mt-2 space-y-1 border-t pt-2 text-xs">
-        <Row k={`Promissory Notes (${ugx(c.note_rate)} each)`} v={ugx(c.notes)} />
-        <Row k={`Initial Support — ${c.initial_support_pct}%`} v={ugx(c.initial_support)} />
-        <Row k={`Top-ups — ${c.top_up_pct}%`} v={ugx(c.top_ups)} />
-        <Row k="Pending (not yet earned)" v={ugx(c.pending)} muted />
-      </dl>
     </Card>
   );
 }
