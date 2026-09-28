@@ -162,23 +162,16 @@ interface TenantNotice {
  */
 function agentMessage(n: AgentNotice): string {
   const tenant = n.tenant_name ? ` (${n.tenant_name})` : '';
-  const deadline =
-    n.recall_active && n.deadline_time && n.deadline_date
-      ? `Pay the landlord within 24 hours — by ${n.deadline_time} on ${n.deadline_date} — ` +
-        `or the float will be returned and the Rent Plan cancelled.
-
-`
-      : `Please pay the landlord and submit the TID and receipt.
-
-`;
-
   return (
     `${ugx(n.rent_amount)} landlord float has been sent to your wallet for ` +
     `${n.landlord_name || 'the landlord'}${tenant}.
 
 ` +
-    deadline +
-    `Payouts run 06:00–22:00.${n.ref ? ` Ref ${n.ref}.` : ''}`
+    `Pay the landlord within 24 hours — by ${n.deadline_time} on ${n.deadline_date} — ` +
+    `or the float will be returned and the Rent Plan cancelled.
+
+` +
+    `Payouts run 06:00–22:00. Ref ${n.ref}.`
   );
 }
 
