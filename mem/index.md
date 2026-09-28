@@ -127,3 +127,4 @@
 - [Promissory conversion queue actions](mem://features/partner/promissory-conversion-queue-actions) — Partner Ops assign/contact/snooze/resolve on open promises via append-only promissory_note_ops_actions log; never edits the note or reminder fields
 - [Promissory queue analytics](mem://features/partner/ops-queue-analytics) — read-only `promissory_ops_analytics` RPC + analytics panel: contact attempts (manual + automated SMS), conversion, overdue aging, fulfilment rates by partner and agent
 - [Conversion queue export](mem://features/partner/queue-export) — CSV/PDF buttons export the filtered on-screen queue rows with score, days late, tier and owner
+- [Rent Plan 4-part waterfall](mem://features/rent-plan-4-part-waterfall) — Principal / Partner Returns 15% of principal flat / Agent 10% of total / Platform Fee remainder; backend not yet built
