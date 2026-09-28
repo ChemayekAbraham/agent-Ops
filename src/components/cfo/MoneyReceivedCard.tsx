@@ -2,10 +2,9 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { HeroCard } from '@/components/cfo/HeroCard';
 import { formatUGX } from '@/lib/creditFeeCalculations';
-import { ArrowDownLeft, FileText } from 'lucide-react';
+import { ArrowDownLeft } from 'lucide-react';
 import { useState } from 'react';
 import { allTime, kampalaDate, monthStart, type DrilldownPreset } from '@/components/cfo/MoneyDrilldownReport';
-import { Button } from '@/components/ui/button';
 import { MoneyReceivedReport } from '@/components/cfo/MoneyReceivedReport';
 
 type Row = {
@@ -49,7 +48,6 @@ export function MoneyReceivedCard() {
       ] : []}
       onClick={() => { total(); }}
       footer={q.error ? 'Could not load receipts' : 'Excludes internal transfers and accounting corrections'}
-      action={<Button variant="outline" size="sm" className="w-full" onClick={() => drill(null)}><FileText className="h-4 w-4 mr-1" /> View Report</Button>}
     />
     <MoneyReceivedReport open={report} onOpenChange={setReport} preset={preset} />
     </>
