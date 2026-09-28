@@ -50,7 +50,33 @@ interface ChangeRow {
   status: string | null;
   changed_by: string | null;
   changed_at: string;
+  source: string | null;
 }
+
+/**
+ * A row is worth an email when it is a change to the RENT PLAN, not an ordinary
+ * collection.
+ *
+ * Every agent collection moves `amount_repaid` and therefore writes a log row —
+ * 4,005 of them in the last 60 days against 318 genuine ops edits. Mailing
+ * those buried the changes that matter. A collection is the case where
+ * amount_repaid moved ON ITS OWN and no door labelled itself, so that is the
+ * only case excluded. Anything with a `source` (a CFO-approved balance edit, an
+ * agent correcting a rejected or renewal plan) or any change to the plan's terms
+ * is reported.
+ */
+const isRentPlanChange = (r: ChangeRow): boolean => {
+  if (r.source) return true;
+  const fields = r.changed_fields ?? [];
+  return !(fields.length === 1 && fields[0] === "amount_repaid");
+};
+
+const SOURCE_LABEL: Record<string, string> = {
+  cfo_approved_tenant_ops_balance: "Tenant Ops balance edit — CFO approved",
+  cfo_approved_tenant_ops_correction: "Tenant Ops plan correction — CFO approved",
+  cfo_approved_ops_payment_edit: "Ops payment edit — CFO approved",
+  agent_rent_plan_edit: "Agent — rejected or renewal plan",
+};
 
 function generateToken(): string {
   const bytes = new Uint8Array(32);
@@ -96,18 +122,32 @@ Deno.serve(async (req) => {
     const { data, error } = await admin
       .from("rent_amount_change_log")
       .select(
-        "id, rent_request_id, tenant_id, agent_id, old_rent_amount, new_rent_amount, old_total_repayment, new_total_repayment, old_duration_days, new_duration_days, old_access_fee, new_access_fee, old_request_fee, new_request_fee, old_daily_repayment, new_daily_repayment, changed_fields, status, changed_by, changed_at",
+        "id, rent_request_id, tenant_id, agent_id, old_rent_amount, new_rent_amount, old_total_repayment, new_total_repayment, old_duration_days, new_duration_days, old_access_fee, new_access_fee, old_request_fee, new_request_fee, old_daily_repayment, new_daily_repayment, changed_fields, status, changed_by, changed_at, source",
       )
       .is("notified_at", null)
       .order("changed_at", { ascending: false })
       .limit(200);
     if (error) throw new Error(`log fetch failed: ${error.message}`);
 
-    const rows = (data ?? []) as ChangeRow[];
+    const fetched = (data ?? []) as ChangeRow[];
+    const rows = fetched.filter(isRentPlanChange);
+    const skipped = fetched.filter((r) => !isRentPlanChange(r));
+
+    // Collections are marked seen even though nobody is mailed about them,
+    // otherwise they sit at the front of the queue forever and crowd out the
+    // rows that do matter.
+    if (skipped.length) {
+      await admin
+        .from("rent_amount_change_log")
+        .update({ notified_at: new Date().toISOString() })
+        .in("id", skipped.map((r) => r.id));
+    }
+
     if (!rows.length) {
-      return new Response(JSON.stringify({ notified: 0, reason: "no new rent fee changes" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return new Response(
+        JSON.stringify({ notified: 0, skipped_collections: skipped.length, reason: "no new rent plan changes" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     const ids = [
@@ -162,7 +202,9 @@ Deno.serve(async (req) => {
   <td style="padding:6px 10px;border-bottom:1px solid #eee;text-align:right">${fmtUGX(r.new_total_repayment)}</td>
   <td style="padding:6px 10px;border-bottom:1px solid #eee">${esc(changeDetail(r))}</td>
   <td style="padding:6px 10px;border-bottom:1px solid #eee">${esc(r.status)}</td>
-  <td style="padding:6px 10px;border-bottom:1px solid #eee">${esc(nameById.get(r.changed_by ?? "") ?? "System")}</td>
+  <td style="padding:6px 10px;border-bottom:1px solid #eee">${esc(nameById.get(r.changed_by ?? "") ?? "System")}${
+    r.source ? `<div style="color:#667;font-size:11px">${esc(SOURCE_LABEL[r.source] ?? r.source)}</div>` : ""
+  }</td>
   <td style="padding:6px 10px;border-bottom:1px solid #eee;white-space:nowrap">${esc(new Date(r.changed_at).toISOString().replace("T", " ").slice(0, 16))} UTC</td>
 </tr>`;
       })
@@ -260,7 +302,7 @@ Deno.serve(async (req) => {
         .in("id", rows.map((r) => r.id));
     }
 
-    return new Response(JSON.stringify({ notified: rows.length, email_results: results, sms_results: smsResults }), {
+    return new Response(JSON.stringify({ notified: rows.length, skipped_collections: skipped.length, email_results: results, sms_results: smsResults }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {

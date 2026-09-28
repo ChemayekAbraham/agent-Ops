@@ -288,6 +288,15 @@ export function AgentAllocationReport() {
     field: 'rent_amount' | 'amount_repaid' | 'duration_days',
     value: number,
   ) => {
+    // What a tenant owes is not editable from here, and since 20260928150000
+    // the row-level policy refuses it outright. Saying so is better than
+    // letting the write fail with a permissions error.
+    if (field === 'amount_repaid') {
+      toast.error('Repaid cannot be edited here', {
+        description: 'Change the outstanding balance in Tenant Ops. It goes to the CFO for approval.',
+      });
+      throw new Error('amount_repaid is not editable from the allocation report');
+    }
     const { error } = await supabase
       .from('rent_requests')
       .update({ [field]: value })

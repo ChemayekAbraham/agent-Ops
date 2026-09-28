@@ -275,6 +275,14 @@ export function TenantDetailPanel({ tenantId, tenantName, onBack, onViewRegistra
     const row = (Array.isArray(corrected) ? corrected[0] : corrected) as CorrectedRentRequest | null;
     if (!row?.id) throw new Error('Rent request correction did not return a saved row');
 
+    // Since 20260928140000 this RPC QUEUES the correction and returns the plan
+    // unchanged — nothing moves until the CFO approves it. The patch below is
+    // therefore the CURRENT figures, which is what the fields should snap back
+    // to, and the operator needs telling why their edit appears not to stick.
+    toast.info('Sent to the CFO for approval', {
+      description: 'The tenant’s plan does not change until it is approved.',
+    });
+
     const savedPatch: Record<string, number> = {};
     if (patch.rent_amount !== undefined) savedPatch.rent_amount = Number(row.rent_amount ?? patch.rent_amount);
     if (patch.duration_days !== undefined) savedPatch.duration_days = Number(row.duration_days ?? patch.duration_days);
