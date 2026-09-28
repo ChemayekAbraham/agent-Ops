@@ -34701,20 +34701,26 @@ export type Database = {
         Row: {
           agent_id: string
           created_at: string
+          daily_note_target: number | null
           monthly_partner_target: number
           updated_at: string
+          weekly_note_target: number | null
         }
         Insert: {
           agent_id: string
           created_at?: string
+          daily_note_target?: number | null
           monthly_partner_target?: number
           updated_at?: string
+          weekly_note_target?: number | null
         }
         Update: {
           agent_id?: string
           created_at?: string
+          daily_note_target?: number | null
           monthly_partner_target?: number
           updated_at?: string
+          weekly_note_target?: number | null
         }
         Relationships: [
           {
@@ -61042,6 +61048,10 @@ export type Database = {
       }
       get_proxy_agent_command_center: {
         Args: { p_agent_id?: string }
+        Returns: Json
+      }
+      get_proxy_agent_performance_dashboard: {
+        Args: { p_agent_id?: string; p_range?: string }
         Returns: Json
       }
       get_proxy_agent_pv: {
