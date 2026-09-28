@@ -86,6 +86,10 @@ BEGIN
   SELECT COALESCE(rent_amount,0), COALESCE(total_repayment,0), COALESCE(request_fee,0), COALESCE(access_fee,0)
     INTO v_rr, v_tt, v_rf, v_af
   FROM rent_requests WHERE id = p_rent_request_id FOR UPDATE;
+  -- Unknown Rent Plan: refuse. Never book the amount as Principal against nothing.
+  IF NOT FOUND OR v_tt <= 0 THEN
+    RAISE EXCEPTION 'rent plan % not found or has no priced total', p_rent_request_id;
+  END IF;
 
   v_amt := ROUND(COALESCE(p_amount,0));
   IF v_amt <= 0 THEN RETURN jsonb_build_object('status','no_op'); END IF;
@@ -232,7 +236,8 @@ BEGIN
     'amount_above_total',v_over,'total_fees_collected',f,
     'registration_fee_collected',f_reg,'access_fee_collected',f_acc);
 END $function$;
-REVOKE ALL ON FUNCTION public._post_four_part_fee_split(uuid,numeric,text,uuid,text,numeric,text) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public._post_four_part_fee_split(uuid,numeric,text,uuid,text,numeric,text,timestamptz) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._post_four_part_fee_split(uuid,numeric,text,uuid,text,numeric,text,timestamptz) TO service_role;
 
 CREATE OR REPLACE FUNCTION public.is_four_part_waterfall_eligible(p_rent_request_id uuid)
 RETURNS boolean LANGUAGE sql STABLE SET search_path TO 'public' AS $$
@@ -503,9 +508,20 @@ BEGIN
   v_all_prior := NULL; v_prior_paid := NULL;
   v_paid := ROUND(ROUND(p_instalment_amount) * 0.10);
 
-  v_res := public._post_four_part_fee_split(p_rent_request_id, p_instalment_amount, p_source_table, p_source_id,
-             'deposit_settlement', v_paid,
-             COALESCE(p_idempotency_key, 'four-part-fee:' || p_source_table || ':' || p_source_id::text));
+  -- Paths whose caller pays commission separately through credit_agent_rent_commission
+  -- (which books its own X3 cost) must not also accrue an L5 commission payable that is
+  -- never settled. They take the agent-collection offset (X3) and report 0 commission,
+  -- so nothing is paid from this result. Wallet behaviour is unchanged.
+  IF p_source_table IN ('subscription_charges','agent_deposits','tenant_pay_rent') THEN
+    v_res := public._post_four_part_fee_split(p_rent_request_id, p_instalment_amount, p_source_table, p_source_id,
+               'agent_collection', NULL,
+               COALESCE(p_idempotency_key, 'four-part-fee:' || p_source_table || ':' || p_source_id::text));
+    v_paid := 0;
+  ELSE
+    v_res := public._post_four_part_fee_split(p_rent_request_id, p_instalment_amount, p_source_table, p_source_id,
+               'deposit_settlement', v_paid,
+               COALESCE(p_idempotency_key, 'four-part-fee:' || p_source_table || ':' || p_source_id::text));
+  END IF;
 
   IF v_res->>'status' <> 'posted' THEN RETURN v_res; END IF;
 
@@ -1464,3 +1480,17 @@ BEGIN
 END $function$;
 REVOKE ALL ON FUNCTION public.rent_fee_correct_unsplit_agent_collections(boolean) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.rent_fee_correct_unsplit_agent_collections(boolean) TO authenticated;
+
+-- 10. Execution lock on the accounting steps (risk-test fix, 2026-09-29).
+--     Only the system pathway may run them: service_role (edge functions) and the
+--     SECURITY DEFINER wrappers that call them (they run as their owner). Signed-out
+--     visitors and signed-in users are refused at the database, even on direct calls.
+--     Placed last so every signature named here exists when it runs.
+REVOKE ALL ON FUNCTION public._post_four_part_fee_split(uuid,numeric,text,uuid,text,numeric,text,timestamptz) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._post_four_part_fee_split(uuid,numeric,text,uuid,text,numeric,text,timestamptz) TO service_role;
+REVOKE ALL ON FUNCTION public.post_rent_fee_collection(uuid,numeric,text,uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.post_rent_fee_collection(uuid,numeric,text,uuid) TO service_role;
+REVOKE ALL ON FUNCTION public.post_instalment_waterfall(uuid,numeric,text,uuid,text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.post_instalment_waterfall(uuid,numeric,text,uuid,text) TO service_role;
+REVOKE ALL ON FUNCTION public.reverse_rent_fee_allocation(uuid,text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.reverse_rent_fee_allocation(uuid,text) TO service_role;
