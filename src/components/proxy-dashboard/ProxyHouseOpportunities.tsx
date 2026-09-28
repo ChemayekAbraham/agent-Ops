@@ -66,7 +66,7 @@ export function ProxyHouseOpportunities({ onCreateNote }: { onCreateNote: (h: Ho
   };
 
   const share = async (h: HouseOpportunity) => {
-    const text = `${h.house_category || h.title || 'House'} in ${housePlace(h)} needs ${ugx(h.monthly_rent)} of support on Welile.`;
+    const text = `${houseLabel(h)} in ${housePlace(h)} needs ${ugx(h.monthly_rent)} of support on Welile.`;
     try {
       if (navigator.share) await navigator.share({ title: 'Welile house', text, url: 'https://welileapp.com' });
       else { await navigator.clipboard.writeText(`${text} https://welileapp.com`); toast.success('Copied to clipboard'); }
