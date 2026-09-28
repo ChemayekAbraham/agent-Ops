@@ -15,6 +15,13 @@ import { SectionError, ugx } from './ProxyDashboardParts';
 const PAGE = 12;
 type Sort = 'recommended' | 'nearest' | 'rent_low' | 'rent_high' | 'newest';
 
+/** "two_bedroom" -> "Two Bedroom" */
+const houseLabel = (h: HouseOpportunity) =>
+  (h.house_category || h.title || 'House')
+    .replace(/[_-]+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+
 /** Reuses the existing empty-house source (agent_list_empty_house_opportunities). */
 export function ProxyHouseOpportunities({ onCreateNote }: { onCreateNote: (h: HouseOpportunity) => void }) {
   const [search, setSearch] = useState('');
@@ -66,7 +73,7 @@ export function ProxyHouseOpportunities({ onCreateNote }: { onCreateNote: (h: Ho
   };
 
   const share = async (h: HouseOpportunity) => {
-    const text = `${h.house_category || h.title || 'House'} in ${housePlace(h)} needs ${ugx(h.monthly_rent)} of support on Welile.`;
+    const text = `${houseLabel(h)} in ${housePlace(h)} needs ${ugx(h.monthly_rent)} of support on Welile.`;
     try {
       if (navigator.share) await navigator.share({ title: 'Welile house', text, url: 'https://welileapp.com' });
       else { await navigator.clipboard.writeText(`${text} https://welileapp.com`); toast.success('Copied to clipboard'); }
@@ -133,14 +140,14 @@ export function ProxyHouseOpportunities({ onCreateNote }: { onCreateNote: (h: Ho
               return (
                 <Card key={h.house_id} className="flex flex-col overflow-hidden p-0">
                   {photo ? (
-                    <img src={photo} alt={h.house_category || h.title || 'House'} loading="lazy" className="h-40 w-full bg-muted object-cover" />
+                    <img src={photo} alt={houseLabel(h)} loading="lazy" className="h-40 w-full bg-muted object-cover" />
                   ) : (
                     <div className="flex h-40 w-full items-center justify-center bg-muted"><Home className="h-8 w-8 text-muted-foreground" /></div>
                   )}
                   <div className="flex flex-1 flex-col p-3">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="truncate font-semibold">{h.house_category || h.title || 'House'}</p>
+                        <p className="truncate font-semibold">{houseLabel(h)}</p>
                         <p className="flex items-center gap-1 truncate text-xs text-muted-foreground"><MapPin className="h-3 w-3 shrink-0" />{housePlace(h)}{typeof h.distance_km === 'number' ? ` · ${h.distance_km.toFixed(1)} km` : ''}</p>
                       </div>
                       {h.verified && <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">Verified</span>}
