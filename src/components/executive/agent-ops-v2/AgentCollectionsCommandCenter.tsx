@@ -24,6 +24,7 @@ import { DormantAgentsDialog } from './DormantAgentsDialog';
 
 import { NextSevenDaysExpected } from './NextSevenDaysExpected';
 import { CollectionsDailyHistory } from './CollectionsDailyHistory';
+import { SilentCollectorsPanel } from './SilentCollectorsPanel';
 import { format, parseISO, startOfDay, endOfDay, subDays, startOfMonth, startOfYear, addDays } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 import { toast } from 'sonner';
@@ -692,6 +693,11 @@ export function AgentCollectionsCommandCenter() {
           Agents below 5% coverage are hidden to keep the chart free of empty data.
         </p>
       </Card>
+
+      {/* Why the number is what it is: agents with tenants due today who have
+          stopped collecting. Sits above the history because it is the acting
+          list, not the reading list. */}
+      <SilentCollectorsPanel />
 
       {/* Day by day, from the frozen snapshot rather than recomputed live —
           a recomputed history restates itself whenever the data is corrected. */}
