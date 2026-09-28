@@ -10,6 +10,7 @@ import {
   Check, Circle,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { logCollectionError } from '@/lib/logCollectionError';
 import { useAuth } from '@/hooks/useAuth';
 import { useOffline } from '@/contexts/OfflineContext';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -282,6 +283,14 @@ export function AgentPendingSyncDrawer({ open, onOpenChange }: Props) {
           last_attempted_at: new Date().toISOString(),
           attempts: (draft.attempts ?? 0) + 1,
         });
+        logCollectionError({
+          phase: 'offline_submit',
+          message,
+          tenantId: draft.tenant_id,
+          rentRequestId: draft.rent_request_id,
+          amount: draft.amount,
+          context: { draft_id: draft.draft_id, attempts: (draft.attempts ?? 0) + 1 },
+        });
         toast.error('Financial Ops rejected the draft', { description: message });
       } else {
         // Server accepted — clear the on-device draft. Source of truth is now
@@ -292,6 +301,16 @@ export function AgentPendingSyncDrawer({ open, onOpenChange }: Props) {
         });
       }
     } catch (err: any) {
+      // The draft is still on the device, so no money is lost — but a sync that
+      // keeps failing is a collection nobody has counted yet.
+      logCollectionError({
+        phase: 'sync',
+        message: err?.message || 'Network error submitting an offline collection',
+        tenantId: draft.tenant_id,
+        rentRequestId: draft.rent_request_id,
+        amount: draft.amount,
+        context: { draft_id: draft.draft_id, attempts: (draft.attempts ?? 0) + 1 },
+      });
       await updateDraft(draft.draft_id, {
         status: 'rejected',
         last_error: err?.message || 'Network error',

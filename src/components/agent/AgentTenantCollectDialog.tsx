@@ -18,6 +18,7 @@ import { useOffline } from '@/contexts/OfflineContext';
 import { CommissionCelebration } from './CommissionCelebration';
 import { captureOfflineDraft } from '@/lib/offlineCollectionDrafts';
 import { setCriticalFlowActive } from '@/lib/criticalFlowGuard';
+import { logCollectionError } from '@/lib/logCollectionError';
 import AgentContactLocationGate from './AgentContactLocationGate';
 import { useRequireContactLocation } from '@/hooks/useRequireContactLocation';
 import { useAgentCollectContext, useInvalidateArrears } from '@/hooks/useAgentArrears';
@@ -283,6 +284,19 @@ export function AgentTenantCollectDialog({
           return;
         }
 
+        // Critical: the agent may be holding cash the system has no record of.
+        logCollectionError({
+          phase: 'allocate_stalled',
+          severity: 'critical',
+          message: `Request stalled after ${STALL_MS}ms and no matching collection was found on reconcile`,
+          errorCode: 'NETWORK_STALLED',
+          tenantId: tenant.id,
+          rentRequestId,
+          amount,
+          clientRef,
+          context: { stall_ms: STALL_MS, submitted_at: submittedAt },
+        });
+
         throw new Error(
           'The network stalled before we got a confirmation. This payment was NOT recorded. Refresh the tenant balance and try again.',
         );
@@ -293,6 +307,15 @@ export function AgentTenantCollectDialog({
       if (error) {
         const message = await extractFromErrorObject(error, 'Allocation failed');
         console.error('[AgentTenantCollectDialog] allocation RPC failed:', message, error);
+        logCollectionError({
+          phase: 'allocate',
+          message,
+          errorCode: (error as { code?: string })?.code ?? null,
+          tenantId: tenant.id,
+          rentRequestId,
+          amount,
+          clientRef,
+        });
         throw new Error(humanizeAllocationError(message));
       }
 
@@ -310,6 +333,23 @@ export function AgentTenantCollectDialog({
             })
           : humanizeAllocationError(rawMsg);
         console.error('[AgentTenantCollectDialog] allocation rejected:', res);
+        logCollectionError({
+          phase: 'allocate_rejected',
+          // A rejection the engine understood is a warning; the agent can act on
+          // it. An unlabelled one is an error, because nobody planned for it.
+          severity: res?.error_code ? 'warning' : 'error',
+          message: String(rawMsg),
+          errorCode: res?.error_code ?? null,
+          tenantId: tenant.id,
+          rentRequestId,
+          amount,
+          clientRef,
+          context: {
+            strict_float: res?.strict_float ?? res?.metadata?.strict_float ?? null,
+            cached_float: res?.cached_float ?? res?.metadata?.cached_float ?? null,
+            expected_amount: res?.expected_amount ?? expected ?? null,
+          },
+        });
         throw new Error(message);
       }
 
