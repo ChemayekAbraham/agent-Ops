@@ -63,24 +63,27 @@ describe('Welile rent repayment formula — reference table', () => {
 describe('Rent Plan repayment breakdown', () => {
   const calc = calculateRentRepayment(100000, 30);
 
-  it('splits 143,000 into principal, access fee (partner reward + agent commission + platform fee) and registration fee', () => {
+  it('splits 143,000 into principal and 43,000 of company fees, and the fees into partner reward, agent commission and company net', () => {
     const b = calculateRepaymentBreakdown(calc, calc.totalRepayment);
     expect(b.principal).toEqual({ amount: 100000, percent: 69.93 });
     expect(b.accessFee).toEqual({ amount: 33000, percent: 23.08 });
+    expect(b.registrationFee).toEqual({ amount: 10000, percent: 6.99 });
+    expect(b.companyFees).toEqual({ amount: 43000, percent: 30.07 });
     expect(b.partnerReward).toEqual({ amount: 15000, percent: 10.49 });
     expect(b.agentCommission).toEqual({ amount: 14300, percent: 10 });
-    expect(b.platformFee).toEqual({ amount: 3700, percent: 2.59 });
-    expect(b.registrationFee).toEqual({ amount: 10000, percent: 6.99 });
+    expect(b.companyNet).toEqual({ amount: 13700, percent: 9.58 });
   });
 
   it('applies the same percentages to a 4,800 daily installment', () => {
     const b = calculateRepaymentBreakdown(calc, 4800);
-    expect(b.principal.amount).toBe(3356.64);
+    expect(b.principal.amount).toBe(3356.65);
+    expect(b.accessFee.amount).toBe(1107.69);
+    expect(b.registrationFee.amount).toBe(335.66);
+    expect(b.companyFees.amount).toBe(1443.35);
     expect(b.partnerReward.amount).toBe(503.5);
     expect(b.agentCommission.amount).toBe(480);
-    expect(b.platformFee.amount).toBe(124.2);
-    expect(b.accessFee.amount).toBe(1107.7);
-    expect(b.registrationFee.amount).toBe(335.66);
-    expect(b.principal.amount + b.accessFee.amount + b.registrationFee.amount).toBeCloseTo(4800, 6);
+    expect(b.companyNet.amount).toBe(459.85);
+    expect(b.principal.amount + b.companyFees.amount).toBeCloseTo(4800, 6);
+    expect(b.partnerReward.amount + b.agentCommission.amount + b.companyNet.amount).toBeCloseTo(b.companyFees.amount, 6);
   });
 });

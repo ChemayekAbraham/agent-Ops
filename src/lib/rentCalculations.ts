@@ -78,12 +78,12 @@ export function calculateRentRepayment(rentAmount: number, durationDays: number,
 }
 
 /**
- * Partner (Supporter) reward carried inside a Rent Plan's Access Fee:
- * 15% of the principal per 30 days. Mirrors v_plan_partner in
- * post_instalment_waterfall(). Capped at the Access Fee it is paid from.
+ * Partner (Supporter) reward on a Rent Plan: 15% of the principal per 30 days.
+ * Mirrors v_plan_partner in post_instalment_waterfall(). Paid out of the
+ * company's fees (Access Fee + registration fee), so capped at them.
  */
-export function calculatePlanPartnerReward(rentAmount: number, durationDays: number, accessFee: number): number {
-  return Math.min(Math.round(rentAmount * 0.15 * (durationDays / 30)), Math.max(0, accessFee));
+export function calculatePlanPartnerReward(rentAmount: number, durationDays: number, companyFees: number): number {
+  return Math.min(Math.round(rentAmount * 0.15 * (durationDays / 30)), Math.max(0, companyFees));
 }
 
 export interface RepaymentShare {
@@ -96,18 +96,21 @@ export interface RepaymentShare {
 export interface RepaymentBreakdown {
   /** Goes back to the landlord float. */
   principal: RepaymentShare;
-  /** Access Fee = partnerReward + agentCommission + platformFee. */
+  /** 100% company. */
   accessFee: RepaymentShare;
+  /** 100% company. */
+  registrationFee: RepaymentShare;
+  /** accessFee + registrationFee: the company's fees, split below. */
+  companyFees: RepaymentShare;
+  /** Paid out of companyFees. */
   partnerReward: RepaymentShare;
-  /** 10% of every installment, paid to agents out of the Access Fee. */
+  /** 10% of every installment, paid out of companyFees. */
   agentCommission: RepaymentShare;
   /**
-   * What the platform keeps from the Access Fee after the partner reward and
-   * agent commission. Negative on plans too short for the Access Fee to cover
-   * both (a pricing subsidy, as in post_instalment_waterfall).
+   * What the company keeps: companyFees - partnerReward - agentCommission.
+   * Negative on plans too short for the fees to cover both.
    */
-  platformFee: RepaymentShare;
-  registrationFee: RepaymentShare;
+  companyNet: RepaymentShare;
   /** The amount being split. */
   total: number;
 }
@@ -117,23 +120,27 @@ export interface RepaymentBreakdown {
  * them to one installment (defaults to the daily installment).
  *
  *   100,000 / 30 days -> total 143,000
- *     principal         100,000  69.93%   (landlord float)
- *     access fee         33,000  23.08%
- *       partner reward   15,000  10.49%
- *       agent commission 14,300  10.00%   (10% of every installment)
- *       platform fee      3,700   2.59%
- *     registration fee   10,000   6.99%
+ *     principal          100,000  69.93%   (landlord float)
+ *     company fees        43,000  30.07%
+ *       = access fee       33,000  23.08%
+ *       + registration fee 10,000   6.99%
+ *     split of the 43,000:
+ *       partner reward     15,000  10.49%
+ *       agent commission   14,300  10.00%   (10% of every installment)
+ *       company net        13,700   9.58%
  *
- * Installment amounts are rounded to 2 dp; the principal absorbs the rounding
- * so the parts always add up to the installment. The whole-shilling split
- * actually posted to the ledger is compute_instalment_allocation() in the DB.
+ * Installment amounts are rounded to 2 dp. The principal absorbs rounding
+ * against the installment and company net absorbs it within the fees, so the
+ * parts always add up. The whole-shilling split actually posted to the ledger
+ * is compute_instalment_allocation() in the DB.
  */
 export function calculateRepaymentBreakdown(
   calc: RentCalculation,
   installment: number = calc.dailyRepayment,
 ): RepaymentBreakdown {
   const total = calc.totalRepayment;
-  const partner = calculatePlanPartnerReward(calc.rentAmount, calc.durationDays, calc.accessFee);
+  const fees = calc.accessFee + calc.requestFee;
+  const partner = calculatePlanPartnerReward(calc.rentAmount, calc.durationDays, fees);
   const r2 = (n: number) => Math.round(n * 100) / 100;
   const share = (part: number): RepaymentShare =>
     total > 0
@@ -141,20 +148,24 @@ export function calculateRepaymentBreakdown(
       : { amount: 0, percent: 0 };
 
   const commission = total * COMMISSION_RATE;
+  const accessFee = share(calc.accessFee);
+  const registrationFee = share(calc.requestFee);
+  const companyFees = { amount: r2(accessFee.amount + registrationFee.amount), percent: share(fees).percent };
   const partnerReward = share(partner);
   const agentCommission = share(commission);
-  const platformFee = share(calc.accessFee - partner - commission);
-  const registrationFee = share(calc.requestFee);
-  const accessFee = {
-    amount: r2(partnerReward.amount + agentCommission.amount + platformFee.amount),
-    percent: share(calc.accessFee).percent,
+  const companyNet = {
+    amount: r2(companyFees.amount - partnerReward.amount - agentCommission.amount),
+    percent: share(fees - partner - commission).percent,
   };
   const principal = {
-    amount: r2(installment - accessFee.amount - registrationFee.amount),
+    amount: r2(installment - companyFees.amount),
     percent: share(calc.rentAmount).percent,
   };
 
-  return { principal, accessFee, partnerReward, agentCommission, platformFee, registrationFee, total: installment };
+  return {
+    principal, accessFee, registrationFee, companyFees,
+    partnerReward, agentCommission, companyNet, total: installment,
+  };
 }
 
 /**
