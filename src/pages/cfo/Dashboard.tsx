@@ -650,12 +650,7 @@ export default function CFODashboardPage() {
           </div>
         );
       default:
-        return (
-          <div className="space-y-4">
-            <WithdrawableCreditsLivePanel />
-            <CFOOverviewDashboard onTabChange={setActiveTab} />
-          </div>
-        );
+          <CFOOverviewDashboard onTabChange={setActiveTab} />
     }
   };
 
