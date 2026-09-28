@@ -2374,6 +2374,13 @@
       "when": 1790625322849,
       "tag": "0338_engrep_register_mb_engineer",
       "breakpoints": true
+    },
+    {
+      "idx": 339,
+      "version": "7",
+      "when": 1790625416919,
+      "tag": "0339_engrep_fingerprint_tables_constraints",
+      "breakpoints": true
     }
   ]
 }
