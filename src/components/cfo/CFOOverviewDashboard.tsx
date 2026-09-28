@@ -45,6 +45,7 @@ import { ReceivablesCardDrilldown } from '@/components/cfo/ReceivablesCardDrilld
 import { PayablesCardDrilldown } from '@/components/cfo/PayablesCardDrilldown';
 import { GeneralPayoutActivities } from '@/components/cfo/GeneralPayoutActivities';
 import { WithdrawableCreditsLivePanel } from '@/components/cfo/WithdrawableCreditsLivePanel';
+import { MoneyPaidOutCard } from '@/components/cfo/MoneyPaidOutCard';
 import { HeroCard } from '@/components/cfo/HeroCard';
 
 
@@ -490,6 +491,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
                 treasury and bank cards — and it is the same card shell, so the
                 three read as one set. */}
             <WithdrawableCreditsLivePanel />
+            <MoneyPaidOutCard />
           </div>
         </Band>
 
