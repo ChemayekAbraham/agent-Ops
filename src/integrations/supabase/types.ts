@@ -56788,6 +56788,7 @@ export type Database = {
         Args: { p_amount?: number; p_note?: string; p_sale_id: string }
         Returns: Json
       }
+      cfo_issue_boutique_order: { Args: { p_sale_id: string }; Returns: string }
       cfo_promissory_bookings_report: {
         Args: { p_filter?: string; p_limit?: number; p_offset?: number }
         Returns: Json
@@ -57141,6 +57142,10 @@ export type Database = {
           p_valuation?: number
         }
         Returns: Json
+      }
+      coo_approve_boutique_order: {
+        Args: { p_sale_id: string }
+        Returns: string
       }
       coo_approve_smartphone_order: {
         Args: {
@@ -62995,6 +63000,26 @@ export type Database = {
           rejection_reason: string
           tracking_reference: string
           valuation_amount: number
+        }[]
+      }
+      list_boutique_approval_queue: {
+        Args: { p_stage: string }
+        Returns: {
+          agent_name: string
+          agent_phone: string
+          amount_outstanding: number
+          cfo_disbursed_at: string
+          coo_approved_at: string
+          created_at: string
+          customer_id: string
+          item_name: string
+          ops_approved_at: string
+          order_status: string
+          payment_plan: string
+          quantity: number
+          sale_id: string
+          selected_size: string
+          total_revenue: number
         }[]
       }
       list_joined_partners: {

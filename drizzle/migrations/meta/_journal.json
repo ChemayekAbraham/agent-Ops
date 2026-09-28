@@ -2290,6 +2290,13 @@
       "when": 1790539597113,
       "tag": "0326_smartphone_eligibility_blocks_active_advance",
       "breakpoints": true
+    },
+    {
+      "idx": 327,
+      "version": "7",
+      "when": 1790578202259,
+      "tag": "0327_boutique_coo_cfo_approval",
+      "breakpoints": true
     }
   ]
 }
