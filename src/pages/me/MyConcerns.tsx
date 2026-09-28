@@ -257,6 +257,47 @@ function ConcernCard({
   );
 }
 
+function CompletedGroup({
+  concerns,
+  reviewersByConcern,
+  mine,
+}: {
+  concerns: ForwardedConcern[];
+  reviewersByConcern: Map<string, ConcernReviewer[] | undefined>;
+  mine: boolean;
+}) {
+  const [showAll, setShowAll] = useState(false);
+  const visible = showAll ? concerns : concerns.slice(0, 3);
+  return (
+    <div className="space-y-2 rounded-2xl border border-border/60 bg-muted/20 p-2">
+      <div className="flex items-center gap-1.5 px-0.5 pt-0.5">
+        <CheckCircle2 className="h-3.5 w-3.5 text-success" />
+        <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Completed</p>
+        <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
+          {concerns.length}
+        </Badge>
+        {concerns.length > 3 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="ml-auto h-6 px-1.5 text-[10px] text-muted-foreground"
+            onClick={() => setShowAll((v) => !v)}
+          >
+            {showAll ? 'Show fewer' : `Show all ${concerns.length}`}
+          </Button>
+        )}
+      </div>
+      <div className="space-y-2">
+        {visible.map((c) => (
+          <div key={c.id} className="opacity-75">
+            <ConcernCard concern={c} mine={mine} reviewerRows={reviewersByConcern.get(c.id) ?? []} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const MyConcerns = () => {
   const { user } = useAuth();
   const fromMe = useForwardedConcerns({ days: 120, scope: 'from_me' });
