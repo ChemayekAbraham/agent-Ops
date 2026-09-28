@@ -168,6 +168,10 @@ BEGIN
   -- ACTUALLY paid (to the cent) and Principal absorbs the rounding difference, so the
   -- offset equals the commission already credited and no extra commission is implied.
   IF p_route = 'agent_collection' AND p_commission_paid IS NOT NULL AND v_in > 0 THEN
+    -- Guard: the commission already paid may differ from the split's share only by rounding.
+    IF abs(p_commission_paid - c) > 1 THEN
+      RAISE EXCEPTION 'commission paid % differs from commission share % by more than UGX 1', p_commission_paid, c;
+    END IF;
     pr := pr + (c - p_commission_paid);
     c  := p_commission_paid;
   END IF;
@@ -1462,6 +1466,10 @@ BEGIN
        AND abs(extract(epoch FROM g.created_at - c.created_at)) < 10;
     IF v_n <> 1 THEN
       RAISE EXCEPTION 'collection %: expected exactly 1 commission leg, found %', c.id, v_n;
+    END IF;
+    -- Commission record must be the 10% actually due, within UGX 1 of rounding.
+    IF abs(v_paid - c.amount * 0.10) > 1 THEN
+      RAISE EXCEPTION 'collection %: commission record % differs from 10%% of % by more than UGX 1', c.id, v_paid, c.amount;
     END IF;
     IF p_dry_run THEN
       collection_id := c.id; rent_request_id := c.rr; amount := c.amount; commission_paid := v_paid;
