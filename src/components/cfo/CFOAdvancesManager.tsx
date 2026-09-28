@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { Plus, TrendingUp, AlertTriangle, DollarSign, Shield, Percent, Calculator, Receipt, Trash2, RefreshCw, Download, FileText, Ban, Pencil, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, TrendingUp, AlertTriangle, DollarSign, Shield, Percent, Calculator, Receipt, Trash2, RefreshCw, Download, FileText, Ban, Pencil, ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
 import { exportAdvanceStatements, exportConsolidatedPayments } from '@/lib/agentAdvancePdfExport';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -58,6 +58,7 @@ export function CFOAdvancesManager() {
   const [cancelAdvance, setCancelAdvance] = useState<any | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [search, setSearch] = useState('');
 
 
   const handleExportPayments = async () => {
@@ -121,9 +122,18 @@ export function CFOAdvancesManager() {
   });
 
   const filtered = useMemo(() => {
-    if (filter === 'all') return advances;
-    return advances.filter((a: any) => a.status === filter);
-  }, [advances, filter]);
+    let rows = advances;
+    if (filter !== 'all') rows = rows.filter((a: any) => a.status === filter);
+    const q = search.trim().toLowerCase();
+    if (q) {
+      rows = rows.filter((a: any) => {
+        const name = (a.profiles?.full_name || '').toLowerCase();
+        const phone = (a.profiles?.phone || '').toLowerCase();
+        return name.includes(q) || phone.includes(q);
+      });
+    }
+    return rows;
+  }, [advances, filter, search]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, totalPages);
@@ -140,7 +150,8 @@ export function CFOAdvancesManager() {
 
   useEffect(() => {
     setPage(1);
-  }, [filter, pageSize]);
+  }, [filter, pageSize, search]);
+
 
 
   const pageNumbers = useMemo(() => {
