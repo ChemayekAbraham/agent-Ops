@@ -176,6 +176,9 @@ export function SmsDeliveryLogViewer() {
       return (data || []) as SmsLog[];
     },
     staleTime: 30_000,
+    // Was refreshed by SmsFailoverAlerts' Realtime INSERT listener on every
+    // new SMS; that listener is now polling (doc 147), so poll here too.
+    refetchInterval: 60_000,
   });
 
   // Traffic metrics: aggregate server-side (avoids the Data API 1,000-row cap).

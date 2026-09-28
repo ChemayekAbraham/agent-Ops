@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { usePolling } from '@/hooks/usePolling';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
@@ -85,16 +86,22 @@ export function SupportedHouseReturnsSection() {
     const invalidate = () => {
       queryClient.invalidateQueries({ queryKey: ['partner-supported-house-returns'] });
     };
+    // promissory_notes is published, so it stays live.
+    // promissory_note_house_intents and agent_landlord_payouts are not, so
+    // their listeners never fired; they are covered by the 60s poll below
+    // (doc 147).
     const channel = supabase
       .channel('partner-supported-house-returns')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'promissory_note_house_intents' }, invalidate)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'promissory_notes' }, invalidate)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'agent_landlord_payouts' }, invalidate)
       .subscribe();
     return () => {
       supabase.removeChannel(channel);
     };
   }, [queryClient]);
+  usePolling(
+    () => queryClient.invalidateQueries({ queryKey: ['partner-supported-house-returns'] }),
+    60_000,
+  );
 
   if (isLoading) {
     return (

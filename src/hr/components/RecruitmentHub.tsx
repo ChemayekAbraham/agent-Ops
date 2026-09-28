@@ -460,17 +460,9 @@ function ApplicationsTab() {
     },
   });
 
-  useEffect(() => {
-    const channel = supabase
-      .channel('job-applications-purged-count')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'job_applications' },
-        () => { void refetchRemovedCount(); },
-      )
-      .subscribe();
-    return () => { void supabase.removeChannel(channel); };
-  }, [refetchRemovedCount]);
+  // Purged-count refetches on tab load. The old Realtime listener was on
+  // job_applications, which is not in the publication, so it never fired
+  // (doc 147).
 
 
   const statuses = useMemo(() => FILTER_OPTIONS, []);

@@ -494,6 +494,23 @@ export function FunderHouseListingsSection() {
           if (!open) setDetailPlan(null);
         }}
         isFunded={false}
+        onFund={(plan) => {
+          const cost = Number(plan.funding_amount || 0);
+          const avail = availableBalance ?? 0;
+          if (avail >= cost) {
+            // Enough balance: select the plan and open the funding review.
+            if (!selectedItems.some((i) => i.category === 'ready' && i.id === plan.rent_request_id)) {
+              toggleSelect('ready', plan as FunderNewReadyPlan);
+            }
+            setDetailPlan(null);
+            setReviewOpen(true);
+          } else {
+            // Not enough balance: open the deposit sheet with the exact shortfall.
+            toast.info(`Not enough balance. Deposit ${formatDynamic(cost - avail)} to fund this tenant.`);
+            setDetailPlan(null);
+            setTopUpAmount(Math.ceil(cost - avail));
+          }
+        }}
       />
       <FunderNewReviewDialog
         open={reviewOpen}
@@ -503,6 +520,19 @@ export function FunderHouseListingsSection() {
         walletLoading={wallet.isLoading}
         walletError={wallet.error}
         onRemove={removeSelected}
+        onFund={(total, shortfall) => {
+          if (shortfall > 0) {
+            // Not enough balance: open the deposit sheet with the exact shortfall.
+            toast.info(`Not enough balance. Deposit ${formatDynamic(shortfall)} to fund this plan.`);
+            setReviewOpen(false);
+            setTopUpAmount(Math.ceil(shortfall));
+          } else {
+            toast.success(
+              `Your balance covers ${formatDynamic(total)}. Support starts after the usual approval step is completed.`,
+            );
+            setReviewOpen(false);
+          }
+        }}
       />
       <FunderNewSelectionBar
         items={selectedItems}

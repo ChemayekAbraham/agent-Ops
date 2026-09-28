@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-28 · **Reported by:** Josh (an SMS screenshot: "UGX 6,000,000 credited … receipt code 5602 … New balance UGX 638,076")
 **Code changed:** `supabase/functions/approve-deposit/index.ts`, `supabase/functions/cash-deposit-verify-code/index.ts`
-**Status (2026-09-28 ~10:40 UTC):** the first fix (`postBalancedLedgerGroup`) was published but **did not work**; see "Second fix". The second fix is committed and needs publishing. Nankambo's 9 stuck deposits (UGX 33.2M) were **re-credited on Josh's instruction**; see "Re-credit".
+**Status (2026-09-28 12:35 UTC): second fix DEPLOYED.** Lovable deployed `approve-deposit` and `cash-deposit-verify-code` from HEAD, which contains `27298acfe6`. The deploy is Lovable edit `edt-5e1bb18d`, and both functions answered a preflight request. It has not yet been confirmed by a real deposit: the next cash personal deposit should be approved on the first code entry with 4 ledger legs. Nankambo's 9 stuck deposits (UGX 33.2M), plus a 10M one entered at 11:48, were **re-credited on Josh's instruction**; see "Re-credit".
 
 ## What happened
 

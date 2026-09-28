@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { usePolling } from '@/hooks/usePolling';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useQueryClient } from '@tanstack/react-query';
@@ -426,41 +427,43 @@ export function TidVerification() {
   }, [loadPending]);
 
   // Keep the visible queue honest even when an approval completes from an
-  // undo flush, another tab, or another operator session: any row that stops
-  // being pending is immediately removed from local state.
-  useEffect(() => {
-    const channel = supabase
-      .channel(`finops-pending-deposits-${pendingProviderFilter}`)
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'deposit_requests' },
-        (payload) => {
-          const next = (payload.new ?? {}) as { id?: string; status?: string; provider?: string };
-          const old = (payload.old ?? {}) as { id?: string };
-          const id = next.id || old.id;
-          if (!id) return;
-          const matchesProvider =
-            pendingProviderFilter === 'all' || next.provider === pendingProviderFilter;
-          if (payload.eventType === 'DELETE' || next.status !== 'pending' || !matchesProvider) {
-            setPending((prev) => prev.filter((p) => p.id !== id));
-            if (pickedId === id) setPickedId(null);
-          } else if (next.status === 'pending' && matchesProvider) {
-            loadPending();
-          }
-        },
-      )
-      .subscribe();
+  // undo flush, another tab, or another operator session. Polled every 30s
+  // (doc 147) — the old Realtime listener was on deposit_requests, which was
+  // never in the publication, so it never fired:
+  //  - on the first page only: full reload (also picks up new deposits);
+  //  - once the operator has scrolled past page 1: only drop rows that are no
+  //    longer pending, so their loaded pages / scroll position survive.
+  const pendingRef = useRef(pending);
+  pendingRef.current = pending;
+  const refreshPendingQueue = useCallback(async () => {
+    const ids = pendingRef.current.map((p) => p.id);
+    if (ids.length <= PENDING_PAGE_SIZE) {
+      await loadPending();
+      return;
+    }
+    const stillPending = new Set<string>();
+    for (let i = 0; i < ids.length; i += 100) {
+      const { data, error } = await supabase
+        .from('deposit_requests')
+        .select('id, status, provider')
+        .in('id', ids.slice(i, i + 100));
+      if (error) return;
+      (data ?? []).forEach((d: { id: string; status: string; provider: string | null }) => {
+        if (d.status === 'pending' && (pendingProviderFilter === 'all' || d.provider === pendingProviderFilter)) {
+          stillPending.add(d.id);
+        }
+      });
+    }
+    setPending((prev) => prev.filter((p) => stillPending.has(p.id)));
+    setPickedId((cur) => (cur && ids.includes(cur) && !stillPending.has(cur) ? null : cur));
+  }, [loadPending, pendingProviderFilter]);
 
-    const refreshOnFocus = () => loadPending();
-    window.addEventListener('focus', refreshOnFocus);
-    document.addEventListener('visibilitychange', refreshOnFocus);
-
-    return () => {
-      window.removeEventListener('focus', refreshOnFocus);
-      document.removeEventListener('visibilitychange', refreshOnFocus);
-      supabase.removeChannel(channel);
-    };
-  }, [loadPending, pickedId, provider]);
+  // usePolling also refreshes on window focus / tab becoming visible, which
+  // replaces the old focus + visibilitychange listeners.
+  const { lastUpdatedAt: pendingUpdatedAt, refresh: refreshPending } = usePolling(
+    refreshPendingQueue,
+    30_000,
+  );
 
   // Global "/" hotkey to focus the pending search input — same shortcut
   // pattern as GitHub/Slack, so operators can start filtering instantly

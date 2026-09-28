@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { usePolling } from '@/hooks/usePolling';
 import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -77,12 +78,11 @@ export function ManualRequisitionQueuePanel({ stage }: { stage: ReviewStage }) {
 
   useEffect(() => {
     void load();
-    const channel = supabase
-      .channel(`manual-requisitions-${stage}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'employee_requisitions' }, () => void load())
-      .subscribe();
-    return () => { void supabase.removeChannel(channel); };
   }, [stage]);
+
+  // Polled every 60s (+ on focus). The old Realtime listener was on employee_requisitions, which
+  // is not in the publication, so it never fired (doc 147).
+  const { lastUpdatedAt, refresh } = usePolling(() => load(), 60_000);
 
   const decide = async (row: ManualRequisition, action: 'approve' | 'reject') => {
     const reason = rejectReason[row.id]?.trim() ?? '';

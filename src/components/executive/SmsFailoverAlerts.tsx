@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useMemo, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -58,11 +58,12 @@ function analyse(log: SmsLog) {
 }
 
 export function SmsFailoverAlerts() {
-  const qc = useQueryClient();
-  const [isLive, setIsLive] = useState(false);
   const lastToastRef = useRef<number>(0);
+  // Newest created_at already analysed for toasts; null until the first load
+  // so the initial window never toasts.
+  const seenUntilRef = useRef<string | null>(null);
 
-  const { data: logs = [], isLoading } = useQuery({
+  const { data: logs = [], isLoading, dataUpdatedAt, refetch } = useQuery({
     queryKey: ['cto-sms-failover-alerts'],
     queryFn: async () => {
       const since = new Date(Date.now() - WINDOW_MINUTES * 60_000).toISOString();
@@ -79,38 +80,45 @@ export function SmsFailoverAlerts() {
     refetchInterval: 60_000,
   });
 
-  // Real-time subscription — refresh on every new SMS log + surface a toast on failover signals
+  // Polled every 60s (refetchInterval above) instead of a Realtime INSERT
+  // listener on sms_delivery_log — one of the busiest published tables, and
+  // the listener was unfiltered (doc 147). Failover toasts still fire: each
+  // poll analyses only rows newer than the previous poll.
   useEffect(() => {
-    const channel = supabase
-      .channel('cto-sms-failover')
-      .on(
-        'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'sms_delivery_log' },
-        (payload) => {
-          qc.invalidateQueries({ queryKey: ['cto-sms-failover-alerts'] });
-          qc.invalidateQueries({ queryKey: ['cto-sms-delivery-log'] });
-          const row = payload.new as SmsLog;
-          const { yoolaFailed, atFallback } = analyse(row);
-          const now = Date.now();
-          if ((yoolaFailed || atFallback) && now - lastToastRef.current > 4000) {
-            lastToastRef.current = now;
-            if (yoolaFailed) {
-              toast.warning('Yoola SMS failure detected', {
-                description: "Welile OTP routed to Africa's Talking fallback.",
-              });
-            } else {
-              toast.warning("Africa's Talking fallback engaged", {
-                description: 'Welile OTP delivered via backup gateway.',
-              });
-            }
-          }
-        }
-      )
-      .subscribe((status) => setIsLive(status === 'SUBSCRIBED'));
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [qc]);
+    if (logs.length === 0) return;
+    const newest = logs[0].created_at;
+    const seenUntil = seenUntilRef.current;
+    seenUntilRef.current = seenUntil && seenUntil > newest ? seenUntil : newest;
+    if (!seenUntil) return;
+    let yoolaFailed = false;
+    let atFallback = false;
+    for (const row of logs) {
+      if (row.created_at <= seenUntil) break;
+      const a = analyse(row);
+      yoolaFailed ||= a.yoolaFailed;
+      atFallback ||= a.atFallback;
+    }
+    const now = Date.now();
+    if ((yoolaFailed || atFallback) && now - lastToastRef.current > 4000) {
+      lastToastRef.current = now;
+      if (yoolaFailed) {
+        toast.warning('Yoola SMS failure detected', {
+          description: "Welile OTP routed to Africa's Talking fallback.",
+        });
+      } else {
+        toast.warning("Africa's Talking fallback engaged", {
+          description: 'Welile OTP delivered via backup gateway.',
+        });
+      }
+    }
+  }, [logs]);
+
+  // For the auto-refresh indicator / refresh button (UI owned by Gemini).
+  const lastUpdatedAt = dataUpdatedAt ? new Date(dataUpdatedAt) : null;
+  const refresh = async () => { await refetch(); };
+  // Interim: keeps the existing "Live" badge rendering until it is replaced
+  // with the auto-refresh indicator.
+  const isLive = lastUpdatedAt !== null;
 
   const stats = useMemo(() => {
     let yoolaAttempts = 0;

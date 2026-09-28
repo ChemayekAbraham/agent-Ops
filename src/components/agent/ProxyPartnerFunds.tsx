@@ -288,16 +288,9 @@ export function ProxyPartnerFunds() {
         },
         reload,
       )
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'proxy_payout_settlements',
-          filter: `agent_id=eq.${user.id}`,
-        },
-        reload,
-      )
+      // (No proxy_payout_settlements listener: that table is not in the
+      // Realtime publication, so it never fired. Settlements also update the
+      // withdrawal_requests rows listened to above — doc 147.)
       .subscribe();
 
     // Per-partner channel — re-subscribed whenever the partner set changes.

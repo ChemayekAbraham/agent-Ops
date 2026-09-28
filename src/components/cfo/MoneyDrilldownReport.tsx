@@ -1,0 +1,170 @@
+import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { formatUGX } from '@/lib/creditFeeCalculations';
+import { CheckCircle2, AlertTriangle, Download, Loader2 } from 'lucide-react';
+
+/** A preset opened from a card metric. `expected` is the figure shown on the card. */
+export type DrilldownPreset = {
+  label: string; from: string; to: string; status: string;
+  expected?: { amount: number; count: number; basis: 'confirmed' | 'pending' };
+};
+
+export type DrillColumn = { head: string; cell: (r: any) => React.ReactNode; csv: (r: any) => unknown; className?: string };
+
+export type DrillConfig = {
+  title: string; description: string; rpc: string; payerParam: string; filename: string;
+  personLabel: string; confirmedLabel: string;
+  types: string[];
+  statuses: { value: string; label: string }[];
+  columns: DrillColumn[];
+};
+
+const SINCE = '2020-01-01';
+export const kampalaDate = (d = new Date()) => d.toLocaleDateString('en-CA', { timeZone: 'Africa/Kampala' });
+export const monthStart = () => kampalaDate().slice(0, 8) + '01';
+export const allTime = () => ({ from: SINCE, to: kampalaDate() });
+const sel = 'h-9 rounded-md border border-input bg-background px-2 text-sm';
+
+/** Read-only drill-down. Totals come from the server over the full filtered set, so they reconcile even if rows are capped. */
+export function MoneyDrilldownReport({ open, onOpenChange, preset, config }: {
+  open: boolean; onOpenChange: (o: boolean) => void; preset?: DrilldownPreset | null; config: DrillConfig;
+}) {
+  const [from, setFrom] = useState(monthStart());
+  const [to, setTo] = useState(kampalaDate());
+  const [status, setStatus] = useState('');
+  const [method, setMethod] = useState('');
+  const [type, setType] = useState('');
+  const [person, setPerson] = useState('');
+  const [params, setParams] = useState<Record<string, string> | null>(null);
+  const [active, setActive] = useState<DrilldownPreset | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    if (preset) {
+      setFrom(preset.from); setTo(preset.to); setStatus(preset.status); setMethod(''); setType(''); setPerson('');
+      setActive(preset);
+      setParams({ from: preset.from, to: preset.to, status: preset.status, method: '', type: '', person: '' });
+    } else { setActive(null); }
+  }, [open, preset]);
+
+  const generate = () => { setActive(null); setParams({ from, to, status, method, type, person }); };
+
+  const q = useQuery({
+    queryKey: [config.rpc, params],
+    enabled: open && !!params,
+    queryFn: async () => {
+      const p = params!;
+      const end = new Date(p.to + 'T00:00:00Z'); end.setUTCDate(end.getUTCDate() + 1);
+      const { data, error } = await (supabase.rpc as any)(config.rpc, {
+        p_from: new Date(p.from + 'T00:00:00+03:00').toISOString(),
+        p_to: new Date(end.toISOString().slice(0, 10) + 'T00:00:00+03:00').toISOString(),
+        p_status: p.status || null, p_method: p.method || null, p_type: p.type || null,
+        [config.payerParam]: p.person.trim() || null, p_limit: 10000,
+      });
+      if (error) throw error;
+      return (data ?? []) as any[];
+    },
+  });
+  const rows = q.data ?? [];
+  const matchCount = Number(rows[0]?.match_count ?? 0);
+  const confirmed = Number(rows[0]?.match_confirmed_amount ?? 0);
+  const pending = Number(rows[0]?.match_pending_amount ?? 0);
+  const confirmedCount = rows.filter(r => !['pending'].includes(r.status)).length;
+
+  let recon: { ok: boolean; text: string } | null = null;
+  if (active?.expected && q.data) {
+    const e = active.expected;
+    const got = e.basis === 'pending' ? pending : confirmed;
+    const gotCount = e.basis === 'pending' ? rows.filter(r => r.status === 'pending').length : confirmedCount;
+    const ok = Math.round(got) === Math.round(e.amount) && (matchCount > rows.length || gotCount === e.count);
+    recon = { ok, text: ok
+      ? `Reconciles to the card: ${formatUGX(e.amount)} across ${e.count.toLocaleString()} transactions.`
+      : `Does not match the card (card ${formatUGX(e.amount)} / ${e.count.toLocaleString()}; report ${formatUGX(got)} / ${gotCount.toLocaleString()}). The figures may have changed since the card loaded — refresh and try again.` };
+  }
+
+  const exportCsv = () => {
+    const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const lines = rows.map(r => config.columns.map(c => esc(c.csv(r))).join(','));
+    const blob = new Blob([[config.columns.map(c => esc(c.head)).join(','), ...lines].join('\n')], { type: 'text/csv' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `${config.filename}_${params?.from}_${params?.to}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogHeader>
+          <DialogTitle>{config.title}{active ? ` — ${active.label}` : ''}</DialogTitle>
+          <DialogDescription>{config.description}</DialogDescription>
+        </DialogHeader>
+
+        <div className="grid grid-cols-2 md:grid-cols-7 gap-2 items-end">
+          <label className="text-xs">From<Input type="date" value={from} onChange={e => setFrom(e.target.value)} /></label>
+          <label className="text-xs">To<Input type="date" value={to} onChange={e => setTo(e.target.value)} /></label>
+          <label className="text-xs flex flex-col">Type
+            <select className={sel} value={type} onChange={e => setType(e.target.value)}>
+              <option value="">All</option>{config.types.map(t => <option key={t}>{t}</option>)}
+            </select></label>
+          <label className="text-xs flex flex-col">Method
+            <select className={sel} value={method} onChange={e => setMethod(e.target.value)}>
+              <option value="">All</option><option value="mobile_money">Mobile money</option>
+              <option value="bank_transfer">Bank transfer</option><option value="cash">Cash</option>
+            </select></label>
+          <label className="text-xs flex flex-col">Status
+            <select className={sel} value={status} onChange={e => setStatus(e.target.value)}>
+              <option value="">All</option>{config.statuses.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+            </select></label>
+          <label className="text-xs">{config.personLabel}<Input placeholder="Name or phone" value={person} onChange={e => setPerson(e.target.value)} /></label>
+          <Button onClick={generate} disabled={q.isFetching}>
+            {q.isFetching ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Generate'}
+          </Button>
+        </div>
+
+        {params && q.data && (
+          <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+            <span>
+              {matchCount.toLocaleString()} transactions · {config.confirmedLabel} <b>{formatUGX(confirmed)}</b>
+              {pending > 0 && <> · Pending <b>{formatUGX(pending)}</b></>}
+              {matchCount > rows.length && <span className="text-muted-foreground"> · showing first {rows.length.toLocaleString()} rows (totals cover all)</span>}
+            </span>
+            <Button size="sm" variant="outline" onClick={exportCsv} disabled={!rows.length}>
+              <Download className="h-4 w-4 mr-1" /> Export CSV
+            </Button>
+          </div>
+        )}
+        {recon && (
+          <div className={`flex items-center gap-2 rounded-md px-3 py-2 text-xs ${recon.ok ? 'bg-muted text-foreground' : 'bg-destructive/10 text-destructive'}`}>
+            {recon.ok ? <CheckCircle2 className="h-4 w-4 shrink-0" /> : <AlertTriangle className="h-4 w-4 shrink-0" />}{recon.text}
+          </div>
+        )}
+
+        <div className="overflow-auto flex-1 border rounded-md">
+          {!params ? <p className="p-6 text-sm text-muted-foreground">Choose filters and tap Generate.</p>
+            : q.error ? <p className="p-6 text-sm text-destructive">Could not load the report.</p>
+            : q.isFetching && !q.data ? <p className="p-6 text-sm text-muted-foreground">Loading…</p>
+            : (
+              <table className="w-full text-xs">
+                <thead className="bg-muted sticky top-0">
+                  <tr>{config.columns.map(c => <th key={c.head} className="text-left p-2 whitespace-nowrap">{c.head}</th>)}</tr>
+                </thead>
+                <tbody>
+                  {rows.map(r => (
+                    <tr key={r.id} className="border-t align-top">
+                      {config.columns.map(c => <td key={c.head} className={`p-2 ${c.className ?? ''}`}>{c.cell(r)}</td>)}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

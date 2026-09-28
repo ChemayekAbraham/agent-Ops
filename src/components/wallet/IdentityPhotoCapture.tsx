@@ -804,6 +804,48 @@ export default function IdentityPhotoCapture({ compact }: Props) {
      there is no local blur / glare grading, exactly as on tenant onboarding. */
   const [faceCheck, setFaceCheck] = useState<PassportFaceCheck | null>(null);
 
+  /* The front photo is already on file, so it is not retaken — but the six
+     fields used to live only in this screen's memory, so a return visit sent
+     an empty form and the person was told to "fill in Surname, NIN…" with no
+     boxes on screen to fill. The details saved last time are read back and
+     shown for checking (A); if nothing is saved, the empty boxes still appear
+     so they can be typed in without retaking the photo (B). */
+  const [savedDetailsChecked, setSavedDetailsChecked] = useState(false);
+
+  useEffect(() => {
+    const hasStoredFront = !!mine.data?.national_id_photo_path;
+    if (replacing || !hasStoredFront || !user?.id || idPhoto || savedDetailsChecked) return;
+    setSavedDetailsChecked(true);
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('national_id, national_id_surname, national_id_given_name, national_id_card_number, date_of_birth, sex')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (cancelled || !data) return;
+      const row = data as Record<string, string | null>;
+      const saved: NationalIdData = {
+        ...EMPTY_ID_DATA,
+        surname: (row.national_id_surname ?? '').toUpperCase(),
+        given_name: (row.national_id_given_name ?? '').toUpperCase(),
+        nin: (row.national_id ?? '').toUpperCase(),
+        card_number: (row.national_id_card_number ?? '').toUpperCase(),
+        date_of_birth: (row.date_of_birth ?? '').slice(0, 10),
+        sex: (row.sex ?? '').toUpperCase(),
+      };
+      // Only fill what is still empty — nothing typed on screen is overwritten.
+      setForm((prev) => {
+        const next = { ...prev };
+        (Object.keys(EMPTY_ID_DATA) as (keyof NationalIdData)[]).forEach((k) => {
+          if (!String(next[k] ?? '').trim()) next[k] = saved[k];
+        });
+        return next;
+      });
+    })();
+    return () => { cancelled = true; };
+  }, [mine.data, replacing, user?.id, idPhoto, savedDetailsChecked]);
+
   /* As soon as a complete ID number is on screen, ask the server whose it is.
      Only the holder's first name and how many accounts already sit on the ID
      come back — never a surname, number or anything else. */
@@ -1097,6 +1139,10 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   const storedIdPath = replacing ? null : onFileIdPath;
   const storedIdBackPath = replacing ? null : onFileIdBackPath;
   const storedSelfiePath = replacing ? null : onFileSelfiePath;
+  /* Front photo on file and no fresh one taken: the six fields are still shown
+     (prefilled from what was saved, empty if nothing was saved) so they can be
+     checked or typed without retaking the photo. */
+  const showSavedDetailsForm = !idPhoto && !!storedIdPath;
 
   const alreadyDone = !replacing && !!storedIdPath && !!storedIdBackPath && !!storedSelfiePath;
   const isVerified = alreadyVerified.data === true;
@@ -1486,17 +1532,24 @@ export default function IdentityPhotoCapture({ compact }: Props) {
           </p>
         )}
 
-        {!reading && idReading && (
+        {!reading && (idReading || showSavedDetailsForm) && (
           <div className="space-y-3 rounded-lg border p-3">
             <p className="flex items-center gap-2 text-sm font-semibold">
               <ScanLine className="h-4 w-4 text-primary" />
-              What we read on your ID
+              {idReading ? 'What we read on your ID' : 'The details on your National ID'}
             </p>
+
+            {!idReading && (
+              <p className="text-xs text-muted-foreground">
+                Your ID photo is already on file, so you do not need to take it again. Check the
+                details below against your card, fill in anything missing, and send.
+              </p>
+            )}
 
             {/* The reader refuses a field it could not read rather than
                 guessing, so `incomplete` is the normal failure and it names
                 exactly what to fix. `invalid` means it is not an ID at all. */}
-            {readingGuidance(idReading) && (
+            {idReading && readingGuidance(idReading) && (
               <p
                 className={`rounded-md border p-2 text-xs ${
                   idReading.status === 'invalid'
@@ -1508,7 +1561,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
               </p>
             )}
 
-            {idReading.status !== 'invalid' && (
+            {idReading?.status !== 'invalid' && (
               <>
                 <p className="text-xs text-muted-foreground">
                   Check every line against your card and correct anything that is wrong.
@@ -1516,7 +1569,7 @@ export default function IdentityPhotoCapture({ compact }: Props) {
 
                 <div className="grid gap-2 sm:grid-cols-2">
                   {(Object.keys(EMPTY_ID_DATA) as (keyof NationalIdData)[]).map((key) => {
-                    const readOk = idReading.fields?.[key]?.valid === true;
+                    const readOk = idReading ? idReading.fields?.[key]?.valid === true : true;
                     return (
                       <div key={key} className={key === 'sex' ? '' : 'sm:col-span-1'}>
                         <Label htmlFor={`nid-${key}`} className="text-xs">
@@ -1611,14 +1664,14 @@ export default function IdentityPhotoCapture({ compact }: Props) {
                 {(verdict === 'partial' || verdict === 'mismatch') && (
                   <p className="flex items-start gap-2 text-xs text-amber-600">
                     <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                    These names differ from your account name ({idReading.account_name}). Financial
+                    These names differ from your account name ({idReading?.account_name}). Financial
                     Ops will check this on the call.
                   </p>
                 )}
 
                 {/* A failed cross-check is a reason for a person to look, never
                     proof of anything — the NIN's internal layout is inferred. */}
-                {(idReading.consistency ?? []).length > 0 && (
+                {(idReading?.consistency ?? []).length > 0 && (
                   <p className="flex items-start gap-2 text-xs text-amber-600">
                     <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                     Some details on the card do not agree with each other. Financial Ops will look

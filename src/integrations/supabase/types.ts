@@ -59983,6 +59983,138 @@ export type Database = {
           wallet_bucket: string
         }[]
       }
+      get_cfo_money_paid_out: {
+        Args: never
+        Returns: {
+          month_count: number
+          month_paid: number
+          pending_amount: number
+          pending_count: number
+          today_count: number
+          today_paid: number
+          total_count: number
+          total_paid: number
+        }[]
+      }
+      get_cfo_money_paid_out_drilldown: {
+        Args: {
+          p_from: string
+          p_limit?: number
+          p_method?: string
+          p_recipient?: string
+          p_status?: string
+          p_to: string
+          p_type?: string
+        }
+        Returns: {
+          amount: number
+          created_at: string
+          description: string
+          id: string
+          ledger_reference: string
+          match_confirmed_amount: number
+          match_count: number
+          match_pending_amount: number
+          paid_at: string
+          payment_method: string
+          payout_reference: string
+          payout_type: string
+          recipient: string
+          recipient_phone: string
+          source_account: string
+          status: string
+        }[]
+      }
+      get_cfo_money_paid_out_report: {
+        Args: {
+          p_from: string
+          p_limit?: number
+          p_method?: string
+          p_recipient?: string
+          p_status?: string
+          p_to: string
+          p_type?: string
+        }
+        Returns: {
+          amount: number
+          created_at: string
+          description: string
+          id: string
+          paid_at: string
+          payment_method: string
+          payout_reference: string
+          payout_type: string
+          recipient: string
+          recipient_phone: string
+          source_account: string
+          status: string
+        }[]
+      }
+      get_cfo_money_received: {
+        Args: never
+        Returns: {
+          month_count: number
+          month_received: number
+          pending_amount: number
+          pending_count: number
+          today_count: number
+          today_received: number
+          total_count: number
+          total_received: number
+        }[]
+      }
+      get_cfo_money_received_drilldown: {
+        Args: {
+          p_from: string
+          p_limit?: number
+          p_method?: string
+          p_payer?: string
+          p_status?: string
+          p_to: string
+          p_type?: string
+        }
+        Returns: {
+          amount: number
+          description: string
+          destination: string
+          id: string
+          ledger_reference: string
+          match_confirmed_amount: number
+          match_count: number
+          match_pending_amount: number
+          payer: string
+          payer_phone: string
+          payment_method: string
+          receipt_reference: string
+          receipt_type: string
+          received_at: string
+          status: string
+        }[]
+      }
+      get_cfo_money_received_report: {
+        Args: {
+          p_from: string
+          p_limit?: number
+          p_method?: string
+          p_payer?: string
+          p_status?: string
+          p_to: string
+          p_type?: string
+        }
+        Returns: {
+          amount: number
+          description: string
+          destination: string
+          id: string
+          payer: string
+          payer_phone: string
+          payment_method: string
+          receipt_reference: string
+          receipt_type: string
+          received_at: string
+          status: string
+        }[]
+      }
       get_cfo_period_breakdown: {
         Args: { p_from: string; p_to: string }
         Returns: {
@@ -68059,8 +68191,12 @@ export type Database = {
         Args: { p_outcome: string; p_work_item_id: string }
         Returns: undefined
       }
-      tops_collection_anomalies_list: {
+      tops_collection_anomalies_count: {
         Args: { p_status?: string }
+        Returns: number
+      }
+      tops_collection_anomalies_list: {
+        Args: { p_limit?: number; p_offset?: number; p_status?: string }
         Returns: {
           acknowledged_at: string
           acknowledged_by_name: string
@@ -68153,7 +68289,7 @@ export type Database = {
       }
       tops_overnight_changes: { Args: { p_as_at?: string }; Returns: Json }
       tops_pipeline_queue: {
-        Args: never
+        Args: { p_gap_label?: string; p_owner_id?: string }
         Returns: {
           age_days: number
           agent_name: string
@@ -68165,6 +68301,13 @@ export type Database = {
           rent_request_id: string
           stage_entered_at: string
           tenant_name: string
+        }[]
+      }
+      tops_pipeline_queue_gap_counts: {
+        Args: never
+        Returns: {
+          cnt: number
+          gap_label: string
         }[]
       }
       tops_plan_pipeline_stages: {
@@ -68225,7 +68368,7 @@ export type Database = {
         }[]
       }
       tops_plan_schedule_ledger: {
-        Args: { p_rent_request_id: string }
+        Args: { p_limit?: number; p_offset?: number; p_rent_request_id: string }
         Returns: {
           amount_ugx: number
           due_date: string
@@ -68236,6 +68379,10 @@ export type Database = {
           settled_by: Json
           settled_ugx: number
         }[]
+      }
+      tops_plan_schedule_ledger_count: {
+        Args: { p_rent_request_id: string }
+        Returns: number
       }
       tops_portfolio_quality: { Args: { p_as_at?: string }; Returns: Json }
       tops_promise_kept_rate: {

@@ -96,18 +96,11 @@ export function GrowthCommissionCard() {
 
   useEffect(() => {
     load();
+    // 60s poll only. The old Realtime listener was on growth_commission_claims,
+    // which is not in the publication, so it never fired (doc 147).
     const interval = setInterval(load, 60_000);
-    const channel = supabase
-      .channel('growth-commission-claims')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'growth_commission_claims' },
-        () => load(),
-      )
-      .subscribe();
     return () => {
       clearInterval(interval);
-      supabase.removeChannel(channel);
     };
   }, [load]);
 

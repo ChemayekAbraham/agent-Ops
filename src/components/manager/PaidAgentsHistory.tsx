@@ -47,25 +47,10 @@ export function PaidAgentsHistory() {
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
+    // Loads on mount (historical log). The old Realtime listener was on
+    // agent_commission_payouts, which is not in the publication, so it never
+    // fired (doc 147).
     fetchPaidPayouts();
-
-    // Subscribe to realtime updates
-    const channel = supabase
-      .channel('paid-payouts-history')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'agent_commission_payouts'
-        },
-        () => fetchPaidPayouts()
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
   }, []);
 
   const fetchPaidPayouts = async () => {

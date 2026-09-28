@@ -44,6 +44,7 @@ import { itemCoordinates } from '@/components/funder-new/utils';
 import { FunderNewFilterDrawer } from '@/components/funder-new/FunderNewFilterDrawer';
 
 import { formatDynamic } from '@/lib/currencyFormat';
+import { toast } from 'sonner';
 
 const SAVED_KEY = 'rentflow:funder-new:saved:v1';
 /** Default search radius applied when an origin exists. */
@@ -615,6 +616,22 @@ export default function FunderDashboardNew() {
           if (!open) setDetailPlan(null);
         }}
         isFunded={false}
+        onFund={(plan) => {
+          const cost = Number(plan.funding_amount || 0);
+          const avail = availableBalance ?? 0;
+          if (avail >= cost) {
+            // Enough balance: select the plan and open the funding review.
+            if (!selectedItems.some((i) => i.category === 'ready' && i.id === plan.rent_request_id)) {
+              toggleSelect('ready', plan as FunderNewReadyPlan);
+            }
+            setDetailPlan(null);
+            setReviewOpen(true);
+          } else {
+            // This page has no inline deposit sheet: point the funder at a top-up.
+            toast.info(`Not enough balance. Deposit ${formatDynamic(cost - avail)} to fund this tenant.`);
+            setDetailPlan(null);
+          }
+        }}
       />
       <FunderNewCalculatorDialog
         open={calculatorOpen}

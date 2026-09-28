@@ -1,4 +1,4 @@
-import { Home, Info, ShieldCheck, Trash2, X } from 'lucide-react';
+import { Home, Info, ShieldCheck, Trash2, Wallet, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -28,7 +28,15 @@ export function FunderNewSelectionBar({
   return (
     // z-[60] keeps the bar above the app's other fixed bottom overlays, which
     // sit at z-40 and would otherwise swallow taps on Review.
-    <div className="fixed inset-x-0 bottom-0 z-[60] border-t bg-card/95 shadow-[0_-8px_30px_-12px_hsl(var(--primary)/0.35)] backdrop-blur pb-safe">
+    //
+    // The bar is anchored above the floating bottom navigation instead of the
+    // viewport edge: that pill (BottomRoleSwitcher / MobileBottomNav) is fixed
+    // at 10px from the bottom, 68px tall, and paints at z-100, so a bar sitting
+    // at bottom-0 had Clear / Review support plan hidden underneath it.
+    // 10px inset + 68px pill + 8px breathing room = 86px, plus the device
+    // bottom inset (which the pill is already lifted by). The pill shows at
+    // every breakpoint, so this offset is deliberately not responsive-gated.
+    <div className="fixed inset-x-0 bottom-[calc(86px_+_env(safe-area-inset-bottom,0px))] z-[60] border-t bg-card/95 shadow-[0_-8px_30px_-12px_hsl(var(--primary)/0.35)] backdrop-blur">
       <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-2.5 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
@@ -45,7 +53,7 @@ export function FunderNewSelectionBar({
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="ghost" className="h-12 flex-1 rounded-xl lg:flex-none" onClick={onClear}>
+          <Button variant="ghost" className="h-12 flex-1 rounded-xl text-destructive lg:flex-none" onClick={onClear}>
             <X className="h-4 w-4" />
             Clear
           </Button>
@@ -67,6 +75,7 @@ export function FunderNewReviewDialog({
   walletLoading,
   walletError,
   onRemove,
+  onFund,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -75,6 +84,8 @@ export function FunderNewReviewDialog({
   walletLoading: boolean;
   walletError: unknown;
   onRemove: (item: FunderNewSelectionItem) => void;
+  /** Called with the total and the shortfall (0 when the balance covers it). */
+  onFund?: (total: number, shortfall: number) => void;
 }) {
   const total = items.reduce((sum, item) => sum + item.amount, 0);
   const shortfall = available === null ? null : Math.max(0, total - available);
@@ -150,6 +161,19 @@ export function FunderNewReviewDialog({
           Selecting and reviewing homes is planning only. Support starts after you confirm and the usual approval step is
           completed. Returns shown are estimates at the current 15% rate.
         </p>
+
+        {onFund && items.length > 0 ? (
+          <Button
+            className="h-12 w-full gap-2 bg-emerald-600 text-base font-bold text-white hover:bg-emerald-700"
+            disabled={walletLoading || available === null}
+            onClick={() => onFund(total, shortfall ?? 0)}
+          >
+            <Wallet className="h-4 w-4" />
+            {shortfall !== null && shortfall > 0
+              ? `Fund — top up ${formatDynamic(shortfall)}`
+              : `Fund this plan — ${formatDynamic(total)}`}
+          </Button>
+        ) : null}
       </DialogContent>
     </Dialog>
   );

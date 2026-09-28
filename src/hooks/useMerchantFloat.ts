@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from 'react';
+import { usePolling } from '@/hooks/usePolling';
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -209,23 +210,20 @@ export function useMerchantFloatPositions(enabled = true) {
     return Array.from(ids);
   }, [query.data]);
 
-  // Global realtime subscriptions for tables without a single user_id filter.
-  useEffect(() => {
-    if (!enabled) return;
-    const invalidate = () => {
-      qc.invalidateQueries({ queryKey: ['merchant-float-positions'] });
-      qc.invalidateQueries({ queryKey: ['merchant-payout-float'] });
-    };
-    const channel = supabase
-      .channel('merchant-float-live')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'withdrawal_requests' }, invalidate)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'merchant_payout_funding' }, invalidate)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'merchant_out_of_pocket_advances' }, invalidate)
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [enabled, qc]);
+  // Board-level refresh for tables without a single user_id filter: polled
+  // every 30s (+ on focus). Was an unfiltered Realtime channel on
+  // withdrawal_requests (every change to any row) plus merchant_payout_funding
+  // and merchant_out_of_pocket_advances, which are not published and never
+  // fired (doc 147). Per-merchant float stays live via the filtered
+  // projection channels below.
+  const { lastUpdatedAt: boardUpdatedAt, refresh: refreshBoard } = usePolling(
+    () => Promise.all([
+      qc.invalidateQueries({ queryKey: ['merchant-float-positions'] }),
+      qc.invalidateQueries({ queryKey: ['merchant-payout-float'] }),
+    ]),
+    30_000,
+    { enabled },
+  );
 
   // Filtered per-user projection subscriptions. The projection row is what
   // both the merchant's own card and the Financial Ops board read for float, so

@@ -36,21 +36,10 @@ export function useOpportunitySummary() {
   };
 
   useEffect(() => {
+    // Fetched on mount; callers use `refetch` after a submit. The old Realtime
+    // listener was on opportunity_summaries, which is not in the publication,
+    // so it never fired (doc 147).
     fetchSummary();
-
-    // Listen for realtime updates
-    const channel = supabase
-      .channel('opportunity_summaries_changes')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'opportunity_summaries',
-      }, () => {
-        fetchSummary();
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
   }, []);
 
   return { summary, loading, refetch: fetchSummary };

@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Smartphone, Info, Banknote, ChevronRight } from 'lucide-react';
 import mtnLogoAsset from '@/assets/mtn-logo.png.asset.json';
@@ -17,31 +17,13 @@ import { PhoneMoneyStatementSheet, type PhoneMoneyLine } from './PhoneMoneyState
  */
 export function PhoneMoneyCard() {
   const autoRefresh = useFinOpsAutoRefresh();
-  const queryClient = useQueryClient();
   const [openLine, setOpenLine] = useState<PhoneMoneyLine | null>(null);
 
-  // Live: a new provider SMS (money in / out on the MTN or Airtel line) or a
-  // cash-deposit verification instantly refreshes the figures instead of the
-  // operator waiting for the next poll.
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | null = null;
-    const invalidate = () => {
-      if (timer) clearTimeout(timer);
-      timer = setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: ['finops-phone-money-lines'] });
-        queryClient.invalidateQueries({ queryKey: ['finops-cash-at-hand-total'] });
-      }, 250);
-    };
-    const channel = supabase
-      .channel('finops-phone-money-rt')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'gmail_transactions' }, invalidate)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'cash_deposit_verifications' }, invalidate)
-      .subscribe();
-    return () => {
-      if (timer) clearTimeout(timer);
-      supabase.removeChannel(channel);
-    };
-  }, [queryClient]);
+  // Polled, not Realtime: the old listener was unfiltered on gmail_transactions
+  // (about one new row a minute) and cash_deposit_verifications, and re-ran
+  // both RPCs on every change (doc 147). With the FinOps auto-refresh toggle
+  // off, the card still refreshes every 60s, since it used to stay live.
+  const pollMs = autoRefresh ? 20_000 : 60_000;
 
   const { data: phone, isLoading: phoneLoading } = useQuery({
     queryKey: ['finops-phone-money-lines'],
@@ -56,7 +38,7 @@ export function PhoneMoneyCard() {
       };
     },
     staleTime: 15_000,
-    refetchInterval: autoRefresh ? 20_000 : false,
+    refetchInterval: pollMs,
   });
 
   // Cash at hand is role-gated inside the RPC; a denied call simply renders 0
@@ -71,7 +53,7 @@ export function PhoneMoneyCard() {
     },
     retry: false,
     staleTime: 15_000,
-    refetchInterval: autoRefresh ? 20_000 : false,
+    refetchInterval: pollMs,
   });
 
   const loading = phoneLoading || cashLoading;

@@ -20,9 +20,24 @@ listing `566bb564-…`).
    - CR parent wallet, withdrawable, `system_balance_correction` cash_in 4,000
    - `listing_rejection_recovery` platform cash_out 4,000 (undoes the recovery leg)
    - a `parent_rejection_penalty_refund` row in audit_logs
+3. **Sub-agent's own charge refunded** (10:39 UTC, after Josh's follow-up). The sub-agent's own UGX 4,000
+   `listing_rejection_penalty` on the same listing (`bc0c9490-…`) got the same two legs under the new key
+   `refund_listing_rejection_penalty:<ledger id>`, plus a `listing_rejection_penalty_refund` row in audit_logs.
+   Both charges from this rejection now net to zero.
+4. **Steps 2 and 3 didn't reach the wallets. Fixed at 11:09 UTC.** Josh said PROMROSE should show 24,000, but the wallet showed 20,000.
+   The cause: `enforce_correction_classification` force-tags every `system_balance_correction` leg as `admin_correction`,
+   and `wallet_strict_for_user` counts `admin_correction` legs **only when they're debits**. So the refund credits were in the
+   ledger but left out of the wallet balance (and out of the financial statements). The fix re-posted each 4,000 as a production
+   `listing_rejection_offset` withdrawable credit (key `refund_visible_fix:<penalty id>`). It's paired with a platform
+   `system_balance_correction` cash_out that cancels the invisible credit, so production and `admin_correction`
+   legs each net to 0. Verified after refreshing the stored balance: **PROMROSE withdrawable 24,000; Katusiime Promise 17,880.**
+
+   **Wider bug, not fixed:** any refund posted as `system_balance_correction` cash_in never reaches the wallet. That includes the
+   37 KANUNA KEITH parent-penalty refunds from 2026-07-22 (`refund_parent_rejection_penalty:` key). Those parents probably
+   never received the refund in their spendable balance either. To credit a wallet, use a production category, not
+   `system_balance_correction`.
 
 ## Not touched
-- The sub-agent's **own** UGX 4,000 rejection charge on the same listing (`bc0c9490-…`) wasn't part of the request.
 - The `wallets.withdrawable_balance` cache showed 20,000 and was last updated 02:15 UTC. That's before both the penalty and
   the refund, so it refreshes on its own schedule rather than per posting. Check the parent's wallet screen after the next refresh.
 

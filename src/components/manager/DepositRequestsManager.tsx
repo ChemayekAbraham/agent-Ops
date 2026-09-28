@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { usePolling } from '@/hooks/usePolling';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -106,24 +107,11 @@ export function DepositRequestsManager() {
 
   useEffect(() => {
     fetchDeposits();
-
-    // Debounced realtime — 5s cooldown to prevent refetch storms at scale
-    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-    const debouncedFetch = () => {
-      if (debounceTimer) clearTimeout(debounceTimer);
-      debounceTimer = setTimeout(fetchDeposits, 5000);
-    };
-
-    const channel = supabase
-      .channel('manager-deposit-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'deposit_requests' }, debouncedFetch)
-      .subscribe();
-
-    return () => {
-      if (debounceTimer) clearTimeout(debounceTimer);
-      supabase.removeChannel(channel);
-    };
   }, [statusFilter]);
+
+  // Polled every 30s (+ on focus). The old Realtime listener was on
+  // deposit_requests, which was never published, so it never fired (doc 147).
+  const { lastUpdatedAt, refresh } = usePolling(() => fetchDeposits(), 30_000);
 
   const openApproveDialog = (deposit: DepositRequest) => {
     setApproveDialog({ open: true, deposit });

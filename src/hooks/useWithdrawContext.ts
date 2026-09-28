@@ -166,9 +166,9 @@ function acquireChannel(userId: string, qc: QueryClient) {
     .on('postgres_changes', {
       event: '*', schema: 'public', table: 'wallet_balances_projection', filter: `user_id=eq.${userId}`,
     }, invalidate)
-    .on('postgres_changes', {
-      event: '*', schema: 'public', table: 'treasury_controls',
-    }, invalidate)
+    // No treasury_controls listener: that table is not in the Realtime
+    // publication, so it never fired (doc 147). gates.withdrawalsPaused is
+    // still re-checked by the forced refetch right before submit.
     .subscribe();
   activeChannels.set(userId, { channel, refCount: 1 });
 }

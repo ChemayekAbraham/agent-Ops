@@ -59,12 +59,9 @@ export function useFunderAccountsRealtime(opts: {
           'postgres_changes',
           { event: '*', schema: 'public', table: 'withdrawal_requests', filter: `proxy_partner_id=eq.${beneficiaryId}` },
           trigger,
-        )
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'wallets', filter: `user_id=eq.${beneficiaryId}` },
-          trigger,
         );
+      // (No `wallets` listener: wallets is a view, which Realtime cannot
+      // replicate, so it never fired — doc 147.)
     }
 
     channel.subscribe();
