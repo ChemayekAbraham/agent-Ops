@@ -258,7 +258,11 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
           open={isOpen('position')}
           onToggle={() => toggleSection('position')}
         >
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Four across and two down on wide screens; two across on tablets
+              and one on phones, because below ~1280px the UGX amounts stop
+              fitting on one line inside a quarter of the page. */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+
             <Card className="rounded-2xl border border-border/70 bg-card shadow-sm transition-shadow hover:shadow-md overflow-hidden h-full">
               <CardContent className="p-5 h-full flex flex-col">
                 <button
@@ -278,7 +282,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
                     </span>
                   </div>
                   <p className="mt-4 text-[11px] font-medium text-muted-foreground truncate">Money We Have</p>
-                  <p className="mt-1.5 text-[20px] leading-none sm:text-[22px] lg:text-[18px] xl:text-[20px] 2xl:text-[24px] font-bold tabular-nums tracking-tight text-foreground">
+                  <p className="mt-1.5 text-[20px] leading-none sm:text-[22px] xl:text-[19px] 2xl:text-[24px] font-bold tabular-nums tracking-tight text-foreground">
                     {actualLoading ? '—' : fmt(actualMoney?.total ?? 0)}
                   </p>
                   <p className="mt-2 text-[11px] font-medium text-muted-foreground">

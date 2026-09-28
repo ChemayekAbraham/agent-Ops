@@ -51,7 +51,7 @@ export function HeroCard({ icon, iconBg, title, value, percentageLabel, items, f
 
           <p className="mt-4 text-[11px] font-medium text-muted-foreground truncate">{title}</p>
           <p
-            className={`mt-1.5 text-[20px] leading-none sm:text-[22px] lg:text-[18px] xl:text-[20px] 2xl:text-[24px] font-bold tabular-nums tracking-tight ${negative ? 'text-destructive' : 'text-foreground'}`}
+            className={`mt-1.5 text-[20px] leading-none sm:text-[22px] xl:text-[19px] 2xl:text-[24px] font-bold tabular-nums tracking-tight ${negative ? 'text-destructive' : 'text-foreground'}`}
           >
             {value}
           </p>
