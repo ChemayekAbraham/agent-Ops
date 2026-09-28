@@ -60,6 +60,25 @@ WHERE NOT EXISTS (SELECT 1 FROM public.ledger_account_map m
 --    corrections never create rows) and capped at the approved Rent Plan total.
 -- Journal date: NULL = now() (live routes, unchanged); the historical correction passes the
 -- original collection date so each journal is dated when the cash was collected.
+-- 2b. Cancelled Rent Plans take no fee split (risk-test fix, 2026-09-29).
+--     The collection itself is untouched (no reversal, delete or edit); an exception row
+--     records the refused split for review. Returns NULL when the plan is not cancelled.
+CREATE OR REPLACE FUNCTION public._rent_fee_refuse_cancelled(p_rent_request_id uuid, p_amount numeric, p_source_table text, p_source_id uuid)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path TO 'public' AS $function$
+BEGIN
+  IF EXISTS (SELECT 1 FROM rent_requests WHERE id = p_rent_request_id AND status = 'cancelled') THEN
+    INSERT INTO rent_fee_collection_exceptions
+      (rent_request_id, collection_id, source_table, payment_amount, reason, detail)
+    VALUES (p_rent_request_id, p_source_id, p_source_table, p_amount, 'plan_cancelled',
+      jsonb_build_object('note','Rent Plan is cancelled. No fee split or journal was posted. The collection and repayment records are unchanged; review and decide treatment.'))
+    ON CONFLICT (source_table, collection_id, reason) DO NOTHING;
+    RETURN jsonb_build_object('status','refused_cancelled_plan');
+  END IF;
+  RETURN NULL;
+END $function$;
+REVOKE ALL ON FUNCTION public._rent_fee_refuse_cancelled(uuid,numeric,text,uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public._rent_fee_refuse_cancelled(uuid,numeric,text,uuid) TO service_role;
+
 DROP FUNCTION IF EXISTS public._post_four_part_fee_split(uuid, numeric, text, uuid, text, numeric, text);
 CREATE OR REPLACE FUNCTION public._post_four_part_fee_split(
   p_rent_request_id uuid, p_amount numeric, p_source_table text, p_source_id uuid,
@@ -77,7 +96,7 @@ DECLARE
   c numeric; r numeric; pf numeric; pr numeric; f numeric; f_reg numeric; f_acc numeric;
   v_leg numeric; v_fp numeric; v_l numeric; v_pc numeric; v_pr numeric; v_pp numeric; v_ppr numeric;
   d numeric; t numeric;
-  v_inst uuid := gen_random_uuid(); v_grp uuid; v_key text; v_offset_cat text; v_legs jsonb;
+  v_inst uuid := gen_random_uuid(); v_grp uuid; v_key text; v_offset_cat text; v_legs jsonb; v_res jsonb;
 BEGIN
   IF p_route NOT IN ('agent_collection','deposit_settlement') THEN
     RAISE EXCEPTION 'unknown route %', p_route;
@@ -91,8 +110,11 @@ BEGIN
     RAISE EXCEPTION 'rent plan % not found or has no priced total', p_rent_request_id;
   END IF;
 
-  v_amt := ROUND(COALESCE(p_amount,0));
+  -- Cents are preserved (2 dp). Fee parts stay whole shillings; Principal takes the decimal.
+  v_amt := ROUND(COALESCE(p_amount,0), 2);
   IF v_amt <= 0 THEN RETURN jsonb_build_object('status','no_op'); END IF;
+  v_res := public._rent_fee_refuse_cancelled(p_rent_request_id, v_amt, p_source_table, p_source_id);
+  IF v_res IS NOT NULL THEN RETURN v_res; END IF;
 
   -- A reversed collection is not standing cash: never split it (marker copied, nothing posted).
   IF p_source_table = 'agent_collections' AND EXISTS (
@@ -437,11 +459,13 @@ CREATE OR REPLACE FUNCTION public.post_rent_fee_collection(p_rent_request_id uui
  SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
-DECLARE v_recog boolean;
+DECLARE v_recog boolean; v_cx jsonb;
 BEGIN
   IF p_rent_request_id IS NULL OR COALESCE(p_payment_amount,0) <= 0 THEN
     RETURN jsonb_build_object('status','no_op');
   END IF;
+  v_cx := public._rent_fee_refuse_cancelled(p_rent_request_id, p_payment_amount, p_source_table, p_source_id);
+  IF v_cx IS NOT NULL THEN RETURN v_cx; END IF;
   IF NOT public.is_treasury_waterfall_scope(p_rent_request_id) THEN
     RETURN jsonb_build_object('status','out_of_scope_legacy');
   END IF;
@@ -490,6 +514,10 @@ DECLARE
 BEGIN
   PERFORM 1 FROM rent_requests WHERE id = p_rent_request_id;
   IF NOT FOUND THEN RAISE EXCEPTION 'rent_request % not found', p_rent_request_id; END IF;
+  IF COALESCE(p_instalment_amount,0) > 0 THEN
+    v_res := public._rent_fee_refuse_cancelled(p_rent_request_id, p_instalment_amount, p_source_table, p_source_id);
+    IF v_res IS NOT NULL THEN RETURN v_res; END IF;
+  END IF;
 
   IF NOT public.is_four_part_waterfall_eligible(p_rent_request_id) THEN
     RETURN public._post_instalment_waterfall_legacy(p_rent_request_id, p_instalment_amount, p_source_table, p_source_id, p_idempotency_key);
@@ -500,7 +528,7 @@ BEGIN
                AND ia.source_table=p_source_table AND ia.source_id=p_source_id) THEN
     RETURN jsonb_build_object('status','already_allocated');
   END IF;
-  IF ROUND(COALESCE(p_instalment_amount,0)) <= 0 THEN
+  IF ROUND(COALESCE(p_instalment_amount,0), 2) <= 0 THEN
     RETURN jsonb_build_object('status','no_allocation');
   END IF;
 
@@ -516,7 +544,8 @@ BEGIN
   -- (which books its own X3 cost) must not also accrue an L5 commission payable that is
   -- never settled. They take the agent-collection offset (X3) and report 0 commission,
   -- so nothing is paid from this result. Wallet behaviour is unchanged.
-  IF p_source_table IN ('subscription_charges','agent_deposits','tenant_pay_rent') THEN
+  -- manual_collect_rent added 2026-09-29: manual-collect-rent pays 10% itself and books X3.
+  IF p_source_table IN ('subscription_charges','agent_deposits','tenant_pay_rent','manual_collect_rent') THEN
     v_res := public._post_four_part_fee_split(p_rent_request_id, p_instalment_amount, p_source_table, p_source_id,
                'agent_collection', NULL,
                COALESCE(p_idempotency_key, 'four-part-fee:' || p_source_table || ':' || p_source_id::text));
@@ -1502,3 +1531,24 @@ REVOKE ALL ON FUNCTION public.post_instalment_waterfall(uuid,numeric,text,uuid,t
 GRANT EXECUTE ON FUNCTION public.post_instalment_waterfall(uuid,numeric,text,uuid,text) TO service_role;
 REVOKE ALL ON FUNCTION public.reverse_rent_fee_allocation(uuid,text) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.reverse_rent_fee_allocation(uuid,text) TO service_role;
+
+-- 11. Execution lock on the live payment entry points (risk-test fix, 2026-09-29).
+--     Traced callers: edge functions using the service key (agent-deposit, auto-charge-wallets,
+--     approve-wallet-operation, manual-collect-rent, tenant-pay-rent) and SECURITY DEFINER
+--     wrappers owned by postgres (agent_allocate_tenant_payment -> _internal;
+--     trigger tg_tenant_self_repayment_on_deposit_approved -> settle_tenant_rent_from_deposit).
+--     No browser code calls these directly. agent_allocate_tenant_payment (the agent app's
+--     entry point) keeps signed-in access; it already requires auth.uid() and the agent role,
+--     so only signed-out access is removed from it.
+REVOKE ALL ON FUNCTION public.record_rent_request_repayment_v2(uuid,numeric,text,uuid,uuid,uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.record_rent_request_repayment_v2(uuid,numeric,text,uuid,uuid,uuid) TO service_role;
+REVOKE ALL ON FUNCTION public.agent_allocate_tenant_payment_internal(uuid,uuid,uuid,numeric,text,uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.agent_allocate_tenant_payment_internal(uuid,uuid,uuid,numeric,text,uuid) TO service_role;
+REVOKE ALL ON FUNCTION public.settle_tenant_rent_from_deposit(uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.settle_tenant_rent_from_deposit(uuid) TO service_role;
+REVOKE ALL ON FUNCTION public.credit_agent_rent_commission(uuid,numeric,uuid,text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.credit_agent_rent_commission(uuid,numeric,uuid,text) TO service_role;
+REVOKE ALL ON FUNCTION public.credit_agent_rent_commission(uuid,numeric,text,uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.credit_agent_rent_commission(uuid,numeric,text,uuid) TO service_role;
+REVOKE ALL ON FUNCTION public.agent_allocate_tenant_payment(uuid,uuid,uuid,numeric,text,boolean,text,uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.agent_allocate_tenant_payment(uuid,uuid,uuid,numeric,text,boolean,text,uuid) TO authenticated, service_role;
