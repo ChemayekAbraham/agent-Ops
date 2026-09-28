@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-28 · **Reported by:** Josh (an SMS screenshot: "UGX 6,000,000 credited … receipt code 5602 … New balance UGX 638,076")
 **Code changed:** `supabase/functions/approve-deposit/index.ts`, `supabase/functions/cash-deposit-verify-code/index.ts`
-**Status:** committed, **edge functions NOT deployed**. Nothing was re-credited.
+**Status (2026-09-28 ~10:40 UTC):** the first fix (`postBalancedLedgerGroup`) was published but **did not work**; see "Second fix". The second fix is committed and needs publishing. Nankambo's 9 stuck deposits (UGX 33.2M) were **re-credited on Josh's instruction**; see "Re-credit".
 
 ## What happened
 
@@ -23,15 +23,23 @@ In the receipt-code path (`cash-deposit-verify-code`):
 
 ## Fix
 
-1. **`approve-deposit`:** physical cash + personal (`isPhysicalCashChannel && !needsPlatformOffset`) now posts through `postBalancedLedgerGroup`:
-   - That is the mapped double-entry assertion `finops-wallet-move` already uses. It checks DR = CR against `ledger_account_map` and only then posts with `skip_balance_check`.
-   - The idempotency key is `deposit_credit:<deposit_request_id>`.
-   - All other deposit shapes still go through `create_ledger_transaction` unchanged.
-2. **`cash-deposit-verify-code`:** after calling `approve-deposit`, it re-reads the deposit. Anything other than `status = 'approved'` is a `credit_failed`, which means no "credited" event and no SMS. The event metadata now carries `deposit_status`.
+1. **`cash-deposit-verify-code`:** after calling `approve-deposit`, it re-reads the deposit. Anything other than `status = 'approved'` is a `credit_failed`, which means no "credited" event and no SMS. The event metadata now carries `deposit_status`.
+2. **First `approve-deposit` fix (published, did not work):** it posted the two-leg group through `postBalancedLedgerGroup` with `skip_balance_check`. But `skip_balance_check` only skips the *user-funds* check. The raw `cash_in = cash_out` check in `create_ledger_transaction` is unconditional, so deposits kept failing. At least they now fail honestly, because of item 1. `balancedLedgerPost.ts`'s own comment implies otherwise. Its three callers are raw-balanced anyway, so they are unaffected.
+3. **Second `approve-deposit` fix:** physical cash + personal now posts **two groups**, and each already exists in production:
+   - **Credit:** the mobile-money personal-deposit shape, a wallet `wallet_deposit` `cash_in` (CR L1) plus a platform `wallet_deposit` `cash_out` (DR A1). The key is `deposit_credit:<id>`.
+   - **Reclass A1 to A5:** the same legs and the same key (`cash_receipt_transit:<id>`) as `fin_ops_set_cash_location`'s legacy reclass. Those are `cash_receipt_in_transit` `cash_in` (DR A5) plus `cash_at_bank_reclass` `cash_out` (CR A1).
+   - **Net effect:** DR A5 / CR L1, and each group is balanced raw and on the mapping. The bank reconciliation, `assert_money_path_intact` and the later "banked" step all still find `cash_receipt_in_transit`.
+   - **If the reclass fails:** the wallet is still credited, and `fin_ops_set_cash_location`'s legacy branch repairs A1 when the cash location is set.
+   - **Tested live:** these exact leg shapes posted successfully 18 times through `create_ledger_transaction` in the re-credit below.
 
-Checks run: `deno check` passes for both functions, and `npm run guard:all` passes. It hasn't been run against a live deposit yet, because it isn't deployed.
+## Re-credit (done 2026-09-28 by SQL, on Josh's instruction "credit them on her account")
 
-## The stuck deposits (not re-credited, human decision needed)
+Josh was shown that UGX 27.2M of the 9 had no matching bank or MoMo receipt, and that the four 6M entries looked like retries. He chose to credit all 9 anyway.
+- Each deposit got the two groups above, was set to `approved`, and got an `audit_logs` row `deposit_recredited_doc145` holding both group IDs.
+- **Result:** her withdrawable balance went from 638,076 to **33,838,076**. On the mapping the 18 groups net A5 +33.2M, L1 -33.2M, A1 0, and 0 of them are unbalanced.
+- **Not touched:** Mercy Bayo's 5M (`114fdd7b`, 09-25) is still `failed`.
+
+## The stuck deposits (as found, before the re-credit)
 
 9 deposit requests, **UGX 37,500,000**, 2 accounts. Every one is `failed`, has no ledger legs, and had a false "credited" event and SMS:
 

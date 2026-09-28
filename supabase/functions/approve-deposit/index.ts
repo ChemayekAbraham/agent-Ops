@@ -5,7 +5,6 @@ import { checkTreasuryGuard } from "../_shared/treasuryGuard.ts";
 import { logDepositDecision } from "../_shared/depositDecisionAudit.ts";
 import { attemptYoolaPrimary } from "../_shared/yoolaPrimary.ts";
 import { resolveOwnedRecipientEmail } from "../_shared/ownedRecipientEmail.ts";
-import { postBalancedLedgerGroup } from "../_shared/balancedLedgerPost.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -796,22 +795,68 @@ Deno.serve(async (req) => {
             }
           }
 
-          // Physical cash + personal is DR A5 / CR L1: two cash_in legs whose
-          // sides come from ledger_account_map, so create_ledger_transaction's
-          // raw cash_in = cash_out check can never pass it. Every such deposit
-          // failed from f905c1182c (2026-09-24) until this fix, and the
-          // receipt-code path still told the depositor "credited" (doc 145).
-          // Post it through the mapped double-entry assertion instead, the
-          // same route finops-wallet-move uses.
+          // Physical cash + personal is DR A5 / CR L1. As one group that is two
+          // cash_in legs, and create_ledger_transaction's raw cash_in = cash_out
+          // check is unconditional (skip_balance_check does NOT skip it), so
+          // every such deposit failed from f905c1182c (2026-09-24) (doc 145).
+          // Post it as two already-proven shapes instead, each raw-balanced:
+          //   1. the mobile-money personal deposit: CR L1 (wallet) / DR A1
+          //   2. fin_ops_set_cash_location's A1 -> A5 reclass, same idempotency
+          //      key, so a later cash-location change sees the transit leg.
+          // Net: DR A5 / CR L1. If step 2 fails the wallet is still correctly
+          // credited, and fin_ops_set_cash_location's legacy branch repairs A1.
           let depositLedgerErr: { message: string } | null = null;
           if (isPhysicalCashChannel && !needsPlatformOffset) {
-            const posted = await postBalancedLedgerGroup(supabaseAdmin, {
-              entries: depositEntries,
-              source: 'approve-deposit',
-              referenceId: depositRequest.id,
-              idempotencyKey: `deposit_credit:${depositRequest.id}`,
+            const creditEntries = [
+              depositEntries[0],
+              {
+                direction: 'cash_out',
+                amount: depositRequest.amount,
+                category: depositCategory,
+                ledger_scope: 'platform',
+                source_table: 'deposit_requests',
+                source_id: depositRequest.id,
+                reference_id: depositRequest.transaction_id || depositRequest.id,
+                description: 'Platform liability: deposit credited to user wallet',
+                currency: 'UGX',
+                transaction_date: new Date().toISOString(),
+              },
+            ];
+            const { error: creditErr } = await supabaseAdmin.rpc('create_ledger_transaction', {
+              entries: creditEntries,
+              idempotency_key: `deposit_credit:${depositRequest.id}`,
             });
-            if (!posted.ok) depositLedgerErr = { message: posted.error };
+            depositLedgerErr = creditErr;
+            if (!creditErr && !hasTransitLeg) {
+              const transitRef = `DEP-${String(depositRequest.id).slice(0, 8)}`;
+              const { error: transitErr } = await supabaseAdmin.rpc('create_ledger_transaction', {
+                entries: [
+                  {
+                    ledger_scope: 'platform', direction: 'cash_in',
+                    category: 'cash_receipt_in_transit', amount: depositRequest.amount,
+                    account: 'platform:cash_in_transit',
+                    description: 'Cash received by Financial Ops — held as cash in transit',
+                    source_table: 'deposit_requests', source_id: depositRequest.id,
+                    reference_id: transitRef, classification: 'production',
+                  },
+                  {
+                    ledger_scope: 'platform', direction: 'cash_out',
+                    category: 'cash_at_bank_reclass', amount: depositRequest.amount,
+                    account: 'platform:cash_at_bank',
+                    description: 'Reclass out of Cash and Bank pending physical banking',
+                    source_table: 'deposit_requests', source_id: depositRequest.id,
+                    reference_id: transitRef, classification: 'production',
+                  },
+                ],
+                idempotency_key: `cash_receipt_transit:${depositRequest.id}`,
+              });
+              if (transitErr) {
+                console.error(
+                  `[approve-deposit] A1->A5 reclass failed for ${depositRequest.id} (wallet already credited; fin_ops_set_cash_location will repair):`,
+                  transitErr.message,
+                );
+              }
+            }
           } else {
             const { error } = await supabaseAdmin.rpc('create_ledger_transaction', {
               entries: depositEntries,
