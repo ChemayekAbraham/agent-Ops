@@ -34701,20 +34701,26 @@ export type Database = {
         Row: {
           agent_id: string
           created_at: string
+          daily_note_target: number | null
           monthly_partner_target: number
           updated_at: string
+          weekly_note_target: number | null
         }
         Insert: {
           agent_id: string
           created_at?: string
+          daily_note_target?: number | null
           monthly_partner_target?: number
           updated_at?: string
+          weekly_note_target?: number | null
         }
         Update: {
           agent_id?: string
           created_at?: string
+          daily_note_target?: number | null
           monthly_partner_target?: number
           updated_at?: string
+          weekly_note_target?: number | null
         }
         Relationships: [
           {
@@ -61044,6 +61050,10 @@ export type Database = {
         Args: { p_agent_id?: string }
         Returns: Json
       }
+      get_proxy_agent_performance_dashboard: {
+        Args: { p_agent_id?: string; p_range?: string }
+        Returns: Json
+      }
       get_proxy_agent_pv: {
         Args: { p_agent_id?: string; p_month?: string }
         Returns: Json
@@ -65057,6 +65067,10 @@ export type Database = {
         }[]
       }
       proxy_cc_resolve_agent: { Args: { p_agent_id: string }; Returns: string }
+      proxy_dashboard_note_house_count: {
+        Args: { p_note: string }
+        Returns: number
+      }
       proxy_earning_categories: { Args: never; Returns: string[] }
       proxy_pv_agent_rows: {
         Args: { p_month: string }

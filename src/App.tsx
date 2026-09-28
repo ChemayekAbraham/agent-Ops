@@ -121,6 +121,7 @@ const Wishlist = lazy(() => import("./pages/Wishlist"));
 const AgentAnalytics = lazy(() => import("./pages/AgentAnalytics"));
 const AgentPartners = lazy(() => import("./pages/AgentPartners"));
 const ProxyAgentCommandCenter = lazy(() => import("./pages/agent/ProxyAgentCommandCenter"));
+const ProxyPerformanceDashboard = lazy(() => import("./pages/agent/ProxyPerformanceDashboard"));
 const FlashSales = lazy(() => import("./pages/FlashSales"));
 const Marketplace = lazy(() => import("./pages/Marketplace"));
 const Categories = lazy(() => import("./pages/Categories"));
@@ -513,6 +514,7 @@ function AppRoutes() {
           <Route path="/dashboard" element={<DashboardRedirect />} />
           <Route path="/dashboard/tenant" element={<Dashboard />} />
           <Route path="/dashboard/agent" element={<Dashboard />} />
+          <Route path="/dashboard/agent/proxy" element={<ProxyAgentGuard><ProxyPerformanceDashboard /></ProxyAgentGuard>} />
           <Route path="/dashboard/landlord" element={<Dashboard />} />
           <Route path="/dashboard/funder" element={<Dashboard />} />
           <Route path="/dashboard/funder-new" element={<RoleGuard allowedRoles={['supporter']}><FunderDashboardNew /></RoleGuard>} />
