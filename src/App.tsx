@@ -445,6 +445,7 @@ function GlobalOnboardingGates() {
       <ConcernAssignmentGate />
       <FacilitationApprovalGate />
       <StaffLoanApprovalGate />
+      <PayrollApprovalGate />
 
     </>
   );
