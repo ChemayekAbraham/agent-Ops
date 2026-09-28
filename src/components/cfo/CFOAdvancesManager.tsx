@@ -362,14 +362,36 @@ export function CFOAdvancesManager() {
       <DailyRecoveryRateCard />
 
       {/* Filters */}
-      <Tabs value={filter} onValueChange={(v) => { setFilter(v as any); setSelectedIds(new Set()); }}>
-        <TabsList>
-          <TabsTrigger value="all">All ({advances.length})</TabsTrigger>
-          <TabsTrigger value="active">Active ({advances.filter((a: any) => a.status === 'active').length})</TabsTrigger>
-          <TabsTrigger value="completed">Completed ({advances.filter((a: any) => a.status === 'completed').length})</TabsTrigger>
-          <TabsTrigger value="overdue">Overdue ({advances.filter((a: any) => a.status === 'overdue').length})</TabsTrigger>
-        </TabsList>
-      </Tabs>
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <Tabs value={filter} onValueChange={(v) => { setFilter(v as any); setSelectedIds(new Set()); }}>
+          <TabsList>
+            <TabsTrigger value="all">All ({advances.length})</TabsTrigger>
+            <TabsTrigger value="active">Active ({advances.filter((a: any) => a.status === 'active').length})</TabsTrigger>
+            <TabsTrigger value="completed">Completed ({advances.filter((a: any) => a.status === 'completed').length})</TabsTrigger>
+            <TabsTrigger value="overdue">Overdue ({advances.filter((a: any) => a.status === 'overdue').length})</TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <div className="relative sm:ml-auto w-full sm:w-64">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search agent by name or phone..."
+            className="pl-9 pr-9"
+            aria-label="Search advances by agent name or phone"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full p-1 text-muted-foreground hover:text-foreground"
+              aria-label="Clear search"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      </div>
 
       {/* Sticky Selection Action Bar */}
       {selectedIds.size > 0 && (
