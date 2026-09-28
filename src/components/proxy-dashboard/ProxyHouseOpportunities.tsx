@@ -15,6 +15,13 @@ import { SectionError, ugx } from './ProxyDashboardParts';
 const PAGE = 12;
 type Sort = 'recommended' | 'nearest' | 'rent_low' | 'rent_high' | 'newest';
 
+/** "two_bedroom" -> "Two Bedroom" */
+const houseLabel = (h: HouseOpportunity) =>
+  (h.house_category || h.title || 'House')
+    .replace(/[_-]+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+
 /** Reuses the existing empty-house source (agent_list_empty_house_opportunities). */
 export function ProxyHouseOpportunities({ onCreateNote }: { onCreateNote: (h: HouseOpportunity) => void }) {
   const [search, setSearch] = useState('');
