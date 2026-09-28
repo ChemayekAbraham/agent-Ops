@@ -1139,6 +1139,10 @@ export default function IdentityPhotoCapture({ compact }: Props) {
   const storedIdPath = replacing ? null : onFileIdPath;
   const storedIdBackPath = replacing ? null : onFileIdBackPath;
   const storedSelfiePath = replacing ? null : onFileSelfiePath;
+  /* Front photo on file and no fresh one taken: the six fields are still shown
+     (prefilled from what was saved, empty if nothing was saved) so they can be
+     checked or typed without retaking the photo. */
+  const showSavedDetailsForm = !idPhoto && !!storedIdPath;
 
   const alreadyDone = !replacing && !!storedIdPath && !!storedIdBackPath && !!storedSelfiePath;
   const isVerified = alreadyVerified.data === true;
