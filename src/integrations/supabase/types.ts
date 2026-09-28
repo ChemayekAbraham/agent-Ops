@@ -68059,8 +68059,12 @@ export type Database = {
         Args: { p_outcome: string; p_work_item_id: string }
         Returns: undefined
       }
-      tops_collection_anomalies_list: {
+      tops_collection_anomalies_count: {
         Args: { p_status?: string }
+        Returns: number
+      }
+      tops_collection_anomalies_list: {
+        Args: { p_limit?: number; p_offset?: number; p_status?: string }
         Returns: {
           acknowledged_at: string
           acknowledged_by_name: string
@@ -68153,7 +68157,7 @@ export type Database = {
       }
       tops_overnight_changes: { Args: { p_as_at?: string }; Returns: Json }
       tops_pipeline_queue: {
-        Args: never
+        Args: { p_gap_label?: string; p_owner_id?: string }
         Returns: {
           age_days: number
           agent_name: string
@@ -68165,6 +68169,13 @@ export type Database = {
           rent_request_id: string
           stage_entered_at: string
           tenant_name: string
+        }[]
+      }
+      tops_pipeline_queue_gap_counts: {
+        Args: never
+        Returns: {
+          cnt: number
+          gap_label: string
         }[]
       }
       tops_plan_pipeline_stages: {
@@ -68225,7 +68236,7 @@ export type Database = {
         }[]
       }
       tops_plan_schedule_ledger: {
-        Args: { p_rent_request_id: string }
+        Args: { p_limit?: number; p_offset?: number; p_rent_request_id: string }
         Returns: {
           amount_ugx: number
           due_date: string
@@ -68236,6 +68247,10 @@ export type Database = {
           settled_by: Json
           settled_ugx: number
         }[]
+      }
+      tops_plan_schedule_ledger_count: {
+        Args: { p_rent_request_id: string }
+        Returns: number
       }
       tops_portfolio_quality: { Args: { p_as_at?: string }; Returns: Json }
       tops_promise_kept_rate: {
