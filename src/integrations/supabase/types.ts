@@ -60021,6 +60021,43 @@ export type Database = {
           status: string
         }[]
       }
+      get_cfo_money_received: {
+        Args: never
+        Returns: {
+          month_count: number
+          month_received: number
+          pending_amount: number
+          pending_count: number
+          today_count: number
+          today_received: number
+          total_count: number
+          total_received: number
+        }[]
+      }
+      get_cfo_money_received_report: {
+        Args: {
+          p_from: string
+          p_limit?: number
+          p_method?: string
+          p_payer?: string
+          p_status?: string
+          p_to: string
+          p_type?: string
+        }
+        Returns: {
+          amount: number
+          description: string
+          destination: string
+          id: string
+          payer: string
+          payer_phone: string
+          payment_method: string
+          receipt_reference: string
+          receipt_type: string
+          received_at: string
+          status: string
+        }[]
+      }
       get_cfo_period_breakdown: {
         Args: { p_from: string; p_to: string }
         Returns: {
