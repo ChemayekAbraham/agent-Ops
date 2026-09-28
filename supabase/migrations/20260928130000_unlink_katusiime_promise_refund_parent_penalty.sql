@@ -144,3 +144,49 @@ BEGIN
                                'reason', 'Ops correction 2026-09-28 on request of Josh Wanda'));
   END IF;
 END $$;
+
+-- 4. Make both refunds actually reach the wallets. enforce_correction_classification
+--    force-classifies every system_balance_correction leg as 'admin_correction', and
+--    wallet_strict_for_user ignores admin_correction CREDITS (it counts only its debits).
+--    So the refund credits in steps 2 and 3 were in the ledger but never in the wallet
+--    balance (PROMROSE showed 20,000 instead of 24,000). Re-post each credit as a
+--    production listing_rejection_offset (the category already used 1,878x to give back
+--    rejection charges). Pair it with a platform system_balance_correction cash_out that
+--    cancels the invisible admin_correction credit. The group is a correction group:
+--    production legs net 0 across all four groups, and admin_correction legs net 0.
+DO $$
+DECLARE r record;
+BEGIN
+  FOR r IN SELECT * FROM (VALUES
+    ('ffadf3bf-8ec7-46b0-b347-a8da55a443a7'::uuid, 'd66edca5-34b6-4ed3-b5ff-eaa22bd7f346'::uuid, '1015f902-30c2-43be-bd93-4b34b09c332b'::uuid, 'parent-agent penalty (Katusiime Promise)'),
+    ('1eaa4087-a367-463a-8bb0-aba1ed59524f'::uuid, 'bc0c9490-1d87-4da0-8b07-36a1611d1a08'::uuid, 'd08358b4-f8df-48e3-85e2-0d9629d5cf29'::uuid, 'listing rejection charge')
+  ) v(user_id, penalty_id, invisible_credit_id, what)
+  LOOP
+    IF NOT EXISTS (SELECT 1 FROM general_ledger WHERE idempotency_key = 'refund_visible_fix:' || r.penalty_id::text) THEN
+      PERFORM public.create_ledger_transaction(
+        jsonb_build_array(
+          jsonb_build_object(
+            'user_id', r.user_id, 'amount', 4000, 'direction', 'cash_in',
+            'category', 'listing_rejection_offset', 'ledger_scope', 'wallet',
+            'wallet_bucket', 'withdrawable', 'recipient_type', 'user',
+            'source_table', 'general_ledger', 'source_id', r.penalty_id::text,
+            'description', 'Refund: ' || r.what || ' reversed by operations',
+            'currency', 'UGX'),
+          jsonb_build_object(
+            'amount', 4000, 'direction', 'cash_out',
+            'category', 'system_balance_correction', 'ledger_scope', 'platform',
+            'source_table', 'general_ledger', 'source_id', r.invisible_credit_id::text,
+            'description', 'Neutralise admin_correction refund credit ' || r.invisible_credit_id::text || ' (excluded from wallet balance); re-posted as listing_rejection_offset',
+            'currency', 'UGX')
+        ),
+        'refund_visible_fix:' || r.penalty_id::text,
+        true
+      );
+      INSERT INTO audit_logs (user_id, action_type, table_name, record_id, metadata)
+      VALUES (r.user_id, 'listing_rejection_refund_made_visible', 'general_ledger', r.penalty_id::text,
+        jsonb_build_object('amount_ugx', 4000, 'invisible_credit_id', r.invisible_credit_id,
+          'reason', 'system_balance_correction cash_in is force-classified admin_correction and excluded by wallet_strict_for_user; re-posted as production listing_rejection_offset'));
+    END IF;
+    PERFORM public.refresh_wallet_projection_for(r.user_id);
+  END LOOP;
+END $$;
