@@ -48,13 +48,13 @@ export default function ProxyPerformanceDashboard() {
 
   const home = (
     <div className="space-y-3 md:space-y-4">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <h1 className="truncate text-lg font-bold tracking-tight md:text-2xl">{greet}, {name}</h1>
+          <h1 className="break-words text-lg font-bold tracking-tight md:text-2xl">{greet}, {name}</h1>
           <p className="text-xs text-muted-foreground">{todayLabel}</p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <Button variant="outline" size="sm" className="hidden h-9 md:inline-flex" onClick={() => setHowOpen(true)}>How it works</Button>
+        <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:w-auto sm:shrink-0 sm:items-center">
+          <Button variant="outline" size="sm" className="h-9" onClick={() => setHowOpen(true)}>How it works</Button>
           <Button size="sm" className="h-9" onClick={() => setNoteOpen(true)}><FilePlus2 className="mr-1 h-4 w-4" /><span className="md:hidden">Create Note</span><span className="hidden md:inline">Create Promissory Note</span></Button>
         </div>
       </div>
