@@ -1064,7 +1064,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
               setSlideDirection(null);
               setActiveTab(tab);
             }}
-            onProxyAgentsClick={isApprovedProxyAgent ? () => navigate('/agent/proxy-agents') : undefined}
+            onProxyAgentsClick={isApprovedProxyAgent ? () => navigate('/dashboard/agent/proxy') : undefined}
           />
         </div>
 
