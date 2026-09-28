@@ -187,7 +187,7 @@ export function ProxyPerformanceChart({ d, range, onRange, fetching }: { d: Prox
           </AreaChart>
         </ResponsiveContainer>
       </div>
-      <p className="mt-1 text-[11px] text-muted-foreground">Brought In by the day money was confirmed; Pending by the day the note was created.</p>
+      <p className="mt-1 text-[11px] text-muted-foreground">Brought In by the day the money came in; Pending by the day each Promissory Note was created.</p>
     </Card>
   );
 }
