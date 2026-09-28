@@ -147,7 +147,7 @@ export function ProxyHouseOpportunities({ onCreateNote }: { onCreateNote: (h: Ho
                   <div className="flex flex-1 flex-col p-3">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p className="truncate font-semibold">{h.house_category || h.title || 'House'}</p>
+                        <p className="truncate font-semibold">{houseLabel(h)}</p>
                         <p className="flex items-center gap-1 truncate text-xs text-muted-foreground"><MapPin className="h-3 w-3 shrink-0" />{housePlace(h)}{typeof h.distance_km === 'number' ? ` · ${h.distance_km.toFixed(1)} km` : ''}</p>
                       </div>
                       {h.verified && <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold text-primary">Verified</span>}
