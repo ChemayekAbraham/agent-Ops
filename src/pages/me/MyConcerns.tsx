@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AlertTriangle, ClipboardList, Forward, Inbox, Send, UserPlus } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ClipboardList, Forward, Inbox, Send, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { ConcernControlPanel } from '@/components/executive/tenant-ops/calling-center/ConcernControlPanel';
