@@ -152,3 +152,97 @@ Gemini's, the query is not.
   affected agents was **-3,066,884 before this incident began**. The displayed
   balance is `GREATEST(0, raw)`, so the clamp hides it. Unrelated to the
   duplicates, and worth its own investigation.
+
+---
+
+# Addendum, 2026-09-28: the sweep never reached the plan balance
+
+Everything above is about `agent_collections` — a **row** that can be filtered.
+`rent_requests.amount_repaid` is a **column**, and no amount of filtering in a
+reader can correct it. That is why a Service Centre "Collection rankings" board
+still looks wrong months after 72 functions were fixed: it never read
+`agent_collections` in the first place.
+
+## What the rankings board actually reads
+
+`SubAgentRankingsBoard` → `subAgentRankings.ts` → `get_agent_service_center`.
+Its `collected` figure is `Σ rent_requests.amount_repaid` over the sub-agent's
+collectible plans — **lifetime**, and rendered next to a *per-day* tile with no
+period label on either. Verified to the shilling against production: the board
+row reading `UGX 17,353,050` is exactly that sum.
+
+## Finding 1 — reversed money is inside 25 plan balances
+
+`20260916180000` recorded that the duplicates were kept out of the tenant
+balances, on the evidence that *"zero plans are credited beyond their own
+total"*. **That test was too weak.** Staying under `total_repayment` is not the
+same as not being credited.
+
+| | plans | UGX |
+| --- | ---: | ---: |
+| `amount_repaid` = live + reversed, **to the shilling** | 25 | **8,180,000** |
+| widened to "above live collections, and has reversals" | 57 | 19,090,568 |
+
+Every reversal behind the 25 is dated **2026-09-16**, and none of them appears
+in the `repayment_restored_after_guard_drop` audit set — so this is the
+duplicate sweep, not the restore.
+
+The clearest case: one plan carries **59 reversed rows worth 2,537,000** against
+**64,000** of real collections, and reads 2,601,000 of a 2,680,000 plan. A
+tenant shown 97% repaid who has actually paid 64,000.
+
+The 57/19.1m figure is an **upper bound, not a diagnosis** — deposit settlement
+and tenant self-payment also write `amount_repaid` without leaving an
+`agent_collections` row. The 8,180,000 exact-match subset is the certain part.
+
+## Finding 2 — 39% of all plan balance has no cash record behind it
+
+`amount_repaid` has **fifteen writers**, including administrative completion and
+ops balance edits:
+
+```
+admin_void_unverified_collection      agent_allocate_tenant_payment_internal
+agent_reverse_tenant_allocation       agent_set_rent_payment_status
+agent_unallocate_tenant_payment       auto_close_fully_repaid_rents
+cfo_decide_agent_unallocation         ops_edit_tenant_balance
+ops_record_payment_edit               ops_sync_rent_request_status_to_balance
+record_rent_request_repayment         replace_tenant_at_property
+settle_tenant_rent_from_deposit       tenant_ops_correct_rent_request
+trigger_agent_liability_for_unpaid_rents
+```
+
+Platform-wide, crediting both cash sources in full:
+
+| | UGX |
+| --- | ---: |
+| `Σ rent_requests.amount_repaid` | 658,861,483 |
+| `Σ agent_collections` (live) | 374,136,222 |
+| `Σ repayments` | 119,681,158 |
+| **unbacked by either** | **≈ 257,378,699** across 215 plans |
+
+Worst single pattern: four plans on one agent each read ~5,340,000 repaid
+against 130,000–940,000 of collections, several `completed`, with nothing in
+`audit_logs` after the funding date.
+
+Some of this is legitimate — neither table records every settlement path — so
+the number is a question, not an accusation. It is **not** a fault in the
+collection path, which is why it ships as `info`.
+
+## Shipped
+
+`20260928120000` adds both to `agent_collections_monitor` (CTO → Monitor →
+Agent Collections), each with a plan-level drill-down:
+
+- `plan_balance_holds_reversed` — **high**, 57 plans / 19,090,568
+- `plan_balance_unbacked` — **info**, window-scoped, 73 plans / 71,625,995 at 14d
+
+## Still open
+
+1. **Do the 25 tenants keep the 8,180,000?** Correcting the balances raises what
+   those tenants owe. That is an outward-facing decision, not an engineering
+   one, and `20260916180000` deliberately chose not to touch tenant balances —
+   but it chose that on a premise this addendum disproves.
+2. **Should the rankings board rank on collections rather than the balance?** It
+   is labelled "Collected" and drives incentives. Switching the basis reorders
+   the table materially — e.g. 13,350,179 → 7,445,779 for one agent — so it is a
+   product call, not a bug fix.

@@ -26,6 +26,18 @@ import { format, parseISO } from 'date-fns';
  * want. It would bury the real findings. The honest over-collection test is per
  * PLAN: `plan_overpaid`, where a tenant has repaid more than the Rent Plan was
  * ever worth.
+ *
+ * TWO CHECKS WATCH THE PLAN BALANCE, NOT THE RECEIPT BOOK, and they are the
+ * ones that explain a leaderboard figure looking too big.
+ * `rent_requests.amount_repaid` is a column with fifteen writers, so no
+ * reader-side reversal filter can reach it — which is why the 72-function
+ * sweep of 10–16 September left it untouched:
+ *
+ *   - `plan_balance_holds_reversed` — reversed money still inside a tenant's
+ *     balance. 25 of these match live + reversed to the shilling.
+ *   - `plan_balance_unbacked` — balance above every cash record we hold. Ships
+ *     as info: mostly historical, and partly legitimate settlement that neither
+ *     `agent_collections` nor `repayments` records.
  */
 
 const RANGES = [7, 14, 30] as const;
