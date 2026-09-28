@@ -52,6 +52,18 @@ export async function listAdvances(): Promise<AdvanceRow[]> {
     }
   }
 
+  // Names and staff refs come from a security-definer function. The CFO may
+  // read an advance but not hr_staff, so the embedded staff came back empty.
+  const peopleById = new Map<string, { staff_ref: string | null; full_name: string | null }>();
+  if (rows.length > 0) {
+    const people = (unwrap(
+      await (supabase.rpc as any)('hr_pay_advance_people'),
+    ) ?? []) as Array<{ advance_id: string; staff_ref: string | null; full_name: string | null }>;
+    for (const p of people) {
+      peopleById.set(p.advance_id, { staff_ref: p.staff_ref ?? null, full_name: p.full_name ?? null });
+    }
+  }
+
   const userIds = Array.from(
     new Set(rows.map((r) => r.hr_staff?.user_id as string | undefined).filter(Boolean) as string[]),
   );
@@ -70,8 +82,13 @@ export async function listAdvances(): Promise<AdvanceRow[]> {
     return {
       id: r.id as string,
       staff_id: r.staff_id as string,
-      staff_ref: (r.hr_staff?.staff_ref as string | null) ?? null,
-      staff_name: userId ? nameByUser.get(userId) ?? null : null,
+      staff_ref:
+        peopleById.get(r.id as string)?.staff_ref ??
+        (r.hr_staff?.staff_ref as string | null) ??
+        null,
+      staff_name:
+        peopleById.get(r.id as string)?.full_name ??
+        (userId ? nameByUser.get(userId) ?? null : null),
       principal,
       currency: (r.currency as string) ?? 'UGX',
       purpose: r.purpose as string,

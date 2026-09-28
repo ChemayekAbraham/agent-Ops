@@ -1,0 +1,48 @@
+-- Agent Advance waterfall, Stage E path 5 of 7:
+-- apply_roi_advance_recovery -- DELIBERATELY EXCLUDED.
+--
+-- This migration changes NOTHING. It exists so the exclusion is recorded in
+-- the migration history rather than only in a conversation.
+--
+-- WHY EXCLUDED
+-- ------------
+-- The path has NEVER EXECUTED. Verified against production:
+--   general_ledger legs with idempotency_key 'roi_adv_rec_%'   0
+--   agent_advance_ledger rows with recovery_source = 'roi'     0
+-- Two open advances carry recovery_source = 'roi', together 8,240,000
+-- outstanding, so the path is reachable but has never run.
+--
+-- It also still carries the write-order defect that was fixed elsewhere on
+-- 2026-09-27. Its sequence is:
+--     1. create_ledger_transaction(...)
+--     2. UPDATE agent_advances SET outstanding_balance = ...
+--     3. INSERT agent_advance_ledger (opening_balance = pre-payment value)
+-- zz_guard_agent_advance_double_charge fires BEFORE INSERT and raises when
+-- NEW.opening_balance exceeds the advance's live balance. Step 2 has already
+-- reduced that balance, so the first execution would trip
+-- ADVANCE_LEDGER_STALE_OPENING -- the same fault that blocked
+-- recover_agent_arrears_from_credit 9,407 times between 2026-08-01 and
+-- 2026-09-26. The function has no exception handler, so the failure would
+-- propagate to its caller.
+--
+-- It is additionally the only one of the seven repayment paths that does not
+-- write access_fee_collected / access_fee_status.
+--
+-- Wiring the waterfall into a path that is broken in a different way would put
+-- untested allocation logic behind an untested failure. The write-order defect
+-- is fixed and tested first, as its own change; the waterfall follows.
+--
+-- CURRENT PRODUCTION DEFINITION, captured for the record
+--   full definition   7ecd2d63dfdb83d4845aeb831a1d17a9
+--   body              7e2f9ffffd2661a1f403affa3eba2070   (92 non-comment lines)
+-- Nothing in this migration set alters it. Until the write order is corrected
+-- and tested, ROI recoveries on post-effective advances would credit A10 in
+-- full, exactly as the old regime does -- which is the safe fallback, because
+-- agent_advance_allocation_entries is never called from this path.
+--
+-- FOLLOW-UP REQUIRED, tracked separately
+--   1. Apply the daybook-first correction to apply_roi_advance_recovery.
+--   2. Test it against the two open ROI advances.
+--   3. Only then wire the waterfall and make it path 5 of 7.
+
+SELECT 1 WHERE false;  -- intentionally inert

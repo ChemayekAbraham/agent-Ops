@@ -334,6 +334,7 @@ const MyRequisitions = lazy(() => import('./pages/me/Requisitions'));
 const HRContractsPage = lazy(() => import('./hr/pages/ContractsPage'));
 const TenantDashboardLandingPage = lazy(() => import('./pages/TenantDashboardLandingPage'));
 const TenantNotificationAnalyticsPage = lazy(() => import('./pages/tenant-ops/TenantNotificationAnalyticsPage'));
+const TenantOpsWorkspacePage = lazy(() => import('./pages/tenant-ops/workspace/TenantOpsWorkspacePage'));
 
 // Detect iOS standalone mode for cache settings
 const isIOSStandalone = (() => {
@@ -788,6 +789,7 @@ function AppRoutes() {
           <Route path="/coo/reports/tenant-ops"    element={<RoleGuard allowedRoles={['coo', 'super_admin', 'cto', 'manager']} requiredPermission="coo"><COOTenantOpsReport /></RoleGuard>} />
           <Route path="/coo/reports/tenant-portfolio-performance" element={<RoleGuard allowedRoles={['coo', 'super_admin', 'cto', 'manager']} requiredPermission="coo"><TppoPortfolioPerformanceReport /></RoleGuard>} />
           <Route path="/tenant-ops/notifications" element={<RoleGuard allowedRoles={['coo', 'super_admin', 'cto', 'manager', 'ceo', 'cmo', 'crm', 'cfo', 'operations', 'employee']}><TenantNotificationAnalyticsPage /></RoleGuard>} />
+          <Route path="/tenant-ops/workspace" element={<RoleGuard allowedRoles={(['tenant_ops', 'operations', 'coo', 'ceo', 'super_admin'] as any)}><TenantOpsWorkspacePage /></RoleGuard>} />
           <Route path="/coo/reports/tenant-notifications" element={<Navigate to="/tenant-ops/notifications" replace />} />
           <Route path="/admin/tenant-notification-analytics" element={<Navigate to="/tenant-ops/notifications" replace />} />
           <Route path="/coo/reports/financial-ops" element={<RoleGuard allowedRoles={['coo', 'super_admin', 'cto', 'manager']} requiredPermission="coo"><COOFinancialOpsReport /></RoleGuard>} />

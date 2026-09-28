@@ -47,6 +47,7 @@ Deno.serve(async (req) => {
         .from("backup_runs")
         .select("storage_path,size_bytes,created_at,status")
         .eq("status", "success")
+        .eq("backup_kind", "full_database")
         .not("storage_path", "is", null)
         .order("created_at", { ascending: false })
         .limit(1).maybeSingle();

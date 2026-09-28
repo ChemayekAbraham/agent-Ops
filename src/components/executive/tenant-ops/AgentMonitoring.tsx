@@ -26,6 +26,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Progress } from '@/components/ui/progress';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   Dialog,
   DialogContent,
@@ -373,32 +374,56 @@ const STAT_ACCENT: Record<'neutral' | 'primary' | 'success' | 'danger' | 'info',
   info: 'text-sky-600 dark:text-sky-400',
 };
 
+/**
+ * 'ready' is the only state that shows numbers. While the day's data is still
+ * loading, or after it failed, the cards must never read "0" / "UGX 0" — a
+ * zero there is indistinguishable from a real empty day.
+ */
+type StatCardState = 'ready' | 'loading' | 'error';
+
 function StatCard({
   label,
   value,
   hint,
   accent = 'neutral',
+  state = 'ready',
 }: {
   label: string;
   value: string;
   hint?: string;
   accent?: keyof typeof STAT_ACCENT;
+  state?: StatCardState;
 }) {
   return (
-    <Card className="overflow-hidden border-border/70 shadow-sm transition-shadow hover:shadow-md">
+    <Card className="overflow-hidden border-border/70 shadow-sm transition-shadow hover:shadow-md" aria-busy={state === 'loading'}>
       <CardContent className="flex h-full min-w-0 flex-col p-3 sm:p-4">
         <p className="truncate text-[10px] font-semibold uppercase tracking-wide text-muted-foreground sm:text-[11px]">
           {label}
         </p>
-        <p
-          className={cn(
-            'mt-1.5 break-words text-lg font-bold leading-tight tabular-nums sm:text-xl',
-            STAT_ACCENT[accent],
-          )}
-        >
-          {value}
-        </p>
-        {hint && <p className="mt-1 break-words text-[10px] leading-snug text-muted-foreground sm:text-xs">{hint}</p>}
+        {state === 'loading' ? (
+          <>
+            <span className="sr-only">Loading</span>
+            <Skeleton className="mt-2 h-6 w-20 sm:h-7" />
+            <Skeleton className="mt-1.5 h-3 w-24" />
+          </>
+        ) : state === 'error' ? (
+          <>
+            <p className="mt-1.5 text-lg font-bold leading-tight text-muted-foreground sm:text-xl">—</p>
+            <p className="mt-1 break-words text-[10px] leading-snug text-destructive sm:text-xs">Couldn't load, see below</p>
+          </>
+        ) : (
+          <>
+            <p
+              className={cn(
+                'mt-1.5 break-words text-lg font-bold leading-tight tabular-nums sm:text-xl',
+                STAT_ACCENT[accent],
+              )}
+            >
+              {value}
+            </p>
+            {hint && <p className="mt-1 break-words text-[10px] leading-snug text-muted-foreground sm:text-xs">{hint}</p>}
+          </>
+        )}
       </CardContent>
     </Card>
   );
@@ -626,6 +651,9 @@ export function AgentMonitoring() {
       return matchesSearch && (statusFilter === 'all' || statusFilter === status);
     });
   }, [agents, search, statusFilter]);
+
+  /* Cards show numbers only once this day's load has succeeded; see StatCard. */
+  const statCardState: StatCardState = isError ? 'error' : data ? 'ready' : 'loading';
 
   const totals = useMemo(() => filteredAgents.reduce(
     (sum, agent) => ({
@@ -910,12 +938,12 @@ export function AgentMonitoring() {
       </div>
 
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 xl:grid-cols-6">
-        <StatCard label="Agents monitored" value={String(filteredAgents.length)} hint={`${totals.nothingDue} with nothing due`} accent="neutral" />
-        <StatCard label="Due this day" value={String(totals.dueCount)} hint={`of ${totals.tenantCount} tenants`} accent="primary" />
-        <StatCard label="Collected today" value={formatUGX(totals.collected)} hint={`of ${formatUGX(totals.expected)} expected`} accent="success" />
-        <StatCard label="Total arrears" value={formatUGX(totals.arrears)} hint={`${totals.behindCount} tenants behind`} accent={totals.arrears > 0 ? 'danger' : 'neutral'} />
-        <StatCard label="Paid ahead" value={String(totals.aheadCount)} hint="tenants covering future periods" accent="info" />
-        <StatCard label="Daily / weekly" value={`${totals.dailyCount} / ${totals.weeklyCount}`} hint="plans by payment period" accent="neutral" />
+        <StatCard label="Agents monitored" value={String(filteredAgents.length)} hint={`${totals.nothingDue} with nothing due`} accent="neutral" state={statCardState} />
+        <StatCard label="Due this day" value={String(totals.dueCount)} hint={`of ${totals.tenantCount} tenants`} accent="primary" state={statCardState} />
+        <StatCard label="Collected today" value={formatUGX(totals.collected)} hint={`of ${formatUGX(totals.expected)} expected`} accent="success" state={statCardState} />
+        <StatCard label="Total arrears" value={formatUGX(totals.arrears)} hint={`${totals.behindCount} tenants behind`} accent={totals.arrears > 0 ? 'danger' : 'neutral'} state={statCardState} />
+        <StatCard label="Paid ahead" value={String(totals.aheadCount)} hint="tenants covering future periods" accent="info" state={statCardState} />
+        <StatCard label="Daily / weekly" value={`${totals.dailyCount} / ${totals.weeklyCount}`} hint="plans by payment period" accent="neutral" state={statCardState} />
       </div>
 
       <Card className="overflow-hidden border-border/70 shadow-sm">

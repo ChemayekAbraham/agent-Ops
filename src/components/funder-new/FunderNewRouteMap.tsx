@@ -17,34 +17,19 @@ const KAMPALA_ZOOM = 12;
 
 let mapsPromise: Promise<typeof google.maps> | null = null;
 
-const MAPS_KEY_STORAGE = 'welile-gmaps-key';
-
-// The billed Maps key lives in the secret store. Once fetched, it is cached in
-// sessionStorage for the rest of the browser session so repeated navigations
-// and reloads never wait on an edge function cold start.
+// The Maps key is never cached in browser storage. The referrer-restricted
+// connector browser key is used directly when present; otherwise the key is
+// fetched fresh from the backend on each page load (held in memory only).
 async function resolveMapsKey(): Promise<string> {
   try {
-    const cached = sessionStorage.getItem(MAPS_KEY_STORAGE);
-    if (cached) return cached;
+    sessionStorage.removeItem('welile-gmaps-key'); // purge any key cached by older builds
   } catch {
-    // sessionStorage not available
+    // ignore
   }
-  try {
-    const { data, error } = await supabase.functions.invoke('maps-browser-key');
-    if (!error && data && typeof (data as { key?: string }).key === 'string') {
-      const key = (data as { key: string }).key;
-      try {
-        sessionStorage.setItem(MAPS_KEY_STORAGE, key);
-      } catch {
-        // ignore
-      }
-      return key;
-    }
-  } catch {
-    // fall through to the connector key
-  }
-  const fallback = import.meta.env['VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY'] as string | undefined;
-  if (fallback) return fallback;
+  const connectorKey = import.meta.env['VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY'] as string | undefined;
+  if (connectorKey) return connectorKey;
+  const { data, error } = await supabase.functions.invoke('maps-browser-key');
+  if (!error && data && typeof (data as { key?: string }).key === 'string') return (data as { key: string }).key;
   throw new Error('Google Maps is not connected.');
 }
 
@@ -65,7 +50,7 @@ function loadGoogleMaps(): Promise<typeof google.maps> {
         };
 
         const script = document.createElement('script');
-        const params = new URLSearchParams({ key, loading: 'async', callback: callbackName, libraries: 'geometry,marker' });
+        const params = new URLSearchParams({ key, loading: 'async', callback: callbackName, libraries: 'geometry' });
         if (channel) params.set('channel', channel);
         script.src = `https://maps.googleapis.com/maps/api/js?${params.toString()}`;
         script.async = true;
@@ -199,12 +184,7 @@ function getPricePinIcon(
   const r = 12;
 
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${totalWidth}" height="${totalHeight}" viewBox="0 0 ${totalWidth} ${totalHeight}">
-  <defs>
-    <filter id="psh" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="1.5" stdDeviation="1.5" flood-color="rgba(0,0,0,0.28)"/>
-    </filter>
-  </defs>
-  <g filter="url(#psh)">
+  <g>
     <rect x="${rectX}" y="${rectY}" width="${pillWidth}" height="${pillHeight}" rx="${r}" ry="${r}" fill="${bg}" stroke="${borderColor}" stroke-width="${strokeWidth}"/>
     <polygon points="${cx - 4.5},${rectY + pillHeight - 1} ${cx + 4.5},${rectY + pillHeight - 1} ${cx},${totalHeight - 1}" fill="${bg}" stroke="${borderColor}" stroke-width="${strokeWidth}" stroke-linejoin="round"/>
     <rect x="${cx - 4}" y="${rectY + pillHeight - 2}" width="8" height="2" fill="${bg}"/>
@@ -261,7 +241,9 @@ export function FunderNewRouteMap({
 }) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
-  const markersRef = useRef<google.maps.Marker[]>([]);
+  const markersRef = useRef<Map<string, { marker: google.maps.Marker; sig: string; cell: FunderNewMapCell }>>(new Map());
+  const onOpenHouseRef = useRef(onOpenHouse);
+  onOpenHouseRef.current = onOpenHouse;
   const deviceMarkerRef = useRef<google.maps.Marker | null>(null);
   const accuracyCircleRef = useRef<google.maps.Circle | null>(null);
   const listenersRef = useRef<google.maps.MapsEventListener[]>([]);
@@ -346,36 +328,67 @@ export function FunderNewRouteMap({
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !window.google?.maps) return;
-    markersRef.current.forEach((marker) => marker.setMap(null));
-    markersRef.current = cells.map((cell) => {
+    // Update markers in place, keyed by cell. Only pins whose data or state
+    // changed are touched; removed cells are detached, new cells are added.
+    const store = markersRef.current;
+    const seen = new Set<string>();
+    for (const cell of cells) {
       const house = cell.house;
       const id = house?.house_id ?? null;
       const active = !!id && (selectedIds.includes(id) || activeId === id);
       const saved = !!id && savedIds.includes(id);
       const amount = cell.amount || (house ? itemAmount('empty', house) : 0);
+      const title = house
+        ? `${emptyHouseTitle(house)}. ${formatDynamic(amount)} to support.`
+        : `${cell.count} homes in this area from ${formatDynamic(amount)}.`;
+      const sig = `${cell.lat},${cell.lng}|${amount}|${active}|${saved}|${title}`;
+      seen.add(cell.key);
+      const existing = store.get(cell.key);
+      if (existing) {
+        existing.cell = cell;
+        if (existing.sig === sig) continue;
+        existing.sig = sig;
+        existing.marker.setPosition({ lat: cell.lat, lng: cell.lng });
+        existing.marker.setIcon(getPricePinIcon(amount, active, saved));
+        existing.marker.setTitle(title);
+        existing.marker.setZIndex(active ? 30 : saved ? 25 : 10);
+        continue;
+      }
       const marker = new google.maps.Marker({
         map,
         position: { lat: cell.lat, lng: cell.lng },
-        title: house
-          ? `${emptyHouseTitle(house)}. ${formatDynamic(amount)} to support.`
-          : `${cell.count} homes in this area from ${formatDynamic(amount)}.`,
+        title,
         icon: getPricePinIcon(amount, active, saved),
         zIndex: active ? 30 : saved ? 25 : 10,
+        optimized: true,
       });
+      const entry = { marker, sig, cell };
       marker.addListener('click', () => {
-        if (house) onOpenHouse(house);
+        const current = entry.cell;
+        if (current.house) onOpenHouseRef.current(current.house);
         else {
-          map.panTo({ lat: cell.lat, lng: cell.lng });
+          map.panTo({ lat: current.lat, lng: current.lng });
           map.setZoom(Math.min((map.getZoom() ?? KAMPALA_ZOOM) + 2, 17));
         }
       });
-      return marker;
-    });
-    return () => {
-      markersRef.current.forEach((marker) => marker.setMap(null));
-      markersRef.current = [];
-    };
-  }, [cells, selectedIds, savedIds, activeId, onOpenHouse]);
+      store.set(cell.key, entry);
+    }
+    for (const [key, entry] of store) {
+      if (!seen.has(key)) {
+        entry.marker.setMap(null);
+        google.maps.event.clearInstanceListeners(entry.marker);
+        store.delete(key);
+      }
+    }
+  }, [cells, selectedIds, savedIds, activeId]);
+
+  useEffect(
+    () => () => {
+      markersRef.current.forEach((entry) => entry.marker.setMap(null));
+      markersRef.current.clear();
+    },
+    [],
+  );
 
   useEffect(() => {
     const map = mapRef.current;

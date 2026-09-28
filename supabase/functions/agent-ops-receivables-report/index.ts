@@ -26,7 +26,7 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const REPORT_RECIPIENTS = ["pexpert46@gmail.com", "grace.nation78@gmail.com"];
+const REPORT_RECIPIENTS = ["ssenkaali.pius@welile.com", "grace.nation78@gmail.com"];
 const FROM = "Welile Reports <info@welile.com>";
 const SENDER_DOMAIN = "notify.welile.com";
 const EVENT_TYPE = "agent_ops_receivables_report";

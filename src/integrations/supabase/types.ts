@@ -6630,6 +6630,7 @@ export type Database = {
       }
       backup_runs: {
         Row: {
+          backup_kind: string
           created_at: string
           error_message: string | null
           id: string
@@ -6641,6 +6642,7 @@ export type Database = {
           table_count: number | null
         }
         Insert: {
+          backup_kind?: string
           created_at?: string
           error_message?: string | null
           id?: string
@@ -6652,6 +6654,7 @@ export type Database = {
           table_count?: number | null
         }
         Update: {
+          backup_kind?: string
           created_at?: string
           error_message?: string | null
           id?: string
@@ -32926,6 +32929,8 @@ export type Database = {
           selfie_photo_path: string | null
           seller_application_status: string | null
           sex: string | null
+          signup_channel: string | null
+          signup_device_fp: string | null
           signup_source: string | null
           smartphone_source: string | null
           smartphone_status: string
@@ -33042,6 +33047,8 @@ export type Database = {
           selfie_photo_path?: string | null
           seller_application_status?: string | null
           sex?: string | null
+          signup_channel?: string | null
+          signup_device_fp?: string | null
           signup_source?: string | null
           smartphone_source?: string | null
           smartphone_status?: string
@@ -33158,6 +33165,8 @@ export type Database = {
           selfie_photo_path?: string | null
           seller_application_status?: string | null
           sex?: string | null
+          signup_channel?: string | null
+          signup_device_fp?: string | null
           signup_source?: string | null
           smartphone_source?: string | null
           smartphone_status?: string
@@ -45304,6 +45313,598 @@ export type Database = {
           },
         ]
       }
+      tops_call_outcomes: {
+        Row: {
+          cc_call_id: string | null
+          id: string
+          note: string | null
+          outcome: string
+          recorded_at: string
+          recorded_by: string
+          rent_request_id: string
+        }
+        Insert: {
+          cc_call_id?: string | null
+          id?: string
+          note?: string | null
+          outcome: string
+          recorded_at?: string
+          recorded_by: string
+          rent_request_id: string
+        }
+        Update: {
+          cc_call_id?: string | null
+          id?: string
+          note?: string | null
+          outcome?: string
+          recorded_at?: string
+          recorded_by?: string
+          rent_request_id?: string
+        }
+        Relationships: []
+      }
+      tops_collection_anomalies: {
+        Row: {
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          acknowledged_note: string | null
+          agent_id: string | null
+          collection_channel: string
+          collection_id: string
+          detail: Json
+          detected_at: string
+          id: string
+          rent_request_id: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          resolved_note: string | null
+          rule_fired: string
+          severity: string
+          status: string
+          tenant_id: string | null
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          acknowledged_note?: string | null
+          agent_id?: string | null
+          collection_channel: string
+          collection_id: string
+          detail: Json
+          detected_at?: string
+          id?: string
+          rent_request_id?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_note?: string | null
+          rule_fired: string
+          severity: string
+          status?: string
+          tenant_id?: string | null
+        }
+        Update: {
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          acknowledged_note?: string | null
+          agent_id?: string | null
+          collection_channel?: string
+          collection_id?: string
+          detail?: Json
+          detected_at?: string
+          id?: string
+          rent_request_id?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          resolved_note?: string | null
+          rule_fired?: string
+          severity?: string
+          status?: string
+          tenant_id?: string | null
+        }
+        Relationships: []
+      }
+      tops_collection_expectations: {
+        Row: {
+          collection_channel: string
+          commission_ratio_max: number
+          commission_ratio_min: number
+          expected_float_direction: string
+          expected_float_sign: number
+          float_ratio_max: number
+          float_ratio_min: number
+          id: string
+          sample_size: number
+          seeded_at: string
+          seeded_from: string
+          seeded_to: string
+        }
+        Insert: {
+          collection_channel: string
+          commission_ratio_max?: number
+          commission_ratio_min?: number
+          expected_float_direction: string
+          expected_float_sign: number
+          float_ratio_max?: number
+          float_ratio_min?: number
+          id?: string
+          sample_size: number
+          seeded_at?: string
+          seeded_from: string
+          seeded_to: string
+        }
+        Update: {
+          collection_channel?: string
+          commission_ratio_max?: number
+          commission_ratio_min?: number
+          expected_float_direction?: string
+          expected_float_sign?: number
+          float_ratio_max?: number
+          float_ratio_min?: number
+          id?: string
+          sample_size?: number
+          seeded_at?: string
+          seeded_from?: string
+          seeded_to?: string
+        }
+        Relationships: []
+      }
+      tops_float_adequacy_snapshots: {
+        Row: {
+          adequacy_ratio: number | null
+          agent_id: string
+          captured_at: string
+          expected_obligation_ugx: number
+          float_balance_ugx: number
+          for_date: string
+          id: string
+          shortfall_ugx: number
+          tenants_at_risk: number
+        }
+        Insert: {
+          adequacy_ratio?: number | null
+          agent_id: string
+          captured_at?: string
+          expected_obligation_ugx: number
+          float_balance_ugx: number
+          for_date: string
+          id?: string
+          shortfall_ugx: number
+          tenants_at_risk: number
+        }
+        Update: {
+          adequacy_ratio?: number | null
+          agent_id?: string
+          captured_at?: string
+          expected_obligation_ugx?: number
+          float_balance_ugx?: number
+          for_date?: string
+          id?: string
+          shortfall_ugx?: number
+          tenants_at_risk?: number
+        }
+        Relationships: []
+      }
+      tops_instalment_settlements: {
+        Row: {
+          amount_ugx: number
+          collection_id: string
+          id: string
+          instalment_id: string
+          released_at: string | null
+          rent_request_id: string
+          settled_at: string
+        }
+        Insert: {
+          amount_ugx: number
+          collection_id: string
+          id?: string
+          instalment_id: string
+          released_at?: string | null
+          rent_request_id: string
+          settled_at?: string
+        }
+        Update: {
+          amount_ugx?: number
+          collection_id?: string
+          id?: string
+          instalment_id?: string
+          released_at?: string | null
+          rent_request_id?: string
+          settled_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tops_instalment_settlements_instalment_id_fkey"
+            columns: ["instalment_id"]
+            isOneToOne: false
+            referencedRelation: "tops_plan_instalments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tops_metric_definitions: {
+        Row: {
+          basis: string
+          definition: string
+          implementing_function: string
+          key: string
+          owner_role: string
+          title: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          basis: string
+          definition: string
+          implementing_function: string
+          key: string
+          owner_role: string
+          title: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          basis?: string
+          definition?: string
+          implementing_function?: string
+          key?: string
+          owner_role?: string
+          title?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: []
+      }
+      tops_notifications: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          read_at: string | null
+          title: string
+          user_id: string
+          work_item_id: string | null
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          id?: string
+          read_at?: string | null
+          title: string
+          user_id: string
+          work_item_id?: string | null
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          read_at?: string | null
+          title?: string
+          user_id?: string
+          work_item_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tops_notifications_work_item_id_fkey"
+            columns: ["work_item_id"]
+            isOneToOne: false
+            referencedRelation: "tops_work_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tops_plan_clock: {
+        Row: {
+          cadence: string
+          cadence_source: string
+          clock_source: string
+          clock_start: string
+          created_at: string
+          override_reason: string | null
+          rent_request_id: string
+          set_by: string | null
+          updated_at: string
+          weekly_due_dow: number | null
+        }
+        Insert: {
+          cadence: string
+          cadence_source: string
+          clock_source: string
+          clock_start: string
+          created_at?: string
+          override_reason?: string | null
+          rent_request_id: string
+          set_by?: string | null
+          updated_at?: string
+          weekly_due_dow?: number | null
+        }
+        Update: {
+          cadence?: string
+          cadence_source?: string
+          clock_source?: string
+          clock_start?: string
+          created_at?: string
+          override_reason?: string | null
+          rent_request_id?: string
+          set_by?: string | null
+          updated_at?: string
+          weekly_due_dow?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tops_plan_clock_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "rent_request_formula_drift"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tops_plan_clock_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "rent_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tops_plan_clock_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "tops_plan_clock_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_partner_self_fundable_plans"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "tops_plan_clock_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_rent_plan_expired_owing"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "tops_plan_clock_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "tops_plan_clock_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "tops_plan_clock_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_tenant_daily_eligibility"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "tops_plan_clock_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "tops_plan_clock_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "tops_plan_clock_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: true
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
+          },
+        ]
+      }
+      tops_plan_instalments: {
+        Row: {
+          amount_ugx: number
+          created_at: string
+          due_date: string
+          id: string
+          rent_request_id: string
+          seq: number
+          updated_at: string
+        }
+        Insert: {
+          amount_ugx: number
+          created_at?: string
+          due_date: string
+          id?: string
+          rent_request_id: string
+          seq: number
+          updated_at?: string
+        }
+        Update: {
+          amount_ugx?: number
+          created_at?: string
+          due_date?: string
+          id?: string
+          rent_request_id?: string
+          seq?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      tops_promises_to_pay: {
+        Row: {
+          cc_call_id: string | null
+          channel: string
+          created_at: string
+          id: string
+          promised_amount_ugx: number
+          promised_date: string
+          rent_request_id: string
+          resolved_at: string | null
+          settled_amount_ugx: number
+          status: string
+          taken_by: string
+          tenant_user_id: string
+        }
+        Insert: {
+          cc_call_id?: string | null
+          channel: string
+          created_at?: string
+          id?: string
+          promised_amount_ugx: number
+          promised_date: string
+          rent_request_id: string
+          resolved_at?: string | null
+          settled_amount_ugx?: number
+          status?: string
+          taken_by: string
+          tenant_user_id: string
+        }
+        Update: {
+          cc_call_id?: string | null
+          channel?: string
+          created_at?: string
+          id?: string
+          promised_amount_ugx?: number
+          promised_date?: string
+          rent_request_id?: string
+          resolved_at?: string | null
+          settled_amount_ugx?: number
+          status?: string
+          taken_by?: string
+          tenant_user_id?: string
+        }
+        Relationships: []
+      }
+      tops_restructure_register: {
+        Row: {
+          first_seen_at: string
+          id: string
+          rent_request_id: string
+          restructure_type: string
+          source_detail: string | null
+        }
+        Insert: {
+          first_seen_at?: string
+          id?: string
+          rent_request_id: string
+          restructure_type: string
+          source_detail?: string | null
+        }
+        Update: {
+          first_seen_at?: string
+          id?: string
+          rent_request_id?: string
+          restructure_type?: string
+          source_detail?: string | null
+        }
+        Relationships: []
+      }
+      tops_tenant_brief_log: {
+        Row: {
+          degraded_to_facts_only: boolean
+          error_detail: string | null
+          id: string
+          model: string
+          rent_request_id: string
+          requested_at: string
+          requested_by: string
+          sentence_count: number | null
+          validation_passed: boolean
+        }
+        Insert: {
+          degraded_to_facts_only: boolean
+          error_detail?: string | null
+          id?: string
+          model: string
+          rent_request_id: string
+          requested_at?: string
+          requested_by: string
+          sentence_count?: number | null
+          validation_passed: boolean
+        }
+        Update: {
+          degraded_to_facts_only?: boolean
+          error_detail?: string | null
+          id?: string
+          model?: string
+          rent_request_id?: string
+          requested_at?: string
+          requested_by?: string
+          sentence_count?: number | null
+          validation_passed?: boolean
+        }
+        Relationships: []
+      }
+      tops_work_items: {
+        Row: {
+          assigned_at: string | null
+          assigned_to: string | null
+          bucket: string
+          closed_at: string | null
+          closed_by: string | null
+          closed_outcome: string | null
+          created_at: string
+          escalated_at: string | null
+          escalated_to: string | null
+          escalation_note: string | null
+          id: string
+          reason: string
+          rent_request_id: string
+          sla_due_at: string | null
+          status: string
+          updated_at: string
+          value_at_risk_ugx: number
+        }
+        Insert: {
+          assigned_at?: string | null
+          assigned_to?: string | null
+          bucket: string
+          closed_at?: string | null
+          closed_by?: string | null
+          closed_outcome?: string | null
+          created_at?: string
+          escalated_at?: string | null
+          escalated_to?: string | null
+          escalation_note?: string | null
+          id?: string
+          reason: string
+          rent_request_id: string
+          sla_due_at?: string | null
+          status?: string
+          updated_at?: string
+          value_at_risk_ugx: number
+        }
+        Update: {
+          assigned_at?: string | null
+          assigned_to?: string | null
+          bucket?: string
+          closed_at?: string | null
+          closed_by?: string | null
+          closed_outcome?: string | null
+          created_at?: string
+          escalated_at?: string | null
+          escalated_to?: string | null
+          escalation_note?: string | null
+          id?: string
+          reason?: string
+          rent_request_id?: string
+          sla_due_at?: string | null
+          status?: string
+          updated_at?: string
+          value_at_risk_ugx?: number
+        }
+        Relationships: []
+      }
       tppo_period_snapshots: {
         Row: {
           arrears_outstanding_ugx: number | null
@@ -54170,6 +54771,16 @@ export type Database = {
         Returns: undefined
       }
       agent_advance_activity: { Args: { p_user_id: string }; Returns: Json }
+      agent_advance_allocation_entries: {
+        Args: {
+          p_advance_id: string
+          p_agent_id: string
+          p_amount: number
+          p_external?: boolean
+          p_transaction_date?: string
+        }
+        Returns: Json
+      }
       agent_advance_blocking_gates: {
         Args: {
           p_agent_id: string
@@ -54178,10 +54789,25 @@ export type Database = {
         }
         Returns: Json
       }
+      agent_advance_component_state: {
+        Args: { p_advance_id: string }
+        Returns: {
+          access_fee: number
+          late_fee: number
+          principal: number
+          registration_fee: number
+          unearned_late_fee: number
+        }[]
+      }
+      agent_advance_is_post_effective: {
+        Args: { p_advance_id: string }
+        Returns: boolean
+      }
       agent_advance_topup_eligibility: {
         Args: { p_agent_id: string }
         Returns: Json
       }
+      agent_advance_waterfall_from: { Args: never; Returns: string }
       agent_allocate_tenant_payment: {
         Args: {
           p_agent_id: string
@@ -58125,6 +58751,10 @@ export type Database = {
           topups: number
         }[]
       }
+      general_ledger_backup_boundaries: {
+        Args: { p_step?: number }
+        Returns: Json
+      }
       generate_campaign_short_code: { Args: never; Returns: string }
       generate_daily_merchant_commission_report: {
         Args: { p_date?: string }
@@ -60080,6 +60710,10 @@ export type Database = {
         Args: { p_end: string; p_start: string }
         Returns: Json
       }
+      get_partner_ops_compound_topup_outlook: {
+        Args: { p_end: string }
+        Returns: Json
+      }
       get_partner_ops_daily_report: { Args: { p_date?: string }; Returns: Json }
       get_partner_ops_promissory_block: {
         Args: { p_end: string; p_start: string }
@@ -60530,6 +61164,22 @@ export type Database = {
           utm_campaign: string
           utm_medium: string
           utm_source: string
+        }[]
+      }
+      get_signup_device_abuse: {
+        Args: { p_days?: number; p_limit?: number }
+        Returns: {
+          account_names: string
+          accounts_created: number
+          agent_assisted: boolean
+          attempts_blocked: number
+          attempts_total: number
+          device_fp: string
+          distinct_ips: number
+          distinct_referrers: number
+          first_seen: string
+          last_seen: string
+          sample_user_agent: string
         }[]
       }
       get_signup_source_breakdown: {
@@ -61619,6 +62269,14 @@ export type Database = {
       hr_pay_advance_due: {
         Args: { _gross: number; _run_id: string; _staff_id: string }
         Returns: number
+      }
+      hr_pay_advance_people: {
+        Args: never
+        Returns: {
+          advance_id: string
+          full_name: string
+          staff_ref: string
+        }[]
       }
       hr_pay_advance_recovered_totals: {
         Args: never
@@ -66831,6 +67489,387 @@ export type Database = {
         Returns: {
           id: string
           is_hidden: boolean
+        }[]
+      }
+      tops_acknowledge_collection_anomaly: {
+        Args: { p_anomaly_id: string; p_note: string }
+        Returns: undefined
+      }
+      tops_agent_area_coverage: {
+        Args: { p_level?: string; p_limit?: number; p_offset?: number }
+        Returns: Json
+      }
+      tops_agent_arrears_book: {
+        Args: { p_as_at?: string }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          arrears_ugx: number
+          bucket: string
+          plan_count: number
+        }[]
+      }
+      tops_agent_attainment: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          attribution_caveat: string
+          basis: string
+          collected_on_schedule_ugx: number
+          coverage_pct: number
+          expected_ugx: number
+        }[]
+      }
+      tops_agent_capacity_eligibility: {
+        Args: never
+        Returns: {
+          active_count: number
+          agent_id: string
+          agent_name: string
+          coverage_today: number
+          effective_pct: number
+          expected_daily: number
+          paid_today: number
+          tenants_due: number
+          tenants_paid_today: number
+          today_pct: number
+          weekly_lapsed_count: number
+          weekly_plan_count: number
+        }[]
+      }
+      tops_agent_float_adequacy: {
+        Args: { p_for_date: string }
+        Returns: {
+          adequacy_ratio: number
+          agent_id: string
+          agent_name: string
+          expected_obligation_ugx: number
+          float_balance_ugx: number
+          shortfall_ugx: number
+          tenants_at_risk: number
+        }[]
+      }
+      tops_agent_float_adequacy_internal: {
+        Args: { p_for_date: string }
+        Returns: {
+          adequacy_ratio: number
+          agent_id: string
+          agent_name: string
+          expected_obligation_ugx: number
+          float_balance_ugx: number
+          shortfall_ugx: number
+          tenants_at_risk: number
+        }[]
+      }
+      tops_agent_integrity_signals: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          balance_correction_count: number
+          reversed_collections_count: number
+          reversed_collections_ugx: number
+          transfer_churn_count: number
+        }[]
+      }
+      tops_allocate_collection: {
+        Args: { p_collection_id: string }
+        Returns: number
+      }
+      tops_allocate_pending: { Args: { p_limit?: number }; Returns: number }
+      tops_area_book: {
+        Args: { p_as_at?: string; p_level: string }
+        Returns: {
+          area_key: string
+          area_name: string
+          arrears_plan_count: number
+          arrears_rate: number
+          money_at_risk_ugx: number
+          plan_count: number
+          region: string
+        }[]
+      }
+      tops_arrears_ageing: {
+        Args: {
+          p_as_at?: string
+          p_bucket?: string
+          p_dir?: string
+          p_limit?: number
+          p_offset?: number
+        }
+        Returns: Json
+      }
+      tops_assign_work_item: {
+        Args: { p_assigned_to: string; p_work_item_id: string }
+        Returns: undefined
+      }
+      tops_blocked_items: { Args: never; Returns: Json }
+      tops_build_plan_instalments: {
+        Args: { p_rent_request_id: string }
+        Returns: number
+      }
+      tops_build_schedules_batch: {
+        Args: { p_limit?: number }
+        Returns: number
+      }
+      tops_calling_gap: {
+        Args: never
+        Returns: {
+          arrears_amount: number
+          outstanding: number
+          rent_request_id: string
+          tenant_id: string
+        }[]
+      }
+      tops_calling_money_at_risk: {
+        Args: { p_tenant_ids: string[] }
+        Returns: {
+          money_at_risk_ugx: number
+          rent_request_id: string
+          tenant_id: string
+        }[]
+      }
+      tops_close_work_item: {
+        Args: { p_outcome: string; p_work_item_id: string }
+        Returns: undefined
+      }
+      tops_collection_anomalies_list: {
+        Args: { p_status?: string }
+        Returns: {
+          acknowledged_at: string
+          acknowledged_by_name: string
+          acknowledged_note: string
+          agent_name: string
+          collection_channel: string
+          collection_id: string
+          detail: Json
+          detected_at: string
+          id: string
+          rent_request_id: string
+          resolved_at: string
+          resolved_by_name: string
+          resolved_note: string
+          rule_fired: string
+          severity: string
+          status: string
+          tenant_name: string
+        }[]
+      }
+      tops_collection_scoreboard: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          as_at: string
+          basis: string
+          collected_arrears_ugx: number
+          collected_on_schedule_ugx: number
+          coverage_pct: number
+          expected_ugx: number
+          total_cash_in_ugx: number
+        }[]
+      }
+      tops_collections_due_today: {
+        Args: {
+          p_as_at?: string
+          p_dir?: string
+          p_limit?: number
+          p_offset?: number
+          p_sort?: string
+        }
+        Returns: Json
+      }
+      tops_collections_movement: {
+        Args: {
+          p_from: string
+          p_limit?: number
+          p_offset?: number
+          p_to: string
+        }
+        Returns: Json
+      }
+      tops_detect_collection_anomalies: {
+        Args: { p_since: string }
+        Returns: number
+      }
+      tops_escalate_work_item: {
+        Args: {
+          p_escalated_to: string
+          p_note?: string
+          p_work_item_id: string
+        }
+        Returns: undefined
+      }
+      tops_is_collection_reversed: {
+        Args: { p_collection_id: string }
+        Returns: boolean
+      }
+      tops_is_workspace_enabled: { Args: never; Returns: boolean }
+      tops_never_billed: {
+        Args: {
+          p_as_at?: string
+          p_dir?: string
+          p_limit?: number
+          p_offset?: number
+        }
+        Returns: Json
+      }
+      tops_never_billed_summary: { Args: { p_as_at?: string }; Returns: Json }
+      tops_open_instalments_asof: {
+        Args: { p_as_at: string }
+        Returns: {
+          amount_ugx: number
+          due_date: string
+          instalment_id: string
+          never_billed: boolean
+          outstanding_ugx: number
+          rent_request_id: string
+          settled_ugx: number
+        }[]
+      }
+      tops_overnight_changes: { Args: { p_as_at?: string }; Returns: Json }
+      tops_pipeline_queue: {
+        Args: never
+        Returns: {
+          age_days: number
+          agent_name: string
+          current_stage_key: string
+          current_stage_label: string
+          gap_label: string
+          owner_id: string
+          owner_name: string
+          rent_request_id: string
+          stage_entered_at: string
+          tenant_name: string
+        }[]
+      }
+      tops_plan_pipeline_stages: {
+        Args: { p_rent_request_id: string }
+        Returns: {
+          actor_id: string
+          actor_name: string
+          age_days: number
+          occurred_at: string
+          stage_key: string
+          stage_label: string
+        }[]
+      }
+      tops_plan_position: {
+        Args: { p_as_at?: string; p_rent_request_id: string }
+        Returns: {
+          as_at: string
+          basis: string
+          cadence: string
+          cadence_source: string
+          catch_up_daily_ugx: number
+          clock_source: string
+          clock_start: string
+          days_ahead: number
+          days_behind: number
+          days_past_due: number
+          expected_to_date_ugx: number
+          outstanding_ugx: number
+          paid_to_date_ugx: number
+          periods_due: number
+          position_ugx: number
+          rent_request_id: string
+          term_end_date: string
+          term_expired: boolean
+        }[]
+      }
+      tops_plan_position_internal: {
+        Args: { p_as_at?: string; p_rent_request_id: string }
+        Returns: {
+          as_at: string
+          basis: string
+          cadence: string
+          cadence_source: string
+          catch_up_daily_ugx: number
+          clock_source: string
+          clock_start: string
+          days_ahead: number
+          days_behind: number
+          days_past_due: number
+          expected_to_date_ugx: number
+          outstanding_ugx: number
+          paid_to_date_ugx: number
+          periods_due: number
+          position_ugx: number
+          rent_request_id: string
+          term_end_date: string
+          term_expired: boolean
+        }[]
+      }
+      tops_plan_schedule_ledger: {
+        Args: { p_rent_request_id: string }
+        Returns: {
+          amount_ugx: number
+          due_date: string
+          never_billed: boolean
+          outstanding_ugx: number
+          running_arrears_ugx: number
+          seq: number
+          settled_by: Json
+          settled_ugx: number
+        }[]
+      }
+      tops_portfolio_quality: { Args: { p_as_at?: string }; Returns: Json }
+      tops_promise_kept_rate: {
+        Args: { p_from: string; p_to: string; p_user_id?: string }
+        Returns: {
+          broken: number
+          kept: number
+          kept_rate_pct: number
+          partial: number
+          still_open: number
+          taken: number
+        }[]
+      }
+      tops_queue_latency: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          median_time_to_close_hours: number
+          median_time_to_first_action_hours: number
+          sample_size_closed: number
+          sample_size_first_action: number
+        }[]
+      }
+      tops_refresh_restructure_register: { Args: never; Returns: number }
+      tops_refresh_work_items: { Args: never; Returns: number }
+      tops_resolve_collection_anomaly: {
+        Args: { p_anomaly_id: string; p_note: string }
+        Returns: undefined
+      }
+      tops_resolve_plan_clock: {
+        Args: { p_rent_request_id: string }
+        Returns: undefined
+      }
+      tops_resolve_promises: { Args: { p_as_at?: string }; Returns: number }
+      tops_seed_collection_expectations: {
+        Args: { p_days?: number }
+        Returns: number
+      }
+      tops_set_plan_cadence: {
+        Args: { p_cadence: string; p_reason: string; p_rent_request_id: string }
+        Returns: undefined
+      }
+      tops_snapshot_agent_float_adequacy: { Args: never; Returns: number }
+      tops_snooze_work_item: {
+        Args: { p_new_sla_due_at: string; p_work_item_id: string }
+        Returns: undefined
+      }
+      tops_unknown_cadence_plans: {
+        Args: { p_limit?: number; p_offset?: number }
+        Returns: Json
+      }
+      tops_unmapped_tenants_worklist: {
+        Args: { p_limit?: number }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          legacy_location: string
+          rent_request_id: string
+          tenant_id: string
+          tenant_name: string
         }[]
       }
       topup_dedup_bucket: { Args: { ts: string }; Returns: string }

@@ -400,8 +400,12 @@ export function SmartphoneOrderApprovalQueue({
       const { error } = await db.rpc('reject_smartphone_order', { p_sale_id: id, p_reason: reason });
       if (error) throw error;
     },
-    onSuccess: () => {
-      toast.success('Order rejected. No wallet charge applied.');
+    onSuccess: (_data, variables) => {
+      toast.success('Order rejected. No wallet charge applied. The applicant has been notified.');
+      // Fire-and-forget: tell the applicant it was rejected and why.
+      void db.functions
+        .invoke('notify-smartphone-order-rejected', { body: { sale_id: variables.id } })
+        .catch((e: unknown) => console.error('[SmartphoneOrderApprovalQueue] reject notify failed', e));
       setRejectTarget(null);
       setDetailsTarget(null);
       setRejectReason('');

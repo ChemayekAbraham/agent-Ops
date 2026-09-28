@@ -23,6 +23,7 @@ import { template as funderHouseProgressTemplate } from './funder-house-progress
 import { template as partnerAccountCreatedTemplate } from './partner-account-created.tsx'
 import { template as databaseBackupReadyTemplate } from './database-backup-ready.tsx'
 import { template as databaseBackupLinkTemplate } from './database-backup-link.tsx'
+import { template as generalLedgerBackupReadyTemplate } from './general-ledger-backup-ready.tsx'
 import { template as angelPoolSharePurchaseTemplate } from './angel-pool-share-purchase.tsx'
 import { template as proxyManagedPayoutNoticeTemplate } from './proxy-managed-payout-notice.tsx'
 import { template as operationalFloatCreditTemplate } from './operational-float-credit.tsx'
@@ -90,6 +91,7 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'partner-account-created': partnerAccountCreatedTemplate,
   'database-backup-ready': databaseBackupReadyTemplate,
   'database-backup-link': databaseBackupLinkTemplate,
+  'general-ledger-backup-ready': generalLedgerBackupReadyTemplate,
   'angel-pool-share-purchase': angelPoolSharePurchaseTemplate,
   'proxy-managed-payout-notice': proxyManagedPayoutNoticeTemplate,
   'operational-float-credit': operationalFloatCreditTemplate,
