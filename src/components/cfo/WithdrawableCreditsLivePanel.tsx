@@ -1,10 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { HeroCard } from '@/components/cfo/HeroCard';
 import { formatUGX } from '@/lib/creditFeeCalculations';
-import { ChevronRight, Radio } from 'lucide-react';
+import { Coins } from 'lucide-react';
 
 const GROUPS: Record<string, string> = {
   roi_wallet_credit: 'Supporter returns',
@@ -30,9 +29,15 @@ const label = (c: string) =>
 
 type Row = { category: string; total: number; credits: number };
 
+/**
+ * Today's wallet credits into the withdrawable bucket, grouped by what they
+ * were for. Rendered through the same compact card the treasury and bank cards
+ * use, so the three sit in one row as a set: amount on the face, breakdown in
+ * the modal. Nothing is derived here beyond grouping — every figure is the
+ * ledger total the RPC returns.
+ */
 export function WithdrawableCreditsLivePanel() {
   const [live, setLive] = useState(false);
-  const [open, setOpen] = useState(false);
   const q = useQuery({
     queryKey: ['cfo-withdrawable-credits-today'],
     queryFn: async () => {
@@ -67,62 +72,26 @@ export function WithdrawableCreditsLivePanel() {
   const total = rows.reduce((s, [, g]) => s + g.total, 0);
   const count = rows.reduce((s, [, g]) => s + g.credits, 0);
 
-  const breakdown = (
-    <div className="divide-y rounded-md border">
-      {rows.length === 0 && <p className="p-3 text-sm text-muted-foreground">{q.isLoading ? 'Loading…' : 'No credits yet today.'}</p>}
-      {rows.map(([k, g]) => (
-        <div key={k} className="flex items-center justify-between gap-2 p-2 text-sm">
-          <span className="min-w-0 truncate">{k} <span className="text-xs text-muted-foreground">({g.credits})</span></span>
-          <span className="font-medium">{formatUGX(g.total)}</span>
-        </div>
-      ))}
-    </div>
-  );
+  const items = rows.map(([k, g]) => ({
+    dot: 'bg-emerald-500',
+    label: `${k} (${g.credits.toLocaleString()})`,
+    value: formatUGX(g.total),
+  }));
 
   return (
-    <>
-      <Card
-        role="button"
-        tabIndex={0}
-        onClick={() => setOpen(true)}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(true); } }}
-        className="cursor-pointer transition-colors hover:border-primary/40 hover:bg-muted/40"
-      >
-        <CardHeader className="pb-2">
-          <CardTitle className="flex flex-wrap items-center justify-between gap-2 text-base">
-            <span>Withdrawable credits today</span>
-            <span className="flex items-center gap-1 text-xs font-normal text-muted-foreground">
-              <Radio className={`h-3 w-3 ${live ? 'text-primary animate-pulse' : ''}`} />
-              {live ? 'Live' : 'Auto-refresh'} · updated {q.dataUpdatedAt ? new Date(q.dataUpdatedAt).toLocaleTimeString() : '—'}
-            </span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {q.error ? <p className="text-sm text-destructive">Could not load credits.</p> : (
-            <div className="flex items-end justify-between gap-3">
-              <div>
-                <p className="text-2xl font-bold">{formatUGX(total)}</p>
-                <p className="text-xs text-muted-foreground">{count.toLocaleString()} credits since midnight (Kampala)</p>
-              </div>
-              <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-primary">
-                View breakdown <ChevronRight className="h-3 w-3" />
-              </span>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Withdrawable credits today</DialogTitle>
-            <DialogDescription>
-              {formatUGX(total)} · {count.toLocaleString()} credits since midnight (Kampala)
-            </DialogDescription>
-          </DialogHeader>
-          {q.error ? <p className="text-sm text-destructive">Could not load credits.</p> : breakdown}
-        </DialogContent>
-      </Dialog>
-    </>
+    <HeroCard
+      icon={<Coins className="h-4 w-4 text-emerald-50" />}
+      iconBg="bg-emerald-600"
+      title="Withdrawable credits today"
+      value={q.isLoading || q.error ? '—' : formatUGX(total)}
+      percentageLabel={`${live ? 'Live' : 'Auto-refresh'} · updated ${q.dataUpdatedAt ? new Date(q.dataUpdatedAt).toLocaleTimeString() : '—'}`}
+      items={items}
+      footer={
+        q.error
+          ? 'Could not load today’s credits from the ledger.'
+          : `${count.toLocaleString()} credits since midnight (Kampala)`
+      }
+      footerTone="bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 italic"
+    />
   );
 }
