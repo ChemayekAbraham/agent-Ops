@@ -1300,3 +1300,31 @@ BEGIN
 END $function$;
 REVOKE ALL ON FUNCTION public.rent_fee_over_total_exceptions() FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.rent_fee_over_total_exceptions() TO authenticated;
+
+-- 8. Read-only exceptions report: deposit-route commission paid twice on earlier
+--    agent-route cash under the pre-fix formula (UGX 42,200 on 9 plans at 2026-09-28).
+--    Report only, for CFO decision. Nothing is recovered or reversed.
+CREATE OR REPLACE FUNCTION public.rent_fee_deposit_commission_duplicates()
+RETURNS TABLE(rent_request_id uuid, agent_route_cash numeric, deposit_route_cash numeric,
+              deposit_commission_paid numeric, ten_percent_of_deposits numeric, commission_paid_twice numeric)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path TO 'public'
+AS $function$
+BEGIN
+  IF NOT public._has_enabled_role(auth.uid(), ARRAY['cfo','ceo','super_admin']) THEN
+    RAISE EXCEPTION 'not authorised' USING ERRCODE = '42501';
+  END IF;
+  RETURN QUERY
+  SELECT ia.rent_request_id,
+         COALESCE(SUM(ia.instalment_amount) FILTER (WHERE ia.agent_commission_component IS NULL AND ia.split_version IS NULL),0),
+         SUM(ia.instalment_amount) FILTER (WHERE ia.agent_commission_component IS NOT NULL AND ia.split_version IS NULL),
+         SUM(ia.agent_commission_component) FILTER (WHERE ia.split_version IS NULL),
+         SUM(ROUND(ia.instalment_amount * 0.10)) FILTER (WHERE ia.agent_commission_component IS NOT NULL AND ia.split_version IS NULL),
+         SUM(ia.agent_commission_component - ROUND(ia.instalment_amount * 0.10))
+           FILTER (WHERE ia.agent_commission_component IS NOT NULL AND ia.split_version IS NULL)
+    FROM instalment_allocations ia
+   GROUP BY ia.rent_request_id
+  HAVING COALESCE(SUM(ia.agent_commission_component - ROUND(ia.instalment_amount * 0.10))
+           FILTER (WHERE ia.agent_commission_component IS NOT NULL AND ia.split_version IS NULL),0) > 0;
+END $function$;
+REVOKE ALL ON FUNCTION public.rent_fee_deposit_commission_duplicates() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.rent_fee_deposit_commission_duplicates() TO authenticated;
