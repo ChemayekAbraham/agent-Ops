@@ -66830,6 +66830,53 @@ export type Database = {
         Args: { p_lookback_hours?: number }
         Returns: Json
       }
+      rent_plan_waterfall_exceptions: {
+        Args: never
+        Returns: {
+          agent_commission: number
+          amount_repaid: number
+          below_principal: boolean
+          commission_fee_shortfall: number
+          correction_after_total: number
+          correction_at: string
+          correction_before_total: number
+          correction_count: number
+          created_at: string
+          duration_days: number
+          exception_type: string
+          fees: number
+          gap_to_principal: number
+          rent: number
+          rent_request_id: string
+          status: string
+          tenant_id: string
+          total_repayment: number
+        }[]
+      }
+      rent_plan_waterfall_report: {
+        Args: never
+        Returns: {
+          agent_commission: number
+          amount_repaid: number
+          collected_agent_commission: number
+          collected_partner_returns: number
+          collected_platform_fee: number
+          collected_principal: number
+          created_at: string
+          duration_days: number
+          fees: number
+          partner_returns: number
+          partner_returns_memo_gap: number
+          partner_returns_target: number
+          platform_fee: number
+          principal: number
+          rent: number
+          rent_request_id: string
+          status: string
+          tenant_id: string
+          total_repayment: number
+        }[]
+      }
       rent_pricing_floor_effective_from: { Args: never; Returns: string }
       rent_request_agent_financials_ok: {
         Args: {
