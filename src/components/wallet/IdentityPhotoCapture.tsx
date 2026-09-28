@@ -804,6 +804,48 @@ export default function IdentityPhotoCapture({ compact }: Props) {
      there is no local blur / glare grading, exactly as on tenant onboarding. */
   const [faceCheck, setFaceCheck] = useState<PassportFaceCheck | null>(null);
 
+  /* The front photo is already on file, so it is not retaken — but the six
+     fields used to live only in this screen's memory, so a return visit sent
+     an empty form and the person was told to "fill in Surname, NIN…" with no
+     boxes on screen to fill. The details saved last time are read back and
+     shown for checking (A); if nothing is saved, the empty boxes still appear
+     so they can be typed in without retaking the photo (B). */
+  const [savedDetailsChecked, setSavedDetailsChecked] = useState(false);
+
+  useEffect(() => {
+    const hasStoredFront = !!mine.data?.national_id_photo_path;
+    if (replacing || !hasStoredFront || !user?.id || idPhoto || savedDetailsChecked) return;
+    setSavedDetailsChecked(true);
+    let cancelled = false;
+    void (async () => {
+      const { data } = await supabase
+        .from('profiles')
+        .select('national_id, national_id_surname, national_id_given_name, national_id_card_number, date_of_birth, sex')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (cancelled || !data) return;
+      const row = data as Record<string, string | null>;
+      const saved: NationalIdData = {
+        ...EMPTY_ID_DATA,
+        surname: (row.national_id_surname ?? '').toUpperCase(),
+        given_name: (row.national_id_given_name ?? '').toUpperCase(),
+        nin: (row.national_id ?? '').toUpperCase(),
+        card_number: (row.national_id_card_number ?? '').toUpperCase(),
+        date_of_birth: (row.date_of_birth ?? '').slice(0, 10),
+        sex: (row.sex ?? '').toUpperCase(),
+      };
+      // Only fill what is still empty — nothing typed on screen is overwritten.
+      setForm((prev) => {
+        const next = { ...prev };
+        (Object.keys(EMPTY_ID_DATA) as (keyof NationalIdData)[]).forEach((k) => {
+          if (!String(next[k] ?? '').trim()) next[k] = saved[k];
+        });
+        return next;
+      });
+    })();
+    return () => { cancelled = true; };
+  }, [mine.data, replacing, user?.id, idPhoto, savedDetailsChecked]);
+
   /* As soon as a complete ID number is on screen, ask the server whose it is.
      Only the holder's first name and how many accounts already sit on the ID
      come back — never a surname, number or anything else. */
