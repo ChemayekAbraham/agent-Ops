@@ -14,7 +14,6 @@ import { ErrorCorrectionAuditPanel } from '@/components/cfo/ErrorCorrectionAudit
 import { PlatformVsWalletSummary } from '@/components/cfo/PlatformVsWalletSummary';
 import { CFOROIRequests } from '@/components/cfo/CFOROIRequests';
 import { CFOOverviewDashboard } from '@/components/cfo/CFOOverviewDashboard';
-import { WithdrawableCreditsLivePanel } from '@/components/cfo/WithdrawableCreditsLivePanel';
 import { DirectCreditTool } from '@/components/cfo/DirectCreditTool';
 import { StandingOrdersPanel } from '@/components/cfo/StandingOrdersPanel';
 import BudgetApprovalPanel from '@/components/cfo/BudgetApprovalPanel';
@@ -650,7 +649,7 @@ export default function CFODashboardPage() {
           </div>
         );
       default:
-          <CFOOverviewDashboard onTabChange={setActiveTab} />
+        return <CFOOverviewDashboard onTabChange={setActiveTab} />;
     }
   };
 
