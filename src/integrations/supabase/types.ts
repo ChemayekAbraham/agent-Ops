@@ -54859,6 +54859,32 @@ export type Database = {
         Args: { p_rent_request_id: string }
         Returns: Json
       }
+      agent_collections_monitor: {
+        Args: { p_days?: number }
+        Returns: {
+          check_key: string
+          exposure_ugx: number
+          guidance: string
+          hits: number
+          label: string
+          newest: string
+          oldest: string
+          severity: string
+        }[]
+      }
+      agent_collections_monitor_detail: {
+        Args: { p_check_key: string; p_days?: number; p_limit?: number }
+        Returns: {
+          agent_name: string
+          agent_phone: string
+          amount: number
+          collection_id: string
+          detail: string
+          occurred_at: string
+          rent_request_id: string
+          tenant_name: string
+        }[]
+      }
       agent_create_promissory_note: {
         Args: { p_payload: Json; p_rent_request_ids?: string[] }
         Returns: Json
