@@ -2367,6 +2367,13 @@
       "when": 1790601607716,
       "tag": "0337_cfo_money_drilldown_paged",
       "breakpoints": true
+    },
+    {
+      "idx": 338,
+      "version": "7",
+      "when": 1790625322849,
+      "tag": "0338_engrep_register_mb_engineer",
+      "breakpoints": true
     }
   ]
 }
