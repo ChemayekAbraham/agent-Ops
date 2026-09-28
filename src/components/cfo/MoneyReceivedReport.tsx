@@ -16,7 +16,7 @@ type Row = {
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 const sel = 'h-9 rounded-md border border-input bg-background px-2 text-sm';
 
-/** Read-only report of real external payouts (completed/paid) plus pending ones. */
+/** Read-only report of real external money received (approved deposits) plus pending ones. */
 export function MoneyReceivedReport({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const now = new Date();
   const [from, setFrom] = useState(iso(new Date(now.getFullYear(), now.getMonth(), 1)));
