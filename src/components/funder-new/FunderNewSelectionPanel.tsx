@@ -28,7 +28,15 @@ export function FunderNewSelectionBar({
   return (
     // z-[60] keeps the bar above the app's other fixed bottom overlays, which
     // sit at z-40 and would otherwise swallow taps on Review.
-    <div className="fixed inset-x-0 bottom-0 z-[60] border-t bg-card/95 shadow-[0_-8px_30px_-12px_hsl(var(--primary)/0.35)] backdrop-blur pb-safe">
+    //
+    // The bar is anchored above the floating bottom navigation instead of the
+    // viewport edge: that pill (BottomRoleSwitcher / MobileBottomNav) is fixed
+    // at 10px from the bottom, 68px tall, and paints at z-100, so a bar sitting
+    // at bottom-0 had Clear / Review support plan hidden underneath it.
+    // 10px inset + 68px pill + 8px breathing room = 86px, plus the device
+    // bottom inset (which the pill is already lifted by). The pill shows at
+    // every breakpoint, so this offset is deliberately not responsive-gated.
+    <div className="fixed inset-x-0 bottom-[calc(86px_+_env(safe-area-inset-bottom,0px))] z-[60] border-t bg-card/95 shadow-[0_-8px_30px_-12px_hsl(var(--primary)/0.35)] backdrop-blur">
       <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-2.5 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
