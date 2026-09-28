@@ -136,7 +136,7 @@ export function ProxyHouseOpportunities({ onCreateNote, preview, onViewAll }: {
       {q.isError ? (
         <SectionError label="houses" onRetry={() => q.refetch()} />
       ) : q.isLoading ? (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{Array.from({ length: pageSize > 6 ? 6 : pageSize }).map((_, i) => <Skeleton key={i} className="h-40 rounded-lg" />)}</div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{Array.from({ length: pageSize > 6 ? 6 : pageSize }).map((_, i) => <Skeleton key={i} className="h-40 rounded-lg" />)}</div>
       ) : total === 0 ? (
         <Card className="flex flex-col items-center gap-2 p-8 text-center">
           <Home className="h-8 w-8 text-muted-foreground" />
@@ -144,7 +144,7 @@ export function ProxyHouseOpportunities({ onCreateNote, preview, onViewAll }: {
         </Card>
       ) : (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {q.data!.houses.map((h) => {
               const photo = h.image_urls?.[0] || h.image_url || null;
               return (
