@@ -1,6 +1,5 @@
-import { useState } from 'react';
-import { Area, AreaChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
-import { ChevronDown, RefreshCw, FileText, CheckCircle2, Clock, Wallet } from 'lucide-react';
+import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
+import { RefreshCw, FileText, CheckCircle2, Clock, Wallet } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -68,7 +67,6 @@ export function ProxyKpiGrid({ d }: { d: ProxyPerformanceDashboard }) {
 }
 
 export function ProxyCommissionCard({ d }: { d: ProxyPerformanceDashboard }) {
-  const [open, setOpen] = useState(false);
   const c = d.commission;
   return (
     <Card className="p-3 md:p-4">
@@ -77,17 +75,12 @@ export function ProxyCommissionCard({ d }: { d: ProxyPerformanceDashboard }) {
         <Wallet className="h-4 w-4 text-primary" />
       </div>
       <p className="mt-1 text-xl font-bold tabular-nums md:text-2xl">{ugxShort(c.earned)}</p>
-      <button type="button" onClick={() => setOpen((o) => !o)} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
-        Breakdown <ChevronDown className={cn('h-3 w-3 transition-transform', open && 'rotate-180')} />
-      </button>
-      {open && (
-        <dl className="mt-2 space-y-1 border-t pt-2 text-xs">
-          <Row k={`Promissory Notes (${ugx(c.note_rate)} each)`} v={ugx(c.notes)} />
-          <Row k={`Initial Support — ${c.initial_support_pct}%`} v={ugx(c.initial_support)} />
-          <Row k={`Top-ups — ${c.top_up_pct}%`} v={ugx(c.top_ups)} />
-          <Row k="Pending (not yet earned)" v={ugx(c.pending)} muted />
-        </dl>
-      )}
+      <dl className="mt-2 space-y-1 border-t pt-2 text-xs">
+        <Row k={`Promissory Notes (${ugx(c.note_rate)} each)`} v={ugx(c.notes)} />
+        <Row k={`Initial Support — ${c.initial_support_pct}%`} v={ugx(c.initial_support)} />
+        <Row k={`Top-ups — ${c.top_up_pct}%`} v={ugx(c.top_ups)} />
+        <Row k="Pending (not yet earned)" v={ugx(c.pending)} muted />
+      </dl>
     </Card>
   );
 }
@@ -161,31 +154,15 @@ export function ProxyPerformanceChart({ d, range, onRange, fetching }: { d: Prox
       </div>
       <div className="h-56 w-full md:h-64">
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
-            <defs>
-              <linearGradient id="proxy-brought-in-fill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="hsl(var(--success))" stopOpacity={0.45} />
-                <stop offset="100%" stopColor="hsl(var(--success))" stopOpacity={0.03} />
-              </linearGradient>
-              <linearGradient id="proxy-pending-fill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="hsl(var(--destructive))" stopOpacity={0.4} />
-                <stop offset="100%" stopColor="hsl(var(--destructive))" stopOpacity={0.03} />
-              </linearGradient>
-            </defs>
+          <BarChart data={data} margin={{ top: 4, right: 4, left: -24, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
             <XAxis dataKey="label" tick={{ fontSize: 11 }} interval="preserveStartEnd" minTickGap={12} stroke="hsl(var(--muted-foreground))" />
             <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
             <Tooltip contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }} />
             <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Area type="monotone" dataKey="pending" name="Pending" stroke="hsl(var(--destructive))" strokeWidth={2}
-              fill="url(#proxy-pending-fill)" fillOpacity={1}
-              dot={{ r: 2.5, strokeWidth: 2, fill: 'hsl(var(--background))', stroke: 'hsl(var(--destructive))' }}
-              activeDot={{ r: 4 }} />
-            <Area type="monotone" dataKey="brought_in" name="Brought In" stroke="hsl(var(--success))" strokeWidth={2}
-              fill="url(#proxy-brought-in-fill)" fillOpacity={1}
-              dot={{ r: 2.5, strokeWidth: 2, fill: 'hsl(var(--background))', stroke: 'hsl(var(--success))' }}
-              activeDot={{ r: 4 }} />
-          </AreaChart>
+            <Bar dataKey="brought_in" name="Brought In" fill="hsl(var(--primary))" radius={[3, 3, 0, 0]} />
+            <Bar dataKey="pending" name="Pending" fill="hsl(var(--muted-foreground) / 0.45)" radius={[3, 3, 0, 0]} />
+          </BarChart>
         </ResponsiveContainer>
       </div>
       <p className="mt-1 text-[11px] text-muted-foreground">Brought In by the day money was confirmed; Pending by the day the note was created.</p>
