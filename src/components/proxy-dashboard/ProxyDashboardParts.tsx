@@ -40,7 +40,7 @@ export function ProxyDashboardHeader({ name, today, commission }: {
         <h1 className="truncate text-xl font-bold tracking-tight md:text-2xl">{greet}, {name}</h1>
         <p className="text-xs text-muted-foreground md:text-sm">Supporting more tenants starts with the Promissory Notes you create and follow up.</p>
       </div>
-      <div className="flex shrink-0 items-center gap-2">
+      <div className="flex w-full shrink-0 items-center justify-between gap-2">
         <Badge variant="secondary" className="shrink-0">Today · {d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</Badge>
         <ProxyHowItWorksDialog
           noteRate={commission?.note_rate}
