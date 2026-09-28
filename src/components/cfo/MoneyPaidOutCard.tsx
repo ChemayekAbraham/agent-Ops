@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { HeroCard } from '@/components/cfo/HeroCard';
 import { formatUGX } from '@/lib/creditFeeCalculations';
-import { ArrowUpRight, FileText } from 'lucide-react';
+import { ArrowUpRight } from 'lucide-react';
 import { useState } from 'react';
 import { allTime, kampalaDate, monthStart, type DrilldownPreset } from '@/components/cfo/MoneyDrilldownReport';
 import { MoneyPaidOutReport } from '@/components/cfo/MoneyPaidOutReport';
