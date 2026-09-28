@@ -101,6 +101,15 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'My Work', icon: ClipboardList, id: 'my-work' },
       ],
     },
+    {
+      title: 'Monitor',
+      icon: Activity,
+      collapsible: true,
+      defaultOpen: true,
+      items: [
+        { label: 'Agent Collections', icon: Activity, id: 'monitor-agent-collections' },
+      ],
+    },
   ],
   cfo: [
     {

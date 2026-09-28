@@ -35,6 +35,7 @@ import { ChangeOfAddressMonitorPanel } from './ChangeOfAddressMonitorPanel';
 import { RedirectHealthAlertsPanel } from './RedirectHealthAlertsPanel';
 import { SignupSourceLogPanel } from './SignupSourceLogPanel';
 import { SignupDeviceAbusePanel } from './SignupDeviceAbusePanel';
+import { AgentCollectionsMonitorPanel } from './AgentCollectionsMonitorPanel';
 import { DepositBridgeHealthPanel } from '@/components/bridge/DepositBridgeHealthPanel';
 import { DeletedAccountsPanel } from '@/components/cto/DeletedAccountsPanel';
 import { FakeAccountRadarPanel } from '@/components/cto/FakeAccountRadarPanel';
@@ -79,6 +80,9 @@ export function CTODashboard({ activeTab }: { activeTab?: string }) {
   }
   if (activeTab === 'merchant-invites') {
     return <MerchantInviteLinksManager />;
+  }
+  if (activeTab === 'monitor-agent-collections') {
+    return <AgentCollectionsMonitorPanel />;
   }
   if (activeTab === 'signup-log') {
     // Device view first: during a ring the question is "which devices are
