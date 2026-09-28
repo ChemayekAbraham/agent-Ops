@@ -246,3 +246,11 @@ Agent Collections), each with a plan-level drill-down:
    is labelled "Collected" and drives incentives. Switching the basis reorders
    the table materially — e.g. 13,350,179 → 7,445,779 for one agent — so it is a
    product call, not a bug fix.
+
+> **Finding 2 has been investigated** — see
+> [`plan-balance-unbacked-investigation.md`](./plan-balance-unbacked-investigation.md).
+> Short version: 78% of it was typed in through `tenant_ops_correct_rent_request`
+> (261 edits, +201,096,194), 45 of those edits were made by the plan's own agent
+> (+79,980,321), and the 22 September Book of Accounts correction then restated
+> 428,230,339 of receivable to agree with the column. A third path — the manager
+> RLS policy on `rent_requests` — leaves no audit row at all.
