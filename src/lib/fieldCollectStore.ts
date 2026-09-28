@@ -71,8 +71,22 @@ export interface FieldEntry {
   lastSyncAt?: number | null;
 }
 
+/**
+ * One shared connection per page, reopened only when the browser closes it.
+ *
+ * This used to open a fresh connection on every call and never close any of
+ * them, so a long agent-dashboard session piled up hundreds of dangling
+ * connections. When the browser tore them down (storage pressure, a
+ * backgrounded tab being frozen, site data cleared) the next
+ * `db.transaction()` threw "The database connection is closing" (WebKit:
+ * "...without an in-progress transaction") as an unhandled rejection — the
+ * top live /dashboard/agent client error in the 2026-09-27 CTO report.
+ */
+let dbPromise: Promise<IDBDatabase> | null = null;
+
 function openDb(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
+  if (dbPromise) return dbPromise;
+  const p = new Promise<IDBDatabase>((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = () => {
       const db = req.result;
@@ -94,13 +108,48 @@ function openDb(): Promise<IDBDatabase> {
         s.createIndex('by_agent', 'agentId', { unique: false });
       }
     };
-    req.onsuccess = () => resolve(req.result);
+    req.onsuccess = () => {
+      const db = req.result;
+      // Another tab upgrading the schema, or the browser closing the
+      // connection abnormally: drop it so the next call reopens cleanly.
+      db.onversionchange = () => { db.close(); if (dbPromise === p) dbPromise = null; };
+      db.onclose = () => { if (dbPromise === p) dbPromise = null; };
+      resolve(db);
+    };
     req.onerror = () => reject(req.error);
+    req.onblocked = () => reject(new Error('IndexedDB open blocked by another tab'));
   });
+  dbPromise = p;
+  p.catch(() => { if (dbPromise === p) dbPromise = null; });
+  return p;
+}
+
+function isClosedConnectionError(e: unknown): boolean {
+  const name = (e as { name?: string } | null)?.name;
+  const msg = String((e as { message?: string } | null)?.message ?? '');
+  return name === 'InvalidStateError' || /connection is closing|in-progress transaction/i.test(msg);
+}
+
+/**
+ * Run `fn` against the shared connection; if the connection turns out to be
+ * closing, discard it and retry exactly once on a fresh one.
+ */
+async function withDb<T>(fn: (db: IDBDatabase) => Promise<T>): Promise<T> {
+  const db = await openDb();
+  try {
+    return await fn(db);
+  } catch (e) {
+    if (!isClosedConnectionError(e)) throw e;
+    if (dbPromise) {
+      const stale = await dbPromise.catch(() => null);
+      if (stale === db) dbPromise = null;
+    }
+    return fn(await openDb());
+  }
 }
 
 function tx<T>(store: string, mode: IDBTransactionMode, fn: (s: IDBObjectStore) => IDBRequest<T> | void): Promise<T> {
-  return openDb().then(db => new Promise<T>((resolve, reject) => {
+  return withDb(db => new Promise<T>((resolve, reject) => {
     const t = db.transaction(store, mode);
     const s = t.objectStore(store);
     let result: any;
@@ -115,8 +164,7 @@ function tx<T>(store: string, mode: IDBTransactionMode, fn: (s: IDBObjectStore) 
 /* ----------------- Tenant cache ----------------- */
 
 export async function cacheTenants(agentId: string, tenants: Array<Omit<CachedTenant, 'agentId' | 'cachedAt'>>): Promise<void> {
-  const db = await openDb();
-  await new Promise<void>((resolve, reject) => {
+  await withDb(db => new Promise<void>((resolve, reject) => {
     const t = db.transaction(STORE_TENANTS, 'readwrite');
     const s = t.objectStore(STORE_TENANTS);
     // Replace existing cache for this agent
@@ -136,18 +184,18 @@ export async function cacheTenants(agentId: string, tenants: Array<Omit<CachedTe
     };
     t.oncomplete = () => resolve();
     t.onerror = () => reject(t.error);
-  });
+    t.onabort = () => reject(t.error);
+  }));
 }
 
 export async function getCachedTenants(agentId: string): Promise<CachedTenant[]> {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
+  return withDb(db => new Promise<CachedTenant[]>((resolve, reject) => {
     const t = db.transaction(STORE_TENANTS, 'readonly');
     const s = t.objectStore(STORE_TENANTS).index('by_agent');
     const req = s.getAll(IDBKeyRange.only(agentId));
     req.onsuccess = () => resolve((req.result || []) as CachedTenant[]);
     req.onerror = () => reject(req.error);
-  });
+  }));
 }
 
 /* ----------------- Normalized tenant index cache -----------------
@@ -181,8 +229,7 @@ export async function getCachedNormalizedIndex(
   fingerprint: string,
 ): Promise<NormalizedTenantEntry[] | null> {
   try {
-    const db = await openDb();
-    return await new Promise<NormalizedTenantEntry[] | null>((resolve, reject) => {
+    return await withDb(db => new Promise<NormalizedTenantEntry[] | null>((resolve, reject) => {
       const t = db.transaction(STORE_TENANT_NORM, 'readonly');
       const s = t.objectStore(STORE_TENANT_NORM);
       const req = s.get([agentId, fingerprint]);
@@ -191,7 +238,7 @@ export async function getCachedNormalizedIndex(
         resolve(rec?.entries ?? null);
       };
       req.onerror = () => reject(req.error);
-    });
+    }));
   } catch (e) {
     console.warn('getCachedNormalizedIndex failed', e);
     return null;
@@ -204,8 +251,7 @@ export async function saveCachedNormalizedIndex(
   entries: NormalizedTenantEntry[],
 ): Promise<void> {
   try {
-    const db = await openDb();
-    await new Promise<void>((resolve, reject) => {
+    await withDb(db => new Promise<void>((resolve, reject) => {
       const t = db.transaction(STORE_TENANT_NORM, 'readwrite');
       const s = t.objectStore(STORE_TENANT_NORM);
       // Drop any prior fingerprints for this agent so the cache stays small.
@@ -228,7 +274,8 @@ export async function saveCachedNormalizedIndex(
       };
       t.oncomplete = () => resolve();
       t.onerror = () => reject(t.error);
-    });
+      t.onabort = () => reject(t.error);
+    }));
   } catch (e) {
     console.warn('saveCachedNormalizedIndex failed', e);
   }
@@ -269,8 +316,7 @@ export async function addEntry(entry: FieldEntry): Promise<void> {
 }
 
 export async function updateEntry(id: string, patch: Partial<FieldEntry>): Promise<void> {
-  const db = await openDb();
-  await new Promise<void>((resolve, reject) => {
+  await withDb(db => new Promise<void>((resolve, reject) => {
     const t = db.transaction(STORE_ENTRIES, 'readwrite');
     const s = t.objectStore(STORE_ENTRIES);
     const getReq = s.get(id);
@@ -281,7 +327,8 @@ export async function updateEntry(id: string, patch: Partial<FieldEntry>): Promi
     };
     t.oncomplete = () => resolve();
     t.onerror = () => reject(t.error);
-  });
+    t.onabort = () => reject(t.error);
+  }));
   emitFieldCollectChange('update');
 }
 
@@ -291,8 +338,7 @@ export async function deleteEntry(id: string): Promise<void> {
 }
 
 export async function getEntries(agentId: string): Promise<FieldEntry[]> {
-  const db = await openDb();
-  return new Promise((resolve, reject) => {
+  return withDb(db => new Promise<FieldEntry[]>((resolve, reject) => {
     const t = db.transaction(STORE_ENTRIES, 'readonly');
     const s = t.objectStore(STORE_ENTRIES).index('by_agent');
     const req = s.getAll(IDBKeyRange.only(agentId));
@@ -302,7 +348,7 @@ export async function getEntries(agentId: string): Promise<FieldEntry[]> {
       resolve(all);
     };
     req.onerror = () => reject(req.error);
-  });
+  }));
 }
 
 export async function getQueuedEntries(agentId: string): Promise<FieldEntry[]> {
@@ -355,8 +401,7 @@ const PICK_LOG_KEEP = 100;
 export async function bumpTenantPick(agentId: string, tenantId: string): Promise<void> {
   if (!agentId || !tenantId) return;
   try {
-    const db = await openDb();
-    await new Promise<void>((resolve, reject) => {
+    await withDb(db => new Promise<void>((resolve, reject) => {
       const t = db.transaction(STORE_TENANT_PICKS, 'readwrite');
       const s = t.objectStore(STORE_TENANT_PICKS);
       const getReq = s.get([agentId, tenantId]);
@@ -372,7 +417,8 @@ export async function bumpTenantPick(agentId: string, tenantId: string): Promise
       };
       t.oncomplete = () => resolve();
       t.onerror = () => reject(t.error);
-    });
+      t.onabort = () => reject(t.error);
+    }));
     // Trim opportunistically when we cross the cap. Cheap relative to the
     // many writes it follows, and keeps cold-start reads bounded.
     void trimTenantPicks(agentId);
@@ -386,8 +432,7 @@ export async function bumpTenantPick(agentId: string, tenantId: string): Promise
 export async function getRecentPicks(agentId: string): Promise<TenantPickRecord[]> {
   if (!agentId) return [];
   try {
-    const db = await openDb();
-    return await new Promise<TenantPickRecord[]>((resolve, reject) => {
+    return await withDb(db => new Promise<TenantPickRecord[]>((resolve, reject) => {
       const t = db.transaction(STORE_TENANT_PICKS, 'readonly');
       const s = t.objectStore(STORE_TENANT_PICKS).index('by_agent');
       const req = s.getAll(IDBKeyRange.only(agentId));
@@ -397,7 +442,7 @@ export async function getRecentPicks(agentId: string): Promise<TenantPickRecord[
         resolve(all);
       };
       req.onerror = () => reject(req.error);
-    });
+    }));
   } catch (e) {
     console.warn('getRecentPicks failed', e);
     return [];
@@ -411,14 +456,14 @@ async function trimTenantPicks(agentId: string): Promise<void> {
     const all = await getRecentPicks(agentId);
     if (all.length <= PICK_LOG_MAX) return;
     const toDelete = all.slice(PICK_LOG_KEEP); // keep the freshest PICK_LOG_KEEP
-    const db = await openDb();
-    await new Promise<void>((resolve, reject) => {
+    await withDb(db => new Promise<void>((resolve, reject) => {
       const t = db.transaction(STORE_TENANT_PICKS, 'readwrite');
       const s = t.objectStore(STORE_TENANT_PICKS);
       for (const r of toDelete) s.delete([r.agentId, r.tenantId]);
       t.oncomplete = () => resolve();
       t.onerror = () => reject(t.error);
-    });
+      t.onabort = () => reject(t.error);
+    }));
   } catch {
     /* best-effort cleanup */
   }
