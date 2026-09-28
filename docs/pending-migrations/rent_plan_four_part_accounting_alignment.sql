@@ -54,6 +54,8 @@ DECLARE
   v_comm_t numeric; v_part_t numeric; v_plat_t numeric;
   v_amt numeric; v_prior numeric; v_cb numeric; v_ca numeric; v_in numeric; v_over numeric;
   c numeric; r numeric; pf numeric; pr numeric; f numeric; f_reg numeric; f_acc numeric;
+  v_leg numeric; v_fp numeric; v_l numeric; v_pc numeric; v_pr numeric; v_pp numeric; v_ppr numeric;
+  d numeric; t numeric;
   v_inst uuid := gen_random_uuid(); v_grp uuid; v_key text; v_offset_cat text; v_legs jsonb;
 BEGIN
   IF p_route NOT IN ('agent_collection','deposit_settlement') THEN
@@ -79,19 +81,57 @@ BEGIN
   v_plat_t := v_tt - v_rr - v_comm_t - v_part_t;
 
   -- Standing cash already split on this plan (reversed rows excluded).
-  SELECT COALESCE(SUM(ia.instalment_amount - COALESCE(ia.over_total_amount,0)),0) INTO v_prior
+  -- Legacy-split rows count as cash at their formula share; four-part rows count
+  -- at the parts actually booked, so any rounding carried earlier is caught up.
+  SELECT COALESCE(SUM(ia.instalment_amount - COALESCE(ia.over_total_amount,0))
+                    FILTER (WHERE COALESCE(ia.split_version,'') <> 'four_part_v1'),0),
+         COALESCE(SUM(ia.instalment_amount - COALESCE(ia.over_total_amount,0))
+                    FILTER (WHERE ia.split_version = 'four_part_v1'),0),
+         COALESCE(SUM(ia.agent_commission_component) FILTER (WHERE ia.split_version = 'four_part_v1'),0),
+         COALESCE(SUM(ia.partner_reward_component)   FILTER (WHERE ia.split_version = 'four_part_v1'),0),
+         COALESCE(SUM(ia.platform_net_component)     FILTER (WHERE ia.split_version = 'four_part_v1'),0),
+         COALESCE(SUM(ia.principal_component)        FILTER (WHERE ia.split_version = 'four_part_v1'),0)
+    INTO v_leg, v_fp, v_pc, v_pr, v_pp, v_ppr
   FROM instalment_allocations ia
   WHERE ia.rent_request_id = p_rent_request_id AND ia.reversed_at IS NULL;
+
+  v_l   := LEAST(v_leg, v_tt);
+  v_pc  := v_pc + FLOOR(v_l * v_comm_t / v_tt);
+  v_pr  := v_pr + FLOOR(v_l * v_part_t / v_tt);
+  v_pp  := v_pp + FLOOR(v_l * v_plat_t / v_tt);
+  v_ppr := v_ppr + v_l - FLOOR(v_l * v_comm_t / v_tt) - FLOOR(v_l * v_part_t / v_tt) - FLOOR(v_l * v_plat_t / v_tt);
+  v_prior := v_leg + v_fp;
 
   v_cb := LEAST(v_prior, v_tt);
   v_ca := LEAST(v_prior + v_amt, v_tt);
   v_in := v_ca - v_cb;
   v_over := v_amt - v_in;
 
-  c  := FLOOR(v_ca * v_comm_t / v_tt) - FLOOR(v_cb * v_comm_t / v_tt);
-  r  := FLOOR(v_ca * v_part_t / v_tt) - FLOOR(v_cb * v_part_t / v_tt);
-  pf := FLOOR(v_ca * v_plat_t / v_tt) - FLOOR(v_cb * v_plat_t / v_tt);
+  -- Each fee part: its cumulative target at v_ca less what is already booked.
+  c  := GREATEST(FLOOR(v_ca * v_comm_t / v_tt) - v_pc, 0);
+  r  := GREATEST(FLOOR(v_ca * v_part_t / v_tt) - v_pr, 0);
+  pf := GREATEST(FLOOR(v_ca * v_plat_t / v_tt) - v_pp, 0);
   pr := v_in - c - r - pf;
+
+  -- Rounding: Principal absorbs a shortfall, taken from Platform Fee first,
+  -- then Partner Returns, then Agent Commission. Never negative.
+  IF pr < 0 THEN
+    d := -pr;
+    t := LEAST(d, pf); pf := pf - t; d := d - t;
+    t := LEAST(d, r);  r  := r  - t; d := d - t;
+    t := LEAST(d, c);  c  := c  - t; d := d - t;
+    pr := 0;
+  END IF;
+  -- Principal never exceeds the rent across the plan; any excess returns to
+  -- Platform Fee first, then Partner Returns, then Agent Commission (each up to its plan part).
+  d := pr - (v_rr - v_ppr);
+  IF d > 0 THEN
+    pr := pr - d;
+    t := LEAST(d, GREATEST(v_plat_t - v_pp - pf, 0)); pf := pf + t; d := d - t;
+    t := LEAST(d, GREATEST(v_part_t - v_pr - r, 0));  r  := r  + t; d := d - t;
+    t := LEAST(d, GREATEST(v_comm_t - v_pc - c, 0));  c  := c  + t; d := d - t;
+    pr := pr + d;  -- only reachable if the plan parts are already exhausted
+  END IF;
   f  := c + r + pf;
 
   IF c < 0 OR r < 0 OR pf < 0 OR pr < 0 OR (pr + c + r + pf) <> v_in OR (v_in + v_over) <> v_amt THEN
