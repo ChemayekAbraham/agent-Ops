@@ -103,3 +103,44 @@ BEGIN
 
   RAISE NOTICE 'links_removed=% transfers_cancelled=% refunded=%', v_links, v_cancelled, v_refunded;
 END $$;
+
+-- 3. Added the same day after Josh's follow-up: refund the sub-agent's OWN
+--    UGX 4,000 rejection charge on the same listing (general_ledger bc0c9490-...).
+DO $$
+DECLARE
+  c_sub     constant uuid := '1eaa4087-a367-463a-8bb0-aba1ed59524f';
+  c_penalty constant uuid := 'bc0c9490-1d87-4da0-8b07-36a1611d1a08';
+  v_amt numeric;
+BEGIN
+  SELECT amount INTO v_amt FROM public.general_ledger
+   WHERE id = c_penalty AND user_id = c_sub
+     AND category = 'listing_rejection_penalty' AND direction = 'cash_out';
+
+  IF v_amt IS NOT NULL AND NOT EXISTS (
+       SELECT 1 FROM public.general_ledger
+        WHERE idempotency_key = 'refund_listing_rejection_penalty:' || c_penalty::text) THEN
+    PERFORM public.create_ledger_transaction(
+      jsonb_build_array(
+        jsonb_build_object(
+          'user_id', c_sub, 'amount', v_amt, 'direction', 'cash_in',
+          'category', 'system_balance_correction', 'ledger_scope', 'wallet',
+          'wallet_bucket', 'withdrawable', 'recipient_type', 'user',
+          'source_table', 'general_ledger', 'source_id', c_penalty::text,
+          'description', 'Refund: listing rejection charge reversed by operations',
+          'currency', 'UGX'),
+        jsonb_build_object(
+          'amount', v_amt, 'direction', 'cash_out',
+          'category', 'listing_rejection_recovery', 'ledger_scope', 'platform',
+          'source_table', 'general_ledger', 'source_id', c_penalty::text,
+          'description', 'Reversal of listing rejection charge for Katusiime Promise',
+          'currency', 'UGX')
+      ),
+      'refund_listing_rejection_penalty:' || c_penalty::text,
+      true
+    );
+    INSERT INTO public.audit_logs (user_id, action_type, table_name, record_id, metadata)
+    VALUES (c_sub, 'listing_rejection_penalty_refund', 'general_ledger', c_penalty::text,
+            jsonb_build_object('refunded_amount_ugx', v_amt, 'listing_id', '566bb564-a5e2-48bd-b9b3-2b85241e0873',
+                               'reason', 'Ops correction 2026-09-28 on request of Josh Wanda'));
+  END IF;
+END $$;
