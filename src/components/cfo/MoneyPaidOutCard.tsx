@@ -2,12 +2,10 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { HeroCard } from '@/components/cfo/HeroCard';
 import { formatUGX } from '@/lib/creditFeeCalculations';
-import { ArrowUpRight, FileText } from 'lucide-react';
+import { ArrowUpRight } from 'lucide-react';
 import { useState } from 'react';
 import { allTime, kampalaDate, monthStart, type DrilldownPreset } from '@/components/cfo/MoneyDrilldownReport';
-import { Button } from '@/components/ui/button';
 import { MoneyPaidOutReport } from '@/components/cfo/MoneyPaidOutReport';
-
 type Row = {
   total_paid: number; total_count: number; today_paid: number; today_count: number;
   month_paid: number; month_count: number; pending_amount: number; pending_count: number;
@@ -49,7 +47,6 @@ export function MoneyPaidOutCard() {
       ] : []}
       onClick={() => { total(); }}
       footer={q.error ? 'Could not load payouts' : 'Excludes wallet credits and internal transfers'}
-      action={<Button variant="outline" size="sm" className="w-full" onClick={() => drill(null)}><FileText className="h-4 w-4 mr-1" /> View Report</Button>}
     />
     <MoneyPaidOutReport open={report} onOpenChange={setReport} preset={preset} />
     </>

@@ -459,9 +459,6 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
                 { dot: 'bg-slate-400', label: 'Float with Agents (A2, accounting)', value: positionUnavailable ? '—' : fmt(position?.float ?? 0), onSelect: () => setActiveBreakdown('cash') },
                 { dot: 'bg-slate-400', label: 'Cash in Custody — Not Yet Confirmed Banked (A5, accounting)', value: positionUnavailable ? '—' : fmt(position?.inTransit ?? 0), onSelect: () => setActiveBreakdown('cash') },
               ]}
-
-              footer="Actual cash held outside the bank — part of Money We Have, not added to it"
-              footerTone="bg-indigo-50/70 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-400 italic"
               onClick={() => setActiveBreakdown('cash')}
             />
             {/* Money in Bank shows the real banked cash — the same verified
