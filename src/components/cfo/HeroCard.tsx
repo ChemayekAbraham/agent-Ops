@@ -11,7 +11,7 @@ import { ChevronRight, Info } from 'lucide-react';
  * rows and a reconciling total. No figure is derived here: every value is
  * passed in already computed.
  */
-export function HeroCard({ icon, iconBg, title, value, percentageLabel, items, footer, footerTone, onClick, className }: {
+export function HeroCard({ icon, iconBg, title, value, percentageLabel, items, footer, footerTone, onClick, className, action }: {
   icon: React.ReactNode;
   iconBg: string;
   title: string;
@@ -23,7 +23,10 @@ export function HeroCard({ icon, iconBg, title, value, percentageLabel, items, f
   onClick?: () => void;
   /** Sizing hooks for the caller's layout (e.g. "flex-1" inside a column). */
   className?: string;
+  /** Optional control rendered inside the card, below the tappable summary. */
+  action?: React.ReactNode;
 }) {
+
   const [open, setOpen] = useState(false);
   // Colour carries meaning through the icon tile, as in the reference design;
   // the amount stays foreground so the cards read as one set. A negative figure
@@ -58,7 +61,9 @@ export function HeroCard({ icon, iconBg, title, value, percentageLabel, items, f
           {percentageLabel ? <p className="mt-2 text-[11px] font-medium text-muted-foreground">{percentageLabel}</p> : null}
           {footer ? <p className="mt-2.5 text-[11px] text-muted-foreground line-clamp-2">{footer}</p> : null}
         </button>
+        {action ? <div className="px-5 pb-5">{action}</div> : null}
       </div>
+
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-md">
