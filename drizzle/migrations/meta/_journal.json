@@ -2339,6 +2339,13 @@
       "when": 1790584798452,
       "tag": "0333_proxy_dashboard_today_yesterday",
       "breakpoints": true
+    },
+    {
+      "idx": 334,
+      "version": "7",
+      "when": 1790587772244,
+      "tag": "0334_proxy_dashboard_series_pending_created",
+      "breakpoints": true
     }
   ]
 }

@@ -1751,6 +1751,108 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_collection_errors: {
+        Row: {
+          agent_id: string | null
+          amount: number | null
+          client_ref: string | null
+          context: Json | null
+          error_code: string | null
+          id: string
+          message: string
+          occurred_at: string
+          phase: string
+          rent_request_id: string | null
+          severity: string
+          tenant_id: string | null
+        }
+        Insert: {
+          agent_id?: string | null
+          amount?: number | null
+          client_ref?: string | null
+          context?: Json | null
+          error_code?: string | null
+          id?: string
+          message: string
+          occurred_at?: string
+          phase: string
+          rent_request_id?: string | null
+          severity?: string
+          tenant_id?: string | null
+        }
+        Update: {
+          agent_id?: string | null
+          amount?: number | null
+          client_ref?: string | null
+          context?: Json | null
+          error_code?: string | null
+          id?: string
+          message?: string
+          occurred_at?: string
+          phase?: string
+          rent_request_id?: string | null
+          severity?: string
+          tenant_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_collection_errors_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_collection_errors_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_collection_errors_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "agent_collection_errors_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_collection_errors_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_collection_errors_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_collection_errors_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "agent_collection_errors_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+        ]
+      }
       agent_collection_streaks: {
         Row: {
           agent_id: string
@@ -54942,6 +55044,32 @@ export type Database = {
         Args: { p_rent_request_id: string }
         Returns: Json
       }
+      agent_collections_error_log: {
+        Args: { p_days?: number; p_limit?: number; p_source?: string }
+        Returns: {
+          agent_name: string
+          agent_phone: string
+          amount: number
+          detail: string
+          error_code: string
+          message: string
+          occurred_at: string
+          phase: string
+          rent_request_id: string
+          severity: string
+          source: string
+          tenant_name: string
+        }[]
+      }
+      agent_collections_error_summary: {
+        Args: { p_days?: number }
+        Returns: {
+          hits: number
+          newest: string
+          severity: string
+          source: string
+        }[]
+      }
       agent_collections_monitor: {
         Args: { p_days?: number }
         Returns: {
@@ -58421,6 +58549,10 @@ export type Database = {
       }
       finops_adopt_national_id_name: {
         Args: { p_id: string; p_reason?: string }
+        Returns: Json
+      }
+      finops_auto_approve_waiting_payout_destinations: {
+        Args: never
         Returns: Json
       }
       finops_decide_payout_destination: {
@@ -63238,6 +63370,20 @@ export type Database = {
         }
         Returns: Json
       }
+      log_agent_collection_error: {
+        Args: {
+          p_amount?: number
+          p_client_ref?: string
+          p_context?: Json
+          p_error_code?: string
+          p_message: string
+          p_phase: string
+          p_rent_request_id?: string
+          p_severity?: string
+          p_tenant_id?: string
+        }
+        Returns: string
+      }
       log_archived_login_attempt: {
         Args: {
           p_archived_at?: string
@@ -66325,6 +66471,20 @@ export type Database = {
         Returns: Json
       }
       rent_pricing_floor_effective_from: { Args: never; Returns: string }
+      rent_request_agent_financials_ok: {
+        Args: {
+          _amount_repaid: number
+          _daily_repayment: number
+          _id: string
+          _rent_amount: number
+          _total_repayment: number
+        }
+        Returns: boolean
+      }
+      rent_request_balance_unchanged: {
+        Args: { _amount_repaid: number; _id: string }
+        Returns: boolean
+      }
       rent_request_financials_unchanged: {
         Args: {
           _amount_repaid: number
