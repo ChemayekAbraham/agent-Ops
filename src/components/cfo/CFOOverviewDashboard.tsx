@@ -480,7 +480,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
               footer={
                 actualMoney && !actualMoney.bankedInSync
                   ? `Financial Ops differs by ${fmt(Math.abs(actualMoney.bankedDifference))} — verify before relying on this figure`
-                  : `${actualMoney?.bankedCashCount ?? 0} verified banked deposit(s) — matches Financial Ops`
+                  : undefined
               }
               footerTone="bg-sky-50/70 dark:bg-sky-950/30 text-sky-700 dark:text-sky-400 italic"
               onClick={() => setActualMoneyLine('banked_cash')}
