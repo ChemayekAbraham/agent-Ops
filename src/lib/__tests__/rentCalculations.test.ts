@@ -63,12 +63,13 @@ describe('Welile rent repayment formula — reference table', () => {
 describe('Rent Plan repayment breakdown', () => {
   const calc = calculateRentRepayment(100000, 30);
 
-  it('splits 143,000 into principal, access fee (partner reward + platform fee) and registration fee', () => {
+  it('splits 143,000 into principal, access fee (partner reward + agent commission + platform fee) and registration fee', () => {
     const b = calculateRepaymentBreakdown(calc, calc.totalRepayment);
     expect(b.principal).toEqual({ amount: 100000, percent: 69.93 });
     expect(b.accessFee).toEqual({ amount: 33000, percent: 23.08 });
     expect(b.partnerReward).toEqual({ amount: 15000, percent: 10.49 });
-    expect(b.platformFee).toEqual({ amount: 18000, percent: 12.59 });
+    expect(b.agentCommission).toEqual({ amount: 14300, percent: 10 });
+    expect(b.platformFee).toEqual({ amount: 3700, percent: 2.59 });
     expect(b.registrationFee).toEqual({ amount: 10000, percent: 6.99 });
   });
 
@@ -76,7 +77,8 @@ describe('Rent Plan repayment breakdown', () => {
     const b = calculateRepaymentBreakdown(calc, 4800);
     expect(b.principal.amount).toBe(3356.64);
     expect(b.partnerReward.amount).toBe(503.5);
-    expect(b.platformFee.amount).toBe(604.2);
+    expect(b.agentCommission.amount).toBe(480);
+    expect(b.platformFee.amount).toBe(124.2);
     expect(b.accessFee.amount).toBe(1107.7);
     expect(b.registrationFee.amount).toBe(335.66);
     expect(b.principal.amount + b.accessFee.amount + b.registrationFee.amount).toBeCloseTo(4800, 6);

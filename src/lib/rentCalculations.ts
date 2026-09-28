@@ -96,10 +96,16 @@ export interface RepaymentShare {
 export interface RepaymentBreakdown {
   /** Goes back to the landlord float. */
   principal: RepaymentShare;
-  /** Access Fee = partnerReward + platformFee. */
+  /** Access Fee = partnerReward + agentCommission + platformFee. */
   accessFee: RepaymentShare;
   partnerReward: RepaymentShare;
-  /** What the platform keeps from the Access Fee after the partner reward. */
+  /** 10% of every installment, paid to agents out of the Access Fee. */
+  agentCommission: RepaymentShare;
+  /**
+   * What the platform keeps from the Access Fee after the partner reward and
+   * agent commission. Negative on plans too short for the Access Fee to cover
+   * both (a pricing subsidy, as in post_instalment_waterfall).
+   */
   platformFee: RepaymentShare;
   registrationFee: RepaymentShare;
   /** The amount being split. */
@@ -114,7 +120,8 @@ export interface RepaymentBreakdown {
  *     principal         100,000  69.93%   (landlord float)
  *     access fee         33,000  23.08%
  *       partner reward   15,000  10.49%
- *       platform fee     18,000  12.59%
+ *       agent commission 14,300  10.00%   (10% of every installment)
+ *       platform fee      3,700   2.59%
  *     registration fee   10,000   6.99%
  *
  * Installment amounts are rounded to 2 dp; the principal absorbs the rounding
@@ -133,16 +140,21 @@ export function calculateRepaymentBreakdown(
       ? { amount: r2((installment * part) / total), percent: r2((part / total) * 100) }
       : { amount: 0, percent: 0 };
 
+  const commission = total * COMMISSION_RATE;
   const partnerReward = share(partner);
-  const platformFee = share(calc.accessFee - partner);
+  const agentCommission = share(commission);
+  const platformFee = share(calc.accessFee - partner - commission);
   const registrationFee = share(calc.requestFee);
-  const accessFee = { amount: r2(partnerReward.amount + platformFee.amount), percent: share(calc.accessFee).percent };
+  const accessFee = {
+    amount: r2(partnerReward.amount + agentCommission.amount + platformFee.amount),
+    percent: share(calc.accessFee).percent,
+  };
   const principal = {
     amount: r2(installment - accessFee.amount - registrationFee.amount),
     percent: share(calc.rentAmount).percent,
   };
 
-  return { principal, accessFee, partnerReward, platformFee, registrationFee, total: installment };
+  return { principal, accessFee, partnerReward, agentCommission, platformFee, registrationFee, total: installment };
 }
 
 /**
