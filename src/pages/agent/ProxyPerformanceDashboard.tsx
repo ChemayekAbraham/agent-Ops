@@ -19,6 +19,7 @@ export default function ProxyPerformanceDashboard() {
   const { user } = useAuth();
   const [range, setRange] = useState<ProxyRange>('7d');
   const [noteHouse, setNoteHouse] = useState<HouseOpportunity | null>(null);
+  const [noteOpen, setNoteOpen] = useState(false);
   const q = useProxyPerformanceDashboard(user?.id, range);
   const d = q.data;
   const meta = (user?.user_metadata ?? {}) as { full_name?: string };
@@ -30,7 +31,10 @@ export default function ProxyPerformanceDashboard() {
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-4 px-3 py-4 md:px-6 md:py-6">
-      <Button variant="ghost" size="sm" className="-ml-2 h-8" onClick={() => navigate('/dashboard/agent')}><ArrowLeft className="mr-1 h-4 w-4" />Agent dashboard</Button>
+      <div className="flex items-center justify-between gap-2">
+        <Button variant="ghost" size="sm" className="-ml-2 h-8" onClick={() => navigate('/dashboard/agent')}><ArrowLeft className="mr-1 h-4 w-4" />Agent dashboard</Button>
+        <Button size="sm" className="h-8" onClick={() => setNoteOpen(true)}><FilePlus2 className="mr-1 h-4 w-4" />Create Promissory Note</Button>
+      </div>
       <ProxyDashboardHeader name={name} today={d?.today} />
 
       {q.isLoading && !d ? <ProxyDashboardSkeleton /> : q.isError && !d ? (
@@ -56,11 +60,12 @@ export default function ProxyPerformanceDashboard() {
       <ProxyHouseOpportunities onCreateNote={setNoteHouse} />
 
       <PromissoryNoteDialog
-        open={!!noteHouse}
+        open={noteOpen || !!noteHouse}
         initialHouse={noteHouse}
         initialAmount={noteHouse?.monthly_rent}
         onOpenChange={(o) => {
           if (!o) {
+            setNoteOpen(false);
             setNoteHouse(null);
             qc.invalidateQueries({ queryKey: ['proxy-performance-dashboard'] });
             qc.invalidateQueries({ queryKey: ['proxy-dash-houses'] });
