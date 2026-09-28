@@ -46,6 +46,7 @@ import { PayablesCardDrilldown } from '@/components/cfo/PayablesCardDrilldown';
 import { GeneralPayoutActivities } from '@/components/cfo/GeneralPayoutActivities';
 import { WithdrawableCreditsLivePanel } from '@/components/cfo/WithdrawableCreditsLivePanel';
 import { MoneyPaidOutCard } from '@/components/cfo/MoneyPaidOutCard';
+import { MoneyReceivedCard } from '@/components/cfo/MoneyReceivedCard';
 import { HeroCard } from '@/components/cfo/HeroCard';
 
 
@@ -492,6 +493,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
                 three read as one set. */}
             <WithdrawableCreditsLivePanel />
             <MoneyPaidOutCard />
+            <MoneyReceivedCard />
           </div>
         </Band>
 
