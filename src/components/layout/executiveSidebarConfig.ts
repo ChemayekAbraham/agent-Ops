@@ -142,6 +142,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
           children: [
             { label: 'Welile Motorbikes', icon: Bike, id: 'agent-products-motorbikes' },
             { label: 'Welile Smartphones', icon: MonitorSmartphone, id: 'agent-products-smartphones' },
+            { label: 'Agent Boutique', icon: ShoppingBag, id: 'agent-products-boutique' },
           ],
         },
       ],
@@ -263,6 +264,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
           children: [
             { label: 'Welile Motorbikes', icon: Bike, id: 'agent-products-motorbikes' },
             { label: 'Welile Smartphones', icon: MonitorSmartphone, id: 'agent-products-smartphones' },
+            { label: 'Agent Boutique', icon: ShoppingBag, id: 'agent-products-boutique' },
           ],
         },
         { label: 'Manual Requisitions', icon: ClipboardList, id: 'manual-requisitions' },
