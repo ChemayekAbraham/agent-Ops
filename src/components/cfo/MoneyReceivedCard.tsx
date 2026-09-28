@@ -32,9 +32,9 @@ export function MoneyReceivedCard() {
   const total = () => d && drill({ label: 'All time', ...allTime(), status: conf, expected: { amount: n(d.total_received), count: n(d.total_count), basis: 'confirmed' } });
   const n = (v?: number) => Number(v ?? 0);
   return (
-    <div className="flex h-full flex-col gap-2">
+    <>
     <HeroCard
-      className="flex-1"
+
 
       icon={<ArrowDownLeft className="h-5 w-5 text-emerald-50" />}
       iconBg="bg-emerald-600"
@@ -49,9 +49,10 @@ export function MoneyReceivedCard() {
       ] : []}
       onClick={() => { total(); }}
       footer={q.error ? 'Could not load receipts' : 'Excludes internal transfers and accounting corrections'}
+      action={<Button variant="outline" size="sm" className="w-full" onClick={() => drill(null)}><FileText className="h-4 w-4 mr-1" /> View Report</Button>}
     />
-    <Button variant="outline" size="sm" onClick={() => drill(null)}><FileText className="h-4 w-4 mr-1" /> View Report</Button>
     <MoneyReceivedReport open={report} onOpenChange={setReport} preset={preset} />
-    </div>
+    </>
+
   );
 }
