@@ -2,7 +2,10 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { HeroCard } from '@/components/cfo/HeroCard';
 import { formatUGX } from '@/lib/creditFeeCalculations';
-import { ArrowUpRight } from 'lucide-react';
+import { ArrowUpRight, FileText } from 'lucide-react';
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { MoneyPaidOutReport } from '@/components/cfo/MoneyPaidOutReport';
 
 type Row = {
   total_paid: number; total_count: number; today_paid: number; today_count: number;
@@ -21,8 +24,10 @@ export function MoneyPaidOutCard() {
     refetchInterval: 60000,
   });
   const d = q.data;
+  const [report, setReport] = useState(false);
   const n = (v?: number) => Number(v ?? 0);
   return (
+    <div className="flex flex-col gap-2">
     <HeroCard
       icon={<ArrowUpRight className="h-5 w-5 text-rose-50" />}
       iconBg="bg-rose-600"
@@ -37,5 +42,8 @@ export function MoneyPaidOutCard() {
       ] : []}
       footer={q.error ? 'Could not load payouts' : 'Excludes wallet credits and internal transfers'}
     />
+    <Button variant="outline" size="sm" onClick={() => setReport(true)}><FileText className="h-4 w-4 mr-1" /> View Report</Button>
+    <MoneyPaidOutReport open={report} onOpenChange={setReport} />
+    </div>
   );
 }
