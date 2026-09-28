@@ -74,16 +74,18 @@ describe('Rent Plan repayment breakdown', () => {
     expect(b.companyNet).toEqual({ amount: 13700, percent: 9.58 });
   });
 
-  it('applies the same percentages to a 4,800 daily installment', () => {
-    const b = calculateRepaymentBreakdown(calc, 4800);
-    expect(b.principal.amount).toBe(3356.65);
-    expect(b.accessFee.amount).toBe(1107.69);
-    expect(b.registrationFee.amount).toBe(335.66);
-    expect(b.companyFees.amount).toBe(1443.35);
-    expect(b.partnerReward.amount).toBe(503.5);
-    expect(b.agentCommission.amount).toBe(480);
-    expect(b.companyNet.amount).toBe(459.85);
-    expect(b.principal.amount + b.companyFees.amount).toBeCloseTo(4800, 6);
+  it('splits the 4,767 daily installment by default', () => {
+    expect(calc.dailyRepayment).toBe(4767);
+    const b = calculateRepaymentBreakdown(calc);
+    expect(b.total).toBe(4767);
+    expect(b.principal.amount).toBe(3333.56);
+    expect(b.accessFee.amount).toBe(1100.08);
+    expect(b.registrationFee.amount).toBe(333.36);
+    expect(b.companyFees.amount).toBe(1433.44);
+    expect(b.partnerReward.amount).toBe(500.03);
+    expect(b.agentCommission.amount).toBe(476.7);
+    expect(b.companyNet.amount).toBe(456.71);
+    expect(b.principal.amount + b.companyFees.amount).toBeCloseTo(4767, 6);
     expect(b.partnerReward.amount + b.agentCommission.amount + b.companyNet.amount).toBeCloseTo(b.companyFees.amount, 6);
   });
 });
