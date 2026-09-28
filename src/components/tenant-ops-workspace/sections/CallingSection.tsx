@@ -7,7 +7,7 @@
  * tops_calling_money_at_risk) and our own tops_call_outcomes /
  * tops_promises_to_pay / tops_calling_gap.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,7 +24,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useCallingQueue, useCallingStateCounts, type CcRowState } from '@/hooks/tenantOpsWorkspace/useCallingQueue';
 import { useCallReveal } from '@/hooks/tenantOpsWorkspace/useCallReveal';
 import { useCloseCall, type TopsCallOutcome } from '@/hooks/tenantOpsWorkspace/useCloseCall';
-import { useCallingGap } from '@/hooks/tenantOpsWorkspace/useCallingGap';
+import { useCallingGapSummary } from '@/hooks/tenantOpsWorkspace/useCallingGap';
 import { usePromiseKeptRate } from '@/hooks/tenantOpsWorkspace/usePromiseKeptRate';
 import { usePlanPosition } from '@/hooks/tenantOpsWorkspace/usePlanPosition';
 import { useCcSubjectCallHistory } from '@/hooks/useCcSubjectCallHistory';
@@ -236,18 +236,13 @@ export default function CallingSection() {
 
   const counts = useCallingStateCounts(search);
   const queue = useCallingQueue(state, search, page);
-  const gap = useCallingGap();
+  const gapSummary = useCallingGapSummary();
   const keptRate = usePromiseKeptRate(utcDayIso(), utcDayIso(), user?.id ?? null);
 
   const changeState = (s: CcRowState) => {
     setState(s);
     setPage(0);
   };
-
-  const totalGapMoney = useMemo(
-    () => (gap.data ?? []).reduce((sum, g) => sum + (g.arrears_amount ?? 0), 0),
-    [gap.data],
-  );
 
   return (
     <div className="space-y-4">
@@ -352,14 +347,14 @@ export default function CallingSection() {
           </p>
         </CardHeader>
         <CardContent>
-          {(gap.data ?? []).length === 0 ? (
-            <p className="text-xs text-muted-foreground">None — every eligible tenant is in the open round.</p>
+          {(gapSummary.data?.tenant_count ?? 0) === 0 ? (
+            <p className="text-xs text-muted-foreground">
+              {gapSummary.isLoading ? 'Loading…' : 'None — every eligible tenant is in the open round.'}
+            </p>
           ) : (
-            <>
-              <p className="text-xs text-muted-foreground">
-                {gap.data!.length} tenants, {formatUGX(totalGapMoney)} in arrears, not in this round.
-              </p>
-            </>
+            <p className="text-xs text-muted-foreground">
+              {gapSummary.data!.tenant_count} tenants, {formatUGX(gapSummary.data!.total_arrears_ugx)} in arrears, not in this round.
+            </p>
           )}
         </CardContent>
       </Card>
