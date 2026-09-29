@@ -40,6 +40,19 @@ describe('ItemSwipePicker accessibility', () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
+  it('keeps keyboard focus inside the full-screen picker', async () => {
+    const user = userEvent.setup();
+    render(<ItemSwipePicker open items={items} onPick={vi.fn()} onClose={vi.fn()} />);
+
+    const close = screen.getByRole('button', { name: 'Close item picker' });
+    const choose = screen.getByRole('button', { name: 'Choose Rent payment' });
+    close.focus();
+    await user.tab({ shift: true });
+    expect(choose).toHaveFocus();
+    await user.tab();
+    expect(close).toHaveFocus();
+  });
+
   it('uses instant scrolling when reduced motion is requested', async () => {
     window.matchMedia = vi.fn().mockReturnValue({ matches: true });
     render(<ItemSwipePicker open items={items} onPick={vi.fn()} onClose={vi.fn()} />);

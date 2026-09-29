@@ -87,7 +87,21 @@ export function ItemSwipePicker({ open, items, startLabel, onPick, onClose }: Pr
   };
 
   const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
-    if (event.key === 'ArrowRight') {
+    if (event.key === 'Tab') {
+      const focusable = Array.from(
+        rootRef.current?.querySelectorAll<HTMLElement>('button:not(:disabled), [href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex="-1"])') ?? [],
+      );
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (!first || !last) return;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    } else if (event.key === 'ArrowRight') {
       event.preventDefault();
       go(index + 1);
     } else if (event.key === 'ArrowLeft') {
@@ -150,6 +164,8 @@ export function ItemSwipePicker({ open, items, startLabel, onPick, onClose }: Pr
                 type="button"
                 onClick={() => onPick(item.label)}
                 aria-label={`Choose ${item.hint}`}
+                disabled={items[index]?.label !== item.label}
+                tabIndex={items[index]?.label === item.label ? 0 : -1}
                 className="mt-6 h-16 w-full rounded-2xl text-xl font-bold shadow-lg motion-reduce:transition-none motion-reduce:active:scale-100"
               >
                 <Check className="h-6 w-6" aria-hidden="true" /> Choose this
