@@ -2114,7 +2114,7 @@ Transaction Groups: 297,457
         color: '#00d2ff',
         title: 'AGENT ADVANCE SWEEP',
         sub: 'Daily at 16:50 UTC (Trap 3)',
-        content: '<p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Sweeps agent advance repayments from earnings daily at 16:50 UTC (not every 15 minutes). One of 204 pg_cron jobs.</p><p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Related (doc 152, migration written, not applied): <code>cfo_settle_tenant_shortfall_via_advance_topup</code> tops up an agent advance and settles that agent&#39;s tenant shortfall from it in one transaction. CFO only, no commission, no float.</p>'
+        content: '<p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Sweeps agent advance repayments from earnings daily at 16:50 UTC (not every 15 minutes). One of 204 pg_cron jobs.</p><p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Related (doc 152, migration written, not applied): <code>cfo_settle_tenant_shortfall_via_advance_topup</code> tops up an agent advance and settles that agent&#39;s tenant shortfall from it in one transaction. CFO only, no commission, no float.</p><p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Statement vs wallet (doc 154, live 2026-09-29): <code>get_advance_wallet_reconciliation</code> matches each <code>agent_advance_ledger</code> deduction one-to-one to a wallet debit; CFO Advances shows a Wallet ✓ / N issues badge per row. Of 326 open advances, 130 do not reconcile (fake clearances, +0/−0 reinstatements, unrecorded balance moves). Doc 150 cleaned Ian Muhwezi&#39;s by hand; the others are uncorrected.</p>'
       },
       'deposit-bridge': {
         badge: 'CRON SWEEP',
