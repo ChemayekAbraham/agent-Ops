@@ -28,18 +28,6 @@ import { PhoneMoneyStatementSheet, type PhoneMoneyLine } from '@/components/fina
 import mtnLogoAsset from '@/assets/mtn-logo.png.asset.json';
 import airtelLogoAsset from '@/assets/airtel-logo.png.asset.json';
 
-import { CFOActionsLog } from '@/components/cfo/CFOActionsLog';
-import { ReceiptNumberLookupPanel } from '@/components/financial-ops/ReceiptNumberLookupPanel';
-import { lazy, Suspense } from 'react';
-
-// Same transaction views the Financial Ops dashboard exposes, so the CFO can
-// see every transaction without switching dashboards.
-const TransactionSearch = lazy(() =>
-  import('@/components/financial-ops/TransactionSearch').then((m) => ({ default: m.TransactionSearch })),
-);
-const EmailTransactionsPanel = lazy(() =>
-  import('@/components/financial-ops/EmailTransactionsPanel').then((m) => ({ default: m.EmailTransactionsPanel })),
-);
 
 import { ReceivablesCardDrilldown } from '@/components/cfo/ReceivablesCardDrilldown';
 import { PayablesCardDrilldown } from '@/components/cfo/PayablesCardDrilldown';
@@ -79,11 +67,7 @@ export function CFOOverviewDashboard({
 }: CFOOverviewDashboardProps) {
   const [exportingCommissions, setExportingCommissions] = useState(false);
   const [activeBreakdown, setActiveBreakdown] = useState<string | null>(null);
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    // Lookup tools and the audit log start folded away so the numbers stay
-    // above the fold; every other band opens by default.
-    tools: false,
-  });
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   // Sections default to expanded unless explicitly collapsed above; the chevron toggles.
   const isOpen = (key: string) => openSections[key] !== false;
   const toggleSection = (key: string) =>
@@ -618,25 +602,8 @@ export function CFOOverviewDashboard({
             <PayablesCardDrilldown />
           </div>
         </Band>
-
-        {/* ─────────── 4 · TOOLS & AUDIT TRAIL ─────────── */}
-        {/* Lookup tools rather than at-a-glance numbers, so this band starts
-            collapsed and no longer pushes the flow views below the fold. */}
-        <Band
-          title="Tools & Audit Trail"
-          subtitle="Receipt lookup and the log of CFO actions"
-          open={isOpen('tools')}
-          onToggle={() => toggleSection('tools')}
-        >
-          <ReceiptNumberLookupPanel className="rounded-2xl shadow-sm" />
-          <Suspense fallback={<Card className="p-4 text-sm text-muted-foreground">Loading transactions…</Card>}>
-            <EmailTransactionsPanel />
-          </Suspense>
-          <Suspense fallback={<Card className="p-4 text-sm text-muted-foreground">Loading transaction search…</Card>}>
-            <TransactionSearch />
-          </Suspense>
-          <CFOActionsLog />
-        </Band>
+        {/* Tools & Audit Trail (receipt lookup, email transactions, transaction
+            search, CFO actions log) removed from Home at the CFO's request. */}
         </>}
       </div>
 
