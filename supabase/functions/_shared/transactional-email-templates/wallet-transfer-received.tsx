@@ -13,6 +13,10 @@ interface Props {
   date?: string
   description?: string
   wallet_url?: string
+  advance_increase?: number
+  advance_total?: number
+  advance_min?: number
+  advance_max?: number
 }
 
 const fmt = (a: string | number | undefined, c: string) => {
@@ -32,6 +36,10 @@ export function WalletTransferReceived({
   date = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }),
   description = '',
   wallet_url = 'https://welileapp.com/dashboard/tenant',
+  advance_increase,
+  advance_total,
+  advance_min = 30000,
+  advance_max = 30000000,
 }: Props) {
   const amt = fmt(amount, currency)
   return (
@@ -60,6 +68,21 @@ export function WalletTransferReceived({
               {description ? <Row label="Note" value={description} /> : null}
             </Section>
           </Section>
+          {typeof advance_increase === 'number' && advance_increase > 0 ? (
+            <Section style={{ padding: '16px 32px 0 32px' }}>
+              <Section style={amountCard}>
+                <Text style={amountLabel}>Your Shopping Advance access limit</Text>
+                <Text style={amountValue}>{fmt(advance_total ?? advance_increase, currency)}</Text>
+                <Text style={body}>
+                  This transfer increased your access limit by <strong>{fmt(advance_increase, currency)}</strong> —
+                  2× the {amt} you received. Every time someone sends to you, your limit grows by 2× the amount.
+                </Text>
+                <Text style={fineprint}>
+                  Every Welile user can access a Shopping Advance from a minimum of {fmt(advance_min, currency)} up to a maximum of {fmt(advance_max, currency)}.
+                </Text>
+              </Section>
+            </Section>
+          ) : null}
           <Section style={{ padding: '24px 32px 8px 32px', textAlign: 'center' as const }}>
             <Button href={wallet_url} style={ctaBtn}>Tap here to view your wallet balance</Button>
           </Section>
@@ -95,7 +118,7 @@ export const template = {
     return `You received ${amt}${from}`
   },
   displayName: 'Wallet transfer received',
-  previewData: { recipient_name: 'Jane', sender_name: 'John Doe', amount: 25000, reference: 'WT-AB12CD34', description: 'Lunch money' },
+  previewData: { recipient_name: 'Jane', sender_name: 'John Doe', amount: 25000, reference: 'WT-AB12CD34', description: 'Lunch money', advance_increase: 50000, advance_total: 80000 },
 } satisfies TemplateEntry
 
 const BRAND = '#7b19d4'
