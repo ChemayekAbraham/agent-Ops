@@ -36,7 +36,7 @@ import { CFOReceivablesPayablesHome } from '@/components/cfo/CFOReceivablesPayab
 import { WithdrawableCreditsLivePanel } from '@/components/cfo/WithdrawableCreditsLivePanel';
 import { MoneyPaidOutCard } from '@/components/cfo/MoneyPaidOutCard';
 import { MoneyReceivedCard } from '@/components/cfo/MoneyReceivedCard';
-import { HeroCard } from '@/components/cfo/HeroCard';
+import { HeroCard, PercentageCurve } from '@/components/cfo/HeroCard';
 
 
 
