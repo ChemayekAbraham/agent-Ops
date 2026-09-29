@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logSystemEvent } from "../_shared/eventLogger.ts";
 import { isPlaceholderEmail, sendAngelPoolSms, recordEmailSkip } from "../_shared/angelPoolNotify.ts";
+import { getAngelPoolHolding } from "../_shared/angelPoolHolding.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -193,15 +194,8 @@ Deno.serve(async (req) => {
         .eq("status", "confirmed")
         .neq("reference_id", referenceId);
 
-      if ((priorCount ?? 0) > 0) {
-        await logSystemEvent(adminClient, "agent_angel_pool_email_skipped", user.id,
-          "angel_pool_investments", referenceId,
-          { investor_id, reason: "not_first_purchase", prior_count: priorCount, reference_id: referenceId });
-        await recordEmailSkip(adminClient, {
-          investorId: investor_id, referenceId, recipientEmail: null,
-          reason: "not_first_purchase", fundingSource: fundingSource, sourceFunction: "agent-angel-pool-invest",
-        });
-      } else {
+      // Sent on every confirmed purchase (not only the first) with the full shareholding.
+      {
       const { data: investorProfile } = await adminClient
         .from("profiles")
         .select("email, full_name")
@@ -245,6 +239,7 @@ Deno.serve(async (req) => {
               pool_round: "Seed Round",
               company_name: "Welile",
               funded_by: fundingSource,
+              ...(await getAngelPoolHolding(adminClient, investor_id)),
             },
           },
         });
