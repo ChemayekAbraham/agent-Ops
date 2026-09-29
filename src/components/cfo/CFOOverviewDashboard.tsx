@@ -32,6 +32,7 @@ import airtelLogoAsset from '@/assets/airtel-logo.png.asset.json';
 import { ReceivablesCardDrilldown } from '@/components/cfo/ReceivablesCardDrilldown';
 import { PayablesCardDrilldown } from '@/components/cfo/PayablesCardDrilldown';
 import { GeneralPayoutActivities } from '@/components/cfo/GeneralPayoutActivities';
+import { CFOReceivablesPayablesHome } from '@/components/cfo/CFOReceivablesPayablesHome';
 import { WithdrawableCreditsLivePanel } from '@/components/cfo/WithdrawableCreditsLivePanel';
 import { MoneyPaidOutCard } from '@/components/cfo/MoneyPaidOutCard';
 import { MoneyReceivedCard } from '@/components/cfo/MoneyReceivedCard';
@@ -591,17 +592,12 @@ export function CFOOverviewDashboard({
 
         {!cashPositionOnly && <>
         {/* ─────────── 2 · RECEIVABLES & PAYABLES ─────────── */}
-        <Band
-          title="Receivables & Payables"
-          subtitle="Authoritative open balances across the full book"
-          open={isOpen('receivablesPayables')}
-          onToggle={() => toggleSection('receivablesPayables')}
-        >
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-            <ReceivablesCardDrilldown />
-            <PayablesCardDrilldown />
-          </div>
-        </Band>
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">Receivables &amp; Payables</h2>
+          <p className="text-sm text-muted-foreground">Track what's due, what's been received and what's been paid.</p>
+        </div>
+        <CFOReceivablesPayablesHome />
+
         {/* Tools & Audit Trail (receipt lookup, email transactions, transaction
             search, CFO actions log) removed from Home at the CFO's request. */}
         </>}
