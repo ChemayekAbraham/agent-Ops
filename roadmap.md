@@ -25,3 +25,4 @@
 - [x] Label every send-item picture with “Welile” and make the swipe picker the only item-selection method.
 - [x] Add a dedicated CFO Cash Position page below Home; the section now shows only there, removed from Home.
 - [x] Move the Cash Movement section (Today's Money Flow + 7-day chart) off Home onto the Cash Position page, like General Payout Activities.
+- [x] Remove the Tools & Audit Trail section from CFO Home (receipt lookup, email transactions, transaction search, CFO actions log).
