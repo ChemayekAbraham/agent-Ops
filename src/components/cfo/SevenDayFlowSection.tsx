@@ -52,7 +52,8 @@ function fromFull(lines: FullLine[] | undefined, from: number, to: number, kindL
 }
 
 type ExpLine = { day_offset: number; category: string; amount: number; item_count: number; is_predicted: boolean };
-const expLabel = (c: string) => c.replace(/_expense$/, '').replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase()) + ' Expense';
+const EXP_NAMES: Record<string, string> = { roi_expense: 'Supporter Returns', interest_expense: 'Payroll Growth Bonus', payroll_expense: 'Payroll', marketing_expense: 'Marketing' };
+const expLabel = (c: string) => EXP_NAMES[c] ?? c.replace(/_expense$/, '').replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase()) + ' Expense';
 
 /** Platform expenses: recorded in the past 7 days; next 7 days predicted from the 28-day daily average. */
 function useSevenDayExpenses() {
