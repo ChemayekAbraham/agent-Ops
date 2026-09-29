@@ -46,7 +46,7 @@ export function MoneyPaidOutCard() {
         { dot: 'bg-amber-500', label: `Pending payouts (${n(d.pending_count).toLocaleString()})`, value: formatUGX(n(d.pending_amount)), onSelect: () => drill({ label: 'Pending', ...allTime(), status: 'pending', expected: { amount: n(d.pending_amount), count: n(d.pending_count), basis: 'pending' } }) },
       ] : []}
       onClick={() => { total(); }}
-      footer={q.error ? 'Could not load payouts' : 'Excludes wallet credits and internal transfers'}
+      footer={q.error ? 'Could not load payouts' : undefined}
     />
     <MoneyPaidOutReport open={report} onOpenChange={setReport} preset={preset} />
     </>
