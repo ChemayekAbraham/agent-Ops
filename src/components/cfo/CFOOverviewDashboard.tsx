@@ -202,6 +202,20 @@ export function CFOOverviewDashboard({
 
   const cashFlowDays = sevenDayCashFlow?.days ?? [];
   const netSevenDayCashFlow = sevenDayCashFlow?.netFlow ?? 0;
+  const cashPositionSpark = (() => {
+    if (cashFlowDays.length < 2) return [];
+    const deltas = cashFlowDays.map((day) => day.inflow - day.outflow);
+    let point = actualMoneyTotal - deltas.slice(1).reduce((sum, value) => sum + value, 0);
+    return deltas.map((delta, index) => {
+      if (index > 0) point += delta;
+      return Math.max(0, point);
+    });
+  })();
+  const monthRangeLabel = (() => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    return `${start.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${now.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`;
+  })();
 
 
 
@@ -234,6 +248,20 @@ export function CFOOverviewDashboard({
         </div>
       </div>}
 
+      {cashPositionOnly && (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-normal">{greeting}, CFO</h1>
+            <p className="mt-1 text-sm text-muted-foreground">Here&apos;s what&apos;s happening with your finances today.</p>
+          </div>
+          <div className="flex h-10 items-center gap-2 rounded-lg border border-border bg-card px-4 text-xs font-medium shadow-sm">
+            <CalendarDays className="h-4 w-4 text-info" />
+            {monthRangeLabel}
+            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+          </div>
+        </div>
+      )}
+
       {/* ══════════════════════════════════════════════════════════════
           Main financial surface. Grouped into collapsible bands so the
           page reads top-down: what we hold → what is owed to/by us →
@@ -247,22 +275,23 @@ export function CFOOverviewDashboard({
           subtitle="What we hold right now, and where it sits"
           open={isOpen('position')}
           onToggle={() => toggleSection('position')}
+          hideHeader={cashPositionOnly}
         >
           {/* Four across and two down on wide screens; two across on tablets
               and one on phones, because below ~1280px the UGX amounts stop
               fitting on one line inside a quarter of the page. */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
 
-            <Card className="rounded-2xl border border-border/70 bg-card shadow-sm transition-shadow hover:shadow-md overflow-hidden h-full">
-              <CardContent className="p-5 h-full flex flex-col">
+            <Card className="rounded-xl border border-border/70 bg-card shadow-sm transition-shadow hover:shadow-md overflow-hidden h-full min-w-0">
+              <CardContent className="p-4 h-full flex flex-col">
                 <button
                   type="button"
                   onClick={() => setMoneyWeHaveOpen(true)}
-                  className="w-full text-left rounded-2xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring flex-1"
+                  className="w-full min-w-0 text-left rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring flex-1 flex flex-col"
                 >
                   <div className="flex items-start justify-between gap-3">
-                    <div className="h-8 w-8 rounded-lg flex items-center justify-center shrink-0 bg-emerald-600">
-                      <PiggyBank className="h-4 w-4 text-emerald-50" />
+                    <div className="h-9 w-9 rounded-full flex items-center justify-center shrink-0 bg-success text-success-foreground shadow-sm">
+                      <PiggyBank className="h-4 w-4" />
                     </div>
                     <span
                       className="flex h-5 w-5 items-center justify-center rounded-full bg-muted/60 shrink-0"
@@ -271,13 +300,25 @@ export function CFOOverviewDashboard({
                       <ChevronRight className="h-3 w-3 text-muted-foreground" />
                     </span>
                   </div>
-                  <p className="mt-4 text-[11px] font-medium text-muted-foreground truncate">Money We Have</p>
-                  <p className="mt-1.5 text-[20px] leading-none sm:text-[22px] xl:text-[19px] 2xl:text-[24px] font-bold tabular-nums tracking-tight text-foreground">
+                  <p className="mt-3 text-[11px] font-semibold text-muted-foreground truncate">Money We Have</p>
+                  <p className="mt-1.5 whitespace-nowrap text-[17px] leading-tight sm:text-xl xl:text-[16px] 2xl:text-xl font-bold tabular-nums tracking-normal text-foreground">
                     {actualLoading ? '—' : fmt(actualMoney?.total ?? 0)}
                   </p>
-                  <p className="mt-2 text-[11px] font-medium text-muted-foreground">
-                    {actualLoading ? '—' : fmtShare(actualMoneyTotal, actualMoneyTotal)}
-                  </p>
+                  <div className="mt-auto pt-2 flex min-h-9 items-end justify-between gap-2">
+                    <p className="flex min-w-0 items-center gap-1 text-[11px] font-medium text-success">
+                      <ArrowUpRight className="h-3 w-3 shrink-0" />
+                      <span>{actualLoading ? '—' : fmtShare(actualMoneyTotal, actualMoneyTotal)}</span>
+                    </p>
+                    {cashPositionSpark.length > 1 && (
+                      <div className="h-8 w-20 shrink-0" aria-label="Seven-day cash movement trend">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <ComposedChart data={cashPositionSpark.map((value, index) => ({ index, value }))} margin={{ top: 3, right: 1, bottom: 1, left: 1 }}>
+                            <Line type="monotone" dataKey="value" stroke="hsl(var(--success))" strokeWidth={1.75} dot={false} isAnimationActive={false} />
+                          </ComposedChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </div>
                 </button>
 
                 <Dialog open={moneyWeHaveOpen} onOpenChange={setMoneyWeHaveOpen}>
@@ -399,11 +440,13 @@ export function CFOOverviewDashboard({
               </CardContent>
             </Card>
             <HeroCard
-              icon={<Package className="h-4 w-4 text-orange-50" />}
-              iconBg="bg-orange-500"
+              icon={<Package className="h-4 w-4" />}
+              tone="warning"
               title="Money We Owe"
               value={fmt(moneyWeOweTotal)}
               percentageLabel={actualLoading || merchantOwedLoading ? '—' : fmtShare(moneyWeOweTotal, actualMoneyTotal)}
+              percentageDirection="down"
+              sparkline={cashPositionSpark.map((value) => Math.max(0, actualMoneyTotal - value + moneyWeOweTotal))}
               items={[
                 { dot: 'bg-orange-500', label: 'Merchant Float Bucket (held by merchant agents)', value: fmt(merchantHeld), onSelect: () => setMerchantOwedOpen(true) },
               { dot: 'bg-orange-500', label: 'Bayo Mercy Bank Account', value: fmt(bayoMercyHeld), onSelect: () => setMerchantOwedOpen(true) },
@@ -411,11 +454,13 @@ export function CFOOverviewDashboard({
               onClick={() => setMerchantOwedOpen(true)}
             />
             <HeroCard
-              icon={<BarChart3 className="h-4 w-4 text-blue-50" />}
-              iconBg="bg-blue-600"
+              icon={<BarChart3 className="h-4 w-4" />}
+              tone="info"
               title="Money We Can Use"
               value={fmt(moneyWeCanUse)}
               percentageLabel={actualLoading || merchantOwedLoading ? '—' : fmtShare(moneyWeCanUse, actualMoneyTotal)}
+              percentageDirection="up"
+              sparkline={cashPositionSpark.map((value) => Math.max(0, value - moneyWeOweTotal))}
               items={[
                 { dot: 'bg-blue-500', label: 'Money We Have', value: fmt(actualMoneyTotal), onSelect: () => setActualMoneyLine('mtn_momo') },
                 { dot: 'bg-orange-500', label: 'Less Money We Owe', value: fmt(moneyWeOweTotal), onSelect: () => setMerchantOwedOpen(true) },
@@ -436,11 +481,13 @@ export function CFOOverviewDashboard({
                 every historical float and in-transit leg and so read far above
                 the cash actually held. */}
             <HeroCard
-              icon={<Vault className="h-4 w-4 text-indigo-50" />}
-              iconBg="bg-indigo-600"
+              icon={<Vault className="h-4 w-4" />}
+              tone="primary"
               title="Money in Treasury / Platform"
               value={actualLoading ? '—' : fmt(actualMoney?.outsideBankHeld ?? 0)}
               percentageLabel={actualLoading ? '—' : fmtShare(actualMoney?.outsideBankHeld ?? 0, actualMoneyTotal)}
+              percentageDirection="up"
+              sparkline={cashPositionSpark.map((value) => actualMoneyTotal > 0 ? value * ((actualMoney?.outsideBankHeld ?? 0) / actualMoneyTotal) : 0)}
               items={[
                 { dot: 'bg-indigo-500', label: 'MTN Mobile Money line', value: fmt(actualMoney?.mtn ?? 0), onSelect: () => setActualMoneyLine('mtn_momo') },
                 { dot: 'bg-indigo-500', label: 'Airtel Money line', value: fmt(actualMoney?.airtel ?? 0), onSelect: () => setActualMoneyLine('airtel_money') },
@@ -457,11 +504,13 @@ export function CFOOverviewDashboard({
                 and can read negative even when the bank holds money. The A1
                 ledger position stays visible as a reconciliation line. */}
             <HeroCard
-              icon={<Landmark className="h-4 w-4 text-sky-50" />}
-              iconBg="bg-sky-500"
+              icon={<Landmark className="h-4 w-4" />}
+              tone="info"
               title="Money in Bank"
               value={actualLoading ? '—' : fmt(actualMoney?.bankedCash ?? 0)}
               percentageLabel={actualLoading ? '—' : fmtShare(actualMoney?.bankedCash ?? 0, actualMoneyTotal)}
+              percentageDirection="up"
+              sparkline={cashPositionSpark.map((value) => actualMoneyTotal > 0 ? value * ((actualMoney?.bankedCash ?? 0) / actualMoneyTotal) : 0)}
               items={[
                 { dot: 'bg-sky-500', label: 'Verified cash banked', value: fmt(actualMoney?.bankedCash ?? 0), onSelect: () => setActualMoneyLine('banked_cash') },
                 { dot: 'bg-sky-500', label: 'Bank alerts (reference only)', value: fmt(actualMoney?.bankReconciliation ?? 0), onSelect: () => setActualMoneyLine('banked_cash') },
@@ -559,8 +608,8 @@ export function CFOOverviewDashboard({
                           <YAxis tickFormatter={(v: number) => fmtShort(v)} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" width={52} />
                           <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ borderRadius: 12, fontSize: 12 }} />
                           <Legend wrapperStyle={{ fontSize: 11 }} />
-                          <Bar name="Cash In" dataKey="inflow" fill="#10b981" radius={[4, 4, 0, 0]} barSize={24} />
-                          <Bar name="Cash Out" dataKey="outflow" fill="#f97316" radius={[4, 4, 0, 0]} barSize={24} />
+                          <Bar name="Cash In" dataKey="inflow" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} barSize={24} />
+                          <Bar name="Cash Out" dataKey="outflow" fill="hsl(var(--warning))" radius={[4, 4, 0, 0]} barSize={24} />
                         </ComposedChart>
                       </ResponsiveContainer>
                     </div>
@@ -703,22 +752,23 @@ function SectionToggle({ open, onToggle, label }: { open: boolean; onToggle: () 
  * reading order (position → receivables/payables → movement → tools) and let
  * the CFO fold away what they are not looking at.
  */
-function Band({ title, subtitle, open, onToggle, children }: {
+function Band({ title, subtitle, open, onToggle, children, hideHeader = false }: {
   title: string;
   subtitle?: string;
   open: boolean;
   onToggle: () => void;
   children: React.ReactNode;
+  hideHeader?: boolean;
 }) {
   return (
     <section className="space-y-3">
-      <div className="flex items-start justify-between gap-3 border-b border-border pb-2">
+      {!hideHeader && <div className="flex items-start justify-between gap-3 border-b border-border pb-2">
         <div className="min-w-0">
           <h2 className="text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">{title}</h2>
           {subtitle && <p className="text-[11px] text-muted-foreground/80 mt-0.5">{subtitle}</p>}
         </div>
         <SectionToggle open={open} onToggle={onToggle} label={title} />
-      </div>
+      </div>}
       {open && <div className="space-y-4">{children}</div>}
     </section>
   );

@@ -34,8 +34,8 @@ export function MoneyPaidOutCard() {
     <HeroCard
 
 
-      icon={<ArrowUpRight className="h-5 w-5 text-rose-50" />}
-      iconBg="bg-rose-600"
+      icon={<ArrowUpRight className="h-5 w-5" />}
+      tone="destructive"
       title="Money Paid Out"
       value={q.isLoading || q.error || !d ? '—' : formatUGX(n(d.total_paid))}
       percentageLabel="Completed payouts to mobile money, bank & cash"

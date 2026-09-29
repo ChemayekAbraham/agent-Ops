@@ -10,6 +10,8 @@ import {
   Smartphone,
   Landmark,
   Banknote,
+  Lightbulb,
+  ChevronRight,
 } from 'lucide-react';
 import { useActualMoneyHeld } from '@/hooks/useActualMoneyHeld';
 import {
@@ -302,29 +304,35 @@ export function MoneyWeCanUseBreakdown() {
   const merchantIn = merchantMoves.filter((m) => m.direction === 'in');
 
   return (
-    <Card className="border-border/60">
-      <CardContent className="p-4">
+    <Card className="rounded-xl border-border/70 shadow-sm overflow-hidden">
+      <CardContent className="p-0">
         <button
           type="button"
           onClick={() => setOpen((o) => !o)}
-          className="flex w-full items-center justify-between gap-3 text-left"
+          className="flex w-full items-center justify-between gap-4 p-4 text-left transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
         >
-          <div className="min-w-0">
-            <p className="truncate text-sm font-semibold">What is behind Money We Can Use</p>
-            <p className="text-[11px] text-muted-foreground">
-              Every transaction counting toward Money We Have and Money We Owe, plus the flagged
-              transfers left out of both.
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-info/15 text-info">
+            <Lightbulb className="h-5 w-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-semibold">What is behind Money We Can Use</p>
+            <p className="mt-0.5 text-[11px] text-muted-foreground">
+              Every transaction counting toward Money We Have and Money We Owe, plus the flagged transfers left out of both.
             </p>
           </div>
+          <span className="hidden sm:inline-flex items-center gap-1 rounded-full border border-info/40 px-3 py-1.5 text-[11px] font-semibold text-info">
+            View Details
+            <ChevronRight className="h-3.5 w-3.5" />
+          </span>
           <ChevronDown
-            className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${
+            className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform sm:hidden ${
               open ? 'rotate-180' : ''
             }`}
           />
         </button>
 
         {open && (
-          <div className="mt-4 space-y-3">
+          <div className="space-y-3 border-t border-border p-4">
             <Group
               icon={<Banknote className="h-4 w-4 text-emerald-600" />}
               title="Counts toward Money We Have"
