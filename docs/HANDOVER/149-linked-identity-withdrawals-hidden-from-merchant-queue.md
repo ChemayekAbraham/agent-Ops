@@ -1,7 +1,7 @@
 # 149 — Linked-identity withdrawals were hidden from every Merchant Agent
 
 **Date:** 2026-09-29 · **Instructed by:** Josh Wanda ("there's a withdrawal of Mukisa Juli 92,000 ... whatever blockage remove it")
-**Migration:** `supabase/migrations/20260929090000_linked_identity_passes_merchant_id_gate.sql`
+**Migration:** `supabase/migrations/20260929100000_linked_identity_passes_merchant_id_gate.sql`
 **Status:** LIVE 2026-09-29. It was applied to production through `query_database` and verified straight after.
 **Follows:** migration `20260924100000_linked_identities_may_withdraw.sql`, which fixed only half of this.
 
