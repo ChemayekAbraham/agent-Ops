@@ -501,6 +501,10 @@ export function CFOOverviewDashboard({
 
         </Band>}
 
+        {/* General Payouts activity lives only on the Cash Position page —
+            removed from Home at the CFO's request. */}
+        {cashPositionOnly && <GeneralPayoutActivities />}
+
         {!cashPositionOnly && <>
         {/* ─────────── 2 · RECEIVABLES & PAYABLES ─────────── */}
         <Band
@@ -513,8 +517,6 @@ export function CFOOverviewDashboard({
             <ReceivablesCardDrilldown />
             <PayablesCardDrilldown />
           </div>
-
-          <GeneralPayoutActivities />
         </Band>
 
         {/* ─────────── 3 · CASH MOVEMENT ─────────── */}
