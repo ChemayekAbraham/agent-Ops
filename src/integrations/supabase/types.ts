@@ -61103,6 +61103,17 @@ export type Database = {
         Args: { p_as_at?: string }
         Returns: Json
       }
+      get_cfo_seven_day_lines: {
+        Args: { p_side: string }
+        Returns: {
+          amount: number
+          category_label: string
+          day_offset: number
+          due_day: string
+          item_count: number
+          product_label: string
+        }[]
+      }
       get_cfo_treasury_wallet_flow_summary: {
         Args: { p_from?: string; p_include_adjustments?: boolean }
         Returns: {
