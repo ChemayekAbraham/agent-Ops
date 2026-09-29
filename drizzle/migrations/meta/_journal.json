@@ -2479,6 +2479,13 @@
       "when": 1790717988990,
       "tag": "0353_cfo_seven_day_lines",
       "breakpoints": true
+    },
+    {
+      "idx": 354,
+      "version": "7",
+      "when": 1790718887161,
+      "tag": "0354_cfo_seven_day_expenses",
+      "breakpoints": true
     }
   ]
 }

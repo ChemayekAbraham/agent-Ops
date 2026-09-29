@@ -51,11 +51,44 @@ function fromFull(lines: FullLine[] | undefined, from: number, to: number, kindL
   return rows;
 }
 
+type ExpLine = { day_offset: number; category: string; amount: number; item_count: number; is_predicted: boolean };
+const EXP_NAMES: Record<string, string> = { roi_expense: 'Supporter Returns', interest_expense: 'Payroll Growth Bonus', payroll_expense: 'Payroll', marketing_expense: 'Marketing' };
+const expLabel = (c: string) => EXP_NAMES[c] ?? c.replace(/_expense$/, '').replace(/_/g, ' ').replace(/\b\w/g, (m) => m.toUpperCase()) + ' Expense';
+
+/** Platform expenses: recorded in the past 7 days; next 7 days predicted from the 28-day daily average. */
+function useSevenDayExpenses() {
+  return useQuery({
+    queryKey: ['cfo-seven-day-expenses'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_cfo_seven_day_expenses');
+      if (error) throw error;
+      return (data ?? []) as unknown as ExpLine[];
+    },
+    staleTime: 60_000,
+  });
+}
+
+function expRows(lines: ExpLine[] | undefined, from: number, to: number, predicted: boolean): Row[] {
+  const rows: Row[] = [];
+  for (let i = from; i < to; i++) rows.push({ label: fmt(i), amount: 0, sources: [] });
+  for (const l of lines ?? []) {
+    if (l.is_predicted !== predicted || l.day_offset < from || l.day_offset >= to) continue;
+    const amount = Number(l.amount) || 0;
+    const r = rows[l.day_offset - from];
+    r.amount += amount;
+    r.sources.push({ who: '', category: 'Expenses', product: expLabel(l.category), amount, kind: predicted ? 'Predicted' : 'Recorded', count: Number(l.item_count) || 0 });
+  }
+  return rows;
+}
+
 export function SevenDayFlowSection() {
   const recL = useSevenDayLines('receivables');
   const payL = useSevenDayLines('payables');
   const recF = useReceivablesPredictiveForecast('day', 7);
   const payF = usePayablesPredictiveForecast('day', 7);
+  const expL = useSevenDayExpenses();
+  const expPast = useMemo(() => expRows(expL.data, -7, 0, false), [expL.data]);
+  const expNext = useMemo(() => expRows(expL.data, 0, 7, true), [expL.data]);
   const [open, setOpen] = useState<{ title: string; row: Row } | null>(null);
 
   const data = useMemo(() => {
@@ -79,7 +112,7 @@ export function SevenDayFlowSection() {
     };
   }, [recL.data, payL.data, recF.data, payF.data]);
 
-  const loading = recL.isLoading || payL.isLoading || recF.isLoading || payF.isLoading;
+  const loading = recL.isLoading || payL.isLoading || recF.isLoading || payF.isLoading || expL.isLoading;
   const pick = (title: string) => (row: Row) => setOpen({ title, row });
 
   return (
@@ -88,7 +121,7 @@ export function SevenDayFlowSection() {
         <h2 className="text-sm font-semibold">Past 7 Days &amp; Next 7 Days</h2>
         <p className="text-xs text-muted-foreground">
           Past = amounts that fell due and are still unpaid. Next = scheduled amounts where they exist, otherwise predicted from payment
-          behaviour. Select a day to see where it came from.
+          behaviour. Expenses next = each expense type's average daily spend over the past 28 days. Select a day to see where it came from.
         </p>
       </div>
       {loading ? (
@@ -101,6 +134,8 @@ export function SevenDayFlowSection() {
           <Win title="Receivables — Next 7 Days" icon={<CalendarClock className="h-4 w-4" />} tone="text-success" rows={data.recNext} onPick={pick('Receivables — Next 7 Days')} />
           <Win title="Payables — Past 7 Days" icon={<History className="h-4 w-4" />} tone="text-destructive" rows={data.payPast} onPick={pick('Payables — Past 7 Days')} />
           <Win title="Payables — Next 7 Days" icon={<CalendarClock className="h-4 w-4" />} tone="text-destructive" rows={data.payNext} onPick={pick('Payables — Next 7 Days')} />
+          <Win title="Expenses — Past 7 Days" icon={<History className="h-4 w-4" />} tone="text-warning" rows={expPast} onPick={pick('Expenses — Past 7 Days')} />
+          <Win title="Expenses — Next 7 Days" icon={<CalendarClock className="h-4 w-4" />} tone="text-warning" rows={expNext} onPick={pick('Expenses — Next 7 Days')} />
         </div>
       )}
 
