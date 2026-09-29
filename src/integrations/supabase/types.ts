@@ -57213,6 +57213,16 @@ export type Database = {
         }
         Returns: Json
       }
+      cfo_settle_tenant_shortfall_via_advance_topup: {
+        Args: {
+          p_advance_id: string
+          p_amount: number
+          p_extend_days: number
+          p_reason: string
+          p_rent_request_id: string
+        }
+        Returns: Json
+      }
       change_wallet_transfer_schedule_recipient: {
         Args: { p_recipient_id: string; p_schedule_id: string }
         Returns: {
