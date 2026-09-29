@@ -40,7 +40,7 @@ function useSevenDayLines(side: 'payables' | 'receivables') {
 
 function fromFull(lines: FullLine[] | undefined, from: number, to: number, kindLabel: string): Row[] {
   const rows: Row[] = [];
-  for (let i = from; i < to; i++) rows.push({ label: fmt(kampalaDay(i)), amount: 0, sources: [] });
+  for (let i = from; i < to; i++) rows.push({ label: fmt(i), amount: 0, sources: [] });
   for (const l of lines ?? []) {
     if (l.day_offset < from || l.day_offset >= to) continue;
     const amount = Number(l.amount) || 0;
