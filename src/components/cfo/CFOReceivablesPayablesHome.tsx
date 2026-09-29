@@ -192,14 +192,12 @@ function Kpi({ icon, tone, label, value, foot, spark, onClick, chevron }: {
       </div>
       <p className="mt-3 text-xs text-muted-foreground">{label}</p>
       <div className="mt-1 flex items-end justify-between gap-2">
-        <p className="text-xl font-bold tabular-nums tracking-tight">{value}</p>
+        <p className="min-w-0 text-xl font-bold tabular-nums tracking-tight break-words">{value}</p>
         {data.length > 1 && (
-          <div className="h-8 w-20 shrink-0">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={data}>
-                <Area type="monotone" dataKey="v" stroke={color} fill={color} fillOpacity={0.12} strokeWidth={1.5} />
-              </AreaChart>
-            </ResponsiveContainer>
+          <div className="shrink-0 hidden 2xl:block">
+            <AreaChart width={72} height={30} data={data}>
+              <Area type="monotone" dataKey="v" stroke={color} fill={color} fillOpacity={0.12} strokeWidth={1.5} isAnimationActive={false} />
+            </AreaChart>
           </div>
         )}
       </div>
