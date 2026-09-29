@@ -3,6 +3,7 @@ import { creditRequisitionWallet } from "../_shared/requisitionWalletCredit.ts";
 import { sendSMS } from "../_shared/sendSmsMultiProvider.ts";
 import { guardCfoApprover, cfoApproverDenied, isCfoApprover } from "../_shared/cfoApprovalGate.ts";
 import { maySendRequisitionSms } from "../_shared/requisitionSmsPolicy.ts";
+import { authorizeStaffRequisitionDecision } from "../_shared/staffRequisitionApprovalAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
