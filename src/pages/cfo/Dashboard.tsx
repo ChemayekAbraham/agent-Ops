@@ -201,6 +201,8 @@ export default function CFODashboardPage() {
 
   const renderContent = () => {
     switch (activeTab) {
+      case 'cash-position':
+        return <CFOOverviewDashboard cashPositionOnly />;
       case 'requisitions':
         return <RequisitionsWorkspace manualStage="cfo" />;
 

@@ -53,6 +53,7 @@ import { HeroCard } from '@/components/cfo/HeroCard';
 
 interface CFOOverviewDashboardProps {
   onTabChange?: (tab: string) => void;
+  cashPositionOnly?: boolean;
 }
 
 const fmt = (n: number) =>
@@ -71,7 +72,7 @@ const fmtShare = (value: number, total: number) => {
   return `${formatted}% of Money We Have`;
 };
 
-export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps) {
+export function CFOOverviewDashboard({ onTabChange, cashPositionOnly = false }: CFOOverviewDashboardProps) {
   const [exportingCommissions, setExportingCommissions] = useState(false);
   const [activeBreakdown, setActiveBreakdown] = useState<string | null>(null);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
@@ -219,7 +220,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
     <div className="space-y-6 max-w-7xl mx-auto">
 
       {/* ══════════════ GREETING HEADER ══════════════ */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      {!cashPositionOnly && <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">
             {greeting}, {firstName} <span aria-hidden>👋</span>
@@ -242,7 +243,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
             Export
           </Button>
         </div>
-      </div>
+      </div>}
 
       {/* ══════════════════════════════════════════════════════════════
           Main financial surface. Grouped into collapsible bands so the
@@ -496,6 +497,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
 
         </Band>
 
+        {!cashPositionOnly && <>
         {/* ─────────── 2 · RECEIVABLES & PAYABLES ─────────── */}
         <Band
           title="Receivables & Payables"
@@ -629,6 +631,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
           </Suspense>
           <CFOActionsLog />
         </Band>
+        </>}
       </div>
 
       {/* ── BREAKDOWNS ── */}
@@ -696,7 +699,7 @@ export function CFOOverviewDashboard({ onTabChange }: CFOOverviewDashboardProps)
       />
       <MerchantAgentOwedSheet open={merchantOwedOpen} onOpenChange={setMerchantOwedOpen} />
       {/* ── FLOATING PAY FAB (mobile only) ── */}
-      {onTabChange && (
+      {!cashPositionOnly && onTabChange && (
         <button
           onClick={() => onTabChange('wallet-payout')}
           className="fixed bottom-6 right-6 z-50 lg:hidden h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center active:scale-95 transition-transform"
