@@ -2451,6 +2451,13 @@
       "when": 1790694748994,
       "tag": "0349_restrict_staff_surveys_read_to_staff_and_hr",
       "breakpoints": true
+    },
+    {
+      "idx": 350,
+      "version": "7",
+      "when": 1790694782670,
+      "tag": "0350_grant_execute_staff_survey_is_employee",
+      "breakpoints": true
     }
   ]
 }
