@@ -1,7 +1,18 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { ChevronRight, Info } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronRight, Info } from 'lucide-react';
+import { Line, LineChart, ResponsiveContainer } from 'recharts';
+
+type HeroCardTone = 'success' | 'warning' | 'info' | 'primary' | 'destructive';
+
+const TONE_STYLES: Record<HeroCardTone, { icon: string; trend: string; stroke: string }> = {
+  success: { icon: 'bg-success text-success-foreground', trend: 'text-success', stroke: 'hsl(var(--success))' },
+  warning: { icon: 'bg-warning text-warning-foreground', trend: 'text-destructive', stroke: 'hsl(var(--destructive))' },
+  info: { icon: 'bg-info text-info-foreground', trend: 'text-success', stroke: 'hsl(var(--info))' },
+  primary: { icon: 'bg-primary text-primary-foreground', trend: 'text-success', stroke: 'hsl(var(--primary))' },
+  destructive: { icon: 'bg-destructive text-destructive-foreground', trend: 'text-destructive', stroke: 'hsl(var(--destructive))' },
+};
 
 /**
  * Compact financial summary card.
@@ -11,12 +22,15 @@ import { ChevronRight, Info } from 'lucide-react';
  * rows and a reconciling total. No figure is derived here: every value is
  * passed in already computed.
  */
-export function HeroCard({ icon, iconBg, title, value, percentageLabel, items, footer, footerTone, onClick, className, action }: {
+export function HeroCard({ icon, iconBg, tone, title, value, percentageLabel, percentageDirection, sparkline, items, footer, footerTone, onClick, className, action }: {
   icon: React.ReactNode;
-  iconBg: string;
+  iconBg?: string;
+  tone?: HeroCardTone;
   title: string;
   value: string;
   percentageLabel?: string;
+  percentageDirection?: 'up' | 'down';
+  sparkline?: number[];
   items: { dot: string; label: string; value: string; onSelect?: () => void }[];
   footer?: string;
   footerTone?: string;
@@ -32,18 +46,21 @@ export function HeroCard({ icon, iconBg, title, value, percentageLabel, items, f
   // the amount stays foreground so the cards read as one set. A negative figure
   // is the one case that still needs to shout, so it keeps the destructive tone.
   const negative = value.trim().startsWith('-');
+  const palette = TONE_STYLES[tone ?? 'primary'];
+  const iconClass = iconBg ?? palette.icon;
+  const sparkData = (sparkline ?? []).map((point, index) => ({ index, point }));
 
   return (
     <>
-      <div className={`w-full flex flex-col rounded-2xl border border-border/70 bg-card shadow-sm transition-shadow hover:shadow-md ${className ?? ''}`}>
+      <div className={`w-full min-w-0 flex flex-col rounded-xl border border-border/70 bg-card shadow-sm transition-shadow hover:shadow-md ${className ?? ''}`}>
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="w-full text-left p-5 rounded-2xl flex-1 flex flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="w-full min-w-0 text-left p-4 rounded-xl flex-1 flex flex-col focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
 
           <div className="flex items-start justify-between gap-3">
-            <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>{icon}</div>
+            <div className={`h-9 w-9 rounded-full flex items-center justify-center shrink-0 shadow-sm ${iconClass}`}>{icon}</div>
             <span
               className="flex h-5 w-5 items-center justify-center rounded-full bg-muted/60 shrink-0"
               aria-hidden
@@ -52,13 +69,32 @@ export function HeroCard({ icon, iconBg, title, value, percentageLabel, items, f
             </span>
           </div>
 
-          <p className="mt-4 text-[11px] font-medium text-muted-foreground truncate">{title}</p>
+          <p className="mt-3 text-[11px] font-semibold text-muted-foreground truncate">{title}</p>
           <p
-            className={`mt-1.5 text-[20px] leading-none sm:text-[22px] xl:text-[19px] 2xl:text-[24px] font-bold tabular-nums tracking-tight ${negative ? 'text-destructive' : 'text-foreground'}`}
+            className={`mt-1.5 text-xl leading-tight 2xl:text-2xl font-bold tabular-nums tracking-normal break-words ${negative ? 'text-destructive' : 'text-foreground'}`}
           >
             {value}
           </p>
-          {percentageLabel ? <p className="mt-2 text-[11px] font-medium text-muted-foreground">{percentageLabel}</p> : null}
+          {(percentageLabel || sparkData.length > 1) && (
+            <div className="mt-auto pt-2 flex min-h-9 items-end justify-between gap-2">
+              {percentageLabel ? (
+                <p className={`min-w-0 flex items-center gap-1 text-[11px] font-medium ${percentageDirection ? palette.trend : 'text-muted-foreground'}`}>
+                  {percentageDirection === 'up' ? <ArrowUp className="h-3 w-3 shrink-0" /> : null}
+                  {percentageDirection === 'down' ? <ArrowDown className="h-3 w-3 shrink-0" /> : null}
+                  <span>{percentageLabel}</span>
+                </p>
+              ) : <span />}
+              {sparkData.length > 1 ? (
+                <div className="h-8 w-20 shrink-0" aria-hidden="true">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={sparkData} margin={{ top: 3, right: 1, bottom: 1, left: 1 }}>
+                      <Line type="monotone" dataKey="point" stroke={palette.stroke} strokeWidth={1.75} dot={false} isAnimationActive={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : null}
+            </div>
+          )}
           {footer ? <p className="mt-2.5 text-[11px] text-muted-foreground line-clamp-2">{footer}</p> : null}
         </button>
         {action ? <div className="px-5 pb-5">{action}</div> : null}
@@ -69,7 +105,7 @@ export function HeroCard({ icon, iconBg, title, value, percentageLabel, items, f
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2.5 text-base">
-              <span className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${iconBg}`}>{icon}</span>
+              <span className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 ${iconClass}`}>{icon}</span>
               {title}
             </DialogTitle>
             {title !== 'Money We Have' && <DialogDescription className="text-xs">{footer}</DialogDescription>}

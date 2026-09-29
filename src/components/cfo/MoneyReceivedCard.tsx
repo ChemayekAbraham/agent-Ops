@@ -35,8 +35,8 @@ export function MoneyReceivedCard() {
     <HeroCard
 
 
-      icon={<ArrowDownLeft className="h-5 w-5 text-emerald-50" />}
-      iconBg="bg-emerald-600"
+      icon={<ArrowDownLeft className="h-5 w-5" />}
+      tone="success"
       title="Money Received"
       value={q.isLoading || q.error || !d ? '—' : formatUGX(n(d.total_received))}
       percentageLabel="Confirmed deposits by mobile money, bank & cash"
