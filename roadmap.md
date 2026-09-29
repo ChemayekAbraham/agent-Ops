@@ -20,5 +20,5 @@
 - [ ] Read-only dry run: trace real repayments through proposed holding and four-part final destinations.
 - [ ] Verify no duplicate Commission, Partner Returns, Platform Fee revenue, or landlord obligation.
 - [ ] Design immutable payment identity, exactly-once settlement, and full reversal safeguards.
-- [ ] Improve wallet transfer confirmation so amount and confirm action remain visible above the mobile keyboard.
-- [ ] Standardize unauthorized Requisition Approve messages without changing permissions or financial behavior.
+- [x] Improve wallet transfer confirmation so amount and confirm action remain visible above the mobile keyboard.
+- [x] Standardize unauthorized Requisition Approve messages without changing permissions or financial behavior.
