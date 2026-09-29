@@ -20835,52 +20835,70 @@ export type Database = {
         Row: {
           access_fee_component: number
           agent_commission_component: number | null
+          commission_paid_component: number | null
           created_at: string
           id: string
           instalment_amount: number
           instalment_date: string
           instalment_id: string
+          over_total_amount: number
           partner_reward_component: number | null
           platform_net_component: number | null
           principal_component: number
           registration_fee_component: number
           rent_request_id: string
+          reversal_group_id: string | null
+          reversal_reason: string | null
+          reversed_at: string | null
           source_id: string | null
           source_table: string | null
+          split_version: string | null
           transaction_group_id: string | null
         }
         Insert: {
           access_fee_component: number
           agent_commission_component?: number | null
+          commission_paid_component?: number | null
           created_at?: string
           id?: string
           instalment_amount: number
           instalment_date?: string
           instalment_id?: string
+          over_total_amount?: number
           partner_reward_component?: number | null
           platform_net_component?: number | null
           principal_component: number
           registration_fee_component: number
           rent_request_id: string
+          reversal_group_id?: string | null
+          reversal_reason?: string | null
+          reversed_at?: string | null
           source_id?: string | null
           source_table?: string | null
+          split_version?: string | null
           transaction_group_id?: string | null
         }
         Update: {
           access_fee_component?: number
           agent_commission_component?: number | null
+          commission_paid_component?: number | null
           created_at?: string
           id?: string
           instalment_amount?: number
           instalment_date?: string
           instalment_id?: string
+          over_total_amount?: number
           partner_reward_component?: number | null
           platform_net_component?: number | null
           principal_component?: number
           registration_fee_component?: number
           rent_request_id?: string
+          reversal_group_id?: string | null
+          reversal_reason?: string | null
+          reversed_at?: string | null
           source_id?: string | null
           source_table?: string | null
+          split_version?: string | null
           transaction_group_id?: string | null
         }
         Relationships: [
@@ -54988,6 +55006,47 @@ export type Database = {
         Args: { p_roles: string[]; p_user: string }
         Returns: boolean
       }
+      _post_four_part_fee_split: {
+        Args: {
+          p_amount: number
+          p_commission_paid?: number
+          p_idempotency_key?: string
+          p_journal_date?: string
+          p_rent_request_id: string
+          p_route: string
+          p_source_id: string
+          p_source_table: string
+        }
+        Returns: Json
+      }
+      _post_instalment_waterfall_legacy: {
+        Args: {
+          p_idempotency_key?: string
+          p_instalment_amount: number
+          p_rent_request_id: string
+          p_source_id: string
+          p_source_table: string
+        }
+        Returns: Json
+      }
+      _post_rent_fee_collection_legacy: {
+        Args: {
+          p_payment_amount: number
+          p_rent_request_id: string
+          p_source_id: string
+          p_source_table: string
+        }
+        Returns: Json
+      }
+      _rent_fee_refuse_cancelled: {
+        Args: {
+          p_amount: number
+          p_rent_request_id: string
+          p_source_id: string
+          p_source_table: string
+        }
+        Returns: Json
+      }
       _tenant_ops_weekly_metrics_raw: {
         Args: { p_week_end: string; p_week_start: string }
         Returns: {
@@ -63330,6 +63389,10 @@ export type Database = {
         Returns: boolean
       }
       is_financial_ops_staff: { Args: { p_user: string }; Returns: boolean }
+      is_four_part_waterfall_eligible: {
+        Args: { p_rent_request_id: string }
+        Returns: boolean
+      }
       is_fraud_identifier_blocked: {
         Args: { p_type: string; p_value: string }
         Returns: boolean
@@ -66861,6 +66924,46 @@ export type Database = {
       }
       rent_arrears_go_live: { Args: never; Returns: string }
       rent_arrears_read_authorized: { Args: never; Returns: boolean }
+      rent_fee_correct_unsplit_agent_collections: {
+        Args: { p_dry_run?: boolean }
+        Returns: {
+          agent_commission: number
+          amount: number
+          collection_id: string
+          commission_paid: number
+          partner_returns: number
+          platform_fee: number
+          principal: number
+          rent_request_id: string
+          status: string
+          total_allocated: number
+        }[]
+      }
+      rent_fee_deposit_commission_duplicates: {
+        Args: never
+        Returns: {
+          agent_route_cash: number
+          commission_paid_twice: number
+          deposit_commission_paid: number
+          deposit_route_cash: number
+          rent_request_id: string
+          ten_percent_of_deposits: number
+        }[]
+      }
+      rent_fee_over_total_exceptions: {
+        Args: never
+        Returns: {
+          amount_above_total: number
+          collections_above_total: number
+          commission_paid_on_excess: number
+          first_excess_at: string
+          last_excess_at: string
+          plan_total: number
+          rent_request_id: string
+          standing_cash: number
+          tenant_id: string
+        }[]
+      }
       rent_pipeline_tenant_history: {
         Args: { p_exclude_request_id?: string; p_tenant_id: string }
         Returns: Json
@@ -67253,6 +67356,10 @@ export type Database = {
       }
       reverse_promissory_note_bonus: {
         Args: { p_note_id: string; p_reason: string }
+        Returns: Json
+      }
+      reverse_rent_fee_allocation: {
+        Args: { p_collection_id: string; p_reason: string }
         Returns: Json
       }
       reverse_verification: {
