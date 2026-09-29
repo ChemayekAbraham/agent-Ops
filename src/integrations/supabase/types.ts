@@ -21278,6 +21278,7 @@ export type Database = {
           pending_renewal_duration_months: number | null
           pending_renewal_effective_date: string | null
           pending_renewal_request_id: string | null
+          pool_eligible: boolean
           pool_origin: string | null
           portfolio_code: string
           portfolio_pin: string
@@ -21322,6 +21323,7 @@ export type Database = {
           pending_renewal_duration_months?: number | null
           pending_renewal_effective_date?: string | null
           pending_renewal_request_id?: string | null
+          pool_eligible?: boolean
           pool_origin?: string | null
           portfolio_code: string
           portfolio_pin: string
@@ -21366,6 +21368,7 @@ export type Database = {
           pending_renewal_duration_months?: number | null
           pending_renewal_effective_date?: string | null
           pending_renewal_request_id?: string | null
+          pool_eligible?: boolean
           pool_origin?: string | null
           portfolio_code?: string
           portfolio_pin?: string
@@ -53271,6 +53274,22 @@ export type Database = {
           portfolio_code: string | null
           portfolio_id: string | null
           status: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          investment_amount?: number | null
+          investor_id?: string | null
+          portfolio_code?: string | null
+          portfolio_id?: string | null
+          status?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          investment_amount?: number | null
+          investor_id?: string | null
+          portfolio_code?: string | null
+          portfolio_id?: string | null
+          status?: string | null
         }
         Relationships: [
           {
