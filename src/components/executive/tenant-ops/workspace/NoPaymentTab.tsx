@@ -24,9 +24,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { AlertTriangle, CalendarX2, Check, ChevronsUpDown, Users } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { useTenantOpsNoPaymentReport } from '@/hooks/useTenantOpsNoPaymentReport';
+import { useTenantNoPaymentNotesSummaries } from '@/hooks/useTenantNoPaymentNotes';
 import { KPICard } from '@/components/executive/KPICard';
 import { WorkspaceEmptyState } from '@/components/executive/tenant-ops/workspace/WorkspaceEmptyState';
 import { WorkspaceMobileRow } from '@/components/executive/tenant-ops/workspace/WorkspaceMobileRow';
+import { TenantNotesPopover } from '@/components/executive/tenant-ops/workspace/TenantNotesPopover';
 
 const dayLabel = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
@@ -38,6 +40,7 @@ export default function NoPaymentTab() {
   const [agentId, setAgentId] = useState<string | null>(null);
   const [agentPickerOpen, setAgentPickerOpen] = useState(false);
   const { data, isLoading } = useTenantOpsNoPaymentReport(agentId);
+  const { data: noteSummaries } = useTenantNoPaymentNotesSummaries();
 
   const agents = data?.agent_summary ?? [];
   const totals = useMemo(
@@ -153,6 +156,7 @@ export default function NoPaymentTab() {
                     { label: 'Progress', value: `${t.progress_pct}%` },
                     { label: 'Status', value: t.tenant_status },
                   ]}
+                  actions={<TenantNotesPopover tenantId={t.tenant_id} summary={noteSummaries?.get(t.tenant_id)} />}
                 />
               ))}
             </div>
@@ -171,6 +175,7 @@ export default function NoPaymentTab() {
                     <TableHead className="text-xs">Total Amount Paid</TableHead>
                     <TableHead className="text-xs">Progress %</TableHead>
                     <TableHead className="text-xs">Tenant Status</TableHead>
+                    <TableHead className="text-xs">Notes</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -191,6 +196,9 @@ export default function NoPaymentTab() {
                         <Badge variant="outline" className="text-[10px] capitalize">
                           {t.tenant_status.replace(/_/g, ' ')}
                         </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        <TenantNotesPopover tenantId={t.tenant_id} summary={noteSummaries?.get(t.tenant_id)} />
                       </TableCell>
                     </TableRow>
                   ))}

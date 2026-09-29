@@ -707,3 +707,7 @@ index 438c3f26ee..908c134468 100644
 ```
 
 **Recommendation about an existing object, not acted on:** none new this task.
+
+## 2026-09-29 — Turned the kill switch on (`system_config.tops_workspace_enabled`)
+
+No code change. User reported the "Workspace" tab wasn't visible in the Tenant Ops Hub switcher. Checked live against project `43e6c2e1-18a6-4503-badb-5bb6c23491cc`: `tops_is_workspace_enabled()` returned `false` — the flag had an explicit `system_config` row with `value: false` (not missing), so it had been deliberately left off, not merely unset. Confirmed the user's own account (`cristian@welile.com` / `tcwaniaye@gmail.com`, user_id `b9078b67-dc4c-473a-bc88-9510d4bcd0dc`) already holds both `tenant_ops` and `operations` roles — the role gate was never the blocker. Ran `UPDATE public.system_config SET value = 'true'::jsonb, updated_at = now() WHERE key = 'tops_workspace_enabled';` and re-verified `tops_is_workspace_enabled()` now returns `true`. This is the same kill switch documented throughout this build log as the thing that "must never need a deploy or a revert" — flipping it back to `false` with the same UPDATE is the rollback path if anything about the workspace needs to be pulled quickly.
