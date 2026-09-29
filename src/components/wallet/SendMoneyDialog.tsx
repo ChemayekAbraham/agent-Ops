@@ -675,7 +675,7 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
                   </div>
                   Confirm transfer
                 </DialogTitle>
-                <DialogDescription>
+                <DialogDescription className="text-xs sm:text-sm">
                   Review the recipient before sending. This cannot be undone.
                 </DialogDescription>
               </DialogHeader>
@@ -752,7 +752,7 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
                   onClick={() => setConfirming(false)}
                   disabled={loading}
                   size="lg"
-                  className="min-w-0 flex-1 sm:flex-none"
+                  className="min-w-0 flex-1 px-3 sm:flex-none sm:px-8"
                 >
                   Back
                 </Button>
@@ -761,7 +761,7 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
                   onClick={executeSend}
                   disabled={loading}
                   size="lg"
-                  className="min-w-0 flex-[1.6] gap-2 whitespace-nowrap sm:flex-none"
+                  className="min-w-0 flex-[1.6] gap-1.5 whitespace-nowrap px-3 text-sm sm:flex-none sm:gap-2 sm:px-8"
                 >
                   {loading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
