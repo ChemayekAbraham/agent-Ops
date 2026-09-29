@@ -59336,6 +59336,20 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: number
       }
+      get_advance_reconciliation_summary: {
+        Args: { p_advance_ids: string[] }
+        Returns: {
+          advance_id: string
+          issue_count: number
+          reconciled: boolean
+          statement_deducted: number
+          wallet_deducted: number
+        }[]
+      }
+      get_advance_wallet_reconciliation: {
+        Args: { p_advance_id: string }
+        Returns: Json
+      }
       get_agent_active_breakdown: {
         Args: { p_range_end?: string; p_range_start: string }
         Returns: Json
