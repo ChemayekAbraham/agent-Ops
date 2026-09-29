@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { ShoppingBag, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { formatUGX } from '@/lib/rentCalculations';
+import { formatUGX } from '@/lib/businessAdvanceCalculations';
 
 const DURATION_SECONDS = 30;
 export const SHOPPING_ADVANCE_MIN = 30_000;

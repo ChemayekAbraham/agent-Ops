@@ -26,6 +26,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { UserAvatar } from '@/components/UserAvatar';
 import { WELILE_ITEM_IMAGES } from '@/lib/welileItemImages';
 import { ItemSwipePicker } from '@/components/wallet/ItemSwipePicker';
+import { ShoppingAdvanceBoostScreen } from '@/components/wallet/ShoppingAdvanceBoostScreen';
 
 import { 
   Loader2, Send, Phone, Coins, FileText, CheckCircle, Sparkles, UserCheck, UserX,
@@ -111,6 +112,7 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
   const [email, setEmail] = useState('');
   const [mode, setMode] = useState<'phone' | 'email'>('phone');
   const [amount, setAmount] = useState('');
+  const [boostAmount, setBoostAmount] = useState<number | null>(null);
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -578,6 +580,7 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
     }, 300);
     
     toast.success(`Successfully sent ${formatCurrency(amountNum)}`);
+    setBoostAmount(amountNum);
     
     setTimeout(() => {
       setPhone('');
@@ -609,6 +612,8 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
   };
 
   return (
+    <>
+    <ShoppingAdvanceBoostScreen amountSent={boostAmount} onClose={() => setBoostAmount(null)} />
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent
         className={`w-screen max-w-[100vw] overflow-x-hidden px-4 h-[100dvh] max-h-[100dvh] rounded-none border-border/50 glass-card sm:w-full sm:max-w-md sm:h-auto sm:max-h-[85vh] sm:rounded-xl ${
@@ -1471,5 +1476,6 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
         </AnimatePresence>
       </DialogContent>
     </Dialog>
+    </>
   );
 }
