@@ -66806,6 +66806,10 @@ export type Database = {
         Args: { p_rent_request_id: string }
         Returns: number
       }
+      rent_plan_awaiting_landlord: {
+        Args: { p_rent_request_id: string }
+        Returns: boolean
+      }
       rent_plan_billable_from: {
         Args: { p_rent_request_id: string }
         Returns: string

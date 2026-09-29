@@ -781,11 +781,38 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
           (Date.parse(`${repaymentStartsOn}T00:00:00Z`) - Date.parse(`${todayEAT}T00:00:00Z`)) / 86400000))
       : 0;
   const repaymentNotStarted = daysUntilStart > 0;
-  // Landlord settlement no longer gates tenant repayment (2026-09-21 business
-  // decision): collection is open even when the landlord float released to the
-  // agent has not yet reached the landlord. Landlord payment is tracked
-  // separately via the landlord float allocations.
-  const awaitingLandlord = false;
+  // Landlord-paid gate RESTORED (2026-09-29). This flag was hard-coded to
+  // `false` on 2026-09-21, which quietly turned every branch below it — the
+  // warning-coloured button, the "Landlord not paid" label, the disabled
+  // state, the blur on auto-collect — into dead code.
+  //
+  // The 24-hour float recall (2026-09-25) cancels a plan whose landlord has
+  // not been paid, so collecting inside that window takes the tenant's money
+  // for rent the landlord never received, on a plan about to be unwound.
+  // `rent_plan_awaiting_landlord` is the same predicate the collection RPC and
+  // tenant-pay-rent enforce, so the button and the ledger cannot disagree, and
+  // it ignores plans funded before the recall go-live so the pre-go-live
+  // backlog keeps collecting.
+  const [awaitingLandlord, setAwaitingLandlord] = useState(false);
+  const gatedRequestId = summary.activeRequest?.id ?? null;
+  useEffect(() => {
+    if (!gatedRequestId) {
+      setAwaitingLandlord(false);
+      return;
+    }
+    let abandoned = false;
+    (async () => {
+      const { data, error } = await supabase.rpc('rent_plan_awaiting_landlord', {
+        p_rent_request_id: gatedRequestId,
+      });
+      if (abandoned) return;
+      // On a read failure, leave the button live rather than accusing the
+      // agent of an unpaid landlord we could not confirm. The RPC is the
+      // authority and returns AWAITING_LANDLORD_PAYMENT with the real reason.
+      setAwaitingLandlord(error ? false : data === true);
+    })();
+    return () => { abandoned = true; };
+  }, [gatedRequestId]);
 
 
   const activePct = summary.activeRequest && summary.activeRequest.total_repayment > 0

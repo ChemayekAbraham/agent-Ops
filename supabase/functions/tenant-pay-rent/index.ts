@@ -176,10 +176,36 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Landlord-paid gate REMOVED (2026-09-21 business decision): tenant
-    // repayments are accepted even when the landlord float released to the
-    // agent has not yet reached the landlord. Landlord settlement is tracked
-    // separately via agent_landlord_float_allocations.
+    // Landlord-paid gate RESTORED (2026-09-29), scoped to the 24-hour recall.
+    //
+    // A plan whose landlord float is still sitting with the agent is CANCELLED
+    // by the recall at the 24-hour mark. Accepting a repayment inside that
+    // window means taking the tenant's money for rent the landlord never
+    // received, on a plan that is then unwound. `rent_plan_awaiting_landlord`
+    // is the same predicate the agent's collection RPC uses, and it ignores
+    // plans funded before the recall go-live so the pre-go-live backlog is not
+    // frozen by it.
+    const { data: awaitingLandlord, error: gateErr } = await supabaseAdmin.rpc(
+      "rent_plan_awaiting_landlord",
+      { p_rent_request_id: rentRequest.id },
+    );
+    if (gateErr) {
+      // Fail closed. Money must not move on a gate we could not read.
+      console.error("[tenant-pay-rent] landlord gate unreadable:", gateErr);
+      return new Response(
+        JSON.stringify({ error: "Could not verify landlord settlement. Please try again." }),
+        { status: 503, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    if (awaitingLandlord === true) {
+      return new Response(
+        JSON.stringify({
+          error_code: "AWAITING_LANDLORD_PAYMENT",
+          error: "The landlord for this Rent Plan has not been paid yet. Repayment opens the moment the landlord is paid.",
+        }),
+        { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
 
     const outstanding = rentRequest.total_repayment - rentRequest.amount_repaid;
