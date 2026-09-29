@@ -12,6 +12,7 @@ import PersonNameFields from '@/components/shared/PersonNameFields';
 import { joinPersonName, validatePersonNameParts, type PersonNameParts } from '@/lib/authValidation';
 import { UserSearchPicker } from '@/components/cfo/UserSearchPicker';
 import { formatUGX } from '@/lib/rentCalculations';
+import { normaliseFloatTid, parseFloatCreditMessage } from '@/lib/floatCreditMessage';
 
 interface PickedUser { id: string; full_name: string; phone: string }
 
@@ -38,9 +39,39 @@ export function ManualFloatCreditPanel() {
   const depositorName = joinPersonName(nameParts);
   const [notes, setNotes] = useState('');
   const [confirming, setConfirming] = useState(false);
+  const [pasted, setPasted] = useState('');
+  const [pasteWarnings, setPasteWarnings] = useState<string[]>([]);
 
   const amountNum = Number((amount || '').replace(/,/g, ''));
-  const cleanTid = tid.replace(/\s+/g, '');
+  // Same form the TID lock stores ("TID157…" / "157…." would dodge it).
+  const cleanTid = normaliseFloatTid(tid);
+
+  const readPastedMessage = () => {
+    const r = parseFloatCreditMessage(pasted);
+    const warnings: string[] = [];
+    if (r.tid) setTid(r.tid); else warnings.push('No TID found — type it in.');
+    if (r.amount) setAmount(String(r.amount)); else warnings.push('No amount found — type it in.');
+    if (r.depositedAtLocal) setDepositedAt(r.depositedAtLocal);
+    if (r.timeMissing) {
+      warnings.push(
+        r.depositedAtLocal
+          ? 'The message has a date but no time — set the time from the SMS.'
+          : 'The message has no date/time (Airtel never includes it) — set it from the SMS.',
+      );
+    }
+    if (r.nameParts) setNameParts(r.nameParts);
+    else warnings.push(
+      r.senderPhone
+        ? `Sender shown only as ${r.senderPhone} — type the depositor's name.`
+        : "No sender name found — type the depositor's name.",
+    );
+    if (r.direction === 'out') {
+      warnings.push('This looks like a money SENT message, not money received. Check before crediting.');
+    }
+    setPasteWarnings(warnings);
+    if (r.tid || r.amount) toast.success('Message read — check the fields below.');
+    else toast.error('Could not read a TID or amount from that message.');
+  };
 
   const canSubmit =
     !!user &&
@@ -83,6 +114,8 @@ export function ManualFloatCreditPanel() {
       setAmount('');
       setNameParts({ firstName: '', otherNames: '', lastName: '' });
       setNotes('');
+      setPasted('');
+      setPasteWarnings([]);
       setConfirming(false);
       qc.invalidateQueries({ queryKey: ['bridge-health'] });
       qc.invalidateQueries({ queryKey: ['bridge-recent'] });
@@ -114,6 +147,35 @@ export function ManualFloatCreditPanel() {
               selectedUser={user}
               onSelect={setUser}
             />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="mfc-paste">Paste the MTN / Airtel message (optional)</Label>
+            <Textarea
+              id="mfc-paste"
+              value={pasted}
+              onChange={(e) => setPasted(e.target.value)}
+              placeholder="e.g. RECEIVED. TID157623817657 UGX 4,000,000 from 759209694 …"
+              rows={3}
+            />
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={!pasted.trim()}
+              onClick={readPastedMessage}
+            >
+              Fill from message
+            </Button>
+            {pasteWarnings.length > 0 && (
+              <ul className="text-xs text-amber-700 space-y-0.5">
+                {pasteWarnings.map((w) => (
+                  <li key={w} className="flex items-start gap-1">
+                    <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" /> {w}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

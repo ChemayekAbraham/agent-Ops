@@ -1842,6 +1842,7 @@ Transaction Groups: 297,457
               <li><strong>Trap 7: Sky Bubbles float re-credit:</strong> Over-credited UGX 10.2M by an absolute "set float". Always use delta operations.</li>
               <li><strong>Trap 8: Treasury figure:</strong> <code>get_treasury_cash_position</code> (A1+A5) is correct. <code>get_treasury_snapshot</code> is superseded and shows a malformed negative that looks like a deficit.</li>
               <li><strong>Trap 9: Merchant "owed" buckets:</strong> Rejected OOP claims and ledger-vs-withdrawal gaps were settled off-system. They are not debt; do not publish them as such.</li>
+              <li><strong>Trap 10: TID spelling vs the lock (doc 166):</strong> <code>ledger_reconciled_tids</code> holds bare digits for MTN/Airtel. Any path that checks or locks a TID must strip non-alphanumerics and Airtel's <code>TID</code> prefix first, or <code>TID157…</code> / <code>157….</code> credits the same money twice.</li>
             </ul>
           </div>
         `
