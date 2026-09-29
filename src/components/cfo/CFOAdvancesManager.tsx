@@ -23,6 +23,8 @@ import { AdvancePaymentSearchDialog } from '@/components/cfo/AdvancePaymentSearc
 import { CancelAdvanceDialog } from '@/components/cfo/CancelAdvanceDialog';
 import { EditAdvanceTermsDialog } from '@/components/advances/EditAdvanceTermsDialog';
 import { DailyRecoveryRateCard } from '@/components/cfo/DailyRecoveryRateCard';
+import { AdvanceWalletReconciliationDialog } from '@/components/cfo/AdvanceWalletReconciliationDialog';
+import { useAdvanceReconciliationSummary } from '@/hooks/useAdvanceWalletReconciliation';
 import { differenceInDays } from 'date-fns';
 import { toast } from 'sonner';
 
@@ -56,6 +58,7 @@ export function CFOAdvancesManager() {
   const [paymentSearchOpen, setPaymentSearchOpen] = useState(false);
   const [termsAdvance, setTermsAdvance] = useState<any | null>(null);
   const [cancelAdvance, setCancelAdvance] = useState<any | null>(null);
+  const [reconAdvanceId, setReconAdvanceId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [search, setSearch] = useState('');
@@ -143,6 +146,7 @@ export function CFOAdvancesManager() {
     () => filtered.slice(startIndex, endIndex),
     [filtered, startIndex, endIndex],
   );
+  const { data: reconByAdvance } = useAdvanceReconciliationSummary(paginated.map((a: any) => a.id));
 
   useEffect(() => {
     if (page > totalPages) setPage(totalPages);
@@ -500,6 +504,19 @@ export function CFOAdvancesManager() {
                       <div className={`h-3 w-3 rounded-full ${risk === 'green' ? 'bg-green-500' : risk === 'yellow' ? 'bg-amber-500' : 'bg-red-500'}`} />
                     </TableCell>
                     <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className={`gap-1 mb-1 ${reconByAdvance?.get(adv.id)?.reconciled === false ? 'text-destructive border-destructive/30' : ''}`}
+                        onClick={() => setReconAdvanceId(adv.id)}
+                      >
+                        <Shield className="h-3.5 w-3.5" />
+                        {reconByAdvance?.get(adv.id)
+                          ? (reconByAdvance.get(adv.id)!.reconciled
+                            ? 'Wallet ✓'
+                            : `Wallet: ${reconByAdvance.get(adv.id)!.issue_count} issue${reconByAdvance.get(adv.id)!.issue_count === 1 ? '' : 's'}`)
+                          : 'Wallet check'}
+                      </Button>
                       {(adv.status === 'active' || adv.status === 'overdue') && (
                         <div className="flex flex-col sm:flex-row gap-1 justify-end">
                           <Button
@@ -657,6 +674,12 @@ export function CFOAdvancesManager() {
         open={!!cancelAdvance}
         onOpenChange={(o) => { if (!o) setCancelAdvance(null); }}
         onSuccess={() => { refetch(); setCancelAdvance(null); }}
+      />
+
+      <AdvanceWalletReconciliationDialog
+        advanceId={reconAdvanceId}
+        open={!!reconAdvanceId}
+        onOpenChange={(o) => { if (!o) setReconAdvanceId(null); }}
       />
 
       <EditAdvanceTermsDialog
