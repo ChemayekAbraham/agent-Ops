@@ -69558,6 +69558,10 @@ export type Database = {
         Returns: Json
       }
       unblock_signup_ip: { Args: { p_ip: string }; Returns: boolean }
+      unlock_portfolio: {
+        Args: { p_portfolio_id: string; p_reason: string }
+        Returns: Json
+      }
       update_agent_advance_terms: {
         Args: {
           p_advance_id: string

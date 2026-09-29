@@ -97,6 +97,8 @@ import { FundInvestmentAccountDialog } from '@/components/manager/FundInvestment
 import { CreateInvestmentAccountDialog } from '@/components/manager/CreateInvestmentAccountDialog';
 import { InvitePartnerPortfolioDialog } from '@/components/partner/InvitePartnerPortfolioDialog';
 import { LockPortfolioDialog, type LockablePortfolio } from '@/components/partner/LockPortfolioDialog';
+import { UnlockPortfolioDialog } from '@/components/partner/UnlockPortfolioDialog';
+import { LockOpen } from 'lucide-react';
 
 /* ─── Types ─── */
 interface PartnerRow {
@@ -483,6 +485,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
   // Lock portfolio dialog (full principal or split)
   const [lockPortfolio, setLockPortfolio] = useState<LockablePortfolio | null>(null);
   const [lockOpen, setLockOpen] = useState(false);
+  const [unlockPortfolio, setUnlockPortfolio] = useState<LockablePortfolio | null>(null);
   const [renewalCounts, setRenewalCounts] = useState<Record<string, number>>({});
   const [pendingRedemptions, setPendingRedemptions] = useState<Record<string, boolean>>({});
   const [recentRenewals, setRecentRenewals] = useState<Record<string, string>>({});
@@ -3242,6 +3245,22 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
                                     <Lock className="h-3.5 w-3.5" /> Lock
                                   </Button>
                                 )}
+                                {!readOnly && p.status === 'locked' && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-9 px-3 text-xs text-success hover:text-success hover:bg-success/10 gap-1.5 font-semibold min-h-[44px]"
+                                    onClick={() => setUnlockPortfolio({
+                                      id: p.id,
+                                      portfolio_code: p.portfolio_code,
+                                      investment_amount: Number(p.investment_amount) || 0,
+                                      status: p.status,
+                                    })}
+                                    title="Unlock so the portfolio becomes active again"
+                                  >
+                                    <LockOpen className="h-3.5 w-3.5" /> Unlock
+                                  </Button>
+                                )}
                               </div>
                               </fieldset>
 
@@ -3888,6 +3907,15 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
           if (renewPortfolio) {
             setRenewalCounts(prev => ({ ...prev, [renewPortfolio.id]: (prev[renewPortfolio.id] || 0) + 1 }));
           }
+        }}
+      />
+
+      <UnlockPortfolioDialog
+        open={!!unlockPortfolio}
+        onOpenChange={(o) => { if (!o) setUnlockPortfolio(null); }}
+        portfolio={unlockPortfolio}
+        onSuccess={() => {
+          if (detailPartner?.profile?.id) openPartnerDetail(detailPartner.profile.id);
         }}
       />
 
