@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/creditFeeCalculations';
 import { staffLoanSchedule } from '@/lib/staffLoanSchedule';
+import { requisitionApprovalError } from '@/lib/requisitionApprovalError';
 
 /**
  * Blocking staff loan prompt — for the named approver only.
@@ -101,7 +102,10 @@ export function StaffLoanApprovalGate() {
       .update({ stage: nextStage })
       .eq('id', prompt.requisition_id);
     setWorking(false);
-    if (error) { toast.error(error.message); return; }
+    if (error) {
+      toast.error(requisitionApprovalError(error.message, prompt.kind === 'ceo' ? 'CEO' : null));
+      return;
+    }
     toast.success('Loan request approved');
     setPrompt(null);
     void load();
