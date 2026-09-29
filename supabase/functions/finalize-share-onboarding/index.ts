@@ -168,6 +168,7 @@ Deno.serve(async (req) => {
             pool_round: "Seed Round",
             company_name: "Welile",
             funded_by: "investor",
+            ...(await getAngelPoolHolding(admin, row.shareholder_id)),
             ...(signed?.signedUrl ? { agreement_url: signed.signedUrl } : {}),
             ...(upErr ? {} : { contract_pdf_path: pdfPath, contract_pdf_name: `Welile-Angel-Pool-Agreement-${row.reference_id}.pdf` }),
           },
