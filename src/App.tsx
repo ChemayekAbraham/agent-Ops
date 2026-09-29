@@ -68,6 +68,7 @@ const ConcernAssignmentGate = optionalLazyWithRetry(() => import("@/components/n
 const FacilitationApprovalGate = optionalLazyWithRetry(() => import("@/components/requisitions/FacilitationApprovalGate"), "FacilitationApprovalGate");
 const StaffLoanApprovalGate = optionalLazyWithRetry(() => import("@/components/requisitions/StaffLoanApprovalGate"), "StaffLoanApprovalGate");
 const PayrollApprovalGate = optionalLazyWithRetry(() => import("@/hr/pay/PayrollApprovalGate"), "PayrollApprovalGate");
+const StaffSurveyGate = optionalLazyWithRetry(() => import("@/hr/surveys/StaffSurveyGate"), "StaffSurveyGate");
 
 const PsoFacilitationRegister = lazyWithRetry(() => import("@/pages/PsoFacilitationRegister"));
 
@@ -238,6 +239,7 @@ const PayslipPage = lazy(() => import('./hr/pay/Payslip'));
 const MyPayslipsPage = lazy(() => import('./hr/pay/MyPayslips'));
 const ApprovalsPage = lazy(() => import('./hr/pay/Approvals'));
 const PayrollAdvancesPage = lazy(() => import('./hr/pay/Advances'));
+const StaffSurveyResultsPage = lazy(() => import('./hr/surveys/StaffSurveyResults'));
 const HRTasksPage = lazy(() => import('./hr/pages/Tasks'));
 const HRTaskDetailPage = lazy(() => import('./hr/pages/TaskDetail'));
 const HRSignedInRoute = lazy(() => import('./hr/components/HRSignedInRoute'));
@@ -446,6 +448,7 @@ function GlobalOnboardingGates() {
       <FacilitationApprovalGate />
       <StaffLoanApprovalGate />
       <PayrollApprovalGate />
+      <StaffSurveyGate />
 
     </>
   );
@@ -704,6 +707,7 @@ function AppRoutes() {
           <Route path="/hr/pay/config" element={<RoleGuard allowedRoles={['hr', 'super_admin']} requiredPermission="hr"><PayrollConfigPage /></RoleGuard>} />
           <Route path="/hr/pay/runs" element={<RoleGuard allowedRoles={['hr', 'super_admin']} requiredPermission="hr"><PayRunsPage /></RoleGuard>} />
           <Route path="/hr/pay/advances" element={<RoleGuard allowedRoles={['hr', 'super_admin', 'ceo', 'cfo']}><PayrollAdvancesPage /></RoleGuard>} />
+          <Route path="/hr/staff-surveys" element={<RoleGuard allowedRoles={['hr', 'super_admin']} requiredPermission="hr"><StaffSurveyResultsPage /></RoleGuard>} />
           <Route path="/hr/pay/enrollment" element={<RoleGuard allowedRoles={['hr', 'super_admin']} requiredPermission="hr"><PayrollEnrollmentPage /></RoleGuard>} />
           <Route path="/hr/pay/runs/:runId" element={<RoleGuard allowedRoles={['hr', 'super_admin', 'ceo', 'cfo']}><PayRunDetailPage /></RoleGuard>} />
           <Route path="/hr/pay/payslips/:payslipId" element={<RoleGuard allowedRoles={['tenant', 'agent', 'landlord', 'supporter', 'manager', 'ceo', 'coo', 'cfo', 'cto', 'cmo', 'crm', 'employee', 'operations', 'super_admin', 'hr']}><PayslipPage /></RoleGuard>} />
