@@ -54,6 +54,7 @@ export type TxMethodFilter = "all" | "mobile_money" | "p2p" | "bank";
  */
 export const WELILE_ITEMS = [
   "Welile Rent",
+  "Welile Gift",
   "Welile Bread",
   "Welile Chapati",
   "Welile Eggs",

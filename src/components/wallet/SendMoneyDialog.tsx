@@ -25,6 +25,7 @@ import { AutoPayoutSection } from '@/components/wallet/AutoPayoutSection';
 import { useProfile } from '@/hooks/useProfile';
 import { UserAvatar } from '@/components/UserAvatar';
 import { WELILE_ITEM_IMAGES } from '@/lib/welileItemImages';
+import { ItemSwipePicker } from '@/components/wallet/ItemSwipePicker';
 
 import { 
   Loader2, Send, Phone, Coins, FileText, CheckCircle, Sparkles, UserCheck, UserX,
@@ -40,6 +41,7 @@ import {
  */
 const WELILE_ITEMS = [
   { label: 'Welile Rent', hint: 'Rent payment', icon: Home },
+  { label: 'Welile Gift', hint: 'Gift', icon: Gift },
   { label: 'Welile Bread', hint: 'Bread', icon: Sandwich },
   { label: 'Welile Chapati', hint: 'Chapati', icon: UtensilsCrossed },
   { label: 'Welile Eggs', hint: 'Eggs', icon: Egg },
@@ -117,6 +119,8 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
   const [lookupNonce, setLookupNonce] = useState(0);
   const [savedRecipients, setSavedRecipients] = useState<SavedRecipient[]>([]);
   const [manageRecipients, setManageRecipients] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [pickerStart, setPickerStart] = useState<string | undefined>(undefined);
   const [editingNicknameId, setEditingNicknameId] = useState<string | null>(null);
   const [draftNickname, setDraftNickname] = useState('');
   const [recipientSearch, setRecipientSearch] = useState('');
@@ -1328,9 +1332,33 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
                     <FileText className="h-3.5 w-3.5 text-muted-foreground" />
                     What are you sending?
                   </Label>
-                  <p className="text-xs text-muted-foreground">
-                    Pick one — every Welile transfer is a payment for an item.
-                  </p>
+                  <button
+                    type="button"
+                    onClick={() => { setPickerStart(description || undefined); setPickerOpen(true); }}
+                    className="relative block h-40 w-full overflow-hidden rounded-2xl border-2 border-primary/40 text-left active:scale-[0.99]"
+                  >
+                    <img
+                      src={WELILE_ITEM_IMAGES[selectedItem?.label ?? 'Welile Chapati']}
+                      alt=""
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                    <span className="absolute inset-0 bg-gradient-to-t from-foreground/80 to-transparent" />
+                    <span className="absolute bottom-3 left-4 right-4 flex items-end justify-between gap-2">
+                      <span className="text-2xl font-extrabold text-background">
+                        {selectedItem ? selectedItem.hint : 'Tap to choose'}
+                      </span>
+                      <span className="rounded-full bg-background/90 px-3 py-1 text-xs font-semibold text-foreground">
+                        Swipe pictures →
+                      </span>
+                    </span>
+                  </button>
+                  <ItemSwipePicker
+                    open={pickerOpen}
+                    items={WELILE_ITEMS}
+                    startLabel={pickerStart}
+                    onClose={() => setPickerOpen(false)}
+                    onPick={(label) => { setDescription(label); setPickerOpen(false); }}
+                  />
                   <div className="grid grid-cols-2 gap-2 pt-1">
                     {WELILE_ITEMS.map((item) => {
                       const selected = description === item.label;
@@ -1338,7 +1366,7 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
                         <button
                           key={item.label}
                           type="button"
-                          onClick={() => setDescription(item.label)}
+                          onClick={() => { setDescription(item.label); setPickerStart(item.label); setPickerOpen(true); }}
                           aria-pressed={selected}
                           className={`flex min-h-14 items-center gap-2.5 rounded-xl border-2 px-3 py-2.5 text-left transition-all active:scale-[0.98] ${
                             selected
