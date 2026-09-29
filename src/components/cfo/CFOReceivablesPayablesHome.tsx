@@ -52,6 +52,7 @@ export function CFOReceivablesPayablesHome() {
   const r = rec.data, p = pay.data;
   const money = (v: number | undefined, loaded: boolean) => (loaded ? formatUGX(Number(v ?? 0)) : '—');
   const net = (r?.total ?? 0) - (p?.total ?? 0);
+  const exposure = (r?.total ?? 0) + (p?.total ?? 0);
   const inflow30 = forecast.data?.range_total;
 
   const trend = useMemo(() => {
