@@ -61103,6 +61103,16 @@ export type Database = {
         Args: { p_as_at?: string }
         Returns: Json
       }
+      get_cfo_seven_day_expenses: {
+        Args: never
+        Returns: {
+          amount: number
+          category: string
+          day_offset: number
+          is_predicted: boolean
+          item_count: number
+        }[]
+      }
       get_cfo_seven_day_lines: {
         Args: { p_side: string }
         Returns: {
