@@ -1836,7 +1836,7 @@ Transaction Groups: 297,457
               <li><strong>Trap 1: Never force "WELILE" sender ID on SMS:</strong> Unregistered carrier trap; OTPs silently drop.</li>
               <li><strong>Trap 2: Deposit approval race:</strong> Two tabs approving the same deposit double-credit without the advisory lock.</li>
               <li><strong>Trap 3: Agent advance sweep schedule:</strong> Runs at 16:50 UTC, not every 15 minutes.</li>
-              <li><strong>Trap 4: Float desk segregation:</strong> Only Gmail-matched, TID-backed deposits may fund tenant rent-collection float. Never mix it with landlord payout float.</li>
+              <li><strong>Trap 4: Float desk segregation:</strong> Only TID-backed deposits may fund tenant rent-collection float: Gmail-matched deposits, Financial Ops routed emails with a TID, and (since doc 167) Manual Float Credits, whose TID must be unique in <code>ledger_reconciled_tids</code>. Never mix it with landlord payout float.</li>
               <li><strong>Trap 5: get_user_available_balance reads the projection:</strong> <code>wallet_balances_projection</code>, not <code>v_user_wallet_strict</code>.</li>
               <li><strong>Trap 6: No caching service worker:</strong> The push-only <code>public/sw.js</code> is fine; adding fetch caching locks mobile users onto stale chunks.</li>
               <li><strong>Trap 7: Sky Bubbles float re-credit:</strong> Over-credited UGX 10.2M by an absolute "set float". Always use delta operations.</li>
