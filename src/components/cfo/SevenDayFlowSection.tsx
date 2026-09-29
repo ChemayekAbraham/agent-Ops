@@ -111,7 +111,7 @@ export function SevenDayFlowSection() {
     };
   }, [recL.data, payL.data, recF.data, payF.data]);
 
-  const loading = recL.isLoading || payL.isLoading || recF.isLoading || payF.isLoading;
+  const loading = recL.isLoading || payL.isLoading || recF.isLoading || payF.isLoading || expL.isLoading;
   const pick = (title: string) => (row: Row) => setOpen({ title, row });
 
   return (
@@ -120,7 +120,7 @@ export function SevenDayFlowSection() {
         <h2 className="text-sm font-semibold">Past 7 Days &amp; Next 7 Days</h2>
         <p className="text-xs text-muted-foreground">
           Past = amounts that fell due and are still unpaid. Next = scheduled amounts where they exist, otherwise predicted from payment
-          behaviour. Select a day to see where it came from.
+          behaviour. Expenses next = each expense type's average daily spend over the past 28 days. Select a day to see where it came from.
         </p>
       </div>
       {loading ? (
