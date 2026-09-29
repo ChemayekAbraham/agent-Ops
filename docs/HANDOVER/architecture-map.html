@@ -1903,7 +1903,7 @@ Transaction Groups: 297,457
           <div class="detail-card warning">
             <div class="detail-card-title" style="color: #f59e0b;">Known client issues</div>
             <p style="font-size: 0.78rem; color: #fde68a; line-height: 1.5;">
-              Sign-in race (client-side) is unfixed. <code>public/sw.js</code> is a push-only worker; never give it a fetch/caching handler. Mobile browsers discard backgrounded pages, so anything the user must not lose mid-payment is cached in localStorage.
+              Sign-in race (client-side) is unfixed. <code>public/sw.js</code> is a push-only worker; never give it a fetch/caching handler. Mobile browsers discard backgrounded pages, so anything the user must not lose mid-payment is cached in localStorage. Lazy screens: only a failed <em>CSS</em> preload may be <code>preventDefault</code>ed on <code>vite:preloadError</code>. Swallowing a JS one makes the import resolve <code>undefined</code> (doc 159).
             </p>
           </div>
         `

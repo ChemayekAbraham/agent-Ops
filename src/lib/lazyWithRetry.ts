@@ -38,6 +38,14 @@ const EmptyComponent = (() => null) as ComponentType<any>;
  * One-time hard reload to recover from stale/rotated chunks after a deploy.
  * Guarded by sessionStorage so we never trap the user in a reload loop.
  */
+/**
+ * Once a reload is under way, keep Suspense on its spinner until the page goes.
+ * Throwing here instead hands the error to the dashboard error boundary, which
+ * flashes the crash screen and files a client_error_reports row for what is
+ * actually a successful recovery (doc 159).
+ */
+const untilReload = <T,>() => new Promise<T>(() => {});
+
 function reloadOnceForStaleChunk(): boolean {
   if (typeof window === "undefined") return false;
   try {
@@ -184,7 +192,7 @@ export function lazyWithRetry<T extends ComponentType<any>>(
           if (!reloadOnceForStaleChunk()) {
             return { default: StaleChunkFallback as T };
           }
-          throw new Error("Invalid lazy module: missing React default export");
+          return untilReload<{ default: T }>();
         }
         return coerced;
       } catch (e) {
@@ -198,7 +206,8 @@ export function lazyWithRetry<T extends ComponentType<any>>(
     if (!reloadOnceForStaleChunk()) {
       return { default: StaleChunkFallback as T };
     }
-    throw lastErr;
+    console.warn("[lazyWithRetry] reloading for stale chunk:", lastErr);
+    return untilReload<{ default: T }>();
   });
 }
 

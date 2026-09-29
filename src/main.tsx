@@ -339,9 +339,15 @@ setTimeout(() => {
     .catch(() => {});
 }, 10000);
 
-// Suppress chunk/import preload errors — the browser revalidates HTML on the
-// next navigation, so a plain reload recovers from a redeployed bundle.
-addEventListener('vite:preloadError', (e) => e.preventDefault());
+// Only a failed CSS preload is safe to swallow: the JS chunk itself still
+// loads. Swallowing a failed JS import makes Vite resolve the import with
+// `undefined`, so `import(...).then(m => m.X)` threw "Cannot read properties of
+// undefined (reading 'X')" and lazyWithRetry never saw the real stale-chunk
+// error (doc 159). Let those reject so the retry/reload path handles them.
+addEventListener('vite:preloadError', (e) => {
+  const msg = String((e as any).payload?.message ?? '');
+  if (msg.includes('Unable to preload CSS')) e.preventDefault();
+});
 addEventListener('unhandledrejection', (e) => {
   const r = String((e as any).reason ?? '').toLowerCase();
   if (
