@@ -271,45 +271,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // === Agent daily-collection performance gate ===
-    // Mirrors the withdrawal trigger `enforce_agent_perf_withdrawal`: an agent
-    // with active tenants whose today's collection ratio is under 20% may not
-    // move money out of their wallet — including wallet-to-wallet transfers.
-    // Merchant / proxy / cashout agent debits are exempt (matches withdraw).
-    try {
-      const { data: gateDisabled } = await adminClient.rpc('is_agent_perf_gate_disabled' as never);
-      if (!gateDisabled) {
-        const [{ data: rolesRows }, { data: cashoutRow }, { data: proxyRow }] = await Promise.all([
-          adminClient.from('user_roles').select('role').eq('user_id', senderId),
-          adminClient.from('cashout_agents').select('agent_id').eq('agent_id', senderId).eq('is_active', true).maybeSingle(),
-          adminClient.from('proxy_agent_assignments').select('agent_id').eq('agent_id', senderId).eq('is_active', true).maybeSingle(),
-        ]);
-        const roles = (rolesRows ?? []).map((r: { role: string }) => r.role);
-        const isAgent = roles.includes('agent') || roles.includes('senior_agent');
-        const isMerchant = !!cashoutRow;
-        const isProxy = !!proxyRow;
-        if (isAgent && !isMerchant && !isProxy) {
-          const { data: perf } = await adminClient
-            .from('v_agent_daily_eligibility')
-            .select('active_count, expected_daily, today_pct')
-            .eq('agent_id', senderId)
-            .maybeSingle();
-          if (perf && Number(perf.active_count) > 0 && Number(perf.expected_daily) > 0) {
-            const pct = Number(perf.today_pct ?? 0) * 100;
-            if (pct < 20) {
-              return new Response(
-                JSON.stringify({
-                  error: `Transfers disabled: today's collection performance is ${pct.toFixed(1)}% (min 20%). Collect from your tenants first.`,
-                }),
-                { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-              );
-            }
-          }
-        }
-      }
-    } catch (e) {
-      console.warn('[wallet-transfer] perf gate check failed (allowing):', e);
-    }
+    // Agent daily-collection performance gate removed for transfers (2026-09-29).
 
     const safeDescription = typeof description === 'string' ? description.trim().slice(0, 500) : 'Wallet transfer';
 
@@ -368,41 +330,8 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Anti-fraud gate: person-to-person wallet transfers require the sender
-    // to have at least 7 approved deposits on record. Merchant flows that
-    // route through wallet-transfer (e.g. Welile Bread) are exempt.
-    const MIN_APPROVED_DEPOSITS = 7;
-    if (!isWelileBread) {
-      const { count: approvedDeposits, error: depositCountError } = await adminClient
-        .from('deposit_requests')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', senderId)
-        .eq('status', 'approved');
-
-      if (depositCountError) {
-        console.error('deposit count lookup failed', depositCountError);
-        return new Response(
-          JSON.stringify({ error: 'Could not verify your deposit history. Please try again.' }),
-          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      const depositsSoFar = approvedDeposits ?? 0;
-      if (depositsSoFar < MIN_APPROVED_DEPOSITS) {
-        return new Response(
-          JSON.stringify({
-            error:
-              `To help prevent fraud, sending money to another user is unlocked after ` +
-              `${MIN_APPROVED_DEPOSITS} approved deposits. You currently have ` +
-              `${depositsSoFar}/${MIN_APPROVED_DEPOSITS}. Make a few more deposits and try again.`,
-            code: 'insufficient_deposit_history',
-            deposits_completed: depositsSoFar,
-            deposits_required: MIN_APPROVED_DEPOSITS,
-          }),
-          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-    }
+    // Deposit-history gate removed (2026-09-29): any user may send from their
+    // withdrawable balance. Balance check below remains the only money gate.
 
     // Shadow audit on success path — sampled
     if (shouldSample(shadowConfig)) {
