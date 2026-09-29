@@ -117,16 +117,23 @@ export default function AgentServiceCenter() {
 
   return (
     <div className="min-h-[100dvh] bg-background">
-      <header className="border-b border-border/60 bg-background relative">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate(-1)}
-          aria-label="Go back"
-          className="absolute left-2 top-2"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </Button>
+      {/* Sticky top bar with back navigation to /dashboard/agent */}
+      <div className="sticky top-0 z-30 border-b border-border/60 bg-background/95 backdrop-blur-md px-3 sm:px-4 py-2">
+        <div className="mx-auto flex max-w-3xl items-center justify-between gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate('/dashboard/agent')}
+            aria-label="Back to Agent Dashboard"
+            className="h-8 gap-1.5 px-2 text-xs sm:text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted/80"
+          >
+            <ArrowLeft className="h-4 w-4 shrink-0" />
+            <span>Back to Agent Dashboard</span>
+          </Button>
+        </div>
+      </div>
+
+      <header className="border-b border-border/60 bg-background">
         <div className="mx-auto max-w-3xl px-4 py-3">
           <img
             src={officeIllustration.url}
