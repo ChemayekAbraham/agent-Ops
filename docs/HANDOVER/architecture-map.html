@@ -1844,6 +1844,7 @@ Transaction Groups: 297,457
               <li><strong>Trap 9: Merchant "owed" buckets:</strong> Rejected OOP claims and ledger-vs-withdrawal gaps were settled off-system. They are not debt; do not publish them as such.</li>
               <li><strong>Trap 10: TID spelling vs the lock (doc 166):</strong> <code>ledger_reconciled_tids</code> holds bare digits for MTN/Airtel. Any path that checks or locks a TID must strip non-alphanumerics and Airtel's <code>TID</code> prefix first, or <code>TID157…</code> / <code>157….</code> credits the same money twice.</li>
               <li><strong>Trap 11: No deposit gate on user-to-user transfers (doc 169):</strong> Server (<code>wallet-transfer</code>), <code>get_user_available_balance</code> and the Send Money dialog all agree: any user may send from their withdrawable balance however it got there. The old "7 approved deposits" lock lived only in <code>SendMoneyDialog.tsx</code> after 09-29. Do not re-add a deposit-history gate in one layer only.</li>
+              <li><strong>Trap 11: TID guard length (doc 168):</strong> <code>enforce_tid_deposit_uniqueness</code> only extracts 12-13 digit TIDs from text; 11-digit MTN ids are protected only via the <code>reference_id</code> fallback added in doc 168. Never assume a lock exists for a TID unless the credit carried it in <code>reference_id</code>.</li>
             </ul>
           </div>
         `
