@@ -4,7 +4,7 @@ import { ShoppingBag, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatUGX } from '@/lib/businessAdvanceCalculations';
 
-const DURATION_SECONDS = 30;
+const DURATION_SECONDS = 39;
 export const SHOPPING_ADVANCE_MIN = 30_000;
 export const SHOPPING_ADVANCE_MAX = 30_000_000;
 
