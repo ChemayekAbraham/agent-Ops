@@ -26,7 +26,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Smartphone, Check, X, Loader2, Trash2, AlertTriangle } from 'lucide-react';
+import { Smartphone, Check, X, Loader2, Trash2, AlertTriangle, Pencil } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { SupplierPicker, type SupplierChoice } from './SmartphoneCatalogDialog';
 import { downPaymentCopy } from '@/lib/moBanjaIphone';
@@ -153,6 +153,7 @@ export function SmartphoneOrderApprovalQueue({
   const [officialAmount, setOfficialAmount] = useState('');
   const [repaymentDays, setRepaymentDays] = useState('30');
   const [supplierDraft, setSupplierDraft] = useState<SupplierChoice | null>(null);
+  const [isEditingSupplier, setIsEditingSupplier] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<SmartphoneOrderRow | null>(null);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -427,6 +428,7 @@ export function SmartphoneOrderApprovalQueue({
     onSuccess: (supplier) => {
       toast.success(supplier ? `Supplier set to ${supplier.name}` : 'Supplier cleared');
       setSupplierDraft(null);
+      setIsEditingSupplier(false);
       setDetailsTarget((prev) =>
         prev ? { ...prev, supplier_id: supplier?.id ?? null, supplier_name: supplier?.name ?? null } : prev,
       );
@@ -735,7 +737,7 @@ export function SmartphoneOrderApprovalQueue({
         )}
       </CardContent>
 
-      <Dialog open={!!detailsTarget} onOpenChange={(open) => { if (!open) { setDetailsTarget(null); setSupplierDraft(null); } }}>
+      <Dialog open={!!detailsTarget} onOpenChange={(open) => { if (!open) { setDetailsTarget(null); setSupplierDraft(null); setIsEditingSupplier(false); } }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -823,54 +825,98 @@ export function SmartphoneOrderApprovalQueue({
 
                 <div className="rounded-lg border p-3 space-y-2">
                   <div className="flex items-center justify-between">
-                    <p className="text-xs font-semibold">Supplier</p>
-                    {!isAgentOpsActionable(detailsTarget.order_status) && (
-                      <Badge variant="outline" className="text-[10px]">Read-only</Badge>
+                    <div>
+                      <p className="text-xs font-semibold">Supplier (Payout Recipient)</p>
+                      <p className="text-[10px] text-muted-foreground">Account receiving CFO funds disbursement</p>
+                    </div>
+                    {!isEditingSupplier && (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-6 px-2 text-[11px] gap-1"
+                        onClick={() => {
+                          setIsEditingSupplier(true);
+                          setSupplierDraft(
+                            detailsTarget.supplier_id && detailsTarget.supplier_name
+                              ? { id: detailsTarget.supplier_id, name: detailsTarget.supplier_name, phone: null }
+                              : null,
+                          );
+                        }}
+                      >
+                        <Pencil className="h-3 w-3" />
+                        {detailsTarget.supplier_id ? 'Change' : 'Assign'}
+                      </Button>
                     )}
                   </div>
-                  {detailsTarget.supplier_id ? (
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs font-medium truncate">
-                        {detailsTarget.supplier_name || 'Registered supplier'}
+
+                  {isEditingSupplier ? (
+                    <div className="space-y-2 pt-1">
+                      <p className="text-[11px] text-muted-foreground">
+                        Search and select the registered platform user whose account will receive the phone funds disbursement.
                       </p>
-                      {isAgentOpsActionable(detailsTarget.order_status) && (
+                      <SupplierPicker value={supplierDraft} onChange={setSupplierDraft} />
+                      <div className="flex items-center gap-2 pt-1">
                         <Button
+                          type="button"
+                          size="sm"
+                          className="h-7 text-xs gap-1"
+                          disabled={!supplierDraft || assignSupplier.isPending}
+                          onClick={() =>
+                            supplierDraft && assignSupplier.mutate({ id: detailsTarget.id, supplier: supplierDraft })
+                          }
+                        >
+                          {assignSupplier.isPending ? (
+                            <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Saving…</>
+                          ) : (
+                            <><Check className="h-3.5 w-3.5 mr-1" /> Save supplier</>
+                          )}
+                        </Button>
+                        <Button
+                          type="button"
                           size="sm"
                           variant="ghost"
-                          className="h-7 px-2"
+                          className="h-7 text-xs"
                           disabled={assignSupplier.isPending}
-                          onClick={() => assignSupplier.mutate({ id: detailsTarget.id, supplier: null })}
+                          onClick={() => {
+                            setIsEditingSupplier(false);
+                            setSupplierDraft(null);
+                          }}
                         >
-                          <X className="h-3.5 w-3.5 mr-1" /> Clear
+                          Cancel
                         </Button>
-                      )}
+                      </div>
+                    </div>
+                  ) : detailsTarget.supplier_id ? (
+                    <div className="flex items-center justify-between gap-2 bg-muted/40 rounded-md p-2">
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold truncate text-foreground">
+                          {detailsTarget.supplier_name || 'Registered supplier'}
+                        </p>
+                        <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                          ✓ Registered payout recipient
+                        </p>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-xs text-destructive hover:bg-destructive/10 hover:text-destructive shrink-0"
+                        disabled={assignSupplier.isPending}
+                        onClick={() => assignSupplier.mutate({ id: detailsTarget.id, supplier: null })}
+                        title="Clear supplier"
+                      >
+                        <X className="h-3.5 w-3.5 mr-1" /> Clear
+                      </Button>
                     </div>
                   ) : (
-                    <div className="space-y-2">
-                      <p className="text-[11px] text-muted-foreground">
-                        {isAgentOpsActionable(detailsTarget.order_status)
-                          ? 'No supplier assigned yet. Search a registered user to supply this device.'
-                          : 'No supplier assigned yet. Supplier assignment is locked once the application has left Agent Ops.'}
+                    <div className="space-y-1 bg-amber-500/5 border border-amber-500/20 rounded-md p-2.5">
+                      <p className="text-xs font-medium text-amber-700 dark:text-amber-400">
+                        No supplier assigned yet
                       </p>
-                      {isAgentOpsActionable(detailsTarget.order_status) && (
-                        <>
-                          <SupplierPicker value={supplierDraft} onChange={setSupplierDraft} />
-                          <Button
-                            size="sm"
-                            className="h-8"
-                            disabled={!supplierDraft || assignSupplier.isPending}
-                            onClick={() =>
-                              supplierDraft && assignSupplier.mutate({ id: detailsTarget.id, supplier: supplierDraft })
-                            }
-                          >
-                            {assignSupplier.isPending ? (
-                              <><Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> Saving…</>
-                            ) : (
-                              <><Check className="h-3.5 w-3.5 mr-1" /> Assign supplier</>
-                            )}
-                          </Button>
-                        </>
-                      )}
+                      <p className="text-[11px] text-muted-foreground">
+                        CFO disburses phone funds directly to the supplier's account. Click <strong>Assign</strong> above to designate the recipient.
+                      </p>
                     </div>
                   )}
                 </div>
