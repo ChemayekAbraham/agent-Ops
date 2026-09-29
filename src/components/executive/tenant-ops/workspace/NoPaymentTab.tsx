@@ -21,7 +21,8 @@ import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { AlertTriangle, CalendarX2, Check, ChevronsUpDown, Users } from 'lucide-react';
+import { AlertTriangle, CalendarX2, Check, ChevronsUpDown, FileDown, Users } from 'lucide-react';
+import { downloadPdf, generateNoPaymentPdf } from '@/lib/tenantOpsWeeklyPerformancePdf';
 import { formatUGX } from '@/lib/rentCalculations';
 import { useTenantOpsNoPaymentReport } from '@/hooks/useTenantOpsNoPaymentReport';
 import { useTenantNoPaymentNotesSummaries } from '@/hooks/useTenantNoPaymentNotes';
@@ -75,6 +76,24 @@ export default function NoPaymentTab() {
 
   return (
     <div className="space-y-4">
+      <div className="flex justify-end">
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-8 gap-1.5 text-xs"
+          disabled={!data}
+          onClick={() =>
+            data &&
+            downloadPdf(
+              generateNoPaymentPdf(data, selectedAgent?.label ?? null),
+              `Welile_TenantOps_20Plus_Days_No_Payment_${new Date().toISOString().slice(0, 10)}.pdf`,
+            )
+          }
+        >
+          <FileDown className="h-3.5 w-3.5" />
+          Export PDF
+        </Button>
+      </div>
       <p className="text-sm text-muted-foreground">
         Tenants on a live, landlord-funded Rent Plan who have gone 20 or more days without a single
         payment — the same "at risk" plans the Repayment Watchlist already tracks, grouped here by how
