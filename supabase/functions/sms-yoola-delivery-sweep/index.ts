@@ -40,15 +40,80 @@ function extractYoolaMessageId(providerMessageId: string | null, providerRespons
   return firstString(yoolaResponse?.message_id, yoolaResponse?.messageId, yoolaResponse?.id, recipient?.message_id, recipient?.messageId);
 }
 
-function mapYoolaStatus(rawStatus: unknown): { status: "delivered" | "failed" | "pending"; error: string | null } {
+type SweepStatus = "delivered" | "failed" | "accepted" | "pending";
+
+// How far each status is along the road. The sweep may move a row FORWARD, and
+// may always record a terminal verdict, but it must never move one BACKWARD.
+const STATUS_RANK: Record<string, number> = {
+  queued: 0,
+  pending: 1,
+  accepted: 2,
+  sent: 3,
+  delivered: 4,
+  failed: 4,
+};
+
+/**
+ * Decide what to write, given what the row already says.
+ *
+ * `delivered` and `failed` are the provider's final verdict and always win.
+ * Anything else is only written when it is an improvement, so a message that
+ * was already recorded as sent is never demoted back to pending.
+ */
+function settleStatus(current: string | null, mapped: SweepStatus | null): string | null {
+  if (mapped === null) return current;                       // unrecognised report: leave it alone
+  if (mapped === "delivered" || mapped === "failed") return mapped;
+  const now = STATUS_RANK[String(current ?? "").toLowerCase()] ?? 0;
+  return STATUS_RANK[mapped] > now ? mapped : current;
+}
+
+/**
+ * Map yoola's delivery-report word onto our status vocabulary.
+ *
+ * THE BUG THIS FIXES. Yoola's terminal word for a message it has handed to the
+ * carrier is "sent". It does not say "delivered" — measured 2026-09-29, not one
+ * of 92,845 rows in sms_delivery_log has ever held the status `delivered`, so
+ * the "delivered" branch below has never once been taken for yoola. Everything
+ * else fell through to `pending`, which meant:
+ *
+ *   - a row optimistically written as `sent` on dispatch was DEMOTED to
+ *     `pending` by the first sweep, then re-demoted every 10 minutes;
+ *   - it could never climb back out, because the only word yoola would ever
+ *     return was the one that mapped to `pending`;
+ *   - 6,707 yoola messages sat at `pending` against 1,208 at `sent`, while
+ *     africastalking — which does return a real receipt — had zero pending.
+ *
+ * The effect was that delivery reporting for two thirds of yoola traffic was
+ * meaningless: a delivered message and an undelivered one looked identical.
+ *
+ * `accepted` is the honest word for what yoola is actually telling us, and it
+ * is already in the log's vocabulary. It does NOT claim a handset receipt.
+ */
+function mapYoolaStatus(rawStatus: unknown): { status: SweepStatus | null; error: string | null; note: string | null } {
   const normalized = String(rawStatus ?? "").trim().toLowerCase();
-  if (["delivered", "success"].includes(normalized)) return { status: "delivered", error: null };
-  if (["failed", "rejected", "undelivered", "expired", "blocked"].includes(normalized)) {
-    return { status: "failed", error: `Yoola delivery report: ${normalized || "failed"}` };
+
+  if (["delivered", "success", "delivrd"].includes(normalized)) {
+    return { status: "delivered", error: null, note: null };
   }
+  if (["failed", "rejected", "undelivered", "expired", "blocked"].includes(normalized)) {
+    return { status: "failed", error: `Yoola delivery report: ${normalized || "failed"}`, note: null };
+  }
+  if (["sent", "submitted", "accepted", "queued", "pending"].includes(normalized)) {
+    // Not an error, so it does not go in `error` — a note in provider_response
+    // instead. Writing it to `error` made every yoola row look like a failure
+    // on the monitoring surfaces.
+    return {
+      status: "accepted",
+      error: null,
+      note: `Yoola reports "${normalized}": accepted by the carrier, no handset receipt returned`,
+    };
+  }
+
+  // An unrecognised word is not evidence of anything. Record it and change nothing.
   return {
-    status: "pending",
-    error: normalized ? `Yoola delivery report still shows ${normalized}; handset delivery not confirmed yet` : null,
+    status: null,
+    error: null,
+    note: normalized ? `Yoola returned an unrecognised delivery status "${normalized}"` : null,
   };
 }
 
@@ -142,23 +207,25 @@ Deno.serve(async (req) => {
       }
 
       const mapped = mapYoolaStatus(report?.sms_status ?? report?.delivery_status ?? report?.status_text);
+      const nextStatus = settleStatus(row.status, mapped.status);
       const mergedResponse = {
         ...((row.provider_response && typeof row.provider_response === "object") ? row.provider_response as Record<string, unknown> : { send_response: row.provider_response ?? null }),
         delivery_report: report,
         delivery_report_checked_at: new Date().toISOString(),
+        delivery_report_note: mapped.note,
       };
 
       await admin
         .from("sms_delivery_log")
         .update({
-          status: mapped.status,
+          status: nextStatus,
           provider_message_id: messageId,
           provider_response: mergedResponse,
           error: mapped.error,
         })
         .eq("id", row.id);
 
-      results.push({ id: row.id, message_id: messageId, checked: true, status: mapped.status, yoola_status: report?.sms_status ?? null });
+      results.push({ id: row.id, message_id: messageId, checked: true, status: nextStatus, yoola_status: report?.sms_status ?? null });
     }
 
     return new Response(JSON.stringify(
