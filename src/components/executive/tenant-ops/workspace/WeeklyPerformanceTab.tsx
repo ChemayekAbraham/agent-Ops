@@ -25,7 +25,9 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import { CalendarClock, ClipboardList, History, LucideIcon, TrendingUp } from 'lucide-react';
+import { CalendarClock, ClipboardList, FileDown, History, LucideIcon, TrendingUp } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { downloadPdf, generateWeeklyPerformancePdf } from '@/lib/tenantOpsWeeklyPerformancePdf';
 import { cn } from '@/lib/utils';
 import { WorkspaceEmptyState } from '@/components/executive/tenant-ops/workspace/WorkspaceEmptyState';
 import { WorkspaceMobileRow } from '@/components/executive/tenant-ops/workspace/WorkspaceMobileRow';
@@ -124,6 +126,22 @@ export function WeeklyPerformanceTab() {
 
   return (
     <div className="space-y-5">
+      <div className="flex justify-end">
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1.5"
+          disabled={historyLoading}
+          onClick={() =>
+            downloadPdf(
+              generateWeeklyPerformancePdf(data, history ?? []),
+              `Welile_TenantOps_Weekly_Performance_${week_start.slice(0, 10)}.pdf`,
+            )
+          }
+        >
+          <FileDown className="h-4 w-4" /> Export PDF
+        </Button>
+      </div>
       <Card className="border shadow-sm">
         <CardHeader className="px-3 pb-2 sm:px-4">
           <CardTitle className="flex items-center gap-2 text-sm font-semibold">
