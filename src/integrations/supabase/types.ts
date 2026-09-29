@@ -32371,6 +32371,51 @@ export type Database = {
         }
         Relationships: []
       }
+      plan_balance_duplicate_correction_20260929: {
+        Row: {
+          amount_repaid_after: number | null
+          amount_repaid_before: number | null
+          corrected_at: string | null
+          correction: number | null
+          duplicate_count: number | null
+          duplicates_landed: number | null
+          later_decreases: number | null
+          rent_request_id: string
+          status_after: string | null
+          status_before: string | null
+          tenant_id: string | null
+          total_repayment: number | null
+        }
+        Insert: {
+          amount_repaid_after?: number | null
+          amount_repaid_before?: number | null
+          corrected_at?: string | null
+          correction?: number | null
+          duplicate_count?: number | null
+          duplicates_landed?: number | null
+          later_decreases?: number | null
+          rent_request_id: string
+          status_after?: string | null
+          status_before?: string | null
+          tenant_id?: string | null
+          total_repayment?: number | null
+        }
+        Update: {
+          amount_repaid_after?: number | null
+          amount_repaid_before?: number | null
+          corrected_at?: string | null
+          correction?: number | null
+          duplicate_count?: number | null
+          duplicates_landed?: number | null
+          later_decreases?: number | null
+          rent_request_id?: string
+          status_after?: string | null
+          status_before?: string | null
+          tenant_id?: string | null
+          total_repayment?: number | null
+        }
+        Relationships: []
+      }
       platform_expense_transfers: {
         Row: {
           agent_id: string
