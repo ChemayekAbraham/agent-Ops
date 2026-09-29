@@ -78,23 +78,31 @@ export function CFOReceivablesPayablesHome() {
           icon={<TrendingUp className="h-4 w-4" />} tone="success" label="Total Receivables"
           value={money(r?.total, !!r)}
           foot={r ? `${r.item_count} open items` : 'Loading…'}
+          percent={r ? pct(r.total, exposure) : undefined}
+          percentLabel="of total money owed (receivables + payables)"
           spark={spark.map((s) => s.rec)} onClick={() => setSheet('rec')}
         />
         <Kpi
           icon={<TrendingDown className="h-4 w-4" />} tone="destructive" label="Total Payables"
           value={money(p?.total, !!p)}
           foot={p ? `${p.item_count} open obligations · overdue ${formatUGX(p.overdue)}` : 'Loading…'}
+          percent={p ? pct(p.total, exposure) : undefined}
+          percentLabel="of total money owed (receivables + payables)"
           spark={spark.map((s) => s.pay)} onClick={() => setSheet('pay')}
         />
         <Kpi
           icon={<ArrowLeftRight className="h-4 w-4" />} tone="info" label="Net Position (Receivables − Payables)"
           value={r && p ? signedUGX(net) : '—'}
           foot={r && p ? (net < 0 ? 'Payables exceed receivables' : 'Receivables exceed payables') : 'Loading…'}
+          percent={r && p && exposure > 0 ? `${((net / exposure) * 100).toFixed(1)}%` : undefined}
+          percentLabel="net position as a share of total money owed"
         />
         <Kpi
           icon={<CalendarClock className="h-4 w-4" />} tone="primary" label="Expected Cash Inflow (Next 30 Days)"
           value={inflow30 === undefined ? '—' : formatUGX(inflow30)}
           foot="Scheduled + projected collections" onClick={() => setSheet('rec')} chevron
+          percent={inflow30 !== undefined && r ? pct(inflow30, r.total) : undefined}
+          percentLabel="of receivables expected to come in within 30 days"
         />
       </div>
 
@@ -177,8 +185,16 @@ const TONES: Record<string, string> = {
   primary: 'bg-primary/15 text-primary',
 };
 
-function Kpi({ icon, tone, label, value, foot, spark, onClick, chevron }: {
+const FOOT_TONES: Record<string, string> = {
+  success: 'text-success',
+  destructive: 'text-destructive',
+  info: 'text-info',
+  primary: 'text-primary',
+};
+
+function Kpi({ icon, tone, label, value, foot, percent, percentLabel, spark, onClick, chevron }: {
   icon: React.ReactNode; tone: string; label: string; value: string; foot: string;
+  percent?: string; percentLabel?: string;
   spark?: number[]; onClick?: () => void; chevron?: boolean;
 }) {
   const color = tone === 'destructive' ? 'hsl(var(--destructive))' : 'hsl(var(--success))';
@@ -193,15 +209,26 @@ function Kpi({ icon, tone, label, value, foot, spark, onClick, chevron }: {
       <p className="mt-3 text-xs text-muted-foreground">{label}</p>
       <div className="mt-1 flex items-end justify-between gap-2">
         <p className="min-w-0 text-xl font-bold tabular-nums tracking-tight break-words">{value}</p>
-        {data.length > 1 && (
-          <div className="shrink-0 hidden 2xl:block">
-            <AreaChart width={72} height={30} data={data}>
-              <Area type="monotone" dataKey="v" stroke={color} fill={color} fillOpacity={0.12} strokeWidth={1.5} isAnimationActive={false} />
-            </AreaChart>
-          </div>
-        )}
+        <div className="shrink-0 flex items-center gap-2">
+          {percent && (
+            <span
+              className={`inline-flex items-center rounded-full px-1.5 py-0.5 text-[11px] font-semibold tabular-nums ${TONES[tone]}`}
+              aria-label={percentLabel ? `${percent} ${percentLabel}` : percent}
+              title={percentLabel}
+            >
+              {percent}
+            </span>
+          )}
+          {data.length > 1 && (
+            <div className="hidden 2xl:block">
+              <AreaChart width={72} height={30} data={data}>
+                <Area type="monotone" dataKey="v" stroke={color} fill={color} fillOpacity={0.12} strokeWidth={1.5} isAnimationActive={false} />
+              </AreaChart>
+            </div>
+          )}
+        </div>
       </div>
-      <p className="mt-2 text-[11px] text-muted-foreground">{foot}</p>
+      <p className={`mt-2 text-[11px] font-medium ${FOOT_TONES[tone]}`}>{foot}</p>
     </button>
   );
 }
