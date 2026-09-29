@@ -1236,10 +1236,32 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
                       inputMode="numeric"
+                      pattern="[0-9]*"
+                      enterKeyHint="next"
+                      autoComplete="off"
                       className="h-16 pl-16 bg-background/50 border-2 border-border/50 focus:border-primary transition-all text-3xl font-bold"
                       min="1"
                       required
                     />
+                  </div>
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {[5000, 10000, 20000, 50000].map((v) => (
+                      <button
+                        key={v}
+                        type="button"
+                        onClick={() => setAmount(String(v))}
+                        className="min-h-11 rounded-full border border-border/60 bg-muted/40 px-4 text-sm font-semibold active:scale-95"
+                      >
+                        {v.toLocaleString()}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setAmount(String(Math.floor(wallet?.withdrawable || 0)))}
+                      className="min-h-11 rounded-full border border-primary/40 bg-primary/10 px-4 text-sm font-semibold text-primary active:scale-95"
+                    >
+                      Max
+                    </button>
                   </div>
                   <div className="flex items-center justify-between px-1 pt-0.5">
                     <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -1317,9 +1339,9 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
 
                 <motion.div
                   variants={itemVariants}
-                  className="-mx-5 -mb-5 mt-2 border-t border-border/50 bg-background px-5 py-3"
+                  className="sticky bottom-0 z-10 -mx-5 -mb-5 mt-2 border-t border-border/50 bg-background px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
                 >
-                  <DialogFooter className="gap-2 sm:gap-0">
+                  <DialogFooter className="flex-col-reverse gap-2 sm:flex-row sm:gap-0">
                     <motion.div className="w-full sm:w-auto" whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                       <Button type="button" variant="outline" size="lg" className="w-full sm:w-auto" onClick={() => handleClose(false)}>
                         Cancel

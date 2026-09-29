@@ -51398,6 +51398,45 @@ export type Database = {
           },
         ]
       }
+      cto_cron_run_details: {
+        Row: {
+          command: string | null
+          database: string | null
+          end_time: string | null
+          job_pid: number | null
+          jobid: number | null
+          return_message: string | null
+          runid: number | null
+          start_time: string | null
+          status: string | null
+          username: string | null
+        }
+        Insert: {
+          command?: string | null
+          database?: string | null
+          end_time?: string | null
+          job_pid?: number | null
+          jobid?: number | null
+          return_message?: string | null
+          runid?: number | null
+          start_time?: string | null
+          status?: string | null
+          username?: string | null
+        }
+        Update: {
+          command?: string | null
+          database?: string | null
+          end_time?: string | null
+          job_pid?: number | null
+          jobid?: number | null
+          return_message?: string | null
+          runid?: number | null
+          start_time?: string | null
+          status?: string | null
+          username?: string | null
+        }
+        Relationships: []
+      }
       engrep_banded_rollup: {
         Row: {
           band: Database["public"]["Enums"]["hr_difficulty_band"] | null
@@ -51507,14 +51546,14 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "engrep_file_touches_engineer_id_fkey"
-            columns: ["engineer_id"]
+            columns: ["reverted_by_engineer"]
             isOneToOne: false
             referencedRelation: "engrep_engineers"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "engrep_file_touches_engineer_id_fkey"
-            columns: ["reverted_by_engineer"]
+            columns: ["engineer_id"]
             isOneToOne: false
             referencedRelation: "engrep_engineers"
             referencedColumns: ["id"]
