@@ -47,7 +47,7 @@ export function MoneyReceivedCard() {
         { dot: 'bg-amber-500', label: `Pending / unconfirmed (${n(d.pending_count).toLocaleString()})`, value: formatUGX(n(d.pending_amount)), onSelect: () => drill({ label: 'Pending', ...allTime(), status: 'pending', expected: { amount: n(d.pending_amount), count: n(d.pending_count), basis: 'pending' } }) },
       ] : []}
       onClick={() => { total(); }}
-      footer={q.error ? 'Could not load receipts' : 'Excludes internal transfers and accounting corrections'}
+      footer={q.error ? 'Could not load receipts' : undefined}
     />
     <MoneyReceivedReport open={report} onOpenChange={setReport} preset={preset} />
     </>
