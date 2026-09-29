@@ -105,46 +105,20 @@ Deno.serve(async (req) => {
       .eq("enabled", true);
     const roles = (roleRows || []).map((r: { role: string }) => r.role);
     const isSixEyes = String(row.request_kind ?? "requisition") === "requisition";
-    const holdsStageRole = roles.includes(row.current_approver_role);
-    const hasOverride = roles.some((r: string) => OVERRIDE_ROLES.has(r))
-      || roles.some((r: string) => EXEC_OVERRIDE_ROLES.has(r));
-    // Six-eyes: overrides can stop money (decline / send back) at any stage,
-    // but approving needs the stage's own role. Other kinds keep the old rule.
-    const isExecOverride = !(isSixEyes && action === "approve")
-      && roles.some((r: string) => EXEC_OVERRIDE_ROLES.has(r));
-    const ownsStage = holdsStageRole || (hasOverride && !(isSixEyes && action === "approve"));
-    if (!ownsStage) {
-      return json({
-        error: "forbidden",
-        message: isSixEyes && action === "approve" && hasOverride
-          ? `Only a ${String(row.current_approver_role).toUpperCase()} can approve at this stage. Every requisition needs COO, CEO and CFO sign-off from three different people.`
-          : `This requisition is with ${row.current_approver_role}.`,
-      }, 403);
+    // Authorization runs before any write. Seeing the requisition grants nothing.
+    const auth = authorizeStaffRequisitionDecision({
+      row,
+      actorId: actor.id,
+      roles,
+      action: action as "approve" | "reject" | "return_info",
+      isCfoApprover: row.current_approver_role === "cfo" ? await isCfoApprover(admin, actor.id) : false,
+    });
+    if (!auth.allowed) {
+      return json({ error: auth.error, message: auth.message, dry_run: body.dry_run === true }, 403);
     }
-    if (row.requester_id === actor.id && (isSixEyes || !roles.some((r: string) => OVERRIDE_ROLES.has(r)))) {
-      return json({ error: "self_approval_blocked", message: "You cannot decide your own requisition." }, 403);
-    }
-
-    // Six eyes means three different people: whoever signed an earlier stage
-    // cannot sign this one too, even when they hold both roles.
-    if (isSixEyes && action === "approve") {
-      const priorStages = SIX_EYES_ORDER.slice(0, SIX_EYES_ORDER.indexOf(row.stage));
-      const signedEarlier = priorStages.find((s) => row[DECIDED_BY_COL[s]] === actor.id);
-      if (signedEarlier) {
-        return json({
-          error: "same_approver_blocked",
-          message: `You already approved this requisition at ${stageLabel(signedEarlier)} review. The ${stageLabel(row.stage)} approval must come from a different person.`,
-        }, 403);
-      }
-    }
-
-    // CFO-stage decisions are restricted; refusal is deliberately non-disclosing.
-    // The CEO's executive override passes this gate (except six-eyes approvals).
-    if (row.current_approver_role === "cfo" && !isExecOverride && !(await isCfoApprover(admin, actor.id))) {
-      return json({
-        error: "forbidden",
-        message: "This request could not be completed.",
-      }, 403);
+    // Dry run: report the authorization outcome and stop before touching anything.
+    if (body.dry_run === true) {
+      return json({ ok: true, dry_run: true, allowed: true, stage: row.stage }, 200);
     }
 
     const { data: actorProfile } = await admin
