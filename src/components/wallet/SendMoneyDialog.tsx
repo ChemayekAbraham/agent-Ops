@@ -29,7 +29,7 @@ import { WELILE_ITEM_IMAGES } from '@/lib/welileItemImages';
 import { 
   Loader2, Send, Phone, Coins, FileText, CheckCircle, Sparkles, UserCheck, UserX,
   Mail, UtensilsCrossed, Fuel, AlertTriangle, ArrowRight, Home, Egg, Gift, Landmark, Sandwich,
-  Star, X, Pencil, Check, Search, Bike
+  Star, X, Pencil, Check, Search, Bike,
   Lock,
 } from 'lucide-react';
 
