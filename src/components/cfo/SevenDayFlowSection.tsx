@@ -117,15 +117,10 @@ export function SevenDayFlowSection() {
                     </div>
                     <span className="font-mono tabular-nums text-sm font-bold shrink-0">{formatUGX(Math.round(g.amount))}</span>
                   </div>
-                  {g.people.length > 0 && (
-                    <div className="mt-2 space-y-1">
-                      {g.people.map((s, i) => (
-                        <div key={i} className="flex items-center justify-between gap-3 rounded-md bg-muted/30 px-2 py-1 text-xs">
-                          <span className="truncate">{s.who}{s.count > 1 ? ` · ${s.count} items` : ''} <span className="text-muted-foreground">· {s.kind}</span></span>
-                          <span className="font-mono tabular-nums shrink-0">{formatUGX(Math.round(s.amount))}</span>
-                        </div>
-                      ))}
-                    </div>
+                  {g.items > 0 && (
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      {g.items} {g.items === 1 ? 'item' : 'items'} due
+                    </p>
                   )}
                   {g.predicted > 0 && (
                     <p className="mt-2 text-[11px] text-muted-foreground">
@@ -142,22 +137,17 @@ export function SevenDayFlowSection() {
   );
 }
 
-/** Group by product/service, with the people behind each one. */
+/** Group by product/service only — individual people are deliberately not listed. */
 function groupByProduct(list: Source[]) {
-  const m = new Map<string, { key: string; product: string; category: string; amount: number; predicted: number; people: Map<string, Source & { count: number }> }>();
+  const m = new Map<string, { key: string; product: string; category: string; amount: number; predicted: number; items: number }>();
   for (const s of list) {
     const key = `${s.category}|${s.product}`;
     let g = m.get(key);
-    if (!g) { g = { key, product: s.product, category: s.category, amount: 0, predicted: 0, people: new Map() }; m.set(key, g); }
+    if (!g) { g = { key, product: s.product, category: s.category, amount: 0, predicted: 0, items: 0 }; m.set(key, g); }
     g.amount += s.amount;
-    if (s.kind === 'Predicted') { g.predicted += s.amount; continue; }
-    const k = `${s.who}|${s.kind}`;
-    const e = g.people.get(k);
-    if (e) { e.amount += s.amount; e.count += 1; } else g.people.set(k, { ...s, count: 1 });
+    if (s.kind === 'Predicted') g.predicted += s.amount; else g.items += 1;
   }
-  return [...m.values()]
-    .map((g) => ({ ...g, people: [...g.people.values()].sort((a, b) => b.amount - a.amount).slice(0, 25) }))
-    .sort((a, b) => b.amount - a.amount);
+  return [...m.values()].sort((a, b) => b.amount - a.amount);
 }
 
 function Win({ title, icon, tone, rows, onPick }: { title: string; icon: React.ReactNode; tone: string; rows: Row[]; onPick: (r: Row) => void }) {
