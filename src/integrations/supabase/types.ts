@@ -64303,6 +64303,10 @@ export type Database = {
         }
         Returns: Json
       }
+      landlord_pool_rebalance: {
+        Args: { p_caller?: string; p_portfolio_id: string }
+        Returns: Json
+      }
       landlord_pool_reserve: {
         Args: {
           p_caller?: string
