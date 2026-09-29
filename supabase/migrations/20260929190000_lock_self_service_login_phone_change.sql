@@ -1,7 +1,7 @@
 -- CEO concern 2026-09-29: "If the login phone can be changed by just an SMS OTP
 -- to the new number, withdraw verification has no help."
 --
--- Two holes closed here (see docs/HANDOVER/161):
+-- Two holes closed here (see docs/HANDOVER/162):
 --
 -- 1. profiles.phone was directly writable by the account owner. RLS policy
 --    "Users can update own profile" + column UPDATE grant to `authenticated`

@@ -1,4 +1,4 @@
-# 161. Login-phone change needs proof of the OLD number (2026-09-29)
+# 162. Login-phone change needs proof of the OLD number (2026-09-29)
 
 **Status: written, NOT yet deployed.** Needs: migration `20260929190000`, deploy edge functions
 `self-update-phone` and `issue-wallet-withdrawal-otp`, then the frontend. Deploy the edge functions
