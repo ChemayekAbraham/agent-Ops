@@ -85,20 +85,41 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
     [tenantCategory],
   );
 
-  /** Categories sorted with the tenant book pinned first, for the category drill-down. */
+  /**
+   * Categories with the tenant book pinned first, for the category drill-down.
+   * Service Centre is not an independent family: its lines fold into
+   * Agent Products & Services (same agent book), so it never appears as its
+   * own dropdown entry. Amounts are merged, never dropped.
+   */
   const sortedCategories = useMemo(() => {
     const cats = breakdown.data?.categories ?? [];
-    return cats.slice().sort((a, b) => {
+    const isServiceCentre = (c: { key: string; label: string }) =>
+      c.key === 'service_centre' || /service cent/i.test(c.label);
+    const serviceCentre = cats.find(isServiceCentre);
+    const base = cats.filter((c) => !isServiceCentre(c));
+    const merged = serviceCentre
+      ? base.map((cat) => {
+          if (cat.key !== 'agent' && cat.label !== AGENT_CATEGORY_LABEL) return cat;
+          return {
+            ...cat,
+            outstanding: cat.outstanding + serviceCentre.outstanding,
+            item_count: cat.item_count + serviceCentre.item_count,
+            products: [...cat.products, ...serviceCentre.products].sort(
+              (a, b) => b.outstanding - a.outstanding,
+            ),
+          };
+        })
+      : base;
+    return merged.slice().sort((a, b) => {
       if (a.label === TENANT_CATEGORY_LABEL && b.label !== TENANT_CATEGORY_LABEL) return -1;
       if (b.label === TENANT_CATEGORY_LABEL && a.label !== TENANT_CATEGORY_LABEL) return 1;
       return 0;
     });
   }, [breakdown.data]);
 
-  /** Flat list of every product/service across categories, for the filter. */
+  /** Flat list of every product/service across merged categories, for the filter. */
   const productOptions = useMemo(() => {
-    const cats = breakdown.data?.categories ?? [];
-    return cats.flatMap((cat) => {
+    return sortedCategories.flatMap((cat) => {
       const products = cat.key === 'tenant' || cat.label === TENANT_CATEGORY_LABEL
         ? tenantProducts
         : cat.products;
@@ -110,17 +131,17 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
         projectionAvailable: 'projectionAvailable' in prod ? prod.projectionAvailable : true,
       }));
     });
-  }, [breakdown.data, tenantProducts]);
+  }, [sortedCategories, tenantProducts]);
 
   const filteredTotal = useMemo(() => {
     if (productFilter === ALL_PRODUCTS || !breakdown.data) return null;
     const [catKey, prodKey] = productFilter.split(':');
-    const category = breakdown.data.categories.find((c) => c.key === catKey);
+    const category = sortedCategories.find((c) => c.key === catKey);
     const prod = category?.label === TENANT_CATEGORY_LABEL
       ? tenantProducts.find((p) => p.key === prodKey)
       : category?.products.find((p) => p.key === prodKey);
     return prod?.outstanding ?? 0;
-  }, [productFilter, breakdown.data, tenantProducts]);
+  }, [productFilter, sortedCategories, breakdown.data, tenantProducts]);
 
   const selectedTenantProduct = useMemo(() => {
     if (productFilter === ALL_PRODUCTS) return tenantProducts[0];
