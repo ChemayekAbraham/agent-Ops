@@ -29,3 +29,4 @@
 - [x] Redesign CFO Cash Position to match the supplied clean 4-by-2 financial overview while preserving live logic and drill-downs.
 
 - [x] Redesign the CFO Cash Position payout report as a unified professional report, preserving live figures, controls, export, and pagination.
+- [x] Add next/past 7-day receivable windows on each receivable page; next 7 days is predicted (ideal + behaviour), past 7 days shows ideal only.
