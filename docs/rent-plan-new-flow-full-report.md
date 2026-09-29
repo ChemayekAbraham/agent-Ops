@@ -297,6 +297,7 @@ against the same allocation; leave `status` and `repayment_starts_on` alone.
 | A1 | CFO disburses landlord float | **SMS** (new) + email + in-app | float has arrived; pay the landlord; deadline stated |
 | A2 | 6 hours after funding, if no payout dispatched | **SMS** (new) | reminder |
 | A3 | 18 hours after funding, if no payout dispatched | **SMS** (new) | warning — 6 hours left |
+| AP | Agent pays the landlord | **SMS** | confirmation + receipt number + commission + upload the receipt |
 | A4 | 24 hours, no payout ever dispatched | **SMS** (new) + in-app | float returned, plan cancelled |
 | A5 | Payout fails after dispatch | in-app + FinOps alert | retry required — **no penalty** |
 
@@ -324,6 +325,23 @@ Reminder: UGX {rent_amount} for landlord {landlord_name} is still in your
 wallet. You have 6 hours left ({deadline_time}). After that the float is
 returned and {tenant_name}'s Rent Plan is cancelled. Ref {ref}.
 ```
+
+**AP** — the success exit. This is what the agent gets instead of A4.
+```
+UGX {rent_amount} has been paid to landlord {landlord_name}. Receipt No {receipt_number}.
+
+{tenant_first_name} starts repaying TOMORROW, {repayment_starts_on}: UGX {instalment} {per day|per week}.
+
+You earned UGX {commission_ugx} commission.
+
+Please upload the receipt.
+```
+
+Two parts are conditional, and the message is built WITHOUT them rather than
+with an empty placeholder. `Receipt No {receipt_number}.` appears only once the
+landlord receipt has been issued. The commission paragraph appears only when the
+commission leg actually exists in `general_ledger` — an agent is never told they
+earned money that was not posted.
 
 **A4**
 ```

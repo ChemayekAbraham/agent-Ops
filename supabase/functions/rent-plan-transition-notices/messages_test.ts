@@ -24,6 +24,7 @@ import { assertEquals } from 'https://deno.land/std@0.224.0/assert/mod.ts';
 import {
   agentMessage,
   agentNudgeMessage,
+  agentPaidMessage,
   agentCancelledMessage,
   tenantMessage,
   tenantCancelledMessage,
@@ -141,4 +142,43 @@ Deno.test('A2 matches the document', () => {
   same('A2', actual, `UGX 100,000 landlord float for John Kibalama (Aaron Gwokto) is still
 in your wallet. Pay the landlord by 16:43 on Tuesday 29 September.
 Payouts run 06:00–22:00. Ref 9C078BF7.`);
+});
+
+Deno.test('AP matches the document', () => {
+  const actual = agentPaidMessage({
+    rent_request_id: 'r1', agent_id: 'a1', agent_phone: '+256700000000',
+    agent_name: 'PIUSLUBEGA SSENKALI', landlord_name: 'DEMO',
+    tenant_first_name: 'SSEMANDO', rent_amount: 100000,
+    instalment: 4767, period_label: 'per day',
+    repayment_starts_on: '2026-09-30',
+    receipt_number: 'WLR-100336', commission_ugx: 1000,
+  });
+
+  same('AP', actual, `UGX 100,000 has been paid to landlord DEMO. Receipt No WLR-100336.
+
+SSEMANDO starts repaying TOMORROW, Wednesday 30 September: UGX 4,767 per day.
+
+You earned UGX 1,000 commission.
+
+Please upload the receipt.`);
+});
+
+// The two conditional parts, also from the document: built WITHOUT them, not
+// with an empty placeholder. This is the A1 mistake in miniature - a receipt
+// number that is not there must not leave 'Receipt No .' in a live SMS.
+Deno.test('AP drops the receipt line and the commission when neither exists', () => {
+  const actual = agentPaidMessage({
+    rent_request_id: 'r1', agent_id: 'a1', agent_phone: '+256700000000',
+    agent_name: 'PIUSLUBEGA SSENKALI', landlord_name: 'DEMO',
+    tenant_first_name: 'SSEMANDO', rent_amount: 100000,
+    instalment: 4767, period_label: 'per day',
+    repayment_starts_on: '2026-09-30',
+    receipt_number: null, commission_ugx: null,
+  });
+
+  same('AP (no receipt, no commission)', actual, `UGX 100,000 has been paid to landlord DEMO.
+
+SSEMANDO starts repaying TOMORROW, Wednesday 30 September: UGX 4,767 per day.
+
+Please upload the receipt.`);
 });
