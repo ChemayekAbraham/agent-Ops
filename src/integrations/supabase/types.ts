@@ -23486,6 +23486,7 @@ export type Database = {
         Row: {
           created_at: string
           deployed: number
+          entry_kind: string
           id: string
           in_pool: number | null
           origin: string
@@ -23504,6 +23505,7 @@ export type Database = {
         Insert: {
           created_at?: string
           deployed?: number
+          entry_kind?: string
           id?: string
           in_pool?: number | null
           origin: string
@@ -23522,6 +23524,7 @@ export type Database = {
         Update: {
           created_at?: string
           deployed?: number
+          entry_kind?: string
           id?: string
           in_pool?: number | null
           origin?: string
@@ -52060,14 +52063,14 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "engrep_file_touches_engineer_id_fkey"
-            columns: ["engineer_id"]
+            columns: ["reverted_by_engineer"]
             isOneToOne: false
             referencedRelation: "engrep_engineers"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "engrep_file_touches_engineer_id_fkey"
-            columns: ["reverted_by_engineer"]
+            columns: ["engineer_id"]
             isOneToOne: false
             referencedRelation: "engrep_engineers"
             referencedColumns: ["id"]
@@ -53413,6 +53416,41 @@ export type Database = {
           tenant_count: number | null
         }
         Relationships: []
+      }
+      v_landlord_pool_position: {
+        Row: {
+          attached_to: string | null
+          deployed: number | null
+          entries: number | null
+          entry_kind: string | null
+          first_reserved_at: string | null
+          in_pool: number | null
+          last_reserved_at: string | null
+          origin: string | null
+          out_with_tenants: number | null
+          partner_id: string | null
+          portfolio_code: string | null
+          portfolio_id: string | null
+          released: number | null
+          reserved: number | null
+          returned: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landlord_pool_entries_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_pool_entries_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+        ]
       }
       v_landlord_pool_unreserved: {
         Row: {
@@ -64312,6 +64350,17 @@ export type Database = {
           p_caller?: string
           p_funding_group_ids?: string[]
           p_portfolio_id: string
+        }
+        Returns: Json
+      }
+      landlord_pool_reserve_increment: {
+        Args: {
+          p_amount: number
+          p_caller?: string
+          p_kind: string
+          p_portfolio_id: string
+          p_source_id: string
+          p_source_table: string
         }
         Returns: Json
       }
