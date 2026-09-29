@@ -101,9 +101,22 @@ export function ReceivablesSevenDayWindow({
   );
 }
 
-function WindowCard({ title, hint, icon, rows }: { title: string; hint: string; icon: React.ReactNode; rows: Row[] }) {
+function WindowCard({
+  title,
+  hint,
+  icon,
+  rows,
+  showBehaviour = true,
+}: {
+  title: string;
+  hint: string;
+  icon: React.ReactNode;
+  rows: Row[];
+  showBehaviour?: boolean;
+}) {
   const ideal = rows.reduce((s, r) => s + r.ideal, 0);
   const behaviour = rows.reduce((s, r) => s + r.behaviour, 0);
+  const cols = showBehaviour ? 'grid-cols-3' : 'grid-cols-2';
   return (
     <Card className="border-border/60">
       <CardContent className="p-4">
@@ -114,25 +127,30 @@ function WindowCard({ title, hint, icon, rows }: { title: string; hint: string; 
             <p className="text-[11px] text-muted-foreground">{hint}</p>
           </div>
         </div>
-        <div className="mt-3 grid grid-cols-2 gap-2">
+        <div className={`mt-3 grid gap-2 ${showBehaviour ? 'grid-cols-2' : 'grid-cols-1'}`}>
           <div className="rounded-md bg-muted/40 px-2.5 py-2">
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Ideal</p>
             <p className="text-sm font-bold font-mono tabular-nums">{formatUGX(Math.round(ideal))}</p>
           </div>
-          <div className="rounded-md bg-primary/10 px-2.5 py-2">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Based on behaviour</p>
-            <p className="text-sm font-bold font-mono tabular-nums text-primary">{formatUGX(Math.round(behaviour))}</p>
-          </div>
+          {showBehaviour && (
+            <div className="rounded-md bg-primary/10 px-2.5 py-2">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Based on behaviour</p>
+              <p className="text-sm font-bold font-mono tabular-nums text-primary">{formatUGX(Math.round(behaviour))}</p>
+            </div>
+          )}
         </div>
         <div className="mt-3 space-y-1">
-          <div className="grid grid-cols-3 px-2 text-[10px] uppercase tracking-wider text-muted-foreground">
-            <span>Day</span><span className="text-right">Ideal</span><span className="text-right">Behaviour</span>
+          <div className={`grid ${cols} px-2 text-[10px] uppercase tracking-wider text-muted-foreground`}>
+            <span>Day</span><span className="text-right">Ideal</span>
+            {showBehaviour && <span className="text-right">Behaviour</span>}
           </div>
           {rows.map((r) => (
-            <div key={r.label} className="grid grid-cols-3 rounded-md bg-muted/30 px-2 py-1.5 text-xs">
+            <div key={r.label} className={`grid ${cols} rounded-md bg-muted/30 px-2 py-1.5 text-xs`}>
               <span className="truncate">{r.label}</span>
               <span className="text-right font-mono tabular-nums">{formatUGX(Math.round(r.ideal))}</span>
-              <span className="text-right font-mono tabular-nums font-semibold">{formatUGX(Math.round(r.behaviour))}</span>
+              {showBehaviour && (
+                <span className="text-right font-mono tabular-nums font-semibold">{formatUGX(Math.round(r.behaviour))}</span>
+              )}
             </div>
           ))}
         </div>
