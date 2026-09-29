@@ -158,28 +158,9 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
     }
   }, [open, user?.id]);
 
-  // Anti-fraud gate: user-to-user transfers require at least 7 approved deposits.
-  // We fetch the current count each time the dialog opens so the message and the
-  // disabled state reflect the freshest server truth.
-  useEffect(() => {
-    if (!open || !user?.id) return;
-    let cancelled = false;
-    (async () => {
-      const { count, error } = await supabase
-        .from('deposit_requests')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .eq('status', 'approved');
-      if (cancelled) return;
-      if (error) {
-        // On error we still allow the server-side gate to be the final word.
-        setApprovedDepositCount(null);
-        return;
-      }
-      setApprovedDepositCount(count ?? 0);
-    })();
-    return () => { cancelled = true; };
-  }, [open, user?.id]);
+  // No deposit-history gate: any user may send what they hold in their
+  // withdrawable balance, however it got there (earned or deposited). The
+  // balance check is the only money gate.
 
   // Agent performance gate — locks transfers when today's collection ratio
   // is under 20% (matches server-side wallet-transfer + withdrawal trigger).
@@ -220,11 +201,6 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
     })();
     return () => { cancelled = true; };
   }, [open, user?.id]);
-
-  const depositsCompleted = approvedDepositCount ?? 0;
-  const transferLocked =
-    approvedDepositCount !== null && depositsCompleted < MIN_APPROVED_DEPOSITS;
-  const depositsRemaining = Math.max(0, MIN_APPROVED_DEPOSITS - depositsCompleted);
 
   // Fill the input from a saved recipient chip — the debounced lookup re-resolves them.
   const selectSavedRecipient = (r: SavedRecipient) => {
@@ -493,9 +469,6 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
     if (loading) return 'Sending… please wait.';
     if (perfLocked) {
       return `Transfers disabled: today's collection is ${(perfPct ?? 0).toFixed(1)}% (min 20%). Collect from your tenants first.`;
-    }
-    if (transferLocked) {
-      return `Sending to another user unlocks after ${MIN_APPROVED_DEPOSITS} approved deposits (${depositsCompleted}/${MIN_APPROVED_DEPOSITS}).`;
     }
     const amountNum = parseFloat(amount);
     if (mode === 'phone' && !phone.trim()) return 'Enter the recipient phone number to continue.';
@@ -832,30 +805,7 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
                     </div>
                   )}
                 </motion.div>
-                {transferLocked && (
-                  <motion.div
-                    variants={itemVariants}
-                    className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4"
-                  >
-                    <div className="flex items-start gap-3">
-                      <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
-                      <div className="space-y-1">
-                        <p className="text-sm font-semibold text-foreground">
-                          Sending to other users is locked
-                        </p>
-                        <p className="text-xs leading-relaxed text-muted-foreground">
-                          To protect the community from fraud, user-to-user transfers unlock
-                          after <span className="font-semibold text-foreground">{MIN_APPROVED_DEPOSITS} approved deposits</span>.
-                          You have <span className="font-semibold text-foreground">{depositsCompleted}/{MIN_APPROVED_DEPOSITS}</span>
-                          {depositsRemaining > 0 && (
-                            <> — {depositsRemaining} more to go</>
-                          )}. You can still deposit, withdraw, pay rent and pay merchants normally.
-                        </p>
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-                {!transferLocked && perfLocked && (
+                {perfLocked && (
                   <motion.div
                     variants={itemVariants}
                     className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4"
