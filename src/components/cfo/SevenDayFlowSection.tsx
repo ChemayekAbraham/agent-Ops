@@ -2,13 +2,15 @@ import { useMemo, useState } from 'react';
 import { CalendarClock, ChevronRight, History, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { formatUGX } from '@/lib/rentCalculations';
-import { useReceivablesBreakdown, useReceivablesPredictiveForecast } from '@/hooks/useReceivables';
-import { usePayablesBreakdown, usePayablesPredictiveForecast } from '@/hooks/usePayables';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useReceivablesPredictiveForecast } from '@/hooks/useReceivables';
+import { usePayablesPredictiveForecast } from '@/hooks/usePayables';
 
 const DAY = 86_400_000;
 const fmt = (d: Date) => d.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' });
 
-interface Source { who: string; category: string; product: string; amount: number; kind: string }
+interface Source { who: string; category: string; product: string; amount: number; kind: string; count?: number }
 interface Row { label: string; amount: number; sources: Source[] }
 type Cat = {
   label: string;
@@ -99,7 +101,7 @@ export function SevenDayFlowSection() {
     };
   }, [recL.data, payL.data, recF.data, payF.data]);
 
-  const loading = recB.isLoading || payB.isLoading || recF.isLoading || payF.isLoading;
+  const loading = recL.isLoading || payL.isLoading || recF.isLoading || payF.isLoading;
   const pick = (title: string) => (row: Row) => setOpen({ title, row });
 
   return (
@@ -172,7 +174,7 @@ function groupByProduct(list: Source[]) {
     let g = m.get(key);
     if (!g) { g = { key, product: s.product, category: s.category, amount: 0, predicted: 0, items: 0 }; m.set(key, g); }
     g.amount += s.amount;
-    if (s.kind === 'Predicted') g.predicted += s.amount; else g.items += 1;
+    if (s.kind === 'Predicted') g.predicted += s.amount; else g.items += s.count ?? 1;
   }
   return [...m.values()].sort((a, b) => b.amount - a.amount);
 }
