@@ -90,6 +90,76 @@ async function sendSMS(
   }
 }
 
+// ── Payslip email — mirrors the on-screen payslip (hr_pay_payslip_lines).
+function periodLabel(code: string): string {
+  const m = /^(\d{4})-(\d{2})$/.exec(code);
+  if (!m) return code;
+  const names = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
+    'August', 'September', 'October', 'November', 'December'];
+  return `${names[Number(m[2]) - 1] ?? m[2]} ${m[1]}`;
+}
+
+async function sendPayslipEmail(
+  admin: ReturnType<typeof createClient>,
+  a: {
+    supabaseUrl: string; serviceKey: string; payslipId: string; staffRef: string;
+    userId: string; periodCode: string; net: number; paidAt: string;
+  },
+): Promise<void> {
+  const { data: prof } = await admin
+    .from('profiles').select('email, full_name').eq('id', a.userId).maybeSingle();
+  const email = ((prof as any)?.email ?? '').toString().trim();
+  if (!email) {
+    console.log(`[hr-pay-release] payslip email skipped (no email) payslip=${a.payslipId}`);
+    return;
+  }
+
+  const { data: slip } = await admin
+    .from('hr_pay_payslips')
+    .select('gross, nssf_employer, hr_positions(title), hr_departments(name)')
+    .eq('id', a.payslipId).maybeSingle();
+  const { data: lines } = await admin
+    .from('hr_pay_payslip_lines')
+    .select('name, kind, amount, display_order')
+    .eq('payslip_id', a.payslipId)
+    .order('display_order', { ascending: true });
+
+  const all = (lines ?? []) as Array<{ name: string; kind: string; amount: number }>;
+  const earnings = all.filter((l) => l.kind === 'earning');
+  // Zero-value deduction lines (no LST, no other deductions) are left out.
+  const deductions = all.filter((l) => l.kind === 'deduction' && Number(l.amount) > 0);
+  const totalDeductions = deductions.reduce((s, l) => s + Number(l.amount), 0);
+  const s = slip as any;
+  const fullName = ((prof as any)?.full_name ?? '').toString().trim();
+
+  const res = await fetch(`${a.supabaseUrl}/functions/v1/send-transactional-email`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${a.serviceKey}` },
+    body: JSON.stringify({
+      templateName: 'salary-payslip',
+      recipientEmail: email,
+      idempotencyKey: `salary-payslip-${a.payslipId}`,
+      templateData: {
+        first_name: fullName.split(/\s+/)[0] || 'Team Member',
+        period_label: periodLabel(a.periodCode),
+        net_pay: a.net,
+        currency: 'UGX',
+        staff_ref: a.staffRef,
+        position: s?.hr_positions?.title ?? '',
+        department: s?.hr_departments?.name ?? '',
+        paid_on: new Date(a.paidAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }),
+        earnings: earnings.map((l) => ({ name: l.name, amount: Number(l.amount) })),
+        gross_pay: Number(s?.gross ?? earnings.reduce((t, l) => t + Number(l.amount), 0)),
+        deductions: deductions.map((l) => ({ name: l.name, amount: Number(l.amount) })),
+        total_deductions: totalDeductions,
+        employer_nssf: Number(s?.nssf_employer ?? 0),
+        payslip_url: `https://welileapp.com/hr/pay/payslips/${a.payslipId}`,
+      },
+    }),
+  });
+  console.log(`[hr-pay-release] payslip email ${res.ok ? 'queued' : 'failed ' + res.status} payslip=${a.payslipId}`);
+}
+
 const json = (payload: unknown, status: number) =>
   new Response(JSON.stringify(payload), {
     status,
@@ -372,6 +442,24 @@ Deno.serve(async (req) => {
         }
       } catch (e) {
         console.error('[hr-pay-release] salary SMS failed:', (e as Error).message);
+      }
+
+      // l. payslip email — same rules as the SMS: only after a posted
+      // disbursement, and never allowed to affect the payment. Idempotent on
+      // the payslip id, so a retry or double release cannot send it twice.
+      try {
+        await sendPayslipEmail(adminClient, {
+          supabaseUrl,
+          serviceKey,
+          payslipId: p.id,
+          staffRef: p.hr_staff?.staff_ref ?? '',
+          userId: employeeUserId,
+          periodCode,
+          net,
+          paidAt: payTxDate,
+        });
+      } catch (e) {
+        console.error('[hr-pay-release] payslip email failed:', (e as Error).message);
       }
     }
 

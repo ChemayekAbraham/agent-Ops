@@ -62,6 +62,7 @@ import { template as proxyAgentOnboardedTemplate } from './proxy-agent-onboarded
 import { template as proxyDailyNudgeTemplate } from './proxy-daily-nudge.tsx'
 import { template as smartphoneOrderDisbursedTemplate } from './smartphone-order-disbursed.tsx'
 import { template as lendingRepaymentStatusTemplate } from './lending-repayment-status.tsx'
+import { template as salaryPayslipTemplate } from './salary-payslip.tsx'
 import type { TemplateEntry } from './types.ts'
 
 export const TEMPLATES: Record<string, TemplateEntry> = {
@@ -128,4 +129,5 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'proxy-daily-nudge': proxyDailyNudgeTemplate,
   'smartphone-order-disbursed': smartphoneOrderDisbursedTemplate,
   'lending-repayment-status': lendingRepaymentStatusTemplate,
+  'salary-payslip': salaryPayslipTemplate,
 }
