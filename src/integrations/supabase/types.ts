@@ -42425,6 +42425,109 @@ export type Database = {
           },
         ]
       }
+      staff_survey_responses: {
+        Row: {
+          id: string
+          no_tin: boolean
+          nssf_number: string | null
+          percentage: number | null
+          responded_at: string
+          response: string
+          survey_id: string
+          tin: string | null
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          no_tin?: boolean
+          nssf_number?: string | null
+          percentage?: number | null
+          responded_at?: string
+          response: string
+          survey_id: string
+          tin?: string | null
+          user_id: string
+        }
+        Update: {
+          id?: string
+          no_tin?: boolean
+          nssf_number?: string | null
+          percentage?: number | null
+          responded_at?: string
+          response?: string
+          survey_id?: string
+          tin?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_survey_responses_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "staff_surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_survey_snoozes: {
+        Row: {
+          snooze_count: number
+          snooze_until: string
+          survey_id: string
+          user_id: string
+        }
+        Insert: {
+          snooze_count?: number
+          snooze_until: string
+          survey_id: string
+          user_id: string
+        }
+        Update: {
+          snooze_count?: number
+          snooze_until?: string
+          survey_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_survey_snoozes_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "staff_surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_surveys: {
+        Row: {
+          active: boolean
+          body: string
+          code: string
+          created_at: string
+          id: string
+          kind: string
+          title: string
+        }
+        Insert: {
+          active?: boolean
+          body: string
+          code: string
+          created_at?: string
+          id?: string
+          kind: string
+          title: string
+        }
+        Update: {
+          active?: boolean
+          body?: string
+          code?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          title?: string
+        }
+        Relationships: []
+      }
       standing_order_audit_log: {
         Row: {
           acted_by: string | null
@@ -68666,6 +68769,60 @@ export type Database = {
           stage: string
         }[]
       }
+      staff_survey_is_employee: { Args: never; Returns: boolean }
+      staff_survey_pending: {
+        Args: never
+        Returns: {
+          body: string
+          kind: string
+          snooze_count: number
+          survey_id: string
+          title: string
+        }[]
+      }
+      staff_survey_respond: {
+        Args: {
+          _no_tin?: boolean
+          _nssf_number?: string
+          _percentage?: number
+          _response: string
+          _survey_id: string
+          _tin?: string
+        }
+        Returns: {
+          id: string
+          no_tin: boolean
+          nssf_number: string | null
+          percentage: number | null
+          responded_at: string
+          response: string
+          survey_id: string
+          tin: string | null
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "staff_survey_responses"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      staff_survey_results: {
+        Args: { _survey_id: string }
+        Returns: {
+          department: string
+          full_name: string
+          no_tin: boolean
+          nssf_number: string
+          percentage: number
+          responded_at: string
+          response: string
+          staff_ref: string
+          tin: string
+          user_id: string
+        }[]
+      }
+      staff_survey_snooze: { Args: { _survey_id: string }; Returns: undefined }
       stamp_float_request_settlement: {
         Args: { p_reference: string; p_request_id: string }
         Returns: undefined
