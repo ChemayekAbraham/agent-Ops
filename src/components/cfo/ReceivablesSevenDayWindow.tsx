@@ -92,9 +92,10 @@ export function ReceivablesSevenDayWindow({
       />
       <WindowCard
         title="Receivables in the past 7 days"
-        hint="Due vs typical daily collection behaviour"
+        hint="Scheduled amounts that fell due in the last 7 days"
         icon={<History className="h-4 w-4 text-muted-foreground" />}
         rows={past}
+        showBehaviour={false}
       />
     </div>
   );
