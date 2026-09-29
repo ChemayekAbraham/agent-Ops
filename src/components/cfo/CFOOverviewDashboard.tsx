@@ -608,8 +608,8 @@ export function CFOOverviewDashboard({
                           <YAxis tickFormatter={(v: number) => fmtShort(v)} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" width={52} />
                           <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ borderRadius: 12, fontSize: 12 }} />
                           <Legend wrapperStyle={{ fontSize: 11 }} />
-                          <Bar name="Cash In" dataKey="inflow" fill="#10b981" radius={[4, 4, 0, 0]} barSize={24} />
-                          <Bar name="Cash Out" dataKey="outflow" fill="#f97316" radius={[4, 4, 0, 0]} barSize={24} />
+                          <Bar name="Cash In" dataKey="inflow" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} barSize={24} />
+                          <Bar name="Cash Out" dataKey="outflow" fill="hsl(var(--warning))" radius={[4, 4, 0, 0]} barSize={24} />
                         </ComposedChart>
                       </ResponsiveContainer>
                     </div>
