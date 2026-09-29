@@ -415,7 +415,7 @@ Deno.serve(async (req) => {
     // every other wallet transfer is presented in the ledger).
     const { data: parties } = await adminClient
       .from('profiles')
-      .select('id, full_name, phone')
+      .select('id, full_name, phone, email')
       .in('id', [senderId, resolvedRecipientId]);
     const senderProfile = parties?.find((p) => p.id === senderId);
     const recipientProfile = parties?.find((p) => p.id === resolvedRecipientId);
@@ -551,6 +551,29 @@ Deno.serve(async (req) => {
       body: JSON.stringify({ title: "💳 Wallet Transfer", body: "Activity: wallet transfer", url: "/dashboard/manager" }),
     }).catch(() => {});
 
+    // Shopping Advance access limit (display only — no balance, limit or
+    // ledger write). Starts at UGX 30,000 and grows by 2x every transfer
+    // received, capped at UGX 30,000,000.
+    const ADV_MIN = 30000;
+    const ADV_MAX = 30000000;
+    const advanceIncrease = Math.min(amount * 2, ADV_MAX);
+    let advanceTotal = Math.min(ADV_MIN + advanceIncrease, ADV_MAX);
+    try {
+      const { data: rx } = await adminClient
+        .from('general_ledger')
+        .select('amount')
+        .eq('user_id', resolvedRecipientId)
+        .eq('category', 'wallet_transfer')
+        .eq('direction', 'cash_in')
+        .limit(5000);
+      const received = (rx ?? []).reduce((s: number, r: any) => s + Number(r.amount || 0), 0);
+      if (received > 0) advanceTotal = Math.min(ADV_MIN + received * 2, ADV_MAX);
+    } catch { /* best-effort */ }
+    const fmtUgx = (n: number) => `UGX ${Math.round(n).toLocaleString('en-US')}`;
+    const advanceLine =
+      ` Your Shopping Advance limit grew by ${fmtUgx(advanceIncrease)} (2x) to ${fmtUgx(advanceTotal)}.` +
+      ` Limits: min UGX 30,000, max UGX 30,000,000.`;
+
     // Push notification to sender & recipient (fire-and-forget)
     fetch(`${supabaseUrl}/functions/v1/send-push-notification`, {
       method: "POST",
@@ -567,9 +590,9 @@ Deno.serve(async (req) => {
         userIds: [resolvedRecipientId],
         payload: {
           title: "💰 Transfer Received",
-          body: hasReason
+          body: (hasReason
             ? `UGX ${amount.toLocaleString()} from ${senderLabel} — ${trimmedReason}`
-            : `UGX ${amount.toLocaleString()} received from ${senderLabel}`,
+            : `UGX ${amount.toLocaleString()} received from ${senderLabel}`) + advanceLine,
           url: "/dashboard/tenant",
           type: "success",
         },
@@ -598,8 +621,30 @@ Deno.serve(async (req) => {
         `WELILE: You have received ${formattedAmount} from ${senderLabel}.` +
         ` Reason: ${trimmedReason || 'Wallet transfer'}.` +
         recipientBalanceText +
+        advanceLine +
         ` Ref: ${transferReference}. Open the app: ${appLink}`;
       sendSMS(recipientProfile.phone, smsMessage).catch(() => {});
+    }
+
+    // Email to recipient with their Shopping Advance access limit.
+    const recipientEmail = (recipientProfile as any)?.email;
+    if (recipientEmail && /@/.test(recipientEmail) && !/@(welile\.local|placeholder)/i.test(recipientEmail)) {
+      adminClient.functions.invoke('send-transactional-email', {
+        body: {
+          templateName: 'wallet-transfer-received',
+          recipientEmail,
+          idempotencyKey: `wallet-transfer-received-${transferReference}`,
+          templateData: {
+            recipient_name: recipientProfile?.full_name || undefined,
+            sender_name: senderLabel,
+            amount,
+            reference: transferReference,
+            description: trimmedReason || undefined,
+            advance_increase: advanceIncrease,
+            advance_total: advanceTotal,
+          },
+        },
+      }).catch(() => {});
     }
 
     // SMS to sender: transfer confirmation + new balance + app link

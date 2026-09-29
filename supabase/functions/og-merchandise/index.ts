@@ -121,7 +121,7 @@ Deno.serve(async (req) => {
     Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
   );
 
-  if (!itemId && shareCode && /^[a-z0-9]{4,16}$/i.test(shareCode)) {
+  if (!itemId && shareCode && /^(welile-)?[a-z0-9]{4,16}$/i.test(shareCode)) {
     const { data: codeRow } = await supabase
       .from("merchandise_share_codes")
       .select("catalog_id")

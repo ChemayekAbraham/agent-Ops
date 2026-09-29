@@ -26,6 +26,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { UserAvatar } from '@/components/UserAvatar';
 import { WELILE_ITEM_IMAGES } from '@/lib/welileItemImages';
 import { ItemSwipePicker } from '@/components/wallet/ItemSwipePicker';
+import { ShoppingAdvanceBoostScreen } from '@/components/wallet/ShoppingAdvanceBoostScreen';
 
 import { 
   Loader2, Send, Phone, Coins, FileText, CheckCircle, Sparkles, UserCheck, UserX,
@@ -111,6 +112,7 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
   const [email, setEmail] = useState('');
   const [mode, setMode] = useState<'phone' | 'email'>('phone');
   const [amount, setAmount] = useState('');
+  const [boostAmount, setBoostAmount] = useState<number | null>(null);
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -578,6 +580,7 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
     }, 300);
     
     toast.success(`Successfully sent ${formatCurrency(amountNum)}`);
+    setBoostAmount(amountNum);
     
     setTimeout(() => {
       setPhone('');
@@ -609,6 +612,8 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
   };
 
   return (
+    <>
+    <ShoppingAdvanceBoostScreen amountSent={boostAmount} onClose={() => setBoostAmount(null)} />
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent
         className={`w-screen max-w-[100vw] overflow-x-hidden px-4 h-[100dvh] max-h-[100dvh] rounded-none border-border/50 glass-card sm:w-full sm:max-w-md sm:h-auto sm:max-h-[85vh] sm:rounded-xl ${
@@ -1341,7 +1346,7 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
                     <span className="absolute inset-0 bg-gradient-to-t from-foreground/80 to-transparent" />
                     <span className="absolute bottom-3 left-4 right-4 flex items-end justify-between gap-2">
                       <span className="text-2xl font-extrabold text-background">
-                        {selectedItem ? selectedItem.hint : 'Tap to choose'}
+                        {selectedItem ? selectedItem.label : 'Tap to choose'}
                       </span>
                       <span className="rounded-full bg-background/90 px-3 py-1 text-xs font-semibold text-foreground">
                         Swipe pictures →
@@ -1355,49 +1360,6 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
                     onClose={() => setPickerOpen(false)}
                     onPick={(label) => { setDescription(label); setPickerOpen(false); }}
                   />
-                  <div className="grid grid-cols-2 gap-2 pt-1">
-                    {WELILE_ITEMS.map((item) => {
-                      const selected = description === item.label;
-                      return (
-                        <button
-                          key={item.label}
-                          type="button"
-                          onClick={() => { setDescription(item.label); setPickerStart(item.label); setPickerOpen(true); }}
-                          aria-pressed={selected}
-                          className={`flex min-h-14 items-center gap-2.5 rounded-xl border-2 px-3 py-2.5 text-left transition-all active:scale-[0.98] ${
-                            selected
-                              ? 'border-primary bg-primary/10'
-                              : 'border-border/50 bg-muted/40 hover:bg-muted'
-                          }`}
-                        >
-                          {WELILE_ITEM_IMAGES[item.label] ? (
-                            <img
-                              src={WELILE_ITEM_IMAGES[item.label]}
-                              alt={item.label}
-                              loading="lazy"
-                              width={512}
-                              height={512}
-                              className={`h-11 w-11 shrink-0 rounded-lg object-cover ${
-                                selected ? 'ring-2 ring-primary' : ''
-                              }`}
-                            />
-                          ) : (
-                            <span
-                              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${
-                                selected ? 'bg-primary text-primary-foreground' : 'bg-background text-muted-foreground'
-                              }`}
-                            >
-                              <item.icon className="h-4.5 w-4.5" />
-                            </span>
-                          )}
-                          <span className="min-w-0">
-                            <span className="block truncate text-sm font-semibold">{item.label}</span>
-                            <span className="block truncate text-[11px] text-muted-foreground">{item.hint}</span>
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
                 </motion.div>
 
                 <motion.div variants={itemVariants}>
@@ -1514,5 +1476,6 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
         </AnimatePresence>
       </DialogContent>
     </Dialog>
+    </>
   );
 }

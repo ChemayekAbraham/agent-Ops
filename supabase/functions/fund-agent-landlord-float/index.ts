@@ -232,6 +232,20 @@ Deno.serve(async (req) => {
       console.warn('[fund-float] funding history insert failed:', fundingErr.message)
     }
 
+    // Idempotency key for the funding group. A plan that was cancelled and is
+    // now funded AGAIN must post its own group: the old per-plan key handed the
+    // re-funding the first funding's group back, so the second float was never
+    // booked (measured 2026-09-29: 6 plans, e.g. 9c078bf7). A first funding
+    // keeps the original key, so a retry that spans this deploy cannot
+    // double-post.
+    const { count: priorReversals } = await serviceClient
+      .from('agent_tenant_float_reversals')
+      .select('id', { count: 'exact', head: true })
+      .eq('rent_request_id', rent_request_id)
+    const floatIdempotencyKey = (priorReversals ?? 0) > 0 && allocation?.id
+      ? `fund-agent-landlord-float:${rent_request_id}:${allocation.id}:float`
+      : `fund-agent-landlord-float:${rent_request_id}:float`
+
     // Record in general ledger via RPC — platform cash out to agent float
     const { data: transactionGroupId, error: floatLedgerErr } = await serviceClient.rpc('create_ledger_transaction', {
       entries: [
@@ -262,8 +276,14 @@ Deno.serve(async (req) => {
           transaction_date: now,
         },
       ],
-      idempotency_key: `fund-agent-landlord-float:${rent_request_id}:float`,
+      idempotency_key: floatIdempotencyKey,
     });
+    if (floatLedgerErr) {
+      // The float is already credited operationally; do not unwind it here.
+      // Make the missing booking loud so FinOps can post it.
+      console.error('[fund-float] LEDGER FUNDING NOT POSTED:', floatLedgerErr.message,
+                    'rent_request:', rent_request_id, 'allocation:', allocation?.id ?? null)
+    }
 
     // ============================================================
     // LANDLORD FLOW TREASURY RECOGNITION (Phase 2)
@@ -296,6 +316,39 @@ Deno.serve(async (req) => {
                     'rent_request:', rent_request_id)
     } else {
       console.log('[fund-float] Treasury recognition:', JSON.stringify(treasuryRecognition))
+    }
+
+    // ============================================================
+    // LANDLORD FLOAT POOL — company-managed draw.
+    //
+    // The rent_disbursement group above is unchanged (CR A1). This draws the
+    // same amount out of the company-managed pool (CR A22 / DR A1) beside it,
+    // oldest money first, so the tenant is funded from partner money that was
+    // reserved for landlords. Whatever the pool cannot cover stays funded by
+    // plain treasury — which is what rent_disbursement already recorded.
+    //
+    // No-op while the pool is off. Idempotent per rent request. Non-fatal:
+    // the landlord float has been credited; a failed draw is filed for replay.
+    if (!floatLedgerErr) {
+      const { data: poolDraw, error: poolErr } = await serviceClient.rpc('landlord_pool_deploy', {
+        p_rent_request_id: rent_request_id,
+        p_amount: request.rent_amount,
+        p_origin: 'company_managed',
+        p_allocation_id: allocation?.id ?? null,
+        p_pool_entry_id: null,
+        p_caller: 'fund-agent-landlord-float',
+      })
+      if (poolErr) {
+        console.error('[fund-float] Landlord pool draw failed:', poolErr.message, 'rent_request:', rent_request_id)
+        await serviceClient.from('landlord_pool_exceptions').insert({
+          operation: 'deploy',
+          caller: 'fund-agent-landlord-float',
+          reason: poolErr.message,
+          detail: { rent_request_id, amount: request.rent_amount, allocation_id: allocation?.id ?? null },
+        })
+      } else {
+        console.log('[fund-float] Landlord pool draw:', JSON.stringify(poolDraw))
+      }
     }
 
     // ============================================================

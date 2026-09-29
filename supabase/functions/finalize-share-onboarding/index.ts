@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { z } from "npm:zod@3.23.8";
 import { logSystemEvent } from "../_shared/eventLogger.ts";
+import { getAngelPoolHolding } from "../_shared/angelPoolHolding.ts";
 import {
   ANGEL_POOL_PERCENT, ANGEL_PRICE_PER_SHARE, ANGEL_TOTAL_SHARES, formatAllocationDate, sharesCommitted,
 } from "../_shared/angelPoolShares.ts";
@@ -168,6 +169,7 @@ Deno.serve(async (req) => {
             pool_round: "Seed Round",
             company_name: "Welile",
             funded_by: "investor",
+            ...(await getAngelPoolHolding(admin, row.shareholder_id)),
             ...(signed?.signedUrl ? { agreement_url: signed.signedUrl } : {}),
             ...(upErr ? {} : { contract_pdf_path: pdfPath, contract_pdf_name: `Welile-Angel-Pool-Agreement-${row.reference_id}.pdf` }),
           },

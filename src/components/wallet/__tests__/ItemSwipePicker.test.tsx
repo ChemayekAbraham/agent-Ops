@@ -19,10 +19,10 @@ describe('ItemSwipePicker accessibility', () => {
     render(<ItemSwipePicker open items={items} onPick={vi.fn()} onClose={vi.fn()} />);
 
     expect(screen.getByRole('dialog', { name: 'Choose what you are sending' })).toHaveAttribute('aria-modal', 'true');
-    expect(screen.getByRole('img', { name: 'Rent payment item' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Choose Rent payment' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Next item: Gift' })).toBeInTheDocument();
-    expect(screen.getByText('Rent payment. Item 1 of 3.')).toHaveAttribute('aria-live', 'polite');
+    expect(screen.getByRole('img', { name: 'Welile Rent item' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Choose Welile Rent' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Next item: Welile Gift' })).toBeInTheDocument();
+    expect(screen.getByText('Welile Rent. Item 1 of 3.')).toHaveAttribute('aria-live', 'polite');
   });
 
   it('supports arrow, Home, End, and Escape keys', async () => {
@@ -31,11 +31,11 @@ describe('ItemSwipePicker accessibility', () => {
     const dialog = screen.getByRole('dialog', { name: 'Choose what you are sending' });
 
     fireEvent.keyDown(dialog, { key: 'ArrowRight' });
-    expect(screen.getByText('Gift. Item 2 of 3.')).toBeInTheDocument();
+    expect(screen.getByText('Welile Gift. Item 2 of 3.')).toBeInTheDocument();
     fireEvent.keyDown(dialog, { key: 'End' });
-    expect(screen.getByText('Chapati. Item 3 of 3.')).toBeInTheDocument();
+    expect(screen.getByText('Welile Chapati. Item 3 of 3.')).toBeInTheDocument();
     fireEvent.keyDown(dialog, { key: 'Home' });
-    expect(screen.getByText('Rent payment. Item 1 of 3.')).toBeInTheDocument();
+    expect(screen.getByText('Welile Rent. Item 1 of 3.')).toBeInTheDocument();
     fireEvent.keyDown(dialog, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledOnce();
   });
@@ -45,7 +45,7 @@ describe('ItemSwipePicker accessibility', () => {
     render(<ItemSwipePicker open items={items} onPick={vi.fn()} onClose={vi.fn()} />);
 
     const close = screen.getByRole('button', { name: 'Close item picker' });
-    const choose = screen.getByRole('button', { name: 'Choose Rent payment' });
+    const choose = screen.getByRole('button', { name: 'Choose Welile Rent' });
     close.focus();
     await user.tab({ shift: true });
     expect(choose).toHaveFocus();
@@ -57,7 +57,7 @@ describe('ItemSwipePicker accessibility', () => {
     window.matchMedia = vi.fn().mockReturnValue({ matches: true });
     render(<ItemSwipePicker open items={items} onPick={vi.fn()} onClose={vi.fn()} />);
 
-    await userEvent.click(screen.getByRole('button', { name: 'Next item: Gift' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Next item: Welile Gift' }));
     expect(Element.prototype.scrollTo).toHaveBeenLastCalledWith(expect.objectContaining({ behavior: 'instant' }));
   });
 });

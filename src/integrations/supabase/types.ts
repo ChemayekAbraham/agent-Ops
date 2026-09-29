@@ -23486,6 +23486,7 @@ export type Database = {
         Row: {
           created_at: string
           deployed: number
+          entry_kind: string
           id: string
           in_pool: number | null
           origin: string
@@ -23504,6 +23505,7 @@ export type Database = {
         Insert: {
           created_at?: string
           deployed?: number
+          entry_kind?: string
           id?: string
           in_pool?: number | null
           origin: string
@@ -23522,6 +23524,7 @@ export type Database = {
         Update: {
           created_at?: string
           deployed?: number
+          entry_kind?: string
           id?: string
           in_pool?: number | null
           origin?: string
@@ -42425,6 +42428,109 @@ export type Database = {
           },
         ]
       }
+      staff_survey_responses: {
+        Row: {
+          id: string
+          no_tin: boolean
+          nssf_number: string | null
+          percentage: number | null
+          responded_at: string
+          response: string
+          survey_id: string
+          tin: string | null
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          no_tin?: boolean
+          nssf_number?: string | null
+          percentage?: number | null
+          responded_at?: string
+          response: string
+          survey_id: string
+          tin?: string | null
+          user_id: string
+        }
+        Update: {
+          id?: string
+          no_tin?: boolean
+          nssf_number?: string | null
+          percentage?: number | null
+          responded_at?: string
+          response?: string
+          survey_id?: string
+          tin?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_survey_responses_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "staff_surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_survey_snoozes: {
+        Row: {
+          snooze_count: number
+          snooze_until: string
+          survey_id: string
+          user_id: string
+        }
+        Insert: {
+          snooze_count?: number
+          snooze_until: string
+          survey_id: string
+          user_id: string
+        }
+        Update: {
+          snooze_count?: number
+          snooze_until?: string
+          survey_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_survey_snoozes_survey_id_fkey"
+            columns: ["survey_id"]
+            isOneToOne: false
+            referencedRelation: "staff_surveys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_surveys: {
+        Row: {
+          active: boolean
+          body: string
+          code: string
+          created_at: string
+          id: string
+          kind: string
+          title: string
+        }
+        Insert: {
+          active?: boolean
+          body: string
+          code: string
+          created_at?: string
+          id?: string
+          kind: string
+          title: string
+        }
+        Update: {
+          active?: boolean
+          body?: string
+          code?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          title?: string
+        }
+        Relationships: []
+      }
       standing_order_audit_log: {
         Row: {
           acted_by: string | null
@@ -51957,14 +52063,14 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "engrep_file_touches_engineer_id_fkey"
-            columns: ["engineer_id"]
+            columns: ["reverted_by_engineer"]
             isOneToOne: false
             referencedRelation: "engrep_engineers"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "engrep_file_touches_engineer_id_fkey"
-            columns: ["reverted_by_engineer"]
+            columns: ["engineer_id"]
             isOneToOne: false
             referencedRelation: "engrep_engineers"
             referencedColumns: ["id"]
@@ -53310,6 +53416,41 @@ export type Database = {
           tenant_count: number | null
         }
         Relationships: []
+      }
+      v_landlord_pool_position: {
+        Row: {
+          attached_to: string | null
+          deployed: number | null
+          entries: number | null
+          entry_kind: string | null
+          first_reserved_at: string | null
+          in_pool: number | null
+          last_reserved_at: string | null
+          origin: string | null
+          out_with_tenants: number | null
+          partner_id: string | null
+          portfolio_code: string | null
+          portfolio_id: string | null
+          released: number | null
+          reserved: number | null
+          returned: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landlord_pool_entries_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_pool_entries_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+        ]
       }
       v_landlord_pool_unreserved: {
         Row: {
@@ -64200,11 +64341,26 @@ export type Database = {
         }
         Returns: Json
       }
+      landlord_pool_rebalance: {
+        Args: { p_caller?: string; p_portfolio_id: string }
+        Returns: Json
+      }
       landlord_pool_reserve: {
         Args: {
           p_caller?: string
           p_funding_group_ids?: string[]
           p_portfolio_id: string
+        }
+        Returns: Json
+      }
+      landlord_pool_reserve_increment: {
+        Args: {
+          p_amount: number
+          p_caller?: string
+          p_kind: string
+          p_portfolio_id: string
+          p_source_id: string
+          p_source_table: string
         }
         Returns: Json
       }
@@ -68666,6 +68822,60 @@ export type Database = {
           stage: string
         }[]
       }
+      staff_survey_is_employee: { Args: never; Returns: boolean }
+      staff_survey_pending: {
+        Args: never
+        Returns: {
+          body: string
+          kind: string
+          snooze_count: number
+          survey_id: string
+          title: string
+        }[]
+      }
+      staff_survey_respond: {
+        Args: {
+          _no_tin?: boolean
+          _nssf_number?: string
+          _percentage?: number
+          _response: string
+          _survey_id: string
+          _tin?: string
+        }
+        Returns: {
+          id: string
+          no_tin: boolean
+          nssf_number: string | null
+          percentage: number | null
+          responded_at: string
+          response: string
+          survey_id: string
+          tin: string | null
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "staff_survey_responses"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      staff_survey_results: {
+        Args: { _survey_id: string }
+        Returns: {
+          department: string
+          full_name: string
+          no_tin: boolean
+          nssf_number: string
+          percentage: number
+          responded_at: string
+          response: string
+          staff_ref: string
+          tin: string
+          user_id: string
+        }[]
+      }
+      staff_survey_snooze: { Args: { _survey_id: string }; Returns: undefined }
       stamp_float_request_settlement: {
         Args: { p_reference: string; p_request_id: string }
         Returns: undefined

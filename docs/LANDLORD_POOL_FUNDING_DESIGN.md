@@ -1,6 +1,6 @@
 # Landlord Float Pool: where portfolio money goes and how we track it
 
-**Status:** proposal, not yet built · **Date:** 2026-09-29 (revision 3)
+**Status:** built and live in production, **switched off** until cutover · **Date:** 2026-09-29 (revision 4)
 **Builds on:** [PORTFOLIO_CREATION_MONEY_FLOW.md](./PORTFOLIO_CREATION_MONEY_FLOW.md)
 **Checked against:** live production `ledger_account_map`, `ledger_account_catalog`, `approve_pending_portfolio` and `psm_disburse_landlord_float`, 2026-09-29
 
@@ -284,42 +284,87 @@ This answers three questions for any portfolio: *how much is waiting, how much i
 
 ---
 
-## 8. New portfolios only: no backfill
+## 8. New portfolios only: no backfill (as built)
 
-- `investor_portfolios.pool_origin text` is **nullable**. Existing portfolios stay NULL, which means "created before the pool", and NULL is never guessed.
-- The cutover time is stored in `treasury_controls.landlord_pool_cutover_at`.
-- An insert trigger raises an error if a portfolio created after cutover has no `pool_origin`, so a path that was missed fails loudly.
-- Every pool RPC refuses a portfolio whose `pool_origin` is NULL. A portfolio **created** before cutover but approved after it stays outside the pool; creation time decides.
-- Tenant-attached portfolios created before cutover keep today's behaviour: `rent_disbursement` straight out of A1. `psm_disburse_landlord_float` picks the old or the new path from the portfolio's `pool_origin`.
-- Repayments on plans funded before cutover never trigger a return, because they have no `pool_entry_id`.
+- **`investor_portfolios.pool_eligible boolean`** is stamped **once, at insert**, by `trg_aa_landlord_pool_eligibility`: true only if the pool switch was on when the row was inserted, and the row is not a split child. It can never be changed afterwards; an `UPDATE` that tries is ignored. Every row that existed before cutover is false for ever.
+- **Why a stamp and not `created_at`.** Measured 2026-09-29: 4 active portfolios worth UGX 5,955,348 carry `created_at` dates in Oct–Dec 2026, in the future. `created_at` is also editable as the "contribution date". A `created_at >= cutover` test would have pulled those old portfolios into the pool, which is exactly the accidental backfill that was ruled out.
+- **The cutover switch** is `treasury_controls` row `landlord_pool_from`: `enabled = false` and `value = NULL` today. `landlord_pool_cutover()` returns the timestamp only when it is enabled. While it is off, every pool function and trigger is a no-op.
+- A portfolio **inserted** before cutover but approved after it is not eligible; creation decides.
+- Tenant funding for pre-cutover portfolios, and for self-managed **top-up** lines, has no pool entry, so it keeps today's behaviour: `rent_disbursement` straight out of A1.
+- **`investor_portfolios.pool_origin`** records which origin was posted. It is written by the reserve, never guessed.
+- **`v_landlord_pool_unreserved`** lists eligible, active portfolios with no pool entry. It is a detection view, not a block: it has to be empty.
 
 ---
 
-## 9. Implementation checklist
+## 9. Implementation checklist (as built, 2026-09-29)
 
-1. **Catalogue:** add A21 and A22 to `ledger_account_catalog`.
-2. **Mapping:** add 11 bucket-agnostic rows to `ledger_account_map`, one per category in §4.
-3. **Allowlist:** replace `ledger_category_allowlist()` with all existing entries copied **verbatim** plus the 11 new ones. If a category is mapped but not allowlisted, the insert fails. If it is allowlisted but not mapped, the leg posts but silently disappears into A9.
-4. **Enforcement:** confirm how the trigger treats the new categories. The legs touch A1 and A5, so test this explicitly.
-5. **Resolver:** test every group raw and resolved against live `sofp_ledger_legs`. Pay particular attention to the **return** group (A5 synthetic) and the changed **deploy** group (the replacement for `rent_disbursement`).
-6. **`balancedLedgerPost.ts`:** every new group must balance on base mapping alone. They do: A2x ↔ A1, A2x ↔ A3, A2x ↔ A5.
-7. **Schema:** `pool_origin` column, cutover setting and insert trigger; the two subledger tables; `pool_origin` / `pool_entry_id` on `agent_landlord_float_allocations`.
-8. **RPCs** (SECURITY DEFINER, `create_ledger_transaction`, keys as in §5): `landlord_pool_reserve`, `landlord_pool_deploy`, `landlord_pool_return`, `landlord_pool_release`.
-9. **Callers:**
-   - `approve_pending_portfolio` reserves for all sources.
-   - `psm_disburse_landlord_float` switches to pool deploy for post-cutover portfolios.
-   - The direct staff edge functions reserve after their existing group. If reserve fails, the portfolio must not activate.
-   - `post_rent_fee_collection` (or a wrapper) triggers the return.
-   - Fix `agent-invest-for-partner`'s unchecked ledger calls at the same time.
-10. **Treasury RPC:** three figures (§7).
-11. **Verify:**
-    - `assert_money_path_intact()` still 17/17
-    - no new `ledger_mapped_balance_violations`
-    - the subledger ties to A21/A22
-    - `npm run guard:all` passes
-12. **Copy:** "Rent Plan", "Supporter/Partner" and "Returns" only. Never write "loan", "lender", "ROI" or "interest".
+All of this is **live in production and inert**: the pool switch is off, 0 portfolios are eligible, and 0 pool legs have been posted.
 
-**UI (Gemini's lane, for handoff):** pool tiles split by origin, and house vs tenant; the deploy picker; an origin badge on landlord float allocations.
+| Step | Migration / file | Status | Evidence |
+|---|---|---|---|
+| 1–3 Accounts, mappings, allowlist | `20260929230000_landlord_pool_accounts_and_categories.sql` | ✅ live | A21/A22 in the catalogue; 12 mapping rows (incl. `landlord_pool_deploy_target`); allowlist 162 → 174 |
+| 4 Enforcement | — | ✅ verified | Dry runs: every group passed all 40 `general_ledger` triggers, classified `production`, no wallet effect |
+| 5 Resolver | — | ✅ verified | `sofp_ledger_legs` has no override or synthetic leg keyed on any pool category or on platform-only groups |
+| 6 Base-mapping balance | — | ✅ verified | Every dry-run group DR = CR; 0 `ledger_mapped_balance_violations` |
+| 7 Schema | `20260929230100_landlord_pool_schema.sql`, `20260929230300_landlord_pool_eligibility_stamp.sql` | ✅ live | subledger tables + RLS; switch row (off); `pool_origin`, `pool_eligible`; allocation links; detection view |
+| 8a Reserve, deploy | `20260929230200_landlord_pool_reserve_and_deploy.sql` | ✅ live | `landlord_pool_reserve`, `landlord_pool_deploy`, `_landlord_pool_post`, activation trigger |
+| 8b Returns | `20260929230500_landlord_pool_returns.sql` | ✅ live | `landlord_pool_return`, `landlord_pool_return_reverse`, trigger on `instalment_allocations` |
+| 8c Release | `20260929230600_landlord_pool_release.sql` | ✅ live | `landlord_pool_rebalance`, trigger on principal drop / close, rebalance after every return |
+| 9 SQL callers | `20260929230400_landlord_pool_sql_callers.sql` | ✅ live | `approve_pending_portfolio` reserves after its debit; `psm_disburse_landlord_float` draws the line's entry. Line diff against live: only the marked additions |
+| 9 Edge caller | `supabase/functions/fund-agent-landlord-float/index.ts` | ⏳ **in repo, not deployed** | company-managed draw after the unchanged `rent_disbursement`; non-fatal |
+| 10 Treasury RPC | `20260929230700_treasury_cash_position_reports_landlord_pool.sql` | ✅ live | every existing key unchanged (compared as CFO); 4 new keys |
+| 11 Verify | — | ✅ | money path 17/17; guards pass; 0 pool exceptions |
+
+### What changed from the design during the build
+
+| Design said | Built as | Why |
+|---|---|---|
+| Deploy pairs pool CR with `rent_receivable_created` DR A3, **replacing** `rent_disbursement` | `rent_disbursement` + `rent_receivable_created` left untouched; a **separate** pool group `landlord_pool_deploy_<origin>` CR A21/A22 + `landlord_pool_deploy_target` DR A1 sits beside it | 18 DB functions and 23 app files read `rent_disbursement` (reports, cash flow, KPIs, cancel/release reversals). Net effect is identical: pool down, A3 up |
+| Each of 8 edge functions calls reserve | One **activation trigger** on `investor_portfolios` (`status` becomes `active`), plus an explicit call in `approve_pending_portfolio` | Portfolios also activate through the COO "Approve" / "Activate all" buttons (a direct status update) and `import-partners`. `enforce_portfolio_funding_at_creation` already guarantees the ledger debit exists at insert, so the trigger catches every path |
+| Reserve failure blocks activation | Trigger path is **non-blocking**: a failure is filed in `landlord_pool_exceptions` | The partner's money has already moved by then; unwinding it is worse than a replayable exception |
+| Reserve checks `created_at >= cutover` | **Insert-time stamp** `pool_eligible` | future-dated and edited `created_at` (§8) |
+| Return from a waterfall wrapper | Trigger on `instalment_allocations` (INSERT → return `principal_component`; `reversed_at` set → reverse) | That table is where the four-part split is already written, once per collection |
+| Release at maturity | **Rebalance**: pool ≤ remaining principal − out with tenants; runs on principal drop, redeemed / cancelled / rejected, and after each return | `apply_portfolio_redemption` posts no ledger entries; it only lowers `investment_amount`. `matured` does not release, because matured portfolios can be renewed |
+
+### Rules the code applies
+
+- **Origin** comes from what is attached: `funder_pending_portfolios.source` `self_managed` → one self-support entry per tenant line; `self_managed_house` → one per house; anything else → one company-managed entry.
+- **Funding check:** reserve posts only if a wallet `partner_funding` / `supporter_rent_fund` debit for the portfolio exists. Otherwise it returns `not_funded` and moves nothing.
+- **Deploy:** one origin per draw (D6). Company-managed draws oldest money first; a self-support tenant line draws its own entry. Any shortfall stays funded by plain treasury.
+- **Return:** principal only (fees are revenue), counted on collection out of A5 (D5), paid back to the entries that funded that tenant in draw order. The pool is repaid before treasury's share.
+- **Idempotency:** every group uses key `lp-<kind>-<entry>-<ref>`, and the movements table's (entry, group) key stops a retry counting twice.
+
+### Dry runs (production, every one rolled back)
+
+| Scenario | Result |
+|---|---|
+| Company-managed via staff insert, deploy 2,000, retry both | reserve 3,000 into A22 → 1,000 left; retries `already_*`; no duplicate auto-debit |
+| Pre-cutover portfolio re-activated; future-dated portfolio re-activated; `pool_eligible = true` forced | all untouched, 0 entries |
+| Partner Ops approves a rent-pool portfolio and a tenant-backed self-managed one | A22 +5,000; A21 +8,000 → 0 (deployed); allocation tagged `self_support`; re-approval no-op; A3 8,000 + A22 5,000 + L1 12,740 + X1 260 = A1 13,000 + L2 13,000 |
+| Returns 1,200 then 2,500 (capped at 1,800), then the first reversed | pool 1,200 → 3,000 → 1,800. The first run **caught a double-count bug** (reversal took 2,400); fixed and re-verified |
+| Partial redemption, full redemption, then tenant repays on the closed portfolio | releases 500 + 500, then return 1,500 released immediately; pool 0, A22 net 0 |
+
+### Remaining before switch-on
+
+1. **Deploy `fund-agent-landlord-float`.** Until then company-managed money is reserved but not drawn by CFO funding, so the pool only grows; the books still balance.
+2. **Brief finance.** Free cash (`total_cash`) drops by `landlord_pool_total` from the first reserve.
+3. **Switch on:** `UPDATE treasury_controls SET enabled = true, value = now()::text WHERE control_key = 'landlord_pool_from';`
+4. **Daily checks:**
+   - `v_landlord_pool_unreserved` empty
+   - `landlord_pool_exceptions` with `resolved_at IS NULL` empty
+   - `SUM(in_pool)` by origin = A21 / A22
+
+### Known gaps (not blocking)
+
+- **Top-ups and compounding on pre-cutover portfolios** stay in treasury, by decision (§11). On eligible portfolios they are reserved.
+- **Split children** (`lock_portfolio_principal`): the parent's lowered principal triggers a release of that share to treasury. The books stay balanced; the pool stops tracking that share.
+- **D4 re-use:** returned self-support money waits in A21. There is no flow yet for the partner to point it at a new tenant; it is released at redemption.
+- **Plans outside the four-part waterfall** write no `instalment_allocations` row and so never return. Every pool-funded plan is new and inside the waterfall.
+- **Pre-existing, seen in passing:**
+  - `agent-invest-for-partner` never checks the result of two of its three ledger calls.
+  - `create-investor-portfolio` (instant mode) inserts the active portfolio *before* posting its debit, so `enforce_portfolio_funding_at_creation` may auto-debit the partner's float as well. Worth checking for double debits.
+
+**UI (Gemini's lane, for handoff):** pool tiles split by origin and house vs tenant from the new treasury keys; an origin badge on landlord float allocations; an exceptions list.
 
 ---
 
@@ -330,7 +375,46 @@ This answers three questions for any portfolio: *how much is waiting, how much i
 | D1 | What counts as company-managed? | ✅ **Decided:** no tenant and no house plan attached, whoever creates it |
 | D2 | Where does tenant-attached money go? | ✅ **Decided:** through the pool as self-support, deployed to the agent's landlord float on approval |
 | D3 | Backfill existing portfolios? | ✅ **Decided:** no. New portfolios only, until a backfill is proven exact |
-| D4 | When a self-support tenant repays, can that returned principal fund another tenant? If so, does the partner choose, or ops? | ❓ **Open.** Suggest the partner chooses, because it is self-support |
-| D5 | Is returned principal counted in the pool when the agent collects it (from A5), or only once it is banked? | ❓ **Open.** Suggest on collection (§5.4), with a subledger column for unbanked amounts |
-| D6 | Can one deploy draw from both origins? | ❓ **Open.** Suggest no. Each deploy draws from one origin |
-| D7 | Should `get_treasury_cash_position()` report free cash as its main figure? | ❓ **Open.** Suggest yes, and brief finance first |
+| D4 | Can returned self-support principal fund another tenant? | ✅ **Decided:** yes, the partner chooses. **Not built yet**; the money waits in A21 |
+| D5 | When does returned principal count? | ✅ **Decided:** on collection, out of A5 |
+| D6 | Can one deploy draw from both origins? | ✅ **Decided:** no, one origin per draw |
+| D7 | Treasury figure? | ✅ **Decided:** free cash + pool + total; brief finance first |
+
+---
+
+## 11. Top-ups and compounding (built 2026-09-29)
+
+**Scope (confirmed):** only portfolios that are `pool_eligible`, i.e. created after cutover. Top-ups and compounding on older portfolios stay in treasury exactly as today, so the no-backfill rule stays absolute.
+
+**Each event is its own pool entry under its own category**, so the amounts are never blended into principal:
+
+| Category | Account | Entry `entry_kind` |
+|---|---|---|
+| `landlord_pool_topup_company_managed` | A22 | `topup` |
+| `landlord_pool_topup_self_support` | A21 | `topup` |
+| `landlord_pool_compound_company_managed` | A22 | `compound` |
+| `landlord_pool_compound_self_support` | A21 | `compound` |
+
+Each is paired with `landlord_pool_reserve_source` (CR A1). Once reserved, top-up and compound entries are deployed, repaid and released by the same machinery as principal entries.
+
+**Hooks** (migrations `20260929230800`, `20260929230900`):
+
+| Event | Ledger shape today | Hook |
+|---|---|---|
+| Top-up **applied** | `pending_portfolio_topup` cash_out (L6) + `partner_funding` cash_in (L2) | deferred constraint trigger `trg_zz_landlord_pool_increment` on `general_ledger`. It reads the whole group at the end of the transaction |
+| Top-up **cancelled** | `pending_portfolio_topup` cash_out + **wallet** `partner_funding` cash_in | ignored (no L2 leg) |
+| **Compounding** | `roi_expense` cash_out + `roi_reinvestment` cash_in (L2) | same trigger, on the `roi_reinvestment` leg |
+| **Self-managed top-up** adding tenants | `supporter_rent_fund` (key `psm-topup-<id>`), then `psm_disburse_landlord_float(…, p_topup_id, …)` | each new line is reserved as a self-support top-up, then deployed straight to the agent |
+
+**Compounding is not new cash.** It is Returns kept instead of paid out, so reserving it earmarks the treasury cash that would otherwise have left.
+
+The **rebalance** now uses the larger of the portfolio's principal and its self-managed commitment. This matters because self-managed top-ups raise the commitment, not the portfolio row.
+
+**Reading the numbers:** `v_landlord_pool_position` gives, per portfolio, origin, attachment (portfolio / tenant / house) and `entry_kind` (principal / topup / compound): reserved, deployed, returned, released, in pool and out with tenants.
+
+**Dry runs (rolled back):**
+
+| Scenario | Result |
+|---|---|
+| Eligible portfolio 3,000; compounding 450; top-up applied 1,000; top-up cancelled 200; compounding 777 on a pre-cutover portfolio | principal 3,000, compound 450, topup 1,000; cancel and old portfolio ignored; A22 +4,450 / A1 −4,450; 0 violations |
+| Self-managed portfolio (tenant 8,000) plus a self-managed top-up adding a tenant (6,000) | principal 8,000 and topup 6,000, both self-support tenant entries, both fully deployed; allocation tagged `self_support`; 0 exceptions |

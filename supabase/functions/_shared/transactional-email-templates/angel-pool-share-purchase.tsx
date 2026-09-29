@@ -32,6 +32,12 @@ interface AngelPoolSharePurchaseProps {
   unsubscribe_url?: string
   agreement_url?: string
   dashboard_url?: string
+  holding_total_shares?: number | string
+  holding_total_invested?: number | string
+  holding_pool_percentage?: number | string
+  holding_company_percentage?: number | string
+  holding_purchase_count?: number | string
+  holding_purchases?: { reference?: string; date?: string; shares?: number | string; amount?: number | string }[]
 }
 
 const fmtNum = (v: number | string | undefined) => {
@@ -64,6 +70,12 @@ export function AngelPoolSharePurchase({
   unsubscribe_url = 'https://welile.com/unsubscribe',
   agreement_url = 'https://welileapp.com/legal/EARLY_ANGEL_POOL_SHAREHOLDERS_AGREEMENT.pdf',
   dashboard_url = 'https://welileapp.com/auth',
+  holding_total_shares,
+  holding_total_invested,
+  holding_pool_percentage,
+  holding_company_percentage,
+  holding_purchase_count,
+  holding_purchases = [],
 }: AngelPoolSharePurchaseProps) {
   const year = new Date().getFullYear()
 
@@ -198,6 +210,63 @@ export function AngelPoolSharePurchase({
                         </tr>
                       </tbody>
                     </table>
+
+                    {holding_total_shares !== undefined && (
+                    <table width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation" style={poolSummaryCard}>
+                      <tbody><tr>
+                        <td style={{ padding: '20px 30px' }}>
+                          <Text style={sectionLabel}>Your Total Shareholding</Text>
+                          <table width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation">
+                            <tbody>
+                              <tr>
+                                <td width="50%" valign="top" style={{ paddingBottom: '15px' }}>
+                                  <Text style={miniKey}>Total Shares Held</Text>
+                                  <Text style={miniVal}>{fmtNum(holding_total_shares)}</Text>
+                                </td>
+                                <td width="50%" valign="top" style={{ paddingBottom: '15px' }}>
+                                  <Text style={miniKey}>Total Invested</Text>
+                                  <Text style={miniVal}>{currency} {fmtNum(holding_total_invested)}</Text>
+                                </td>
+                              </tr>
+                              <tr>
+                                <td width="50%" valign="top" style={{ paddingBottom: '15px' }}>
+                                  <Text style={miniKey}>Share of Welile</Text>
+                                  <Text style={miniVal}>{holding_company_percentage}%</Text>
+                                </td>
+                                <td width="50%" valign="top" style={{ paddingBottom: '15px' }}>
+                                  <Text style={miniKey}>Share of Angel Pool</Text>
+                                  <Text style={miniVal}>{holding_pool_percentage}%</Text>
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                          {holding_purchases.length > 0 && (
+                            <table width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation" style={{ marginTop: '10px', borderTop: '1px solid #e5e7eb' }}>
+                              <tbody>
+                                <tr>
+                                  <td style={{ padding: '10px 0 6px 0' }}><Text style={miniKey}>Date</Text></td>
+                                  <td style={{ padding: '10px 0 6px 0' }}><Text style={miniKey}>Reference</Text></td>
+                                  <td align="right" style={{ padding: '10px 0 6px 0' }}><Text style={miniKey}>Shares</Text></td>
+                                  <td align="right" style={{ padding: '10px 0 6px 0' }}><Text style={miniKey}>Amount</Text></td>
+                                </tr>
+                                {holding_purchases.map((p, i) => (
+                                  <tr key={i}>
+                                    <td style={{ padding: '4px 0' }}><Text style={miniVal}>{p.date}</Text></td>
+                                    <td style={{ padding: '4px 0' }}><Text style={miniVal}>{p.reference}</Text></td>
+                                    <td align="right" style={{ padding: '4px 0' }}><Text style={miniVal}>{fmtNum(p.shares)}</Text></td>
+                                    <td align="right" style={{ padding: '4px 0' }}><Text style={miniVal}>{currency} {fmtNum(p.amount)}</Text></td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          )}
+                          <Text style={{ ...miniKey, marginTop: '12px', textTransform: 'none' }}>
+                            {fmtNum(holding_purchase_count)} confirmed purchase(s) in total.
+                          </Text>
+                        </td>
+                      </tr></tbody>
+                    </table>
+                    )}
 
                     <table width="100%" border={0} cellPadding={0} cellSpacing={0} role="presentation" style={poolSummaryCard}>
                       <tbody><tr>
@@ -474,6 +543,15 @@ export const template = {
   },
   displayName: 'Angel Pool Share Purchase Confirmation',
   previewData: {
+    holding_total_shares: 15,
+    holding_total_invested: 300000,
+    holding_pool_percentage: '0.0600',
+    holding_company_percentage: '0.0048',
+    holding_purchase_count: 2,
+    holding_purchases: [
+      { reference: 'ANG-1A2B3C4D', date: '02 Sep 2026', shares: 10, amount: 200000 },
+      { reference: 'ANG-5E6F7A8B', date: '29 Sep 2026', shares: 5, amount: 100000 },
+    ],
     partner_name: 'Atuhaire Carolyne',
     pool_name: 'Welile Angel Pool',
     share_reference: 'ANG260505A1B2',
