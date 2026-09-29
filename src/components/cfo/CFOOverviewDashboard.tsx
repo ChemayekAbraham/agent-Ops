@@ -1,4 +1,4 @@
-import { useState, useCallback, useId } from 'react';
+import { useState, useCallback } from 'react';
 import { useCFOOverviewData } from '@/hooks/useCFOOverviewData';
 import { useCFO7DayCashFlow } from '@/hooks/useCFO7DayCashFlow';
 import { useActualMoneyHeld } from '@/hooks/useActualMoneyHeld';
@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import {
   ResponsiveContainer, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  Line, ComposedChart, Area, AreaChart,
+  Line, ComposedChart,
 } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -36,7 +36,7 @@ import { CFOReceivablesPayablesHome } from '@/components/cfo/CFOReceivablesPayab
 import { WithdrawableCreditsLivePanel } from '@/components/cfo/WithdrawableCreditsLivePanel';
 import { MoneyPaidOutCard } from '@/components/cfo/MoneyPaidOutCard';
 import { MoneyReceivedCard } from '@/components/cfo/MoneyReceivedCard';
-import { HeroCard } from '@/components/cfo/HeroCard';
+import { HeroCard, PercentageCurve } from '@/components/cfo/HeroCard';
 
 
 
@@ -84,7 +84,6 @@ export function CFOOverviewDashboard({
   const [merchantOwedOpen, setMerchantOwedOpen] = useState(false);
   const [actualMoneyLine, setActualMoneyLine] = useState<PhoneMoneyLine | null>(null);
   const [moneyWeHaveOpen, setMoneyWeHaveOpen] = useState(false);
-  const cashSparkGradientId = useId().replace(/:/g, '');
 
 
   const handleExportCommissions = useCallback(async () => {
@@ -203,15 +202,6 @@ export function CFOOverviewDashboard({
 
   const cashFlowDays = sevenDayCashFlow?.days ?? [];
   const netSevenDayCashFlow = sevenDayCashFlow?.netFlow ?? 0;
-  const cashPositionSpark = (() => {
-    if (cashFlowDays.length < 2) return [];
-    const deltas = cashFlowDays.map((day) => day.inflow - day.outflow);
-    let point = actualMoneyTotal - deltas.slice(1).reduce((sum, value) => sum + value, 0);
-    return deltas.map((delta, index) => {
-      if (index > 0) point += delta;
-      return Math.max(0, point);
-    });
-  })();
   const monthRangeLabel = (() => {
     const now = new Date();
     const start = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -310,21 +300,7 @@ export function CFOOverviewDashboard({
                       <ArrowUpRight className="h-3 w-3 shrink-0" />
                       <span>{actualLoading ? '—' : fmtShare(actualMoneyTotal, actualMoneyTotal)}</span>
                     </p>
-                    {cashPositionSpark.length > 1 && (
-                      <div className="h-8 w-20 shrink-0" aria-label="Seven-day cash movement trend">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <AreaChart data={cashPositionSpark.map((value, index) => ({ index, value }))} margin={{ top: 2, right: 1, bottom: 0, left: 1 }}>
-                            <defs>
-                              <linearGradient id={cashSparkGradientId} x1="0" y1="0" x2="0" y2="1">
-                                <stop offset="0%" stopColor="hsl(var(--success))" stopOpacity={0.26} />
-                                <stop offset="100%" stopColor="hsl(var(--success))" stopOpacity={0.015} />
-                              </linearGradient>
-                            </defs>
-                            <Area type="monotone" dataKey="value" stroke="hsl(var(--success))" strokeWidth={1.75} fill={`url(#${cashSparkGradientId})`} dot={false} isAnimationActive={false} />
-                          </AreaChart>
-                        </ResponsiveContainer>
-                      </div>
-                    )}
+                    {!actualLoading && <PercentageCurve value={actualMoneyTotal} total={actualMoneyTotal} />}
                   </div>
                 </button>
 
@@ -453,7 +429,8 @@ export function CFOOverviewDashboard({
               value={fmt(moneyWeOweTotal)}
               percentageLabel={actualLoading || merchantOwedLoading ? '—' : fmtShare(moneyWeOweTotal, actualMoneyTotal)}
               percentageDirection="down"
-              sparkline={cashPositionSpark.map((value) => Math.max(0, actualMoneyTotal - value + moneyWeOweTotal))}
+              percentageValue={!actualLoading && !merchantOwedLoading ? moneyWeOweTotal : undefined}
+              percentageTotal={actualMoneyTotal}
               items={[
                 { dot: 'bg-orange-500', label: 'Merchant Float Bucket (held by merchant agents)', value: fmt(merchantHeld), onSelect: () => setMerchantOwedOpen(true) },
               { dot: 'bg-orange-500', label: 'Bayo Mercy Bank Account', value: fmt(bayoMercyHeld), onSelect: () => setMerchantOwedOpen(true) },
@@ -467,7 +444,8 @@ export function CFOOverviewDashboard({
               value={fmt(moneyWeCanUse)}
               percentageLabel={actualLoading || merchantOwedLoading ? '—' : fmtShare(moneyWeCanUse, actualMoneyTotal)}
               percentageDirection="up"
-              sparkline={cashPositionSpark.map((value) => Math.max(0, value - moneyWeOweTotal))}
+              percentageValue={!actualLoading && !merchantOwedLoading ? moneyWeCanUse : undefined}
+              percentageTotal={actualMoneyTotal}
               items={[
                 { dot: 'bg-blue-500', label: 'Money We Have', value: fmt(actualMoneyTotal), onSelect: () => setActualMoneyLine('mtn_momo') },
                 { dot: 'bg-orange-500', label: 'Less Money We Owe', value: fmt(moneyWeOweTotal), onSelect: () => setMerchantOwedOpen(true) },
@@ -494,7 +472,8 @@ export function CFOOverviewDashboard({
               value={actualLoading ? '—' : fmt(actualMoney?.outsideBankHeld ?? 0)}
               percentageLabel={actualLoading ? '—' : fmtShare(actualMoney?.outsideBankHeld ?? 0, actualMoneyTotal)}
               percentageDirection="up"
-              sparkline={cashPositionSpark.map((value) => actualMoneyTotal > 0 ? value * ((actualMoney?.outsideBankHeld ?? 0) / actualMoneyTotal) : 0)}
+              percentageValue={!actualLoading ? actualMoney?.outsideBankHeld ?? 0 : undefined}
+              percentageTotal={actualMoneyTotal}
               items={[
                 { dot: 'bg-indigo-500', label: 'MTN Mobile Money line', value: fmt(actualMoney?.mtn ?? 0), onSelect: () => setActualMoneyLine('mtn_momo') },
                 { dot: 'bg-indigo-500', label: 'Airtel Money line', value: fmt(actualMoney?.airtel ?? 0), onSelect: () => setActualMoneyLine('airtel_money') },
@@ -517,7 +496,8 @@ export function CFOOverviewDashboard({
               value={actualLoading ? '—' : fmt(actualMoney?.bankedCash ?? 0)}
               percentageLabel={actualLoading ? '—' : fmtShare(actualMoney?.bankedCash ?? 0, actualMoneyTotal)}
               percentageDirection="up"
-              sparkline={cashPositionSpark.map((value) => actualMoneyTotal > 0 ? value * ((actualMoney?.bankedCash ?? 0) / actualMoneyTotal) : 0)}
+              percentageValue={!actualLoading ? actualMoney?.bankedCash ?? 0 : undefined}
+              percentageTotal={actualMoneyTotal}
               items={[
                 { dot: 'bg-sky-500', label: 'Verified cash banked', value: fmt(actualMoney?.bankedCash ?? 0), onSelect: () => setActualMoneyLine('banked_cash') },
                 { dot: 'bg-sky-500', label: 'Bank alerts (reference only)', value: fmt(actualMoney?.bankReconciliation ?? 0), onSelect: () => setActualMoneyLine('banked_cash') },
