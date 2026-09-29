@@ -55444,6 +55444,19 @@ export type Database = {
         Args: { p_roles: string[]; p_user: string }
         Returns: boolean
       }
+      _landlord_pool_post: {
+        Args: {
+          p_allocation_id?: string
+          p_amount: number
+          p_collection_id?: string
+          p_description?: string
+          p_entry_id: string
+          p_kind: string
+          p_ref: string
+          p_rent_request_id?: string
+        }
+        Returns: string
+      }
       _post_four_part_fee_split: {
         Args: {
           p_amount: number
@@ -64110,6 +64123,26 @@ export type Database = {
         Returns: boolean
       }
       landlord_payouts_blocked_from_queue: { Args: never; Returns: boolean }
+      landlord_pool_cutover: { Args: never; Returns: string }
+      landlord_pool_deploy: {
+        Args: {
+          p_allocation_id?: string
+          p_amount: number
+          p_caller?: string
+          p_origin: string
+          p_pool_entry_id?: string
+          p_rent_request_id: string
+        }
+        Returns: Json
+      }
+      landlord_pool_reserve: {
+        Args: {
+          p_caller?: string
+          p_funding_group_ids?: string[]
+          p_portfolio_id: string
+        }
+        Returns: Json
+      }
       ledger_category_allowlist: { Args: never; Returns: string[] }
       ledger_category_allowlist_base: { Args: never; Returns: string[] }
       lending_find_user_by_phone: {
