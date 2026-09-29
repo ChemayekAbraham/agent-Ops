@@ -301,7 +301,7 @@ export function CFOOverviewDashboard({
                     </span>
                   </div>
                   <p className="mt-3 text-[11px] font-semibold text-muted-foreground truncate">Money We Have</p>
-                  <p className="mt-1.5 text-xl leading-tight 2xl:text-2xl font-bold tabular-nums tracking-normal text-foreground break-words">
+                  <p className="mt-1.5 whitespace-nowrap text-[17px] leading-tight sm:text-xl xl:text-[16px] 2xl:text-xl font-bold tabular-nums tracking-normal text-foreground">
                     {actualLoading ? '—' : fmt(actualMoney?.total ?? 0)}
                   </p>
                   <div className="mt-auto pt-2 flex min-h-9 items-end justify-between gap-2">

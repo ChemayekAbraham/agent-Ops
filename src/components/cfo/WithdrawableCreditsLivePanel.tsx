@@ -84,7 +84,6 @@ export function WithdrawableCreditsLivePanel() {
       tone="success"
       title="Withdrawable credits today"
       value={q.isLoading || q.error ? '—' : formatUGX(total)}
-      percentageLabel={`${live ? 'Live' : 'Auto-refresh'} · updated ${q.dataUpdatedAt ? new Date(q.dataUpdatedAt).toLocaleTimeString() : '—'}`}
       items={items}
       footer={
         q.error
