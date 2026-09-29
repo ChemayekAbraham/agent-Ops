@@ -421,6 +421,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       defaultOpen: false,
       items: [
         { label: 'Payroll Enrolment', icon: Banknote, id: 'hr-pay-enrollment', route: '/hr/pay/enrollment', access: HR_ACCESS },
+        { label: 'Staff Surveys', icon: ClipboardList, id: 'hr-staff-surveys', route: '/hr/staff-surveys', access: HR_ACCESS },
         { label: 'Pay Runs', icon: Banknote, id: 'hr-pay-runs', route: '/hr/pay/runs', access: HR_ACCESS },
         { label: 'Advances', icon: Banknote, id: 'hr-pay-advances', route: '/hr/pay/advances', access: HR_ACCESS },
         { label: 'Approvals', icon: Banknote, id: 'hr-pay-approvals', route: '/approvals', access: HR_ACCESS },
