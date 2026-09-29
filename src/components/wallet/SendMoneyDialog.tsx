@@ -29,7 +29,8 @@ import { WELILE_ITEM_IMAGES } from '@/lib/welileItemImages';
 import { 
   Loader2, Send, Phone, Coins, FileText, CheckCircle, Sparkles, UserCheck, UserX,
   Mail, UtensilsCrossed, Fuel, AlertTriangle, ArrowRight, Home, Egg, Gift, Landmark, Sandwich,
-  Star, X, Pencil, Check, Search, Bike
+  Star, X, Pencil, Check, Search, Bike,
+  Lock,
 } from 'lucide-react';
 
 /**
@@ -115,6 +116,7 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
   const [confirming, setConfirming] = useState(false);
   const [lookupNonce, setLookupNonce] = useState(0);
   const [savedRecipients, setSavedRecipients] = useState<SavedRecipient[]>([]);
+  const [manageRecipients, setManageRecipients] = useState(false);
   const [editingNicknameId, setEditingNicknameId] = useState<string | null>(null);
   const [draftNickname, setDraftNickname] = useState('');
   const [recipientSearch, setRecipientSearch] = useState('');
@@ -609,7 +611,7 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent
-        className={`w-screen max-w-none h-[100dvh] max-h-[100dvh] rounded-none border-border/50 glass-card sm:w-full sm:max-w-md sm:h-auto sm:max-h-[85vh] sm:rounded-xl ${
+        className={`w-screen max-w-[100vw] overflow-x-hidden px-4 h-[100dvh] max-h-[100dvh] rounded-none border-border/50 glass-card sm:w-full sm:max-w-md sm:h-auto sm:max-h-[85vh] sm:rounded-xl ${
           confirming ? 'grid-rows-[minmax(0,1fr)] overflow-hidden' : 'overflow-y-auto'
         }`}
       >
@@ -792,7 +794,7 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
                   Send Money
                 </DialogTitle>
                 <DialogDescription>
-                  Send money to anyone on Welile using their phone number
+                  Pick a person → type amount → Send
                 </DialogDescription>
               </DialogHeader>
 
@@ -809,19 +811,18 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
                   className="rounded-2xl border border-border/60 bg-muted/40 p-4"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
-                      Available to send
+                    <span className="text-xs font-medium text-muted-foreground">
+                      You can send
                     </span>
-                    <span className="text-base font-bold text-success">
+                    <span className="text-xl font-bold text-success tabular-nums">
                       {formatCurrency(wallet?.withdrawable || 0)}
                     </span>
                   </div>
                   {(wallet?.float_balance || 0) > 0 && (
-                    <div className="mt-3 flex items-start gap-2 border-t border-border/50 pt-3">
-                      <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0 mt-0.5" />
-                      <p className="text-[11px] leading-relaxed text-muted-foreground">
-                        {formatCurrency(wallet?.float_balance || 0)} operational float is locked and
-                        cannot be transferred.
+                    <div className="mt-2 flex items-center gap-2 border-t border-border/50 pt-2">
+                      <Lock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <p className="text-[11px] text-muted-foreground">
+                        {formatCurrency(wallet?.float_balance || 0)} float can't be sent
                       </p>
                     </div>
                   )}
@@ -874,9 +875,45 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
                     <div className="flex items-center justify-between gap-2">
                       <Label className="flex items-center gap-2">
                         <Star className="h-3.5 w-3.5 text-muted-foreground" />
-                        Saved recipients
+                        Send again
                       </Label>
+                      <button
+                        type="button"
+                        onClick={() => setManageRecipients((v) => !v)}
+                        className="text-xs text-primary min-h-[32px] px-1"
+                      >
+                        {manageRecipients ? 'Done' : 'Edit list'}
+                      </button>
                     </div>
+                    {!manageRecipients && (
+                      <div className="-mx-1 flex gap-3 overflow-x-auto px-1 pb-1 snap-x">
+                        {savedRecipients.slice(0, 12).map((r) => {
+                          const label = (r.nickname || r.name || r.phone || r.email || '?').trim();
+                          const initials = label.split(/\s+/).slice(0, 2).map((w) => w[0]).join('').toUpperCase();
+                          const selected = (r.mode === 'phone' ? phone === r.phone : false);
+                          return (
+                            <button
+                              key={`tile-${r.mode}-${r.id || r.phone || r.email}`}
+                              type="button"
+                              onClick={() => selectSavedRecipient(r)}
+                              className="snap-start flex w-[68px] shrink-0 flex-col items-center gap-1 active:scale-95 transition-transform"
+                              aria-label={`Send to ${label}`}
+                            >
+                              <span className={`relative flex h-14 w-14 items-center justify-center rounded-full text-base font-bold ${selected ? 'bg-primary text-primary-foreground ring-2 ring-primary ring-offset-2 ring-offset-background' : 'bg-primary/10 text-primary'}`}>
+                                {initials}
+                                {r.favorite && (
+                                  <Star className="absolute -right-0.5 -top-0.5 h-4 w-4 fill-amber-400 text-amber-400" />
+                                )}
+                              </span>
+                              <span className="w-full truncate text-center text-[11px] font-medium text-foreground">
+                                {label.split(/\s+/)[0]}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {manageRecipients && (<>
                     <div className="relative">
                       <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                       <Input
@@ -994,7 +1031,7 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
                                   setDraftNickname(r.nickname || '');
                                   setEditingNicknameId(chipKey);
                                 }}
-                                className="shrink-0 text-muted-foreground/60 opacity-0 transition-opacity hover:text-primary group-hover:opacity-100"
+                                className="shrink-0 p-1.5 text-muted-foreground hover:text-primary"
                                 title="Edit nickname"
                               >
                                 <Pencil className="h-3.5 w-3.5" />
@@ -1003,7 +1040,7 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
                             <button
                               type="button"
                               onClick={() => handleRemoveSaved(r)}
-                              className="shrink-0 text-muted-foreground/60 opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+                              className="shrink-0 p-1.5 text-muted-foreground hover:text-destructive"
                               title="Remove from list"
                             >
                               <X className="h-3.5 w-3.5" />
@@ -1026,6 +1063,7 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
                         </p>
                       )}
                     </div>
+                    </>)}
                   </motion.div>
                 )}
                 <motion.div variants={itemVariants} className="space-y-2">
@@ -1036,7 +1074,7 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
                       ) : (
                         <Mail className="h-3.5 w-3.5 text-muted-foreground" />
                       )}
-                      Recipient {mode === 'phone' ? 'Phone Number' : 'Email'}
+                      Or type {mode === 'phone' ? 'phone number' : 'email'}
                     </Label>
                     <button
                       type="button"
@@ -1046,7 +1084,7 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
                       }}
                       className="text-xs text-primary hover:underline"
                     >
-                      Use {mode === 'phone' ? 'email' : 'phone'} instead
+                      Use {mode === 'phone' ? 'email' : 'phone'}
                     </button>
                   </div>
                   {mode === 'phone' ? (
@@ -1234,7 +1272,7 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
                 <motion.div variants={itemVariants} className="space-y-2">
                   <Label htmlFor="amount" className="flex items-center gap-2">
                     <Coins className="h-3.5 w-3.5 text-muted-foreground" />
-                    Amount (UGX)
+                    How much? (UGX)
                   </Label>
                   <div className="relative flex items-center">
                     <span className="pointer-events-none absolute left-4 text-lg font-bold text-muted-foreground">
