@@ -34,8 +34,12 @@ CREATE TEMP TABLE test_instalment_allocations (
     OR (partner_reward_component IS NOT NULL
       AND agent_commission_component IS NOT NULL
       AND platform_net_component IS NOT NULL
-      AND partner_reward_component + agent_commission_component + platform_net_component
-        = access_fee_component + registration_fee_component)
+      AND CASE WHEN split_version IS NOT DISTINCT FROM 'four_part_v1'
+            THEN partner_reward_component + agent_commission_component + platform_net_component
+                   = access_fee_component + registration_fee_component
+            ELSE partner_reward_component + agent_commission_component + platform_net_component
+                   = access_fee_component
+          END)
   )
 );
 
