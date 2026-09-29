@@ -67,7 +67,7 @@ function createReport(title: string, subtitle: string, accent: RGB, meta: string
   const api = {
     doc,
     heading(label: string, note?: string) {
-      ensure(14);
+      ensure(45);
       doc.setFillColor(...accent); doc.rect(M, y - 3.5, 1.2, 5, 'F');
       doc.setFont('helvetica', 'bold'); doc.setFontSize(11.5); doc.setTextColor(...INK);
       doc.text(label, M + 3.5, y + 0.5);
@@ -90,7 +90,9 @@ function createReport(title: string, subtitle: string, accent: RGB, meta: string
         doc.setFillColor(...c.color); doc.roundedRect(x, y, 1.6, ch, 0.8, 0.8, 'F');
         doc.setFont('helvetica', 'normal'); doc.setFontSize(8); doc.setTextColor(...MUTED);
         doc.text(c.label.toUpperCase(), x + 5, y + 6);
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(15); doc.setTextColor(...INK);
+        doc.setFont('helvetica', 'bold'); let fs = 15; doc.setFontSize(fs);
+        while (fs > 9 && doc.getTextWidth(c.value) > cw - 8) { fs -= 1; doc.setFontSize(fs); }
+        doc.setTextColor(...INK);
         doc.text(doc.splitTextToSize(c.value, cw - 8)[0], x + 5, y + 14.5);
         if (c.sub) {
           doc.setFont('helvetica', 'normal'); doc.setFontSize(7.8); doc.setTextColor(...(c.subColor ?? MUTED));
@@ -125,7 +127,7 @@ function createReport(title: string, subtitle: string, accent: RGB, meta: string
       y = (doc as any).lastAutoTable.finalY + 8;
     },
     hbars(rows: { label: string; value: number; display: string; color?: RGB }[], height = 7) {
-      const max = Math.max(1, ...rows.map((r) => r.value));
+      const max = Math.max(1e-9, ...rows.map((r) => r.value));
       const labelW = 62; const valueW = 40;
       const barW = W - 2 * M - labelW - valueW;
       rows.forEach((r) => {
