@@ -31,15 +31,15 @@ const METRICS: {
 }[] = [
   {
     value: 'repaid',
-    label: 'Repaid',
+    label: 'Collected',
     caption:
-      'All-time rent repaid on their own tenants’ Rent Plans — every payment route, not only what the sub-agent collected in person.',
+      'All-time rent this sub-agent actually collected on their own tenants’ Rent Plans. Reversed collections and deleted plans are excluded.',
     podium: true,
   },
   {
     value: 'rate',
     label: 'Rate',
-    caption: 'Share of each Rent Plan’s total repayment that has come in, all time.',
+    caption: 'Share of each Rent Plan’s total repayment this sub-agent has collected, all time.',
     podium: true,
   },
   {
@@ -87,7 +87,7 @@ function rowHeadline(row: SubAgentRankRow, metric: SubAgentRankMetric) {
     case 'rate':
       return { value: ratePercent(row.collectionRate), sub: `${formatUGX(row.collected)} in` };
     case 'outstanding':
-      return { value: formatUGX(row.outstanding), sub: `${ratePercent(row.collectionRate)} repaid` };
+      return { value: formatUGX(row.outstanding), sub: `${ratePercent(row.collectionRate)} collected` };
     case 'repaid':
     default:
       return { value: formatUGX(row.collected), sub: `${ratePercent(row.collectionRate)} of plan total` };
@@ -227,8 +227,8 @@ export function SubAgentRankingsBoard({
                 {isLoading
                   ? 'Loading your team…'
                   : summary.collected > 0
-                    ? `${formatUGX(summary.collected)} repaid, all time, across ${summary.ranked} of ${summary.subAgents} sub-agents`
-                    : 'How your sub-agents compare on rent repaid'}
+                    ? `${formatUGX(summary.collected)} collected, all time, across ${summary.ranked} of ${summary.subAgents} sub-agents`
+                    : 'How your sub-agents compare on rent collected'}
               </div>
             </div>
             <ChevronDown
@@ -271,9 +271,9 @@ export function SubAgentRankingsBoard({
               <>
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {[
-                    { label: 'Repaid, all time', value: formatUGX(summary.collected) },
+                    { label: 'Collected, all time', value: formatUGX(summary.collected) },
                     { label: 'Still owed', value: formatUGX(summary.outstanding) },
-                    { label: 'Repaid share', value: ratePercent(summary.collectionRate) },
+                    { label: 'Collected share', value: ratePercent(summary.collectionRate) },
                     { label: 'Due per day', value: formatUGX(summary.dailyTarget) },
                   ].map((s) => (
                     <div key={s.label} className="rounded-lg border border-border/60 bg-muted/30 p-2">
@@ -286,7 +286,7 @@ export function SubAgentRankingsBoard({
                 {summary.collected === 0 && (
                   <p className="flex items-start gap-1.5 rounded-lg border border-warning/40 bg-warning/5 p-2.5 text-[11px] text-warning">
                     <AlertTriangle className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden />
-                    No repayments recorded yet, so every sub-agent is tied. Rankings fill in as
+                    No collections recorded yet, so every sub-agent is tied. Rankings fill in as
                     collections come through.
                   </p>
                 )}

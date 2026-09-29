@@ -10,7 +10,7 @@ let planSeq = 0;
 /** A funded, repaying rent plan owned by the sub-agent, unless overridden. */
 export function rentPlan(over: Partial<ServiceCenterTenant> = {}): ServiceCenterTenant {
   planSeq += 1;
-  return {
+  const merged: ServiceCenterTenant = {
     rent_request_id: `rr-${planSeq}`,
     tenant_id: `tenant-${planSeq}`,
     tenant_name: `Tenant ${planSeq}`,
@@ -23,6 +23,13 @@ export function rentPlan(over: Partial<ServiceCenterTenant> = {}): ServiceCenter
     owned_by_subagent: true,
     ...over,
   };
+  // The live payload always carries `collected_live`. Default it to the plan
+  // balance rather than a constant, so a test that overrides `amount_repaid`
+  // alone keeps meaning exactly what it did before the field existed. A test
+  // that cares about the difference sets `collected_live` explicitly, and one
+  // that wants the pre-field payload deletes the key.
+  if (merged.collected_live === undefined) merged.collected_live = merged.amount_repaid;
+  return merged;
 }
 
 export function subAgentFixture(

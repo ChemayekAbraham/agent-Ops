@@ -19,20 +19,21 @@ export interface SubAgentRankRow {
   avatarUrl: string | null;
   suspended: boolean;
   /**
-   * Σ `amount_repaid` across creditable rent plans, ALL TIME.
+   * Σ LIVE AGENT COLLECTIONS across creditable rent plans, ALL TIME.
    *
-   * This is the plan BALANCE, not the receipt book. `amount_repaid` has
-   * fifteen writers — agent collection, deposit settlement, tenant self-
-   * payment, ops balance edits, administrative completion — so it is what the
-   * tenant has been credited with, from any route, since the plan was funded.
-   * The metric is called `repaid` for that reason: calling it "collected"
-   * implied the sub-agent personally took the cash, and on 2026-09-28 the
-   * board was reading 13,350,179 for an agent whose own collections came to
-   * 7,445,779.
+   * The receipt book, not the plan balance. Reversed collections are excluded
+   * at source (`agent_collections.reversed_at IS NULL`) and deleted plans and
+   * tenants never reach the roster, so this is money that actually came in and
+   * stayed in.
    *
-   * It is also why reversed collections could surface here long after the
-   * reader-side sweep: a reversed row can be filtered, a column cannot. See
-   * `docs/reversed-collections-surface-audit.md`.
+   * It deliberately does NOT read `amount_repaid`. That column is the plan
+   * balance with many writers — deposit settlement, tenant self-payment, ops
+   * balance edits, administrative completion — and ranking on it credited
+   * sub-agents with money they never collected. Measured 2026-09-29 on one
+   * real board: Akampurira Onesmus showed 14,146,179 against 7,997,279
+   * actually collected, and ALPHA SSEMA 12,927,982 against 7,627,382.
+   *
+   * See `docs/reversed-collections-and-plan-balance.md`.
    */
   collected: number;
   /** Σ `total_repayment` across creditable rent plans. */
@@ -104,7 +105,12 @@ export function measureSubAgent(subAgent: ServiceCenterSubAgent): Omit<SubAgentR
   for (const plan of plans) {
     const repaid = num(plan.amount_repaid);
     const total = num(plan.total_repayment);
-    collected += repaid;
+    // `collected_live` is the receipt book. A payload from before it existed
+    // has no such key at all, and only then do we fall back to the plan
+    // balance — a present-but-zero value is a real zero and must be kept.
+    collected += plan.collected_live === undefined || plan.collected_live === null
+      ? repaid
+      : num(plan.collected_live);
     expected += total;
     if (plan.is_active) {
       activePlans += 1;

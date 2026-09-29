@@ -14,6 +14,12 @@ export interface ServiceCenterTenant {
   monthly_rent: number | null;
   total_repayment?: number | null;
   amount_repaid?: number | null;
+  /**
+   * Live agent collections on this plan, all time, reversals excluded.
+   * This is the receipt book: what an agent actually took in. It is NOT
+   * `amount_repaid`, which is the plan balance and has many writers.
+   */
+  collected_live?: number | null;
   daily_repayment?: number | null;
   landlord_name?: string | null;
   landlord_phone?: string | null;

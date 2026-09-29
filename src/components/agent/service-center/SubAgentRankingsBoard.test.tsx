@@ -85,7 +85,7 @@ describe('SubAgentRankingsBoard', () => {
         subAgentFixture('b', [rentPlan({ amount_repaid: 0 })], { full_name: 'Bosco Okello' }),
       ],
     });
-    expect(screen.getByText(/No repayments recorded yet/i)).toBeInTheDocument();
+    expect(screen.getByText(/No collections recorded yet/i)).toBeInTheDocument();
   });
 
   it('shows a failure note instead of an empty podium when the roster query failed', () => {

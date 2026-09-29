@@ -9,6 +9,41 @@ import {
 
 const subAgent = subAgentFixture;
 
+describe('collected reads the receipt book, not the plan balance', () => {
+  it('uses collected_live and ignores a larger amount_repaid', () => {
+    // The real shape this was built for: a plan credited 14,146,179 by every
+    // route, of which the sub-agent personally collected 7,997,279.
+    const measured = measureSubAgent(
+      subAgent('a', [plan({ amount_repaid: 14_146_179, collected_live: 7_997_279 })]),
+    );
+    expect(measured.collected).toBe(7_997_279);
+  });
+
+  it('keeps a real zero rather than falling back to the balance', () => {
+    // A balance written by deposit settlement with no agent collection behind
+    // it must score zero for the agent.
+    const measured = measureSubAgent(
+      subAgent('a', [plan({ amount_repaid: 500_000, collected_live: 0 })]),
+    );
+    expect(measured.collected).toBe(0);
+  });
+
+  it('falls back to the balance only when the payload predates the field', () => {
+    const legacy = plan({ amount_repaid: 250_000 });
+    delete (legacy as { collected_live?: unknown }).collected_live;
+    expect(measureSubAgent(subAgent('a', [legacy])).collected).toBe(250_000);
+  });
+
+  it('ranks on collections, so a big balance does not beat a real collector', () => {
+    const rows = rankSubAgents([
+      subAgent('balance', [plan({ amount_repaid: 14_000_000, collected_live: 1_000_000 })]),
+      subAgent('collector', [plan({ amount_repaid: 5_000_000, collected_live: 5_000_000 })]),
+    ]);
+    expect(rows[0].name).toBe('COLLECTOR');
+    expect(rows[0].collected).toBe(5_000_000);
+  });
+});
+
 describe('isCollectiblePlan', () => {
   it('counts a funded plan the sub-agent owns', () => {
     expect(isCollectiblePlan(plan())).toBe(true);
