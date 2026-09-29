@@ -302,6 +302,29 @@ Deno.serve(async (req) => {
     });
     if (error) throw new Error(`pending lookup failed: ${error.message}`);
 
+    // Yoola accepts EVERY message and confirms none of them. The provider
+    // chain in sendSmsMultiProvider breaks on the first acceptance, so
+    // Africa's Talking is never reached and these notices die at yoola:
+    // measured 2026-09-29, the tenant welcome for plan 1C635D8D was accepted
+    // twice (message_id 396185 and 396328, UGX 90 each, statusCode 100) and
+    // the tenant received neither, while Africa's Talking had delivered to
+    // that same number six times in September.
+    //
+    // These messages are the ones a Rent Plan depends on, so they now poll
+    // briefly for a real receipt and fail over when it does not come - the
+    // same mechanism the withdrawal and cash-deposit OTPs use, which are the
+    // only messages on the platform that reliably arrive.
+    //
+    // The window is deliberately short. This job runs every 10 minutes and a
+    // single tick can carry several plans; the OTP settings (4 attempts over
+    // ~10s) would risk timing the whole run out when a batch transitions at
+    // once. Two attempts is enough to tell 'yoola has a receipt' from
+    // 'yoola only ever says sent'.
+    const CONFIRM = {
+      requireDeliveryConfirmation: true,
+      deliveryConfirmation: { attempts: 2, delayMs: 1500 },
+    } as const;
+
     const agents = (data?.agent_float_funded ?? []) as AgentNotice[];
     const tenants = (data?.tenant_welcome ?? []) as TenantNotice[];
     const agentsPaid = (data?.agent_landlord_paid ?? []) as AgentPaidNotice[];
@@ -316,6 +339,7 @@ Deno.serve(async (req) => {
         reference_id: n.rent_request_id,
         recipient_user_id: n.agent_id,
         recipient_name: n.agent_name,
+        ...CONFIRM,
         idempotencyKey: `rent-plan-a1:${n.rent_request_id}`,
       });
       ok ? result.agent_sent++ : result.agent_failed++;
@@ -328,6 +352,7 @@ Deno.serve(async (req) => {
         reference_id: n.rent_request_id,
         recipient_user_id: n.tenant_id,
         recipient_name: n.tenant_first_name,
+        ...CONFIRM,
         idempotencyKey: `rent-plan-t1:${n.rent_request_id}`,
       });
       ok ? result.tenant_sent++ : result.tenant_failed++;
@@ -340,6 +365,7 @@ Deno.serve(async (req) => {
         reference_id: n.rent_request_id,
         recipient_user_id: n.agent_id,
         recipient_name: n.agent_name,
+        ...CONFIRM,
         idempotencyKey: `rent-plan-ap:${n.rent_request_id}`,
       });
       ok ? result.agent_paid_sent++ : result.agent_paid_failed++;
@@ -352,6 +378,7 @@ Deno.serve(async (req) => {
         reference_id: n.rent_request_id,
         recipient_user_id: n.agent_id,
         recipient_name: n.agent_name,
+        ...CONFIRM,
         idempotencyKey: `rent-plan-${n.severity}:${n.rent_request_id}`,
       });
       ok ? result.nudge_sent++ : result.nudge_failed++;
@@ -364,6 +391,7 @@ Deno.serve(async (req) => {
         reference_id: n.rent_request_id,
         recipient_user_id: n.tenant_id,
         recipient_name: n.tenant_first_name,
+        ...CONFIRM,
         idempotencyKey: `rent-plan-t2:${n.rent_request_id}`,
       });
       ok ? result.cancelled_sent++ : result.cancelled_failed++;
@@ -377,6 +405,7 @@ Deno.serve(async (req) => {
         reference_id: n.rent_request_id,
         recipient_user_id: n.agent_id,
         recipient_name: n.agent_name,
+        ...CONFIRM,
         idempotencyKey: `rent-plan-a4:${n.rent_request_id}`,
       });
       ok ? result.agent_cancelled_sent++ : result.agent_cancelled_failed++;
