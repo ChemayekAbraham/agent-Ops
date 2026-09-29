@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
 import { Check, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { WELILE_ITEM_IMAGES } from '@/lib/welileItemImages';
 
@@ -17,6 +16,37 @@ interface Props {
 export function ItemSwipePicker({ open, items, startLabel, onPick, onClose }: Props) {
   const railRef = useRef<HTMLDivElement>(null);
   const [index, setIndex] = useState(0);
+  const touchX = useRef<number | null>(null);
+
+  // Pin the surrounding Send Money dialog while the picker is open so the
+  // full-screen picture sits exactly over the phone screen, hide the dialog's
+  // own close button underneath, and restore everything on close.
+  const rootRef = useRef<HTMLDivElement>(null);
+  const [frame, setFrame] = useState<React.CSSProperties>({});
+  useEffect(() => {
+    if (!open) return;
+    const host = rootRef.current?.parentElement?.closest('[role="dialog"]') as HTMLElement | null;
+    if (!host) return;
+    const prevOverflow = host.style.overflow;
+    const prevScroll = host.scrollTop;
+    const closeBtn = host.querySelector(':scope > button') as HTMLElement | null;
+    const prevDisplay = closeBtn?.style.display ?? '';
+    host.scrollTop = 0;
+    host.style.overflow = 'hidden';
+    if (closeBtn) closeBtn.style.display = 'none';
+    const place = () => {
+      const r = host.getBoundingClientRect();
+      setFrame({ top: -r.top - host.clientTop, left: -r.left - host.clientLeft, width: window.innerWidth, height: window.innerHeight, right: 'auto', bottom: 'auto' });
+    };
+    place();
+    window.addEventListener('resize', place);
+    return () => {
+      window.removeEventListener('resize', place);
+      host.style.overflow = prevOverflow;
+      host.scrollTop = prevScroll;
+      if (closeBtn) closeBtn.style.display = prevDisplay;
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -37,15 +67,28 @@ export function ItemSwipePicker({ open, items, startLabel, onPick, onClose }: Pr
     el.scrollTo({ left: n * el.clientWidth, behavior: 'smooth' });
   };
 
-  return createPortal(
-    <div className="fixed inset-0 z-[100] bg-background" role="dialog" aria-label="Choose what you are sending">
+  // Rendered inside the Send Money dialog (not portalled to <body>): the dialog blocks
+  // touches and scrolling outside itself, which stopped swiping and the Send this button.
+  return (
+    <div ref={rootRef} data-item-picker style={frame} className="pointer-events-auto fixed inset-0 z-[100] bg-background" role="dialog" aria-label="Choose what you are sending"
+      onTouchStart={(e) => { touchX.current = e.touches[0]?.clientX ?? null; }}
+      onTouchEnd={(e) => {
+          // Backup swipe: some phones don't scroll a rail inside a locked dialog.
+          const start = touchX.current; touchX.current = null;
+          const end = e.changedTouches[0]?.clientX;
+          if (start == null || end == null) return;
+          const dx = end - start;
+          if (Math.abs(dx) > 40) go(index + (dx < 0 ? 1 : -1));
+        }}
+    >
       <div
         ref={railRef}
+        data-item-rail
         onScroll={(e) => {
           const el = e.currentTarget;
           setIndex(Math.round(el.scrollLeft / Math.max(1, el.clientWidth)));
         }}
-        className="flex h-full w-full snap-x snap-mandatory overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="flex h-full w-full overscroll-contain snap-x snap-mandatory overflow-x-hidden overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {items.map((item) => (
           <div key={item.label} className="relative h-full w-full shrink-0 snap-center">
@@ -103,7 +146,6 @@ export function ItemSwipePicker({ open, items, startLabel, onPick, onClose }: Pr
           <ChevronRight className="h-6 w-6" />
         </button>
       )}
-    </div>,
-    document.body,
+    </div>
   );
 }

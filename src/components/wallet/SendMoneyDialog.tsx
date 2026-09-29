@@ -422,11 +422,7 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
   );
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-UG', {
-      style: 'currency',
-      currency: 'UGX',
-      minimumFractionDigits: 0,
-    }).format(value);
+    return `UGX ${Math.round(value || 0).toLocaleString('en-US')}`;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
