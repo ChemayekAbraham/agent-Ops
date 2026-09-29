@@ -606,7 +606,11 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="w-screen max-w-none h-[100dvh] max-h-[100dvh] rounded-none overflow-y-auto border-border/50 glass-card sm:w-full sm:max-w-md sm:h-auto sm:max-h-[85vh] sm:rounded-xl">
+      <DialogContent
+        className={`w-screen max-w-none h-[100dvh] max-h-[100dvh] rounded-none border-border/50 glass-card sm:w-full sm:max-w-md sm:h-auto sm:max-h-[85vh] sm:rounded-xl ${
+          confirming ? 'grid-rows-[minmax(0,1fr)] overflow-hidden' : 'overflow-y-auto'
+        }`}
+      >
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 pointer-events-none" />
         
         <AnimatePresence mode="wait">
@@ -654,15 +658,15 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
-              className="relative"
+              className="relative flex h-full min-h-0 flex-col"
             >
               <img
                 src={sendMoneyIllustration.url}
                 alt="Illustration of a wallet and money transfer"
                 loading="lazy"
-                className="mx-auto mb-3 h-24 w-auto sm:h-28"
+                className="mx-auto mb-2 h-14 w-auto shrink-0 min-[390px]:h-16 sm:mb-3 sm:h-28"
               />
-              <DialogHeader className="pr-12">
+              <DialogHeader className="shrink-0 pr-12">
                 <DialogTitle className="flex items-center gap-2">
                   <div className="p-2 rounded-lg bg-primary/10">
                     <CheckCircle className="h-5 w-5 text-primary" />
@@ -674,8 +678,8 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="mt-4 space-y-3">
-                <div className="rounded-lg border border-border/60 bg-background/50 p-4 space-y-2">
+              <div className="mt-3 min-h-0 flex-1 space-y-2.5 overflow-y-auto overscroll-contain pb-3 pr-0.5 sm:mt-4 sm:space-y-3">
+                <div className="rounded-lg border border-border/60 bg-background/50 p-3 space-y-1.5 sm:p-4 sm:space-y-2">
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">Sending to</p>
                   <p className="text-base font-semibold">
                     {recipient.status === 'found' ? recipient.name : '—'}
@@ -696,7 +700,7 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
                   </div>
                 </div>
 
-                <div className="rounded-lg border border-border/60 bg-background/50 p-4 space-y-2.5">
+                <div className="rounded-lg border border-border/60 bg-background/50 p-3 space-y-2 sm:p-4 sm:space-y-2.5">
                   <div className="flex items-center justify-between">
                     <span className="text-xs uppercase tracking-wide text-muted-foreground">Amount</span>
                     <span className="text-sm font-semibold text-foreground">{formatCurrency(parseFloat(amount) || 0)}</span>
@@ -731,10 +735,12 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
                   )}
                 </div>
 
-                <PeopleCard recipientName={recipient.status === 'found' ? recipient.name : null} />
+                <div className="hidden sm:block">
+                  <PeopleCard recipientName={recipient.status === 'found' ? recipient.name : null} />
+                </div>
               </div>
 
-              <DialogFooter className="-mx-5 -mb-5 mt-2 gap-2 border-t border-border/50 bg-background px-5 py-3 sm:gap-0">
+              <DialogFooter className="-mx-5 -mb-5 shrink-0 gap-2 border-t border-border/50 bg-background px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:mt-2 sm:gap-0 sm:py-3">
                 <Button
                   type="button"
                   variant="outline"
