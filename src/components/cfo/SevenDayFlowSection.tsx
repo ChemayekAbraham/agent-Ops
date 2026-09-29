@@ -2,25 +2,14 @@ import { useMemo, useState } from 'react';
 import { CalendarClock, ChevronRight, History, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { formatUGX } from '@/lib/rentCalculations';
+import { kampalaLabel, kampalaOffsetYmd } from '@/lib/kampalaDays';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useReceivablesPredictiveForecast } from '@/hooks/useReceivables';
 import { usePayablesPredictiveForecast } from '@/hooks/usePayables';
 
-/** Day labels are Kampala (EAT, UTC+3) calendar days, matching the server's day boundaries. */
-const TZ = 'Africa/Kampala';
-
-/** Kampala calendar day `offset` days from today, as a UTC-noon Date (DST-immune). */
-const kampalaDay = (offset: number) => {
-  const [y, m, d] = new Intl.DateTimeFormat('en-CA', { timeZone: TZ })
-    .format(new Date())
-    .split('-')
-    .map(Number);
-  return new Date(Date.UTC(y, m - 1, d + offset, 12, 0, 0));
-};
-
-const fmt = (d: Date) =>
-  d.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', timeZone: TZ });
+/** Kampala (EAT) calendar day `offset` days from today, e.g. "Tue, 29 Sept". */
+const fmt = (offset: number) => kampalaLabel(kampalaOffsetYmd(offset));
 
 interface Source { who: string; category: string; product: string; amount: number; kind: string; count?: number }
 interface Row { label: string; amount: number; sources: Source[] }
