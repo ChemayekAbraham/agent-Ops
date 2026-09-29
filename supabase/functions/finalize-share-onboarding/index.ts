@@ -1,6 +1,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { z } from "npm:zod@3.23.8";
 import { logSystemEvent } from "../_shared/eventLogger.ts";
+import { getAngelPoolHolding } from "../_shared/angelPoolHolding.ts";
 import {
   ANGEL_POOL_PERCENT, ANGEL_PRICE_PER_SHARE, ANGEL_TOTAL_SHARES, formatAllocationDate, sharesCommitted,
 } from "../_shared/angelPoolShares.ts";
