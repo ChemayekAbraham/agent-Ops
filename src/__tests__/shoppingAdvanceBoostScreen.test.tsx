@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import { useState } from 'react';
 import { ShoppingAdvanceBoostScreen } from '@/components/wallet/ShoppingAdvanceBoostScreen';
 
 /**
@@ -65,6 +66,42 @@ describe('ShoppingAdvanceBoostScreen display timer', () => {
 
     await advance(1);
     expect(fill.style.width).toBe('0%');
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops the countdown and progress bar when closed early', async () => {
+    // Mirrors the real parent: closing sets amountSent back to null, which
+    // unmounts the notice and must clear the running interval.
+    function Harness({ onClose }: { onClose: () => void }) {
+      const [amountSent, setAmountSent] = useState<number | null>(10_000);
+      return (
+        <ShoppingAdvanceBoostScreen
+          amountSent={amountSent}
+          onClose={() => {
+            onClose();
+            setAmountSent(null);
+          }}
+        />
+      );
+    }
+
+    const onClose = vi.fn();
+    render(<Harness onClose={onClose} />);
+
+    await advance(10);
+    const bar = screen.getByRole('progressbar', {
+      name: /time remaining before this message closes/i,
+    });
+    expect(bar).toHaveAttribute('aria-valuenow', '29');
+
+    // Close early via the Continue button.
+    fireEvent.click(screen.getByRole('button', { name: /continue \(29s\)/i }));
+    expect(onClose).toHaveBeenCalledTimes(1);
+
+    // The notice is gone and the timer is dead: more elapsed time changes
+    // nothing and never fires onClose again (no late re-close at 39s).
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+    await advance(TOTAL * 1000);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
