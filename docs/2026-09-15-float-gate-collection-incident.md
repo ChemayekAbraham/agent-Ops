@@ -149,6 +149,10 @@ deliberate accuracy trade — see §11 item 3.
 
 ### Tenants were not double-charged
 
+> **Correction (2026-09-29, docs/HANDOVER/161):** true only before the 06:03 guard fix. Re-taps after it
+> did raise `amount_repaid`; 31 plans / UGX 7,447,034 were left holding reversed duplicates and have
+> now been corrected.
+
 Worth stating plainly, because it is the one piece of good luck in this: the
 same guard failure that caused the loop also kept the duplicates **out of**
 `rent_requests.amount_repaid`. Zero plans are credited beyond their own total.
