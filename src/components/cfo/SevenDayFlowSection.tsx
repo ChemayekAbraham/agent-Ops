@@ -2,13 +2,14 @@ import { useMemo, useState } from 'react';
 import { CalendarClock, ChevronRight, History, Loader2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { formatUGX } from '@/lib/rentCalculations';
+import { kampalaLabel, kampalaOffsetYmd } from '@/lib/kampalaDays';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useReceivablesPredictiveForecast } from '@/hooks/useReceivables';
 import { usePayablesPredictiveForecast } from '@/hooks/usePayables';
 
-const DAY = 86_400_000;
-const fmt = (d: Date) => d.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' });
+/** Kampala (EAT) calendar day `offset` days from today, e.g. "Tue, 29 Sept". */
+const fmt = (offset: number) => kampalaLabel(kampalaOffsetYmd(offset));
 
 interface Source { who: string; category: string; product: string; amount: number; kind: string; count?: number }
 interface Row { label: string; amount: number; sources: Source[] }
@@ -16,12 +17,6 @@ type Cat = {
   label: string;
   products: { label: string; items: { counterparty: string | null; amount: number; due_date: string | null; due_kind?: string }[] }[];
 };
-
-const dayIndex = (iso: string, today: number) => {
-  const d = new Date(iso); d.setHours(0, 0, 0, 0);
-  return Math.round((d.getTime() - today) / DAY);
-};
-const startToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); };
 
 /**
  * CFO Home: receivables and payables for the past 7 days (still-outstanding
@@ -44,9 +39,8 @@ function useSevenDayLines(side: 'payables' | 'receivables') {
 }
 
 function fromFull(lines: FullLine[] | undefined, from: number, to: number, kindLabel: string): Row[] {
-  const today = startToday();
   const rows: Row[] = [];
-  for (let i = from; i < to; i++) rows.push({ label: fmt(new Date(today + i * DAY)), amount: 0, sources: [] });
+  for (let i = from; i < to; i++) rows.push({ label: fmt(i), amount: 0, sources: [] });
   for (const l of lines ?? []) {
     if (l.day_offset < from || l.day_offset >= to) continue;
     const amount = Number(l.amount) || 0;
@@ -93,7 +87,8 @@ export function SevenDayFlowSection() {
       <div>
         <h2 className="text-sm font-semibold">Past 7 Days &amp; Next 7 Days</h2>
         <p className="text-xs text-muted-foreground">
-          Past = amounts that fell due and are still unpaid. Next = predicted from payment behaviour. Select a day to see where it came from.
+          Past = amounts that fell due and are still unpaid. Next = scheduled amounts where they exist, otherwise predicted from payment
+          behaviour. Select a day to see where it came from.
         </p>
       </div>
       {loading ? (
@@ -103,9 +98,9 @@ export function SevenDayFlowSection() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
           <Win title="Receivables — Past 7 Days" icon={<History className="h-4 w-4" />} tone="text-success" rows={data.recPast} onPick={pick('Receivables — Past 7 Days')} />
-          <Win title="Receivables — Next 7 Days (Prediction)" icon={<CalendarClock className="h-4 w-4" />} tone="text-success" rows={data.recNext} onPick={pick('Receivables — Next 7 Days')} />
+          <Win title="Receivables — Next 7 Days" icon={<CalendarClock className="h-4 w-4" />} tone="text-success" rows={data.recNext} onPick={pick('Receivables — Next 7 Days')} />
           <Win title="Payables — Past 7 Days" icon={<History className="h-4 w-4" />} tone="text-destructive" rows={data.payPast} onPick={pick('Payables — Past 7 Days')} />
-          <Win title="Payables — Next 7 Days (Prediction)" icon={<CalendarClock className="h-4 w-4" />} tone="text-destructive" rows={data.payNext} onPick={pick('Payables — Next 7 Days')} />
+          <Win title="Payables — Next 7 Days" icon={<CalendarClock className="h-4 w-4" />} tone="text-destructive" rows={data.payNext} onPick={pick('Payables — Next 7 Days')} />
         </div>
       )}
 

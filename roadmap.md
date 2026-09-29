@@ -32,3 +32,4 @@
 - [x] Add next/past 7-day receivable windows on each receivable page; next 7 days is predicted (ideal + behaviour), past 7 days shows ideal only.
 - [x] Add a Past 7 Days & Next 7 Days section to CFO Home for receivables and payables; selecting a day drills into the products and services behind it, without listing individual people.
 - [x] 7-day cards on CFO Home count every qualifying receivable/payable record (no top-100 cap); undated wallet balances stay out of dated buckets.
+- [x] Rename "Next 7 Days (Prediction)" to "Next 7 Days" and make every 7-day day label/bucket a Kampala (EAT) calendar day, matching the server.
