@@ -71,6 +71,20 @@ export function ShoppingAdvanceBoostScreen({
         <strong>{formatUGX(SHOPPING_ADVANCE_MIN)}</strong> up to a maximum of{' '}
         <strong>{formatUGX(SHOPPING_ADVANCE_MAX)}</strong>.
       </div>
+      <div
+        role="progressbar"
+        aria-label="Time remaining before this message closes"
+        aria-valuemin={0}
+        aria-valuemax={DURATION_SECONDS}
+        aria-valuenow={secondsLeft}
+        aria-valuetext={`${secondsLeft} of ${DURATION_SECONDS} seconds remaining`}
+        className="h-2 w-full max-w-sm overflow-hidden rounded-full bg-primary-foreground/25"
+      >
+        <div
+          className="h-full rounded-full bg-primary-foreground transition-[width] duration-1000 ease-linear motion-reduce:transition-none"
+          style={{ width: `${(secondsLeft / DURATION_SECONDS) * 100}%` }}
+        />
+      </div>
       <Button variant="secondary" onClick={onClose}>
         Continue ({secondsLeft}s)
       </Button>
