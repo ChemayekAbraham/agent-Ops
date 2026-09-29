@@ -21,8 +21,8 @@ import { PayablesBreakdownForecast } from '@/components/cfo/PayablesBreakdownFor
  * from the same authoritative RPCs the drill-down sheets use.
  */
 const SLICE_COLORS = [
-  'hsl(var(--success))', 'hsl(var(--chart-2))', 'hsl(var(--warning))',
-  'hsl(var(--primary))', 'hsl(var(--chart-5))', 'hsl(var(--muted-foreground))',
+  'hsl(var(--success))', 'hsl(var(--info))', 'hsl(var(--warning))',
+  'hsl(var(--primary))', 'hsl(var(--destructive))', 'hsl(var(--muted-foreground))',
 ];
 const CAT_ICONS = [Users, Handshake, Home, Building2, Package, Package];
 
@@ -46,8 +46,8 @@ export function CFOReceivablesPayablesHome() {
   const today = new Date();
   const in30 = new Date(Date.now() + 30 * 86400000);
   const forecast = useReceivablesForecast(isoDay(today), isoDay(in30));
-  const recTrend = useReceivablesPredictiveForecast('week', 1);
-  const payTrend = usePayablesPredictiveForecast('week', 1);
+  const recTrend = useReceivablesPredictiveForecast('day', 30);
+  const payTrend = usePayablesPredictiveForecast('day', 30);
 
   const r = rec.data, p = pay.data;
   const money = (v: number | undefined, loaded: boolean) => (loaded ? formatUGX(Number(v ?? 0)) : '—');
@@ -99,7 +99,7 @@ export function CFOReceivablesPayablesHome() {
       </div>
 
       {/* ── Charts row ── */}
-      <div className="grid grid-cols-1 xl:grid-cols-[1.3fr_1fr_1fr] gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-[1.2fr_1fr_1fr] gap-4 [&>*]:min-w-0">
         <Panel title="Receivables vs Payables Trend" right={
           <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
             <Dot c="hsl(var(--success))" /> Receivables <Dot c="hsl(var(--destructive))" /> Payables
@@ -173,7 +173,7 @@ export function CFOReceivablesPayablesHome() {
 const TONES: Record<string, string> = {
   success: 'bg-success/15 text-success',
   destructive: 'bg-destructive/15 text-destructive',
-  info: 'bg-chart-2/15 text-chart-2',
+  info: 'bg-info/15 text-info',
   primary: 'bg-primary/15 text-primary',
 };
 
@@ -211,7 +211,7 @@ function Kpi({ icon, tone, label, value, foot, spark, onClick, chevron }: {
 function Panel({ title, right, children }: { title: string; right?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="rounded-2xl border border-border/70 bg-card shadow-sm p-4">
-      <div className="flex items-center justify-between gap-2 mb-3">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
         <h3 className="text-sm font-semibold">{title}</h3>
         {right}
       </div>
@@ -227,7 +227,7 @@ function Donut({ title, total, cats, centerLabel }: { title: string; total: numb
   return (
     <Panel title={title}>
       <div className="flex items-center gap-3">
-        <div className="relative h-40 w-40 shrink-0">
+        <div className="relative h-36 w-36 shrink-0">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie data={cats} dataKey="outstanding" nameKey="label" innerRadius="62%" outerRadius="100%" stroke="none">
