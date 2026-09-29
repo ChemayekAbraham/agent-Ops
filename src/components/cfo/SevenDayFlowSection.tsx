@@ -42,35 +42,62 @@ function collect(cats: Cat[] | undefined, from: number, to: number, kindLabel: s
  * amounts that fell due) and the next 7 days (server prediction). Selecting a
  * day shows where the amount came from. Read-only.
  */
+type FullLine = { day_offset: number; category_label: string; product_label: string; amount: number; item_count: number };
+
+/** Every qualifying record (no top-100 cap), grouped by day and product on the server. */
+function useSevenDayLines(side: 'payables' | 'receivables') {
+  return useQuery({
+    queryKey: ['cfo-seven-day-lines', side],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_cfo_seven_day_lines', { p_side: side });
+      if (error) throw error;
+      return (data ?? []) as unknown as FullLine[];
+    },
+    staleTime: 60_000,
+  });
+}
+
+function fromFull(lines: FullLine[] | undefined, from: number, to: number, kindLabel: string): Row[] {
+  const today = startToday();
+  const rows: Row[] = [];
+  for (let i = from; i < to; i++) rows.push({ label: fmt(new Date(today + i * DAY)), amount: 0, sources: [] });
+  for (const l of lines ?? []) {
+    if (l.day_offset < from || l.day_offset >= to) continue;
+    const amount = Number(l.amount) || 0;
+    const r = rows[l.day_offset - from];
+    r.amount += amount;
+    r.sources.push({ who: '', category: l.category_label, product: l.product_label, amount, kind: kindLabel, count: Number(l.item_count) || 0 });
+  }
+  return rows;
+}
+
 export function SevenDayFlowSection() {
-  const recB = useReceivablesBreakdown();
-  const payB = usePayablesBreakdown();
+  const recL = useSevenDayLines('receivables');
+  const payL = useSevenDayLines('payables');
   const recF = useReceivablesPredictiveForecast('day', 7);
   const payF = usePayablesPredictiveForecast('day', 7);
   const [open, setOpen] = useState<{ title: string; row: Row } | null>(null);
 
   const data = useMemo(() => {
     type P = { period_start: string; forecast_amount: number; sources: { category_label: string; product_label: string; amount: number; basis: string }[] };
-    const next = (cats: Cat[] | undefined, periods: P[] | undefined): Row[] => {
-      const sched = collect(cats, 0, 7, 'Scheduled');
-      return (periods ?? []).slice(0, 7).map((p, i) => {
+    // Next 7 days: all scheduled records; a day with nothing scheduled falls back to the behaviour prediction.
+    const next = (lines: FullLine[] | undefined, periods: P[] | undefined): Row[] =>
+      fromFull(lines, 0, 7, 'Scheduled').map((row, i) => {
+        if (row.amount > 0) return row;
+        const p = (periods ?? [])[i];
+        if (!p) return row;
         const predicted: Source[] = (p.sources ?? [])
           .filter((s) => Number(s.amount) > 0)
-          .map((s) => ({ who: 'Predicted from payment behaviour', category: s.category_label, product: s.product_label, amount: Number(s.amount), kind: s.basis === 'scheduled' ? 'Scheduled' : 'Predicted' }));
-        return {
-          label: fmt(new Date(p.period_start)),
-          amount: Number(p.forecast_amount) || 0,
-          sources: [...(sched[i]?.sources ?? []), ...predicted],
-        };
+          .map((s) => ({ who: '', category: s.category_label, product: s.product_label, amount: Number(s.amount), kind: 'Predicted' }));
+        return { ...row, amount: Number(p.forecast_amount) || 0, sources: predicted };
       });
-    };
     return {
-      recPast: collect(recB.data?.categories as Cat[] | undefined, -7, 0, 'Due'),
-      payPast: collect(payB.data?.categories as Cat[] | undefined, -7, 0, 'Due'),
-      recNext: next(recB.data?.categories as Cat[] | undefined, recF.data?.periods as unknown as P[] | undefined),
-      payNext: next(payB.data?.categories as Cat[] | undefined, payF.data?.periods as unknown as P[] | undefined),
+      recPast: fromFull(recL.data, -7, 0, 'Due'),
+      payPast: fromFull(payL.data, -7, 0, 'Due'),
+      recNext: next(recL.data, recF.data?.periods as unknown as P[] | undefined),
+      payNext: next(payL.data, payF.data?.periods as unknown as P[] | undefined),
     };
-  }, [recB.data, payB.data, recF.data, payF.data]);
+  }, [recL.data, payL.data, recF.data, payF.data]);
 
   const loading = recB.isLoading || payB.isLoading || recF.isLoading || payF.isLoading;
   const pick = (title: string) => (row: Row) => setOpen({ title, row });
