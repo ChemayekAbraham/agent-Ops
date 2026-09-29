@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useId } from 'react';
 import { useCFOOverviewData } from '@/hooks/useCFOOverviewData';
 import { useCFO7DayCashFlow } from '@/hooks/useCFO7DayCashFlow';
 import { useActualMoneyHeld } from '@/hooks/useActualMoneyHeld';
@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import {
   ResponsiveContainer, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-  Line, ComposedChart,
+  Line, ComposedChart, Area, AreaChart,
 } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -84,6 +84,7 @@ export function CFOOverviewDashboard({
   const [merchantOwedOpen, setMerchantOwedOpen] = useState(false);
   const [actualMoneyLine, setActualMoneyLine] = useState<PhoneMoneyLine | null>(null);
   const [moneyWeHaveOpen, setMoneyWeHaveOpen] = useState(false);
+  const cashSparkGradientId = useId().replace(/:/g, '');
 
 
   const handleExportCommissions = useCallback(async () => {
@@ -312,9 +313,15 @@ export function CFOOverviewDashboard({
                     {cashPositionSpark.length > 1 && (
                       <div className="h-8 w-20 shrink-0" aria-label="Seven-day cash movement trend">
                         <ResponsiveContainer width="100%" height="100%">
-                          <ComposedChart data={cashPositionSpark.map((value, index) => ({ index, value }))} margin={{ top: 3, right: 1, bottom: 1, left: 1 }}>
-                            <Line type="monotone" dataKey="value" stroke="hsl(var(--success))" strokeWidth={1.75} dot={false} isAnimationActive={false} />
-                          </ComposedChart>
+                          <AreaChart data={cashPositionSpark.map((value, index) => ({ index, value }))} margin={{ top: 2, right: 1, bottom: 0, left: 1 }}>
+                            <defs>
+                              <linearGradient id={cashSparkGradientId} x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="0%" stopColor="hsl(var(--success))" stopOpacity={0.26} />
+                                <stop offset="100%" stopColor="hsl(var(--success))" stopOpacity={0.015} />
+                              </linearGradient>
+                            </defs>
+                            <Area type="monotone" dataKey="value" stroke="hsl(var(--success))" strokeWidth={1.75} fill={`url(#${cashSparkGradientId})`} dot={false} isAnimationActive={false} />
+                          </AreaChart>
                         </ResponsiveContainer>
                       </div>
                     )}
