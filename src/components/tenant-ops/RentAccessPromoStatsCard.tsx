@@ -4,7 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Megaphone, MousePointerClick, Users, Eye } from 'lucide-react';
+import { FileDown, Megaphone, MousePointerClick, Users, Eye } from 'lucide-react';
+import { downloadPdf, generatePromoReachPdf } from '@/lib/tenantOpsWeeklyPerformancePdf';
 
 type PromoStatsRow = {
   surface: string;
@@ -120,6 +121,20 @@ export default function RentAccessPromoStatsCard() {
               aria-label="To date"
             />
           </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="ml-auto h-8 gap-1.5 text-xs"
+            disabled={isLoading || isError}
+            onClick={() =>
+              downloadPdf(
+                generatePromoReachPdf(data ?? [], from, to, SURFACE_LABELS),
+                `Welile_TenantOps_RentAccess_Promo_${from}_to_${to}.pdf`,
+              )
+            }
+          >
+            <FileDown className="h-3.5 w-3.5" /> Export PDF
+          </Button>
         </div>
 
         {/* Totals */}
