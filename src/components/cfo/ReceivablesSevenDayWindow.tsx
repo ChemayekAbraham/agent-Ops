@@ -4,13 +4,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { formatUGX } from '@/lib/rentCalculations';
 import { useReceivablesPredictiveForecast, type ReceivableItem } from '@/hooks/useReceivables';
 
-const DAY = 86_400_000;
-
-function startOfToday() {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
-}
+import { kampalaDayOffset, kampalaLabel, kampalaOffsetYmd, kampalaYmd } from '@/lib/kampalaDays';
 
 interface Row {
   label: string;
@@ -22,6 +16,7 @@ interface Row {
  * Seven-day windows for one product.
  * Ideal     = what is contractually due (scheduled items / daily plan amount).
  * Behaviour = what the server model predicts from this product's real collection history.
+ * Days are Kampala (EAT) calendar days, matching the server's day boundaries.
  * Read-only; never writes anything.
  */
 export function ReceivablesSevenDayWindow({
@@ -36,26 +31,23 @@ export function ReceivablesSevenDayWindow({
   const forecast = useReceivablesPredictiveForecast('day', 7);
 
   const { next, past } = useMemo(() => {
-    const today = startOfToday();
     const matches = (s: { category_key: string; product_key: string }) =>
       s.product_key === productKey &&
-      (s.category_key === categoryKey || categoryKey === 'agent' && s.category_key === 'service_centre');
+      (s.category_key === categoryKey || (categoryKey === 'agent' && s.category_key === 'service_centre'));
 
     const stream = forecast.data?.streams.find(matches);
     const dailyBehaviour = Number(stream?.median_daily ?? 0);
 
-    // Ideal per day from contractual due dates.
+    // Ideal per day from contractual due dates, bucketed on Kampala calendar days.
     const idealByDay = new Map<string, number>();
     const pastRows: Row[] = [];
     for (let i = 7; i >= 1; i--) {
-      const d = new Date(today - i * DAY);
-      pastRows.push({ label: d.toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' }), ideal: 0, behaviour: dailyBehaviour });
+      pastRows.push({ label: kampalaLabel(kampalaOffsetYmd(-i)), ideal: 0, behaviour: dailyBehaviour });
     }
     for (const it of items ?? []) {
-      if (!it.due_date) continue;
-      const t = new Date(it.due_date);
-      t.setHours(0, 0, 0, 0);
-      const diff = Math.round((t.getTime() - today) / DAY);
+      const ymd = kampalaYmd(it.due_date);
+      if (!ymd) continue;
+      const diff = kampalaDayOffset(ymd);
       const amt = Number(it.amount) || 0;
       if (diff >= -7 && diff < 0) pastRows[7 + diff].ideal += amt;
       else if (diff >= 0 && diff < 7) idealByDay.set(String(diff), (idealByDay.get(String(diff)) ?? 0) + amt);
@@ -66,7 +58,7 @@ export function ReceivablesSevenDayWindow({
       const behaviour = src.reduce((s, x) => s + Number(x.amount || 0), 0);
       const scheduled = idealByDay.get(String(i)) ?? 0;
       return {
-        label: new Date(p.period_start).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' }),
+        label: kampalaLabel(kampalaYmd(p.period_start) ?? kampalaOffsetYmd(i)),
         ideal: scheduled > 0 ? scheduled : behaviour > 0 ? Math.max(behaviour, dailyBehaviour) : dailyBehaviour,
         behaviour,
       };
