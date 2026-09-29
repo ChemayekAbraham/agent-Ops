@@ -12,9 +12,11 @@ import fuelImg from '@/assets/items/welile-fuel.jpg';
 import rewardImg from '@/assets/items/welile-reward.jpg';
 import bodaImg from '@/assets/items/welile-boda.jpg';
 import taxImg from '@/assets/items/welile-tax.jpg';
+import giftImg from '@/assets/items/welile-gift.jpg';
 
 export const WELILE_ITEM_IMAGES: Record<string, string> = {
   'Welile Rent': rentImg,
+  'Welile Gift': giftImg,
   'Welile Bread': breadImg,
   'Welile Chapati': chapatiImg,
   'Welile Eggs': eggsImg,
