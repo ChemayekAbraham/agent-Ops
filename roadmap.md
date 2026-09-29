@@ -15,3 +15,9 @@
 
 - [x] Reconcile EMP-00053 September collected notes and correct the report source/count.
 - [x] Improve the concerns page for smartphone navigation with prominent Call and WhatsApp actions.
+
+## Added 2026-09-29
+- [ ] Read-only dry run: trace real repayments through proposed holding and four-part final destinations.
+- [ ] Verify no duplicate Commission, Partner Returns, Platform Fee revenue, or landlord obligation.
+- [ ] Design immutable payment identity, exactly-once settlement, and full reversal safeguards.
+- [ ] Improve wallet transfer confirmation so amount and confirm action remain visible above the mobile keyboard.
