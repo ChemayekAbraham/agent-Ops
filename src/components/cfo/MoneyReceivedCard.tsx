@@ -13,7 +13,7 @@ type Row = {
 };
 
 /** Actual external money received (approved deposits). Read-only. */
-export function MoneyReceivedCard() {
+export function MoneyReceivedCard({ moneyWeHaveTotal }: { moneyWeHaveTotal: number }) {
   const q = useQuery({
     queryKey: ['cfo-money-received'],
     queryFn: async () => {
@@ -39,7 +39,12 @@ export function MoneyReceivedCard() {
       tone="success"
       title="Money Received"
       value={q.isLoading || q.error || !d ? '—' : formatUGX(n(d.total_received))}
-      percentageLabel="Confirmed deposits by mobile money, bank & cash"
+      percentageLabel={q.isLoading || q.error || !d || moneyWeHaveTotal <= 0
+        ? '—'
+        : `${((n(d.total_received) / moneyWeHaveTotal) * 100).toFixed(1)}% of Money We Have`}
+      percentageDirection="up"
+      percentageValue={!q.isLoading && !q.error && d ? n(d.total_received) : undefined}
+      percentageTotal={moneyWeHaveTotal}
       items={d ? [
         { dot: 'bg-emerald-500', label: `Received today (${n(d.today_count).toLocaleString()})`, value: formatUGX(n(d.today_received)), onSelect: () => drill({ label: 'Today', from: kampalaDate(), to: kampalaDate(), status: conf, expected: { amount: n(d.today_received), count: n(d.today_count), basis: 'confirmed' } }) },
         { dot: 'bg-emerald-400', label: `Received this month (${n(d.month_count).toLocaleString()})`, value: formatUGX(n(d.month_received)), onSelect: () => drill({ label: 'This month', from: monthStart(), to: kampalaDate(), status: conf, expected: { amount: n(d.month_received), count: n(d.month_count), basis: 'confirmed' } }) },
@@ -47,7 +52,7 @@ export function MoneyReceivedCard() {
         { dot: 'bg-amber-500', label: `Pending / unconfirmed (${n(d.pending_count).toLocaleString()})`, value: formatUGX(n(d.pending_amount)), onSelect: () => drill({ label: 'Pending', ...allTime(), status: 'pending', expected: { amount: n(d.pending_amount), count: n(d.pending_count), basis: 'pending' } }) },
       ] : []}
       onClick={() => { total(); }}
-      footer={q.error ? 'Could not load receipts' : undefined}
+      footer={q.error ? 'Could not load receipts' : 'Confirmed deposits by mobile money, bank & cash'}
     />
     <MoneyReceivedReport open={report} onOpenChange={setReport} preset={preset} />
     </>

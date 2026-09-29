@@ -36,7 +36,7 @@ type Row = { category: string; total: number; credits: number };
  * the modal. Nothing is derived here beyond grouping — every figure is the
  * ledger total the RPC returns.
  */
-export function WithdrawableCreditsLivePanel() {
+export function WithdrawableCreditsLivePanel({ moneyWeHaveTotal }: { moneyWeHaveTotal: number }) {
   const [live, setLive] = useState(false);
   const q = useQuery({
     queryKey: ['cfo-withdrawable-credits-today'],
@@ -84,6 +84,12 @@ export function WithdrawableCreditsLivePanel() {
       tone="success"
       title="Withdrawable credits today"
       value={q.isLoading || q.error ? '—' : formatUGX(total)}
+      percentageLabel={q.isLoading || q.error || moneyWeHaveTotal <= 0
+        ? '—'
+        : `${((total / moneyWeHaveTotal) * 100).toFixed(1)}% of Money We Have`}
+      percentageDirection="up"
+      percentageValue={!q.isLoading && !q.error ? total : undefined}
+      percentageTotal={moneyWeHaveTotal}
       items={items}
       footer={
         q.error

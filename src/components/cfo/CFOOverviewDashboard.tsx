@@ -512,9 +512,9 @@ export function CFOOverviewDashboard({
               onClick={() => setActualMoneyLine('banked_cash')}
             />
 
-            <WithdrawableCreditsLivePanel />
-            <MoneyPaidOutCard />
-            <MoneyReceivedCard />
+            <WithdrawableCreditsLivePanel moneyWeHaveTotal={actualMoneyTotal} />
+            <MoneyPaidOutCard moneyWeHaveTotal={actualMoneyTotal} />
+            <MoneyReceivedCard moneyWeHaveTotal={actualMoneyTotal} />
           </div>
 
           {/* Transaction-level reconciliation behind Money We Can Use. */}
