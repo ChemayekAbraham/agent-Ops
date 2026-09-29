@@ -197,9 +197,8 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
           {/* Category dropdown */}
           {sortedCategories.length > 0 && (
             <div className="flex items-center gap-2">
-              <Layers className="h-3 w-3 text-muted-foreground shrink-0" />
               <Select
-                value={categoryFilter}
+                value={categoryFilter === ALL_CATEGORIES ? undefined : categoryFilter}
                 onValueChange={(v) => {
                   setCategoryFilter(v);
                   if (v !== ALL_CATEGORIES) {
@@ -214,18 +213,21 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
                   }
                 }}
               >
-                <SelectTrigger className="h-8 flex-1 text-xs">
-                  <SelectValue placeholder="All categories" />
+                <SelectTrigger
+                  aria-label="Select Receivable"
+                  className="h-9 flex-1 rounded-md border-border/70 bg-background text-xs sm:text-sm font-normal shadow-none focus:ring-1 focus:ring-primary/30"
+                >
+                  <SelectValue placeholder="Select Receivable" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={ALL_CATEGORIES} className="text-xs">
-                    All categories
-                  </SelectItem>
+                <SelectContent className="max-h-72">
                   {sortedCategories.map((cat) => (
-                    <SelectItem key={cat.key} value={cat.key} className="text-xs">
-                      {cat.label} · {formatUGX(cat.outstanding)} · {breakdown.data && breakdown.data.total > 0
-                        ? `${((cat.outstanding / breakdown.data.total) * 100).toFixed(1)}%`
-                        : '0.0%'} · {cat.item_count} item{cat.item_count === 1 ? '' : 's'}
+                    <SelectItem key={cat.key} value={cat.key} className="text-xs sm:text-sm">
+                      <span className="flex w-full items-center justify-between gap-4">
+                        <span className="truncate">{cat.label}</span>
+                        <span className="shrink-0 font-mono tabular-nums text-muted-foreground">
+                          {formatUGX(cat.outstanding)}
+                        </span>
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>
