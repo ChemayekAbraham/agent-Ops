@@ -27,3 +27,5 @@
 - [x] Move the Cash Movement section (Today's Money Flow + 7-day chart) off Home onto the Cash Position page, like General Payout Activities.
 - [x] Remove the Tools & Audit Trail section from CFO Home (receipt lookup, email transactions, transaction search, CFO actions log).
 - [x] Redesign CFO Cash Position to match the supplied clean 4-by-2 financial overview while preserving live logic and drill-downs.
+
+- [x] Redesign the CFO Cash Position payout report as a unified professional report, preserving live figures, controls, export, and pagination.

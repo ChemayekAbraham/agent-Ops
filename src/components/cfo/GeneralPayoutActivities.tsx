@@ -1,9 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import {
-  Card, CardContent, CardHeader, CardTitle,
-} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -528,384 +525,99 @@ export function GeneralPayoutActivities() {
   const rangeEnd = Math.min(page * PAGE_SIZE, total);
 
   return (
-    <div className="space-y-5">
-      {/* Header */}
-      <div className="rounded-2xl border border-border/80 bg-gradient-to-r from-card via-card to-muted/20 p-5 sm:p-6 shadow-sm">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <Banknote className="h-6 w-6 text-primary" />
-              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">
-                General Payout Activities
-              </h1>
+    <section className="overflow-hidden rounded-lg border border-border bg-card shadow-sm" aria-label="General Payout Activities">
+      <div className="border-b border-border px-5 py-6 sm:px-7 sm:py-7">
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"><Banknote className="h-4 w-4" /></span>
+              <h2 className="text-xl font-semibold text-foreground sm:text-2xl">General Payout Activities</h2>
             </div>
-            <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed max-w-2xl">
-              Track every payout transaction sent from the platform. Select a period, filter by recipient or
-              category, and review the detailed records.
-            </p>
+            <p className="mt-2 text-sm text-muted-foreground">Payout transactions from the platform · {window.label}</p>
+          </div>
+          <Button variant="outline" size="sm" className="h-9 shrink-0 gap-2 self-start text-xs" onClick={handleDownload} disabled={downloading}>
+            {downloading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+            {downloading ? 'Preparing…' : 'Download Payout (PDF)'}
+          </Button>
+        </div>
+        <div className="mt-6 flex flex-wrap items-end gap-3 border-t border-border pt-5">
+          <div className="flex min-w-[130px] flex-col gap-1.5">
+            <Label className="text-xs font-medium text-muted-foreground">Reporting period</Label>
+            <Select value={periodKind} onValueChange={(v) => { setPeriodKind(v as PeriodKind); setPage(1); if (v === 'daily') setDailyDate(new Date()); }}>
+              <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>{PERIOD_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+            </Select>
+          </div>
+          {periodKind === 'daily' && <div className="flex flex-col gap-1.5"><Label className="text-xs font-medium text-muted-foreground">Date</Label><DatePickerButton value={dailyDate} onChange={(d) => { if (d) { setDailyDate(d); setAnchor(d); setPage(1); } }} placeholder="Pick a date" /></div>}
+          {periodKind === 'custom' && <>
+            <div className="flex flex-col gap-1.5"><Label className="text-xs font-medium text-muted-foreground">From date</Label><DatePickerButton value={customFrom} onChange={(d) => { setCustomFrom(d); setPage(1); }} placeholder="Start date" /></div>
+            <div className="flex flex-col gap-1.5"><Label className="text-xs font-medium text-muted-foreground">To date</Label><DatePickerButton value={customTo} onChange={(d) => { setCustomTo(d); setPage(1); }} placeholder="End date" /></div>
+          </>}
+          {(periodKind === 'weekly' || periodKind === 'monthly' || periodKind === 'quarterly') && <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" className="h-9 w-9" aria-label="Previous period" onClick={() => navigate(-1)}><ChevronLeft className="h-4 w-4" /></Button>
+            <span className="min-w-[145px] text-center text-xs font-medium text-foreground">{window.label}</span>
+            <Button variant="outline" size="icon" className="h-9 w-9" aria-label="Next period" onClick={() => navigate(1)}><ChevronRight className="h-4 w-4" /></Button>
+          </div>}
+          <Button variant="ghost" size="sm" className="h-9 text-xs" onClick={() => { const today = new Date(); setAnchor(today); setDailyDate(today); setCustomFrom(undefined); setCustomTo(undefined); setPage(1); }}>Today</Button>
+        </div>
+        <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="flex min-w-0 items-center justify-between gap-3 rounded-md border border-border bg-muted/30 p-4 sm:p-5">
+            <div className="min-w-0"><p className="text-xs font-medium text-muted-foreground">Total payout amount</p><p className="mt-1 break-words text-xl font-semibold text-foreground sm:text-2xl">{formatUGX(data?.totalAmount ?? 0)}</p></div>
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"><Wallet className="h-5 w-5" /></span>
+          </div>
+          <div className="flex min-w-0 items-center justify-between gap-3 rounded-md border border-border bg-muted/30 p-4 sm:p-5">
+            <div><p className="text-xs font-medium text-muted-foreground">Number of payouts</p><p className="mt-1 text-xl font-semibold text-foreground sm:text-2xl">{data?.total ?? 0}</p></div>
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md bg-secondary text-secondary-foreground"><History className="h-5 w-5" /></span>
           </div>
         </div>
       </div>
 
-      {/* Period selector */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <CalendarIcon className="h-4 w-4 text-muted-foreground" />
-            Reporting period
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
-            <div className="flex flex-col gap-1.5">
-              <Label className="text-xs text-muted-foreground">Period</Label>
-              <Select
-                value={periodKind}
-                onValueChange={(v) => {
-                  setPeriodKind(v as PeriodKind);
-                  setPage(1);
-                  if (v === 'daily') setDailyDate(new Date());
-                }}
-              >
-                <SelectTrigger className="h-9 text-xs sm:w-[160px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {PERIOD_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {periodKind === 'daily' && (
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-xs text-muted-foreground">Date</Label>
-                <DatePickerButton
-                  value={dailyDate}
-                  onChange={(d) => {
-                    if (d) {
-                      setDailyDate(d);
-                      setAnchor(d);
-                      setPage(1);
-                    }
-                  }}
-                  placeholder="Pick a date"
-                />
-              </div>
-            )}
-
-            {periodKind === 'custom' && (
-              <>
-                <div className="flex flex-col gap-1.5">
-                  <Label className="text-xs text-muted-foreground">From date</Label>
-                  <DatePickerButton
-                    value={customFrom}
-                    onChange={(d) => {
-                      setCustomFrom(d);
-                      setPage(1);
-                    }}
-                    placeholder="Start date"
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label className="text-xs text-muted-foreground">To date</Label>
-                  <DatePickerButton
-                    value={customTo}
-                    onChange={(d) => {
-                      setCustomTo(d);
-                      setPage(1);
-                    }}
-                    placeholder="End date"
-                  />
-                </div>
-              </>
-            )}
-
-            {(periodKind === 'weekly' || periodKind === 'monthly' || periodKind === 'quarterly') && (
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" className="h-9 px-2" onClick={() => navigate(-1)}>
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <div className="min-w-[180px] rounded-md border border-border bg-muted/30 px-3 py-2 text-center text-xs font-medium">
-                  {window.label}
-                </div>
-                <Button variant="outline" size="sm" className="h-9 px-2" onClick={() => navigate(1)}>
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            )}
-
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-9 text-xs"
-              onClick={() => {
-                const today = new Date();
-                setAnchor(today);
-                setDailyDate(today);
-                setCustomFrom(undefined);
-                setCustomTo(undefined);
-                setPage(1);
-              }}
-            >
-              Today
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Summary KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <Card className="border-2 border-primary/20">
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-primary/10 text-primary">
-              <Wallet className="h-6 w-6" />
-            </div>
-            <div>
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Total payout amount</p>
-              <p className="text-xl font-bold font-mono text-foreground">{formatUGX(data?.totalAmount ?? 0)}</p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-2 border-warning/20">
-          <CardContent className="p-4 flex items-center gap-4">
-            <div className="p-3 rounded-xl bg-warning/10 text-warning">
-              <History className="h-6 w-6" />
-            </div>
-            <div>
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Number of payouts</p>
-              <p className="text-xl font-bold font-mono text-foreground">{data?.total ?? 0}</p>
-            </div>
-          </CardContent>
-        </Card>
+      <div className="border-b border-border bg-muted/20 px-5 py-5 sm:px-7">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div><h3 className="text-sm font-semibold text-foreground">Payout records</h3><p className="text-xs text-muted-foreground">{window.label}{isFetching && !isLoading ? ' · Updating…' : ''}</p></div>
+          {hasFilters && <Button variant="ghost" size="sm" className="h-8 shrink-0 gap-1 text-xs" onClick={resetFilters}><X className="h-3.5 w-3.5" />Clear filters</Button>}
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1.3fr)_minmax(0,1fr)_minmax(0,1fr)]">
+          <div className="min-w-0 space-y-1.5"><Label htmlFor="gp-filter-name" className="text-xs text-muted-foreground">Recipient name</Label><Input id="gp-filter-name" placeholder="Search name…" value={nameFilter} onChange={(e) => { setNameFilter(e.target.value); setPage(1); }} className="h-9 bg-card text-xs" /></div>
+          <div className="min-w-0 space-y-1.5"><Label htmlFor="gp-filter-category" className="text-xs text-muted-foreground">Category</Label><Input id="gp-filter-category" placeholder="Search category…" value={categoryFilter} onChange={(e) => { setCategoryFilter(e.target.value); setPage(1); }} className="h-9 bg-card text-xs" /></div>
+          <div className="min-w-0 space-y-1.5"><Label className="text-xs text-muted-foreground">Type</Label><Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v as TypeFilter); setPage(1); }}><SelectTrigger className="h-9 bg-card text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All types</SelectItem><SelectItem value="credit">Sent</SelectItem><SelectItem value="debit">Taken out</SelectItem></SelectContent></Select></div>
+          <div className="min-w-0 space-y-1.5"><Label className="text-xs text-muted-foreground">Destination</Label><Select value={destinationFilter} onValueChange={(v) => { setDestinationFilter(v as DestinationFilter); setPage(1); }}><SelectTrigger className="h-9 bg-card text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All destinations</SelectItem><SelectItem value="user">User wallet</SelectItem><SelectItem value="operational_wallet">Operational float</SelectItem></SelectContent></Select></div>
+        </div>
       </div>
 
-      {/* Filters & table */}
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <CardTitle className="text-base font-semibold flex items-center gap-2">
-                <History className="h-4 w-4 text-muted-foreground" />
-                Payout records
-                {isFetching && !isLoading && (
-                  <span className="text-xs font-normal text-muted-foreground">Updating…</span>
-                )}
-              </CardTitle>
-              <p className="text-xs text-muted-foreground">
-                Period: {window.label}
-              </p>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-9 gap-1.5 text-xs"
-              onClick={handleDownload}
-              disabled={downloading}
-            >
-              {downloading ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Download className="h-3.5 w-3.5" />
-              )}
-              {downloading ? 'Preparing…' : 'Download Payout (PDF)'}
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="border-b border-border bg-muted/30 px-4 py-3">
-            <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-end">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="gp-filter-name" className="text-xs text-muted-foreground">Recipient name</Label>
-                <Input
-                  id="gp-filter-name"
-                  placeholder="Search name…"
-                  value={nameFilter}
-                  onChange={(e) => {
-                    setNameFilter(e.target.value);
-                    setPage(1);
-                  }}
-                  className="h-9 text-xs sm:w-[180px]"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="gp-filter-category" className="text-xs text-muted-foreground">Category</Label>
-                <Input
-                  id="gp-filter-category"
-                  placeholder="Search category…"
-                  value={categoryFilter}
-                  onChange={(e) => {
-                    setCategoryFilter(e.target.value);
-                    setPage(1);
-                  }}
-                  className="h-9 text-xs sm:w-[180px]"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-xs text-muted-foreground">Type</Label>
-                <Select
-                  value={typeFilter}
-                  onValueChange={(v) => {
-                    setTypeFilter(v as TypeFilter);
-                    setPage(1);
-                  }}
-                >
-                  <SelectTrigger className="h-9 text-xs sm:w-[150px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All types</SelectItem>
-                    <SelectItem value="credit">Sent</SelectItem>
-                    <SelectItem value="debit">Taken out</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-xs text-muted-foreground">Destination</Label>
-                <Select
-                  value={destinationFilter}
-                  onValueChange={(v) => {
-                    setDestinationFilter(v as DestinationFilter);
-                    setPage(1);
-                  }}
-                >
-                  <SelectTrigger className="h-9 text-xs sm:w-[170px]">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All destinations</SelectItem>
-                    <SelectItem value="user">User wallet</SelectItem>
-                    <SelectItem value="operational_wallet">Operational float</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              {hasFilters && (
-                <Button variant="ghost" size="sm" className="h-9 text-xs" onClick={resetFilters}>
-                  <X className="mr-1.5 h-3.5 w-3.5" />
-                  Clear filters
-                </Button>
-              )}
-            </div>
-          </div>
-
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-            </div>
-          ) : error ? (
-            <p className="px-5 pb-5 pt-5 text-sm text-destructive">Could not load payout activity.</p>
-          ) : !data || data.rows.length === 0 ? (
-            <p className="px-5 pb-5 pt-5 text-sm text-muted-foreground">
-              {hasFilters ? 'No payouts match the selected filters.' : 'No payouts recorded for this period.'}
-            </p>
-          ) : (
-            <>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border text-left text-muted-foreground">
-                      <th className="px-4 py-2.5 font-medium">Recipient</th>
-                      <th className="px-4 py-2.5 font-medium text-right">Amount</th>
-                      <th className="px-4 py-2.5 font-medium">Type</th>
-                      <th className="px-4 py-2.5 font-medium">Destination</th>
-                      <th className="px-4 py-2.5 font-medium">Category</th>
-                      <th className="px-4 py-2.5 font-medium">Reference</th>
-                      <th className="px-4 py-2.5 font-medium whitespace-nowrap">Date &amp; time</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.rows.map((row) => {
-                      const isDebit = row.operation === 'debit';
-                      const meta = (row.metadata ?? {}) as Record<string, any>;
-                      const destination =
-                        meta.recipient_type === 'operational_wallet' ? 'Operational float' : 'User wallet';
-                      return (
-                        <tr key={row.id} className="border-b border-border last:border-0">
-                          <td className="px-4 py-2.5">
-                            <div className="font-medium">{row.recipient?.full_name || 'Unknown'}</div>
-                            <div className="text-xs text-muted-foreground">{row.recipient?.phone || '—'}</div>
-                          </td>
-                          <td
-                            className={cn(
-                              'px-4 py-2.5 text-right font-semibold',
-                              isDebit ? 'text-destructive' : 'text-emerald-600',
-                            )}
-                          >
-                            {isDebit ? '−' : '+'}
-                            {formatUGX(Number(row.amount))}
-                          </td>
-                          <td className="px-4 py-2.5">
-                            <Badge variant={isDebit ? 'destructive' : 'secondary'} className="gap-1 text-xs">
-                              {isDebit ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownLeft className="h-3 w-3" />}
-                              {isDebit ? 'Taken out' : 'Sent'}
-                            </Badge>
-                          </td>
-                          <td className="px-4 py-2.5 text-muted-foreground">{destination}</td>
-                          <td className="px-4 py-2.5 max-w-[260px] truncate text-muted-foreground">
-                            {meta.category_label || row.evidence || '—'}
-                          </td>
-                          <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
-                            {row.reference_id || '—'}
-                          </td>
-                          <td className="px-4 py-2.5 text-muted-foreground whitespace-nowrap">
-                            {format(new Date(row.created_at), 'dd MMM yyyy, HH:mm')}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              <div className="flex flex-col gap-3 border-t border-border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-xs text-muted-foreground">
-                  Showing {rangeStart}–{rangeEnd} of {total} payouts
-                </p>
-                <div className="flex flex-wrap items-center gap-1">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 px-2"
-                    disabled={page <= 1}
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                    <span className="hidden sm:inline">Previous</span>
-                  </Button>
-                  {pageWindow(page, totalPages).map((p, i) =>
-                    p === 'gap' ? (
-                      <span key={`gap-${i}`} className="px-1 text-xs text-muted-foreground">
-                        …
-                      </span>
-                    ) : (
-                      <Button
-                        key={p}
-                        variant={p === page ? 'default' : 'outline'}
-                        size="sm"
-                        className="h-8 w-8 p-0 text-xs"
-                        onClick={() => setPage(p)}
-                      >
-                        {p}
-                      </Button>
-                    ),
-                  )}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 px-2"
-                    disabled={page >= totalPages}
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  >
-                    <span className="hidden sm:inline">Next</span>
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+      {isLoading ? <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div> : error ? <p className="px-7 py-8 text-sm text-destructive">Could not load payout activity.</p> : !data || data.rows.length === 0 ? <p className="px-7 py-8 text-sm text-muted-foreground">{hasFilters ? 'No payouts match the selected filters.' : 'No payouts recorded for this period.'}</p> : <>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[860px] text-left text-xs sm:text-sm">
+            <thead className="bg-muted/30"><tr className="border-b border-border text-muted-foreground">
+              <th className="px-5 py-3 font-medium sm:pl-7">Reference</th><th className="px-4 py-3 font-medium">Recipient</th><th className="px-4 py-3 font-medium">Date &amp; time</th><th className="px-4 py-3 font-medium">Type</th><th className="px-4 py-3 font-medium">Destination</th><th className="px-4 py-3 font-medium">Category</th><th className="px-5 py-3 text-right font-medium sm:pr-7">Amount</th>
+            </tr></thead>
+            <tbody className="divide-y divide-border">
+              {data.rows.map((row) => {
+                const isDebit = row.operation === 'debit';
+                const meta = (row.metadata ?? {}) as Record<string, any>;
+                const destination = meta.recipient_type === 'operational_wallet' ? 'Operational float' : 'User wallet';
+                return <tr key={row.id} className="transition-colors hover:bg-muted/20">
+                  <td className="max-w-[150px] break-all px-5 py-4 font-mono text-xs text-muted-foreground sm:pl-7">{row.reference_id || '—'}</td>
+                  <td className="px-4 py-4"><div className="font-semibold text-foreground">{row.recipient?.full_name || 'Unknown'}</div><div className="text-xs text-muted-foreground">{row.recipient?.phone || '—'}</div></td>
+                  <td className="whitespace-nowrap px-4 py-4 text-muted-foreground">{format(new Date(row.created_at), 'dd MMM yyyy, HH:mm')}</td>
+                  <td className="px-4 py-4"><Badge variant={isDebit ? 'destructive' : 'secondary'} className="gap-1 text-xs">{isDebit ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownLeft className="h-3 w-3" />}{isDebit ? 'Taken out' : 'Sent'}</Badge></td>
+                  <td className="px-4 py-4 text-muted-foreground">{destination}</td>
+                  <td className="max-w-[180px] px-4 py-4 text-muted-foreground" title={String(meta.category_label || row.evidence || '')}><span className="block truncate">{meta.category_label || row.evidence || '—'}</span></td>
+                  <td className={cn('whitespace-nowrap px-5 py-4 text-right font-semibold sm:pr-7', isDebit ? 'text-destructive' : 'text-foreground')}>{isDebit ? '−' : '+'}{formatUGX(Number(row.amount))}</td>
+                </tr>;
+              })}
+            </tbody>
+          </table>
+        </div>
+        <div className="flex flex-col gap-3 border-t border-border px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7">
+          <p className="text-xs text-muted-foreground">Showing <span className="font-medium text-foreground">{rangeStart}–{rangeEnd}</span> of <span className="font-medium text-foreground">{total}</span> payouts</p>
+          <nav aria-label="Payout pages" className="flex flex-wrap items-center gap-1">
+            <Button variant="outline" size="sm" className="h-8 gap-1 px-2 text-xs" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}><ChevronLeft className="h-4 w-4" />Previous</Button>
+            {pageWindow(page, totalPages).map((p, i) => p === 'gap' ? <span key={`gap-${i}`} className="px-1 text-xs text-muted-foreground">…</span> : <Button key={p} variant={p === page ? 'default' : 'outline'} size="sm" aria-label={`Page ${p}`} aria-current={p === page ? 'page' : undefined} className="h-8 w-8 p-0 text-xs" onClick={() => setPage(p)}>{p}</Button>)}
+            <Button variant="outline" size="sm" className="h-8 gap-1 px-2 text-xs" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>Next<ChevronRight className="h-4 w-4" /></Button>
+          </nav>
+        </div>
+      </>}
+    </section>
   );
 }
