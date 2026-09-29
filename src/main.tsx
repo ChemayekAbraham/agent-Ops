@@ -7,6 +7,10 @@ import { ensureRuntimePolyfills } from './lib/runtimePolyfills';
 // Then: drops the stored session on a cold start when the user opted
 // out of "remember this device", before Supabase/session-cache read any token.
 import './lib/ephemeralGuard';
+// Clipboard writes fall back to execCommand when the async API is refused
+// ("Write permission denied." on old Android WebViews) — doc 160.
+import { installClipboardFallback } from './lib/clipboardFallback';
+installClipboardFallback();
 // Initialize login telemetry as early as possible so we capture the very first
 // paint / bootstrap phases (before AuthProvider mounts).
 import { loginTelemetry } from './lib/loginTelemetry';
