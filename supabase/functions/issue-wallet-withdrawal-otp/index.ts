@@ -122,6 +122,30 @@ Deno.serve(async (req) => {
       if (!bn || !ban || !bac) return json({ error: "Bank name, account number, and account holder name are required" }, 400);
     }
 
+    // ── Cooling-off after a login-phone change ────────────────────────────
+    // A changed login phone is the signature of an account takeover. Hold new
+    // withdrawals for 24h so the real owner (who is texted on the OLD number by
+    // self-update-phone) has time to raise the alarm. No destination is
+    // registered and no SMS is sent while the hold is active.
+    const holdSince = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { data: recentPhoneChange } = await admin
+      .from("audit_logs")
+      .select("created_at")
+      .eq("record_id", userId)
+      .eq("action_type", "user_phone_self_update")
+      .gte("created_at", holdSince)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (recentPhoneChange) {
+      const releaseAt = new Date(new Date(recentPhoneChange.created_at).getTime() + 24 * 60 * 60 * 1000).toISOString();
+      return json({
+        error: "phone_changed_recently",
+        message: "For your security, withdrawals are paused for 24 hours after your login phone is changed. If you did not change it, contact support immediately.",
+        release_at: releaseAt,
+      }, 403);
+    }
+
     // ── Gate 2 first: Financial-Ops destination verification (one-time). ──
     // ensure_payout_destination both checks AND registers — a brand-new
     // destination gets inserted as 'waiting' right here, entering the Ops

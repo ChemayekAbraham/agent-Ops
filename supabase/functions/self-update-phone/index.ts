@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.3";
+import { sendSMS, isUgandanPhone } from "../_shared/sendSmsMultiProvider.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -34,6 +35,25 @@ function normalizePhone(raw: string): string | null {
   // Explicit international number: + followed by 9-15 digits
   if (hadPlus && d.length >= 9 && d.length <= 15) return `+${d}`;
   return null;
+}
+
+const OLD_CODE_TTL_MS = 10 * 60 * 1000;
+const MAX_CHALLENGES_PER_HOUR = 5;
+
+function generateOtp(): string {
+  const buf = new Uint32Array(1);
+  crypto.getRandomValues(buf);
+  return String(buf[0] % 1_000_000).padStart(6, "0");
+}
+
+async function sha256(s: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(buf)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function maskPhone(phone: string): string {
+  const digits = phone.replace(/\D/g, "");
+  return digits.length < 6 ? "•••••" : `+••• ••• ${digits.slice(-3)}`;
 }
 
 function json(body: unknown, status = 200) {
@@ -85,6 +105,95 @@ serve(async (req) => {
       .maybeSingle();
     if (!otpRow) {
       return json({ error: "Please verify this phone number with an SMS code before saving." }, 403);
+    }
+
+    // ── Proof of the CURRENT login phone ─────────────────────────────────
+    // Verifying only the NEW number lets anyone holding a live session (stolen
+    // password, unlocked handset) move the account to a SIM they control. A
+    // code sent to the number being replaced must also be presented. The
+    // challenge is bound to this user and to this exact target number, is
+    // single-use, and is stored hashed.
+    const { data: prof } = await adminClient
+      .from("profiles").select("phone").eq("id", caller.id).maybeSingle();
+    const oldPhone = String(prof?.phone ?? caller.phone ?? "").trim();
+    const oldLast9 = oldPhone.replace(/\D/g, "").slice(-9);
+    const hasOldPhone = oldLast9.length === 9;
+    if (hasOldPhone && oldLast9 === last9) {
+      return json({ error: "That is already your login phone." }, 400);
+    }
+
+    if (body?.action === "request_old_phone_code") {
+      if (!hasOldPhone) return json({ success: true, not_required: true });
+      if (!isUgandanPhone(oldPhone)) {
+        return json({ error: "We cannot text your current number. Please contact support to change your login phone." }, 400);
+      }
+      const hourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      const { count } = await adminClient
+        .from("phone_change_otp_challenges")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", caller.id)
+        .gte("created_at", hourAgo);
+      if ((count ?? 0) >= MAX_CHALLENGES_PER_HOUR) {
+        return json({ error: "Too many code requests. Try again in an hour." }, 429);
+      }
+      // Any earlier unused code is dead the moment a new one is issued.
+      await adminClient.from("phone_change_otp_challenges")
+        .update({ status: "expired" })
+        .eq("user_id", caller.id).eq("status", "pending");
+      const code = generateOtp();
+      const { data: ch, error: chErr } = await adminClient
+        .from("phone_change_otp_challenges")
+        .insert({
+          user_id: caller.id,
+          old_phone: oldPhone,
+          new_phone_last9: last9,
+          otp_hash: await sha256(code),
+          otp_expires_at: new Date(Date.now() + OLD_CODE_TTL_MS).toISOString(),
+        })
+        .select("id").single();
+      if (chErr || !ch) return json({ error: "Could not create verification code" }, 500);
+      await sendSMS(
+        oldPhone,
+        `Welile: code ${code} approves changing your login phone to ***${last9.slice(-3)}. Valid 10 min. Not you? Do not share it and call support.`,
+        { admin: adminClient, source: "phone_change_old_number_otp", reference_id: ch.id, recipient_user_id: caller.id },
+      );
+      await adminClient.from("audit_logs").insert({
+        actor_id: caller.id, action_type: "user_phone_change_code_requested",
+        table_name: "profiles", record_id: caller.id, reason: "settings_self_service",
+        details: { to_last3: last9.slice(-3) },
+      });
+      return json({ success: true, masked_phone: maskPhone(oldPhone), expires_in_seconds: OLD_CODE_TTL_MS / 1000 });
+    }
+
+    if (hasOldPhone) {
+      const oldCode = typeof body?.old_phone_code === "string" ? body.old_phone_code.trim() : "";
+      if (!/^\d{6}$/.test(oldCode)) {
+        return json({ error: "old_phone_code_required", message: `Enter the 6-digit code we sent to your current number ${maskPhone(oldPhone)}.` }, 403);
+      }
+      const { data: ch } = await adminClient
+        .from("phone_change_otp_challenges")
+        .select("*")
+        .eq("user_id", caller.id)
+        .eq("status", "pending")
+        .eq("new_phone_last9", last9)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!ch || new Date(ch.otp_expires_at) < new Date()) {
+        return json({ error: "old_phone_code_expired", message: "That code has expired. Request a new one." }, 403);
+      }
+      if (ch.attempts >= ch.max_attempts) {
+        await adminClient.from("phone_change_otp_challenges").update({ status: "failed" }).eq("id", ch.id);
+        return json({ error: "old_phone_code_locked", message: "Too many wrong attempts. Request a new code." }, 429);
+      }
+      if ((await sha256(oldCode)) !== ch.otp_hash) {
+        await adminClient.from("phone_change_otp_challenges")
+          .update({ attempts: ch.attempts + 1 }).eq("id", ch.id);
+        return json({ error: "old_phone_code_invalid", message: "That code is incorrect." }, 403);
+      }
+      // Single use: burn it before any state changes so a replay cannot succeed.
+      await adminClient.from("phone_change_otp_challenges")
+        .update({ status: "consumed", consumed_at: new Date().toISOString() }).eq("id", ch.id);
     }
 
     // Duplicate handling — the caller has proven ownership of this SIM via a
@@ -171,8 +280,18 @@ serve(async (req) => {
       table_name: "auth.users",
       record_id: caller.id,
       reason: "settings_self_service",
-      details: { phone: normalized, revoked_from: revokedFrom },
+      details: { phone: normalized, previous_last3: hasOldPhone ? oldLast9.slice(-3) : null, revoked_from: revokedFrom },
     });
+
+    // Tell the previous number it happened, and that withdrawals pause for 24h
+    // (enforced in issue-wallet-withdrawal-otp off the audit row above).
+    if (hasOldPhone && isUgandanPhone(oldPhone)) {
+      sendSMS(
+        oldPhone,
+        `Welile: your login phone was changed to ***${last9.slice(-3)}. Withdrawals are paused for 24 hours. Not you? Call support now.`,
+        { admin: adminClient, source: "phone_change_notice", recipient_user_id: caller.id },
+      ).catch((e) => console.error("phone change notice failed", e));
+    }
 
     return json({ success: true, phone: normalized, revoked_from: revokedFrom });
   } catch (error: any) {

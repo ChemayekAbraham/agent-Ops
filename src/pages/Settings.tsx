@@ -233,7 +233,23 @@ export default function Settings() {
   const fullName = joinPersonName(nameParts);
   const [phone, setPhone] = useState('');
   const otp = useOtpVerification();
+  // Second factor for a login-phone change: a code texted to the CURRENT number.
+  const [oldPhoneCode, setOldPhoneCode] = useState('');
+  const [oldPhoneMasked, setOldPhoneMasked] = useState<string | null>(null);
+  const [requestingOldCode, setRequestingOldCode] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const requestOldPhoneCode = async () => {
+    setRequestingOldCode(true);
+    const { data, error } = await invokeEdgeFunction<{ masked_phone?: string; not_required?: boolean }>(
+      'self-update-phone',
+      { body: { action: 'request_old_phone_code', phone: phone.trim() }, silent: true, fallbackMessage: 'Could not send code to your current number' },
+    );
+    setRequestingOldCode(false);
+    if (error) { toast.error(error.message || 'Could not send code to your current number'); return; }
+    setOldPhoneMasked(data?.not_required ? '' : (data?.masked_phone ?? ''));
+    if (!data?.not_required) toast.success(`Code sent to your current number ${data?.masked_phone ?? ''}`);
+  };
 
   /** Mirrors the edge-function + DB normalizer exactly for client-side preview.
    * Returns '' when the number is malformed so the preview/validation can warn. */
@@ -377,6 +393,11 @@ export default function Settings() {
       setSaving(false);
       return;
     }
+    if (phoneChanged && (profile.phone ?? '').trim() && !/^\d{6}$/.test(oldPhoneCode.trim())) {
+      toast.error('Enter the 6-digit code sent to your current phone number');
+      setSaving(false);
+      return;
+    }
     try {
       // Always update full_name via profiles
       if (trimmedName !== (profile.full_name ?? '').trim()) {
@@ -388,11 +409,13 @@ export default function Settings() {
       if (phoneChanged) {
         const { data, error } = await invokeEdgeFunction<{ phone?: string; error?: string }>(
           'self-update-phone',
-          { body: { phone: trimmedPhone }, silent: true, fallbackMessage: 'Failed to update phone' },
+          { body: { phone: trimmedPhone, old_phone_code: oldPhoneCode.trim() }, silent: true, fallbackMessage: 'Failed to update phone' },
         );
         if (error) throw error;
         savedPhone = data?.phone || trimmedPhone;
         otp.resetOtp();
+        setOldPhoneCode('');
+        setOldPhoneMasked(null);
       }
       toast.success('Profile updated successfully');
       setProfile({ ...profile, full_name: trimmedName, phone: savedPhone });
@@ -549,7 +572,7 @@ export default function Settings() {
                           </div>
                           <div className="space-y-1.5">
                             <Label htmlFor="phone" className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Phone</Label>
-                            <div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input id="phone" type="tel" value={phone} onChange={(e) => { setPhone(e.target.value); if (otp.otpVerified || otp.otpSent) otp.resetOtp(); }} placeholder="e.g. 0783673998" className="pl-10 h-12 rounded-xl" /></div>
+                            <div className="relative"><Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" /><Input id="phone" type="tel" value={phone} onChange={(e) => { setPhone(e.target.value); if (otp.otpVerified || otp.otpSent) otp.resetOtp(); setOldPhoneCode(''); setOldPhoneMasked(null); }} placeholder="e.g. 0783673998" className="pl-10 h-12 rounded-xl" /></div>
                             {normalizedPreview && (
                               <div className="flex items-center gap-2 mt-1">
                                 <Check className="h-3 w-3 text-success" />
@@ -579,6 +602,19 @@ export default function Settings() {
                                   onResendOtp={() => otp.sendOtp(phone.trim(), { category: 'phone_update' })}
                                 />
                                 <p className="text-[11px] text-muted-foreground mt-2">We'll send a 6-digit code to confirm this number before it replaces your current login phone.</p>
+                                {/* Logic-only placeholder markup — Gemini to restyle. */}
+                                {otp.otpVerified && (profile.phone ?? '').trim() && (
+                                  <div className="mt-3 space-y-2">
+                                    <p className="text-[11px] text-muted-foreground">For your security, also confirm with a code sent to your <strong>current</strong> number.</p>
+                                    {oldPhoneMasked === null ? (
+                                      <Button type="button" variant="outline" size="sm" disabled={requestingOldCode} onClick={requestOldPhoneCode}>
+                                        {requestingOldCode ? <Loader2 className="h-4 w-4 animate-spin" /> : null} Send code to current number
+                                      </Button>
+                                    ) : (
+                                      <Input inputMode="numeric" maxLength={6} value={oldPhoneCode} onChange={(e) => setOldPhoneCode(e.target.value.replace(/\D/g, ''))} placeholder={`6-digit code sent to ${oldPhoneMasked || 'your current number'}`} className="h-11 rounded-xl" />
+                                    )}
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
