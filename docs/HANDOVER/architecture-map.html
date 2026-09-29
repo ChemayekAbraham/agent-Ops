@@ -1859,7 +1859,7 @@ Transaction Groups: 297,457
               <li><strong>Imbalance detector unscheduled.</strong> <code>detect_ledger_group_imbalances()</code> has no cron job; ran once on 2026-07-23 and left 2,195 alerts (~UGX 293M) untriaged.</li>
               <li><strong>Balance check skips single-leg groups.</strong> 1,256 in 30 days (~UGX 146M). Unconfirmed whether the resolver's synthetic legs cover them.</li>
               <li><strong>15–16 Sep float-gate: ~UGX 57M A5 custody never cleared (doc 158).</strong> 659 genuine collections consumed no float; the monitor's anomalies were closed on 2026-09-29 with no ledger posting. The <code>cash_receipt_in_transit</code> legs stay on the books for Finance. The agents hold about 1.09M of float between them.</li>
-              <li><strong>Plan balances vs reversals (doc 162).</strong> Reversing a collection does not by itself lower <code>rent_requests.amount_repaid</code>. 31 plans kept UGX 7.45M of reversed duplicates until 2026-09-29. <code>plan_reversed_money_still_held()</code> is the evidence test; any future reversal must also decrement the plan.</li>
+              <li><strong>Plan balances vs reversals (doc 161).</strong> Reversing a collection does not by itself lower <code>rent_requests.amount_repaid</code>. 31 plans kept UGX 7.45M of reversed duplicates until 2026-09-29. <code>plan_reversed_money_still_held()</code> is the evidence test; any future reversal must also decrement the plan.</li>
             </ul>
           </div>
           <div class="detail-card warning">
