@@ -23,22 +23,6 @@ const dayIndex = (iso: string, today: number) => {
 };
 const startToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); };
 
-function collect(cats: Cat[] | undefined, from: number, to: number, kindLabel: string): Row[] {
-  const today = startToday();
-  const rows: Row[] = [];
-  for (let i = from; i < to; i++) rows.push({ label: fmt(new Date(today + i * DAY)), amount: 0, sources: [] });
-  for (const c of cats ?? []) for (const p of c.products) for (const it of p.items ?? []) {
-    if (!it.due_date) continue;
-    const diff = dayIndex(it.due_date, today);
-    if (diff < from || diff >= to) continue;
-    const r = rows[diff - from];
-    const amount = Number(it.amount) || 0;
-    r.amount += amount;
-    r.sources.push({ who: it.counterparty || 'Unnamed', category: c.label, product: p.label, amount, kind: kindLabel });
-  }
-  return rows;
-}
-
 /**
  * CFO Home: receivables and payables for the past 7 days (still-outstanding
  * amounts that fell due) and the next 7 days (server prediction). Selecting a
