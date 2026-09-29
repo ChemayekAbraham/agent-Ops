@@ -118,6 +118,10 @@ export function FieldCollectDailyTotals({ variant = 'card', className, live = fa
     try {
       setEntries(await getEntries(user.id));
       setLastRefreshed(Date.now());
+    } catch (e) {
+      // Polled every 4s — keep the last good totals rather than raising an
+      // unhandled rejection on every tick when IndexedDB is unavailable.
+      console.warn('FieldCollectDailyTotals refresh failed', e);
     } finally {
       setRefreshing(false);
       setInitialLoading(false);
@@ -347,7 +351,11 @@ export function FieldCollectDailyTotals({ variant = 'card', className, live = fa
   /** Reload today totals from the local cache (also triggered automatically via store events). */
   const refreshTodayTotals = useCallback(async () => {
     if (!user?.id) return;
-    setEntries(await getEntries(user.id));
+    try {
+      setEntries(await getEntries(user.id));
+    } catch (e) {
+      console.warn('refreshTodayTotals failed', e);
+    }
   }, [user?.id]);
 
   /**

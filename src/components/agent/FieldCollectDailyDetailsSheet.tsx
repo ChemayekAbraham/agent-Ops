@@ -27,7 +27,11 @@ export function FieldCollectDailyDetailsSheet({ open, onOpenChange }: Props) {
 
   const refresh = useCallback(async () => {
     if (!user?.id) return;
-    setEntries(await getEntries(user.id));
+    try {
+      setEntries(await getEntries(user.id));
+    } catch (e) {
+      console.warn('FieldCollectDailyDetailsSheet refresh failed', e);
+    }
   }, [user?.id]);
 
   useEffect(() => { if (open) refresh(); }, [open, refresh]);

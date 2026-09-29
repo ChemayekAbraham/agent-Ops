@@ -985,9 +985,15 @@ export function FieldCollectDialog({ open, onOpenChange }: FieldCollectDialogPro
     }
   }, [user?.id]);
 
+  // Never throws: a failed re-read after a successful addEntry must not turn
+  // into a "Failed to save" toast, or the agent re-enters a saved collection.
   const refreshEntries = useCallback(async () => {
     if (!user?.id) return;
-    setEntries(await getEntries(user.id));
+    try {
+      setEntries(await getEntries(user.id));
+    } catch (e) {
+      console.warn('refreshEntries failed', e);
+    }
   }, [user?.id]);
 
   /**
@@ -1838,7 +1844,7 @@ export function FieldCollectDialog({ open, onOpenChange }: FieldCollectDialogPro
     if (online && open && user?.id) {
       getQueuedEntries(user.id).then(q => {
         if (q.length) handleSync();
-      });
+      }).catch(e => console.warn('auto-sync queue read failed', e));
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [online, open, user?.id]);

@@ -133,6 +133,11 @@ function isClosedConnectionError(e: unknown): boolean {
 /**
  * Run `fn` against the shared connection; if the connection turns out to be
  * closing, discard it and retry exactly once on a fresh one.
+ *
+ * If the fresh connection is closing too, the browser's IndexedDB backend is
+ * gone for this page (iOS Safari loses it after backgrounding; only a reload
+ * brings it back — 2026-09-28: one agent hit this every few seconds for 2h
+ * after the doc-142 fix). Say so instead of surfacing the raw DOM message.
  */
 async function withDb<T>(fn: (db: IDBDatabase) => Promise<T>): Promise<T> {
   const db = await openDb();
@@ -144,7 +149,13 @@ async function withDb<T>(fn: (db: IDBDatabase) => Promise<T>): Promise<T> {
       const stale = await dbPromise.catch(() => null);
       if (stale === db) dbPromise = null;
     }
-    return fn(await openDb());
+    try {
+      return await fn(await openDb());
+    } catch (e2) {
+      if (!isClosedConnectionError(e2)) throw e2;
+      dbPromise = null;
+      throw new Error('Offline storage stopped responding. Reload the page and try again.');
+    }
   }
 }
 

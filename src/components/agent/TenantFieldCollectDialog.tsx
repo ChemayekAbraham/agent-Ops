@@ -63,10 +63,15 @@ export function TenantFieldCollectDialog({
     };
   }, []);
 
+  // Never throws — see FieldCollectDialog.refreshEntries.
   const refresh = async () => {
     if (!user?.id) return;
-    const all = await getEntries(user.id);
-    setEntries(all.filter(e => e.tenantId === tenantId));
+    try {
+      const all = await getEntries(user.id);
+      setEntries(all.filter(e => e.tenantId === tenantId));
+    } catch (e) {
+      console.warn('refresh field entries failed', e);
+    }
   };
 
   const sessionEntries = useMemo(

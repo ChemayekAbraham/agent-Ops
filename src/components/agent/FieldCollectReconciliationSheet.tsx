@@ -30,7 +30,11 @@ export function FieldCollectReconciliationSheet({ open, onOpenChange }: Props) {
 
   const refresh = useCallback(async () => {
     if (!user?.id) return;
-    setItems(await getDuplicateEntries(user.id));
+    try {
+      setItems(await getDuplicateEntries(user.id));
+    } catch (e) {
+      console.warn('FieldCollectReconciliationSheet refresh failed', e);
+    }
   }, [user?.id]);
 
   useEffect(() => { if (open) refresh(); }, [open, refresh]);
