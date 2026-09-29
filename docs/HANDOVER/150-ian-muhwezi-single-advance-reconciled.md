@@ -30,6 +30,19 @@ The row in step 2 showed `+UGX 0 / −UGX 0` with the balance dropping by 131,72
 
 The 7 Sep statement now has 16 deduction lines totalling 186,980, one for each wallet debit. The `general_ledger` legs still carry `source_id = 5a1a60b0` (ledger rows aren't rewritten), so A10 per advance still differs from the statement by that 131,727.
 
+## Follow-up 2: the whole 7 Sep statement cleaned (29 Sep)
+
+Josh asked for every row to match a wallet deduction. Four rows had no wallet debit behind them and were deleted. Their full JSON is saved in `audit_logs.agent_advance_statement_cleaned`.
+
+| Row | What it was |
+|---|---|
+| `5f912631` 14 Sep | 500,000 "deduction", a fake clearance with no wallet debit |
+| `f6f8b8f0` 26 Sep | +0/−0 reinstatement of that 500,000 |
+| `13475e93` 26 Sep | +0/−0 reinstatement of the 1,500,000 clearance (handover-139 entry 11). The clearance itself never wrote a row; the balance just dropped on 21 Sep |
+| `3f69351b` 23 Sep | 1 UGX deducted on the statement only, never taken from the wallet |
+
+The running balances were recalculated from **7,700,000** (principal 6,000,000 + access fee 1,680,000 + 20,000 fixed fee). The statement now has **71 deduction rows = 71 wallet debits = 2,906,327.92**, and it runs continuously to **4,793,672.08**. Taking out the unpaid shilling raised the balance and arrears by 1 UGX.
+
 ## What was not done, and why
 
 - **No `general_ledger` write-off.** The 22 Sep receivables restatement set the 10 Aug advance's A10 to its balance at that time, which was 0 because of the fake clearance. The 1.71M moved to equity E3. The 27 Sep reinstatement only changed `agent_advance_ledger`. So the ledger holds no receivable for this advance. A DR X4 / CR A10 posting would take A10 about −2.6M and count the loss twice.
