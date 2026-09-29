@@ -63614,6 +63614,7 @@ export type Database = {
         Returns: {
           employees: number
           kind: string
+          note: string
           period_code: string
           prompt_id: string
           raised_at: string
@@ -66230,6 +66231,18 @@ export type Database = {
       pin_tenant_ops_weekly_metrics_catchup: {
         Args: { p_lookback_weeks?: number }
         Returns: Json
+      }
+      plan_reversed_money_still_held: {
+        Args: { p_since: string }
+        Returns: {
+          first_reversed_at: string
+          held: number
+          last_collection_at: string
+          later_decreases: number
+          rent_request_id: string
+          reversed_count: number
+          reversed_landed: number
+        }[]
       }
       populate_wallet_review_queue: {
         Args: never
