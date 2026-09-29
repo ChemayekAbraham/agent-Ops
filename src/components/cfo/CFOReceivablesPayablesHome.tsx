@@ -14,6 +14,7 @@ import {
 } from '@/hooks/useReceivables';
 import { usePayablesTotal, usePayablesPredictiveForecast } from '@/hooks/usePayables';
 import { ReceivablesBreakdownForecast } from '@/components/cfo/ReceivablesBreakdownForecast';
+import { SevenDayFlowSection } from '@/components/cfo/SevenDayFlowSection';
 import { PayablesBreakdownForecast } from '@/components/cfo/PayablesBreakdownForecast';
 
 /**
@@ -148,6 +149,8 @@ export function CFOReceivablesPayablesHome() {
         <CatTable title="Top Receivables" cats={recCats} total={r?.total ?? 0} count={r?.item_count ?? 0} totalLabel="Total Receivables" onViewAll={() => setSheet('rec')} />
         <CatTable title="Top Payables" cats={payCats} total={p?.total ?? 0} count={p?.item_count ?? 0} totalLabel="Total Payables" onViewAll={() => setSheet('pay')} />
       </div>
+
+      <SevenDayFlowSection />
 
       {/* ── Key insights ── */}
       <div className="rounded-2xl border border-border/70 bg-card shadow-sm p-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
