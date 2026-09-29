@@ -735,7 +735,7 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
                   )}
                 </div>
 
-                <div className="hidden min-h-[680px]:block">
+                <div className="hidden sm:block">
                   <PeopleCard recipientName={recipient.status === 'found' ? recipient.name : null} />
                 </div>
               </div>
