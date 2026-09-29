@@ -64,9 +64,136 @@ function generateToken(): string {
     .join('')
 }
 
-// Auth note: this function uses verify_jwt = true in config.toml, so Supabase's
-// gateway validates the caller's JWT (anon or service_role) before the request
-// reaches this code. No in-function auth check is needed.
+// ── Caller authorization ────────────────────────────────────────────────────
+// config.toml sets verify_jwt = false for this function, so the gateway checks
+// NOTHING. The gate lives here. Flipping verify_jwt to true would not be enough
+// (the public anon/publishable key would still pass) and would break
+// server-to-server callers: when the service key is a new-format `sb_secret_`
+// key, current supabase-js `admin.functions.invoke()` sends it only in the
+// `apikey` header with no Bearer (see _shared/requisitionWalletCredit.ts).
+//
+// Who may send what:
+//   * service role (Bearer OR apikey header == SUPABASE_SERVICE_ROLE_KEY):
+//     everything. This is how every other edge function calls us.
+//   * PUBLIC_TEMPLATE, no login needed: only the careers auto-reply, and only
+//     to an address that submitted a job application in the last
+//     PUBLIC_APPLICATION_WINDOW_MINUTES, max PUBLIC_MAX_SENDS_PER_DAY per address.
+//   * signed-in user with an enabled STAFF role: everything (COO / manager /
+//     partner-ops screens email partners and agents directly).
+//   * any other signed-in user: only SELF_SERVICE_TEMPLATES, and only to their
+//     own address (auth email or own profile email) or the template's fixed `to`.
+//   * anything else: 401 / 403, before any row is written or mail is queued.
+const STAFF_ROLES = new Set<string>([
+  // mirrors STAFF_ROLES in src/lib/roleConstants.ts
+  'manager', 'super_admin', 'employee', 'operations',
+  'ceo', 'coo', 'cfo', 'cto', 'cmo', 'crm', 'hr', 'rd',
+])
+const SELF_SERVICE_TEMPLATES = new Set<string>([
+  'agent-overdue-call-drive', // src/components/agent/AgentOverdueCallDrive.tsx
+  'funder-saved-house-fundable', // src/components/partner/SelfPortfolioFundingCard.tsx
+  'smartphone-order-receipt', // src/components/merchandise/SmartphoneOrderStatus.tsx
+  'cash-withdrawal-code', // src/components/payments/WithdrawFlow.tsx (fixed `to`)
+])
+const PUBLIC_TEMPLATE = 'job-application-received' // src/pages/Careers.tsx (public page)
+const PUBLIC_APPLICATION_WINDOW_MINUTES = 30
+const PUBLIC_MAX_SENDS_PER_DAY = 3
+
+type Caller =
+  | { kind: 'service' }
+  | { kind: 'user'; id: string; email: string | null }
+  | { kind: 'none' }
+
+function safeEqual(a: string, b: string): boolean {
+  if (!a || !b || a.length !== b.length) return false
+  let diff = 0
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  return diff === 0
+}
+
+async function resolveCaller(
+  req: Request,
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  serviceKey: string,
+): Promise<Caller> {
+  const bearer = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim()
+  const apikey = (req.headers.get('apikey') || '').trim()
+  if (safeEqual(bearer, serviceKey) || safeEqual(apikey, serviceKey)) {
+    return { kind: 'service' }
+  }
+  // Only a real user session JWT identifies a user. The anon JWT has no `sub`
+  // and fails getUser; `sb_publishable_` keys are not JWTs at all.
+  if (!bearer || bearer.startsWith('sb_')) return { kind: 'none' }
+  try {
+    const { data, error } = await supabase.auth.getUser(bearer)
+    if (error || !data?.user) return { kind: 'none' }
+    return { kind: 'user', id: data.user.id, email: data.user.email ?? null }
+  } catch {
+    return { kind: 'none' }
+  }
+}
+
+async function authorizeSend(
+  caller: Caller,
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  templateName: string,
+  fixedRecipient: string | undefined,
+  recipient: string,
+): Promise<{ status: number; error: string } | null> {
+  if (caller.kind === 'service') return null
+
+  if (templateName === PUBLIC_TEMPLATE) {
+    const since = new Date(Date.now() - PUBLIC_APPLICATION_WINDOW_MINUTES * 60_000).toISOString()
+    const pattern = recipient.replace(/[\\%_]/g, (c) => `\\${c}`)
+    const { data: apps, error: appErr } = await supabase
+      .from('job_applications')
+      .select('id')
+      .ilike('email', pattern)
+      .gte('created_at', since)
+      .limit(1)
+    if (appErr) return { status: 503, error: 'Could not verify application' }
+    if (!apps || apps.length === 0) return { status: 403, error: 'Forbidden' }
+    const dayAgo = new Date(Date.now() - 24 * 60 * 60_000).toISOString()
+    const { count, error: countErr } = await supabase
+      .from('email_send_log')
+      .select('id', { count: 'exact', head: true })
+      .eq('template_name', PUBLIC_TEMPLATE)
+      .in('recipient_email', [recipient, recipient.toLowerCase()])
+      .eq('status', 'pending')
+      .gte('created_at', dayAgo)
+    if (countErr) return { status: 503, error: 'Could not verify send rate' }
+    if ((count ?? 0) >= PUBLIC_MAX_SENDS_PER_DAY) return { status: 429, error: 'Too many requests' }
+    return null
+  }
+
+  if (caller.kind !== 'user') return { status: 401, error: 'Unauthorized' }
+
+  const { data: roles, error: roleErr } = await supabase
+    .from('user_roles')
+    .select('role, enabled')
+    .eq('user_id', caller.id)
+  if (roleErr) return { status: 503, error: 'Could not verify permissions' }
+  const isStaff = (roles || []).some(
+    (r: { role: string; enabled: boolean | null }) => r.enabled !== false && STAFF_ROLES.has(r.role),
+  )
+  if (isStaff) return null
+
+  if (!SELF_SERVICE_TEMPLATES.has(templateName)) return { status: 403, error: 'Forbidden' }
+  if (fixedRecipient) return null
+
+  const own = new Set<string>()
+  if (caller.email) own.add(caller.email.trim().toLowerCase())
+  const { data: prof } = await supabase
+    .from('profiles')
+    .select('email')
+    .eq('id', caller.id)
+    .maybeSingle()
+  const profEmail = (prof as { email?: string | null } | null)?.email
+  if (profEmail) own.add(profEmail.trim().toLowerCase())
+  if (!own.has(recipient.trim().toLowerCase())) return { status: 403, error: 'Forbidden' }
+  return null
+}
 
 Deno.serve(async (req) => {
   // Handle CORS preflight
@@ -88,6 +215,10 @@ Deno.serve(async (req) => {
     )
   }
 
+  // Create Supabase client with service role (bypasses RLS)
+  const supabase = createClient(supabaseUrl, supabaseServiceKey)
+  const caller = await resolveCaller(req, supabase, supabaseServiceKey)
+
   // Parse request body
   let templateName: string
   let recipientEmail: string
@@ -104,6 +235,12 @@ Deno.serve(async (req) => {
       templateData = body.templateData
     }
   } catch {
+    if (caller.kind === 'none') {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
     return new Response(
       JSON.stringify({ error: 'Invalid JSON in request body' }),
       {
@@ -121,6 +258,15 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       }
     )
+  }
+
+  // Unauthenticated callers may only reach the public careers template. Reject
+  // before the registry lookup so the template list is never shown to them.
+  if (caller.kind === 'none' && templateName !== PUBLIC_TEMPLATE) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
   }
 
   // 1. Look up template from registry (early — needed to resolve recipient)
@@ -156,8 +302,24 @@ Deno.serve(async (req) => {
     )
   }
 
-  // Create Supabase client with service role (bypasses RLS)
-  const supabase = createClient(supabaseUrl, supabaseServiceKey)
+  const denied = await authorizeSend(
+    caller,
+    supabase,
+    templateName,
+    template.to,
+    effectiveRecipient,
+  )
+  if (denied) {
+    console.warn('send-transactional-email: caller not authorized', {
+      caller: caller.kind,
+      templateName,
+      status: denied.status,
+    })
+    return new Response(JSON.stringify({ error: denied.error }), {
+      status: denied.status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    })
+  }
 
   // Placeholder / phone-only accounts have no real mailbox. Never hand these to
   // the mail provider — record the skip and return success:false so callers do
