@@ -27,6 +27,7 @@ import PredictiveReceivablesForecast from '@/components/cfo/PredictiveReceivable
 import { useReceivablesBreakdown, useReceivablesTotal } from '@/hooks/useReceivables';
 import TenantPaymentsLocationFilters from '@/components/cfo/TenantPaymentsLocationFilters';
 import { CollectionsProjectionPanel } from '@/components/executive/tenant-ops/CollectionsProjectionPanel';
+import ReceivablesSevenDayWindow from '@/components/cfo/ReceivablesSevenDayWindow';
 
 
 const ALL_PRODUCTS = '__all__';
@@ -80,6 +81,7 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
         ...definition,
         outstanding: recognised?.outstanding ?? 0,
         item_count: recognised?.item_count ?? 0,
+        items: recognised?.items ?? [],
       };
     }),
     [tenantCategory],
@@ -420,6 +422,8 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
                             </CardContent>
                           </Card>
 
+                          <ReceivablesSevenDayWindow items={selectedTenantProduct.items} />
+
                           {selectedTenantProduct.key === 'rent_plan' && (
                             <>
                               <TenantPaymentsLocationFilters />
@@ -518,6 +522,8 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
                                   </div>
                                 </CardContent>
                               </Card>
+
+                              <ReceivablesSevenDayWindow items={selectedFamilyProduct.items ?? []} />
 
                               <PredictiveReceivablesForecast
                                 productLabel={selectedFamilyProduct.label}
