@@ -51,6 +51,9 @@ export function AgentMyAdvancesCard() {
         .from('agent_advances')
         .select('id, principal, outstanding_balance, arrears_balance, status, issued_at, expires_at, created_at, cycle_days, access_fee, prepaid_installments_remaining, deduction_paused, pause_reason')
         .eq('agent_id', user!.id)
+        // Cancelled advances are closed by the CFO and no longer owed; without
+        // this they fell through to the 'Active' badge with a 0 balance.
+        .neq('status', 'cancelled')
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data || [];
