@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { ArrowDown, ArrowUp, ChevronRight, Info } from 'lucide-react';
-import { Line, LineChart, ResponsiveContainer } from 'recharts';
+import { Area, AreaChart, ResponsiveContainer } from 'recharts';
 
 type HeroCardTone = 'success' | 'warning' | 'info' | 'primary' | 'destructive';
 
@@ -49,6 +49,7 @@ export function HeroCard({ icon, iconBg, tone, title, value, percentageLabel, pe
   const palette = TONE_STYLES[tone ?? 'primary'];
   const iconClass = iconBg ?? palette.icon;
   const sparkData = (sparkline ?? []).map((point, index) => ({ index, point }));
+  const gradientId = useId().replace(/:/g, '');
 
   return (
     <>
@@ -87,9 +88,15 @@ export function HeroCard({ icon, iconBg, tone, title, value, percentageLabel, pe
               {sparkData.length > 1 ? (
                 <div className="h-8 w-20 shrink-0" aria-hidden="true">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={sparkData} margin={{ top: 3, right: 1, bottom: 1, left: 1 }}>
-                      <Line type="monotone" dataKey="point" stroke={palette.stroke} strokeWidth={1.75} dot={false} isAnimationActive={false} />
-                    </LineChart>
+                    <AreaChart data={sparkData} margin={{ top: 2, right: 1, bottom: 0, left: 1 }}>
+                      <defs>
+                        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor={palette.stroke} stopOpacity={0.26} />
+                          <stop offset="100%" stopColor={palette.stroke} stopOpacity={0.015} />
+                        </linearGradient>
+                      </defs>
+                      <Area type="monotone" dataKey="point" stroke={palette.stroke} strokeWidth={1.75} fill={`url(#${gradientId})`} dot={false} isAnimationActive={false} />
+                    </AreaChart>
                   </ResponsiveContainer>
                 </div>
               ) : null}
