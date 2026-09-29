@@ -148,8 +148,63 @@ export type Database = {
           },
         ]
       }
+      advance_statement_exceptions: {
+        Row: {
+          advance_id: string
+          amount: number
+          created_at: string
+          detail: string | null
+          id: string
+          kind: string
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          statement_row_id: string | null
+        }
+        Insert: {
+          advance_id: string
+          amount: number
+          created_at?: string
+          detail?: string | null
+          id?: string
+          kind: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          statement_row_id?: string | null
+        }
+        Update: {
+          advance_id?: string
+          amount?: number
+          created_at?: string
+          detail?: string | null
+          id?: string
+          kind?: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          statement_row_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "advance_statement_exceptions_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "agent_advances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "advance_statement_exceptions_advance_id_fkey"
+            columns: ["advance_id"]
+            isOneToOne: false
+            referencedRelation: "v_advance_gate_overrides"
+            referencedColumns: ["advance_id"]
+          },
+        ]
+      }
       agent_advance_ledger: {
         Row: {
+          adjustment_amount: number
           advance_id: string
           amount_deducted: number
           closing_balance: number
@@ -158,12 +213,16 @@ export type Database = {
           deduction_status: string
           id: string
           interest_accrued: number
+          ledger_group_id: string | null
+          note: string | null
           opening_balance: number
           recovery_percent: number | null
           recovery_source: string
           roi_amount: number | null
+          wallet_entry_id: string | null
         }
         Insert: {
+          adjustment_amount?: number
           advance_id: string
           amount_deducted?: number
           closing_balance?: number
@@ -172,12 +231,16 @@ export type Database = {
           deduction_status?: string
           id?: string
           interest_accrued?: number
+          ledger_group_id?: string | null
+          note?: string | null
           opening_balance?: number
           recovery_percent?: number | null
           recovery_source?: string
           roi_amount?: number | null
+          wallet_entry_id?: string | null
         }
         Update: {
+          adjustment_amount?: number
           advance_id?: string
           amount_deducted?: number
           closing_balance?: number
@@ -186,10 +249,13 @@ export type Database = {
           deduction_status?: string
           id?: string
           interest_accrued?: number
+          ledger_group_id?: string | null
+          note?: string | null
           opening_balance?: number
           recovery_percent?: number | null
           recovery_source?: string
           roi_amount?: number | null
+          wallet_entry_id?: string | null
         }
         Relationships: [
           {
