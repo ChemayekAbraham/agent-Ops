@@ -44153,6 +44153,42 @@ export type Database = {
         }
         Relationships: []
       }
+      tenant_no_payment_notes: {
+        Row: {
+          created_at: string
+          created_by: string
+          follow_up_date: string | null
+          follow_up_status: string | null
+          id: string
+          note: string
+          note_type: string
+          related_action: string | null
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          follow_up_date?: string | null
+          follow_up_status?: string | null
+          id?: string
+          note: string
+          note_type?: string
+          related_action?: string | null
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          follow_up_date?: string | null
+          follow_up_status?: string | null
+          id?: string
+          note?: string
+          note_type?: string
+          related_action?: string | null
+          tenant_id?: string
+        }
+        Relationships: []
+      }
       tenant_notification_channel_policy: {
         Row: {
           critical: boolean
@@ -51564,14 +51600,14 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "engrep_file_touches_engineer_id_fkey"
-            columns: ["engineer_id"]
+            columns: ["reverted_by_engineer"]
             isOneToOne: false
             referencedRelation: "engrep_engineers"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "engrep_file_touches_engineer_id_fkey"
-            columns: ["reverted_by_engineer"]
+            columns: ["engineer_id"]
             isOneToOne: false
             referencedRelation: "engrep_engineers"
             referencedColumns: ["id"]
@@ -54477,6 +54513,17 @@ export type Database = {
             referencedColumns: ["landlord_id"]
           },
         ]
+      }
+      v_tenant_no_payment_notes_summary: {
+        Row: {
+          last_created_by: string | null
+          last_note: string | null
+          last_note_at: string | null
+          last_note_type: string | null
+          notes_count: number | null
+          tenant_id: string | null
+        }
+        Relationships: []
       }
       v_tenant_ops_landlord_base: {
         Row: {
