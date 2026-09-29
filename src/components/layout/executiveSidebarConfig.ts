@@ -116,6 +116,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       title: 'Quick Actions',
       items: [
         { label: 'Home', icon: Home, id: 'overview' },
+        { label: 'Cash Position', icon: Landmark, id: 'cash-position' },
         { label: 'Payroll Release', icon: Banknote, id: 'payroll-release' },
         { label: 'Payroll Approvals', icon: Banknote, id: 'cfo-pay-approvals', route: '/approvals' },
         { label: 'Salary Advances', icon: HandCoins, id: 'cfo-pay-advances', route: '/hr/pay/advances' },
