@@ -36945,6 +36945,24 @@ export type Database = {
         }
         Relationships: []
       }
+      referral_link_deactivations: {
+        Row: {
+          deactivated_at: string
+          reason: string
+          user_id: string
+        }
+        Insert: {
+          deactivated_at?: string
+          reason: string
+          user_id: string
+        }
+        Update: {
+          deactivated_at?: string
+          reason?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       referral_rewards: {
         Row: {
           created_at: string
