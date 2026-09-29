@@ -9,6 +9,20 @@ export const SHOPPING_ADVANCE_MIN = 30_000;
 export const SHOPPING_ADVANCE_MAX = 30_000_000;
 
 /**
+ * Speaking every second would talk over itself, so the remaining-time label
+ * fires when the notice opens, every tenth second, and through the final five.
+ */
+function isAnnouncePoint(secondsLeft: number) {
+  return (
+    secondsLeft === DURATION_SECONDS || secondsLeft % 10 === 0 || secondsLeft <= 5
+  );
+}
+
+function closingInText(secondsLeft: number) {
+  return `This message closes in ${secondsLeft} ${secondsLeft === 1 ? 'second' : 'seconds'}.`;
+}
+
+/**
  * Full-screen notice shown after every send. Message only: it does not
  * create or change any balance, limit or ledger entry.
  */
@@ -20,6 +34,7 @@ export function ShoppingAdvanceBoostScreen({
   onClose: () => void;
 }) {
   const [secondsLeft, setSecondsLeft] = useState(DURATION_SECONDS);
+  const [announcement, setAnnouncement] = useState('');
 
   useEffect(() => {
     if (amountSent == null) return;
@@ -37,6 +52,11 @@ export function ShoppingAdvanceBoostScreen({
     return () => window.clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [amountSent]);
+
+  useEffect(() => {
+    if (amountSent == null) return;
+    if (isAnnouncePoint(secondsLeft)) setAnnouncement(closingInText(secondsLeft));
+  }, [amountSent, secondsLeft]);
 
   if (amountSent == null) return null;
   const boost = Math.min(amountSent * 2, SHOPPING_ADVANCE_MAX);
@@ -85,6 +105,13 @@ export function ShoppingAdvanceBoostScreen({
           style={{ width: `${(secondsLeft / DURATION_SECONDS) * 100}%` }}
         />
       </div>
+      {/* A progressbar is not a live region, so its own value text is not
+          reliably spoken aloud. This visually-hidden status carries the same
+          remaining-time figure for screen-reader users. role="status" already
+          announces politely, so no extra aria-live is needed. */}
+      <p role="status" className="sr-only">
+        {announcement}
+      </p>
       <Button variant="secondary" onClick={onClose}>
         Continue ({secondsLeft}s)
       </Button>
