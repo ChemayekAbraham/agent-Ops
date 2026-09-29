@@ -44,3 +44,10 @@ Ledger rows 460,457 → 627,405 · groups 215,482 → 297,457 · edge functions 
 3. Confirm whether the 1,256 single-leg groups are covered by `sofp_ledger_legs` synthetic legs.
 
 Counts in the map are a snapshot; re-run the catalog queries in chapter 06 rather than trusting them.
+
+## Standing rule (from 2026-09-29)
+
+Every change to a `docs/HANDOVER/` doc also updates `architecture-map.html` in the same commit, or
+says explicitly why the map is unaffected. A project PostToolUse hook
+(`.claude/hooks/handover-map-reminder.mjs`, wired in `.claude/settings.json`) reminds Claude
+whenever a handover file other than the map is written.
