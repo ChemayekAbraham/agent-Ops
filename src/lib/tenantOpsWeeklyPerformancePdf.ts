@@ -84,7 +84,7 @@ function createReport(title: string, subtitle: string, accent: RGB, meta: string
       doc.text(label, margin, y);
       if (note) {
         doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(...MUTED);
-        doc.text(note, margin + doc.getTextWidth(label) * (7 / 10) * 0 + doc.getStringUnitWidth(label) * 10 / doc.internal.scaleFactor + 3, y);
+        doc.text(note, margin + (doc.getStringUnitWidth(label) * 10) / doc.internal.scaleFactor + 3, y);
       }
       y += 4;
     },
