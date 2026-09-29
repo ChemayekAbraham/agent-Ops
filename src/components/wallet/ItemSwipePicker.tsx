@@ -34,13 +34,21 @@ export function ItemSwipePicker({ open, items, startLabel, onPick, onClose }: Pr
     host.scrollTop = 0;
     host.style.overflow = 'hidden';
     if (closeBtn) closeBtn.style.display = 'none';
+    // Any animated wrapper with a transform becomes the "screen" for a fixed
+    // element, so measure where we actually landed and shift back to 0,0.
     const place = () => {
-      const r = host.getBoundingClientRect();
-      setFrame({ top: -r.top - host.clientTop, left: -r.left - host.clientLeft, width: window.innerWidth, height: window.innerHeight, right: 'auto', bottom: 'auto' });
+      const el = rootRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      const curTop = parseFloat(el.style.top || '0') || 0;
+      const curLeft = parseFloat(el.style.left || '0') || 0;
+      setFrame({ top: curTop - r.top, left: curLeft - r.left, width: window.innerWidth, height: window.innerHeight, right: 'auto', bottom: 'auto' });
     };
     place();
+    const raf = requestAnimationFrame(place);
     window.addEventListener('resize', place);
     return () => {
+      cancelAnimationFrame(raf);
       window.removeEventListener('resize', place);
       host.style.overflow = prevOverflow;
       host.scrollTop = prevScroll;
