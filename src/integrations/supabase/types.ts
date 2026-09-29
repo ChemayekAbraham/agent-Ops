@@ -64162,6 +64162,20 @@ export type Database = {
         }
         Returns: Json
       }
+      landlord_pool_return: {
+        Args: {
+          p_caller?: string
+          p_collection_id?: string
+          p_principal: number
+          p_ref: string
+          p_rent_request_id: string
+        }
+        Returns: Json
+      }
+      landlord_pool_return_reverse: {
+        Args: { p_caller?: string; p_ref: string }
+        Returns: Json
+      }
       ledger_category_allowlist: { Args: never; Returns: string[] }
       ledger_category_allowlist_base: { Args: never; Returns: string[] }
       lending_find_user_by_phone: {
