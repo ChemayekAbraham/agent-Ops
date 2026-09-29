@@ -23,4 +23,4 @@
 - [x] Improve wallet transfer confirmation so amount and confirm action remain visible above the mobile keyboard.
 - [x] Standardize unauthorized Requisition Approve messages without changing permissions or financial behavior.
 - [x] Label every send-item picture with “Welile” and make the swipe picker the only item-selection method.
-- [x] Add a dedicated CFO Cash Position page below Home while preserving the section on Home.
+- [x] Add a dedicated CFO Cash Position page below Home; the section now shows only there, removed from Home.

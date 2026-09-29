@@ -54,6 +54,8 @@ import { HeroCard } from '@/components/cfo/HeroCard';
 interface CFOOverviewDashboardProps {
   onTabChange?: (tab: string) => void;
   cashPositionOnly?: boolean;
+  /** The Cash Position band now lives on its own sidebar page; Home opts out. */
+  showCashPosition?: boolean;
 }
 
 const fmt = (n: number) =>
@@ -72,7 +74,9 @@ const fmtShare = (value: number, total: number) => {
   return `${formatted}% of Money We Have`;
 };
 
-export function CFOOverviewDashboard({ onTabChange, cashPositionOnly = false }: CFOOverviewDashboardProps) {
+export function CFOOverviewDashboard({
+  onTabChange, cashPositionOnly = false, showCashPosition = true,
+}: CFOOverviewDashboardProps) {
   const [exportingCommissions, setExportingCommissions] = useState(false);
   const [activeBreakdown, setActiveBreakdown] = useState<string | null>(null);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
@@ -253,7 +257,7 @@ export function CFOOverviewDashboard({ onTabChange, cashPositionOnly = false }: 
       <div className="space-y-6">
 
         {/* ─────────── 1 · CASH POSITION ─────────── */}
-        <Band
+        {showCashPosition && <Band
           title="Cash Position"
           subtitle="What we hold right now, and where it sits"
           open={isOpen('position')}
@@ -495,7 +499,7 @@ export function CFOOverviewDashboard({ onTabChange, cashPositionOnly = false }: 
           {/* Transaction-level reconciliation behind Money We Can Use. */}
           <MoneyWeCanUseBreakdown />
 
-        </Band>
+        </Band>}
 
         {!cashPositionOnly && <>
         {/* ─────────── 2 · RECEIVABLES & PAYABLES ─────────── */}

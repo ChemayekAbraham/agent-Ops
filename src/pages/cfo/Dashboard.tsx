@@ -651,7 +651,8 @@ export default function CFODashboardPage() {
           </div>
         );
       default:
-        return <CFOOverviewDashboard onTabChange={setActiveTab} />;
+        // Home no longer carries the Cash Position band — it has its own page.
+        return <CFOOverviewDashboard onTabChange={setActiveTab} showCashPosition={false} />;
     }
   };
 
