@@ -422,7 +422,7 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
                             </CardContent>
                           </Card>
 
-                          <ReceivablesSevenDayWindow items={selectedTenantProduct.items} />
+                          <ReceivablesSevenDayWindow items={selectedTenantProduct.items} categoryKey={cat.key} productKey={selectedTenantProduct.key} />
 
                           {selectedTenantProduct.key === 'rent_plan' && (
                             <>
@@ -523,7 +523,7 @@ export function ReceivablesBreakdownForecast({ hideHeadline = false }: { hideHea
                                 </CardContent>
                               </Card>
 
-                              <ReceivablesSevenDayWindow items={selectedFamilyProduct.items ?? []} />
+                              <ReceivablesSevenDayWindow items={selectedFamilyProduct.items ?? []} categoryKey={cat.key} productKey={selectedFamilyProduct.key} />
 
                               <PredictiveReceivablesForecast
                                 productLabel={selectedFamilyProduct.label}
