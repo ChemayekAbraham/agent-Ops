@@ -2,7 +2,6 @@ import { useId, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { ArrowDown, ArrowUp, ChevronRight, Info } from 'lucide-react';
-import { Area, AreaChart, ResponsiveContainer } from 'recharts';
 
 type HeroCardTone = 'success' | 'warning' | 'info' | 'primary' | 'destructive';
 
@@ -14,6 +13,35 @@ const TONE_STYLES: Record<HeroCardTone, { icon: string; trend: string; stroke: s
   destructive: { icon: 'bg-destructive text-destructive-foreground', trend: 'text-destructive', stroke: 'hsl(var(--destructive))' },
 };
 
+/** A compact percentage gauge, not a historical cash-balance trend. */
+export function PercentageCurve({ value, total, tone = 'success' }: { value: number; total: number; tone?: HeroCardTone }) {
+  const gradientId = useId().replace(/:/g, '');
+  if (!Number.isFinite(value) || !Number.isFinite(total) || total <= 0) return null;
+
+  const share = Math.max(0, Math.min(1, value / total));
+  // The endpoint represents the current share. A square-root display scale
+  // keeps very small shares legible in a 32px-high gauge; the number beside it
+  // remains the precise comparison, including shares greater than 100%.
+  const endY = 25 - 19 * Math.sqrt(share);
+  const startY = 29;
+  const midY = (startY + endY) / 2;
+  const curve = `M 1 ${startY} C 14 ${startY - 3}, 18 ${midY + 2}, 30 ${midY} S 47 ${midY + 2}, 56 ${midY - 1} S 69 ${endY + 3}, 79 ${endY}`;
+  const stroke = TONE_STYLES[tone].stroke;
+
+  return (
+    <svg viewBox="0 0 80 32" preserveAspectRatio="none" className="h-8 w-20 shrink-0" aria-hidden="true">
+      <defs>
+        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={stroke} stopOpacity={0.26} />
+          <stop offset="100%" stopColor={stroke} stopOpacity={0.015} />
+        </linearGradient>
+      </defs>
+      <path d={`${curve} L 79 32 L 1 32 Z`} fill={`url(#${gradientId})`} />
+      <path d={curve} fill="none" stroke={stroke} strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 /**
  * Compact financial summary card.
  *
@@ -22,7 +50,7 @@ const TONE_STYLES: Record<HeroCardTone, { icon: string; trend: string; stroke: s
  * rows and a reconciling total. No figure is derived here: every value is
  * passed in already computed.
  */
-export function HeroCard({ icon, iconBg, tone, title, value, percentageLabel, percentageDirection, sparkline, items, footer, footerTone, onClick, className, action }: {
+export function HeroCard({ icon, iconBg, tone, title, value, percentageLabel, percentageDirection, percentageValue, percentageTotal, items, footer, footerTone, onClick, className, action }: {
   icon: React.ReactNode;
   iconBg?: string;
   tone?: HeroCardTone;
@@ -30,7 +58,8 @@ export function HeroCard({ icon, iconBg, tone, title, value, percentageLabel, pe
   value: string;
   percentageLabel?: string;
   percentageDirection?: 'up' | 'down';
-  sparkline?: number[];
+  percentageValue?: number;
+  percentageTotal?: number;
   items: { dot: string; label: string; value: string; onSelect?: () => void }[];
   footer?: string;
   footerTone?: string;
@@ -48,8 +77,7 @@ export function HeroCard({ icon, iconBg, tone, title, value, percentageLabel, pe
   const negative = value.trim().startsWith('-');
   const palette = TONE_STYLES[tone ?? 'primary'];
   const iconClass = iconBg ?? palette.icon;
-  const sparkData = (sparkline ?? []).map((point, index) => ({ index, point }));
-  const gradientId = useId().replace(/:/g, '');
+  const showCurve = percentageValue !== undefined && percentageTotal !== undefined && percentageTotal > 0;
 
   return (
     <>
@@ -76,7 +104,7 @@ export function HeroCard({ icon, iconBg, tone, title, value, percentageLabel, pe
           >
             {value}
           </p>
-          {(percentageLabel || sparkData.length > 1) && (
+          {(percentageLabel || showCurve) && (
             <div className="mt-auto pt-2 flex min-h-9 items-end justify-between gap-2">
               {percentageLabel ? (
                 <p className={`min-w-0 flex items-center gap-1 text-[11px] font-medium ${percentageDirection ? palette.trend : 'text-muted-foreground'}`}>
@@ -85,21 +113,7 @@ export function HeroCard({ icon, iconBg, tone, title, value, percentageLabel, pe
                   <span>{percentageLabel}</span>
                 </p>
               ) : <span />}
-              {sparkData.length > 1 ? (
-                <div className="h-8 w-20 shrink-0" aria-hidden="true">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={sparkData} margin={{ top: 2, right: 1, bottom: 0, left: 1 }}>
-                      <defs>
-                        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor={palette.stroke} stopOpacity={0.26} />
-                          <stop offset="100%" stopColor={palette.stroke} stopOpacity={0.015} />
-                        </linearGradient>
-                      </defs>
-                      <Area type="monotone" dataKey="point" stroke={palette.stroke} strokeWidth={1.75} fill={`url(#${gradientId})`} dot={false} isAnimationActive={false} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : null}
+              {showCurve ? <PercentageCurve value={percentageValue} total={percentageTotal} tone={tone} /> : null}
             </div>
           )}
           {footer ? <p className="mt-2.5 text-[11px] text-muted-foreground line-clamp-2">{footer}</p> : null}
