@@ -170,7 +170,7 @@ export function CFOReceivablesPayablesHome() {
             </SheetTitle>
           </SheetHeader>
           <div className="mt-3">
-            {sheet === 'pay' ? <PayablesBreakdownForecast /> : sheet === 'rec' ? <ReceivablesBreakdownForecast /> : null}
+            {sheet === 'pay' ? <PayablesBreakdownForecast hideHeadline /> : sheet === 'rec' ? <ReceivablesBreakdownForecast hideHeadline /> : null}
           </div>
         </SheetContent>
       </Sheet>
