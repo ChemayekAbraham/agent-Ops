@@ -152,18 +152,18 @@ export function ItemSwipePicker({ open, items, startLabel, onPick, onClose }: Pr
             {WELILE_ITEM_IMAGES[item.label] && (
               <img
                 src={WELILE_ITEM_IMAGES[item.label]}
-                alt={`${item.hint} item`}
+                alt={`${item.label} item`}
                 className="absolute inset-0 h-full w-full object-cover"
                 draggable={false}
               />
             )}
             <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-foreground/90 via-foreground/40 to-transparent" />
             <div className="absolute inset-x-0 bottom-0 px-6 pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-              <p className="text-5xl font-extrabold leading-none text-background drop-shadow">{item.hint}</p>
+              <p className="text-5xl font-extrabold leading-none text-background drop-shadow">{item.label}</p>
               <Button
                 type="button"
                 onClick={() => onPick(item.label)}
-                aria-label={`Choose ${item.hint}`}
+                aria-label={`Choose ${item.label}`}
                 disabled={items[index]?.label !== item.label}
                 tabIndex={items[index]?.label === item.label ? 0 : -1}
                 className="mt-6 h-16 w-full rounded-2xl text-xl font-bold shadow-lg motion-reduce:transition-none motion-reduce:active:scale-100"
@@ -176,7 +176,7 @@ export function ItemSwipePicker({ open, items, startLabel, onPick, onClose }: Pr
       </div>
 
       <p className="sr-only" aria-live="polite" aria-atomic="true">
-        {items[index]?.hint}. Item {index + 1} of {items.length}.
+        {items[index]?.label}. Item {index + 1} of {items.length}.
       </p>
 
       {/* Top bar: close + dots */}
@@ -202,13 +202,13 @@ export function ItemSwipePicker({ open, items, startLabel, onPick, onClose }: Pr
 
       {/* Side arrows (helpful on bigger screens) */}
       {index > 0 && (
-        <Button type="button" aria-label={`Previous item: ${items[index - 1]?.hint}`} onClick={() => go(index - 1)} variant="ghost" size="icon-lg"
+        <Button type="button" aria-label={`Previous item: ${items[index - 1]?.label}`} onClick={() => go(index - 1)} variant="ghost" size="icon-lg"
           className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-background/70 shadow motion-reduce:transition-none motion-reduce:active:scale-100">
           <ChevronLeft className="h-6 w-6" aria-hidden="true" />
         </Button>
       )}
       {index < items.length - 1 && (
-        <Button type="button" aria-label={`Next item: ${items[index + 1]?.hint}`} onClick={() => go(index + 1)} variant="ghost" size="icon-lg"
+        <Button type="button" aria-label={`Next item: ${items[index + 1]?.label}`} onClick={() => go(index + 1)} variant="ghost" size="icon-lg"
           className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-background/70 shadow animate-pulse motion-reduce:animate-none motion-reduce:transition-none motion-reduce:active:scale-100">
           <ChevronRight className="h-6 w-6" aria-hidden="true" />
         </Button>
