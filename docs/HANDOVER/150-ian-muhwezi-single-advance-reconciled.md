@@ -19,6 +19,17 @@ The handover-139 reinstatement (27 Sep) reopened his 10 Aug advance (`5a1a60b0`)
 
 **How it reconciles:** 4,981,631.08 − 55,253 (paid to the 7 Sep advance on 28 Sep) − 131,727 (transferred) = 4,794,651.08.
 
+## Follow-up the same day: the advance statement now matches the wallet statement
+
+The row in step 2 showed `+UGX 0 / −UGX 0` with the balance dropping by 131,727, and nothing on the statement explained it (Josh flagged it from a screenshot). The fix, in one transaction:
+
+- The **13** `agent_advance_ledger` deduction rows from 28–29 Sep (131,727; each already one-to-one with an `agent_repayment` wallet debit by time and amount) were moved from `5a1a60b0` to `ba37593d`.
+- Transfer row `491ce0b7` was deleted.
+- `opening_balance`/`closing_balance` were recalculated from 28 Sep on both advances. The 7 Sep advance runs 4,981,631.08 → **4,794,651.08** (equal to `outstanding_balance`). The 10 Aug advance now shows only its penalty, 2,570,689.18 → 2,612,283.18, and `pre_cancel_outstanding` was set to that figure.
+- Audit entry: `agent_advance_deductions_reattributed`.
+
+The 7 Sep statement now has 16 deduction lines totalling 186,980, one for each wallet debit. The `general_ledger` legs still carry `source_id = 5a1a60b0` (ledger rows aren't rewritten), so A10 per advance still differs from the statement by that 131,727.
+
 ## What was not done, and why
 
 - **No `general_ledger` write-off.** The 22 Sep receivables restatement set the 10 Aug advance's A10 to its balance at that time, which was 0 because of the fake clearance. The 1.71M moved to equity E3. The 27 Sep reinstatement only changed `agent_advance_ledger`. So the ledger holds no receivable for this advance. A DR X4 / CR A10 posting would take A10 about −2.6M and count the loss twice.
