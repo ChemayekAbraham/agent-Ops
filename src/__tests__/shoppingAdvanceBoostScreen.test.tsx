@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
+import { useState } from 'react';
 import { ShoppingAdvanceBoostScreen } from '@/components/wallet/ShoppingAdvanceBoostScreen';
 
 /**
