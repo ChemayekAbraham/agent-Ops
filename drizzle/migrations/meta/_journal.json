@@ -2423,6 +2423,13 @@
       "when": 1790669278334,
       "tag": "0345_deactivate_referral_link_timothy_and_cutovers_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 346,
+      "version": "7",
+      "when": 1790689391050,
+      "tag": "0346_unlock_portfolio",
+      "breakpoints": true
     }
   ]
 }
