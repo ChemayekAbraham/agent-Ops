@@ -14,6 +14,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { requisitionApprovalError } from '@/lib/requisitionApprovalError';
 import {
   Loader2, CheckCircle2, XCircle, Clock, HelpCircle, FileText, Building2,
   ArrowLeft, ChevronRight, ShieldCheck, User, Calendar,
@@ -134,9 +135,12 @@ export default function DirectorDashboardPage() {
     const { error } = await invokeEdgeFunction('director-requisition-action', {
       body: { requisition_id: selected.id, action: actionType, comment: comment.trim() },
       errorTitle: 'Action failed',
+      silent: true,
     });
     setActing(false);
-    if (!error) {
+    if (error) {
+      toast.error(actionType === 'approve' ? requisitionApprovalError(error.message) : error.message);
+    } else {
       toast.success('Decision recorded and requester notified');
       setActionType(null);
       setComment('');

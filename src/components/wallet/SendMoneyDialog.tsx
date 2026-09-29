@@ -477,7 +477,9 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
       return;
     }
 
-    // Open confirmation step — user must explicitly confirm before money is sent.
+    // Release the mobile keyboard before showing confirmation so its amount and
+    // final action use the full visual viewport. No transfer occurs here.
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     setConfirming(true);
   };
 
@@ -660,11 +662,11 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
               exit={{ opacity: 0, y: -8 }}
               className="relative flex h-full min-h-0 flex-col"
             >
-              <img
+               <img
                 src={sendMoneyIllustration.url}
                 alt="Illustration of a wallet and money transfer"
                 loading="lazy"
-                className="mx-auto mb-2 h-14 w-auto shrink-0 min-[390px]:h-16 sm:mb-3 sm:h-28"
+                 className="mx-auto mb-1 hidden h-14 w-auto shrink-0 min-[390px]:block sm:mb-3 sm:h-28"
               />
               <DialogHeader className="shrink-0 pr-12">
                 <DialogTitle className="flex items-center gap-2">
@@ -678,7 +680,14 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="mt-3 min-h-0 flex-1 space-y-2.5 overflow-y-auto overscroll-contain pb-3 pr-0.5 sm:mt-4 sm:space-y-3">
+               <div className="mt-2 shrink-0 rounded-lg border border-border/60 bg-background px-3 py-2.5">
+                 <div className="flex items-center justify-between gap-3">
+                   <span className="text-xs font-semibold uppercase text-muted-foreground">Total to send</span>
+                   <span className="text-xl font-bold tabular-nums">{formatCurrency(parseFloat(amount) || 0)}</span>
+                 </div>
+               </div>
+
+               <div className="mt-2 min-h-0 flex-1 space-y-2.5 overflow-y-auto overscroll-contain pb-2 pr-0.5 sm:mt-4 sm:space-y-3">
                 <div className="rounded-lg border border-border/60 bg-background/50 p-3 space-y-1.5 sm:p-4 sm:space-y-2">
                   <p className="text-xs uppercase tracking-wide text-muted-foreground">Sending to</p>
                   <p className="text-base font-semibold">
@@ -709,10 +718,6 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
                     <span className="text-xs uppercase tracking-wide text-muted-foreground">Transfer fee</span>
                     <span className="text-sm font-semibold text-success">Free</span>
                   </div>
-                  <div className="flex items-center justify-between border-t border-border/60 pt-2.5">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-foreground">Total to send</span>
-                    <span className="text-lg font-bold">{formatCurrency(parseFloat(amount) || 0)}</span>
-                  </div>
                   {selectedItem && (
                     <div className="flex items-center justify-between gap-3 border-t border-border/60 pt-2.5">
                       <span className="text-xs uppercase tracking-wide text-muted-foreground">Item</span>
@@ -740,14 +745,14 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
                 </div>
               </div>
 
-              <DialogFooter className="-mx-5 -mb-5 shrink-0 gap-2 border-t border-border/50 bg-background px-5 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:mt-2 sm:gap-0 sm:py-3">
+              <DialogFooter className="-mx-5 -mb-5 shrink-0 flex-row gap-2 border-t border-border/50 bg-background px-5 pt-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:mt-2 sm:gap-2 sm:py-3">
                 <Button
                   type="button"
                   variant="outline"
                   onClick={() => setConfirming(false)}
                   disabled={loading}
                   size="lg"
-                  className="w-full sm:w-auto"
+                  className="min-w-0 flex-1 sm:flex-none"
                 >
                   Back
                 </Button>
@@ -756,7 +761,7 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
                   onClick={executeSend}
                   disabled={loading}
                   size="lg"
-                  className="w-full sm:w-auto gap-2"
+                  className="min-w-0 flex-[1.6] gap-2 whitespace-nowrap sm:flex-none"
                 >
                   {loading ? (
                     <Loader2 className="h-4 w-4 animate-spin" />

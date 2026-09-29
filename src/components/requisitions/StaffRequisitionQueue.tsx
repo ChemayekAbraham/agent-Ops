@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { requisitionApprovalError } from '@/lib/requisitionApprovalError';
 import {
   Loader2, CheckCircle2, XCircle, Clock, HelpCircle, Wallet, RefreshCw, AlertTriangle, Building2,
   ChevronLeft, ChevronRight, ArrowDownCircle,
@@ -412,9 +413,14 @@ export function StaffRequisitionQueue() {
         ...(actionType === 'approve' ? { amount } : {}),
       },
       errorTitle: 'Decision failed',
+      silent: true,
     });
     setActing(false);
-    if (!error) {
+    if (error) {
+      toast.error(
+        actionType === 'approve' ? requisitionApprovalError(error.message, active.current_approver_role) : error.message,
+      );
+    } else {
       toast.success(
         actionType === 'approve'
           ? (reduceMode

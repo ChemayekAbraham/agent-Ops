@@ -15,6 +15,7 @@ import {
 import { TreasuryImpactBanner } from './TreasuryImpactBanner';
 import { format } from 'date-fns';
 import { CfoApprovalGate } from '@/components/cfo/CfoApprovalGate';
+import { requisitionApprovalError } from '@/lib/requisitionApprovalError';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter
 } from '@/components/ui/dialog';
@@ -90,7 +91,7 @@ export function CFOAgentRequisitions() {
       toast.success('Requisition approved — funds credited to agent wallet');
       queryClient.invalidateQueries({ queryKey: ['cfo-agent-requisitions'] });
     },
-    onError: (err: Error) => toast.error(err.message),
+    onError: (err: Error) => toast.error(requisitionApprovalError(err.message, 'CFO')),
   });
 
   const rejectMutation = useMutation({

@@ -14,6 +14,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger, DialogDescription,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { requisitionApprovalError } from '@/lib/requisitionApprovalError';
 import {
   Loader2, Plus, CheckCircle2, XCircle, Clock, HelpCircle, FileText, Building2, Wallet, RefreshCw,
 } from 'lucide-react';
@@ -182,9 +183,12 @@ export function DirectorRequisitionsPanel({ readOnly = false }: DirectorRequisit
     const { error } = await invokeEdgeFunction('director-requisition-action', {
       body: { requisition_id: actionReq.id, action: actionType, comment: comment.trim() },
       errorTitle: 'Action failed',
+      silent: true,
     });
     setActing(false);
-    if (!error) {
+    if (error) {
+      toast.error(actionType === 'approve' ? requisitionApprovalError(error.message) : error.message);
+    } else {
       toast.success('Decision recorded and requester notified');
       setActionReq(null);
       setComment('');
