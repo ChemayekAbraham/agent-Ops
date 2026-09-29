@@ -2465,6 +2465,13 @@
       "when": 1790696615300,
       "tag": "0351_merchandise_share_code_welile_prefix",
       "breakpoints": true
+    },
+    {
+      "idx": 352,
+      "version": "7",
+      "when": 1790701943043,
+      "tag": "0352_four_part_split_validation_and_principal_destination",
+      "breakpoints": true
     }
   ]
 }
