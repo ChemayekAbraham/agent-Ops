@@ -101,20 +101,37 @@ export function SevenDayFlowSection() {
           <DialogHeader>
             <DialogTitle>{open?.row.label} · {open?.title}</DialogTitle>
             <DialogDescription>
-              {open ? `${formatUGX(Math.round(open.row.amount))} — where it came from` : ''}
+              {open ? `${formatUGX(Math.round(open.row.amount))} — by product and service` : ''}
             </DialogDescription>
           </DialogHeader>
           {open && open.row.sources.length === 0 ? (
             <p className="text-sm text-muted-foreground py-6 text-center">Nothing fell due on this day.</p>
           ) : (
-            <div className="space-y-1.5">
-              {open && groupSources(open.row.sources).map((s, i) => (
-                <div key={i} className="flex items-start justify-between gap-3 rounded-md bg-muted/30 px-3 py-2 text-xs">
-                  <div className="min-w-0">
-                    <p className="font-medium truncate">{s.who}{s.count > 1 ? ` · ${s.count} items` : ''}</p>
-                    <p className="text-muted-foreground truncate">{s.category} › {s.product} · {s.kind}</p>
+            <div className="space-y-3">
+              {open && groupByProduct(open.row.sources).map((g) => (
+                <div key={g.key} className="rounded-lg border border-border/60 p-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold truncate">{g.product}</p>
+                      <p className="text-[11px] text-muted-foreground truncate">{g.category}</p>
+                    </div>
+                    <span className="font-mono tabular-nums text-sm font-bold shrink-0">{formatUGX(Math.round(g.amount))}</span>
                   </div>
-                  <span className="font-mono tabular-nums font-semibold shrink-0">{formatUGX(Math.round(s.amount))}</span>
+                  {g.people.length > 0 && (
+                    <div className="mt-2 space-y-1">
+                      {g.people.map((s, i) => (
+                        <div key={i} className="flex items-center justify-between gap-3 rounded-md bg-muted/30 px-2 py-1 text-xs">
+                          <span className="truncate">{s.who}{s.count > 1 ? ` · ${s.count} items` : ''} <span className="text-muted-foreground">· {s.kind}</span></span>
+                          <span className="font-mono tabular-nums shrink-0">{formatUGX(Math.round(s.amount))}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {g.predicted > 0 && (
+                    <p className="mt-2 text-[11px] text-muted-foreground">
+                      Includes {formatUGX(Math.round(g.predicted))} predicted from this product's payment behaviour.
+                    </p>
+                  )}
                 </div>
               ))}
             </div>
@@ -125,15 +142,22 @@ export function SevenDayFlowSection() {
   );
 }
 
-/** Merge repeated lines from the same person/product so long days stay readable. */
-function groupSources(list: Source[]) {
-  const m = new Map<string, Source & { count: number }>();
+/** Group by product/service, with the people behind each one. */
+function groupByProduct(list: Source[]) {
+  const m = new Map<string, { key: string; product: string; category: string; amount: number; predicted: number; people: Map<string, Source & { count: number }> }>();
   for (const s of list) {
-    const k = `${s.who}|${s.product}|${s.kind}`;
-    const e = m.get(k);
-    if (e) { e.amount += s.amount; e.count += 1; } else m.set(k, { ...s, count: 1 });
+    const key = `${s.category}|${s.product}`;
+    let g = m.get(key);
+    if (!g) { g = { key, product: s.product, category: s.category, amount: 0, predicted: 0, people: new Map() }; m.set(key, g); }
+    g.amount += s.amount;
+    if (s.kind === 'Predicted') { g.predicted += s.amount; continue; }
+    const k = `${s.who}|${s.kind}`;
+    const e = g.people.get(k);
+    if (e) { e.amount += s.amount; e.count += 1; } else g.people.set(k, { ...s, count: 1 });
   }
-  return [...m.values()].sort((a, b) => b.amount - a.amount);
+  return [...m.values()]
+    .map((g) => ({ ...g, people: [...g.people.values()].sort((a, b) => b.amount - a.amount).slice(0, 25) }))
+    .sort((a, b) => b.amount - a.amount);
 }
 
 function Win({ title, icon, tone, rows, onPick }: { title: string; icon: React.ReactNode; tone: string; rows: Row[]; onPick: (r: Row) => void }) {
