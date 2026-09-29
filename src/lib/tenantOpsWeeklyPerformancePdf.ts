@@ -32,7 +32,7 @@ const dayLabel = (iso: string | null | undefined, year = false) => {
   const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
   return format(new Date(y, (m || 1) - 1, d || 1), year ? 'dd MMM yyyy' : 'dd MMM');
 };
-const signed = (n: number, suffix = '') => `${n > 0 ? '+' : n < 0 ? '−' : ''}${Math.abs(n).toLocaleString()}${suffix}`;
+const signed = (n: number, suffix = '') => `${n > 0 ? '+' : n < 0 ? '-' : ''}${Math.abs(n).toLocaleString()}${suffix}`;
 
 interface Card { label: string; value: string; sub?: string; subColor?: RGB; accent?: RGB }
 interface Col<T> { label: string; w: number; align?: Align; get: (r: T) => string; color?: (r: T) => RGB | null }
@@ -82,9 +82,10 @@ function createReport(title: string, subtitle: string, accent: RGB, meta: string
       ensure(18);
       doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.setTextColor(...INK);
       doc.text(label, margin, y);
+      const lw = doc.getTextWidth(label);
       if (note) {
         doc.setFont('helvetica', 'normal'); doc.setFontSize(7); doc.setTextColor(...MUTED);
-        doc.text(note, margin + (doc.getStringUnitWidth(label) * 10) / doc.internal.scaleFactor + 3, y);
+        doc.text(note, margin + lw + 4, y);
       }
       y += 4;
     },
@@ -182,7 +183,7 @@ function createReport(title: string, subtitle: string, accent: RGB, meta: string
     ) {
       ensure(h + 12);
       const x0 = margin + 12, x1 = margin + contentWidth - 12;
-      const top = y + 4, bottom = y + h;
+      const top = y + 8, bottom = y + h;
       doc.setFillColor(...PANEL); doc.setDrawColor(...LINE); doc.setLineWidth(0.2);
       (doc as any).roundedRect(margin, y - 1, contentWidth, h + 10, 2, 2, 'FD');
       doc.setDrawColor(230, 232, 238); doc.setLineWidth(0.15);
@@ -193,8 +194,11 @@ function createReport(title: string, subtitle: string, accent: RGB, meta: string
       const n = labels.length;
       const px = (i: number) => (n <= 1 ? (x0 + x1) / 2 : x0 + ((x1 - x0) * i) / (n - 1));
       series.forEach((s, si) => {
-        const max = Math.max(...s.values, 1);
-        const min = Math.min(...s.values, 0);
+        const rawMax = Math.max(...s.values);
+        const rawMin = Math.min(...s.values);
+        const pad = Math.max(1, (rawMax - rawMin) * 0.15);
+        const max = rawMax + pad;
+        const min = Math.max(0, rawMin - pad);
         const span = max - min || 1;
         const py = (v: number) => bottom - ((v - min) / span) * (bottom - top);
         // axis labels (left for series 0, right for series 1)
@@ -484,7 +488,7 @@ export function generatePromoReachPdf(
     'How often tenants see and tap the "grow your rent access up to UGX 30,000,000" message, per screen.',
     PURPLE,
     [
-      `Period: ${dayLabel(from, true)} → ${dayLabel(to, true)}`,
+      `Period: ${dayLabel(from, true)} to ${dayLabel(to, true)}`,
       ...(preparedBy ? [`Prepared by: ${preparedBy}`] : []),
     ],
   );
