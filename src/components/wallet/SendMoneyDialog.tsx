@@ -30,6 +30,7 @@ import {
   Loader2, Send, Phone, Coins, FileText, CheckCircle, Sparkles, UserCheck, UserX,
   Mail, UtensilsCrossed, Fuel, AlertTriangle, ArrowRight, Home, Egg, Gift, Landmark, Sandwich,
   Star, X, Pencil, Check, Search, Bike
+  Lock,
 } from 'lucide-react';
 
 /**
@@ -1271,7 +1272,7 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
                 <motion.div variants={itemVariants} className="space-y-2">
                   <Label htmlFor="amount" className="flex items-center gap-2">
                     <Coins className="h-3.5 w-3.5 text-muted-foreground" />
-                    Amount (UGX)
+                    How much? (UGX)
                   </Label>
                   <div className="relative flex items-center">
                     <span className="pointer-events-none absolute left-4 text-lg font-bold text-muted-foreground">
