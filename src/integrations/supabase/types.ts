@@ -32371,6 +32371,51 @@ export type Database = {
         }
         Relationships: []
       }
+      plan_balance_duplicate_correction_20260929: {
+        Row: {
+          amount_repaid_after: number | null
+          amount_repaid_before: number | null
+          corrected_at: string | null
+          correction: number | null
+          duplicate_count: number | null
+          duplicates_landed: number | null
+          later_decreases: number | null
+          rent_request_id: string
+          status_after: string | null
+          status_before: string | null
+          tenant_id: string | null
+          total_repayment: number | null
+        }
+        Insert: {
+          amount_repaid_after?: number | null
+          amount_repaid_before?: number | null
+          corrected_at?: string | null
+          correction?: number | null
+          duplicate_count?: number | null
+          duplicates_landed?: number | null
+          later_decreases?: number | null
+          rent_request_id: string
+          status_after?: string | null
+          status_before?: string | null
+          tenant_id?: string | null
+          total_repayment?: number | null
+        }
+        Update: {
+          amount_repaid_after?: number | null
+          amount_repaid_before?: number | null
+          corrected_at?: string | null
+          correction?: number | null
+          duplicate_count?: number | null
+          duplicates_landed?: number | null
+          later_decreases?: number | null
+          rent_request_id?: string
+          status_after?: string | null
+          status_before?: string | null
+          tenant_id?: string | null
+          total_repayment?: number | null
+        }
+        Relationships: []
+      }
       platform_expense_transfers: {
         Row: {
           agent_id: string
@@ -63569,6 +63614,7 @@ export type Database = {
         Returns: {
           employees: number
           kind: string
+          note: string
           period_code: string
           prompt_id: string
           raised_at: string
@@ -66185,6 +66231,18 @@ export type Database = {
       pin_tenant_ops_weekly_metrics_catchup: {
         Args: { p_lookback_weeks?: number }
         Returns: Json
+      }
+      plan_reversed_money_still_held: {
+        Args: { p_since: string }
+        Returns: {
+          first_reversed_at: string
+          held: number
+          last_collection_at: string
+          later_decreases: number
+          rent_request_id: string
+          reversed_count: number
+          reversed_landed: number
+        }[]
       }
       populate_wallet_review_queue: {
         Args: never

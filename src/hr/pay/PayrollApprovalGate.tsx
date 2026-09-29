@@ -30,7 +30,7 @@ const WORKING_MS = 30 * 60 * 1000;
 
 interface Prompt {
   prompt_id: string;
-  kind: 'approve' | 'release' | 'lock';
+  kind: 'approve' | 'release' | 'lock' | 'rework';
   run_id: string;
   period_code: string;
   run_type: string;
@@ -40,12 +40,14 @@ interface Prompt {
   unpaid_net: number;
   snooze_count: number;
   raised_at: string;
+  note: string | null;
 }
 
 const HEADINGS: Record<Prompt['kind'], string> = {
   approve: 'Payroll needs your approval',
   release: 'Payroll approved — ready for payment',
   lock: 'Payroll paid — ready to lock',
+  rework: 'Payroll returned for rework',
 };
 
 function fmtDate(iso: string | null) {
@@ -148,6 +150,11 @@ export function PayrollApprovalGate() {
             </Badge>
           )}
 
+          {prompt.kind === 'rework' && prompt.note && (
+            <p className="whitespace-pre-wrap rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-sm text-amber-800">
+              Note from the approver: {prompt.note}
+            </p>
+          )}
           <div className="grid grid-cols-3 gap-2 rounded-xl border p-3 text-center text-xs">
             <div>
               <p className="text-muted-foreground">Employees</p>
@@ -176,6 +183,8 @@ export function PayrollApprovalGate() {
                 : 'Nobody on this run has been paid yet. On the run page, tick who to pay in this batch, dry-run, then release.')}
             {prompt.kind === 'lock' &&
               'Everyone has been paid. Lock the run so the pay period can close.'}
+            {prompt.kind === 'rework' &&
+              'The approver returned this run. Correct it, recalculate and resubmit it on the run page.'}
           </p>
 
           <div className="flex flex-wrap gap-2 pt-1">
