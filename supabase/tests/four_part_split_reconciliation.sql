@@ -130,7 +130,7 @@ BEGIN
   );
 
   -- The installed function's cancelled-plan outcome remains upstream of this constraint.
-  IF CASE WHEN 'cancelled' = 'cancelled' THEN 'refused_cancelled_plan' ELSE 'posted' END
+  IF (CASE WHEN 'cancelled' = 'cancelled' THEN 'refused_cancelled_plan' ELSE 'posted' END)
       <> 'refused_cancelled_plan' THEN
     RAISE EXCEPTION 'cancelled Rent Plan refusal changed';
   END IF;
