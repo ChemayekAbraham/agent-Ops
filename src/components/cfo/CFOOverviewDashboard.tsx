@@ -501,26 +501,9 @@ export function CFOOverviewDashboard({
 
         </Band>}
 
-        {/* General Payouts activity lives only on the Cash Position page —
-            removed from Home at the CFO's request. */}
-        {cashPositionOnly && <GeneralPayoutActivities />}
-
-        {!cashPositionOnly && <>
-        {/* ─────────── 2 · RECEIVABLES & PAYABLES ─────────── */}
-        <Band
-          title="Receivables & Payables"
-          subtitle="Authoritative open balances across the full book"
-          open={isOpen('receivablesPayables')}
-          onToggle={() => toggleSection('receivablesPayables')}
-        >
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
-            <ReceivablesCardDrilldown />
-            <PayablesCardDrilldown />
-          </div>
-        </Band>
-
-        {/* ─────────── 3 · CASH MOVEMENT ─────────── */}
-        <Band
+        {/* Cash Movement lives only on the Cash Position page — removed from
+            Home at the CFO's request. */}
+        {cashPositionOnly && <Band
           title="Cash Movement"
           subtitle="Money in and out — today, the last 7 days, and daily / weekly / monthly totals"
           open={isOpen('movement')}
@@ -616,8 +599,25 @@ export function CFOOverviewDashboard({
               </CardContent>
             </Card>
           </div>
-        </Band>
+        </Band>}
 
+        {/* General Payouts activity lives only on the Cash Position page —
+            removed from Home at the CFO's request. */}
+        {cashPositionOnly && <GeneralPayoutActivities />}
+
+        {!cashPositionOnly && <>
+        {/* ─────────── 2 · RECEIVABLES & PAYABLES ─────────── */}
+        <Band
+          title="Receivables & Payables"
+          subtitle="Authoritative open balances across the full book"
+          open={isOpen('receivablesPayables')}
+          onToggle={() => toggleSection('receivablesPayables')}
+        >
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+            <ReceivablesCardDrilldown />
+            <PayablesCardDrilldown />
+          </div>
+        </Band>
 
         {/* ─────────── 4 · TOOLS & AUDIT TRAIL ─────────── */}
         {/* Lookup tools rather than at-a-glance numbers, so this band starts
