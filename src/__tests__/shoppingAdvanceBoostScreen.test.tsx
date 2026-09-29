@@ -69,6 +69,33 @@ describe('ShoppingAdvanceBoostScreen display timer', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it('announces the remaining display time to screen readers', async () => {
+    // A progressbar is not a live region, so the spoken figure lives in a
+    // separate status element. It must track the timer, and must not fire
+    // every single second.
+    const onClose = vi.fn();
+    render(<ShoppingAdvanceBoostScreen amountSent={2_000} onClose={onClose} />);
+
+    const status = screen.getByRole('status');
+    expect(status).toHaveClass('sr-only');
+    expect(status).toHaveTextContent('This message closes in 39 seconds.');
+
+    await advance(9);
+    expect(status).toHaveTextContent('This message closes in 30 seconds.');
+
+    await advance(1);
+    // 29s is not an announce point: the last figure stands, nothing new fires.
+    expect(status).toHaveTextContent('This message closes in 30 seconds.');
+
+    await advance(24);
+    expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '5');
+    expect(status).toHaveTextContent('This message closes in 5 seconds.');
+
+    await advance(4);
+    expect(status).toHaveTextContent('This message closes in 1 second.');
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it('stops the countdown and progress bar when closed early', async () => {
     // Mirrors the real parent: closing sets amountSent back to null, which
     // unmounts the notice and must clear the running interval.
