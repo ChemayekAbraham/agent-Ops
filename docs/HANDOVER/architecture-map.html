@@ -1850,7 +1850,7 @@ Transaction Groups: 297,457
         badge: 'HANDOVER CHAPTER 8',
         color: '#f59e0b',
         title: '08. Known Gaps — Not Yet Fixed',
-        sub: 'Open as of 2026-09-28 • Read before trusting any safety net above',
+        sub: 'Open as of 2026-09-29 • Read before trusting any safety net above',
         content: `
           <div class="detail-card danger">
             <div class="detail-card-title" style="color: #f43f5e;">Safety nets that don't work as named</div>
@@ -1858,6 +1858,7 @@ Transaction Groups: 297,457
               <li><strong>maintenance_mode is UI-only.</strong> No DB guard in <code>create_ledger_transaction</code>; crons and 356 edge functions ignore it. Fix proposed (DB-level guard), needs sign-off because it touches the money path.</li>
               <li><strong>Imbalance detector unscheduled.</strong> <code>detect_ledger_group_imbalances()</code> has no cron job; ran once on 2026-07-23 and left 2,195 alerts (~UGX 293M) untriaged.</li>
               <li><strong>Balance check skips single-leg groups.</strong> 1,256 in 30 days (~UGX 146M). Unconfirmed whether the resolver's synthetic legs cover them.</li>
+              <li><strong>15–16 Sep float-gate: ~UGX 57M A5 custody never cleared (doc 158).</strong> 659 genuine collections consumed no float; the monitor's anomalies were closed on 2026-09-29 with no ledger posting. The <code>cash_receipt_in_transit</code> legs stay on the books for Finance. The agents hold about 1.09M of float between them.</li>
             </ul>
           </div>
           <div class="detail-card warning">
