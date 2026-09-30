@@ -2563,6 +2563,13 @@
       "when": 1790758812886,
       "tag": "0365_agent_weekly_collection_streak",
       "breakpoints": true
+    },
+    {
+      "idx": 366,
+      "version": "7",
+      "when": 1790759810649,
+      "tag": "0366_weekly_streak_payouts",
+      "breakpoints": true
     }
   ]
 }
