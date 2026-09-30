@@ -32543,6 +32543,48 @@ export type Database = {
           },
         ]
       }
+      phone_change_otp_challenges: {
+        Row: {
+          attempts: number
+          consumed_at: string | null
+          created_at: string
+          id: string
+          max_attempts: number
+          new_phone_last9: string
+          old_phone: string
+          otp_expires_at: string
+          otp_hash: string
+          status: string
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          consumed_at?: string | null
+          created_at?: string
+          id?: string
+          max_attempts?: number
+          new_phone_last9: string
+          old_phone: string
+          otp_expires_at: string
+          otp_hash: string
+          status?: string
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          consumed_at?: string | null
+          created_at?: string
+          id?: string
+          max_attempts?: number
+          new_phone_last9?: string
+          old_phone?: string
+          otp_expires_at?: string
+          otp_hash?: string
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       phone_collection_prompt_events: {
         Row: {
           action: string
@@ -46395,6 +46437,45 @@ export type Database = {
             referencedColumns: ["agent_id"]
           },
         ]
+      }
+      tops_30m_awareness: {
+        Row: {
+          awareness_before: string
+          cc_call_id: string | null
+          explanation_given: string
+          id: string
+          interest: string
+          recorded_at: string
+          recorded_by: string
+          rent_plan_limit_ugx: number | null
+          tenant_user_id: string
+          understanding_after: string
+        }
+        Insert: {
+          awareness_before: string
+          cc_call_id?: string | null
+          explanation_given: string
+          id?: string
+          interest: string
+          recorded_at?: string
+          recorded_by: string
+          rent_plan_limit_ugx?: number | null
+          tenant_user_id: string
+          understanding_after: string
+        }
+        Update: {
+          awareness_before?: string
+          cc_call_id?: string | null
+          explanation_given?: string
+          id?: string
+          interest?: string
+          recorded_at?: string
+          recorded_by?: string
+          rent_plan_limit_ugx?: number | null
+          tenant_user_id?: string
+          understanding_after?: string
+        }
+        Relationships: []
       }
       tops_call_outcomes: {
         Row: {
@@ -69747,6 +69828,25 @@ export type Database = {
         Returns: {
           id: string
           is_hidden: boolean
+        }[]
+      }
+      tops_30m_awareness_stats: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          awareness_did_not_know: number
+          awareness_heard: number
+          awareness_knew: number
+          explanation_no: number
+          explanation_partly: number
+          explanation_yes: number
+          interest_apply_now: number
+          interest_later: number
+          interest_not_interested: number
+          interest_not_sure: number
+          total_reached: number
+          understanding_did_not_understand: number
+          understanding_partly: number
+          understanding_understood: number
         }[]
       }
       tops_acknowledge_collection_anomaly: {
