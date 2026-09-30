@@ -10,6 +10,7 @@
  *    cfo-direct-credit (recipient_type: 'user' -> withdrawable bucket)
  */
 import { sendSMS } from "./sendSmsMultiProvider.ts";
+import { maySendRequisitionSms } from "./requisitionSmsPolicy.ts";
 
 // deno-lint-ignore no-explicit-any
 type Admin = any;
@@ -324,7 +325,9 @@ export async function creditRequisitionWallet(
       metadata: { requisition_id: requisitionId, wallet_transaction_id: walletTxId, amount },
     }));
 
-  if (profile?.email) {
+  const mayNotify = await maySendRequisitionSms(admin, userId);
+
+  if (profile?.email && mayNotify) {
     await safe("recipient email", () =>
       fetch(`${supabaseUrl}/functions/v1/send-email`, {
         method: "POST",
@@ -341,7 +344,7 @@ export async function creditRequisitionWallet(
       }));
   }
 
-  if (profile?.phone) {
+  if (profile?.phone && mayNotify) {
     await safe("recipient SMS", () =>
       sendSMS(profile.phone, `Welile: ${message}`, {
         admin,
