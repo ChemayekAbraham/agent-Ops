@@ -346,7 +346,7 @@ async function notifyApprovers(admin: any, approverRole: string, row: any, reque
           });
         } catch (_) { /* non-fatal */ }
       }
-      if (p.email) {
+      if (p.email && smsAllowed.has(p.id)) {
         try {
           await fetch(`${supabaseUrl}/functions/v1/send-email`, {
             method: "POST",

@@ -1,5 +1,5 @@
 /**
- * Who may receive a requisition SMS.
+ * Who may receive a requisition SMS or email (cto, hr, super_admin, cfo only).
  *
  * Requisition messages carry a person's name and the amount of money they have
  * asked for. They were going out to whichever role a department happened to
@@ -12,11 +12,9 @@
  */
 export const REQUISITION_SMS_ROLES = [
   'cto',
-  'super_admin',
-  'coo',
-  'cfo',
   'hr',
-  'financial_ops',
+  'super_admin',
+  'cfo',
 ] as const;
 
 export type RequisitionSmsRole = (typeof REQUISITION_SMS_ROLES)[number];

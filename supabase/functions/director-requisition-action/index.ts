@@ -142,7 +142,7 @@ Deno.serve(async (req) => {
         ).catch((e) => console.error("SMS failed", e));
       }
 
-      if (requesterProfile.email) {
+      if (requesterProfile.email && await maySendRequisitionSms(admin, requesterProfile.id)) {
         await admin.functions.invoke("send-transactional-email", {
           body: {
             templateName: "director-requisition-status",
