@@ -317,7 +317,7 @@ export function FunderNewReviewDialog({
                   onClick={async () => {
                     setSubmitting(true);
                     try {
-                      const result = await onFund?.(total, 0);
+                      const result = (await onFund?.(total, 0)) as FunderFundResult | undefined;
                       if (result?.submitted) {
                         // Stay on this dialog and flip it to the success view, so the
                         // result is on screen rather than in a toast that disappears.
