@@ -564,7 +564,8 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
       setSuccess(false);
       setIsFirstTx(false);
       setRecipient({ status: 'idle' });
-      onOpenChange(false);
+      // Parent closing is deferred until the boost screen closes, so parents
+      // that unmount this dialog on close don't cut the boost screen short.
     }, isFirstTx ? 3000 : 1500);
   };
 
@@ -586,8 +587,14 @@ export function SendMoneyDialog({ open, onOpenChange }: SendMoneyDialogProps) {
 
   return (
     <>
-    <ShoppingAdvanceBoostScreen amountSent={boostAmount} onClose={() => setBoostAmount(null)} />
-    <Dialog open={open} onOpenChange={handleClose}>
+    <ShoppingAdvanceBoostScreen
+      amountSent={boostAmount}
+      onClose={() => {
+        setBoostAmount(null);
+        handleClose(false);
+      }}
+    />
+    <Dialog open={open && boostAmount === null} onOpenChange={handleClose}>
       <DialogContent
         className={`w-screen max-w-[100vw] overflow-x-hidden px-4 h-[100dvh] max-h-[100dvh] rounded-none border-border/50 glass-card sm:w-full sm:max-w-md sm:h-auto sm:max-h-[85vh] sm:rounded-xl ${
           confirming ? 'grid-rows-[minmax(0,1fr)] overflow-hidden' : 'overflow-y-auto'
