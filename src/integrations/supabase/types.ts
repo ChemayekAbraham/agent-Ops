@@ -41476,6 +41476,131 @@ export type Database = {
         }
         Relationships: []
       }
+      sms_forwarder_devices: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          label: string
+          last_app_version: string | null
+          last_battery_pct: number | null
+          last_heartbeat: Json | null
+          last_pending_count: number | null
+          last_seen_at: string | null
+          mode: string
+          sim_label: string | null
+          token_hash: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          label: string
+          last_app_version?: string | null
+          last_battery_pct?: number | null
+          last_heartbeat?: Json | null
+          last_pending_count?: number | null
+          last_seen_at?: string | null
+          mode?: string
+          sim_label?: string | null
+          token_hash: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          label?: string
+          last_app_version?: string | null
+          last_battery_pct?: number | null
+          last_heartbeat?: Json | null
+          last_pending_count?: number | null
+          last_seen_at?: string | null
+          mode?: string
+          sim_label?: string | null
+          token_hash?: string
+        }
+        Relationships: []
+      }
+      sms_forwarder_messages: {
+        Row: {
+          amount: number | null
+          attempt_count: number
+          balance: number | null
+          body: string
+          channel: string | null
+          client_message_id: string
+          compared_at: string | null
+          comparison: string
+          counterparty: string | null
+          counterparty_name: string | null
+          device_id: string
+          direction: string | null
+          fee: number | null
+          id: string
+          matched_gmail_row_id: string | null
+          parsed: boolean
+          sender: string
+          sim_slot: number | null
+          sms_received_at: string
+          transaction_id: string | null
+          uploaded_at: string
+        }
+        Insert: {
+          amount?: number | null
+          attempt_count?: number
+          balance?: number | null
+          body: string
+          channel?: string | null
+          client_message_id: string
+          compared_at?: string | null
+          comparison?: string
+          counterparty?: string | null
+          counterparty_name?: string | null
+          device_id: string
+          direction?: string | null
+          fee?: number | null
+          id?: string
+          matched_gmail_row_id?: string | null
+          parsed?: boolean
+          sender: string
+          sim_slot?: number | null
+          sms_received_at: string
+          transaction_id?: string | null
+          uploaded_at?: string
+        }
+        Update: {
+          amount?: number | null
+          attempt_count?: number
+          balance?: number | null
+          body?: string
+          channel?: string | null
+          client_message_id?: string
+          compared_at?: string | null
+          comparison?: string
+          counterparty?: string | null
+          counterparty_name?: string | null
+          device_id?: string
+          direction?: string | null
+          fee?: number | null
+          id?: string
+          matched_gmail_row_id?: string | null
+          parsed?: boolean
+          sender?: string
+          sim_slot?: number | null
+          sms_received_at?: string
+          transaction_id?: string | null
+          uploaded_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sms_forwarder_messages_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "sms_forwarder_devices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sms_message_exceptions: {
         Row: {
           created_at: string
@@ -68691,6 +68816,10 @@ export type Database = {
       sms_cost_ugx: {
         Args: { p_message: string; p_provider?: string }
         Returns: number
+      }
+      sms_forwarder_shadow_coverage: {
+        Args: { p_hours?: number }
+        Returns: Json
       }
       sms_segment_count: { Args: { p_message: string }; Returns: number }
       snapshot_agent_daily_eligibility: {
