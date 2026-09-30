@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { AlertTriangle, CheckCircle2, ClipboardList, Forward, Inbox, Send, UserPlus } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronDown, ClipboardList, Forward, Inbox, Send, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { ConcernControlPanel } from '@/components/executive/tenant-ops/calling-center/ConcernControlPanel';
@@ -70,6 +70,7 @@ function ConcernCard({
   const join = useJoinConcern();
   const [note, setNote] = useState('');
   const [open, setOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
 
   const addMyself = async () => {
     try {
@@ -96,88 +97,138 @@ function ConcernCard({
     }
   };
 
+  const done = concern.status === 'completed';
+  const overdue = isConcernOverdue(concern);
+  const canAct = !done && !joinable;
+  const nextStep: { label: string; action: 'accepted' | 'started' } | null =
+    mine && concern.status === 'sent'
+      ? { label: 'I have got this', action: 'accepted' }
+      : mine && concern.status === 'received'
+        ? { label: 'Start working', action: 'started' }
+        : null;
+
   return (
-    <div className={`${CC_ROW} scroll-mt-24 overflow-hidden`}>
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="line-clamp-2 text-sm font-bold leading-snug">{concern.title}</p>
-          <p className="mt-1 text-xs leading-snug text-muted-foreground">
-            {concern.source_kind === 'received_call' ? 'Call that came in' : 'Call we made'}
-            {concern.caller_name ? ` · about ${concern.caller_name}` : ''} · from{' '}
+    <div
+      className={`scroll-mt-24 overflow-hidden rounded-2xl border bg-card shadow-sm ${
+        overdue ? 'border-destructive/40' : 'border-border/70'
+      }`}
+    >
+      {/* Summary — always visible, tap to open */}
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="flex w-full items-start gap-3 p-3.5 text-left active:bg-muted/40"
+        aria-expanded={expanded}
+      >
+        <span
+          className={`mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${
+            done ? 'bg-success' : overdue ? 'bg-destructive' : concern.status === 'sent' ? 'bg-warning' : 'bg-primary'
+          }`}
+        />
+        <div className="min-w-0 flex-1">
+          <p className="line-clamp-2 text-[15px] font-semibold leading-snug">{concern.title}</p>
+          <p className="mt-1 truncate text-xs text-muted-foreground">
+            {concern.caller_name ? `${concern.caller_name} · ` : ''}
             {concern.forwarded_by_name ?? 'Officer'} · {stamp(concern.created_at)}
           </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <Badge className={`${statusTone[concern.status] ?? ''} text-[10px] hover:opacity-100`}>
-            {CONCERN_STATUS_LABEL[concern.status as ConcernStatus] ?? concern.status}
-          </Badge>
-          {isConcernOverdue(concern) && (
-            <Badge variant="outline" className="border-destructive/40 text-[10px] text-destructive">
-              Past due
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            <Badge className={`${statusTone[concern.status] ?? ''} rounded-full text-[11px] font-medium hover:opacity-100`}>
+              {CONCERN_STATUS_LABEL[concern.status as ConcernStatus] ?? concern.status}
             </Badge>
-          )}
-          <Badge variant="outline" className="text-[10px]">
-            {CONCERN_PRIORITY_LABEL[concern.priority] ?? concern.priority}
-          </Badge>
+            {overdue && (
+              <Badge variant="outline" className="rounded-full border-destructive/40 text-[11px] text-destructive">
+                Past due
+              </Badge>
+            )}
+            <Badge variant="outline" className="rounded-full text-[11px] font-normal text-muted-foreground">
+              {CONCERN_PRIORITY_LABEL[concern.priority] ?? concern.priority}
+            </Badge>
+          </div>
         </div>
-      </div>
+        <ChevronDown
+          className={`mt-1 h-5 w-5 shrink-0 text-muted-foreground transition-transform ${expanded ? 'rotate-180' : ''}`}
+        />
+      </button>
 
-      {concern.context && <p className="mt-3 text-sm leading-relaxed">{concern.context}</p>}
-      <div className="mt-1.5 space-y-1.5">
+      {/* Quick next step without opening */}
+      {!expanded && (nextStep || joinable) && (
+        <div className="px-3.5 pb-3.5">
+          {joinable ? (
+            <Button className="h-11 w-full gap-1.5 rounded-xl text-sm font-semibold" onClick={() => void addMyself()} disabled={join.isPending}>
+              <UserPlus className="h-4 w-4" />
+              Add myself
+            </Button>
+          ) : nextStep ? (
+            <Button className="h-11 w-full rounded-xl text-sm font-semibold" onClick={() => run(nextStep.action)} disabled={act.isPending}>
+              {nextStep.label}
+            </Button>
+          ) : null}
+        </div>
+      )}
+
+      {expanded && (
+      <div className="space-y-3 border-t border-border/60 px-3.5 pb-3.5 pt-3">
+      <p className="text-xs text-muted-foreground">
+        {concern.source_kind === 'received_call' ? 'Call that came in' : 'Call we made'}
+      </p>
+      {concern.context && <p className="text-sm leading-relaxed">{concern.context}</p>}
+      <div className="space-y-2">
         <ConcernCaseContextPanel concernId={concern.id} fallbackName={concern.caller_name} />
         <ConcernAttachmentsPanel concernId={concern.id} />
       </div>
       {reviewerRows.length > 0 && (
-        <div className="mt-1.5">
-          <ConcernParticipantsPanel concern={concern} reviewers={reviewerRows} />
-        </div>
+        <ConcernParticipantsPanel concern={concern} reviewers={reviewerRows} />
       )}
 
       {joinable && (
         <Button
-          size="sm"
-          className="mt-1.5 h-8 gap-1.5 text-[11px] font-semibold"
+          className="h-11 w-full gap-1.5 rounded-xl text-sm font-semibold"
           onClick={() => void addMyself()}
           disabled={join.isPending}
         >
-          <UserPlus className="h-3.5 w-3.5" />
+          <UserPlus className="h-4 w-4" />
           Add myself to this concern
         </Button>
       )}
-      <div className="mt-1.5">
-        <ConcernControlPanel concern={concern} isReceiver={mine} compact />
-      </div>
+      <ConcernControlPanel concern={concern} isReceiver={mine} compact />
 
-      {concern.status !== 'completed' && !joinable && (
-        <div className="mt-2 space-y-2 border-t border-border/60 pt-2">
+      {canAct && (
+        <div className="space-y-2.5 rounded-xl bg-muted/30 p-3">
+          {mine && (
+            <div className="grid grid-cols-3 gap-1 rounded-xl bg-background p-1">
+              {([
+                { key: 'sent', label: 'New', action: null },
+                { key: 'received', label: 'Got it', action: 'accepted' },
+                { key: 'in_progress', label: 'Working', action: 'started' },
+              ] as const).map((s) => {
+                const active = concern.status === s.key;
+                return (
+                  <button
+                    key={s.key}
+                    type="button"
+                    disabled={active || !s.action || act.isPending}
+                    onClick={() => s.action && run(s.action)}
+                    className={`h-10 rounded-lg text-xs font-semibold transition-colors ${
+                      active ? 'bg-primary text-primary-foreground' : 'text-muted-foreground disabled:opacity-40'
+                    }`}
+                  >
+                    {s.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
           <Textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            rows={2}
-            placeholder={mine ? 'Add a note, or say what you did to resolve it.' : 'Add a note for the person handling it.'}
-            className="text-xs"
+            rows={3}
+            placeholder={mine ? 'What did you do? (needed to mark done)' : 'Add a note for the person handling it.'}
+            className="rounded-xl text-sm"
           />
-          <div className="flex flex-wrap gap-1.5">
-            {mine && concern.status === 'sent' && (
-              <Button size="sm" className="h-8 text-[11px] font-semibold" onClick={() => run('accepted')} disabled={act.isPending}>
-                I have got this
-              </Button>
-            )}
-            {mine && concern.status !== 'in_progress' && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 text-[11px] font-semibold"
-                onClick={() => run('started')}
-                disabled={act.isPending}
-              >
-                Start working on it
-              </Button>
-            )}
+          <div className="grid grid-cols-2 gap-2">
             <Button
-              size="sm"
               variant="outline"
-              className="h-8 text-[11px] font-semibold"
+              className="h-11 rounded-xl text-sm font-semibold"
               onClick={() => run('progress_note')}
               disabled={act.isPending || note.trim().length < 3}
             >
@@ -185,23 +236,23 @@ function ConcernCard({
             </Button>
             {mine && (
               <Button
-                size="sm"
-                variant="outline"
-                className="h-8 border-success/40 text-[11px] font-semibold text-success"
+                className="h-11 gap-1.5 rounded-xl bg-success text-sm font-semibold text-success-foreground hover:bg-success/90"
                 onClick={() => run('completed')}
                 disabled={act.isPending || note.trim().length < 10}
-                title="Write what was done (at least 10 characters) before marking it resolved"
               >
-                <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
-                Mark resolved
+                <CheckCircle2 className="h-4 w-4" />
+                Mark done
               </Button>
             )}
           </div>
+          {mine && note.trim().length < 10 && (
+            <p className="text-[11px] text-muted-foreground">Write at least 10 characters to mark it done.</p>
+          )}
         </div>
       )}
 
       {concern.outcome && (
-        <p className="mt-2 rounded-xl border border-success/25 bg-success/10 px-2.5 py-2 text-[11px] leading-snug text-success">
+        <p className="rounded-xl border border-success/25 bg-success/10 px-3 py-2 text-xs leading-snug text-success">
           Resolved: {concern.outcome}
         </p>
       )}
@@ -209,7 +260,7 @@ function ConcernCard({
       <Button
         size="sm"
         variant="ghost"
-        className="mt-1.5 h-7 px-1.5 text-[11px] text-muted-foreground"
+        className="h-9 w-full rounded-xl text-xs text-muted-foreground"
         onClick={() => setOpen((v) => !v)}
       >
         {open ? 'Hide history' : 'Show history'}
@@ -253,6 +304,8 @@ function ConcernCard({
             ))
           )}
         </div>
+      )}
+      </div>
       )}
     </div>
   );
@@ -346,27 +399,21 @@ const MyConcerns = () => {
   return (
     <PersonalLayout title="Concerns">
       <div className="space-y-4">
-        <Card className="rounded-2xl border-border shadow-sm">
-          <CardHeader className="border-b border-border/70 bg-gradient-to-r from-primary/[0.07] via-primary/[0.02] to-transparent p-3">
-            <div className="flex items-center gap-2.5">
-              <div className="shrink-0 rounded-xl bg-primary/10 p-2">
-                <ClipboardList className="h-4 w-4 text-primary" />
-              </div>
-              <CardTitle className="text-sm font-bold leading-tight">Concerns from the Calling Center</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="p-3 text-xs leading-relaxed text-muted-foreground">
-            When someone in the Calling Center passes a caller's concern to you, it lands here. Confirm you have it,
-            work on it, then write what you did before marking it completed. Nothing is ever deleted — every step stays
-            on the record.
-            {openCount > 0 && (
-              <span className="mt-1.5 flex items-center gap-1.5 font-semibold text-warning">
-                <AlertTriangle className="h-3.5 w-3.5" />
-                {openCount} waiting for you.
-              </span>
-            )}
-          </CardContent>
-        </Card>
+        <div className="flex items-center gap-3 rounded-2xl border border-border/70 bg-card p-3.5 shadow-sm">
+          <div className="shrink-0 rounded-xl bg-primary/10 p-2.5">
+            <ClipboardList className="h-5 w-5 text-primary" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">Calling Center concerns</p>
+            <p className="text-xs text-muted-foreground">Tap a concern to see details and update it.</p>
+          </div>
+          {openCount > 0 && (
+            <span className="ml-auto flex shrink-0 items-center gap-1 rounded-full bg-warning/15 px-2.5 py-1 text-xs font-semibold text-warning">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              {openCount}
+            </span>
+          )}
+        </div>
 
         <Tabs defaultValue="to_me">
           <div className="sticky top-0 z-20 -mx-1 overflow-x-auto bg-background/95 px-1 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/85">
