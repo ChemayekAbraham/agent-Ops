@@ -179,6 +179,7 @@ export function FunderNewReviewDialog({
                 else window.dispatchEvent(new Event('open-deposit'));
               } else if (onFund) {
                 setConfirmOpen(true);
+                onOpenChange(false);
               }
             }}
           >
