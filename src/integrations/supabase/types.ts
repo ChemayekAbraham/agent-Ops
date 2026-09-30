@@ -69068,10 +69068,15 @@ export type Database = {
           last_payout_mode: string
           last_percentage: number
           last_response: string
+          needs_payout_mode: boolean
           snooze_count: number
           survey_id: string
           title: string
         }[]
+      }
+      staff_survey_reset_answer: {
+        Args: { _survey_id: string; _user_id: string }
+        Returns: undefined
       }
       staff_survey_respond: {
         Args: {
@@ -69119,6 +69124,28 @@ export type Database = {
           tin: string
           user_id: string
         }[]
+      }
+      staff_survey_set_payout_mode: {
+        Args: { _payout_mode: string; _survey_id: string }
+        Returns: {
+          cycle_start: string
+          id: string
+          no_tin: boolean
+          nssf_number: string | null
+          payout_mode: string | null
+          percentage: number | null
+          responded_at: string
+          response: string
+          survey_id: string
+          tin: string | null
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "staff_survey_responses"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       staff_survey_snooze: { Args: { _survey_id: string }; Returns: undefined }
       stamp_float_request_settlement: {

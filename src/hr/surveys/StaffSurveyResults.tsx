@@ -102,6 +102,18 @@ export default function StaffSurveyResults() {
     return { total, answered, accepted, declined, pledgedCount: pledged.length, withTin, avgPct };
   }, [rows]);
 
+  const resetAnswer = async (r: ResultRow) => {
+    if (!survey || !r.response) return;
+    const who = r.full_name ?? 'this person';
+    if (!window.confirm(`Clear ${who}'s answer for this cycle? They will be asked again.`)) return;
+    const { error: err } = await supabase.rpc('staff_survey_reset_answer' as never, {
+      _survey_id: survey.id,
+      _user_id: r.user_id,
+    } as never);
+    if (err) { setError(err.message); return; }
+    if (selectedId) void loadResults(selectedId);
+  };
+
   const downloadCsv = () => {
     if (!survey) return;
     const header = ['Cycle', 'Staff ref', 'Name', 'Department', 'Answer', 'Percentage', 'Return option', 'TIN', 'No TIN yet', 'NSSF number', 'Answered on'];
@@ -189,6 +201,7 @@ export default function StaffSurveyResults() {
                     {isStatutory && <TableHead>TIN</TableHead>}
                     {isStatutory && <TableHead>NSSF number</TableHead>}
                     <TableHead>Answered on</TableHead>
+                    <TableHead className="text-right">Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -216,6 +229,13 @@ export default function StaffSurveyResults() {
                       {isStatutory && <TableCell className="text-xs">{r.nssf_number ?? '—'}</TableCell>}
                       <TableCell className="text-xs text-muted-foreground">
                         {r.responded_at ? new Date(r.responded_at).toLocaleString('en-GB') : '—'}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {r.response ? (
+                          <Button size="sm" variant="outline" onClick={() => void resetAnswer(r)}>
+                            Reset
+                          </Button>
+                        ) : null}
                       </TableCell>
                     </TableRow>
                   ))}
