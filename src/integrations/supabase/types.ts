@@ -56420,6 +56420,43 @@ export type Database = {
         }
         Returns: Json
       }
+      agent_ops_shopping_advance_qualified_profiles: {
+        Args: never
+        Returns: {
+          city: string
+          continent: string
+          country: string
+          created_at: string
+          district: string
+          email: string
+          first_transfer_at: string
+          full_name: string
+          is_frozen: boolean
+          landmark: string
+          last_active_at: string
+          last_transfer_at: string
+          location_source: string
+          mobile_money_number: string
+          mobile_money_provider: string
+          national_id: string
+          occupation: string
+          parish: string
+          phone: string
+          phone_verified: boolean
+          primary_persona: string
+          region: string
+          residence_lat: number
+          residence_lng: number
+          residence_updated_at: string
+          sub_county: string
+          town: string
+          transfer_count: number
+          transfer_total: number
+          user_id: string
+          verified: boolean
+          village: string
+        }[]
+      }
       agent_ops_shopping_advance_qualified_senders: {
         Args: never
         Returns: number
