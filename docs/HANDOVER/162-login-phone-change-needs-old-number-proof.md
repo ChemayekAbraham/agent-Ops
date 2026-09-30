@@ -69,3 +69,12 @@ order by created_at desc limit 20;
 ```
 
 Related: [`16-wallet-withdrawal-otp-verification.md`](./16-wallet-withdrawal-otp-verification.md).
+
+## Status update 2026-09-30
+
+Migration `20260929190000_lock_self_service_login_phone_change.sql` had **not** applied to production
+(no trigger, function or `phone_change_otp_challenges` table) although its sibling `20260929190500` had.
+Applied by hand on 2026-09-30 and verified live: `trg_block_self_service_phone_change` enabled (`O`),
+function body carries `phone_change_requires_verification`, challenges table exists with RLS on and
+`idx_phone_change_otp_challenges_user`. Still to confirm: the `self-update-phone` and
+`issue-wallet-withdrawal-otp` edge functions are deployed (a Lovable publish alone does not deploy them).
