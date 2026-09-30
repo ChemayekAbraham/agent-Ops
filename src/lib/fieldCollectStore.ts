@@ -178,7 +178,7 @@ function markStorageUnavailable(cause: unknown) {
       message: FIELD_COLLECT_STORAGE_UNAVAILABLE_MESSAGE,
       stack: (cause as { stack?: string } | null)?.stack ?? null,
       extra: { cause: String((cause as { message?: string } | null)?.message ?? cause) },
-    } as any))
+    }))
     .catch(() => {});
 }
 

@@ -28,7 +28,8 @@ type ReportSource =
   | 'dashboard-error-boundary'
   | 'window-onerror'
   | 'unhandled-rejection'
-  | 'manual';
+  | 'manual'
+  | 'field-collect-store';
 
 export interface ErrorReportInput {
   source: ReportSource;
