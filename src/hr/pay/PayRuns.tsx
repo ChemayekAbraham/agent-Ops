@@ -55,6 +55,7 @@ import {
 } from '@/hr/pay/api/release';
 import PayrollRegister from '@/hr/pay/PayrollRegister';
 import ArrearsPanel from '@/hr/pay/ArrearsPanel';
+import ReinvestmentsPanel from '@/hr/pay/ReinvestmentsPanel';
 import { supabase } from '@/hr/api/client';
 
 /**
@@ -1919,6 +1920,7 @@ export function PayRunDetailPlaceholder() {
             payslips={detail.payslips}
             onPaid={() => void load()}
           />
+          <ReinvestmentsPanel runId={detail.id} status={detail.status} />
 
           <Card>
             <CardHeader>

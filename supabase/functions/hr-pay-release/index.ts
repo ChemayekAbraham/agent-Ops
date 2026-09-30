@@ -475,6 +475,21 @@ Deno.serve(async (req) => {
       }
     }
 
+    // 8b. Salary reinvestments into Partner Ops, for everyone on this run whose
+    // salary has now been released. Idempotent per payslip in the database, and
+    // never allowed to affect any salary above.
+    let reinvest: any = null;
+    try {
+      const { data: rData, error: rErr } = await (adminClient.rpc as any)(
+        'hr_pay_post_run_reinvestments',
+        { _run_id: runId },
+      );
+      if (rErr) console.error('[hr-pay-release] reinvestments failed:', rErr.message);
+      else reinvest = rData;
+    } catch (e) {
+      console.error('[hr-pay-release] reinvestments error:', (e as Error).message);
+    }
+
     // 9. Summary
     return json({
       success: true,
@@ -485,6 +500,8 @@ Deno.serve(async (req) => {
       failed,
       retried,
       already_handled: alreadyHandled,
+      reinvested: Number(reinvest?.posted ?? 0),
+      reinvest_failed: Number(reinvest?.failed ?? 0),
       total_posted: totalPosted,
     }, 200);
   } catch (e) {
