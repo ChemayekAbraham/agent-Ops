@@ -55893,6 +55893,10 @@ export type Database = {
     }
     Functions: {
       _agent_products_authorized: { Args: never; Returns: boolean }
+      _agent_week_active_days: {
+        Args: { p_agent: string; p_week_start: string }
+        Returns: number
+      }
       _cf_partner_ops_portfolios: {
         Args: never
         Returns: {
@@ -66919,6 +66923,10 @@ export type Database = {
           p_finops_proof_entered: string
           p_finops_user: string
         }
+        Returns: Json
+      }
+      process_weekly_streak_payouts: {
+        Args: { p_week_start?: string }
         Returns: Json
       }
       promissory_catch_up_partner_commission: {
