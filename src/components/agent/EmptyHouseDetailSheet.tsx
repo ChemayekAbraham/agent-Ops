@@ -282,15 +282,6 @@ export function EmptyHouseDetailSheet({
                   <p className="text-base font-black text-primary">{formatUGX(house.partner_annual_return)}</p>
                 </div>
               </div>
-              {onFund && (
-                <Button
-                  className="h-11 w-full gap-2 bg-emerald-600 font-bold text-white hover:bg-emerald-700"
-                  onClick={() => onFund(house)}
-                >
-                  <Wallet className="h-4 w-4" />
-                  {topUpNeeded > 0 ? `Fund — top up ${formatUGX(topUpNeeded)}` : 'Fund this house'}
-                </Button>
-              )}
             </div>
 
             <div className="grid grid-cols-2 gap-3 pt-1 text-[12px]">
