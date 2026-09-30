@@ -47,6 +47,12 @@ export interface StaffHandlingRow {
 }
 
 export interface CombinedCallingCenterInput {
+  /** Themes found in officers' comments, with counts. */
+  commentAnalysis?: {
+    themes: { theme: string; count: number; insight: string; example: string }[];
+    total: number;
+    note: string;
+  };
   /** Overall totals across both reports. */
   executiveTiles: ConcernPdfTile[];
   /** Overall figures table: measure → value (+ optional share of its own report). */
@@ -221,6 +227,26 @@ export async function generateCombinedCallingCenterPdf(
     `${input.received.rows.length.toLocaleString()} received calls · ${input.issues.rows.length.toLocaleString()} forwarded concerns`,
   );
   metaCard();
+
+  // ==================== What callers told us — comment analysis (near top)
+  if (input.commentAnalysis) {
+    const ca = input.commentAnalysis;
+    section('What Callers Told Us — Summary of Officer Comments', 50);
+    if (ca.note) note(ca.note);
+    if (ca.themes.length) {
+      table({
+        head: [['Theme', 'People', 'Share', 'What it means', 'Example comment']],
+        body: ca.themes.map((t) => [
+          t.theme,
+          String(t.count),
+          ca.total ? `${Math.round((t.count / ca.total) * 100)}%` : '—',
+          t.insight,
+          t.example ? `“${t.example.slice(0, 140)}”` : '—',
+        ]),
+        columnStyles: { 1: { halign: 'right', cellWidth: 16 }, 2: { halign: 'right', cellWidth: 14 } },
+      });
+    }
+  }
 
   // ============ 1. Staff concern handling — first, before every other section
   section('1 · Staff Concern Handling Summary — calls we made and calls that came in', 60);

@@ -551,8 +551,36 @@ export function CombinedCallingCenterReportButton({
           detail: 'Every call that came in was closed and every concern was answered within the expected time.',
         });
 
+      // ------------------------- Comment analysis (read-only)
+      // Officers' typed comments: feedback notes on calls we made, plus the
+      // concern + notes on calls that came in. One comment per call.
+      const madeNotes: string[] = [];
+      const madeIds = madeCalls.map((a) => a.id);
+      for (let i = 0; i < madeIds.length; i += 300) {
+        const { data } = await anyDb.from('cc_feedback').select('note').in('attempt_id', madeIds.slice(i, i + 300));
+        ((data ?? []) as { note: string | null }[]).forEach((f) => { if (f.note?.trim()) madeNotes.push(f.note.trim()); });
+      }
+      const receivedNotes = calls
+        .map((c) => [c.concern, c.notes, c.follow_up_note].filter((x) => x && String(x).trim()).join(' — '))
+        .filter(Boolean);
+      const allComments = [...madeNotes, ...receivedNotes];
+      let commentAnalysis: { themes: { theme: string; count: number; insight: string; example: string }[]; total: number; note: string } = {
+        themes: [], total: allComments.length,
+        note: allComments.length ? '' : 'No comments were recorded in this period.',
+      };
+      if (allComments.length) {
+        const { data, error } = await supabase.functions.invoke('cc-comment-themes', { body: { comments: allComments } });
+        if (error || (data as any)?.error) {
+          commentAnalysis.note = 'The comment analysis could not be completed for this report. All other figures are unaffected.';
+        } else {
+          commentAnalysis = { themes: (data as any).themes ?? [], total: (data as any).total ?? allComments.length,
+            note: `${allComments.length} comments analysed — ${madeNotes.length} from calls we made and ${receivedNotes.length} from calls that came in. Each comment is counted once, in the theme it best fits. Themes are grouped automatically, so read the example to confirm.` };
+        }
+      }
+
       const blob = await generateCombinedCallingCenterPdf(
         {
+          commentAnalysis,
           executiveTiles: [
             { label: 'Calls received', value: String(calls.length) },
             { label: 'Concerns forwarded', value: String(concerns.length) },
