@@ -121,7 +121,17 @@ export function DeletedAccountsPanel() {
           p_reason: trimmed,
         });
         if (error) throw error;
-        toast.success('Account restored');
+        // Also undo the login tombstone (placeholder email + sign-in block).
+        const { data: authData, error: authErr } = await supabase.functions.invoke('delete-user', {
+          body: { user_id: target.user_id, reason: trimmed, mode: 'restore_auth' },
+        });
+        const authMsg = authErr?.message
+          ?? (authData && typeof authData === 'object' && 'error' in authData ? String((authData as { error: string }).error) : null);
+        if (authMsg) {
+          toast.error(`Account restored, but login could not be restored: ${authMsg}`);
+        } else {
+          toast.success('Account restored');
+        }
       }
       await queryClient.invalidateQueries({ queryKey: ['cto-deleted-accounts'] });
       setTarget(null);

@@ -59,6 +59,40 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'A reason of at least 10 characters is required' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
+    // Restore login: undo the auth tombstone (email + 100-year ban) for an account
+    // whose profile was already restored via admin_restore_soft_deleted_account.
+    if (mode === 'restore_auth') {
+      const { data: rec } = await supabaseAdmin
+        .from('deleted_accounts')
+        .select('status, email, phone, metadata')
+        .eq('user_id', user_id)
+        .order('deleted_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!rec || rec.status !== 'restored') {
+        return new Response(JSON.stringify({ error: 'Account must be restored before its login can be restored' }), { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      const meta = (rec.metadata ?? {}) as Record<string, unknown>;
+      const email = (typeof meta.auth_email_before === 'string' && meta.auth_email_before) || rec.email || null;
+      const phoneBefore = (typeof meta.auth_phone_before === 'string' && meta.auth_phone_before) || '';
+      const patch: Record<string, unknown> = { ban_duration: 'none' };
+      if (email) { patch.email = email; patch.email_confirm = true; }
+      if (phoneBefore) { patch.phone = phoneBefore; patch.phone_confirm = true; }
+      const { error: restoreErr } = await supabaseAdmin.auth.admin.updateUserById(user_id, patch);
+      if (restoreErr) {
+        return new Response(JSON.stringify({ error: `Could not restore login: ${restoreErr.message}` }), { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+      await supabaseAdmin.from('audit_logs').insert({
+        user_id: caller.id,
+        action_type: 'restore_auth_login',
+        table_name: 'auth.users',
+        record_id: user_id,
+        reason: auditReason,
+        metadata: { restored_email: email, restored_phone: phoneBefore || null },
+      });
+      return new Response(JSON.stringify({ success: true, restored_email: email }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
     // Snapshot BEFORE values (email/phone) for the audit trail
     const [{ data: beforeAuth }, { data: beforeProfile }] = await Promise.all([
       supabaseAdmin.auth.admin.getUserById(user_id),
