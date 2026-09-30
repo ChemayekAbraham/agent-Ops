@@ -64032,6 +64032,17 @@ export type Database = {
           total_net: number
         }[]
       }
+      hr_pay_reinvest_pledges: {
+        Args: never
+        Returns: {
+          cycle_start: string
+          payout_mode: string
+          percentage: number
+          responded_at: string
+          response: string
+          staff_id: string
+        }[]
+      }
       hr_pay_release_preview: {
         Args: { _run_id: string }
         Returns: {
@@ -69054,6 +69065,10 @@ export type Database = {
           final_stage: string
           stage: string
         }[]
+      }
+      staff_survey_apply_tax_acceptance: {
+        Args: { _at: string; _nssf: string; _tin: string; _user_id: string }
+        Returns: undefined
       }
       staff_survey_current_cycle: { Args: never; Returns: string }
       staff_survey_cycle_for: { Args: { _at: string }; Returns: string }
