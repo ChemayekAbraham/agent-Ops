@@ -31,6 +31,7 @@ import { ServiceCentreDirectory } from './service-centres/ServiceCentreDirectory
 import { ServiceCentrePayouts } from './service-centres/ServiceCentrePayouts';
 import { ServiceCentreOperatingModel } from './service-centres/ServiceCentreOperatingModel';
 import { AgentProductsPanel } from './agent-ops/AgentProductsPanel';
+import { ShoppingAdvanceEligibleCount } from './agent-ops/ShoppingAdvanceEligibleCount';
 import { AGENT_PRODUCT_PAGES } from '@/pages/AgentProductCategoryPage';
 import { SubAgentVerificationQueue } from './SubAgentVerificationQueue';
 import { TenantToSubAgentPanel } from './TenantToSubAgentPanel';
@@ -342,6 +343,7 @@ export function AgentOpsDashboard() {
       );
       case 'shopping-advance': return (
         <div className="space-y-4">
+          <ShoppingAdvanceEligibleCount />
           <p className="text-sm text-muted-foreground">Shopping Advance access limits are currently informational. There is no separate Agent Ops issuance or repayment register for them.</p>
           <Button variant="outline" onClick={() => selectView('advances-analytics')}>View agent advance analytics</Button>
         </div>
