@@ -2549,6 +2549,13 @@
       "when": 1790751773839,
       "tag": "0363_staff_salary_reinvestment",
       "breakpoints": true
+    },
+    {
+      "idx": 364,
+      "version": "7",
+      "when": 1790753014567,
+      "tag": "0364_auto_repaying_on_landlord_payment",
+      "breakpoints": true
     }
   ]
 }
