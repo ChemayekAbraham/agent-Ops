@@ -32,6 +32,7 @@ interface Survey {
   last_response: string | null;
   last_percentage: number | null;
   last_payout_mode: string | null;
+  needs_payout_mode: boolean;
 }
 
 type PayoutMode = 'monthly_payout' | 'monthly_compounding';
@@ -106,6 +107,20 @@ export function StaffSurveyGate() {
     void load();
   };
 
+  const setPayoutOnly = async () => {
+    if (!survey || !payout) return;
+    setWorking(true);
+    const { error } = await supabase.rpc('staff_survey_set_payout_mode' as never, {
+      _survey_id: survey.survey_id,
+      _payout_mode: payout,
+    } as never);
+    setWorking(false);
+    if (error) { toast.error(error.message); return; }
+    toast.success('Thank you — your return option has been recorded.');
+    setSurvey(null);
+    void load();
+  };
+
   const later = async () => {
     if (!survey) return;
     setWorking(true);
@@ -122,6 +137,57 @@ export function StaffSurveyGate() {
 
   const isStatutory = survey.kind === 'statutory_consent';
   const tinValid = noTin || /^[0-9]{10}$/.test(tin.trim());
+
+  if (survey.needs_payout_mode) {
+    return (
+      <Dialog open onOpenChange={() => { /* cannot be dismissed */ }}>
+        <DialogContent
+          className="max-h-[90vh] overflow-y-auto sm:max-w-lg [&>button]:hidden"
+          onEscapeKeyDown={(e) => e.preventDefault()}
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+        >
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ClipboardList className="h-5 w-5 text-primary" /> One more choice about your reinvestment
+            </DialogTitle>
+            <DialogDescription>From HR · please read and respond</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              You chose to reinvest <strong>{survey.last_percentage ?? 0}%</strong> of your salary.
+              Your investment earns 20% per month. Choose how you receive that return:
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {(Object.keys(PAYOUT_LABEL) as PayoutMode[]).map((m) => (
+                <Button
+                  key={m}
+                  type="button"
+                  size="sm"
+                  variant={payout === m ? 'default' : 'outline'}
+                  disabled={working}
+                  onClick={() => setPayout(m)}
+                >
+                  {PAYOUT_LABEL[m]}
+                </Button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Monthly withdrawable returns: your 20% is paid to your wallet every month.
+              Compounding: your 20% is added to your principal every month.
+            </p>
+            <div className="flex flex-wrap gap-2 pt-1">
+              <Button onClick={() => void setPayoutOnly()} disabled={working || payout === null}>
+                {working && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {payout === null ? 'Choose an option' : `Confirm ${PAYOUT_LABEL[payout]}`}
+              </Button>
+              <Button variant="outline" onClick={() => void later()} disabled={working}>Later</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open onOpenChange={() => { /* cannot be dismissed */ }}>
