@@ -242,3 +242,55 @@ export function optionalLazyWithRetry<T extends ComponentType<any>>(
     }
   });
 }
+
+/**
+ * Lazy-load a NAMED export: `lazyNamed(() => import('./X'), 'X')`.
+ *
+ * Replaces `lazy(() => import('./X').then(m => ({ default: m.X })))`, which
+ * threw "Cannot read properties of undefined (reading 'X')" when a stale
+ * chunk after a deploy resolved to undefined (2026-09-30 CTO report, ~70 hits
+ * on /dashboard/agent). A rejected import or a module missing the export is
+ * treated as a stale chunk: retried for network flakes, then one hard reload
+ * (shared sessionStorage guard with lazyWithRetry, so it can never loop), and
+ * if the reload is already spent, a clear Error for the nearest
+ * ChunkErrorBoundary instead of a TypeError.
+ */
+export function lazyNamed<M extends Record<string, any>, K extends keyof M & string>(
+  factory: () => Promise<M>,
+  name: K,
+  retries = 2,
+) {
+  type C = M[K] extends ComponentType<any> ? M[K] : ComponentType<any>;
+  const staleError = (cause: unknown) => {
+    const err = new Error("This screen was updated — please reload");
+    err.name = "ChunkLoadError";
+    (err as any).cause = cause;
+    return err;
+  };
+  const isComponentLike = (v: any) =>
+    typeof v === "function" || (v && typeof v === "object" && "$$typeof" in v);
+
+  return lazy(async (): Promise<{ default: C }> => {
+    let lastErr: unknown;
+    for (let i = 0; i <= retries; i++) {
+      let mod: any;
+      try {
+        mod = await queuedImport(factory);
+      } catch (e) {
+        lastErr = e;
+        await new Promise((r) => setTimeout(r, 400 * (i + 1)));
+        continue;
+      }
+      const comp = mod?.[name] ?? mod?.default?.[name];
+      if (isComponentLike(comp)) return { default: comp as C };
+      // Resolved without the export: stale chunk, retrying won't help.
+      lastErr = new Error(`Lazy module has no export "${name}"`);
+      break;
+    }
+    if (reloadOnceForStaleChunk()) {
+      console.warn(`[lazyNamed] reloading for stale chunk (${name}):`, lastErr);
+      return untilReload<{ default: C }>();
+    }
+    throw staleError(lastErr);
+  });
+}
