@@ -165,6 +165,22 @@ function StageBadge({ row, compact = false }: { row: StaffRequisition; compact?:
 }
 
 /**
+ * Approval confirmation popup (presentation only): the same sonner toast in a
+ * green success state, coloured from the shared `--success` token so it reads
+ * the same in light and dark mode. No decision flow or status logic changes.
+ */
+const APPROVAL_TOAST_OPTIONS = {
+  duration: 5000,
+  style: {
+    background:
+      'linear-gradient(hsl(var(--success) / 0.14), hsl(var(--success) / 0.14)), hsl(var(--background))',
+    borderColor: 'hsl(var(--success) / 0.45)',
+    color: 'hsl(var(--success))',
+    boxShadow: '0 10px 30px -12px hsl(var(--success) / 0.5)',
+  },
+};
+
+/**
  * Shared review queue for staff requisitions. Rendered on every reviewing
  * dashboard; the "Awaiting my review" tab is derived from the caller's roles
  * against `current_approver_role`, so one component serves department heads,
@@ -458,13 +474,16 @@ export function StaffRequisitionQueue() {
         actionType === 'approve' ? requisitionApprovalError(error.message, active.current_approver_role) : error.message,
       );
     } else {
-      toast.success(
-        actionType === 'approve'
-          ? (reduceMode
+      if (actionType === 'approve') {
+        toast.success(
+          reduceMode
             ? `Approved at the reduced amount of ${formatUGX(amount)}`
-            : 'Approved — the requisition moved forward')
-          : 'Requisition declined',
-      );
+            : 'Requisition approved successfully.',
+          APPROVAL_TOAST_OPTIONS,
+        );
+      } else {
+        toast.success('Requisition declined');
+      }
       setActive(null);
       setComment('');
       await fetchAll();
