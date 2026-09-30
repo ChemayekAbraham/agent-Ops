@@ -279,12 +279,8 @@ export function StaffRequisitionQueue() {
         ].includes(user?.id ?? '__none__');
         return r.includes(row.current_approver_role) && !signedEarlier;
       }
-      return (
-        r.includes(row.current_approver_role) ||
-        r.includes('super_admin') ||
-        r.includes('manager') ||
-        r.includes('ceo')
-      );
+      // Inbox lists only items waiting at this desk; no executive override.
+      return r.includes(row.current_approver_role);
     },
     [roles, user?.id],
   );
