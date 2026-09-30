@@ -285,16 +285,33 @@ export function StaffRequisitionQueue() {
     [roles, user?.id],
   );
 
+  // Each executive dashboard lists only requisitions waiting at its own desk:
+  // the CFO dashboard shows CFO-stage items, the COO dashboard COO-stage, the
+  // CEO dashboard CEO-stage. Items still pending at another desk stay off these
+  // dashboards entirely (each desk has its own queue). The requester's own
+  // in-flight requests and the settled tabs (sent back / approved / declined)
+  // are unaffected, so self-reductions and history keep working.
+  const deskStage = useMemo(() => {
+    const path = window.location.pathname;
+    if (path.startsWith('/cfo')) return 'cfo' as const;
+    if (path.startsWith('/ceo')) return 'ceo' as const;
+    if (path.startsWith('/coo')) return 'coo' as const;
+    return null;
+  }, []);
+
   const buckets = useMemo(() => {
     const pending = rows.filter((r) => ['supervisor', 'coo', 'cfo', 'ceo'].includes(r.stage));
+    const deskPending = deskStage
+      ? pending.filter((r) => r.stage === deskStage || r.requester_id === user?.id)
+      : pending;
     return {
-      inbox: pending.filter((r) => isMine(r) && r.requester_id !== user?.id),
-      in_flight: pending.filter((r) => !(isMine(r) && r.requester_id !== user?.id)),
+      inbox: deskPending.filter((r) => isMine(r) && r.requester_id !== user?.id),
+      in_flight: deskPending.filter((r) => !(isMine(r) && r.requester_id !== user?.id)),
       returned: rows.filter((r) => r.stage === 'returned'),
       approved: rows.filter((r) => r.stage === 'approved'),
       rejected: rows.filter((r) => r.stage === 'rejected'),
     } as Record<TabKey, StaffRequisition[]>;
-  }, [rows, isMine, user?.id]);
+  }, [rows, isMine, deskStage, user?.id]);
 
   const bucketRows = buckets[tab];
 
