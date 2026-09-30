@@ -7,6 +7,7 @@ const corsHeaders = {
 };
 import { TEMPLATES } from '../_shared/transactional-email-templates/registry.ts'
 import { bytesToBase64, renderPartnershipTopupReceipt } from '../_shared/partnerTopupReceiptPdf.ts'
+import { renderPayslipPdf, type PayslipPdfData } from '../_shared/payslipPdf.ts'
 import {
   isPlaceholderRecipient,
   PLACEHOLDER_SUPPRESSION_REASON,
@@ -456,6 +457,25 @@ Deno.serve(async (req) => {
         content_base64: bytesToBase64(new Uint8Array(await pdfBlob.arrayBuffer())),
         content_type: 'application/pdf',
       }
+    }
+  }
+
+  // Salary payslips carry a PDF copy built from the same figures as the email.
+  // A PDF failure never blocks the email — it is sent without the attachment.
+  if (templateName === 'salary-payslip' && !attachment) {
+    try {
+      const pdfBytes = await renderPayslipPdf(templateData as PayslipPdfData)
+      const ref = String((templateData as any).staff_ref || 'staff').replace(/[^A-Za-z0-9-]/g, '')
+      const period = String((templateData as any).period_label || '')
+        .replace(/[^A-Za-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+      attachment = {
+        filename: `Welile-Payslip-${period}-${ref}.pdf`,
+        content_base64: bytesToBase64(pdfBytes),
+        content_type: 'application/pdf',
+      }
+    } catch (pdfErr) {
+      console.error('Payslip PDF generation failed — sending without attachment', pdfErr)
     }
   }
 

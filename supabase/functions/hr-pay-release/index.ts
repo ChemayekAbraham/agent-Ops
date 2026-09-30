@@ -2,6 +2,7 @@ import "../_shared/smsFooterInterceptor.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { checkTreasuryGuard } from "../_shared/treasuryGuard.ts";
 import { attemptYoolaPrimary } from "../_shared/yoolaPrimary.ts";
+import { isPlaceholderRecipient } from "../_shared/recipientMailbox.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -108,9 +109,18 @@ async function sendPayslipEmail(
 ): Promise<void> {
   const { data: prof } = await admin
     .from('profiles').select('email, full_name').eq('id', a.userId).maybeSingle();
-  const email = ((prof as any)?.email ?? '').toString().trim();
+  // The login address first; the profile address if the login is a phone-only
+  // placeholder; otherwise none — phone-only staff keep the SMS.
+  const { data: authUser } = await admin.auth.admin.getUserById(a.userId);
+  const loginEmail = ((authUser as any)?.user?.email ?? '').toString().trim();
+  const profileEmail = ((prof as any)?.email ?? '').toString().trim();
+  const email = !isPlaceholderRecipient(loginEmail)
+    ? loginEmail
+    : !isPlaceholderRecipient(profileEmail)
+      ? profileEmail
+      : '';
   if (!email) {
-    console.log(`[hr-pay-release] payslip email skipped (no email) payslip=${a.payslipId}`);
+    console.log(`[hr-pay-release] payslip email skipped (no deliverable email) payslip=${a.payslipId}`);
     return;
   }
 
@@ -141,6 +151,8 @@ async function sendPayslipEmail(
       idempotencyKey: `salary-payslip-${a.payslipId}`,
       templateData: {
         first_name: fullName.split(/\s+/)[0] || 'Team Member',
+        full_name: fullName,
+        payslip_ref: a.payslipId.slice(0, 8),
         period_label: periodLabel(a.periodCode),
         net_pay: a.net,
         currency: 'UGX',
