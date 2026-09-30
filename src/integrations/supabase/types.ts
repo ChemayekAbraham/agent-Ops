@@ -52224,14 +52224,14 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "engrep_file_touches_engineer_id_fkey"
-            columns: ["engineer_id"]
+            columns: ["reverted_by_engineer"]
             isOneToOne: false
             referencedRelation: "engrep_engineers"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "engrep_file_touches_engineer_id_fkey"
-            columns: ["reverted_by_engineer"]
+            columns: ["engineer_id"]
             isOneToOne: false
             referencedRelation: "engrep_engineers"
             referencedColumns: ["id"]

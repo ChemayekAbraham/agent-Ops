@@ -66,6 +66,7 @@ import { AgentOpsReportWindow } from '@/components/executive/agent-ops/AgentOpsR
 import { ReportsOverview } from '@/components/executive/agent-ops-v2/ReportsOverview';
 import { usePendingAdvanceCount } from '@/hooks/usePendingAdvanceCount';
 import { AgentOpsOverview, AtRiskAgentsPreview } from './agent-ops-v2/AgentOpsOverview';
+import { WelileHomesAdminPanel } from '@/components/ops/WelileHomesAdminPanel';
 import { CallingHub } from '@/components/ops/calling';
 import { ApprovalHistoryLog } from './ApprovalHistoryLog';
 import { TenantRentCollector } from './TenantRentCollector';
@@ -94,9 +95,18 @@ import {
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
-type ActiveView = null | 'agents-space' | 'agent-ops-report' | 'comprehensive-report' | 'products-services-report' | 'sc-products' | 'pipeline' | 'directory' | 'rent-capacity' | 'connector' | 'performance' | 'lifecycle' | 'tasks' | 'escalations' | 'service-centres' | 'sc-overview' | 'sc-directory' | 'sc-payouts' | 'sc-requests' | 'sc-operating-model' | 'sub-agents' | 'promote-tenant' | 'float-payouts' | 'leaderboard' | 'earnings' | 'transfers' | 'locked-transfers' | 'advances-analytics' | 'advance-requests' | 'active-advances' | 'advance-potential' | 'advance-limits' | 'advance-repayments' | 'balances' | 'lending-agents' | 'trust-capture' | 'feature-flags' | 'bulk-ops' | 'listing-campaign' | 'daily-collections-report' | 'advance-activity-correlation' | 'agent-service-centres' | 'agent-products-services' | 'guarantor-float' | 'rent-behaviour' | 'subagent-commission-whitelist' | 'partial-collections' | 'calling-hub' | 'portfolio-performance' | 'collect-rent' | 'agent-allocations' | 'approval-history' | 'tenant-self-repayments' | 'reports-overview';
+type ActiveView = null | 'general-activities' | 'agents-rent' | 'agents-bikes' | 'welile-merchandise' | 'shopping-advance' | 'business-advance' | 'agent-marketplace' | 'welile-homes' | 'agents-hope' | 'agents-space' | 'agent-ops-report' | 'comprehensive-report' | 'products-services-report' | 'sc-products' | 'pipeline' | 'directory' | 'rent-capacity' | 'connector' | 'performance' | 'lifecycle' | 'tasks' | 'escalations' | 'service-centres' | 'sc-overview' | 'sc-directory' | 'sc-payouts' | 'sc-requests' | 'sc-operating-model' | 'sub-agents' | 'promote-tenant' | 'float-payouts' | 'leaderboard' | 'earnings' | 'transfers' | 'locked-transfers' | 'advances-analytics' | 'advance-requests' | 'active-advances' | 'advance-potential' | 'advance-limits' | 'advance-repayments' | 'balances' | 'lending-agents' | 'trust-capture' | 'feature-flags' | 'bulk-ops' | 'listing-campaign' | 'daily-collections-report' | 'advance-activity-correlation' | 'agent-service-centres' | 'agent-products-services' | 'guarantor-float' | 'rent-behaviour' | 'subagent-commission-whitelist' | 'partial-collections' | 'calling-hub' | 'portfolio-performance' | 'collect-rent' | 'agent-allocations' | 'approval-history' | 'tenant-self-repayments' | 'reports-overview';
 
 const NAV_ITEMS: { key: ActiveView; icon: any; label: string; color: string; priority?: boolean }[] = [
+  { key: 'general-activities', icon: Activity, label: 'General Agents Activities', color: 'bg-primary' },
+  { key: 'agents-rent', icon: Banknote, label: 'Agents Rent', color: 'bg-primary' },
+  { key: 'agents-bikes', icon: Bike, label: 'Agents Bikes', color: 'bg-primary' },
+  { key: 'welile-merchandise', icon: ShoppingBag, label: 'Welile Merchandise', color: 'bg-primary' },
+  { key: 'shopping-advance', icon: ShoppingBag, label: 'Welile Shopping Advance', color: 'bg-primary' },
+  { key: 'business-advance', icon: Briefcase, label: 'Welile Business Advance', color: 'bg-primary' },
+  { key: 'agent-marketplace', icon: Store, label: 'Welile Marketplace', color: 'bg-primary' },
+  { key: 'welile-homes', icon: Building2, label: 'Welile Homes', color: 'bg-primary' },
+  { key: 'agents-hope', icon: Sparkles, label: 'Welile Agents Hope', color: 'bg-primary' },
   { key: 'agents-space', icon: Wallet, label: "Agents' Space", color: 'bg-primary', priority: true },
   { key: 'reports-overview', icon: FileBarChart, label: 'Overview', color: 'bg-emerald-600', priority: true },
   { key: 'agent-ops-report', icon: FileBarChart, label: 'Agent Operations Report', color: 'bg-emerald-700', priority: true },
@@ -164,6 +174,7 @@ export function AgentOpsDashboard() {
   const [productSection, setProductSection] = useState<null | 'motor_bike' | 'smart_phone' | 'boutique' | 'signage' | 'advances'>(null);
   const [dateRange, setDateRange] = useState<DateRange>('24h');
   const [sidebarWidth, setSidebarWidth] = useState(224); // default w-56
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const pendingAdvanceCount = usePendingAdvanceCount();
   const navigate = useNavigate();
 
@@ -315,6 +326,40 @@ export function AgentOpsDashboard() {
         </div>
       );
       case 'agents-space': return <AgentsSpacePanel mode="ops" onBack={() => setActiveView(null)} />;
+      case 'general-activities': return <AgentOpsOverview onOpenSection={handleOpenSection} />;
+      case 'agents-rent': return <AgentCollectionsCommandCenter />;
+      case 'agents-bikes': return (
+        <div className="space-y-4">
+          <AgentProductsPanel category="motor_bike" />
+          <Button variant="outline" asChild><Link to="/agent-ops/products/motor-bikes">Bike applications and orders</Link></Button>
+        </div>
+      );
+      case 'welile-merchandise': return (
+        <div className="space-y-4">
+          <AgentProductsPanel category="boutique" />
+          <Button variant="outline" asChild><Link to="/agent-ops/products/boutique">Merchandise applications and orders</Link></Button>
+        </div>
+      );
+      case 'shopping-advance': return (
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">Shopping Advance access limits are currently informational. There is no separate Agent Ops issuance or repayment register for them.</p>
+          <Button variant="outline" onClick={() => selectView('advances-analytics')}>View agent advance analytics</Button>
+        </div>
+      );
+      case 'business-advance': return <BusinessAdvanceQueue stage="agent_ops" />;
+      case 'agent-marketplace': return (
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">A separate agent Marketplace management report is not available here yet.</p>
+          <Button variant="outline" asChild><Link to="/marketplace">Open Welile Marketplace</Link></Button>
+        </div>
+      );
+      case 'welile-homes': return <WelileHomesAdminPanel />;
+      case 'agents-hope': return (
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">A dedicated Agents Hope management report is not available yet.</p>
+          <Button variant="outline" onClick={() => selectView('agents-space')}>Open Agents' Space</Button>
+        </div>
+      );
       case 'feature-flags': return <AgentFeatureFlagsPanel onBack={() => setActiveView(null)} />;
       case 'bulk-ops': return <AgentBulkOpsConsole onBack={() => setActiveView(null)} />;
       case 'pipeline': return <AgentOpsPipelineHub />;
@@ -455,19 +500,41 @@ export function AgentOpsDashboard() {
     { title: 'Advances', keys: ['advances-analytics', 'advance-requests', 'active-advances', 'advance-potential', 'advance-limits', 'advance-repayments', 'advance-activity-correlation'] },
     { title: 'Reports', keys: ['reports-overview', 'agent-ops-report', 'portfolio-performance', 'comprehensive-report', 'products-services-report'] },
   ];
+  const groupedKeys = new Set(MORE_GROUPS.flatMap((group) => group.keys));
+  const ALL_SECTIONS = [
+    ...MORE_GROUPS,
+    { title: 'Additional tools', keys: NAV_ITEMS.map((item) => item.key).filter((key) => !groupedKeys.has(key)) },
+  ];
 
-  // Main content region — sub-view when one is active, else the overview / more-grid.
+  const BUSINESS_AREAS: { title: string; icon: typeof Activity; section: ActiveView }[] = [
+    { title: 'General Agents Activities', icon: Activity, section: 'general-activities' },
+    { title: 'Agent Advances', icon: HandCoins, section: 'advance-requests' },
+    { title: 'Agents Rent', icon: Banknote, section: 'agents-rent' },
+    { title: 'Agents Bikes', icon: Bike, section: 'agents-bikes' },
+    { title: 'Welile Merchandise', icon: ShoppingBag, section: 'welile-merchandise' },
+    { title: 'Service Centre as a Service', icon: Building2, section: 'sc-overview' },
+    { title: 'Welile Lending Agents', icon: UsersRound, section: 'lending-agents' },
+    { title: 'Welile Shopping Advance', icon: ShoppingBag, section: 'shopping-advance' },
+    { title: 'Welile Business Advance', icon: Briefcase, section: 'business-advance' },
+    { title: 'Welile Marketplace', icon: Store, section: 'agent-marketplace' },
+    { title: 'Welile Wallet Business', icon: Wallet, section: 'balances' },
+    { title: 'Welile Homes', icon: Building2, section: 'welile-homes' },
+    { title: 'Welile Agents Hope', icon: Sparkles, section: 'agents-hope' },
+    { title: 'Welile Agents Ranks', icon: Trophy, section: 'leaderboard' },
+  ];
+
+  // Main content region — sub-view when one is active, else the business-area home / more-grid.
   const contentRegion = activeView ? (
     <div className="space-y-4">
       {activeView !== 'agents-space' && (
         <>
-          <button
+          <Button variant="ghost"
             onClick={() => setActiveView(null)}
-            className="flex items-center gap-2 text-sm font-semibold text-primary hover:underline lg:hidden"
+            className="flex items-center gap-2 text-sm font-semibold text-primary lg:hidden"
           >
             <ChevronLeft className="h-4 w-4" />
             Back to Agent Ops Overview
-          </button>
+          </Button>
           <h2 className="text-lg font-bold">{viewLabel}</h2>
         </>
       )}
@@ -475,11 +542,29 @@ export function AgentOpsDashboard() {
     </div>
   ) : bottomTab !== 'more' ? (
     <div className="space-y-4">
-      <AgentOpsOverview onOpenSection={handleOpenSection} />
+      <h1 className="text-xl font-bold text-foreground">Agent Operations</h1>
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
+        {BUSINESS_AREAS.map(({ title, icon: Icon, section }, index) => (
+          <Button
+            key={title}
+            type="button"
+            variant="outline"
+            onClick={() => selectView(section)}
+            className="group h-auto min-h-28 w-full whitespace-normal justify-start gap-4 rounded-md border-border bg-card p-4 text-left shadow-sm hover:border-primary/50 hover:bg-muted/50"
+          >
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"><Icon className="size-5" /></span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-xs font-medium text-muted-foreground">{String(index + 1).padStart(2, '0')}</span>
+              <span className="block text-sm font-semibold leading-snug text-foreground">{title}</span>
+            </span>
+            <ChevronDown className="size-4 shrink-0 -rotate-90 text-muted-foreground transition-transform group-hover:translate-x-1" />
+          </Button>
+        ))}
+      </div>
     </div>
   ) : (
     <div className="space-y-5 pb-20 sm:pb-4">
-      {MORE_GROUPS.map((group) => (
+      {ALL_SECTIONS.map((group) => (
         <section key={group.title} className="space-y-2">
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
             {group.title}
@@ -534,18 +619,18 @@ export function AgentOpsDashboard() {
           {/* Section switcher — mobile / tablet only (desktop uses the left sidebar) */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button
+              <Button variant="outline"
                 type="button"
-                className="lg:hidden h-9 px-3 rounded-full border border-border bg-card flex items-center gap-1.5 text-xs font-semibold text-foreground hover:border-primary/30 active:scale-95 transition-all touch-manipulation"
+                className="lg:hidden h-9 px-3 gap-1.5 text-xs"
                 aria-label="All Agent Ops sections"
               >
                 <LayoutGrid className="h-4 w-4 text-primary" />
                 <span className="hidden xs:inline">All sections</span>
                 <ChevronDown className="h-3.5 w-3.5 opacity-70" />
-              </button>
+              </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-64 max-h-[70vh] overflow-y-auto">
-              {MORE_GROUPS.map((group, gi) => (
+              {ALL_SECTIONS.map((group, gi) => (
                 <div key={group.title}>
                   {gi > 0 && <DropdownMenuSeparator />}
                   <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
@@ -583,13 +668,18 @@ export function AgentOpsDashboard() {
 
       {/* Body: persistent left sidebar (desktop) + content */}
       <div className="lg:flex lg:items-start">
-        <AgentOpsSideNav
-          activeView={activeView}
-          onSelect={(k) => selectView(k)}
-          onHome={() => { setBottomTab('home'); setActiveView(null); }}
-          style={{ width: sidebarWidth }}
-        />
-        <SidebarResizer currentWidth={sidebarWidth} onChange={setSidebarWidth} />
+        <div className="hidden lg:block shrink-0">
+          <Button variant="ghost" size="icon-sm" title={sidebarOpen ? 'Collapse sections' : 'Open all sections'} aria-label={sidebarOpen ? 'Collapse sections' : 'Open all sections'} aria-expanded={sidebarOpen} onClick={() => setSidebarOpen((open) => !open)}>
+            <LayoutGrid className="h-4 w-4" />
+          </Button>
+          {sidebarOpen && <AgentOpsSideNav
+            activeView={activeView}
+            onSelect={(k) => selectView(k)}
+            onHome={() => { setBottomTab('home'); setActiveView(null); }}
+            style={{ width: sidebarWidth }}
+          />}
+        </div>
+        {sidebarOpen && <SidebarResizer currentWidth={sidebarWidth} onChange={setSidebarWidth} />}
         <div className="flex-1 min-w-0">{contentRegion}</div>
       </div>
 
@@ -697,6 +787,8 @@ function AgentOpsSideNav({
     { title: 'Advances', keys: ['advances-analytics', 'advance-requests', 'active-advances', 'advance-potential', 'advance-limits', 'advance-repayments', 'advance-activity-correlation'] },
     { title: 'Reports', defaultOpen: true, keys: ['reports-overview', 'agent-ops-report', 'portfolio-performance', 'comprehensive-report', 'products-services-report'] },
   ];
+  const sideKeys = new Set(SIDE_GROUPS.flatMap((group) => group.keys));
+  SIDE_GROUPS.push({ title: 'Additional tools', keys: NAV_ITEMS.map((item) => item.key).filter((key) => !sideKeys.has(key)) });
 
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {};
@@ -741,11 +833,11 @@ function AgentOpsSideNav({
       className="hidden lg:flex flex-col shrink-0 sticky top-0 self-start max-h-[calc(100dvh-8.5rem)] overflow-y-auto pr-2"
     >
       <nav className="space-y-3 py-1">
-        <button
+        <Button variant="ghost"
           type="button"
           onClick={onHome}
           className={cn(
-            'w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-semibold transition-colors',
+            'w-full justify-start gap-2.5 px-2.5 py-2 text-sm font-semibold',
             !activeView ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted',
           )}
         >
@@ -753,7 +845,7 @@ function AgentOpsSideNav({
             <LayoutGrid className="h-3.5 w-3.5 text-white" />
           </span>
           <span className="truncate">Overview</span>
-        </button>
+        </Button>
 
         {SIDE_GROUPS.map((group) => {
           const containsActive = group.keys.includes(activeView as ActiveView);
