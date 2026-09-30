@@ -948,7 +948,7 @@ export function AgentRequestPipelineView({
 
       {/* Submitted */}
       {tab === 'submitted' && (
-        <div className="space-y-2">
+        <div className="space-y-2 max-h-[65vh] overflow-y-auto overscroll-contain pr-1 -mr-1">
           {submitted.isLoading ? (
             <Skeleton className="h-28 w-full rounded-xl" />
           ) : submittedRows.length === 0 ? (
@@ -982,7 +982,7 @@ export function AgentRequestPipelineView({
 
       {/* Approved (ready to pay) */}
       {tab === 'approved' && (
-        <div className="space-y-2">
+        <div className="space-y-2 max-h-[65vh] overflow-y-auto overscroll-contain pr-1 -mr-1">
           {approved.isLoading ? (
             <Skeleton className="h-28 w-full rounded-xl" />
           ) : approvedRows.length === 0 ? (
@@ -1030,7 +1030,7 @@ export function AgentRequestPipelineView({
 
       {/* Rejected */}
       {tab === 'rejected' && (
-        <div className="space-y-2">
+        <div className="space-y-2 max-h-[65vh] overflow-y-auto overscroll-contain pr-1 -mr-1">
           {rejectedQuery.isLoading ? (
             <Skeleton className="h-28 w-full rounded-xl" />
           ) : filteredRejected.length === 0 ? (
@@ -1115,7 +1115,7 @@ export function AgentRequestPipelineView({
 
       {/* Landlords (standalone registrations) */}
       {tab === 'landlords' && (
-        <div className="space-y-2">
+        <div className="space-y-2 max-h-[65vh] overflow-y-auto overscroll-contain pr-1 -mr-1">
           {landlordsQuery.isLoading ? (
             <Skeleton className="h-24 w-full rounded-xl" />
           ) : landlordRows.length === 0 ? (
