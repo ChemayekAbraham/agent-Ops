@@ -64172,6 +64172,10 @@ export type Database = {
         }[]
       }
       hr_pay_position_for: { Args: { _fn: string }; Returns: string }
+      hr_pay_post_pending_reinvestments_for_user: {
+        Args: { _user_id: string }
+        Returns: number
+      }
       hr_pay_post_run_reinvestments: {
         Args: { _run_id: string }
         Returns: Json
