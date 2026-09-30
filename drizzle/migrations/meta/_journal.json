@@ -2570,6 +2570,13 @@
       "when": 1790759810649,
       "tag": "0366_weekly_streak_payouts",
       "breakpoints": true
+    },
+    {
+      "idx": 367,
+      "version": "7",
+      "when": 1790765930371,
+      "tag": "0367_support_uses_operational_float_only",
+      "breakpoints": true
     }
   ]
 }
