@@ -69262,6 +69262,15 @@ export type Database = {
           recovered: number
         }[]
       }
+      staff_requisition_assert_signer: {
+        Args: {
+          p_prior: string[]
+          p_requester: string
+          p_role: string
+          p_signer: string
+        }
+        Returns: undefined
+      }
       staff_requisition_reduce_amount: {
         Args: {
           p_new_amount: number
