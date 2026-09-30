@@ -1,4 +1,8 @@
-# 172 — One daily SMS for advance deductions taken at credit time and withdrawal time
+# 172 — SMS for advance deductions taken at credit time and withdrawal time (daily summary, superseded by one SMS per deduction)
+
+> **Update 2026-09-30 (later): the daily summary below is superseded.** The CFO asked for an SMS on every deduction after Ian's UGX 250,000 withdrawal-time collect (14:33) arrived with no text. Migration `20260930170000_advance_deduction_sms_per_deduction.sql` adds `trg_sms_advance_deduction` (AFTER INSERT on `general_ledger`, only the two wallet legs described below) which posts to `notify-advance-deduction` `mode=deduction`; the edge function reads the balance after commit and texts "UGX X was deducted from your wallet on DD Mon HH:MM toward your Agent Advance. Remaining balance UGX Y." The daily cron `advance-deduction-daily-sms-summary` is unscheduled so nothing is texted twice; the summary function and tables stay. The cron and sweep paths still send their own SMS and are not matched. One busy evening can mean many texts (Ian had 10 on 29 Sep); that is what was asked for. Everything below describes the daily summary as built.
+
+# (original) One daily SMS for advance deductions taken at credit time and withdrawal time
 
 **Status: LIVE 2026-09-30.** Edge function `notify-advance-deduction` deployed via Lovable (commit `a2721ab7bb`), then migration `20260930150000_advance_daily_deduction_sms_summary.sql` applied via `query_database`. Verified: cron `advance-deduction-daily-sms-summary` active on `0 18 * * *`, function present, log and run tables empty. First run is 30 Sep 18:00 UTC; the SMS wording has not yet been seen end to end. Lovable also made two type-only build fixes (`sms-forwarder-ingest`, `rent-plan-transition-notices/messages_test.ts`, commit `216cda68bc`); `sms-forwarder-ingest` was not redeployed.
 

@@ -36,7 +36,24 @@ Deno.serve(async (req) => {
     // deduction in the last 24h (send_daily_advance_deduction_summary).
     const n = Math.max(1, Math.round(Number(payments) || 1));
     const left = Number(summaryOutstanding);
-    const message = mode === 'daily_summary'
+    // deduction: one SMS per credit-time / withdrawal-time deduction, fired by
+    // trg_sms_advance_deduction on general_ledger. pg_net posts after commit, so
+    // the balance read here already includes this deduction. Quotes the total
+    // across all open advances, the same figure the dashboard shows.
+    let totalLeft = 0;
+    if (mode === 'deduction') {
+      const { data: open } = await supabase.from('agent_advances')
+        .select('outstanding_balance')
+        .eq('agent_id', agent_id)
+        .in('status', ['active', 'overdue']);
+      totalLeft = (open ?? []).reduce((s, r) => s + Number(r.outstanding_balance || 0), 0);
+    }
+    const kampalaTime = new Date().toLocaleString('en-GB', {
+      timeZone: 'Africa/Kampala', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', hour12: false,
+    });
+    const message = mode === 'deduction'
+      ? `WELILE: ${fmtUGX(amount)} was deducted from your wallet on ${kampalaTime} toward your Agent Advance. ${totalLeft > 0 ? `Remaining balance ${fmtUGX(totalLeft)}.` : 'Your advance is now fully repaid.'}`
+      : mode === 'daily_summary'
       ? `WELILE: ${fmtUGX(amount)} was deducted from your wallet in ${n} payment${n === 1 ? '' : 's'} in the last 24 hours toward your Agent Advance. ${left > 0 ? `Remaining balance ${fmtUGX(left)}.` : 'Your advance is now fully repaid.'} See your app for each deduction.`
       : `WELILE: ${fmtUGX(amount)} was auto-recovered from your wallet toward your advance today. Outstanding ${fmtUGX(outstanding)}.`;
     await attemptYoolaPrimary(prof.phone, message, {
