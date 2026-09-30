@@ -405,6 +405,31 @@ export function StaffRequisitionQueue() {
     }
 
     setActing(true);
+    // On the CFO dashboard, re-read the requisition's live stage before approving.
+    // If it is still waiting on an earlier desk (supervisor, COO, CEO), stop here.
+    if (actionType === 'approve' && window.location.pathname.startsWith('/cfo')) {
+      const { data: fresh, error: freshErr } = await supabase
+        .from('staff_requisitions' as never)
+        .select('stage, current_approver_role')
+        .eq('id', active.id)
+        .maybeSingle();
+      const f = fresh as { stage?: string; current_approver_role?: string | null } | null;
+      if (freshErr || !f) {
+        setActing(false);
+        window.alert('Caution: could not confirm the current status of this requisition. It was not approved. Please try again.');
+        return;
+      }
+      if (f.stage !== 'cfo') {
+        setActing(false);
+        const where = f.stage && STAGE_LABEL[f.stage] ? STAGE_LABEL[f.stage] : (f.stage || 'another');
+        const msg = ['approved', 'rejected', 'returned'].includes(f.stage || '')
+          ? `Caution: this requisition is already ${where.toLowerCase()}. It was not approved again.`
+          : `Caution: this requisition is not yet ready for CFO approval. It is still pending ${where} review. It was not approved.`;
+        window.alert(msg);
+        await fetchAll();
+        return;
+      }
+    }
     const { error } = await invokeEdgeFunction('staff-requisition-decide', {
       body: {
         requisition_id: active.id,
