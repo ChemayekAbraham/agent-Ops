@@ -44,6 +44,7 @@ export function FieldCollectCard({ onOpen }: FieldCollectCardProps) {
     window.addEventListener('offline', off);
     return () => {
       clearInterval(t);
+      offUnavailable();
       window.removeEventListener('online', on);
       window.removeEventListener('offline', off);
     };
