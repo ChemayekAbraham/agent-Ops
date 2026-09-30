@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { Home, Loader2, Info, ShieldCheck, Trash2, Wallet, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { CheckCircle2, Home, Loader2, Info, ShieldCheck, Trash2, Wallet, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -10,6 +10,25 @@ import { categoryLabel } from './utils';
 const MONTHLY_RATE = 0.15;
 
 const monthlyAt15 = (total: number) => Math.round(total * MONTHLY_RATE);
+
+/**
+ * What the caller reports back when "Confirm and support" is pressed.
+ * Only `submitted: true` switches the confirmation into the success view —
+ * a caller that does not actually post anything returns nothing, so the
+ * screen never claims a support that was not recorded.
+ */
+export type FunderFundResult = { submitted: boolean; reference?: string | null };
+
+/** Same three steps the "How support works" dialog promises, in order. */
+const NEXT_STEPS = [
+  { title: 'Operational review', text: 'The team verifies your booking and completes the normal approval step.' },
+  { title: 'Support becomes active', text: 'Once approved, the homes you funded go live through the existing process.' },
+  { title: 'Track it in your portfolio', text: 'Follow your supported homes and Returns from your portfolio.' },
+];
+
+/** Snapshot taken at submit time: the parent may clear the selection as soon
+ *  as the support is posted, and the success view must still show real figures. */
+type FunderReceipt = { count: number; total: number; balanceAfter: number; reference: string | null };
 
 /** Sticky bar — rendered only while at least one compatible home is selected. */
 export function FunderNewSelectionBar({
@@ -78,6 +97,7 @@ export function FunderNewReviewDialog({
   onRemove,
   onFund,
   onTopUp,
+  onViewPortfolio,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -87,14 +107,32 @@ export function FunderNewReviewDialog({
   walletError: unknown;
   onRemove: (item: FunderNewSelectionItem) => void;
   /** Called with the total and the shortfall (0 when the balance covers it). */
-  onFund?: (total: number, shortfall: number) => void | Promise<void>;
+  onFund?: (total: number, shortfall: number) => void | FunderFundResult | Promise<void | FunderFundResult>;
   /** Called when the balance is too low; defaults to opening the deposit dialog. */
   onTopUp?: (shortfall: number) => void;
+  /** Opens the supporter's own portfolio list from the success view. */
+  onViewPortfolio?: () => void;
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [receipt, setReceipt] = useState<FunderReceipt | null>(null);
   const total = items.reduce((sum, item) => sum + item.amount, 0);
   const shortfall = available === null ? null : Math.max(0, total - available);
+
+  // A fresh review always starts on the confirm step, never on a stale success view.
+  useEffect(() => {
+    if (open) {
+      setReceipt(null);
+      setConfirmOpen(false);
+    }
+  }, [open]);
+
+  const closeAll = () => {
+    setConfirmOpen(false);
+    setReceipt(null);
+    onOpenChange(false);
+  };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -189,48 +227,123 @@ export function FunderNewReviewDialog({
         ) : null}
       </DialogContent>
 
-      <Dialog open={confirmOpen} onOpenChange={(o) => { if (!submitting) setConfirmOpen(o); }}>
+      <Dialog
+        open={confirmOpen}
+        onOpenChange={(o) => {
+          if (submitting) return;
+          setConfirmOpen(o);
+          if (!o) setReceipt(null);
+        }}
+      >
         <DialogContent className="max-h-[92vh] max-w-md overflow-y-auto rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>Confirm your support</DialogTitle>
-            <DialogDescription>Please review this summary. Support is only submitted when you confirm.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2 rounded-2xl border bg-muted/40 p-4 text-sm">
-            <div className="flex justify-between gap-3"><span className="text-muted-foreground">Homes</span><span className="font-semibold">{items.length}</span></div>
-            <div className="flex justify-between gap-3"><span className="text-muted-foreground">Total support</span><span className="font-semibold">{formatDynamic(total)}</span></div>
-            <div className="flex justify-between gap-3"><span className="text-muted-foreground">Monthly at 15%</span><span className="font-semibold text-success">{formatDynamic(monthlyAt15(total))}</span></div>
-            <div className="flex justify-between gap-3"><span className="text-muted-foreground">Balance after</span><span className="font-semibold">{formatDynamic(Math.max(0, (available ?? 0) - total))}</span></div>
-          </div>
-          <ul className="max-h-40 space-y-1 overflow-y-auto text-sm">
-            {items.map((item) => (
-              <li key={`c:${item.category}:${item.id}`} className="flex justify-between gap-3">
-                <span className="truncate">{item.title}</span>
-                <span className="flex-none font-medium">{formatDynamic(item.amount)}</span>
-              </li>
-            ))}
-          </ul>
-          <div className="flex gap-2">
-            <Button variant="outline" className="h-11 flex-1" disabled={submitting} onClick={() => setConfirmOpen(false)}>Cancel</Button>
-            <Button
-              className="h-11 flex-1 bg-emerald-600 text-white hover:bg-emerald-700"
-              disabled={submitting}
-              onClick={async () => {
-                setSubmitting(true);
-                try {
-                  await onFund?.(total, 0);
-                  setConfirmOpen(false);
-                  onOpenChange(false);
-                } catch {
-                  // The caller already reported the error; keep the summary open.
-                } finally {
-                  setSubmitting(false);
-                }
-              }}
-            >
-              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              Confirm and support
-            </Button>
-          </div>
+          {receipt ? (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <CheckCircle2 className="h-5 w-5 flex-none text-success" />
+                  Support submitted
+                </DialogTitle>
+                <DialogDescription>
+                  Your support for {receipt.count === 1 ? 'one home' : `${receipt.count} homes`} is in. Nothing else is needed from you right now.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-2 rounded-2xl border bg-muted/40 p-4 text-sm">
+                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Total support</span><span className="font-semibold">{formatDynamic(receipt.total)}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Estimated monthly Returns</span><span className="font-semibold text-success">{formatDynamic(monthlyAt15(receipt.total))}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Balance after</span><span className="font-semibold">{formatDynamic(receipt.balanceAfter)}</span></div>
+                {receipt.reference ? (
+                  <div className="flex justify-between gap-3"><span className="text-muted-foreground">Booking reference</span><span className="break-all text-right font-semibold">{receipt.reference}</span></div>
+                ) : null}
+              </div>
+
+              <div>
+                <p className="text-sm font-semibold">What happens next</p>
+                <ol className="mt-2 space-y-2">
+                  {NEXT_STEPS.map((step, index) => (
+                    <li key={step.title} className="flex gap-3 rounded-2xl border bg-primary/5 p-3">
+                      <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground">{index + 1}</span>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold">{step.title}</p>
+                        <p className="mt-0.5 text-xs text-muted-foreground">{step.text}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              </div>
+
+              <div className="flex gap-2">
+                <Button variant="outline" className="h-11 flex-1" onClick={closeAll}>Done</Button>
+                {onViewPortfolio ? (
+                  <Button
+                    className="h-11 flex-1 bg-emerald-600 text-white hover:bg-emerald-700"
+                    onClick={() => {
+                      // Capture the handler first: closing the dialog can unmount this branch.
+                      const openPortfolio = onViewPortfolio;
+                      closeAll();
+                      openPortfolio();
+                    }}
+                  >
+                    View my portfolios
+                  </Button>
+                ) : null}
+              </div>
+            </>
+          ) : (
+            <>
+              <DialogHeader>
+                <DialogTitle>Confirm your support</DialogTitle>
+                <DialogDescription>Please review this summary. Support is only submitted when you confirm.</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-2 rounded-2xl border bg-muted/40 p-4 text-sm">
+                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Homes</span><span className="font-semibold">{items.length}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Total support</span><span className="font-semibold">{formatDynamic(total)}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Monthly at 15%</span><span className="font-semibold text-success">{formatDynamic(monthlyAt15(total))}</span></div>
+                <div className="flex justify-between gap-3"><span className="text-muted-foreground">Balance after</span><span className="font-semibold">{formatDynamic(Math.max(0, (available ?? 0) - total))}</span></div>
+              </div>
+              <ul className="max-h-40 space-y-1 overflow-y-auto text-sm">
+                {items.map((item) => (
+                  <li key={`c:${item.category}:${item.id}`} className="flex justify-between gap-3">
+                    <span className="truncate">{item.title}</span>
+                    <span className="flex-none font-medium">{formatDynamic(item.amount)}</span>
+                  </li>
+                ))}
+              </ul>
+              <div className="flex gap-2">
+                <Button variant="outline" className="h-11 flex-1" disabled={submitting} onClick={() => setConfirmOpen(false)}>Cancel</Button>
+                <Button
+                  className="h-11 flex-1 bg-emerald-600 text-white hover:bg-emerald-700"
+                  disabled={submitting}
+                  onClick={async () => {
+                    setSubmitting(true);
+                    try {
+                      const result = await onFund?.(total, 0);
+                      if (result?.submitted) {
+                        // Stay on this dialog and flip it to the success view, so the
+                        // result is on screen rather than in a toast that disappears.
+                        setReceipt({
+                          count: items.length,
+                          total,
+                          balanceAfter: Math.max(0, (available ?? 0) - total),
+                          reference: result.reference ?? null,
+                        });
+                      } else {
+                        setConfirmOpen(false);
+                        onOpenChange(false);
+                      }
+                    } catch {
+                      // The caller already reported the error; keep the summary open.
+                    } finally {
+                      setSubmitting(false);
+                    }
+                  }}
+                >
+                  {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                  Confirm and support
+                </Button>
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </Dialog>
