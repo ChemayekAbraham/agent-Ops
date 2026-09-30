@@ -407,15 +407,15 @@ export function EmptyHouseDetailSheet({
           </div>
 
           {onFund && (
-            <Button
-              className="h-12 w-full gap-2 bg-emerald-600 text-base font-bold text-white hover:bg-emerald-700"
-              onClick={() => onFund(house)}
-            >
-              <Wallet className="h-5 w-5" />
-              {topUpNeeded > 0
-                ? `Fund this house — top up ${formatUGX(topUpNeeded)}`
-                : `Fund this house — ${formatUGX(house.monthly_rent)}`}
-            </Button>
+            <div className="px-1">
+              <Button
+                className="h-12 w-full gap-2 bg-emerald-600 px-6 text-base font-bold text-white hover:bg-emerald-700"
+                onClick={() => onFund(house)}
+              >
+                <Wallet className="h-5 w-5 shrink-0" />
+                <span className="truncate">Fund this house</span>
+              </Button>
+            </div>
           )}
 
           {onTogglePick && (
