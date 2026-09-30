@@ -16334,6 +16334,42 @@ export type Database = {
           },
         ]
       }
+      gmail_intake_silence_config: {
+        Row: {
+          active_end_hour_eat: number
+          active_start_hour_eat: number
+          enabled: boolean
+          id: number
+          notify_emails: string[]
+          notify_sms_phones: string[]
+          renotify_minutes: number
+          threshold_minutes: number
+          updated_at: string
+        }
+        Insert: {
+          active_end_hour_eat?: number
+          active_start_hour_eat?: number
+          enabled?: boolean
+          id?: number
+          notify_emails?: string[]
+          notify_sms_phones?: string[]
+          renotify_minutes?: number
+          threshold_minutes?: number
+          updated_at?: string
+        }
+        Update: {
+          active_end_hour_eat?: number
+          active_start_hour_eat?: number
+          enabled?: boolean
+          id?: number
+          notify_emails?: string[]
+          notify_sms_phones?: string[]
+          renotify_minutes?: number
+          threshold_minutes?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       gmail_poll_state: {
         Row: {
           id: number
