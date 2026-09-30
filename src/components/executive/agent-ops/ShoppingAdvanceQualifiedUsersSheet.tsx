@@ -2,26 +2,29 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
-import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { ChevronRight, MapPin } from 'lucide-react';
 
 type Row = {
-  user_id: string; full_name: string | null; phone: string | null; email: string | null;
-  national_id: string | null; occupation: string | null; primary_persona: string | null;
-  verified: boolean | null; phone_verified: boolean | null; is_frozen: boolean | null;
-  created_at: string | null; last_active_at: string | null;
-  continent: string | null; country: string | null; region: string | null; district: string | null;
-  sub_county: string | null; parish: string | null; village: string | null; town: string | null;
-  city: string | null; landmark: string | null;
-  residence_lat: number | null; residence_lng: number | null; residence_updated_at: string | null;
-  location_source: string | null; mobile_money_provider: string | null; mobile_money_number: string | null;
-  first_transfer_at: string | null; last_transfer_at: string | null;
+  user_id: string;
+  country: string | null; region: string | null; district: string | null;
+  sub_county: string | null; parish: string | null; village: string | null;
 };
 
-const d = (v: string | null) => (v ? new Date(v).toLocaleDateString('en-GB', { timeZone: 'Africa/Kampala' }) : '—');
-const t = (v: unknown) => (v === null || v === undefined || v === '' ? '—' : String(v));
+const LEVELS = [
+  { key: 'country', label: 'Country' },
+  { key: 'region', label: 'Region' },
+  { key: 'district', label: 'District' },
+  { key: 'sub_county', label: 'Sub county' },
+  { key: 'parish', label: 'Parish' },
+  { key: 'village', label: 'Village' },
+] as const;
+type LevelKey = (typeof LEVELS)[number]['key'];
+const NONE = 'No location recorded';
+const norm = (v: string | null) => (v ?? '').trim() || NONE;
 
 export function ShoppingAdvanceQualifiedUsersSheet({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
-  const [q, setQ] = useState('');
+  const [path, setPath] = useState<string[]>([]);
   const { data, isLoading, isError } = useQuery({
     queryKey: ['agent-ops-shopping-advance-qualified-profiles'],
     enabled: open,
@@ -33,82 +36,69 @@ export function ShoppingAdvanceQualifiedUsersSheet({ open, onOpenChange }: { ope
     staleTime: 60_000,
   });
 
-  const rows = useMemo(() => {
-    const s = q.trim().toLowerCase();
-    if (!s || !data) return data ?? [];
-    return data.filter((r) =>
-      [r.full_name, r.phone, r.email, r.country, r.region, r.district, r.sub_county, r.parish, r.village, r.town]
-        .some((v) => v?.toLowerCase().includes(s)));
-  }, [data, q]);
+  const depth = path.length;
+  const level = LEVELS[Math.min(depth, LEVELS.length - 1)];
+
+  const { groups, scoped } = useMemo(() => {
+    const scoped = (data ?? []).filter((r) =>
+      path.every((p, i) => norm(r[LEVELS[i].key as LevelKey]) === p));
+    const m = new Map<string, number>();
+    scoped.forEach((r) => { const k = norm(r[level.key]); m.set(k, (m.get(k) ?? 0) + 1); });
+    const groups = [...m.entries()].sort((a, b) =>
+      (a[0] === NONE ? 1 : b[0] === NONE ? -1 : b[1] - a[1]));
+    return { groups, scoped };
+  }, [data, path, level.key]);
+
+  const canDrill = depth < LEVELS.length - 1;
 
   return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-full overflow-y-auto">
+    <Sheet open={open} onOpenChange={(o) => { if (!o) setPath([]); onOpenChange(o); }}>
+      <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
         <SheetHeader>
-          <SheetTitle>Users qualified through wallet transfers — by location</SheetTitle>
+          <SheetTitle>Qualified users by location</SheetTitle>
         </SheetHeader>
         <div className="mt-4 space-y-3">
-          <Input placeholder="Search name, phone, country, district, village…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <div className="flex flex-wrap items-center gap-1 text-sm">
+            <Button variant="link" size="sm" className="h-auto p-0" onClick={() => setPath([])}>All</Button>
+            {path.map((p, i) => (
+              <span key={i} className="flex items-center gap-1">
+                <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                <Button variant="link" size="sm" className="h-auto p-0" onClick={() => setPath(path.slice(0, i + 1))}>{p}</Button>
+              </span>
+            ))}
+          </div>
           <p className="text-sm text-muted-foreground">
-            {isLoading ? 'Loading…' : isError ? 'Unavailable' : `${rows.length.toLocaleString('en-US')} users`}
-            {' · '}County is not recorded in user profiles, so it shows “—”.
+            {isLoading ? 'Loading…' : isError ? 'Unavailable' :
+              `${scoped.length.toLocaleString('en-US')} users · grouped by ${level.label.toLowerCase()}`}
           </p>
-          <div className="overflow-x-auto rounded-md border border-border">
-            <table className="w-full text-xs">
-              <thead className="bg-muted text-left">
-                <tr>
-                  {['Name','Phone','Email','National ID','Occupation','Role','Verified','Frozen','Joined','Last active',
-                    'Continent','Country','Region','District','County','Sub county','Parish','Village','Town/City','Landmark',
-                    'GPS','Location source','Mobile money','First transfer','Last transfer'].map((h) => (
-                    <th key={h} className="whitespace-nowrap px-2 py-2 font-semibold">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((r) => {
-                  const gps = r.residence_lat != null && r.residence_lng != null;
-                  return (
-                    <tr key={r.user_id} className="border-t border-border">
-                      <td className="whitespace-nowrap px-2 py-1.5 font-medium">{t(r.full_name)}</td>
-                      <td className="whitespace-nowrap px-2 py-1.5">{t(r.phone)}</td>
-                      <td className="whitespace-nowrap px-2 py-1.5">{t(r.email)}</td>
-                      <td className="whitespace-nowrap px-2 py-1.5">{t(r.national_id)}</td>
-                      <td className="whitespace-nowrap px-2 py-1.5">{t(r.occupation)}</td>
-                      <td className="whitespace-nowrap px-2 py-1.5">{t(r.primary_persona)}</td>
-                      <td className="px-2 py-1.5">{r.verified ? 'Yes' : 'No'}</td>
-                      <td className="px-2 py-1.5">{r.is_frozen ? 'Yes' : 'No'}</td>
-                      <td className="whitespace-nowrap px-2 py-1.5">{d(r.created_at)}</td>
-                      <td className="whitespace-nowrap px-2 py-1.5">{d(r.last_active_at)}</td>
-                      <td className="px-2 py-1.5">{t(r.continent)}</td>
-                      <td className="px-2 py-1.5">{t(r.country)}</td>
-                      <td className="px-2 py-1.5">{t(r.region)}</td>
-                      <td className="px-2 py-1.5">{t(r.district)}</td>
-                      <td className="px-2 py-1.5">—</td>
-                      <td className="px-2 py-1.5">{t(r.sub_county)}</td>
-                      <td className="px-2 py-1.5">{t(r.parish)}</td>
-                      <td className="px-2 py-1.5">{t(r.village)}</td>
-                      <td className="px-2 py-1.5">{t(r.town ?? r.city)}</td>
-                      <td className="px-2 py-1.5">{t(r.landmark)}</td>
-                      <td className="whitespace-nowrap px-2 py-1.5">
-                        {gps ? (
-                          <a className="text-primary underline" target="_blank" rel="noreferrer"
-                            href={`https://www.google.com/maps?q=${r.residence_lat},${r.residence_lng}`}>
-                            {Number(r.residence_lat).toFixed(5)}, {Number(r.residence_lng).toFixed(5)}
-                          </a>
-                        ) : '—'}
-                      </td>
-                      <td className="px-2 py-1.5">{t(r.location_source)}</td>
-                      <td className="whitespace-nowrap px-2 py-1.5">{r.mobile_money_number ? `${t(r.mobile_money_provider)} ${r.mobile_money_number}` : '—'}</td>
-                      <td className="whitespace-nowrap px-2 py-1.5">{d(r.first_transfer_at)}</td>
-                      <td className="whitespace-nowrap px-2 py-1.5">{d(r.last_transfer_at)}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+          <div className="divide-y divide-border rounded-md border border-border">
+            {groups.map(([name, count]) => {
+              const clickable = canDrill && name !== NONE;
+              return (
+                <button
+                  key={name}
+                  type="button"
+                  disabled={!clickable}
+                  onClick={() => clickable && setPath([...path, name])}
+                  className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left text-sm hover:bg-muted/50 disabled:cursor-default disabled:hover:bg-transparent"
+                >
+                  <span className={`flex items-center gap-2 ${name === NONE ? 'text-muted-foreground italic' : 'font-medium'}`}>
+                    <MapPin className="h-3.5 w-3.5 shrink-0 text-primary" />{name}
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">
+                      {count.toLocaleString('en-US')}
+                    </span>
+                    {clickable && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                  </span>
+                </button>
+              );
+            })}
           </div>
         </div>
       </SheetContent>
     </Sheet>
   );
 }
+
+export default ShoppingAdvanceQualifiedUsersSheet;
