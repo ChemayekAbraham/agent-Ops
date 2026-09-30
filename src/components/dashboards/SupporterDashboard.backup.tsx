@@ -511,9 +511,6 @@ export default function SupporterDashboardBackup({
             />
           </WidgetErrorBoundary>
 
-          <WidgetErrorBoundary label="Capital routes">
-            <CapitalRoutesSection />
-          </WidgetErrorBoundary>
 
           <WidgetErrorBoundary label="Your portfolio">
             <PartnerPortfolioSection
