@@ -27,7 +27,18 @@ interface Survey {
   title: string;
   body: string;
   snooze_count: number;
+  cycle_start: string | null;
+  last_response: string | null;
+  last_percentage: number | null;
+  last_payout_mode: string | null;
 }
+
+type PayoutMode = 'monthly_payout' | 'monthly_compounding';
+
+const PAYOUT_LABEL: Record<PayoutMode, string> = {
+  monthly_payout: 'Monthly withdrawable returns',
+  monthly_compounding: 'Compounding',
+};
 
 export function StaffSurveyGate() {
   const [survey, setSurvey] = useState<Survey | null>(null);
@@ -36,6 +47,7 @@ export function StaffSurveyGate() {
   const [nssf, setNssf] = useState('');
   const [noTin, setNoTin] = useState(false);
   const [pct, setPct] = useState<number | null>(null);
+  const [payout, setPayout] = useState<PayoutMode | null>(null);
   const [working, setWorking] = useState(false);
   const suppressedUntilRef = useRef(0);
 
@@ -63,7 +75,8 @@ export function StaffSurveyGate() {
     setTin('');
     setNssf('');
     setNoTin(false);
-    setPct(null);
+    setPct(survey?.last_percentage ?? null);
+    setPayout((survey?.last_payout_mode as PayoutMode | null) ?? null);
   }, [survey?.survey_id]);
 
   const respond = async (response: 'accept' | 'decline' | 'pledge') => {
@@ -76,6 +89,7 @@ export function StaffSurveyGate() {
       _tin: response === 'accept' && !noTin ? tin.trim() : null,
       _nssf_number: response === 'accept' ? nssf.trim() || null : null,
       _no_tin: response === 'accept' ? noTin : false,
+      _payout_mode: response === 'pledge' ? payout : null,
     } as never);
     setWorking(false);
     if (error) { toast.error(error.message); return; }
@@ -167,6 +181,18 @@ export function StaffSurveyGate() {
             </p>
           )}
 
+          {!isStatutory && survey.last_response && (
+            <p className="rounded-md border p-2 text-xs text-muted-foreground">
+              Last month you chose{' '}
+              <strong>
+                {survey.last_response === 'pledge'
+                  ? `${survey.last_percentage ?? 0}%${survey.last_payout_mode ? ` · ${PAYOUT_LABEL[survey.last_payout_mode as PayoutMode] ?? ''}` : ''}`
+                  : 'not to reinvest'}
+              </strong>
+              . Confirm it again or change it below.
+            </p>
+          )}
+
           {!isStatutory && (
             <div className="grid grid-cols-5 gap-2">
               {PERCENTAGES.map((p) => (
@@ -179,6 +205,23 @@ export function StaffSurveyGate() {
                   onClick={() => setPct(p)}
                 >
                   {p}%
+                </Button>
+              ))}
+            </div>
+          )}
+
+          {!isStatutory && (
+            <div className="grid grid-cols-2 gap-2">
+              {(Object.keys(PAYOUT_LABEL) as PayoutMode[]).map((m) => (
+                <Button
+                  key={m}
+                  type="button"
+                  size="sm"
+                  variant={payout === m ? 'default' : 'outline'}
+                  disabled={working}
+                  onClick={() => setPayout(m)}
+                >
+                  {PAYOUT_LABEL[m]}
                 </Button>
               ))}
             </div>
@@ -214,9 +257,13 @@ export function StaffSurveyGate() {
             )}
             {!isStatutory && (
               <>
-                <Button onClick={() => void respond('pledge')} disabled={working || pct === null}>
+                <Button onClick={() => void respond('pledge')} disabled={working || pct === null || payout === null}>
                   {working && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {pct === null ? 'Choose a percentage' : `Confirm ${pct}%`}
+                  {pct === null
+                    ? 'Choose a percentage'
+                    : payout === null
+                      ? 'Choose how you receive returns'
+                      : `Confirm ${pct}% · ${payout === 'monthly_payout' ? 'monthly returns' : 'compounding'}`}
                 </Button>
                 <Button variant="destructive" onClick={() => void respond('decline')} disabled={working}>
                   Decline

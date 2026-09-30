@@ -42591,9 +42591,11 @@ export type Database = {
       }
       staff_survey_responses: {
         Row: {
+          cycle_start: string
           id: string
           no_tin: boolean
           nssf_number: string | null
+          payout_mode: string | null
           percentage: number | null
           responded_at: string
           response: string
@@ -42602,9 +42604,11 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          cycle_start?: string
           id?: string
           no_tin?: boolean
           nssf_number?: string | null
+          payout_mode?: string | null
           percentage?: number | null
           responded_at?: string
           response: string
@@ -42613,9 +42617,11 @@ export type Database = {
           user_id: string
         }
         Update: {
+          cycle_start?: string
           id?: string
           no_tin?: boolean
           nssf_number?: string | null
+          payout_mode?: string | null
           percentage?: number | null
           responded_at?: string
           response?: string
@@ -69049,12 +69055,19 @@ export type Database = {
           stage: string
         }[]
       }
+      staff_survey_current_cycle: { Args: never; Returns: string }
+      staff_survey_cycle_for: { Args: { _at: string }; Returns: string }
       staff_survey_is_employee: { Args: never; Returns: boolean }
+      staff_survey_paye_off: { Args: never; Returns: boolean }
       staff_survey_pending: {
         Args: never
         Returns: {
           body: string
+          cycle_start: string
           kind: string
+          last_payout_mode: string
+          last_percentage: number
+          last_response: string
           snooze_count: number
           survey_id: string
           title: string
@@ -69064,15 +69077,18 @@ export type Database = {
         Args: {
           _no_tin?: boolean
           _nssf_number?: string
+          _payout_mode?: string
           _percentage?: number
           _response: string
           _survey_id: string
           _tin?: string
         }
         Returns: {
+          cycle_start: string
           id: string
           no_tin: boolean
           nssf_number: string | null
+          payout_mode: string | null
           percentage: number | null
           responded_at: string
           response: string
@@ -69088,12 +69104,14 @@ export type Database = {
         }
       }
       staff_survey_results: {
-        Args: { _survey_id: string }
+        Args: { _cycle?: string; _survey_id: string }
         Returns: {
+          cycle_start: string
           department: string
           full_name: string
           no_tin: boolean
           nssf_number: string
+          payout_mode: string
           percentage: number
           responded_at: string
           response: string

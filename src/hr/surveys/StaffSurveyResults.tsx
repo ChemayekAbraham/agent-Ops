@@ -22,17 +22,26 @@ interface ResultRow {
   department: string | null;
   response: string | null;
   percentage: number | null;
+  payout_mode: string | null;
   tin: string | null;
   nssf_number: string | null;
   no_tin: boolean;
   responded_at: string | null;
+  cycle_start: string | null;
 }
 
 function answerLabel(r: ResultRow): string {
   if (!r.response) return 'No answer yet';
   if (r.response === 'accept') return 'Accepted';
   if (r.response === 'decline') return 'Declined';
-  if (r.response === 'pledge') return `${r.percentage ?? 0}%`;
+  if (r.response === 'pledge') {
+    const mode = r.payout_mode === 'monthly_compounding'
+      ? ' · compounding'
+      : r.payout_mode === 'monthly_payout'
+        ? ' · monthly returns'
+        : '';
+    return `${r.percentage ?? 0}%${mode}`;
+  }
   return r.response;
 }
 
@@ -95,9 +104,9 @@ export default function StaffSurveyResults() {
 
   const downloadCsv = () => {
     if (!survey) return;
-    const header = ['Staff ref', 'Name', 'Department', 'Answer', 'Percentage', 'TIN', 'No TIN yet', 'NSSF number', 'Answered on'];
+    const header = ['Cycle', 'Staff ref', 'Name', 'Department', 'Answer', 'Percentage', 'Return option', 'TIN', 'No TIN yet', 'NSSF number', 'Answered on'];
     const lines = rows.map((r) =>
-      [r.staff_ref, r.full_name, r.department, answerLabel(r), r.percentage, r.tin, r.no_tin ? 'yes' : '', r.nssf_number, r.responded_at ? new Date(r.responded_at).toLocaleString('en-GB') : '']
+      [r.cycle_start, r.staff_ref, r.full_name, r.department, answerLabel(r), r.percentage, r.payout_mode, r.tin, r.no_tin ? 'yes' : '', r.nssf_number, r.responded_at ? new Date(r.responded_at).toLocaleString('en-GB') : '']
         .map(csvCell)
         .join(','),
     );
@@ -105,7 +114,7 @@ export default function StaffSurveyResults() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${survey.code}-responses.csv`;
+    a.download = `${survey.code}-${rows[0]?.cycle_start ?? 'current'}-responses.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -115,8 +124,12 @@ export default function StaffSurveyResults() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Staff surveys</h1>
         <p className="text-sm text-muted-foreground">
-          Answers from everyone with an active employee account. Answers are recorded only —
-          nothing on any payslip changes because of them.
+          Answers from everyone with an active employee account, for the monthly cycle that
+          opened on{' '}
+          {rows[0]?.cycle_start
+            ? new Date(rows[0].cycle_start).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })
+            : 'the 26th'}
+          . A new cycle opens on the 26th of every month.
         </p>
       </div>
 
