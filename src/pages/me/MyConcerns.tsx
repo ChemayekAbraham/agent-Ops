@@ -399,27 +399,21 @@ const MyConcerns = () => {
   return (
     <PersonalLayout title="Concerns">
       <div className="space-y-4">
-        <Card className="rounded-2xl border-border shadow-sm">
-          <CardHeader className="border-b border-border/70 bg-gradient-to-r from-primary/[0.07] via-primary/[0.02] to-transparent p-3">
-            <div className="flex items-center gap-2.5">
-              <div className="shrink-0 rounded-xl bg-primary/10 p-2">
-                <ClipboardList className="h-4 w-4 text-primary" />
-              </div>
-              <CardTitle className="text-sm font-bold leading-tight">Concerns from the Calling Center</CardTitle>
-            </div>
-          </CardHeader>
-          <CardContent className="p-3 text-xs leading-relaxed text-muted-foreground">
-            When someone in the Calling Center passes a caller's concern to you, it lands here. Confirm you have it,
-            work on it, then write what you did before marking it completed. Nothing is ever deleted — every step stays
-            on the record.
-            {openCount > 0 && (
-              <span className="mt-1.5 flex items-center gap-1.5 font-semibold text-warning">
-                <AlertTriangle className="h-3.5 w-3.5" />
-                {openCount} waiting for you.
-              </span>
-            )}
-          </CardContent>
-        </Card>
+        <div className="flex items-center gap-3 rounded-2xl border border-border/70 bg-card p-3.5 shadow-sm">
+          <div className="shrink-0 rounded-xl bg-primary/10 p-2.5">
+            <ClipboardList className="h-5 w-5 text-primary" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-sm font-semibold">Calling Center concerns</p>
+            <p className="text-xs text-muted-foreground">Tap a concern to see details and update it.</p>
+          </div>
+          {openCount > 0 && (
+            <span className="ml-auto flex shrink-0 items-center gap-1 rounded-full bg-warning/15 px-2.5 py-1 text-xs font-semibold text-warning">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              {openCount}
+            </span>
+          )}
+        </div>
 
         <Tabs defaultValue="to_me">
           <div className="sticky top-0 z-20 -mx-1 overflow-x-auto bg-background/95 px-1 py-2 backdrop-blur supports-[backdrop-filter]:bg-background/85">
