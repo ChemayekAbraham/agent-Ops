@@ -25,7 +25,7 @@ import { formatUGX } from '@/lib/creditFeeCalculations';
  */
 
 const POLL_MS = 5 * 60 * 1000;
-const SNOOZE_MS = 2 * 60 * 60 * 1000;
+const SNOOZE_MS = 60 * 60 * 1000;
 const WORKING_MS = 30 * 60 * 1000;
 
 interface Prompt {

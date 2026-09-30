@@ -17,8 +17,8 @@ import { supabase } from '@/integrations/supabase/client';
  * Answers are recorded only; nothing on any payslip changes because of them.
  */
 
-const POLL_MS = 10 * 60 * 1000;
-const SNOOZE_MS = 24 * 60 * 60 * 1000;
+const POLL_MS = 5 * 60 * 1000;
+const SNOOZE_MS = 60 * 60 * 1000;
 const PERCENTAGES = Array.from({ length: 20 }, (_, i) => (i + 1) * 5);
 
 interface Survey {
