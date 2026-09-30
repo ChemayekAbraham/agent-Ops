@@ -10,6 +10,9 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/creditFeeCalculations';
 import { requisitionApprovalError } from '@/lib/requisitionApprovalError';
+import {
+  APPROVAL_TOAST_OPTIONS, REQUISITION_APPROVED_MESSAGE,
+} from './approvalToast';
 
 /**
  * Blocking facilitation approval prompt — for the named approver only.
@@ -98,7 +101,10 @@ export function FacilitationApprovalGate() {
       .eq('id', prompt.requisition_id);
     setWorking(false);
     if (error) { toast.error(requisitionApprovalError(error.message)); return; }
-    toast.success('Facilitation approved');
+    toast.success(REQUISITION_APPROVED_MESSAGE, {
+      ...APPROVAL_TOAST_OPTIONS,
+      description: 'Facilitation request approved.',
+    });
     setPrompt(null);
     void load();
   };
