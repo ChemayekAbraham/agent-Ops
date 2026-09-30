@@ -19251,6 +19251,118 @@ export type Database = {
         }
         Relationships: []
       }
+      hr_pay_staff_reinvestments: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          kind: string
+          ledger_group_id: string | null
+          payout_mode: string
+          payslip_id: string
+          pending_op_id: string | null
+          percentage: number | null
+          portfolio_id: string
+          run_id: string
+          staff_id: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          id?: string
+          kind: string
+          ledger_group_id?: string | null
+          payout_mode: string
+          payslip_id: string
+          pending_op_id?: string | null
+          percentage?: number | null
+          portfolio_id: string
+          run_id: string
+          staff_id: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          kind?: string
+          ledger_group_id?: string | null
+          payout_mode?: string
+          payslip_id?: string
+          pending_op_id?: string | null
+          percentage?: number | null
+          portfolio_id?: string
+          run_id?: string
+          staff_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_pay_staff_reinvestments_payslip_id_fkey"
+            columns: ["payslip_id"]
+            isOneToOne: true
+            referencedRelation: "hr_pay_payslips"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_pay_staff_reinvestments_pending_op_id_fkey"
+            columns: ["pending_op_id"]
+            isOneToOne: false
+            referencedRelation: "pending_wallet_operations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_pay_staff_reinvestments_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_pay_staff_reinvestments_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "hr_pay_staff_reinvestments_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "hr_pay_runs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_pay_staff_reinvestments_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "hr_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_pay_staff_reinvestments_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "hr_pay_staff_reinvestments_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_note_events"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "hr_pay_staff_reinvestments_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_officers"
+            referencedColumns: ["staff_id"]
+          },
+        ]
+      }
       hr_pay_statutory_ids: {
         Row: {
           created_at: string
@@ -63964,6 +64076,10 @@ export type Database = {
       hr_pay_is_releaser: { Args: never; Returns: boolean }
       hr_pay_is_rule_admin: { Args: never; Returns: boolean }
       hr_pay_is_rule_reader: { Args: never; Returns: boolean }
+      hr_pay_is_staff_reinvest_portfolio: {
+        Args: { _portfolio_id: string }
+        Returns: boolean
+      }
       hr_pay_my_payslips: {
         Args: never
         Returns: {
@@ -63997,6 +64113,14 @@ export type Database = {
         }[]
       }
       hr_pay_position_for: { Args: { _fn: string }; Returns: string }
+      hr_pay_post_run_reinvestments: {
+        Args: { _run_id: string }
+        Returns: Json
+      }
+      hr_pay_post_staff_reinvestment: {
+        Args: { _payslip_id: string }
+        Returns: Json
+      }
       hr_pay_prompt_snooze: {
         Args: { _prompt_id: string }
         Returns: {
@@ -64054,6 +64178,21 @@ export type Database = {
           staff_id: string
           staff_ref: string
           user_id: string
+        }[]
+      }
+      hr_pay_run_reinvestments: {
+        Args: { _run_id: string }
+        Returns: {
+          amount: number
+          full_name: string
+          kind: string
+          payslip_id: string
+          percentage: number
+          portfolio_code: string
+          posted_at: string
+          return_option: string
+          staff_ref: string
+          status: string
         }[]
       }
       hr_pay_separation_ok: {
