@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { attemptYoolaPrimary } from '../_shared/yoolaPrimary.ts';
+import { requireServiceRole } from '../_shared/requireServiceRole.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,6 +15,9 @@ const fmtUGX = (n: number) => `UGX ${Math.round(Number(n) || 0).toLocaleString('
  */
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+  // System-only: texts an agent in WELILE's name, so the public anon key must not be enough.
+  const refused = await requireServiceRole(req, corsHeaders);
+  if (refused) return refused;
   try {
     const { agent_id, amount, source, mode, payments, outstanding: summaryOutstanding } = await req.json();
     if (!agent_id || !amount) {
