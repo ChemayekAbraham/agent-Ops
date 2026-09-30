@@ -188,7 +188,8 @@ export function FunderHouseListingsSection() {
 
   const filteredTotal = (readyQuery.data?.pages?.[0]?.total ?? 0) + (emptyQuery.data?.pages?.[0]?.total ?? 0);
 
-  const availableBalance = wallet.isLoading || wallet.error ? null : wallet.withdrawable;
+  // Support is funded from operational float only, never from withdrawable money.
+  const availableBalance = wallet.isLoading || wallet.error ? null : wallet.floatBalance;
 
   /**
    * District chip lists every district in the whole market (from the summary
