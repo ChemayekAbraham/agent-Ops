@@ -90,7 +90,7 @@ async function cacheData<T extends { id: string }>(
   data: T | T[]
 ): Promise<void> {
   try {
-    return withDb(async (db) => {
+    return await withDb(async (db) => {
     const tx = db.transaction(storeName, 'readwrite');
     const store = tx.objectStore(storeName);
 
@@ -112,7 +112,7 @@ async function cacheData<T extends { id: string }>(
 
 async function getCachedData<T>(storeName: string, id?: string): Promise<T | T[] | null> {
   try {
-    return withDb(async (db) => {
+    return await withDb(async (db) => {
     const tx = db.transaction(storeName, 'readonly');
     const store = tx.objectStore(storeName);
     const request = id ? store.get(id) : store.getAll();
@@ -130,7 +130,7 @@ async function getCachedData<T>(storeName: string, id?: string): Promise<T | T[]
 
 async function clearStore(storeName: string): Promise<void> {
   try {
-    return withDb(async (db) => {
+    return await withDb(async (db) => {
     const tx = db.transaction(storeName, 'readwrite');
     tx.objectStore(storeName).clear();
 
@@ -260,7 +260,7 @@ export async function getSyncQueue(): Promise<SyncQueueItem[]> {
 
 export async function removeFromSyncQueue(id: string): Promise<void> {
   try {
-    return withDb(async (db) => {
+    return await withDb(async (db) => {
     const tx = db.transaction(STORES.SYNC_QUEUE, 'readwrite');
     tx.objectStore(STORES.SYNC_QUEUE).delete(id);
 
@@ -277,7 +277,7 @@ export async function removeFromSyncQueue(id: string): Promise<void> {
 
 export async function updateSyncQueueItem(id: string, updates: Partial<SyncQueueItem>): Promise<void> {
   try {
-    return withDb(async (db) => {
+    return await withDb(async (db) => {
     const tx = db.transaction(STORES.SYNC_QUEUE, 'readwrite');
     const store = tx.objectStore(STORES.SYNC_QUEUE);
     const request = store.get(id);

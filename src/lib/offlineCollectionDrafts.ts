@@ -137,6 +137,7 @@ async function nextProvisionalReceipt(agentId: string): Promise<string> {
   await new Promise<void>((resolve, reject) => {
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
       tx.onabort = () => reject(tx.error);
   });
   const short = agentId.replace(/-/g, '').slice(0, 3).toUpperCase();
@@ -182,6 +183,7 @@ export async function captureOfflineDraft(input: CaptureDraftInput): Promise<Off
   await new Promise<void>((resolve, reject) => {
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
       tx.onabort = () => reject(tx.error);
   });
   return draft;
@@ -189,6 +191,15 @@ export async function captureOfflineDraft(input: CaptureDraftInput): Promise<Off
 }
 
 export async function listDrafts(agentId: string): Promise<OfflineCollectionDraft[]> {
+  try {
+    return await listDraftsUnsafe(agentId);
+  } catch (error) {
+    console.warn('[OfflineCollections] Failed to list drafts:', error);
+    return [];
+  }
+}
+
+async function listDraftsUnsafe(agentId: string): Promise<OfflineCollectionDraft[]> {
   return withDb(async (db) => {
   const tx = db.transaction(STORE, 'readonly');
   const idx = tx.objectStore(STORE).index('agent_id');
@@ -232,6 +243,7 @@ export async function updateDraft(
     };
     r.onerror = () => reject(r.error);
     tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
       tx.onabort = () => reject(tx.error);
   });
   });
@@ -255,6 +267,7 @@ export async function deleteDraft(draftId: string): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
+    tx.onabort = () => reject(tx.error);
       tx.onabort = () => reject(tx.error);
   });
   });

@@ -79,7 +79,7 @@ async function withDb<T>(fn: (db: IDBDatabase) => Promise<T> | T): Promise<T> {
 // Conversations
 export async function cacheConversations(conversations: any[]): Promise<void> {
   try {
-    return withDb(async (db) => {
+    return await withDb(async (db) => {
     const tx = db.transaction(CONVERSATIONS_STORE, 'readwrite');
     const store = tx.objectStore(CONVERSATIONS_STORE);
 
@@ -100,7 +100,7 @@ export async function cacheConversations(conversations: any[]): Promise<void> {
 
 export async function getCachedConversations(): Promise<any[]> {
   try {
-    return withDb(async (db) => {
+    return await withDb(async (db) => {
     const tx = db.transaction(CONVERSATIONS_STORE, 'readonly');
     const store = tx.objectStore(CONVERSATIONS_STORE);
     const request = store.getAll();
@@ -119,7 +119,7 @@ export async function getCachedConversations(): Promise<any[]> {
 // Messages
 export async function cacheMessages(conversationId: string, messages: any[]): Promise<void> {
   try {
-    return withDb(async (db) => {
+    return await withDb(async (db) => {
     const tx = db.transaction(MESSAGES_STORE, 'readwrite');
     const store = tx.objectStore(MESSAGES_STORE);
 
@@ -140,7 +140,7 @@ export async function cacheMessages(conversationId: string, messages: any[]): Pr
 
 export async function getCachedMessages(conversationId: string): Promise<any[]> {
   try {
-    return withDb(async (db) => {
+    return await withDb(async (db) => {
     const tx = db.transaction(MESSAGES_STORE, 'readonly');
     const store = tx.objectStore(MESSAGES_STORE);
     const index = store.index('conversationId');
@@ -160,7 +160,7 @@ export async function getCachedMessages(conversationId: string): Promise<any[]> 
 // Pending Messages (offline queue)
 export async function queuePendingMessage(message: PendingMessage): Promise<void> {
   try {
-    return withDb(async (db) => {
+    return await withDb(async (db) => {
     const tx = db.transaction(PENDING_MESSAGES_STORE, 'readwrite');
     const store = tx.objectStore(PENDING_MESSAGES_STORE);
     store.put(message);
@@ -178,7 +178,7 @@ export async function queuePendingMessage(message: PendingMessage): Promise<void
 
 export async function getPendingMessages(): Promise<PendingMessage[]> {
   try {
-    return withDb(async (db) => {
+    return await withDb(async (db) => {
     const tx = db.transaction(PENDING_MESSAGES_STORE, 'readonly');
     const store = tx.objectStore(PENDING_MESSAGES_STORE);
     const request = store.getAll();
@@ -196,7 +196,7 @@ export async function getPendingMessages(): Promise<PendingMessage[]> {
 
 export async function getPendingMessagesForConversation(conversationId: string): Promise<PendingMessage[]> {
   try {
-    return withDb(async (db) => {
+    return await withDb(async (db) => {
     const tx = db.transaction(PENDING_MESSAGES_STORE, 'readonly');
     const store = tx.objectStore(PENDING_MESSAGES_STORE);
     const index = store.index('conversationId');
@@ -215,7 +215,7 @@ export async function getPendingMessagesForConversation(conversationId: string):
 
 export async function removePendingMessage(messageId: string): Promise<void> {
   try {
-    return withDb(async (db) => {
+    return await withDb(async (db) => {
     const tx = db.transaction(PENDING_MESSAGES_STORE, 'readwrite');
     const store = tx.objectStore(PENDING_MESSAGES_STORE);
     store.delete(messageId);
@@ -236,7 +236,7 @@ export async function updatePendingMessageStatus(
   status: 'pending' | 'sending' | 'failed'
 ): Promise<void> {
   try {
-    return withDb(async (db) => {
+    return await withDb(async (db) => {
     const tx = db.transaction(PENDING_MESSAGES_STORE, 'readwrite');
     const store = tx.objectStore(PENDING_MESSAGES_STORE);
     const request = store.get(messageId);
@@ -279,7 +279,7 @@ export async function getLastSyncTime(): Promise<string | null> {
 // Clear all offline data
 export async function clearOfflineData(): Promise<void> {
   try {
-    return withDb(async (db) => {
+    return await withDb(async (db) => {
     const tx = db.transaction(
       [CONVERSATIONS_STORE, MESSAGES_STORE, PENDING_MESSAGES_STORE], 
       'readwrite'
