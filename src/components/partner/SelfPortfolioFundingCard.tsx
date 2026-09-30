@@ -1813,11 +1813,16 @@ export function SelfPortfolioFundingCard({
           selectedHouses={selectedHouseObjects}
           activeHouseCommitment={activeHouseCommitment}
           confirmRequestKey={fundConfirmKey}
+          refreshAvailable={async () => {
+            const fresh = await plansQuery.refetch();
+            return Math.max(0, (fresh.data?.available ?? 0) - total);
+          }}
 
           onSubmitted={async (outcome) => {
             setHouseSelected([]);
             setDiscoveredHouses({});
-            await housesQuery.refetch();
+            // The held amount lowers available float; re-read it with the list.
+            await Promise.all([housesQuery.refetch(), plansQuery.refetch()]);
             if (outcome === 'submitted') {
               setPlacementRefresh((k) => k + 1);
               await loadFunded();

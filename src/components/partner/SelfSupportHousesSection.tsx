@@ -342,6 +342,7 @@ export function HouseSupportBar({
   activeHouseCommitment,
   onSubmitted,
   confirmRequestKey,
+  refreshAvailable,
 }: {
   selectedCount: number;
   total: number;
@@ -365,9 +366,32 @@ export function HouseSupportBar({
    * still goes through the dialog's confirm button — nothing auto-submits.
    */
   confirmRequestKey?: string | null;
+  /**
+   * Re-reads the partner's available operational float from the server. The
+   * `available` prop comes from a query cached for minutes, so a partner whose
+   * float changed since the page loaded could see the Fund button refuse a
+   * selection they can actually afford. Called before the confirm dialog opens
+   * and before submitting. Returns the fresh figure.
+   */
+  refreshAvailable?: () => Promise<number>;
 }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [target, setTarget] = useState<'existing' | 'new'>('existing');
+  // Fresh server figure once re-read; falls back to the cached prop.
+  const [freshAvailable, setFreshAvailable] = useState<number | null>(null);
+  // Set after a successful submission. The selection is only cleared — and the
+  // funded houses only leave the list — when the partner closes this dialog,
+  // because clearing it unmounts this bar (and anything rendered inside it).
+  const [success, setSuccess] = useState<{
+    total: number;
+    count: number;
+    topup: boolean;
+    portfolioCode: string | null;
+    houses: SupportableHouse[];
+  } | null>(null);
+  // The last submission error, shown inside the confirm dialog so it cannot be
+  // missed the way a transient toast can.
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   // An outside request (balance-ready notification) opens the same confirm
   // dialog the "Fund these houses" button opens. Keyed on change so repeated
@@ -375,59 +399,101 @@ export function HouseSupportBar({
   useEffect(() => {
     if (confirmRequestKey) setConfirmOpen(true);
   }, [confirmRequestKey]);
-  const overBudget = total > available;
+  const effectiveAvailable = freshAvailable ?? available;
+  const overBudget = total > effectiveAvailable;
   const canTopUp = !!activeHouseCommitment;
   const useExisting = canTopUp && target === 'existing';
 
-  const doSubmit = async () => {
-    if (total < HOUSE_MIN_FUNDING) {
-      toast.error(`Minimum funding is ${formatDynamic(HOUSE_MIN_FUNDING)}.`);
+  // Re-read the float from the server; never trust a cached figure to refuse.
+  const readFreshAvailable = async (): Promise<number> => {
+    if (!refreshAvailable) return effectiveAvailable;
+    try {
+      const fresh = await refreshAvailable();
+      setFreshAvailable(fresh);
+      return fresh;
+    } catch {
+      return effectiveAvailable;
+    }
+  };
+
+  const openConfirm = async () => {
+    setSubmitError(null);
+    const fresh = await readFreshAvailable();
+    if (total > fresh) {
+      toast.error('Your operational float is not enough for this selection.', {
+        description: `Available: ${formatDynamic(fresh)} · Selected: ${formatDynamic(total)}.`,
+      });
       return;
     }
-    if (overBudget) {
-      toast.error('Your operational float is not enough for this selection.');
+    setConfirmOpen(true);
+  };
+
+  const describeError = (raw: string): string => {
+    if (raw.includes('AGREEMENT_REQUIRED')) {
+      return 'Sign your partner agreement first. A signed partnership agreement is required before you can create a portfolio.';
+    }
+    if (raw.includes('HOUSES_UNAVAILABLE')) return 'Some houses are no longer available. Refresh and reselect.';
+    if (raw.includes('PARTNER_FUNDS_SHORT')) return 'Your operational float does not cover this selection.';
+    if (raw.includes('PORTFOLIO_KIND_MISMATCH')) return 'That portfolio funds rent plans. Houses start their own portfolio.';
+    if (raw.includes('PSM_TOPUP_WINDOW_CLOSED')) return raw.replace(/^.*PSM_TOPUP_WINDOW_CLOSED:\s*/, '');
+    return raw;
+  };
+
+  const doSubmit = async () => {
+    setSubmitError(null);
+    if (total < HOUSE_MIN_FUNDING) {
+      const msg = `Minimum funding is ${formatDynamic(HOUSE_MIN_FUNDING)}.`;
+      setSubmitError(msg);
+      toast.error(msg);
       return;
     }
     setBusy(true);
     try {
-      const { error } = await supabase.rpc('partner_support_houses', {
+      const fresh = await readFreshAvailable();
+      if (total > fresh) {
+        throw new Error('PARTNER_FUNDS_SHORT');
+      }
+      const { data, error } = await supabase.rpc('partner_support_houses', {
         p_house_ids: selectedIds,
         p_term_months: 1,
         p_commitment_id: useExisting ? activeHouseCommitment!.id : null,
       });
       if (error) throw error;
-      toast.success('Submitted — pending approval', {
-        description: useExisting
-          ? `Partner Operations will review the ${formatDynamic(total)} you added to your existing house portfolio. Your money stays in your wallet until it is approved.`
-          : `Partner Operations will review your ${formatDynamic(total)} house portfolio. Your money stays in your wallet until it is approved, and your confirmation email is sent once approval goes through.`,
-        duration: 9000,
-      });
+      const result = (data ?? {}) as { portfolio_code?: string | null };
       setConfirmOpen(false);
-      onSubmitted('submitted');
+      setSuccess({
+        total,
+        count: selectedCount,
+        topup: useExisting,
+        portfolioCode: result.portfolio_code ?? activeHouseCommitment?.portfolio_code ?? null,
+        houses: selectedHouses ?? [],
+      });
     } catch (e) {
-      const raw = e instanceof Error ? e.message : 'Submission failed';
-      if (raw.includes('AGREEMENT_REQUIRED')) {
-        toast.error('Sign your partner agreement first', {
-          description: 'A signed partnership agreement is required before you can create a portfolio.',
-        });
-      } else if (raw.includes('HOUSES_UNAVAILABLE')) {
-        toast.error('Some houses are no longer available. Refresh and reselect.');
+      const raw = e instanceof Error ? e.message : (e as { message?: string })?.message ?? 'Submission failed';
+      // Leave a trace for support: a failed submit used to leave nothing behind.
+      console.error('[house-support] submit failed', { raw, selectedIds, total });
+      const msg = describeError(raw);
+      setSubmitError(msg);
+      toast.error(msg);
+      if (raw.includes('PORTFOLIO_KIND_MISMATCH') || raw.includes('PSM_TOPUP_WINDOW_CLOSED')) {
+        setTarget('new');
+      }
+      if (raw.includes('HOUSES_UNAVAILABLE')) {
         setConfirmOpen(false);
         onSubmitted('stale');
-      } else if (raw.includes('PARTNER_FUNDS_SHORT')) {
-        toast.error('Your operational float does not cover this selection.');
-      } else if (raw.includes('PORTFOLIO_KIND_MISMATCH')) {
-        setTarget('new');
-        toast.error('That portfolio funds rent plans. Houses start their own portfolio.');
-      } else if (raw.includes('PSM_TOPUP_WINDOW_CLOSED')) {
-        setTarget('new');
-        toast.error(raw.replace(/^.*PSM_TOPUP_WINDOW_CLOSED:\s*/, ''));
-      } else {
-        toast.error(raw);
       }
     } finally {
       setBusy(false);
     }
+  };
+
+  // Closing the success dialog is what clears the selection and removes the
+  // funded houses from the list (the parent refetches; the server no longer
+  // offers a house once it is pending or active).
+  const closeSuccess = () => {
+    setSuccess(null);
+    setFreshAvailable(null);
+    onSubmitted('submitted');
   };
 
 
@@ -444,8 +510,8 @@ export function HouseSupportBar({
           </div>
           <FundHouseTooltip>
             <Button
-              onClick={() => setConfirmOpen(true)}
-              disabled={busy || total < HOUSE_MIN_FUNDING || overBudget}
+              onClick={() => void openConfirm()}
+              disabled={busy || total < HOUSE_MIN_FUNDING}
               className="shrink-0 w-full sm:w-auto"
             >
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
@@ -466,7 +532,7 @@ export function HouseSupportBar({
 
         {overBudget ? (
           <p className="mt-2 text-[10px] font-semibold text-destructive">
-            Add {formatDynamic(total - available)} to your balance to fund this selection. Your{' '}
+            Add {formatDynamic(total - effectiveAvailable)} to your balance to fund this selection. Your{' '}
             {selectedCount > 1 ? 'houses stay' : 'house stays'} picked while you top up.
           </p>
         ) : (
@@ -616,6 +682,11 @@ export function HouseSupportBar({
               Your money stays in your wallet until approval. You can track this portfolio under your
               Self-Managed Portfolio once it is active.
             </p>
+            {submitError && (
+              <p role="alert" className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-xs font-semibold text-destructive">
+                {submitError}
+              </p>
+            )}
           </div>
 
           <DialogFooter className="px-4 sm:px-6 py-3 border-t bg-muted/30 flex-row justify-end gap-2">
@@ -628,6 +699,46 @@ export function HouseSupportBar({
                 <span className="ml-2">Yes, fund these houses</span>
               </Button>
             </FundHouseTooltip>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Success — closing it clears the selection and removes the funded houses from the list. */}
+      <Dialog open={!!success} onOpenChange={(open) => { if (!open) closeSuccess(); }}>
+        <DialogContent className="w-[95vw] max-w-md p-0 gap-0 overflow-hidden">
+          <DialogHeader className="px-4 sm:px-6 py-4 border-b">
+            <DialogTitle className="text-base sm:text-lg flex items-center gap-2">
+              <Check className="h-4 w-4 text-primary" /> Submitted for approval
+            </DialogTitle>
+            <DialogDescription className="text-xs sm:text-sm">
+              {success?.topup
+                ? `You added ${formatDynamic(success?.total ?? 0)} to your house portfolio${success?.portfolioCode ? ` ${success.portfolioCode}` : ''}.`
+                : `Your ${formatDynamic(success?.total ?? 0)} house portfolio has been created.`}{' '}
+              Partner Operations will review it now.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="px-4 sm:px-6 py-4 space-y-3 text-xs">
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 space-y-1">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Houses supported</span>
+                <span className="font-black text-foreground">{success?.count ?? 0}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Amount</span>
+                <span className="font-black text-foreground">{formatDynamic(success?.total ?? 0)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Status</span>
+                <span className="font-black text-primary">Pending Partner Operations approval</span>
+              </div>
+            </div>
+            <p className="text-muted-foreground leading-relaxed">
+              {formatDynamic(success?.total ?? 0)} of your operational float is now held for this portfolio, so
+              your available float is lower. It leaves your wallet only when Partner Operations approve.
+            </p>
+          </div>
+          <DialogFooter className="px-4 sm:px-6 py-3 border-t bg-muted/30 flex-row justify-end">
+            <Button size="sm" onClick={closeSuccess}>Done</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

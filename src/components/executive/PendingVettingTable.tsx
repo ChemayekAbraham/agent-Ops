@@ -133,7 +133,10 @@ export function PendingVettingTable() {
       name: r.funder_name || r.funder_email || 'Partner',
       contact: r.funder_phone || r.funder_email || '—',
       amount: Number(r.amount) || 0,
-      detail: r.source === 'self_managed' ? 'Supporting tenants directly' : 'Rent pool',
+      detail: r.source === 'self_managed' ? 'Supporting tenants directly'
+        : r.source === 'self_managed_house' ? 'Supporting a house'
+        : r.source === 'self_managed_house_topup' ? 'Adding houses to a house portfolio'
+        : 'Rent pool',
       tenants: Number(r.lines_count) || 0,
       term_months: Number(r.term_months) || null,
       registered_by: null,
