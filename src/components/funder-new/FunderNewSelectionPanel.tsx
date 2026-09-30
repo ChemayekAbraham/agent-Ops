@@ -1,4 +1,5 @@
-import { Home, Info, ShieldCheck, Trash2, Wallet, X } from 'lucide-react';
+import { useState } from 'react';
+import { Home, Loader2, Info, ShieldCheck, Trash2, Wallet, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -76,6 +77,7 @@ export function FunderNewReviewDialog({
   walletError,
   onRemove,
   onFund,
+  onTopUp,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -85,8 +87,12 @@ export function FunderNewReviewDialog({
   walletError: unknown;
   onRemove: (item: FunderNewSelectionItem) => void;
   /** Called with the total and the shortfall (0 when the balance covers it). */
-  onFund?: (total: number, shortfall: number) => void;
+  onFund?: (total: number, shortfall: number) => void | Promise<void>;
+  /** Called when the balance is too low; defaults to opening the deposit dialog. */
+  onTopUp?: (shortfall: number) => void;
 }) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const total = items.reduce((sum, item) => sum + item.amount, 0);
   const shortfall = available === null ? null : Math.max(0, total - available);
 
@@ -162,19 +168,70 @@ export function FunderNewReviewDialog({
           completed. Returns shown are estimates at the current 15% rate.
         </p>
 
-        {onFund && items.length > 0 ? (
+        {items.length > 0 ? (
           <Button
             className="h-12 w-full gap-2 bg-emerald-600 text-base font-bold text-white hover:bg-emerald-700"
             disabled={walletLoading || available === null}
-            onClick={() => onFund(total, shortfall ?? 0)}
+            onClick={() => {
+              if (shortfall !== null && shortfall > 0) {
+                onOpenChange(false);
+                if (onTopUp) onTopUp(shortfall);
+                else window.dispatchEvent(new Event('open-deposit'));
+              } else if (onFund) {
+                setConfirmOpen(true);
+              }
+            }}
           >
             <Wallet className="h-4 w-4" />
-            {shortfall !== null && shortfall > 0
-              ? `Fund — top up ${formatDynamic(shortfall)}`
-              : `Fund this plan — ${formatDynamic(total)}`}
+            {shortfall !== null && shortfall > 0 ? 'Top up Now' : 'Fund this plan'}
           </Button>
         ) : null}
       </DialogContent>
+
+      <Dialog open={confirmOpen} onOpenChange={(o) => { if (!submitting) setConfirmOpen(o); }}>
+        <DialogContent className="max-h-[92vh] max-w-md overflow-y-auto rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Confirm your support</DialogTitle>
+            <DialogDescription>Please review this summary. Support is only submitted when you confirm.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 rounded-2xl border bg-muted/40 p-4 text-sm">
+            <div className="flex justify-between gap-3"><span className="text-muted-foreground">Homes</span><span className="font-semibold">{items.length}</span></div>
+            <div className="flex justify-between gap-3"><span className="text-muted-foreground">Total support</span><span className="font-semibold">{formatDynamic(total)}</span></div>
+            <div className="flex justify-between gap-3"><span className="text-muted-foreground">Monthly at 15%</span><span className="font-semibold text-success">{formatDynamic(monthlyAt15(total))}</span></div>
+            <div className="flex justify-between gap-3"><span className="text-muted-foreground">Balance after</span><span className="font-semibold">{formatDynamic(Math.max(0, (available ?? 0) - total))}</span></div>
+          </div>
+          <ul className="max-h-40 space-y-1 overflow-y-auto text-sm">
+            {items.map((item) => (
+              <li key={`c:${item.category}:${item.id}`} className="flex justify-between gap-3">
+                <span className="truncate">{item.title}</span>
+                <span className="flex-none font-medium">{formatDynamic(item.amount)}</span>
+              </li>
+            ))}
+          </ul>
+          <div className="flex gap-2">
+            <Button variant="outline" className="h-11 flex-1" disabled={submitting} onClick={() => setConfirmOpen(false)}>Cancel</Button>
+            <Button
+              className="h-11 flex-1 bg-emerald-600 text-white hover:bg-emerald-700"
+              disabled={submitting}
+              onClick={async () => {
+                setSubmitting(true);
+                try {
+                  await onFund?.(total, 0);
+                  setConfirmOpen(false);
+                  onOpenChange(false);
+                } catch {
+                  // The caller already reported the error; keep the summary open.
+                } finally {
+                  setSubmitting(false);
+                }
+              }}
+            >
+              {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Confirm and support
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
