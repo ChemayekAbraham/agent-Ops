@@ -27,9 +27,11 @@ interface Props {
     districtHint?: string | null;
   } | null;
   onCorrected?: (tenantId: string) => void;
+  /** When true the dialog cannot be closed until a location is saved. */
+  forced?: boolean;
 }
 
-export function CorrectTenantLocationDialog({ open, onOpenChange, tenant, onCorrected }: Props) {
+export function CorrectTenantLocationDialog({ open, onOpenChange, tenant, onCorrected, forced }: Props) {
   const [selection, setSelection] = useState<UgLocationSelection | null>(null);
   const [error, setError] = useState<string | null>(null);
   const correct = useCorrectTenantLocation();
@@ -60,8 +62,13 @@ export function CorrectTenantLocationDialog({ open, onOpenChange, tenant, onCorr
   };
 
   return (
-    <Dialog open={open} onOpenChange={(v) => (correct.isPending ? null : onOpenChange(v))}>
-      <DialogContent className="w-[calc(100vw-1.5rem)] sm:max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl">
+    <Dialog open={open} onOpenChange={(v) => (correct.isPending || (forced && !v) ? null : onOpenChange(v))}>
+      <DialogContent
+        className={`w-[calc(100vw-1.5rem)] sm:max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl ${forced ? '[&>button.absolute]:hidden' : ''}`}
+        onEscapeKeyDown={(e) => forced && e.preventDefault()}
+        onPointerDownOutside={(e) => forced && e.preventDefault()}
+        onInteractOutside={(e) => forced && e.preventDefault()}
+      >
         <DialogHeader className="text-left">
           <DialogTitle className="flex items-center gap-2 text-base sm:text-lg">
             <MapPin className="h-4 w-4 text-primary shrink-0" />
@@ -109,14 +116,16 @@ export function CorrectTenantLocationDialog({ open, onOpenChange, tenant, onCorr
         </div>
 
         <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-2">
-          <Button
-            variant="outline"
-            className="w-full sm:w-auto"
-            onClick={() => onOpenChange(false)}
-            disabled={correct.isPending}
-          >
-            Cancel
-          </Button>
+          {!forced && (
+            <Button
+              variant="outline"
+              className="w-full sm:w-auto"
+              onClick={() => onOpenChange(false)}
+              disabled={correct.isPending}
+            >
+              Cancel
+            </Button>
+          )}
           <Button className="w-full sm:w-auto gap-1.5" onClick={save} disabled={!selection || correct.isPending}>
             {correct.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
             Save location
