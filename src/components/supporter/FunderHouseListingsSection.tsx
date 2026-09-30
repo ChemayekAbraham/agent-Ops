@@ -6,6 +6,8 @@ import { toast } from 'sonner';
 import { formatDynamic } from '@/lib/currencyFormat';
 import DepositFlow from '@/components/payments/DepositFlow';
 import { useAuth } from '@/hooks/useAuth';
+import { useProfile } from '@/hooks/useProfile';
+import { supabase } from '@/integrations/supabase/client';
 import { useWalletBalance } from '@/hooks/wallet/useWalletBalance';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -77,6 +79,7 @@ interface FeedEntry {
  */
 export function FunderHouseListingsSection() {
   const { user } = useAuth();
+  const { profile } = useProfile();
   const wallet = useWalletBalance(user?.id);
   const location = useFunderNewLocation();
   const summary = useFunderNewMarketSummary();
@@ -521,17 +524,67 @@ export function FunderHouseListingsSection() {
         walletLoading={wallet.isLoading}
         walletError={wallet.error}
         onRemove={removeSelected}
-        onFund={(total, shortfall) => {
+        onFund={async (total, shortfall) => {
           if (shortfall > 0) {
             // Not enough balance: open the deposit sheet with the exact shortfall.
             toast.info(`Not enough balance. Deposit ${formatDynamic(shortfall)} to fund this plan.`);
             setReviewOpen(false);
             setTopUpAmount(Math.ceil(shortfall));
-          } else {
-            toast.success(
-              `Your balance covers ${formatDynamic(total)}. Support starts after the usual approval step is completed.`,
-            );
-            setReviewOpen(false);
+            return;
+          }
+          const ids = selectedItems.map((i) => i.id);
+          if (ids.length === 0) return;
+          const category = selectedItems[0].category;
+          try {
+            let reference: string | null = null;
+            if (category === 'empty') {
+              // Same path as the map screen: book the homes, then submit them
+              // for the usual approval. Money only moves once approved.
+              const { data, error } = await supabase.rpc('agent_create_promissory_note_for_houses', {
+                p_payload: {
+                  partner_name: (profile?.full_name || '').trim(),
+                  whatsapp_number: (profile?.phone || '').trim(),
+                  phone_number: (profile?.phone || '').trim() || null,
+                  email: (profile?.email || user?.email || '').trim() || null,
+                  amount: Number(total || 0),
+                  contribution_type: 'once_off',
+                },
+                p_house_ids: ids,
+              });
+              if (error) throw error;
+              const note = ((data ?? {}) as { note?: { id: string } }).note;
+              if (!note) throw new Error('Booking was not created');
+              const { error: fundErr } = await supabase.rpc('funder_fund_booked_houses', {
+                p_house_ids: ids,
+                p_term_months: 1,
+                p_idempotency_key: `fund-${note.id}`,
+              });
+              if (fundErr) throw fundErr;
+              reference = note.id;
+            } else {
+              // Ready tenants: same path as the Rent Plan support dialog.
+              const { error: claimError } = await supabase.rpc('partner_self_claim_plans', {
+                p_rent_request_ids: ids,
+              });
+              if (claimError) throw claimError;
+              const { data, error } = await supabase.rpc('funder_support_tenant_direct', {
+                p_rent_request_ids: ids,
+                p_promised_deposit_date: null,
+                p_term_months: 1,
+              });
+              if (error) throw error;
+              const payload = (data ?? {}) as { commitment_id?: string; portfolio_id?: string };
+              reference = payload.commitment_id ?? payload.portfolio_id ?? null;
+            }
+            setSelectedItems([]);
+            setSelectedCategory(null);
+            window.dispatchEvent(new Event('supporter-contribution-changed'));
+            return { submitted: true, reference };
+          } catch (err: unknown) {
+            toast.error('Could not submit support', {
+              description: String((err as { message?: string })?.message || 'Please try again.'),
+            });
+            throw err;
           }
         }}
       />
