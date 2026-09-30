@@ -766,6 +766,39 @@ export default function SupporterDashboard({
         walletLoading={false}
         walletError={null}
         onRemove={() => setMapFundItem(null)}
+        onTopUp={() => { setMapFundItem(null); setShowPaymentPartners(true); }}
+        onFund={async (_total) => {
+          if (!mapFundItem) return;
+          try {
+            const houseIds = [mapFundItem.house_id];
+            const { data, error } = await supabase.rpc('agent_create_promissory_note_for_houses', {
+              p_payload: {
+                partner_name: (profile?.full_name || '').trim(),
+                whatsapp_number: (profile?.phone || '').trim(),
+                phone_number: (profile?.phone || '').trim() || null,
+                email: (profile?.email || user.email || '').trim() || null,
+                amount: Number(mapFundItem.monthly_rent || 0),
+                contribution_type: 'once_off',
+              },
+              p_house_ids: houseIds,
+            });
+            if (error) throw error;
+            const note = ((data ?? {}) as { note?: { id: string } }).note;
+            if (!note) throw new Error('Booking was not created');
+            const { error: fundErr } = await supabase.rpc('funder_fund_booked_houses', {
+              p_house_ids: houseIds,
+              p_term_months: 1,
+              p_idempotency_key: `fund-${note.id}`,
+            });
+            if (fundErr) throw fundErr;
+            toast({ title: 'Support submitted', description: 'It now goes for operational review.' });
+            window.dispatchEvent(new Event('supporter-contribution-changed'));
+            setMapFundItem(null);
+          } catch (err: unknown) {
+            toast({ title: 'Could not submit support', description: String((err as { message?: string })?.message || 'Please try again.'), variant: 'destructive' });
+            throw err;
+          }
+        }}
       />
       
       <InvestmentPackageSheet
