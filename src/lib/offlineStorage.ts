@@ -14,23 +14,27 @@ interface PendingMessage {
   status: 'pending' | 'sending' | 'failed';
 }
 
-let dbInstance: IDBDatabase | null = null;
+let dbPromise: Promise<IDBDatabase> | null = null;
+
+function resetDb(): void {
+  dbPromise = null;
+}
 
 function openDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    if (dbInstance) {
-      resolve(dbInstance);
-      return;
-    }
-
+  if (dbPromise) return dbPromise;
+  const p = new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
-
     request.onerror = () => reject(request.error);
+    request.onblocked = () => reject(new Error('IndexedDB open blocked'));
     request.onsuccess = () => {
-      dbInstance = request.result;
-      resolve(dbInstance);
+      const db = request.result;
+      db.onversionchange = () => {
+        try { db.close(); } catch { /* ignore */ }
+        resetDb();
+      };
+      db.onclose = () => resetDb();
+      resolve(db);
     };
-
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
 
@@ -52,12 +56,30 @@ function openDB(): Promise<IDBDatabase> {
       }
     };
   });
+  dbPromise = p;
+  p.catch(() => { if (dbPromise === p) resetDb(); });
+  return p;
+}
+
+function isStaleConnectionError(err: unknown): boolean {
+  const e = err as { name?: string; message?: string } | null;
+  return /closing|InvalidState|in-progress/i.test(`${e?.name ?? ''} ${e?.message ?? ''}`);
+}
+
+async function withDb<T>(fn: (db: IDBDatabase) => Promise<T> | T): Promise<T> {
+  try {
+    return await fn(await openDB());
+  } catch (err) {
+    if (!isStaleConnectionError(err)) throw err;
+    resetDb();
+    return await fn(await openDB());
+  }
 }
 
 // Conversations
 export async function cacheConversations(conversations: any[]): Promise<void> {
   try {
-    const db = await openDB();
+    return await withDb(async (db) => {
     const tx = db.transaction(CONVERSATIONS_STORE, 'readwrite');
     const store = tx.objectStore(CONVERSATIONS_STORE);
 
@@ -68,7 +90,9 @@ export async function cacheConversations(conversations: any[]): Promise<void> {
     return new Promise((resolve, reject) => {
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
     });
+  });
   } catch (error) {
     console.warn('[OfflineStorage] Failed to cache conversations:', error);
   }
@@ -76,7 +100,7 @@ export async function cacheConversations(conversations: any[]): Promise<void> {
 
 export async function getCachedConversations(): Promise<any[]> {
   try {
-    const db = await openDB();
+    return await withDb(async (db) => {
     const tx = db.transaction(CONVERSATIONS_STORE, 'readonly');
     const store = tx.objectStore(CONVERSATIONS_STORE);
     const request = store.getAll();
@@ -85,6 +109,7 @@ export async function getCachedConversations(): Promise<any[]> {
       request.onsuccess = () => resolve(request.result || []);
       request.onerror = () => reject(request.error);
     });
+  });
   } catch (error) {
     console.warn('[OfflineStorage] Failed to get cached conversations:', error);
     return [];
@@ -94,7 +119,7 @@ export async function getCachedConversations(): Promise<any[]> {
 // Messages
 export async function cacheMessages(conversationId: string, messages: any[]): Promise<void> {
   try {
-    const db = await openDB();
+    return await withDb(async (db) => {
     const tx = db.transaction(MESSAGES_STORE, 'readwrite');
     const store = tx.objectStore(MESSAGES_STORE);
 
@@ -105,7 +130,9 @@ export async function cacheMessages(conversationId: string, messages: any[]): Pr
     return new Promise((resolve, reject) => {
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
     });
+  });
   } catch (error) {
     console.warn('[OfflineStorage] Failed to cache messages:', error);
   }
@@ -113,7 +140,7 @@ export async function cacheMessages(conversationId: string, messages: any[]): Pr
 
 export async function getCachedMessages(conversationId: string): Promise<any[]> {
   try {
-    const db = await openDB();
+    return await withDb(async (db) => {
     const tx = db.transaction(MESSAGES_STORE, 'readonly');
     const store = tx.objectStore(MESSAGES_STORE);
     const index = store.index('conversationId');
@@ -123,6 +150,7 @@ export async function getCachedMessages(conversationId: string): Promise<any[]> 
       request.onsuccess = () => resolve(request.result || []);
       request.onerror = () => reject(request.error);
     });
+  });
   } catch (error) {
     console.warn('[OfflineStorage] Failed to get cached messages:', error);
     return [];
@@ -132,7 +160,7 @@ export async function getCachedMessages(conversationId: string): Promise<any[]> 
 // Pending Messages (offline queue)
 export async function queuePendingMessage(message: PendingMessage): Promise<void> {
   try {
-    const db = await openDB();
+    return await withDb(async (db) => {
     const tx = db.transaction(PENDING_MESSAGES_STORE, 'readwrite');
     const store = tx.objectStore(PENDING_MESSAGES_STORE);
     store.put(message);
@@ -140,7 +168,9 @@ export async function queuePendingMessage(message: PendingMessage): Promise<void
     return new Promise((resolve, reject) => {
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
     });
+  });
   } catch (error) {
     console.warn('[OfflineStorage] Failed to queue pending message:', error);
   }
@@ -148,7 +178,7 @@ export async function queuePendingMessage(message: PendingMessage): Promise<void
 
 export async function getPendingMessages(): Promise<PendingMessage[]> {
   try {
-    const db = await openDB();
+    return await withDb(async (db) => {
     const tx = db.transaction(PENDING_MESSAGES_STORE, 'readonly');
     const store = tx.objectStore(PENDING_MESSAGES_STORE);
     const request = store.getAll();
@@ -157,6 +187,7 @@ export async function getPendingMessages(): Promise<PendingMessage[]> {
       request.onsuccess = () => resolve(request.result || []);
       request.onerror = () => reject(request.error);
     });
+  });
   } catch (error) {
     console.warn('[OfflineStorage] Failed to get pending messages:', error);
     return [];
@@ -165,7 +196,7 @@ export async function getPendingMessages(): Promise<PendingMessage[]> {
 
 export async function getPendingMessagesForConversation(conversationId: string): Promise<PendingMessage[]> {
   try {
-    const db = await openDB();
+    return await withDb(async (db) => {
     const tx = db.transaction(PENDING_MESSAGES_STORE, 'readonly');
     const store = tx.objectStore(PENDING_MESSAGES_STORE);
     const index = store.index('conversationId');
@@ -175,6 +206,7 @@ export async function getPendingMessagesForConversation(conversationId: string):
       request.onsuccess = () => resolve(request.result || []);
       request.onerror = () => reject(request.error);
     });
+  });
   } catch (error) {
     console.warn('[OfflineStorage] Failed to get pending messages for conversation:', error);
     return [];
@@ -183,7 +215,7 @@ export async function getPendingMessagesForConversation(conversationId: string):
 
 export async function removePendingMessage(messageId: string): Promise<void> {
   try {
-    const db = await openDB();
+    return await withDb(async (db) => {
     const tx = db.transaction(PENDING_MESSAGES_STORE, 'readwrite');
     const store = tx.objectStore(PENDING_MESSAGES_STORE);
     store.delete(messageId);
@@ -191,7 +223,9 @@ export async function removePendingMessage(messageId: string): Promise<void> {
     return new Promise((resolve, reject) => {
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
     });
+  });
   } catch (error) {
     console.warn('[OfflineStorage] Failed to remove pending message:', error);
   }
@@ -202,7 +236,7 @@ export async function updatePendingMessageStatus(
   status: 'pending' | 'sending' | 'failed'
 ): Promise<void> {
   try {
-    const db = await openDB();
+    return await withDb(async (db) => {
     const tx = db.transaction(PENDING_MESSAGES_STORE, 'readwrite');
     const store = tx.objectStore(PENDING_MESSAGES_STORE);
     const request = store.get(messageId);
@@ -216,7 +250,9 @@ export async function updatePendingMessageStatus(
     return new Promise((resolve, reject) => {
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
     });
+  });
   } catch (error) {
     console.warn('[OfflineStorage] Failed to update pending message status:', error);
   }
@@ -243,7 +279,7 @@ export async function getLastSyncTime(): Promise<string | null> {
 // Clear all offline data
 export async function clearOfflineData(): Promise<void> {
   try {
-    const db = await openDB();
+    return await withDb(async (db) => {
     const tx = db.transaction(
       [CONVERSATIONS_STORE, MESSAGES_STORE, PENDING_MESSAGES_STORE], 
       'readwrite'
@@ -256,7 +292,9 @@ export async function clearOfflineData(): Promise<void> {
     return new Promise((resolve, reject) => {
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
     });
+  });
   } catch (error) {
     console.warn('[OfflineStorage] Failed to clear offline data:', error);
   }

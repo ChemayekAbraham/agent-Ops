@@ -86,7 +86,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
       }
       checkConnectionQuality();
       currentBackoffMs.current = 30000; // Reset backoff
-      syncNow();
+      syncNow().catch(() => {});
     };
 
     const handleOffline = () => {
@@ -108,7 +108,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
     checkConnectionQuality();
 
     // DEFERRED: Load pending sync count after first paint
-    const loadQueue = () => getSyncQueue().then(queue => setPendingSyncCount(queue.length));
+    const loadQueue = () => getSyncQueue().then(queue => setPendingSyncCount(queue.length)).catch(() => {});
     if ('requestIdleCallback' in window) {
       (window as any).requestIdleCallback(loadQueue, { timeout: 3000 });
     } else {
@@ -130,7 +130,7 @@ export function OfflineProvider({ children }: { children: React.ReactNode }) {
 
     const scheduleNext = () => {
       syncIntervalRef.current = window.setTimeout(async () => {
-        await syncNow();
+        await syncNow().catch(() => {});
         scheduleNext();
       }, currentBackoffMs.current);
     };

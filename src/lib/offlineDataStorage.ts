@@ -27,27 +27,27 @@ interface SyncQueueItem {
   retryCount: number;
 }
 
-let dbInstance: IDBDatabase | null = null;
+let dbPromise: Promise<IDBDatabase> | null = null;
+
+function resetDb(): void {
+  dbPromise = null;
+}
 
 function openDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    if (dbInstance) {
-      resolve(dbInstance);
-      return;
-    }
-
+  if (dbPromise) return dbPromise;
+  const p = new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-    request.onerror = () => {
-      console.error('[OfflineData] Failed to open database:', request.error);
-      reject(request.error);
-    };
-
+    request.onerror = () => reject(request.error);
+    request.onblocked = () => reject(new Error('IndexedDB open blocked'));
     request.onsuccess = () => {
-      dbInstance = request.result;
-      resolve(dbInstance);
+      const db = request.result;
+      db.onversionchange = () => {
+        try { db.close(); } catch { /* ignore */ }
+        resetDb();
+      };
+      db.onclose = () => resetDb();
+      resolve(db);
     };
-
     request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
 
@@ -64,6 +64,24 @@ function openDB(): Promise<IDBDatabase> {
       });
     };
   });
+  dbPromise = p;
+  p.catch(() => { if (dbPromise === p) resetDb(); });
+  return p;
+}
+
+function isStaleConnectionError(err: unknown): boolean {
+  const e = err as { name?: string; message?: string } | null;
+  return /closing|InvalidState|in-progress/i.test(`${e?.name ?? ''} ${e?.message ?? ''}`);
+}
+
+async function withDb<T>(fn: (db: IDBDatabase) => Promise<T> | T): Promise<T> {
+  try {
+    return await fn(await openDB());
+  } catch (err) {
+    if (!isStaleConnectionError(err)) throw err;
+    resetDb();
+    return await fn(await openDB());
+  }
 }
 
 // Generic cache and get functions
@@ -72,7 +90,7 @@ async function cacheData<T extends { id: string }>(
   data: T | T[]
 ): Promise<void> {
   try {
-    const db = await openDB();
+    return await withDb(async (db) => {
     const tx = db.transaction(storeName, 'readwrite');
     const store = tx.objectStore(storeName);
 
@@ -84,7 +102,9 @@ async function cacheData<T extends { id: string }>(
     return new Promise((resolve, reject) => {
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
     });
+  });
   } catch (error) {
     console.warn(`[OfflineData] Failed to cache ${storeName}:`, error);
   }
@@ -92,7 +112,7 @@ async function cacheData<T extends { id: string }>(
 
 async function getCachedData<T>(storeName: string, id?: string): Promise<T | T[] | null> {
   try {
-    const db = await openDB();
+    return await withDb(async (db) => {
     const tx = db.transaction(storeName, 'readonly');
     const store = tx.objectStore(storeName);
     const request = id ? store.get(id) : store.getAll();
@@ -101,6 +121,7 @@ async function getCachedData<T>(storeName: string, id?: string): Promise<T | T[]
       request.onsuccess = () => resolve(request.result || null);
       request.onerror = () => reject(request.error);
     });
+  });
   } catch (error) {
     console.warn(`[OfflineData] Failed to get ${storeName}:`, error);
     return null;
@@ -109,14 +130,16 @@ async function getCachedData<T>(storeName: string, id?: string): Promise<T | T[]
 
 async function clearStore(storeName: string): Promise<void> {
   try {
-    const db = await openDB();
+    return await withDb(async (db) => {
     const tx = db.transaction(storeName, 'readwrite');
     tx.objectStore(storeName).clear();
 
     return new Promise((resolve, reject) => {
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
     });
+  });
   } catch (error) {
     console.warn(`[OfflineData] Failed to clear ${storeName}:`, error);
   }
@@ -237,14 +260,16 @@ export async function getSyncQueue(): Promise<SyncQueueItem[]> {
 
 export async function removeFromSyncQueue(id: string): Promise<void> {
   try {
-    const db = await openDB();
+    return await withDb(async (db) => {
     const tx = db.transaction(STORES.SYNC_QUEUE, 'readwrite');
     tx.objectStore(STORES.SYNC_QUEUE).delete(id);
 
     return new Promise((resolve, reject) => {
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
     });
+  });
   } catch (error) {
     console.warn('[OfflineData] Failed to remove from sync queue:', error);
   }
@@ -252,7 +277,7 @@ export async function removeFromSyncQueue(id: string): Promise<void> {
 
 export async function updateSyncQueueItem(id: string, updates: Partial<SyncQueueItem>): Promise<void> {
   try {
-    const db = await openDB();
+    return await withDb(async (db) => {
     const tx = db.transaction(STORES.SYNC_QUEUE, 'readwrite');
     const store = tx.objectStore(STORES.SYNC_QUEUE);
     const request = store.get(id);
@@ -266,7 +291,9 @@ export async function updateSyncQueueItem(id: string, updates: Partial<SyncQueue
     return new Promise((resolve, reject) => {
       tx.oncomplete = () => resolve();
       tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
     });
+  });
   } catch (error) {
     console.warn('[OfflineData] Failed to update sync queue item:', error);
   }
