@@ -184,25 +184,39 @@ function usePipelineRequests(
   page: number,
   enabled: boolean,
   cacheKey: string,
+  sortOrder: 'newest' | 'oldest' = 'newest',
+  selectedStatus: string = 'all',
 ) {
   const { user } = useAuth();
   return useQuery({
-    queryKey: ['agent-pipeline', cacheKey, user?.id, page],
+    queryKey: ['agent-pipeline', cacheKey, user?.id, page, sortOrder, selectedStatus],
     enabled: enabled && !!user,
     queryFn: async (): Promise<{ rows: PipelineRow[]; total: number }> => {
       const from = page * PAGE_SIZE;
       const to = from + PAGE_SIZE - 1;
-      const { data, error, count } = await supabase
+      const effectiveStatuses =
+        selectedStatus !== 'all' && statuses.includes(selectedStatus)
+          ? [selectedStatus]
+          : statuses;
+
+      let query = supabase
         .from('rent_requests')
         .select(
           'id, rent_amount, total_repayment, duration_days, amount_repaid, status, created_at, disbursed_at, tenant_id, landlord_id, resubmitted_at, resubmission_count',
           { count: 'exact' },
         )
         .eq('agent_id', user!.id)
-        .in('status', statuses)
-        .order('resubmitted_at', { ascending: false, nullsFirst: false })
-        .order('created_at', { ascending: false })
-        .range(from, to);
+        .in('status', effectiveStatuses);
+
+      if (sortOrder === 'oldest') {
+        query = query.order('created_at', { ascending: true });
+      } else {
+        query = query
+          .order('resubmitted_at', { ascending: false, nullsFirst: false })
+          .order('created_at', { ascending: false });
+      }
+
+      const { data, error, count } = await query.range(from, to);
       if (error) throw error;
       const rows = (data ?? []) as PipelineRow[];
       if (rows.length === 0) return { rows: [], total: count ?? 0 };
@@ -488,12 +502,16 @@ export function AgentRequestPipelineView({
     submittedPage,
     tab === 'submitted',
     'submitted',
+    tenantSort,
+    statusFilter,
   );
   const approved = usePipelineRequests(
     APPROVED_STATUSES,
     approvedPage,
     tab === 'approved',
     'approved',
+    'newest',
+    statusFilter,
   );
   const rejectedQuery = useAgentRejectedRequests();
   const rejectedAll = rejectedQuery.data ?? [];
@@ -538,13 +556,8 @@ export function AgentRequestPipelineView({
       (submitted.data?.rows ?? [])
         .filter(filterBySearch)
         .filter(filterByStatus)
-        .filter(filterByDate)
-        .sort((a, b) => {
-          const da = new Date(a.created_at).getTime();
-          const db = new Date(b.created_at).getTime();
-          return tenantSort === 'newest' ? db - da : da - db;
-        }),
-    [submitted.data?.rows, searchQuery, statusFilter, dateFilter, tenantSort],
+        .filter(filterByDate),
+    [submitted.data?.rows, searchQuery, statusFilter, dateFilter],
   );
 
   const approvedRows = useMemo(
@@ -651,14 +664,14 @@ export function AgentRequestPipelineView({
       key: 'submitted',
       label: 'Submitted',
       icon: Send,
-      count: submittedRows.length,
+      count: submitted.data?.total ?? submittedRows.length,
       tone: 'bg-amber-500 text-white',
     },
     {
       key: 'approved',
       label: 'Ready to pay',
       icon: CheckCircle2,
-      count: approvedRows.length,
+      count: approved.data?.total ?? approvedRows.length,
       tone: 'bg-emerald-600 text-white',
     },
     {
@@ -958,7 +971,7 @@ export function AgentRequestPipelineView({
               ))}
               <Pager
                 page={submittedPage}
-                total={submittedRows.length}
+                total={submitted.data?.total ?? 0}
                 onPage={setSubmittedPage}
                 loading={submitted.isFetching}
               />
@@ -1006,7 +1019,7 @@ export function AgentRequestPipelineView({
               ))}
               <Pager
                 page={approvedPage}
-                total={approvedRows.length}
+                total={approved.data?.total ?? 0}
                 onPage={setApprovedPage}
                 loading={approved.isFetching}
               />
