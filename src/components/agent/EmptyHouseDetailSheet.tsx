@@ -407,7 +407,7 @@ export function EmptyHouseDetailSheet({
           </div>
 
           {onFund && (
-            <div className="px-1">
+            <div className="px-2">
               <Button
                 className="h-12 w-full gap-2 bg-emerald-600 px-6 text-base font-bold text-white hover:bg-emerald-700"
                 onClick={() => onFund(house)}
