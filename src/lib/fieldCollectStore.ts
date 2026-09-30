@@ -182,6 +182,14 @@ function markStorageUnavailable(cause: unknown) {
     .catch(() => {});
 }
 
+// Safety net: if any IndexedDB rejection for this page still escapes
+// unhandled, treat storage as gone so pollers stop and the agent is told once.
+if (typeof window !== 'undefined') {
+  window.addEventListener('unhandledrejection', (e) => {
+    if (isClosedConnectionError(e.reason)) markStorageUnavailable(e.reason);
+  });
+}
+
 function unavailableError(): Error {
   const err = new Error(FIELD_COLLECT_STORAGE_UNAVAILABLE_MESSAGE);
   err.name = 'OfflineStorageUnavailableError';

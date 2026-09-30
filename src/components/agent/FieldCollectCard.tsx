@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { ArrowRight, CloudUpload, WifiOff } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { getEntries, getQueuedEntries } from '@/lib/fieldCollectStore';
+import { getEntries, getQueuedEntries, isFieldCollectStorageUnavailable, onFieldCollectStorageUnavailable } from '@/lib/fieldCollectStore';
 import { formatUGX } from '@/lib/rentCalculations';
 
 interface FieldCollectCardProps {
@@ -36,6 +36,8 @@ export function FieldCollectCard({ onOpen }: FieldCollectCardProps) {
   useEffect(() => {
     refresh();
     const t = setInterval(refresh, 5000);
+    if (isFieldCollectStorageUnavailable()) clearInterval(t);
+    const offUnavailable = onFieldCollectStorageUnavailable(() => clearInterval(t));
     const on = () => setOnline(true);
     const off = () => setOnline(false);
     window.addEventListener('online', on);
