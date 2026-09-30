@@ -34,6 +34,7 @@ export function useWeeklyStreak() {
 
 export function WeeklyCollectionStreakCard({ compact = false }: { compact?: boolean }) {
   const { data, isLoading, error } = useWeeklyStreak();
+  const [helpOpen, setHelpOpen] = useState(false);
   if (isLoading) return <div className="h-40 rounded-2xl bg-muted/40 animate-pulse" />;
   if (error || !data) return <p className="text-sm text-muted-foreground">Could not load your weekly streak.</p>;
 
@@ -43,6 +44,15 @@ export function WeeklyCollectionStreakCard({ compact = false }: { compact?: bool
       <div className="flex items-center gap-2">
         <Flame className="h-5 w-5 text-warning" />
         <p className="font-bold text-[15px]">Weekly Collection Streak</p>
+        <button
+          type="button"
+          onClick={() => setHelpOpen(true)}
+          aria-label="How the Weekly Collection Streak works"
+          className="ml-auto inline-flex h-8 items-center gap-1 rounded-full border border-border/60 bg-muted/40 px-2.5 text-[11px] font-semibold text-muted-foreground hover:bg-muted/60"
+        >
+          <CircleHelp className="h-3.5 w-3.5" />
+          How it works
+        </button>
       </div>
       <p className="text-[12px] text-muted-foreground">
         Collect from <strong>every tenant</strong> each day, Monday to Sunday. Resets Monday 00:00 (Kampala time).
