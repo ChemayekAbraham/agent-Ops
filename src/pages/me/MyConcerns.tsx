@@ -86,7 +86,7 @@ function ConcernCard({
       setNote('');
       toast.success(
         action === 'completed'
-          ? 'Marked completed.'
+          ? 'Marked resolved.'
           : action === 'progress_note'
             ? 'Note added.'
             : 'Updated.',
