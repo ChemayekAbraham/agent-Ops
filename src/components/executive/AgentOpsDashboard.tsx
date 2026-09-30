@@ -325,6 +325,40 @@ export function AgentOpsDashboard() {
         </div>
       );
       case 'agents-space': return <AgentsSpacePanel mode="ops" onBack={() => setActiveView(null)} />;
+      case 'general-activities': return <AgentOpsOverview onOpenSection={handleOpenSection} />;
+      case 'agents-rent': return <AgentCollectionsCommandCenter />;
+      case 'agents-bikes': return (
+        <div className="space-y-4">
+          <AgentProductsPanel category="motor_bike" />
+          <Button variant="outline" asChild><Link to="/agent-ops/products/motor-bikes">Bike applications and orders</Link></Button>
+        </div>
+      );
+      case 'welile-merchandise': return (
+        <div className="space-y-4">
+          <AgentProductsPanel category="boutique" />
+          <Button variant="outline" asChild><Link to="/agent-ops/products/boutique">Merchandise applications and orders</Link></Button>
+        </div>
+      );
+      case 'shopping-advance': return (
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">Shopping Advance access limits are currently informational. There is no separate Agent Ops issuance or repayment register for them.</p>
+          <Button variant="outline" onClick={() => selectView('advances-analytics')}>View agent advance analytics</Button>
+        </div>
+      );
+      case 'business-advance': return <BusinessAdvanceQueue stage="agent_ops" />;
+      case 'agent-marketplace': return (
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">A separate agent Marketplace management report is not available here yet.</p>
+          <Button variant="outline" asChild><Link to="/marketplace">Open Welile Marketplace</Link></Button>
+        </div>
+      );
+      case 'welile-homes': return <WelileHomesAdminPanel />;
+      case 'agents-hope': return (
+        <div className="space-y-4">
+          <p className="text-sm text-muted-foreground">A dedicated Agents Hope management report is not available yet.</p>
+          <Button variant="outline" onClick={() => selectView('agents-space')}>Open Agents' Space</Button>
+        </div>
+      );
       case 'feature-flags': return <AgentFeatureFlagsPanel onBack={() => setActiveView(null)} />;
       case 'bulk-ops': return <AgentBulkOpsConsole onBack={() => setActiveView(null)} />;
       case 'pipeline': return <AgentOpsPipelineHub />;
@@ -466,18 +500,35 @@ export function AgentOpsDashboard() {
     { title: 'Reports', keys: ['reports-overview', 'agent-ops-report', 'portfolio-performance', 'comprehensive-report', 'products-services-report'] },
   ];
 
-  // Main content region — sub-view when one is active, else the overview / more-grid.
+  const BUSINESS_AREAS: { title: string; icon: typeof Activity; section: ActiveView }[] = [
+    { title: 'General Agents Activities', icon: Activity, section: 'general-activities' },
+    { title: 'Agent Advances', icon: HandCoins, section: 'advance-requests' },
+    { title: 'Agents Rent', icon: Banknote, section: 'agents-rent' },
+    { title: 'Agents Bikes', icon: Bike, section: 'agents-bikes' },
+    { title: 'Welile Merchandise', icon: ShoppingBag, section: 'welile-merchandise' },
+    { title: 'Service Centre as a Service', icon: Building2, section: 'sc-overview' },
+    { title: 'Welile Lending Agents', icon: UsersRound, section: 'lending-agents' },
+    { title: 'Welile Shopping Advance', icon: ShoppingBag, section: 'shopping-advance' },
+    { title: 'Welile Business Advance', icon: Briefcase, section: 'business-advance' },
+    { title: 'Welile Marketplace', icon: Store, section: 'agent-marketplace' },
+    { title: 'Welile Wallet Business', icon: Wallet, section: 'balances' },
+    { title: 'Welile Homes', icon: Building2, section: 'welile-homes' },
+    { title: 'Welile Agents Hope', icon: Sparkles, section: 'agents-hope' },
+    { title: 'Welile Agents Ranks', icon: Trophy, section: 'leaderboard' },
+  ];
+
+  // Main content region — sub-view when one is active, else the business-area home / more-grid.
   const contentRegion = activeView ? (
     <div className="space-y-4">
       {activeView !== 'agents-space' && (
         <>
-          <button
+          <Button variant="ghost"
             onClick={() => setActiveView(null)}
-            className="flex items-center gap-2 text-sm font-semibold text-primary hover:underline lg:hidden"
+            className="flex items-center gap-2 text-sm font-semibold text-primary lg:hidden"
           >
             <ChevronLeft className="h-4 w-4" />
             Back to Agent Ops Overview
-          </button>
+          </Button>
           <h2 className="text-lg font-bold">{viewLabel}</h2>
         </>
       )}
@@ -485,7 +536,25 @@ export function AgentOpsDashboard() {
     </div>
   ) : bottomTab !== 'more' ? (
     <div className="space-y-4">
-      <AgentOpsOverview onOpenSection={handleOpenSection} />
+      <h1 className="text-xl font-bold text-foreground">Agent Operations</h1>
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
+        {BUSINESS_AREAS.map(({ title, icon: Icon, section }, index) => (
+          <Button
+            key={title}
+            type="button"
+            variant="outline"
+            onClick={() => selectView(section)}
+            className="group h-auto min-h-28 w-full whitespace-normal justify-start gap-4 rounded-md border-border bg-card p-4 text-left shadow-sm hover:border-primary/50 hover:bg-muted/50"
+          >
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"><Icon className="size-5" /></span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-xs font-medium text-muted-foreground">{String(index + 1).padStart(2, '0')}</span>
+              <span className="block text-sm font-semibold leading-snug text-foreground">{title}</span>
+            </span>
+            <ChevronDown className="size-4 shrink-0 -rotate-90 text-muted-foreground transition-transform group-hover:translate-x-1" />
+          </Button>
+        ))}
+      </div>
     </div>
   ) : (
     <div className="space-y-5 pb-20 sm:pb-4">
@@ -544,15 +613,15 @@ export function AgentOpsDashboard() {
           {/* Section switcher — mobile / tablet only (desktop uses the left sidebar) */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button
+              <Button variant="outline"
                 type="button"
-                className="lg:hidden h-9 px-3 rounded-full border border-border bg-card flex items-center gap-1.5 text-xs font-semibold text-foreground hover:border-primary/30 active:scale-95 transition-all touch-manipulation"
+                className="lg:hidden h-9 px-3 gap-1.5 text-xs"
                 aria-label="All Agent Ops sections"
               >
                 <LayoutGrid className="h-4 w-4 text-primary" />
                 <span className="hidden xs:inline">All sections</span>
                 <ChevronDown className="h-3.5 w-3.5 opacity-70" />
-              </button>
+              </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-64 max-h-[70vh] overflow-y-auto">
               {MORE_GROUPS.map((group, gi) => (
