@@ -535,7 +535,6 @@ export function StaffRequisitionQueue() {
 
   const TABS: Array<{ key: TabKey; label: string }> = [
     { key: 'inbox', label: `Awaiting my review (${buckets.inbox.length})` },
-    { key: 'in_flight', label: `In progress (${buckets.in_flight.length})` },
     { key: 'returned', label: `Sent back (${buckets.returned.length})` },
     { key: 'approved', label: `Approved (${buckets.approved.length})` },
     { key: 'rejected', label: `Declined (${buckets.rejected.length})` },
