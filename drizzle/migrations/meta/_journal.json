@@ -2542,6 +2542,13 @@
       "when": 1790751002566,
       "tag": "0362_remove_service_centre_from_receivables_frame",
       "breakpoints": true
+    },
+    {
+      "idx": 363,
+      "version": "7",
+      "when": 1790751773839,
+      "tag": "0363_staff_salary_reinvestment",
+      "breakpoints": true
     }
   ]
 }
