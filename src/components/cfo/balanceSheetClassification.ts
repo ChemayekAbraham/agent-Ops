@@ -49,6 +49,7 @@ export function accountCodeOf(line: PositionLine): string | null {
 
 export const ASSET_CATEGORIES = [
   'Cash at Hand and Bank',
+  'Landlord Float Pool — Reserved Cash',
   'Agent Float — Amounts with Agents',
   'Agent and Merchant Float Cycle Control',
   'Receivables from Tenant Products and Services',
@@ -119,6 +120,11 @@ const ASSET_ACCOUNT_MAP: Record<string, string> = {
   // so they report with the tenant receivables A3 already carries.
   A18: 'Receivables from Tenant Products and Services',
   A19: 'Receivables from Tenant Products and Services',
+  // A20 registration fees on agent advances are owed by agents.
+  A20: 'Receivables from Agent Products and Services',
+  // A21/A22 are company-controlled cash reserved for landlord payments.
+  A21: 'Landlord Float Pool — Reserved Cash',
+  A22: 'Landlord Float Pool — Reserved Cash',
 };
 
 
