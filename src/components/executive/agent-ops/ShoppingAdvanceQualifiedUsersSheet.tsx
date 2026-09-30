@@ -36,6 +36,7 @@ export function ShoppingAdvanceQualifiedUsersSheet({ open, onOpenChange }: { ope
   const [path, setPath] = useState<string[]>([]);
   const [selected, setSelected] = useState<Row | null>(null);
   const [q, setQ] = useState('');
+  const [listMode, setListMode] = useState(false);
   const { data, isLoading, isError } = useQuery({
     queryKey: ['agent-ops-shopping-advance-qualified-profiles'],
     enabled: open,
@@ -61,7 +62,7 @@ export function ShoppingAdvanceQualifiedUsersSheet({ open, onOpenChange }: { ope
   }, [data, path, level.key]);
 
   const canDrill = depth < LEVELS.length - 1;
-  const showUsers = depth >= LEVELS.length - 1 || (depth > 0 && groups.length === 1 && groups[0][0] === NONE);
+  const showUsers = listMode || depth >= LEVELS.length - 1;
   const users = useMemo(() => {
     const t = q.trim().toLowerCase();
     return scoped.filter((r) => !t || `${r.full_name ?? ''} ${r.phone ?? ''}`.toLowerCase().includes(t));
@@ -83,7 +84,7 @@ export function ShoppingAdvanceQualifiedUsersSheet({ open, onOpenChange }: { ope
   ];
 
   return (
-    <Sheet open={open} onOpenChange={(o) => { if (!o) { setPath([]); setSelected(null); setQ(''); } onOpenChange(o); }}>
+    <Sheet open={open} onOpenChange={(o) => { if (!o) { setPath([]); setSelected(null); setQ(''); setListMode(false); } onOpenChange(o); }}>
       <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
         <SheetHeader>
           <SheetTitle>{selected ? (selected.full_name ?? 'Unnamed user') : 'Qualified users by location'}</SheetTitle>
@@ -106,11 +107,11 @@ export function ShoppingAdvanceQualifiedUsersSheet({ open, onOpenChange }: { ope
         ) : (
         <div className="mt-4 space-y-3">
           <div className="flex flex-wrap items-center gap-1 text-sm">
-            <Button variant="link" size="sm" className="h-auto p-0" onClick={() => setPath([])}>All</Button>
+            <Button variant="link" size="sm" className="h-auto p-0" onClick={() => { setPath([]); setListMode(false); }}>All</Button>
             {path.map((p, i) => (
               <span key={i} className="flex items-center gap-1">
                 <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                <Button variant="link" size="sm" className="h-auto p-0" onClick={() => setPath(path.slice(0, i + 1))}>{p}</Button>
+                <Button variant="link" size="sm" className="h-auto p-0" onClick={() => { setPath(path.slice(0, i + 1)); setListMode(false); }}>{p}</Button>
               </span>
             ))}
           </div>
@@ -118,6 +119,9 @@ export function ShoppingAdvanceQualifiedUsersSheet({ open, onOpenChange }: { ope
             {isLoading ? 'Loading…' : isError ? 'Unavailable' :
               `${scoped.length.toLocaleString('en-US')} users · grouped by ${level.label.toLowerCase()}`}
           </p>
+          {!showUsers && (
+            <Button variant="outline" size="sm" onClick={() => setListMode(true)}>View all {scoped.length.toLocaleString('en-US')} users here</Button>
+          )}
           {showUsers ? (
             <>
               <div className="relative"><Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -142,7 +146,7 @@ export function ShoppingAdvanceQualifiedUsersSheet({ open, onOpenChange }: { ope
                   key={name}
                   type="button"
                   disabled={!clickable}
-                  onClick={() => clickable && setPath([...path, name])}
+                  onClick={() => { if (clickable) setPath([...path, name]); }}
                   className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left text-sm hover:bg-muted/50 disabled:cursor-default disabled:hover:bg-transparent"
                 >
                   <span className={`flex items-center gap-2 ${name === NONE ? 'text-muted-foreground italic' : 'font-medium'}`}>
@@ -158,9 +162,6 @@ export function ShoppingAdvanceQualifiedUsersSheet({ open, onOpenChange }: { ope
               );
             })}
           </div>
-          )}
-          {!showUsers && depth > 0 && (
-            <Button variant="outline" size="sm" onClick={() => setPath([...path, '__users__'])} className="hidden" />
           )}
         </div>
         )}
