@@ -61003,6 +61003,10 @@ export type Database = {
         Args: { p_week_start?: string }
         Returns: Json
       }
+      get_agent_weekly_collection_streak: {
+        Args: { p_agent_id?: string }
+        Returns: Json
+      }
       get_agent_weekly_growth_forecast: {
         Args: { p_ref?: string }
         Returns: Json
