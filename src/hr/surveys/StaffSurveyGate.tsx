@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -50,6 +51,7 @@ export function StaffSurveyGate() {
   const [payout, setPayout] = useState<PayoutMode | null>(null);
   const [working, setWorking] = useState(false);
   const suppressedUntilRef = useRef(0);
+  const location = useLocation();
 
   const load = useCallback(async () => {
     if (Date.now() < suppressedUntilRef.current) return;
@@ -69,6 +71,12 @@ export function StaffSurveyGate() {
     const timer = window.setInterval(() => { void load(); }, POLL_MS);
     return () => window.clearInterval(timer);
   }, [load]);
+
+  // Re-check on every navigation, exactly like the payroll prompt, so a survey
+  // reappears promptly once its hour is up.
+  useEffect(() => {
+    void load();
+  }, [location.pathname, load]);
 
   useEffect(() => {
     setMode('ask');
