@@ -125,6 +125,8 @@ const ASSET_ACCOUNT_MAP: Record<string, string> = {
   // A21/A22 are company-controlled cash reserved for landlord payments.
   A21: 'Landlord Float Pool — Reserved Cash',
   A22: 'Landlord Float Pool — Reserved Cash',
+  // A23: Angel Pool share owned by Pius but paid from company float — owed by Pius.
+  A23: 'Receivables from Partner Products and Services',
 };
 
 
