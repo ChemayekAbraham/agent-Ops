@@ -57,13 +57,26 @@ export interface OfflineCollectionDraft {
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
+function resetDb(): void {
+  dbPromise = null;
+}
+
 function openDB(): Promise<IDBDatabase> {
   if (dbPromise) return dbPromise;
-  dbPromise = new Promise((resolve, reject) => {
-    const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onerror = () => reject(req.error);
-    req.onsuccess = () => resolve(req.result);
-    req.onupgradeneeded = (event) => {
+  const p = new Promise<IDBDatabase>((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onerror = () => reject(request.error);
+    request.onblocked = () => reject(new Error('IndexedDB open blocked'));
+    request.onsuccess = () => {
+      const db = request.result;
+      db.onversionchange = () => {
+        try { db.close(); } catch { /* ignore */ }
+        resetDb();
+      };
+      db.onclose = () => resetDb();
+      resolve(db);
+    };
+    request.onupgradeneeded = (event) => {
       const db = (event.target as IDBOpenDBRequest).result;
       if (!db.objectStoreNames.contains(STORE)) {
         const store = db.createObjectStore(STORE, { keyPath: 'draft_id' });
@@ -76,7 +89,24 @@ function openDB(): Promise<IDBDatabase> {
       }
     };
   });
-  return dbPromise;
+  dbPromise = p;
+  p.catch(() => { if (dbPromise === p) resetDb(); });
+  return p;
+}
+
+function isStaleConnectionError(err: unknown): boolean {
+  const e = err as { name?: string; message?: string } | null;
+  return /closing|InvalidState|in-progress/i.test(`${e?.name ?? ''} ${e?.message ?? ''}`);
+}
+
+async function withDb<T>(fn: (db: IDBDatabase) => Promise<T> | T): Promise<T> {
+  try {
+    return await fn(await openDB());
+  } catch (err) {
+    if (!isStaleConnectionError(err)) throw err;
+    resetDb();
+    return await fn(await openDB());
+  }
 }
 
 function tryGeolocation(): Promise<GeolocationPosition | null> {
@@ -92,7 +122,7 @@ function tryGeolocation(): Promise<GeolocationPosition | null> {
 }
 
 async function nextProvisionalReceipt(agentId: string): Promise<string> {
-  const db = await openDB();
+  return withDb(async (db) => {
   const tx = db.transaction(COUNTER_STORE, 'readwrite');
   const store = tx.objectStore(COUNTER_STORE);
   const current = await new Promise<{ agent_id: string; counter: number } | undefined>(
@@ -107,9 +137,11 @@ async function nextProvisionalReceipt(agentId: string): Promise<string> {
   await new Promise<void>((resolve, reject) => {
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
   });
   const short = agentId.replace(/-/g, '').slice(0, 3).toUpperCase();
   return `OFFL-${short}-${String(next).padStart(5, '0')}`;
+  });
 }
 
 export interface CaptureDraftInput {
@@ -144,18 +176,20 @@ export async function captureOfflineDraft(input: CaptureDraftInput): Promise<Off
     last_attempted_at: null,
   };
 
-  const db = await openDB();
+  return withDb(async (db) => {
   const tx = db.transaction(STORE, 'readwrite');
   tx.objectStore(STORE).put(draft);
   await new Promise<void>((resolve, reject) => {
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
   });
   return draft;
+  });
 }
 
 export async function listDrafts(agentId: string): Promise<OfflineCollectionDraft[]> {
-  const db = await openDB();
+  return withDb(async (db) => {
   const tx = db.transaction(STORE, 'readonly');
   const idx = tx.objectStore(STORE).index('agent_id');
   return new Promise((resolve, reject) => {
@@ -167,15 +201,17 @@ export async function listDrafts(agentId: string): Promise<OfflineCollectionDraf
     };
     req.onerror = () => reject(req.error);
   });
+  });
 }
 
 export async function getDraft(draftId: string): Promise<OfflineCollectionDraft | null> {
-  const db = await openDB();
+  return withDb(async (db) => {
   const tx = db.transaction(STORE, 'readonly');
   return new Promise((resolve, reject) => {
     const req = tx.objectStore(STORE).get(draftId);
     req.onsuccess = () => resolve((req.result as OfflineCollectionDraft) || null);
     req.onerror = () => reject(req.error);
+  });
   });
 }
 
@@ -183,7 +219,7 @@ export async function updateDraft(
   draftId: string,
   updates: Partial<OfflineCollectionDraft>,
 ): Promise<OfflineCollectionDraft | null> {
-  const db = await openDB();
+  return withDb(async (db) => {
   const tx = db.transaction(STORE, 'readwrite');
   const store = tx.objectStore(STORE);
   return new Promise((resolve, reject) => {
@@ -196,6 +232,8 @@ export async function updateDraft(
     };
     r.onerror = () => reject(r.error);
     tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+  });
   });
 }
 
@@ -211,12 +249,14 @@ export async function attachProof(
 }
 
 export async function deleteDraft(draftId: string): Promise<void> {
-  const db = await openDB();
+  return withDb(async (db) => {
   const tx = db.transaction(STORE, 'readwrite');
   tx.objectStore(STORE).delete(draftId);
   await new Promise<void>((resolve, reject) => {
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
+      tx.onabort = () => reject(tx.error);
+  });
   });
 }
 
