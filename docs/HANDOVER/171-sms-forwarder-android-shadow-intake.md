@@ -2,7 +2,7 @@
 
 **BUILT 2026-09-30, not yet applied or deployed. PHASE 1 = SHADOW ONLY: nothing here credits, debits or approves anything.**
 
-Files: `supabase/functions/sms-forwarder-ingest/index.ts`, `supabase/functions/_shared/txnParser.ts`, `supabase/migrations/20260930120000_sms_forwarder_shadow_intake.sql`, `android-sms-forwarder/` (Android Studio project), `supabase/config.toml` (verify_jwt = false for the function, it uses its own device token).
+Files: `supabase/functions/sms-forwarder-ingest/index.ts`, `supabase/functions/_shared/txnParser.ts`, `supabase/migrations/20260930120000_sms_forwarder_shadow_intake.sql`, `C:SERSSERDOCUMENTSSMS_FOWARDER` (ANDROID STUDIO PROJECT, ITS OWN GIT REPO, MOVED OUT OF THIS REPO), `supabase/config.toml` (verify_jwt = false for the function, it uses its own device token).
 
 ## Why
 
