@@ -767,6 +767,7 @@ export default function SupporterDashboard({
         walletError={null}
         onRemove={() => setMapFundItem(null)}
         onTopUp={() => { setMapFundItem(null); setShowPaymentPartners(true); }}
+        onViewPortfolio={() => { setInvestmentsTab('accounts'); setShowInvestments(true); }}
         onFund={async (_total) => {
           if (!mapFundItem) return;
           try {
@@ -791,9 +792,11 @@ export default function SupporterDashboard({
               p_idempotency_key: `fund-${note.id}`,
             });
             if (fundErr) throw fundErr;
-            toast({ title: 'Support submitted', description: 'It now goes for operational review.' });
             window.dispatchEvent(new Event('supporter-contribution-changed'));
             setMapFundItem(null);
+            // Hand the outcome back so the confirmation dialog can turn into its
+            // own success view; a toast alone disappears before it is read.
+            return { submitted: true, reference: note.id };
           } catch (err: unknown) {
             toast({ title: 'Could not submit support', description: String((err as { message?: string })?.message || 'Please try again.'), variant: 'destructive' });
             throw err;
