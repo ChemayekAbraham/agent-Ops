@@ -310,6 +310,10 @@ export async function calculateRun(runId: string): Promise<{ payslips: number; m
     earnings: PayComponentInput[];
     otherDeductions: number;
     advanceRecovery: number;
+    reinvestment: number;
+    reinvestPercentage: number | null;
+    reinvestPayoutMode: string | null;
+    reinvestCapped: boolean;
     applicability: Applicability;
     employmentType: string | null;
     exemptionBasis: string | null;
@@ -344,6 +348,19 @@ export async function calculateRun(runId: string): Promise<{ payslips: number; m
   }
 
   const recoveryAllocations: Array<{ advance_id: string; run_id: string; amount: number }> = [];
+
+  // Reinvestment pledges: each person's latest answer to the reinvestment survey,
+  // read at the moment of calculation, so a pledge made just before a recalculation
+  // is included. A decline, or no answer, means no deduction.
+  const pledgeRows = (unwrap(
+    await (supabase.rpc as any)('hr_pay_reinvest_pledges'),
+  ) ?? []) as Array<{ staff_id: string; response: string; percentage: number | null; payout_mode: string | null }>;
+  const pledgeByStaff = new Map<string, { percentage: number; payoutMode: string | null }>();
+  for (const p of pledgeRows) {
+    if (p.response === 'pledge' && num(p.percentage) > 0) {
+      pledgeByStaff.set(p.staff_id, { percentage: num(p.percentage), payoutMode: p.payout_mode ?? null });
+    }
+  }
 
   for (const [staffId, rows] of byStaff.entries()) {
     const earnings: PayComponentInput[] = rows
@@ -409,7 +426,26 @@ export async function calculateRun(runId: string): Promise<{ payslips: number; m
       lstApplicable: profile ? profile.lst_applicable !== false : true,
     };
 
-    const result = calculatePayslip(effectiveEarnings, rule, 0, otherDeductions, applicability);
+    let result = calculatePayslip(effectiveEarnings, rule, 0, otherDeductions, applicability);
+
+    // Reinvestment: the pledged percentage of gross, never more than what is left of
+    // the pay after tax and other deductions. Deducted after tax, so it never changes
+    // PAYE or NSSF.
+    const pledge = pledgeByStaff.get(staffId) ?? null;
+    let reinvestment = 0;
+    let reinvestCapped = false;
+    if (pledge) {
+      const fromGross = Math.round((result.gross * pledge.percentage) / 100);
+      const available = Math.max(0, result.net);
+      reinvestment = Math.min(fromGross, available);
+      reinvestCapped = reinvestment < fromGross;
+      if (reinvestment > 0) {
+        result = calculatePayslip(effectiveEarnings, rule, 0, otherDeductions + reinvestment, applicability);
+        result.trace.push(
+          `Salary reinvestment of ${pledge.percentage}% of gross${reinvestCapped ? ', capped at take-home pay' : ''} deducted after tax.`,
+        );
+      }
+    }
     if (replacedBasic) {
       result.trace.push(
         'Basic salary was replaced by part-month pay for this period, so the BASIC component was excluded from this payslip.',
@@ -420,6 +456,10 @@ export async function calculateRun(runId: string): Promise<{ payslips: number; m
       earnings: effectiveEarnings,
       otherDeductions,
       advanceRecovery,
+      reinvestment,
+      reinvestPercentage: pledge?.percentage ?? null,
+      reinvestPayoutMode: pledge?.payoutMode ?? null,
+      reinvestCapped,
       applicability,
       employmentType: (profile?.employment_type as string | null) ?? null,
       exemptionBasis: (profile?.exemption_basis as string | null) ?? null,
@@ -524,6 +564,12 @@ export async function calculateRun(runId: string): Promise<{ payslips: number; m
               earnings: c.earnings,
               otherDeductions: c.otherDeductions,
               advance_recovery: c.advanceRecovery,
+              reinvestment: {
+                percentage: c.reinvestPercentage,
+                payout_mode: c.reinvestPayoutMode,
+                amount: c.reinvestment,
+                capped: c.reinvestCapped,
+              },
               ruleCode: rule.code,
               periodStart,
               periodEnd,
@@ -582,6 +628,24 @@ export async function calculateRun(runId: string): Promise<{ payslips: number; m
 
   if (advanceLines.length > 0) {
     unwrap(await supabase.from('hr_pay_payslip_lines').insert(advanceLines).select('id'));
+  }
+
+  // 7b-ii. The reinvestment line, after advance recovery.
+  const reinvestLines = computed
+    .filter((c) => c.reinvestment > 0)
+    .map((c) => ({
+      payslip_id: payslipIdByStaff[c.staffId],
+      component_code: 'REINVEST',
+      name: `Salary reinvestment (${c.reinvestPercentage ?? 0}%)`,
+      kind: 'deduction',
+      quantity: 1,
+      amount: c.reinvestment,
+      taxable_at_run: false,
+      display_order: 9100,
+    }));
+
+  if (reinvestLines.length > 0) {
+    unwrap(await supabase.from('hr_pay_payslip_lines').insert(reinvestLines).select('id'));
   }
 
   // 7c. Recoveries are keyed on (advance_id, run_id) so a recalculation
