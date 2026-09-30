@@ -18,6 +18,9 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import {
+  APPROVAL_TOAST_OPTIONS, REQUISITION_APPROVED_MESSAGE,
+} from './approvalToast';
 import { cn } from '@/lib/utils';
 import { requisitionApprovalError } from '@/lib/requisitionApprovalError';
 import {
@@ -165,20 +168,10 @@ function StageBadge({ row, compact = false }: { row: StaffRequisition; compact?:
 }
 
 /**
- * Approval confirmation popup (presentation only): the same sonner toast in a
- * green success state, coloured from the shared `--success` token so it reads
- * the same in light and dark mode. No decision flow or status logic changes.
+ * Approval confirmation popup (presentation only): the shared green success
+ * state from `approvalToast`, so every desk in the chain confirms an approval
+ * the same way. No decision flow or status logic changes.
  */
-const APPROVAL_TOAST_OPTIONS = {
-  duration: 5000,
-  style: {
-    background:
-      'linear-gradient(hsl(var(--success) / 0.14), hsl(var(--success) / 0.14)), hsl(var(--background))',
-    borderColor: 'hsl(var(--success) / 0.45)',
-    color: 'hsl(var(--success))',
-    boxShadow: '0 10px 30px -12px hsl(var(--success) / 0.5)',
-  },
-};
 
 /**
  * Shared review queue for staff requisitions. Rendered on every reviewing
@@ -478,7 +471,7 @@ export function StaffRequisitionQueue() {
         toast.success(
           reduceMode
             ? `Approved at the reduced amount of ${formatUGX(amount)}`
-            : 'Requisition approved successfully.',
+            : REQUISITION_APPROVED_MESSAGE,
           APPROVAL_TOAST_OPTIONS,
         );
       } else {
