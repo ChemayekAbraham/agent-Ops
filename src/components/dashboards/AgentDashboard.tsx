@@ -83,7 +83,7 @@ import NationalIdGroupSheet from '@/components/national-id/NationalIdGroupSheet'
 import { ServiceCenterQualificationCard } from '@/components/agent/ServiceCenterQualificationCard';
 import { LastWeekWinnerOverlay } from '@/components/agent/LastWeekWinnerOverlay';
 import { WeeklyChampionTeamDialog } from '@/components/agent/WeeklyChampionTeamDialog';
-import { ListRegisterEarnDialog } from '@/components/agent/ListRegisterEarnDialog';
+import { WeeklyStreakDialog, WeeklyCollectionStreakCard } from '@/components/agent/WeeklyCollectionStreak';
 import { SubAgentInviteLinkDialog } from '@/components/agent/SubAgentInviteLinkDialog';
 import { TenantInviteLinkDialog } from '@/components/agent/TenantInviteLinkDialog';
 import SavedRentDraftsPanel from '@/components/agent/SavedRentDraftsPanel';
@@ -1106,14 +1106,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
               <LastWeekWinnerOverlay />
               <WeeklyChampionTeamDialog />
               <TenantLocationCorrectionPopup agentId={user.id} />
-              <ListRegisterEarnDialog
-                onListHouse={() => {
-                  if (!guardListingHours()) return;
-                  setListHouseFromPromo(true);
-                  setListHouseOpen(true);
-                }}
-                onRegisterTenant={() => setRentRequestOpen(true)}
-              />
+              <WeeklyStreakDialog />
               <ServiceCenterQualificationCard agentId={user.id} />
               </>
             )}
@@ -1684,6 +1677,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
               </div>
               <ChevronRight className="h-5 w-5 shrink-0 text-white/80" />
             </button>
+            <WeeklyCollectionStreakCard />
             <div className="grid grid-cols-2 gap-2.5">
               {[
                 { icon: Building2, label: 'Share Landlord', onClick: handleShareLandlordSignup },
