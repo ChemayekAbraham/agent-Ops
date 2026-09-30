@@ -56420,6 +56420,10 @@ export type Database = {
         }
         Returns: Json
       }
+      agent_ops_shopping_advance_qualified_senders: {
+        Args: never
+        Returns: number
+      }
       agent_ops_silent_collectors: {
         Args: { p_limit?: number; p_min_days_silent?: number }
         Returns: {
