@@ -416,16 +416,15 @@ export function StaffRequisitionQueue() {
       const f = fresh as { stage?: string; current_approver_role?: string | null } | null;
       if (freshErr || !f) {
         setActing(false);
-        window.alert('Caution: could not confirm the current status of this requisition. It was not approved. Please try again.');
+        toast.error('Not approved', { description: 'Status could not be confirmed. Try again.' });
         return;
       }
       if (f.stage !== 'cfo') {
         setActing(false);
-        const where = f.stage && STAGE_LABEL[f.stage] ? STAGE_LABEL[f.stage] : (f.stage || 'another');
-        const msg = ['approved', 'rejected', 'returned'].includes(f.stage || '')
-          ? `Caution: this requisition is already ${where.toLowerCase()}. It was not approved again.`
-          : `Caution: this requisition is not yet ready for CFO approval. It is still pending ${where} review. It was not approved.`;
-        window.alert(msg);
+        const where = f.stage && STAGE_LABEL[f.stage] ? STAGE_LABEL[f.stage] : (f.stage || 'another desk');
+        const settled: Record<string, string> = { approved: 'Already approved.', rejected: 'Already declined.', returned: 'Back with the requester.' };
+        const description = settled[f.stage || ''] || `Still with ${where}.`;
+        toast.error('Not approved', { description });
         await fetchAll();
         return;
       }
