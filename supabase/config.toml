@@ -253,3 +253,8 @@ verify_jwt = false
 
 [functions.rent-plan-transition-notices]
 verify_jwt = false
+
+# Android SMS forwarder authenticates with its own hashed device token, not a
+# Supabase JWT (see docs/HANDOVER/171).
+[functions.sms-forwarder-ingest]
+  verify_jwt = false
