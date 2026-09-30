@@ -2556,6 +2556,13 @@
       "when": 1790753014567,
       "tag": "0364_auto_repaying_on_landlord_payment",
       "breakpoints": true
+    },
+    {
+      "idx": 365,
+      "version": "7",
+      "when": 1790758812886,
+      "tag": "0365_agent_weekly_collection_streak",
+      "breakpoints": true
     }
   ]
 }
