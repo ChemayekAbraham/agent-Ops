@@ -36,7 +36,8 @@ export default function AgentAdvanceDetail() {
         .from('agent_advance_ledger')
         .select('*')
         .eq('advance_id', id!)
-        .order('date', { ascending: true });
+        .order('date', { ascending: true })
+        .order('created_at', { ascending: true });
       if (error) throw error;
       return data || [];
     },
