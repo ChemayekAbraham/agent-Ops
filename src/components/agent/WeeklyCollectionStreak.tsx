@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Flame, X, Check, Clock } from 'lucide-react';
+import { Flame, X, Check, Clock, CircleHelp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export const STREAK_TIERS = [
@@ -34,6 +34,7 @@ export function useWeeklyStreak() {
 
 export function WeeklyCollectionStreakCard({ compact = false }: { compact?: boolean }) {
   const { data, isLoading, error } = useWeeklyStreak();
+  const [helpOpen, setHelpOpen] = useState(false);
   if (isLoading) return <div className="h-40 rounded-2xl bg-muted/40 animate-pulse" />;
   if (error || !data) return <p className="text-sm text-muted-foreground">Could not load your weekly streak.</p>;
 
@@ -43,6 +44,15 @@ export function WeeklyCollectionStreakCard({ compact = false }: { compact?: bool
       <div className="flex items-center gap-2">
         <Flame className="h-5 w-5 text-warning" />
         <p className="font-bold text-[15px]">Weekly Collection Streak</p>
+        <button
+          type="button"
+          onClick={() => setHelpOpen(true)}
+          aria-label="How the Weekly Collection Streak works"
+          className="ml-auto inline-flex h-8 items-center gap-1 rounded-full border border-border/60 bg-muted/40 px-2.5 text-[11px] font-semibold text-muted-foreground hover:bg-muted/60"
+        >
+          <CircleHelp className="h-3.5 w-3.5" />
+          How it works
+        </button>
       </div>
       <p className="text-[12px] text-muted-foreground">
         Collect from <strong>every tenant</strong> each day, Monday to Sunday. Resets Monday 00:00 (Kampala time).
@@ -79,7 +89,48 @@ export function WeeklyCollectionStreakCard({ compact = false }: { compact?: bool
       {!data.payouts_enabled && (
         <p className="text-[11px] text-muted-foreground">Rewards are being tested this week. Automatic payouts start soon.</p>
       )}
+      <HowItWorksDialog open={helpOpen} onOpenChange={setHelpOpen} />
     </div>
+  );
+}
+
+export function HowItWorksDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="w-[calc(100vw-1rem)] sm:w-full max-w-sm p-4 gap-3 max-h-[90dvh] overflow-y-auto rounded-2xl">
+        <DialogHeader>
+          <DialogTitle className="text-lg font-bold">How it works</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 text-[13px] text-muted-foreground">
+          <p>
+            Collect from <strong className="text-foreground">every tenant due</strong> each day to mark that day
+            <strong className="text-success"> active</strong>. A day with any tenant still unpaid counts as
+            <strong className="text-destructive"> missed</strong>. Today counts while it is still in progress.
+          </p>
+          <p>
+            The week runs <strong className="text-foreground">Monday to Sunday</strong> and resets every Monday at
+            00:00 Kampala time.
+          </p>
+          <div className="rounded-xl border border-border/60 bg-muted/30 p-3 space-y-1">
+            <p className="font-semibold text-foreground text-[12px]">Weekly rewards</p>
+            <ul className="space-y-1">
+              {STREAK_TIERS.map((t) => (
+                <li key={t.active} className="flex justify-between">
+                  <span>{t.active}/7 active days</span>
+                  <span className="font-semibold tabular-nums text-foreground">{fmt(t.reward)}</span>
+                </li>
+              ))}
+              <li className="flex justify-between"><span>3 or fewer active days</span><span className="font-semibold tabular-nums">UGX 0</span></li>
+            </ul>
+          </div>
+          <p>
+            Rewards are paid automatically to your wallet the Monday after the week ends. Only real recorded
+            collections count.
+          </p>
+        </div>
+        <Button onClick={() => onOpenChange(false)} className="h-11 font-semibold">Got it</Button>
+      </DialogContent>
+    </Dialog>
   );
 }
 
