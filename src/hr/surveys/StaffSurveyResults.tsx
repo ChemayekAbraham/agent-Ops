@@ -115,7 +115,6 @@ export default function StaffSurveyResults() {
     const a = document.createElement('a');
     a.href = url;
     a.download = `${survey.code}-${rows[0]?.cycle_start ?? 'current'}-responses.csv`;
-
     a.click();
     URL.revokeObjectURL(url);
   };
