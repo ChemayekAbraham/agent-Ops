@@ -91,7 +91,6 @@ import { InvestmentPackageSheet } from '@/components/supporter/InvestmentPackage
 // FundingPoolCard removed from direct import
 import { FunderCapitalOpportunities } from '@/components/supporter/FunderCapitalOpportunities';
 import { PartnerPortfolioSection } from '@/components/supporter/portfolio/PartnerPortfolioSection';
-import { CapitalRoutesSection } from '@/components/supporter/portfolio/CapitalRoutesSection';
 import { SupportedHouseReturnsSection } from '@/components/supporter/SupportedHouseReturnsSection';
 
 import { PartnerPortfolioWalletCard } from '@/components/supporter/portfolio/PartnerPortfolioWalletCard';
@@ -511,9 +510,6 @@ export default function SupporterDashboardBackup({
             />
           </WidgetErrorBoundary>
 
-          <WidgetErrorBoundary label="Capital routes">
-            <CapitalRoutesSection />
-          </WidgetErrorBoundary>
 
           <WidgetErrorBoundary label="Your portfolio">
             <PartnerPortfolioSection
