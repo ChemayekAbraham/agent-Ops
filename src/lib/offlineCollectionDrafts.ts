@@ -138,7 +138,6 @@ async function nextProvisionalReceipt(agentId: string): Promise<string> {
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
     tx.onabort = () => reject(tx.error);
-      tx.onabort = () => reject(tx.error);
   });
   const short = agentId.replace(/-/g, '').slice(0, 3).toUpperCase();
   return `OFFL-${short}-${String(next).padStart(5, '0')}`;
@@ -184,7 +183,6 @@ export async function captureOfflineDraft(input: CaptureDraftInput): Promise<Off
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
     tx.onabort = () => reject(tx.error);
-      tx.onabort = () => reject(tx.error);
   });
   return draft;
   });
@@ -244,7 +242,6 @@ export async function updateDraft(
     r.onerror = () => reject(r.error);
     tx.onerror = () => reject(tx.error);
     tx.onabort = () => reject(tx.error);
-      tx.onabort = () => reject(tx.error);
   });
   });
 }
@@ -268,7 +265,6 @@ export async function deleteDraft(draftId: string): Promise<void> {
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
     tx.onabort = () => reject(tx.error);
-      tx.onabort = () => reject(tx.error);
   });
   });
 }
