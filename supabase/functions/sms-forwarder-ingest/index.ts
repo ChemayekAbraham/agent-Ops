@@ -101,7 +101,8 @@ Deno.serve(async (req) => {
 });
 
 /** Settle `pending` rows once Gmail has had time to ingest the same TID. */
-async function sweepComparisons(supabase: ReturnType<typeof createClient>) {
+async function sweepComparisons(supabase: // deno-lint-ignore no-explicit-any
+  any) {
   try {
     const { data: rows } = await supabase.from("sms_forwarder_messages")
       .select("id, transaction_id, uploaded_at").eq("comparison", "pending")

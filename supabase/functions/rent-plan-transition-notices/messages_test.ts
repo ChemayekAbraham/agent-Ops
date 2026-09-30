@@ -135,7 +135,7 @@ Deno.test('A2 matches the document', () => {
   const actual = agentNudgeMessage({
     rent_request_id: 'r1', agent_id: 'a1', agent_phone: '+256700000000',
     agent_name: 'TIMOTHY', landlord_name: 'John Kibalama', tenant_name: 'Aaron Gwokto',
-    amount: 100000, deadline_date: '', severity: 'reminder', hours_left: 18,
+    amount: 100000, severity: 'reminder', hours_left: 18,
     ref: '9C078BF7', deadline_time: '16:43', deadline_date: 'Tuesday 29 September',
   });
 
