@@ -23690,8 +23690,8 @@ export type Database = {
           in_pool: number | null
           origin: string
           out_with_tenants: number | null
-          partner_id: string
-          portfolio_id: string
+          partner_id: string | null
+          portfolio_id: string | null
           principal: number
           released: number
           reserve_group_id: string
@@ -23709,8 +23709,8 @@ export type Database = {
           in_pool?: number | null
           origin: string
           out_with_tenants?: number | null
-          partner_id: string
-          portfolio_id: string
+          partner_id?: string | null
+          portfolio_id?: string | null
           principal: number
           released?: number
           reserve_group_id: string
@@ -23728,8 +23728,8 @@ export type Database = {
           in_pool?: number | null
           origin?: string
           out_with_tenants?: number | null
-          partner_id?: string
-          portfolio_id?: string
+          partner_id?: string | null
+          portfolio_id?: string | null
           principal?: number
           released?: number
           reserve_group_id?: string
@@ -52393,14 +52393,14 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "engrep_file_touches_engineer_id_fkey"
-            columns: ["engineer_id"]
+            columns: ["reverted_by_engineer"]
             isOneToOne: false
             referencedRelation: "engrep_engineers"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "engrep_file_touches_engineer_id_fkey"
-            columns: ["reverted_by_engineer"]
+            columns: ["engineer_id"]
             isOneToOne: false
             referencedRelation: "engrep_engineers"
             referencedColumns: ["id"]
@@ -64767,6 +64767,10 @@ export type Database = {
         Returns: boolean
       }
       landlord_payouts_blocked_from_queue: { Args: never; Returns: boolean }
+      landlord_pool_cancel_return: {
+        Args: { p_amount: number; p_caller?: string; p_rent_request_id: string }
+        Returns: Json
+      }
       landlord_pool_cutover: { Args: never; Returns: string }
       landlord_pool_deploy: {
         Args: {
@@ -64781,6 +64785,10 @@ export type Database = {
       }
       landlord_pool_rebalance: {
         Args: { p_caller?: string; p_portfolio_id: string }
+        Returns: Json
+      }
+      landlord_pool_record_returned_principal: {
+        Args: { p_leg_id: string }
         Returns: Json
       }
       landlord_pool_reserve: {
