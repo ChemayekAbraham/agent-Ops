@@ -61,6 +61,57 @@ export type Database = {
           },
         ]
       }
+      advance_deduction_sms_summary_log: {
+        Row: {
+          agent_id: string
+          amount: number
+          created_at: string
+          id: string
+          outstanding: number
+          payments: number
+          window_end: string
+          window_start: string
+        }
+        Insert: {
+          agent_id: string
+          amount: number
+          created_at?: string
+          id?: string
+          outstanding: number
+          payments: number
+          window_end: string
+          window_start: string
+        }
+        Update: {
+          agent_id?: string
+          amount?: number
+          created_at?: string
+          id?: string
+          outstanding?: number
+          payments?: number
+          window_end?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
+      advance_deduction_sms_summary_runs: {
+        Row: {
+          agents: number
+          window_end: string
+          window_start: string
+        }
+        Insert: {
+          agents?: number
+          window_end: string
+          window_start: string
+        }
+        Update: {
+          agents?: number
+          window_end?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
       advance_fee_config: {
         Row: {
           daily_recovery_rate: number
@@ -68722,6 +68773,7 @@ export type Database = {
           withdrawable_balance: number
         }[]
       }
+      send_daily_advance_deduction_summary: { Args: never; Returns: Json }
       service_center_review_house_listing: {
         Args: { p_comment?: string; p_decision: string; p_listing_id: string }
         Returns: Json
