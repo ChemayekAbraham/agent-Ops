@@ -409,7 +409,7 @@ export function StaffRequisitionQueue() {
     // If it is still waiting on an earlier desk (supervisor, COO, CEO), stop here.
     if (actionType === 'approve' && window.location.pathname.startsWith('/cfo')) {
       const { data: fresh, error: freshErr } = await supabase
-        .from('staff_requisitions' as never)
+        .from('staff_requisitions')
         .select('stage, current_approver_role')
         .eq('id', active.id)
         .maybeSingle();
