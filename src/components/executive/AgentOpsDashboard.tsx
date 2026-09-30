@@ -630,7 +630,7 @@ export function AgentOpsDashboard() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-64 max-h-[70vh] overflow-y-auto">
-              {MORE_GROUPS.map((group, gi) => (
+              {ALL_SECTIONS.map((group, gi) => (
                 <div key={group.title}>
                   {gi > 0 && <DropdownMenuSeparator />}
                   <DropdownMenuLabel className="text-[10px] uppercase tracking-wider text-muted-foreground">
@@ -787,6 +787,8 @@ function AgentOpsSideNav({
     { title: 'Advances', keys: ['advances-analytics', 'advance-requests', 'active-advances', 'advance-potential', 'advance-limits', 'advance-repayments', 'advance-activity-correlation'] },
     { title: 'Reports', defaultOpen: true, keys: ['reports-overview', 'agent-ops-report', 'portfolio-performance', 'comprehensive-report', 'products-services-report'] },
   ];
+  const sideKeys = new Set(SIDE_GROUPS.flatMap((group) => group.keys));
+  SIDE_GROUPS.push({ title: 'Additional tools', keys: NAV_ITEMS.map((item) => item.key).filter((key) => !sideKeys.has(key)) });
 
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
     const init: Record<string, boolean> = {};
@@ -831,11 +833,11 @@ function AgentOpsSideNav({
       className="hidden lg:flex flex-col shrink-0 sticky top-0 self-start max-h-[calc(100dvh-8.5rem)] overflow-y-auto pr-2"
     >
       <nav className="space-y-3 py-1">
-        <button
+        <Button variant="ghost"
           type="button"
           onClick={onHome}
           className={cn(
-            'w-full flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-semibold transition-colors',
+            'w-full justify-start gap-2.5 px-2.5 py-2 text-sm font-semibold',
             !activeView ? 'bg-primary/10 text-primary' : 'text-foreground hover:bg-muted',
           )}
         >
@@ -843,7 +845,7 @@ function AgentOpsSideNav({
             <LayoutGrid className="h-3.5 w-3.5 text-white" />
           </span>
           <span className="truncate">Overview</span>
-        </button>
+        </Button>
 
         {SIDE_GROUPS.map((group) => {
           const containsActive = group.keys.includes(activeView as ActiveView);
