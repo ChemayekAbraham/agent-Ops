@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { AiIdBadge } from '@/components/ai-id/AiIdBadge';
 import { ChevronRight, MapPin, ArrowLeft, Search } from 'lucide-react';
 
 type Row = {
@@ -92,6 +93,7 @@ export function ShoppingAdvanceQualifiedUsersSheet({ open, onOpenChange }: { ope
         {selected ? (
           <div className="mt-4 space-y-3">
             <Button variant="ghost" size="sm" onClick={() => setSelected(null)}><ArrowLeft className="mr-1 h-4 w-4" />Back to list</Button>
+            <AiIdBadge userId={selected.user_id} variant="chip" size="sm" />
             {selected.residence_lat != null && selected.residence_lng != null && (
               <a className="inline-flex items-center gap-1 text-sm text-primary underline" target="_blank" rel="noreferrer"
                 href={`https://www.google.com/maps?q=${selected.residence_lat},${selected.residence_lng}`}>
@@ -140,13 +142,13 @@ export function ShoppingAdvanceQualifiedUsersSheet({ open, onOpenChange }: { ope
           ) : (
           <div className="divide-y divide-border rounded-md border border-border">
             {groups.map(([name, count]) => {
-              const clickable = canDrill && name !== NONE;
+              const clickable = canDrill || name === NONE;
               return (
                 <button
                   key={name}
                   type="button"
                   disabled={!clickable}
-                  onClick={() => { if (clickable) setPath([...path, name]); }}
+                  onClick={() => { if (!clickable) return; setPath([...path, name]); if (name === NONE || !canDrill) setListMode(true); }}
                   className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left text-sm hover:bg-muted/50 disabled:cursor-default disabled:hover:bg-transparent"
                 >
                   <span className={`flex items-center gap-2 ${name === NONE ? 'text-muted-foreground italic' : 'font-medium'}`}>
