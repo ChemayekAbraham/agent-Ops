@@ -494,6 +494,9 @@ export function useConcernEvent() {
     onSuccess: (_d, vars) => {
       void qc.invalidateQueries({ queryKey: ['cc-forwarded-concerns'] });
       void qc.invalidateQueries({ queryKey: ['cc-concern-events', vars.concern_id] });
+      // Refresh the reminder popup so a resolved concern drops out immediately.
+      void qc.invalidateQueries({ queryKey: ['cc-my-pending-concerns'] });
+      void qc.invalidateQueries({ queryKey: ['cc-open-concerns-directory'] });
     },
   });
 }
