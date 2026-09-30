@@ -1,6 +1,6 @@
 # 172 — One daily SMS for advance deductions taken at credit time and withdrawal time
 
-**Status: BUILT 2026-09-30, not applied, edge function not deployed.** Migration `20260930150000_advance_daily_deduction_sms_summary.sql`; edge function `notify-advance-deduction` gains a `daily_summary` mode. Deploy the function before applying the migration, otherwise the first cron run posts to the old code and sends the wrong wording.
+**Status: LIVE 2026-09-30.** Edge function `notify-advance-deduction` deployed via Lovable (commit `a2721ab7bb`), then migration `20260930150000_advance_daily_deduction_sms_summary.sql` applied via `query_database`. Verified: cron `advance-deduction-daily-sms-summary` active on `0 18 * * *`, function present, log and run tables empty. First run is 30 Sep 18:00 UTC; the SMS wording has not yet been seen end to end. Lovable also made two type-only build fixes (`sms-forwarder-ingest`, `rent-plan-transition-notices/messages_test.ts`, commit `216cda68bc`); `sms-forwarder-ingest` was not redeployed.
 
 ## Why
 
@@ -31,11 +31,11 @@ Nothing changes to any deduction, cap, balance or wallet movement. Balance quote
 
 The window query over the last 24h returns Ian 11 payments / UGX 55,360, then 9 more agents (largest 23 payments / 29,394). Roughly 10+ agents would be texted on the first run.
 
-## Deploy order
+## Deploy order (done 30 Sep)
 
 1. Deploy `notify-advance-deduction` (publish alone does not deploy edge functions; use the Lovable prompt).
 2. Apply the migration.
-3. Verify: `select * from cron.job where jobname='advance-deduction-daily-sms-summary'` returns one row. After 18:00 UTC, `advance_deduction_sms_summary_log` has one row per agent and `sms_delivery_log` has source `advance_daily_deduction_summary`.
+3. Still to verify after the first run: `select * from cron.job where jobname='advance-deduction-daily-sms-summary'` returns one row. After 18:00 UTC, `advance_deduction_sms_summary_log` has one row per agent and `sms_delivery_log` has source `advance_daily_deduction_summary`.
 
 ## Watch
 
