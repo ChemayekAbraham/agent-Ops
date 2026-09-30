@@ -1,5 +1,3 @@
-characters — copy it exactly; do not wrap, shorten or regenerate it.
-
 import { PDFDocument, StandardFonts, rgb } from "https://esm.sh/pdf-lib@1.17.1";
 
 // The Welile wordmark from the company's headed paper (163 x 59, transparent).
