@@ -11,6 +11,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/creditFeeCalculations';
 import { staffLoanSchedule } from '@/lib/staffLoanSchedule';
 import { requisitionApprovalError } from '@/lib/requisitionApprovalError';
+import {
+  APPROVAL_TOAST_OPTIONS, REQUISITION_APPROVED_MESSAGE,
+} from './approvalToast';
 
 /**
  * Blocking staff loan prompt — for the named approver only.
@@ -106,7 +109,12 @@ export function StaffLoanApprovalGate() {
       toast.error(requisitionApprovalError(error.message, prompt.kind === 'ceo' ? 'CEO' : null));
       return;
     }
-    toast.success('Loan request approved');
+    toast.success(REQUISITION_APPROVED_MESSAGE, {
+      ...APPROVAL_TOAST_OPTIONS,
+      description: prompt.kind === 'hr'
+        ? 'Forwarded to the CEO for final approval.'
+        : 'Loan request approved.',
+    });
     setPrompt(null);
     void load();
   };

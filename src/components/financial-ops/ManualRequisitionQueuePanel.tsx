@@ -9,6 +9,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { CheckCircle2, ChevronDown, ChevronUp, Loader2, Paperclip, XCircle } from 'lucide-react';
+import {
+  APPROVAL_TOAST_OPTIONS, REQUISITION_APPROVED_MESSAGE,
+} from '@/components/requisitions/approvalToast';
 
 type ReviewStage = 'coo' | 'cfo';
 
@@ -117,9 +120,17 @@ export function ManualRequisitionQueuePanel({ stage }: { stage: ReviewStage }) {
       return;
     }
 
-    toast.success(action === 'approve'
-      ? stage === 'coo' ? 'Approved and forwarded to CFO.' : 'Approved and sent to the employee wallet.'
-      : 'Manual requisition rejected.');
+    if (action === 'approve') {
+      const note = [
+        Math.abs(amount - Number(row.amount)) > 0.001
+          ? `Approved at ${row.currency} ${amount.toLocaleString('en-US')}.`
+          : null,
+        stage === 'coo' ? 'Forwarded to the CFO for approval.' : 'Wallet credit follows this approval.',
+      ].filter(Boolean).join(' ');
+      toast.success(REQUISITION_APPROVED_MESSAGE, { ...APPROVAL_TOAST_OPTIONS, description: note });
+    } else {
+      toast.success('Manual requisition rejected.');
+    }
     setExpanded(null);
     setRejectReason(prev => ({ ...prev, [row.id]: '' }));
     await load();
