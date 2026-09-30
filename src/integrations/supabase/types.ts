@@ -52224,14 +52224,14 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "engrep_file_touches_engineer_id_fkey"
-            columns: ["reverted_by_engineer"]
+            columns: ["engineer_id"]
             isOneToOne: false
             referencedRelation: "engrep_engineers"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "engrep_file_touches_engineer_id_fkey"
-            columns: ["engineer_id"]
+            columns: ["reverted_by_engineer"]
             isOneToOne: false
             referencedRelation: "engrep_engineers"
             referencedColumns: ["id"]
@@ -56419,6 +56419,43 @@ export type Database = {
           p_whitelisted: boolean
         }
         Returns: Json
+      }
+      agent_ops_shopping_advance_qualified_profiles: {
+        Args: never
+        Returns: {
+          city: string
+          continent: string
+          country: string
+          created_at: string
+          district: string
+          email: string
+          first_transfer_at: string
+          full_name: string
+          is_frozen: boolean
+          landmark: string
+          last_active_at: string
+          last_transfer_at: string
+          location_source: string
+          mobile_money_number: string
+          mobile_money_provider: string
+          national_id: string
+          occupation: string
+          parish: string
+          phone: string
+          phone_verified: boolean
+          primary_persona: string
+          region: string
+          residence_lat: number
+          residence_lng: number
+          residence_updated_at: string
+          sub_county: string
+          town: string
+          transfer_count: number
+          transfer_total: number
+          user_id: string
+          verified: boolean
+          village: string
+        }[]
       }
       agent_ops_shopping_advance_qualified_senders: {
         Args: never
