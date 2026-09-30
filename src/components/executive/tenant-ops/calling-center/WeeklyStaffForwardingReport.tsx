@@ -20,7 +20,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, CalendarRange, ChevronLeft, ChevronRight, FileText, Flame, Users } from 'lucide-react';
+import { AlertTriangle, CalendarRange, ChevronLeft, ChevronRight, FileText, Flame, TrendingUp, Users } from 'lucide-react';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -28,6 +28,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useProfile } from '@/hooks/useProfile';
 import { KPICard } from '../../KPICard';
 import { generateWeeklyForwardingPdf } from '@/lib/callingCenterWeeklyForwardingPdf';
+import { use30mAwarenessStats } from '@/hooks/use30mAwareness';
 
 const anyDb = supabase as any;
 
@@ -86,6 +87,9 @@ export function WeeklyStaffForwardingReport() {
   const [busy, setBusy] = useState(false);
 
   const win = useMemo(() => weekWindow(anchor), [anchor]);
+
+  // ---- 30M Awareness stats (additive, read-only) --------------------------
+  const awarenessQ = use30mAwarenessStats(win.fromIso, win.toIso);
 
   const shiftWeek = (weeks: number) => {
     const next = new Date(win.start);
@@ -265,6 +269,8 @@ export function WeeklyStaffForwardingReport() {
       const email = profile?.email?.trim() || user?.email?.trim() || '—';
       const pct = (n: number) => (report.grandTotal ? `${Math.round((n / report.grandTotal) * 100)}%` : '0%');
 
+      const aw = awarenessQ.data;
+
       const blob = await generateWeeklyForwardingPdf(
         {
           dayLabels: report.dayLabels,
@@ -329,6 +335,18 @@ export function WeeklyStaffForwardingReport() {
           })),
           note:
             'Each figure is the number of concerns forwarded to that staff member on that day, counting both calls we made and calls that came in. Every concern is counted once, against the staff member it was forwarded to, so a concern later shared with more reviewers is never counted twice. The "Resolved by call center" block lists the person who handled and closed the call at the Calling Center with nothing forwarded on, so every call appears either as forwarded or as resolved — never in both. "Daily total" is every staff member added together for that day; the "Weekly total" column is one staff member across the week.',
+
+          // 30M awareness stats — additive section for the PDF.
+          // Pass null if the stats were not yet loaded.
+          awareness30m: aw
+            ? {
+                totalReached: aw.totalReached,
+                awarenessBefore: aw.awarenessBefore,
+                explanationGiven: aw.explanationGiven,
+                understandingAfter: aw.understandingAfter,
+                interest: aw.interest,
+              }
+            : null,
 
         },
         {
@@ -548,6 +566,68 @@ export function WeeklyStaffForwardingReport() {
             </table>
           )}
         </div>
+        {/* ------------------------------------------------ 30M Awareness stats
+             Additive section. The existing forwarding table above is untouched.
+        */}
+        {(awarenessQ.data || awarenessQ.isLoading) && (
+          <div className="mt-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3">
+            <div className="mb-2 flex items-center gap-2">
+              <div className="rounded-lg bg-emerald-500/10 p-1.5 text-emerald-600">
+                <TrendingUp className="h-3.5 w-3.5" />
+              </div>
+              <span className="text-xs font-bold">30M Rent Plan Awareness — this week</span>
+              {awarenessQ.isLoading && (
+                <span className="text-[10px] text-muted-foreground">Loading…</span>
+              )}
+            </div>
+            {awarenessQ.data && (
+              <div className="space-y-3">
+                <p className="text-[11px] text-muted-foreground">
+                  {awarenessQ.data.totalReached} tenant{awarenessQ.data.totalReached !== 1 ? 's' : ''} reached with 30M tracking recorded.
+                </p>
+                <div className="grid grid-cols-2 gap-2 text-[11px] sm:grid-cols-4">
+                  {/* Q1 */}
+                  <div className="rounded-lg border border-border/60 bg-background/60 p-2">
+                    <p className="font-semibold text-muted-foreground">Before explanation</p>
+                    <dl className="mt-1 space-y-0.5">
+                      <div className="flex justify-between"><dt>Knew</dt><dd className="font-bold">{awarenessQ.data.awarenessBefore.knew}</dd></div>
+                      <div className="flex justify-between"><dt>Heard / unsure</dt><dd className="font-bold">{awarenessQ.data.awarenessBefore.heard}</dd></div>
+                      <div className="flex justify-between"><dt>Did not know</dt><dd className="font-bold">{awarenessQ.data.awarenessBefore.didNotKnow}</dd></div>
+                    </dl>
+                  </div>
+                  {/* Q2 */}
+                  <div className="rounded-lg border border-border/60 bg-background/60 p-2">
+                    <p className="font-semibold text-muted-foreground">Explanation given</p>
+                    <dl className="mt-1 space-y-0.5">
+                      <div className="flex justify-between"><dt>Yes</dt><dd className="font-bold">{awarenessQ.data.explanationGiven.yes}</dd></div>
+                      <div className="flex justify-between"><dt>Partly</dt><dd className="font-bold">{awarenessQ.data.explanationGiven.partly}</dd></div>
+                      <div className="flex justify-between"><dt>No</dt><dd className="font-bold">{awarenessQ.data.explanationGiven.no}</dd></div>
+                    </dl>
+                  </div>
+                  {/* Q3 */}
+                  <div className="rounded-lg border border-border/60 bg-background/60 p-2">
+                    <p className="font-semibold text-muted-foreground">After explanation</p>
+                    <dl className="mt-1 space-y-0.5">
+                      <div className="flex justify-between"><dt>Understood</dt><dd className="font-bold">{awarenessQ.data.understandingAfter.understood}</dd></div>
+                      <div className="flex justify-between"><dt>Partly</dt><dd className="font-bold">{awarenessQ.data.understandingAfter.partlyUnderstood}</dd></div>
+                      <div className="flex justify-between"><dt>Did not</dt><dd className="font-bold">{awarenessQ.data.understandingAfter.didNotUnderstand}</dd></div>
+                    </dl>
+                  </div>
+                  {/* Q4 */}
+                  <div className="rounded-lg border border-border/60 bg-background/60 p-2">
+                    <p className="font-semibold text-muted-foreground">Interest</p>
+                    <dl className="mt-1 space-y-0.5">
+                      <div className="flex justify-between"><dt>Apply now</dt><dd className="font-bold">{awarenessQ.data.interest.applyNow}</dd></div>
+                      <div className="flex justify-between"><dt>Interested later</dt><dd className="font-bold">{awarenessQ.data.interest.later}</dd></div>
+                      <div className="flex justify-between"><dt>Not interested</dt><dd className="font-bold">{awarenessQ.data.interest.notInterested}</dd></div>
+                      <div className="flex justify-between"><dt>Not sure</dt><dd className="font-bold">{awarenessQ.data.interest.notSure}</dd></div>
+                    </dl>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

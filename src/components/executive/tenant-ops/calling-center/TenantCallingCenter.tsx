@@ -10,7 +10,7 @@
  *  - nothing under `src/components/ops/calling/*` is changed. The shared
  *    `RecordOutcomeDialog` is reused as-is for engaged / callback outcomes.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -58,11 +58,29 @@ import { ReceivedCallsTab } from './ReceivedCallsTab';
 import { ConcernsReviewTab } from './ConcernsReviewTab';
 
 import { TenantCallDetailsDialog } from './TenantCallDetailsDialog';
+import { ThirtyMAwarenessDialog } from './ThirtyMAwarenessDialog';
 import {
   AUTO_CAP_CHOICES,
   DEFAULT_AUTO_CAP,
   useTenantCallCenterDialer,
 } from './useTenantCallCenterDialer';
+import { supabase } from '@/integrations/supabase/client';
+
+const anyDb = supabase as any;
+
+/** Silently fetches the tenant's current Rent Plan limit from credit_access_limits. */
+async function fetchRentPlanLimit(userId: string): Promise<number | null> {
+  try {
+    const { data } = await anyDb
+      .from('credit_access_limits')
+      .select('total_limit')
+      .eq('user_id', userId)
+      .maybeSingle();
+    return data?.total_limit != null ? Number(data.total_limit) : null;
+  } catch {
+    return null;
+  }
+}
 
 type CenterTab = 'overview' | 'queue' | 'live' | 'received' | 'concerns' | 'history' | 'forwarding' | 'settings';
 
@@ -132,6 +150,21 @@ export function TenantCallingCenter() {
   /** Second heavy History read is opt-in, so visiting the tab costs one query. */
   const [fullHistoryOpen, setFullHistoryOpen] = useState(false);
 
+  /**
+   * 30M Awareness tracking — purely additive, isolated from all calling logic.
+   * Populated when an engaged call is successfully recorded, then cleared when
+   * the awareness dialog is dismissed or saved.
+   */
+  const [awareness30m, setAwareness30m] = useState<{
+    tenantUserId: string;
+    tenantName: string;
+    ccCallId: string | null;
+    rentPlanLimitUgx: number | null;
+  } | null>(null);
+
+  /** Ref for the dialer's current subject — initialised after dialer is defined below. */
+  const dialerCurrentRef = useRef<typeof dialer.current>(null);
+
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 350);
     return () => clearTimeout(t);
@@ -157,6 +190,39 @@ export function TenantCallingCenter() {
   });
   const dialer = useTenantCallCenterDialer(hub);
   const { auto } = dialer;
+
+  // Keep the ref in sync so the onClose wrapper below can read the current
+  // subject without introducing a stale-closure dependency.
+  dialerCurrentRef.current = dialer.current;
+
+  /**
+   * onClose for RecordOutcomeDialog — a stable callback.
+   *
+   * When it detects that an engaged outcome was just recorded
+   * (hub.recordEngaged.isSuccess is true at the moment close() is called),
+   * it opens the 30M awareness dialog. All other close paths (dismiss,
+   * callback booked, cancel) fall through without showing it.
+   *
+   * The existing calling, hang-up, and feedback workflows are untouched.
+   */
+  const handleOutcomeDialogClose = useCallback(() => {
+    const subject = dialerCurrentRef.current;
+    const wasEngaged = hub.recordEngaged.isSuccess;
+    setFormAttempt(null);
+    if (!wasEngaged || !subject) return;
+    setAwareness30m({
+      tenantUserId: subject.subjectId,
+      tenantName: subject.name,
+      ccCallId: subject.attemptId,
+      rentPlanLimitUgx: null,
+    });
+    fetchRentPlanLimit(subject.subjectId).then((limit) => {
+      setAwareness30m((prev) => (prev ? { ...prev, rentPlanLimitUgx: limit } : prev));
+    });
+  // hub.recordEngaged.isSuccess is deliberately in the deps: we want a new
+  // callback identity whenever it changes so JSX sees the right value.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hub.recordEngaged.isSuccess]);
 
   /**
    * A searched tenant must be findable whatever status they are sitting in.
@@ -733,11 +799,29 @@ export function TenantCallingCenter() {
         onClose={() => setDetailsRow(null)}
       />
 
+      {/*
+       * RecordOutcomeDialog is reused as-is — NO changes to it.
+       * handleOutcomeDialogClose (declared above) triggers the 30M awareness
+       * dialog ONLY when an engaged outcome was just successfully recorded.
+       * Calling/hang-up/feedback are completely unchanged.
+       */}
       <RecordOutcomeDialog
         hub={hub}
         attempt={formAttempt}
-        onClose={() => setFormAttempt(null)}
+        onClose={handleOutcomeDialogClose}
       />
+
+      {/* 30M Awareness dialog — additive, never modifies the calling flow. */}
+      {awareness30m && (
+        <ThirtyMAwarenessDialog
+          open={!!awareness30m}
+          tenantName={awareness30m.tenantName}
+          tenantUserId={awareness30m.tenantUserId}
+          ccCallId={awareness30m.ccCallId}
+          rentPlanLimitUgx={awareness30m.rentPlanLimitUgx}
+          onClose={() => setAwareness30m(null)}
+        />
+      )}
     </div>
   );
 }

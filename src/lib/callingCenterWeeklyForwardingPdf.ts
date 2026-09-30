@@ -53,6 +53,17 @@ export interface WeeklyForwardingInput {
   /** Day-by-day view with the made/received split. */
   perDayBreakdown: { day: string; made: number; received: number; total: number; share: string }[];
   note: string;
+  /**
+   * 30M Rent Plan awareness stats for the week.
+   * Optional: omitted from the PDF section when null (no tracking yet).
+   */
+  awareness30m?: {
+    totalReached: number;
+    awarenessBefore: { knew: number; heard: number; didNotKnow: number };
+    explanationGiven: { yes: number; partly: number; no: number };
+    understandingAfter: { understood: number; partlyUnderstood: number; didNotUnderstand: number };
+    interest: { applyNow: number; later: number; notInterested: number; notSure: number };
+  } | null;
 }
 
 
@@ -331,6 +342,66 @@ export async function generateWeeklyForwardingPdf(
         input.grandTotal ? `${Math.round((r.total / input.grandTotal) * 100)}%` : '0%',
       ]),
       columnStyles: { 0: { cellWidth: 70 } },
+    });
+  }
+
+  // ===================================== 5. 30M Rent Plan Awareness Statistics
+  if (input.awareness30m) {
+    const aw = input.awareness30m;
+    section('5 · 30M Rent Plan — Awareness Statistics', 60);
+    table({
+      head: [['Question', 'Option', 'Count', 'Percentage']],
+      body: [
+        // Q1
+        ['1. Before explanation', 'Knew about it',                String(aw.awarenessBefore.knew),            aw.totalReached ? `${Math.round((aw.awarenessBefore.knew / aw.totalReached) * 100)}%` : '—'],
+        ['',                       'Heard but unsure',             String(aw.awarenessBefore.heard),           aw.totalReached ? `${Math.round((aw.awarenessBefore.heard / aw.totalReached) * 100)}%` : '—'],
+        ['',                       'Did not know',                 String(aw.awarenessBefore.didNotKnow),      aw.totalReached ? `${Math.round((aw.awarenessBefore.didNotKnow / aw.totalReached) * 100)}%` : '—'],
+        // Q2
+        ['2. Explanation given',  'Yes, fully explained',         String(aw.explanationGiven.yes),            aw.totalReached ? `${Math.round((aw.explanationGiven.yes / aw.totalReached) * 100)}%` : '—'],
+        ['',                       'Partly explained',             String(aw.explanationGiven.partly),         aw.totalReached ? `${Math.round((aw.explanationGiven.partly / aw.totalReached) * 100)}%` : '—'],
+        ['',                       'Not explained',                String(aw.explanationGiven.no),             aw.totalReached ? `${Math.round((aw.explanationGiven.no / aw.totalReached) * 100)}%` : '—'],
+        // Q3
+        ['3. After explanation',  'Understood',                   String(aw.understandingAfter.understood),   aw.totalReached ? `${Math.round((aw.understandingAfter.understood / aw.totalReached) * 100)}%` : '—'],
+        ['',                       'Partly understood',            String(aw.understandingAfter.partlyUnderstood), aw.totalReached ? `${Math.round((aw.understandingAfter.partlyUnderstood / aw.totalReached) * 100)}%` : '—'],
+        ['',                       'Did not understand',           String(aw.understandingAfter.didNotUnderstand), aw.totalReached ? `${Math.round((aw.understandingAfter.didNotUnderstand / aw.totalReached) * 100)}%` : '—'],
+        // Q4
+        ['4. Interest',            'Wants to apply now',           String(aw.interest.applyNow),               aw.totalReached ? `${Math.round((aw.interest.applyNow / aw.totalReached) * 100)}%` : '—'],
+        ['',                       'Interested, apply later',      String(aw.interest.later),                  aw.totalReached ? `${Math.round((aw.interest.later / aw.totalReached) * 100)}%` : '—'],
+        ['',                       'Not interested',               String(aw.interest.notInterested),          aw.totalReached ? `${Math.round((aw.interest.notInterested / aw.totalReached) * 100)}%` : '—'],
+        ['',                       'Not sure',                     String(aw.interest.notSure),                aw.totalReached ? `${Math.round((aw.interest.notSure / aw.totalReached) * 100)}%` : '—'],
+        // Summary row
+        ['Tenants tracked',        '—',                             String(aw.totalReached),                    '100%'],
+      ],
+      columnStyles: {
+        0: { cellWidth: 60, fontStyle: 'bold' },
+        1: { cellWidth: 80 },
+        2: { halign: 'center', cellWidth: 20 },
+        3: { halign: 'center', cellWidth: 25 },
+      },
+      didParseCell: (data: any) => {
+        if (data.section !== 'body') return;
+        // Bold the summary row
+        if (data.row.index === 14) {
+          data.cell.styles.fontStyle = 'bold';
+          data.cell.styles.fillColor = [237, 229, 249];
+        }
+        // Highlight Q-group headers
+        if (data.column.index === 0 && data.cell.raw && String(data.cell.raw).startsWith('1. ')) {
+          data.cell.styles.fillColor = STRIPE;
+        }
+        if (data.column.index === 0 && data.cell.raw && String(data.cell.raw).startsWith('2. ')) {
+          data.cell.styles.fillColor = STRIPE;
+        }
+        if (data.column.index === 0 && data.cell.raw && String(data.cell.raw).startsWith('3. ')) {
+          data.cell.styles.fillColor = STRIPE;
+        }
+        if (data.column.index === 0 && data.cell.raw && String(data.cell.raw).startsWith('4. ')) {
+          data.cell.styles.fillColor = STRIPE;
+        }
+        if (data.column.index === 0 && data.cell.raw && String(data.cell.raw).startsWith('Tenants tracked')) {
+          data.cell.styles.fillColor = [237, 229, 249];
+        }
+      },
     });
   }
 
