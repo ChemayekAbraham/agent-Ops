@@ -5,7 +5,7 @@ import { ArrowLeft, TrendingUp, AlertTriangle, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { formatUGX, getRiskLevel, calculateCompoundProjection, calculateRegistrationFee, calculateAccessFee, calculateTotalPayable, calculateDailyPayment } from '@/lib/agentAdvanceCalculations';
+import { formatUGX, getRiskLevel, calculateCompoundProjection, calculateRegistrationFee, MONTHLY_RATE, calculateAccessFeeSimple } from '@/lib/agentAdvanceCalculations';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { useState } from 'react';
 import CFOAdvanceTopupDialog from '@/components/cfo/CFOAdvanceTopupDialog';
@@ -61,11 +61,13 @@ export default function AgentAdvanceDetail() {
   if (!advance) return <div className="min-h-screen bg-background flex items-center justify-center text-muted-foreground">Advance not found</div>;
 
   const risk = getRiskLevel(advance);
-  const projection = calculateCompoundProjection(Number(advance.principal), advance.cycle_days);
-  const regFee = Number(advance.registration_fee) || calculateRegistrationFee(Number(advance.principal));
-  const accessFee = calculateAccessFee(Number(advance.principal), advance.cycle_days);
-  const totalPayable = calculateTotalPayable(Number(advance.principal), advance.cycle_days);
-  const dailyPmt = calculateDailyPayment(Number(advance.principal), advance.cycle_days);
+  const principal = Number(advance.principal);
+  const rate = advance.monthly_rate != null ? Number(advance.monthly_rate) : MONTHLY_RATE;
+  const regFee = Number(advance.registration_fee) || calculateRegistrationFee(principal);
+  const accessFee = advance.access_fee != null ? Number(advance.access_fee) : calculateAccessFeeSimple(principal, advance.cycle_days, rate);
+  const totalPayable = principal + accessFee + regFee;
+  const dailyPmt = Number(advance.daily_installment) || Number(advance.installment_amount) || Math.ceil(totalPayable / advance.cycle_days);
+  const projection = calculateCompoundProjection(principal, advance.cycle_days, rate);
 
   // Chart data from ledger or projection
   const chartData = ledger.length > 0
@@ -217,7 +219,7 @@ export default function AgentAdvanceDetail() {
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
               <AlertTriangle className="h-4 w-4 text-amber-500" />
-              {advance.cycle_days}-Day Compound Projection (33%/month)
+              {advance.cycle_days}-Day Compound Projection ({Math.round(rate * 100)}%/month)
             </CardTitle>
           </CardHeader>
           <CardContent>
