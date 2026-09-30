@@ -4,6 +4,7 @@
 - [x] Verify calculations, safeguards, and desktop/mobile presentation.
 
 ## Pending
+- [x] Make Agent Ops open on 14 business-area panels; preserve existing sections in a collapsible side menu and mobile sections menu.
 - [x] CI: map load-test budgets run in build workflow and block deploy on regression (done 2026-09-21)
 
 - [x] Show the current landlord number on file in the agent payout flow and block OTP when it differs from the Ops-approved number.
