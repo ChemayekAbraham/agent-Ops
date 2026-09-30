@@ -219,6 +219,8 @@ export function FunderNewReviewDialog({
                   await onFund?.(total, 0);
                   setConfirmOpen(false);
                   onOpenChange(false);
+                } catch {
+                  // The caller already reported the error; keep the summary open.
                 } finally {
                   setSubmitting(false);
                 }
