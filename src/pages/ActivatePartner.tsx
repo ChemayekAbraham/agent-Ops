@@ -115,9 +115,13 @@ export default function ActivatePartner() {
         body: { token, user_id: user.id },
       });
 
-      if (activateError) throw activateError;
+      if (activateError) {
+        let msg = activateError.message;
+        try { const b = await (activateError as any).context?.json?.(); if (b?.error) msg = b.error; } catch { /* keep default */ }
+        throw new Error(msg);
+      }
       setActivated(true);
-      toast.success('Your investment account is now active!');
+      toast.success('Your support account is now active!');
       // Land them on the supporter dashboard immediately — all 4 public roles
       // are now granted, so RoleSwitcher will let them access the others too.
       setTimeout(() => navigate('/dashboard/funder'), 1200);
@@ -161,7 +165,7 @@ export default function ActivatePartner() {
         {/* Note Details */}
         <Card className="border-primary/20 bg-primary/5">
           <CardContent className="p-5 space-y-3">
-            <h2 className="text-base font-bold text-center">Investment Promissory Note</h2>
+            <h2 className="text-base font-bold text-center">Support Promissory Note</h2>
 
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
@@ -181,7 +185,7 @@ export default function ActivatePartner() {
             <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-center">
               <TrendingUp className="h-5 w-5 text-emerald-600 mx-auto mb-1" />
               <p className="text-xs font-medium text-emerald-700">
-                Earn <span className="text-base font-bold">15%</span> monthly returns on your investment
+                Earn <span className="text-base font-bold">15%</span> monthly returns on your support
               </p>
               <p className="text-xs text-emerald-600 mt-1">
                 Expected: {formatUGX(Number(note.amount) * 0.15)}/month
@@ -207,13 +211,13 @@ export default function ActivatePartner() {
         ) : isLoggedIn ? (
           <Card>
             <CardContent className="p-5 space-y-3">
-              <h3 className="font-bold text-center">Activate Your Investment</h3>
+              <h3 className="font-bold text-center">Activate Your Support</h3>
               <p className="text-sm text-muted-foreground text-center">
                 Tap below to link this promissory note to your account and enable auto-deduction.
               </p>
               <Button onClick={handleActivate} disabled={authLoading} className="w-full h-12 gap-2">
                 {authLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
-                Activate Investment
+                Activate Support
               </Button>
             </CardContent>
           </Card>
