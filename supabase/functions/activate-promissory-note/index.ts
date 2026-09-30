@@ -38,8 +38,29 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Notes can be created already 'activated' (e.g. by the agent) with no partner
+    // account linked yet. Opening the link must still attach the partner, not fail.
+    if (note.status === 'activated' && (!note.partner_user_id || note.partner_user_id === user_id)) {
+      if (!note.partner_user_id) {
+        const { error: linkError } = await supabaseAdmin
+          .from('promissory_notes')
+          .update({ partner_user_id: user_id })
+          .eq('id', note.id)
+          .is('partner_user_id', null);
+        if (linkError) throw linkError;
+        await supabaseAdmin.from('system_events').insert({
+          event_type: 'promissory_note_activated',
+          description: `Partner ${note.partner_name} linked to already-active promissory note for ${note.amount}`,
+          metadata: { note_id: note.id, partner_user_id: user_id, agent_id: note.agent_id, amount: note.amount, link_only: true },
+        });
+      }
+      return new Response(JSON.stringify({ success: true, already_active: true }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     if (note.status !== 'pending') {
-      return new Response(JSON.stringify({ error: `Note is already ${note.status}` }), {
+      return new Response(JSON.stringify({ error: note.status === 'activated' ? 'This note is already linked to another account' : `Note is already ${note.status}` }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
