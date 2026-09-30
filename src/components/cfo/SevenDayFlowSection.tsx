@@ -136,6 +136,10 @@ export function SevenDayFlowSection() {
           <Win title="Payables — Next 7 Days" icon={<CalendarClock className="h-4 w-4" />} tone="text-destructive" rows={data.payNext} onPick={pick('Payables — Next 7 Days')} />
           <Win title="Expenses — Past 7 Days" icon={<History className="h-4 w-4" />} tone="text-warning" rows={expPast} onPick={pick('Expenses — Past 7 Days')} />
           <Win title="Expenses — Next 7 Days" icon={<CalendarClock className="h-4 w-4" />} tone="text-warning" rows={expNext} onPick={pick('Expenses — Next 7 Days')} />
+          <ProductSummary
+            rec={{ past: data.recPast, next: data.recNext }}
+            pay={{ past: data.payPast, next: data.payNext }}
+          />
         </div>
       )}
 
@@ -191,6 +195,53 @@ function groupByProduct(list: Source[]) {
     if (s.kind === 'Predicted') g.predicted += s.amount; else g.items += s.count ?? 1;
   }
   return [...m.values()].sort((a, b) => b.amount - a.amount);
+}
+
+type SumSide = { past: Row[]; next: Row[] };
+function tally(rows: Row[]) {
+  const m = new Map<string, number>();
+  for (const r of rows) for (const s of r.sources) m.set(s.product, (m.get(s.product) ?? 0) + s.amount);
+  return m;
+}
+
+/** Product/service totals for receivables and payables, past vs next 7 days. */
+function ProductSummary({ rec, pay }: { rec: SumSide; pay: SumSide }) {
+  const block = (title: string, tone: string, side: SumSide) => {
+    const past = tally(side.past);
+    const next = tally(side.next);
+    const names = [...new Set([...past.keys(), ...next.keys()])].sort(
+      (a, b) => (next.get(b) ?? 0) + (past.get(b) ?? 0) - (next.get(a) ?? 0) - (past.get(a) ?? 0),
+    );
+    const sum = (m: Map<string, number>) => [...m.values()].reduce((a, b) => a + b, 0);
+    return (
+      <div className="min-w-0">
+        <p className={`text-xs font-semibold ${tone}`}>{title}</p>
+        <div className="mt-1 grid grid-cols-[1fr_auto_auto] gap-x-3 gap-y-1 text-[11px]">
+          <span className="text-muted-foreground">Product / service</span>
+          <span className="text-right text-muted-foreground">Past 7d</span>
+          <span className="text-right text-muted-foreground">Next 7d</span>
+          {names.length === 0 && <span className="col-span-3 text-muted-foreground">Nothing recorded.</span>}
+          {names.map((n) => (
+            <div key={n} className="contents">
+              <span className="truncate">{n}</span>
+              <span className="text-right font-mono tabular-nums">{formatUGX(Math.round(past.get(n) ?? 0))}</span>
+              <span className="text-right font-mono tabular-nums">{formatUGX(Math.round(next.get(n) ?? 0))}</span>
+            </div>
+          ))}
+          <span className="border-t border-border/60 pt-1 font-semibold">Total</span>
+          <span className="border-t border-border/60 pt-1 text-right font-mono font-semibold tabular-nums">{formatUGX(Math.round(sum(past)))}</span>
+          <span className="border-t border-border/60 pt-1 text-right font-mono font-semibold tabular-nums">{formatUGX(Math.round(sum(next)))}</span>
+        </div>
+      </div>
+    );
+  };
+  return (
+    <div className="rounded-2xl border border-border/70 bg-card shadow-sm p-4 min-w-0 md:col-span-2 space-y-4">
+      <p className="text-sm font-semibold">Summary by product &amp; service</p>
+      {block('Receivables', 'text-success', rec)}
+      {block('Payables', 'text-destructive', pay)}
+    </div>
+  );
 }
 
 function Win({ title, icon, tone, rows, onPick }: { title: string; icon: React.ReactNode; tone: string; rows: Row[]; onPick: (r: Row) => void }) {
