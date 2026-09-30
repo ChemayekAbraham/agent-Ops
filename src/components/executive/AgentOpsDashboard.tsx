@@ -174,6 +174,7 @@ export function AgentOpsDashboard() {
   const [productSection, setProductSection] = useState<null | 'motor_bike' | 'smart_phone' | 'boutique' | 'signage' | 'advances'>(null);
   const [dateRange, setDateRange] = useState<DateRange>('24h');
   const [sidebarWidth, setSidebarWidth] = useState(224); // default w-56
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const pendingAdvanceCount = usePendingAdvanceCount();
   const navigate = useNavigate();
 
@@ -499,6 +500,11 @@ export function AgentOpsDashboard() {
     { title: 'Advances', keys: ['advances-analytics', 'advance-requests', 'active-advances', 'advance-potential', 'advance-limits', 'advance-repayments', 'advance-activity-correlation'] },
     { title: 'Reports', keys: ['reports-overview', 'agent-ops-report', 'portfolio-performance', 'comprehensive-report', 'products-services-report'] },
   ];
+  const groupedKeys = new Set(MORE_GROUPS.flatMap((group) => group.keys));
+  const ALL_SECTIONS = [
+    ...MORE_GROUPS,
+    { title: 'Additional tools', keys: NAV_ITEMS.map((item) => item.key).filter((key) => !groupedKeys.has(key)) },
+  ];
 
   const BUSINESS_AREAS: { title: string; icon: typeof Activity; section: ActiveView }[] = [
     { title: 'General Agents Activities', icon: Activity, section: 'general-activities' },
@@ -558,7 +564,7 @@ export function AgentOpsDashboard() {
     </div>
   ) : (
     <div className="space-y-5 pb-20 sm:pb-4">
-      {MORE_GROUPS.map((group) => (
+      {ALL_SECTIONS.map((group) => (
         <section key={group.title} className="space-y-2">
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-1">
             {group.title}
@@ -662,13 +668,18 @@ export function AgentOpsDashboard() {
 
       {/* Body: persistent left sidebar (desktop) + content */}
       <div className="lg:flex lg:items-start">
-        <AgentOpsSideNav
-          activeView={activeView}
-          onSelect={(k) => selectView(k)}
-          onHome={() => { setBottomTab('home'); setActiveView(null); }}
-          style={{ width: sidebarWidth }}
-        />
-        <SidebarResizer currentWidth={sidebarWidth} onChange={setSidebarWidth} />
+        <div className="hidden lg:block shrink-0">
+          <Button variant="ghost" size="icon-sm" title={sidebarOpen ? 'Collapse sections' : 'Open all sections'} aria-label={sidebarOpen ? 'Collapse sections' : 'Open all sections'} aria-expanded={sidebarOpen} onClick={() => setSidebarOpen((open) => !open)}>
+            <LayoutGrid className="h-4 w-4" />
+          </Button>
+          {sidebarOpen && <AgentOpsSideNav
+            activeView={activeView}
+            onSelect={(k) => selectView(k)}
+            onHome={() => { setBottomTab('home'); setActiveView(null); }}
+            style={{ width: sidebarWidth }}
+          />}
+        </div>
+        {sidebarOpen && <SidebarResizer currentWidth={sidebarWidth} onChange={setSidebarWidth} />}
         <div className="flex-1 min-w-0">{contentRegion}</div>
       </div>
 
