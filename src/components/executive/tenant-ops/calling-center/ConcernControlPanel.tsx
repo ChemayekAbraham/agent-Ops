@@ -282,7 +282,7 @@ export function ConcernControlPanel({
   const [reassignOpen, setReassignOpen] = useState(false);
   const [dueOpen, setDueOpen] = useState(false);
   const left = concernTimeLeft(concern);
-  const canReassign = !!powers.data?.can_reassign && concern.status !== 'completed';
+  const canReassign = (isReceiver || !!powers.data?.can_reassign) && concern.status !== 'completed';
   const canSetDue = (isReceiver || !!powers.data?.can_set_due) && concern.status !== 'completed';
 
   return (
@@ -341,7 +341,7 @@ export function ConcernControlPanel({
               onClick={() => setReassignOpen(true)}
             >
               <UserCog className="mr-1 h-3.5 w-3.5" />
-              Change handler
+              {isReceiver ? 'Forward to another staff' : 'Change handler'}
             </Button>
           )}
         </div>

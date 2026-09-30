@@ -190,9 +190,10 @@ function ConcernCard({
                 className="h-8 border-success/40 text-[11px] font-semibold text-success"
                 onClick={() => run('completed')}
                 disabled={act.isPending || note.trim().length < 10}
-                title="Write what was done (at least 10 characters) before completing"
+                title="Write what was done (at least 10 characters) before marking it resolved"
               >
-                Mark completed
+                <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
+                Mark resolved
               </Button>
             )}
           </div>
