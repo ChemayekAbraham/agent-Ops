@@ -36,10 +36,10 @@ export function FunderNewSelectionBar({
     // 10px inset + 68px pill + 8px breathing room = 86px, plus the device
     // bottom inset (which the pill is already lifted by). The pill shows at
     // every breakpoint, so this offset is deliberately not responsive-gated.
-    <div className="fixed inset-x-0 bottom-[calc(86px_+_env(safe-area-inset-bottom,0px))] z-[60] border-t bg-card/95 shadow-[0_-8px_30px_-12px_hsl(var(--primary)/0.35)] backdrop-blur">
-      <div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 py-2.5 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
+    <div className="fixed inset-x-0 bottom-0 z-[110] w-full max-w-full overflow-hidden border-t bg-card shadow-[0_-8px_30px_-12px_hsl(var(--primary)/0.35)] pb-[env(safe-area-inset-bottom,0px)]">
+      <div className="mx-auto flex w-full min-w-0 max-w-7xl flex-col gap-2 px-4 py-2.5 sm:px-6 lg:flex-row lg:items-center lg:justify-between lg:px-8">
 
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1">
           <p className="text-sm font-semibold">
             {items.length} {items.length === 1 ? 'home' : 'homes'} selected
           </p>
@@ -52,12 +52,12 @@ export function FunderNewSelectionBar({
             <span className="font-semibold text-success">{formatDynamic(monthlyAt15(total))}</span>
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="ghost" className="h-12 flex-1 rounded-xl text-destructive lg:flex-none" onClick={onClear}>
+        <div className="flex min-w-0 gap-2">
+          <Button variant="ghost" className="h-11 flex-none rounded-xl px-3 text-destructive" onClick={onClear}>
             <X className="h-4 w-4" />
             Clear
           </Button>
-          <Button className="h-12 flex-1 rounded-xl lg:flex-none lg:px-8" onClick={onReview}>
+          <Button className="h-11 min-w-0 flex-1 rounded-xl px-3 lg:flex-none lg:px-8" onClick={onReview}>
             <ShieldCheck className="h-4 w-4" />
             Review support plan
           </Button>
