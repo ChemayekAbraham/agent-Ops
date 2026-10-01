@@ -13,6 +13,13 @@ import { ComplaintEditor } from './ComplaintEditor';
 const ugx = (n: number | null | undefined) => `UGX ${Math.round(Number(n ?? 0)).toLocaleString('en-US')}`;
 const fdate = (d: string | null | undefined, f = 'd MMM yyyy') => (d ? format(new Date(d), f) : '—');
 const label = (s: string | null | undefined) => (s ? s.replace(/_/g, ' ') : '—');
+// Payment traffic light: green = paid in full, pale yellow = partly paid, red = nothing paid
+const payClass = (paid: number | null | undefined, expected: number | null | undefined) =>
+  Math.round(Number(paid ?? 0)) <= 0
+    ? 'text-destructive'
+    : Number(expected ?? 0) > 0 && Number(paid) >= Number(expected)
+      ? 'text-success'
+      : 'text-warning';
 
 function Section({ title, children, right }: { title: string; children: ReactNode; right?: ReactNode }) {
   return (
