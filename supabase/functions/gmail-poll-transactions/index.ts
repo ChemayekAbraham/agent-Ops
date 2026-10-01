@@ -609,6 +609,30 @@ Deno.serve(async (req) => {
       messages.push(...(list?.messages ?? []));
     }
 
+    // ── Second, sender-based search for bank alerts ────────────────────────
+    // On 2026-10-01 two Equity alerts (08:34 and 09:57 UTC, incl. a UGX 37M
+    // send) sat in the inbox but the broad keyword query above never listed
+    // them — a rescan of their window returned 0 messages — so they were
+    // never ingested. A sender search does not depend on keyword matching.
+    // IDs already listed are skipped; the per-message ID/TID/dedup_hash checks
+    // below keep this duplicate-free.
+    try {
+      const bankQ = rescan
+        ? `from:equitybank.co.ke after:${Math.floor(rescanFromMs / 1000)} before:${Math.ceil(rescanToMs / 1000)}`
+        : 'from:equitybank.co.ke newer_than:2d';
+      const bankList = await gmailFetch(
+        `/users/me/messages?maxResults=50&q=${encodeURIComponent(bankQ)}`,
+      );
+      const seenIds = new Set(messages.map((x) => x.id));
+      for (const bm of (bankList?.messages ?? []) as { id: string; threadId: string }[]) {
+        if (seenIds.has(bm.id)) continue;
+        if (onlyMessageIds && !onlyMessageIds.has(bm.id)) continue;
+        messages.push(bm);
+      }
+    } catch (e) {
+      console.warn('[gmail-poll] sender-based bank search failed:', e instanceof Error ? e.message : String(e));
+    }
+
     let inserted = 0; let newestMs = lastMs;
     /** Advance the cutoff only with sane, non-future timestamps. */
     const advanceCutoff = (ms: number) => {
