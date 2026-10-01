@@ -25,3 +25,17 @@ Dedup by gmail_message_id / TID / dedup_hash is unchanged.
 3. Check the 08:34 email's content before anything auto-acts on it.
 Normal polling will not ingest them (older than cutoff - 10 min); only a rescan does.
 architecture-map.html not updated: no flow changed.
+
+## Root cause (found 2026-10-01 evening) and second fix
+The inbox had both emails, but they were DELIVERED ~11:25-11:35 UTC (Gmail ids sort after
+the 11:33 IFTTT mail) with ORIGINAL timestamps 08:34 / 09:57 UTC (bank outage delay).
+Gmail date search uses receipt time, so rescans of the 09:xx window found nothing; the
+poller's normal tick listed them but dropped them as `older_than_last_poll` (cutoff
+~10:45 minus 10 min grace). Rescan window 10:50-12:30 UTC with `only_message_ids` found both.
+- 37M email (`1a0f73c62319c014`) ingested 2026-10-01 as row 6bbdf099; funding row a9ebc7c9
+  `rejected` (auto-credit paused for ~2 min around it, restored to 2026-09-26 11:36:31.752336+00).
+  BAITA holds ONE 37M credit (EQMANUAL20261001MERCY37M).
+- 150,000 email (`1a0f7372b34243b7`, Nagadya Christine -> WELILE ...5259, ref A82167AFDDF5D)
+  ingested; no auto-match fired.
+- Second fix (code, NOT deployed): `equitybank.co.ke` senders are exempt from the
+  `older_than_last_poll` skip, so a late bank alert is ingested on the next tick.

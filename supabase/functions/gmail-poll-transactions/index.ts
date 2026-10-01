@@ -717,7 +717,14 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      if (skipBeforeMs && internalMs && internalMs < skipBeforeMs) {
+      // Bank alerts are exempt from the cutoff: during bank/network trouble
+      // Equity delivered alerts ~1.5h late with their ORIGINAL timestamp, so
+      // they landed behind a cutoff already moved on by SMS traffic and were
+      // dropped silently (2026-10-01, incl. a UGX 37M send). They are only
+      // listed within `newer_than:2d`, and the ID/TID/dedup_hash checks keep
+      // this duplicate-free (doc 185).
+      const isBankAlert = !!fromEmail && fromEmail.includes('equitybank.co.ke');
+      if (!isBankAlert && skipBeforeMs && internalMs && internalMs < skipBeforeMs) {
         if (debug) debugReport.push({
           id: m.id, decision: 'skipped', reason: 'older_than_last_poll',
           internal_date: new Date(internalMs).toISOString(),
