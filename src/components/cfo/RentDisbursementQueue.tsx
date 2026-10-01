@@ -512,36 +512,14 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
   return (
     <Card className="overflow-hidden rounded-2xl border-border/70 shadow-sm">
       <CardHeader className="pb-0 space-y-0 p-0">
-        {/* Title band */}
-        <div className="flex items-start justify-between gap-4 flex-wrap px-5 pt-5 pb-4">
-          <div className="flex items-start gap-3.5 min-w-0">
-            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md shadow-primary/25">
-              <Home className="h-6 w-6" />
+        {filteredItems.length > 0 && (
+          <div className="flex items-center justify-end gap-3 px-5 pt-5 pb-4">
+            <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-sm font-semibold text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-400">
+              <CheckCircle2 className="h-4 w-4" />
+              {filteredItems.length} approved · {fmt(queueTotalRent)}
             </span>
-            <div className="min-w-0 space-y-1">
-              <CardTitle className="text-xl sm:text-2xl font-extrabold tracking-tight">
-                Fund Agent Landlord Payout Float
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                COO-approved rent, funded to the assigned agent's Landlord Payout Float.
-              </p>
-              <div className="flex items-center gap-4 flex-wrap pt-1 text-xs text-muted-foreground">
-                <span className="flex items-center gap-1.5">
-                  <Users className="h-3.5 w-3.5" />
-                  {grouped.length} agent{grouped.length === 1 ? '' : 's'} in queue
-                </span>
-              </div>
-            </div>
           </div>
-          {filteredItems.length > 0 && (
-            <div className="flex items-center gap-3">
-              <span className="inline-flex items-center gap-2 rounded-full border border-emerald-200 bg-emerald-50 px-3.5 py-2 text-sm font-semibold text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-400">
-                <CheckCircle2 className="h-4 w-4" />
-                {filteredItems.length} approved · {fmt(queueTotalRent)}
-              </span>
-            </div>
-          )}
-        </div>
+        )}
 
         {/* Filter band */}
         <div className="border-y border-border/70 bg-muted/20 px-5 py-3">
