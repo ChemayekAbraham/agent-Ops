@@ -135,7 +135,7 @@ export const ThirtyMAwarenessFields = forwardRef<ThirtyMAwarenessFieldsHandle>(
                 value={o.value}
                 current={awarenessBefore}
                 label={o.label}
-                onChange={setAwarenessBefore}
+                onChange={(v: string) => setAwarenessBefore(v as AwarenessBefore)}
               />
             ))}
           </RadioGroup>
@@ -158,7 +158,7 @@ export const ThirtyMAwarenessFields = forwardRef<ThirtyMAwarenessFieldsHandle>(
                 value={o.value}
                 current={explanationGiven}
                 label={o.label}
-                onChange={setExplanationGiven}
+                onChange={(v: string) => setExplanationGiven(v as ExplanationGiven)}
               />
             ))}
           </RadioGroup>
@@ -181,7 +181,7 @@ export const ThirtyMAwarenessFields = forwardRef<ThirtyMAwarenessFieldsHandle>(
                 value={o.value}
                 current={understandingAfter}
                 label={o.label}
-                onChange={setUnderstandingAfter}
+                onChange={(v: string) => setUnderstandingAfter(v as UnderstandingAfter)}
               />
             ))}
           </RadioGroup>
@@ -204,7 +204,7 @@ export const ThirtyMAwarenessFields = forwardRef<ThirtyMAwarenessFieldsHandle>(
                 value={o.value}
                 current={interest}
                 label={o.label}
-                onChange={setInterest}
+                onChange={(v: string) => setInterest(v as AwarenessInterest)}
               />
             ))}
           </RadioGroup>
