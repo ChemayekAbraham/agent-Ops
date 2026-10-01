@@ -17,8 +17,8 @@ const LOCATION_EXEMPT_ROUTES = ['/partners/', '/partners-terms', '/dashboard/fun
 
 export function UserLocationCorrectionGate() {
   const location = useLocation();
-  const exempt = LOCATION_EXEMPT_ROUTES.some((p) => location.pathname.startsWith(p));
-  const { user, loading } = useAuth();
+  const { user, loading, role } = useAuth();
+  const exempt = role === 'supporter' || LOCATION_EXEMPT_ROUTES.some((p) => location.pathname.startsWith(p));
   const status = useMyLocationCorrectionStatus(!!user?.id && !loading && !exempt);
   const needs = !exempt && !!status.data?.needs_correction;
 
