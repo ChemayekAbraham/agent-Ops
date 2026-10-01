@@ -168,6 +168,12 @@ export function ROIPayoutQueue() {
         .limit(100);
       if (fetchErr) throw fetchErr;
       const ops = (fresh || []) as Pick<PendingOp, 'id' | 'amount' | 'user_id' | 'target_wallet_user_id' | 'description'>[];
+      // Safety re-check (mirrors Rent Payout Queue): refuse the whole batch if any
+      // selected payout is no longer COO-approved, before any payment is invoked.
+      if (selectedIds.size === 0) throw new Error('Select at least one payout');
+      if (ops.length !== selectedIds.size) {
+        throw new Error('The payment queue changed. Close this review and select eligible payouts again.');
+      }
       let approved = 0;
       let failed = 0;
       let lastError = '';
@@ -263,6 +269,12 @@ export function ROIPayoutQueue() {
   const allSelected = operations.length > 0 && selectedOps.length === operations.length;
   const selectAll = () => setSelectedIds(new Set(operations.map(op => op.id)));
   const clearSelection = () => { setSelectedIds(new Set()); setBulkConfirm(false); };
+  // Selection only: opens the review screen. Never pays anything.
+  const selectAllForPayment = () => {
+    if (operations.length === 0) return;
+    if (selectedOps.length === 0) selectAll();
+    setBulkConfirm(true);
+  };
   const toggleOne = (id: string) => {
     setBulkConfirm(false);
     setSelectedIds(prev => {
@@ -283,47 +295,26 @@ export function ROIPayoutQueue() {
             </span>
           )}
         </p>
-        <CfoApprovalGate>
-          <div className="flex items-center gap-2">
-            {selectedOps.length === 0 ? (
-              <Button size="sm" className="h-8 rounded-lg text-xs" onClick={selectAll}>
-                <CheckCircle className="h-3 w-3 mr-1" />
-                Approve all
-              </Button>
-            ) : bulkConfirm ? (
-              <>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8 rounded-lg text-xs"
-                  disabled={bulkApproveMutation.isPending}
-                  onClick={() => setBulkConfirm(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  className="h-8 rounded-lg text-xs"
-                  disabled={bulkApproveMutation.isPending}
-                  onClick={() => bulkApproveMutation.mutate()}
-                >
-                  {bulkApproveMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <CheckCircle className="h-3 w-3 mr-1" />}
-                  Confirm payout of {selectedOps.length} ({formatUGX(bulkTotal)})
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button size="sm" variant="ghost" className="h-8 rounded-lg text-xs" onClick={clearSelection}>
-                  Clear
-                </Button>
-                <Button size="sm" className="h-8 rounded-lg text-xs" onClick={() => setBulkConfirm(true)}>
-                  <CheckCircle className="h-3 w-3 mr-1" />
-                  Pay out selected ({selectedOps.length})
-                </Button>
-              </>
-            )}
-          </div>
-        </CfoApprovalGate>
+        <div className="flex items-center gap-2">
+          {selectedOps.length > 0 && (
+            <Button size="sm" variant="ghost" className="h-9 rounded-lg text-xs" onClick={clearSelection}>
+              Clear
+            </Button>
+          )}
+          <Button
+            type="button"
+            size="sm"
+            className="h-9 rounded-lg gap-2"
+            disabled={operations.length === 0}
+            onClick={selectAllForPayment}
+          >
+            <Banknote className="h-4 w-4" />
+            {selectedOps.length > 0
+              ? `${selectedOps.length} Payout${selectedOps.length === 1 ? '' : 's'} Selected — Review Payment`
+              : 'Select All for Payment'}
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       <div className="rounded-xl border border-border/70 overflow-hidden bg-card">
