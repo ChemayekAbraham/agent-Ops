@@ -171,6 +171,12 @@ export default {
           "0%": { opacity: "0", transform: "translateY(-6px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
+        /* Featured tile: a ring that breathes outward once per cycle, then rests. */
+        "attention-halo": {
+          "0%": { opacity: "0.55", transform: "scale(1)" },
+          "55%": { opacity: "0", transform: "scale(1.04)" },
+          "100%": { opacity: "0", transform: "scale(1.04)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -182,6 +188,7 @@ export default {
         "wallet-flash-credit": "wallet-flash-credit 1.4s ease-out",
         "wallet-flash-debit": "wallet-flash-debit 1.4s ease-out",
         "notif-fade-in": "notif-fade-in 0.35s ease-out",
+        "attention-halo": "attention-halo 3.2s ease-out infinite",
         "submit-rise": "submit-rise 0.36s cubic-bezier(0.4, 0, 0.2, 1)",
       },
       transitionDuration: {
