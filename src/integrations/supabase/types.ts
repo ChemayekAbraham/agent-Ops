@@ -60290,6 +60290,20 @@ export type Database = {
         Args: { p_since?: string }
         Returns: number
       }
+      engrep_repetition_for: {
+        Args: { p_window_id: string }
+        Returns: {
+          commits: number
+          engineers: string[]
+          repeat_evidence: string
+          repeat_kind: string
+          repeat_refs: string[]
+          safe_to_zero: boolean
+          unit_key: string
+          unit_kind: string
+          window_id: string
+        }[]
+      }
       engrep_resolve_claim: {
         Args: { p_day: string; p_names: string[] }
         Returns: string[]
