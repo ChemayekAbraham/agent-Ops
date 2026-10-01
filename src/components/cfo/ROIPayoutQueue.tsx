@@ -44,6 +44,7 @@ export function ROIPayoutQueue() {
   const [editedAmounts, setEditedAmounts] = useState<Record<string, string>>({});
   const [reviewTarget, setReviewTarget] = useState<PendingOp | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [bulkConfirm, setBulkConfirm] = useState(false);
 
   // Reset reject-mode whenever the reviewed operation changes or the sheet closes.
   useEffect(() => {
