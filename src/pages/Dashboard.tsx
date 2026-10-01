@@ -315,11 +315,16 @@ function DashboardContent() {
   }
 
   // If loading but offline with cached roles, skip loading and show cached UI
-  if (loading && !isOnline && cachedRoles.length > 0) {
-    // Use cached roles directly
-    const cachedDisplayRole = cachedRoles[0];
-    const dashboardProps = { 
-      user: user!, 
+  // Needs a real `user`: every dashboard reads `user.id` on first render, and
+  // `user` is still null while the session restores (CTO report 2026-09-30,
+  // "Cannot read properties of null (reading 'id')" in TenantDashboard). Without
+  // one, fall through to the loader below.
+  if (loading && !isOnline && cachedRoles.length > 0 && user) {
+    // Use cached roles directly, but keep the persona in the URL when we hold it
+    // (an agent on /dashboard/agent was being shown cachedRoles[0], the tenant one).
+    const cachedDisplayRole = cachedRoles.find((r) => r === urlRole) ?? cachedRoles[0];
+    const dashboardProps = {
+      user,
       signOut, 
       currentRole: cachedDisplayRole, 
       availableRoles: cachedRoles, 
