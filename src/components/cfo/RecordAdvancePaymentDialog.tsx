@@ -36,7 +36,7 @@ export function RecordAdvancePaymentDialog({ advance, open, onOpenChange, onSucc
 
   const outstanding = Number(advance.outstanding_balance);
   const parsed = Number(amount || 0);
-  const valid = parsed > 0 && parsed <= outstanding;
+  const valid = parsed > 0 && parsed <= outstanding && reference.trim().length > 0;
 
   const submit = async () => {
     if (!valid) {
@@ -50,7 +50,7 @@ export function RecordAdvancePaymentDialog({ advance, open, onOpenChange, onSucc
           advance_id: advance.id,
           amount: parsed,
           payment_method: method,
-          reference: reference || null,
+          reference: reference.trim(),
           notes: notes || null,
         },
       });
@@ -111,7 +111,7 @@ export function RecordAdvancePaymentDialog({ advance, open, onOpenChange, onSucc
           </div>
 
           <div>
-            <Label className="text-xs">Reference / Transaction ID</Label>
+            <Label className="text-xs">Reference / Transaction ID (required)</Label>
             <Input placeholder="e.g. MoMo TXN ID" value={reference} onChange={(e) => setReference(e.target.value)} />
           </div>
 
