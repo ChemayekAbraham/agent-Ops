@@ -2717,6 +2717,13 @@
       "when": 1790851989493,
       "tag": "0387_agent_ops_shopping_advance_user_dossier",
       "breakpoints": true
+    },
+    {
+      "idx": 388,
+      "version": "7",
+      "when": 1790854986987,
+      "tag": "0388_pin_finance_actions_to_cfo_office_and_named_super_admins",
+      "breakpoints": true
     }
   ]
 }
