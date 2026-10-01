@@ -1028,7 +1028,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
       </CardContent>
 
       <Sheet open={bulkReviewOpen} onOpenChange={setBulkReviewOpen}>
-        <SheetContent side="center" className="max-h-[88vh] w-[94vw] sm:max-w-3xl overflow-y-auto rounded-xl p-0">
+        <SheetContent side="center" className="max-h-[88vh] w-[94vw] max-w-3xl sm:max-w-3xl lg:max-w-3xl xl:max-w-3xl overflow-y-auto rounded-xl p-0">
           <div className="space-y-5 p-5 sm:p-6">
             <SheetHeader>
               <SheetTitle className="text-xl">Review bulk payment</SheetTitle>
@@ -1140,7 +1140,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
       </Sheet>
 
       <Sheet open={!!reviewTarget} onOpenChange={(o) => { if (!o) setReviewTarget(null); }}>
-        <SheetContent side="center" className="max-h-[80vh] w-[92vw] sm:max-w-md overflow-y-auto rounded-xl p-5">
+        <SheetContent side="center" className="max-h-[80vh] w-[92vw] max-w-md sm:max-w-md lg:max-w-md xl:max-w-md overflow-y-auto rounded-xl p-5">
           {reviewTarget && (
             <div className="space-y-4">
               <SheetHeader>
