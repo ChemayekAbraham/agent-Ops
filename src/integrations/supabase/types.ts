@@ -10446,6 +10446,41 @@ export type Database = {
         }
         Relationships: []
       }
+      cfo_statutory_consent_notices: {
+        Row: {
+          created_at: string
+          paid_at: string
+          push_attempts: number
+          pushed_at: string | null
+          recipient_id: string
+          run_id: string
+        }
+        Insert: {
+          created_at?: string
+          paid_at: string
+          push_attempts?: number
+          pushed_at?: string | null
+          recipient_id: string
+          run_id: string
+        }
+        Update: {
+          created_at?: string
+          paid_at?: string
+          push_attempts?: number
+          pushed_at?: string | null
+          recipient_id?: string
+          run_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cfo_statutory_consent_notices_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: true
+            referencedRelation: "hr_pay_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cfo_threshold_alerts: {
         Row: {
           acknowledged: boolean | null
@@ -58758,6 +58793,19 @@ export type Database = {
           p_rent_request_id: string
         }
         Returns: Json
+      }
+      cfo_statutory_consent_list: {
+        Args: { p_run_id?: string }
+        Returns: {
+          full_name: string
+          nssf_number: string
+          paid_at: string
+          phone: string
+          responded_at: string
+          run_id: string
+          tin: string
+          user_id: string
+        }[]
       }
       change_wallet_transfer_schedule_recipient: {
         Args: { p_recipient_id: string; p_schedule_id: string }

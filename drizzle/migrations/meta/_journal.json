@@ -2745,6 +2745,13 @@
       "when": 1790856156561,
       "tag": "0391_crm_dossier_plan_repayment_frequency",
       "breakpoints": true
+    },
+    {
+      "idx": 392,
+      "version": "7",
+      "when": 1790857404178,
+      "tag": "0392_cfo_statutory_consent_list",
+      "breakpoints": true
     }
   ]
 }
