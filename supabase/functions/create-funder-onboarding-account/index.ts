@@ -40,7 +40,16 @@ Deno.serve(async (req) => {
   try {
     const parsed = BodySchema.safeParse(await req.json().catch(() => ({})));
     if (!parsed.success) {
-      return json({ error: parsed.error.flatten().fieldErrors }, 400);
+      const fe = parsed.error.flatten().fieldErrors as Record<string, string[] | undefined>;
+      const field = Object.keys(fe)[0];
+      const messages: Record<string, string> = {
+        email: "Please enter a valid email address.",
+        password: "Your password must be at least 8 characters.",
+        fullName: "Please enter your full name.",
+        phone: "Please check your phone number — it should have at least 7 digits.",
+        referrerId: "Your referral link is not valid. Please ask for a new link.",
+      };
+      return json({ error: messages[field] || "Please check your details and try again.", field }, 400);
     }
 
     const admin = createClient(
@@ -50,6 +59,24 @@ Deno.serve(async (req) => {
     );
 
     const { email, password, fullName, phone, referrerId } = parsed.data;
+
+    // Pre-checks so the user gets a specific reason instead of a generic database error.
+    const digits = phone.replace(/\D/g, "");
+    if (digits.length < 7) {
+      return json({ error: "Please check your phone number — it should have at least 7 digits.", field: "phone" }, 400);
+    }
+    const last9 = digits.slice(-9);
+    const { data: phoneHits } = await admin
+      .from("profiles").select("id").ilike("phone", `%${last9}`).limit(5);
+    if ((phoneHits || []).length > 0) {
+      return json({ error: "This phone number is already registered to another account. Please sign in, or use a different phone number.", field: "phone" }, 409);
+    }
+    const { data: emailHits } = await admin
+      .from("profiles").select("id").ilike("email", email).limit(1);
+    if ((emailHits || []).length > 0) {
+      return json({ error: "This email is already registered. Please sign in or use another email.", field: "email" }, 409);
+    }
+
     const metadata: Record<string, unknown> = {
       full_name: fullName,
       phone,
@@ -68,7 +95,7 @@ Deno.serve(async (req) => {
     if (error) {
       const message = error.message || "Could not create account";
       if (/already|registered|exists/i.test(message)) {
-        return json({ error: "This email is already registered. Please sign in or use another email." }, 409);
+        return json({ error: "This email is already registered. Please sign in or use another email.", field: "email" }, 409);
       }
       console.error("[create-funder-onboarding-account] create failed:", JSON.stringify({
         message,
@@ -76,6 +103,12 @@ Deno.serve(async (req) => {
         code: (error as any).code,
         name: (error as any).name,
       }));
+      if (/database error/i.test(message)) {
+        return json({ error: "This phone number or email is already linked to another Welile account. Please sign in, or use a different phone number and email.", code: (error as any).code }, 409);
+      }
+      if (/password/i.test(message)) {
+        return json({ error: "Your password was not accepted. Use at least 8 characters with letters and numbers.", field: "password" }, 400);
+      }
       return json({ error: message || "Could not create funder account", code: (error as any).code }, 400);
     }
 
