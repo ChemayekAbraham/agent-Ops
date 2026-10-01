@@ -340,6 +340,22 @@ export default function PlatformSalesOfficersPage() {
   );
 
 
+  // Names come back only for CEO/COO/HR (enforced server-side); everyone else gets codes.
+  const { data: officerNames = {} } = useQuery<Record<string, string>>({
+    queryKey: ['pso-officer-names'],
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data, error } = (await supabase.rpc('pso_officer_names' as any)) as any;
+      if (error) return {};
+      const m: Record<string, string> = {};
+      for (const r of (data ?? []) as { staff_id: string; full_name: string | null }[]) {
+        if (r.full_name) m[r.staff_id] = r.full_name;
+      }
+      return m;
+    },
+  });
+  const officerLabel = (o: { staff_id: string; staff_ref: string }) => officerNames[o.staff_id] ?? o.staff_ref;
+
   const {
     data: rows = [],
     isLoading,
@@ -889,7 +905,7 @@ export default function PlatformSalesOfficersPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <div className="text-xs font-bold tabular-nums text-muted-foreground">#{ranks[i]}</div>
-                      <div className="text-sm font-semibold">{officer.staff_ref}</div>
+                      <div className="text-sm font-semibold">{officerLabel(officer)}</div>
                     </div>
                     <div className="text-right">
                       <div className="text-2xl font-bold leading-none tabular-nums">{officer.netNotes}</div>
@@ -977,7 +993,7 @@ export default function PlatformSalesOfficersPage() {
                     {sortedOfficers.map((officer, i) => (
                       <tr key={officer.staff_id} className="border-t">
                         <td className="px-4 py-2 text-left tabular-nums">{ranks[i]}</td>
-                        <td className="px-4 py-2 font-medium">{officer.staff_ref}</td>
+                        <td className="px-4 py-2 font-medium">{officerLabel(officer)}</td>
                         {dayIndices.map((wi) => (
                           <td key={wi} className="px-2 py-2 text-right tabular-nums">{officer.weekday[wi]}</td>
                         ))}
