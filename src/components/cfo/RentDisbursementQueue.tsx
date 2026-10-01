@@ -17,8 +17,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Loader2, CheckCircle2, Banknote, Home, TrendingUp, Users, Wallet, AlertTriangle, XCircle, Search, MapPin, Filter, Eye } from 'lucide-react';
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
+import { Loader2, CheckCircle2, Banknote, Home, TrendingUp, Users, Wallet, AlertTriangle, XCircle, Search, MapPin, Filter, Eye, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { TenantPaymentHistoryCard } from '@/components/executive/TenantPaymentHistoryCard';
 import {
   fetchPartnerReservedStages,
@@ -140,6 +140,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
   const [dateFilter, setDateFilter] = useState<'all' | '7d' | '30d'>('all');
   const [search, setSearch] = useState('');
   const [batchRef, setBatchRef] = useState('');
+  const [bulkReviewOpen, setBulkReviewOpen] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<ApprovedRentItem | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [reviewTarget, setReviewTarget] = useState<ApprovedRentItem | null>(null);
@@ -395,25 +396,43 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
     () => visibleItems.filter(i => !i.partner_reserved_stage),
     [visibleItems],
   );
-  const allSelected = selectableItems.length > 0 && selectableItems.every(i => selected.has(i.id));
-  const someSelected = !allSelected && selectableItems.some(i => selected.has(i.id));
-  // Presentation only: which visible row should host the inline Step 2 panel.
-  const firstSelectedId = useMemo(
-    () => visibleItems.find(i => selected.has(i.id))?.id ?? null,
-    [visibleItems, selected],
+  const selectedVisibleCount = useMemo(
+    () => selectableItems.filter(i => selected.has(i.id)).length,
+    [selectableItems, selected],
   );
-  const toggleAll = () => {
-    const next = new Set(selected);
-    if (allSelected) selectableItems.forEach(i => next.delete(i.id));
-    else selectableItems.forEach(i => next.add(i.id));
-    setSelected(next);
+  const selectAllForPayment = () => {
+    if (selectableItems.length === 0) return;
+    setSelected(new Set(selectableItems.map(i => i.id)));
+    setBulkReviewOpen(true);
   };
 
   const batchDisburse = useMutation({
     mutationFn: async () => {
       if (!batchRef.trim()) throw new Error('Enter a batch reference');
+      const requestedIds = Array.from(selected);
+      if (requestedIds.length === 0) throw new Error('Select at least one tenant');
+
+      // Safety re-check: selection may be several minutes old by confirmation.
+      // Refuse the whole batch if any request is no longer COO-approved or has
+      // since been reserved for partner funding. This read happens before any
+      // payment function is invoked, so a stale review cannot partially pay.
+      const { data: latestRequests, error: latestError } = await supabase
+        .from('rent_requests')
+        .select('id, status')
+        .in('id', requestedIds);
+      if (latestError) throw latestError;
+
+      const latestApprovedIds = new Set(
+        (latestRequests || []).filter(request => request.status === 'coo_approved').map(request => request.id),
+      );
+      const latestReserved = await fetchPartnerReservedStages(requestedIds);
+      const stillEligible = requestedIds.filter(id => latestApprovedIds.has(id) && !latestReserved.has(id));
+      if (stillEligible.length !== requestedIds.length) {
+        throw new Error('The payment queue changed. Close this review and select eligible tenants again.');
+      }
+
       const errors: string[] = [];
-      for (const id of selected) {
+      for (const id of stillEligible) {
         const { error } = await supabase.functions.invoke('fund-agent-landlord-float', {
           body: { rent_request_id: id, notes: `Batch: ${batchRef}` },
         });
@@ -423,6 +442,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
     },
     onSuccess: () => {
       toast.success(`Funded ${selected.size} agent float${selected.size === 1 ? '' : 's'} — agents will complete the MoMo payouts.`);
+      setBulkReviewOpen(false);
       setSelected(new Set());
       setBatchRef('');
       qc.invalidateQueries({ queryKey: ['rent-disbursement-queue'] });
@@ -750,11 +770,25 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
 
 
             {/* Grouped list (by agent) */}
-            <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
               <span className="text-xs text-muted-foreground">
                 {visibleGroups.length} agent{visibleGroups.length === 1 ? '' : 's'} shown
               </span>
-              <Popover>
+              <div className="flex items-center gap-2 flex-wrap">
+                <Button
+                  type="button"
+                  size="sm"
+                  className="h-9 rounded-lg gap-2"
+                  disabled={selectableItems.length === 0}
+                  onClick={selectAllForPayment}
+                >
+                  <Banknote className="h-4 w-4" />
+                  {selectedVisibleCount > 0
+                    ? `${selectedVisibleCount} Tenant${selectedVisibleCount === 1 ? '' : 's'} Selected — Review Payment`
+                    : 'Select All for Payment'}
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+                <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline" size="sm" className="h-9 rounded-xl gap-2">
                     <Filter className="h-4 w-4" />
@@ -877,30 +911,15 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                     Clear all filters
                   </button>
                 </PopoverContent>
-              </Popover>
+                </Popover>
+              </div>
             </div>
             <div className="rounded-xl border border-border/70 overflow-hidden bg-card">
               <div className="overflow-x-auto max-h-[560px] overflow-y-auto">
                 <table className="w-full text-sm min-w-[64rem]">
                   <thead className="sticky top-0 z-10">
                     <tr className="border-b border-border/70 bg-muted/40 text-[10px] uppercase tracking-wider text-muted-foreground">
-                      <th className="w-28 px-2 py-2 text-center" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-center gap-1.5">
-                          <Checkbox
-                            id="rdq-select-all"
-                            aria-label="Select all eligible requests"
-                            disabled={selectableItems.length === 0}
-                            checked={allSelected ? true : someSelected ? 'indeterminate' : false}
-                            onCheckedChange={toggleAll}
-                          />
-                          <label
-                            htmlFor="rdq-select-all"
-                            className={`cursor-pointer select-none whitespace-nowrap text-[10px] font-semibold uppercase tracking-wider ${selectableItems.length === 0 ? 'opacity-50' : ''}`}
-                          >
-                            Select All
-                          </label>
-                        </div>
-                      </th>
+                      <th className="w-12 px-2 py-2 text-center font-semibold">Select</th>
                       <th className="w-10 px-2 py-2 text-center font-semibold">#</th>
                       <th className="px-2 py-2 text-left font-semibold">Tenant</th>
                       <th className="px-2 py-2 text-left font-semibold">Landlord</th>
@@ -1031,6 +1050,118 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
           </div>
         )}
       </CardContent>
+
+      <Sheet open={bulkReviewOpen} onOpenChange={setBulkReviewOpen}>
+        <SheetContent side="center" className="max-h-[88vh] w-[94vw] sm:max-w-3xl overflow-y-auto rounded-xl p-0">
+          <div className="space-y-5 p-5 sm:p-6">
+            <SheetHeader>
+              <SheetTitle className="text-xl">Review bulk payment</SheetTitle>
+              <SheetDescription>
+                Review every selected tenant before authorising the payment.
+              </SheetDescription>
+            </SheetHeader>
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
+                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                  <Users className="h-4 w-4 text-primary" />
+                  Tenants selected
+                </div>
+                <p className="mt-2 text-3xl font-bold text-foreground">{selectedItems.length}</p>
+              </div>
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
+                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                  <Banknote className="h-4 w-4 text-primary" />
+                  Total payment
+                </div>
+                <p className="mt-2 text-3xl font-bold text-primary">{fmt(totalRent)}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <div className="rounded-lg border border-border/70 p-3">
+                <p className="text-xs text-muted-foreground">Landlord Wallet</p>
+                <p className="mt-1 font-semibold">
+                  {selectedItems.filter(item => item.payout_target === 'landlord_wallet').length} tenant(s)
+                </p>
+              </div>
+              <div className="rounded-lg border border-border/70 p-3">
+                <p className="text-xs text-muted-foreground">Agent Float</p>
+                <p className="mt-1 font-semibold">
+                  {selectedItems.filter(item => item.payout_target === 'agent_float').length} tenant(s)
+                </p>
+              </div>
+              <div className="rounded-lg border border-border/70 p-3">
+                <p className="text-xs text-muted-foreground">Expected repayment</p>
+                <p className="mt-1 font-semibold">{fmt(totalRepaymentExpected)}</p>
+              </div>
+            </div>
+
+            <TreasuryImpactBanner payoutAmount={totalRent} />
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-semibold">Payment details</p>
+                <Badge variant="outline">Fees: {fmt(totalRevenue)}</Badge>
+              </div>
+              <div className="max-h-64 overflow-y-auto rounded-lg border border-border/70 divide-y divide-border/60">
+                {selectedItems.map(item => (
+                  <label key={item.id} className="flex cursor-pointer items-center gap-3 px-3 py-3 hover:bg-muted/30">
+                    <Checkbox
+                      checked={selected.has(item.id)}
+                      onCheckedChange={() => toggle(item.id)}
+                      aria-label={`Remove ${item.tenant_name} from payment`}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold">{item.tenant_name}</span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {item.agent_name} · {item.payout_target === 'landlord_wallet' ? 'Landlord Wallet' : 'Agent Float'}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-sm font-bold">{fmt(item.rent_amount)}</span>
+                  </label>
+                ))}
+                {selectedItems.length === 0 && (
+                  <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                    No tenants selected. Close this review and select eligible tenants again.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="bulk-payment-reference" className="text-sm font-semibold">Batch reference</label>
+              <Input
+                id="bulk-payment-reference"
+                value={batchRef}
+                onChange={event => setBatchRef(event.target.value)}
+                placeholder="Enter the payment batch reference"
+                autoComplete="off"
+              />
+              <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                No payment is made until you click Confirm &amp; Pay Selected.
+              </p>
+            </div>
+
+            <SheetFooter className="border-t border-border/70 pt-4">
+              <Button type="button" variant="outline" onClick={() => setBulkReviewOpen(false)} disabled={batchDisburse.isPending}>
+                Back to list
+              </Button>
+              <CfoApprovalGate>
+                <Button
+                  type="button"
+                  onClick={() => batchDisburse.mutate()}
+                  disabled={batchDisburse.isPending || selectedItems.length === 0 || !batchRef.trim()}
+                >
+                  {batchDisburse.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Banknote className="h-4 w-4" />}
+                  Confirm &amp; Pay Selected
+                </Button>
+              </CfoApprovalGate>
+            </SheetFooter>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <Sheet open={!!reviewTarget} onOpenChange={(o) => { if (!o) setReviewTarget(null); }}>
         <SheetContent side="center" className="max-h-[80vh] w-[92vw] sm:max-w-md overflow-y-auto rounded-xl p-5">
