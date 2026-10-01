@@ -2640,6 +2640,13 @@
       "when": 1790836396540,
       "tag": "0376_rls_evaluate_role_checks_once_per_query",
       "breakpoints": true
+    },
+    {
+      "idx": 377,
+      "version": "7",
+      "when": 1790836656179,
+      "tag": "0377_engrep_reevaluate_liveness_recent_record",
+      "breakpoints": true
     }
   ]
 }
