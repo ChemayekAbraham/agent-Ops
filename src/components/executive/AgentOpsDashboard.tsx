@@ -546,20 +546,39 @@ export function AgentOpsDashboard() {
     <div className="space-y-4">
       <h1 className="text-xl font-bold text-foreground">Agent Operations</h1>
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
-        {BUSINESS_AREAS.map(({ title, icon: Icon, section }, index) => (
+        {BUSINESS_AREAS.map(({ title, icon: Icon, section, highlight }, index) => (
           <Button
             key={title}
             type="button"
             variant="outline"
             onClick={() => selectView(section)}
-            className="group h-auto min-h-28 w-full whitespace-normal justify-start gap-4 rounded-md border-border bg-card p-4 text-left shadow-sm hover:border-primary/50 hover:bg-muted/50"
+            aria-label={title}
+            className={cn(
+              'group relative h-auto min-h-28 w-full whitespace-normal justify-start gap-4 rounded-md p-4 text-left',
+              highlight
+                ? [
+                    '!bg-primary !text-primary-foreground !border-primary-foreground/25',
+                    'hover:!bg-primary/90 hover:!border-primary-foreground/45 active:!bg-primary/80',
+                    'shadow-glow hover:shadow-lg hover:-translate-y-0.5',
+                  ]
+                : 'border-border bg-card shadow-sm hover:border-primary/50 hover:bg-muted/50'
+            )}
           >
-            <span className="flex size-10 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"><Icon className="size-5" /></span>
+            {highlight && (
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 rounded-md ring-2 ring-primary-foreground/45 animate-attention-halo"
+              />
+            )}
+            <span className={cn(
+              'flex size-10 shrink-0 items-center justify-center rounded-md',
+              highlight ? 'bg-primary-foreground/15 text-primary-foreground' : 'bg-primary/10 text-primary'
+            )}><Icon className="size-5" /></span>
             <span className="min-w-0 flex-1">
-              <span className="block text-xs font-medium text-muted-foreground">{String(index + 1).padStart(2, '0')}</span>
-              <span className="block text-sm font-semibold leading-snug text-foreground">{title}</span>
+              <span className={cn('block text-xs font-medium', highlight ? 'text-primary-foreground/70' : 'text-muted-foreground')}>{String(index + 1).padStart(2, '0')}</span>
+              <span className={cn('block text-sm font-semibold leading-snug', highlight ? 'text-primary-foreground' : 'text-foreground')}>{title}</span>
             </span>
-            <ChevronDown className="size-4 shrink-0 -rotate-90 text-muted-foreground transition-transform group-hover:translate-x-1" />
+            <ChevronDown className={cn('size-4 shrink-0 -rotate-90 transition-transform group-hover:translate-x-1', highlight ? 'text-primary-foreground/70' : 'text-muted-foreground')} />
           </Button>
         ))}
       </div>
