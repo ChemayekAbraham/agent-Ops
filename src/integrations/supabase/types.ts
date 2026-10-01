@@ -67826,6 +67826,13 @@ export type Database = {
           person_user_id: string
         }[]
       }
+      pso_officer_names: {
+        Args: never
+        Returns: {
+          full_name: string
+          staff_id: string
+        }[]
+      }
       pso_promise_summary: {
         Args: { p_from: string; p_staff_id?: string; p_to: string }
         Returns: {
