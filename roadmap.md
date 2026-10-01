@@ -41,3 +41,4 @@
 - [x] Josh Wanda push d5389c19 (useUserSnapshot IndexedDB fix): apply any unlanded migrations (0372/0373/0374) and publish the frontend; nothing else.
 - [x] Make the Welile Shopping Advance tile on the Agent Ops home attention-seeking (filled primary + breathing outline); no routing change.
 - [x] Atimango Joyce balance check (read-only): UGX 6,350,000 verified; open plans match payments; first plan carries an unbacked UGX 500,000 paid-amount edit from 23 Jul.
+- [x] Replace CFO payout “Select All” checkbox with a review-first bulk payment button; selection remains read-only until explicit final confirmation.

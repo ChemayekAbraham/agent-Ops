@@ -10,3 +10,4 @@
 - `v_agent_daily_eligibility` falls back to LEAST(daily_repayment, outstanding) for counted daily/lapsed-weekly plans only when the agent has no pinned bill today/yesterday, because counted plans with no bill row showed a UGX 0 target.
 
 - The CRM call drawer paints directory identity immediately, then loads the full dossier through one cached server function, `crm_callee_dossier`, which decides partner visibility (partner_ops / super_admin / hr only); this prevents duplicate reads without moving role enforcement into the browser.
+- CFO bulk rent payments use a local selection-only review screen and revalidate every selected request before the existing payment function is called, so opening bulk review can never move money or change workflow state.
