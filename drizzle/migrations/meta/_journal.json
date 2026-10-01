@@ -2759,6 +2759,13 @@
       "when": 1790857535301,
       "tag": "0393_statutory_consent_push_on_paid",
       "breakpoints": true
+    },
+    {
+      "idx": 394,
+      "version": "7",
+      "when": 1790858948874,
+      "tag": "0394_pin_cfo_dashboard_money_actions",
+      "breakpoints": true
     }
   ]
 }
