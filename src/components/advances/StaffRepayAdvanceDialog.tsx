@@ -101,7 +101,8 @@ export function StaffRepayAdvanceDialog({ open, onOpenChange, onSuccess }: Props
 
   const outstanding = selected ? Number(selected.outstanding_balance) : 0;
   const parsed = Number(amount || 0);
-  const valid = parsed > 0 && parsed <= outstanding && reference.trim().length > 0;
+  // A wallet offset has no external TID; the edge function generates one.
+  const valid = parsed > 0 && parsed <= outstanding && (method === 'wallet_offset' || reference.trim().length > 0);
 
   const submit = async () => {
     if (!selected || !valid) {

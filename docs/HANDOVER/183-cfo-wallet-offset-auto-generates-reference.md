@@ -25,3 +25,11 @@ wallet offset, and surface `error.context` JSON.
 Record a small wallet-offset payment with the reference blank; the advance statement row
 should show a `WOFF-…` reference. `architecture-map.html` not updated: no subsystem,
 table or flow changed.
+
+## Follow-up 2026-10-01: the dialog blocked it before the edge function
+The CFO "Advance Repayments" dialog (`StaffRepayAdvanceDialog.tsx`) disabled its
+Record button until a reference was typed (`valid` required `reference.trim()`), so
+the edge-function fix was never reached. `valid` now skips that check when the
+method is `wallet_offset`. The label still says "(required)" (Gemini). `other` is
+still rejected by the RPC (`0A000`, only wallet_offset/mobile_money/bank_transfer/cash).
+`RecordAdvancePaymentDialog.tsx` has no such gate and was already fixed by the edge function.
