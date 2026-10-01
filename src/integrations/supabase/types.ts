@@ -11373,6 +11373,44 @@ export type Database = {
         }
         Relationships: []
       }
+      crm_call_complaints: {
+        Row: {
+          body_html: string
+          body_text: string
+          call_session_id: string | null
+          created_at: string
+          id: string
+          recorded_by: string
+          target_user_id: string
+        }
+        Insert: {
+          body_html: string
+          body_text: string
+          call_session_id?: string | null
+          created_at?: string
+          id?: string
+          recorded_by: string
+          target_user_id: string
+        }
+        Update: {
+          body_html?: string
+          body_text?: string
+          call_session_id?: string | null
+          created_at?: string
+          id?: string
+          recorded_by?: string
+          target_user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_call_complaints_call_session_id_fkey"
+            columns: ["call_session_id"]
+            isOneToOne: false
+            referencedRelation: "crm_call_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crm_call_sessions: {
         Row: {
           answered_at: string | null
@@ -59199,6 +59237,7 @@ export type Database = {
           target_user_id: string
         }[]
       }
+      crm_callee_dossier: { Args: { p_user_id: string }; Returns: Json }
       crm_cancel_call: { Args: { p_session_id: string }; Returns: string }
       crm_derive_outcome: {
         Args: { p_duration: number; p_hangup_cause: string; p_status: string }
@@ -59257,6 +59296,15 @@ export type Database = {
         }[]
       }
       crm_reap_stale_call_sessions: { Args: never; Returns: Json }
+      crm_record_call_complaint: {
+        Args: {
+          p_body_html: string
+          p_body_text: string
+          p_call_session_id: string
+          p_target_user_id: string
+        }
+        Returns: string
+      }
       crm_record_call_outcome: {
         Args: { p_outcome: string; p_session_id: string }
         Returns: undefined
