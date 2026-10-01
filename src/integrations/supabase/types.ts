@@ -15412,6 +15412,47 @@ export type Database = {
         }
         Relationships: []
       }
+      fin_correction_review_audit: {
+        Row: {
+          collection_id: string
+          flags: string[]
+          id: string
+          logged_at: string
+          new_value: Json
+          previous_value: Json
+          reviewer_id: string | null
+          reviewer_name: string | null
+        }
+        Insert: {
+          collection_id: string
+          flags?: string[]
+          id?: string
+          logged_at?: string
+          new_value: Json
+          previous_value: Json
+          reviewer_id?: string | null
+          reviewer_name?: string | null
+        }
+        Update: {
+          collection_id?: string
+          flags?: string[]
+          id?: string
+          logged_at?: string
+          new_value?: Json
+          previous_value?: Json
+          reviewer_id?: string | null
+          reviewer_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_correction_review_audit_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "fin_correction_review_items"
+            referencedColumns: ["collection_id"]
+          },
+        ]
+      }
       fin_correction_review_items: {
         Row: {
           access_fee: number
@@ -15423,9 +15464,22 @@ export type Database = {
           collection_id: string
           completion_dependent: boolean
           created_at: string
+          evidence_amount: number | null
+          evidence_date: string | null
+          evidence_group_id: string | null
+          evidence_holder: string | null
+          evidence_location: string | null
+          evidence_received: boolean
+          evidence_reference: string | null
+          evidence_requested: boolean
+          evidence_requested_on: string | null
           evidence_state: string
+          evidence_type: string | null
           finance_classification: string
+          is_test: boolean
           original_classification: string
+          payer_identity: string | null
+          payment_channel: string | null
           plan_status: string | null
           platform_fee: number
           principal_recovered: number
@@ -15434,9 +15488,14 @@ export type Database = {
           registration_fee: number
           rent_plan_amount: number
           rent_plan_id: string | null
+          review_flags: string[]
           reviewed_at: string | null
+          reviewed_by: string | null
           reviewer_name: string | null
+          reviewer_notes: string | null
+          shared_receipt_explanation: string | null
           tenant_name: string | null
+          tenant_phone: string | null
           updated_at: string
         }
         Insert: {
@@ -15449,9 +15508,22 @@ export type Database = {
           collection_id: string
           completion_dependent?: boolean
           created_at?: string
+          evidence_amount?: number | null
+          evidence_date?: string | null
+          evidence_group_id?: string | null
+          evidence_holder?: string | null
+          evidence_location?: string | null
+          evidence_received?: boolean
+          evidence_reference?: string | null
+          evidence_requested?: boolean
+          evidence_requested_on?: string | null
           evidence_state?: string
+          evidence_type?: string | null
           finance_classification?: string
+          is_test?: boolean
           original_classification: string
+          payer_identity?: string | null
+          payment_channel?: string | null
           plan_status?: string | null
           platform_fee?: number
           principal_recovered?: number
@@ -15460,9 +15532,14 @@ export type Database = {
           registration_fee?: number
           rent_plan_amount?: number
           rent_plan_id?: string | null
+          review_flags?: string[]
           reviewed_at?: string | null
+          reviewed_by?: string | null
           reviewer_name?: string | null
+          reviewer_notes?: string | null
+          shared_receipt_explanation?: string | null
           tenant_name?: string | null
+          tenant_phone?: string | null
           updated_at?: string
         }
         Update: {
@@ -15475,9 +15552,22 @@ export type Database = {
           collection_id?: string
           completion_dependent?: boolean
           created_at?: string
+          evidence_amount?: number | null
+          evidence_date?: string | null
+          evidence_group_id?: string | null
+          evidence_holder?: string | null
+          evidence_location?: string | null
+          evidence_received?: boolean
+          evidence_reference?: string | null
+          evidence_requested?: boolean
+          evidence_requested_on?: string | null
           evidence_state?: string
+          evidence_type?: string | null
           finance_classification?: string
+          is_test?: boolean
           original_classification?: string
+          payer_identity?: string | null
+          payment_channel?: string | null
           plan_status?: string | null
           platform_fee?: number
           principal_recovered?: number
@@ -15486,9 +15576,14 @@ export type Database = {
           registration_fee?: number
           rent_plan_amount?: number
           rent_plan_id?: string | null
+          review_flags?: string[]
           reviewed_at?: string | null
+          reviewed_by?: string | null
           reviewer_name?: string | null
+          reviewer_notes?: string | null
+          shared_receipt_explanation?: string | null
           tenant_name?: string | null
+          tenant_phone?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -58841,6 +58936,59 @@ export type Database = {
         Returns: Json
       }
       cfo_correction_center_summary: { Args: never; Returns: Json }
+      cfo_correction_review_list: {
+        Args: { p_include_test?: boolean }
+        Returns: {
+          access_fee: number
+          agent_commission: number
+          agent_name: string | null
+          cash_in_transit: number
+          collected_at: string | null
+          collection_amount: number
+          collection_id: string
+          completion_dependent: boolean
+          created_at: string
+          evidence_amount: number | null
+          evidence_date: string | null
+          evidence_group_id: string | null
+          evidence_holder: string | null
+          evidence_location: string | null
+          evidence_received: boolean
+          evidence_reference: string | null
+          evidence_requested: boolean
+          evidence_requested_on: string | null
+          evidence_state: string
+          evidence_type: string | null
+          finance_classification: string
+          is_test: boolean
+          original_classification: string
+          payer_identity: string | null
+          payment_channel: string | null
+          plan_status: string | null
+          platform_fee: number
+          principal_recovered: number
+          priority_group: number
+          recruiter_commission: number
+          registration_fee: number
+          rent_plan_amount: number
+          rent_plan_id: string | null
+          review_flags: string[]
+          reviewed_at: string | null
+          reviewed_by: string | null
+          reviewer_name: string | null
+          reviewer_notes: string | null
+          shared_receipt_explanation: string | null
+          tenant_name: string | null
+          tenant_phone: string | null
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "fin_correction_review_items"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       cfo_create_advance: {
         Args: {
           p_agent_id: string
@@ -58913,6 +59061,10 @@ export type Database = {
           p_payment_method: string
           p_reference: string
         }
+        Returns: Json
+      }
+      cfo_save_evidence_review: {
+        Args: { p: Json; p_collection_id: string }
         Returns: Json
       }
       cfo_settle_tenant_shortfall_via_advance_topup: {
@@ -60324,6 +60476,10 @@ export type Database = {
       }
       extract_public_schema_sql: { Args: never; Returns: string }
       extract_tid_normalized: { Args: { p_text: string }; Returns: string }
+      fin_correction_review_flags: {
+        Args: { p: Json; p_collection_id: string }
+        Returns: string[]
+      }
       fin_ops_recent_cash_codes: {
         Args: { p_limit?: number }
         Returns: {

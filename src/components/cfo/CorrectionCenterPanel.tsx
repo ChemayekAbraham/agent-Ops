@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { formatUGX } from '@/lib/businessAdvanceCalculations';
 import { ShieldAlert, Lock } from 'lucide-react';
+import { EvidenceReviewQueue } from './EvidenceReviewQueue';
 
 type Bucket = { count: number; amount: number };
 type Scenario = Record<string, number | string>;
@@ -145,6 +146,7 @@ export function CorrectionCenterPanel() {
           <p className="text-xs text-muted-foreground">
             Evidence states: {states.map((k) => `${k} ${s.by_state[k]?.count ?? 0}`).join(' · ')}. Original classification: {s.total.indeterminate} Indeterminate / {s.total.unsupported} Unsupported (never overwritten).
           </p>
+          <EvidenceReviewQueue />
         </CardContent>
       </Card>
 
