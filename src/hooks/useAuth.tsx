@@ -276,10 +276,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 .catch(() => {});
             }, 500);
             // Defer non-critical profile update — don't block login
+            // SIGNED_IN also fires on every tab resume, so throttle the write
+            // to once per 15 min per user (doc 177: profiles write load).
             setTimeout(() => {
+              const key = `last_active_written:${session.user.id}`;
+              const now = Date.now();
+              try {
+                const prev = Number(localStorage.getItem(key) || 0);
+                if (now - prev < 15 * 60 * 1000) return;
+                localStorage.setItem(key, String(now));
+              } catch { /* storage unavailable: fall through and write */ }
               supabase
                 .from('profiles')
-                .update({ last_active_at: new Date().toISOString() })
+                .update({ last_active_at: new Date(now).toISOString() })
                 .eq('id', session.user.id)
                 .then(() => {});
             }, 5000);
