@@ -287,7 +287,7 @@ export function FunderNewRouteMap({
           zoom: initialZoom,
           clickableIcons: false,
           disableDefaultUI: true,
-          gestureHandling: fullscreen ? 'greedy' : 'cooperative',
+          gestureHandling: 'greedy',
           styles: [{ featureType: 'poi', stylers: [{ visibility: 'off' }] }],
         });
         mapRef.current = map;
@@ -321,7 +321,7 @@ export function FunderNewRouteMap({
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
-    map.setOptions({ gestureHandling: fullscreen ? 'greedy' : 'cooperative' });
+    map.setOptions({ gestureHandling: 'greedy' });
     window.setTimeout(() => google.maps.event.trigger(map, 'resize'), 120);
   }, [fullscreen]);
 
