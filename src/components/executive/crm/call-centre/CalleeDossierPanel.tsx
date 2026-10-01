@@ -39,7 +39,7 @@ function Stat({ k, v, tone = 'muted', icon: Icon }: { k: string; v: ReactNode; t
       {Icon && <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-background/80 shadow-sm"><Icon className="h-4 w-4" /></span>}
       <div className="min-w-0">
         <p className="text-[10px] font-bold uppercase tracking-wide opacity-80">{k}</p>
-        <p className="mt-0.5 truncate text-sm font-bold tabular-nums text-foreground">{v}</p>
+        <p className="mt-0.5 break-words text-sm font-bold tabular-nums text-foreground">{v}</p>
       </div>
     </div>
   );
@@ -76,7 +76,7 @@ const matches = (q: string, ...vals: (string | null | undefined)[]) =>
 function WalletSection({ d }: { d: CalleeDossier }) {
   return (
     <Section title="Wallet balances">
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 2xl:grid-cols-4">
         <Stat k="Withdrawable" v={ugx(d.wallet.withdrawable)} tone="success" icon={WalletCards} />
         <Stat k="Operational float" v={ugx(d.wallet.operational_float)} tone="primary" icon={CircleDollarSign} />
         <Stat k="Landlord float" v={ugx(d.wallet.landlord_float)} tone="warning" icon={Landmark} />
@@ -413,9 +413,9 @@ export function CalleeDossierPanel({ userId, callId, profileHint }: {
 
   return (
     <div className="space-y-6 p-5 sm:p-7">
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]">
+      <div className="grid min-w-0 gap-6 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]">
         <Section title="Profile">
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2">
             <Stat k="Name" v={pr?.full_name ?? profileHint.full_name ?? '—'} icon={UserRound} />
             <Stat k="Phone" v={pr?.phone ?? profileHint.phone ?? '—'} icon={Phone} />
             <Stat k="Email" v={pr?.email ?? '—'} icon={Mail} />
