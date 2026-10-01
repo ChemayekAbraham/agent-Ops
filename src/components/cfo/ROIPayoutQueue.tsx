@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { CheckCircle, XCircle, Loader2, Wallet, Pencil, Eye } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, Wallet, Pencil, Eye, Banknote, ArrowRight, Users, ShieldCheck } from 'lucide-react';
 import { TreasuryImpactBanner } from './TreasuryImpactBanner';
 import { format } from 'date-fns';
 import { CfoApprovalGate } from '@/components/cfo/CfoApprovalGate';
@@ -17,6 +17,7 @@ import {
   Sheet,
   SheetContent,
   SheetDescription,
+  SheetFooter,
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
@@ -168,6 +169,12 @@ export function ROIPayoutQueue() {
         .limit(100);
       if (fetchErr) throw fetchErr;
       const ops = (fresh || []) as Pick<PendingOp, 'id' | 'amount' | 'user_id' | 'target_wallet_user_id' | 'description'>[];
+      // Safety re-check (mirrors Rent Payout Queue): refuse the whole batch if any
+      // selected payout is no longer COO-approved, before any payment is invoked.
+      if (selectedIds.size === 0) throw new Error('Select at least one payout');
+      if (ops.length !== selectedIds.size) {
+        throw new Error('The payment queue changed. Close this review and select eligible payouts again.');
+      }
       let approved = 0;
       let failed = 0;
       let lastError = '';
@@ -263,6 +270,12 @@ export function ROIPayoutQueue() {
   const allSelected = operations.length > 0 && selectedOps.length === operations.length;
   const selectAll = () => setSelectedIds(new Set(operations.map(op => op.id)));
   const clearSelection = () => { setSelectedIds(new Set()); setBulkConfirm(false); };
+  // Selection only: opens the review screen. Never pays anything.
+  const selectAllForPayment = () => {
+    if (operations.length === 0) return;
+    if (selectedOps.length === 0) selectAll();
+    setBulkConfirm(true);
+  };
   const toggleOne = (id: string) => {
     setBulkConfirm(false);
     setSelectedIds(prev => {
@@ -283,47 +296,26 @@ export function ROIPayoutQueue() {
             </span>
           )}
         </p>
-        <CfoApprovalGate>
-          <div className="flex items-center gap-2">
-            {selectedOps.length === 0 ? (
-              <Button size="sm" className="h-8 rounded-lg text-xs" onClick={selectAll}>
-                <CheckCircle className="h-3 w-3 mr-1" />
-                Approve all
-              </Button>
-            ) : bulkConfirm ? (
-              <>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8 rounded-lg text-xs"
-                  disabled={bulkApproveMutation.isPending}
-                  onClick={() => setBulkConfirm(false)}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  size="sm"
-                  className="h-8 rounded-lg text-xs"
-                  disabled={bulkApproveMutation.isPending}
-                  onClick={() => bulkApproveMutation.mutate()}
-                >
-                  {bulkApproveMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <CheckCircle className="h-3 w-3 mr-1" />}
-                  Confirm payout of {selectedOps.length} ({formatUGX(bulkTotal)})
-                </Button>
-              </>
-            ) : (
-              <>
-                <Button size="sm" variant="ghost" className="h-8 rounded-lg text-xs" onClick={clearSelection}>
-                  Clear
-                </Button>
-                <Button size="sm" className="h-8 rounded-lg text-xs" onClick={() => setBulkConfirm(true)}>
-                  <CheckCircle className="h-3 w-3 mr-1" />
-                  Pay out selected ({selectedOps.length})
-                </Button>
-              </>
-            )}
-          </div>
-        </CfoApprovalGate>
+        <div className="flex items-center gap-2">
+          {selectedOps.length > 0 && (
+            <Button size="sm" variant="ghost" className="h-9 rounded-lg text-xs" onClick={clearSelection}>
+              Clear
+            </Button>
+          )}
+          <Button
+            type="button"
+            size="sm"
+            className="h-9 rounded-lg gap-2"
+            disabled={operations.length === 0}
+            onClick={selectAllForPayment}
+          >
+            <Banknote className="h-4 w-4" />
+            {selectedOps.length > 0
+              ? `${selectedOps.length} Payout${selectedOps.length === 1 ? '' : 's'} Selected — Review Payment`
+              : 'Select All for Payment'}
+            <ArrowRight className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       <div className="rounded-xl border border-border/70 overflow-hidden bg-card">
@@ -414,6 +406,78 @@ export function ROIPayoutQueue() {
           </table>
         </div>
       </div>
+
+      <Sheet open={bulkConfirm} onOpenChange={(o) => { if (!bulkApproveMutation.isPending) setBulkConfirm(o); }}>
+        <SheetContent side="center" className="max-h-[88vh] w-[94vw] sm:max-w-3xl overflow-y-auto rounded-xl p-0">
+          <div className="space-y-5 p-5 sm:p-6">
+            <SheetHeader>
+              <SheetTitle className="text-xl">Review bulk ROI payment</SheetTitle>
+              <SheetDescription>Review every selected payout before authorising the payment.</SheetDescription>
+            </SheetHeader>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
+                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                  <Users className="h-4 w-4 text-primary" /> Payouts selected
+                </div>
+                <p className="mt-2 text-3xl font-bold text-foreground">{selectedOps.length}</p>
+              </div>
+              <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
+                <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+                  <Banknote className="h-4 w-4 text-primary" /> Total payment
+                </div>
+                <p className="mt-2 text-3xl font-bold text-primary">{formatUGX(bulkTotal)}</p>
+              </div>
+            </div>
+            <TreasuryImpactBanner payoutAmount={bulkTotal} />
+            <div className="space-y-2">
+              <p className="text-sm font-semibold">Payment details</p>
+              <div className="max-h-64 overflow-y-auto rounded-lg border border-border/70 divide-y divide-border/60">
+                {selectedOps.map(op => (
+                  <label key={op.id} className="flex cursor-pointer items-center gap-3 px-3 py-3 hover:bg-muted/30">
+                    <Checkbox
+                      checked={selectedIds.has(op.id)}
+                      onCheckedChange={() => setSelectedIds(prev => { const n = new Set(prev); n.delete(op.id); return n; })}
+                      aria-label={`Remove ${payeeLabel(op)} from payment`}
+                      className="h-4 w-4 rounded-[4px]"
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-semibold">{payeeLabel(op)}</span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        To {targetLabel(op)} · Ref {op.reference_id || '—'}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-sm font-bold">{formatUGX(op.amount)}</span>
+                  </label>
+                ))}
+                {selectedOps.length === 0 && (
+                  <div className="px-4 py-8 text-center text-sm text-muted-foreground">
+                    No payouts selected. Close this review and select eligible payouts again.
+                  </div>
+                )}
+              </div>
+              <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+                <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+                No payment is made until you click Confirm &amp; Pay Selected.
+              </p>
+            </div>
+            <SheetFooter className="border-t border-border/70 pt-4">
+              <Button type="button" variant="outline" onClick={() => setBulkConfirm(false)} disabled={bulkApproveMutation.isPending}>
+                Back to list
+              </Button>
+              <CfoApprovalGate>
+                <Button
+                  type="button"
+                  onClick={() => bulkApproveMutation.mutate()}
+                  disabled={bulkApproveMutation.isPending || selectedOps.length === 0}
+                >
+                  {bulkApproveMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Banknote className="h-4 w-4" />}
+                  Confirm &amp; Pay Selected
+                </Button>
+              </CfoApprovalGate>
+            </SheetFooter>
+          </div>
+        </SheetContent>
+      </Sheet>
 
       <Sheet open={!!reviewTarget} onOpenChange={(o) => { if (!o) setReviewTarget(null); }}>
         <SheetContent side="center" className="max-h-[70vh] w-[80vw] sm:max-w-xs overflow-y-auto rounded-xl p-4">
