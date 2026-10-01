@@ -2682,6 +2682,13 @@
       "when": 1790839455339,
       "tag": "0382_fix_broadcast_status_phone_regex",
       "breakpoints": true
+    },
+    {
+      "idx": 383,
+      "version": "7",
+      "when": 1790839610702,
+      "tag": "0383_staff_requisition_prompt_reopen_on_reentry",
+      "breakpoints": true
     }
   ]
 }
