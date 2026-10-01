@@ -37,6 +37,9 @@ function hasUnconfirmedRealEmail(user: { email?: string | null; email_confirmed_
   return !user.email_confirmed_at;
 }
 
+// Longest initializeAuth waits on enforceAccountAccess before proceeding.
+const ENFORCE_ACCOUNT_ACCESS_WAIT_MS = 2500;
+
 async function enforceAccountAccess(user: { id: string; email?: string | null; email_confirmed_at?: string | null }): Promise<boolean> {
   const userId = user.id;
   const stop = lt.start('auth.enforceAccountAccess', { userId });
@@ -371,7 +374,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } else {
           if (session) {
             lt.setUserId(session.user.id);
-            const allowed = await enforceAccountAccess(session.user);
+            // Don't let a slow guard hold up the whole init: it sits behind
+            // getSession and ahead of setUser/roles, and the 8s watchdog below
+            // flips loading off with user still null, which routes a signed-in
+            // person to /auth (84 users hit auth.init.timeout_forced on
+            // 2026-09-30; guard p95 3.4s, getSession p95 4.5s). If the guard is
+            // still running after the cap, carry on: it signs out and redirects
+            // by itself when it denies, and it already fails open on error.
+            let guardCapped = false;
+            const allowed = await Promise.race([
+              enforceAccountAccess(session.user),
+              new Promise<boolean>((resolve) => setTimeout(() => {
+                guardCapped = true;
+                resolve(true);
+              }, ENFORCE_ACCOUNT_ACCESS_WAIT_MS)),
+            ]);
+            if (guardCapped) lt.mark('auth.enforceAccountAccess.wait_capped', { userId: session.user.id }, 'warn');
             if (!allowed || !isMounted) return;
             setSession(session);
             setUser(session.user);
