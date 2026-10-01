@@ -67,7 +67,19 @@ Deno.serve(async (req) => {
     recordedBy = userData.user.id;
 
     const body = await req.json();
-    const { advance_id, amount, payment_method, reference, notes } = body;
+    const { advance_id, amount, payment_method, notes } = body;
+    let reference = body.reference;
+
+    // A wallet offset moves money inside our own ledger, so there is no
+    // external TID to type. Generate a unique one rather than rejecting.
+    if (
+      payment_method === 'wallet_offset' &&
+      (!reference || String(reference).trim() === '')
+    ) {
+      const stamp = new Date().toISOString().replace(/[-:T.Z]/g, '').slice(0, 17);
+      const rand = crypto.randomUUID().replace(/-/g, '').slice(0, 6).toUpperCase();
+      reference = `WOFF-${stamp}-${rand}`;
+    }
     payload = { advance_id, amount, payment_method, reference };
 
     // Cheap client-side rejects. The RPC re-checks all of these — these exist
