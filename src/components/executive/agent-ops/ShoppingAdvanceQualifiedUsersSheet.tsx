@@ -5,6 +5,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { AiIdBadge } from '@/components/ai-id/AiIdBadge';
+import { ShoppingAdvanceUserDossier } from './ShoppingAdvanceUserDossier';
 import { ChevronRight, MapPin, ArrowLeft, Search } from 'lucide-react';
 
 type Row = {
@@ -86,26 +87,12 @@ export function ShoppingAdvanceQualifiedUsersSheet({ open, onOpenChange }: { ope
 
   return (
     <Sheet open={open} onOpenChange={(o) => { if (!o) { setPath([]); setSelected(null); setQ(''); setListMode(false); } onOpenChange(o); }}>
-      <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
+      <SheetContent side="right" className={selected ? 'w-full sm:max-w-4xl xl:max-w-6xl overflow-y-auto' : 'w-full sm:max-w-xl overflow-y-auto'}>
         <SheetHeader>
           <SheetTitle>{selected ? (selected.full_name ?? 'Unnamed user') : 'Qualified users by location'}</SheetTitle>
         </SheetHeader>
         {selected ? (
-          <div className="mt-4 space-y-3">
-            <Button variant="ghost" size="sm" onClick={() => setSelected(null)}><ArrowLeft className="mr-1 h-4 w-4" />Back to list</Button>
-            <AiIdBadge userId={selected.user_id} variant="chip" size="sm" />
-            {selected.residence_lat != null && selected.residence_lng != null && (
-              <a className="inline-flex items-center gap-1 text-sm text-primary underline" target="_blank" rel="noreferrer"
-                href={`https://www.google.com/maps?q=${selected.residence_lat},${selected.residence_lng}`}>
-                <MapPin className="h-4 w-4" />GPS {selected.residence_lat}, {selected.residence_lng}
-              </a>
-            )}
-            <dl className="divide-y divide-border rounded-md border border-border text-sm">
-              {fields(selected).map(([k, v]) => (
-                <div key={k} className="flex justify-between gap-4 px-3 py-2"><dt className="text-muted-foreground">{k}</dt><dd className="text-right font-medium break-words">{v}</dd></div>
-              ))}
-            </dl>
-          </div>
+          <ShoppingAdvanceUserDossier userId={selected.user_id} fallbackName={selected.full_name ?? 'Unnamed user'} onBack={() => setSelected(null)} />
         ) : (
         <div className="mt-4 space-y-3">
           <div className="flex flex-wrap items-center gap-1 text-sm">
