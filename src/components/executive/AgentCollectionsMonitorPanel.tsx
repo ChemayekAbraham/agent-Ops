@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
+import { downloadCsv } from '@/lib/csvExport';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -11,7 +12,7 @@ import {
 } from '@/components/ui/dialog';
 import {
   Activity, RefreshCw, CheckCircle2, AlertTriangle, AlertOctagon, Info, ScrollText,
-  ChevronLeft, ChevronRight, Copy,
+  ChevronLeft, ChevronRight, Copy, Download,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { format, parseISO, formatDistanceToNowStrict } from 'date-fns';
@@ -213,6 +214,39 @@ export function AgentCollectionsMonitorPanel() {
     [summaryRows],
   );
 
+  // Fetches the full log (the RPC's 500-row ceiling) rather than the 200 the
+  // table loads, honouring the selected range and source filter.
+  const [exporting, setExporting] = useState(false);
+  const exportErrors = async () => {
+    setExporting(true);
+    try {
+      const { data, error } = await rpc('agent_collections_error_log', {
+        p_days: days, p_limit: 500, p_source: source,
+      });
+      if (error) throw error;
+      const rows = (data ?? []) as ErrorRow[];
+      if (rows.length === 0) {
+        toast.info('No errors to export for this range.');
+        return;
+      }
+      downloadCsv(
+        `agent-collection-errors-${source ?? 'all'}-${days}d-${format(new Date(), 'yyyyMMdd-HHmm')}.csv`,
+        ['occurred_at', 'source', 'severity', 'phase', 'error_code', 'message', 'agent_name',
+          'agent_phone', 'tenant_name', 'amount', 'rent_request_id', 'detail', 'context'],
+        rows.map(r => [
+          r.occurred_at, r.source, r.severity, r.phase, r.error_code, r.message, r.agent_name,
+          r.agent_phone, r.tenant_name, r.amount, r.rent_request_id, r.detail,
+          r.context ? JSON.stringify(r.context) : '',
+        ]),
+      );
+      if (rows.length >= 500) toast.warning('Export capped at 500 rows. Narrow the range or source to see the rest.');
+    } catch (e) {
+      toast.error(`Export failed: ${(e as Error).message}`);
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const refreshAll = () => {
     void refetch();
     void summary.refetch();
@@ -255,6 +289,10 @@ export function AgentCollectionsMonitorPanel() {
               faults as they happened, newest first
             </span>
             <div className="ml-auto flex flex-wrap gap-1">
+              <Button size="sm" variant="outline" className="h-6 px-2 text-[11px]"
+                      disabled={exporting} onClick={() => void exportErrors()}>
+                <Download className="mr-1 h-3 w-3" /> CSV
+              </Button>
               {SOURCES.map(s => (
                 <Button
                   key={s.label}
