@@ -9,4 +9,4 @@
 - Balance Sheet (`sofp_ledger_legs`) reads advance top-up company legs as Agent Advance Receivable (A10) and emits no synthetic X4 lines for bucket_reclass_in/out pairs, because top-ups move no bank cash and reclass pairs already balance (CFO approved 2026-10-01).
 - `v_agent_daily_eligibility` falls back to LEAST(daily_repayment, outstanding) for counted daily/lapsed-weekly plans only when the agent has no pinned bill today/yesterday, because counted plans with no bill row showed a UGX 0 target.
 
-- The CRM call drawer loads everything about the person being called through one server function, `crm_callee_dossier`, which also decides partner visibility (partner_ops / super_admin / hr only), so the screen makes one request and the role gate can never be bypassed from the browser.
+- The CRM call drawer loads everything about the person through one server function, `crm_callee_dossier`; it reads wallet buckets from the projection with `v_user_wallet_strict` as a read-only fallback and decides partner visibility server-side, so missing projections do not create false zeroes and browser code cannot bypass role gates.

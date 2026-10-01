@@ -82,7 +82,8 @@ export function useCalleeDossier(userId: string | null | undefined) {
     enabled: !!userId,
     staleTime: 30_000,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('crm_callee_dossier', { p_user_id: userId! });
+      if (!userId) throw new Error('A person is required to load the call file.');
+      const { data, error } = await supabase.rpc('crm_callee_dossier', { p_user_id: userId });
       if (error) throw error;
       return data as unknown as CalleeDossier;
     },

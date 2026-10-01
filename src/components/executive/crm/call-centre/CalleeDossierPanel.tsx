@@ -3,7 +3,6 @@ import { format, formatDistanceToNow } from 'date-fns';
 import {
   ArrowDownLeft,
   ArrowUpRight,
-  Banknote,
   CalendarDays,
   CircleDollarSign,
   Clock3,
@@ -12,6 +11,7 @@ import {
   Lock,
   Mail,
   MapPin,
+  MessageSquareWarning,
   Phone,
   Search,
   UserRound,
@@ -384,7 +384,7 @@ export function CalleeDossierPanel({ userId, callId }: { userId: string; callId:
 
       <section className="rounded-lg border border-border bg-card p-4">
         <div className="mb-3 flex items-center gap-2">
-          <span className="grid h-8 w-8 place-items-center rounded-md bg-destructive/10 text-destructive"><Banknote className="h-4 w-4" /></span>
+          <span className="grid h-8 w-8 place-items-center rounded-md bg-destructive/10 text-destructive"><MessageSquareWarning className="h-4 w-4" /></span>
           <div>
             <h3 className="text-sm font-bold text-foreground">Record a complaint</h3>
             <p className="text-xs text-muted-foreground">Capture the issue and required follow-up.</p>
