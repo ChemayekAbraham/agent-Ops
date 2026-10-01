@@ -76,7 +76,7 @@ const matches = (q: string, ...vals: (string | null | undefined)[]) =>
 function WalletSection({ d }: { d: CalleeDossier }) {
   return (
     <Section title="Wallet balances">
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 2xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
         <Stat k="Withdrawable" v={ugx(d.wallet.withdrawable)} tone="success" icon={WalletCards} />
         <Stat k="Operational float" v={ugx(d.wallet.operational_float)} tone="primary" icon={CircleDollarSign} />
         <Stat k="Landlord float" v={ugx(d.wallet.landlord_float)} tone="warning" icon={Landmark} />
@@ -415,7 +415,7 @@ export function CalleeDossierPanel({ userId, callId, profileHint }: {
     <div className="space-y-6 p-5 sm:p-7">
       <div className="flex min-w-0 flex-col gap-6">
         <Section title="Profile">
-          <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
+          <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
             <Stat k="Name" v={pr?.full_name ?? profileHint.full_name ?? '—'} icon={UserRound} />
             <Stat k="Phone" v={pr?.phone ?? profileHint.phone ?? '—'} icon={Phone} />
             <Stat k="Email" v={pr?.email ?? '—'} icon={Mail} />
