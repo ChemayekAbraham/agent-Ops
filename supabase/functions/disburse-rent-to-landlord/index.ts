@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { logSystemEvent } from "../_shared/eventLogger.ts";
 import { checkTreasuryGuard } from "../_shared/treasuryGuard.ts";
+import { guardCfoApprover } from "../_shared/cfoApprovalGate.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -34,13 +35,10 @@ Deno.serve(async (req) => {
     // Treasury guard: disbursement moves money — block when paused
     const guardBlock = await checkTreasuryGuard(serviceClient, "any", req.headers.get("Authorization"))
     if (guardBlock) return guardBlock
-    const { data: roles } = await serviceClient
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', user.id)
-      .in('role', ['cfo', 'manager', 'super_admin'])
-    
-    if (!roles || roles.length === 0) throw new Error('Insufficient permissions')
+    // Only the Chief Finance Officer office or a designated super admin may disburse rent.
+    // Role membership (cfo / manager / super_admin), enabled or disabled, no longer qualifies.
+    const denied = await guardCfoApprover(serviceClient, user.id, corsHeaders)
+    if (denied) return denied
 
     const { rent_request_id, transaction_reference, payout_method, notes } = await req.json()
 
