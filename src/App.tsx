@@ -67,6 +67,7 @@ const NationalIdLinkGate = optionalLazyWithRetry(() => import("@/components/noti
 const ConcernAssignmentGate = optionalLazyWithRetry(() => import("@/components/notifications/ConcernAssignmentGate"), "ConcernAssignmentGate");
 const FacilitationApprovalGate = optionalLazyWithRetry(() => import("@/components/requisitions/FacilitationApprovalGate"), "FacilitationApprovalGate");
 const StaffLoanApprovalGate = optionalLazyWithRetry(() => import("@/components/requisitions/StaffLoanApprovalGate"), "StaffLoanApprovalGate");
+const StaffRequisitionApprovalGate = optionalLazyWithRetry(() => import("@/components/requisitions/StaffRequisitionApprovalGate"), "StaffRequisitionApprovalGate");
 const PayrollApprovalGate = optionalLazyWithRetry(() => import("@/hr/pay/PayrollApprovalGate"), "PayrollApprovalGate");
 const StaffSurveyGate = optionalLazyWithRetry(() => import("@/hr/surveys/StaffSurveyGate"), "StaffSurveyGate");
 
@@ -447,6 +448,7 @@ function GlobalOnboardingGates() {
       <ConcernAssignmentGate />
       <FacilitationApprovalGate />
       <StaffLoanApprovalGate />
+      <StaffRequisitionApprovalGate />
       <PayrollApprovalGate />
       <StaffSurveyGate />
 
