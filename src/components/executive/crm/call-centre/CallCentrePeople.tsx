@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, FileText, Loader2, PhoneCall, Search, SlidersHorizontal, Users, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Eye, FileText, Loader2, PhoneCall, Search, SlidersHorizontal, Users, X } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -125,7 +125,7 @@ export function CallCentrePeople({ section }: CallCentrePeopleProps) {
   // exact case where Radix leaves <body> pointer-events:none and swallows the
   // next click.
   useRestoreBodyPointerEvents();
-  const { target, dial, close } = useCallDialer();
+  const { target, preview, dial, dialPreview, close } = useCallDialer();
   const counts = usePlatformPeopleCounts();
 
   const [queryInput, setQueryInput] = useState('');
@@ -365,16 +365,30 @@ export function CallCentrePeople({ section }: CallCentrePeopleProps) {
                 <CardContent className="space-y-2 p-3">
                   <div className="flex items-start justify-between gap-2">
                     <PersonIdentity person={person} onOpen={() => setHistoryFor(person)} />
-                    <Button
-                      type="button"
-                      size="sm"
-                      className="shrink-0 gap-1.5"
-                      onClick={() => dial(dialTarget(person))}
-                      aria-label={`Call ${person.name}`}
-                    >
-                      <PhoneCall className="h-3.5 w-3.5" />
-                      Call
-                    </Button>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="gap-1.5"
+                        onClick={() => dialPreview(dialTarget(person))}
+                        aria-label={`Open the call screen for ${person.name} without dialling`}
+                        title="Opens the call screen as it looks while dialling, without calling anyone"
+                      >
+                        <Eye className="h-3.5 w-3.5" />
+                        Test
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={() => dial(dialTarget(person))}
+                        aria-label={`Call ${person.name}`}
+                      >
+                        <PhoneCall className="h-3.5 w-3.5" />
+                        Call
+                      </Button>
+                    </div>
                   </div>
                   <RoleBadges roles={person.roles} />
                   <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] text-muted-foreground">
@@ -430,16 +444,30 @@ export function CallCentrePeople({ section }: CallCentrePeopleProps) {
                         {person.recalledAt ? formatCallStamp(person.recalledAt) : '—'}
                       </TableCell>
                       <TableCell className="py-2.5 pl-2 pr-4 text-right whitespace-nowrap">
-                        <Button
-                          type="button"
-                          size="sm"
-                          className="h-8 px-2.5 text-xs gap-1.5 shadow-sm"
-                          onClick={() => dial(dialTarget(person))}
-                          aria-label={`Call ${person.name}`}
-                        >
-                          <PhoneCall className="h-3.5 w-3.5" />
-                          Call
-                        </Button>
+                        <div className="flex items-center justify-end gap-1.5">
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="h-8 px-2.5 text-xs gap-1.5"
+                            onClick={() => dialPreview(dialTarget(person))}
+                            aria-label={`Open the call screen for ${person.name} without dialling`}
+                            title="Opens the call screen as it looks while dialling, without calling anyone"
+                          >
+                            <Eye className="h-3.5 w-3.5" />
+                            Test
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            className="h-8 px-2.5 text-xs gap-1.5 shadow-sm"
+                            onClick={() => dial(dialTarget(person))}
+                            aria-label={`Call ${person.name}`}
+                          >
+                            <PhoneCall className="h-3.5 w-3.5" />
+                            Call
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -497,7 +525,7 @@ export function CallCentrePeople({ section }: CallCentrePeopleProps) {
         }}
       />
 
-      <CallDrawer target={target} open={!!target} onOpenChange={(o) => !o && close()} />
+      <CallDrawer target={target} open={!!target} preview={preview} onOpenChange={(o) => !o && close()} />
     </div>
   );
 }

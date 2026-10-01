@@ -12,6 +12,7 @@ import { CALLEE_ROLE_LABEL, describeHangupCause, formatTalkTime } from '@/lib/ca
 import { useSaveCallSummary } from '@/hooks/useCrmCallCentre';
 import { isTerminalCallState, useCrmVoiceCall, type CallState } from '@/hooks/useCrmVoiceCall';
 import type { DialTarget } from './useCallDialer';
+import { usePreviewCall } from './usePreviewCall';
 import { CalleeDossierPanel } from './CalleeDossierPanel';
 
 const initials = (name: string) =>
@@ -42,12 +43,16 @@ export function CallDrawer({
   target,
   open,
   onOpenChange,
+  preview = false,
 }: {
   target: DialTarget | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Look-only mode: show the call as it looks while dialling, dial nobody. */
+  preview?: boolean;
 }) {
   const call = useCrmVoiceCall();
+  const previewCall = usePreviewCall(preview && open);
   const saveSummary = useSaveCallSummary();
 
   const [soundOn, setSoundOn] = useState(true);
@@ -63,13 +68,23 @@ export function CallDrawer({
     ringbackRef.current = null;
   }, []);
 
-  const { state, elapsed, callId, hangupCause, error } = call;
+  // One view of the call for the whole drawer. In preview mode every field below
+  // comes from the local script, which has no network or database behind it, so
+  // there is no second path that could quietly place a real call.
+  const state = preview ? previewCall.state : call.state;
+  const elapsed = preview ? previewCall.elapsed : call.elapsed;
+  const muted = preview ? previewCall.muted : call.muted;
+  const isEnding = preview ? false : call.isEnding;
+  const callId = preview ? null : call.callId;
+  const error = preview ? null : call.error;
+  const hangupCause = preview ? null : call.hangupCause;
+
   const ended = isTerminalCallState(state);
   const dialling = state === 'initializing' || state === 'calling' || state === 'ringing';
 
   /* --- Start a real call whenever the drawer opens on someone new. --- */
   useEffect(() => {
-    if (!open || !target) return;
+    if (!open || !target || preview) return;
     setSummary('');
     setSavedSummary(false);
     void call.start({
@@ -81,7 +96,7 @@ export function CallDrawer({
     });
     // `call.start` is stable; re-running on it would re-dial.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, target?.calleeId, dialAttempt]);
+  }, [open, target?.calleeId, dialAttempt, preview]);
 
   /* --- Ringback tone while the far end is still ringing. --- */
   useEffect(() => {
@@ -101,9 +116,15 @@ export function CallDrawer({
   }, [error]);
 
   const handleRedial = useCallback(() => {
+    if (preview) {
+      setSummary('');
+      setSavedSummary(false);
+      previewCall.restart();
+      return;
+    }
     stopRingback();
     setDialAttempt((n) => n + 1);
-  }, [stopRingback]);
+  }, [preview, previewCall, stopRingback]);
 
   const handleSaveSummary = async () => {
     if (!callId) return;
@@ -142,11 +163,17 @@ export function CallDrawer({
         }
         if (!next) {
           stopRingback();
-          // Closing mid-call must actually drop the telephone leg, not just hide
-          // the drawer — and it must write an outcome so the row is never
-          // stranded 'in_progress'.
-          if (!ended && state !== 'idle') call.end();
-          call.reset();
+          if (preview) {
+            // Nothing was ever dialled, so there is nothing to drop — just stand
+            // the local script down.
+            previewCall.reset();
+          } else {
+            // Closing mid-call must actually drop the telephone leg, not just hide
+            // the drawer — and it must write an outcome so the row is never
+            // stranded 'in_progress'.
+            if (!ended && state !== 'idle') call.end();
+            call.reset();
+          }
         }
         onOpenChange(next);
       }}
@@ -198,6 +225,11 @@ export function CallDrawer({
                 {target.location && (
                   <Badge variant="outline" className="text-[10px]">{target.location}</Badge>
                 )}
+                {preview && (
+                  <Badge variant="outline" className="border-primary/40 bg-primary/10 text-[10px] font-semibold text-primary">
+                    Test view · no call placed
+                  </Badge>
+                )}
               </div>
 
               <p
@@ -217,10 +249,16 @@ export function CallDrawer({
                 </p>
               )}
 
-              {dialling && (
+              {dialling && !preview && (
                 <p className="mx-auto mt-3 max-w-[16rem] text-[11px] leading-snug text-muted-foreground">
                   You are calling from this browser — keep this tab open and talk
                   through your headset.
+                </p>
+              )}
+              {dialling && preview && (
+                <p className="mx-auto mt-3 max-w-[16rem] text-[11px] leading-snug text-muted-foreground">
+                  Test view: nobody is dialled, no call is logged, and nothing is
+                  saved. Close it and the screen is gone.
                 </p>
               )}
             </div>
@@ -233,12 +271,12 @@ export function CallDrawer({
                   variant="outline"
                   size="icon"
                   className="h-11 w-11 rounded-full"
-                  onClick={call.toggleMute}
+                  onClick={preview ? previewCall.toggleMute : call.toggleMute}
                   disabled={state !== 'connected'}
-                  aria-label={call.muted ? 'Unmute microphone' : 'Mute microphone'}
-                  aria-pressed={call.muted}
+                  aria-label={muted ? 'Unmute microphone' : 'Mute microphone'}
+                  aria-pressed={muted}
                 >
-                  {call.muted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                  {muted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
                 </Button>
 
                 {/* No green "answer" button: this is an OUTBOUND call. End Call is
@@ -249,8 +287,8 @@ export function CallDrawer({
                     type="button"
                     variant="destructive"
                     className="h-20 w-20 rounded-full shadow-lg"
-                    onClick={call.end}
-                    disabled={call.isEnding || state === 'idle'}
+                    onClick={preview ? previewCall.end : call.end}
+                    disabled={isEnding || state === 'idle'}
                     aria-label="End call"
                   >
                     <PhoneOff className="h-8 w-8" />
@@ -270,7 +308,9 @@ export function CallDrawer({
                     <Badge variant="outline" className="px-3 py-1 text-[10px]">
                       {STATE_LABEL[state]}
                     </Badge>
-                    <span className="text-[11px] font-medium text-muted-foreground">Tap to redial</span>
+                    <span className="text-[11px] font-medium text-muted-foreground">
+                      {preview ? 'Tap to run the test again' : 'Tap to redial'}
+                    </span>
                   </div>
                 )}
 
@@ -289,9 +329,11 @@ export function CallDrawer({
 
               {!ended && (
                 <p className="mt-3 text-center text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  {call.isEnding
+                  {isEnding
                     ? 'Ending…'
-                    : 'Pick-up and hang-up are detected automatically'}
+                    : preview
+                      ? 'Test view — nothing is dialled or recorded'
+                      : 'Pick-up and hang-up are detected automatically'}
                 </p>
               )}
             </div>
@@ -325,7 +367,13 @@ export function CallDrawer({
                 className="w-full gap-2"
               >
                 <Save className="h-4 w-4" />
-                {saveSummary.isPending ? 'Saving…' : savedSummary ? 'Summary saved' : 'Save summary'}
+                {preview
+                  ? 'Summary saving is off in test view'
+                  : saveSummary.isPending
+                    ? 'Saving…'
+                    : savedSummary
+                      ? 'Summary saved'
+                      : 'Save summary'}
               </Button>
               <p className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
                 <UserRound className="mt-px h-3 w-3 shrink-0" aria-hidden />
