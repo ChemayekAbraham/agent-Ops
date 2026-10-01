@@ -2773,6 +2773,27 @@
       "when": 1790859038870,
       "tag": "0395_cfo_approver_follows_cfo_office",
       "breakpoints": true
+    },
+    {
+      "idx": 396,
+      "version": "7",
+      "when": 1790867973289,
+      "tag": "0396_cfo_correction_center_review_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 397,
+      "version": "7",
+      "when": 1790868041286,
+      "tag": "0397_cfo_correction_decision_cleanup",
+      "breakpoints": true
+    },
+    {
+      "idx": 398,
+      "version": "7",
+      "when": 1790868196278,
+      "tag": "0398_cfo_correction_center_summary_fix",
+      "breakpoints": true
     }
   ]
 }
