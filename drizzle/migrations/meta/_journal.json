@@ -2773,6 +2773,13 @@
       "when": 1790859038870,
       "tag": "0395_cfo_approver_follows_cfo_office",
       "breakpoints": true
+    },
+    {
+      "idx": 396,
+      "version": "7",
+      "when": 1790867973289,
+      "tag": "0396_cfo_correction_center_review_tables",
+      "breakpoints": true
     }
   ]
 }

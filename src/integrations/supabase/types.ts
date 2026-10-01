@@ -15367,6 +15367,132 @@ export type Database = {
         }
         Relationships: []
       }
+      fin_correction_approval_batches: {
+        Row: {
+          amount: number
+          batch_ref: string
+          collection_count: number
+          collection_ids: string[]
+          created_at: string
+          decided_at: string
+          decided_by: string
+          decision_note: string
+          execution_status: string
+          id: string
+          impact: Json
+          status: string
+        }
+        Insert: {
+          amount: number
+          batch_ref: string
+          collection_count: number
+          collection_ids: string[]
+          created_at?: string
+          decided_at?: string
+          decided_by: string
+          decision_note: string
+          execution_status?: string
+          id?: string
+          impact: Json
+          status: string
+        }
+        Update: {
+          amount?: number
+          batch_ref?: string
+          collection_count?: number
+          collection_ids?: string[]
+          created_at?: string
+          decided_at?: string
+          decided_by?: string
+          decision_note?: string
+          execution_status?: string
+          id?: string
+          impact?: Json
+          status?: string
+        }
+        Relationships: []
+      }
+      fin_correction_review_items: {
+        Row: {
+          access_fee: number
+          agent_commission: number
+          agent_name: string | null
+          cash_in_transit: number
+          collected_at: string | null
+          collection_amount: number
+          collection_id: string
+          completion_dependent: boolean
+          created_at: string
+          evidence_state: string
+          finance_classification: string
+          original_classification: string
+          plan_status: string | null
+          platform_fee: number
+          principal_recovered: number
+          priority_group: number
+          recruiter_commission: number
+          registration_fee: number
+          rent_plan_amount: number
+          rent_plan_id: string | null
+          reviewed_at: string | null
+          reviewer_name: string | null
+          tenant_name: string | null
+          updated_at: string
+        }
+        Insert: {
+          access_fee?: number
+          agent_commission?: number
+          agent_name?: string | null
+          cash_in_transit?: number
+          collected_at?: string | null
+          collection_amount?: number
+          collection_id: string
+          completion_dependent?: boolean
+          created_at?: string
+          evidence_state?: string
+          finance_classification?: string
+          original_classification: string
+          plan_status?: string | null
+          platform_fee?: number
+          principal_recovered?: number
+          priority_group: number
+          recruiter_commission?: number
+          registration_fee?: number
+          rent_plan_amount?: number
+          rent_plan_id?: string | null
+          reviewed_at?: string | null
+          reviewer_name?: string | null
+          tenant_name?: string | null
+          updated_at?: string
+        }
+        Update: {
+          access_fee?: number
+          agent_commission?: number
+          agent_name?: string | null
+          cash_in_transit?: number
+          collected_at?: string | null
+          collection_amount?: number
+          collection_id?: string
+          completion_dependent?: boolean
+          created_at?: string
+          evidence_state?: string
+          finance_classification?: string
+          original_classification?: string
+          plan_status?: string | null
+          platform_fee?: number
+          principal_recovered?: number
+          priority_group?: number
+          recruiter_commission?: number
+          registration_fee?: number
+          rent_plan_amount?: number
+          rent_plan_id?: string | null
+          reviewed_at?: string | null
+          reviewer_name?: string | null
+          tenant_name?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       finance_anomaly_alert_config: {
         Row: {
           created_at: string
@@ -58714,6 +58840,7 @@ export type Database = {
         }
         Returns: Json
       }
+      cfo_correction_center_summary: { Args: never; Returns: Json }
       cfo_create_advance: {
         Args: {
           p_agent_id: string
@@ -58761,6 +58888,10 @@ export type Database = {
         Returns: Json
       }
       cfo_issue_boutique_order: { Args: { p_sale_id: string }; Returns: string }
+      cfo_prepare_correction_decision: {
+        Args: { p_decision: string; p_note: string }
+        Returns: Json
+      }
       cfo_promissory_bookings_report: {
         Args: { p_filter?: string; p_limit?: number; p_offset?: number }
         Returns: Json
