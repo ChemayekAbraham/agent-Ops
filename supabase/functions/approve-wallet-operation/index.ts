@@ -63,9 +63,9 @@ Deno.serve(async (req) => {
 
     // Anyone approving in a CFO capacity must be the designated CFO approver.
     // Financial Ops keeps its own verification duty (separation of powers).
-    const { data: finOpsRole } = await adminClient
-      .from("user_roles").select("role").eq("user_id", userId).eq("role", "financial_ops").maybeSingle();
-    if (!finOpsRole && !(await isCfoApprover(adminClient, userId))) {
+    // Approving a wallet operation is pinned to the Chief Finance Officer office and the
+    // designated super admins. Holding financial_ops no longer qualifies on its own.
+    if (!(await isCfoApprover(adminClient, userId))) {
       return cfoApproverDenied(corsHeaders);
     }
 
