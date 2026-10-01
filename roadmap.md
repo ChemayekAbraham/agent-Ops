@@ -35,3 +35,7 @@
 - [x] Add a Past 7 Days & Next 7 Days section to CFO Home for receivables and payables; selecting a day drills into the products and services behind it, without listing individual people.
 - [x] 7-day cards on CFO Home count every qualifying receivable/payable record (no top-100 cap); undated wallet balances stay out of dated buckets.
 - [x] Rename "Next 7 Days (Prediction)" to "Next 7 Days" and make every 7-day day label/bucket a Kampala (EAT) calendar day, matching the server.
+
+## Added 2026-10-01
+- [x] ENGREP-LIVENESS-SWEEP-01: migration 0375 — engrep_reevaluate_liveness_recent + cron job 40897 re-pointed to 7-day sweep.
+- [ ] Josh Wanda push d5389c19 (useUserSnapshot IndexedDB fix): apply any unlanded migrations (0372/0373/0374) and publish the frontend; nothing else.

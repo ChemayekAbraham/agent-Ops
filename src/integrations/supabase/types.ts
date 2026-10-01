@@ -59568,6 +59568,10 @@ export type Database = {
         Args: { p_window: string }
         Returns: number
       }
+      engrep_reevaluate_liveness_recent: {
+        Args: { p_days?: number }
+        Returns: number
+      }
       engrep_refresh_catalog_movement: {
         Args: { p_since?: string }
         Returns: number
