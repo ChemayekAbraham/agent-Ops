@@ -225,11 +225,15 @@ function getWindowDates(
     };
   }
 
-  const firstStr = formatKampalaDate(new Date(today.getFullYear(), today.getMonth(), 1, 12, 0, 0));
+  // weekOffset doubles as the month offset (0 = current month, -1 = last month...).
+  const firstDate = new Date(today.getFullYear(), today.getMonth() + weekOffset, 1, 12, 0, 0);
+  const lastDate = new Date(firstDate.getFullYear(), firstDate.getMonth() + 1, 0, 12, 0, 0);
+  const firstStr = formatKampalaDate(firstDate);
+  const endStr = lastDate > today ? todayStr : formatKampalaDate(lastDate);
   return {
     from: firstStr,
-    to: todayStr,
-    label: `MONTHLY · ${formatKampalaDisplay(firstStr)} – ${formatKampalaDisplay(todayStr)}`,
+    to: endStr,
+    label: `MONTHLY · ${formatKampalaDisplay(firstStr)} – ${formatKampalaDisplay(endStr)}`,
   };
 }
 
@@ -757,22 +761,22 @@ export default function PlatformSalesOfficersPage() {
               {label}
             </span>
             <span className="text-[11px] text-muted-foreground">
-              {mode === 'WEEKLY' && weekOffset !== 0
-                ? 'past week · Wed to Tue'
+              {mode !== 'DAILY' && weekOffset !== 0
+                ? (mode === 'WEEKLY' ? 'past week · Wed to Tue' : 'past month')
                 : 'live · refreshes every minute'}
             </span>
           </div>
 
-          {mode === 'WEEKLY' && (
+          {mode !== 'DAILY' && (
             <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => setWeekOffset((w) => w - 1)}
                 style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                 className="min-h-9 rounded-md border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground"
-                aria-label="Previous week"
+                aria-label={mode === 'WEEKLY' ? 'Previous week' : 'Previous month'}
               >
-                ← Previous week
+                {mode === 'WEEKLY' ? '← Previous week' : '← Previous month'}
               </button>
               <button
                 type="button"
@@ -780,9 +784,9 @@ export default function PlatformSalesOfficersPage() {
                 disabled={weekOffset >= 0}
                 style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                 className="min-h-9 rounded-md border px-3 text-xs font-semibold text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
-                aria-label="Next week"
+                aria-label={mode === 'WEEKLY' ? 'Next week' : 'Next month'}
               >
-                Next week →
+                {mode === 'WEEKLY' ? 'Next week →' : 'Next month →'}
               </button>
               {weekOffset !== 0 && (
                 <button
@@ -791,7 +795,7 @@ export default function PlatformSalesOfficersPage() {
                   style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                   className="min-h-9 rounded-md border px-3 text-xs font-semibold text-foreground"
                 >
-                  This week
+                  {mode === 'WEEKLY' ? 'This week' : 'This month'}
                 </button>
               )}
             </div>
@@ -806,7 +810,7 @@ export default function PlatformSalesOfficersPage() {
               <button
                 key={m}
                 type="button"
-                onClick={() => { setMode(m); if (m !== 'WEEKLY') setWeekOffset(0); }}
+                onClick={() => { setMode(m); setWeekOffset(0); }}
                 style={{ touchAction: 'manipulation', WebkitTapHighlightColor: 'transparent' }}
                 className={cn(
                   'min-h-11 px-3 text-xs font-semibold tracking-wide rounded-md transition-colors',
