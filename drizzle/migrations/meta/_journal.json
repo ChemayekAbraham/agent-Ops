@@ -2752,6 +2752,13 @@
       "when": 1790857404178,
       "tag": "0392_cfo_statutory_consent_list",
       "breakpoints": true
+    },
+    {
+      "idx": 393,
+      "version": "7",
+      "when": 1790857535301,
+      "tag": "0393_statutory_consent_push_on_paid",
+      "breakpoints": true
     }
   ]
 }
