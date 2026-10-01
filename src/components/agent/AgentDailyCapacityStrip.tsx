@@ -70,8 +70,14 @@ export function AgentDailyCapacityStrip() {
         </div>
         <div className="flex items-center justify-between gap-2 mt-1.5">
           <p className="text-xs text-muted-foreground">
-            {todayPct}% of today&apos;s target
-            {remaining > 0 && <> · <strong className="text-foreground">{formatUGX(remaining)}</strong> to go</>}
+            {cap.expected_daily <= 0 && cap.daily_gate_count > 0 ? (
+              <>Today&apos;s target is not set yet</>
+            ) : (
+              <>
+                {todayPct}% of today&apos;s target
+                {remaining > 0 && <> · <strong className="text-foreground">{formatUGX(remaining)}</strong> to go</>}
+              </>
+            )}
           </p>
           <p className="text-xs font-semibold text-muted-foreground shrink-0 tabular-nums">
             {new Date().toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}
