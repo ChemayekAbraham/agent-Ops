@@ -54,6 +54,12 @@ export interface AgentRejectedRequest {
   reviewer_name?: string;
   reviewer_at?: string | null;
   stage_label?: string;
+  /**
+   * True when the 24-hour landlord float recall cancelled this plan rather
+   * than a reviewer rejecting it. The landlord was never paid and the float
+   * went back to the pool, so the agent can simply submit it again.
+   */
+  returned_by_recall?: boolean;
 }
 
 export const STAGE_LABEL: Record<string, string> = {
@@ -106,15 +112,32 @@ export function useAgentRejectedRequests() {
       const { data, error } = await supabase
         .from('rent_requests')
         .select(
-          'id, rent_amount, duration_days, number_of_payments, daily_repayment, total_repayment, access_fee, request_fee, status, created_at, rejected_at, rejected_at_stage, rejected_reason, reopen_count, tenant_id, landlord_id, lc1_id, house_category, preferred_language, tenant_no_smartphone, registration_type, initial_outstanding_balance, outstanding_grace_days, tenant_water_meter, tenant_electricity_meter, request_latitude, request_longitude, house_image_urls, lc_letter_path, lc_letter_bucket, tenant_ops_reviewed_by, tenant_ops_reviewed_at, agent_verified_by, agent_verified_at, landlord_ops_reviewed_by, landlord_ops_reviewed_at, coo_reviewed_by, coo_reviewed_at, cfo_reviewed_by, cfo_reviewed_at',
+          'id, rent_amount, duration_days, number_of_payments, daily_repayment, total_repayment, access_fee, request_fee, status, created_at, rejected_at, rejected_at_stage, rejected_reason, reopen_count, tenant_id, landlord_id, lc1_id, house_category, preferred_language, tenant_no_smartphone, registration_type, initial_outstanding_balance, outstanding_grace_days, tenant_water_meter, tenant_electricity_meter, request_latitude, request_longitude, house_image_urls, lc_letter_path, lc_letter_bucket, agent_payment_status_reason, tenant_ops_reviewed_by, tenant_ops_reviewed_at, agent_verified_by, agent_verified_at, landlord_ops_reviewed_by, landlord_ops_reviewed_at, coo_reviewed_by, coo_reviewed_at, cfo_reviewed_by, cfo_reviewed_at',
         )
         .eq('agent_id', user!.id)
-        .eq('status', 'rejected')
+        // A plan the 24-hour landlord float recall cancelled never becomes
+        // 'rejected', so it used to appear on no queue at all and the tenant
+        // was stranded. Pull cancelled rows too, then keep only the ones the
+        // recall produced — an ops cancellation is not the agent's to retry.
+        .in('status', ['rejected', 'cancelled'])
         .order('rejected_at', { ascending: false, nullsFirst: false })
         .limit(100);
 
       if (error) throw error;
-      const rows = (data ?? []) as any[];
+      let rows = (data ?? []) as any[];
+      if (rows.length === 0) return [];
+
+      const cancelledIds = rows.filter((r) => r.status === 'cancelled').map((r) => r.id);
+      let recalledIds = new Set<string>();
+      if (cancelledIds.length > 0) {
+        const { data: alerts } = await supabase
+          .from('landlord_float_idle_alerts')
+          .select('rent_request_id')
+          .eq('outcome', 'auto_recalled')
+          .in('rent_request_id', cancelledIds);
+        recalledIds = new Set((alerts ?? []).map((a: any) => a.rent_request_id));
+      }
+      rows = rows.filter((r) => r.status !== 'cancelled' || recalledIds.has(r.id));
       if (rows.length === 0) return [];
 
       const tenantIds = [...new Set(rows.map((r) => r.tenant_id).filter(Boolean))];
@@ -140,7 +163,10 @@ export function useAgentRejectedRequests() {
       const lmap = new Map((landlords ?? []).map((l: any) => [l.id, l]));
 
       return rows.map((r) => {
-        const reviewer = reviewerForStage(r);
+        const returnedByRecall = r.status === 'cancelled';
+        const reviewer = returnedByRecall
+          ? { id: null, at: null, label: 'Landlord float returned' }
+          : reviewerForStage(r);
         const reviewerProfile = reviewer.id ? pmap.get(reviewer.id) : null;
         const tenantProfile = pmap.get(r.tenant_id);
         const landlord = lmap.get(r.landlord_id);
@@ -150,9 +176,17 @@ export function useAgentRejectedRequests() {
           tenant_phone: tenantProfile?.phone ?? '',
           landlord_name: landlord?.name ?? 'Unknown landlord',
           landlord_address: landlord?.property_address ?? '',
-          reviewer_name: reviewerProfile?.full_name ?? 'Reviewer',
+          reviewer_name: returnedByRecall
+            ? 'Automatic recall'
+            : (reviewerProfile?.full_name ?? 'Reviewer'),
           reviewer_at: reviewer.at,
           stage_label: reviewer.label,
+          returned_by_recall: returnedByRecall,
+          // The recall writes its explanation here, not to rejected_reason.
+          rejected_reason: returnedByRecall
+            ? (r.agent_payment_status_reason ??
+               'The landlord was not paid within 24 hours, so the float was returned and this Rent Plan was cancelled. You can submit it again.')
+            : r.rejected_reason,
         } as AgentRejectedRequest;
       });
     },

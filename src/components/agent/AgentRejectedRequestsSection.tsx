@@ -87,8 +87,11 @@ export function AgentRejectedRequestsSection() {
                   <div className="flex items-center gap-2 mb-1">
                     <User className="h-4 w-4 text-primary shrink-0" />
                     <span className="font-semibold truncate">{req.tenant_name}</span>
-                    <Badge variant="destructive" className="text-[10px] gap-1">
-                      Rejected at {req.stage_label}
+                    <Badge
+                      variant={req.returned_by_recall ? 'warning' : 'destructive'}
+                      className="text-[10px] gap-1"
+                    >
+                      {req.returned_by_recall ? req.stage_label : `Rejected at ${req.stage_label}`}
                     </Badge>
                   </div>
                   <div className="text-xs text-muted-foreground space-y-0.5">
@@ -112,11 +115,23 @@ export function AgentRejectedRequestsSection() {
               </div>
 
               {/* Highlighted reviewer comment */}
-              <div className="rounded-lg border border-destructive/40 bg-background p-3">
+              <div
+                className={`rounded-lg border bg-background p-3 ${
+                  req.returned_by_recall ? 'border-warning/40' : 'border-destructive/40'
+                }`}
+              >
                 <div className="flex items-center gap-1.5 mb-1">
-                  <MessageSquare className="h-3.5 w-3.5 text-destructive" />
-                  <p className="text-[10px] font-bold uppercase tracking-wide text-destructive">
-                    Reviewer comment — {req.reviewer_name}
+                  <MessageSquare
+                    className={`h-3.5 w-3.5 ${req.returned_by_recall ? 'text-warning' : 'text-destructive'}`}
+                  />
+                  <p
+                    className={`text-[10px] font-bold uppercase tracking-wide ${
+                      req.returned_by_recall ? 'text-warning' : 'text-destructive'
+                    }`}
+                  >
+                    {req.returned_by_recall
+                      ? 'Why it came back — automatic recall'
+                      : `Reviewer comment — ${req.reviewer_name}`}
                   </p>
                 </div>
                 <p className="text-sm text-foreground/90 whitespace-pre-wrap">
@@ -138,7 +153,13 @@ export function AgentRejectedRequestsSection() {
                   className="flex-1 gap-1.5"
                   onClick={() => setEditing(req)}
                   disabled={lockedFromResubmit}
-                  title={lockedFromResubmit ? `Resubmit cap reached (${RESUBMIT_CAP}/${RESUBMIT_CAP}). A manager must reopen it.` : 'Edit and send back to reviewer'}
+                  title={
+                    lockedFromResubmit
+                      ? `Resubmit cap reached (${RESUBMIT_CAP}/${RESUBMIT_CAP}). A manager must reopen it.`
+                      : req.returned_by_recall
+                        ? 'Submit this Rent Plan again — the landlord float goes back out once the CFO disburses it'
+                        : 'Edit and send back to reviewer'
+                  }
                 >
                   <RefreshCw className="h-3.5 w-3.5" />
                   {lockedFromResubmit ? 'Manager reopen required' : 'Edit & Resubmit'}
