@@ -22,6 +22,7 @@ import {
   downloadRentCollectionReceiptXlsx,
   type RentCollectionReceiptData,
 } from '@/lib/rentCollectionReceipt';
+import { RentPlanHistoryPanel } from './RentPlanHistoryPanel';
 
 const statusColor = (s: string) => {
   const m: Record<string, string> = {
@@ -1401,6 +1402,17 @@ export function TenantDetailPanel({ tenantId, tenantName, onBack, onViewRegistra
                             )}
                           </>
                         )}
+
+                        {/* ── Rent Plan History (additive — no existing logic changed) ── */}
+                        <RentPlanHistoryPanel
+                          planId={req.id}
+                          tenantId={tenantId}
+                          agentId={(req as any).assigned_agent_id || (req as any).agent_id || null}
+                          agentName={(req as any).agent_name || null}
+                          totalRepayment={Number((req as any).total_repayment || (req as any).rent_amount || 0)}
+                          createdAt={(req as any).created_at}
+                          status={String((req as any).status || '')}
+                        />
                       </div>
                     );
                   })}
