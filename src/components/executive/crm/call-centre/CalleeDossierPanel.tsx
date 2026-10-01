@@ -1,6 +1,22 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { format, formatDistanceToNow } from 'date-fns';
-import { Lock, Search } from 'lucide-react';
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  CalendarDays,
+  CircleDollarSign,
+  Clock3,
+  HandCoins,
+  Landmark,
+  Lock,
+  Mail,
+  MapPin,
+  MessageSquareWarning,
+  Phone,
+  Search,
+  UserRound,
+  WalletCards,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -25,11 +41,22 @@ function Section({ title, children, right }: { title: string; children: ReactNod
     </section>
   );
 }
-function Stat({ k, v, tone }: { k: string; v: ReactNode; tone?: 'primary' | 'muted' }) {
+type StatTone = 'primary' | 'success' | 'warning' | 'destructive' | 'muted';
+function Stat({ k, v, tone = 'muted', icon: Icon }: { k: string; v: ReactNode; tone?: StatTone; icon?: typeof WalletCards }) {
+  const toneClass: Record<StatTone, string> = {
+    primary: 'border-primary/20 bg-primary/10 text-primary',
+    success: 'border-success/20 bg-success/10 text-success',
+    warning: 'border-warning/30 bg-warning/10 text-warning-foreground',
+    destructive: 'border-destructive/20 bg-destructive/10 text-destructive',
+    muted: 'border-border bg-card text-foreground',
+  };
   return (
-    <div className={cn('rounded-md border border-border p-2.5', tone === 'primary' ? 'bg-primary/5' : 'bg-card')}>
-      <p className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">{k}</p>
-      <p className="mt-0.5 truncate text-sm font-semibold tabular-nums text-foreground">{v}</p>
+    <div className={cn('flex min-w-0 items-center gap-3 rounded-lg border p-3', toneClass[tone])}>
+      {Icon && <span className="grid h-9 w-9 shrink-0 place-items-center rounded-md bg-background/80 shadow-sm"><Icon className="h-4 w-4" /></span>}
+      <div className="min-w-0">
+        <p className="text-[10px] font-bold uppercase tracking-wide opacity-80">{k}</p>
+        <p className="mt-0.5 truncate text-sm font-bold tabular-nums text-foreground">{v}</p>
+      </div>
     </div>
   );
 }
@@ -65,11 +92,11 @@ const matches = (q: string, ...vals: (string | null | undefined)[]) =>
 function WalletSection({ d }: { d: CalleeDossier }) {
   return (
     <Section title="Wallet balances">
-      <div className="grid grid-cols-2 gap-2">
-        <Stat k="Withdrawable" v={ugx(d.wallet.withdrawable)} tone="primary" />
-        <Stat k="Operational float" v={ugx(d.wallet.operational_float)} />
-        <Stat k="Landlord float" v={ugx(d.wallet.landlord_float)} />
-        <Stat k="Advance owed" v={ugx(d.wallet.advance)} />
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        <Stat k="Withdrawable" v={ugx(d.wallet.withdrawable)} tone="success" icon={WalletCards} />
+        <Stat k="Operational float" v={ugx(d.wallet.operational_float)} tone="primary" icon={CircleDollarSign} />
+        <Stat k="Landlord float" v={ugx(d.wallet.landlord_float)} tone="warning" icon={Landmark} />
+        <Stat k="Advance owed" v={ugx(d.wallet.advance)} tone={d.wallet.advance > 0 ? 'destructive' : 'muted'} icon={HandCoins} />
       </div>
     </Section>
   );
@@ -82,7 +109,7 @@ function WalletTxnsSection({ d }: { d: CalleeDossier }) {
           <Row key={t.id} left={t.description || label(t.category)}
             sub={<>{fdate(t.created_at, 'd MMM yyyy, HH:mm')} · {label(t.wallet_bucket)}
               {t.paid_by && <Badge variant="outline" className="ml-1.5 px-1.5 py-0 text-[9px]">{t.paid_by === 'self' ? 'Self-repayment' : 'Via agent'}</Badge>}</>}
-            right={<span className={t.direction === 'cash_in' ? 'text-primary' : 'text-destructive'}>{t.direction === 'cash_in' ? '+' : '−'}{ugx(t.amount)}</span>} />
+            right={<span className={cn('inline-flex items-center gap-1', t.direction === 'cash_in' ? 'text-success' : 'text-destructive')}>{t.direction === 'cash_in' ? <ArrowDownLeft className="h-3.5 w-3.5" /> : <ArrowUpRight className="h-3.5 w-3.5" />}{t.direction === 'cash_in' ? '+' : '−'}{ugx(t.amount)}</span>} />
         ))}</div>
       )}
     </Section>
@@ -118,9 +145,9 @@ function AgentTab({ d }: { d: CalleeDossier }) {
 
   return (
     <div className="space-y-5">
-      <Section title="Last collection">
-        {last ? <Row left={last.tenant_name ?? 'Tenant'} sub={fdate(last.created_at, 'd MMM yyyy, HH:mm')} right={ugx(last.amount)} rightSub={label(last.payment_method)} />
-          : <Empty>No collections yet.</Empty>}
+      <Section title="Last recorded collection">
+        {last ? <div className="rounded-lg border border-success/20 bg-success/10 px-3"><Row left={last.tenant_name ?? 'Tenant'} sub={fdate(last.created_at, 'd MMM yyyy, HH:mm')} right={<span className="text-success">{ugx(last.amount)}</span>} rightSub={label(last.payment_method)} /></div>
+          : <Empty>No collection is recorded for this agent yet.</Empty>}
       </Section>
       <Section title="Collections">
         <div className="grid grid-cols-4 gap-1">
@@ -213,8 +240,8 @@ function TenantTab({ d }: { d: CalleeDossier }) {
   return (
     <div className="space-y-5">
       <Section title="Last collection">
-        {t.last_collection ? <Row left={ugx(t.last_collection.amount)} sub={fdate(t.last_collection.created_at, 'd MMM yyyy, HH:mm')} right={t.last_collection.agent_name ?? '—'} rightSub="Agent" />
-          : <Empty>No agent collection yet.</Empty>}
+        {t.last_collection ? <div className="rounded-lg border border-success/20 bg-success/10 px-3"><Row left={<span className="text-success">{ugx(t.last_collection.amount)}</span>} sub={fdate(t.last_collection.created_at, 'd MMM yyyy, HH:mm')} right={t.last_collection.agent_name ?? '—'} rightSub="Agent" /></div>
+          : <Empty>No agent collection is recorded for this tenant yet.</Empty>}
       </Section>
       <Section title={`Rent Plans (${t.plans.length})`}>
         {t.plans.length === 0 ? <Empty>No Rent Plans.</Empty> : t.plans.map((p) => {
@@ -330,30 +357,39 @@ export function CalleeDossierPanel({ userId, callId }: { userId: string; callId:
   ].filter(Boolean) as { id: string; label: string; node: ReactNode }[];
 
   return (
-    <div className="space-y-5 p-5">
-      <Section title="Profile">
-        <div className="grid grid-cols-2 gap-2">
-          <Stat k="Name" v={pr?.full_name ?? '—'} />
-          <Stat k="Phone" v={pr?.phone ?? '—'} />
-          <div className="col-span-2"><Stat k="Email" v={pr?.email ?? '—'} /></div>
-          <div className="col-span-2"><Stat k="Location" v={pr?.location ?? (pr?.landmark || 'Not recorded')} /></div>
-          <Stat k="Joined" v={fdate(pr?.joined_at)} />
-          <Stat k="Last active" v={pr?.last_active_at ? formatDistanceToNow(new Date(pr.last_active_at), { addSuffix: true }) : 'Never'} />
-        </div>
-        {!!pr?.roles?.length && <div className="flex flex-wrap gap-1">{pr.roles.map((r) => <Badge key={r} variant="outline" className="text-[9px]">{label(r)}</Badge>)}</div>}
-        {pr?.is_frozen && <Badge variant="destructive" className="text-[10px]">Account frozen</Badge>}
-      </Section>
+    <div className="space-y-6 p-5 sm:p-7">
+      <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]">
+        <Section title="Profile">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <Stat k="Name" v={pr?.full_name ?? '—'} icon={UserRound} />
+            <Stat k="Phone" v={pr?.phone ?? '—'} icon={Phone} />
+            <Stat k="Email" v={pr?.email ?? '—'} icon={Mail} />
+            <Stat k="Location" v={pr?.location ?? (pr?.landmark || 'Not recorded')} icon={MapPin} />
+            <Stat k="Joined" v={fdate(pr?.joined_at)} icon={CalendarDays} />
+            <Stat k="Last active" v={pr?.last_active_at ? formatDistanceToNow(new Date(pr.last_active_at), { addSuffix: true }) : 'Never'} icon={Clock3} />
+          </div>
+          {!!pr?.roles?.length && <div className="flex flex-wrap gap-1">{pr.roles.map((r) => <Badge key={r} variant="outline" className="text-[9px]">{label(r)}</Badge>)}</div>}
+          {pr?.is_frozen && <Badge variant="destructive" className="text-[10px]">Account frozen</Badge>}
+        </Section>
 
-      <WalletSection d={d} />
+        <WalletSection d={d} />
+      </div>
 
       <Tabs defaultValue={tabs[0].id}>
-        <TabsList className="w-full justify-start overflow-x-auto">
-          {tabs.map((t) => <TabsTrigger key={t.id} value={t.id} className="text-xs">{t.label}</TabsTrigger>)}
+        <TabsList variant="underline" className="h-auto w-full justify-start gap-6 overflow-x-auto border-b border-border bg-transparent">
+          {tabs.map((t) => <TabsTrigger key={t.id} value={t.id} variant="underline" className="py-3 text-xs">{t.label}</TabsTrigger>)}
         </TabsList>
-        {tabs.map((t) => <TabsContent key={t.id} value={t.id} className="mt-4">{t.node}</TabsContent>)}
+        {tabs.map((t) => <TabsContent key={t.id} value={t.id} className="mt-5">{t.node}</TabsContent>)}
       </Tabs>
 
-      <Section title="Record a complaint">
+      <section className="rounded-lg border border-border bg-card p-4">
+        <div className="mb-3 flex items-center gap-2">
+          <span className="grid h-8 w-8 place-items-center rounded-md bg-destructive/10 text-destructive"><MessageSquareWarning className="h-4 w-4" /></span>
+          <div>
+            <h3 className="text-sm font-bold text-foreground">Record a complaint</h3>
+            <p className="text-xs text-muted-foreground">Capture the issue and required follow-up.</p>
+          </div>
+        </div>
         <ComplaintEditor userId={userId} callId={callId} />
         {d.complaints.length > 0 && <div>{d.complaints.map((c) => (
           <div key={c.id} className="border-b border-border/60 py-2 last:border-0">
@@ -361,7 +397,7 @@ export function CalleeDossierPanel({ userId, callId }: { userId: string; callId:
             <p className="mt-0.5 text-[10px] text-muted-foreground">{c.recorded_by_name ?? 'Staff'} · {fdate(c.created_at, 'd MMM yyyy, HH:mm')}</p>
           </div>
         ))}</div>}
-      </Section>
+      </section>
     </div>
   );
 }

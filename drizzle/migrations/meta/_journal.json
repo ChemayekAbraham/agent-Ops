@@ -2696,6 +2696,13 @@
       "when": 1790845243948,
       "tag": "0384_crm_callee_dossier",
       "breakpoints": true
+    },
+    {
+      "idx": 385,
+      "version": "7",
+      "when": 1790849130982,
+      "tag": "0385_crm_dossier_wallet_projection_fallback",
+      "breakpoints": true
     }
   ]
 }
