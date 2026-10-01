@@ -203,7 +203,10 @@ Deno.serve(async (req) => {
       callerRoles = (roles || []).map((r: any) => r.role);
       // CFO Direct Credit/Debit acting in a CFO capacity is restricted to the
       // designated CFO approver. Financial Ops keeps its own verification duty.
-      if (!callerRoles.includes("financial_ops") && !(await isCfoApprover(adminClient, authedUser.id))) {
+      // Manual credits and debits are pinned to the Chief Finance Officer office and the
+      // designated super admins. Holding financial_ops no longer qualifies on its own.
+      // Automated deposit-routing still runs through the isSystemAuthored branch above.
+      if (!(await isCfoApprover(adminClient, authedUser.id))) {
         return cfoApproverDenied(corsHeaders);
       }
     }
