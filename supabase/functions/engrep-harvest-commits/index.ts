@@ -62,6 +62,10 @@ function kampalaToday(): string {
 
 const CLASSES = ["ddl","rls","function","trigger","edge_function","ui","config"] as const;
 
+function isMigrationPath(path: string): boolean {
+  return path.includes("supabase/migrations/") || /^drizzle\/migrations\/[^/]+\.sql$/.test(path);
+}
+
 function classifyPath(path: string, set: Set<string>) {
   if (isMigrationPath(path)) set.add("ddl");
   if (path.includes("supabase/functions/")) set.add("edge_function");
