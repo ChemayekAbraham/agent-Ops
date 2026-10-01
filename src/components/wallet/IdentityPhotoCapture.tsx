@@ -1223,7 +1223,9 @@ export default function IdentityPhotoCapture({ compact }: Props) {
      code at the bottom are only there, and a front-only submission cannot be
      checked. */
   const haveIdBack = !!idBackPhoto || !!storedIdBackPath;
-  const haveSelfie = (!!selfieOriginal && !!selfieCropped) || !!storedSelfiePath;
+  // The crop only sets the profile picture; a skipped/cancelled crop must never
+  // block verification — the original selfie is used instead.
+  const haveSelfie = !!selfieOriginal || !!storedSelfiePath;
 
   // Every one of the six must be present before anything is sent — a partly
   // filled ID is exactly the record Financial Ops cannot act on.
@@ -1253,9 +1255,6 @@ export default function IdentityPhotoCapture({ compact }: Props) {
     !haveIdBack ? 'Turn the card over and take a photo of the BACK of your National ID.' : null,
     backIsFront ? 'The second photo is the front again. Turn the card over and photograph the back.' : null,
     !storedSelfiePath && !selfieOriginal ? 'Take a selfie.' : null,
-    !storedSelfiePath && selfieOriginal && !selfieCropped
-      ? 'Finish choosing your profile picture from the selfie you took.'
-      : null,
     idRejected ? 'That photo is not a Ugandan National ID. Take a photo of the front of your card.' : null,
     faceProblem,
     !idRejected && !detailsComplete
@@ -1335,8 +1334,9 @@ export default function IdentityPhotoCapture({ compact }: Props) {
         throw new Error(res.message || 'Could not send your photos. Please try again.');
       }
       // The cropped copy is only the profile picture — best effort.
-      const avatar = selfieCropped
-        ? await setSelfieAsProfilePhoto(user.id, selfieCropped, selfiePath)
+      const avatarFile = selfieCropped ?? selfieOriginal;
+      const avatar = avatarFile
+        ? await setSelfieAsProfilePhoto(user.id, avatarFile, selfiePath)
         : null;
 
       /* Details + ID photo + selfie + a confirmed number is everything the
