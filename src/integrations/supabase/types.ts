@@ -59291,6 +59291,14 @@ export type Database = {
           version_code: string
         }[]
       }
+      current_user_has_any_role_ignoring_enabled: {
+        Args: { _roles: Database["public"]["Enums"]["app_role"][] }
+        Returns: boolean
+      }
+      current_user_has_enabled_role: {
+        Args: { _roles: Database["public"]["Enums"]["app_role"][] }
+        Returns: boolean
+      }
       decide_error_correction_approval: {
         Args: { p_approval_id: string; p_decision: string; p_note?: string }
         Returns: Json
