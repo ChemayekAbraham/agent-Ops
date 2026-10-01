@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { CheckCircle, XCircle, Loader2, Wallet, Pencil, Eye } from 'lucide-react';
@@ -45,6 +46,7 @@ export function ROIPayoutQueue() {
   const [reviewTarget, setReviewTarget] = useState<PendingOp | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [bulkConfirm, setBulkConfirm] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   // Reset reject-mode whenever the reviewed operation changes or the sheet closes.
   useEffect(() => {
@@ -161,6 +163,7 @@ export function ROIPayoutQueue() {
         .select('id, amount, user_id, target_wallet_user_id, description')
         .eq('category', 'roi_payout')
         .eq('status', 'coo_approved')
+        .in('id', Array.from(selectedIds))
         .order('created_at', { ascending: false })
         .limit(100);
       if (fetchErr) throw fetchErr;
@@ -196,6 +199,7 @@ export function ROIPayoutQueue() {
       return { approved, failed, lastError, total: ops.length };
     },
     onSuccess: ({ approved, failed, lastError, total }) => {
+      setSelectedIds(new Set());
       setBulkConfirm(false);
       invalidate();
       if (failed === 0) {
@@ -254,46 +258,71 @@ export function ROIPayoutQueue() {
   const reviewAmountChanged = !!reviewTarget && reviewHasEdit && reviewEditValid && reviewEditedAmount !== reviewTarget.amount;
   const reviewRejReason = reviewTarget ? rejectionReasons[reviewTarget.id] || '' : '';
 
-  const bulkTotal = operations.reduce((sum, op) => sum + (op.amount || 0), 0);
+  const selectedOps = operations.filter(op => selectedIds.has(op.id));
+  const bulkTotal = selectedOps.reduce((sum, op) => sum + (op.amount || 0), 0);
+  const allSelected = operations.length > 0 && selectedOps.length === operations.length;
+  const selectAll = () => setSelectedIds(new Set(operations.map(op => op.id)));
+  const clearSelection = () => { setSelectedIds(new Set()); setBulkConfirm(false); };
+  const toggleOne = (id: string) => {
+    setBulkConfirm(false);
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
 
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
           {operations.length} ROI payout{operations.length === 1 ? '' : 's'} ready for CFO approval
+          {selectedOps.length > 0 && (
+            <span className="ml-2 normal-case tracking-normal text-primary">
+              {selectedOps.length} selected · {formatUGX(bulkTotal)}
+            </span>
+          )}
         </p>
         <CfoApprovalGate>
-          {bulkConfirm ? (
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8 rounded-lg text-xs"
-                disabled={bulkApproveMutation.isPending}
-                onClick={() => setBulkConfirm(false)}
-              >
-                Cancel
+          <div className="flex items-center gap-2">
+            {selectedOps.length === 0 ? (
+              <Button size="sm" className="h-8 rounded-lg text-xs" onClick={selectAll}>
+                <CheckCircle className="h-3 w-3 mr-1" />
+                Approve all
               </Button>
-              <Button
-                size="sm"
-                className="h-8 rounded-lg text-xs"
-                disabled={bulkApproveMutation.isPending}
-                onClick={() => bulkApproveMutation.mutate()}
-              >
-                {bulkApproveMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <CheckCircle className="h-3 w-3 mr-1" />}
-                Confirm approve all {operations.length} ({formatUGX(bulkTotal)})
-              </Button>
-            </div>
-          ) : (
-            <Button
-              size="sm"
-              className="h-8 rounded-lg text-xs"
-              onClick={() => setBulkConfirm(true)}
-            >
-              <CheckCircle className="h-3 w-3 mr-1" />
-              Approve all
-            </Button>
-          )}
+            ) : bulkConfirm ? (
+              <>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-8 rounded-lg text-xs"
+                  disabled={bulkApproveMutation.isPending}
+                  onClick={() => setBulkConfirm(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  className="h-8 rounded-lg text-xs"
+                  disabled={bulkApproveMutation.isPending}
+                  onClick={() => bulkApproveMutation.mutate()}
+                >
+                  {bulkApproveMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <CheckCircle className="h-3 w-3 mr-1" />}
+                  Confirm payout of {selectedOps.length} ({formatUGX(bulkTotal)})
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button size="sm" variant="ghost" className="h-8 rounded-lg text-xs" onClick={clearSelection}>
+                  Clear
+                </Button>
+                <Button size="sm" className="h-8 rounded-lg text-xs" onClick={() => setBulkConfirm(true)}>
+                  <CheckCircle className="h-3 w-3 mr-1" />
+                  Pay out selected ({selectedOps.length})
+                </Button>
+              </>
+            )}
+          </div>
         </CfoApprovalGate>
       </div>
 
@@ -302,6 +331,14 @@ export function ROIPayoutQueue() {
           <table className="w-full text-sm min-w-[52rem]">
             <thead className="sticky top-0 z-10">
               <tr className="border-b border-border/70 bg-muted/40 text-[10px] uppercase tracking-wider text-muted-foreground">
+                <th className="w-10 px-2 py-2 text-center">
+                  <Checkbox
+                    checked={allSelected ? true : selectedIds.size > 0 ? 'indeterminate' : false}
+                    onCheckedChange={() => (allSelected ? clearSelection() : selectAll())}
+                    aria-label="Select all payouts"
+                    className="h-4 w-4 rounded-[4px] border-muted-foreground/40"
+                  />
+                </th>
                 <th className="w-10 px-2 py-2 text-center font-semibold">#</th>
                 <th className="px-2 py-2 text-left font-semibold">Payee</th>
                 <th className="px-2 py-2 text-left font-semibold">Payout to</th>
@@ -318,8 +355,16 @@ export function ROIPayoutQueue() {
                   <tr
                     key={op.id}
                     onClick={() => setReviewTarget(op)}
-                    className="border-b border-border/70 last:border-0 cursor-pointer transition-colors hover:bg-muted/40"
+                    className={`border-b border-border/70 last:border-0 cursor-pointer transition-colors hover:bg-muted/40 ${selectedIds.has(op.id) ? 'bg-primary/5' : ''}`}
                   >
+                    <td className="w-10 px-2 py-2.5 align-middle text-center" onClick={e => e.stopPropagation()}>
+                      <Checkbox
+                        checked={selectedIds.has(op.id)}
+                        onCheckedChange={() => toggleOne(op.id)}
+                        aria-label={`Select payout for ${payeeLabel(op)}`}
+                        className="h-4 w-4 rounded-[4px] border-muted-foreground/40 data-[state=checked]:border-primary"
+                      />
+                    </td>
                     <td className="w-10 px-2 py-2.5 align-middle text-center">
                       <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-muted/60 text-[10px] font-medium text-muted-foreground">
                         {index + 1}
