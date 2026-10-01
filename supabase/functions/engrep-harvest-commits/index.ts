@@ -63,7 +63,7 @@ function kampalaToday(): string {
 const CLASSES = ["ddl","rls","function","trigger","edge_function","ui","config"] as const;
 
 function classifyPath(path: string, set: Set<string>) {
-  if (path.includes("supabase/migrations/")) set.add("ddl");
+  if (isMigrationPath(path)) set.add("ddl");
   if (path.includes("supabase/functions/")) set.add("edge_function");
   if (path.startsWith("src/") && (path.endsWith(".tsx") || path.endsWith(".css"))) set.add("ui");
   const base = path.split("/").pop() ?? "";
@@ -246,12 +246,12 @@ Deno.serve(async (req) => {
           for (const f of files) {
             const path = String(f.filename ?? "");
             classifyPath(path, classes);
-            if (path.includes("supabase/migrations/")) migrationSql += `\n${String(f.patch ?? "")}`;
+            if (isMigrationPath(path)) migrationSql += `\n${String(f.patch ?? "")}`;
           }
           if (migrationSql.trim().length > 0) classifySql(migrationSql, classes);
 
           const changeClasses = [...classes].filter((x) => (CLASSES as readonly string[]).includes(x));
-          const migrationBearing = paths.some((p) => p.includes("supabase/migrations/"));
+          const migrationBearing = paths.some((p) => isMigrationPath(p));
 
           let claimedObjects: string[] = [];
           if (migrationBearing) {
