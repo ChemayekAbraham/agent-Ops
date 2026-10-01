@@ -254,11 +254,48 @@ export function ROIPayoutQueue() {
   const reviewAmountChanged = !!reviewTarget && reviewHasEdit && reviewEditValid && reviewEditedAmount !== reviewTarget.amount;
   const reviewRejReason = reviewTarget ? rejectionReasons[reviewTarget.id] || '' : '';
 
+  const bulkTotal = operations.reduce((sum, op) => sum + (op.amount || 0), 0);
+
   return (
     <div className="space-y-3">
-      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-        {operations.length} ROI payout{operations.length === 1 ? '' : 's'} ready for CFO approval
-      </p>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+          {operations.length} ROI payout{operations.length === 1 ? '' : 's'} ready for CFO approval
+        </p>
+        <CfoApprovalGate>
+          {bulkConfirm ? (
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 rounded-lg text-xs"
+                disabled={bulkApproveMutation.isPending}
+                onClick={() => setBulkConfirm(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                className="h-8 rounded-lg text-xs"
+                disabled={bulkApproveMutation.isPending}
+                onClick={() => bulkApproveMutation.mutate()}
+              >
+                {bulkApproveMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <CheckCircle className="h-3 w-3 mr-1" />}
+                Confirm approve all {operations.length} ({formatUGX(bulkTotal)})
+              </Button>
+            </div>
+          ) : (
+            <Button
+              size="sm"
+              className="h-8 rounded-lg text-xs"
+              onClick={() => setBulkConfirm(true)}
+            >
+              <CheckCircle className="h-3 w-3 mr-1" />
+              Approve all
+            </Button>
+          )}
+        </CfoApprovalGate>
+      </div>
 
       <div className="rounded-xl border border-border/70 overflow-hidden bg-card">
         <div className="overflow-x-auto max-h-[560px] overflow-y-auto">
