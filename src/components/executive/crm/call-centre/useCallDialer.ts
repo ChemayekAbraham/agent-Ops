@@ -9,6 +9,8 @@ export interface DialTarget {
   avatarUrl: string | null;
   role: CalleeRole;
   location: string | null;
+  /** Directory roles already on screen; lets the dossier paint useful context immediately. */
+  roles?: CalleeRole[];
 }
 
 /**

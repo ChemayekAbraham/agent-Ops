@@ -382,7 +382,17 @@ export function CallDrawer({
             </div>
           </div>
           <div className="min-w-0 flex-1 bg-muted/20 lg:overflow-y-auto">
-            <CalleeDossierPanel userId={target.calleeId} callId={callId} />
+            <CalleeDossierPanel
+              userId={target.calleeId}
+              callId={callId}
+              profileHint={{
+                full_name: target.name,
+                phone: target.phone,
+                location: target.location,
+                avatar_url: target.avatarUrl,
+                roles: target.roles ?? [target.role],
+              }}
+            />
           </div>
           </>
         )}

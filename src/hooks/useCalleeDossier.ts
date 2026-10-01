@@ -80,9 +80,14 @@ export function useCalleeDossier(userId: string | null | undefined) {
   return useQuery({
     queryKey: calleeDossierKey(userId ?? ''),
     enabled: !!userId,
-    staleTime: 30_000,
+    // A complaint save invalidates this key explicitly. Keeping a recently opened
+    // dossier warm prevents a second heavy read when an operator reopens a person.
+    staleTime: 5 * 60_000,
+    gcTime: 15 * 60_000,
+    refetchOnWindowFocus: false,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('crm_callee_dossier', { p_user_id: userId! });
+      if (!userId) throw new Error('A person is required to load the call dossier.');
+      const { data, error } = await supabase.rpc('crm_callee_dossier', { p_user_id: userId });
       if (error) throw error;
       return data as unknown as CalleeDossier;
     },

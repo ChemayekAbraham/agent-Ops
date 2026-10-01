@@ -1,6 +1,6 @@
 import { useMemo, useState, type ReactNode } from 'react';
 import { format, formatDistanceToNow } from 'date-fns';
-import { Lock, Search } from 'lucide-react';
+import { CalendarDays, Clock3, Lock, Mail, MapPin, Phone, Search, UserRound } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -72,6 +72,73 @@ function WalletSection({ d }: { d: CalleeDossier }) {
         <Stat k="Advance owed" v={ugx(d.wallet.advance)} />
       </div>
     </Section>
+  );
+}
+
+type ProfileHint = Pick<NonNullable<CalleeDossier['profile']>, 'full_name' | 'phone' | 'location' | 'avatar_url'> & {
+  roles: string[];
+};
+
+function ProfileSummary({ profile, pending = false }: {
+  profile: Partial<NonNullable<CalleeDossier['profile']>> & { roles?: string[] };
+  pending?: boolean;
+}) {
+  const details = [
+    { key: 'Phone', value: profile.phone ?? '—', icon: Phone },
+    { key: 'Email', value: profile.email ?? (pending ? 'Loading…' : '—'), icon: Mail },
+    { key: 'Location', value: profile.location ?? profile.landmark ?? 'Not recorded', icon: MapPin },
+    { key: 'Joined', value: profile.joined_at ? fdate(profile.joined_at) : (pending ? 'Loading…' : '—'), icon: CalendarDays },
+    { key: 'Last active', value: profile.last_active_at ? formatDistanceToNow(new Date(profile.last_active_at), { addSuffix: true }) : (pending ? 'Loading…' : 'Never'), icon: Clock3 },
+  ];
+
+  return (
+    <section className="border-b border-border bg-background px-4 py-4 sm:px-5">
+      <div className="flex flex-col gap-4 xl:flex-row xl:items-start">
+        <div className="flex min-w-0 items-center gap-3 xl:w-64 xl:shrink-0">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <UserRound className="h-5 w-5" aria-hidden />
+          </div>
+          <div className="min-w-0">
+            <p className="text-[10px] font-semibold uppercase text-muted-foreground">Profile</p>
+            <p className="truncate text-base font-bold text-foreground">{profile.full_name ?? 'Unnamed user'}</p>
+            <div className="mt-1 flex flex-wrap gap-1">
+              {(profile.roles ?? []).map((r) => <Badge key={r} variant="outline" className="text-[9px]">{label(r)}</Badge>)}
+              {profile.is_frozen && <Badge variant="destructive" className="text-[9px]">Account frozen</Badge>}
+            </div>
+          </div>
+        </div>
+
+        <dl className="grid min-w-0 flex-1 grid-cols-1 gap-x-5 gap-y-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+          {details.map(({ key, value, icon: Icon }) => (
+            <div key={key} className="flex min-w-0 items-start gap-2 border-l border-border pl-3 first:border-l-0 first:pl-0 sm:first:border-l sm:first:pl-3">
+              <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+              <div className="min-w-0">
+                <dt className="text-[10px] font-medium uppercase text-muted-foreground">{key}</dt>
+                <dd className={cn('truncate text-sm font-semibold text-foreground', pending && value === 'Loading…' && 'animate-pulse text-muted-foreground')}>{value}</dd>
+              </div>
+            </div>
+          ))}
+        </dl>
+      </div>
+    </section>
+  );
+}
+
+function DossierLoading({ profile }: { profile: ProfileHint }) {
+  return (
+    <div>
+      <ProfileSummary profile={profile} pending />
+      <div className="space-y-5 p-4 sm:p-5">
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full" />)}
+        </div>
+        <Skeleton className="h-9 w-full" />
+        <div className="grid gap-3 lg:grid-cols-2">
+          <Skeleton className="h-36 w-full" />
+          <Skeleton className="h-36 w-full" />
+        </div>
+      </div>
+    </div>
   );
 }
 function WalletTxnsSection({ d }: { d: CalleeDossier }) {
@@ -314,10 +381,14 @@ function PartnerTab({ d }: { d: CalleeDossier }) {
 }
 
 /* ---------------- panel ---------------- */
-export function CalleeDossierPanel({ userId, callId }: { userId: string; callId: string | null }) {
+export function CalleeDossierPanel({ userId, callId, profileHint }: {
+  userId: string;
+  callId: string | null;
+  profileHint: ProfileHint;
+}) {
   const { data: d, isLoading, error } = useCalleeDossier(userId);
 
-  if (isLoading) return <div className="space-y-2 p-5">{[0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-16 w-full" />)}</div>;
+  if (isLoading) return <DossierLoading profile={profileHint} />;
   if (error || !d) return <div className="p-5"><Empty>Could not load this person's details.</Empty></div>;
 
   const pr = d.profile;
@@ -330,21 +401,10 @@ export function CalleeDossierPanel({ userId, callId }: { userId: string; callId:
   ].filter(Boolean) as { id: string; label: string; node: ReactNode }[];
 
   return (
-    <div className="space-y-5 p-5">
-      <Section title="Profile">
-        <div className="grid grid-cols-2 gap-2">
-          <Stat k="Name" v={pr?.full_name ?? '—'} />
-          <Stat k="Phone" v={pr?.phone ?? '—'} />
-          <div className="col-span-2"><Stat k="Email" v={pr?.email ?? '—'} /></div>
-          <div className="col-span-2"><Stat k="Location" v={pr?.location ?? (pr?.landmark || 'Not recorded')} /></div>
-          <Stat k="Joined" v={fdate(pr?.joined_at)} />
-          <Stat k="Last active" v={pr?.last_active_at ? formatDistanceToNow(new Date(pr.last_active_at), { addSuffix: true }) : 'Never'} />
-        </div>
-        {!!pr?.roles?.length && <div className="flex flex-wrap gap-1">{pr.roles.map((r) => <Badge key={r} variant="outline" className="text-[9px]">{label(r)}</Badge>)}</div>}
-        {pr?.is_frozen && <Badge variant="destructive" className="text-[10px]">Account frozen</Badge>}
-      </Section>
-
-      <WalletSection d={d} />
+    <div>
+      <ProfileSummary profile={pr ?? profileHint} />
+      <div className="space-y-5 p-4 sm:p-5">
+        <WalletSection d={d} />
 
       <Tabs defaultValue={tabs[0].id}>
         <TabsList className="w-full justify-start overflow-x-auto">
@@ -353,7 +413,7 @@ export function CalleeDossierPanel({ userId, callId }: { userId: string; callId:
         {tabs.map((t) => <TabsContent key={t.id} value={t.id} className="mt-4">{t.node}</TabsContent>)}
       </Tabs>
 
-      <Section title="Record a complaint">
+        <Section title="Record a complaint">
         <ComplaintEditor userId={userId} callId={callId} />
         {d.complaints.length > 0 && <div>{d.complaints.map((c) => (
           <div key={c.id} className="border-b border-border/60 py-2 last:border-0">
@@ -361,7 +421,8 @@ export function CalleeDossierPanel({ userId, callId }: { userId: string; callId:
             <p className="mt-0.5 text-[10px] text-muted-foreground">{c.recorded_by_name ?? 'Staff'} · {fdate(c.created_at, 'd MMM yyyy, HH:mm')}</p>
           </div>
         ))}</div>}
-      </Section>
+        </Section>
+      </div>
     </div>
   );
 }
