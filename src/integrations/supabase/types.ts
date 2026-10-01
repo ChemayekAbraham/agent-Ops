@@ -32653,6 +32653,24 @@ export type Database = {
         }
         Relationships: []
       }
+      pinned_finance_action_super_admins: {
+        Row: {
+          created_at: string
+          note: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          note?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          note?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       plan_balance_duplicate_correction_20260929: {
         Row: {
           amount_repaid_after: number | null
@@ -58120,6 +58138,10 @@ export type Database = {
       }
       can_access_budget_submission: {
         Args: { _submission_id: string; _user_id: string }
+        Returns: boolean
+      }
+      can_act_pinned_finance_action: {
+        Args: { _user_id: string }
         Returns: boolean
       }
       can_cfo_disburse_bike_leases: {
