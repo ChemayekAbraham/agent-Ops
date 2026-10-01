@@ -12,7 +12,8 @@ import CorrectTenantLocationDialog from '@/components/location/CorrectTenantLoca
 
 // Portfolio invite completion page: the partner is there to sign an addendum,
 // never blocked by the mandatory location dialog.
-const LOCATION_EXEMPT_ROUTES = ['/partners/', '/partners-terms'];
+// Funder (Supporter) dashboards never show the mandatory location dialog.
+const LOCATION_EXEMPT_ROUTES = ['/partners/', '/partners-terms', '/dashboard/funder', '/supporter-earnings'];
 
 export function UserLocationCorrectionGate() {
   const location = useLocation();
