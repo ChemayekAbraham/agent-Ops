@@ -355,7 +355,23 @@ function TenantSections({ d }: { d: CalleeDossier }) {
               <button type="button" onClick={() => setOpen(isOpen ? null : p.id)} className="flex w-full items-center justify-between gap-2 p-2.5 text-left hover:bg-muted/40">
                 <div className="min-w-0">
                   <p className="text-sm font-medium">{ugx(p.rent_amount)} rent · {fdate(p.funded_at ?? p.created_at)}</p>
-                  <p className="text-[11px] text-muted-foreground">Paid <span className={cn('font-semibold tabular-nums', payClass(p.amount_repaid, p.total_repayment))}>{ugx(p.amount_repaid)}</span> of {ugx(p.total_repayment)} · owes {ugx(p.outstanding)}</p>
+                  {(() => {
+                    const weekly = (p.repayment_frequency ?? 'daily').toLowerCase() === 'weekly';
+                    const start = p.funded_at ? new Date(p.funded_at).getTime() : NaN;
+                    const days = Number.isFinite(start) ? Math.max(0, Math.floor((Date.now() - start) / 86400000)) : 0;
+                    const perDay = Number(p.daily_repayment ?? 0);
+                    const dueToDate = Math.min(Number(p.total_repayment), weekly ? perDay * 7 * Math.floor(days / 7) : perDay * days);
+                    const behind = Math.max(0, dueToDate - Number(p.amount_repaid));
+                    return (
+                      <div className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground sm:grid-cols-4">
+                        <span>Collected <b className={cn('tabular-nums', payClass(p.amount_repaid, p.total_repayment))}>{ugx(p.amount_repaid)}</b></span>
+                        <span>Expected to date <b className="tabular-nums text-foreground">{ugx(dueToDate)}</b></span>
+                        <span>Behind <b className={cn('tabular-nums', behind > 0 ? 'text-destructive' : 'text-success')}>{ugx(behind)}</b></span>
+                        <span>Outstanding <b className="tabular-nums text-foreground">{ugx(p.outstanding)}</b></span>
+                        <span className="col-span-2 sm:col-span-4">Total due {ugx(p.total_repayment)}</span>
+                      </div>
+                    );
+                  })()}
                 </div>
                 <Badge variant={p.status === 'repaying' ? 'default' : 'outline'} className="shrink-0 text-[9px]">{label(p.status)}</Badge>
               </button>
