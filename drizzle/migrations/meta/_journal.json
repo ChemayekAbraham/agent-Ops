@@ -2738,6 +2738,13 @@
       "when": 1790855411055,
       "tag": "0390_crm_dossier_tenant_paid_totals",
       "breakpoints": true
+    },
+    {
+      "idx": 391,
+      "version": "7",
+      "when": 1790856156561,
+      "tag": "0391_crm_dossier_plan_repayment_frequency",
+      "breakpoints": true
     }
   ]
 }
