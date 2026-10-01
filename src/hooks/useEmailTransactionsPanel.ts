@@ -37,7 +37,7 @@ import {
   deriveChannel,
   EXPANDED_ROWS_KEY,
 } from '@/lib/emailTransactionsLogic';
-import { AlertOctagon, ArrowDownLeft, ArrowUpRight, CheckCircle2, Inbox, Send } from 'lucide-react';
+import { AlertOctagon, ArrowDownLeft, ArrowUpRight, CheckCircle2, Inbox, Landmark, Send, Smartphone } from 'lucide-react';
 
 /** Plain-language mapping of a Gmail polling error, used for the toast copy. */
 function friendlyPollError(raw: string | null | undefined): { title: string; description: string } {
@@ -226,6 +226,16 @@ export function useEmailTransactionsPanel() {
   });
   useEffect(() => { try { localStorage.setItem('gmail_filter_direction', directionFilter); } catch {} }, [directionFilter]);
 
+  // Channel filter — MTN MoMo, Airtel Money or bank. Combines with the
+  // direction/status labels (e.g. "Money in" + "Airtel Money"). Persisted.
+  type ChannelFilter = 'all' | 'mtn_momo' | 'airtel_money' | 'bank';
+  const [channelFilter, setChannelFilter] = useState<ChannelFilter>(() => {
+    if (typeof window === 'undefined') return 'all';
+    const v = localStorage.getItem('gmail_filter_channel') as ChannelFilter | null;
+    return v && ['all', 'mtn_momo', 'airtel_money', 'bank'].includes(v) ? v : 'all';
+  });
+  useEffect(() => { try { localStorage.setItem('gmail_filter_channel', channelFilter); } catch {} }, [channelFilter]);
+
   // Focused money-in / money-out view. Tapping one of the two entry tiles opens
   // a dedicated page-style view that shows ONLY those emails: every other
   // narrowing filter is reset so nothing is silently hidden, and a banner with
@@ -402,7 +412,7 @@ export function useEmailTransactionsPanel() {
   useEffect(() => {
     setCurrentPage(1);
     setInfiniteCount(pageSize);
-  }, [searchQuery, phoneQuery, fromDate, toDate, tz, pageSize, directionFilter, matchFilter, needsRoutingOnly, debitFilter, debitSort, statusFilter, sortMode]);
+  }, [searchQuery, phoneQuery, fromDate, toDate, tz, pageSize, directionFilter, channelFilter, matchFilter, needsRoutingOnly, debitFilter, debitSort, statusFilter, sortMode]);
   // Reset the infinite window back to one page whenever the operator switches
   // into infinite mode, so it never starts mid-list.
   useEffect(() => {
@@ -2565,6 +2575,7 @@ export function useEmailTransactionsPanel() {
     let list = filteredRows.filter((r) => {
       if (directionFilter === 'in' && r.direction !== 'in') return false;
       if (directionFilter === 'out' && r.direction !== 'out' && r.direction !== 'charge') return false;
+      if (channelFilter !== 'all' && ch(r).channel !== channelFilter) return false;
       if (needsRoutingOnly && !isNeedsRouting(r)) return false;
       if (statusFilter === 'needs_routing_out') {
         if (!isNeedsDebitRouting(r)) return false;
@@ -2631,7 +2642,7 @@ export function useEmailTransactionsPanel() {
       });
     }
     return list;
-  }, [filteredRows, directionFilter, matchFilter, userMatches, needsRoutingOnly, isNeedsRouting, isNeedsDebitRouting, statusFilter, getRowStatus, debitFilter, debitSort, sortMode, getDebitMeta]);
+  }, [filteredRows, directionFilter, channelFilter, matchFilter, userMatches, needsRoutingOnly, isNeedsRouting, isNeedsDebitRouting, statusFilter, getRowStatus, debitFilter, debitSort, sortMode, getDebitMeta]);
 
   const navIndex = routingRow ? visibleRows.findIndex((r) => r.id === routingRow.id) : -1;
   const canPrevNav = navIndex > 0;
@@ -2807,7 +2818,12 @@ export function useEmailTransactionsPanel() {
   // Gmail-style label counts, computed off the same rows the list renders from.
   const gmailLabelCounts = useMemo(() => {
     let inCount = 0, outCount = 0, routing = 0, routingOut = 0, unparsed = 0, credited = 0;
+    let mtn = 0, airtel = 0, bank = 0;
     for (const r of filteredRows) {
+      const c = ch(r).channel;
+      if (c === 'mtn_momo') mtn += 1;
+      else if (c === 'airtel_money') airtel += 1;
+      else if (c === 'bank') bank += 1;
       if (r.direction === 'in') inCount += 1;
       else if (r.direction === 'out' || r.direction === 'charge') outCount += 1;
       if (isNeedsDebitRouting(r)) routingOut += 1;
@@ -2816,7 +2832,7 @@ export function useEmailTransactionsPanel() {
       else if (s === 'unparsed') unparsed += 1;
       else if (s === 'credited') credited += 1;
     }
-    return { all: filteredRows.length, in: inCount, out: outCount, routing, routingOut, unparsed, credited };
+    return { all: filteredRows.length, in: inCount, out: outCount, routing, routingOut, unparsed, credited, mtn, airtel, bank };
   }, [filteredRows, getRowStatus, isNeedsDebitRouting]);
 
   // Gmail label definitions — each one maps onto the existing filter state so
@@ -2831,8 +2847,25 @@ export function useEmailTransactionsPanel() {
   }> = [
     {
       key: 'all', label: 'Inbox', Icon: Inbox, count: gmailLabelCounts.all,
-      active: directionFilter === 'all' && statusFilter === 'all' && !needsRoutingOnly,
-      apply: () => { setDirectionFilter('all'); setFocusDirection(null); setStatusFilter('all'); setNeedsRoutingOnly(false); },
+      active: directionFilter === 'all' && statusFilter === 'all' && !needsRoutingOnly && channelFilter === 'all',
+      apply: () => { setDirectionFilter('all'); setFocusDirection(null); setStatusFilter('all'); setNeedsRoutingOnly(false); setChannelFilter('all'); },
+    },
+    // Channel labels narrow by provider and stack with the direction/status
+    // labels below. Clicking the active one again clears it.
+    {
+      key: 'ch_mtn_momo', label: 'MTN MoMo', Icon: Smartphone, count: gmailLabelCounts.mtn,
+      active: channelFilter === 'mtn_momo',
+      apply: () => setChannelFilter(channelFilter === 'mtn_momo' ? 'all' : 'mtn_momo'),
+    },
+    {
+      key: 'ch_airtel_money', label: 'Airtel Money', Icon: Smartphone, count: gmailLabelCounts.airtel,
+      active: channelFilter === 'airtel_money',
+      apply: () => setChannelFilter(channelFilter === 'airtel_money' ? 'all' : 'airtel_money'),
+    },
+    {
+      key: 'ch_bank', label: 'Bank', Icon: Landmark, count: gmailLabelCounts.bank,
+      active: channelFilter === 'bank',
+      apply: () => setChannelFilter(channelFilter === 'bank' ? 'all' : 'bank'),
     },
     {
       key: 'in', label: 'Money in', Icon: ArrowDownLeft, count: gmailLabelCounts.in,
@@ -2923,6 +2956,6 @@ export function useEmailTransactionsPanel() {
     goToPage, computeSuggestedFor, navigateToRow, routeQueue, setRouteQueue, historyQueue,
     setHistoryQueue, alertDetailsRow, setAlertDetailsRow, alertSettingsOpen, setAlertSettingsOpen, startRouteQueue,
     startHistoryQueue, historyQueueIndex, swipeNavigate, refreshRowStatus, gmailLabelCounts, gmailLabels,
-    applyRecentWindow,
+    applyRecentWindow, channelFilter, setChannelFilter,
   };
 }
