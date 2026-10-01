@@ -1,19 +1,14 @@
-# CRM call screen redesign
+# Faster CRM dossier and cleaner profile
 
-## What will change
-- Remove the entire Call summary area; Record a complaint remains the only note-entry area.
-- Rebuild the top of the drawer as the selected integrated command header: compact caller identity and live state on the left, microphone/ring controls and End Call on the right.
-- Place profile and financial highlights directly beneath that header, before the role tabs and Portfolio content.
-- Restyle wallet balances, collections, transactions, Rent Plans, portfolios, and complaint history with meaningful icons and clearer semantic theme colours.
-- Preserve the safe Test view badge and its guarantee that no call or call record is created.
+## Build
+- Keep a single dossier request per person and prevent repeated refetches while operators reopen the same call screen.
+- Rework the server query to aggregate collections and related names in sets instead of repeating lookups per row.
+- Render the call identity immediately from the People list while the remaining dossier sections load asynchronously with stable section-level placeholders.
+- Replace the desktop profile tile grid with a compact, full-width information band that uses space efficiently; preserve all fields, roles, frozen status, and mobile readability.
+- Keep wallet and ledger data read-only and preserve the existing server-side partner visibility gate.
 
-## Data accuracy
-- Verify the live wallet view and dossier function before changing anything.
-- Update the dossier's read-only balance lookup to use the authoritative physical wallet values when a projection row is missing, while retaining the existing projected bucket values when present.
-- Keep collection figures tied to the existing operational `agent_collections` records; show an explicit empty state when no recorded collection exists instead of making an unexplained zero look like a failed load.
-
-## Safety and verification
-- Do not write wallet, ledger, approval, call, or transaction records during testing.
-- Run the full backend/logic guard suite because the read-only dossier function changes.
-- Run the TypeScript check and verify the signed-in Test call screen at desktop and mobile widths.
-- Confirm through browser network activity that Test view sends no voice or call-session requests.
+## Technical details
+- Optimize `crm_callee_dossier` without splitting it into extra requests.
+- Use the existing query cache with a longer freshness window and placeholder data sourced from the selected person.
+- Add only targeted supporting indexes confirmed missing in the live schema.
+- Validate desktop/mobile rendering, request count, type checks, safety guards, and confirm no financial or workflow writes.
