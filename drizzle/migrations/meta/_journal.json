@@ -2633,6 +2633,13 @@
       "when": 1790836086557,
       "tag": "0375_engrep_reevaluate_liveness_recent",
       "breakpoints": true
+    },
+    {
+      "idx": 376,
+      "version": "7",
+      "when": 1790836396540,
+      "tag": "0376_rls_evaluate_role_checks_once_per_query",
+      "breakpoints": true
     }
   ]
 }
