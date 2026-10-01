@@ -101,7 +101,7 @@ export function StaffRepayAdvanceDialog({ open, onOpenChange, onSuccess }: Props
 
   const outstanding = selected ? Number(selected.outstanding_balance) : 0;
   const parsed = Number(amount || 0);
-  const valid = parsed > 0 && parsed <= outstanding;
+  const valid = parsed > 0 && parsed <= outstanding && reference.trim().length > 0;
 
   const submit = async () => {
     if (!selected || !valid) {
@@ -115,7 +115,7 @@ export function StaffRepayAdvanceDialog({ open, onOpenChange, onSuccess }: Props
           advance_id: selected.id,
           amount: parsed,
           payment_method: method,
-          reference: reference || null,
+          reference: reference.trim(),
           notes: notes || null,
         },
       });
@@ -241,7 +241,7 @@ export function StaffRepayAdvanceDialog({ open, onOpenChange, onSuccess }: Props
             </div>
 
             <div>
-              <Label className="text-xs">Reference / Transaction ID</Label>
+              <Label className="text-xs">Reference / Transaction ID (required)</Label>
               <Input
                 placeholder="e.g. MoMo TXN ID"
                 value={reference}
