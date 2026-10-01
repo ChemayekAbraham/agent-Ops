@@ -26,6 +26,8 @@ interface CampaignStatus {
   updated_at: string;
 }
 
+const BROADCAST_RETRY_DISABLED = true;
+
 const num = (n: number) => new Intl.NumberFormat('en-US').format(Math.max(0, n));
 
 function StatusBadge({ status, queued }: { status: string; queued: number }) {
@@ -61,6 +63,13 @@ function CampaignCard({ c }: { c: CampaignStatus }) {
   const outstanding = c.failed + queued;
 
   const handleRetry = async () => {
+    // Standing order (Josh, 2026-10-01): no engineer retries a broadcast from this
+    // page. A retry re-sends SMS (credit, provider rate limits) and rewrites the
+    // campaign row. Doc 181. Flip only on an explicit instruction to re-send.
+    if (BROADCAST_RETRY_DISABLED) {
+      toast.error('Retry is switched off. Do not re-send broadcasts from this page.');
+      return;
+    }
     if (retrying) return;
     if (!c.message || !c.audiences || c.audiences.length === 0) {
       toast.error('Cannot retry — campaign is missing its message or audience.');
