@@ -895,7 +895,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                           />
                           <label
                             htmlFor="rdq-select-all"
-                            className={`cursor-pointer select-none text-[10px] font-semibold uppercase tracking-wider ${selectableItems.length === 0 ? 'opacity-50' : ''}`}
+                            className={`cursor-pointer select-none whitespace-nowrap text-[10px] font-semibold uppercase tracking-wider ${selectableItems.length === 0 ? 'opacity-50' : ''}`}
                           >
                             Select All
                           </label>
