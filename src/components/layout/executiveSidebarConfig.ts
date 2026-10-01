@@ -200,6 +200,13 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
     },
 
     {
+      title: 'Accounting',
+      items: [
+        { label: 'Corrections & Approvals', icon: ShieldCheck, id: 'corrections-approvals', access: CFO_ACCESS },
+      ],
+    },
+
+    {
       title: 'Reports & Audit',
       items: [
         { label: 'Financial Reports', icon: BookOpen, id: 'statements' },

@@ -11,6 +11,7 @@ import { TenantOpsLandlordFloatTimeline } from '@/components/executive/TenantOps
 import ExecutiveDashboardLayout from '@/components/layout/ExecutiveDashboardLayout';
 import { ChannelBalanceTracker } from '@/components/cfo/ChannelBalanceTracker';
 import { ErrorCorrectionAuditPanel } from '@/components/cfo/ErrorCorrectionAuditPanel';
+import { CorrectionCenterPanel } from '@/components/cfo/CorrectionCenterPanel';
 import { PlatformVsWalletSummary } from '@/components/cfo/PlatformVsWalletSummary';
 import { CFOROIRequests } from '@/components/cfo/CFOROIRequests';
 import { CFOOverviewDashboard } from '@/components/cfo/CFOOverviewDashboard';
@@ -415,6 +416,8 @@ export default function CFODashboardPage() {
         return <WalletRetractionsFeed />;
       case 'error-corrections':
         return <ErrorCorrectionAuditPanel />;
+      case 'corrections-approvals':
+        return <CorrectionCenterPanel />;
       case 'unfunding-approvals':
         return (
           <div className="space-y-6">
