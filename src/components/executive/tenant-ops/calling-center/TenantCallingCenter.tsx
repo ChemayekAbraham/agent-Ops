@@ -58,29 +58,15 @@ import { ReceivedCallsTab } from './ReceivedCallsTab';
 import { ConcernsReviewTab } from './ConcernsReviewTab';
 
 import { TenantCallDetailsDialog } from './TenantCallDetailsDialog';
-import { ThirtyMAwarenessDialog } from './ThirtyMAwarenessDialog';
+import { ThirtyMAwarenessFields } from './ThirtyMAwarenessFields';
+import type { ThirtyMAwarenessFieldsHandle } from './ThirtyMAwarenessFields';
 import {
   AUTO_CAP_CHOICES,
   DEFAULT_AUTO_CAP,
   useTenantCallCenterDialer,
 } from './useTenantCallCenterDialer';
-import { supabase } from '@/integrations/supabase/client';
-
-const anyDb = supabase as any;
-
-/** Silently fetches the tenant's current Rent Plan limit from credit_access_limits. */
-async function fetchRentPlanLimit(userId: string): Promise<number | null> {
-  try {
-    const { data } = await anyDb
-      .from('credit_access_limits')
-      .select('total_limit')
-      .eq('user_id', userId)
-      .maybeSingle();
-    return data?.total_limit != null ? Number(data.total_limit) : null;
-  } catch {
-    return null;
-  }
-}
+import { useAuth } from '@/hooks/useAuth';
+import { useSave30mAwareness } from '@/hooks/use30mAwareness';
 
 type CenterTab = 'overview' | 'queue' | 'live' | 'received' | 'concerns' | 'history' | 'forwarding' | 'settings';
 
@@ -151,16 +137,13 @@ export function TenantCallingCenter() {
   const [fullHistoryOpen, setFullHistoryOpen] = useState(false);
 
   /**
-   * 30M Awareness tracking — purely additive, isolated from all calling logic.
-   * Populated when an engaged call is successfully recorded, then cleared when
-   * the awareness dialog is dismissed or saved.
+   * 30M Awareness — inline, inside the engaged call form.
+   * The ref gives TenantCallingCenter access to the current question answers
+   * without lifting state or adding props to RecordOutcomeDialog's call logic.
    */
-  const [awareness30m, setAwareness30m] = useState<{
-    tenantUserId: string;
-    tenantName: string;
-    ccCallId: string | null;
-    rentPlanLimitUgx: number | null;
-  } | null>(null);
+  const awarenessFieldsRef = useRef<ThirtyMAwarenessFieldsHandle>(null);
+  const { user } = useAuth();
+  const save30m = useSave30mAwareness();
 
   /** Ref for the dialer's current subject — initialised after dialer is defined below. */
   const dialerCurrentRef = useRef<typeof dialer.current>(null);
@@ -191,38 +174,34 @@ export function TenantCallingCenter() {
   const dialer = useTenantCallCenterDialer(hub);
   const { auto } = dialer;
 
-  // Keep the ref in sync so the onClose wrapper below can read the current
-  // subject without introducing a stale-closure dependency.
+  // Keep the ref in sync so the onClose wrapper can read the current subject.
   dialerCurrentRef.current = dialer.current;
 
   /**
-   * onClose for RecordOutcomeDialog — a stable callback.
-   *
-   * When it detects that an engaged outcome was just recorded
-   * (hub.recordEngaged.isSuccess is true at the moment close() is called),
-   * it opens the 30M awareness dialog. All other close paths (dismiss,
-   * callback booked, cancel) fall through without showing it.
-   *
-   * The existing calling, hang-up, and feedback workflows are untouched.
+   * onClose for RecordOutcomeDialog.
+   * When an engaged call was just successfully recorded, also save any 30M
+   * awareness answers the officer filled in inline. The save is fire-and-forget
+   * (no toast on 30M failure — the call outcome is already committed).
    */
   const handleOutcomeDialogClose = useCallback(() => {
     const subject = dialerCurrentRef.current;
     const wasEngaged = hub.recordEngaged.isSuccess;
+    const values = awarenessFieldsRef.current?.getValues() ?? null;
+    awarenessFieldsRef.current?.reset();
     setFormAttempt(null);
-    if (!wasEngaged || !subject) return;
-    setAwareness30m({
-      tenantUserId: subject.subjectId,
-      tenantName: subject.name,
+    if (!wasEngaged || !subject || !values || !user?.id) return;
+    save30m.mutate({
       ccCallId: subject.attemptId,
-      rentPlanLimitUgx: null,
+      tenantUserId: subject.subjectId,
+      recordedBy: user.id,
+      awarenessBefore: values.awarenessBefore,
+      explanationGiven: values.explanationGiven,
+      understandingAfter: values.understandingAfter,
+      interest: values.interest,
+      rentPlanLimitUgx: null, // not blocking — limit snapshot not needed at save time
     });
-    fetchRentPlanLimit(subject.subjectId).then((limit) => {
-      setAwareness30m((prev) => (prev ? { ...prev, rentPlanLimitUgx: limit } : prev));
-    });
-  // hub.recordEngaged.isSuccess is deliberately in the deps: we want a new
-  // callback identity whenever it changes so JSX sees the right value.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hub.recordEngaged.isSuccess]);
+  }, [hub.recordEngaged.isSuccess, user?.id]);
 
   /**
    * A searched tenant must be findable whatever status they are sitting in.
@@ -800,28 +779,19 @@ export function TenantCallingCenter() {
       />
 
       {/*
-       * RecordOutcomeDialog is reused as-is — NO changes to it.
-       * handleOutcomeDialogClose (declared above) triggers the 30M awareness
-       * dialog ONLY when an engaged outcome was just successfully recorded.
-       * Calling/hang-up/feedback are completely unchanged.
+       * RecordOutcomeDialog is reused as-is except for the optional
+       * awareness30mSection slot. The 30M questions render inside the
+       * Engaged tab — same form, same button. No second dialog, no second step.
+       * Calling / hang-up logic is completely unchanged.
        */}
       <RecordOutcomeDialog
         hub={hub}
         attempt={formAttempt}
         onClose={handleOutcomeDialogClose}
+        awareness30mSection={
+          <ThirtyMAwarenessFields ref={awarenessFieldsRef} />
+        }
       />
-
-      {/* 30M Awareness dialog — additive, never modifies the calling flow. */}
-      {awareness30m && (
-        <ThirtyMAwarenessDialog
-          open={!!awareness30m}
-          tenantName={awareness30m.tenantName}
-          tenantUserId={awareness30m.tenantUserId}
-          ccCallId={awareness30m.ccCallId}
-          rentPlanLimitUgx={awareness30m.rentPlanLimitUgx}
-          onClose={() => setAwareness30m(null)}
-        />
-      )}
     </div>
   );
 }

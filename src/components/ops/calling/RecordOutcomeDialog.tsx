@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -17,10 +18,17 @@ export function RecordOutcomeDialog({
   hub,
   attempt,
   onClose,
+  awareness30mSection,
 }: {
   hub: CcCallingHub;
   attempt: { id: string; cycle_row_id: string; name: string } | null;
   onClose: () => void;
+  /**
+   * Optional 30M awareness fields rendered inside the Engaged tab, just above
+   * the submit button. Only passed from TenantCallingCenter — the standard
+   * Calling Hub leaves this undefined so the dialog is unchanged there.
+   */
+  awareness30mSection?: ReactNode;
 }) {
   const [categoryId, setCategoryId] = useState('');
   const [severity, setSeverity] = useState<CcSeverity>('normal');
@@ -168,6 +176,9 @@ export function RecordOutcomeDialog({
               <Checkbox checked={consent} onCheckedChange={(v) => setConsent(!!v)} />
               They consented to being contacted about this
             </label>
+
+            {/* 30M Awareness section — only present in TenantCallingCenter */}
+            {awareness30mSection}
 
             <Button className="w-full" onClick={submitEngaged} disabled={hub.recordEngaged.isPending}>
               {hub.recordEngaged.isPending ? 'Recording…' : 'Record engaged call'}
