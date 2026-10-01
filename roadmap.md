@@ -42,3 +42,4 @@
 - [x] Make the Welile Shopping Advance tile on the Agent Ops home attention-seeking (filled primary + breathing outline); no routing change.
 - [x] Atimango Joyce balance check (read-only): UGX 6,350,000 verified; open plans match payments; first plan carries an unbacked UGX 500,000 paid-amount edit from 23 Jul.
 - [x] Replace CFO payout “Select All” checkbox with a review-first bulk payment button; selection remains read-only until explicit final confirmation.
+- [x] Add a complete read-only Shopping Advance user dossier with Rent Plans, advances, obligations, partnerships, shares, and AI ID details.

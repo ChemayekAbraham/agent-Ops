@@ -4,8 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { AiIdBadge } from '@/components/ai-id/AiIdBadge';
-import { ChevronRight, MapPin, ArrowLeft, Search } from 'lucide-react';
+import { ShoppingAdvanceUserDossier } from './ShoppingAdvanceUserDossier';
+import { ChevronRight, MapPin, Search } from 'lucide-react';
 
 type Row = {
   user_id: string;
@@ -68,44 +68,14 @@ export function ShoppingAdvanceQualifiedUsersSheet({ open, onOpenChange }: { ope
     const t = q.trim().toLowerCase();
     return scoped.filter((r) => !t || `${r.full_name ?? ''} ${r.phone ?? ''}`.toLowerCase().includes(t));
   }, [scoped, q]);
-  const fmtD = (v: string | null) => (v ? new Date(v).toLocaleString('en-GB') : '—');
-  const fields = (r: Row): [string, string][] => [
-    ['Phone', r.phone ?? '—'], ['Email', r.email ?? '—'], ['National ID', r.national_id ?? '—'],
-    ['Occupation', r.occupation ?? '—'], ['Role', r.primary_persona ?? '—'],
-    ['Verified', r.verified ? 'Yes' : 'No'], ['Phone verified', r.phone_verified ? 'Yes' : 'No'],
-    ['Frozen', r.is_frozen ? 'Yes' : 'No'], ['Joined', fmtD(r.created_at)], ['Last active', fmtD(r.last_active_at)],
-    ['Continent', r.continent ?? '—'], ['Country', r.country ?? '—'], ['Region', r.region ?? '—'],
-    ['District', r.district ?? '—'], ['County', '—'], ['Sub county', r.sub_county ?? '—'],
-    ['Parish', r.parish ?? '—'], ['Village', r.village ?? '—'], ['Town / City', r.town ?? r.city ?? '—'],
-    ['Landmark', r.landmark ?? '—'], ['Location source', r.location_source ?? '—'],
-    ['Mobile money', r.mobile_money_number ? `${r.mobile_money_provider ?? ''} ${r.mobile_money_number}` : '—'],
-    ['Transfers sent', String(r.transfer_count ?? 0)],
-    ['Total sent', `UGX ${Number(r.transfer_total ?? 0).toLocaleString('en-US')}`],
-    ['First transfer', fmtD(r.first_transfer_at)], ['Last transfer', fmtD(r.last_transfer_at)],
-  ];
-
   return (
     <Sheet open={open} onOpenChange={(o) => { if (!o) { setPath([]); setSelected(null); setQ(''); setListMode(false); } onOpenChange(o); }}>
-      <SheetContent side="right" className="w-full sm:max-w-xl overflow-y-auto">
+      <SheetContent side="right" className={selected ? 'w-full sm:max-w-4xl xl:max-w-6xl overflow-y-auto' : 'w-full sm:max-w-xl overflow-y-auto'}>
         <SheetHeader>
           <SheetTitle>{selected ? (selected.full_name ?? 'Unnamed user') : 'Qualified users by location'}</SheetTitle>
         </SheetHeader>
         {selected ? (
-          <div className="mt-4 space-y-3">
-            <Button variant="ghost" size="sm" onClick={() => setSelected(null)}><ArrowLeft className="mr-1 h-4 w-4" />Back to list</Button>
-            <AiIdBadge userId={selected.user_id} variant="chip" size="sm" />
-            {selected.residence_lat != null && selected.residence_lng != null && (
-              <a className="inline-flex items-center gap-1 text-sm text-primary underline" target="_blank" rel="noreferrer"
-                href={`https://www.google.com/maps?q=${selected.residence_lat},${selected.residence_lng}`}>
-                <MapPin className="h-4 w-4" />GPS {selected.residence_lat}, {selected.residence_lng}
-              </a>
-            )}
-            <dl className="divide-y divide-border rounded-md border border-border text-sm">
-              {fields(selected).map(([k, v]) => (
-                <div key={k} className="flex justify-between gap-4 px-3 py-2"><dt className="text-muted-foreground">{k}</dt><dd className="text-right font-medium break-words">{v}</dd></div>
-              ))}
-            </dl>
-          </div>
+          <ShoppingAdvanceUserDossier userId={selected.user_id} fallbackName={selected.full_name ?? 'Unnamed user'} onBack={() => setSelected(null)} />
         ) : (
         <div className="mt-4 space-y-3">
           <div className="flex flex-wrap items-center gap-1 text-sm">
