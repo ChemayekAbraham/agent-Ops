@@ -2689,6 +2689,13 @@
       "when": 1790839610702,
       "tag": "0383_staff_requisition_prompt_reopen_on_reentry",
       "breakpoints": true
+    },
+    {
+      "idx": 384,
+      "version": "7",
+      "when": 1790845243948,
+      "tag": "0384_crm_callee_dossier",
+      "breakpoints": true
     }
   ]
 }
