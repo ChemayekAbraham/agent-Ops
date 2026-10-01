@@ -413,9 +413,9 @@ export function CalleeDossierPanel({ userId, callId, profileHint }: {
 
   return (
     <div className="space-y-6 p-5 sm:p-7">
-      <div className="grid min-w-0 gap-6 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1.35fr)]">
+      <div className="flex min-w-0 flex-col gap-6">
         <Section title="Profile">
-          <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2">
+          <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-6">
             <Stat k="Name" v={pr?.full_name ?? profileHint.full_name ?? '—'} icon={UserRound} />
             <Stat k="Phone" v={pr?.phone ?? profileHint.phone ?? '—'} icon={Phone} />
             <Stat k="Email" v={pr?.email ?? '—'} icon={Mail} />
