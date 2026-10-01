@@ -299,13 +299,13 @@ function ProxyTab({ d }: { d: CalleeDossier }) {
   );
 }
 
-function TenantTab({ d }: { d: CalleeDossier }) {
+function TenantSections({ d }: { d: CalleeDossier }) {
   const t = d.tenant!;
   const [open, setOpen] = useState<string | null>(t.plans[0]?.id ?? null);
   return (
     <div className="space-y-5">
       <Section title="Last collection">
-        {t.last_collection ? <Row left={ugx(t.last_collection.amount)} sub={fdate(t.last_collection.created_at, 'd MMM yyyy, HH:mm')} right={t.last_collection.agent_name ?? '—'} rightSub="Agent" />
+        {t.last_collection ? <Row left={<span className="text-success">{ugx(t.last_collection.amount)}</span>} sub={fdate(t.last_collection.created_at, 'd MMM yyyy, HH:mm')} right={t.last_collection.agent_name ?? '—'} rightSub="Agent" />
           : <Empty>No agent collection yet.</Empty>}
       </Section>
       <Section title={`Rent Plans (${t.plans.length})`}>
@@ -317,7 +317,7 @@ function TenantTab({ d }: { d: CalleeDossier }) {
               <button type="button" onClick={() => setOpen(isOpen ? null : p.id)} className="flex w-full items-center justify-between gap-2 p-2.5 text-left hover:bg-muted/40">
                 <div className="min-w-0">
                   <p className="text-sm font-medium">{ugx(p.rent_amount)} rent · {fdate(p.funded_at ?? p.created_at)}</p>
-                  <p className="text-[11px] text-muted-foreground">Paid {ugx(p.amount_repaid)} of {ugx(p.total_repayment)} · owes {ugx(p.outstanding)}</p>
+                  <p className="text-[11px] text-muted-foreground">Paid <span className={cn('font-semibold tabular-nums', payClass(p.amount_repaid, p.total_repayment))}>{ugx(p.amount_repaid)}</span> of {ugx(p.total_repayment)} · owes {ugx(p.outstanding)}</p>
                 </div>
                 <Badge variant={p.status === 'repaying' ? 'default' : 'outline'} className="shrink-0 text-[9px]">{label(p.status)}</Badge>
               </button>
@@ -325,7 +325,7 @@ function TenantTab({ d }: { d: CalleeDossier }) {
                 <div className="border-t border-border px-2.5 pb-1">
                   <p className="py-1.5 text-[11px] text-muted-foreground">Daily {ugx(p.daily_repayment)} · {p.duration_days ?? '—'} days · agent {p.agent_name ?? '—'}{p.tenancy_status ? ` · tenancy ${label(p.tenancy_status)}` : ''}</p>
                   {hist.length === 0 ? <Empty>No payments on this plan.</Empty> : hist.map((r) => (
-                    <Row key={r.id} left={ugx(r.amount)} sub={fdate(r.created_at, 'd MMM yyyy, HH:mm')}
+                    <Row key={r.id} left={<span className="text-success">{ugx(r.amount)}</span>} sub={fdate(r.created_at, 'd MMM yyyy, HH:mm')}
                       right={<Badge variant="outline" className="text-[9px]">{r.paid_by === 'self' ? 'Self-repayment' : 'Via agent'}</Badge>}
                       rightSub={r.paid_by === 'agent' ? r.agent_name ?? undefined : undefined} />
                   ))}
