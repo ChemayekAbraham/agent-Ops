@@ -308,6 +308,31 @@ function TenantSections({ d }: { d: CalleeDossier }) {
         {t.last_collection ? <Row left={<span className="text-success">{ugx(t.last_collection.amount)}</span>} sub={fdate(t.last_collection.created_at, 'd MMM yyyy, HH:mm')} right={t.last_collection.agent_name ?? '—'} rightSub="Agent" />
           : <Empty>No agent collection yet.</Empty>}
       </Section>
+      {(() => {
+        const live = t.plans.filter((p) => ['funded', 'repaying', 'active'].includes(p.status) && p.outstanding > 0);
+        const isWeekly = (p: typeof live[number]) => (p.repayment_frequency ?? 'daily').toLowerCase() === 'weekly';
+        const cap = (p: typeof live[number], v: number) => Math.min(v, p.outstanding);
+        const daily = live.filter((p) => !isWeekly(p)).reduce((s, p) => s + cap(p, Number(p.daily_repayment ?? 0)), 0);
+        const weekly = live.reduce((s, p) => s + cap(p, Number(p.daily_repayment ?? 0) * 7), 0);
+        const hasWeekly = live.some(isWeekly);
+        if (live.length === 0) return null;
+        return (
+          <Section title="Expected payments">
+            <div className="grid grid-cols-2 gap-1">
+              <div className="rounded-md border border-border px-1.5 py-1.5">
+                <span className="block text-[10px] font-medium text-muted-foreground">Expected today</span>
+                <span className={cn('block truncate text-xs font-semibold tabular-nums', daily > 0 && t.paid_totals ? payClass(t.paid_totals.today.amount, daily) : '')}>{daily > 0 ? ugx(daily) : '—'}</span>
+                <span className="block text-[10px] text-muted-foreground">{daily > 0 ? `paid ${ugx(t.paid_totals?.today.amount ?? 0)}` : 'weekly payer only'}</span>
+              </div>
+              <div className="rounded-md border border-border px-1.5 py-1.5">
+                <span className="block text-[10px] font-medium text-muted-foreground">Expected per week</span>
+                <span className="block truncate text-xs font-semibold tabular-nums">{ugx(weekly)}</span>
+                <span className="block text-[10px] text-muted-foreground">{hasWeekly ? 'includes weekly plans' : 'daily × 7'}</span>
+              </div>
+            </div>
+          </Section>
+        );
+      })()}
       {t.paid_totals && (
         <Section title="Payments made (as tenant)">
           <div className="grid grid-cols-4 gap-1">
@@ -336,7 +361,7 @@ function TenantSections({ d }: { d: CalleeDossier }) {
               </button>
               {isOpen && (
                 <div className="border-t border-border px-2.5 pb-1">
-                  <p className="py-1.5 text-[11px] text-muted-foreground">Daily {ugx(p.daily_repayment)} · {p.duration_days ?? '—'} days · agent {p.agent_name ?? '—'}{p.tenancy_status ? ` · tenancy ${label(p.tenancy_status)}` : ''}</p>
+                  <p className="py-1.5 text-[11px] text-muted-foreground">{(p.repayment_frequency ?? 'daily').toLowerCase() === 'weekly' ? `Pays weekly · expected ${ugx(Number(p.daily_repayment ?? 0) * 7)} per week` : `Pays daily · expected ${ugx(p.daily_repayment)} per day`} · {p.duration_days ?? '—'} days · agent {p.agent_name ?? '—'}{p.tenancy_status ? ` · tenancy ${label(p.tenancy_status)}` : ''}</p>
                   {hist.length === 0 ? <Empty>No payments on this plan.</Empty> : hist.map((r) => (
                     <Row key={r.id} left={<span className="text-success">{ugx(r.amount)}</span>} sub={fdate(r.created_at, 'd MMM yyyy, HH:mm')}
                       right={<Badge variant="outline" className="text-[9px]">{r.paid_by === 'self' ? 'Self-repayment' : 'Via agent'}</Badge>}

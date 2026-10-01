@@ -22,6 +22,7 @@ export type PeriodTotal = { count: number; amount: number };
 export interface DossierPlan {
   id: string; status: string; rent_amount: number | null; total_repayment: number | null; amount_repaid: number | null;
   daily_repayment: number | null; duration_days: number | null; outstanding: number; created_at: string;
+  repayment_frequency?: string | null;
   funded_at: string | null; tenancy_status: string | null; agent_name: string | null;
 }
 export interface DossierRepayment {
