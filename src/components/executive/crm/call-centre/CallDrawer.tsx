@@ -77,6 +77,7 @@ export function CallDrawer({
   const isEnding = preview ? false : call.isEnding;
   const callId = preview ? null : call.callId;
   const error = preview ? null : call.error;
+  const hangupCause = preview ? null : call.hangupCause;
 
   const ended = isTerminalCallState(state);
   const dialling = state === 'initializing' || state === 'calling' || state === 'ringing';
@@ -144,8 +145,8 @@ export function CallDrawer({
 
   /** Plain-language reason the network gave. Codes stay in the call log only. */
   const causeLine = useMemo(
-    () => (ended ? (error ?? describeHangupCause(hangupCauseOf(state))) : null),
-    [ended, error, state],
+    () => (ended ? (error ?? describeHangupCause(hangupCause)) : null),
+    [ended, error, hangupCause],
   );
 
   const summaryDirty = summary.trim().length > 0 && !savedSummary;
@@ -388,11 +389,4 @@ export function CallDrawer({
       </SheetContent>
     </Sheet>
   );
-}
-
-/** The live hook keeps the raw cause; the test script has none, so it reads as a
- *  clean end. Kept here rather than threaded through props to avoid a second
- *  source of truth for "why did this call stop". */
-function hangupCauseOf(state: CallState): string | null {
-  return state === 'completed' ? 'NORMAL_CLEARING' : null;
 }
