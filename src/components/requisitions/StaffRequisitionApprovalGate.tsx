@@ -108,16 +108,27 @@ export function StaffRequisitionApprovalGate() {
 
   const viewAttachment = async (path: string) => {
     if (!prompt) return;
+    // Open the tab synchronously inside the tap so mobile browsers allow it.
+    const w = window.open('', '_blank');
+    const failMsg = 'Could not open the receipt — allow pop-ups for welileapp.com and try again.';
+    if (!w) {
+      toast.error(failMsg);
+      return;
+    }
     setViewingPath(path);
     const { data, error } = await invokeEdgeFunction<{ url: string }>('staff-requisition-attachment-url', {
       body: { requisition_id: prompt.requisition_id, path },
       errorTitle: 'Could not open receipt',
+      silent: true,
     });
     setViewingPath(null);
-    if (!error && data?.url) {
-      setOpenedAttachment(true);
-      window.open(data.url, '_blank');
+    if (error || !data?.url) {
+      w.close();
+      toast.error(failMsg);
+      return;
     }
+    w.location.href = data.url;
+    setOpenedAttachment(true);
   };
 
   const decide = async (action: 'approve' | 'reject', comment: string) => {
