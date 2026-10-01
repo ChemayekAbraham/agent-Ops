@@ -418,7 +418,11 @@ export function CalleeDossierPanel({ userId, callId, profileHint }: {
 
   const pr = d.profile;
   const tabs = [
-    d.agent && { id: 'agent', label: d.kinds.sub_agent ? 'Sub-agent' : 'Agent', node: <AgentTab d={d} /> },
+    (d.agent || d.tenant) && {
+      id: 'agent',
+      label: d.agent ? (d.kinds.sub_agent ? 'Sub-agent' : 'Agent') : 'Tenant',
+      node: <AgentTab d={d} />,
+    },
     d.proxy && { id: 'proxy', label: 'Proxy', node: <ProxyTab d={d} /> },
     d.tenant && { id: 'tenant', label: 'Tenant', node: <TenantTab d={d} /> },
     d.partner && { id: 'partner', label: 'Partner', node: <PartnerTab d={d} /> },
