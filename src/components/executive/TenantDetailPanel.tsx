@@ -7,13 +7,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Phone, MessageCircle, User, ArrowLeft, MapPin, FileSearch, Pencil, Save, X, Loader2, ArrowRightLeft, Banknote, Wallet, FileText, FileSpreadsheet, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { Phone, MessageCircle, User, ArrowLeft, MapPin, FileSearch, Pencil, Save, X, Loader2, ArrowRightLeft, Banknote, Wallet, FileText, FileSpreadsheet, ShieldCheck, ShieldAlert, Home } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { calculateRentRepayment } from '@/lib/rentCalculations';
 import { Textarea } from '@/components/ui/textarea';
 import TenantAssignAgentDialog from '@/components/shared/TenantAssignAgentDialog';
+import TenantAssignLandlordDialog from '@/components/shared/TenantAssignLandlordDialog';
 import { RepaymentPauseControl } from '@/components/ops/RepaymentPauseControl';
 import { PaymentPeriodControl } from '@/components/ops/PaymentPeriodControl';
 import { CallCentreSmartphonePanel } from './CallCentreSmartphonePanel';
@@ -88,6 +89,16 @@ export function TenantDetailPanel({ tenantId, tenantName, onBack, onViewRegistra
   // Transfer agent dialog state
   const [transferReq, setTransferReq] = useState<{ id: string; agent_id: string | null } | null>(null);
 
+  // Switch Landlord dialog state — deliberately separate from transferReq.
+  const [switchLandlordReq, setSwitchLandlordReq] = useState<{
+    id: string;
+    landlord_id: string | null;
+    landlord_name: string | null;
+    landlord_phone: string | null;
+    status: string | null;
+    house_listing_id: string | null;
+  } | null>(null);
+
   // Rent collection state — collect outstanding from the tenant's wallet first,
   // then fall back to a linked agent's wallet (for tenants without a smartphone).
   const [collectingReqId, setCollectingReqId] = useState<string | null>(null);
@@ -110,7 +121,7 @@ export function TenantDetailPanel({ tenantId, tenantName, onBack, onViewRegistra
     queryFn: async () => {
       const [profileRes, requestsRes, walletRes, collectionsRes] = await Promise.all([
         supabase.from('profiles').select('id, full_name, phone, city, created_at, smartphone_status, smartphone_source').eq('id', tenantId).maybeSingle(),
-        supabase.from('rent_requests').select('id, status, rent_amount, amount_repaid, daily_repayment, repayment_frequency, duration_days, access_fee, request_fee, total_repayment, registration_type, created_at, landlord_id, agent_id, assigned_agent_id').eq('tenant_id', tenantId).order('created_at', { ascending: false }),
+        supabase.from('rent_requests').select('id, status, rent_amount, amount_repaid, daily_repayment, repayment_frequency, duration_days, access_fee, request_fee, total_repayment, registration_type, created_at, landlord_id, agent_id, assigned_agent_id, house_listing_id').eq('tenant_id', tenantId).order('created_at', { ascending: false }),
         supabase.from('wallet_transactions').select('id, amount, type, created_at, description').or(`sender_id.eq.${tenantId},recipient_id.eq.${tenantId}`).order('created_at', { ascending: false }).limit(10),
         supabase.from('agent_collections').select('id, amount, created_at, agent_id, payment_method, rent_request_id').is('reversed_at', null).eq('tenant_id', tenantId).order('created_at', { ascending: false }).limit(200),
       ]);
@@ -152,6 +163,7 @@ export function TenantDetailPanel({ tenantId, tenantName, onBack, onViewRegistra
             ),
             agent_name: (effectiveAgentId && agentMap.get(effectiveAgentId)?.full_name) || 'Not Assigned',
             landlord_name: landlordMap.get(r.landlord_id)?.name || '—',
+            landlord_phone: landlordMap.get(r.landlord_id)?.phone || null,
           };
         }),
         walletTxns: walletRes.data || [],
@@ -179,6 +191,28 @@ export function TenantDetailPanel({ tenantId, tenantName, onBack, onViewRegistra
       }>;
     },
   });
+  // Landlord switch history — separate from, and never touching, the agent
+  // transfer history above.
+  const { data: landlordTransferHistory } = useQuery({
+    queryKey: ['tenant-landlord-transfer-history', tenantId],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc('get_tenant_landlord_transfer_history', { p_tenant_id: tenantId });
+      if (error) throw error;
+      return (data || []) as Array<{
+        id: string;
+        occurred_at: string;
+        rent_request_id: string;
+        old_landlord_name: string | null;
+        new_landlord_name: string | null;
+        actor_name: string | null;
+        reason: string | null;
+        house_listing_id: string | null;
+        allocation_updated: boolean;
+        pending_otps_cancelled: number;
+      }>;
+    },
+  });
+
   const rawRequests = data?.requests || [];
   const requests = rawRequests.map((r: any) => (
     requestOverrides[r.id] ? { ...r, ...requestOverrides[r.id] } : r
@@ -1081,6 +1115,25 @@ export function TenantDetailPanel({ tenantId, tenantName, onBack, onViewRegistra
                               </Button>
                             )}
                             {!isEditing && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-6 px-2 text-[10px] gap-1"
+                                onClick={() => setSwitchLandlordReq({
+                                  id: req.id,
+                                  landlord_id: (req as any).landlord_id ?? null,
+                                  landlord_name: (req as any).landlord_name ?? null,
+                                  landlord_phone: (req as any).landlord_phone ?? null,
+                                  status: String(req.status || '') || null,
+                                  house_listing_id: (req as any).house_listing_id ?? null,
+                                })}
+                                title="Switch this rent plan's landlord"
+                              >
+                                <Home className="h-3 w-3" />
+                                Switch Landlord
+                              </Button>
+                            )}
+                            {!isEditing && (
                               <PaymentPeriodControl
                                 rentRequestId={req.id}
                                 frequency={(req as any).repayment_frequency ?? null}
@@ -1458,6 +1511,51 @@ export function TenantDetailPanel({ tenantId, tenantName, onBack, onViewRegistra
             </CardContent>
           </Card>
 
+          {/* Landlord Switch History — additive, independent of Migration History above */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm">Landlord Switch History</CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              {!landlordTransferHistory || landlordTransferHistory.length === 0 ? (
+                <p className="p-4 text-sm text-muted-foreground text-center">
+                  No landlord switches recorded for this tenant
+                </p>
+              ) : (
+                <div className="divide-y divide-border">
+                  {landlordTransferHistory.map((t) => (
+                    <div key={t.id} className="px-4 py-2.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-medium">
+                          {t.old_landlord_name || 'Unknown'} → {t.new_landlord_name || 'Unknown'}
+                        </p>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                          {format(new Date(t.occurred_at), 'dd MMM yyyy, HH:mm')}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        Rent Plan {t.rent_request_id}
+                        {t.actor_name ? ` · by ${t.actor_name}` : ''}
+                      </p>
+                      {t.reason && (
+                        <p className="text-[11px] text-muted-foreground mt-0.5">Reason: {t.reason}</p>
+                      )}
+                      {(t.house_listing_id || t.allocation_updated || t.pending_otps_cancelled > 0) && (
+                        <p className="text-[11px] text-muted-foreground mt-0.5">
+                          {[
+                            t.house_listing_id ? 'linked property followed' : null,
+                            t.allocation_updated ? 'unpaid allocation followed' : null,
+                            t.pending_otps_cancelled > 0 ? `${t.pending_otps_cancelled} pending OTP(s) cancelled` : null,
+                          ].filter(Boolean).join(' · ')}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {data?.collections && data.collections.length > 0 && (
             <Card>
               <CardHeader className="pb-2">
@@ -1492,6 +1590,23 @@ export function TenantDetailPanel({ tenantId, tenantName, onBack, onViewRegistra
         onSaved={() => {
           setTransferReq(null);
           queryClient.invalidateQueries({ queryKey: ['tenant-detail', tenantId] });
+        }}
+      />
+      <TenantAssignLandlordDialog
+        open={!!switchLandlordReq}
+        onOpenChange={(v) => { if (!v) setSwitchLandlordReq(null); }}
+        rentRequestId={switchLandlordReq?.id ?? null}
+        tenantId={tenantId}
+        tenantName={tenantName}
+        currentLandlordId={switchLandlordReq?.landlord_id ?? null}
+        currentLandlordName={switchLandlordReq?.landlord_name ?? null}
+        currentLandlordPhone={switchLandlordReq?.landlord_phone ?? null}
+        rentPlanStatus={switchLandlordReq?.status ?? null}
+        houseListingId={switchLandlordReq?.house_listing_id ?? null}
+        onSaved={() => {
+          setSwitchLandlordReq(null);
+          queryClient.invalidateQueries({ queryKey: ['tenant-detail', tenantId] });
+          queryClient.invalidateQueries({ queryKey: ['tenant-landlord-transfer-history', tenantId] });
         }}
       />
     </div>
