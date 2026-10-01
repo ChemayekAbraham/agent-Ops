@@ -150,99 +150,51 @@ export function CallDrawer({
         onOpenChange(next);
       }}
     >
-      {/* Capped at EVERY width, not just from `sm:` up. `w-full` here beat the
-          variant's own `w-3/4` (tailwind-merge keeps the last width utility) and
-          left the drawer full-bleed below 640px — a side drawer that turned into
-          a full-screen sheet on a narrow viewport. `max-w-sm` is the unprefixed
-          floor; `sm:max-w-md` replaces the variant's `sm:max-w-sm` above it. */}
-      <SheetContent side="right" className="flex w-full max-w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-xl lg:max-w-5xl lg:flex-row lg:overflow-hidden">
+      <SheetContent side="right" className="flex w-full max-w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-xl lg:max-w-5xl">
         {!target ? null : (
-          <>
-          <div className="flex shrink-0 flex-col lg:w-[22rem] lg:overflow-y-auto lg:border-r lg:border-border">
-            {/* ---------- Call face ---------- */}
-            <div
-              className={cn(
-                'shrink-0 px-5 pb-5 pt-8 text-center transition-colors',
-                state === 'connected' ? 'bg-primary/10' : ended ? 'bg-muted' : 'bg-primary/5',
-              )}
-            >
-              <div className="relative mx-auto w-fit">
+          <div className="flex min-h-full flex-col">
+            <header className="shrink-0 border-b border-primary/50 bg-background px-5 pb-5 pt-7 sm:px-7">
+              <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex min-w-0 items-center gap-4">
+                  <div className="relative shrink-0">
                 {dialling && (
                   <>
                     <span className="absolute inset-0 animate-ping rounded-full bg-primary/20" aria-hidden />
-                    <span className="absolute -inset-2 animate-pulse rounded-full bg-primary/10" aria-hidden />
+                    <span className="absolute -inset-1.5 animate-pulse rounded-full bg-primary/10" aria-hidden />
                   </>
                 )}
-                <Avatar className="relative h-24 w-24 border-2 border-background shadow-lg">
+                    <Avatar className="relative h-16 w-16 border-2 border-background shadow-md">
                   <AvatarImage src={target.avatarUrl ?? undefined} alt="" />
-                  <AvatarFallback className="bg-primary/15 text-xl font-bold text-primary">
+                      <AvatarFallback className="bg-primary/15 text-lg font-bold text-primary">
                     {initials(target.name)}
                   </AvatarFallback>
                 </Avatar>
-              </div>
+                    <span className={cn('absolute bottom-0 right-0 h-4 w-4 rounded-full border-2 border-background', state === 'connected' ? 'bg-success' : 'bg-muted-foreground')} />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <SheetTitle className="truncate text-xl font-bold text-foreground">{target.name}</SheetTitle>
+                      <Badge variant="outline" className="text-[10px]">{CALLEE_ROLE_LABEL[target.role]}</Badge>
+                    </div>
+                    <SheetDescription className="mt-0.5 text-sm tabular-nums text-muted-foreground">{target.phone}</SheetDescription>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <p className={cn('flex items-center gap-1.5 text-sm font-semibold tabular-nums', state === 'connected' && 'text-success', ended && state !== 'completed' && 'text-destructive')} aria-live="polite">
+                        <span className={cn('h-2 w-2 rounded-full', state === 'connected' ? 'animate-pulse bg-success' : ended ? 'bg-muted-foreground' : 'animate-pulse bg-primary')} />
+                        {statusLine}
+                      </p>
+                      {target.location && <Badge variant="outline" className="text-[10px]">{target.location}</Badge>}
+                      {preview && <Badge variant="outline" className="border-warning/40 bg-warning/10 text-[10px] font-semibold text-warning-foreground">Test view · no call placed</Badge>}
+                    </div>
+                    {causeLine && <p className="mt-1 text-xs text-muted-foreground">{causeLine}</p>}
+                  </div>
+                </div>
 
-              {/* SheetTitle/Description, not a bare h2 — Radix needs a labelled
-                  dialog or screen readers announce the drawer as unnamed. */}
-              <SheetTitle className="mt-4 truncate text-lg font-bold text-foreground">
-                {target.name}
-              </SheetTitle>
-              <SheetDescription className="mt-0.5 text-sm tabular-nums text-muted-foreground">
-                {target.phone}
-              </SheetDescription>
-
-              <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
-                <Badge variant="outline" className="text-[10px]">
-                  {CALLEE_ROLE_LABEL[target.role]}
-                </Badge>
-                {target.location && (
-                  <Badge variant="outline" className="text-[10px]">{target.location}</Badge>
-                )}
-                {preview && (
-                  <Badge variant="outline" className="border-primary/40 bg-primary/10 text-[10px] font-semibold text-primary">
-                    Test view · no call placed
-                  </Badge>
-                )}
-              </div>
-
-              <p
-                className={cn(
-                  'mt-4 text-sm font-semibold tabular-nums',
-                  state === 'connected' && 'text-primary',
-                  ended && state !== 'completed' && 'text-destructive',
-                )}
-                aria-live="polite"
-              >
-                {statusLine}
-              </p>
-
-              {causeLine && (
-                <p className="mx-auto mt-1 max-w-[18rem] text-[11px] leading-snug text-muted-foreground">
-                  {causeLine}
-                </p>
-              )}
-
-              {dialling && !preview && (
-                <p className="mx-auto mt-3 max-w-[16rem] text-[11px] leading-snug text-muted-foreground">
-                  You are calling from this browser — keep this tab open and talk
-                  through your headset.
-                </p>
-              )}
-              {dialling && preview && (
-                <p className="mx-auto mt-3 max-w-[16rem] text-[11px] leading-snug text-muted-foreground">
-                  Test view: nobody is dialled, no call is logged, and nothing is
-                  saved. Close it and the screen is gone.
-                </p>
-              )}
-            </div>
-
-            {/* ---------- Controls ---------- */}
-            <div className="shrink-0 border-y border-border/60 bg-background px-5 py-4">
-              <div className="flex items-center justify-center gap-3">
+                <div className="flex shrink-0 items-center gap-2 self-start sm:self-center">
                 <Button
                   type="button"
                   variant="outline"
                   size="icon"
-                  className="h-11 w-11 rounded-full"
+                    className="rounded-lg"
                   onClick={preview ? previewCall.toggleMute : call.toggleMute}
                   disabled={state !== 'connected'}
                   aria-label={muted ? 'Unmute microphone' : 'Mute microphone'}
@@ -251,67 +203,38 @@ export function CallDrawer({
                   {muted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
                 </Button>
 
-                {/* No green "answer" button: this is an OUTBOUND call. End Call is
-                    the only primary action, and it invokes the voice client's own
-                    hangup so the telephone leg really drops. */}
+                  <Button type="button" variant="outline" size="icon" className="rounded-lg" onClick={() => setSoundOn((s) => !s)} aria-label={soundOn ? 'Mute ringing tone' : 'Unmute ringing tone'} aria-pressed={!soundOn}>
+                    {soundOn ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
+                  </Button>
                 {!ended ? (
                   <Button
                     type="button"
                     variant="destructive"
-                    className="h-20 w-20 rounded-full shadow-lg"
+                      className="ml-1 h-11 rounded-lg px-4 shadow-md"
                     onClick={preview ? previewCall.end : call.end}
                     disabled={isEnding || state === 'idle'}
                     aria-label="End call"
                   >
-                    <PhoneOff className="h-8 w-8" />
+                      <PhoneOff className="h-4 w-4" />
+                      End call
                   </Button>
                 ) : (
-                  <div className="flex flex-col items-center gap-2">
-                    {/* The call is over, so the primary action becomes trying the
-                        same person again without reopening the row. */}
                     <Button
                       type="button"
-                      className="h-20 w-20 rounded-full bg-emerald-600 shadow-lg hover:bg-emerald-700"
+                      variant="success"
+                      className="ml-1 h-11 rounded-lg px-4"
                       onClick={handleRedial}
                       aria-label={`Redial ${target.name}`}
                     >
-                      <PhoneCall className="h-8 w-8" />
+                      <PhoneCall className="h-4 w-4" />
+                      {preview ? 'Run test again' : 'Redial'}
                     </Button>
-                    <Badge variant="outline" className="px-3 py-1 text-[10px]">
-                      {STATE_LABEL[state]}
-                    </Badge>
-                    <span className="text-[11px] font-medium text-muted-foreground">
-                      {preview ? 'Tap to run the test again' : 'Tap to redial'}
-                    </span>
-                  </div>
                 )}
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  className="h-11 w-11 rounded-full"
-                  onClick={() => setSoundOn((s) => !s)}
-                  aria-label={soundOn ? 'Mute ringing tone' : 'Unmute ringing tone'}
-                  aria-pressed={!soundOn}
-                >
-                  {soundOn ? <Volume2 className="h-5 w-5" /> : <VolumeX className="h-5 w-5" />}
-                </Button>
               </div>
-
-              {!ended && (
-                <p className="mt-3 text-center text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                  {isEnding
-                    ? 'Ending…'
-                    : preview
-                      ? 'Test view — nothing is dialled or recorded'
-                      : 'Pick-up and hang-up are detected automatically'}
-                </p>
-              )}
-            </div>
-
-          </div>
-          <div className="min-w-0 flex-1 bg-muted/20 lg:overflow-y-auto">
+              </div>
+              {dialling && <p className="mt-4 border-t border-border/60 pt-3 text-xs text-muted-foreground">{preview ? 'Safe preview: nobody is dialled and no call record is created.' : 'Keep this tab open and speak through your headset. Pick-up and hang-up are detected automatically.'}</p>}
+            </header>
+            <div className="min-w-0 flex-1 bg-muted/20">
             <CalleeDossierPanel
               userId={target.calleeId}
               callId={callId}
@@ -324,7 +247,7 @@ export function CallDrawer({
               }}
             />
           </div>
-          </>
+          </div>
         )}
       </SheetContent>
     </Sheet>
