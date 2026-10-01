@@ -199,6 +199,7 @@ export function ROIPayoutQueue() {
       return { approved, failed, lastError, total: ops.length };
     },
     onSuccess: ({ approved, failed, lastError, total }) => {
+      setSelectedIds(new Set());
       setBulkConfirm(false);
       invalidate();
       if (failed === 0) {
