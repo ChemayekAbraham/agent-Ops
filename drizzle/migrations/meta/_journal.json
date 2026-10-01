@@ -2710,6 +2710,13 @@
       "when": 1790850213153,
       "tag": "0386_complete_crm_dossier_read_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 387,
+      "version": "7",
+      "when": 1790851989493,
+      "tag": "0387_agent_ops_shopping_advance_user_dossier",
+      "breakpoints": true
     }
   ]
 }
