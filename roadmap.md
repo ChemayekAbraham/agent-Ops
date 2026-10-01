@@ -38,4 +38,4 @@
 
 ## Added 2026-10-01
 - [x] ENGREP-LIVENESS-SWEEP-01: migration 0375 — engrep_reevaluate_liveness_recent + cron job 40897 re-pointed to 7-day sweep.
-- [ ] Josh Wanda push d5389c19 (useUserSnapshot IndexedDB fix): apply any unlanded migrations (0372/0373/0374) and publish the frontend; nothing else.
+- [x] Josh Wanda push d5389c19 (useUserSnapshot IndexedDB fix): apply any unlanded migrations (0372/0373/0374) and publish the frontend; nothing else.
