@@ -833,11 +833,11 @@ function _Step3Impl({
             </div>
             <input
               type="tel"
-              inputMode="numeric"
-              maxLength={10}
-              placeholder="0700 000 000"
+              inputMode="tel"
+              maxLength={20}
+              placeholder="e.g. 0700 000 000 or +44 7700 900000"
               value={form.phone}
-              onChange={e => setForm(p => ({ ...p, phone: e.target.value.replace(/\D/g, '').slice(0, 10) }))}
+              onChange={e => setForm(p => ({ ...p, phone: e.target.value.replace(/[^\d+\s\-()]/g, '').slice(0, 20) }))}
               className="w-full bg-muted border border-border rounded-xl pl-9 pr-4 py-3 text-sm text-foreground placeholder:text-gray-300 outline-none focus:bg-card focus:border-[#6c11d4] focus:ring-2 focus:ring-[#6c11d4]/10 transition-all"
             />
           </div>
@@ -1118,7 +1118,7 @@ function friendlySubmissionError(err: any): string {
     return 'An account already exists with these details. Please sign in, or use a different email/phone number.';
   }
   if (lower.includes('invalid email') || (lower.includes('email') && lower.includes('invalid'))) return 'Please enter a valid email address.';
-  if (lower.includes('invalid phone') || (lower.includes('phone') && lower.includes('invalid'))) return 'Please enter a valid Ugandan phone number (e.g. 0700 000 000).';
+  if (lower.includes('invalid phone') || (lower.includes('phone') && lower.includes('invalid'))) return 'Please check your phone number — it should have at least 7 digits.';
   if (lower.includes('rate limit') || lower.includes('too many') || lower.includes('429')) {
     return 'Too many attempts. Please wait a minute and try again.';
   }
@@ -1129,13 +1129,9 @@ function friendlySubmissionError(err: any): string {
   if (lower.includes('network') || lower.includes('failed to fetch') || lower.includes('timeout') || lower.includes('timed out')) {
     return 'Network error. Please check your internet connection and try again.';
   }
-  if (
-    lower.includes('database error saving new user') ||
-    lower.includes('database error') ||
-    lower.includes('unexpected_failure') ||
-    lower.includes('500')
-  ) {
-    return 'We couldn’t finish setting up your account just now. This is usually temporary — please wait a moment and try again. If it keeps happening, your phone or email may already be linked to an account, so try signing in instead.';
+  if (lower.includes('sign-up is temporarily unavailable') || lower.includes('device or network')) return msg;
+  if (lower.includes('database error') || lower.includes('unexpected_failure') || lower.includes('internal error')) {
+    return 'Your account could not be saved because of a problem on our side. Your details are fine — please try again in a few minutes, or contact Welile support on WhatsApp if it keeps happening.';
   }
   return msg || 'We couldn’t create your account. Please review your details and try again.';
 }
