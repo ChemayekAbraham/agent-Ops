@@ -151,6 +151,65 @@ export function ROIPayoutQueue() {
     onError: (err: any) => toast.error('Rejection failed', { description: err.message }),
   });
 
+  // Bulk approve: re-fetches the live COO-approved queue at click time (never the
+  // React Query cache) and approves each payout through the same edge function
+  // and audit trail as the single-approve path.
+  const bulkApproveMutation = useMutation({
+    mutationFn: async () => {
+      const { data: fresh, error: fetchErr } = await supabase
+        .from('pending_wallet_operations')
+        .select('id, amount, user_id, target_wallet_user_id, description')
+        .eq('category', 'roi_payout')
+        .eq('status', 'coo_approved')
+        .order('created_at', { ascending: false })
+        .limit(100);
+      if (fetchErr) throw fetchErr;
+      const ops = (fresh || []) as Pick<PendingOp, 'id' | 'amount' | 'user_id' | 'target_wallet_user_id' | 'description'>[];
+      let approved = 0;
+      let failed = 0;
+      let lastError = '';
+      for (const op of ops) {
+        const { error: fnError } = await supabase.functions.invoke('approve-wallet-operation', {
+          body: { operation_id: op.id, action: 'approve' },
+        });
+        if (fnError) {
+          failed++;
+          lastError = fnError.message;
+          continue;
+        }
+        await supabase.from('audit_logs').insert({
+          user_id: user?.id,
+          action_type: 'cfo_roi_payout_approved',
+          table_name: 'pending_wallet_operations',
+          record_id: op.id,
+          metadata: {
+            amount: op.amount,
+            original_amount: op.amount,
+            amount_edited: false,
+            target_user_id: op.target_wallet_user_id || op.user_id,
+            description: op.description,
+            source: 'approve_all_bulk',
+          },
+        });
+        approved++;
+      }
+      return { approved, failed, lastError, total: ops.length };
+    },
+    onSuccess: ({ approved, failed, lastError, total }) => {
+      setBulkConfirm(false);
+      invalidate();
+      if (failed === 0) {
+        toast.success(`Approved all ${approved} payout${approved === 1 ? '' : 's'}`);
+      } else {
+        toast.warning(`Approved ${approved} of ${total}`, { description: `${failed} failed${lastError ? `: ${lastError}` : ''}. They remain in the queue.` });
+      }
+    },
+    onError: (err: any) => {
+      setBulkConfirm(false);
+      toast.error('Approve all failed', { description: err.message });
+    },
+  });
+
   if (isLoading) {
     return (
       <div className="flex justify-center py-6">
