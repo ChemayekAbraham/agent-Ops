@@ -188,67 +188,74 @@ const kampalaDay = (offset = 0) => {
 };
 
 function AgentTab({ d }: { d: CalleeDossier }) {
-  const a = d.agent!;
+  const a = d.agent;
   const [period, setPeriod] = useState<Period>('today');
   const [q, setQ] = useState('');
   const [tq, setTq] = useState('');
   const today = kampalaDay(), yesterday = kampalaDay(1), monthStart = `${today.slice(0, 7)}-01`;
   const list = useMemo(
-    () => a.collections.filter((c) => inPeriod(c, period, today, yesterday, monthStart) && matches(q, c.tenant_name)),
-    [a.collections, period, q, today, yesterday, monthStart],
+    () => (a?.collections ?? []).filter((c) => inPeriod(c, period, today, yesterday, monthStart) && matches(q, c.tenant_name)),
+    [a?.collections, period, q, today, yesterday, monthStart],
   );
-  const tenants = a.tenants.filter((t) => matches(tq, t.tenant_name, t.tenant_phone));
-  const last = a.collections[0];
-  const tot = a.tenants.reduce((s, t) => ({ daily: s.daily + t.daily, today: s.today + t.collected_today }), { daily: 0, today: 0 });
+  const tenants = (a?.tenants ?? []).filter((t) => matches(tq, t.tenant_name, t.tenant_phone));
+  const last = a?.collections[0];
+  const tot = a
+    ? a.tenants.reduce((s, t) => ({ daily: s.daily + t.daily, today: s.today + t.collected_today }), { daily: 0, today: 0 })
+    : { daily: 0, today: 0 };
 
   return (
     <div className="space-y-5">
-      <Section title="Last collection">
-        {last ? <Row left={last.tenant_name ?? 'Tenant'} sub={fdate(last.created_at, 'd MMM yyyy, HH:mm')} right={ugx(last.amount)} rightSub={label(last.payment_method)} />
-          : <Empty>No collections yet.</Empty>}
-      </Section>
-      <Section title="Collections">
-        <div className="grid grid-cols-4 gap-1">
-          {(Object.keys(PERIOD_LABEL) as Period[]).map((p) => (
-            <button key={p} type="button" onClick={() => setPeriod(p)}
-              className={cn('rounded-md border px-1.5 py-1.5 text-left transition-colors',
-                period === p ? 'border-primary bg-primary/10' : 'border-border hover:bg-muted/50')}>
-              <span className="block text-[10px] font-medium text-muted-foreground">{PERIOD_LABEL[p]}</span>
-              <span className="block truncate text-xs font-semibold tabular-nums">{ugx(a.totals[p].amount)}</span>
-              <span className="block text-[10px] text-muted-foreground">{a.totals[p].count} payments</span>
-            </button>
-          ))}
-        </div>
-        <SearchBox value={q} onChange={setQ} placeholder="Search collections by tenant" />
-        {list.length === 0 ? <Empty>No collections for {PERIOD_LABEL[period].toLowerCase()}.</Empty> : (
-          <div className="max-h-64 overflow-y-auto">{list.map((c) => (
-            <Row key={c.id} left={c.tenant_name ?? 'Tenant'} sub={fdate(c.created_at, 'd MMM, HH:mm')} right={ugx(c.amount)} rightSub={label(c.payment_method)} />
-          ))}</div>
-        )}
-        {period !== 'today' && a.totals[period].count > list.length && !q && (
-          <p className="text-[10px] text-muted-foreground">Showing the latest {list.length} of {a.totals[period].count}; totals above cover all of them.</p>
-        )}
-      </Section>
-      <Section title={`Tenants (${a.tenants.length})`} right={<span className="text-[11px] text-muted-foreground tabular-nums">Today {ugx(tot.today)} of {ugx(tot.daily)}</span>}>
-        <SearchBox value={tq} onChange={setTq} placeholder="Search this agent's tenants" />
-        {tenants.length === 0 ? <Empty>No active Rent Plans.</Empty> : (
-          <div className="max-h-72 overflow-y-auto">{tenants.map((t) => (
-            <div key={t.rent_request_id} className="border-b border-border/60 py-2 last:border-0">
-              <div className="flex items-center justify-between gap-2">
-                <p className="truncate text-sm font-medium">{t.tenant_name ?? 'Tenant'}</p>
-                <Badge variant="outline" className="text-[9px]">{label(t.status)}</Badge>
-              </div>
-              <div className="mt-1 grid grid-cols-4 gap-1 text-[11px] tabular-nums text-muted-foreground">
-                <span>Daily<br /><b className="text-foreground">{ugx(t.daily)}</b></span>
-                <span>Weekly<br /><b className="text-foreground">{ugx(t.weekly)}</b></span>
-                <span>Today<br /><b className={t.collected_today >= t.daily && t.daily > 0 ? 'text-primary' : 'text-foreground'}>{ugx(t.collected_today)}</b></span>
-                <span>Paid so far<br /><b className="text-foreground">{ugx(t.repaid)}</b></span>
-              </div>
-              <p className="mt-0.5 text-[10px] text-muted-foreground">Still owes {ugx(t.outstanding)} of {ugx(t.total)}</p>
+      {a && (
+        <>
+          <Section title="Last collection">
+            {last ? <Row left={last.tenant_name ?? 'Tenant'} sub={fdate(last.created_at, 'd MMM yyyy, HH:mm')} right={<span className="text-success">{ugx(last.amount)}</span>} rightSub={label(last.payment_method)} />
+              : <Empty>No collections yet.</Empty>}
+          </Section>
+          <Section title="Collections">
+            <div className="grid grid-cols-4 gap-1">
+              {(Object.keys(PERIOD_LABEL) as Period[]).map((p) => (
+                <button key={p} type="button" onClick={() => setPeriod(p)}
+                  className={cn('rounded-md border px-1.5 py-1.5 text-left transition-colors',
+                    period === p ? 'border-primary bg-primary/10' : 'border-border hover:bg-muted/50')}>
+                  <span className="block text-[10px] font-medium text-muted-foreground">{PERIOD_LABEL[p]}</span>
+                  <span className={cn('block truncate text-xs font-semibold tabular-nums', a.totals[p].count === 0 ? 'text-destructive' : 'text-success')}>{ugx(a.totals[p].amount)}</span>
+                  <span className="block text-[10px] text-muted-foreground">{a.totals[p].count} payments</span>
+                </button>
+              ))}
             </div>
-          ))}</div>
-        )}
-      </Section>
+            <SearchBox value={q} onChange={setQ} placeholder="Search collections by tenant" />
+            {list.length === 0 ? <Empty>No collections for {PERIOD_LABEL[period].toLowerCase()}.</Empty> : (
+              <div className="max-h-64 overflow-y-auto">{list.map((c) => (
+                <Row key={c.id} left={c.tenant_name ?? 'Tenant'} sub={fdate(c.created_at, 'd MMM, HH:mm')} right={<span className="text-success">{ugx(c.amount)}</span>} rightSub={label(c.payment_method)} />
+              ))}</div>
+            )}
+            {period !== 'today' && a.totals[period].count > list.length && !q && (
+              <p className="text-[10px] text-muted-foreground">Showing the latest {list.length} of {a.totals[period].count}; totals above cover all of them.</p>
+            )}
+          </Section>
+          <Section title={`Tenants (${a.tenants.length})`} right={<span className="text-[11px] text-muted-foreground tabular-nums">Today {ugx(tot.today)} of {ugx(tot.daily)}</span>}>
+            <SearchBox value={tq} onChange={setTq} placeholder="Search this agent's tenants" />
+            {tenants.length === 0 ? <Empty>No active Rent Plans.</Empty> : (
+              <div className="max-h-72 overflow-y-auto">{tenants.map((t) => (
+                <div key={t.rent_request_id} className="border-b border-border/60 py-2 last:border-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="truncate text-sm font-medium">{t.tenant_name ?? 'Tenant'}</p>
+                    <Badge variant="outline" className="text-[9px]">{label(t.status)}</Badge>
+                  </div>
+                  <div className="mt-1 grid grid-cols-4 gap-1 text-[11px] tabular-nums text-muted-foreground">
+                    <span>Daily<br /><b className="text-foreground">{ugx(t.daily)}</b></span>
+                    <span>Weekly<br /><b className="text-foreground">{ugx(t.weekly)}</b></span>
+                    <span>Today<br /><b className={payClass(t.collected_today, t.daily)}>{ugx(t.collected_today)}</b></span>
+                    <span>Paid so far<br /><b className={payClass(t.repaid, t.total)}>{ugx(t.repaid)}</b></span>
+                  </div>
+                  <p className="mt-0.5 text-[10px] text-muted-foreground">Still owes {ugx(t.outstanding)} of {ugx(t.total)}</p>
+                </div>
+              ))}</div>
+            )}
+          </Section>
+        </>
+      )}
+      {d.tenant && <TenantSections d={d} />}
     </div>
   );
 }
