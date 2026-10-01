@@ -396,6 +396,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
     [visibleItems],
   );
   const allSelected = selectableItems.length > 0 && selectableItems.every(i => selected.has(i.id));
+  const someSelected = !allSelected && selectableItems.some(i => selected.has(i.id));
   // Presentation only: which visible row should host the inline Step 2 panel.
   const firstSelectedId = useMemo(
     () => visibleItems.find(i => selected.has(i.id))?.id ?? null,
@@ -883,6 +884,14 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                 <table className="w-full text-sm min-w-[64rem]">
                   <thead className="sticky top-0 z-10">
                     <tr className="border-b border-border/70 bg-muted/40 text-[10px] uppercase tracking-wider text-muted-foreground">
+                      <th className="w-8 px-2 py-2 text-center" onClick={e => e.stopPropagation()}>
+                        <Checkbox
+                          aria-label="Select all eligible requests"
+                          disabled={selectableItems.length === 0}
+                          checked={allSelected ? true : someSelected ? 'indeterminate' : false}
+                          onCheckedChange={toggleAll}
+                        />
+                      </th>
                       <th className="w-10 px-2 py-2 text-center font-semibold">#</th>
                       <th className="px-2 py-2 text-left font-semibold">Tenant</th>
                       <th className="px-2 py-2 text-left font-semibold">Landlord</th>
@@ -899,7 +908,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                   <tbody>
                     {visibleItems.length === 0 && (
                       <tr>
-                        <td colSpan={11} className="text-center py-6 text-xs text-muted-foreground">
+                        <td colSpan={12} className="text-center py-6 text-xs text-muted-foreground">
                           No tenants match the current filters.{' '}
                           <button
                             type="button"
@@ -928,6 +937,14 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                                 : 'hover:bg-muted/40'
                             )}
                           >
+                            <td className="w-8 px-2 py-2.5 align-middle text-center" onClick={e => e.stopPropagation()}>
+                              <Checkbox
+                                aria-label={`Select ${item.tenant_name}`}
+                                disabled={!!reserved}
+                                checked={isSel}
+                                onCheckedChange={() => toggle(item.id)}
+                              />
+                            </td>
                             <td className="w-10 px-2 py-2.5 align-middle text-center">
                               <span className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-muted/60 text-[10px] font-medium text-muted-foreground">
                                 {rowNumber}
