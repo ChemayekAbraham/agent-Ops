@@ -2703,6 +2703,13 @@
       "when": 1790849899091,
       "tag": "0385_index_crm_callee_dossier_reads",
       "breakpoints": true
+    },
+    {
+      "idx": 386,
+      "version": "7",
+      "when": 1790850213153,
+      "tag": "0386_complete_crm_dossier_read_indexes",
+      "breakpoints": true
     }
   ]
 }
