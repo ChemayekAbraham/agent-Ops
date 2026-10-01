@@ -1,15 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Mic, MicOff, PhoneCall, PhoneOff, Save, UserRound, Volume2, VolumeX } from 'lucide-react';
+import { Mic, MicOff, PhoneCall, PhoneOff, Volume2, VolumeX } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
-import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { startRingback, type RingbackHandle } from '@/lib/ringbackTone';
 import { CALLEE_ROLE_LABEL, describeHangupCause, formatTalkTime } from '@/lib/callCentre';
-import { useSaveCallSummary } from '@/hooks/useCrmCallCentre';
 import { isTerminalCallState, useCrmVoiceCall, type CallState } from '@/hooks/useCrmVoiceCall';
 import type { DialTarget } from './useCallDialer';
 import { usePreviewCall } from './usePreviewCall';
@@ -53,11 +51,8 @@ export function CallDrawer({
 }) {
   const call = useCrmVoiceCall();
   const previewCall = usePreviewCall(preview && open);
-  const saveSummary = useSaveCallSummary();
 
   const [soundOn, setSoundOn] = useState(true);
-  const [summary, setSummary] = useState('');
-  const [savedSummary, setSavedSummary] = useState(false);
   /** Bumped by the redial button so the dial effect runs again for the same person. */
   const [dialAttempt, setDialAttempt] = useState(0);
 
@@ -85,8 +80,6 @@ export function CallDrawer({
   /* --- Start a real call whenever the drawer opens on someone new. --- */
   useEffect(() => {
     if (!open || !target || preview) return;
-    setSummary('');
-    setSavedSummary(false);
     void call.start({
       calleeId: target.calleeId,
       name: target.name,
@@ -117,25 +110,12 @@ export function CallDrawer({
 
   const handleRedial = useCallback(() => {
     if (preview) {
-      setSummary('');
-      setSavedSummary(false);
       previewCall.restart();
       return;
     }
     stopRingback();
     setDialAttempt((n) => n + 1);
   }, [preview, previewCall, stopRingback]);
-
-  const handleSaveSummary = async () => {
-    if (!callId) return;
-    try {
-      await saveSummary.mutateAsync({ callId, summary });
-      setSavedSummary(true);
-      toast.success('Call summary saved.');
-    } catch {
-      toast.error('Could not save the summary.');
-    }
-  };
 
   const statusLine = useMemo(() => {
     if (state === 'connected') return formatTalkTime(elapsed);
@@ -149,18 +129,10 @@ export function CallDrawer({
     [ended, error, hangupCause],
   );
 
-  const summaryDirty = summary.trim().length > 0 && !savedSummary;
-
   return (
     <Sheet
       open={open}
       onOpenChange={(next) => {
-        if (!next && summaryDirty) {
-          // Losing a typed summary to a stray click is the one irreversible
-          // thing in this drawer, so it gets a confirm.
-          const discard = window.confirm('Close without saving your call summary?');
-          if (!discard) return;
-        }
         if (!next) {
           stopRingback();
           if (preview) {
@@ -338,51 +310,19 @@ export function CallDrawer({
               )}
             </div>
 
-            {/* ---------- Summary notes ---------- */}
-            <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-5">
-              <div className="flex items-center justify-between gap-2">
-                <label htmlFor="call-summary" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Call summary
-                </label>
-                {savedSummary && <Badge variant="outline" className="text-[10px]">Saved</Badge>}
-              </div>
-              <p className="text-[11px] leading-snug text-muted-foreground">
-                What was discussed and what happens next. Saved against {target.name.split(' ')[0]} so
-                anyone picking up the follow-up can read it.
-              </p>
-              <Textarea
-                id="call-summary"
-                value={summary}
-                onChange={(e) => {
-                  setSummary(e.target.value);
-                  setSavedSummary(false);
-                }}
-                placeholder="e.g. Confirmed she will clear arrears on Friday. Wants an SMS reminder Thursday."
-                className="min-h-[7rem] flex-1 resize-none text-sm"
-              />
-              <Button
-                type="button"
-                onClick={handleSaveSummary}
-                disabled={!callId || summary.trim().length === 0 || saveSummary.isPending || savedSummary}
-                className="w-full gap-2"
-              >
-                <Save className="h-4 w-4" />
-                {preview
-                  ? 'Summary saving is off in test view'
-                  : saveSummary.isPending
-                    ? 'Saving…'
-                    : savedSummary
-                      ? 'Summary saved'
-                      : 'Save summary'}
-              </Button>
-              <p className="flex items-start gap-1.5 text-[11px] text-muted-foreground">
-                <UserRound className="mt-px h-3 w-3 shrink-0" aria-hidden />
-                Open this person in People / Calls to read every past summary.
-              </p>
-            </div>
           </div>
           <div className="min-w-0 flex-1 bg-muted/20 lg:overflow-y-auto">
-            <CalleeDossierPanel userId={target.calleeId} callId={callId} />
+            <CalleeDossierPanel
+              userId={target.calleeId}
+              callId={callId}
+              profileHint={{
+                full_name: target.name,
+                phone: target.phone,
+                location: target.location,
+                avatar_url: target.avatarUrl,
+                roles: target.roles ?? [target.role],
+              }}
+            />
           </div>
           </>
         )}

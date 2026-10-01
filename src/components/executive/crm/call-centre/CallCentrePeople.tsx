@@ -208,6 +208,7 @@ export function CallCentrePeople({ section }: CallCentrePeopleProps) {
     avatarUrl: person.avatarUrl,
     role: primaryRole(person.roles),
     location: person.location,
+    roles: person.roles,
   });
 
   if (error) {
