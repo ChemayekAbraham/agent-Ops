@@ -2724,6 +2724,13 @@
       "when": 1790854986987,
       "tag": "0388_pin_finance_actions_to_cfo_office_and_named_super_admins",
       "breakpoints": true
+    },
+    {
+      "idx": 389,
+      "version": "7",
+      "when": 1790855200394,
+      "tag": "0389_pso_officer_names_for_executives",
+      "breakpoints": true
     }
   ]
 }
