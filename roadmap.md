@@ -39,3 +39,5 @@
 ## Added 2026-10-01
 - [x] ENGREP-LIVENESS-SWEEP-01: migration 0375 — engrep_reevaluate_liveness_recent + cron job 40897 re-pointed to 7-day sweep.
 - [x] Josh Wanda push d5389c19 (useUserSnapshot IndexedDB fix): apply any unlanded migrations (0372/0373/0374) and publish the frontend; nothing else.
+- [x] Make the Welile Shopping Advance tile on the Agent Ops home attention-seeking (filled primary + breathing outline); no routing change.
+- [x] Atimango Joyce balance check (read-only): UGX 6,350,000 verified; open plans match payments; first plan carries an unbacked UGX 500,000 paid-amount edit from 23 Jul.
