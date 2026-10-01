@@ -424,7 +424,6 @@ export function CalleeDossierPanel({ userId, callId, profileHint }: {
       node: <AgentTab d={d} />,
     },
     d.proxy && { id: 'proxy', label: 'Proxy', node: <ProxyTab d={d} /> },
-    d.tenant && { id: 'tenant', label: 'Tenant', node: <TenantTab d={d} /> },
     d.partner && { id: 'partner', label: 'Partner', node: <PartnerTab d={d} /> },
     { id: 'wallet', label: 'Wallet', node: <WalletTxnsSection d={d} /> },
   ].filter(Boolean) as { id: string; label: string; node: ReactNode }[];
