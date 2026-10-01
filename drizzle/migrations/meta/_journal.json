@@ -2731,6 +2731,13 @@
       "when": 1790855200394,
       "tag": "0389_pso_officer_names_for_executives",
       "breakpoints": true
+    },
+    {
+      "idx": 390,
+      "version": "7",
+      "when": 1790855411055,
+      "tag": "0390_crm_dossier_tenant_paid_totals",
+      "breakpoints": true
     }
   ]
 }
