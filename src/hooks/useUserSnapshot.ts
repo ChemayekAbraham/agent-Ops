@@ -62,7 +62,16 @@ function openSnapshotDB(): Promise<IDBDatabase> {
     if (dbInstance) { resolve(dbInstance); return; }
     const req = indexedDB.open(SNAPSHOT_DB, SNAPSHOT_DB_VERSION);
     req.onerror = () => reject(req.error);
-    req.onsuccess = () => { dbInstance = req.result; resolve(dbInstance); };
+    req.onsuccess = () => {
+      const db = req.result;
+      // Drop the cached handle when the browser closes it (iOS backgrounding,
+      // storage eviction, version upgrade in another tab); otherwise every later
+      // call reuses a dead connection and throws "connection is closing".
+      db.onversionchange = () => { db.close(); if (dbInstance === db) dbInstance = null; };
+      db.onclose = () => { if (dbInstance === db) dbInstance = null; };
+      dbInstance = db;
+      resolve(db);
+    };
     req.onupgradeneeded = (e) => {
       const db = (e.target as IDBOpenDBRequest).result;
       if (!db.objectStoreNames.contains(SNAPSHOT_STORE)) {
@@ -72,24 +81,36 @@ function openSnapshotDB(): Promise<IDBDatabase> {
   });
 }
 
+// Run fn on a live connection; if the cached one was dead, reopen once and retry.
+async function withSnapshotDb<T>(fn: (db: IDBDatabase) => Promise<T>): Promise<T> {
+  try {
+    return await fn(await openSnapshotDB());
+  } catch (e) {
+    if ((e as DOMException)?.name !== 'InvalidStateError') throw e;
+    dbInstance = null;
+    return await fn(await openSnapshotDB());
+  }
+}
+
 async function getCachedSnapshot(userId: string): Promise<{ data: UserSnapshot; cachedAt: number } | null> {
   try {
-    const db = await openSnapshotDB();
-    const tx = db.transaction(SNAPSHOT_STORE, 'readonly');
-    const req = tx.objectStore(SNAPSHOT_STORE).get(userId);
-    return new Promise((resolve, reject) => {
-      req.onsuccess = () => resolve(req.result || null);
-      req.onerror = () => reject(req.error);
+    return await withSnapshotDb((db) => {
+      const req = db.transaction(SNAPSHOT_STORE, 'readonly').objectStore(SNAPSHOT_STORE).get(userId);
+      return new Promise((resolve, reject) => {
+        req.onsuccess = () => resolve(req.result || null);
+        req.onerror = () => reject(req.error);
+      });
     });
   } catch { return null; }
 }
 
 async function setCachedSnapshot(userId: string, data: UserSnapshot): Promise<void> {
   try {
-    const db = await openSnapshotDB();
-    const tx = db.transaction(SNAPSHOT_STORE, 'readwrite');
-    tx.objectStore(SNAPSHOT_STORE).put({ userId, data, cachedAt: Date.now() });
-    await new Promise<void>((res, rej) => { tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); });
+    await withSnapshotDb((db) => {
+      const tx = db.transaction(SNAPSHOT_STORE, 'readwrite');
+      tx.objectStore(SNAPSHOT_STORE).put({ userId, data, cachedAt: Date.now() });
+      return new Promise<void>((res, rej) => { tx.oncomplete = () => res(); tx.onerror = () => rej(tx.error); });
+    });
   } catch (e) { console.warn('[Snapshot] cache write failed', e); }
 }
 
