@@ -68271,6 +68271,10 @@ export type Database = {
         Args: { p_rent_request_id: string }
         Returns: Json
       }
+      rent_plan_returned_for_resubmission: {
+        Args: { p_rent_request_id: string }
+        Returns: boolean
+      }
       rent_plan_schedule_days: {
         Args: { p_from: string; p_to: string }
         Returns: {
