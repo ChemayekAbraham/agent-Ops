@@ -508,7 +508,7 @@ export function AgentOpsDashboard() {
     { title: 'Additional tools', keys: NAV_ITEMS.map((item) => item.key).filter((key) => !groupedKeys.has(key)) },
   ];
 
-  const BUSINESS_AREAS: { title: string; icon: typeof Activity; section: ActiveView }[] = [
+  const BUSINESS_AREAS: { title: string; icon: typeof Activity; section: ActiveView; highlight?: boolean }[] = [
     { title: 'General Agents Activities', icon: Activity, section: 'general-activities' },
     { title: 'Agent Advances', icon: HandCoins, section: 'advance-requests' },
     { title: 'Agents Rent', icon: Banknote, section: 'agents-rent' },
@@ -516,7 +516,7 @@ export function AgentOpsDashboard() {
     { title: 'Welile Merchandise', icon: ShoppingBag, section: 'welile-merchandise' },
     { title: 'Service Centre as a Service', icon: Building2, section: 'sc-overview' },
     { title: 'Welile Lending Agents', icon: UsersRound, section: 'lending-agents' },
-    { title: 'Welile Shopping Advance', icon: ShoppingBag, section: 'shopping-advance' },
+    { title: 'Welile Shopping Advance', icon: ShoppingBag, section: 'shopping-advance', highlight: true },
     { title: 'Welile Business Advance', icon: Briefcase, section: 'business-advance' },
     { title: 'Welile Marketplace', icon: Store, section: 'agent-marketplace' },
     { title: 'Welile Wallet Business', icon: Wallet, section: 'balances' },
