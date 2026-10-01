@@ -44,6 +44,7 @@ export function ROIPayoutQueue() {
   const [editedAmounts, setEditedAmounts] = useState<Record<string, string>>({});
   const [reviewTarget, setReviewTarget] = useState<PendingOp | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [bulkConfirm, setBulkConfirm] = useState(false);
 
   // Reset reject-mode whenever the reviewed operation changes or the sheet closes.
   useEffect(() => {
@@ -150,6 +151,65 @@ export function ROIPayoutQueue() {
     onError: (err: any) => toast.error('Rejection failed', { description: err.message }),
   });
 
+  // Bulk approve: re-fetches the live COO-approved queue at click time (never the
+  // React Query cache) and approves each payout through the same edge function
+  // and audit trail as the single-approve path.
+  const bulkApproveMutation = useMutation({
+    mutationFn: async () => {
+      const { data: fresh, error: fetchErr } = await supabase
+        .from('pending_wallet_operations')
+        .select('id, amount, user_id, target_wallet_user_id, description')
+        .eq('category', 'roi_payout')
+        .eq('status', 'coo_approved')
+        .order('created_at', { ascending: false })
+        .limit(100);
+      if (fetchErr) throw fetchErr;
+      const ops = (fresh || []) as Pick<PendingOp, 'id' | 'amount' | 'user_id' | 'target_wallet_user_id' | 'description'>[];
+      let approved = 0;
+      let failed = 0;
+      let lastError = '';
+      for (const op of ops) {
+        const { error: fnError } = await supabase.functions.invoke('approve-wallet-operation', {
+          body: { operation_id: op.id, action: 'approve' },
+        });
+        if (fnError) {
+          failed++;
+          lastError = fnError.message;
+          continue;
+        }
+        await supabase.from('audit_logs').insert({
+          user_id: user?.id,
+          action_type: 'cfo_roi_payout_approved',
+          table_name: 'pending_wallet_operations',
+          record_id: op.id,
+          metadata: {
+            amount: op.amount,
+            original_amount: op.amount,
+            amount_edited: false,
+            target_user_id: op.target_wallet_user_id || op.user_id,
+            description: op.description,
+            source: 'approve_all_bulk',
+          },
+        });
+        approved++;
+      }
+      return { approved, failed, lastError, total: ops.length };
+    },
+    onSuccess: ({ approved, failed, lastError, total }) => {
+      setBulkConfirm(false);
+      invalidate();
+      if (failed === 0) {
+        toast.success(`Approved all ${approved} payout${approved === 1 ? '' : 's'}`);
+      } else {
+        toast.warning(`Approved ${approved} of ${total}`, { description: `${failed} failed${lastError ? `: ${lastError}` : ''}. They remain in the queue.` });
+      }
+    },
+    onError: (err: any) => {
+      setBulkConfirm(false);
+      toast.error('Approve all failed', { description: err.message });
+    },
+  });
+
   if (isLoading) {
     return (
       <div className="flex justify-center py-6">
@@ -194,11 +254,48 @@ export function ROIPayoutQueue() {
   const reviewAmountChanged = !!reviewTarget && reviewHasEdit && reviewEditValid && reviewEditedAmount !== reviewTarget.amount;
   const reviewRejReason = reviewTarget ? rejectionReasons[reviewTarget.id] || '' : '';
 
+  const bulkTotal = operations.reduce((sum, op) => sum + (op.amount || 0), 0);
+
   return (
     <div className="space-y-3">
-      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-        {operations.length} ROI payout{operations.length === 1 ? '' : 's'} ready for CFO approval
-      </p>
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+          {operations.length} ROI payout{operations.length === 1 ? '' : 's'} ready for CFO approval
+        </p>
+        <CfoApprovalGate>
+          {bulkConfirm ? (
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8 rounded-lg text-xs"
+                disabled={bulkApproveMutation.isPending}
+                onClick={() => setBulkConfirm(false)}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                className="h-8 rounded-lg text-xs"
+                disabled={bulkApproveMutation.isPending}
+                onClick={() => bulkApproveMutation.mutate()}
+              >
+                {bulkApproveMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : <CheckCircle className="h-3 w-3 mr-1" />}
+                Confirm approve all {operations.length} ({formatUGX(bulkTotal)})
+              </Button>
+            </div>
+          ) : (
+            <Button
+              size="sm"
+              className="h-8 rounded-lg text-xs"
+              onClick={() => setBulkConfirm(true)}
+            >
+              <CheckCircle className="h-3 w-3 mr-1" />
+              Approve all
+            </Button>
+          )}
+        </CfoApprovalGate>
+      </div>
 
       <div className="rounded-xl border border-border/70 overflow-hidden bg-card">
         <div className="overflow-x-auto max-h-[560px] overflow-y-auto">
