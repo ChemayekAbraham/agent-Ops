@@ -42563,6 +42563,96 @@ export type Database = {
           },
         ]
       }
+      staff_requisition_prompt_authorities: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          enabled: boolean
+          id: string
+          reason: string
+          stage: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          enabled?: boolean
+          id?: string
+          reason: string
+          stage: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          enabled?: boolean
+          id?: string
+          reason?: string
+          stage?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      staff_requisition_prompts: {
+        Row: {
+          approver_id: string
+          created_at: string
+          id: string
+          last_pushed_at: string | null
+          push_count: number
+          requisition_id: string
+          resolution: string | null
+          resolved_at: string | null
+          snooze_count: number
+          snooze_until: string | null
+          stage: string
+          state: string
+        }
+        Insert: {
+          approver_id: string
+          created_at?: string
+          id?: string
+          last_pushed_at?: string | null
+          push_count?: number
+          requisition_id: string
+          resolution?: string | null
+          resolved_at?: string | null
+          snooze_count?: number
+          snooze_until?: string | null
+          stage: string
+          state?: string
+        }
+        Update: {
+          approver_id?: string
+          created_at?: string
+          id?: string
+          last_pushed_at?: string | null
+          push_count?: number
+          requisition_id?: string
+          resolution?: string | null
+          resolved_at?: string | null
+          snooze_count?: number
+          snooze_until?: string | null
+          stage?: string
+          state?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_requisition_prompts_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "staff_requisitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_requisition_prompts_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_facilitation_position"
+            referencedColumns: ["requisition_id"]
+          },
+        ]
+      }
       staff_requisition_usage_reports: {
         Row: {
           activities_carried_out: string | null
@@ -69368,6 +69458,29 @@ export type Database = {
         }
         Returns: undefined
       }
+      staff_requisition_pending_prompt: {
+        Args: never
+        Returns: {
+          amount: number
+          approved_amount: number
+          attachment_urls: string[]
+          ceo_approver_name: string
+          coo_approver_name: string
+          currency: string
+          department_key: string
+          prompt_id: string
+          raised_at: string
+          reason: string
+          requester_name: string
+          requisition_code: string
+          requisition_id: string
+          snooze_count: number
+          stage: string
+          title: string
+          total_pending: number
+        }[]
+      }
+      staff_requisition_prompt_snooze: { Args: never; Returns: string }
       staff_requisition_reduce_amount: {
         Args: {
           p_new_amount: number
