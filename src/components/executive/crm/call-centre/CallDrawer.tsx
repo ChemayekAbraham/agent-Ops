@@ -12,6 +12,7 @@ import { CALLEE_ROLE_LABEL, describeHangupCause, formatTalkTime } from '@/lib/ca
 import { useSaveCallSummary } from '@/hooks/useCrmCallCentre';
 import { isTerminalCallState, useCrmVoiceCall, type CallState } from '@/hooks/useCrmVoiceCall';
 import type { DialTarget } from './useCallDialer';
+import { CalleeDossierPanel } from './CalleeDossierPanel';
 
 const initials = (name: string) =>
   name.trim().split(/\s+/).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? '').join('') || '??';
@@ -155,9 +156,10 @@ export function CallDrawer({
           left the drawer full-bleed below 640px — a side drawer that turned into
           a full-screen sheet on a narrow viewport. `max-w-sm` is the unprefixed
           floor; `sm:max-w-md` replaces the variant's `sm:max-w-sm` above it. */}
-      <SheetContent side="right" className="flex w-3/4 max-w-sm flex-col gap-0 p-0 sm:max-w-md">
+      <SheetContent side="right" className="flex w-full max-w-full flex-col gap-0 overflow-y-auto p-0 sm:max-w-xl lg:max-w-5xl lg:flex-row lg:overflow-hidden">
         {!target ? null : (
           <>
+          <div className="flex shrink-0 flex-col lg:w-[22rem] lg:overflow-y-auto lg:border-r lg:border-border">
             {/* ---------- Call face ---------- */}
             <div
               className={cn(
@@ -330,6 +332,10 @@ export function CallDrawer({
                 Open this person in People / Calls to read every past summary.
               </p>
             </div>
+          </div>
+          <div className="min-w-0 flex-1 bg-muted/20 lg:overflow-y-auto">
+            <CalleeDossierPanel userId={target.calleeId} callId={callId} />
+          </div>
           </>
         )}
       </SheetContent>
