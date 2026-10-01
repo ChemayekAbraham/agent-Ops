@@ -21,6 +21,26 @@ async function logCsvExport(filename: string, rowCount: number) {
   }
 }
 
+// A string that opens with one of these is read as a formula by Excel / Sheets.
+const FORMULA_LEAD = /^[=+\-@\t\r]/;
+// Numbers, phone numbers and percentages that merely start with + or -
+// ("-5,000", "+256700000000", "-12.5%", "-5000 UGX") are not formulas. Anything
+// containing an operator or letters beyond a short unit suffix still is.
+const PLAIN_NUMERIC = /^[+-]?\d[\d\s,.()%-]*[A-Za-z]{0,4}$/;
+
+/**
+ * One RFC 4180 cell. Real numbers are written as-is. Strings that could run as a
+ * spreadsheet formula (error messages and names are user-influenced text) get a
+ * leading apostrophe so they open as plain text (CSV injection, OWASP).
+ */
+export function csvCell(v: string | number | null | undefined): string {
+  let s = v === null || v === undefined ? '' : String(v);
+  if (typeof v === 'string' && FORMULA_LEAD.test(s) && s !== '-' && !PLAIN_NUMERIC.test(s)) {
+    s = `'${s}`;
+  }
+  return `"${s.replace(/"/g, '""')}"`;
+}
+
 /**
  * Tiny dependency-free CSV exporter for audit downloads.
  * - Quotes every field, doubles embedded quotes (RFC 4180).
@@ -32,11 +52,7 @@ export function downloadCsv(
   headers: string[],
   rows: (string | number | null | undefined)[][],
 ) {
-  const escape = (v: string | number | null | undefined) => {
-    const s = v === null || v === undefined ? '' : String(v);
-    return `"${s.replace(/"/g, '""')}"`;
-  };
-  const lines = [headers.map(escape).join(','), ...rows.map((r) => r.map(escape).join(','))];
+  const lines = [headers.map(csvCell).join(','), ...rows.map((r) => r.map(csvCell).join(','))];
   const csv = '\uFEFF' + lines.join('\r\n');
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
