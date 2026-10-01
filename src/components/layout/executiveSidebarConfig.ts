@@ -119,6 +119,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Cash Position', icon: Landmark, id: 'cash-position' },
         { label: 'Payroll Release', icon: Banknote, id: 'payroll-release' },
         { label: 'Payroll Approvals', icon: Banknote, id: 'cfo-pay-approvals', route: '/approvals' },
+        { label: 'Staff TIN / NSSF List', icon: ClipboardList, id: 'statutory-consent-list' },
         { label: 'Salary Advances', icon: HandCoins, id: 'cfo-pay-advances', route: '/hr/pay/advances' },
         { label: 'Send Money', icon: Wallet, id: 'wallet-payout' },
         { label: 'Standing Orders', icon: RefreshCw, id: 'standing-orders' },

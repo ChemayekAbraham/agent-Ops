@@ -110,6 +110,7 @@ import { useSwipeSensitivity } from '@/hooks/useSwipeSensitivity';
 import { usePersistedActiveTab } from '@/hooks/usePersistedActiveTab';
 import { useCfoAdvanceDisbursementCount } from '@/hooks/useCfoAdvanceDisbursementCount';
 import { CFOApprovalNotificationsBell } from '@/components/cfo/CFOApprovalNotificationsBell';
+import { StatutoryConsentList } from '@/components/cfo/StatutoryConsentList';
 
 // Ordered, swipeable tab ids derived from the CFO sidebar (route items excluded).
 // A parent that only discloses children (e.g. Agent Products) is not itself a
@@ -506,6 +507,8 @@ export default function CFODashboardPage() {
         );
       case 'advance-repayments':
         return <CFOAdvancesManager />;
+      case 'statutory-consent-list':
+        return <StatutoryConsentList />;
       case 'landlord-float-timeline':
         return <TenantOpsLandlordFloatTimeline />;
       case 'approval-audit':
