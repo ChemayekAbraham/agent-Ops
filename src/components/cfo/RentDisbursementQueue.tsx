@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef, Fragment } from 'react';
+import { useState, useMemo, useEffect, Fragment } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -35,8 +35,7 @@ import { UserDrilldownDrawer } from '@/components/ops/UserDrilldownDrawer';
 import { LandlordAgreementHistory } from '@/components/landlord/agreement';
 import { CfoApprovalGate } from '@/components/cfo/CfoApprovalGate';
 
-const fmt = (n: number) =>
-  new Intl.NumberFormat('en-UG', { style: 'currency', currency: 'UGX', maximumFractionDigits: 0 }).format(n);
+const fmt = (n: number) => `UGX ${Math.round(Number(n) || 0).toLocaleString('en-US')}`;
 
 interface ApprovedRentItem {
   id: string;
@@ -145,7 +144,6 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
   const [rejectReason, setRejectReason] = useState('');
   const [reviewTarget, setReviewTarget] = useState<ApprovedRentItem | null>(null);
   const [drilldownAgentId, setDrilldownAgentId] = useState<string | null>(null);
-  const step2Ref = useRef<HTMLDivElement | null>(null);
   const qc = useQueryClient();
   const { user } = useAuth();
 
