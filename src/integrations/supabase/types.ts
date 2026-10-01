@@ -45074,6 +45074,217 @@ export type Database = {
         }
         Relationships: []
       }
+      tenant_landlord_reassignment_audit: {
+        Row: {
+          actor_id: string
+          allocation_updated: boolean
+          created_at: string
+          house_listing_id: string | null
+          id: string
+          new_landlord_id: string
+          old_landlord_id: string
+          pending_otps_cancelled: number
+          reason: string
+          rent_request_id: string
+          tenant_id: string
+        }
+        Insert: {
+          actor_id: string
+          allocation_updated?: boolean
+          created_at?: string
+          house_listing_id?: string | null
+          id?: string
+          new_landlord_id: string
+          old_landlord_id: string
+          pending_otps_cancelled?: number
+          reason: string
+          rent_request_id: string
+          tenant_id: string
+        }
+        Update: {
+          actor_id?: string
+          allocation_updated?: boolean
+          created_at?: string
+          house_listing_id?: string | null
+          id?: string
+          new_landlord_id?: string
+          old_landlord_id?: string
+          pending_otps_cancelled?: number
+          reason?: string
+          rent_request_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_landlord_reassignment_audit_house_listing_id_fkey"
+            columns: ["house_listing_id"]
+            isOneToOne: false
+            referencedRelation: "house_listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_landlord_reassignment_audit_house_listing_id_fkey"
+            columns: ["house_listing_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_property_base"
+            referencedColumns: ["listing_id"]
+          },
+          {
+            foreignKeyName: "tenant_landlord_reassignment_audit_house_listing_id_fkey"
+            columns: ["house_listing_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["house_id"]
+          },
+          {
+            foreignKeyName: "tenant_landlord_reassignment_audit_new_landlord_id_fkey"
+            columns: ["new_landlord_id"]
+            isOneToOne: false
+            referencedRelation: "landlords"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_landlord_reassignment_audit_new_landlord_id_fkey"
+            columns: ["new_landlord_id"]
+            isOneToOne: false
+            referencedRelation: "landlords_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_landlord_reassignment_audit_new_landlord_id_fkey"
+            columns: ["new_landlord_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_calling_base"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "tenant_landlord_reassignment_audit_new_landlord_id_fkey"
+            columns: ["new_landlord_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_ops_status"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "tenant_landlord_reassignment_audit_new_landlord_id_fkey"
+            columns: ["new_landlord_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_landlord_base"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "tenant_landlord_reassignment_audit_old_landlord_id_fkey"
+            columns: ["old_landlord_id"]
+            isOneToOne: false
+            referencedRelation: "landlords"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_landlord_reassignment_audit_old_landlord_id_fkey"
+            columns: ["old_landlord_id"]
+            isOneToOne: false
+            referencedRelation: "landlords_directory"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_landlord_reassignment_audit_old_landlord_id_fkey"
+            columns: ["old_landlord_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_calling_base"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "tenant_landlord_reassignment_audit_old_landlord_id_fkey"
+            columns: ["old_landlord_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_ops_status"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "tenant_landlord_reassignment_audit_old_landlord_id_fkey"
+            columns: ["old_landlord_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_landlord_base"
+            referencedColumns: ["landlord_id"]
+          },
+          {
+            foreignKeyName: "tenant_landlord_reassignment_audit_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_request_formula_drift"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_landlord_reassignment_audit_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_landlord_reassignment_audit_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "tenant_landlord_reassignment_audit_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_partner_self_fundable_plans"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "tenant_landlord_reassignment_audit_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_expired_owing"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "tenant_landlord_reassignment_audit_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "tenant_landlord_reassignment_audit_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "tenant_landlord_reassignment_audit_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_daily_eligibility"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "tenant_landlord_reassignment_audit_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "tenant_landlord_reassignment_audit_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "tenant_landlord_reassignment_audit_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
+          },
+        ]
+      }
       tenant_merchant_payments: {
         Row: {
           agent_id: string
@@ -63440,6 +63651,26 @@ export type Database = {
           tenant_phone: string
         }[]
       }
+      get_tenant_landlord_transfer_history: {
+        Args: { p_tenant_id: string }
+        Returns: {
+          actor_id: string
+          actor_name: string
+          allocation_updated: boolean
+          house_listing_id: string
+          id: string
+          new_landlord_id: string
+          new_landlord_name: string
+          new_landlord_phone: string
+          occurred_at: string
+          old_landlord_id: string
+          old_landlord_name: string
+          old_landlord_phone: string
+          pending_otps_cancelled: number
+          reason: string
+          rent_request_id: string
+        }[]
+      }
       get_tenant_location_breakdown: {
         Args: {
           p_agent_id?: string
@@ -65158,6 +65389,21 @@ export type Database = {
           total_revenue: number
         }[]
       }
+      list_eligible_landlords_for_rent_request: {
+        Args: { p_limit?: number; p_rent_request_id: string; p_search?: string }
+        Returns: {
+          block_reason: string
+          district: string
+          eligible: boolean
+          id: string
+          name: string
+          payout_ready: boolean
+          phone: string
+          property_address: string
+          verified: boolean
+          village: string
+        }[]
+      }
       list_joined_partners: {
         Args: { p_limit?: number; p_offset?: number }
         Returns: Json
@@ -66558,6 +66804,14 @@ export type Database = {
           p_listing_id?: string
           p_new_agent_id?: string
           p_reason?: string
+          p_rent_request_id: string
+        }
+        Returns: Json
+      }
+      ops_transfer_tenant_landlord: {
+        Args: {
+          p_new_landlord_id: string
+          p_reason: string
           p_rent_request_id: string
         }
         Returns: Json
