@@ -2654,6 +2654,20 @@
       "when": 1790836713010,
       "tag": "0378_engrep_week_wednesday",
       "breakpoints": true
+    },
+    {
+      "idx": 379,
+      "version": "7",
+      "when": 1790837120335,
+      "tag": "0379_wallet_cache_functions_work_mem",
+      "breakpoints": true
+    },
+    {
+      "idx": 380,
+      "version": "7",
+      "when": 1790837149334,
+      "tag": "0380_collections_monitor_error_log_signal_vs_noise",
+      "breakpoints": true
     }
   ]
 }
