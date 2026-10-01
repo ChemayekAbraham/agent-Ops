@@ -2605,6 +2605,20 @@
       "when": 1790833928100,
       "tag": "0371_restore_tenancy_active_refunded_plan_1c635d8d",
       "breakpoints": true
+    },
+    {
+      "idx": 372,
+      "version": "7",
+      "when": 1790834106626,
+      "tag": "0372_daily_eligibility_unpinned_plan_fallback",
+      "breakpoints": true
+    },
+    {
+      "idx": 373,
+      "version": "7",
+      "when": 1790834152873,
+      "tag": "0373_daily_eligibility_fallback_only_unbilled_agents",
+      "breakpoints": true
     }
   ]
 }
