@@ -567,7 +567,7 @@ export function AgentOpsDashboard() {
             {highlight && (
               <span
                 aria-hidden="true"
-                className="pointer-events-none absolute inset-0 rounded-md ring-2 ring-primary-foreground/45 animate-attention-halo"
+                className="pointer-events-none absolute -inset-1 rounded-lg border-2 border-primary-foreground/55 animate-attention-halo"
               />
             )}
             <span className={cn(
