@@ -64,6 +64,7 @@ export interface CalleeDossier {
   tenant?: {
     plans: DossierPlan[]; repayments: DossierRepayment[];
     last_collection: { amount: number; created_at: string; agent_name: string | null } | null;
+    paid_totals?: { today: PeriodTotal; yesterday: PeriodTotal; month: PeriodTotal; all: PeriodTotal };
   };
   partner?: {
     restricted: boolean;

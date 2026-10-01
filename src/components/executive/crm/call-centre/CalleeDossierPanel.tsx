@@ -211,7 +211,7 @@ function AgentTab({ d }: { d: CalleeDossier }) {
             {last ? <Row left={last.tenant_name ?? 'Tenant'} sub={fdate(last.created_at, 'd MMM yyyy, HH:mm')} right={<span className="text-success">{ugx(last.amount)}</span>} rightSub={label(last.payment_method)} />
               : <Empty>No collections yet.</Empty>}
           </Section>
-          <Section title="Collections">
+          <Section title="Collected by them (as agent)">
             <div className="grid grid-cols-4 gap-1">
               {(Object.keys(PERIOD_LABEL) as Period[]).map((p) => (
                 <button key={p} type="button" onClick={() => setPeriod(p)}
@@ -308,6 +308,19 @@ function TenantSections({ d }: { d: CalleeDossier }) {
         {t.last_collection ? <Row left={<span className="text-success">{ugx(t.last_collection.amount)}</span>} sub={fdate(t.last_collection.created_at, 'd MMM yyyy, HH:mm')} right={t.last_collection.agent_name ?? '—'} rightSub="Agent" />
           : <Empty>No agent collection yet.</Empty>}
       </Section>
+      {t.paid_totals && (
+        <Section title="Payments made (as tenant)">
+          <div className="grid grid-cols-4 gap-1">
+            {(Object.keys(PERIOD_LABEL) as Period[]).map((p) => (
+              <div key={p} className="rounded-md border border-border px-1.5 py-1.5">
+                <span className="block text-[10px] font-medium text-muted-foreground">{PERIOD_LABEL[p]}</span>
+                <span className={cn('block truncate text-xs font-semibold tabular-nums', t.paid_totals![p].count === 0 ? 'text-destructive' : 'text-success')}>{ugx(t.paid_totals![p].amount)}</span>
+                <span className="block text-[10px] text-muted-foreground">{t.paid_totals![p].count} payments</span>
+              </div>
+            ))}
+          </div>
+        </Section>
+      )}
       <Section title={`Rent Plans (${t.plans.length})`}>
         {t.plans.length === 0 ? <Empty>No Rent Plans.</Empty> : t.plans.map((p) => {
           const hist = t.repayments.filter((r) => r.rent_request_id === p.id);
