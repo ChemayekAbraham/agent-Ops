@@ -2766,6 +2766,13 @@
       "when": 1790858948874,
       "tag": "0394_pin_cfo_dashboard_money_actions",
       "breakpoints": true
+    },
+    {
+      "idx": 395,
+      "version": "7",
+      "when": 1790859038870,
+      "tag": "0395_cfo_approver_follows_cfo_office",
+      "breakpoints": true
     }
   ]
 }
