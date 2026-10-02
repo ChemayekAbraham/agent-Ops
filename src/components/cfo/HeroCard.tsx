@@ -186,13 +186,13 @@ export function HeroCard({ icon, iconBg, tone, title, value, percentageLabel, pe
 
           {onClick && (
             <Button
-              variant="outline"
+              variant="default"
               size="sm"
               className="w-full justify-between"
               onClick={() => { setOpen(false); onClick(); }}
             >
               <span>View full breakdown</span>
-              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+              <ChevronRight className="h-3.5 w-3.5" />
             </Button>
           )}
         </DialogContent>
