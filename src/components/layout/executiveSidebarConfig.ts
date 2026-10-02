@@ -302,7 +302,6 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       title: 'Marketing',
       items: [
         { label: 'Overview', icon: LayoutDashboard, id: 'overview' },
-        { label: 'User Dossier', icon: Users, id: 'user-dossier' },
         { label: 'User Analytics', icon: BarChart3, id: 'user-analytics' },
         { label: 'Growth Metrics', icon: TrendingUp, id: 'growth' },
         { label: 'Signup Trends', icon: UserCheck, id: 'signups' },
@@ -320,7 +319,6 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       title: 'Customer Relations',
       items: [
         { label: 'Overview', icon: LayoutDashboard, id: 'overview' },
-        { label: 'User Dossier', icon: Users, id: 'user-dossier' },
         { label: 'Customer Issues', icon: MessageSquare, id: 'customer-issues' },
         { label: 'Tenant Support', icon: Handshake, id: 'tenant-support' },
         { label: 'Communications', icon: MessageSquare, id: 'communications' },
