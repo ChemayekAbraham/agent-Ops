@@ -49,7 +49,7 @@ describe('StartCashDepositDialog — steps and errors', () => {
     onPersonStep();
     expect(screen.getByText(/Please type the first name/i)).toBeTruthy();
     expect(screen.getByText(/Please type the last name/i)).toBeTruthy();
-    expect(screen.getByText(/at least 9 digits|phone/i, { selector: 'p,span,div' })).toBeTruthy();
+    expect(screen.getByText(/Please type the phone number/i)).toBeTruthy();
     expect(invokeSpy).not.toHaveBeenCalled();
   });
 
@@ -69,7 +69,7 @@ describe('StartCashDepositDialog — steps and errors', () => {
     onCashStep();
     next();
     onCashStep();
-    expect(screen.getByText(/amount/i, { selector: '[role="alert"], p, span' })).toBeTruthy();
+    expect(screen.getByText(/Please type the cash amount/i)).toBeTruthy();
     fill(/Cash amount/i, '100');
     next();
     onCashStep();
@@ -90,7 +90,7 @@ describe('StartCashDepositDialog — steps and errors', () => {
     onEmailStep();
     next();
     onEmailStep();
-    expect(screen.getByText(/email/i, { selector: '[role="alert"], p, span' })).toBeTruthy();
+    expect(screen.getByText(/Please type the email address/i)).toBeTruthy();
     fill(/Depositor email address/i, 'bad');
     next();
     onEmailStep();
