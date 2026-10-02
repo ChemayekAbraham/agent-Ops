@@ -1602,10 +1602,9 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
             <AgentExpiredCyclesCard agentId={user.id} />
             <div
               className={cn(
-                "sticky z-10 -mx-4 px-3 sm:px-4 bg-background border-b border-border/40 overscroll-contain",
-                submissionsExpanded && "pb-2.5 max-h-[42vh] sm:max-h-[55vh] overflow-y-auto"
+                "-mx-4 px-3 sm:px-4 bg-background border-b border-border/40",
+                submissionsExpanded && "pb-2.5"
               )}
-              style={{ top: 'calc(4.5rem + env(safe-area-inset-top, 0px))' }}
             >
               <button
                 onClick={() => setSubmissionsExpanded((v) => !v)}
