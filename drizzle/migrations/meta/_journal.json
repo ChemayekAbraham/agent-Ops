@@ -2864,6 +2864,13 @@
       "when": 1790928439699,
       "tag": "0408_one_credit_charge_per_draw_per_day",
       "breakpoints": true
+    },
+    {
+      "idx": 409,
+      "version": "7",
+      "when": 1790929979613,
+      "tag": "0409_fix_landlord_float_due_today_cte_scope",
+      "breakpoints": true
     }
   ]
 }
