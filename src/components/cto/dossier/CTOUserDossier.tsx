@@ -122,7 +122,7 @@ function MoneySection({ id, active, balances }: { id: string; active: boolean; b
     <div className="space-y-4">
       <div className="grid gap-3 sm:grid-cols-4">
         <Card><CardContent className="p-3"><Field k="Available to withdraw" v={ugx(balances?.available)} /></CardContent></Card>
-        <Card><CardContent className="p-3"><Field k="Withdrawable (cached)" v={ugx(b.withdrawable_balance)} /></CardContent></Card>
+        <Card><CardContent className="p-3"><Field k="Withdrawable (wallet)" v={ugx(b.withdrawable)} /></CardContent></Card>
         <Card><CardContent className="p-3"><Field k="Float" v={ugx(b.float_balance)} /></CardContent></Card>
         <Card><CardContent className="p-3"><Field k="Advance" v={ugx(b.advance_balance)} /></CardContent></Card>
       </div>
