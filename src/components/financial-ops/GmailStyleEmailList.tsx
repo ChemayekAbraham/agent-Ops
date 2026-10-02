@@ -470,7 +470,7 @@ export function GmailStyleEmailList({ rows, onCreditUser }: GmailStyleEmailListP
                   <MailOpen className="h-3.5 w-3.5 hover:text-foreground" />
                 </span>
               </span>
-            </button>
+            </div>
           </li>
           </Fragment>
         );
