@@ -37,6 +37,9 @@ interface StartCashDepositDialogProps {
  */
 const nameNorm = (v?: string) => (v || '').trim();
 
+// Larger, bolder error text with a bigger warning icon for easy reading on phones.
+const ERR_TEXT = 'mt-1.5 gap-1.5 text-sm font-semibold [&>svg]:h-4 [&>svg]:w-4 [&>svg]:mt-0.5';
+
 export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCashDepositDialogProps) {
   const { toast } = useToast();
   const [phone, setPhone] = useState('');
@@ -114,6 +117,12 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
   const tryContinue = () => {
     if (stepBlocked[step]) {
       setTouched((t) => ({ ...t, ...Object.fromEntries(stepFields[step].map((k) => [k, true])) }));
+      // Bring the first problem field into view (the pinned buttons can cover it on phones).
+      setTimeout(() => {
+        const el = document.querySelector<HTMLElement>('[role="dialog"] [aria-invalid="true"]');
+        el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        el?.focus({ preventScroll: true });
+      }, 50);
       return;
     }
     setStep(step + 1);
@@ -237,7 +246,7 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
                   if (id.endsWith('first-name')) touch('firstName');
                   if (id.endsWith('last-name')) touch('lastName');
                 }}>
-                  <PersonNameFields idPrefix="fin-cash-owner" value={nameParts} onChange={setNameParts}
+                  <PersonNameFields idPrefix="fin-cash-owner" value={nameParts} onChange={setNameParts} errorClassName={ERR_TEXT}
                     errors={{ firstName: show('firstName'), lastName: show('lastName'), otherNames: touched.lastName ? nameOtherError : null }} />
                 </div>
                 <div className="space-y-1.5">
@@ -246,7 +255,7 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
                     value={phone} onChange={(e) => setPhone(e.target.value)} onBlur={() => touch('phone')}
                     aria-invalid={!!show('phone')}
                     className={cn('h-12 text-base', show('phone') && 'border-destructive focus-visible:ring-destructive')} />
-                  <FieldError message={show('phone')} />
+                  <FieldError message={show('phone')} className={ERR_TEXT} />
                 </div>
               </div>
             )}
@@ -263,7 +272,7 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
                       onBlur={() => touch('amount')}
                       onChange={(e) => setAmount(e.target.value)} />
                   </div>
-                  <FieldError message={show('amount')} />
+                  <FieldError message={show('amount')} className={ERR_TEXT} />
                   {amountNum > 0 && !show('amount') && <p className="text-xs text-muted-foreground">UGX {amountNum.toLocaleString()}</p>}
                 </div>
                 <div className="space-y-1.5">
@@ -302,7 +311,7 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
                   className={cn('h-12 text-base', show('email') && 'border-destructive focus-visible:ring-destructive')}
                   aria-invalid={!!show('email')} value={email} onBlur={() => touch('email')}
                   onChange={(e) => setEmail(e.target.value)} />
-                <FieldError message={show('email')} />
+                <FieldError message={show('email')} className={ERR_TEXT} />
                 {!show('email') && <p className="text-xs text-muted-foreground">The code goes to this email and their phone.</p>}
               </div>
             )}
@@ -337,8 +346,8 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
               </div>
             )}
 
-            {error && <FieldError message={error} />}
-            {!error && step === 3 && blockedReason && <FieldError message={blockedReason} />}
+            {error && <FieldError message={error} className={ERR_TEXT} />}
+            {!error && step === 3 && blockedReason && <FieldError message={blockedReason} className={ERR_TEXT} />}
           </div>
         </div>
 
