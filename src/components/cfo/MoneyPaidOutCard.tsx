@@ -47,12 +47,12 @@ export function MoneyPaidOutCard({ moneyWeHaveTotal }: { moneyWeHaveTotal: numbe
       percentageValue={!q.isLoading && !q.error && d ? n(d.total_paid) : undefined}
       percentageTotal={moneyWeHaveTotal}
       items={d ? [
-        { dot: 'bg-rose-500', label: `Paid out today (${n(d.today_count).toLocaleString()})`, value: formatUGX(n(d.today_paid)), onSelect: () => drill({ label: 'Today', from: kampalaDate(), to: kampalaDate(), status: conf, expected: { amount: n(d.today_paid), count: n(d.today_count), basis: 'confirmed' } }) },
-        { dot: 'bg-rose-500', label: `Paid out yesterday (${n(d.yesterday_count).toLocaleString()})`, value: formatUGX(n(d.yesterday_paid)), onSelect: () => drill({ label: 'Yesterday', from: daysAgo(1), to: daysAgo(1), status: conf, expected: { amount: n(d.yesterday_paid), count: n(d.yesterday_count), basis: 'confirmed' } }) },
-        { dot: 'bg-rose-400', label: `Paid out last 7 days (${n(d.last7_count).toLocaleString()})`, value: formatUGX(n(d.last7_paid)), onSelect: () => drill({ label: 'Last 7 days', from: daysAgo(6), to: kampalaDate(), status: conf, expected: { amount: n(d.last7_paid), count: n(d.last7_count), basis: 'confirmed' } }) },
-        { dot: 'bg-rose-300', label: `Paid out this month (${n(d.month_count).toLocaleString()})`, value: formatUGX(n(d.month_paid)), onSelect: () => drill({ label: 'This month', from: monthStart(), to: kampalaDate(), status: conf, expected: { amount: n(d.month_paid), count: n(d.month_count), basis: 'confirmed' } }) },
-        { dot: 'bg-slate-400', label: 'Number of payouts', value: n(d.total_count).toLocaleString(), onSelect: total },
-        { dot: 'bg-amber-500', label: `Pending payouts (${n(d.pending_count).toLocaleString()})`, value: formatUGX(n(d.pending_amount)), onSelect: () => drill({ label: 'Pending', ...allTime(), status: 'pending', expected: { amount: n(d.pending_amount), count: n(d.pending_count), basis: 'pending' } }) },
+        { dot: 'bg-rose-500', label: `Paid out today (${n(d.today_count).toLocaleString()})`, value: formatUGX(n(d.today_paid)) },
+        { dot: 'bg-rose-500', label: `Paid out yesterday (${n(d.yesterday_count).toLocaleString()})`, value: formatUGX(n(d.yesterday_paid)) },
+        { dot: 'bg-rose-400', label: `Paid out last 7 days (${n(d.last7_count).toLocaleString()})`, value: formatUGX(n(d.last7_paid)) },
+        { dot: 'bg-rose-300', label: `Paid out this month (${n(d.month_count).toLocaleString()})`, value: formatUGX(n(d.month_paid)) },
+        { dot: 'bg-slate-400', label: 'Number of payouts', value: n(d.total_count).toLocaleString() },
+        { dot: 'bg-amber-500', label: `Pending payouts (${n(d.pending_count).toLocaleString()})`, value: formatUGX(n(d.pending_amount)) },
       ] : []}
       onClick={() => { total(); }}
       footer={q.error ? 'Could not load payouts' : 'Completed payouts to mobile money, bank & cash'}
