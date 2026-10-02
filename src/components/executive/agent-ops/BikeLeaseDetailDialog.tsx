@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
+import { toast } from 'sonner';
 import {
   Bike,
   Calendar,
@@ -20,6 +22,8 @@ import {
   Loader2,
   TrendingUp,
   Building2,
+  Award,
+  Download,
 } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
@@ -38,6 +42,10 @@ import { Separator } from '@/components/ui/separator';
 import { formatUGX } from '@/lib/rentCalculations';
 import { spiroEffectiveFeePct, spiroLeaseSchedule } from '@/lib/spiroBikeLease';
 import { kampalaTodayYmd, kampalaOffsetYmd } from '@/lib/kampalaDays';
+import {
+  generateSpiroBikeSettlementCertificatePdf,
+  downloadSpiroSettlementCertificate,
+} from '@/lib/spiroBikeSettlementCertificatePdf';
 
 const db = supabase as any;
 
@@ -105,6 +113,7 @@ export function BikeLeaseDetailDialog({
 }: Props) {
   if (!order) return null;
 
+  const [generatingCert, setGeneratingCert] = useState(false);
   const isOps = !stage || stage === 'ops';
 
   const valuationNum = Number(order.valuation_amount || 0);
@@ -118,8 +127,36 @@ export function BikeLeaseDetailDialog({
   const dailyPay = days > 0 ? Math.ceil(valuationNum / days) : 0;
   const profit = Math.max(0, valuationNum - costPrice);
 
+  const isSettled =
+    (order.order_status === 'approved' || order.order_status === 'completed') &&
+    (outstanding <= 0 || (paid > 0 && paid >= valuationNum));
+
   // Full reducing-balance schedule, derived from the cost price and term.
   const schedule = spiroLeaseSchedule(termNum, costPrice);
+
+  const handleDownloadCertificate = async () => {
+    setGeneratingCert(true);
+    try {
+      const blob = await generateSpiroBikeSettlementCertificatePdf({
+        agentName: order.client_name || 'Agent',
+        agentPhone: order.client_phone || null,
+        nationalId: agentProfile?.national_id || null,
+        modelType: order.model_type || 'Spiro electric bike',
+        trackingReference: order.tracking_reference || null,
+        valuationAmount: valuationNum,
+        totalRepaid: paid || valuationNum,
+        leaseTermMonths: termNum,
+        completedAt: order.lease_activated_at || order.cfo_disbursed_at || order.created_at,
+        saleId: order.id,
+      });
+      downloadSpiroSettlementCertificate(blob, order.client_name || 'Agent', order.tracking_reference);
+      toast.success('Certificate of Full Settlement downloaded');
+    } catch (err: any) {
+      toast.error('Could not generate certificate: ' + (err.message || 'Unknown error'));
+    } finally {
+      setGeneratingCert(false);
+    }
+  };
 
   // Sub-agents / recruited agents standing
   const { data: subAgentStats, isLoading: subAgentsLoading } = useQuery({
@@ -627,6 +664,75 @@ export function BikeLeaseDetailDialog({
                 </table>
               </div>
             </div>
+          </div>
+
+          {/* SECTION: LOGBOOK CUSTODY & SETTLEMENT DISCHARGE */}
+          <div
+            className={cn(
+              'rounded-xl border p-3 sm:p-4 space-y-2.5 shadow-xs transition-colors',
+              isSettled
+                ? 'border-emerald-500/30 bg-emerald-500/5 dark:bg-emerald-950/20'
+                : 'border-border bg-card'
+            )}
+          >
+            <div className="flex items-center justify-between gap-2 pb-0.5 border-b border-border/40">
+              <div className="flex items-center gap-2 min-w-0">
+                <div
+                  className={cn(
+                    'h-6 w-6 rounded-md flex items-center justify-center shrink-0',
+                    isSettled ? 'bg-emerald-500/20 text-emerald-600' : 'bg-primary/10 text-primary'
+                  )}
+                >
+                  {isSettled ? <Award className="h-3.5 w-3.5" /> : <ShieldCheck className="h-3.5 w-3.5" />}
+                </div>
+                <h3 className="text-xs font-bold text-foreground truncate">
+                  {isSettled ? 'Logbook Transfer Authorized · Full Settlement' : 'Logbook Custody & Title Status'}
+                </h3>
+              </div>
+              <Badge
+                variant="outline"
+                className={cn(
+                  'text-[10px] font-semibold px-2 py-0.5 shrink-0',
+                  isSettled
+                    ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30'
+                    : 'bg-indigo-500/15 text-indigo-600 border-indigo-500/30'
+                )}
+              >
+                {isSettled ? '✓ Logbook Transfer Approved' : '🔒 Welile Legal Custody'}
+              </Badge>
+            </div>
+
+            <p className="text-[11px] text-muted-foreground leading-relaxed">
+              {isSettled
+                ? "This Spiro bike lease has been 100% settled with zero outstanding balance. Welile's legal custody hold over the registration logbook is discharged. Operations is authorized to execute official logbook handover."
+                : "The official Spiro logbook, registration, and title remain in Welile Technologies' legal custody throughout the active lease term as asset collateral until full settlement is reached."}
+            </p>
+
+            {isSettled && (
+              <div className="pt-1 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 bg-emerald-500/10 rounded-lg p-2.5 border border-emerald-500/20">
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-emerald-900 dark:text-emerald-200">
+                    Certificate of Full Settlement
+                  </p>
+                  <p className="text-[10px] text-emerald-700/80 dark:text-emerald-300/80">
+                    Official discharge document signed by COO & CFO
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  className="h-8 text-xs font-semibold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs shrink-0"
+                  disabled={generatingCert}
+                  onClick={handleDownloadCertificate}
+                >
+                  {generatingCert ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Download className="h-3.5 w-3.5" />
+                  )}
+                  Download Certificate
+                </Button>
+              </div>
+            )}
           </div>
 
           {/* SECTION 3: AUDIT & TIMELINE */}

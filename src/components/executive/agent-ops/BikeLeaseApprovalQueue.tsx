@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { Bike, Check, Edit3, Loader2, X } from 'lucide-react';
+import { Bike, Check, Edit3, Loader2, X, Download, Award, ShieldCheck } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,6 +32,10 @@ import { SPIRO_LEASE_PERIODS, spiroEffectiveFeePct } from '@/lib/spiroBikeLease'
 import { BikeLeaseDetailDialog } from './BikeLeaseDetailDialog';
 import { EditBikeApplicationDialog } from './EditBikeApplicationDialog';
 import { MotorBikeCatalogDialog } from './MotorBikeCatalogDialog';
+import {
+  generateSpiroBikeSettlementCertificatePdf,
+  downloadSpiroSettlementCertificate,
+} from '@/lib/spiroBikeSettlementCertificatePdf';
 
 const db = supabase as any;
 
@@ -556,17 +560,50 @@ export function BikeLeaseApprovalQueue({
                               </Button>
                             </>
                           ) : (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 text-xs text-muted-foreground hover:text-primary"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setDetailTarget(o);
-                              }}
-                            >
-                              Details
-                            </Button>
+                            <div className="flex items-center gap-1">
+                              {isApproved(o.order_status) && Number(o.amount_outstanding || 0) <= 0 && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-7 px-2 text-xs gap-1 border-emerald-500/30 text-emerald-600 hover:bg-emerald-500/10"
+                                  title="Download Certificate of Full Settlement"
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    try {
+                                      const blob = await generateSpiroBikeSettlementCertificatePdf({
+                                        agentName: o.client_name || 'Agent',
+                                        agentPhone: o.client_phone || null,
+                                        modelType: o.model_type || 'Spiro electric bike',
+                                        trackingReference: o.tracking_reference || null,
+                                        valuationAmount: Number(o.valuation_amount || 0),
+                                        totalRepaid: Number(o.amount_paid || o.valuation_amount || 0),
+                                        leaseTermMonths: Number(o.lease_term_months || 12),
+                                        completedAt: o.lease_activated_at || o.cfo_disbursed_at || o.created_at,
+                                        saleId: o.id,
+                                      });
+                                      downloadSpiroSettlementCertificate(blob, o.client_name || 'Agent', o.tracking_reference);
+                                      toast.success('Certificate of Full Settlement downloaded');
+                                    } catch (err: any) {
+                                      toast.error('Could not generate certificate: ' + (err.message || 'Unknown error'));
+                                    }
+                                  }}
+                                >
+                                  <Download className="h-3 w-3" />
+                                  <span className="hidden xl:inline">Cert</span>
+                                </Button>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs text-muted-foreground hover:text-primary"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setDetailTarget(o);
+                                }}
+                              >
+                                Details
+                              </Button>
+                            </div>
                           )}
                         </div>
                       </td>

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
-import { Bike, CheckCircle2, ChevronDown, ChevronUp, Clock, XCircle } from 'lucide-react';
+import { toast } from 'sonner';
+import { Bike, CheckCircle2, ChevronDown, ChevronUp, Clock, XCircle, ShieldCheck, Download, Loader2 } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -16,7 +17,10 @@ import {
 } from '@/components/ui/select';
 import { formatUGX } from '@/lib/rentCalculations';
 import BikeRepaymentTracker from '@/components/merchandise/BikeRepaymentTracker';
-
+import {
+  generateSpiroBikeSettlementCertificatePdf,
+  downloadSpiroSettlementCertificate,
+} from '@/lib/spiroBikeSettlementCertificatePdf';
 
 const db = supabase as any;
 
@@ -58,6 +62,7 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder }: Props) {
   const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(true);
+  const [downloadingCert, setDownloadingCert] = useState(false);
 
   const { data: orders = [] } = useQuery<BikeLeaseRow[]>({
     queryKey: ['my-bike-lease-orders', userId],
@@ -233,14 +238,92 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder }: Props) {
             )}
 
             {current === 2 && !rejected && (
-              <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 space-y-1">
-                <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Outstanding lease balance</span>
-                  <span className="font-semibold">{formatUGX(outstanding)}</span>
+              <div className="space-y-2">
+                <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Outstanding lease balance</span>
+                    <span className="font-semibold">{formatUGX(outstanding)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Wallet recovery rate</span>
+                    <span className="font-semibold">{Math.round(rate * 100)}% per credit</span>
+                  </div>
                 </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Wallet recovery rate</span>
-                  <span className="font-semibold">{Math.round(rate * 100)}% per credit</span>
+
+                {/* Logbook Custody & Settlement Card */}
+                <div
+                  className={`rounded-lg border p-3 space-y-2 ${
+                    outstanding === 0
+                      ? 'border-emerald-500/30 bg-emerald-500/5'
+                      : 'border-border bg-card/60'
+                  }`}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <ShieldCheck className={`h-4 w-4 ${outstanding === 0 ? 'text-emerald-600' : 'text-primary'}`} />
+                      <p className="text-xs font-semibold text-foreground truncate">
+                        {outstanding === 0 ? 'Logbook Transfer Authorized' : 'Logbook Title Custody'}
+                      </p>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className={`text-[10px] ${
+                        outstanding === 0
+                          ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30'
+                          : 'bg-indigo-500/15 text-indigo-600 border-indigo-500/30'
+                      }`}
+                    >
+                      {outstanding === 0 ? '✓ Ready for Pickup' : '🔒 In Welile Custody'}
+                    </Badge>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    {outstanding === 0
+                      ? 'Congratulations! Your Spiro bike lease is 100% settled. Welile has discharged its legal custody hold, and your official logbook transfer is authorized.'
+                      : 'The Spiro logbook and registration title remain in Welile legal custody throughout the active lease period until full settlement.'}
+                  </p>
+
+                  {outstanding === 0 && (
+                    <Button
+                      size="sm"
+                      className="w-full h-8 text-xs font-semibold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white mt-1"
+                      disabled={downloadingCert}
+                      onClick={async () => {
+                        setDownloadingCert(true);
+                        try {
+                          const { data: profile } = await supabase
+                            .from('profiles')
+                            .select('full_name, phone, national_id')
+                            .eq('id', userId!)
+                            .maybeSingle();
+                          const blob = await generateSpiroBikeSettlementCertificatePdf({
+                            agentName: profile?.full_name || 'Agent',
+                            agentPhone: profile?.phone || null,
+                            nationalId: profile?.national_id || null,
+                            modelType: selected.model_type || 'Spiro electric bike',
+                            trackingReference: selected.tracking_reference || null,
+                            valuationAmount: valuation,
+                            totalRepaid: valuation,
+                            leaseTermMonths: selected.lease_term_months || 12,
+                            completedAt: selected.lease_activated_at || selected.cfo_disbursed_at || selected.created_at,
+                            saleId: selected.id,
+                          });
+                          downloadSpiroSettlementCertificate(blob, profile?.full_name || 'Agent', selected.tracking_reference);
+                          toast.success('Certificate of Full Settlement downloaded');
+                        } catch (err: any) {
+                          toast.error('Could not download certificate: ' + (err.message || 'Unknown error'));
+                        } finally {
+                          setDownloadingCert(false);
+                        }
+                      }}
+                    >
+                      {downloadingCert ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Download className="h-3.5 w-3.5" />
+                      )}
+                      Download Settlement Certificate
+                    </Button>
+                  )}
                 </div>
               </div>
             )}
