@@ -34,7 +34,10 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
   const [nameParts, setNameParts] = useState<PersonNameParts>({ firstName: '', otherNames: '', lastName: '' });
   const ownerName = joinPersonName(nameParts);
   const [amount, setAmount] = useState('');
-  const [purpose, setPurpose] = useState('personal_deposit');
+  // Fixed to operational_float — this dialog starts a cash deposit received at
+  // the counter, which is always operational float money. The dropdown was
+  // removed on request; the payload still sends a valid enum value.
+  const purpose = 'operational_float';
   const [cashLocation, setCashLocation] = useState<'bank' | 'cash_at_hand'>('cash_at_hand');
   const [reason, setReason] = useState('');
   // Email is an extra delivery channel for the same code — useful when SMS is
@@ -69,7 +72,6 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
     setPhone('');
     setNameParts({ firstName: '', otherNames: '', lastName: '' });
     setAmount('');
-    setPurpose('personal_deposit');
     setCashLocation('cash_at_hand');
     setReason('');
     setAlsoEmail(false);
@@ -208,16 +210,9 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
 
           <div className="space-y-1.5">
             <Label>Purpose</Label>
-            <Select value={purpose} onValueChange={setPurpose}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="personal_deposit">Personal Deposit</SelectItem>
-                <SelectItem value="operational_float">Operational Float</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="rounded-md border border-input bg-muted/40 px-3 py-2 text-sm">
+              Operational Float
+            </div>
           </div>
 
           <div className="space-y-1.5">
