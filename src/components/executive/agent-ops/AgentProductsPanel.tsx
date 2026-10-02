@@ -25,6 +25,7 @@ import { archivePdfBlob } from '@/lib/pdfVault';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { Package, Users, Warehouse, Download, Plus, RefreshCw, Search, Wallet, TrendingUp, Trash2, Clock, Layers, Activity, Check, X, Loader2, Phone, Mail, MapPin, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface CatalogItem { id: string; item_name: string; unit_price: number; unit_cost: number }
 interface CentreItem { id: string; location_name: string | null; agent_id: string | null; agent_name: string | null; status: string }
@@ -541,6 +542,7 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
   const breakdown = data?.breakdown ?? [];
   const activity = data?.activity ?? [];
   const isSmartphone = category === 'smart_phone';
+  const isMotorBike = category === 'motor_bike';
 
   // KPI drill-down. The lists come straight from the same overview payload the
   // cards count, so a card and its sheet can never disagree.
@@ -719,45 +721,66 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between sm:justify-start gap-2">
-        {scopeLabel && <Badge variant="secondary" className="text-[11px] font-medium">{scopeLabel}</Badge>}
+      <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center sm:justify-start gap-2.5 sm:gap-2">
+        {/* Mobile top utility row: Scope Badge on left, Refresh & Export on right */}
+        <div className="flex items-center justify-between gap-2 w-full sm:w-auto sm:contents">
+          {scopeLabel && (
+            <Badge variant="secondary" className="text-[11px] font-medium shrink-0">
+              {scopeLabel}
+            </Badge>
+          )}
+          <div className="flex items-center gap-1.5 sm:hidden ml-auto">
+            <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching} className="gap-1.5 h-8 text-xs">
+              <RefreshCw className={isFetching ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'} />
+              Refresh
+            </Button>
+            <Button variant="outline" size="sm" onClick={exportPdf} disabled={!effectiveKpis} className="gap-1.5 h-8 text-xs">
+              <Download className="h-3.5 w-3.5" />
+              Export PDF
+            </Button>
+          </div>
+        </div>
+
         {(showIssued || showApplications) && (
           <>
-            <div className="relative flex-1 min-w-[200px]">
+            <div className="relative w-full sm:w-auto sm:flex-1 sm:min-w-[200px]">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search agent name or phone"
-                className="pl-8"
+                className="pl-8 w-full"
               />
             </div>
-            <Select value={itemFilter} onValueChange={setItemFilter}>
-              <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="All items" />
-              </SelectTrigger>
-              <SelectContent className="max-h-72">
-                <SelectItem value="all">All items</SelectItem>
-                {itemOptions.map((name) => (
-                  <SelectItem key={name} value={name}>{name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {(search.trim() || itemFilter !== 'all') && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="gap-1"
-                onClick={() => { setSearch(''); setItemFilter('all'); }}
-              >
-                <X className="h-3.5 w-3.5" />
-                Clear
-              </Button>
-            )}
+            <div className="flex items-center gap-2 w-full sm:w-auto">
+              <Select value={itemFilter} onValueChange={setItemFilter}>
+                <SelectTrigger className="w-full sm:w-[180px]">
+                  <SelectValue placeholder="All items" />
+                </SelectTrigger>
+                <SelectContent className="max-h-72">
+                  <SelectItem value="all">All items</SelectItem>
+                  {itemOptions.map((name) => (
+                    <SelectItem key={name} value={name}>{name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {(search.trim() || itemFilter !== 'all') && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1 shrink-0"
+                  onClick={() => { setSearch(''); setItemFilter('all'); }}
+                >
+                  <X className="h-3.5 w-3.5" />
+                  Clear
+                </Button>
+              )}
+            </div>
           </>
         )}
 
-        <div className="flex items-center gap-2 ml-auto sm:ml-0">
+        {/* Desktop actions: Refresh + Export PDF */}
+        <div className="hidden sm:flex items-center gap-2 ml-auto sm:ml-0">
           <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching} className="gap-1.5 h-8 text-xs">
             <RefreshCw className={isFetching ? 'h-3.5 w-3.5 animate-spin' : 'h-3.5 w-3.5'} />
             Refresh
@@ -767,10 +790,11 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
             Export PDF
           </Button>
         </div>
+
         {showIssued && (
           <Dialog open={addOpen} onOpenChange={setAddOpen}>
             <DialogTrigger asChild>
-              <Button size="sm" className="gap-1.5">
+              <Button size="sm" className="w-full sm:w-auto gap-1.5 font-medium justify-center">
                 <Plus className="h-4 w-4" />
                 {category === 'motor_bike' ? 'Assign company bike' : 'New entry'}
               </Button>
@@ -1014,7 +1038,7 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
       {showOverview && (
         <div className="grid gap-4 lg:grid-cols-3">
           {/* Pending applications quick-action queue */}
-          <Card className="lg:col-span-2 min-w-0">
+          <Card className={cn(isMotorBike ? "lg:col-span-3" : "lg:col-span-2", "min-w-0")}>
             <CardHeader className="pb-2 flex-row items-center justify-between space-y-0">
               <CardTitle className="text-sm font-semibold flex items-center gap-2">
                 <Clock className="h-4 w-4 text-amber-500" />
@@ -1036,41 +1060,43 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
           </Card>
 
 
-          {/* Catalog & brand inventory breakdown */}
-          <Card className="min-w-0">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-semibold flex items-center gap-2">
-                <Layers className="h-4 w-4 text-primary" />
-                {isSmartphone ? 'Brand inventory' : 'Catalog inventory'}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              {isLoading && breakdown.length === 0 ? (
-                <div className="p-4 space-y-2">
-                  {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
-                </div>
-              ) : breakdown.length === 0 ? (
-                <p className="p-6 text-sm text-muted-foreground text-center">No catalog items yet.</p>
-              ) : (
-                <div className="divide-y divide-border">
-                  {breakdown.map((b) => (
-                    <div key={b.label} className="p-3 space-y-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-sm font-semibold truncate">{b.label}</p>
-                        <span className="text-xs font-medium tabular-nums">{Number(b.issued_qty || 0)} issued</span>
+          {/* Catalog & brand inventory breakdown (moved into Manage Bike Catalog button area for motor bikes) */}
+          {!isMotorBike && (
+            <Card className="min-w-0">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm font-semibold flex items-center gap-2">
+                  <Layers className="h-4 w-4 text-primary" />
+                  {isSmartphone ? 'Brand inventory' : 'Catalog inventory'}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                {isLoading && breakdown.length === 0 ? (
+                  <div className="p-4 space-y-2">
+                    {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-12 w-full" />)}
+                  </div>
+                ) : breakdown.length === 0 ? (
+                  <p className="p-6 text-sm text-muted-foreground text-center">No catalog items yet.</p>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {breakdown.map((b) => (
+                      <div key={b.label} className="p-3 space-y-1">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-sm font-semibold truncate">{b.label}</p>
+                          <span className="text-xs font-medium tabular-nums">{Number(b.issued_qty || 0)} issued</span>
+                        </div>
+                        <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+                          {isSmartphone && <span>{Number(b.models || 0)} model(s)</span>}
+                          <span>Ref: {formatUGX(Number(b.reference_price || 0))}</span>
+                          <span>Value: {formatUGX(Number(b.issued_value || 0))}</span>
+                          <span className="text-destructive">Out: {formatUGX(Number(b.outstanding || 0))}</span>
+                        </div>
                       </div>
-                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
-                        {isSmartphone && <span>{Number(b.models || 0)} model(s)</span>}
-                        <span>Ref: {formatUGX(Number(b.reference_price || 0))}</span>
-                        <span>Value: {formatUGX(Number(b.issued_value || 0))}</span>
-                        <span className="text-destructive">Out: {formatUGX(Number(b.outstanding || 0))}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Recent field devices activity feed */}
           <Card className="lg:col-span-3 min-w-0">
