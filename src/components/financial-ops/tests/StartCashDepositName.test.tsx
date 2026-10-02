@@ -46,7 +46,7 @@ describe('StartCashDepositDialog — depositor name', () => {
     fill(/Depositor phone number/i, '0771234567');
     fireEvent.click(screen.getByRole('button', { name: /Continue/i }));
     expect(screen.getByText(/Please type the last name/i)).toBeTruthy();
-    expect(screen.getByText(/Who is depositing/i)).toBeTruthy();
+    expect(screen.getByRole("heading", { name: /Who is depositing/i })).toBeTruthy();
     expect(invokeSpy).not.toHaveBeenCalled();
   });
 });
