@@ -43,6 +43,9 @@ const AvailableHousesHarness = lazyWithRetry(
 const ExistingTenantNoticeHarness = lazyWithRetry(
   () => import("@/pages/__e2e/ExistingTenantNoticeHarness"),
 );
+const ItemSwipePickerHarness = lazyWithRetry(
+  () => import("@/pages/__e2e/ItemSwipePickerHarness"),
+);
 const ProxyPartnerWithdrawalHarness = lazyWithRetry(
   () => import("@/pages/__e2e/ProxyPartnerWithdrawalHarness"),
 );
@@ -586,6 +589,16 @@ function AppRoutes() {
               element={
                 <Suspense fallback={null}>
                   <ExistingTenantNoticeHarness />
+                </Suspense>
+              }
+            />
+          )}
+          {import.meta.env.DEV && (
+            <Route
+              path="/__e2e/item-swipe-picker"
+              element={
+                <Suspense fallback={null}>
+                  <ItemSwipePickerHarness />
                 </Suspense>
               }
             />

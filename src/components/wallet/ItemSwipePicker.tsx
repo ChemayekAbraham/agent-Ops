@@ -35,21 +35,35 @@ export function ItemSwipePicker({ open, items, startLabel, onPick, onClose }: Pr
     const host = rootRef.current?.parentElement?.closest('[role="dialog"]') as HTMLElement | null;
     if (!host) return;
     const prevOverflow = host.style.overflow;
+    const prevMinHeight = host.style.minHeight;
     const prevScroll = host.scrollTop;
     const closeBtn = host.querySelector(':scope > button') as HTMLElement | null;
     const prevDisplay = closeBtn?.style.display ?? '';
     host.scrollTop = 0;
     host.style.overflow = 'hidden';
+    // On desktop the dialog is a short centred card, so give it room for a full
+    // picture while the picker is open. On a phone it is already full height.
+    host.style.minHeight = 'min(85vh, 760px)';
     if (closeBtn) closeBtn.style.display = 'none';
     // Any animated wrapper with a transform becomes the "screen" for a fixed
-    // element, so measure where we actually landed and shift back to 0,0.
+    // element, and the dialog clips it. Fill the dialog itself (its inner box),
+    // not the browser window: on a phone they are the same, on desktop the
+    // arrows, close button and "Choose this" would otherwise sit outside it.
     const place = () => {
       const el = rootRef.current;
       if (!el) return;
       const r = el.getBoundingClientRect();
+      const h = host.getBoundingClientRect();
       const curTop = parseFloat(el.style.top || '0') || 0;
       const curLeft = parseFloat(el.style.left || '0') || 0;
-      setFrame({ top: curTop - r.top, left: curLeft - r.left, width: window.innerWidth, height: window.innerHeight, right: 'auto', bottom: 'auto' });
+      setFrame({
+        top: curTop - (r.top - (h.top + host.clientTop)),
+        left: curLeft - (r.left - (h.left + host.clientLeft)),
+        width: host.clientWidth,
+        height: host.clientHeight,
+        right: 'auto',
+        bottom: 'auto',
+      });
     };
     place();
     const raf = requestAnimationFrame(place);
@@ -58,6 +72,7 @@ export function ItemSwipePicker({ open, items, startLabel, onPick, onClose }: Pr
       cancelAnimationFrame(raf);
       window.removeEventListener('resize', place);
       host.style.overflow = prevOverflow;
+      host.style.minHeight = prevMinHeight;
       host.scrollTop = prevScroll;
       if (closeBtn) closeBtn.style.display = prevDisplay;
     };
