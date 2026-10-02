@@ -462,9 +462,8 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
     queryKey: ['bike-lease-queue'],
     enabled: category === 'motor_bike',
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('list_bike_lease_orders' as any, { p_status: null });
-      if (error) throw error;
-      return (data || []) as any[];
+      const { fetchBikeLeaseQueue } = await import('@/hooks/useBikeLeases');
+      return (await fetchBikeLeaseQueue(null)) as any[];
     },
     staleTime: 30_000,
   });

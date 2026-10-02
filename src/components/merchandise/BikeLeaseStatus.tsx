@@ -68,16 +68,8 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder }: Props) {
     queryKey: ['my-bike-lease-orders', userId],
     enabled: !!userId,
     queryFn: async () => {
-      const { data, error } = await db
-        .from('merchandise_sales')
-        .select(
-          'id, model_type, valuation_amount, total_amount, amount_outstanding, lease_term_months, lease_daily_rate, order_status, rejection_reason, created_at, coo_approved_at, cfo_disbursed_at, lease_activated_at, tracking_reference',
-        )
-        .eq('customer_id', userId)
-        .ilike('item_name', '%Spiro%')
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      return (data || []) as BikeLeaseRow[];
+      const { fetchMyBikeLeases } = await import('@/hooks/useBikeLeases');
+      return (await fetchMyBikeLeases(userId!)) as BikeLeaseRow[];
     },
   });
 
