@@ -145,6 +145,8 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
   };
 
   const submit = async () => {
+    // One send at a time — a second press while the request is in flight is ignored.
+    if (submitting) return;
     setSubmitting(true);
     setError(null);
     let data: any = null;
