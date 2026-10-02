@@ -130,10 +130,11 @@ To enforce strict **Four-Eyes Separation of Duties**, the role of `manager` shou
 
 ### 10.2 Arrears & Inactivity Policy
 - **The Issue**: When an agent earns 0 UGX, the sweep simply skips with no escalation or arrears flagging.
-- **Strategic Recommendation**: Implement a **Soft Grace Period + Ops Dormancy Trigger**:
-  - If an agent generates zero deductions for **7 consecutive business days**, trigger an automated high-priority alert on the Agent Ops Dashboard.
-  - If inactive for **14 days**, temporarily suspend rent float issuance until the field officer conducts an in-person audit of the bike and agent.
-- ⏳ **STATUS**: Not yet implemented — scheduled as a follow-up feature.
+- 🔧 **SENT TO LOVABLE** — Two-sided dormancy detection for bike leases only:
+  - **Agent Ops Dashboard**: "Dormant Bike Leases" alert panel (red/amber) showing agent name, bike model, days since last deduction, and outstanding balance for any active lease with no deduction in 7+ days.
+  - **Agent Dashboard**: Friendly reminder banner — "Your bike lease payments have been paused for 7 days — collect rent to keep your repayment on track" — with outstanding balance and days remaining.
+  - **Agent Notification**: One-time `bike_lease_reminder` notification inserted into `notifications` table per dormancy period (not repeated daily). Tone is encouraging, not threatening.
+  - If inactive for **14 days**, temporarily suspend rent float issuance until field officer conducts an in-person audit of the bike and agent (future phase).
 
 ### 10.3 Bike Ownership, Security & Logbook Custody
 - ✅ **IMPLEMENTED**:
@@ -156,6 +157,20 @@ To enforce strict **Four-Eyes Separation of Duties**, the role of `manager` shou
 - ✅ **IMPLEMENTED** (Migration `0417_bike_lease_approver_names.sql`):
   - Each approval stage records the approver's user ID and full name: `ops_approved_by`, `coo_approved_by`, `cfo_approved_by`.
   - Displayed in the lease detail dialog under Application History (e.g. "Agent Ops verified by Jane Nakato").
+
+### 10.7 Applicant Data Drilldowns
+- ✅ **IMPLEMENTED**:
+  - The Applicant Standing & Team stat cards in the lease detail dialog are **clickable** — each toggles an inline drilldown panel:
+    - **Active Sub-Agents** → lists all sub-agents with name, status, and date added.
+    - **Active Tenants** → lists funded/repaying tenants with daily repayment, amount repaid, and rent amount.
+    - **30d Collections** → lists last 30 days of collections with tenant name, amount, date, and payment method.
+  - Cards show hover cursor, subtle highlight, and active state border when expanded.
+
+### 10.8 Repayment Schedule Calculation
+- ✅ **FIXED**:
+  - The Repayment Breakdown in the detail dialog now calculates the 28% reducing-balance schedule on the **valuation amount** (the actual principal the agent repays), not a reverse-engineered cost price.
+  - The old formula `spiroLeaseSchedule(term, valuation / (1 + feePct/100))` has been replaced with `spiroLeaseSchedule(term, valuation)`.
+  - Bike Cost Price and Our Profit now read from `merchandise_catalog.unit_cost` via `useBikeCatalogCosts.ts`.
 
 ---
 
