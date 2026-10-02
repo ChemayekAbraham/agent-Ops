@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Plus, Trash2, Bike, Pencil, Power, Check, Loader2, Sparkles, Save } from 'lucide-react';
+import { Plus, Trash2, Bike, Pencil, Power, Check, Loader2, Sparkles, Save, Layers, ChevronDown } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -13,6 +13,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -136,9 +139,43 @@ export function useMotorBikeCatalog() {
 export function MotorBikeCatalogDialog() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [inventoryOpen, setInventoryOpen] = useState(false);
   const [addMode, setAddMode] = useState(false);
   const [editItem, setEditItem] = useState<MotorBikeCatalogItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<MotorBikeCatalogItem | null>(null);
+
+  // Overview query to fetch live catalog inventory breakdown for motor bikes
+  const { data: overviewData, isLoading: isOverviewLoading } = useQuery({
+    queryKey: ['agent-products-overview', 'motor_bike'],
+    queryFn: async () => {
+      const { data, error } = await db.rpc('get_agent_products_overview', { p_category: 'motor_bike' });
+      if (error) throw error;
+      return (data ?? {}) as any;
+    },
+    staleTime: 60_000,
+  });
+
+  const breakdown: {
+    label: string;
+    issued_qty: number;
+    issued_value: number;
+    outstanding: number;
+    reference_price?: number;
+    models?: number;
+  }[] = overviewData?.breakdown ?? [];
+
+  const totalIssued = useMemo(
+    () => breakdown.reduce((sum, b) => sum + Number(b.issued_qty || 0), 0),
+    [breakdown]
+  );
+  const totalValue = useMemo(
+    () => breakdown.reduce((sum, b) => sum + Number(b.issued_value || 0), 0),
+    [breakdown]
+  );
+  const totalOutstanding = useMemo(
+    () => breakdown.reduce((sum, b) => sum + Number(b.outstanding || 0), 0),
+    [breakdown]
+  );
 
   // Form states for Add / Edit
   const [name, setName] = useState('');
@@ -336,73 +373,243 @@ export function MotorBikeCatalogDialog() {
 
   return (
     <>
-      <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
-        <DialogTrigger asChild>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2 h-9 text-xs sm:text-sm font-semibold border-primary/30 text-primary hover:bg-primary/10 transition-colors"
-          >
-            <Bike className="h-4 w-4 text-primary" />
-            Manage Bike Catalog
-          </Button>
-        </DialogTrigger>
-
-        <DialogContent
-          className={cn(
-            'app-dialog-bottom-sheet',
-            '!left-0 !right-0 !top-auto !bottom-0',
-            '!translate-x-0 !translate-y-0',
-            '!max-w-none !w-full',
-            '!rounded-t-3xl !rounded-b-none',
-            '!p-0 !gap-0',
-            'h-[90dvh] max-h-[90dvh]',
-            'flex flex-col overflow-hidden',
-            'pointer-events-auto',
-            'sm:!left-[50%] sm:!top-[50%] sm:!bottom-auto sm:!right-auto',
-            'sm:!translate-x-[-50%] sm:!translate-y-[-50%]',
-            'sm:!max-w-3xl sm:!w-full',
-            'sm:!rounded-2xl',
-            'sm:h-auto sm:max-h-[92dvh]'
-          )}
-        >
-          <div className="sm:hidden flex justify-center pt-2.5 pb-1 shrink-0">
-            <div className="h-1.5 w-12 rounded-full bg-muted-foreground/30" />
-          </div>
-          <DialogHeader className="px-4 sm:px-6 pt-2 sm:pt-4 pb-3 border-b border-border/50 shrink-0 pr-12 sm:pr-10 text-left">
-            <div className="flex items-center justify-between gap-2">
-              <DialogTitle className="flex items-center gap-2.5 text-base sm:text-lg font-bold">
-                <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center border border-primary/20">
-                  <Bike className="h-4 w-4" />
+      <div className="inline-flex items-center gap-2">
+        {/* Quick Popover for live catalog inventory in button area */}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 h-9 text-xs sm:text-sm font-medium border-border hover:bg-muted/50"
+              title="Click to view live catalog inventory breakdown"
+            >
+              <Layers className="h-4 w-4 text-primary" />
+              <span className="hidden sm:inline">Catalog</span> Inventory
+              {totalIssued > 0 && (
+                <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
+                  {totalIssued}
+                </Badge>
+              )}
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground ml-0.5" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-80 sm:w-96 p-0 shadow-lg border-border" align="end">
+            <div className="p-3 border-b border-border bg-muted/30">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Layers className="h-4 w-4 text-primary" />
+                  <p className="text-xs font-bold text-foreground">Catalog Inventory</p>
                 </div>
-                Motor Bikes Catalog Management
-              </DialogTitle>
+                <Badge variant="secondary" className="text-[10px]">
+                  {totalIssued} issued
+                </Badge>
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-0.5">
+                Live breakdown of motor bikes issued to agents
+              </p>
+            </div>
+            <div className="p-2 grid grid-cols-2 gap-1.5 bg-muted/10 border-b border-border text-[11px]">
+              <div className="rounded border bg-background p-1.5">
+                <span className="text-[10px] text-muted-foreground block">Fleet Value</span>
+                <span className="font-bold text-foreground tabular-nums">{formatUGX(totalValue)}</span>
+              </div>
+              <div className="rounded border bg-background p-1.5">
+                <span className="text-[10px] text-muted-foreground block">Outstanding</span>
+                <span className="font-bold text-destructive tabular-nums">{formatUGX(totalOutstanding)}</span>
+              </div>
+            </div>
+            <div className="max-h-64 overflow-y-auto divide-y divide-border">
+              {isOverviewLoading && breakdown.length === 0 ? (
+                <div className="p-3 space-y-2">
+                  <Skeleton className="h-8 w-full" />
+                  <Skeleton className="h-8 w-full" />
+                </div>
+              ) : breakdown.length === 0 ? (
+                <p className="p-4 text-xs text-muted-foreground text-center">No catalog items issued yet.</p>
+              ) : (
+                breakdown.map((b) => (
+                  <div key={b.label} className="p-2.5 space-y-1 hover:bg-muted/20 transition-colors">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-semibold truncate text-foreground">{b.label}</p>
+                      <span className="text-[11px] font-medium tabular-nums">{Number(b.issued_qty || 0)} issued</span>
+                    </div>
+                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-muted-foreground">
+                      <span>Ref: {formatUGX(Number(b.reference_price || 0))}</span>
+                      <span>Value: {formatUGX(Number(b.issued_value || 0))}</span>
+                      <span className="text-destructive font-medium">Out: {formatUGX(Number(b.outstanding || 0))}</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
+
+        <Dialog open={open} onOpenChange={(v) => { setOpen(v); if (!v) resetForm(); }}>
+          <DialogTrigger asChild>
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 h-9 text-xs sm:text-sm font-semibold border-primary/30 text-primary hover:bg-primary/10 transition-colors"
+            >
+              <Bike className="h-4 w-4 text-primary" />
+              Manage Bike Catalog
+            </Button>
+          </DialogTrigger>
+
+          <DialogContent
+            className={cn(
+              'app-dialog-bottom-sheet',
+              '!left-0 !right-0 !top-auto !bottom-0',
+              '!translate-x-0 !translate-y-0',
+              '!max-w-none !w-full',
+              '!rounded-t-3xl !rounded-b-none',
+              '!p-0 !gap-0',
+              'h-[90dvh] max-h-[90dvh]',
+              'flex flex-col overflow-hidden',
+              'pointer-events-auto',
+              'sm:!left-[50%] sm:!top-[50%] sm:!bottom-auto sm:!right-auto',
+              'sm:!translate-x-[-50%] sm:!translate-y-[-50%]',
+              'sm:!max-w-3xl sm:!w-full',
+              'sm:!rounded-2xl',
+              'sm:h-auto sm:max-h-[92dvh]'
+            )}
+          >
+            <div className="sm:hidden flex justify-center pt-2.5 pb-1 shrink-0">
+              <div className="h-1.5 w-12 rounded-full bg-muted-foreground/30" />
+            </div>
+            <DialogHeader className="px-4 sm:px-6 pt-2 sm:pt-4 pb-3 border-b border-border/50 shrink-0 pr-12 sm:pr-10 text-left">
+              <div className="flex items-center justify-between gap-2">
+                <DialogTitle className="flex items-center gap-2.5 text-base sm:text-lg font-bold">
+                  <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center border border-primary/20">
+                    <Bike className="h-4 w-4" />
+                  </div>
+                  Motor Bikes Catalog Management
+                </DialogTitle>
+                {!addMode && !editItem && (
+                  <Button
+                    size="sm"
+                    className="hidden sm:flex h-8 gap-1.5 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-sm"
+                    onClick={() => { resetForm(); setAddMode(true); }}
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Add New Bike
+                  </Button>
+                )}
+              </div>
+              <DialogDescription className="text-xs">
+                View and edit baseline prices of existing motor bikes, configure repayment schedules, and add new models.
+              </DialogDescription>
               {!addMode && !editItem && (
                 <Button
                   size="sm"
-                  className="hidden sm:flex h-8 gap-1.5 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-sm"
+                  className="sm:hidden mt-2 w-full h-9 gap-1.5 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-sm"
                   onClick={() => { resetForm(); setAddMode(true); }}
                 >
                   <Plus className="h-3.5 w-3.5" /> Add New Bike
                 </Button>
               )}
-            </div>
-            <DialogDescription className="text-xs">
-              View and edit baseline prices of existing motor bikes, configure repayment schedules, and add new models.
-            </DialogDescription>
-            {!addMode && !editItem && (
-              <Button
-                size="sm"
-                className="sm:hidden mt-2 w-full h-9 gap-1.5 text-xs bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-sm"
-                onClick={() => { resetForm(); setAddMode(true); }}
-              >
-                <Plus className="h-3.5 w-3.5" /> Add New Bike
-              </Button>
-            )}
-          </DialogHeader>
+            </DialogHeader>
 
-          <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 space-y-4 text-xs overscroll-contain">
-            {/* ADD / DETAILED EDIT FORM */}
+            <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 space-y-4 text-xs overscroll-contain">
+              {/* COLLAPSIBLE CATALOG INVENTORY SECTION */}
+              <Collapsible
+                open={inventoryOpen}
+                onOpenChange={setInventoryOpen}
+                className="rounded-xl border border-primary/25 bg-primary/[0.03] overflow-hidden shadow-xs"
+              >
+                <CollapsibleTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    className="w-full flex items-center justify-between p-3.5 h-auto text-left hover:bg-primary/[0.07] rounded-none transition-colors"
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="h-8 w-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center shrink-0 border border-primary/20">
+                        <Layers className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-xs sm:text-sm font-bold text-foreground">Catalog Inventory &amp; Field Breakdown</span>
+                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">
+                            {totalIssued} issued
+                          </Badge>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground truncate">
+                          Portfolio: {formatUGX(totalValue)} • Outstanding: {formatUGX(totalOutstanding)}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-muted-foreground shrink-0 ml-2">
+                      <span className="text-[11px] hidden sm:inline font-medium text-primary">
+                        {inventoryOpen ? 'Hide inventory' : 'View inventory'}
+                      </span>
+                      <ChevronDown className={cn("h-4 w-4 text-primary transition-transform duration-200", inventoryOpen && "rotate-180")} />
+                    </div>
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="border-t border-primary/15 p-3 sm:p-4 space-y-3 bg-background/60">
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="rounded-lg border bg-card p-2 text-center shadow-xs">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Total Issued</p>
+                        <p className="text-sm sm:text-base font-bold text-foreground tabular-nums">
+                          {totalIssued} units
+                        </p>
+                      </div>
+                      <div className="rounded-lg border bg-card p-2 text-center shadow-xs">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Fleet Value</p>
+                        <p className="text-sm sm:text-base font-bold text-foreground tabular-nums">
+                          {formatUGX(totalValue)}
+                        </p>
+                      </div>
+                      <div className="rounded-lg border bg-card p-2 text-center shadow-xs">
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Outstanding</p>
+                        <p className="text-sm sm:text-base font-bold text-destructive tabular-nums">
+                          {formatUGX(totalOutstanding)}
+                        </p>
+                      </div>
+                    </div>
+
+                    {isOverviewLoading && breakdown.length === 0 ? (
+                      <div className="p-3 space-y-2">
+                        <Skeleton className="h-10 w-full" />
+                        <Skeleton className="h-10 w-full" />
+                      </div>
+                    ) : breakdown.length === 0 ? (
+                      <p className="p-4 text-xs text-muted-foreground text-center">No issued catalog items yet.</p>
+                    ) : (
+                      <div className="divide-y divide-border rounded-lg border bg-card overflow-hidden">
+                        {breakdown.map((b) => (
+                          <div key={b.label} className="p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-muted/30 transition-colors">
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="text-xs sm:text-sm font-bold text-foreground truncate">{b.label}</p>
+                                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 bg-primary/5 text-primary border-primary/20">
+                                  {Number(b.issued_qty || 0)} issued
+                                </Badge>
+                              </div>
+                              <p className="text-[11px] text-muted-foreground">
+                                Reference price: {formatUGX(Number(b.reference_price || 0))}
+                              </p>
+                            </div>
+                            <div className="flex items-center gap-4 text-xs sm:text-right shrink-0">
+                              <div>
+                                <span className="text-[10px] text-muted-foreground block sm:inline mr-1">Issued Value:</span>
+                                <span className="font-bold text-foreground tabular-nums">{formatUGX(Number(b.issued_value || 0))}</span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] text-muted-foreground block sm:inline mr-1">Outstanding:</span>
+                                <span className="font-bold text-destructive tabular-nums">{formatUGX(Number(b.outstanding || 0))}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+
+              {/* ADD / DETAILED EDIT FORM */}
             {(addMode || editItem) && (
               <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 space-y-4">
                 <div className="flex items-center justify-between border-b border-primary/20 pb-2">
@@ -740,6 +947,7 @@ export function MotorBikeCatalogDialog() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
 
       {/* DELETE CONFIRMATION */}
       <AlertDialog open={!!deleteTarget} onOpenChange={(o) => { if (!o) setDeleteTarget(null); }}>
