@@ -465,13 +465,17 @@ Deno.serve(async (req) => {
     if (!/^\+?\d{9,15}$/.test(resolvedPhone.replace(/\s|-/g, ""))) {
       return json({ error: "The landlord number on file is invalid. Ask Landlord Ops to correct and verify it." }, 400);
     }
-    const normalizePhone = (value: string) => {
+    // Comparison key only (local 0XXXXXXXXX form). Named distinctly so it does not
+    // shadow the module-level normalizePhone(): a block-scoped `const normalizePhone`
+    // here put the whole handler in a temporal dead zone, so the resend path above
+    // threw "Cannot access 'normalizePhone' before initialization".
+    const phoneMatchKey = (value: string) => {
       const digits = value.replace(/\D/g, "");
       if (digits.startsWith("256") && digits.length === 12) return `0${digits.slice(3)}`;
       if (digits.length === 9) return `0${digits}`;
       return digits;
     };
-    if (!approvedPhone || normalizePhone(resolvedPhone) !== normalizePhone(approvedPhone)) {
+    if (!approvedPhone || phoneMatchKey(resolvedPhone) !== phoneMatchKey(approvedPhone)) {
       return json({ error: "The landlord number on file has changed since approval. Landlord Ops must verify the current number before an OTP can be sent." }, 400);
     }
 
