@@ -64,9 +64,10 @@ export default function PersonNameFields({
             required={required}
             aria-required={required || undefined}
             aria-invalid={errors?.firstName ? true : undefined}
+            aria-describedby={errors?.firstName ? `${firstId}-error` : undefined}
             className={errors?.firstName ? ERR_INPUT : undefined}
           />
-          <FieldError message={errors?.firstName} className={errorClassName} />
+          <FieldError id={`${firstId}-error`} message={errors?.firstName} className={errorClassName} />
         </div>
 
         <div className="space-y-1.5">
@@ -85,9 +86,10 @@ export default function PersonNameFields({
             required={required}
             aria-required={required || undefined}
             aria-invalid={errors?.lastName ? true : undefined}
+            aria-describedby={errors?.lastName ? `${lastId}-error` : undefined}
             className={errors?.lastName ? ERR_INPUT : undefined}
           />
-          <FieldError message={errors?.lastName} className={errorClassName} />
+          <FieldError id={`${lastId}-error`} message={errors?.lastName} className={errorClassName} />
         </div>
       </div>
 
@@ -103,9 +105,10 @@ export default function PersonNameFields({
           onChange={(e) => set('otherNames')(e.target.value)}
           disabled={disabled}
           aria-invalid={errors?.otherNames ? true : undefined}
+            aria-describedby={errors?.otherNames ? `${otherId}-error` : undefined}
           className={errors?.otherNames ? ERR_INPUT : undefined}
         />
-        <FieldError message={errors?.otherNames} className={errorClassName} />
+        <FieldError id={`${otherId}-error`} message={errors?.otherNames} className={errorClassName} />
       </div>
     </div>
   );
