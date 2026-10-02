@@ -4,6 +4,8 @@ import { Label } from '@/components/ui/label';
 import FieldError from '@/components/shared/FieldError';
 import type { PersonNameParts } from '@/lib/authValidation';
 
+const ERR_INPUT = 'border-destructive focus-visible:ring-destructive';
+
 export interface PersonNameFieldsErrors {
   firstName?: string | null;
   otherNames?: string | null;
@@ -18,6 +20,8 @@ export interface PersonNameFieldsProps {
   idPrefix: string;
   className?: string;
   errors?: PersonNameFieldsErrors;
+  /** Optional override for the error message styling (e.g. larger text). */
+  errorClassName?: string;
 }
 
 /**
@@ -32,6 +36,7 @@ export default function PersonNameFields({
   idPrefix,
   className,
   errors,
+  errorClassName,
 }: PersonNameFieldsProps) {
   const firstId = `${idPrefix}-first-name`;
   const lastId = `${idPrefix}-last-name`;
@@ -59,8 +64,9 @@ export default function PersonNameFields({
             required={required}
             aria-required={required || undefined}
             aria-invalid={errors?.firstName ? true : undefined}
+            className={errors?.firstName ? ERR_INPUT : undefined}
           />
-          <FieldError message={errors?.firstName} />
+          <FieldError message={errors?.firstName} className={errorClassName} />
         </div>
 
         <div className="space-y-1.5">
@@ -79,8 +85,9 @@ export default function PersonNameFields({
             required={required}
             aria-required={required || undefined}
             aria-invalid={errors?.lastName ? true : undefined}
+            className={errors?.lastName ? ERR_INPUT : undefined}
           />
-          <FieldError message={errors?.lastName} />
+          <FieldError message={errors?.lastName} className={errorClassName} />
         </div>
       </div>
 
@@ -96,8 +103,9 @@ export default function PersonNameFields({
           onChange={(e) => set('otherNames')(e.target.value)}
           disabled={disabled}
           aria-invalid={errors?.otherNames ? true : undefined}
+          className={errors?.otherNames ? ERR_INPUT : undefined}
         />
-        <FieldError message={errors?.otherNames} />
+        <FieldError message={errors?.otherNames} className={errorClassName} />
       </div>
     </div>
   );
