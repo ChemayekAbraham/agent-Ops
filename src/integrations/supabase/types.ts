@@ -55542,6 +55542,7 @@ export type Database = {
           officer_since: string | null
           staff_id: string | null
           staff_ref: string | null
+          tracking_since: string | null
           user_id: string | null
         }
         Relationships: []
@@ -68216,6 +68217,7 @@ export type Database = {
           staff_ref: string
         }[]
       }
+      pso_tracking_start: { Args: never; Returns: string }
       public_house_support_offer: { Args: { p_code: string }; Returns: Json }
       purge_geo_coverage_cache: { Args: never; Returns: number }
       queue_tenant_rent_intake_notice: {
