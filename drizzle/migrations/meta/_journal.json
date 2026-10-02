@@ -2934,6 +2934,13 @@
       "when": 1790938470819,
       "tag": "0418_user_behaviour_telemetry",
       "breakpoints": true
+    },
+    {
+      "idx": 419,
+      "version": "7",
+      "when": 1790939226636,
+      "tag": "0419_fundin_p2c_v2_switch_to_fund_in_gate",
+      "breakpoints": true
     }
   ]
 }
