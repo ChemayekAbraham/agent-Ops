@@ -225,6 +225,25 @@ Deno.serve(async (req) => {
 
 
 
+    // PERMANENT DELETE GUARD: refuse any account with financial history.
+    // Permanent deletion removes wallets, advances and portfolios, including ones
+    // this person issued or managed for others. Accounts with money history may
+    // only be soft deleted or archived. Fails closed if the check itself errors.
+    {
+      const { data: history, error: historyErr } = await supabaseAdmin.rpc(
+        'account_financial_history',
+        { p_user_id: user_id },
+      );
+      if (historyErr || !history || history.has_history !== false) {
+        return new Response(JSON.stringify({
+          error: historyErr
+            ? 'Could not confirm this account has no financial history, so it was not deleted.'
+            : 'This account has financial history and cannot be permanently deleted. Use soft delete instead.',
+          financial_history: history ?? null,
+        }), { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+    }
+
     // PRE-STEP: remove records that have non-nullable FK refs or need explicit cleanup.
     // Most FK constraints now use ON DELETE SET NULL, so only truly blocking refs need handling.
     const preCleanupResults = await Promise.all([
