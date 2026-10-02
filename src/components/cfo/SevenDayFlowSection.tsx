@@ -88,6 +88,8 @@ export function SevenDayFlowSection() {
   const payF = usePayablesPredictiveForecast('day', 7);
   const expL = useSevenDayExpenses();
   const expPast = useMemo(() => expRows(expL.data, -7, 0, false), [expL.data]);
+  // Recorded expenses including today (offset 0), for the Today / This month segments.
+  const expRecorded = useMemo(() => expRows(expL.data, -7, 1, false), [expL.data]);
   const expNext = useMemo(() => expRows(expL.data, 0, 7, true), [expL.data]);
   const [open, setOpen] = useState<{ title: string; row: Row } | null>(null);
 
@@ -134,7 +136,7 @@ export function SevenDayFlowSection() {
           <Win title="Receivables — Next 7 Days" icon={<CalendarClock className="h-4 w-4" />} tone="text-success" rows={data.recNext} onPick={pick('Receivables — Next 7 Days')} />
           <Win title="Payables — Past 7 Days" icon={<History className="h-4 w-4" />} tone="text-destructive" rows={data.payPast} onPick={pick('Payables — Past 7 Days')} />
           <Win title="Payables — Next 7 Days" icon={<CalendarClock className="h-4 w-4" />} tone="text-destructive" rows={data.payNext} onPick={pick('Payables — Next 7 Days')} />
-          <Win title="Expenses — Past 7 Days" icon={<History className="h-4 w-4" />} tone="text-warning" rows={expPast} onPick={pick('Expenses — Past 7 Days')} />
+          <SegmentedWin title="Expenses" icon={<History className="h-4 w-4" />} tone="text-warning" past={expPast} recorded={expRecorded} onPick={pick} />
           <Win title="Expenses — Next 7 Days" icon={<CalendarClock className="h-4 w-4" />} tone="text-warning" rows={expNext} onPick={pick('Expenses — Next 7 Days')} />
           <ProductSummary
             rec={{ past: data.recPast, next: data.recNext }}
@@ -240,6 +242,45 @@ function ProductSummary({ rec, pay }: { rec: SumSide; pay: SumSide }) {
       <p className="text-sm font-semibold">Summary by product &amp; service</p>
       {block('Receivables', 'text-success', rec)}
       {block('Payables', 'text-destructive', pay)}
+    </div>
+  );
+}
+
+type Seg = 'today' | 'yesterday' | 'week' | 'month';
+const SEGS: { id: Seg; label: string }[] = [
+  { id: 'today', label: 'Today' }, { id: 'yesterday', label: 'Yesterday' },
+  { id: 'week', label: 'Past 7 days' }, { id: 'month', label: 'This month' },
+];
+
+/** Expenses window with Today / Yesterday / Past 7 days / This month segments (Kampala days). */
+function SegmentedWin({ title, icon, tone, past, recorded, onPick }: {
+  title: string; icon: React.ReactNode; tone: string; past: Row[]; recorded: Row[]; onPick: (t: string) => (r: Row) => void;
+}) {
+  const [seg, setSeg] = useState<Seg>('week');
+  // recorded[0] = 7 days ago ... recorded[6] = yesterday, recorded[7] = today
+  const dayOfMonth = parseInt(kampalaOffsetYmd(0).slice(8, 10), 10) || 1;
+  const rows =
+    seg === 'today' ? recorded.slice(7, 8)
+    : seg === 'yesterday' ? recorded.slice(6, 7)
+    : seg === 'week' ? past
+    : recorded.slice(Math.max(0, 8 - dayOfMonth));
+  const label = SEGS.find((x) => x.id === seg)!.label;
+  return (
+    <div className="min-w-0">
+      <div className="mb-2 flex flex-wrap gap-1">
+        {SEGS.map((x) => (
+          <button
+            key={x.id}
+            type="button"
+            onClick={() => setSeg(x.id)}
+            aria-pressed={seg === x.id}
+            className={`rounded-full border px-2 py-0.5 text-[11px] transition-colors ${seg === x.id ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted/30 text-muted-foreground hover:bg-muted'}`}
+          >
+            {x.label}
+          </button>
+        ))}
+      </div>
+      <Win title={`${title} — ${label}`} icon={icon} tone={tone} rows={rows} onPick={onPick(`${title} — ${label}`)} />
     </div>
   );
 }
