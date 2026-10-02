@@ -2,9 +2,10 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { Bike, Check, Edit3, Loader2, X, Download, Award, ShieldCheck, Wrench, TrendingUp } from 'lucide-react';
+import { Bike, Check, Edit3, Loader2, X, Download, Award, ShieldCheck, Wrench, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
+import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -153,6 +154,17 @@ export function BikeLeaseApprovalQueue({
   const [detailTarget, setDetailTarget] = useState<BikeLeaseRow | null>(null);
   const [editTarget, setEditTarget] = useState<BikeLeaseRow | null>(null);
   const [assetTarget, setAssetTarget] = useState<BikeLeaseRow | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
+  const toggleExpand = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const { data: orders = [], isLoading } = useQuery<BikeLeaseRow[]>({
     queryKey: ['bike-lease-queue'],
@@ -349,118 +361,145 @@ export function BikeLeaseApprovalQueue({
         ) : (
           <>
             {/* Mobile cards */}
-            <div className="space-y-2 md:hidden">
-              {filtered.map((o) => (
-                <div
-                  key={o.id}
-                  className="rounded-xl border bg-card p-3 space-y-2 cursor-pointer hover:bg-muted/40 transition-colors shadow-sm"
-                  onClick={() => setDetailTarget(o)}
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-sm font-semibold truncate">{o.client_name || 'Agent'}</p>
-                      <p className="text-[11px] text-muted-foreground truncate">
-                        {o.model_type || 'Spiro bike'} · {o.client_phone || '—'}
-                      </p>
+            <div className="space-y-2.5 md:hidden">
+              {filtered.map((o) => {
+                const pricing = rowPricing(o);
+                const isExpanded = expandedIds.has(o.id);
+                return (
+                  <div
+                    key={o.id}
+                    className={cn(
+                      "rounded-xl border bg-card transition-all shadow-xs overflow-hidden",
+                      isExpanded ? "border-primary/40 ring-1 ring-primary/20" : "hover:border-border"
+                    )}
+                  >
+                    {/* Collapsible Card Header - always visible & tappable */}
+                    <div
+                      className="flex items-center justify-between gap-2 p-3 cursor-pointer select-none hover:bg-muted/30 transition-colors"
+                      onClick={() => toggleExpand(o.id)}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <p className="text-sm font-semibold truncate text-foreground">{o.client_name || 'Agent'}</p>
+                          <Badge variant="outline" className={cn("shrink-0 text-[10px] px-1.5 py-0 font-medium", STATUS_TONE[o.order_status] || '')}>
+                            {statusLabel(o.order_status)}
+                          </Badge>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground truncate mt-0.5">
+                          {o.model_type || 'Spiro bike'} · {o.client_phone || '—'}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        <div className="text-right">
+                          <p className="text-xs font-bold text-foreground tabular-nums">
+                            {formatUGX(Number(o.amount_outstanding || o.valuation_amount || 0))}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {Number(o.amount_outstanding || 0) > 0 ? 'outstanding' : 'valuation'}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          aria-label={isExpanded ? "Collapse card" : "Expand card"}
+                          className="h-7 w-7 rounded-full bg-muted/60 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+                          onClick={(e) => toggleExpand(o.id, e)}
+                        >
+                          {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                        </button>
+                      </div>
                     </div>
-                    <Badge variant="outline" className={`shrink-0 text-[10px] ${STATUS_TONE[o.order_status] || ''}`}>
-                      {statusLabel(o.order_status)}
-                    </Badge>
-                  </div>
-                  <div className="grid grid-cols-2 gap-1 text-[11px]">
-                    {isOpsDashboard ? (
-                      <>
-                        <span className="text-muted-foreground">Bike cost price</span>
-                        <span className="text-right font-semibold text-primary">
-                          {rowPricing(o).costPrice == null ? 'Not in catalog' : formatUGX(rowPricing(o).costPrice)}
-                        </span>
-                        <span className="text-muted-foreground">Our profit</span>
-                        <span className="text-right font-semibold text-emerald-600 dark:text-emerald-400">
-                          {rowPricing(o).profit == null ? 'Not in catalog' : formatUGX(rowPricing(o).profit)}
-                        </span>
-                        <span className="text-muted-foreground">Est. daily pay</span>
-                        <span className="text-right font-semibold">
-                          {formatUGX(rowPricing(o).dailyPay)}/day
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <span className="text-muted-foreground">Valuation</span>
-                        <span className="text-right font-semibold">{formatUGX(Number(o.valuation_amount || 0))}</span>
-                      </>
-                    )}
-                    <span className="text-muted-foreground">Lease term</span>
-                    <span className="text-right font-semibold">{o.lease_term_months || 12} months</span>
-                    <span className="text-muted-foreground">Recovery / credit</span>
-                    <span className="text-right font-semibold">{formatUGX(rowPricing(o).perCredit)} ({rowPricing(o).feePct}%)</span>
-                    <span className="text-muted-foreground">Outstanding</span>
-                    <span className="text-right font-semibold">{formatUGX(Number(o.amount_outstanding || 0))}</span>
-                  </div>
-                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 pt-1 border-t" onClick={(e) => e.stopPropagation()}>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 px-2.5 text-xs gap-1 border-primary/30 text-primary hover:bg-primary/10"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditTarget(o);
-                      }}
-                    >
-                      <Edit3 className="h-3.5 w-3.5" /> Edit Price
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-8 px-2.5 text-xs gap-1 text-muted-foreground hover:text-primary hover:bg-primary/10"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setAssetTarget(o);
-                      }}
-                    >
-                      <Wrench className="h-3.5 w-3.5" /> Asset
-                    </Button>
-                    {canActOnRow(o.order_status) ? (
-                      <>
-                        <Button
-                          size="sm"
-                          className="h-8 flex-1 text-xs"
-                          disabled={rowBusy(o.id)}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openApprove(o);
-                          }}
-                        >
-                          {ACTION_LABEL[approveStage]}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-8 text-xs text-destructive"
-                          disabled={rowBusy(o.id)}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setRejectTarget(o);
-                          }}
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </Button>
-                      </>
-                    ) : (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-8 flex-1 text-xs text-muted-foreground hover:text-primary"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDetailTarget(o);
-                        }}
-                      >
-                        View Details
-                      </Button>
+
+                    {/* Expandable Details & Actions */}
+                    {isExpanded && (
+                      <div className="px-3 pb-3 pt-1 border-t border-border/60 space-y-3 bg-card">
+                        <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 text-[11px] bg-muted/20 p-2.5 rounded-lg border border-border/40">
+                          {isOpsDashboard ? (
+                            <>
+                              <span className="text-muted-foreground">Bike cost price</span>
+                              <span className="text-right font-semibold text-primary tabular-nums">
+                                {pricing.costPrice == null ? 'Not in catalog' : formatUGX(pricing.costPrice)}
+                              </span>
+                              <span className="text-muted-foreground">Our profit</span>
+                              <span className="text-right font-semibold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                                {pricing.profit == null ? 'Not in catalog' : formatUGX(pricing.profit)}
+                              </span>
+                              <span className="text-muted-foreground">Est. daily pay</span>
+                              <span className="text-right font-semibold tabular-nums">
+                                {formatUGX(pricing.dailyPay)}/day
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-muted-foreground">Valuation</span>
+                              <span className="text-right font-semibold tabular-nums">{formatUGX(Number(o.valuation_amount || 0))}</span>
+                            </>
+                          )}
+                          <span className="text-muted-foreground">Lease term</span>
+                          <span className="text-right font-semibold tabular-nums">{o.lease_term_months || 12} months</span>
+                          <span className="text-muted-foreground">Recovery / credit</span>
+                          <span className="text-right font-semibold tabular-nums">{formatUGX(pricing.perCredit)} ({pricing.feePct}%)</span>
+                          <span className="text-muted-foreground">Outstanding</span>
+                          <span className="text-right font-semibold text-destructive tabular-nums">{formatUGX(Number(o.amount_outstanding || 0))}</span>
+                        </div>
+
+                        {/* Action buttons with no collision */}
+                        <div className="space-y-1.5 pt-1" onClick={(e) => e.stopPropagation()}>
+                          <div className="grid grid-cols-2 gap-2">
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 text-xs gap-1 border-primary/30 text-primary hover:bg-primary/10 font-medium"
+                              onClick={() => setEditTarget(o)}
+                            >
+                              <Edit3 className="h-3.5 w-3.5" /> Edit Price
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 text-xs gap-1 text-muted-foreground hover:text-primary hover:bg-primary/10 font-medium"
+                              onClick={() => setAssetTarget(o)}
+                            >
+                              <Wrench className="h-3.5 w-3.5" /> Asset Info
+                            </Button>
+                          </div>
+
+                          {canActOnRow(o.order_status) ? (
+                            <div className="flex items-center gap-2">
+                              <Button
+                                size="sm"
+                                className="h-8 flex-1 text-xs font-semibold shadow-xs"
+                                disabled={rowBusy(o.id)}
+                                onClick={() => openApprove(o)}
+                              >
+                                {ACTION_LABEL[approveStage]}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 px-3 text-xs text-destructive hover:bg-destructive/10 border-destructive/30 font-medium shrink-0"
+                                disabled={rowBusy(o.id)}
+                                onClick={() => setRejectTarget(o)}
+                              >
+                                <X className="h-3.5 w-3.5 mr-1" /> Reject
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-8 w-full text-xs text-muted-foreground hover:text-primary font-medium"
+                              onClick={() => setDetailTarget(o)}
+                            >
+                              View Full Details
+                            </Button>
+                          )}
+                        </div>
+                      </div>
                     )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* Desktop table */}
