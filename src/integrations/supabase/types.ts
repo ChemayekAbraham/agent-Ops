@@ -1479,6 +1479,169 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_bike_lease_schedules: {
+        Row: {
+          closing_balance: number
+          created_at: string
+          created_by: string | null
+          due_date: string
+          id: string
+          installment_amount: number
+          installment_no: number
+          interest_due: number
+          lease_id: string
+          monthly_rate_pct: number
+          opening_balance: number
+          principal_due: number
+          version: number
+        }
+        Insert: {
+          closing_balance: number
+          created_at?: string
+          created_by?: string | null
+          due_date: string
+          id?: string
+          installment_amount: number
+          installment_no: number
+          interest_due: number
+          lease_id: string
+          monthly_rate_pct: number
+          opening_balance: number
+          principal_due: number
+          version?: number
+        }
+        Update: {
+          closing_balance?: number
+          created_at?: string
+          created_by?: string | null
+          due_date?: string
+          id?: string
+          installment_amount?: number
+          installment_no?: number
+          interest_due?: number
+          lease_id?: string
+          monthly_rate_pct?: number
+          opening_balance?: number
+          principal_due?: number
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_bike_lease_schedules_lease_id_fkey"
+            columns: ["lease_id"]
+            isOneToOne: false
+            referencedRelation: "agent_bike_leases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agent_bike_leases: {
+        Row: {
+          agent_id: string | null
+          agent_name: string | null
+          agent_phone: string | null
+          amount_outstanding: number
+          amount_paid: number
+          battery_serial: string | null
+          brand: string
+          cfo_disbursed_at: string | null
+          chassis_number: string | null
+          coo_approved_at: string | null
+          created_at: string
+          disbursed_amount: number | null
+          gps_tracker_id: string | null
+          id: string
+          lease_activated_at: string | null
+          lease_term_months: number
+          logbook_status: string
+          logbook_updated_at: string | null
+          logbook_updated_by: string | null
+          model: string | null
+          monthly_rate_pct: number
+          ops_approved_at: string | null
+          plate_number: string | null
+          rejection_reason: string | null
+          sale_id: string
+          status: string
+          tracking_reference: string | null
+          updated_at: string
+          valuation_amount: number
+          wallet_recovery_rate: number | null
+        }
+        Insert: {
+          agent_id?: string | null
+          agent_name?: string | null
+          agent_phone?: string | null
+          amount_outstanding?: number
+          amount_paid?: number
+          battery_serial?: string | null
+          brand?: string
+          cfo_disbursed_at?: string | null
+          chassis_number?: string | null
+          coo_approved_at?: string | null
+          created_at?: string
+          disbursed_amount?: number | null
+          gps_tracker_id?: string | null
+          id?: string
+          lease_activated_at?: string | null
+          lease_term_months?: number
+          logbook_status?: string
+          logbook_updated_at?: string | null
+          logbook_updated_by?: string | null
+          model?: string | null
+          monthly_rate_pct?: number
+          ops_approved_at?: string | null
+          plate_number?: string | null
+          rejection_reason?: string | null
+          sale_id: string
+          status?: string
+          tracking_reference?: string | null
+          updated_at?: string
+          valuation_amount?: number
+          wallet_recovery_rate?: number | null
+        }
+        Update: {
+          agent_id?: string | null
+          agent_name?: string | null
+          agent_phone?: string | null
+          amount_outstanding?: number
+          amount_paid?: number
+          battery_serial?: string | null
+          brand?: string
+          cfo_disbursed_at?: string | null
+          chassis_number?: string | null
+          coo_approved_at?: string | null
+          created_at?: string
+          disbursed_amount?: number | null
+          gps_tracker_id?: string | null
+          id?: string
+          lease_activated_at?: string | null
+          lease_term_months?: number
+          logbook_status?: string
+          logbook_updated_at?: string | null
+          logbook_updated_by?: string | null
+          model?: string | null
+          monthly_rate_pct?: number
+          ops_approved_at?: string | null
+          plate_number?: string | null
+          rejection_reason?: string | null
+          sale_id?: string
+          status?: string
+          tracking_reference?: string | null
+          updated_at?: string
+          valuation_amount?: number
+          wallet_recovery_rate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_bike_leases_sale_id_fkey"
+            columns: ["sale_id"]
+            isOneToOne: true
+            referencedRelation: "merchandise_sales"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_capabilities: {
         Row: {
           agent_id: string
@@ -53906,6 +54069,62 @@ export type Database = {
         }
         Relationships: []
       }
+      v_bike_lease_current_schedule: {
+        Row: {
+          closing_balance: number | null
+          created_at: string | null
+          created_by: string | null
+          due_date: string | null
+          id: string | null
+          installment_amount: number | null
+          installment_no: number | null
+          interest_due: number | null
+          lease_id: string | null
+          monthly_rate_pct: number | null
+          opening_balance: number | null
+          principal_due: number | null
+          version: number | null
+        }
+        Insert: {
+          closing_balance?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          due_date?: string | null
+          id?: string | null
+          installment_amount?: number | null
+          installment_no?: number | null
+          interest_due?: number | null
+          lease_id?: string | null
+          monthly_rate_pct?: number | null
+          opening_balance?: number | null
+          principal_due?: number | null
+          version?: number | null
+        }
+        Update: {
+          closing_balance?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          due_date?: string | null
+          id?: string | null
+          installment_amount?: number | null
+          installment_no?: number | null
+          interest_due?: number | null
+          lease_id?: string | null
+          monthly_rate_pct?: number | null
+          opening_balance?: number | null
+          principal_due?: number | null
+          version?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_bike_lease_schedules_lease_id_fkey"
+            columns: ["lease_id"]
+            isOneToOne: false
+            referencedRelation: "agent_bike_leases"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_cc_call_queue: {
         Row: {
           active_capability_count: number | null
@@ -56661,6 +56880,10 @@ export type Database = {
         Returns: string
       }
       _cto_dossier_allowed: { Args: never; Returns: boolean }
+      _generate_bike_lease_schedule: {
+        Args: { p_lease_id: string }
+        Returns: number
+      }
       _geo_cache_key: {
         Args: {
           p_city: string
@@ -65762,6 +65985,47 @@ export type Database = {
           valuation_amount: number
         }[]
       }
+      list_bike_leases: {
+        Args: { p_status?: string }
+        Returns: {
+          agent_id: string | null
+          agent_name: string | null
+          agent_phone: string | null
+          amount_outstanding: number
+          amount_paid: number
+          battery_serial: string | null
+          brand: string
+          cfo_disbursed_at: string | null
+          chassis_number: string | null
+          coo_approved_at: string | null
+          created_at: string
+          disbursed_amount: number | null
+          gps_tracker_id: string | null
+          id: string
+          lease_activated_at: string | null
+          lease_term_months: number
+          logbook_status: string
+          logbook_updated_at: string | null
+          logbook_updated_by: string | null
+          model: string | null
+          monthly_rate_pct: number
+          ops_approved_at: string | null
+          plate_number: string | null
+          rejection_reason: string | null
+          sale_id: string
+          status: string
+          tracking_reference: string | null
+          updated_at: string
+          valuation_amount: number
+          wallet_recovery_rate: number | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "agent_bike_leases"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       list_boutique_approval_queue: {
         Args: { p_stage: string }
         Returns: {
@@ -69748,6 +70012,14 @@ export type Database = {
         Args: { p_rules: Json }
         Returns: Json
       }
+      set_bike_lease_monthly_rate: {
+        Args: {
+          p_lease_id: string
+          p_monthly_rate_pct: number
+          p_reason: string
+        }
+        Returns: Json
+      }
       set_landlord_payout_block_exemption: {
         Args: { p_allow: boolean; p_withdrawal_ids: string[] }
         Returns: number
@@ -71304,6 +71576,10 @@ export type Database = {
       update_agent_collection_streak: {
         Args: { p_agent_id: string }
         Returns: undefined
+      }
+      update_bike_lease_asset: {
+        Args: { p_details: Json; p_lease_id: string }
+        Returns: Json
       }
       update_user_risk_score: {
         Args: { p_reason?: string; p_score_change: number; p_user_id: string }

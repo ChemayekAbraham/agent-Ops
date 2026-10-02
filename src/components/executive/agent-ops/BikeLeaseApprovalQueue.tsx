@@ -37,6 +37,8 @@ import {
   downloadSpiroSettlementCertificate,
 } from '@/lib/spiroBikeSettlementCertificatePdf';
 
+import { fetchBikeLeaseQueue } from '@/hooks/useBikeLeases';
+
 const db = supabase as any;
 
 interface BikeLeaseRow {
@@ -150,9 +152,7 @@ export function BikeLeaseApprovalQueue({
   const { data: orders = [], isLoading } = useQuery<BikeLeaseRow[]>({
     queryKey: ['bike-lease-queue'],
     queryFn: async () => {
-      const { data, error } = await db.rpc('list_bike_lease_orders', { p_status: null });
-      if (error) throw error;
-      return (data || []) as BikeLeaseRow[];
+      return (await fetchBikeLeaseQueue(null)) as BikeLeaseRow[];
     },
   });
 
