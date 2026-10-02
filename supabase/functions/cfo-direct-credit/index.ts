@@ -155,6 +155,11 @@ Deno.serve(async (req) => {
 
     let user: { id: string };
     let callerRoles: string[];
+    // Set when a Financial Ops user who is NOT the CFO approver is allowed through
+    // for one narrow job: routing a real incoming email receipt to a wallet.
+    // Verified against the request body further down; every other credit or
+    // debit stays pinned to the CFO approver.
+    let finOpsEmailRoutingOnly = false;
 
     if (isSystemAuthored) {
       const { data: actor } = await adminClient
@@ -202,12 +207,18 @@ Deno.serve(async (req) => {
       user = { id: authedUser.id };
       callerRoles = (roles || []).map((r: any) => r.role);
       // CFO Direct Credit/Debit acting in a CFO capacity is restricted to the
-      // designated CFO approver. Financial Ops keeps its own verification duty.
-      // Manual credits and debits are pinned to the Chief Finance Officer office and the
-      // designated super admins. Holding financial_ops no longer qualifies on its own.
-      // Automated deposit-routing still runs through the isSystemAuthored branch above.
+      // designated CFO approver. Manual credits and debits are pinned to the Chief
+      // Finance Officer office and the designated super admins.
+      //
+      // Exception: routing a real incoming email receipt to the wallet it belongs
+      // to ("Send to wallet" in Financial Ops > Email Transactions) is Financial
+      // Ops' own duty. A financial_ops user who is not the approver may do that
+      // and only that; the request is checked against the receipt below.
       if (!(await isCfoApprover(adminClient, authedUser.id))) {
-        return cfoApproverDenied(corsHeaders);
+        if (!callerRoles.includes("financial_ops")) {
+          return cfoApproverDenied(corsHeaders);
+        }
+        finOpsEmailRoutingOnly = true;
       }
     }
     const userId = user.id;
@@ -236,6 +247,35 @@ Deno.serve(async (req) => {
     // Normalise email-origin identifiers (any may be null)
     const gmailTxId: string | null = typeof rawGmailTxId === "string" && rawGmailTxId ? rawGmailTxId : null;
     const gmailMsgId: string | null = typeof rawGmailMsgId === "string" && rawGmailMsgId ? rawGmailMsgId : null;
+
+    // ── Financial Ops email-routing allowance ───────────────────────────────
+    // A non-approver Financial Ops user passes only when ALL of these hold, so
+    // the allowance cannot be used to post an arbitrary credit:
+    //   • it is a credit, not a debit, and not the free-form manual tool
+    //   • no forced overdraw / solvency-bypass (those stay CFO-only)
+    //   • a deposit category only
+    //   • it references a real incoming email receipt, for exactly that amount
+    // The email idempotency reservation further down still stops a second
+    // credit for the same receipt.
+    if (finOpsEmailRoutingOnly) {
+      const denyFinOps = () => cfoApproverDenied(corsHeaders);
+      if (
+        op !== "credit" || isManualCredit || !gmailTxId ||
+        rawAllowOverdraw === true || rawSolvencyReason ||
+        (wallet_category !== "wallet_deposit" && wallet_category !== "agent_float_deposit") ||
+        !Number.isFinite(amount) || amount <= 0
+      ) {
+        return denyFinOps();
+      }
+      const { data: receipt } = await adminClient
+        .from("gmail_transactions")
+        .select("id, amount, direction")
+        .eq("id", gmailTxId)
+        .maybeSingle();
+      if (!receipt || receipt.direction !== "in" || Math.abs(Number(receipt.amount) - amount) > 1) {
+        return denyFinOps();
+      }
+    }
     // The idempotency key MUST be a real email / MoMo transaction reference.
     // It may arrive explicitly as `email_tid`, or be carried in `sub_category`
     // by the email-routing flows (which set sub_category = the email's
