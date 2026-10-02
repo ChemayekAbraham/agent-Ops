@@ -150,6 +150,26 @@ export function MoneyDrilldownReport({ open, onOpenChange, preset, config }: {
           <DialogDescription>{config.description}</DialogDescription>
         </DialogHeader>
 
+        <div className="flex flex-wrap gap-2">
+          {[
+            { label: 'Today', f: 0, t: 0 },
+            { label: 'Yesterday', f: 1, t: 1 },
+            { label: 'Last 7 days', f: 6, t: 0 },
+            { label: 'This month', f: -1, t: 0 },
+          ].map(r => {
+            const ago = (k: number) => { const dt = new Date(); dt.setDate(dt.getDate() - k); return kampalaDate(dt); };
+            const rf = r.f === -1 ? monthStart() : ago(r.f);
+            const rt = ago(r.t);
+            const on = from === rf && to === rt;
+            return (
+              <Button key={r.label} type="button" size="sm" variant={on ? 'default' : 'outline'}
+                onClick={() => { setFrom(rf); setTo(rt); setActive(null); setParams({ from: rf, to: rt, status, method, type, person }); }}>
+                {r.label}
+              </Button>
+            );
+          })}
+        </div>
+
         <div className="grid grid-cols-2 md:grid-cols-7 gap-2 items-end">
           <label className="text-xs">From<Input type="date" value={from} onChange={e => setFrom(e.target.value)} /></label>
           <label className="text-xs">To<Input type="date" value={to} onChange={e => setTo(e.target.value)} /></label>
