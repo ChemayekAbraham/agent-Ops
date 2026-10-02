@@ -56659,6 +56659,7 @@ export type Database = {
         }
         Returns: string
       }
+      _cto_dossier_allowed: { Args: never; Returns: boolean }
       _geo_cache_key: {
         Args: {
           p_city: string
@@ -59988,6 +59989,22 @@ export type Database = {
         Args: { p_new_level: number; p_reason: string; p_user_id: string }
         Returns: undefined
       }
+      cto_user_dossier_activity: { Args: { p_user: string }; Returns: Json }
+      cto_user_dossier_money: {
+        Args: {
+          p_category?: string
+          p_direction?: string
+          p_from?: string
+          p_offset?: number
+          p_search?: string
+          p_to?: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      cto_user_dossier_partner: { Args: { p_user: string }; Returns: Json }
+      cto_user_dossier_profile: { Args: { p_user: string }; Returns: Json }
+      cto_user_dossier_search: { Args: { p_q: string }; Returns: Json }
       current_proxy_agreement: {
         Args: never
         Returns: {
