@@ -20,9 +20,9 @@ const btn = (name: RegExp) => screen.getByRole('button', { name });
 const next = () => fireEvent.click(btn(/Continue/i));
 const back = () => fireEvent.click(btn(/Back/i));
 
-const onPersonStep = () => screen.getByText(/Who is depositing/i);
-const onCashStep = () => screen.getByText(/How much cash/i);
-const onEmailStep = () => screen.getByText(/Where should the code go/i);
+const onPersonStep = () => screen.getByRole("heading", { name: /Who is depositing/i });
+const onCashStep = () => screen.getByRole("heading", { name: /How much cash/i });
+const onEmailStep = () => screen.getByRole("heading", { name: /Where should the code go/i });
 
 const completePerson = () => {
   fill(/First name/i, 'Nakamya');
