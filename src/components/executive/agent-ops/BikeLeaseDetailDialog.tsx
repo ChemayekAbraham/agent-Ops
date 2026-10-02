@@ -587,7 +587,7 @@ export function BikeLeaseDetailDialog({
 
               <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
                 <p className="text-[11px] font-medium text-muted-foreground truncate">Interest Rate</p>
-                <p className="text-xs sm:text-sm font-bold text-primary truncate">{feePct}%</p>
+                <p className="text-xs sm:text-sm font-bold text-primary truncate">{schedule.feePct}%</p>
               </div>
 
               <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-2.5 space-y-1 min-w-0 overflow-hidden">
