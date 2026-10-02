@@ -57661,6 +57661,10 @@ export type Database = {
         }
         Returns: Json
       }
+      agent_recalled_rent_request_ids: {
+        Args: { p_ids: string[] }
+        Returns: string[]
+      }
       agent_record_landlord_payout_receipt: {
         Args: { p_payout_id: string; p_receipt_number: string }
         Returns: Json
