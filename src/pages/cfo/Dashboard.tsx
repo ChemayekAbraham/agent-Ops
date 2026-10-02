@@ -12,6 +12,7 @@ import ExecutiveDashboardLayout from '@/components/layout/ExecutiveDashboardLayo
 import { ChannelBalanceTracker } from '@/components/cfo/ChannelBalanceTracker';
 import { ErrorCorrectionAuditPanel } from '@/components/cfo/ErrorCorrectionAuditPanel';
 import { CorrectionCenterPanel } from '@/components/cfo/CorrectionCenterPanel';
+import { RedemptionApprovalsPanel } from '@/components/cfo/RedemptionApprovalsPanel';
 import { PlatformVsWalletSummary } from '@/components/cfo/PlatformVsWalletSummary';
 import { CFOROIRequests } from '@/components/cfo/CFOROIRequests';
 import { CFOOverviewDashboard } from '@/components/cfo/CFOOverviewDashboard';
@@ -416,6 +417,8 @@ export default function CFODashboardPage() {
         return <WalletRetractionsFeed />;
       case 'error-corrections':
         return <ErrorCorrectionAuditPanel />;
+      case 'redemption-approvals':
+        return <RedemptionApprovalsPanel />;
       case 'corrections-approvals':
         return <CorrectionCenterPanel />;
       case 'unfunding-approvals':

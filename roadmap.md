@@ -51,3 +51,5 @@
 - [x] Close Lillian Nabwire portfolio WIP2604024329 as redeemed today (no email) and credit UGX 9,818,988 to her withdrawable wallet.
 - [x] Add drill-down breakdown to CFO "Withdrawable credits today" window.
 - [ ] Credit Lillian Nabwire UGX 9,818,988 to withdrawable wallet — blocked: needs CFO to post via CFO Direct Credit (no approved principal-return ledger path).
+- [x] CFO Redemptions approval page (pay principal to wallet + email) — Lillian WIP2604024329 listed
+- [x] Remove "Generate" button on CFO Cash Position page

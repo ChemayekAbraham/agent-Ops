@@ -188,10 +188,8 @@ export function MoneyDrilldownReport({ open, onOpenChange, preset, config }: {
             <select className={sel} value={status} onChange={e => setStatus(e.target.value)}>
               <option value="">All</option>{config.statuses.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select></label>
-          <label className="text-xs">{config.personLabel}<Input placeholder="Name or phone" value={person} onChange={e => setPerson(e.target.value)} /></label>
-          <Button onClick={generate} disabled={loading}>
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Generate'}
-          </Button>
+          <label className="text-xs">{config.personLabel}<Input placeholder="Name or phone, press Enter" value={person} onChange={e => setPerson(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') generate(); }} /></label>
+          {loading && <Loader2 className="h-4 w-4 animate-spin self-center" />}
         </div>
 
         {params && (
