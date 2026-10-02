@@ -25,7 +25,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
-import { SPIRO_LEASE_PERIODS, spiroLeaseSchedule, spiroEffectiveFeePct, BIKE_RECOVERY_RATE } from '@/lib/spiroBikeLease';
+import { SPIRO_LEASE_PERIODS, spiroLeaseSchedule, spiroEffectiveFeePct } from '@/lib/spiroBikeLease';
 import { useMotorBikeCatalog } from './MotorBikeCatalogDialog';
 
 const db = supabase as any;

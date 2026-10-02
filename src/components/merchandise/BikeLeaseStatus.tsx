@@ -113,7 +113,7 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder }: Props) {
   const current = stageIndex(status);
   const valuation = Number(selected.valuation_amount || selected.total_amount || 0);
   const outstanding = Number(selected.amount_outstanding || 0);
-  const rate = Number(selected.lease_daily_rate || 0.15);
+  const rate = 0.28;
 
   const stageDates = [selected.created_at, selected.coo_approved_at, selected.lease_activated_at ?? selected.cfo_disbursed_at];
 
@@ -237,8 +237,8 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder }: Props) {
                     <span className="font-semibold">{formatUGX(outstanding)}</span>
                   </div>
                   <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">Wallet recovery rate</span>
-                    <span className="font-semibold">{Math.round(rate * 100)}% per credit</span>
+                    <span className="text-muted-foreground">Monthly charge (reducing balance)</span>
+                    <span className="font-semibold">{Math.round(rate * 100)}% per month</span>
                   </div>
                 </div>
 

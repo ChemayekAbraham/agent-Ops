@@ -26,7 +26,6 @@ import {
 import { formatUGX } from '@/lib/rentCalculations';
 import spiroBikeAsset from '@/assets/spiro-bike.jpg.asset.json';
 import {
-  BIKE_RECOVERY_RATE,
   SPIRO_LEASE_PERIODS,
   SPIRO_BIKE_BASE_PRICE,
   spiroLeaseSchedule,
@@ -44,8 +43,6 @@ export const SPIRO_MODELS = [
 
 /** Repayment periods available to agents. */
 export const LEASE_TERMS = SPIRO_LEASE_PERIODS.map((p) => p.months);
-
-export { BIKE_RECOVERY_RATE };
 
 interface Props {
   open: boolean;
@@ -107,7 +104,6 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
       p_model: model,
       p_valuation: schedule.total,
       p_lease_term_months: schedule.months,
-      p_daily_rate: BIKE_RECOVERY_RATE,
       p_note: `Spiro bike lease — base ${formatUGX(schedule.base)}, ${schedule.monthlyRatePct}% monthly on the reducing balance, fees ${formatUGX(schedule.accessFee)}, total ${formatUGX(schedule.total)} over ${schedule.months} months; month 1 ${formatUGX(schedule.firstMonthly)} down to ${formatUGX(schedule.lastMonthly)}`,
     });
     setSubmitting(false);
