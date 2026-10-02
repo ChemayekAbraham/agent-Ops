@@ -9,7 +9,6 @@ import {
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, MessageSquare, ShieldCheck, Smartphone } from 'lucide-react';
-import { Checkbox } from '@/components/ui/checkbox';
 import PersonNameFields from '@/components/shared/PersonNameFields';
 import { joinPersonName, validatePersonNameParts, type PersonNameParts } from '@/lib/authValidation';
 
@@ -39,9 +38,8 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
   const purpose = 'operational_float';
   const [cashLocation, setCashLocation] = useState<'bank' | 'cash_at_hand'>('cash_at_hand');
   const [reason, setReason] = useState('');
-  // Email is an extra delivery channel for the same code — useful when SMS is
-  // unavailable. Crediting still only happens when the depositor enters it.
-  const [alsoEmail, setAlsoEmail] = useState(false);
+  // The depositor's email is required — the code always goes out by SMS and
+  // email together. Crediting still only happens when the depositor enters it.
   const [email, setEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -53,7 +51,7 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
   // Tell the operator exactly what is still blocking the send instead of leaving
   // the button greyed out with no explanation.
   const emailClean = email.trim();
-  const emailValid = emailClean === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailClean);
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailClean);
   const blockedReason = !nameCheck.valid
     ? nameCheck.error || 'Enter the depositor\u2019s first and last name'
     : ownerNameClean.length < 3
@@ -63,7 +61,7 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
         : !Number.isFinite(amountNum) || amountNum < 500
           ? 'Enter a cash amount of at least UGX 500'
           : !emailValid
-            ? 'Enter a valid email address, or leave it blank to use the depositor\u2019s account email'
+            ? 'Enter the depositor\u2019s email address \u2014 it is required'
             : null;
   const canSubmit = !blockedReason && !submitting;
 
@@ -73,7 +71,6 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
     setAmount('');
     setCashLocation('cash_at_hand');
     setReason('');
-    setAlsoEmail(false);
     setEmail('');
     setError(null);
   };
@@ -89,8 +86,8 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
         deposit_purpose: purpose,
         cash_location: cashLocation,
         reason: reason.trim() || undefined,
-        send_email: alsoEmail,
-        email: alsoEmail && emailClean ? emailClean : undefined,
+        send_email: true,
+        email: emailClean,
       },
     });
     setSubmitting(false);
@@ -137,7 +134,7 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
           </DialogTitle>
           <DialogDescription>
             Enter the depositor's phone number and the cash you received. The one-time code is sent
-            straight to their phone, and to their email as well if you tick the option below. Their
+            straight to their phone and to their email. Their
             wallet is only credited once they enter that code.
           </DialogDescription>
         </DialogHeader>
@@ -226,33 +223,23 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
           </div>
 
           <div className="space-y-2 rounded-lg border border-border/60 p-3">
-            <div className="flex items-start gap-2">
-              <Checkbox
-                id="fin-cash-also-email"
-                checked={alsoEmail}
-                onCheckedChange={(v) => setAlsoEmail(v === true)}
-                className="mt-0.5"
-              />
-              <div className="space-y-1">
-                <Label htmlFor="fin-cash-also-email" className="cursor-pointer text-sm">
-                  Also send the code by email
-                </Label>
-                <p className="text-[11px] text-muted-foreground">
-                  Useful when SMS is not getting through. If the depositor has an account email,
-                  leave the box below blank.
-                </p>
-              </div>
-            </div>
-            {alsoEmail && (
+            <div className="space-y-1">
+              <Label htmlFor="fin-cash-email" className="text-sm">
+                Depositor email address <span className="text-destructive">*</span>
+              </Label>
               <Input
                 id="fin-cash-email"
                 type="email"
                 inputMode="email"
-                placeholder="depositor@example.com (optional)"
+                placeholder="depositor@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
-            )}
+              <p className="text-[11px] text-muted-foreground">
+                Required. The code goes out by SMS and email together, so it still arrives when
+                SMS is not getting through.
+              </p>
+            </div>
           </div>
 
           <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-[11px] text-amber-700 dark:text-amber-400">
@@ -277,7 +264,7 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
           </Button>
           <Button onClick={submit} disabled={!canSubmit} className="gap-2">
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
-            {alsoEmail ? 'Send code by SMS + email' : 'Send code by SMS'}
+            Send code by SMS + email
           </Button>
         </DialogFooter>
       </DialogContent>

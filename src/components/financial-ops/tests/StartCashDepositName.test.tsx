@@ -28,6 +28,7 @@ describe('StartCashDepositDialog — depositor name', () => {
     fill(/Last name/i, 'Sharimah');
     fill(/Depositor phone number/i, '0771234567');
     fill(/Cash amount/i, '50000');
+    fill(/Depositor email address/i, 'depositor@example.com');
     fireEvent.click(screen.getByRole('button', { name: /Send code by SMS/i }));
     await waitFor(() => expect(invokeSpy).toHaveBeenCalled());
     const body = (invokeSpy.mock.calls[0] as any)[1].body;
