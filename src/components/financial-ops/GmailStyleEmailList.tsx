@@ -441,14 +441,14 @@ export function GmailStyleEmailList({ rows, onCreditUser }: GmailStyleEmailListP
                 {name.charAt(0).toUpperCase()}
               </span>
               <span className={`w-28 sm:w-44 shrink-0 truncate text-[13px] ${unread ? 'font-bold text-foreground' : 'font-normal text-foreground/80'}`}>
-                {name}
+                <DialableNumber text={name} />
               </span>
               <span className="min-w-0 flex-1 truncate text-[13px]">
                 <span className={unread ? 'font-bold text-foreground' : 'text-foreground/80'}>
-                  {r.subject || '(no subject)'}
+                  <DialableNumber text={r.subject || '(no subject)'} />
                 </span>
                 {r.snippet && (
-                  <span className="text-muted-foreground/80"> &ndash; {r.snippet}</span>
+                  <span className="text-muted-foreground/80"> &ndash; <DialableNumber text={r.snippet} /></span>
                 )}
               </span>
               {amount && (
