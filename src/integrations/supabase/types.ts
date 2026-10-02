@@ -11100,6 +11100,174 @@ export type Database = {
           },
         ]
       }
+      commission_fund_in_candidates: {
+        Row: {
+          amount: number
+          decided_at: string | null
+          decided_by: string | null
+          event: string
+          fund_in_id: string | null
+          id: string
+          note: string | null
+          observed_at: string
+          partner_id: string
+          portfolio_id: string | null
+          source_key: string
+          source_table: string
+          state: string
+        }
+        Insert: {
+          amount: number
+          decided_at?: string | null
+          decided_by?: string | null
+          event: string
+          fund_in_id?: string | null
+          id?: string
+          note?: string | null
+          observed_at?: string
+          partner_id: string
+          portfolio_id?: string | null
+          source_key: string
+          source_table: string
+          state?: string
+        }
+        Update: {
+          amount?: number
+          decided_at?: string | null
+          decided_by?: string | null
+          event?: string
+          fund_in_id?: string | null
+          id?: string
+          note?: string | null
+          observed_at?: string
+          partner_id?: string
+          portfolio_id?: string | null
+          source_key?: string
+          source_table?: string
+          state?: string
+        }
+        Relationships: []
+      }
+      commission_fund_ins: {
+        Row: {
+          amount: number
+          assignment_id: string | null
+          attempts: number
+          commission: number | null
+          created_at: string
+          earner_id: string | null
+          earner_path: string | null
+          fund_in_key: string
+          id: string
+          kind: string | null
+          last_attempt_at: string | null
+          ledger_group_id: string | null
+          legacy_id: string | null
+          legacy_table: string | null
+          note_id: string | null
+          occurred_at: string
+          paid_at: string | null
+          partner_id: string
+          portfolio_id: string | null
+          rate: number | null
+          source_id: string
+          source_table: string
+          status: string
+        }
+        Insert: {
+          amount: number
+          assignment_id?: string | null
+          attempts?: number
+          commission?: number | null
+          created_at?: string
+          earner_id?: string | null
+          earner_path?: string | null
+          fund_in_key: string
+          id?: string
+          kind?: string | null
+          last_attempt_at?: string | null
+          ledger_group_id?: string | null
+          legacy_id?: string | null
+          legacy_table?: string | null
+          note_id?: string | null
+          occurred_at: string
+          paid_at?: string | null
+          partner_id: string
+          portfolio_id?: string | null
+          rate?: number | null
+          source_id: string
+          source_table: string
+          status?: string
+        }
+        Update: {
+          amount?: number
+          assignment_id?: string | null
+          attempts?: number
+          commission?: number | null
+          created_at?: string
+          earner_id?: string | null
+          earner_path?: string | null
+          fund_in_key?: string
+          id?: string
+          kind?: string | null
+          last_attempt_at?: string | null
+          ledger_group_id?: string | null
+          legacy_id?: string | null
+          legacy_table?: string | null
+          note_id?: string | null
+          occurred_at?: string
+          paid_at?: string | null
+          partner_id?: string
+          portfolio_id?: string | null
+          rate?: number | null
+          source_id?: string
+          source_table?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      commission_gate_errors: {
+        Row: {
+          context: string
+          created_at: string
+          detail: Json | null
+          error: string | null
+          id: string
+        }
+        Insert: {
+          context: string
+          created_at?: string
+          detail?: Json | null
+          error?: string | null
+          id?: string
+        }
+        Update: {
+          context?: string
+          created_at?: string
+          detail?: Json | null
+          error?: string | null
+          id?: string
+        }
+        Relationships: []
+      }
+      commission_gate_settings: {
+        Row: {
+          cutover_at: string
+          id: boolean
+          note: string | null
+        }
+        Insert: {
+          cutover_at: string
+          id?: boolean
+          note?: string | null
+        }
+        Update: {
+          cutover_at?: string
+          id?: boolean
+          note?: string | null
+        }
+        Relationships: []
+      }
       conversation_participants: {
         Row: {
           conversation_id: string
@@ -59554,6 +59722,31 @@ export type Database = {
       collect_due_agent_advance_installment: {
         Args: { p_agent_id: string }
         Returns: number
+      }
+      commission_enqueue_candidate: {
+        Args: {
+          p_amount: number
+          p_event: string
+          p_partner: string
+          p_portfolio: string
+          p_source_key: string
+          p_source_table: string
+        }
+        Returns: undefined
+      }
+      commission_partner_has_prior_fund_in: {
+        Args: { p_at: string; p_fund_in_key: string; p_partner: string }
+        Returns: boolean
+      }
+      commission_resolve_earner: {
+        Args: { p_at: string; p_partner: string; p_use_lock?: boolean }
+        Returns: {
+          assignment_id: string
+          basis: string
+          earner_id: string
+          earner_path: string
+          note_id: string
+        }[]
       }
       commission_withdrawal_available: {
         Args: { p_user_id: string }
