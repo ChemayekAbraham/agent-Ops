@@ -50,7 +50,7 @@ export default function PersonNameFields({
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor={firstId}>
-            First name{required ? ' *' : ''}
+            First name{required && <span aria-hidden="true"> *</span>}
           </Label>
           <Input
             id={firstId}
@@ -72,7 +72,7 @@ export default function PersonNameFields({
 
         <div className="space-y-1.5">
           <Label htmlFor={lastId}>
-            Last name{required ? ' *' : ''}
+            Last name{required && <span aria-hidden="true"> *</span>}
           </Label>
           <Input
             id={lastId}

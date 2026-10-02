@@ -202,7 +202,10 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
               <Smartphone className="h-5 w-5 text-primary" />
               Start cash deposit code
             </DialogTitle>
-            <DialogDescription aria-live="polite">Step {step + 1} of {STEPS.length}</DialogDescription>
+            <DialogDescription aria-live="polite">
+              Step {step + 1} of {STEPS.length}
+              <span className="sr-only">: {current.title}</span>
+            </DialogDescription>
           </DialogHeader>
 
           {/* Progress */}
@@ -212,9 +215,9 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
               const done = i < step;
               const active = i === step;
               return (
-                <li key={s.short} className="flex flex-1 flex-col items-center gap-1">
+                <li key={s.short} aria-current={active ? 'step' : undefined} className="flex flex-1 flex-col items-center gap-1">
                   <span
-                    aria-current={active ? 'step' : undefined}
+                    aria-hidden="true"
                     className={cn(
                       'flex h-9 w-9 items-center justify-center rounded-full border-2 transition-colors',
                       done && 'border-primary bg-primary text-primary-foreground',
@@ -226,6 +229,7 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
                   </span>
                   <span className={cn('text-[11px]', active ? 'font-semibold text-foreground' : 'text-muted-foreground')}>
                     {s.short}
+                    <span className="sr-only">{done ? ', done' : active ? ', current step' : ', not started'}</span>
                   </span>
                 </li>
               );
@@ -234,7 +238,7 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
 
           <div className="px-4 pb-5 space-y-4 sm:px-6">
             <div className="flex items-center gap-3">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <span aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
                 <StepIcon className="h-6 w-6" />
               </span>
               <h3 className="text-lg font-semibold">{current.title}</h3>
