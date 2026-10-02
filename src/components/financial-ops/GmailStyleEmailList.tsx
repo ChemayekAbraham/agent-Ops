@@ -419,9 +419,20 @@ export function GmailStyleEmailList({ rows, onCreditUser }: GmailStyleEmailListP
             </li>
           )}
           <li key={r.id} className="relative">
-            <button
-              type="button"
+            <div
+              role="button"
+              tabIndex={0}
               onClick={() => setOpenId(r.id)}
+              onKeyDown={(e) => {
+                // The row still opens from the keyboard, but a dialable number
+                // inside it keeps its own keys: activate only when the row
+                // itself is focused, never when the number is.
+                if (e.target !== e.currentTarget) return;
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setOpenId(r.id);
+                }
+              }}
               className={`group relative w-full text-left flex items-center gap-3 px-3 sm:px-4 py-2 sm:py-[9px] transition-shadow hover:z-10 hover:shadow-[0_1px_2px_0_hsl(var(--foreground)/0.14),0_1px_3px_1px_hsl(var(--foreground)/0.08)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                 unread ? 'bg-background' : 'bg-muted/25'
               }`}
