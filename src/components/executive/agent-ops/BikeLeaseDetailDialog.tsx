@@ -131,7 +131,7 @@ export function BikeLeaseDetailDialog({
         .select('id, status')
         .eq('parent_agent_id', order!.customer_id);
       if (error) throw error;
-      const rows = (data || []) as { id: string; status: string }[];
+      const rows = (data || []) as unknown as { id: string; status: string }[];
       const active = rows.filter((r) => r.status === 'verified' || r.status === 'active').length;
       const pending = rows.filter((r) => r.status === 'pending_acceptance' || r.status === 'pending_verification').length;
       return {
