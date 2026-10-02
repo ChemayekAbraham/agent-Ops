@@ -53,7 +53,7 @@ export function MoneyPaidOutCard({ moneyWeHaveTotal }: { moneyWeHaveTotal: numbe
         { dot: 'bg-slate-400', label: 'Number of payouts', value: n(d.total_count).toLocaleString() },
         { dot: 'bg-amber-500', label: `Pending payouts (${n(d.pending_count).toLocaleString()})`, value: formatUGX(n(d.pending_amount)) },
       ] : []}
-      onClick={() => { total(); }}
+      onClick={() => drill(null)}
       footer={q.error ? 'Could not load payouts' : 'Completed payouts to mobile money, bank & cash'}
     />
     <MoneyPaidOutReport open={report} onOpenChange={setReport} preset={preset} />
