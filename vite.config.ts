@@ -127,6 +127,12 @@ export default defineConfig(({ mode }) => {
         // rollup never has to hold one enormous chunk in memory during the
         // render/minify phase (that was OOM-killing the production build).
         manualChunks(id) {
+          // Vite's lazy-load helper is needed by the app shell. Left alone,
+          // rollup parked it inside the PDF chunk, so every app open
+          // downloaded the whole PDF library. Give it its own tiny chunk.
+          if (id.includes('vite/preload-helper') || id.includes('commonjsHelpers')) {
+            return 'vite-runtime';
+          }
           if (!id.includes('node_modules')) return undefined;
           const parts = id.split('node_modules/').pop()!.split('/');
           const pkg = parts[0].startsWith('@') ? `${parts[0]}/${parts[1]}` : parts[0];
@@ -140,7 +146,7 @@ export default defineConfig(({ mode }) => {
           if (pkg.startsWith('@radix-ui')) return 'vendor-radix';
           if (pkg.startsWith('@tiptap') || pkg.startsWith('prosemirror')) return 'vendor-tiptap';
           if (pkg.startsWith('@tanstack')) return 'vendor-tanstack';
-          if (pkg === 'leaflet' || pkg.startsWith('leaflet.') || pkg === 'react-leaflet') {
+          if (pkg === 'leaflet' || pkg.startsWith('leaflet.') || pkg === 'react-leaflet' || pkg.startsWith('@react-leaflet')) {
             return 'vendor-leaflet';
           }
           if (pkg.startsWith('@babel') || pkg.startsWith('@swc')) return 'vendor-babel';
