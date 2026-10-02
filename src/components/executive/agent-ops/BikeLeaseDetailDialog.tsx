@@ -11,10 +11,15 @@ import {
   ShieldAlert,
   ShieldCheck,
   User,
+  Users,
+  UserCheck,
   X,
   CreditCard,
   Hash,
   AlertCircle,
+  Loader2,
+  TrendingUp,
+  Building2,
 } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
@@ -32,6 +37,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { formatUGX } from '@/lib/rentCalculations';
 import { spiroEffectiveFeePct, spiroLeaseSchedule } from '@/lib/spiroBikeLease';
+import { kampalaTodayYmd, kampalaOffsetYmd } from '@/lib/kampalaDays';
 
 const db = supabase as any;
 
@@ -115,6 +121,121 @@ export function BikeLeaseDetailDialog({
   // Full reducing-balance schedule, derived from the cost price and term.
   const schedule = spiroLeaseSchedule(termNum, costPrice);
 
+  // Sub-agents / recruited agents standing
+  const { data: subAgentStats, isLoading: subAgentsLoading } = useQuery({
+    queryKey: ['bike-applicant-subagents', order?.customer_id],
+    enabled: !!order?.customer_id,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('agent_subagents' as any)
+        .select('id, status')
+        .eq('parent_agent_id', order!.customer_id);
+      if (error) throw error;
+      const rows = (data || []) as { id: string; status: string }[];
+      const active = rows.filter((r) => r.status === 'verified' || r.status === 'active').length;
+      const pending = rows.filter((r) => r.status === 'pending_acceptance' || r.status === 'pending_verification').length;
+      return {
+        total: rows.length,
+        active,
+        pending,
+      };
+    },
+  });
+
+  // Active tenants: strictly status IN ('funded', 'repaying') AND tenancy_status = 'active'
+  const { data: activeTenantsCount = 0, isLoading: tenantsLoading } = useQuery({
+    queryKey: ['bike-applicant-active-tenants', order?.customer_id],
+    enabled: !!order?.customer_id,
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from('rent_requests')
+        .select('id', { count: 'exact', head: true })
+        .eq('agent_id', order!.customer_id)
+        .in('status', ['funded', 'repaying'])
+        .eq('tenancy_status', 'active');
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+
+  // Applicant qualification & standing metrics
+  const { data: applicantMetrics, isLoading: metricsLoading } = useQuery({
+    queryKey: ['bike-applicant-metrics', order?.customer_id],
+    enabled: !!order?.customer_id,
+    queryFn: async () => {
+      const { data, error } = await db.rpc('get_agent_smartphone_eligibility', {
+        p_user_id: order!.customer_id,
+      });
+      if (error) throw error;
+      return (data || null) as {
+        rank: number | null;
+        collected_30d: number;
+        max_amount: number;
+        is_active_agent?: boolean;
+        active_tenant_count: number;
+        required_active_tenants: number;
+        meets_tenant_guideline?: boolean;
+        has_national_id: boolean;
+        has_workplace_verification: boolean;
+      } | null;
+    },
+  });
+
+  // Agent performance over the last 30 days
+  const { data: performance, isLoading: performanceLoading } = useQuery({
+    queryKey: ['bike-applicant-performance', order?.customer_id],
+    enabled: !!order?.customer_id,
+    queryFn: async () => {
+      const agentId = order?.customer_id;
+      if (!agentId) return null;
+      const to = kampalaTodayYmd();
+      const from = kampalaOffsetYmd(-29);
+      const { data, error } = await db.rpc('agent_ops_report_agent', {
+        p_agent_id: agentId,
+        p_from: from,
+        p_to: to,
+      });
+      if (error) throw error;
+      const kpis = (data as any)?.kpis || null;
+      if (!kpis) return null;
+      return {
+        expected: Number(kpis.expected_window || 0),
+        collected: Number(kpis.collected_window || 0),
+        payments: Number(kpis.payments_window || 0),
+        rate: kpis.window_rate == null ? null : Number(kpis.window_rate),
+        activeRepaying: Number(kpis.active_repaying || 0),
+        outstanding: Number(kpis.outstanding || 0),
+      };
+    },
+  });
+
+  // Agent NIN / National ID from profile
+  const { data: agentProfile } = useQuery({
+    queryKey: ['bike-applicant-profile', order?.customer_id],
+    enabled: !!order?.customer_id,
+    queryFn: async () => {
+      const [profileRes, proxyRes] = await Promise.all([
+        db
+          .from('profiles')
+          .select('national_id, full_name, phone')
+          .eq('id', order!.customer_id)
+          .maybeSingle(),
+        db
+          .from('proxy_agent_identity')
+          .select('nin')
+          .eq('agent_user_id', order!.customer_id)
+          .maybeSingle(),
+      ]);
+      const nin =
+        (profileRes.data?.national_id && profileRes.data.national_id.trim()) ||
+        (proxyRes.data?.nin && proxyRes.data.nin.trim()) ||
+        null;
+      return {
+        national_id: nin,
+      };
+    },
+  });
+
   const isPending = order.order_status === 'submitted' || order.order_status === 'pending_approval';
   const isAwaitingCoo = order.order_status === 'ops_approved';
   const isAwaitingCfo = order.order_status === 'coo_approved';
@@ -128,7 +249,6 @@ export function BikeLeaseDetailDialog({
         : stage === 'cfo'
           ? isAwaitingCfo
           : isOpen;
-
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -197,6 +317,162 @@ export function BikeLeaseDetailDialog({
 
         {/* Scrollable Body */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-6 space-y-3.5 text-xs overscroll-contain">
+          {/* SECTION 0: APPLICANT STANDING & AGENT TEAM */}
+          <div className="rounded-xl border bg-card p-3 sm:p-4 space-y-2.5 shadow-xs overflow-hidden">
+            <div className="flex items-center justify-between gap-2 pb-0.5 border-b border-border/40">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="h-6 w-6 rounded-md bg-indigo-500/10 text-indigo-600 flex items-center justify-center shrink-0">
+                  <Users className="h-3.5 w-3.5" />
+                </div>
+                <h3 className="text-xs font-bold text-foreground truncate">
+                  Applicant Standing &amp; Team
+                </h3>
+              </div>
+              {subAgentStats && (
+                <span className="text-[11px] font-semibold text-muted-foreground shrink-0">
+                  {subAgentStats.active} Active {subAgentStats.active === 1 ? 'Sub-Agent' : 'Sub-Agents'}
+                </span>
+              )}
+            </div>
+
+            {/* Key KPI grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+              <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
+                <p className="text-[10px] font-medium text-muted-foreground truncate">Active Sub-Agents</p>
+                <p className="text-xs sm:text-sm font-bold text-indigo-600 truncate flex items-center gap-1">
+                  {subAgentsLoading ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <>
+                      {subAgentStats?.active ?? 0}
+                      <span className="text-[10px] text-muted-foreground font-normal">
+                        ({subAgentStats?.total ?? 0} total)
+                      </span>
+                    </>
+                  )}
+                </p>
+              </div>
+
+              <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
+                <p className="text-[10px] font-medium text-muted-foreground truncate">Active Tenants</p>
+                <p className="text-xs sm:text-sm font-bold text-foreground truncate">
+                  {tenantsLoading ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    activeTenantsCount
+                  )}
+                </p>
+              </div>
+
+              <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
+                <p className="text-[10px] font-medium text-muted-foreground truncate">Agent Rank</p>
+                <p className="text-xs sm:text-sm font-bold text-foreground truncate">
+                  {metricsLoading ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    applicantMetrics?.rank ?? '—'
+                  )}
+                </p>
+              </div>
+
+              <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
+                <p className="text-[10px] font-medium text-muted-foreground truncate">30d Collections</p>
+                <p className="text-xs sm:text-sm font-bold text-emerald-600 truncate">
+                  {metricsLoading ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    formatUGX(applicantMetrics?.collected_30d ?? 0)
+                  )}
+                </p>
+              </div>
+            </div>
+
+            {/* Verification badges */}
+            <div className="flex flex-wrap gap-1.5 pt-0.5">
+              <Badge
+                variant="outline"
+                className={
+                  applicantMetrics?.is_active_agent
+                    ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30 text-[10px]'
+                    : 'bg-amber-500/15 text-amber-600 border-amber-500/30 text-[10px]'
+                }
+              >
+                {applicantMetrics?.is_active_agent ? '✓ Active Agent' : 'Agent status unconfirmed'}
+              </Badge>
+
+              <Badge
+                variant="outline"
+                className={
+                  (subAgentStats?.active ?? 0) > 0
+                    ? 'bg-indigo-500/15 text-indigo-600 border-indigo-500/30 text-[10px]'
+                    : 'bg-muted text-muted-foreground text-[10px]'
+                }
+              >
+                <Users className="h-3 w-3 mr-1" />
+                {subAgentStats?.active ?? 0} active sub-agent{subAgentStats?.active === 1 ? '' : 's'}
+              </Badge>
+
+              <Badge
+                variant="outline"
+                className={
+                  agentProfile?.national_id || applicantMetrics?.has_national_id
+                    ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30 text-[10px]'
+                    : 'bg-amber-500/15 text-amber-600 border-amber-500/30 text-[10px]'
+                }
+              >
+                {agentProfile?.national_id
+                  ? `✓ NIN: ${agentProfile.national_id}`
+                  : applicantMetrics?.has_national_id
+                    ? '✓ National ID on profile'
+                    : '⏳ ID declared — verify on collection'}
+              </Badge>
+
+              {applicantMetrics?.has_workplace_verification && (
+                <Badge
+                  variant="outline"
+                  className="bg-emerald-500/15 text-emerald-600 border-emerald-500/30 text-[10px]"
+                >
+                  ✓ Workplace captured
+                </Badge>
+              )}
+            </div>
+
+            {/* 30-day performance summary */}
+            {performance && (
+              <div className="rounded-lg border border-border/60 p-2 space-y-1.5 bg-muted/20">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                  Collection Performance (Last 30 Days)
+                </p>
+                <div className="grid grid-cols-3 gap-1.5 text-center">
+                  <div className="rounded bg-background/80 p-1.5 border">
+                    <p className="text-[9px] text-muted-foreground">Expected</p>
+                    <p className="text-[11px] font-semibold">{formatUGX(performance.expected)}</p>
+                  </div>
+                  <div className="rounded bg-background/80 p-1.5 border">
+                    <p className="text-[9px] text-muted-foreground">Collected</p>
+                    <p className="text-[11px] font-semibold text-emerald-600">{formatUGX(performance.collected)}</p>
+                  </div>
+                  <div className="rounded bg-background/80 p-1.5 border">
+                    <p className="text-[9px] text-muted-foreground">Rate</p>
+                    <p
+                      className={`text-[11px] font-semibold ${
+                        performance.rate == null
+                          ? ''
+                          : performance.rate >= 80
+                            ? 'text-emerald-600'
+                            : performance.rate >= 50
+                              ? 'text-amber-600'
+                              : 'text-destructive'
+                      }`}
+                    >
+                      {performance.rate == null ? '—' : `${Math.round(performance.rate)}%`}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* SECTION 1: BIKE & VALUATION DETAILS */}
           <div className="rounded-xl border bg-card p-3 sm:p-4 space-y-3 shadow-xs overflow-hidden">
             <div className="flex items-center justify-between gap-2 pb-0.5 border-b border-border/40">
