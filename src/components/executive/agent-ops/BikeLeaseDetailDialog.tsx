@@ -40,7 +40,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { formatUGX } from '@/lib/rentCalculations';
-import { spiroEffectiveFeePct, spiroLeaseSchedule } from '@/lib/spiroBikeLease';
+import { spiroLeaseSchedule } from '@/lib/spiroBikeLease';
 import { useBikeCatalogCosts, bikeProfit } from '@/hooks/useBikeCatalogCosts';
 import { kampalaTodayYmd, kampalaOffsetYmd } from '@/lib/kampalaDays';
 import {
@@ -120,7 +120,6 @@ export function BikeLeaseDetailDialog({
 
   const valuationNum = Number(order.valuation_amount || 0);
   const termNum = Number(order.lease_term_months || 12);
-  const feePct = spiroEffectiveFeePct(termNum);
   const monthly = termNum > 0 && valuationNum > 0 ? Math.round(valuationNum / termNum) : 0;
   const outstanding = Number(order.amount_outstanding ?? valuationNum);
   const paid = Number(order.amount_paid || 0);
@@ -133,8 +132,8 @@ export function BikeLeaseDetailDialog({
     (order.order_status === 'approved' || order.order_status === 'completed') &&
     (outstanding <= 0 || (paid > 0 && paid >= valuationNum));
 
-  // Full reducing-balance schedule, derived from the cost price and term.
-  const schedule = spiroLeaseSchedule(termNum, Math.round(valuationNum / (1 + feePct / 100)));
+  // 28% reducing-balance schedule on the valuation (the principal the agent repays).
+  const schedule = spiroLeaseSchedule(termNum, valuationNum);
 
   const handleDownloadCertificate = async () => {
     setGeneratingCert(true);
@@ -588,7 +587,7 @@ export function BikeLeaseDetailDialog({
 
               <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
                 <p className="text-[11px] font-medium text-muted-foreground truncate">Interest Rate</p>
-                <p className="text-xs sm:text-sm font-bold text-primary truncate">{feePct}%</p>
+                <p className="text-xs sm:text-sm font-bold text-primary truncate">{schedule.feePct}%</p>
               </div>
 
               <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-2.5 space-y-1 min-w-0 overflow-hidden">
