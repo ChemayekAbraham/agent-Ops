@@ -84,8 +84,11 @@ Deno.serve(async (req) => {
       const deductionStatus = totalDeducted >= dailyCharge ? 'full' :
         totalDeducted > 0 ? 'partial' : 'none';
 
-      // Record in draw ledger
-      await supabase.from('credit_draw_ledger').insert({
+      // Record in draw ledger FIRST, and stop if it fails. The unique index on
+      // (draw_id, date) makes a second run on the same day fail here, so this draw
+      // is skipped before any money moves. Any other insert failure also skips the
+      // draw: an uncharged day is recoverable, a double charge is a money mistake.
+      const { error: drawLedgerErr } = await supabase.from('credit_draw_ledger').insert({
         draw_id: draw.id,
         date: today,
         opening_balance: openingBalance,
@@ -95,6 +98,17 @@ Deno.serve(async (req) => {
         closing_balance: Math.max(0, compoundedClosing),
         deduction_status: deductionStatus,
       });
+      if (drawLedgerErr) {
+        const alreadyCharged = drawLedgerErr.code === '23505';
+        console.warn(`[process-credit-daily-charges] draw ${draw.id} skipped: ${alreadyCharged ? 'already charged today' : drawLedgerErr.message}`);
+        results.push({
+          draw_id: draw.id,
+          user_id: draw.user_id,
+          skipped: true,
+          reason: alreadyCharged ? 'already_charged_today' : 'draw_ledger_insert_failed',
+        });
+        continue;
+      }
 
       // Debit user wallet via RPC (balanced: wallet cash_out + platform cash_in)
       if (userDeducted > 0) {

@@ -2857,6 +2857,13 @@
       "when": 1790927937670,
       "tag": "0407_refuse_permanent_delete_with_financial_history",
       "breakpoints": true
+    },
+    {
+      "idx": 408,
+      "version": "7",
+      "when": 1790928439699,
+      "tag": "0408_one_credit_charge_per_draw_per_day",
+      "breakpoints": true
     }
   ]
 }
