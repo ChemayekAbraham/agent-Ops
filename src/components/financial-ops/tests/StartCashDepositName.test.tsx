@@ -18,6 +18,8 @@ const setup = () =>
 const fill = (label: RegExp, value: string) =>
   fireEvent.change(screen.getByLabelText(label), { target: { value } });
 
+const next = () => fireEvent.click(screen.getByRole('button', { name: /Continue/i }));
+
 describe('StartCashDepositDialog — depositor name', () => {
   beforeEach(() => invokeSpy.mockClear());
 
@@ -27,8 +29,11 @@ describe('StartCashDepositDialog — depositor name', () => {
     fill(/Other names/i, 'Grace');
     fill(/Last name/i, 'Sharimah');
     fill(/Depositor phone number/i, '0771234567');
+    next();
     fill(/Cash amount/i, '50000');
+    next();
     fill(/Depositor email address/i, 'depositor@example.com');
+    next();
     fireEvent.click(screen.getByRole('button', { name: /Send code by SMS/i }));
     await waitFor(() => expect(invokeSpy).toHaveBeenCalled());
     const body = (invokeSpy.mock.calls[0] as any)[1].body;
@@ -39,8 +44,7 @@ describe('StartCashDepositDialog — depositor name', () => {
     setup();
     fill(/First name/i, 'Nankambo');
     fill(/Depositor phone number/i, '0771234567');
-    fill(/Cash amount/i, '50000');
-    expect(screen.getByRole('button', { name: /Send code by SMS/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /Continue/i })).toBeDisabled();
     expect(invokeSpy).not.toHaveBeenCalled();
   });
 });
