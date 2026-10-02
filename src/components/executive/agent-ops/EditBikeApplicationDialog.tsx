@@ -26,6 +26,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
 import { SPIRO_LEASE_PERIODS, spiroLeaseSchedule, spiroEffectiveFeePct } from '@/lib/spiroBikeLease';
+import { useBikeCatalogCosts, bikeProfit } from '@/hooks/useBikeCatalogCosts';
 import { useMotorBikeCatalog } from './MotorBikeCatalogDialog';
 
 const db = supabase as any;
@@ -62,6 +63,7 @@ interface Props {
 export function EditBikeApplicationDialog({ order, open, onOpenChange, onSuccess }: Props) {
   const queryClient = useQueryClient();
   const { data: catalog = [] } = useMotorBikeCatalog();
+  const supplierCostFor = useBikeCatalogCosts();
 
   const [model, setModel] = useState('');
   const [valuation, setValuation] = useState('');
@@ -87,14 +89,14 @@ export function EditBikeApplicationDialog({ order, open, onOpenChange, onSuccess
   const currentValNum = Number(order?.valuation_amount || 0);
   const currentTermNum = Number(order?.lease_term_months || 12);
   const currentFeePct = spiroEffectiveFeePct(currentTermNum);
-  const currentCostPrice = Math.round(currentValNum / (1 + currentFeePct / 100));
+  const currentCostPrice = supplierCostFor(order?.model_type);
   const currentDays = currentTermNum * 30;
   const currentDailyPay = currentDays > 0 ? Math.ceil(currentValNum / currentDays) : 0;
-  const currentProfit = Math.max(0, currentValNum - currentCostPrice);
-  const costPrice = Math.round(valuationNum / (1 + feePct / 100));
+  const currentProfit = bikeProfit(currentValNum, currentCostPrice);
+  const costPrice = supplierCostFor(model);
   const days = termNum * 30;
   const dailyPay = days > 0 ? Math.ceil(valuationNum / days) : 0;
-  const profit = Math.max(0, valuationNum - costPrice);
+  const profit = bikeProfit(valuationNum, costPrice);
 
   // Real-time schedule calculation
   const schedule = useMemo(() => {
@@ -202,13 +204,13 @@ export function EditBikeApplicationDialog({ order, open, onOpenChange, onSuccess
             <div className="flex justify-between">
               <span className="text-muted-foreground">Bike Cost Price</span>
               <span className="font-semibold text-primary">
-                {formatUGX(currentCostPrice)}
+                {currentCostPrice == null ? 'Not in catalog' : formatUGX(currentCostPrice)}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Our Profit</span>
               <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                {formatUGX(currentProfit)}
+                {currentProfit == null ? 'Not in catalog' : formatUGX(currentProfit)}
               </span>
             </div>
             <div className="flex justify-between">
@@ -307,11 +309,11 @@ export function EditBikeApplicationDialog({ order, open, onOpenChange, onSuccess
             </p>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Bike Cost Price</span>
-              <span className="font-bold text-primary">{formatUGX(costPrice)}</span>
+              <span className="font-bold text-primary">{costPrice == null ? 'Not in catalog' : formatUGX(costPrice)}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Our Profit ({feePct}%)</span>
-              <span className="font-bold text-emerald-600 dark:text-emerald-400">{formatUGX(profit)}</span>
+              <span className="text-muted-foreground">Our Profit</span>
+              <span className="font-bold text-emerald-600 dark:text-emerald-400">{profit == null ? 'Not in catalog' : formatUGX(profit)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Estimated Daily Pay</span>
