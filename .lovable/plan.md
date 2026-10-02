@@ -1,43 +1,29 @@
-# CTO User Dossier — command-center audit view
+# Redemption Approvals in the CFO dashboard
 
-A new **User Dossier** item in the CTO sidebar. The CTO searches for any user (name, phone, email or Welile AI ID) and sees everything about them on one screen, in four clearly labelled sections. Read-only: nothing on this screen changes money, wallets or user records.
+## What you will see
+- A new **Redemptions** page in the CFO sidebar (Accounting group), listing every portfolio redemption that is closed but not yet paid.
+- Lillian Nabwire (WIP2604024329, UGX 9,818,988) appears there as the first item, status **Awaiting CFO approval**.
+- Each row: partner name, phone, portfolio code, principal redeemed, date closed, who closed it, note.
+- **Approve & Pay** opens a confirm box with the amount and a required reason (10+ characters). On confirm:
+  1. The full principal is credited to the partner's **withdrawable** wallet.
+  2. The partner gets a "Your redemption has been paid" email (amount, portfolio code, date).
+  3. The row moves to **Paid** history with who approved and when.
+- **Reject** (with reason) keeps the money unpaid and records the decision; nothing moves.
+- Paid and rejected items stay visible in a history tab; nothing is ever deleted.
 
-## Layout
-
-```text
-[ Search user ............ ]   [avatar] Name · role badges · WEL-XXXXXX
----------------------------------------------------------------
-Tabs:  Profile | Money | Partner | Activity
-```
-
-### 1. Profile
-- Name, email, phone, Welile AI ID, avatar, roles, join date, last active
-- GPS location (with map link) and full address
-- Referral count
-- History of email/phone changes (old → new, who changed it, when)
-
-### 2. Money (categorised wallet statement)
-- Current balances: withdrawable, float, advance
-- Totals per category: deposits, withdrawals, wallet transfers in/out, commissions, Returns, Rent Plan repayments, fees, other
-- Full statement list with filters: category, direction (in/out), date range, search by reference
-- Loads 50 rows at a time ("Load more")
-
-### 3. Partner
-- Portfolio counts: total, active, suspended, deleted
-- Each portfolio expandable: creation date, principal, Returns rate, top-ups, compounds, Returns withdrawals, edits and a full change history (before → after, who, when)
-- Shown as "Not a partner" when the user has none
-
-### 4. Activity (grouped by role so it is clear which is which)
-- **Account**: sign-ins, last login, every device/browser used (from the user agent) with first and last seen
-- **Agent**: house listings, tenant registrations, collections, visits
-- **Tenant**: Rent Plans and their repayment history
-- **Landlord**: properties, payouts received
-- **Supporter**: deposits, portfolio actions
-- One combined timeline (newest first) with a role filter, plus per-role counts at the top
-- Groups that don't apply to the user are hidden
+## Safety rules
+- Only CFO approvers (CFO office + the two named super admins) can approve, checked on the server.
+- Each redemption can be paid **once only**; a second press is refused.
+- The person who closed the redemption cannot also approve it.
+- Amount paid always equals the recorded redeemed principal; it cannot be edited at approval.
+- Books stay balanced: one ledger group, partner wallet in, platform out.
+- No email is sent when the portfolio is closed; the only email is the payment one.
 
 ## Technical details
-- One role-gated SECURITY DEFINER read-only function per section (`cto_user_dossier_profile`, `_money(p_user, filters, page)`, `_partner`, `_activity(p_user, role, page)`), plus `cto_user_dossier_search(q)`. Allowed: cto, super_admin (enabled roles only). Sections load only when their tab opens; cached with React Query.
-- Money reads `general_ledger` wallet legs with the standard user-facing filter; balances via `get_user_available_balance` / `v_user_wallet_strict`. Partner history from `investor_portfolios` + `portfolio_change_log`. Profile changes from `profile_field_audit`. Devices/sign-ins from existing login/audit records (live schema verified before writing).
-- New files: migration, `src/hooks/useCtoUserDossier.ts`, `src/components/executive/cto/UserDossier*.tsx`; sidebar entry in `executiveSidebarConfig.ts` (cto) and a branch in `CTODashboard.tsx`.
-- No ledger/wallet writes, no publish or deploy. Run `guard:all`. Record the rule in AGENTS.md.
+- Migration (after checking the live schema):
+  - Add payout fields to the existing redemption record table: `payout_status` (`awaiting_cfo` default / `paid` / `rejected`), `payout_decided_by`, `payout_decided_at`, `payout_reason`, `payout_ledger_ref`. Backfill existing rows (Lillian) to `awaiting_cfo`.
+  - Add a new allowlisted ledger category `partner_principal_return` (wallet leg `recipient_type='user'` → withdrawable; platform leg against the partner capital liability).
+  - SECURITY DEFINER RPCs, `search_path = public`, gated by `is_cfo_approver`: `cfo_list_redemptions(p_status)`, `cfo_approve_redemption(p_id, p_reason)` (locks row FOR UPDATE, checks status/separation, posts via `create_ledger_transaction` with idempotency key `redemption-<id>`, emits `system_events`, writes `audit_logs`), `cfo_reject_redemption(p_id, p_reason)`. Grants: authenticated execute, anon revoked.
+- Email: new app email template `redemption-paid`, sent via `send-transactional-email` after a successful approval, idempotency key `redemption-paid-<id>`.
+- UI: `src/components/cfo/RedemptionApprovalsPanel.tsx`, wired into `src/pages/cfo/Dashboard.tsx` and `executiveSidebarConfig.ts`.
+- Run `guard:all`; verify Lillian shows in the list. Approval itself is left for the CFO to press — I will not pay her during testing. Edge function deploy for the email needs your go-ahead (this plan's approval counts). Nothing published.
