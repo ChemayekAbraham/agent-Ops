@@ -767,9 +767,22 @@ export function BikeLeaseDetailDialog({
                 <span className="font-semibold text-foreground">{format(new Date(order.created_at), 'd MMM yyyy, HH:mm')}</span>
               </div>
 
+              {order.ops_approved_at && (
+                <div className="flex flex-wrap justify-between gap-1.5 py-1.5">
+                  <span className="text-muted-foreground font-medium">
+                    Agent Ops verified{approvers?.ops_approved_by_name ? ` by ${approvers.ops_approved_by_name}` : ''}
+                  </span>
+                  <span className="font-semibold text-foreground">
+                    {format(new Date(order.ops_approved_at), 'd MMM yyyy, HH:mm')}
+                  </span>
+                </div>
+              )}
+
               {order.coo_approved_at && (
                 <div className="flex flex-wrap justify-between gap-1.5 py-1.5">
-                  <span className="text-muted-foreground font-medium">COO Approved</span>
+                  <span className="text-muted-foreground font-medium">
+                    COO approved{approvers?.coo_approved_by_name ? ` by ${approvers.coo_approved_by_name}` : ''}
+                  </span>
                   <span className="font-semibold text-sky-600">
                     {format(new Date(order.coo_approved_at), 'd MMM yyyy, HH:mm')}
                   </span>
@@ -778,7 +791,9 @@ export function BikeLeaseDetailDialog({
 
               {order.cfo_disbursed_at && (
                 <div className="flex flex-wrap justify-between gap-1.5 py-1.5">
-                  <span className="text-muted-foreground font-medium">CFO Disbursed</span>
+                  <span className="text-muted-foreground font-medium">
+                    CFO disbursed{approvers?.cfo_disbursed_by_name ? ` by ${approvers.cfo_disbursed_by_name}` : ''}
+                  </span>
                   <span className="font-semibold text-emerald-600">
                     {format(new Date(order.cfo_disbursed_at), 'd MMM yyyy, HH:mm')}
                   </span>
