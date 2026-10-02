@@ -29,6 +29,7 @@ import {
 import { formatUGX } from '@/lib/rentCalculations';
 import { LEASE_TERMS } from '@/components/merchandise/SpiroBikeOrderDialog';
 import { SPIRO_LEASE_PERIODS, spiroEffectiveFeePct } from '@/lib/spiroBikeLease';
+import { useBikeCatalogCosts, bikeProfit } from '@/hooks/useBikeCatalogCosts';
 import { BikeLeaseDetailDialog } from './BikeLeaseDetailDialog';
 import { EditBikeApplicationDialog } from './EditBikeApplicationDialog';
 import { MotorBikeCatalogDialog } from './MotorBikeCatalogDialog';
@@ -94,15 +95,15 @@ const isOpen = (s: string) => isPending(s) || isAwaitingCoo(s) || isAwaitingCfo(
 const isApproved = (s: string) => s === 'approved' || s === 'completed';
 
 /** Computes cost price, daily payment and recovery per credit for a bike lease application */
-const getRowPricing = (row: BikeLeaseRow) => {
+const getRowPricing = (row: BikeLeaseRow, supplierCost: number | null) => {
   const val = Number(row.valuation_amount || 0);
   const term = Number(row.lease_term_months || 12);
   const feePct = spiroEffectiveFeePct(term);
-  const costPrice = Math.round(val / (1 + feePct / 100));
+  const costPrice = supplierCost;
   const days = term * 30;
   const dailyPay = days > 0 ? Math.ceil(val / days) : 0;
   const perCredit = Math.round(val * (feePct / 100));
-  const profit = Math.max(0, val - costPrice);
+  const profit = bikeProfit(val, costPrice);
   return { val, term, feePct, costPrice, dailyPay, perCredit, profit };
 };
 
@@ -141,6 +142,8 @@ export function BikeLeaseApprovalQueue({
   stage?: Stage;
 } = {}) {
   const queryClient = useQueryClient();
+  const supplierCostFor = useBikeCatalogCosts();
+  const rowPricing = (row: BikeLeaseRow) => getRowPricing(row, supplierCostFor(row.model_type));
   const [search, setSearch] = useState('');
   const [approveTarget, setApproveTarget] = useState<BikeLeaseRow | null>(null);
   const [approvedValuation, setApprovedValuation] = useState('');
@@ -187,7 +190,7 @@ export function BikeLeaseApprovalQueue({
   const perCredit = Math.round(valuationNum * rate);
   const monthly = valuationNum > 0 ? Math.round(valuationNum / termNum) : 0;
   const isOpsDashboard = stageFilter === 'ops' || !stageFilter;
-  const approveCostPrice = Math.round(valuationNum / (1 + interestPct / 100));
+  const approveCostPrice = approveTarget ? supplierCostFor(approveTarget.model_type) : null;
   const approveDays = termNum * 30;
   const approveDailyPay = approveDays > 0 ? Math.ceil(valuationNum / approveDays) : 0;
 
@@ -369,15 +372,15 @@ export function BikeLeaseApprovalQueue({
                       <>
                         <span className="text-muted-foreground">Bike cost price</span>
                         <span className="text-right font-semibold text-primary">
-                          {formatUGX(getRowPricing(o).costPrice)}
+                          {rowPricing(o).costPrice == null ? 'Not in catalog' : formatUGX(rowPricing(o).costPrice)}
                         </span>
                         <span className="text-muted-foreground">Our profit</span>
                         <span className="text-right font-semibold text-emerald-600 dark:text-emerald-400">
-                          {formatUGX(getRowPricing(o).profit)}
+                          {rowPricing(o).profit == null ? 'Not in catalog' : formatUGX(rowPricing(o).profit)}
                         </span>
                         <span className="text-muted-foreground">Est. daily pay</span>
                         <span className="text-right font-semibold">
-                          {formatUGX(getRowPricing(o).dailyPay)}/day
+                          {formatUGX(rowPricing(o).dailyPay)}/day
                         </span>
                       </>
                     ) : (
@@ -389,7 +392,7 @@ export function BikeLeaseApprovalQueue({
                     <span className="text-muted-foreground">Lease term</span>
                     <span className="text-right font-semibold">{o.lease_term_months || 12} months</span>
                     <span className="text-muted-foreground">Recovery / credit</span>
-                    <span className="text-right font-semibold">{formatUGX(getRowPricing(o).perCredit)} ({getRowPricing(o).feePct}%)</span>
+                    <span className="text-right font-semibold">{formatUGX(rowPricing(o).perCredit)} ({rowPricing(o).feePct}%)</span>
                     <span className="text-muted-foreground">Outstanding</span>
                     <span className="text-right font-semibold">{formatUGX(Number(o.amount_outstanding || 0))}</span>
                   </div>
@@ -486,7 +489,7 @@ export function BikeLeaseApprovalQueue({
                 </thead>
                 <tbody>
                   {filtered.map((o) => {
-                    const pricing = getRowPricing(o);
+                    const pricing = rowPricing(o);
                     return (
                       <tr
                         key={o.id}
@@ -501,10 +504,10 @@ export function BikeLeaseApprovalQueue({
                         {isOpsDashboard ? (
                           <>
                             <td className="py-2 pr-3 text-right font-semibold text-primary">
-                              {formatUGX(pricing.costPrice)}
+                              {pricing.costPrice == null ? 'Not in catalog' : formatUGX(pricing.costPrice)}
                             </td>
                             <td className="py-2 pr-3 text-right font-semibold text-emerald-600 dark:text-emerald-400">
-                              {formatUGX(pricing.profit)}
+                              {pricing.profit == null ? 'Not in catalog' : formatUGX(pricing.profit)}
                             </td>
                             <td className="py-2 pr-3 text-right font-medium">
                               {formatUGX(pricing.dailyPay)}/day
@@ -680,7 +683,7 @@ export function BikeLeaseApprovalQueue({
                 <div className="space-y-1.5">
                   <div className="rounded-lg border bg-muted/40 px-3 py-2 text-xs flex justify-between">
                     <span className="text-muted-foreground">Bike cost price</span>
-                    <span className="font-semibold text-primary">{formatUGX(approveCostPrice)}</span>
+                    <span className="font-semibold text-primary">{approveCostPrice == null ? 'Not in catalog' : formatUGX(approveCostPrice)}</span>
                   </div>
                   <div className="rounded-lg border bg-muted/40 px-3 py-2 text-xs flex justify-between">
                     <span className="text-muted-foreground">Est. daily pay</span>
@@ -738,9 +741,9 @@ export function BikeLeaseApprovalQueue({
                   <span className="font-semibold">{formatUGX(monthly)}</span>
                 </div>
                 <div className="flex justify-between text-xs">
-                  <span className="text-muted-foreground">Our profit ({interestPct}%)</span>
+                  <span className="text-muted-foreground">Our profit</span>
                   <span className="font-semibold text-emerald-600 dark:text-emerald-400">
-                    {formatUGX(Math.max(0, valuationNum - approveCostPrice))}
+                    {approveCostPrice == null ? 'Not in catalog' : formatUGX(valuationNum - approveCostPrice)}
                   </span>
                 </div>
                 {approveStage === 'ops' ? (

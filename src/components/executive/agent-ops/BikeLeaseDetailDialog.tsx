@@ -41,6 +41,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { formatUGX } from '@/lib/rentCalculations';
 import { spiroEffectiveFeePct, spiroLeaseSchedule } from '@/lib/spiroBikeLease';
+import { useBikeCatalogCosts, bikeProfit } from '@/hooks/useBikeCatalogCosts';
 import { kampalaTodayYmd, kampalaOffsetYmd } from '@/lib/kampalaDays';
 import {
   generateSpiroBikeSettlementCertificatePdf,
@@ -111,6 +112,7 @@ export function BikeLeaseDetailDialog({
   onEditPrice,
   stage,
 }: Props) {
+  const supplierCostFor = useBikeCatalogCosts();
   if (!order) return null;
 
   const [generatingCert, setGeneratingCert] = useState(false);
@@ -122,17 +124,17 @@ export function BikeLeaseDetailDialog({
   const monthly = termNum > 0 && valuationNum > 0 ? Math.round(valuationNum / termNum) : 0;
   const outstanding = Number(order.amount_outstanding ?? valuationNum);
   const paid = Number(order.amount_paid || 0);
-  const costPrice = Math.round(valuationNum / (1 + feePct / 100));
+  const costPrice = supplierCostFor(order.model_type);
   const days = termNum * 30;
   const dailyPay = days > 0 ? Math.ceil(valuationNum / days) : 0;
-  const profit = Math.max(0, valuationNum - costPrice);
+  const profit = bikeProfit(valuationNum, costPrice);
 
   const isSettled =
     (order.order_status === 'approved' || order.order_status === 'completed') &&
     (outstanding <= 0 || (paid > 0 && paid >= valuationNum));
 
   // Full reducing-balance schedule, derived from the cost price and term.
-  const schedule = spiroLeaseSchedule(termNum, costPrice);
+  const schedule = spiroLeaseSchedule(termNum, Math.round(valuationNum / (1 + feePct / 100)));
 
   const handleDownloadCertificate = async () => {
     setGeneratingCert(true);
@@ -561,7 +563,7 @@ export function BikeLeaseDetailDialog({
                   {isOps ? 'Bike Cost Price' : 'Valuation Amount'}
                 </p>
                 <p className="text-xs sm:text-sm font-bold text-primary truncate">
-                  {formatUGX(isOps ? costPrice : valuationNum)}
+                  {isOps ? (costPrice == null ? 'Not in catalog' : formatUGX(costPrice)) : formatUGX(valuationNum)}
                 </p>
               </div>
 
@@ -592,7 +594,7 @@ export function BikeLeaseDetailDialog({
               <div className="rounded-lg border border-emerald-500/25 bg-emerald-500/5 p-2.5 space-y-1 min-w-0 overflow-hidden">
                 <p className="text-[11px] font-medium text-emerald-700 dark:text-emerald-400 truncate">Our Profit</p>
                 <p className="text-xs sm:text-sm font-bold text-emerald-600 dark:text-emerald-400 truncate">
-                  {formatUGX(profit)}
+                  {profit == null ? 'Not in catalog' : formatUGX(profit)}
                 </p>
               </div>
 
