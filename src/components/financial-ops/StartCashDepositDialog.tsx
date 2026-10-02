@@ -201,7 +201,7 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
               <Smartphone className="h-5 w-5 text-primary" />
               Start cash deposit code
             </DialogTitle>
-            <DialogDescription>Step {step + 1} of {STEPS.length}</DialogDescription>
+            <DialogDescription aria-live="polite">Step {step + 1} of {STEPS.length}</DialogDescription>
           </DialogHeader>
 
           {/* Progress */}
@@ -253,7 +253,7 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
                   <Label htmlFor="fin-cash-phone">Depositor phone number</Label>
                   <Input id="fin-cash-phone" inputMode="tel" placeholder="0704 000 000"
                     value={phone} onChange={(e) => setPhone(e.target.value)} onBlur={() => touch('phone')}
-                    aria-invalid={!!show('phone')} aria-describedby={show('phone') ? 'fin-cash-phone-error' : undefined}
+                    aria-required="true" aria-invalid={!!show('phone')} aria-describedby={show('phone') ? 'fin-cash-phone-error' : undefined}
                     className={cn('h-12 text-base', show('phone') && 'border-destructive focus-visible:ring-destructive')} />
                   <FieldError id="fin-cash-phone-error" message={show('phone')} className={ERR_TEXT} />
                 </div>
@@ -268,7 +268,7 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
                     <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">UGX</span>
                     <Input id="fin-cash-amount" inputMode="numeric" placeholder="50000"
                       className={cn('h-14 pl-12 text-xl font-semibold', show('amount') && 'border-destructive focus-visible:ring-destructive')}
-                      aria-invalid={!!show('amount')} aria-describedby={show('amount') ? 'fin-cash-amount-error' : undefined} value={amount}
+                      aria-required="true" aria-invalid={!!show('amount')} aria-describedby={show('amount') ? 'fin-cash-amount-error' : undefined} value={amount}
                       onBlur={() => touch('amount')}
                       onChange={(e) => setAmount(e.target.value)} />
                   </div>
@@ -309,7 +309,7 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
                 <Label htmlFor="fin-cash-email">Depositor email address <span className="text-destructive">*</span></Label>
                 <Input id="fin-cash-email" type="email" inputMode="email" placeholder="depositor@example.com"
                   className={cn('h-12 text-base', show('email') && 'border-destructive focus-visible:ring-destructive')}
-                  aria-invalid={!!show('email')} aria-describedby={show('email') ? 'fin-cash-email-error' : undefined} value={email} onBlur={() => touch('email')}
+                  aria-required="true" aria-invalid={!!show('email')} aria-describedby={show('email') ? 'fin-cash-email-error' : undefined} value={email} onBlur={() => touch('email')}
                   onChange={(e) => setEmail(e.target.value)} />
                 <FieldError id="fin-cash-email-error" message={show('email')} className={ERR_TEXT} />
                 {!show('email') && <p className="text-xs text-muted-foreground">The code goes to this email and their phone.</p>}
