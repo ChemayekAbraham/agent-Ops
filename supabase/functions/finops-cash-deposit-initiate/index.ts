@@ -92,10 +92,15 @@ Deno.serve(async (req) => {
       return json(400, { error: "invalid_phone", message: "Enter a valid Ugandan phone number" });
     }
 
-    const allowedPurposes = ["personal_deposit", "operational_float", "other"];
-    const depositPurpose = allowedPurposes.includes(String(body?.deposit_purpose))
-      ? String(body.deposit_purpose)
-      : "personal_deposit";
+    // ── SERVER-SIDE PURPOSE LOCK (2026-10-02) ─────────────────────────
+    // Financial Ops cash deposits are recorded ONLY as operational_float.
+    // Any deposit_purpose sent by the client is ignored — the UI no longer
+    // offers a choice, and this is the server-side backstop so a crafted
+    // request cannot record a Financial Ops deposit as personal_deposit
+    // (which would route it to the depositor's withdrawable balance on
+    // approval instead of company float).
+    const requestedPurpose = typeof body?.deposit_purpose === "string" ? body.deposit_purpose : null;
+    const depositPurpose = "operational_float";
     const reason = typeof body?.reason === "string" ? body.reason.trim().slice(0, 300) : "";
     const cashOwnerName = typeof body?.cash_owner_name === "string"
       ? body.cash_owner_name.trim().replace(/\s+/g, " ").slice(0, 120)
@@ -145,12 +150,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const purposeLabel =
-      depositPurpose === "operational_float"
-        ? "Operational Float"
-        : depositPurpose === "other"
-          ? "Other"
-          : "Personal Deposit";
+    const purposeLabel = "Operational Float";
     const notes = [
       `Purpose: ${purposeLabel}`,
       `Cash owner: ${cashOwnerName}`,
