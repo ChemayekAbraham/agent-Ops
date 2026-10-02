@@ -38,12 +38,17 @@ import { SignupDeviceAbusePanel } from './SignupDeviceAbusePanel';
 import { AgentCollectionsMonitorPanel } from './AgentCollectionsMonitorPanel';
 import { DepositBridgeHealthPanel } from '@/components/bridge/DepositBridgeHealthPanel';
 import { DeletedAccountsPanel } from '@/components/cto/DeletedAccountsPanel';
+import { CTOUserDossier } from '@/components/cto/dossier/CTOUserDossier';
 import { FakeAccountRadarPanel } from '@/components/cto/FakeAccountRadarPanel';
 import GitCommitsPanel from '@/components/cto/GitCommitsPanel';
 
 
 
 export function CTODashboard({ activeTab }: { activeTab?: string }) {
+  if (activeTab === 'user-dossier') {
+    return <CTOUserDossier />;
+  }
+
   if (activeTab === 'system-logs') {
     return <SystemLogsViewer />;
   }
