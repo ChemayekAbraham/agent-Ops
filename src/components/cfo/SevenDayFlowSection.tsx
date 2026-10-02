@@ -106,11 +106,15 @@ export function SevenDayFlowSection() {
           .map((s) => ({ who: '', category: s.category_label, product: s.product_label, amount: Number(s.amount), kind: 'Predicted' }));
         return { ...row, amount: Number(p.forecast_amount) || 0, sources: predicted };
       });
+    const recPast = fromFull(recL.data, -7, 0, 'Due');
+    const payPast = fromFull(payL.data, -7, 0, 'Due');
+    const recNext = next(recL.data, recF.data?.periods as unknown as P[] | undefined);
+    const payNext = next(payL.data, payF.data?.periods as unknown as P[] | undefined);
     return {
-      recPast: fromFull(recL.data, -7, 0, 'Due'),
-      payPast: fromFull(payL.data, -7, 0, 'Due'),
-      recNext: next(recL.data, recF.data?.periods as unknown as P[] | undefined),
-      payNext: next(payL.data, payF.data?.periods as unknown as P[] | undefined),
+      recPast, payPast, recNext, payNext,
+      // offsets -7..6 (index = offset + 7)
+      recAll: [...recPast, ...recNext],
+      payAll: [...payPast, ...payNext],
     };
   }, [recL.data, payL.data, recF.data, payF.data]);
 
@@ -132,10 +136,10 @@ export function SevenDayFlowSection() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-          <Win title="Receivables — Past 7 Days" icon={<History className="h-4 w-4" />} tone="text-success" rows={data.recPast} onPick={pick('Receivables — Past 7 Days')} />
-          <Win title="Receivables — Next 7 Days" icon={<CalendarClock className="h-4 w-4" />} tone="text-success" rows={data.recNext} onPick={pick('Receivables — Next 7 Days')} />
-          <Win title="Payables — Past 7 Days" icon={<History className="h-4 w-4" />} tone="text-destructive" rows={data.payPast} onPick={pick('Payables — Past 7 Days')} />
-          <Win title="Payables — Next 7 Days" icon={<CalendarClock className="h-4 w-4" />} tone="text-destructive" rows={data.payNext} onPick={pick('Payables — Next 7 Days')} />
+          <FlowWin title="Receivables — Past 7 Days" side="past" icon={<History className="h-4 w-4" />} tone="text-success" all={data.recAll} onPick={pick} />
+          <FlowWin title="Receivables — Next 7 Days" side="next" icon={<CalendarClock className="h-4 w-4" />} tone="text-success" all={data.recAll} onPick={pick} />
+          <FlowWin title="Payables — Past 7 Days" side="past" icon={<History className="h-4 w-4" />} tone="text-destructive" all={data.payAll} onPick={pick} />
+          <FlowWin title="Payables — Next 7 Days" side="next" icon={<CalendarClock className="h-4 w-4" />} tone="text-destructive" all={data.payAll} onPick={pick} />
           <SegmentedWin title="Expenses" icon={<History className="h-4 w-4" />} tone="text-warning" past={expPast} recorded={expRecorded} onPick={pick} />
           <Win title="Expenses — Next 7 Days" icon={<CalendarClock className="h-4 w-4" />} tone="text-warning" rows={expNext} onPick={pick('Expenses — Next 7 Days')} />
           <ProductSummary
@@ -281,6 +285,58 @@ function SegmentedWin({ title, icon, tone, past, recorded, onPick }: {
         ))}
       </div>
       <Win title={`${title} — ${label}`} icon={icon} tone={tone} rows={rows} onPick={onPick(`${title} — ${label}`)} />
+    </div>
+  );
+}
+
+type FSeg = 'next' | 'today' | 'yesterday' | 'week' | 'month' | 'custom';
+
+/** Receivables/Payables window with Today / Yesterday / Past 7 days / This month / Custom segments (Kampala days). */
+function FlowWin({ title, side, icon, tone, all, onPick }: {
+  title: string; side: 'past' | 'next'; icon: React.ReactNode; tone: string; all: Row[]; onPick: (t: string) => (r: Row) => void;
+}) {
+  const [seg, setSeg] = useState<FSeg>(side === 'past' ? 'week' : 'next');
+  const [from, setFrom] = useState(kampalaOffsetYmd(-7));
+  const [to, setTo] = useState(kampalaOffsetYmd(6));
+  const base = title.split(' — ')[0];
+  const segs: { id: FSeg; label: string }[] = [
+    ...(side === 'next' ? [{ id: 'next' as FSeg, label: 'Next 7 days' }] : []),
+    { id: 'today', label: 'Today' }, { id: 'yesterday', label: 'Yesterday' },
+    { id: 'week', label: 'Past 7 days' }, { id: 'month', label: 'This month' }, { id: 'custom', label: 'Custom' },
+  ];
+  const dayOfMonth = parseInt(kampalaOffsetYmd(0).slice(8, 10), 10) || 1;
+  const slice = (fromOff: number, toOff: number) => all.slice(fromOff + 7, toOff + 7);
+  const rows =
+    seg === 'next' ? slice(0, 7)
+    : seg === 'today' ? slice(0, 1)
+    : seg === 'yesterday' ? slice(-1, 0)
+    : seg === 'week' ? slice(-7, 0)
+    : seg === 'month' ? slice(Math.max(-7, -(dayOfMonth - 1)), 7)
+    : all.filter((_, i) => { const y = kampalaOffsetYmd(i - 7); return y >= from && y <= to; });
+  const label = segs.find((x) => x.id === seg)!.label;
+  return (
+    <div className="min-w-0">
+      <div className="mb-2 flex flex-wrap gap-1">
+        {segs.map((x) => (
+          <button
+            key={x.id}
+            type="button"
+            onClick={() => setSeg(x.id)}
+            aria-pressed={seg === x.id}
+            className={`rounded-full border px-2 py-0.5 text-[11px] transition-colors ${seg === x.id ? 'bg-primary text-primary-foreground border-primary' : 'bg-muted/30 text-muted-foreground hover:bg-muted'}`}
+          >
+            {x.label}
+          </button>
+        ))}
+      </div>
+      {seg === 'custom' && (
+        <div className="mb-2 flex items-center gap-1 text-[11px]">
+          <input type="date" value={from} min={kampalaOffsetYmd(-7)} max={to} onChange={(e) => e.target.value && setFrom(e.target.value)} className="rounded border border-border bg-background px-1 py-0.5" />
+          <span className="text-muted-foreground">to</span>
+          <input type="date" value={to} min={from} max={kampalaOffsetYmd(6)} onChange={(e) => e.target.value && setTo(e.target.value)} className="rounded border border-border bg-background px-1 py-0.5" />
+        </div>
+      )}
+      <Win title={`${base} — ${label}`} icon={icon} tone={tone} rows={rows} onPick={onPick(`${base} — ${label}`)} />
     </div>
   );
 }
