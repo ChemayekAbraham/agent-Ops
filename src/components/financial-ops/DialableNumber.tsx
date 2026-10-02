@@ -15,11 +15,14 @@ import { cn } from '@/lib/utils';
 
 /**
  * A Ugandan mobile number as it is printed inside email rows: local (`0756…`),
- * international (`+256756…` / `256756…`) or bare, including the spacing and
- * hyphens the SMS relays emit. The second digit is 3-9 so every network the
- * platform accepts (MTN, Airtel, Telecel) is dialable.
+ * international (`+256756…` / `256756…`) or bare (`756…`), including the
+ * spacing and hyphens the SMS relays emit. The first digit of the subscriber
+ * half is 3-9 so every network the platform accepts (MTN, Airtel, Telecel) is
+ * dialable. The digit look-arounds keep a nine-digit window inside a longer
+ * number — a transaction id, a balance — from being mistaken for a phone.
  */
-const PHONE_IN_TEXT = /(?:\+?256|0)\s*[3-9]\d{2}[\s-]?\d{3}[\s-]?\d{3}/g;
+const PHONE_IN_TEXT =
+  /(?<!\d)(?:(?:\+?256|0)[\s.-]?)?[3-9]\d{2}[\s.-]?\d{3}[\s.-]?\d{3}(?!\d)/g;
 
 /** `tel:` href for the first dialable number in the text, or null when none. */
 export function dialHref(raw: string | null | undefined): string | null {
