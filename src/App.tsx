@@ -13,6 +13,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import ChunkErrorBoundary from "@/components/ChunkErrorBoundary";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import { lazyWithRetry, optionalLazyWithRetry } from "@/lib/lazyWithRetry";
+import { BuildUpdateWatcher } from "@/components/BuildUpdateWatcher";
 // Route every page chunk through the concurrency-limited queue so slow
 // networks never see more than N parallel chunk requests at once.
 const lazy = lazyWithRetry;
@@ -999,6 +1000,7 @@ const App = () => {
                           <GlobalFloatingWidgets />
                           <Toaster />
                           <SonnerToaster />
+                          <BuildUpdateWatcher />
                           <ForceResetPasswordGate />
                           <GlobalOnboardingGates />
                           <NationalIdUnlinkNoticeDialog />
