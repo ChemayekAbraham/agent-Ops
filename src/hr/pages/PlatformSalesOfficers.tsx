@@ -226,11 +226,12 @@ function getWindowDates(
   }
 
   if (mode === 'ALL') {
-    const inception = '2025-01-01';
+    // Programme start: 1 September 2026. Nothing before this date is counted.
+    const inception = '2026-09-01';
     return {
       from: inception,
       to: todayStr,
-      label: `ALL TIME · since inception – ${formatKampalaDisplay(todayStr)}`,
+      label: `ALL TIME · ${formatKampalaDisplay(inception)} – ${formatKampalaDisplay(todayStr)}`,
     };
   }
 
