@@ -11286,6 +11286,69 @@ export type Database = {
         }
         Relationships: []
       }
+      commission_recompute_lines: {
+        Row: {
+          amount: number
+          base_amount: number | null
+          created_at: string
+          earner_id: string | null
+          earner_path: string | null
+          fund_in_key: string | null
+          id: string
+          kind: string | null
+          legacy_id: string | null
+          legacy_table: string | null
+          line_kind: string
+          occurred_at: string | null
+          partner_id: string | null
+          portfolio_id: string | null
+          principal_method: string | null
+          rate: number | null
+          reason: string
+          run_id: string
+        }
+        Insert: {
+          amount?: number
+          base_amount?: number | null
+          created_at?: string
+          earner_id?: string | null
+          earner_path?: string | null
+          fund_in_key?: string | null
+          id?: string
+          kind?: string | null
+          legacy_id?: string | null
+          legacy_table?: string | null
+          line_kind: string
+          occurred_at?: string | null
+          partner_id?: string | null
+          portfolio_id?: string | null
+          principal_method?: string | null
+          rate?: number | null
+          reason: string
+          run_id: string
+        }
+        Update: {
+          amount?: number
+          base_amount?: number | null
+          created_at?: string
+          earner_id?: string | null
+          earner_path?: string | null
+          fund_in_key?: string | null
+          id?: string
+          kind?: string | null
+          legacy_id?: string | null
+          legacy_table?: string | null
+          line_kind?: string
+          occurred_at?: string | null
+          partner_id?: string | null
+          portfolio_id?: string | null
+          principal_method?: string | null
+          rate?: number | null
+          reason?: string
+          run_id?: string
+        }
+        Relationships: []
+      }
       conversation_participants: {
         Row: {
           conversation_id: string
@@ -54863,6 +54926,19 @@ export type Database = {
           },
         ]
       }
+      v_commission_recompute_summary: {
+        Row: {
+          deserved: number | null
+          duplicate_lines: number | null
+          earner_id: string | null
+          legacy_paid: number | null
+          net: number | null
+          roi_lines: number | null
+          run_id: string | null
+          uncompleted_topup_lines: number | null
+        }
+        Relationships: []
+      }
       v_crm_call_audience: {
         Row: {
           person_id: string | null
@@ -60168,6 +60244,10 @@ export type Database = {
         Returns: boolean
       }
       commission_pay_fund_in: { Args: { p_fund_in_id: string }; Returns: Json }
+      commission_recompute_history: {
+        Args: { p_run_id: string }
+        Returns: Json
+      }
       commission_reconcile_fund_ins: {
         Args: { p_limit?: number }
         Returns: Json
