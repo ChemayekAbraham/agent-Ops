@@ -147,7 +147,10 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
   const submit = async () => {
     setSubmitting(true);
     setError(null);
-    const { data, error: fnErr } = await supabase.functions.invoke('finops-cash-deposit-initiate', {
+    let data: any = null;
+    let fnErr: { message?: string } | null = null;
+    try {
+      const res = await supabase.functions.invoke('finops-cash-deposit-initiate', {
       body: {
         phone: digits,
         cash_owner_name: ownerNameClean,
@@ -159,11 +162,17 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
         email: emailClean,
       },
     });
+      data = res.data;
+      fnErr = res.error;
+    } catch (e) {
+      fnErr = { message: e instanceof Error ? e.message : 'Network problem' };
+    }
     setSubmitting(false);
 
     const payloadError = (data as any)?.error ? ((data as any)?.message || (data as any)?.error) : null;
     if (fnErr || payloadError) {
       const msg = payloadError || fnErr?.message || 'Could not start the cash deposit';
+      setStep(3);
       setError(msg);
       toast({ title: 'Could not start the cash deposit', description: msg, variant: 'destructive' });
       return;
@@ -351,7 +360,13 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
               </div>
             )}
 
-            {error && <FieldError message={error} className={ERR_TEXT} />}
+            {error && (
+              <div role="alert" className="rounded-lg border-2 border-destructive bg-destructive/10 p-3 space-y-1">
+                <p className="text-base font-bold text-destructive">The code was not sent.</p>
+                <p className="text-sm font-medium text-destructive">{error}</p>
+                <p className="text-sm text-muted-foreground">Nothing you typed was lost. Check the internet, then press Try again.</p>
+              </div>
+            )}
             {!error && step === 3 && blockedReason && <FieldError message={blockedReason} className={ERR_TEXT} />}
           </div>
         </div>
@@ -366,7 +381,7 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
           {isLast ? (
             <Button onClick={submit} disabled={!canSubmit} className="h-12 flex-[2] gap-2 text-base">
               {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <MessageSquare className="h-5 w-5" />}
-              Send code by SMS + email
+              {error ? 'Try again' : 'Send code by SMS + email'}
             </Button>
           ) : (
             <Button onClick={tryContinue} className="h-12 flex-[2] gap-1 text-base">
