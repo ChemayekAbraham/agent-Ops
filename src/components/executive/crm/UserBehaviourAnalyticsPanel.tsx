@@ -11,7 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import {
   Activity, Users, Clock, Navigation, Smartphone, Globe, RefreshCw,
   Search, ShieldAlert, MousePointerClick, Layers, CheckCircle2,
-  ChevronRight, ArrowUpRight, BarChart3, Filter, Download
+  ChevronRight, ArrowUpRight, BarChart3, Filter, Download, ExternalLink, MapPin
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Cell
@@ -41,6 +41,8 @@ interface UserBehaviourAnalyticsData {
     target?: string;
     dialog_name?: string;
     has_gps: boolean;
+    latitude?: number;
+    longitude?: number;
     ip_address?: string;
     user_name?: string;
     phone?: string;
@@ -127,7 +129,9 @@ export function UserBehaviourAnalyticsPanel() {
       item.section?.toLowerCase().includes(q) ||
       item.role?.toLowerCase().includes(q) ||
       item.dialog_name?.toLowerCase().includes(q) ||
-      item.user_name?.toLowerCase().includes(q)
+      item.user_name?.toLowerCase().includes(q) ||
+      item.ip_address?.toLowerCase().includes(q) ||
+      (item.phone && item.phone.toLowerCase().includes(q))
     );
   });
 
@@ -390,6 +394,117 @@ export function UserBehaviourAnalyticsPanel() {
               </div>
             </CardContent>
           </Card>
+          {/* Live Recent Event Feed - Relocated directly below Most Visited Sections */}
+          <Card className="border-border/60 shadow-sm">
+            <CardHeader className="p-4 pb-3 flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-border/40">
+              <div>
+                <CardTitle className="text-base font-semibold flex items-center gap-2">
+                  Live Activity Stream
+                  <Badge variant="outline" className="text-[10px] font-mono">
+                    {recentEvents.length} events
+                  </Badge>
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Chronological log of verified user taps, navigations, and dialog events
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="relative w-full sm:w-64">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                  <Input
+                    placeholder="Filter events, user, IP..."
+                    value={searchFilter}
+                    onChange={(e) => setSearchFilter(e.target.value)}
+                    className="h-8 pl-8 text-xs rounded-lg"
+                  />
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="overflow-x-auto max-h-[440px] overflow-y-auto divide-y divide-border/30">
+                {recentEvents.length > 0 ? (
+                  recentEvents.map((evt) => (
+                    <div
+                      key={evt.id}
+                      className="p-3 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 hover:bg-muted/20 transition-colors"
+                    >
+                      <div className="flex items-start sm:items-center gap-2.5 min-w-0 flex-1">
+                        <span
+                          className="px-2 py-0.5 rounded text-[10px] font-bold uppercase shrink-0 mt-0.5 sm:mt-0"
+                          style={{
+                            backgroundColor: `${ROLE_COLORS[evt.role] || '#64748b'}20`,
+                            color: ROLE_COLORS[evt.role] || '#64748b',
+                          }}
+                        >
+                          {evt.role}
+                        </span>
+
+                        <div className="truncate flex-1 min-w-0">
+                          <p className="font-semibold text-foreground truncate">
+                            {evt.dialog_name ? `[Dialog: ${evt.dialog_name}] ` : ''}
+                            {evt.target || evt.section || evt.event_type}
+                          </p>
+                          <div className="text-[10px] text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-1 mt-0.5">
+                            <span className="font-medium text-foreground/80">
+                              {evt.user_name || 'Anonymous User'}
+                            </span>
+                            {evt.phone && <span>({evt.phone})</span>}
+                            {evt.section && <span>• Section: {evt.section}</span>}
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Right Meta Badges: IP, Clickable GPS, Timestamp */}
+                      <div className="flex items-center flex-wrap sm:flex-nowrap gap-2 shrink-0 self-end sm:self-center">
+                        {/* IP Address display */}
+                        {evt.ip_address ? (
+                          <span
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono bg-muted/60 text-muted-foreground border border-border/50 shrink-0"
+                            title={`IP Address: ${evt.ip_address}`}
+                          >
+                            <Globe className="h-2.5 w-2.5 text-muted-foreground/70" />
+                            {evt.ip_address}
+                          </span>
+                        ) : null}
+
+                        {/* Clickable GPS Link to Google Maps */}
+                        {evt.has_gps && evt.latitude != null && evt.longitude != null ? (
+                          <a
+                            href={`https://www.google.com/maps?q=${evt.latitude},${evt.longitude}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-medium bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 hover:border-emerald-500/50 transition-colors group cursor-pointer shrink-0"
+                            title={`Open GPS location in Google Maps (${evt.latitude}, ${evt.longitude})`}
+                          >
+                            <MapPin className="h-2.5 w-2.5 text-emerald-500 group-hover:scale-110 transition-transform shrink-0" />
+                            <span>{Number(evt.latitude).toFixed(4)}, {Number(evt.longitude).toFixed(4)}</span>
+                            <ExternalLink className="h-2.5 w-2.5 opacity-60 ml-0.5 shrink-0" />
+                          </a>
+                        ) : evt.has_gps ? (
+                          <Badge
+                            variant="outline"
+                            className="text-[9px] bg-emerald-500/10 text-emerald-600 border-emerald-500/30 gap-1 shrink-0"
+                          >
+                            <Navigation className="h-2.5 w-2.5" />
+                            GPS
+                          </Badge>
+                        ) : null}
+
+                        {/* Timestamp */}
+                        <span className="text-[11px] text-muted-foreground font-mono shrink-0 whitespace-nowrap pl-1">
+                          {formatDistanceToNow(parseISO(evt.created_at), { addSuffix: true })}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="py-12 text-center text-xs text-muted-foreground">
+                    No user events logged matching your criteria.
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Right 1 Col: Dashboard Breakdown, Top Actions & Modals */}
@@ -503,89 +618,6 @@ export function UserBehaviourAnalyticsPanel() {
           </Card>
         </div>
       </div>
-
-      {/* Live Recent Event Feed */}
-      <Card className="border-border/60 shadow-sm">
-        <CardHeader className="p-4 pb-3 flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-border/40">
-          <div>
-            <CardTitle className="text-base font-semibold flex items-center gap-2">
-              Live Activity Stream
-              <Badge variant="outline" className="text-[10px] font-mono">
-                {recentEvents.length} events
-              </Badge>
-            </CardTitle>
-            <CardDescription className="text-xs">
-              Chronological log of verified user taps, navigations, and dialog events
-            </CardDescription>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="relative w-64">
-              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-              <Input
-                placeholder="Filter events..."
-                value={searchFilter}
-                onChange={(e) => setSearchFilter(e.target.value)}
-                className="h-8 pl-8 text-xs rounded-lg"
-              />
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto max-h-96 overflow-y-auto divide-y divide-border/30">
-            {recentEvents.length > 0 ? (
-              recentEvents.map((evt) => (
-                <div key={evt.id} className="p-3 text-xs flex items-center justify-between hover:bg-muted/20 transition-colors">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <span
-                      className="px-2 py-0.5 rounded text-[10px] font-bold uppercase shrink-0"
-                      style={{
-                        backgroundColor: `${ROLE_COLORS[evt.role] || '#64748b'}20`,
-                        color: ROLE_COLORS[evt.role] || '#64748b',
-                      }}
-                    >
-                      {evt.role}
-                    </span>
-
-                    <div className="truncate">
-                      <p className="font-medium text-foreground truncate">
-                        {evt.dialog_name ? `[Dialog: ${evt.dialog_name}] ` : ''}
-                        {evt.target || evt.section || evt.event_type}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground flex items-center gap-2">
-                        <span>{evt.user_name || 'Anonymous User'}</span>
-                        {evt.phone && <span>({evt.phone})</span>}
-                        {evt.section && <span>• Section: {evt.section}</span>}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="text-right shrink-0 flex items-center gap-3">
-                    {evt.has_gps ? (
-                      <Badge variant="outline" className="text-[9px] bg-emerald-500/10 text-emerald-600 border-emerald-500/30 gap-1">
-                        <Navigation className="h-2.5 w-2.5" />
-                        GPS
-                      </Badge>
-                    ) : evt.ip_address ? (
-                      <Badge variant="outline" className="text-[9px] text-muted-foreground gap-1">
-                        <Globe className="h-2.5 w-2.5" />
-                        IP
-                      </Badge>
-                    ) : null}
-
-                    <span className="text-[11px] text-muted-foreground font-mono">
-                      {formatDistanceToNow(parseISO(evt.created_at), { addSuffix: true })}
-                    </span>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="py-12 text-center text-xs text-muted-foreground">
-                No user events logged matching your criteria.
-              </div>
-            )}
-          </div>
-        </CardContent>
-      </Card>
     </div>
   );
 }

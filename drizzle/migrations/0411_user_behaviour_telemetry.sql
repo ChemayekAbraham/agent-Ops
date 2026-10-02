@@ -275,6 +275,8 @@ BEGIN
         'target', rec.target,
         'dialog_name', rec.dialog_name,
         'has_gps', (rec.latitude IS NOT NULL AND rec.longitude IS NOT NULL),
+        'latitude', rec.latitude,
+        'longitude', rec.longitude,
         'ip_address', rec.ip_address,
         'user_name', p.full_name,
         'phone', CASE 
