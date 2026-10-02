@@ -196,6 +196,8 @@ describe('StartCashDepositDialog — accessibility of errors', () => {
  * slow connection can never start a second deposit.
  */
 describe('StartCashDepositDialog — sending state', () => {
+  beforeEach(() => invokeSpy.mockClear());
+
   const reachSend = () => {
     setup();
     completePerson();
