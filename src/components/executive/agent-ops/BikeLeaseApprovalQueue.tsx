@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { Bike, Check, Edit3, Loader2, X, Download, Award, ShieldCheck } from 'lucide-react';
+import { Bike, Check, Edit3, Loader2, X, Download, Award, ShieldCheck, Wrench, TrendingUp } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -32,12 +32,14 @@ import { SPIRO_LEASE_PERIODS, spiroEffectiveFeePct } from '@/lib/spiroBikeLease'
 import { BikeLeaseDetailDialog } from './BikeLeaseDetailDialog';
 import { EditBikeApplicationDialog } from './EditBikeApplicationDialog';
 import { MotorBikeCatalogDialog } from './MotorBikeCatalogDialog';
+import { BikeAssetDetailsDialog } from './BikeAssetDetailsDialog';
+import { BikeLeaseRateDialog } from './BikeLeaseRateDialog';
 import {
   generateSpiroBikeSettlementCertificatePdf,
   downloadSpiroSettlementCertificate,
 } from '@/lib/spiroBikeSettlementCertificatePdf';
 
-import { fetchBikeLeaseQueue } from '@/hooks/useBikeLeases';
+import { fetchBikeLeaseQueue, type BikeLeaseRecord } from '@/hooks/useBikeLeases';
 
 const db = supabase as any;
 
@@ -148,6 +150,8 @@ export function BikeLeaseApprovalQueue({
   const [rejectReason, setRejectReason] = useState('');
   const [detailTarget, setDetailTarget] = useState<BikeLeaseRow | null>(null);
   const [editTarget, setEditTarget] = useState<BikeLeaseRow | null>(null);
+  const [assetTarget, setAssetTarget] = useState<BikeLeaseRow | null>(null);
+  const [rateTarget, setRateTarget] = useState<BikeLeaseRow | null>(null);
 
   const { data: orders = [], isLoading } = useQuery<BikeLeaseRow[]>({
     queryKey: ['bike-lease-queue'],
@@ -403,6 +407,17 @@ export function BikeLeaseApprovalQueue({
                     >
                       <Edit3 className="h-3.5 w-3.5" /> Edit Price
                     </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-8 px-2.5 text-xs gap-1 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setAssetTarget(o);
+                      }}
+                    >
+                      <Wrench className="h-3.5 w-3.5" /> Asset
+                    </Button>
                     {canActOnRow(o.order_status) ? (
                       <>
                         <Button
@@ -527,6 +542,30 @@ export function BikeLeaseApprovalQueue({
                           >
                             <Edit3 className="h-3.5 w-3.5" />
                             <span className="hidden lg:inline">Edit</span>
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                            title="Record bike asset details"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setAssetTarget(o);
+                            }}
+                          >
+                            <Wrench className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-primary hover:bg-primary/10"
+                            title="Set monthly interest rate"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setRateTarget(o);
+                            }}
+                          >
+                            <TrendingUp className="h-3.5 w-3.5" />
                           </Button>
                           {canActOnRow(o.order_status) ? (
                             <>
@@ -800,6 +839,20 @@ export function BikeLeaseApprovalQueue({
             setDetailTarget(null);
           }
         }}
+      />
+
+      {/* Bike Asset Details Dialog */}
+      <BikeAssetDetailsDialog
+        lease={assetTarget as unknown as BikeLeaseRecord | null}
+        open={!!assetTarget}
+        onOpenChange={(v) => { if (!v) setAssetTarget(null); }}
+      />
+
+      {/* Monthly Rate Setting Dialog */}
+      <BikeLeaseRateDialog
+        lease={rateTarget as unknown as BikeLeaseRecord | null}
+        open={!!rateTarget}
+        onOpenChange={(v) => { if (!v) setRateTarget(null); }}
       />
     </Card>
   );
