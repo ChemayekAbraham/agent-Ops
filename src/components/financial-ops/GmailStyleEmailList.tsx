@@ -3,6 +3,7 @@ import { ChevronLeft, Paperclip, Star, Inbox, Clock, Archive, Trash2, MailOpen, 
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { UserSearchPicker, type UserResult } from '@/components/cfo/UserSearchPicker';
+import { DialableNumber } from './DialableNumber';
 
 /**
  * Minimal shape needed to render an extracted transaction email in a
