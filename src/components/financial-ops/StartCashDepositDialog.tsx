@@ -177,7 +177,7 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
               <h3 className={sectionHeading}>Cash</h3>
 
               <div className="space-y-1.5">
-                <Label htmlFor="fin-cash-amount">Amount</Label>
+                <Label htmlFor="fin-cash-amount">Cash amount</Label>
                 <div className="relative">
                   <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">
                     UGX
