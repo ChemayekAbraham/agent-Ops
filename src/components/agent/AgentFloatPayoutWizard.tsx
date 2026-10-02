@@ -17,7 +17,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { format } from 'date-fns';
 import {
   Landmark, Loader2, CheckCircle2, Phone, ArrowRight,
-  Clock, User2, Home, ShieldCheck, RefreshCw, AlertTriangle, Timer, RotateCcw
+  Clock, User2, Home, ShieldCheck, RefreshCw, AlertTriangle, Timer, RotateCcw, CirclePause
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -550,6 +550,19 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
 
   const challengeVerified = challenge?.status === 'verified';
   const challengeTerminalFailed = challenge?.status === 'expired' || challenge?.status === 'failed';
+
+  // UI-only derivation: a verified challenge with NO payout is not a success,
+  // so the green "Verification Complete" check must never show for it. The
+  // "Retry Payout" button is also hidden once a retry can no longer work:
+  //  - withdrawals are paused (the edge functions refuse while Platform
+  //    Controls pause is on — the failure text mentions "paused"), or
+  //  - the verified challenge is older than the disbursement's 2-minute
+  //    verification window, so the retry can only ever be refused.
+  const challengeHasPayout = !!challenge?.resulting_payout_id;
+  const withdrawalsPaused = /paused/i.test(disburseError ?? '');
+  const verificationStale =
+    !!challenge?.verified_at &&
+    Date.now() - new Date(challenge.verified_at).getTime() > 2 * 60 * 1000;
 
   // Drive step transitions from the challenge row instead of the verify
   // response. If verification succeeded but the disburse leg failed or the
