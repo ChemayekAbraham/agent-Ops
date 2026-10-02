@@ -127,3 +127,26 @@ describe('StartCashDepositDialog — steps and errors', () => {
     expect(invokeSpy).not.toHaveBeenCalled();
   });
 });
+
+describe('StartCashDepositDialog — accessibility of errors', () => {
+  it('announces errors with role=alert and links each field to its message', () => {
+    setup();
+    next();
+    const first = screen.getByLabelText(/First name/i);
+    expect(first.getAttribute('aria-invalid')).toBe('true');
+    const msgId = first.getAttribute('aria-describedby')!;
+    const msg = document.getElementById(msgId)!;
+    expect(msg.getAttribute('role')).toBe('alert');
+    expect(msg.textContent).toMatch(/Please type the first name/i);
+    const phone = screen.getByLabelText(/Depositor phone number/i);
+    expect(phone.getAttribute('aria-required')).toBe('true');
+    expect(document.getElementById(phone.getAttribute('aria-describedby')!)?.textContent)
+      .toMatch(/Please type the phone number/i);
+  });
+
+  it('has no error link before anything is touched, and announces the step', () => {
+    setup();
+    expect(screen.getByLabelText(/First name/i).getAttribute('aria-describedby')).toBeNull();
+    expect(screen.getByText(/Step 1 of 4/i).getAttribute('aria-live')).toBe('polite');
+  });
+});
