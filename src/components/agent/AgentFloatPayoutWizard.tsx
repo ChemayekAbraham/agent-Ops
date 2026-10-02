@@ -17,7 +17,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { format } from 'date-fns';
 import {
   Landmark, Loader2, CheckCircle2, Phone, ArrowRight,
-  Clock, User2, Home, ShieldCheck, RefreshCw, AlertTriangle, Timer, RotateCcw
+  Clock, User2, Home, ShieldCheck, RefreshCw, AlertTriangle, Timer, RotateCcw, CirclePause
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -550,6 +550,19 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
 
   const challengeVerified = challenge?.status === 'verified';
   const challengeTerminalFailed = challenge?.status === 'expired' || challenge?.status === 'failed';
+
+  // UI-only derivation: a verified challenge with NO payout is not a success,
+  // so the green "Verification Complete" check must never show for it. The
+  // "Retry Payout" button is also hidden once a retry can no longer work:
+  //  - withdrawals are paused (the edge functions refuse while Platform
+  //    Controls pause is on — the failure text mentions "paused"), or
+  //  - the verified challenge is older than the disbursement's 2-minute
+  //    verification window, so the retry can only ever be refused.
+  const challengeHasPayout = !!challenge?.resulting_payout_id;
+  const withdrawalsPaused = /paused/i.test(disburseError ?? '');
+  const verificationStale =
+    !!challenge?.verified_at &&
+    Date.now() - new Date(challenge.verified_at).getTime() > 2 * 60 * 1000;
 
   // Drive step transitions from the challenge row instead of the verify
   // response. If verification succeeded but the disburse leg failed or the
@@ -1159,7 +1172,7 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
                         No mobile money number is currently recorded for this landlord.
                       </p>
                     )}
-                    {!showPhoneChangeReq ? (
+                    {!showPhoneChangeReq && !payoutNumberMatchesOnFile ? (
                       <button
                         type="button"
                         onClick={() => setShowPhoneChangeReq(true)}
@@ -1215,35 +1228,61 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
               </div>
 
               {challengeVerified ? (
-                <div className="space-y-3 p-4 rounded-xl border-2 border-success/30 bg-success/5 text-center">
-                  <CheckCircle2 className="h-8 w-8 mx-auto text-success" />
-                  <p className="text-sm font-semibold text-success">Verification Complete</p>
-                  <p className="text-xs text-muted-foreground">
-                    {challenge?.resulting_payout_id
-                      ? 'Opening disbursement…'
-                      : 'Final payout is being processed…'}
-                  </p>
-                  {!challenge?.resulting_payout_id && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      className="gap-2"
-                      disabled={isRetryingDisburse}
-                      onClick={retryDisburse}
-                    >
-                      {isRetryingDisburse ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <RefreshCw className="h-3.5 w-3.5" />
-                      )}
-                      Retry Payout
-                    </Button>
-                  )}
-                  {disburseError && (
-                    <p className="text-[11px] text-destructive">{disburseError}</p>
-                  )}
-                </div>
+                challengeHasPayout ? (
+                  <div className="space-y-3 p-4 rounded-xl border-2 border-success/30 bg-success/5 text-center">
+                    <CheckCircle2 className="h-8 w-8 mx-auto text-success" />
+                    <p className="text-sm font-semibold text-success">Verification Complete</p>
+                    <p className="text-xs text-muted-foreground">Opening disbursement…</p>
+                  </div>
+                ) : (
+                  /* Verified but no payout exists — never claim success. While
+                     withdrawals are paused (or the verification is past the
+                     disbursement window) a retry can never succeed, so offer
+                     only Close. */
+                  <div className="space-y-3 p-4 rounded-xl border-2 border-border bg-muted/5 text-center">
+                    {withdrawalsPaused ? (
+                      <CirclePause className="h-7 w-7 mx-auto text-foreground/70" />
+                    ) : verificationStale ? (
+                      <Clock className="h-7 w-7 mx-auto text-foreground/70" />
+                    ) : (
+                      <Loader2 className="h-7 w-7 mx-auto animate-spin text-muted-foreground" />
+                    )}
+                    <p className="text-sm font-semibold text-foreground">
+                      {withdrawalsPaused ? 'Withdrawals are paused' : 'Payout not started'}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {withdrawalsPaused
+                        ? 'Landlord float withdrawals are currently paused. No money has been sent.'
+                        : verificationStale
+                          ? 'This verification has expired. Start a new payout.'
+                          : 'Final payout is being processed…'}
+                    </p>
+                    {withdrawalsPaused || verificationStale ? (
+                      <Button type="button" size="sm" variant="outline" onClick={handleClose}>
+                        Close
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="gap-2"
+                        disabled={isRetryingDisburse}
+                        onClick={retryDisburse}
+                      >
+                        {isRetryingDisburse ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <RefreshCw className="h-3.5 w-3.5" />
+                        )}
+                        Retry Payout
+                      </Button>
+                    )}
+                    {disburseError && (
+                      <p className="text-[11px] text-destructive">{disburseError}</p>
+                    )}
+                  </div>
+                )
               ) : challengeTerminalFailed ? (
                 <div className="space-y-3 p-4 rounded-xl border-2 border-destructive/30 bg-destructive/5 text-center">
                   <AlertTriangle className="h-6 w-6 mx-auto text-destructive" />
