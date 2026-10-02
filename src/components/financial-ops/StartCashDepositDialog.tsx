@@ -373,6 +373,9 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
           </div>
         </div>
 
+        {/* Screen-reader notice for the in-flight send (the button label change alone is not announced). */}
+        <p className="sr-only" aria-live="polite">{submitting ? 'Sending the code. Please wait.' : ''}</p>
+
         {/* Pinned actions */}
         <div className="flex gap-2 border-t border-border/60 bg-muted/40 p-4 sm:px-6">
           <Button variant="outline" className="h-12 flex-1 gap-1"
