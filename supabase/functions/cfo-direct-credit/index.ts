@@ -199,25 +199,33 @@ Deno.serve(async (req) => {
         .eq("user_id", authedUser.id)
         .in("role", ["cfo", "financial_ops", "super_admin"]);
 
-      if (!roles?.length) {
+      // Financial Ops staff = the cfo / financial_ops / super_admin roles, OR a
+      // Financial Ops dashboard permission (same definition as the web's
+      // is_financial_ops_staff). Holding the permission alone is enough to
+      // route an email receipt; it does not unlock anything CFO-only.
+      let finOpsStaff = !!roles?.length;
+      if (!finOpsStaff) {
+        const { data: staffOk } = await adminClient.rpc("is_financial_ops_staff", { p_user: authedUser.id });
+        finOpsStaff = staffOk === true;
+      }
+      if (!finOpsStaff) {
         return new Response(JSON.stringify({ error: "Insufficient permissions" }), {
           status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
       user = { id: authedUser.id };
       callerRoles = (roles || []).map((r: any) => r.role);
+      if (!callerRoles.length) callerRoles = ["financial_ops_staff"];
       // CFO Direct Credit/Debit acting in a CFO capacity is restricted to the
       // designated CFO approver. Manual credits and debits are pinned to the Chief
       // Finance Officer office and the designated super admins.
       //
       // Exception: routing a real incoming email receipt to the wallet it belongs
       // to ("Send to wallet" in Financial Ops > Email Transactions) is Financial
-      // Ops' own duty. A financial_ops user who is not the approver may do that
-      // and only that; the request is checked against the receipt below.
+      // Ops' own duty. Anyone who got this far is Financial Ops staff, so a
+      // non-approver may do that and only that; the request is checked against
+      // the receipt below.
       if (!(await isCfoApprover(adminClient, authedUser.id))) {
-        if (!callerRoles.includes("financial_ops")) {
-          return cfoApproverDenied(corsHeaders);
-        }
         finOpsEmailRoutingOnly = true;
       }
     }
