@@ -2997,6 +2997,13 @@
       "when": 1790967630971,
       "tag": "0427_fundin_p4_recompute_v4",
       "breakpoints": true
+    },
+    {
+      "idx": 428,
+      "version": "7",
+      "when": 1790970810295,
+      "tag": "0428_fundin_p5_settle_v2",
+      "breakpoints": true
     }
   ]
 }

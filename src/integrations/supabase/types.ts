@@ -11349,6 +11349,42 @@ export type Database = {
         }
         Relationships: []
       }
+      commission_recompute_settlements: {
+        Row: {
+          amount: number
+          created_at: string
+          direction: string
+          earner_id: string
+          error: string | null
+          id: string
+          ledger_group_id: string | null
+          run_id: string
+          status: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          direction: string
+          earner_id: string
+          error?: string | null
+          id?: string
+          ledger_group_id?: string | null
+          run_id: string
+          status: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          direction?: string
+          earner_id?: string
+          error?: string | null
+          id?: string
+          ledger_group_id?: string | null
+          run_id?: string
+          status?: string
+        }
+        Relationships: []
+      }
       conversation_participants: {
         Row: {
           conversation_id: string
