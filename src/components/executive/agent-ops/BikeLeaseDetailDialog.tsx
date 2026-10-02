@@ -392,7 +392,7 @@ export function BikeLeaseDetailDialog({
 
             {/* Key KPI grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-              <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
+              <div {...cardProps('subagents')}>
                 <p className="text-[10px] font-medium text-muted-foreground truncate">Active Sub-Agents</p>
                 <p className="text-xs sm:text-sm font-bold text-indigo-600 truncate flex items-center gap-1">
                   {subAgentsLoading ? (
@@ -408,7 +408,7 @@ export function BikeLeaseDetailDialog({
                 </p>
               </div>
 
-              <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
+              <div {...cardProps('tenants')}>
                 <p className="text-[10px] font-medium text-muted-foreground truncate">Active Tenants</p>
                 <p className="text-xs sm:text-sm font-bold text-foreground truncate">
                   {tenantsLoading ? (
@@ -430,7 +430,7 @@ export function BikeLeaseDetailDialog({
                 </p>
               </div>
 
-              <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
+              <div {...cardProps('collections')}>
                 <p className="text-[10px] font-medium text-muted-foreground truncate">30d Collections</p>
                 <p className="text-xs sm:text-sm font-bold text-emerald-600 truncate">
                   {metricsLoading ? (
