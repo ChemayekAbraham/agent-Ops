@@ -13,6 +13,7 @@ import {
   ShieldCheck, Smartphone, User,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import FieldError from '@/components/shared/FieldError';
 import PersonNameFields from '@/components/shared/PersonNameFields';
 import { joinPersonName, validatePersonNameParts, type PersonNameParts } from '@/lib/authValidation';
 
@@ -34,6 +35,8 @@ interface StartCashDepositDialogProps {
  * action pinned below a scrollable body so it is reachable without scrolling
  * the whole form on a phone.
  */
+const nameNorm = (v?: string) => (v || '').trim();
+
 export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCashDepositDialogProps) {
   const { toast } = useToast();
   const [phone, setPhone] = useState('');
@@ -53,6 +56,9 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [step, setStep] = useState(0);
+  // Field errors appear once a field was left (blur) or Continue was pressed.
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const touch = (k: string) => setTouched((t) => ({ ...t, [k]: true }));
 
   const digits = phone.replace(/\D/g, '');
   const amountNum = Number(amount.replace(/[^0-9]/g, ''));
@@ -73,6 +79,18 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
           : !emailValid
             ? 'Enter the depositor\u2019s email address \u2014 it is required'
             : null;
+  const fieldErrors = {
+    firstName: !nameNorm(nameParts.firstName) ? 'Please type the first name.' : null,
+    lastName: !nameNorm(nameParts.lastName) ? 'Please type the last name.' : null,
+    phone: digits.length === 0 ? 'Please type the phone number.'
+      : digits.length < 9 ? 'This phone number is too short. It needs at least 9 digits, e.g. 0704 000 000.' : null,
+    amount: amount.trim() === '' ? 'Please type the cash amount.'
+      : !Number.isFinite(amountNum) || amountNum < 500 ? 'The smallest amount is UGX 500. Please type a bigger number.' : null,
+    email: emailClean === '' ? 'Please type the email address. It is required.'
+      : !emailValid ? 'This email does not look right. Check it has @ and a dot, e.g. name@example.com.' : null,
+  };
+  const show = (k: keyof typeof fieldErrors) => (touched[k] ? fieldErrors[k] : null);
+  const nameOtherError = nameParts.firstName && nameParts.lastName && !nameCheck.valid ? nameCheck.error || null : null;
   const canSubmit = !blockedReason && !submitting;
 
   // One-step-at-a-time flow: each step only checks its own fields.
@@ -92,6 +110,14 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
     { title: 'Where should the code go?', short: 'Email', icon: Mail },
     { title: 'Check and send', short: 'Send', icon: ClipboardCheck },
   ];
+  const stepFields: (keyof typeof fieldErrors)[][] = [['firstName', 'lastName', 'phone'], ['amount'], ['email'], []];
+  const tryContinue = () => {
+    if (stepBlocked[step]) {
+      setTouched((t) => ({ ...t, ...Object.fromEntries(stepFields[step].map((k) => [k, true])) }));
+      return;
+    }
+    setStep(step + 1);
+  };
   const isLast = step === STEPS.length - 1;
   const current = STEPS[step];
   const StepIcon = current.icon;
@@ -105,6 +131,7 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
     setEmail('');
     setError(null);
     setStep(0);
+    setTouched({});
   };
 
   const submit = async () => {
@@ -205,11 +232,21 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
 
             {step === 0 && (
               <div className="space-y-3">
-                <PersonNameFields idPrefix="fin-cash-owner" value={nameParts} onChange={setNameParts} />
+                <div onBlur={(e) => {
+                  const id = (e.target as HTMLElement).id || '';
+                  if (id.endsWith('first-name')) touch('firstName');
+                  if (id.endsWith('last-name')) touch('lastName');
+                }}>
+                  <PersonNameFields idPrefix="fin-cash-owner" value={nameParts} onChange={setNameParts}
+                    errors={{ firstName: show('firstName'), lastName: show('lastName'), otherNames: touched.lastName ? nameOtherError : null }} />
+                </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="fin-cash-phone">Depositor phone number</Label>
-                  <Input id="fin-cash-phone" inputMode="tel" placeholder="0704 000 000" className="h-12 text-base"
-                    value={phone} onChange={(e) => setPhone(e.target.value)} />
+                  <Input id="fin-cash-phone" inputMode="tel" placeholder="0704 000 000"
+                    value={phone} onChange={(e) => setPhone(e.target.value)} onBlur={() => touch('phone')}
+                    aria-invalid={!!show('phone')}
+                    className={cn('h-12 text-base', show('phone') && 'border-destructive focus-visible:ring-destructive')} />
+                  <FieldError message={show('phone')} />
                 </div>
               </div>
             )}
@@ -221,10 +258,13 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
                   <div className="relative">
                     <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">UGX</span>
                     <Input id="fin-cash-amount" inputMode="numeric" placeholder="50000"
-                      className="h-14 pl-12 text-xl font-semibold" value={amount}
+                      className={cn('h-14 pl-12 text-xl font-semibold', show('amount') && 'border-destructive focus-visible:ring-destructive')}
+                      aria-invalid={!!show('amount')} value={amount}
+                      onBlur={() => touch('amount')}
                       onChange={(e) => setAmount(e.target.value)} />
                   </div>
-                  {amountNum > 0 && <p className="text-xs text-muted-foreground">UGX {amountNum.toLocaleString()}</p>}
+                  <FieldError message={show('amount')} />
+                  {amountNum > 0 && !show('amount') && <p className="text-xs text-muted-foreground">UGX {amountNum.toLocaleString()}</p>}
                 </div>
                 <div className="space-y-1.5">
                   <Label>Where is the cash?</Label>
@@ -259,8 +299,11 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
               <div className="space-y-1.5">
                 <Label htmlFor="fin-cash-email">Depositor email address <span className="text-destructive">*</span></Label>
                 <Input id="fin-cash-email" type="email" inputMode="email" placeholder="depositor@example.com"
-                  className="h-12 text-base" value={email} onChange={(e) => setEmail(e.target.value)} />
-                <p className="text-xs text-muted-foreground">The code goes to this email and their phone.</p>
+                  className={cn('h-12 text-base', show('email') && 'border-destructive focus-visible:ring-destructive')}
+                  aria-invalid={!!show('email')} value={email} onBlur={() => touch('email')}
+                  onChange={(e) => setEmail(e.target.value)} />
+                <FieldError message={show('email')} />
+                {!show('email') && <p className="text-xs text-muted-foreground">The code goes to this email and their phone.</p>}
               </div>
             )}
 
@@ -294,8 +337,8 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
               </div>
             )}
 
-            {error && <p className="text-xs text-destructive">{error}</p>}
-            {!error && stepBlocked[step] && <p className="text-xs text-muted-foreground">{stepBlocked[step]}</p>}
+            {error && <FieldError message={error} />}
+            {!error && step === 3 && blockedReason && <FieldError message={blockedReason} />}
           </div>
         </div>
 
@@ -312,7 +355,7 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
               Send code by SMS + email
             </Button>
           ) : (
-            <Button onClick={() => setStep(step + 1)} disabled={!!stepBlocked[step]} className="h-12 flex-[2] gap-1 text-base">
+            <Button onClick={tryContinue} className="h-12 flex-[2] gap-1 text-base">
               Continue<ArrowRight className="h-4 w-4" />
             </Button>
           )}
