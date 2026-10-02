@@ -75,6 +75,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       title: 'Engineering',
       items: [
         { label: 'Overview', icon: LayoutDashboard, id: 'overview' },
+        { label: 'User Dossier', icon: Users, id: 'user-dossier' },
         { label: 'System Infrastructure', icon: Server, id: 'infrastructure' },
         { label: 'API Management', icon: Code, id: 'api' },
         { label: 'Communication', icon: Mail, id: 'communication' },
