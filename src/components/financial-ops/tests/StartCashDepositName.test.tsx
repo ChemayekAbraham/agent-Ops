@@ -44,7 +44,9 @@ describe('StartCashDepositDialog — depositor name', () => {
     setup();
     fill(/First name/i, 'Nankambo');
     fill(/Depositor phone number/i, '0771234567');
-    expect(screen.getByRole('button', { name: /Continue/i })).toBeDisabled();
+    fireEvent.click(screen.getByRole('button', { name: /Continue/i }));
+    expect(screen.getByText(/Please type the last name/i)).toBeTruthy();
+    expect(screen.getByText(/Who is depositing/i)).toBeTruthy();
     expect(invokeSpy).not.toHaveBeenCalled();
   });
 });
