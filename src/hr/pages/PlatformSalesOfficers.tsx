@@ -72,7 +72,7 @@ interface NonOfficerFunded {
   as_at: string;
 }
 
-type WindowMode = 'DAILY' | 'WEEKLY' | 'MONTHLY';
+type WindowMode = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'ALL';
 
 // Numeric value a row is ranked by for a given sort key. 'day-N' keys read the
 // per-weekday buckets; anything else reads the named numeric field.
@@ -222,6 +222,15 @@ function getWindowDates(
       from: startStr,
       to: endStr,
       label: `WEEKLY · ${formatKampalaDisplay(startStr)} – ${formatKampalaDisplay(endStr)}`,
+    };
+  }
+
+  if (mode === 'ALL') {
+    const inception = '2025-01-01';
+    return {
+      from: inception,
+      to: todayStr,
+      label: `ALL TIME · since inception – ${formatKampalaDisplay(todayStr)}`,
     };
   }
 
@@ -568,7 +577,7 @@ export default function PlatformSalesOfficersPage() {
     // A monthly report describes everything collected during that calendar
     // month. Include notes recorded before the officer's formal assignment
     // date so a mid-month enrolment does not hide work already completed.
-    if (mode === 'MONTHLY') {
+    if (mode === 'MONTHLY' || mode === 'ALL') {
       for (const entry of byId.values()) {
         entry.netNotes += entry.preEnrolmentNotes;
       }
@@ -699,6 +708,7 @@ export default function PlatformSalesOfficersPage() {
   const combinedNetTarget = useMemo(() => {
     if (mode === 'DAILY') return 100;
     if (mode === 'WEEKLY') return 700;
+    if (mode === 'ALL') return 0;
     return 3000;
   }, [mode]);
   const combinedNetPct = useMemo(() => {
@@ -777,13 +787,13 @@ export default function PlatformSalesOfficersPage() {
               {label}
             </span>
             <span className="text-[11px] text-muted-foreground">
-              {mode !== 'DAILY' && weekOffset !== 0
+              {mode !== 'DAILY' && mode !== 'ALL' && weekOffset !== 0
                 ? (mode === 'WEEKLY' ? 'past week · Wed to Tue' : 'past month')
                 : 'live · refreshes every minute'}
             </span>
           </div>
 
-          {mode !== 'DAILY' && (
+          {mode !== 'DAILY' && mode !== 'ALL' && (
             <div className="flex items-center gap-1">
               <button
                 type="button"
@@ -820,9 +830,9 @@ export default function PlatformSalesOfficersPage() {
 
 
 
-          <div className="grid w-full grid-cols-3 gap-1 rounded-lg border p-1 sm:inline-grid sm:w-auto">
+          <div className="grid w-full grid-cols-4 gap-1 rounded-lg border p-1 sm:inline-grid sm:w-auto">
 
-            {(['DAILY', 'WEEKLY', 'MONTHLY'] as WindowMode[]).map((m) => (
+            {(['DAILY', 'WEEKLY', 'MONTHLY', 'ALL'] as WindowMode[]).map((m) => (
               <button
                 key={m}
                 type="button"
@@ -835,7 +845,7 @@ export default function PlatformSalesOfficersPage() {
                     : 'bg-background text-muted-foreground hover:text-foreground',
                 )}
               >
-                {m}
+                {m === 'ALL' ? 'ALL TIME' : m}
               </button>
             ))}
           </div>
@@ -881,9 +891,9 @@ export default function PlatformSalesOfficersPage() {
         )}
 
 
-        {mode === 'MONTHLY' && (
+        {(mode === 'MONTHLY' || mode === 'ALL') && (
           <p className="text-xs text-muted-foreground">
-            on MONTHLY each column totals every occurrence of that weekday in the window
+            on MONTHLY and ALL TIME each column totals every occurrence of that weekday in the window
           </p>
         )}
 
