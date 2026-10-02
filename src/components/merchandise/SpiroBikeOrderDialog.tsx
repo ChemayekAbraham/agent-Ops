@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Bike, Loader2 } from 'lucide-react';
+import { Bike, Loader2, ShieldCheck, FileText, ChevronDown, ChevronUp } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -82,6 +83,8 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
   const [model, setModel] = useState<string>(SPIRO_MODELS[0].model);
   const [term, setTerm] = useState<string>('3');
   const [submitting, setSubmitting] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [showTerms, setShowTerms] = useState(false);
 
   const selectedModel = useMemo(
     () => availableModels.find((m) => m.model === model) ?? availableModels[0],
@@ -95,6 +98,10 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
   const schedule = useMemo(() => spiroLeaseSchedule(termNum, basePrice), [termNum, basePrice]);
 
   const submit = async () => {
+    if (!acceptedTerms) {
+      toast.error('Please accept the Lease Terms & Conditions to submit your order.');
+      return;
+    }
     setSubmitting(true);
     const { error } = await db.rpc('agent_order_spiro_bike_lease', {
       p_model: model,
@@ -209,13 +216,69 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
             </div>
           </div>
 
+          {/* Terms & Conditions Section */}
+          <div className="rounded-lg border border-border/80 bg-muted/30 p-3 space-y-2.5 text-xs">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 font-semibold text-foreground">
+                <ShieldCheck className="h-4 w-4 text-primary" />
+                <span>Lease Terms & Conditions</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowTerms((prev) => !prev)}
+                className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline cursor-pointer"
+              >
+                {showTerms ? 'Hide details' : 'View details'}
+                {showTerms ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+              </button>
+            </div>
+
+            {showTerms ? (
+              <div className="space-y-2 border-t border-border/60 pt-2 text-[11px] text-muted-foreground leading-relaxed">
+                <div className="flex items-start gap-2">
+                  <FileText className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+                  <p>
+                    <strong className="text-foreground">Logbook & Title Custody:</strong> The physical Spiro logbook and registration remain in Welile's exclusive legal custody as collateral throughout the lease period.
+                  </p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <FileText className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+                  <p>
+                    <strong className="text-foreground">Daily Commission Sweeps:</strong> Daily repayments are automatically recovered from your agent wallet commission earnings up to the scheduled daily rate without overdrafting.
+                  </p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <FileText className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+                  <p>
+                    <strong className="text-foreground">Full Settlement & Ownership:</strong> Upon full balance clearance (0 UGX), a certified <em>Certificate of Full Settlement</em> is automatically issued, and the logbook is officially transferred to you.
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="flex items-start gap-2.5 pt-1">
+              <Checkbox
+                id="spiro-terms"
+                checked={acceptedTerms}
+                onCheckedChange={(checked) => setAcceptedTerms(checked === true)}
+                className="mt-0.5"
+              />
+              <label
+                htmlFor="spiro-terms"
+                className="text-[11px] leading-tight text-foreground/90 cursor-pointer select-none"
+              >
+                I agree to the Spiro Motorbike Lease Terms, including daily commission sweeps and Welile's custody of the logbook until final settlement.
+              </label>
+            </div>
+          </div>
+
         </div>
 
         <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={submitting || !termValid}>
+          <Button onClick={submit} disabled={submitting || !termValid || !acceptedTerms}>
             {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
             {submitting ? 'Submitting…' : 'Submit Order for Review'}
           </Button>
@@ -224,3 +287,4 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
     </Dialog>
   );
 }
+
