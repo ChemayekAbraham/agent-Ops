@@ -8,7 +8,10 @@ import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Lock, MessageSquare, ShieldCheck, Smartphone } from 'lucide-react';
+import {
+  ArrowLeft, ArrowRight, Banknote, Check, ClipboardCheck, Loader2, Lock, Mail, MessageSquare,
+  ShieldCheck, Smartphone, User,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import PersonNameFields from '@/components/shared/PersonNameFields';
 import { joinPersonName, validatePersonNameParts, type PersonNameParts } from '@/lib/authValidation';
@@ -49,6 +52,7 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
   const [email, setEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [step, setStep] = useState(0);
 
   const digits = phone.replace(/\D/g, '');
   const amountNum = Number(amount.replace(/[^0-9]/g, ''));
@@ -71,6 +75,27 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
             : null;
   const canSubmit = !blockedReason && !submitting;
 
+  // One-step-at-a-time flow: each step only checks its own fields.
+  const stepBlocked = [
+    !nameCheck.valid
+      ? nameCheck.error || 'Enter the depositor\u2019s first and last name'
+      : ownerNameClean.length < 3
+        ? 'Enter the depositor\u2019s full name'
+        : digits.length < 9 ? 'Enter a valid phone number (at least 9 digits)' : null,
+    !Number.isFinite(amountNum) || amountNum < 500 ? 'Enter a cash amount of at least UGX 500' : null,
+    !emailValid ? 'Enter the depositor\u2019s email address \u2014 it is required' : null,
+    blockedReason,
+  ];
+  const STEPS = [
+    { title: 'Who is depositing?', short: 'Person', icon: User },
+    { title: 'How much cash?', short: 'Cash', icon: Banknote },
+    { title: 'Where should the code go?', short: 'Email', icon: Mail },
+    { title: 'Check and send', short: 'Send', icon: ClipboardCheck },
+  ];
+  const isLast = step === STEPS.length - 1;
+  const current = STEPS[step];
+  const StepIcon = current.icon;
+
   const reset = () => {
     setPhone('');
     setNameParts({ firstName: '', otherNames: '', lastName: '' });
@@ -79,6 +104,7 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
     setReason('');
     setEmail('');
     setError(null);
+    setStep(0);
   };
 
   const submit = async () => {
@@ -124,8 +150,6 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
     onIssued?.();
   };
 
-  const sectionHeading = 'text-[11px] font-semibold uppercase tracking-wider text-muted-foreground';
-
   return (
     <Dialog
       open={open}
@@ -141,168 +165,157 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
               <Smartphone className="h-5 w-5 text-primary" />
               Start cash deposit code
             </DialogTitle>
-            <DialogDescription>
-              Generate a secure deposit code for cash you have physically received.
-            </DialogDescription>
+            <DialogDescription>Step {step + 1} of {STEPS.length}</DialogDescription>
           </DialogHeader>
 
-          <div className="px-4 pb-5 space-y-5 sm:px-6">
-            {/* ── Depositor ─────────────────────────────────────────── */}
-            <section className="space-y-3">
-              <h3 className={sectionHeading}>Depositor</h3>
-              <div className="space-y-3">
-                <PersonNameFields idPrefix="fin-cash-owner" value={nameParts} onChange={setNameParts} />
-                <p className="text-[11px] text-muted-foreground">
-                  The person whose cash this is — the name shown in the deposits list.
-                </p>
-                <div className="space-y-1.5">
-                  <Label htmlFor="fin-cash-phone">Depositor phone number</Label>
-                  <Input
-                    id="fin-cash-phone"
-                    inputMode="tel"
-                    placeholder="0704 000 000"
-                    className="h-11"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                  />
-                  <p className="text-[11px] text-muted-foreground">
-                    The phone of the Welile account whose wallet will be credited.
-                  </p>
-                </div>
-              </div>
-            </section>
-
-            {/* ── Cash ──────────────────────────────────────────────── */}
-            <section className="space-y-3">
-              <h3 className={sectionHeading}>Cash</h3>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="fin-cash-amount">Cash amount</Label>
-                <div className="relative">
-                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">
-                    UGX
+          {/* Progress */}
+          <ol className="flex items-center gap-1 px-4 pb-4 sm:px-6" aria-label="Progress">
+            {STEPS.map((s, i) => {
+              const Icon = s.icon;
+              const done = i < step;
+              const active = i === step;
+              return (
+                <li key={s.short} className="flex flex-1 flex-col items-center gap-1">
+                  <span
+                    aria-current={active ? 'step' : undefined}
+                    className={cn(
+                      'flex h-9 w-9 items-center justify-center rounded-full border-2 transition-colors',
+                      done && 'border-primary bg-primary text-primary-foreground',
+                      active && 'border-primary bg-primary/10 text-primary',
+                      !done && !active && 'border-border text-muted-foreground',
+                    )}
+                  >
+                    {done ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
                   </span>
-                  <Input
-                    id="fin-cash-amount"
-                    inputMode="numeric"
-                    placeholder="50000"
-                    className="h-11 pl-12 text-base font-semibold"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                  />
-                </div>
-                {amountNum > 0 && (
-                  <p className="text-[11px] text-muted-foreground">
-                    UGX {amountNum.toLocaleString()}
-                  </p>
-                )}
-              </div>
+                  <span className={cn('text-[11px]', active ? 'font-semibold text-foreground' : 'text-muted-foreground')}>
+                    {s.short}
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
 
-              <div className="space-y-1.5">
-                <Label>Where is the cash?</Label>
-                <div
-                  role="radiogroup"
-                  aria-label="Where is the cash?"
-                  className="grid grid-cols-2 gap-1 rounded-lg border border-input bg-muted/50 p-1"
-                >
-                  {([
-                    ['cash_at_hand', 'Cash at hand'],
-                    ['bank', 'Deposited on bank'],
-                  ] as const).map(([value, label]) => (
-                    <button
-                      key={value}
-                      type="button"
-                      role="radio"
-                      aria-checked={cashLocation === value}
-                      onClick={() => setCashLocation(value)}
-                      className={cn(
-                        'min-h-[44px] rounded-md px-2 text-sm font-medium transition-all',
-                        cashLocation === value
-                          ? 'bg-background text-primary shadow-sm'
-                          : 'text-muted-foreground',
-                      )}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between gap-2 rounded-lg border border-input bg-muted/40 px-3 py-2.5">
-                <div>
-                  <p className="text-[11px] font-medium text-muted-foreground">Purpose</p>
-                  <p className="text-sm font-medium">Operational Float</p>
-                </div>
-                <Lock className="h-4 w-4 shrink-0 text-muted-foreground" aria-label="Locked" />
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="fin-cash-reason">
-                  Note <span className="font-normal text-muted-foreground">(optional)</span>
-                </Label>
-                <Textarea
-                  id="fin-cash-reason"
-                  rows={2}
-                  placeholder="Cash received at the office counter"
-                  value={reason}
-                  onChange={(e) => setReason(e.target.value)}
-                />
-              </div>
-            </section>
-
-            {/* ── Code delivery ─────────────────────────────────────── */}
-            <section className="space-y-1.5 rounded-lg border border-primary/20 bg-primary/5 p-3">
-              <Label htmlFor="fin-cash-email" className="text-sm">
-                Depositor email address <span className="text-destructive">*</span>
-              </Label>
-              <Input
-                id="fin-cash-email"
-                type="email"
-                inputMode="email"
-                placeholder="depositor@example.com"
-                className="h-11 bg-background"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-              <p className="text-[11px] text-muted-foreground">
-                The code goes to this email and their phone, so it still arrives when SMS fails.
-              </p>
-            </section>
-
-            <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-[11px] text-amber-700 dark:text-amber-400">
-              <ShieldCheck className="h-4 w-4 shrink-0 mt-0.5" />
-              <span>
-                Only start after you have the cash in hand. The code expires in 10 minutes.
+          <div className="px-4 pb-5 space-y-4 sm:px-6">
+            <div className="flex items-center gap-3">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <StepIcon className="h-6 w-6" />
               </span>
+              <h3 className="text-lg font-semibold">{current.title}</h3>
             </div>
 
-            {error && (
-              <p className="text-xs text-destructive">{error}</p>
+            {step === 0 && (
+              <div className="space-y-3">
+                <PersonNameFields idPrefix="fin-cash-owner" value={nameParts} onChange={setNameParts} />
+                <div className="space-y-1.5">
+                  <Label htmlFor="fin-cash-phone">Depositor phone number</Label>
+                  <Input id="fin-cash-phone" inputMode="tel" placeholder="0704 000 000" className="h-12 text-base"
+                    value={phone} onChange={(e) => setPhone(e.target.value)} />
+                </div>
+              </div>
             )}
-            {!error && blockedReason && (
-              <p className="text-xs text-muted-foreground">{blockedReason}</p>
+
+            {step === 1 && (
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="fin-cash-amount">Cash amount</Label>
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">UGX</span>
+                    <Input id="fin-cash-amount" inputMode="numeric" placeholder="50000"
+                      className="h-14 pl-12 text-xl font-semibold" value={amount}
+                      onChange={(e) => setAmount(e.target.value)} />
+                  </div>
+                  {amountNum > 0 && <p className="text-xs text-muted-foreground">UGX {amountNum.toLocaleString()}</p>}
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Where is the cash?</Label>
+                  <div role="radiogroup" aria-label="Where is the cash?"
+                    className="grid grid-cols-2 gap-1 rounded-lg border border-input bg-muted/50 p-1">
+                    {([['cash_at_hand', 'Cash at hand'], ['bank', 'Deposited on bank']] as const).map(([value, label]) => (
+                      <button key={value} type="button" role="radio" aria-checked={cashLocation === value}
+                        onClick={() => setCashLocation(value)}
+                        className={cn('min-h-[44px] rounded-md px-2 text-sm font-medium transition-all',
+                          cashLocation === value ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground')}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center justify-between gap-2 rounded-lg border border-input bg-muted/40 px-3 py-2.5">
+                  <div>
+                    <p className="text-[11px] font-medium text-muted-foreground">Purpose</p>
+                    <p className="text-sm font-medium">Operational Float</p>
+                  </div>
+                  <Lock className="h-4 w-4 shrink-0 text-muted-foreground" aria-label="Locked" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="fin-cash-reason">Note <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                  <Textarea id="fin-cash-reason" rows={2} placeholder="Cash received at the office counter"
+                    value={reason} onChange={(e) => setReason(e.target.value)} />
+                </div>
+              </div>
             )}
+
+            {step === 2 && (
+              <div className="space-y-1.5">
+                <Label htmlFor="fin-cash-email">Depositor email address <span className="text-destructive">*</span></Label>
+                <Input id="fin-cash-email" type="email" inputMode="email" placeholder="depositor@example.com"
+                  className="h-12 text-base" value={email} onChange={(e) => setEmail(e.target.value)} />
+                <p className="text-xs text-muted-foreground">The code goes to this email and their phone.</p>
+              </div>
+            )}
+
+            {step === 3 && (
+              <div className="space-y-3">
+                <dl className="divide-y divide-border rounded-lg border border-border">
+                  {([
+                    [User, 'Depositor', ownerNameClean, 0],
+                    [Smartphone, 'Phone', phone, 0],
+                    [Banknote, 'Amount', `UGX ${amountNum.toLocaleString()}`, 1],
+                    [Lock, 'Purpose', 'Operational Float', 1],
+                    [Mail, 'Email', emailClean, 2],
+                  ] as const).map(([Icon, label, value, target]) => (
+                    <div key={label} className="flex items-center gap-3 px-3 py-2.5">
+                      <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <div className="min-w-0 flex-1">
+                        <dt className="text-[11px] text-muted-foreground">{label}</dt>
+                        <dd className="truncate text-sm font-medium">{value}</dd>
+                      </div>
+                      {label !== 'Purpose' && (
+                        <button type="button" onClick={() => setStep(target)}
+                          className="min-h-[44px] px-2 text-xs font-medium text-primary">Edit</button>
+                      )}
+                    </div>
+                  ))}
+                </dl>
+                <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400">
+                  <ShieldCheck className="h-4 w-4 shrink-0 mt-0.5" />
+                  <span>Only send after you have the cash in hand. The code expires in 10 minutes.</span>
+                </div>
+              </div>
+            )}
+
+            {error && <p className="text-xs text-destructive">{error}</p>}
+            {!error && stepBlocked[step] && <p className="text-xs text-muted-foreground">{stepBlocked[step]}</p>}
           </div>
         </div>
 
-        {/* ── Pinned actions — reachable without scrolling on a phone ── */}
-        <div className="border-t border-border/60 bg-muted/40 p-4 space-y-2 sm:px-6">
-          <Button
-            onClick={submit}
-            disabled={!canSubmit}
-            className="w-full h-12 gap-2 text-base"
-          >
-            {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <MessageSquare className="h-5 w-5" />}
-            Send code by SMS + email
-          </Button>
-          <Button
-            variant="ghost"
-            onClick={() => onOpenChange(false)}
+        {/* Pinned actions */}
+        <div className="flex gap-2 border-t border-border/60 bg-muted/40 p-4 sm:px-6">
+          <Button variant="outline" className="h-12 flex-1 gap-1"
             disabled={submitting}
-            className="w-full h-10 text-muted-foreground"
-          >
-            Cancel
+            onClick={() => (step === 0 ? onOpenChange(false) : setStep(step - 1))}>
+            {step === 0 ? 'Cancel' : (<><ArrowLeft className="h-4 w-4" />Back</>)}
           </Button>
+          {isLast ? (
+            <Button onClick={submit} disabled={!canSubmit} className="h-12 flex-[2] gap-2 text-base">
+              {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <MessageSquare className="h-5 w-5" />}
+              Send code by SMS + email
+            </Button>
+          ) : (
+            <Button onClick={() => setStep(step + 1)} disabled={!!stepBlocked[step]} className="h-12 flex-[2] gap-1 text-base">
+              Continue<ArrowRight className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </DialogContent>
     </Dialog>
