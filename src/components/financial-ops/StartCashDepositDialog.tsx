@@ -202,6 +202,7 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
     <Dialog
       open={open}
       onOpenChange={(o) => {
+        if (!o && submitting) return; // never abandon a send that is already in flight
         if (!o) reset();
         onOpenChange(o);
       }}
