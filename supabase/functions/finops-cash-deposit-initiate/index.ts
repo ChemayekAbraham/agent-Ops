@@ -180,6 +180,9 @@ Deno.serve(async (req) => {
           cash_location: cashLocation,
           cash_owner_name: cashOwnerName,
           agent_personal_confirmed_at: new Date().toISOString(),
+          ...(requestedPurpose && requestedPurpose !== depositPurpose
+            ? { requested_purpose_ignored: requestedPurpose }
+            : {}),
         },
       } as any)
       .select("id")
