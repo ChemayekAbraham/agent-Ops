@@ -349,8 +349,9 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
                         <dd className="truncate text-sm font-medium">{value}</dd>
                       </div>
                       {label !== 'Purpose' && (
-                        <button type="button" onClick={() => setStep(target)}
-                          className="min-h-[44px] px-2 text-xs font-medium text-primary">Edit</button>
+                        <button type="button" onClick={() => setStep(target)} disabled={submitting}
+                          className={cn('min-h-[44px] px-2 text-xs font-medium text-primary',
+                            submitting && 'opacity-50')}>Edit</button>
                       )}
                     </div>
                   ))}
