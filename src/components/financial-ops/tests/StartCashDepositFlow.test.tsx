@@ -53,6 +53,46 @@ describe('StartCashDepositDialog — steps and errors', () => {
     expect(invokeSpy).not.toHaveBeenCalled();
   });
 
+  it('clears each field error as soon as that field is corrected (no blur needed)', () => {
+    setup();
+    next();
+    onPersonStep();
+    expect(screen.getByText(/Please type the first name/i)).toBeTruthy();
+    expect(screen.getByText(/Please type the last name/i)).toBeTruthy();
+    expect(screen.getByText(/Please type the phone number/i)).toBeTruthy();
+
+    fill(/First name/i, 'Nakamya');
+    expect(screen.queryByText(/Please type the first name/i)).toBeNull();
+    expect(screen.getByText(/Please type the last name/i)).toBeTruthy();
+    expect(screen.getByText(/Please type the phone number/i)).toBeTruthy();
+
+    fill(/Last name/i, 'Sharita');
+    expect(screen.queryByText(/Please type the last name/i)).toBeNull();
+
+    fill(/Depositor phone number/i, '0704');
+    expect(screen.getByText(/too short/i)).toBeTruthy();
+    fill(/Depositor phone number/i, '0704123456');
+    expect(screen.queryByText(/too short/i)).toBeNull();
+    expect(screen.queryByText(/Please type the phone number/i)).toBeNull();
+
+    next();
+    onCashStep();
+    next();
+    onCashStep();
+    expect(screen.getByText(/Please type the cash amount/i)).toBeTruthy();
+    fill(/Cash amount/i, '250000');
+    expect(screen.queryByText(/Please type the cash amount/i)).toBeNull();
+
+    next();
+    onEmailStep();
+    next();
+    onEmailStep();
+    expect(screen.getByText(/Please type the email address/i)).toBeTruthy();
+    fill(/Depositor email address/i, 'depositor@example.com');
+    expect(screen.queryByText(/Please type the email address/i)).toBeNull();
+    expect(invokeSpy).not.toHaveBeenCalled();
+  });
+
   it('step 1: a too-short phone number gets a plain-language message', () => {
     setup();
     fill(/First name/i, 'Nakamya');

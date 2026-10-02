@@ -119,6 +119,7 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
       setTouched((t) => ({ ...t, ...Object.fromEntries(stepFields[step].map((k) => [k, true])) }));
       // Bring the first problem field into view (the pinned buttons can cover it on phones).
       setTimeout(() => {
+        if (typeof document === 'undefined') return;
         const el = document.querySelector<HTMLElement>('[role="dialog"] [aria-invalid="true"]');
         el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
         el?.focus({ preventScroll: true });
