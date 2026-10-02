@@ -10,6 +10,8 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { formatUGX } from '@/lib/businessAdvanceCalculations';
 import { ShieldAlert, Lock } from 'lucide-react';
 import { EvidenceReviewQueue } from './EvidenceReviewQueue';
+import { CollectionReconciliationS11 } from './CollectionReconciliationS11';
+import { EvidenceResolutionS12 } from './EvidenceResolutionS12';
 
 type Bucket = { count: number; amount: number };
 type Scenario = Record<string, number | string>;
@@ -149,6 +151,10 @@ export function CorrectionCenterPanel() {
           <EvidenceReviewQueue />
         </CardContent>
       </Card>
+
+      <CollectionReconciliationS11 />
+
+      <EvidenceResolutionS12 />
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
