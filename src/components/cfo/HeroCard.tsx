@@ -142,15 +142,24 @@ export function HeroCard({ icon, iconBg, tone, title, value, percentageLabel, pe
 
           <div className="space-y-1">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Where it comes from</p>
-            {items.map((it) => (
-              <div key={it.label} className="flex items-center justify-between gap-3 py-2 border-b border-border/60 text-xs">
-                <span className="flex items-center gap-2 min-w-0 text-muted-foreground">
-                  <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${it.dot}`} />
-                  <span className="truncate">{it.label}</span>
-                </span>
-                <span className="tabular-nums font-medium shrink-0 text-right text-foreground">{it.value}</span>
-              </div>
-            ))}
+            {items.map((it) =>
+              it.onSelect ? (
+                <button
+                  key={it.label}
+                  type="button"
+                  onClick={() => { setOpen(false); it.onSelect?.(); }}
+                  className="w-full flex items-center justify-between gap-3 py-2 border-b border-border/60 text-xs text-left rounded-md px-1 hover:bg-muted/50 transition-colors"
+                >
+                  <span className="flex items-center gap-2 min-w-0 text-muted-foreground">
+                    <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${it.dot}`} />
+                    <span className="truncate">{it.label}</span>
+                  </span>
+                  <span className="flex items-center gap-1.5 shrink-0">
+                    <span className="tabular-nums font-medium text-right text-foreground">{it.value}</span>
+                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                  </span>
+                </button>
+              ) : (
             {title !== 'Money We Have' && (
               <div className="mt-2 flex items-center justify-between gap-3 rounded-lg bg-muted/50 px-3 py-2.5">
                 <span className="text-xs font-semibold">Total {title}</span>
