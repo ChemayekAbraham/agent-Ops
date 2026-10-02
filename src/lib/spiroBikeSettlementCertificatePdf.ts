@@ -295,7 +295,11 @@ export async function generateSpiroBikeSettlementCertificatePdf(
   );
 
   const blob = pdf.output('blob');
-  void archivePdfBlob(blob, buildSpiroSettlementFilename(input.agentName, input.trackingReference), 'spiro_bike_settlement_certificate');
+  void archivePdfBlob(blob, {
+    label: `Spiro bike settlement certificate — ${input.agentName}`,
+    filename: buildSpiroSettlementFilename(input.agentName, input.trackingReference),
+    category: 'agent-report',
+  });
   return blob;
 }
 
