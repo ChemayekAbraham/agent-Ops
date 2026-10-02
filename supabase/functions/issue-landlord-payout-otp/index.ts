@@ -330,6 +330,19 @@ Deno.serve(async (req) => {
     if (uErr || !u?.user) return json({ error: "Invalid token" }, 401);
     const agentId = u.user.id;
 
+    // Platform Controls pause: refuse BEFORE any OTP SMS goes to the landlord.
+    // Previously this was only enforced when the landlord_payouts row was
+    // inserted (after the OTP was sent and verified), so agents saw the whole
+    // OTP flow succeed and only then hit a failure.
+    const { data: paused, error: pausedErr } = await admin.rpc("landlord_float_withdrawals_paused");
+    if (pausedErr || paused !== false) {
+      // Fail closed: if the flag cannot be read, treat withdrawals as paused.
+      return json({
+        error: "Landlord float withdrawals are currently paused. No OTP was sent. Try again once they are re-enabled.",
+        code: "landlord_float_withdrawals_paused",
+      }, 423);
+    }
+
     const body = await req.json().catch(() => ({}));
     const {
       landlord_id,

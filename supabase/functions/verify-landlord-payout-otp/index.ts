@@ -126,6 +126,22 @@ Deno.serve(async (req) => {
       return json({ error: "Too many attempts. Start over." }, 400);
     }
 
+    // Platform Controls pause: never mark a challenge verified while landlord
+    // float withdrawals are paused (it would strand a "verified" challenge with
+    // no payout). Fail closed if the flag cannot be read.
+    const { data: paused, error: pausedErr } = await admin.rpc("landlord_float_withdrawals_paused");
+    if (pausedErr || paused !== false) {
+      await logEvent(admin, ch, challenge_id, agentId, {
+        event_type: "failed",
+        failure_reason: "withdrawals_paused",
+        detail: "Landlord float withdrawals are paused from Platform Controls — OTP not consumed",
+      });
+      return json({
+        error: "Landlord float withdrawals are currently paused. Nothing was sent. Try again once they are re-enabled.",
+        code: "landlord_float_withdrawals_paused",
+      }, 423);
+    }
+
     const submitted_hash = await sha256(String(otp));
     if (submitted_hash !== ch.otp_hash) {
       const newAttempts = ch.attempts + 1;
