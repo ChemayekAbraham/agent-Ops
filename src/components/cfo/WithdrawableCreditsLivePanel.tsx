@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { HeroCard } from '@/components/cfo/HeroCard';
 import { formatUGX } from '@/lib/creditFeeCalculations';
 import { Coins } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 
 const GROUPS: Record<string, string> = {
   roi_wallet_credit: 'Supporter returns',
@@ -61,6 +62,18 @@ export function WithdrawableCreditsLivePanel({ moneyWeHaveTotal }: { moneyWeHave
     return () => { if (timer.current) clearTimeout(timer.current); supabase.removeChannel(ch); };
   }, [refetch]);
 
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
+  const cats = (q.data ?? []).filter((r) => label(r.category) === openGroup).map((r) => r.category);
+  const detail = useQuery({
+    queryKey: ['cfo-withdrawable-credits-detail', openGroup, cats.join(',')],
+    enabled: !!openGroup && cats.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_cfo_withdrawable_credits_today_detail', { p_categories: cats });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
   const grouped = new Map<string, { total: number; credits: number }>();
   (q.data ?? []).forEach((r) => {
     const k = label(r.category);
@@ -76,9 +89,13 @@ export function WithdrawableCreditsLivePanel({ moneyWeHaveTotal }: { moneyWeHave
     dot: 'bg-emerald-500',
     label: `${k} (${g.credits.toLocaleString()})`,
     value: formatUGX(g.total),
+    onSelect: () => setOpenGroup(k),
   }));
 
+  const openTotals = openGroup ? grouped.get(openGroup) : undefined;
+
   return (
+    <>
     <HeroCard
       icon={<Coins className="h-4 w-4" />}
       tone="success"
@@ -98,5 +115,31 @@ export function WithdrawableCreditsLivePanel({ moneyWeHaveTotal }: { moneyWeHave
       }
       footerTone="bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 italic"
     />
+    <Dialog open={!!openGroup} onOpenChange={(o) => !o && setOpenGroup(null)}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="text-base">{openGroup} — today</DialogTitle>
+          <DialogDescription className="text-xs">
+            {openTotals ? `${openTotals.credits.toLocaleString()} credits · ${formatUGX(openTotals.total)} since midnight (Kampala)` : ''}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="max-h-[60vh] overflow-y-auto space-y-0">
+          {detail.isLoading && <p className="text-xs text-muted-foreground py-4">Loading…</p>}
+          {detail.error && <p className="text-xs text-destructive py-4">Could not load these credits.</p>}
+          {(detail.data ?? []).map((r: any) => (
+            <div key={r.id} className="flex items-start justify-between gap-3 py-2 border-b border-border/60 text-xs">
+              <div className="min-w-0">
+                <p className="font-medium text-foreground truncate">{r.full_name || 'Unknown user'}{r.phone ? ` · ${r.phone}` : ''}</p>
+                <p className="text-muted-foreground truncate">{(r.category as string).replace(/_/g, ' ')} · {new Date(r.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Kampala' })}</p>
+                {r.description && <p className="text-muted-foreground truncate">{r.description}</p>}
+              </div>
+              <span className="tabular-nums font-medium shrink-0 text-foreground">{formatUGX(Number(r.amount))}</span>
+            </div>
+          ))}
+          {detail.data && detail.data.length >= 1000 && <p className="text-[11px] text-muted-foreground pt-2">Showing the largest 1,000 credits.</p>}
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
   );
 }

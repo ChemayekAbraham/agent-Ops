@@ -46,3 +46,8 @@
 - [x] ROI Payment Queue: mirror Rent Payout Queue bulk select + review + Confirm & Pay Selected (no payment until confirm)
 - [x] Narrow the single rent disbursement review card and the bulk payment review card so the wide centre-sheet defaults no longer stretch them on large screens; selection/review still sends no payment.
 - [ ] Shopping Advance: GPS location gate for users with no location (blocked on user answers)
+
+## Added 2026-10-02
+- [x] Close Lillian Nabwire portfolio WIP2604024329 as redeemed today (no email) and credit UGX 9,818,988 to her withdrawable wallet.
+- [x] Add drill-down breakdown to CFO "Withdrawable credits today" window.
+- [ ] Credit Lillian Nabwire UGX 9,818,988 to withdrawable wallet — blocked: needs CFO to post via CFO Direct Credit (no approved principal-return ledger path).
