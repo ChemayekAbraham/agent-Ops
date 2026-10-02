@@ -51,7 +51,7 @@ export function MoneyReceivedCard({ moneyWeHaveTotal }: { moneyWeHaveTotal: numb
         { dot: 'bg-slate-400', label: 'Number of receipts', value: n(d.total_count).toLocaleString(), onSelect: total },
         { dot: 'bg-amber-500', label: `Pending / unconfirmed (${n(d.pending_count).toLocaleString()})`, value: formatUGX(n(d.pending_amount)), onSelect: () => drill({ label: 'Pending', ...allTime(), status: 'pending', expected: { amount: n(d.pending_amount), count: n(d.pending_count), basis: 'pending' } }) },
       ] : []}
-      onClick={() => { total(); }}
+      onClick={() => drill(null)}
       footer={q.error ? 'Could not load receipts' : 'Confirmed deposits by mobile money, bank & cash'}
     />
     <MoneyReceivedReport open={report} onOpenChange={setReport} preset={preset} />
