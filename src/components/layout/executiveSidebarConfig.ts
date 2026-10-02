@@ -202,6 +202,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       title: 'Accounting',
       items: [
         { label: 'Corrections & Approvals', icon: ShieldCheck, id: 'corrections-approvals', access: CFO_ACCESS },
+        { label: 'Redemptions', icon: ShieldCheck, id: 'redemption-approvals', access: CFO_ACCESS },
       ],
     },
 

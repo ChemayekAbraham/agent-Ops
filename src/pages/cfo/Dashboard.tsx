@@ -11,6 +11,7 @@ import { TenantOpsLandlordFloatTimeline } from '@/components/executive/TenantOps
 import ExecutiveDashboardLayout from '@/components/layout/ExecutiveDashboardLayout';
 import { ChannelBalanceTracker } from '@/components/cfo/ChannelBalanceTracker';
 import { ErrorCorrectionAuditPanel } from '@/components/cfo/ErrorCorrectionAuditPanel';
+import { RedemptionApprovalsPanel } from '@/components/cfo/RedemptionApprovalsPanel';
 import { CorrectionCenterPanel } from '@/components/cfo/CorrectionCenterPanel';
 import { PlatformVsWalletSummary } from '@/components/cfo/PlatformVsWalletSummary';
 import { CFOROIRequests } from '@/components/cfo/CFOROIRequests';
@@ -203,6 +204,8 @@ export default function CFODashboardPage() {
 
   const renderContent = () => {
     switch (activeTab) {
+      case 'redemption-approvals':
+        return <RedemptionApprovalsPanel />;
       case 'cash-position':
         return <CFOOverviewDashboard cashPositionOnly />;
       case 'requisitions':
