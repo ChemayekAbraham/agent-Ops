@@ -4,18 +4,21 @@ import { ArrowLeft, FlaskConical } from 'lucide-react';
 import WelileLogo from '@/components/WelileLogo';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { formatDynamic as formatUGX } from '@/lib/currencyFormat';
 
-type Idea = { name: string; customers: number | null; cashIn: string | null; cashOut: string | null; net: string | null };
+type Idea = { name: string; customers: number | null; cashIn: number | null; cashOut: number | null; net: number | null };
 
 // Figures as supplied by R&D (2026-10-02). Blank cells are not yet reported.
 const IDEAS: Idea[] = [
-  { name: 'Welile Car', customers: 19, cashIn: 'UGX 21M', cashOut: 'UGX 38M', net: 'UGX 17M' },
+  { name: 'Welile Car', customers: 19, cashIn: 21_000_000, cashOut: 38_000_000, net: 17_000_000 },
   { name: 'Welile Dowry', customers: null, cashIn: null, cashOut: null, net: null },
   { name: 'Welile Home', customers: null, cashIn: null, cashOut: null, net: null },
   { name: 'Welile School of AI', customers: null, cashIn: null, cashOut: null, net: null },
 ];
 
-const cell = (v: string | number | null) => (v === null ? <span className="text-muted-foreground">—</span> : v);
+const DASH = <span className="text-muted-foreground">—</span>;
+const count = (v: number | null) => (v === null ? DASH : v.toLocaleString('en-US'));
+const cash = (v: number | null) => (v === null ? DASH : formatUGX(v));
 
 export default function RDDashboard() {
   const navigate = useNavigate();
@@ -78,10 +81,10 @@ export default function RDDashboard() {
                 {IDEAS.map((i) => (
                   <TableRow key={i.name}>
                     <TableCell className="font-medium">{i.name}</TableCell>
-                    <TableCell className="text-right tabular-nums">{cell(i.customers)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{cell(i.cashIn)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{cell(i.cashOut)}</TableCell>
-                    <TableCell className="text-right font-semibold tabular-nums">{cell(i.net)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{count(i.customers)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{cash(i.cashIn)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{cash(i.cashOut)}</TableCell>
+                    <TableCell className="text-right font-semibold tabular-nums">{cash(i.net)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
