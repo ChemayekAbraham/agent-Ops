@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, FlaskConical } from 'lucide-react';
+import WelileLogo from '@/components/WelileLogo';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
@@ -27,14 +28,38 @@ export default function RDDashboard() {
             <ArrowLeft className="h-4 w-4" />
             Back to dashboards
           </Button>
-          <div className="ml-auto flex items-center gap-2">
-            <FlaskConical className="h-5 w-5 text-primary" />
-            <h1 className="text-lg font-bold text-foreground">R&amp;D</h1>
-          </div>
+          <WelileLogo showText={false} size="sm" linkToHome={false} className="ml-auto" />
         </div>
       </header>
-      <main className="mx-auto max-w-7xl px-4 py-4">
-        <Card>
+      <main className="mx-auto max-w-7xl px-4 py-5">
+        <div className="rounded-2xl border border-border/80 bg-gradient-to-r from-card via-card to-muted/20 p-5 shadow-sm sm:p-6">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex items-start gap-4">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 ring-1 ring-primary/15">
+                <FlaskConical className="h-5 w-5 text-primary" />
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                  Internal
+                </p>
+                <h1 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+                  Research &amp; Development
+                </h1>
+                <p className="max-w-3xl text-xs leading-relaxed text-muted-foreground sm:text-sm">
+                  New Welile business ideas and how each one is performing so far — customers
+                  served, cash in, cash out and net position.
+                </p>
+              </div>
+            </div>
+            <div className="shrink-0 sm:text-right">
+              <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                Reported
+              </p>
+              <p className="text-sm font-semibold text-foreground">2 October 2026</p>
+            </div>
+          </div>
+        </div>
+        <Card className="mt-4">
           <CardHeader>
             <CardTitle>Business ideas</CardTitle>
           </CardHeader>
