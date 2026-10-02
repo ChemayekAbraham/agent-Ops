@@ -8,6 +8,7 @@ import { allTime, kampalaDate, monthStart, type DrilldownPreset } from '@/compon
 import { MoneyPaidOutReport } from '@/components/cfo/MoneyPaidOutReport';
 type Row = {
   total_paid: number; total_count: number; today_paid: number; today_count: number;
+  yesterday_paid: number; yesterday_count: number; last7_paid: number; last7_count: number;
   month_paid: number; month_count: number; pending_amount: number; pending_count: number;
 };
 
