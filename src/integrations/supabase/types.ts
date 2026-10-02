@@ -59738,6 +59738,11 @@ export type Database = {
         Args: { p_at: string; p_fund_in_key: string; p_partner: string }
         Returns: boolean
       }
+      commission_pay_fund_in: { Args: { p_fund_in_id: string }; Returns: Json }
+      commission_reconcile_fund_ins: {
+        Args: { p_limit?: number }
+        Returns: Json
+      }
       commission_resolve_earner: {
         Args: { p_at: string; p_partner: string; p_use_lock?: boolean }
         Returns: {
@@ -59747,6 +59752,10 @@ export type Database = {
           earner_path: string
           note_id: string
         }[]
+      }
+      commission_review_candidate: {
+        Args: { p_candidate_id: string; p_decision: string; p_reason: string }
+        Returns: Json
       }
       commission_withdrawal_available: {
         Args: { p_user_id: string }
