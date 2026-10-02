@@ -15716,6 +15716,129 @@ export type Database = {
         }
         Relationships: []
       }
+      fin_collection_reconciliation_s11: {
+        Row: {
+          access_fee: number | null
+          agent_id: string | null
+          agent_name: string | null
+          amount: number | null
+          collected_at: string | null
+          collection_channel: string | null
+          collection_id: string
+          deposit_request_id: string | null
+          dup_matches: number | null
+          dup_other: string | null
+          external_evidence_required: boolean
+          findings: string | null
+          float_after: number | null
+          float_before: number | null
+          generated_at: string
+          ledger_categories: string | null
+          ledger_commission: number | null
+          ledger_group: string | null
+          ledger_groups: number | null
+          ledger_legs: number | null
+          ledger_net: number | null
+          ledger_receipt: number | null
+          ledger_repayment: number | null
+          momo_transaction_id: string | null
+          original_classification: string | null
+          payment_method: string | null
+          plan_agent_match: boolean | null
+          plan_found: boolean | null
+          plan_sequence: number | null
+          plan_status: string | null
+          plan_tenant_match: boolean | null
+          prev_float_after: number | null
+          reconciliation_result: string | null
+          registration_fee: number | null
+          rent_plan_id: string | null
+          reversed_at: string | null
+          tenant_id: string | null
+          tenant_name: string | null
+        }
+        Insert: {
+          access_fee?: number | null
+          agent_id?: string | null
+          agent_name?: string | null
+          amount?: number | null
+          collected_at?: string | null
+          collection_channel?: string | null
+          collection_id: string
+          deposit_request_id?: string | null
+          dup_matches?: number | null
+          dup_other?: string | null
+          external_evidence_required?: boolean
+          findings?: string | null
+          float_after?: number | null
+          float_before?: number | null
+          generated_at?: string
+          ledger_categories?: string | null
+          ledger_commission?: number | null
+          ledger_group?: string | null
+          ledger_groups?: number | null
+          ledger_legs?: number | null
+          ledger_net?: number | null
+          ledger_receipt?: number | null
+          ledger_repayment?: number | null
+          momo_transaction_id?: string | null
+          original_classification?: string | null
+          payment_method?: string | null
+          plan_agent_match?: boolean | null
+          plan_found?: boolean | null
+          plan_sequence?: number | null
+          plan_status?: string | null
+          plan_tenant_match?: boolean | null
+          prev_float_after?: number | null
+          reconciliation_result?: string | null
+          registration_fee?: number | null
+          rent_plan_id?: string | null
+          reversed_at?: string | null
+          tenant_id?: string | null
+          tenant_name?: string | null
+        }
+        Update: {
+          access_fee?: number | null
+          agent_id?: string | null
+          agent_name?: string | null
+          amount?: number | null
+          collected_at?: string | null
+          collection_channel?: string | null
+          collection_id?: string
+          deposit_request_id?: string | null
+          dup_matches?: number | null
+          dup_other?: string | null
+          external_evidence_required?: boolean
+          findings?: string | null
+          float_after?: number | null
+          float_before?: number | null
+          generated_at?: string
+          ledger_categories?: string | null
+          ledger_commission?: number | null
+          ledger_group?: string | null
+          ledger_groups?: number | null
+          ledger_legs?: number | null
+          ledger_net?: number | null
+          ledger_receipt?: number | null
+          ledger_repayment?: number | null
+          momo_transaction_id?: string | null
+          original_classification?: string | null
+          payment_method?: string | null
+          plan_agent_match?: boolean | null
+          plan_found?: boolean | null
+          plan_sequence?: number | null
+          plan_status?: string | null
+          plan_tenant_match?: boolean | null
+          prev_float_after?: number | null
+          reconciliation_result?: string | null
+          registration_fee?: number | null
+          rent_plan_id?: string | null
+          reversed_at?: string | null
+          tenant_id?: string | null
+          tenant_name?: string | null
+        }
+        Relationships: []
+      }
       fin_correction_approval_batches: {
         Row: {
           amount: number
@@ -59437,6 +59560,55 @@ export type Database = {
       cfo_approve_redemption: {
         Args: { p_id: string; p_reason: string }
         Returns: Json
+      }
+      cfo_collection_reconciliation_s11: {
+        Args: never
+        Returns: {
+          access_fee: number | null
+          agent_id: string | null
+          agent_name: string | null
+          amount: number | null
+          collected_at: string | null
+          collection_channel: string | null
+          collection_id: string
+          deposit_request_id: string | null
+          dup_matches: number | null
+          dup_other: string | null
+          external_evidence_required: boolean
+          findings: string | null
+          float_after: number | null
+          float_before: number | null
+          generated_at: string
+          ledger_categories: string | null
+          ledger_commission: number | null
+          ledger_group: string | null
+          ledger_groups: number | null
+          ledger_legs: number | null
+          ledger_net: number | null
+          ledger_receipt: number | null
+          ledger_repayment: number | null
+          momo_transaction_id: string | null
+          original_classification: string | null
+          payment_method: string | null
+          plan_agent_match: boolean | null
+          plan_found: boolean | null
+          plan_sequence: number | null
+          plan_status: string | null
+          plan_tenant_match: boolean | null
+          prev_float_after: number | null
+          reconciliation_result: string | null
+          registration_fee: number | null
+          rent_plan_id: string | null
+          reversed_at: string | null
+          tenant_id: string | null
+          tenant_name: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "fin_collection_reconciliation_s11"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       cfo_correct_trail_entry: {
         Args: {
