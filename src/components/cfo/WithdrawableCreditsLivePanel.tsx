@@ -123,7 +123,27 @@ export function WithdrawableCreditsLivePanel({ moneyWeHaveTotal }: { moneyWeHave
             {openTotals ? `${openTotals.credits.toLocaleString()} credits · ${formatUGX(openTotals.total)} since midnight (Kampala)` : ''}
           </DialogDescription>
         </DialogHeader>
-        <div className="max-h-[60vh] overflow-y-auto space-y-0">
+        {openGroup && (
+          <div className="rounded-md border border-border/60 bg-muted/30 p-2 text-xs space-y-1">
+            <p className="font-medium text-foreground">By type</p>
+            {(q.data ?? [])
+              .filter((r) => label(r.category) === openGroup)
+              .sort((a, b) => Number(b.total) - Number(a.total))
+              .map((r) => (
+                <div key={r.category} className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground capitalize">{r.category.replace(/_/g, ' ')} ({Number(r.credits).toLocaleString()})</span>
+                  <span className="tabular-nums font-medium text-foreground">{formatUGX(Number(r.total))}</span>
+                </div>
+              ))}
+            {openTotals && (
+              <div className="flex items-center justify-between gap-3 border-t border-border/60 pt-1 font-medium">
+                <span>Total</span>
+                <span className="tabular-nums">{formatUGX(openTotals.total)}</span>
+              </div>
+            )}
+          </div>
+        )}
+        <div className="max-h-[50vh] overflow-y-auto space-y-0">
           {detail.isLoading && <p className="text-xs text-muted-foreground py-4">Loading…</p>}
           {detail.error && <p className="text-xs text-destructive py-4">Could not load these credits.</p>}
           {(detail.data ?? []).map((r: any) => (
