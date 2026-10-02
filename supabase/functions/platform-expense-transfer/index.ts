@@ -3,6 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { logSystemEvent } from "../_shared/eventLogger.ts";
 import { checkTreasuryGuard } from "../_shared/treasuryGuard.ts";
 import { attemptYoolaPrimary } from "../_shared/yoolaPrimary.ts";
+import { guardCfoApprover } from "../_shared/cfoApprovalGate.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -125,6 +126,10 @@ Deno.serve(async (req) => {
     }
 
     const adminClient = createClient(supabaseUrl, serviceKey);
+
+    // Only the Chief Finance Officer office or a designated super admin may do this.
+    const denied = await guardCfoApprover(adminClient, user.id, corsHeaders)
+    if (denied) return denied
 
     // Treasury guard: platform-to-agent transfers move money — block when paused
     const guardBlock = await checkTreasuryGuard(adminClient, "any", req.headers.get("Authorization"));

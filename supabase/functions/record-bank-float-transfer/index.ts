@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { guardCfoApprover } from "../_shared/cfoApprovalGate.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,6 +31,10 @@ Deno.serve(async (req) => {
     }
 
     const admin = createClient(supabaseUrl, serviceKey);
+
+    // Only the Chief Finance Officer office or a designated super admin may do this.
+    const denied = await guardCfoApprover(admin, user.id, corsHeaders)
+    if (denied) return denied
 
     // Caller must be CFO / manager / super_admin
     const { data: roles } = await admin.from("user_roles").select("role").eq("user_id", user.id);
