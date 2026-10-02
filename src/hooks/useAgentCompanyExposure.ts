@@ -2,7 +2,6 @@ import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { useAgentBalances } from '@/hooks/useAgentBalances';
 import { useWalletRealtime } from '@/hooks/useWalletRealtime';
 
 // Realtime can miss events across a dropped/backgrounded socket. This
@@ -17,7 +16,9 @@ const STALE_AFTER_MS = 30_000;
  * Pure read-only aggregation over data the app already queries:
  *   - rent_requests where agent_id = me  (cycles funded by Welile)
  *   - subscription_charges where agent_id = me  (guarantor debt)
- *   - wallets.advance_balance via useAgentBalances  (personal advance)
+ *   - agent_advances.outstanding_balance, active + overdue  (personal advance —
+ *     same source and filter as the CFO's Agents-with-Outstanding-Advances
+ *     panel, so both dashboards show the same figure)
  *
  * Headline = outstandingCycles + subscriptionDebt + advanceBalance.
  * Lifetime totals are shown as context so the number isn't scary in isolation.
@@ -35,7 +36,6 @@ export interface AgentCompanyExposure {
 
 export function useAgentCompanyExposure() {
   const { user } = useAuth();
-  const { advanceBalance } = useAgentBalances();
   // NOTE: this previously passed no extraQueryKeys, so the realtime
   // subscription below never actually invalidated this query — the
   // refetchInterval/refetchOnWindowFocus poll was the only thing keeping
@@ -45,13 +45,14 @@ export function useAgentCompanyExposure() {
 
   const query = useQuery({
     queryKey: ['agent-company-exposure', user?.id],
-    queryFn: async (): Promise<Omit<AgentCompanyExposure, 'advanceBalance' | 'totalOwed'>> => {
+    queryFn: async (): Promise<Omit<AgentCompanyExposure, 'totalOwed'>> => {
       if (!user?.id) {
         return {
           outstandingCycles: 0,
           lifetimeDisbursed: 0,
           lifetimeRepaid: 0,
           subscriptionDebt: 0,
+          advanceBalance: 0,
           activeCycleCount: 0,
           tenantCount: 0,
         };
@@ -60,7 +61,7 @@ export function useAgentCompanyExposure() {
       const ACTIVE = ['funded', 'disbursed', 'repaying'];
       const HISTORICAL = ['funded', 'disbursed', 'repaying', 'completed'];
 
-      const [rentRes, chargesRes] = await Promise.all([
+      const [rentRes, chargesRes, advancesRes] = await Promise.all([
         supabase
           .from('rent_requests')
           .select('id, tenant_id, rent_amount, total_repayment, amount_repaid, status, agent_payment_status')
@@ -71,6 +72,12 @@ export function useAgentCompanyExposure() {
           .select('accumulated_debt')
           .eq('agent_id', user.id)
           .eq('status', 'active'),
+        supabase
+          .from('agent_advances')
+          .select('outstanding_balance')
+          .eq('agent_id', user.id)
+          .in('status', ['active', 'overdue'])
+          .gt('outstanding_balance', 0),
       ]);
 
       const rows = rentRes.data || [];
@@ -102,11 +109,17 @@ export function useAgentCompanyExposure() {
         0,
       );
 
+      const advanceBalance = (advancesRes.data || []).reduce(
+        (s, a: any) => s + Number(a.outstanding_balance || 0),
+        0,
+      );
+
       return {
         outstandingCycles,
         lifetimeDisbursed,
         lifetimeRepaid,
         subscriptionDebt,
+        advanceBalance,
         activeCycleCount,
         tenantCount: tenants.size,
       };
@@ -134,8 +147,9 @@ export function useAgentCompanyExposure() {
   }, [user?.id, query.dataUpdatedAt]);
 
   const data = query.data;
+  const advanceBalance = data?.advanceBalance ?? 0;
   const totalOwed =
-    (data?.outstandingCycles ?? 0) + (data?.subscriptionDebt ?? 0) + (advanceBalance ?? 0);
+    (data?.outstandingCycles ?? 0) + (data?.subscriptionDebt ?? 0) + advanceBalance;
 
   return {
     ...(data ?? {
