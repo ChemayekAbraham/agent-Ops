@@ -1545,8 +1545,12 @@ export type Database = {
           battery_serial: string | null
           brand: string
           cfo_disbursed_at: string | null
+          cfo_disbursed_by: string | null
+          cfo_disbursed_by_name: string | null
           chassis_number: string | null
           coo_approved_at: string | null
+          coo_approved_by: string | null
+          coo_approved_by_name: string | null
           created_at: string
           disbursed_amount: number | null
           gps_tracker_id: string | null
@@ -1559,6 +1563,8 @@ export type Database = {
           model: string | null
           monthly_rate_pct: number
           ops_approved_at: string | null
+          ops_approved_by: string | null
+          ops_approved_by_name: string | null
           plate_number: string | null
           rejection_reason: string | null
           sale_id: string
@@ -1577,8 +1583,12 @@ export type Database = {
           battery_serial?: string | null
           brand?: string
           cfo_disbursed_at?: string | null
+          cfo_disbursed_by?: string | null
+          cfo_disbursed_by_name?: string | null
           chassis_number?: string | null
           coo_approved_at?: string | null
+          coo_approved_by?: string | null
+          coo_approved_by_name?: string | null
           created_at?: string
           disbursed_amount?: number | null
           gps_tracker_id?: string | null
@@ -1591,6 +1601,8 @@ export type Database = {
           model?: string | null
           monthly_rate_pct?: number
           ops_approved_at?: string | null
+          ops_approved_by?: string | null
+          ops_approved_by_name?: string | null
           plate_number?: string | null
           rejection_reason?: string | null
           sale_id: string
@@ -1609,8 +1621,12 @@ export type Database = {
           battery_serial?: string | null
           brand?: string
           cfo_disbursed_at?: string | null
+          cfo_disbursed_by?: string | null
+          cfo_disbursed_by_name?: string | null
           chassis_number?: string | null
           coo_approved_at?: string | null
+          coo_approved_by?: string | null
+          coo_approved_by_name?: string | null
           created_at?: string
           disbursed_amount?: number | null
           gps_tracker_id?: string | null
@@ -1623,6 +1639,8 @@ export type Database = {
           model?: string | null
           monthly_rate_pct?: number
           ops_approved_at?: string | null
+          ops_approved_by?: string | null
+          ops_approved_by_name?: string | null
           plate_number?: string | null
           rejection_reason?: string | null
           sale_id?: string
@@ -66265,8 +66283,12 @@ export type Database = {
           battery_serial: string | null
           brand: string
           cfo_disbursed_at: string | null
+          cfo_disbursed_by: string | null
+          cfo_disbursed_by_name: string | null
           chassis_number: string | null
           coo_approved_at: string | null
+          coo_approved_by: string | null
+          coo_approved_by_name: string | null
           created_at: string
           disbursed_amount: number | null
           gps_tracker_id: string | null
@@ -66279,6 +66301,8 @@ export type Database = {
           model: string | null
           monthly_rate_pct: number
           ops_approved_at: string | null
+          ops_approved_by: string | null
+          ops_approved_by_name: string | null
           plate_number: string | null
           rejection_reason: string | null
           sale_id: string
