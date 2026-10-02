@@ -114,6 +114,88 @@ export function BikeLeaseDetailDialog({
 }: Props) {
   const supplierCostFor = useBikeCatalogCosts();
   const [generatingCert, setGeneratingCert] = useState(false);
+  const [drill, setDrill] = useState<null | 'subagents' | 'tenants' | 'collections'>(null);
+
+  const cardProps = (key: 'subagents' | 'tenants' | 'collections') => ({
+    role: 'button' as const,
+    tabIndex: 0,
+    onClick: () => setDrill((d) => (d === key ? null : key)),
+    onKeyDown: (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        setDrill((d) => (d === key ? null : key));
+      }
+    },
+    className: cn(
+      'rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden cursor-pointer transition-all hover:bg-muted/60 hover:border-primary/40 hover:shadow-sm',
+      drill === key && 'border-primary/60 bg-muted/60',
+    ),
+  });
+
+  const { data: drillRows, isLoading: drillLoading } = useQuery({
+    queryKey: ['bike-applicant-drill', drill, order?.customer_id],
+    enabled: !!drill && !!order?.customer_id,
+    queryFn: async () => {
+      const agentId = order!.customer_id as string;
+      type R = { id: string; title: string; sub: string; right: string };
+      const names = async (ids: string[]) => {
+        const map: Record<string, string> = {};
+        if (!ids.length) return map;
+        const { data } = await db.from('profiles').select('id, full_name, phone').in('id', ids);
+        (data || []).forEach((p: any) => { map[p.id] = p.full_name || p.phone || 'Unknown'; });
+        return map;
+      };
+      if (drill === 'subagents') {
+        const { data, error } = await db
+          .from('agent_subagents')
+          .select('id, sub_agent_id, status, created_at')
+          .eq('parent_agent_id', agentId)
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        const n = await names((data || []).map((d: any) => d.sub_agent_id));
+        return (data || []).map((d: any): R => ({
+          id: d.id,
+          title: n[d.sub_agent_id] || 'Unknown',
+          sub: `Added ${format(new Date(d.created_at), 'd MMM yyyy')}`,
+          right: String(d.status).replace(/_/g, ' '),
+        }));
+      }
+      if (drill === 'tenants') {
+        const { data, error } = await db
+          .from('rent_requests')
+          .select('id, tenant_id, status, rent_amount, daily_repayment, amount_repaid, total_repayment')
+          .eq('agent_id', agentId)
+          .in('status', ['funded', 'repaying'])
+          .eq('tenancy_status', 'active');
+        if (error) throw error;
+        const n = await names((data || []).map((d: any) => d.tenant_id));
+        return (data || []).map((d: any): R => ({
+          id: d.id,
+          title: n[d.tenant_id] || 'Unknown',
+          sub: `Daily ${formatUGX(Number(d.daily_repayment || 0))} · Repaid ${formatUGX(Number(d.amount_repaid || 0))} of ${formatUGX(Number(d.total_repayment || 0))}`,
+          right: formatUGX(Number(d.rent_amount || 0)),
+        }));
+      }
+      const since = new Date(Date.now() - 30 * 86400000).toISOString();
+      const { data, error } = await db
+        .from('agent_collections')
+        .select('id, tenant_id, amount, created_at, payment_method, reversed_at')
+        .eq('agent_id', agentId)
+        .is('reversed_at', null)
+        .gte('created_at', since)
+        .order('created_at', { ascending: false })
+        .limit(200);
+      if (error) throw error;
+      const n = await names((data || []).map((d: any) => d.tenant_id));
+      return (data || []).map((d: any): R => ({
+        id: d.id,
+        title: n[d.tenant_id] || 'Unknown',
+        sub: `${format(new Date(d.created_at), 'd MMM yyyy, HH:mm')} · ${String(d.payment_method).replace(/_/g, ' ')}`,
+        right: formatUGX(Number(d.amount || 0)),
+      }));
+    },
+  });
+
 
   // Sub-agents / recruited agents standing
   const { data: subAgentStats, isLoading: subAgentsLoading } = useQuery({
@@ -392,7 +474,7 @@ export function BikeLeaseDetailDialog({
 
             {/* Key KPI grid */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-              <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
+              <div {...cardProps('subagents')}>
                 <p className="text-[10px] font-medium text-muted-foreground truncate">Active Sub-Agents</p>
                 <p className="text-xs sm:text-sm font-bold text-indigo-600 truncate flex items-center gap-1">
                   {subAgentsLoading ? (
@@ -408,7 +490,7 @@ export function BikeLeaseDetailDialog({
                 </p>
               </div>
 
-              <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
+              <div {...cardProps('tenants')}>
                 <p className="text-[10px] font-medium text-muted-foreground truncate">Active Tenants</p>
                 <p className="text-xs sm:text-sm font-bold text-foreground truncate">
                   {tenantsLoading ? (
@@ -430,7 +512,7 @@ export function BikeLeaseDetailDialog({
                 </p>
               </div>
 
-              <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
+              <div {...cardProps('collections')}>
                 <p className="text-[10px] font-medium text-muted-foreground truncate">30d Collections</p>
                 <p className="text-xs sm:text-sm font-bold text-emerald-600 truncate">
                   {metricsLoading ? (
@@ -441,6 +523,37 @@ export function BikeLeaseDetailDialog({
                 </p>
               </div>
             </div>
+
+            {drill && (
+              <div className="rounded-lg border bg-background p-2.5 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[11px] font-bold text-foreground">
+                    {drill === 'subagents' ? 'Sub-agents' : drill === 'tenants' ? 'Active tenants' : 'Collections — last 30 days'}
+                    {drillRows ? ` (${drillRows.length})` : ''}
+                  </p>
+                  <Button type="button" variant="ghost" size="sm" className="h-6 px-2 text-[10px]" onClick={() => setDrill(null)}>
+                    Close
+                  </Button>
+                </div>
+                {drillLoading ? (
+                  <div className="flex justify-center py-3"><Loader2 className="h-4 w-4 animate-spin" /></div>
+                ) : !drillRows || drillRows.length === 0 ? (
+                  <p className="text-[11px] text-muted-foreground py-2">No records found.</p>
+                ) : (
+                  <div className="max-h-56 overflow-y-auto divide-y divide-border/50">
+                    {drillRows.map((r) => (
+                      <div key={r.id} className="flex items-center justify-between gap-2 py-1.5 text-[11px]">
+                        <div className="min-w-0">
+                          <p className="font-semibold truncate">{r.title}</p>
+                          <p className="text-muted-foreground truncate">{r.sub}</p>
+                        </div>
+                        <span className="font-semibold shrink-0">{r.right}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Verification badges */}
             <div className="flex flex-wrap gap-1.5 pt-0.5">
