@@ -208,8 +208,8 @@ describe('StartCashDepositDialog — sending state', () => {
   };
 
   const deferred = () => {
-    let resolve!: (v: unknown) => void;
-    const promise = new Promise((r) => { resolve = r; });
+    let resolve!: (v: { data: any; error: any }) => void;
+    const promise = new Promise<{ data: any; error: any }>((r) => { resolve = r; });
     return { promise, resolve };
   };
 
