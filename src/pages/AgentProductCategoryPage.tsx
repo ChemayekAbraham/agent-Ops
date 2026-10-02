@@ -1,11 +1,12 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useParams, Navigate } from 'react-router-dom';
-import { ArrowLeft, Bike, Smartphone, ShoppingBag, Signpost, HandCoins } from 'lucide-react';
+import { ArrowLeft, Bike, Smartphone, ShoppingBag, Signpost, HandCoins, LayoutDashboard, ClipboardList, Clock, CheckCircle2, XCircle } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 
 import { supabase as db } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { cn } from '@/lib/utils';
 import { AgentProductsPanel, type AgentProductCategory } from '@/components/executive/agent-ops/AgentProductsPanel';
 import { AgentProductsServicesExportButton } from '@/components/executive/agent-ops/AgentProductsServicesExportButton';
 import { AdvanceRequestsQueue } from '@/components/ops/AdvanceRequestsQueue';
@@ -41,7 +42,7 @@ export default function AgentProductCategoryPage() {
 
   return (
     <div className="min-h-screen bg-background overflow-x-hidden w-full">
-      <div className="mx-auto max-w-7xl px-3 sm:px-4 py-4 sm:py-5 space-y-4 sm:space-y-5 overflow-x-hidden max-w-full">
+      <div className="mx-auto max-w-7xl px-3 sm:px-4 py-4 sm:py-5 pb-24 sm:pb-5 space-y-4 sm:space-y-5 overflow-x-hidden max-w-full">
         <Link
           to={AGENT_PRODUCTS_HUB_PATH}
           className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
@@ -99,6 +100,7 @@ export default function AgentProductCategoryPage() {
 const PENDING_STATUSES = ['pending_approval', 'submitted'];
 
 function SmartphoneTabs({ category }: { category?: AgentProductCategory }) {
+  const [tab, setTab] = useState('overview');
   const { data: orderCounts = { pending: 0, inProgress: 0, rejected: 0 } } = useQuery({
     queryKey: ['smartphone-order-counts'],
     queryFn: async () => {
@@ -114,9 +116,18 @@ function SmartphoneTabs({ category }: { category?: AgentProductCategory }) {
   });
   const pendingCount = orderCounts.pending;
 
+  const phoneTabs = [
+    { value: 'overview', label: 'Overview', icon: LayoutDashboard, count: 0 },
+    { value: 'pending', label: 'Pending', icon: ClipboardList, count: pendingCount, badgeColor: 'bg-amber-500' },
+    { value: 'in-progress', label: 'In Progress', mobileLabel: 'Progress', icon: Clock, count: orderCounts.inProgress, badgeColor: 'bg-sky-500' },
+    { value: 'issued', label: 'Issued', icon: Smartphone, count: 0 },
+    { value: 'rejected', label: 'Rejected', icon: XCircle, count: orderCounts.rejected, badgeColor: 'bg-rose-500' },
+  ];
+
   return (
-    <Tabs defaultValue="overview" className="space-y-4 max-w-full">
-      <div className="w-full overflow-x-auto no-scrollbar scrollbar-none pb-1">
+    <Tabs value={tab} onValueChange={setTab} className="space-y-4 max-w-full">
+      {/* Desktop Tabs Header */}
+      <div className="hidden sm:block w-full overflow-x-auto no-scrollbar scrollbar-none pb-1">
         <TabsList className="inline-flex w-max min-w-full sm:min-w-0 justify-start h-10 p-1 gap-1 bg-muted/60 rounded-xl">
           <TabsTrigger value="overview" className="shrink-0 text-xs sm:text-sm">Overview</TabsTrigger>
           <TabsTrigger value="pending" className="shrink-0 text-xs sm:text-sm gap-1.5">
@@ -149,6 +160,50 @@ function SmartphoneTabs({ category }: { category?: AgentProductCategory }) {
         </TabsList>
       </div>
 
+      {/* Mobile Fixed Bottom Nav Bar with Icons */}
+      <nav
+        aria-label="Smartphone tabs navigation"
+        className="sm:hidden fixed bottom-0 inset-x-0 z-50 bg-background/95 backdrop-blur-md border-t border-border shadow-[0_-4px_20px_rgba(0,0,0,0.08)] pb-[calc(env(safe-area-inset-bottom,0px)+6px)] pt-1 px-2"
+      >
+        <div className="grid grid-cols-5 gap-0.5">
+          {phoneTabs.map((t) => {
+            const Icon = t.icon;
+            const isActive = tab === t.value;
+            return (
+              <button
+                key={t.value}
+                type="button"
+                onClick={() => setTab(t.value)}
+                className={cn(
+                  'relative flex flex-col items-center justify-center py-1.5 px-0.5 rounded-xl transition-all touch-manipulation',
+                  isActive
+                    ? 'text-primary font-bold'
+                    : 'text-muted-foreground hover:text-foreground font-medium'
+                )}
+              >
+                <div className="relative">
+                  <Icon className={cn('h-5 w-5', isActive ? 'text-primary' : 'text-muted-foreground')} />
+                  {t.count > 0 && (
+                    <span className={cn(
+                      'absolute -top-1.5 -right-2 min-w-3.5 h-3.5 px-0.5 rounded-full text-[8px] font-bold flex items-center justify-center text-white',
+                      t.badgeColor || 'bg-primary'
+                    )}>
+                      {t.count}
+                    </span>
+                  )}
+                </div>
+                <span className="text-[9px] mt-0.5 truncate max-w-full leading-tight">
+                  {t.mobileLabel || t.label}
+                </span>
+                {isActive && (
+                  <span className="absolute bottom-0 w-6 h-0.5 rounded-full bg-primary" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+
       <TabsContent value="overview" className="space-y-6 max-w-full">
         <AgentProductsPanel category={category} mode="overview" />
       </TabsContent>
@@ -174,6 +229,7 @@ function SmartphoneTabs({ category }: { category?: AgentProductCategory }) {
 }
 
 function MotorBikeTabs({ category }: { category?: AgentProductCategory }) {
+  const [tab, setTab] = useState('overview');
   const { data: counts = { pendingOps: 0, awaitingExec: 0, approved: 0 } } = useQuery({
     queryKey: ['bike-lease-queue'],
     queryFn: async () => {
@@ -188,9 +244,17 @@ function MotorBikeTabs({ category }: { category?: AgentProductCategory }) {
     },
   });
 
+  const bikeTabs = [
+    { value: 'overview', label: 'Overview', icon: LayoutDashboard, count: 0 },
+    { value: 'applications', label: 'Applications', icon: ClipboardList, count: counts.pendingOps, badgeColor: 'bg-amber-500' },
+    { value: 'awaiting-exec', label: 'Awaiting Exec', mobileLabel: 'Awaiting', icon: Clock, count: counts.awaitingExec, badgeColor: 'bg-sky-500' },
+    { value: 'approved', label: 'Approved', icon: CheckCircle2, count: counts.approved, badgeColor: 'bg-emerald-600' },
+  ];
+
   return (
-    <Tabs defaultValue="overview" className="space-y-4 max-w-full">
-      <div className="w-full overflow-x-auto no-scrollbar scrollbar-none pb-1">
+    <Tabs value={tab} onValueChange={setTab} className="space-y-4 max-w-full">
+      {/* Desktop Tabs Header */}
+      <div className="hidden sm:block w-full overflow-x-auto no-scrollbar scrollbar-none pb-1">
         <TabsList className="inline-flex w-max min-w-full sm:min-w-0 justify-start h-10 p-1 gap-1 bg-muted/60 rounded-xl">
           <TabsTrigger value="overview" className="shrink-0 text-xs sm:text-sm">Overview</TabsTrigger>
           <TabsTrigger value="applications" className="shrink-0 text-xs sm:text-sm gap-1.5">
@@ -220,6 +284,50 @@ function MotorBikeTabs({ category }: { category?: AgentProductCategory }) {
         </TabsList>
       </div>
 
+      {/* Mobile Fixed Bottom Nav Bar with Icons */}
+      <nav
+        aria-label="Motor bike tabs navigation"
+        className="sm:hidden fixed bottom-0 inset-x-0 z-50 bg-background/95 backdrop-blur-md border-t border-border shadow-[0_-4px_20px_rgba(0,0,0,0.08)] pb-[calc(env(safe-area-inset-bottom,0px)+6px)] pt-1 px-2"
+      >
+        <div className="grid grid-cols-4 gap-1">
+          {bikeTabs.map((t) => {
+            const Icon = t.icon;
+            const isActive = tab === t.value;
+            return (
+              <button
+                key={t.value}
+                type="button"
+                onClick={() => setTab(t.value)}
+                className={cn(
+                  'relative flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all touch-manipulation',
+                  isActive
+                    ? 'text-primary font-bold'
+                    : 'text-muted-foreground hover:text-foreground font-medium'
+                )}
+              >
+                <div className="relative">
+                  <Icon className={cn('h-5 w-5', isActive ? 'text-primary' : 'text-muted-foreground')} />
+                  {t.count > 0 && (
+                    <span className={cn(
+                      'absolute -top-1.5 -right-2.5 min-w-4 h-4 px-1 rounded-full text-[9px] font-bold flex items-center justify-center text-white',
+                      t.badgeColor || 'bg-primary'
+                    )}>
+                      {t.count}
+                    </span>
+                  )}
+                </div>
+                <span className="text-[10px] mt-0.5 truncate max-w-full leading-tight">
+                  {t.mobileLabel || t.label}
+                </span>
+                {isActive && (
+                  <span className="absolute bottom-0 w-8 h-0.5 rounded-full bg-primary" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+
       <TabsContent value="overview" className="space-y-6 max-w-full">
         <AgentProductsPanel category={category} />
       </TabsContent>
@@ -240,6 +348,7 @@ function MotorBikeTabs({ category }: { category?: AgentProductCategory }) {
 }
 
 function BoutiqueTabs({ category }: { category?: AgentProductCategory }) {
+  const [tab, setTab] = useState('overview');
   const { data: pendingCount = 0 } = useQuery({
     queryKey: ['agent-products-pending-count', category],
     queryFn: async () => {
@@ -250,9 +359,17 @@ function BoutiqueTabs({ category }: { category?: AgentProductCategory }) {
     staleTime: 60_000,
   });
 
+  const boutiqueTabs = [
+    { value: 'overview', label: 'Overview', icon: LayoutDashboard, count: 0 },
+    { value: 'applications', label: 'Applications', icon: ClipboardList, count: pendingCount, badgeColor: 'bg-amber-500' },
+    { value: 'issued', label: 'Issued', icon: ShoppingBag, count: 0 },
+    { value: 'completed', label: 'Completed', icon: CheckCircle2, count: 0 },
+  ];
+
   return (
-    <Tabs defaultValue="overview" className="space-y-4">
-      <div className="w-full overflow-x-auto no-scrollbar scrollbar-none pb-1">
+    <Tabs value={tab} onValueChange={setTab} className="space-y-4">
+      {/* Desktop Tabs Header */}
+      <div className="hidden sm:block w-full overflow-x-auto no-scrollbar scrollbar-none pb-1">
         <TabsList className="inline-flex w-max min-w-full sm:min-w-0 justify-start h-10 p-1 gap-1 bg-muted/60 rounded-xl">
           <TabsTrigger value="overview" className="shrink-0 text-xs sm:text-sm">Overview</TabsTrigger>
           <TabsTrigger value="applications" className="shrink-0 text-xs sm:text-sm gap-1.5">
@@ -271,6 +388,50 @@ function BoutiqueTabs({ category }: { category?: AgentProductCategory }) {
           </TabsTrigger>
         </TabsList>
       </div>
+
+      {/* Mobile Fixed Bottom Nav Bar with Icons */}
+      <nav
+        aria-label="Boutique tabs navigation"
+        className="sm:hidden fixed bottom-0 inset-x-0 z-50 bg-background/95 backdrop-blur-md border-t border-border shadow-[0_-4px_20px_rgba(0,0,0,0.08)] pb-[calc(env(safe-area-inset-bottom,0px)+6px)] pt-1 px-2"
+      >
+        <div className="grid grid-cols-4 gap-1">
+          {boutiqueTabs.map((t) => {
+            const Icon = t.icon;
+            const isActive = tab === t.value;
+            return (
+              <button
+                key={t.value}
+                type="button"
+                onClick={() => setTab(t.value)}
+                className={cn(
+                  'relative flex flex-col items-center justify-center py-1.5 px-1 rounded-xl transition-all touch-manipulation',
+                  isActive
+                    ? 'text-primary font-bold'
+                    : 'text-muted-foreground hover:text-foreground font-medium'
+                )}
+              >
+                <div className="relative">
+                  <Icon className={cn('h-5 w-5', isActive ? 'text-primary' : 'text-muted-foreground')} />
+                  {t.count > 0 && (
+                    <span className={cn(
+                      'absolute -top-1.5 -right-2.5 min-w-4 h-4 px-1 rounded-full text-[9px] font-bold flex items-center justify-center text-white',
+                      t.badgeColor || 'bg-primary'
+                    )}>
+                      {t.count}
+                    </span>
+                  )}
+                </div>
+                <span className="text-[10px] mt-0.5 truncate max-w-full leading-tight">
+                  {t.label}
+                </span>
+                {isActive && (
+                  <span className="absolute bottom-0 w-8 h-0.5 rounded-full bg-primary" />
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </nav>
 
       <TabsContent value="overview" className="space-y-6">
         <AgentProductsPanel category={category} mode="overview" />
