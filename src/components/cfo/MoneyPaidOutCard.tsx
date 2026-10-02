@@ -27,8 +27,9 @@ export function MoneyPaidOutCard({ moneyWeHaveTotal }: { moneyWeHaveTotal: numbe
   const [preset, setPreset] = useState<DrilldownPreset | null>(null);
   const conf = 'confirmed';
   const drill = (p: DrilldownPreset | null) => { setPreset(p); setReport(true); };
-  const total = () => d && drill({ label: 'All time', ...allTime(), status: conf, expected: { amount: n(d.total_paid), count: n(d.total_count), basis: 'confirmed' } });
   const n = (v?: number) => Number(v ?? 0);
+  const daysAgo = (k: number) => { const dt = new Date(); dt.setDate(dt.getDate() - k); return kampalaDate(dt); };
+  const total = () => d && drill({ label: 'All time', ...allTime(), status: conf, expected: { amount: n(d.total_paid), count: n(d.total_count), basis: 'confirmed' } });
   return (
     <>
     <HeroCard
