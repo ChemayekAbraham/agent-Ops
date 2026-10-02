@@ -40,10 +40,14 @@ import { DepositBridgeHealthPanel } from '@/components/bridge/DepositBridgeHealt
 import { DeletedAccountsPanel } from '@/components/cto/DeletedAccountsPanel';
 import { FakeAccountRadarPanel } from '@/components/cto/FakeAccountRadarPanel';
 import GitCommitsPanel from '@/components/cto/GitCommitsPanel';
+import { CTOUserDossier } from '@/components/cto/dossier/CTOUserDossier';
 
 
 
 export function CTODashboard({ activeTab }: { activeTab?: string }) {
+  if (activeTab === 'user-dossier') {
+    return <CTOUserDossier />;
+  }
   if (activeTab === 'system-logs') {
     return <SystemLogsViewer />;
   }
