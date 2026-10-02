@@ -359,6 +359,12 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
                   <ShieldCheck className="h-4 w-4 shrink-0 mt-0.5" />
                   <span>Only send after you have the cash in hand. The code expires in 10 minutes.</span>
                 </div>
+                {submitting && (
+                  <p className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                    <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden="true" />
+                    Sending the code… keep this screen open until it finishes.
+                  </p>
+                )}
               </div>
             )}
 
