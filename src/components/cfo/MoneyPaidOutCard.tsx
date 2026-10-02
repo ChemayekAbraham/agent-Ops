@@ -4,7 +4,7 @@ import { HeroCard } from '@/components/cfo/HeroCard';
 import { formatUGX } from '@/lib/creditFeeCalculations';
 import { ArrowUpRight } from 'lucide-react';
 import { useState } from 'react';
-import { allTime, kampalaDate, monthStart, type DrilldownPreset } from '@/components/cfo/MoneyDrilldownReport';
+import { allTime, type DrilldownPreset } from '@/components/cfo/MoneyDrilldownReport';
 import { MoneyPaidOutReport } from '@/components/cfo/MoneyPaidOutReport';
 type Row = {
   total_paid: number; total_count: number; today_paid: number; today_count: number;
