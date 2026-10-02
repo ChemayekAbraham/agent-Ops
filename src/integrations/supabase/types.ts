@@ -62590,6 +62590,20 @@ export type Database = {
           total: number
         }[]
       }
+      get_cfo_withdrawable_credits_today_detail: {
+        Args: { p_categories: string[] }
+        Returns: {
+          amount: number
+          category: string
+          created_at: string
+          description: string
+          full_name: string
+          id: string
+          phone: string
+          reference_id: string
+          user_id: string
+        }[]
+      }
       get_chain_health_summary: {
         Args: never
         Returns: {
