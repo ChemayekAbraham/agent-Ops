@@ -2913,6 +2913,13 @@
       "when": 1790933611153,
       "tag": "0415_bike_lease_fixed_28pct_reducing_balance",
       "breakpoints": true
+    },
+    {
+      "idx": 416,
+      "version": "7",
+      "when": 1790933633303,
+      "tag": "0416_bike_lease_rate_check_28",
+      "breakpoints": true
     }
   ]
 }
