@@ -33535,6 +33535,11 @@ export type Database = {
           old_principal: number
           old_status: string | null
           partner_id: string | null
+          payout_decided_at: string | null
+          payout_decided_by: string | null
+          payout_ledger_ref: string | null
+          payout_reason: string | null
+          payout_status: string
           portfolio_code: string | null
           portfolio_id: string
           processed_by: string | null
@@ -33552,6 +33557,11 @@ export type Database = {
           old_principal: number
           old_status?: string | null
           partner_id?: string | null
+          payout_decided_at?: string | null
+          payout_decided_by?: string | null
+          payout_ledger_ref?: string | null
+          payout_reason?: string | null
+          payout_status?: string
           portfolio_code?: string | null
           portfolio_id: string
           processed_by?: string | null
@@ -33569,6 +33579,11 @@ export type Database = {
           old_principal?: number
           old_status?: string | null
           partner_id?: string | null
+          payout_decided_at?: string | null
+          payout_decided_by?: string | null
+          payout_ledger_ref?: string | null
+          payout_reason?: string | null
+          payout_status?: string
           portfolio_code?: string | null
           portfolio_id?: string
           processed_by?: string | null
@@ -57646,6 +57661,10 @@ export type Database = {
         }
         Returns: Json
       }
+      agent_recalled_rent_request_ids: {
+        Args: { p_ids: string[] }
+        Returns: string[]
+      }
       agent_record_landlord_payout_receipt: {
         Args: { p_payout_id: string; p_receipt_number: string }
         Returns: Json
@@ -59151,6 +59170,10 @@ export type Database = {
         Args: { p_amount: number; p_reason: string; p_request_id: string }
         Returns: Json
       }
+      cfo_approve_redemption: {
+        Args: { p_id: string; p_reason: string }
+        Returns: Json
+      }
       cfo_correct_trail_entry: {
         Args: {
           p_audit_id: string
@@ -59262,6 +59285,31 @@ export type Database = {
         Returns: Json
       }
       cfo_issue_boutique_order: { Args: { p_sale_id: string }; Returns: string }
+      cfo_list_redemptions: {
+        Args: { p_status?: string }
+        Returns: {
+          created_at: string
+          id: string
+          note: string
+          old_principal: number
+          partner_email: string
+          partner_id: string
+          partner_name: string
+          partner_phone: string
+          payout_decided_at: string
+          payout_decided_by: string
+          payout_decided_by_name: string
+          payout_ledger_ref: string
+          payout_reason: string
+          payout_status: string
+          portfolio_code: string
+          portfolio_id: string
+          processed_by: string
+          processed_by_name: string
+          redeemed_amount: number
+          scope: string
+        }[]
+      }
       cfo_prepare_correction_decision: {
         Args: { p_decision: string; p_note: string }
         Returns: Json
@@ -59287,6 +59335,10 @@ export type Database = {
           p_payment_method: string
           p_reference: string
         }
+        Returns: Json
+      }
+      cfo_reject_redemption: {
+        Args: { p_id: string; p_reason: string }
         Returns: Json
       }
       cfo_save_evidence_review: {

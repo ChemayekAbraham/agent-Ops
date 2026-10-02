@@ -2878,6 +2878,13 @@
       "when": 1790930178819,
       "tag": "0410_cfo_withdrawable_credits_today_detail",
       "breakpoints": true
+    },
+    {
+      "idx": 411,
+      "version": "7",
+      "when": 1790932581796,
+      "tag": "0411_agent_recalled_rent_request_ids",
+      "breakpoints": true
     }
   ]
 }

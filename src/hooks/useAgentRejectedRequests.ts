@@ -130,12 +130,15 @@ export function useAgentRejectedRequests() {
       const cancelledIds = rows.filter((r) => r.status === 'cancelled').map((r) => r.id);
       let recalledIds = new Set<string>();
       if (cancelledIds.length > 0) {
-        const { data: alerts } = await supabase
-          .from('landlord_float_idle_alerts')
-          .select('rent_request_id')
-          .eq('outcome', 'auto_recalled')
-          .in('rent_request_id', cancelledIds);
-        recalledIds = new Set((alerts ?? []).map((a: any) => a.rent_request_id));
+        // Agents cannot read landlord_float_idle_alerts directly (no RLS
+        // policy), so a direct select always returned 0 rows and hid every
+        // recalled plan. The server function checks recall + agent ownership.
+        const { data: recalled, error: recallErr } = await supabase.rpc(
+          'agent_recalled_rent_request_ids' as never,
+          { p_ids: cancelledIds } as never,
+        );
+        if (recallErr) throw recallErr;
+        recalledIds = new Set(((recalled ?? []) as any[]).map((x: any) => (typeof x === 'string' ? x : x.agent_recalled_rent_request_ids)));
       }
       rows = rows.filter((r) => r.status !== 'cancelled' || recalledIds.has(r.id));
       if (rows.length === 0) return [];
