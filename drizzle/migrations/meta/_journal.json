@@ -2955,6 +2955,13 @@
       "when": 1790943923316,
       "tag": "0421_user_behaviour_telemetry_v2",
       "breakpoints": true
+    },
+    {
+      "idx": 422,
+      "version": "7",
+      "when": 1790946638731,
+      "tag": "0422_stage12_collection_evidence_resolution",
+      "breakpoints": true
     }
   ]
 }

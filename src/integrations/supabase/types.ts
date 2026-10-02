@@ -15716,6 +15716,110 @@ export type Database = {
         }
         Relationships: []
       }
+      fin_collection_evidence_s12: {
+        Row: {
+          attachment_path: string | null
+          collection_id: string
+          confirmed_agent_id: string | null
+          correction_status: string
+          duplicate_of_id: string | null
+          evidence_date: string | null
+          evidence_reference: string | null
+          evidence_source: string | null
+          evidence_status: string
+          evidence_type: string | null
+          notes: string | null
+          receipt_number: string | null
+          updated_at: string
+          valid_original_id: string | null
+          verified_at: string | null
+          verified_by: string | null
+        }
+        Insert: {
+          attachment_path?: string | null
+          collection_id: string
+          confirmed_agent_id?: string | null
+          correction_status?: string
+          duplicate_of_id?: string | null
+          evidence_date?: string | null
+          evidence_reference?: string | null
+          evidence_source?: string | null
+          evidence_status?: string
+          evidence_type?: string | null
+          notes?: string | null
+          receipt_number?: string | null
+          updated_at?: string
+          valid_original_id?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Update: {
+          attachment_path?: string | null
+          collection_id?: string
+          confirmed_agent_id?: string | null
+          correction_status?: string
+          duplicate_of_id?: string | null
+          evidence_date?: string | null
+          evidence_reference?: string | null
+          evidence_source?: string | null
+          evidence_status?: string
+          evidence_type?: string | null
+          notes?: string | null
+          receipt_number?: string | null
+          updated_at?: string
+          valid_original_id?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_collection_evidence_s12_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: true
+            referencedRelation: "fin_collection_reconciliation_s11"
+            referencedColumns: ["collection_id"]
+          },
+        ]
+      }
+      fin_collection_evidence_s12_audit: {
+        Row: {
+          actor: string
+          collection_id: string
+          created_at: string
+          details: Json | null
+          evidence_reference: string | null
+          id: string
+          new_status: string
+          notes: string | null
+          previous_status: string | null
+          reason: string
+        }
+        Insert: {
+          actor: string
+          collection_id: string
+          created_at?: string
+          details?: Json | null
+          evidence_reference?: string | null
+          id?: string
+          new_status: string
+          notes?: string | null
+          previous_status?: string | null
+          reason: string
+        }
+        Update: {
+          actor?: string
+          collection_id?: string
+          created_at?: string
+          details?: Json | null
+          evidence_reference?: string | null
+          id?: string
+          new_status?: string
+          notes?: string | null
+          previous_status?: string | null
+          reason?: string
+        }
+        Relationships: []
+      }
       fin_collection_reconciliation_s11: {
         Row: {
           access_fee: number | null
@@ -59777,6 +59881,63 @@ export type Database = {
         Args: { p_id: string; p_reason: string }
         Returns: Json
       }
+      cfo_s12_audit: {
+        Args: { p_collection_id: string }
+        Returns: {
+          actor: string
+          collection_id: string
+          created_at: string
+          details: Json | null
+          evidence_reference: string | null
+          id: string
+          new_status: string
+          notes: string | null
+          previous_status: string | null
+          reason: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "fin_collection_evidence_s12_audit"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      cfo_s12_list: {
+        Args: never
+        Returns: {
+          access_fee: number
+          agent_id: string
+          agent_name: string
+          amount: number
+          collected_at: string
+          collection_id: string
+          evidence: Json
+          findings: string
+          ledger_commission: number
+          ledger_group: string
+          ledger_receipt: number
+          ledger_repayment: number
+          matches: Json
+          original_classification: string
+          plan_agent_id: string
+          plan_agent_name: string
+          reconciliation_result: string
+          registration_fee: number
+          rent_plan_id: string
+          reversed_at: string
+          tenant_name: string
+        }[]
+      }
+      cfo_s12_save_evidence: {
+        Args: {
+          p_collection_id: string
+          p_fields: Json
+          p_reason: string
+          p_status: string
+        }
+        Returns: undefined
+      }
+      cfo_s12_summary: { Args: never; Returns: Json }
       cfo_save_evidence_review: {
         Args: { p: Json; p_collection_id: string }
         Returns: Json
