@@ -81,10 +81,10 @@ export default function RDDashboard() {
                 {IDEAS.map((i) => (
                   <TableRow key={i.name}>
                     <TableCell className="font-medium">{i.name}</TableCell>
-                    <TableCell className="text-right tabular-nums">{cell(i.customers)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{cell(i.cashIn)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{cell(i.cashOut)}</TableCell>
-                    <TableCell className="text-right font-semibold tabular-nums">{cell(i.net)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{count(i.customers)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{cash(i.cashIn)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{cash(i.cashOut)}</TableCell>
+                    <TableCell className="text-right font-semibold tabular-nums">{cash(i.net)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
