@@ -323,6 +323,12 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Customer Issues', icon: MessageSquare, id: 'customer-issues' },
         { label: 'Tenant Support', icon: Handshake, id: 'tenant-support' },
         { label: 'Communications', icon: MessageSquare, id: 'communications' },
+        {
+          label: 'User Behaviour',
+          icon: Activity,
+          id: 'user-behaviour',
+          access: { roles: ['crm', 'cto', 'super_admin'] },
+        },
         { label: 'Requisitions', icon: ClipboardList, id: 'requisitions' },
         { label: 'My Work', icon: ClipboardList, id: 'my-work' },
       ],

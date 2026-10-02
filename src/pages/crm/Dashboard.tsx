@@ -36,6 +36,11 @@ const CallCentrePeople = lazy(() =>
     default: m.CallCentrePeople,
   })),
 );
+const UserBehaviourAnalyticsPanel = lazy(() =>
+  import('@/components/executive/crm/UserBehaviourAnalyticsPanel').then((m) => ({
+    default: m.UserBehaviourAnalyticsPanel,
+  })),
+);
 
 const PanelFallback = () => (
   <div className="space-y-3">
@@ -119,6 +124,12 @@ export default function CRMDashboardPage() {
         );
       case 'communications':
         return <CTOCommunicationOverview />;
+      case 'user-behaviour':
+        return (
+          <Suspense fallback={<PanelFallback />}>
+            <UserBehaviourAnalyticsPanel />
+          </Suspense>
+        );
       default:
         return <CRMDashboard />;
     }

@@ -46,6 +46,7 @@ import {
   TenantAgreementModal
 } from '@/components/tenant/agreement';
 import { useTenantAgreement } from '@/hooks/useTenantAgreement';
+import { useTrackSection } from '@/hooks/useTrackSection';
 
 import PaymentPartnersDialog from '@/components/payments/PaymentPartnersDialog';
 
@@ -113,6 +114,9 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
   const { wallet, refreshWallet } = useWallet();
   const { toast } = useToast();
   const { isAccepted: hasAcceptedTerms, isLoading: agreementLoading, acceptAgreement } = useTenantAgreement();
+
+  // Track user presence and dwell time in Tenant dashboard
+  useTrackSection('tenant-overview', 'tenant');
 
   // Local-first: read cache synchronously for instant paint
   const [rentRequests, setRentRequests] = useState<RentRequest[]>(() => {

@@ -28,6 +28,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 
 // Agreement
 import { useSupporterAgreement } from '@/hooks/useSupporterAgreement';
+import { useTrackSection } from '@/hooks/useTrackSection';
 import { 
   SupporterAgreementModal, 
   LockedOverlay,
@@ -90,6 +91,9 @@ interface SupporterDashboardProps {
 export default function SupporterDashboard({ 
   user, signOut, currentRole, availableRoles, onRoleChange, addRoleComponent 
 }: SupporterDashboardProps) {
+  // Track user presence and dwell time in Supporter dashboard
+  useTrackSection('supporter-overview', 'supporter');
+
   const navigate = useNavigate();
   const location = useLocation();
   const { profile, loading: profileLoading } = useProfile();

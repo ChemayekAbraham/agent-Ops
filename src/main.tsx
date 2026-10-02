@@ -16,6 +16,9 @@ installClipboardFallback();
 import { loginTelemetry } from './lib/loginTelemetry';
 loginTelemetry.init();
 loginTelemetry.mark('app.boot');
+// Initialize user behaviour telemetry (batched, auto-capture clicks/taps/sections)
+import { userBehaviourTracker } from './lib/userBehaviourTracker';
+userBehaviourTracker.init();
 // Stamp the running revision (window.__WELILE_BUILD__, <html data-build>).
 import { exposeBuildInfo } from './lib/buildInfo';
 exposeBuildInfo();
