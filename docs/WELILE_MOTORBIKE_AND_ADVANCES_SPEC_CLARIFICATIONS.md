@@ -35,18 +35,17 @@ An agent can only submit another bike application under the following exact circ
 
 ---
 
-## 3. Why Did the "15%" Exist & Why It Is Being Retired
+## 3. Why Did the "15%" Exist & Why It Has Been Removed
 
-You rightly noticed the contradiction. The presence of **15%** alongside the **28% reducing balance** is a **legacy artifact from earlier merchandise prototypes**:
-
-### The Evolution & Why 15% Existed:
-1. **The Old/Prototype Model (15% Flat Deduction)**:  
-   Originally, generic merchandise in Welile used a simplistic rule: `"sweep 15% of whatever wallet credit lands in the agent's account until paid off"` (reflected as `BIKE_RECOVERY_RATE = 0.15` in `src/lib/spiroBikeLease.ts`).
-2. **The New Spiro Model (28% Monthly Reducing Balance)**:  
-   The commercial terms evolved into a genuine **reducing-balance lease**:  
+### The Evolution:
+1. **The Old/Prototype Model (15% Flat Deduction)** — ✅ **REMOVED**:  
+   Originally, generic merchandise in Welile used a simplistic rule: `"sweep 15% of whatever wallet credit lands in the agent's account until paid off"`. The `BIKE_RECOVERY_RATE = 0.15` constant and every 0.15 fallback have been deleted from the codebase (Migration `0415`).
+2. **The Active Spiro Model (28% Monthly Reducing Balance)** — ✅ **IMPLEMENTED**:  
+   The commercial terms use a genuine **reducing-balance lease** hardcoded at **28% per month**:  
    - Principal is divided into equal monthly slices ($P = B/n$).  
-   - A **28% monthly facility fee** is charged on the remaining balance at the start of each month.  
-   - Each month's total obligation is divided evenly by that month's days to produce an **exact daily instalment ($d(m)$)** (e.g. **UGX 71,467/day** in Month 1, reducing to **UGX 34,134/day** in Month 6).
+   - A **fixed 28% monthly facility fee** is charged on the remaining balance at the start of each month.  
+   - Each month's total obligation is divided by 30 to produce an **exact daily instalment ($d(m)$)** that drops every month.
+   - The daily sweep now reads the correct month's instalment from `agent_bike_lease_schedules` instead of using a flat percentage.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -54,14 +53,14 @@ You rightly noticed the contradiction. The presence of **15%** alongside the **2
 ├──────────────────────────────────────┬──────────────────────────────────────┤
 │ ❌ OLD MODEL (15% Flat Rate)         │ ✅ ACTIVE SPIRO MODEL (28% Reducing) │
 ├──────────────────────────────────────┼──────────────────────────────────────┤
-│ • Flat 15% deduction on wallet credits│ • 28% monthly on opening balance     │
+│ • Flat 15% deduction on wallet credits│ • Fixed 28% monthly on opening bal   │
 │ • No predictable repayment timeline  │ • Exact monthly & daily instalments  │
-│ • Generic merchandise fallback       │ • Daily target $d(m) = T(m) / \text{days}$ │
-│ • STATUS: **LEGACY / RETIRED**       │ • STATUS: **CANONICAL SPECIFICATION**│
+│ • Generic merchandise fallback       │ • Daily cap = instalment ÷ 30        │
+│ • STATUS: **DELETED FROM CODEBASE**  │ • STATUS: **LIVE — CANONICAL MODEL** │
 └──────────────────────────────────────┴──────────────────────────────────────┘
 ```
 
-> **Direct Resolution**: In the pure Spiro Motorbike model, **the 15% rate is completely removed**. The system only uses the **exact calculated daily instalment ($d(m)$)** derived from the **28% monthly reducing balance schedule**. No flat percentage rate applies.
+> **Resolution**: The 15% flat rate has been fully removed. The sweep engine determines which month the agent is in (from `lease_activated_at`), looks up that month's instalment from `agent_bike_lease_schedules`, divides by 30 for the daily cap, and deducts `LEAST(outstanding, available_withdrawable, daily_cap)`.
 
 ---
 
@@ -78,7 +77,8 @@ The Spiro bike recovery engine strictly debits the **`withdrawable_balance`** bu
 
 The daily sweep amount is calculated via:
 $$\text{Daily Sweep} = \min(\text{Outstanding Lease Balance},\; \text{Available Withdrawable Balance},\; \text{Daily Scheduled Cap})$$
-
+### Breakdown of the formulae 
+Daily Sweep = min(Outstanding Lease Balance, Available Withdrawable Balance, Daily Scheduled Cap)
 - **Case 1: Available Withdrawable Balance < Daily Target**  
   *Example*: Daily target is UGX 71,467, but the agent's wallet has only UGX 20,000 in earned commissions.  
   *Result*: The sweep takes **UGX 20,000**. The lease balance decreases by UGX 20,000, leaving the wallet at UGX 0. No negative balance or overdraft is possible.
@@ -121,28 +121,41 @@ To enforce strict **Four-Eyes Separation of Duties**, the role of `manager` shou
 ## 7. Strategic Input on Section 10 (Known Gaps & Open Decisions)
 
 ### 10.1 Quoted Schedule vs. Flat Daily Sweep
-- **The Issue**: The quote shows a reducing monthly schedule (e.g. UGX 71,467/day in Month 1, falling to UGX 34,134/day in Month 6), but the automated sweep currently uses a flat rate against the original financed sum.
-- **Strategic Recommendation**: Persist the exact month-by-month payment schedule in `merchandise_recovery_plans`. The sweep cron should dynamically adjust its daily target at the start of each monthly billing cycle according to that month's scheduled instalment.
+- **The Issue**: The quote shows a reducing monthly schedule, but the automated sweep used a flat 15% rate.
+- ✅ **IMPLEMENTED** (Migration `0415_bike_lease_fixed_28pct_reducing_balance.sql`):
+  - 28% monthly reducing-balance is hardcoded for all bike leases — no per-lease rate setting.
+  - The sweep determines the agent's current month from `lease_activated_at`, looks up the instalment from `agent_bike_lease_schedules`, divides by 30, and deducts that fixed daily cap.
+  - The old `BIKE_RECOVERY_RATE = 0.15` constant and every 0.15 fallback have been deleted.
+  - All 8 existing lease schedules regenerated at 28%.
 
 ### 10.2 Arrears & Inactivity Policy
 - **The Issue**: When an agent earns 0 UGX, the sweep simply skips with no escalation or arrears flagging.
 - **Strategic Recommendation**: Implement a **Soft Grace Period + Ops Dormancy Trigger**:
   - If an agent generates zero deductions for **7 consecutive business days**, trigger an automated high-priority alert on the Agent Ops Dashboard.
   - If inactive for **14 days**, temporarily suspend rent float issuance until the field officer conducts an in-person audit of the bike and agent.
+- ⏳ **STATUS**: Not yet implemented — scheduled as a follow-up feature.
 
 ### 10.3 Bike Ownership, Security & Logbook Custody
-- **The Issue**: Currently the system treats the bike as financial debt without tracking physical asset title or logbook custody.
-- **Strategic Recommendation**:
-  - The physical Spiro logbook and registration remain in **Welile's legal custody** throughout the lease.
-  - Upon full settlement (`outstanding_balance == 0`), the system auto-generates a signed **Certificate of Full Settlement** and alerts Ops to officially transfer the logbook to the agent.
+- ✅ **IMPLEMENTED**:
+  - `agent_bike_leases.logbook_status` tracks custody across 5 states: `pending_registration` → `held_by_welile` → `held_by_supplier` → `with_agent` → `released`.
+  - **Bike Asset Details Dialog** (`BikeAssetDetailsDialog.tsx`) allows Ops to record plate number, chassis number, battery serial, GPS tracker ID, and logbook custody — all changes audit-logged with old and new values.
+  - **Certificate of Full Settlement PDF** auto-generates with legal discharge clause and COO/CFO signatories when `outstanding_balance == 0`.
+  - Agent-facing **Terms & Conditions** with mandatory acceptance checkbox on the order dialog.
 
 ### 10.4 Deprecating Legacy Direct Sales Path
-- **The Issue**: An older direct creation path exists that could bypass approval.
-- **Strategic Recommendation**: Hard-deprecate direct insert endpoints; ensure all bike orders are routed exclusively through the `submit_bike_lease_application` RPC.
+- ✅ **IMPLEMENTED**: All new bike applications create records exclusively in `agent_bike_leases` via the `agent_order_spiro_bike_lease` RPC.
 
 ### 10.5 Dedicated Spiro Bike Table Architecture
-- **The Issue**: Bikes currently share columns with smartphones and t-shirts on `merchandise_sales`.
-- **Strategic Recommendation**: Separate Spiro bike leasing into a dedicated entity (`agent_bike_leases` and `agent_bike_lease_schedules`) to cleanly store battery serials, chassis numbers, GPS tracker IDs, and logbook custody statuses.
+- ✅ **IMPLEMENTED** (Migration `0406_bike_leases_dedicated_tables.sql`):
+  - **`agent_bike_leases`**: Dedicated table with physical asset columns, approval audit fields (including **approver names** — Migration `0417`), and settlement tracking.
+  - **`agent_bike_lease_schedules`**: Month-by-month reducing-balance rows at fixed 28%, versioned for audit.
+  - All 8 existing bike applications backfilled. No `merchandise_sales` rows dropped.
+  - **Bike cost price** now reads from `merchandise_catalog.unit_cost` via `useBikeCatalogCosts.ts` — no longer reverse-engineered from the interest formula.
+
+### 10.6 Approver Identity Tracking
+- ✅ **IMPLEMENTED** (Migration `0417_bike_lease_approver_names.sql`):
+  - Each approval stage records the approver's user ID and full name: `ops_approved_by`, `coo_approved_by`, `cfo_approved_by`.
+  - Displayed in the lease detail dialog under Application History (e.g. "Agent Ops verified by Jane Nakato").
 
 ---
 
@@ -153,21 +166,27 @@ To enforce strict **Four-Eyes Separation of Duties**, the role of `manager` shou
 │                            WELILE SYSTEM ROUTING                            │
 ├──────────────────────────────────────┬──────────────────────────────────────┤
 │        A. WORKING CAPITAL ADVANCE     │       B. SPIRO MOTORBIKE LEASE       │
-│        (Table: `agent_advances`)     │       (Table: `merchandise_sales`)    │
+│        (Table: `agent_advances`)     │       (Table: `agent_bike_leases`)    │
 ├──────────────────────────────────────┼──────────────────────────────────────┤
 │ • Pure cash float for rent ops       │ • Physical Spiro Electric Motorbike  │
 │ • Straight credit to float balance   │ • Asset finance with reducing balance│
 │ • No physical asset tracking         │ • 4-stage approval (Ops ➔ COO ➔ CFO) │
 │ • Recovered via rent float flow      │ • Recovered via daily wallet sweep   │
+│                                      │ • Fixed 28% monthly reducing-balance │
+│                                      │ • Physical asset tracking (chassis,  │
+│                                      │   battery, GPS, plate, logbook)      │
+│                                      │ • Approver names recorded per stage  │
 └──────────────────────────────────────┴──────────────────────────────────────┘
 ```
 
-### Identification Criteria for a Spiro Bike in `merchandise_sales`:
-1. **Catalog Classification**: `brand = 'Spiro'` or `item_name ILIKE '%bike%'` or `model_type ILIKE '%spiro%'`.
-2. **Catalog Sentinel**: Description contains `[motor_bike]`.
-3. **Lease Configuration**: Populated `lease_term_months` (1–24), `lease_daily_rate`, `valuation_amount`, and `total_repayable`.
-4. **Approval Flow**: Follows the 4-stage status chain:
-   $$\text{submitted} \longrightarrow \text{ops\_approved} \longrightarrow \text{coo\_approved} \longrightarrow \text{approved (disbursed)} \longrightarrow \text{completed}$$
+### Identification Criteria for a Spiro Bike in `agent_bike_leases`:
+1. **Dedicated Table**: All bike leases reside in `agent_bike_leases` (migrated from `merchandise_sales`).
+2. **Physical Asset Fields**: `plate_number`, `chassis_number`, `battery_serial`, `gps_tracker_id`, `logbook_status`.
+3. **Lease Configuration**: `lease_term_months` (1–24), fixed 28% `monthly_rate_pct`, `valuation_amount`, `amount_outstanding`.
+4. **Reducing-Balance Schedule**: Pre-calculated month-by-month rows in `agent_bike_lease_schedules`.
+5. **Supplier Cost**: Read from `merchandise_catalog.unit_cost` — profit = valuation − supplier cost.
+6. **Approval Flow** (with approver names recorded):
+   $$\text{submitted} \longrightarrow \text{ops\_approved} \longrightarrow \text{coo\_approved} \longrightarrow \text{approved (disbursed)} \longrightarrow \text{settled}$$
 
 ---
 
@@ -206,36 +225,33 @@ $$\text{Daily Target}: d(m) = \left\lceil \frac{T(m)}{30} \right\rceil$$
 ```
 1. AGENT APPLIES
    • Screen: Merchandise Store ➔ Selects "Spiro Electric Bike" ➔ Chooses 6 Months.
-   • Writes to `merchandise_sales`:
+   • Accepts mandatory Lease Terms & Conditions (logbook custody, daily sweeps, settlement).
+   • Writes to `agent_bike_leases`:
      - status: 'submitted'
      - valuation_amount: 4,800,000
-     - total_repayable: 9,504,000
      - lease_term_months: 6
+     - monthly_rate_pct: 28 (fixed)
+     - logbook_status: 'pending_registration'
+   • 28% reducing-balance schedule auto-generated in `agent_bike_lease_schedules`.
 
 2. AGENT OPS VERIFICATION
-   • Agent Ops reviews Ronald's collection history and confirms Kampala route suitability.
-   • Action: Approves.
+   • Agent Ops reviews Ronald's collection history, sub-agents, active tenants, and NIN.
+   • Ops records physical asset details via Bike Asset Details Dialog.
+   • Action: Approves. Approver name recorded (e.g. "verified by Jane Nakato").
    • Status becomes: 'ops_approved'
-   • Audit Log: `bike_lease_ops_verified`
 
 3. COO COMMERCIAL APPROVAL
-   • COO confirms final pricing: UGX 4.8M valuation, 6 months term, 28% reducing fee.
-   • Action: Approves.
+   • COO confirms final pricing: UGX 4.8M valuation, 6 months term.
+   • Action: Approves. Approver name recorded.
    • Status becomes: 'coo_approved'
-   • Audit Log: `bike_lease_coo_approved`
 
 4. CFO DISBURSEMENT & ASSET ACTIVATION
-   • CFO executes disbursement.
+   • CFO executes disbursement. Approver name recorded.
    • Status becomes: 'approved'
    • Ledger Transaction Posted:
      - DEBIT:  Account A16 (Agent Asset Finance Receivable)  UGX 4,800,000
      - CREDIT: Account L1  (Agent Withdrawable Wallet)       UGX 4,800,000
-   • Automatic Table Creation:
-     - `merchandise_recovery_plans` created with:
-       * original_amount: 9,504,000
-       * outstanding_balance: 9,504,000
-       * daily_deduction_amount: 71,467
-       * status: 'active'
+   • Daily sweep activated — reads Month 1's instalment (UGX 2,144,000 ÷ 30 = UGX 71,467/day).
    • Physical Delivery: Spiro bike and battery assigned to Ronald; logbook retained by Welile.
 ```
 
@@ -254,10 +270,9 @@ $$\text{Daily Target}: d(m) = \left\lceil \frac{T(m)}{30} \right\rceil$$
 
 ### Step 4: Final Settlement & Completion
 When cumulative deductions reach **UGX 9,504,000** (at or before the end of Month 6):
-1. `merchandise_recovery_plans.outstanding_balance` becomes **UGX 0**.
-2. Recovery plan status changes to `'completed'`.
-3. `merchandise_sales.order_status` changes to `'completed'`.
-4. Automated system actions:
-   - Certificate of Full Repayment is generated and emailed to Ronald.
-   - Welile Operations releases the physical Spiro logbook and transfers registration into Ronald Musana's name.
+1. `agent_bike_leases.amount_outstanding` becomes **UGX 0**.
+2. Lease status changes to `'settled'`, `certificate_issued_at` recorded automatically.
+3. Automated system actions:
+   - **Certificate of Full Settlement** PDF auto-generated with legal discharge clause and COO/CFO signatories — downloadable from the lease detail view.
+   - `logbook_status` transitions to `'released'` — Welile Operations officially transfers the physical Spiro logbook and registration into Ronald Musana's name.
    - Ronald is unlocked and eligible to apply for another asset.
