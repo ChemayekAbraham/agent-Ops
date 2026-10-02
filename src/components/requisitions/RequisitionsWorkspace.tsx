@@ -1,7 +1,8 @@
 import { useState, lazy, Suspense } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { ChevronDown, ChevronUp, Archive } from 'lucide-react';
+import { ChevronDown, ChevronUp, Archive, Plus } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { StaffRequisitionQueue } from './StaffRequisitionQueue';
 import { DirectorRequisitionsPanel } from './DirectorRequisitionsPanel';
 
@@ -20,6 +21,13 @@ export function RequisitionsWorkspace({ manualStage = 'coo' }: { manualStage?: '
 
   return (
     <div className="space-y-5">
+      <div className="flex justify-end">
+        <Button asChild>
+          <Link to="/me/requisitions">
+            <Plus className="mr-1 h-4 w-4" /> Create requisition
+          </Link>
+        </Button>
+      </div>
       <Suspense fallback={<Card className="p-4 text-sm text-muted-foreground">Loading manual requisitions…</Card>}>
         <ManualRequisitionQueuePanel stage={manualStage} />
       </Suspense>
