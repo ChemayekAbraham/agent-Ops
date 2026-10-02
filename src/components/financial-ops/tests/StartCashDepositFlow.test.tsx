@@ -190,3 +190,93 @@ describe('StartCashDepositDialog — accessibility of errors', () => {
     expect(screen.getByText(/Step 1 of 4/i).getAttribute('aria-live')).toBe('polite');
   });
 });
+
+/**
+ * Loading state: the Send button is locked while the request is in flight, so a
+ * slow connection can never start a second deposit.
+ */
+describe('StartCashDepositDialog — sending state', () => {
+  beforeEach(() => invokeSpy.mockClear());
+
+  const reachSend = () => {
+    setup();
+    completePerson();
+    fill(/Cash amount/i, '250000');
+    next();
+    fill(/Depositor email address/i, 'depositor@example.com');
+    next();
+  };
+
+  const deferred = () => {
+    let resolve!: (v: { data: any; error: any }) => void;
+    const promise = new Promise<{ data: any; error: any }>((r) => { resolve = r; });
+    return { promise, resolve };
+  };
+
+  it('locks Send with a loading state until the request finishes, keeping the entered values', async () => {
+    reachSend();
+    const d = deferred();
+    invokeSpy.mockImplementationOnce(() => d.promise);
+
+    fireEvent.click(btn(/Send code by SMS/i));
+    expect(invokeSpy).toHaveBeenCalledTimes(1);
+
+    const send = screen.getByRole('button', { name: /sending/i });
+    expect(send.hasAttribute('disabled')).toBe(true);
+    expect(send.getAttribute('aria-busy')).toBe('true');
+    expect(screen.getByText(/keep this screen open/i)).toBeTruthy();
+    expect(screen.getByText(/Sending the code\. Please wait\./i)).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Back/i }).hasAttribute('disabled')).toBe(true);
+    screen.getAllByRole('button', { name: /^Edit$/i }).forEach((e) => expect(e.hasAttribute('disabled')).toBe(true));
+
+    d.resolve({ data: { error: 'Network unreachable', message: 'Network unreachable' }, error: null });
+
+    await screen.findByText(/The code was not sent/i);
+    const again = screen.getByRole('button', { name: /Try again/i });
+    expect(again.hasAttribute('disabled')).toBe(false);
+    expect(again.getAttribute('aria-busy')).toBe('false');
+    expect(screen.queryByText(/keep this screen open/i)).toBeNull();
+    // Nothing was lost — the summary still carries what was typed.
+    expect(screen.getByText(/UGX 250,000/i)).toBeTruthy();
+    expect(screen.getByText(/depositor@example\.com/i)).toBeTruthy();
+  });
+
+  it('a second press while sending cannot start a second deposit', async () => {
+    reachSend();
+    const d = deferred();
+    invokeSpy.mockImplementationOnce(() => d.promise);
+
+    fireEvent.click(btn(/Send code by SMS/i));
+    fireEvent.click(screen.getByRole('button', { name: /sending/i }));
+    expect(invokeSpy).toHaveBeenCalledTimes(1);
+
+    d.resolve({ data: { sms_sent: true }, error: null });
+    await screen.findByRole('button', { name: /Continue/i });
+  });
+
+  it('cannot be dismissed while a send is in flight', async () => {
+    const onOpenChange = vi.fn();
+    render(<StartCashDepositDialog open onOpenChange={onOpenChange} />);
+    completePerson();
+    fill(/Cash amount/i, '250000');
+    next();
+    fill(/Depositor email address/i, 'depositor@example.com');
+    next();
+    const d = deferred();
+    invokeSpy.mockImplementationOnce(() => d.promise);
+    fireEvent.click(btn(/Send code by SMS/i));
+
+    fireEvent.keyDown(document.body, { key: 'Escape', code: 'Escape' });
+    expect(onOpenChange).not.toHaveBeenCalled();
+
+    d.resolve({ data: { sms_sent: true }, error: null });
+    await screen.findByRole('button', { name: /Continue/i });
+  });
+
+  it('Escape still closes the form when nothing is being sent', () => {
+    const onOpenChange = vi.fn();
+    render(<StartCashDepositDialog open onOpenChange={onOpenChange} />);
+    fireEvent.keyDown(document.body, { key: 'Escape', code: 'Escape' });
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+});

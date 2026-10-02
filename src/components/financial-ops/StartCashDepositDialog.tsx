@@ -145,6 +145,8 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
   };
 
   const submit = async () => {
+    // One send at a time — a second press while the request is in flight is ignored.
+    if (submitting) return;
     setSubmitting(true);
     setError(null);
     let data: any = null;
@@ -200,6 +202,7 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
     <Dialog
       open={open}
       onOpenChange={(o) => {
+        if (!o && submitting) return; // never abandon a send that is already in flight
         if (!o) reset();
         onOpenChange(o);
       }}
@@ -347,8 +350,9 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
                         <dd className="truncate text-sm font-medium">{value}</dd>
                       </div>
                       {label !== 'Purpose' && (
-                        <button type="button" onClick={() => setStep(target)}
-                          className="min-h-[44px] px-2 text-xs font-medium text-primary">Edit</button>
+                        <button type="button" onClick={() => setStep(target)} disabled={submitting}
+                          className={cn('min-h-[44px] px-2 text-xs font-medium text-primary',
+                            submitting && 'opacity-50')}>Edit</button>
                       )}
                     </div>
                   ))}
@@ -357,6 +361,12 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
                   <ShieldCheck className="h-4 w-4 shrink-0 mt-0.5" />
                   <span>Only send after you have the cash in hand. The code expires in 10 minutes.</span>
                 </div>
+                {submitting && (
+                  <p className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                    <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden="true" />
+                    Sending the code… keep this screen open until it finishes.
+                  </p>
+                )}
               </div>
             )}
 
@@ -371,6 +381,9 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
           </div>
         </div>
 
+        {/* Screen-reader notice for the in-flight send (the button label change alone is not announced). */}
+        <p className="sr-only" aria-live="polite">{submitting ? 'Sending the code. Please wait.' : ''}</p>
+
         {/* Pinned actions */}
         <div className="flex gap-2 border-t border-border/60 bg-muted/40 p-4 sm:px-6">
           <Button variant="outline" className="h-12 flex-1 gap-1"
@@ -379,9 +392,10 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
             {step === 0 ? 'Cancel' : (<><ArrowLeft className="h-4 w-4" />Back</>)}
           </Button>
           {isLast ? (
-            <Button onClick={submit} disabled={!canSubmit} className="h-12 flex-[2] gap-2 text-base">
+            <Button onClick={submit} disabled={!canSubmit} aria-busy={submitting}
+              className="h-12 flex-[2] gap-2 text-base">
               {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <MessageSquare className="h-5 w-5" />}
-              {error ? 'Try again' : 'Send code by SMS + email'}
+              {submitting ? 'Sending…' : error ? 'Try again' : 'Send code by SMS + email'}
             </Button>
           ) : (
             <Button onClick={tryContinue} className="h-12 flex-[2] gap-1 text-base">
