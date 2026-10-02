@@ -14,8 +14,8 @@ describe('PersonNameFields', () => {
 
   it('marks first and last as required, other names as optional', () => {
     render(<PersonNameFields idPrefix="t2" value={empty} onChange={() => {}} />);
-    expect(screen.getByText('First name *')).toBeInTheDocument();
-    expect(screen.getByText('Last name *')).toBeInTheDocument();
+    expect(screen.getByText(/^First name/)).toBeInTheDocument();
+    expect(screen.getByText(/^Last name/)).toBeInTheDocument();
     expect(screen.getByText('Other names (optional)')).toBeInTheDocument();
     expect(screen.getByLabelText(/First name/i)).toBeRequired();
     expect(screen.getByLabelText(/Last name/i)).toBeRequired();

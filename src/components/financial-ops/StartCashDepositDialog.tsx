@@ -204,7 +204,7 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
             </DialogTitle>
             <DialogDescription aria-live="polite">
               Step {step + 1} of {STEPS.length}
-              <span className="sr-only">: {current.title}</span>
+              <span className="sr-only">{`: ${current.title}`}</span>
             </DialogDescription>
           </DialogHeader>
 
