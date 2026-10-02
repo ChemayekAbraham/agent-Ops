@@ -176,6 +176,7 @@ BEGIN
     SELECT jsonb_agg(
       jsonb_build_object(
         'section', s.section,
+        'role', s.role,
         'views', s.view_count,
         'unique_sessions', s.session_count,
         'avg_dwell_sec', s.avg_dwell
@@ -184,13 +185,14 @@ BEGIN
     FROM (
       SELECT 
         COALESCE(section, 'unknown') AS section,
+        COALESCE(role, 'visitor') AS role,
         count(*) AS view_count,
         count(DISTINCT session_id) AS session_count,
         round(COALESCE(avg(dwell_time_ms) FILTER (WHERE dwell_time_ms > 0 AND dwell_time_ms < 1800000) / 1000.0, 0), 1) AS avg_dwell
       FROM filtered_events
       WHERE section IS NOT NULL AND section <> ''
-      GROUP BY COALESCE(section, 'unknown')
-      LIMIT 15
+      GROUP BY COALESCE(section, 'unknown'), COALESCE(role, 'visitor')
+      LIMIT 25
     ) s
   ),
   actions AS (
@@ -198,6 +200,7 @@ BEGIN
       jsonb_build_object(
         'target', a.target,
         'section', a.section,
+        'role', a.role,
         'kind', a.kind,
         'count', a.action_count
       ) ORDER BY a.action_count DESC
@@ -206,12 +209,13 @@ BEGIN
       SELECT 
         target,
         max(section) AS section,
+        max(role) AS role,
         max(kind) AS kind,
         count(*) AS action_count
       FROM filtered_events
       WHERE target IS NOT NULL AND target <> ''
       GROUP BY target
-      LIMIT 15
+      LIMIT 20
     ) a
   ),
   dialogs AS (
@@ -236,32 +240,43 @@ BEGIN
   devices AS (
     SELECT jsonb_agg(
       jsonb_build_object(
-        'device_class', COALESCE(device_class, 'unknown'),
-        'sessions', dev.session_count
+        'device_class', dev.device_class,
+        'user_agent', dev.user_agent,
+        'sessions', dev.session_count,
+        'events', dev.event_count
       ) ORDER BY dev.session_count DESC
     ) AS device_stats
     FROM (
-      SELECT device_class, count(DISTINCT session_id) AS session_count
+      SELECT 
+        COALESCE(device_class, 'unknown') AS device_class,
+        COALESCE(user_agent, 'unknown') AS user_agent,
+        count(DISTINCT session_id) AS session_count,
+        count(*) AS event_count
       FROM filtered_events
-      GROUP BY device_class
+      WHERE user_agent IS NOT NULL AND user_agent <> ''
+      GROUP BY COALESCE(device_class, 'unknown'), COALESCE(user_agent, 'unknown')
+      LIMIT 40
     ) dev
   ),
   trend AS (
     SELECT jsonb_agg(
       jsonb_build_object(
-        'day', t.day_date,
+        'day', t.time_bucket,
         'events', t.events,
         'sessions', t.sessions
-      ) ORDER BY t.day_date ASC
+      ) ORDER BY t.time_bucket ASC
     ) AS trend_stats
     FROM (
       SELECT 
-        to_char(created_at AT TIME ZONE 'Africa/Kampala', 'YYYY-MM-DD') AS day_date,
+        CASE 
+          WHEN p_days <= 1 THEN to_char(created_at AT TIME ZONE 'Africa/Kampala', 'HH24:00')
+          ELSE to_char(created_at AT TIME ZONE 'Africa/Kampala', 'YYYY-MM-DD')
+        END AS time_bucket,
         count(*) AS events,
         count(DISTINCT session_id) AS sessions
       FROM filtered_events
-      GROUP BY to_char(created_at AT TIME ZONE 'Africa/Kampala', 'YYYY-MM-DD')
-      ORDER BY day_date ASC
+      GROUP BY 1
+      ORDER BY 1 ASC
     ) t
   ),
   recent AS (
@@ -278,6 +293,8 @@ BEGIN
         'latitude', rec.latitude,
         'longitude', rec.longitude,
         'ip_address', rec.ip_address,
+        'user_agent', rec.user_agent,
+        'device_class', rec.device_class,
         'user_name', p.full_name,
         'phone', CASE 
           WHEN p.phone IS NOT NULL THEN substring(p.phone from 1 for 4) || '***' || substring(p.phone from length(p.phone)-2)
@@ -289,7 +306,7 @@ BEGIN
       SELECT *
       FROM filtered_events
       ORDER BY created_at DESC
-      LIMIT 40
+      LIMIT 50
     ) rec
     LEFT JOIN public.profiles p ON p.id = rec.user_id
   )

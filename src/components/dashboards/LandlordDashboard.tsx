@@ -37,6 +37,7 @@ import { InviteAndEarnCard } from '@/components/shared/InviteAndEarnCard';
 import { VerificationChecklist } from '@/components/shared/VerificationChecklist';
 import { FunderQuickActions } from '@/components/supporter/FunderQuickActions';
 import { MissionBanner } from '@/components/mission/MissionBanner';
+import { useTrackSection } from '@/hooks/useTrackSection';
 
 interface LandlordDashboardProps {
   user: User;
@@ -48,6 +49,9 @@ interface LandlordDashboardProps {
 }
 
 export default function LandlordDashboard({ user, signOut, currentRole, availableRoles, onRoleChange, addRoleComponent }: LandlordDashboardProps) {
+  // Behaviour telemetry tracking
+  useTrackSection('landlord-overview', 'landlord');
+
   const navigate = useNavigate();
   const { profile } = useProfile();
   const { wallet, refreshWallet } = useWallet();

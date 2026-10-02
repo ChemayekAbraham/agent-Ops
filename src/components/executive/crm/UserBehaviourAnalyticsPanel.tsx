@@ -11,12 +11,14 @@ import { Skeleton } from '@/components/ui/skeleton';
 import {
   Activity, Users, Clock, Navigation, Smartphone, Globe, RefreshCw,
   Search, ShieldAlert, MousePointerClick, Layers, CheckCircle2,
-  ChevronRight, ArrowUpRight, BarChart3, Filter, Download, ExternalLink, MapPin
+  ChevronRight, ArrowUpRight, BarChart3, Filter, Download, ExternalLink, MapPin,
+  Laptop, Tablet, Cpu
 } from 'lucide-react';
 import {
   AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, BarChart, Bar, Cell
 } from 'recharts';
 import { formatDistanceToNow, parseISO } from 'date-fns';
+import { parseUserAgent } from '@/lib/uaParser';
 
 interface UserBehaviourAnalyticsData {
   kpis?: {
@@ -27,10 +29,10 @@ interface UserBehaviourAnalyticsData {
     gps_sessions?: number;
   };
   roles?: Array<{ role: string; sessions: number; events: number }>;
-  sections?: Array<{ section: string; views: number; unique_sessions: number; avg_dwell_sec: number }>;
-  actions?: Array<{ target: string; section?: string; kind?: string; count: number }>;
+  sections?: Array<{ section: string; role?: string; views: number; unique_sessions: number; avg_dwell_sec: number }>;
+  actions?: Array<{ target: string; section?: string; role?: string; kind?: string; count: number }>;
   dialogs?: Array<{ dialog_name: string; interactions: number; unique_sessions: number }>;
-  devices?: Array<{ device_class: string; sessions: number }>;
+  devices?: Array<{ device_class?: string; user_agent?: string; sessions: number; events?: number }>;
   trend?: Array<{ day: string; events: number; sessions: number }>;
   recent_feed?: Array<{
     id: string;
@@ -44,6 +46,8 @@ interface UserBehaviourAnalyticsData {
     latitude?: number;
     longitude?: number;
     ip_address?: string;
+    user_agent?: string;
+    device_class?: string;
     user_name?: string;
     phone?: string;
   }>;
@@ -120,6 +124,70 @@ export function UserBehaviourAnalyticsPanel() {
   const avgDwellSec = kpis.avg_dwell_sec || 0;
   const gpsSessions = kpis.gps_sessions || 0;
 
+  // Computed UA Analytics for Android versions, browsers, and device classes
+  const uaAnalytics = useMemo(() => {
+    const rawDevices = data?.devices || [];
+    const osMap = new Map<string, number>();
+    const browserMap = new Map<string, number>();
+    const classMap = { mobile: 0, desktop: 0, tablet: 0 };
+    let totalIdentified = 0;
+
+    for (const d of rawDevices) {
+      const parsed = parseUserAgent(d.user_agent);
+      const s = d.sessions || 1;
+      totalIdentified += s;
+
+      // OS (e.g. Android 10, Android 11, iOS 18, Windows 10)
+      osMap.set(parsed.os, (osMap.get(parsed.os) || 0) + s);
+
+      // Browser (e.g. Chrome 154, Samsung Internet 30, Safari 16)
+      browserMap.set(parsed.browser, (browserMap.get(parsed.browser) || 0) + s);
+
+      // Device class
+      const cls = parsed.deviceClass || (d.device_class as 'mobile' | 'tablet' | 'desktop') || 'desktop';
+      classMap[cls] = (classMap[cls] || 0) + s;
+    }
+
+    const topOs = Array.from(osMap.entries())
+      .map(([name, sessions]) => ({
+        name,
+        sessions,
+        pct: totalIdentified > 0 ? Math.round((sessions / totalIdentified) * 100) : 0,
+      }))
+      .sort((a, b) => b.sessions - a.sessions)
+      .slice(0, 6);
+
+    const topBrowsers = Array.from(browserMap.entries())
+      .map(([name, sessions]) => ({
+        name,
+        sessions,
+        pct: totalIdentified > 0 ? Math.round((sessions / totalIdentified) * 100) : 0,
+      }))
+      .sort((a, b) => b.sessions - a.sessions)
+      .slice(0, 6);
+
+    return {
+      topOs,
+      topBrowsers,
+      classMap,
+      totalIdentified,
+    };
+  }, [data?.devices]);
+
+  // Robust trend data with single-point fallback anchor for Recharts Area rendering
+  const chartTrend = useMemo(() => {
+    const raw = data?.trend || [];
+    if (raw.length === 0) return [];
+    if (raw.length === 1) {
+      // If only one day exists in the window, add a baseline anchor so Area fills properly
+      return [
+        { day: '00:00', events: 0, sessions: 0 },
+        { ...raw[0], day: raw[0].day.includes(':') ? raw[0].day : 'Today' },
+      ];
+    }
+    return raw;
+  }, [data?.trend]);
+
   // Filtered live feed
   const recentEvents = (data?.recent_feed || []).filter((item) => {
     if (!searchFilter.trim()) return true;
@@ -131,6 +199,7 @@ export function UserBehaviourAnalyticsPanel() {
       item.dialog_name?.toLowerCase().includes(q) ||
       item.user_name?.toLowerCase().includes(q) ||
       item.ip_address?.toLowerCase().includes(q) ||
+      item.user_agent?.toLowerCase().includes(q) ||
       (item.phone && item.phone.toLowerCase().includes(q))
     );
   });
@@ -281,26 +350,30 @@ export function UserBehaviourAnalyticsPanel() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left 2 Cols: Activity Trend & Sections */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Daily Activity Chart */}
+          {/* Activity Chart */}
           <Card className="border-border/60 shadow-sm">
             <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
               <div>
-                <CardTitle className="text-base font-semibold">User Activity Trend</CardTitle>
+                <CardTitle className="text-base font-semibold">
+                  {timeframeDays === 1 ? "Today's Activity Trend (Hourly)" : "User Activity Trend"}
+                </CardTitle>
                 <CardDescription className="text-xs">
-                  Daily interaction frequency and session volume
+                  {timeframeDays === 1
+                    ? "Hourly interaction frequency and session volume in Kampala time"
+                    : "Daily interaction frequency and session volume"}
                 </CardDescription>
               </div>
               <Badge variant="outline" className="text-[10px] font-medium">
-                {timeframeDays} Day Window
+                {timeframeDays === 1 ? 'Today (24h)' : `${timeframeDays} Day Window`}
               </Badge>
             </CardHeader>
             <CardContent className="p-4 pt-2">
               <div className="h-60 w-full">
                 {isLoading ? (
                   <Skeleton className="h-full w-full rounded-xl" />
-                ) : (data?.trend || []).length > 0 ? (
+                ) : chartTrend.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={data?.trend}>
+                    <AreaChart data={chartTrend}>
                       <defs>
                         <linearGradient id="eventColor" x1="0" y1="0" x2="0" y2="1">
                           <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
@@ -325,6 +398,8 @@ export function UserBehaviourAnalyticsPanel() {
                         strokeWidth={2}
                         fillOpacity={1}
                         fill="url(#eventColor)"
+                        dot={{ r: 4, fill: '#6366f1', strokeWidth: 1, stroke: '#ffffff' }}
+                        activeDot={{ r: 6 }}
                       />
                       <Area
                         type="monotone"
@@ -333,6 +408,8 @@ export function UserBehaviourAnalyticsPanel() {
                         stroke="#10b981"
                         strokeWidth={2}
                         fillOpacity={0}
+                        dot={{ r: 4, fill: '#10b981', strokeWidth: 1, stroke: '#ffffff' }}
+                        activeDot={{ r: 5 }}
                       />
                     </AreaChart>
                   </ResponsiveContainer>
@@ -350,9 +427,9 @@ export function UserBehaviourAnalyticsPanel() {
           <Card className="border-border/60 shadow-sm">
             <CardHeader className="p-4 pb-3 flex flex-row items-center justify-between">
               <div>
-                <CardTitle className="text-base font-semibold">Most Visited Sections</CardTitle>
+                <CardTitle className="text-base font-semibold">Most Visited Sections & Tabs</CardTitle>
                 <CardDescription className="text-xs">
-                  Where users spend the most time across dashboards
+                  All pages, tabs, and drawers across dashboards with their dashboard origin
                 </CardDescription>
               </div>
               <Layers className="h-4 w-4 text-muted-foreground" />
@@ -360,32 +437,57 @@ export function UserBehaviourAnalyticsPanel() {
             <CardContent className="p-4 pt-0">
               <div className="divide-y divide-border/40">
                 {(data?.sections || []).length > 0 ? (
-                  (data?.sections || []).map((sec, idx) => (
-                    <div key={sec.section || idx} className="py-2.5 flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="w-5 text-muted-foreground font-mono font-medium text-[11px]">
-                          #{idx + 1}
-                        </span>
-                        <div className="truncate">
-                          <p className="font-semibold text-foreground capitalize truncate">
-                            {sec.section.replace(/[-_]/g, ' ')}
-                          </p>
-                          <p className="text-[10px] text-muted-foreground">
-                            {sec.unique_sessions} unique sessions
+                  (data?.sections || []).map((sec, idx) => {
+                    const originRole = sec.role || 'visitor';
+                    const originColor = ROLE_COLORS[originRole] || '#64748b';
+                    const cleanTitle = sec.section
+                      .replace(/[-_]/g, ' ')
+                      .replace(/\b(agent|tenant|supporter|landlord)\b/gi, '')
+                      .trim() || sec.section;
+
+                    return (
+                      <div
+                        key={`${sec.section}-${originRole}-${idx}`}
+                        className="py-2.5 flex items-center justify-between text-xs hover:bg-muted/20 px-2 rounded-lg transition-colors"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className="w-5 text-muted-foreground font-mono font-medium text-[11px]">
+                            #{idx + 1}
+                          </span>
+                          <div className="truncate">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="font-semibold text-foreground capitalize truncate">
+                                {cleanTitle}
+                              </p>
+                              {/* Dashboard Origin Badge */}
+                              <span
+                                className="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase shrink-0 border"
+                                style={{
+                                  backgroundColor: `${originColor}18`,
+                                  color: originColor,
+                                  borderColor: `${originColor}35`,
+                                }}
+                              >
+                                {originRole} Dashboard
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-muted-foreground">
+                              {sec.unique_sessions} unique sessions
+                            </p>
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className="font-bold text-foreground font-mono">
+                            {sec.views.toLocaleString()} views
+                          </span>
+                          <p className="text-[10px] text-muted-foreground flex items-center justify-end gap-1">
+                            <Clock className="h-3 w-3" />
+                            avg {sec.avg_dwell_sec}s
                           </p>
                         </div>
                       </div>
-                      <div className="text-right shrink-0">
-                        <span className="font-bold text-foreground font-mono">
-                          {sec.views.toLocaleString()} views
-                        </span>
-                        <p className="text-[10px] text-muted-foreground flex items-center justify-end gap-1">
-                          <Clock className="h-3 w-3" />
-                          avg {sec.avg_dwell_sec}s
-                        </p>
-                      </div>
-                    </div>
-                  ))
+                    );
+                  })
                 ) : (
                   <div className="py-8 text-center text-xs text-muted-foreground">
                     Section visit logs will populate here as users navigate dashboards.
@@ -454,8 +556,28 @@ export function UserBehaviourAnalyticsPanel() {
                         </div>
                       </div>
 
-                      {/* Right Meta Badges: IP, Clickable GPS, Timestamp */}
+                      {/* Right Meta Badges: UA / Device, IP, Clickable GPS, Timestamp */}
                       <div className="flex items-center flex-wrap sm:flex-nowrap gap-2 shrink-0 self-end sm:self-center">
+                        {/* UA / Device Badge */}
+                        {evt.user_agent ? (() => {
+                          const parsed = parseUserAgent(evt.user_agent);
+                          return (
+                            <span
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono bg-muted/60 text-muted-foreground border border-border/50 shrink-0"
+                              title={`User Agent: ${evt.user_agent}`}
+                            >
+                              {parsed.deviceClass === 'mobile' ? (
+                                <Smartphone className="h-2.5 w-2.5 text-muted-foreground/70" />
+                              ) : parsed.deviceClass === 'tablet' ? (
+                                <Tablet className="h-2.5 w-2.5 text-muted-foreground/70" />
+                              ) : (
+                                <Laptop className="h-2.5 w-2.5 text-muted-foreground/70" />
+                              )}
+                              <span>{parsed.shortLabel}</span>
+                            </span>
+                          );
+                        })() : null}
+
                         {/* IP Address display */}
                         {evt.ip_address ? (
                           <span
@@ -555,28 +677,144 @@ export function UserBehaviourAnalyticsPanel() {
           <Card className="border-border/60 shadow-sm">
             <CardHeader className="p-4 pb-2">
               <CardTitle className="text-base font-semibold">Top Taps & Actions</CardTitle>
-              <CardDescription className="text-xs">Most clicked CTAs across all screens</CardDescription>
+              <CardDescription className="text-xs">Most clicked CTAs and buttons with dashboard origin</CardDescription>
             </CardHeader>
             <CardContent className="p-4 pt-0">
               <div className="space-y-2 mt-2">
-                {(data?.actions || []).slice(0, 7).map((act, i) => (
-                  <div
-                    key={act.target + i}
-                    className="p-2 rounded-lg bg-muted/30 border border-border/40 flex items-center justify-between text-xs"
-                  >
-                    <div className="flex items-center gap-2 min-w-0">
-                      <MousePointerClick className="h-3.5 w-3.5 text-primary shrink-0" />
-                      <span className="font-medium text-foreground truncate">{act.target}</span>
+                {(data?.actions || []).slice(0, 8).map((act, i) => {
+                  const actRole = act.role || 'visitor';
+                  const color = ROLE_COLORS[actRole] || '#64748b';
+                  return (
+                    <div
+                      key={act.target + i}
+                      className="p-2 rounded-lg bg-muted/30 border border-border/40 flex items-center justify-between text-xs"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <MousePointerClick className="h-3.5 w-3.5 text-primary shrink-0" />
+                        <div className="truncate">
+                          <span className="font-medium text-foreground truncate block">{act.target}</span>
+                          <span className="text-[9px] text-muted-foreground flex items-center gap-1">
+                            <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: color }} />
+                            {actRole} dashboard {act.section ? `• ${act.section}` : ''}
+                          </span>
+                        </div>
+                      </div>
+                      <Badge variant="secondary" className="font-mono text-[10px] shrink-0 ml-2">
+                        {act.count} taps
+                      </Badge>
                     </div>
-                    <Badge variant="secondary" className="font-mono text-[10px] shrink-0">
-                      {act.count} taps
-                    </Badge>
-                  </div>
-                ))}
+                  );
+                })}
                 {(data?.actions || []).length === 0 && (
                   <p className="text-xs text-muted-foreground py-4 text-center">
                     User taps will automatically be detected and listed here.
                   </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* User Devices, Android Versions & Browsers UA Intelligence */}
+          <Card className="border-border/60 shadow-sm">
+            <CardHeader className="p-4 pb-2">
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                <Smartphone className="h-4 w-4 text-primary" />
+                User Devices & UA Metadata
+              </CardTitle>
+              <CardDescription className="text-xs">Android versions, operating systems & browsers</CardDescription>
+            </CardHeader>
+            <CardContent className="p-4 pt-1 space-y-4">
+              {/* Form Factor distribution */}
+              <div className="grid grid-cols-3 gap-2 p-2 rounded-lg bg-muted/30 border border-border/40 text-center">
+                <div>
+                  <div className="flex items-center justify-center gap-1 text-[11px] font-medium text-muted-foreground">
+                    <Smartphone className="h-3 w-3" /> Mobile
+                  </div>
+                  <p className="text-base font-bold text-foreground">
+                    {uaAnalytics.totalIdentified > 0
+                      ? Math.round((uaAnalytics.classMap.mobile / uaAnalytics.totalIdentified) * 100)
+                      : 0}%
+                  </p>
+                </div>
+                <div>
+                  <div className="flex items-center justify-center gap-1 text-[11px] font-medium text-muted-foreground">
+                    <Laptop className="h-3 w-3" /> Desktop
+                  </div>
+                  <p className="text-base font-bold text-foreground">
+                    {uaAnalytics.totalIdentified > 0
+                      ? Math.round((uaAnalytics.classMap.desktop / uaAnalytics.totalIdentified) * 100)
+                      : 0}%
+                  </p>
+                </div>
+                <div>
+                  <div className="flex items-center justify-center gap-1 text-[11px] font-medium text-muted-foreground">
+                    <Tablet className="h-3 w-3" /> Tablet
+                  </div>
+                  <p className="text-base font-bold text-foreground">
+                    {uaAnalytics.totalIdentified > 0
+                      ? Math.round((uaAnalytics.classMap.tablet / uaAnalytics.totalIdentified) * 100)
+                      : 0}%
+                  </p>
+                </div>
+              </div>
+
+              {/* Android & OS Versions */}
+              <div className="space-y-2">
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Operating Systems & Android Versions
+                </p>
+                {uaAnalytics.topOs.length > 0 ? (
+                  uaAnalytics.topOs.map((os) => (
+                    <div key={os.name} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs font-medium">
+                        <span className="truncate flex items-center gap-1.5">
+                          <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                          {os.name}
+                        </span>
+                        <span className="text-muted-foreground font-mono text-[11px]">
+                          {os.sessions} ({os.pct}%)
+                        </span>
+                      </div>
+                      <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-primary/70 transition-all"
+                          style={{ width: `${os.pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-muted-foreground py-2 text-center">No OS data captured yet.</p>
+                )}
+              </div>
+
+              {/* Browsers */}
+              <div className="space-y-2">
+                <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Browser Versions
+                </p>
+                {uaAnalytics.topBrowsers.length > 0 ? (
+                  uaAnalytics.topBrowsers.map((b) => (
+                    <div key={b.name} className="space-y-1">
+                      <div className="flex items-center justify-between text-xs font-medium">
+                        <span className="truncate flex items-center gap-1.5">
+                          <Globe className="h-3 w-3 text-emerald-500" />
+                          {b.name}
+                        </span>
+                        <span className="text-muted-foreground font-mono text-[11px]">
+                          {b.sessions} ({b.pct}%)
+                        </span>
+                      </div>
+                      <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-emerald-500/70 transition-all"
+                          style={{ width: `${b.pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-muted-foreground py-2 text-center">No browser data captured yet.</p>
                 )}
               </div>
             </CardContent>

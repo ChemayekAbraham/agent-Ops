@@ -123,6 +123,7 @@ import { AgentActionInsights } from '@/components/agent/AgentActionInsights';
 import { AgentArrearsCard } from '@/components/agent/AgentArrearsCard';
 import { AgentExpiredCyclesCard } from '@/components/agent/AgentExpiredCyclesCard';
 import { AgentLandlordFloatCard } from '@/components/agent/AgentLandlordFloatCard';
+import { useTrackSection } from '@/hooks/useTrackSection';
 import { AgentConvertToFloatCard } from '@/components/agent/AgentConvertToFloatCard';
 import { ReceiptNumberCheckDialog } from '@/components/agent/ReceiptNumberCheckDialog';
 import { AgentPendingReceiptPanel } from '@/components/agent/AgentPendingReceiptPanel';
@@ -243,6 +244,9 @@ interface AgentDashboardProps {
 }
 
 export default function AgentDashboard({ user, signOut, currentRole, availableRoles, onRoleChange, addRoleComponent }: AgentDashboardProps) {
+  // Behaviour telemetry tracking
+  useTrackSection('agent-overview', 'agent');
+
   // Proxy Agent shortcut is only surfaced to database-approved proxy agents.
   const { data: proxyStatus } = useMyProxyAgentStatus(user?.id);
   const isApprovedProxyAgent = proxyStatus?.status === 'approved';
