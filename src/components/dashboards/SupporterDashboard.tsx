@@ -29,6 +29,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 // Agreement
 import { useSupporterAgreement } from '@/hooks/useSupporterAgreement';
 import { useTrackSection } from '@/hooks/useTrackSection';
+import { userBehaviourTracker } from '@/lib/userBehaviourTracker';
 import { 
   SupporterAgreementModal, 
   LockedOverlay,
@@ -193,6 +194,35 @@ export default function SupporterDashboard({
   const { wallet, refreshWallet } = useWallet();
   const { fireSuccess, fireFirstFunding } = useConfetti();
   const [hasEverFunded, setHasEverFunded] = useState<boolean | null>(null);
+
+  // Dynamic telemetry tracking across supporter sheets and drawers
+  useEffect(() => {
+    if (showWallet) {
+      userBehaviourTracker.setSection('supporter-wallet', 'supporter');
+    } else if (showFunderHub) {
+      userBehaviourTracker.setSection('supporter-hub', 'supporter');
+    } else if (showInvestments) {
+      userBehaviourTracker.setSection('supporter-investments', 'supporter');
+    } else if (showMap) {
+      userBehaviourTracker.setSection('supporter-house-map', 'supporter');
+    } else if (showPackageSheet) {
+      userBehaviourTracker.setSection('supporter-packages', 'supporter');
+    } else if (showHouseDetails) {
+      userBehaviourTracker.setSection('supporter-house-details', 'supporter');
+    } else if (showCalculator) {
+      userBehaviourTracker.setSection('supporter-calculator', 'supporter');
+    } else {
+      userBehaviourTracker.setSection('supporter-overview', 'supporter');
+    }
+  }, [
+    showWallet,
+    showFunderHub,
+    showInvestments,
+    showMap,
+    showPackageSheet,
+    showHouseDetails,
+    showCalculator,
+  ]);
 
   // ─── Funder activation modal (self-registered + just approved + empty wallet) ───
   const { isSelfRegistered, verifiedAt } = useFunderApprovalStatus(user.id);

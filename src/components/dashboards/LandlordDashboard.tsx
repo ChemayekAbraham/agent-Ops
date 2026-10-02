@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { userBehaviourTracker } from '@/lib/userBehaviourTracker';
 import { User } from '@supabase/supabase-js';
 import { 
   Wallet, 
@@ -61,6 +62,21 @@ export default function LandlordDashboard({ user, signOut, currentRole, availabl
   const [showWallet, setShowWallet] = useState(false);
   const [showProperties, setShowProperties] = useState(false);
   const [showListedHouses, setShowListedHouses] = useState(false);
+
+  // Dynamic telemetry tracking across landlord sheets
+  useEffect(() => {
+    if (showWallet) {
+      userBehaviourTracker.setSection('landlord-wallet', 'landlord');
+    } else if (showProperties) {
+      userBehaviourTracker.setSection('landlord-properties', 'landlord');
+    } else if (registerPropertyOpen) {
+      userBehaviourTracker.setSection('landlord-register-property', 'landlord');
+    } else if (showListedHouses) {
+      userBehaviourTracker.setSection('landlord-listed-houses', 'landlord');
+    } else {
+      userBehaviourTracker.setSection('landlord-overview', 'landlord');
+    }
+  }, [showWallet, showProperties, registerPropertyOpen, showListedHouses]);
 
   const handleRefresh = async () => {
     await Promise.all([refreshWallet(), refreshStats()]);

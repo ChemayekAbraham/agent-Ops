@@ -33,7 +33,16 @@ interface UserBehaviourAnalyticsData {
   actions?: Array<{ target: string; section?: string; role?: string; kind?: string; count: number }>;
   dialogs?: Array<{ dialog_name: string; interactions: number; unique_sessions: number }>;
   devices?: Array<{ device_class?: string; user_agent?: string; sessions: number; events?: number }>;
-  trend?: Array<{ day: string; events: number; sessions: number }>;
+  trend?: Array<{
+    day: string;
+    agent?: number;
+    tenant?: number;
+    supporter?: number;
+    landlord?: number;
+    total?: number;
+    events?: number;
+    sessions?: number;
+  }>;
   recent_feed?: Array<{
     id: string;
     created_at: string;
@@ -126,27 +135,52 @@ export function UserBehaviourAnalyticsPanel() {
 
   // Computed UA Analytics for Android versions, browsers, and device classes
   const uaAnalytics = useMemo(() => {
-    const rawDevices = data?.devices || [];
+    const rawDevices = (data?.devices || []).filter((d) => d.user_agent && d.user_agent !== 'unknown');
+    const recentFeedUas = (data?.recent_feed || [])
+      .filter((r) => r.user_agent && r.user_agent !== 'unknown')
+      .map((r) => ({ user_agent: r.user_agent, sessions: 1, device_class: r.device_class }));
+
+    // Fallback to active browser userAgent if no database records have UA yet
+    const fallbackUa = typeof navigator !== 'undefined' && navigator.userAgent
+      ? [{ user_agent: navigator.userAgent, sessions: 1, device_class: undefined }]
+      : [];
+
+    const uaSource = rawDevices.length > 0 ? rawDevices : recentFeedUas.length > 0 ? recentFeedUas : fallbackUa;
     const osMap = new Map<string, number>();
     const browserMap = new Map<string, number>();
     const classMap = { mobile: 0, desktop: 0, tablet: 0 };
     let totalIdentified = 0;
 
-    for (const d of rawDevices) {
+    for (const d of uaSource) {
+      if (!d.user_agent || d.user_agent === 'unknown') continue;
       const parsed = parseUserAgent(d.user_agent);
+      if (parsed.os === 'Unknown OS' && parsed.browser === 'Unknown Browser') continue;
+
       const s = d.sessions || 1;
       totalIdentified += s;
 
       // OS (e.g. Android 10, Android 11, iOS 18, Windows 10)
       osMap.set(parsed.os, (osMap.get(parsed.os) || 0) + s);
 
-      // Browser (e.g. Chrome 154, Samsung Internet 30, Safari 16)
+      // Browser (e.g. Chrome 154, Samsung Internet 30, Safari 16, Opera 109)
       browserMap.set(parsed.browser, (browserMap.get(parsed.browser) || 0) + s);
 
       // Device class
       const cls = parsed.deviceClass || (d.device_class as 'mobile' | 'tablet' | 'desktop') || 'desktop';
       classMap[cls] = (classMap[cls] || 0) + s;
     }
+
+    // Also count any valid device_class records in data?.devices if totalIdentified was 0
+    if (totalIdentified === 0) {
+      for (const d of data?.devices || []) {
+        if (d.device_class && ['mobile', 'tablet', 'desktop'].includes(d.device_class)) {
+          classMap[d.device_class as 'mobile' | 'tablet' | 'desktop'] += d.sessions || 1;
+        }
+      }
+    }
+
+    const totalForClasses = classMap.mobile + classMap.desktop + classMap.tablet;
+    const effectiveTotal = Math.max(totalIdentified, totalForClasses);
 
     const topOs = Array.from(osMap.entries())
       .map(([name, sessions]) => ({
@@ -170,23 +204,52 @@ export function UserBehaviourAnalyticsPanel() {
       topOs,
       topBrowsers,
       classMap,
-      totalIdentified,
+      totalIdentified: effectiveTotal,
     };
-  }, [data?.devices]);
+  }, [data?.devices, data?.recent_feed]);
 
-  // Robust trend data with single-point fallback anchor for Recharts Area rendering
+  // Robust trend data comparing all 4 user dashboards (Agent vs Tenant vs Supporter vs Landlord)
   const chartTrend = useMemo(() => {
-    const raw = data?.trend || [];
+    const raw = (data?.trend as any[]) || [];
     if (raw.length === 0) return [];
-    if (raw.length === 1) {
+
+    const normalized = raw.map((item) => ({
+      day: item.day,
+      agent: item.agent ?? (selectedRole === 'agent' ? item.events : 0),
+      tenant: item.tenant ?? (selectedRole === 'tenant' ? item.events : 0),
+      supporter: item.supporter ?? (selectedRole === 'supporter' ? item.events : 0),
+      landlord: item.landlord ?? (selectedRole === 'landlord' ? item.events : 0),
+      total: item.total ?? item.events ?? 0,
+    }));
+
+    if (normalized.length === 1) {
       // If only one day exists in the window, add a baseline anchor so Area fills properly
       return [
-        { day: '00:00', events: 0, sessions: 0 },
-        { ...raw[0], day: raw[0].day.includes(':') ? raw[0].day : 'Today' },
+        { day: '00:00', agent: 0, tenant: 0, supporter: 0, landlord: 0, total: 0 },
+        { ...normalized[0], day: normalized[0].day.includes(':') ? normalized[0].day : 'Today' },
       ];
     }
-    return raw;
-  }, [data?.trend]);
+    return normalized;
+  }, [data?.trend, selectedRole]);
+
+  // Filter sections strictly to user dashboards (Agent, Tenant, Supporter, Landlord)
+  const userSections = useMemo(() => {
+    return (data?.sections || []).filter((s) => {
+      const role = (s.role || '').toLowerCase();
+      const sec = (s.section || '').toLowerCase();
+      return (
+        ['agent', 'tenant', 'supporter', 'landlord'].includes(role) &&
+        sec !== 'home' &&
+        sec !== 'unknown' &&
+        sec !== '' &&
+        !sec.startsWith('cfo') &&
+        !sec.startsWith('executive') &&
+        !sec.startsWith('admin') &&
+        !sec.startsWith('crm') &&
+        !sec.startsWith('cto')
+      );
+    });
+  }, [data?.sections]);
 
   // Filtered live feed
   const recentEvents = (data?.recent_feed || []).filter((item) => {
@@ -350,24 +413,40 @@ export function UserBehaviourAnalyticsPanel() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left 2 Cols: Activity Trend & Sections */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Activity Chart */}
+          {/* Activity Chart: Dashboard Comparison */}
           <Card className="border-border/60 shadow-sm">
-            <CardHeader className="p-4 pb-2 flex flex-row items-center justify-between">
+            <CardHeader className="p-4 pb-2 flex flex-col md:flex-row md:items-center justify-between gap-2">
               <div>
                 <CardTitle className="text-base font-semibold">
-                  {timeframeDays === 1 ? "Today's Activity Trend (Hourly)" : "User Activity Trend"}
+                  {timeframeDays === 1 ? "Today's Dashboard Trends (Hourly)" : "Dashboard Activity Trends"}
                 </CardTitle>
                 <CardDescription className="text-xs">
-                  {timeframeDays === 1
-                    ? "Hourly interaction frequency and session volume in Kampala time"
-                    : "Daily interaction frequency and session volume"}
+                  Comparative interaction volume across Agent, Tenant, Supporter & Landlord dashboards
                 </CardDescription>
               </div>
-              <Badge variant="outline" className="text-[10px] font-medium">
-                {timeframeDays === 1 ? 'Today (24h)' : `${timeframeDays} Day Window`}
-              </Badge>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="text-[10px] font-medium">
+                  {timeframeDays === 1 ? 'Today (24h)' : `${timeframeDays} Day Window`}
+                </Badge>
+              </div>
             </CardHeader>
             <CardContent className="p-4 pt-2">
+              {/* Dashboard legend pills */}
+              <div className="flex items-center gap-3 flex-wrap text-[11px] mb-2 font-medium">
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-[#f59e0b]" /> Agent
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-[#3b82f6]" /> Tenant
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-[#10b981]" /> Supporter
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="h-2 w-2 rounded-full bg-[#8b5cf6]" /> Landlord
+                </span>
+              </div>
+
               <div className="h-60 w-full">
                 {isLoading ? (
                   <Skeleton className="h-full w-full rounded-xl" />
@@ -375,9 +454,21 @@ export function UserBehaviourAnalyticsPanel() {
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart data={chartTrend}>
                       <defs>
-                        <linearGradient id="eventColor" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#6366f1" stopOpacity={0.4} />
-                          <stop offset="95%" stopColor="#6366f1" stopOpacity={0.0} />
+                        <linearGradient id="agentColor" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.4} />
+                          <stop offset="95%" stopColor="#f59e0b" stopOpacity={0.0} />
+                        </linearGradient>
+                        <linearGradient id="tenantColor" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4} />
+                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.0} />
+                        </linearGradient>
+                        <linearGradient id="supporterColor" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.4} />
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0.0} />
+                        </linearGradient>
+                        <linearGradient id="landlordColor" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.4} />
+                          <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.0} />
                         </linearGradient>
                       </defs>
                       <XAxis dataKey="day" stroke="#888888" fontSize={11} tickLine={false} />
@@ -390,27 +481,58 @@ export function UserBehaviourAnalyticsPanel() {
                           fontSize: '12px',
                         }}
                       />
-                      <Area
-                        type="monotone"
-                        dataKey="events"
-                        name="Interactions"
-                        stroke="#6366f1"
-                        strokeWidth={2}
-                        fillOpacity={1}
-                        fill="url(#eventColor)"
-                        dot={{ r: 4, fill: '#6366f1', strokeWidth: 1, stroke: '#ffffff' }}
-                        activeDot={{ r: 6 }}
-                      />
-                      <Area
-                        type="monotone"
-                        dataKey="sessions"
-                        name="Sessions"
-                        stroke="#10b981"
-                        strokeWidth={2}
-                        fillOpacity={0}
-                        dot={{ r: 4, fill: '#10b981', strokeWidth: 1, stroke: '#ffffff' }}
-                        activeDot={{ r: 5 }}
-                      />
+                      {(selectedRole === 'all' || selectedRole === 'agent') && (
+                        <Area
+                          type="monotone"
+                          dataKey="agent"
+                          name="Agent Dashboard"
+                          stroke="#f59e0b"
+                          strokeWidth={2}
+                          fillOpacity={1}
+                          fill="url(#agentColor)"
+                          dot={{ r: 3.5, fill: '#f59e0b', strokeWidth: 1, stroke: '#ffffff' }}
+                          activeDot={{ r: 5 }}
+                        />
+                      )}
+                      {(selectedRole === 'all' || selectedRole === 'tenant') && (
+                        <Area
+                          type="monotone"
+                          dataKey="tenant"
+                          name="Tenant Dashboard"
+                          stroke="#3b82f6"
+                          strokeWidth={2}
+                          fillOpacity={1}
+                          fill="url(#tenantColor)"
+                          dot={{ r: 3.5, fill: '#3b82f6', strokeWidth: 1, stroke: '#ffffff' }}
+                          activeDot={{ r: 5 }}
+                        />
+                      )}
+                      {(selectedRole === 'all' || selectedRole === 'supporter') && (
+                        <Area
+                          type="monotone"
+                          dataKey="supporter"
+                          name="Supporter Dashboard"
+                          stroke="#10b981"
+                          strokeWidth={2}
+                          fillOpacity={1}
+                          fill="url(#supporterColor)"
+                          dot={{ r: 3.5, fill: '#10b981', strokeWidth: 1, stroke: '#ffffff' }}
+                          activeDot={{ r: 5 }}
+                        />
+                      )}
+                      {(selectedRole === 'all' || selectedRole === 'landlord') && (
+                        <Area
+                          type="monotone"
+                          dataKey="landlord"
+                          name="Landlord Dashboard"
+                          stroke="#8b5cf6"
+                          strokeWidth={2}
+                          fillOpacity={1}
+                          fill="url(#landlordColor)"
+                          dot={{ r: 3.5, fill: '#8b5cf6', strokeWidth: 1, stroke: '#ffffff' }}
+                          activeDot={{ r: 5 }}
+                        />
+                      )}
                     </AreaChart>
                   </ResponsiveContainer>
                 ) : (
@@ -429,17 +551,17 @@ export function UserBehaviourAnalyticsPanel() {
               <div>
                 <CardTitle className="text-base font-semibold">Most Visited Sections & Tabs</CardTitle>
                 <CardDescription className="text-xs">
-                  All pages, tabs, and drawers across dashboards with their dashboard origin
+                  Active sections and sub-pages in user dashboards (Agent, Tenant, Supporter, Landlord)
                 </CardDescription>
               </div>
               <Layers className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent className="p-4 pt-0">
               <div className="divide-y divide-border/40">
-                {(data?.sections || []).length > 0 ? (
-                  (data?.sections || []).map((sec, idx) => {
-                    const originRole = sec.role || 'visitor';
-                    const originColor = ROLE_COLORS[originRole] || '#64748b';
+                {userSections.length > 0 ? (
+                  userSections.map((sec, idx) => {
+                    const originRole = sec.role || 'agent';
+                    const originColor = ROLE_COLORS[originRole] || '#f59e0b';
                     const cleanTitle = sec.section
                       .replace(/[-_]/g, ' ')
                       .replace(/\b(agent|tenant|supporter|landlord)\b/gi, '')
@@ -490,7 +612,7 @@ export function UserBehaviourAnalyticsPanel() {
                   })
                 ) : (
                   <div className="py-8 text-center text-xs text-muted-foreground">
-                    Section visit logs will populate here as users navigate dashboards.
+                    User dashboard sections will appear here as users navigate through their dashboards.
                   </div>
                 )}
               </div>

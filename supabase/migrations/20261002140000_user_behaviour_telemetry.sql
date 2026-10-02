@@ -103,8 +103,14 @@ BEGIN
     NULLIF(e->>'latitude', '')::numeric,
     NULLIF(e->>'longitude', '')::numeric,
     COALESCE(v_ip, NULLIF(e->>'ip_address', '')),
-    COALESCE(v_ua, NULLIF(e->>'user_agent', '')),
-    NULLIF(e->>'device_class', ''),
+    COALESCE(NULLIF(e->>'user_agent', ''), v_ua),
+    COALESCE(NULLIF(e->>'device_class', ''),
+      CASE 
+        WHEN COALESCE(NULLIF(e->>'user_agent', ''), v_ua) ILIKE '%ipad%' OR COALESCE(NULLIF(e->>'user_agent', ''), v_ua) ILIKE '%tablet%' THEN 'tablet'
+        WHEN COALESCE(NULLIF(e->>'user_agent', ''), v_ua) ILIKE '%mobi%' OR COALESCE(NULLIF(e->>'user_agent', ''), v_ua) ILIKE '%android%' OR COALESCE(NULLIF(e->>'user_agent', ''), v_ua) ILIKE '%iphone%' THEN 'mobile'
+        ELSE 'desktop'
+      END
+    ),
     COALESCE(NULLIF(e->>'created_at', '')::timestamptz, now())
   FROM jsonb_array_elements(p_events) AS e
   WHERE (e->>'session_id') IS NOT NULL
@@ -147,7 +153,20 @@ BEGIN
     SELECT e.*
     FROM public.user_telemetry_events e
     WHERE e.created_at >= v_start
+      AND e.role IN ('agent', 'tenant', 'supporter', 'landlord')
       AND (p_role = 'all' OR p_role IS NULL OR e.role = p_role)
+      AND (e.path IS NULL OR (
+        e.path NOT LIKE '/cfo%' AND
+        e.path NOT LIKE '/executive%' AND
+        e.path NOT LIKE '/admin%' AND
+        e.path NOT LIKE '/crm%' AND
+        e.path NOT LIKE '/cto%' AND
+        e.path NOT LIKE '/agent-ops%' AND
+        e.path NOT LIKE '/tenant-ops%' AND
+        e.path NOT LIKE '/landlord-ops%' AND
+        e.path NOT LIKE '/partners-ops%' AND
+        e.path NOT LIKE '/fin-ops%'
+      ))
   ),
   kpis AS (
     SELECT
@@ -184,15 +203,18 @@ BEGIN
     ) AS section_stats
     FROM (
       SELECT 
-        COALESCE(section, 'unknown') AS section,
-        COALESCE(role, 'visitor') AS role,
+        s.section,
+        s.role,
         count(*) AS view_count,
         count(DISTINCT session_id) AS session_count,
         round(COALESCE(avg(dwell_time_ms) FILTER (WHERE dwell_time_ms > 0 AND dwell_time_ms < 1800000) / 1000.0, 0), 1) AS avg_dwell
-      FROM filtered_events
-      WHERE section IS NOT NULL AND section <> ''
-      GROUP BY COALESCE(section, 'unknown'), COALESCE(role, 'visitor')
-      LIMIT 25
+      FROM filtered_events s
+      WHERE s.section IS NOT NULL 
+        AND s.section <> '' 
+        AND s.section NOT IN ('home', 'unknown')
+        AND s.role IN ('agent', 'tenant', 'supporter', 'landlord')
+      GROUP BY s.section, s.role
+      LIMIT 30
     ) s
   ),
   actions AS (
@@ -262,8 +284,11 @@ BEGIN
     SELECT jsonb_agg(
       jsonb_build_object(
         'day', t.time_bucket,
-        'events', t.events,
-        'sessions', t.sessions
+        'agent', t.agent_count,
+        'tenant', t.tenant_count,
+        'supporter', t.supporter_count,
+        'landlord', t.landlord_count,
+        'total', t.total_count
       ) ORDER BY t.time_bucket ASC
     ) AS trend_stats
     FROM (
@@ -272,8 +297,11 @@ BEGIN
           WHEN p_days <= 1 THEN to_char(created_at AT TIME ZONE 'Africa/Kampala', 'HH24:00')
           ELSE to_char(created_at AT TIME ZONE 'Africa/Kampala', 'YYYY-MM-DD')
         END AS time_bucket,
-        count(*) AS events,
-        count(DISTINCT session_id) AS sessions
+        count(*) FILTER (WHERE role = 'agent')::integer AS agent_count,
+        count(*) FILTER (WHERE role = 'tenant')::integer AS tenant_count,
+        count(*) FILTER (WHERE role = 'supporter')::integer AS supporter_count,
+        count(*) FILTER (WHERE role = 'landlord')::integer AS landlord_count,
+        count(*)::integer AS total_count
       FROM filtered_events
       GROUP BY 1
       ORDER BY 1 ASC

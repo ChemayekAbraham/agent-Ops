@@ -47,6 +47,7 @@ import {
 } from '@/components/tenant/agreement';
 import { useTenantAgreement } from '@/hooks/useTenantAgreement';
 import { useTrackSection } from '@/hooks/useTrackSection';
+import { userBehaviourTracker } from '@/lib/userBehaviourTracker';
 
 import PaymentPartnersDialog from '@/components/payments/PaymentPartnersDialog';
 
@@ -171,6 +172,36 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
     } catch { /* ignore */ }
   }, []);
   const [housesOpen, setHousesOpen] = useState(false);
+
+  // Dynamic telemetry tracking across tenant sheets and modals
+  useEffect(() => {
+    if (showWallet) {
+      userBehaviourTracker.setSection('tenant-wallet', 'tenant');
+    } else if (showRequestForm) {
+      userBehaviourTracker.setSection('tenant-request-advance', 'tenant');
+    } else if (showPayLandlord) {
+      userBehaviourTracker.setSection('tenant-pay-landlord', 'tenant');
+    } else if (showPaymentPartners) {
+      userBehaviourTracker.setSection('tenant-payment-partners', 'tenant');
+    } else if (depositOpen) {
+      userBehaviourTracker.setSection('tenant-deposit', 'tenant');
+    } else if (housesOpen) {
+      userBehaviourTracker.setSection('tenant-available-houses', 'tenant');
+    } else if (showCalculator) {
+      userBehaviourTracker.setSection('tenant-calculator', 'tenant');
+    } else {
+      userBehaviourTracker.setSection('tenant-overview', 'tenant');
+    }
+  }, [
+    showWallet,
+    showRequestForm,
+    showPayLandlord,
+    showPaymentPartners,
+    depositOpen,
+    housesOpen,
+    showCalculator,
+  ]);
+
   const housesTriggerRef = useRef<HTMLElement | null>(null);
   const goToAllHouses = useCallback(() => {
     hapticTap();

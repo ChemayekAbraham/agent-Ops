@@ -9,6 +9,7 @@
  */
 
 import { supabase } from '@/integrations/supabase/client';
+import { parseUserAgent } from './uaParser';
 
 export interface TelemetryPayload {
   id?: string;
@@ -25,6 +26,7 @@ export interface TelemetryPayload {
   latitude?: number | null;
   longitude?: number | null;
   device_class?: string;
+  user_agent?: string;
   created_at?: string;
 }
 
@@ -58,8 +60,12 @@ class UserBehaviourTracker {
     }
   }
 
-  /** Detect device class on the fly */
+  /** Detect device class on the fly with UA and viewport checks */
   private getDeviceClass(): string {
+    if (typeof navigator !== 'undefined' && navigator.userAgent) {
+      const parsed = parseUserAgent(navigator.userAgent);
+      if (parsed.deviceClass) return parsed.deviceClass;
+    }
     if (typeof window === 'undefined') return 'desktop';
     const w = window.innerWidth;
     if (w < 768) return 'mobile';
@@ -169,24 +175,44 @@ class UserBehaviourTracker {
     this.sectionStartTime = Date.now();
   }
 
+  /** Check if current path belongs to internal executive/admin tooling */
+  private isAdminPath(pathname: string): boolean {
+    const p = pathname.toLowerCase();
+    return (
+      p.startsWith('/cfo') ||
+      p.startsWith('/executive') ||
+      p.startsWith('/admin') ||
+      p.startsWith('/crm') ||
+      p.startsWith('/cto') ||
+      p.startsWith('/agent-ops') ||
+      p.startsWith('/tenant-ops') ||
+      p.startsWith('/landlord-ops') ||
+      p.startsWith('/partners-ops') ||
+      p.startsWith('/fin-ops') ||
+      p.includes('cfo-dashboard')
+    );
+  }
+
   /** Infer active role dynamically from explicit role or route pathname */
   private getEffectiveRole(overrideRole?: string): string {
-    if (overrideRole) return overrideRole;
-    if (this.currentRole && this.currentRole !== 'visitor') return this.currentRole;
+    if (overrideRole && overrideRole !== 'visitor') return overrideRole;
     if (typeof window !== 'undefined') {
       const p = window.location.pathname.toLowerCase();
-      if (p.includes('/agent') || p.includes('/agent-ops')) return 'agent';
-      if (p.includes('/supporter') || p.includes('/funder')) return 'supporter';
-      if (p.includes('/tenant')) return 'tenant';
-      if (p.includes('/landlord')) return 'landlord';
-      if (p.includes('/crm')) return 'crm';
-      if (p.includes('/cto')) return 'cto';
+      if (p.includes('/dashboard/agent') || p === '/agent' || p.startsWith('/agent/')) return 'agent';
+      if (p.includes('/dashboard/funder') || p.includes('/supporter') || p.includes('/funder')) return 'supporter';
+      if (p.includes('/dashboard/tenant') || p === '/tenant' || p.startsWith('/tenant/')) return 'tenant';
+      if (p.includes('/dashboard/landlord') || p === '/landlord' || p.startsWith('/landlord/')) return 'landlord';
     }
-    return this.currentRole || 'visitor';
+    if (this.currentRole && this.currentRole !== 'visitor') return this.currentRole;
+    return 'visitor';
   }
 
   /** Queue a telemetry event */
   public trackEvent(event: Omit<TelemetryPayload, 'session_id' | 'role'> & { role?: string }) {
+    if (typeof window !== 'undefined' && this.isAdminPath(window.location.pathname)) {
+      return; // Do not record user journeys on internal admin/staff tooling
+    }
+
     void (async () => {
       const gps = await this.getSilentGps();
 
@@ -195,8 +221,9 @@ class UserBehaviourTracker {
         session_id: this.getSessionId(),
         role: this.getEffectiveRole(event.role),
         path: window.location.pathname,
-        section: this.currentSection,
+        section: event.section || this.currentSection,
         device_class: this.getDeviceClass(),
+        user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
         latitude: gps?.lat ?? null,
         longitude: gps?.lng ?? null,
         created_at: new Date().toISOString(),

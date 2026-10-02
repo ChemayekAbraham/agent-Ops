@@ -69,15 +69,23 @@ export function parseUserAgent(ua?: string | null): ParsedUA {
   let browser = 'Unknown Browser';
   let browserFamily: ParsedUA['browserFamily'] = 'other';
 
+  const operaMatch = ua.match(/(?:OPR|Opera)\/([0-9]+)/i);
   const samsungMatch = ua.match(/SamsungBrowser\/([0-9]+(?:\.[0-9]+)?)/i);
+  const ucMatch = ua.match(/UCBrowser\/([0-9]+(?:\.[0-9]+)?)/i);
   const edgeMatch = ua.match(/Edg(?:e|A|iOS)?\/([0-9]+)/i);
   const chromeMatch = ua.match(/(?:Chrome|CriOS)\/([0-9]+)/i);
   const firefoxMatch = ua.match(/(?:Firefox|FxiOS)\/([0-9]+)/i);
   const safariMatch = ua.match(/Version\/([0-9]+(?:\.[0-9]+)?).*?Safari/i);
 
-  if (samsungMatch) {
+  if (operaMatch) {
+    browserFamily = 'other';
+    browser = `Opera ${operaMatch[1]}`;
+  } else if (samsungMatch) {
     browserFamily = 'samsung';
     browser = `Samsung Internet ${samsungMatch[1]}`;
+  } else if (ucMatch) {
+    browserFamily = 'other';
+    browser = `UC Browser ${ucMatch[1]}`;
   } else if (edgeMatch) {
     browserFamily = 'edge';
     browser = `Edge ${edgeMatch[1]}`;
