@@ -29,7 +29,6 @@ import { Download, FileText } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { UserAnalyticsDrilldown, type DrilldownScope } from './UserAnalyticsDrilldown';
-import { RetentionCohortView } from './RetentionCohortView';
 import { AnalyticsExportJobsPanel } from './AnalyticsExportJobsPanel';
 
 function downloadBlob(content: string, filename: string, mime: string) {
@@ -416,8 +415,6 @@ export function UserAnalyticsView() {
         onOpenChange={(v) => { if (!v) setDrillScope(null); }}
         scope={drillScope}
       />
-
-      <RetentionCohortView />
 
       <AnalyticsExportJobsPanel start={start} end={end} rangeLabel={rangeLabel} />
     </div>
