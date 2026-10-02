@@ -134,22 +134,6 @@ export function FunderNewHouseCard({
         </div>
 
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onSave}
-            aria-label={saved ? `Remove ${title} from saved homes` : `Save ${title} for later`}
-            aria-pressed={saved}
-            className={cn(
-              'flex h-11 w-11 flex-none items-center justify-center rounded-lg border border-primary bg-transparent text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-              saved && 'border-emerald-600 bg-emerald-500 text-white hover:bg-emerald-600',
-            )}
-          >
-            {saved ? (
-              <Check className="h-4 w-4 text-white" aria-hidden />
-            ) : (
-              <Bookmark className="h-4 w-4" aria-hidden />
-            )}
-          </button>
           <Button
             variant="default"
             className={cn(
