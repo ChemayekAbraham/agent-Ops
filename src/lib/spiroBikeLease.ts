@@ -5,8 +5,8 @@
  *   • the bike price (principal) is split equally across the chosen months,
  *   • each month's fee is 28% of the principal still outstanding at the START
  *     of that month (so it falls every month),
- *   • the daily wallet deduction is that month's due amount spread over the
- *     real number of days in that month, so it also falls every month.
+ *   • the daily wallet deduction is that month's due amount divided by 30,
+ *     so it also falls every month.
  */
 export const SPIRO_BIKE_BASE_PRICE = 120_000;
 
@@ -22,9 +22,6 @@ export const SPIRO_LEASE_PERIODS = Array.from(
   { length: SPIRO_MAX_MONTHS - SPIRO_MIN_MONTHS + 1 },
   (_, i) => ({ months: SPIRO_MIN_MONTHS + i }),
 );
-
-/** Share of every wallet credit applied to the bike lease. */
-export const BIKE_RECOVERY_RATE = 0.15;
 
 export interface SpiroLeaseMonth {
   /** 1-based month number. */
@@ -73,8 +70,6 @@ export interface SpiroLeaseSchedule {
   lastDaily: number;
   /** Average daily deduction across the term. */
   daily: number;
-  /** Amount recovered per wallet credit at the 15% recovery rate. */
-  perCredit: number;
   /** Month-by-month breakdown. */
   rows: SpiroLeaseMonth[];
 }
@@ -125,7 +120,7 @@ export function spiroLeaseSchedule(
       totalDue,
       closingPrincipal,
       days,
-      daily: Math.ceil(totalDue / days),
+      daily: Math.round(totalDue / 30),
     });
 
     outstanding = closingPrincipal;
@@ -153,7 +148,6 @@ export function spiroLeaseSchedule(
     firstDaily: first.daily,
     lastDaily: last.daily,
     daily: Math.ceil(total / days),
-    perCredit: Math.round(total * BIKE_RECOVERY_RATE),
     rows,
   };
 }

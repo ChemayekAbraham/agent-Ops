@@ -1,0 +1,2 @@
+ALTER TABLE public.agent_bike_leases DROP CONSTRAINT agent_bike_leases_monthly_rate_pct_check;
+ALTER TABLE public.agent_bike_leases ADD CONSTRAINT agent_bike_leases_monthly_rate_pct_check CHECK (monthly_rate_pct >= 0 AND monthly_rate_pct <= 100);

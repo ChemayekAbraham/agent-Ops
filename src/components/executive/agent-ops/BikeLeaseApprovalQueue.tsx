@@ -33,7 +33,6 @@ import { BikeLeaseDetailDialog } from './BikeLeaseDetailDialog';
 import { EditBikeApplicationDialog } from './EditBikeApplicationDialog';
 import { MotorBikeCatalogDialog } from './MotorBikeCatalogDialog';
 import { BikeAssetDetailsDialog } from './BikeAssetDetailsDialog';
-import { BikeLeaseRateDialog } from './BikeLeaseRateDialog';
 import {
   generateSpiroBikeSettlementCertificatePdf,
   downloadSpiroSettlementCertificate,
@@ -151,7 +150,6 @@ export function BikeLeaseApprovalQueue({
   const [detailTarget, setDetailTarget] = useState<BikeLeaseRow | null>(null);
   const [editTarget, setEditTarget] = useState<BikeLeaseRow | null>(null);
   const [assetTarget, setAssetTarget] = useState<BikeLeaseRow | null>(null);
-  const [rateTarget, setRateTarget] = useState<BikeLeaseRow | null>(null);
 
   const { data: orders = [], isLoading } = useQuery<BikeLeaseRow[]>({
     queryKey: ['bike-lease-queue'],
@@ -214,7 +212,7 @@ export function BikeLeaseApprovalQueue({
     onSuccess: (data: any) => {
       toast.success(
         data?.stage === 'cfo'
-          ? `Disbursed ${formatUGX(Number(data?.valuation || 0))} to the agent wallet. Lease active — ${Math.round(Number(data?.daily_rate || 0.15) * 100)}% wallet recovery started.`
+          ? `Disbursed ${formatUGX(Number(data?.valuation || 0))} to the agent wallet. Lease active — 28% monthly reducing-balance recovery started.`
           : data?.stage === 'coo'
             ? `Approved at ${formatUGX(Number(data?.valuation || 0))} and forwarded to the CFO for disbursement.`
             : 'Verified by Agent Ops and forwarded to the COO for approval.',
@@ -555,18 +553,6 @@ export function BikeLeaseApprovalQueue({
                           >
                             <Wrench className="h-3.5 w-3.5" />
                           </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-primary hover:bg-primary/10"
-                            title="Set monthly interest rate"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setRateTarget(o);
-                            }}
-                          >
-                            <TrendingUp className="h-3.5 w-3.5" />
-                          </Button>
                           {canActOnRow(o.order_status) ? (
                             <>
                               <Button
@@ -848,12 +834,6 @@ export function BikeLeaseApprovalQueue({
         onOpenChange={(v) => { if (!v) setAssetTarget(null); }}
       />
 
-      {/* Monthly Rate Setting Dialog */}
-      <BikeLeaseRateDialog
-        lease={rateTarget as unknown as BikeLeaseRecord | null}
-        open={!!rateTarget}
-        onOpenChange={(v) => { if (!v) setRateTarget(null); }}
-      />
     </Card>
   );
 }

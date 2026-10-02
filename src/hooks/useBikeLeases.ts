@@ -36,7 +36,9 @@ export interface BikeLeaseRecord {
 
 export const mapLease = (l: any): BikeLeaseRecord => {
   const val = Number(l.valuation_amount || 0);
-  const rate = l.wallet_recovery_rate == null ? 0.15 : Number(l.wallet_recovery_rate);
+  const term = Math.max(1, Number(l.lease_term_months || 12));
+  // First-month daily deduction: (equal principal + 28% of opening balance) / 30.
+  const firstDaily = Math.round((Math.ceil(val / term) + Math.round(val * 0.28)) / 30);
   return {
     id: l.sale_id,
     lease_id: l.id,
@@ -46,10 +48,10 @@ export const mapLease = (l: any): BikeLeaseRecord => {
     model_type: l.model,
     valuation_amount: val,
     total_amount: val,
-    payment_projection: Math.round(val * rate),
+    payment_projection: firstDaily,
     lease_term_months: l.lease_term_months,
-    lease_daily_rate: rate,
-    monthly_rate_pct: Number(l.monthly_rate_pct || 0),
+    lease_daily_rate: null,
+    monthly_rate_pct: 28,
     amount_outstanding: l.amount_outstanding,
     amount_paid: l.amount_paid,
     order_status: l.status,
@@ -119,15 +121,6 @@ export async function updateBikeLeaseAsset(
   return data;
 }
 
-export async function setBikeLeaseMonthlyRate(leaseId: string, ratePct: number, reason: string) {
-  const { data, error } = await db.rpc('set_bike_lease_monthly_rate', {
-    p_lease_id: leaseId,
-    p_monthly_rate_pct: ratePct,
-    p_reason: reason,
-  });
-  if (error) throw error;
-  return data;
-}
 
 export const LOGBOOK_STATUS_LABEL: Record<string, string> = {
   pending_registration: 'Pending registration',
