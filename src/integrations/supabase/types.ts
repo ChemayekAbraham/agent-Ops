@@ -57144,6 +57144,21 @@ export type Database = {
         Returns: string
       }
       _cto_dossier_allowed: { Args: never; Returns: boolean }
+      _dormant_bike_leases: {
+        Args: { p_agent?: string }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          agent_phone: string
+          amount_outstanding: number
+          bike_model: string
+          days_since_last_deduction: number
+          is_dormant: boolean
+          last_deduction_at: string
+          lease_days_remaining: number
+          lease_id: string
+        }[]
+      }
       _generate_bike_lease_schedule: {
         Args: { p_lease_id: string }
         Returns: number
@@ -63102,6 +63117,20 @@ export type Database = {
         Returns: Json
       }
       get_dispatch_context: { Args: { p_withdrawal_id: string }; Returns: Json }
+      get_dormant_bike_leases: {
+        Args: never
+        Returns: {
+          agent_id: string
+          agent_name: string
+          agent_phone: string
+          amount_outstanding: number
+          bike_model: string
+          days_since_last_deduction: number
+          last_deduction_at: string
+          lease_days_remaining: number
+          lease_id: string
+        }[]
+      }
       get_duplicate_account_audit: {
         Args: never
         Returns: {
@@ -63740,6 +63769,16 @@ export type Database = {
         }[]
       }
       get_my_commission_rate: { Args: never; Returns: Json }
+      get_my_dormant_bike_leases: {
+        Args: never
+        Returns: {
+          amount_outstanding: number
+          bike_model: string
+          days_since_last_deduction: number
+          lease_days_remaining: number
+          lease_id: string
+        }[]
+      }
       get_my_landlord_properties: { Args: never; Returns: Json }
       get_my_listing_block: { Args: never; Returns: Json }
       get_my_parent_agent: {
@@ -67110,6 +67149,7 @@ export type Database = {
       normalize_ug_phone: { Args: { raw: string }; Returns: string }
       normalize_uganda_district: { Args: { p_raw: string }; Returns: string }
       normalize_uganda_region: { Args: { p_raw: string }; Returns: string }
+      notify_dormant_bike_leases: { Args: never; Returns: number }
       notify_landlord_registration_helper: {
         Args: { p_landlord_id: string }
         Returns: undefined
