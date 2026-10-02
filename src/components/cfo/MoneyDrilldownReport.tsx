@@ -170,9 +170,7 @@ export function MoneyDrilldownReport({ open, onOpenChange, preset, config }: {
           })}
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-7 gap-2 items-end">
-          <label className="text-xs">From<Input type="date" value={from} onChange={e => setFrom(e.target.value)} /></label>
-          <label className="text-xs">To<Input type="date" value={to} onChange={e => setTo(e.target.value)} /></label>
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 items-end">
           <label className="text-xs flex flex-col">Type
             <select className={sel} value={type} onChange={e => setType(e.target.value)}>
               <option value="">All</option>{config.types.map(t => <option key={t}>{t}</option>)}
