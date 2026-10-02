@@ -2850,6 +2850,13 @@
       "when": 1790927790870,
       "tag": "0406_bike_leases_dedicated_tables",
       "breakpoints": true
+    },
+    {
+      "idx": 407,
+      "version": "7",
+      "when": 1790927937670,
+      "tag": "0407_refuse_permanent_delete_with_financial_history",
+      "breakpoints": true
     }
   ]
 }

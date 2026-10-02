@@ -56992,6 +56992,7 @@ export type Database = {
         Returns: Json
       }
       acceptance_correction_paths_ungated: { Args: never; Returns: number }
+      account_financial_history: { Args: { p_user_id: string }; Returns: Json }
       accrue_partner_self_returns: { Args: { p_as_of?: string }; Returns: Json }
       acknowledge_error_correction_alert: {
         Args: { p_alert_id: string }
