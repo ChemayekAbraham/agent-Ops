@@ -62121,6 +62121,8 @@ export type Database = {
       get_cfo_money_paid_out: {
         Args: never
         Returns: {
+          last7_count: number
+          last7_paid: number
           month_count: number
           month_paid: number
           pending_amount: number
@@ -62129,6 +62131,8 @@ export type Database = {
           today_paid: number
           total_count: number
           total_paid: number
+          yesterday_count: number
+          yesterday_paid: number
         }[]
       }
       get_cfo_money_paid_out_drilldown: {

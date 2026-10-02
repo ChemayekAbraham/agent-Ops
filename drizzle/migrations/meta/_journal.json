@@ -2829,6 +2829,13 @@
       "when": 1790924414929,
       "tag": "0403_migration",
       "breakpoints": true
+    },
+    {
+      "idx": 404,
+      "version": "7",
+      "when": 1790926877037,
+      "tag": "0404_migration",
+      "breakpoints": true
     }
   ]
 }
