@@ -419,110 +419,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   const [bikeAmount, setBikeAmount] = useState('');
   const [orderingBike, setOrderingBike] = useState(false);
 
-  // Dynamic telemetry tracking across agent tabs, sheets, and drawers
-  useEffect(() => {
-    if (showWallet) {
-      userBehaviourTracker.setSection('agent-wallet', 'agent');
-    } else if (tenantsSheetOpen) {
-      userBehaviourTracker.setSection('agent-my-tenants', 'agent');
-    } else if (managedPropertiesSheetOpen) {
-      userBehaviourTracker.setSection('agent-managed-properties', 'agent');
-    } else if (myRentRequestsOpen || rentRequestOpen) {
-      userBehaviourTracker.setSection('agent-rent-requests', 'agent');
-    } else if (businessAdvanceOpen) {
-      userBehaviourTracker.setSection('agent-shopping-advance', 'agent');
-    } else if (phoneOpen) {
-      userBehaviourTracker.setSection('agent-smartphones', 'agent');
-    } else if (bikeOpen) {
-      userBehaviourTracker.setSection('agent-motor-bikes', 'agent');
-    } else if (depositOpen || depositCashOpen) {
-      userBehaviourTracker.setSection('agent-cash-deposit', 'agent');
-    } else if (subAgentsSheetOpen || subAgentLinkOpen) {
-      userBehaviourTracker.setSection('agent-subagents', 'agent');
-    } else if (welileHomesOpen) {
-      userBehaviourTracker.setSection('agent-welile-homes', 'agent');
-    } else if (floatAllocationsOpen || floatPayoutOpen) {
-      userBehaviourTracker.setSection('agent-landlord-float', 'agent');
-    } else if (cashPayoutsOpen) {
-      userBehaviourTracker.setSection('agent-cash-payouts', 'agent');
-    } else if (landlordPayoutFlowOpen) {
-      userBehaviourTracker.setSection('agent-landlord-payout', 'agent');
-    } else if (recordCollectionOpen) {
-      userBehaviourTracker.setSection('agent-record-collection', 'agent');
-    } else if (receiptCheckOpen || receiptOpen) {
-      userBehaviourTracker.setSection('agent-receipts', 'agent');
-    } else if (recoveryLedgerOpen) {
-      userBehaviourTracker.setSection('agent-recovery-ledger', 'agent');
-    } else if (regFormKind === 'landlord') {
-      userBehaviourTracker.setSection('agent-register-landlord', 'agent');
-    } else if (regFormKind === 'tenant') {
-      userBehaviourTracker.setSection('agent-register-tenant', 'agent');
-    } else if (rentalFinderOpen || myListingsOpen || listHouseOpen) {
-      userBehaviourTracker.setSection('agent-house-listings', 'agent');
-    } else if (landlordsSheetOpen) {
-      userBehaviourTracker.setSection('agent-my-landlords', 'agent');
-    } else if (tokenDialogOpen) {
-      userBehaviourTracker.setSection('agent-token-dialog', 'agent');
-    } else if (visitDialogOpen) {
-      userBehaviourTracker.setSection('agent-visit-dialog', 'agent');
-    } else if (nearbyTenantsOpen) {
-      userBehaviourTracker.setSection('agent-nearby-tenants', 'agent');
-    } else if (payoutStatusOpen) {
-      userBehaviourTracker.setSection('agent-payout-status', 'agent');
-    } else if (payoutDialogOpen) {
-      userBehaviourTracker.setSection('agent-payout-dialog', 'agent');
-    } else if (lendingAgentOpen || borrowOpen) {
-      userBehaviourTracker.setSection('agent-peer-lending', 'agent');
-    } else if (investForPartnerOpen) {
-      userBehaviourTracker.setSection('agent-invest-partner', 'agent');
-    } else if (requisitionOpen) {
-      userBehaviourTracker.setSection('agent-requisitions', 'agent');
-    } else if (rentPosterOpen) {
-      userBehaviourTracker.setSection('agent-rent-poster', 'agent');
-    } else {
-      // Dynamic tracking of active hub tab (home -> overview, money, tenants, grow, subagents -> service-center)
-      const tabName = activeTab === 'home' ? 'overview' : activeTab === 'subagents' ? 'service-center' : activeTab;
-      userBehaviourTracker.setSection(`agent-${tabName}`, 'agent');
-    }
-  }, [
-    activeTab,
-    showWallet,
-    tenantsSheetOpen,
-    managedPropertiesSheetOpen,
-    myRentRequestsOpen,
-    rentRequestOpen,
-    businessAdvanceOpen,
-    phoneOpen,
-    bikeOpen,
-    depositOpen,
-    depositCashOpen,
-    subAgentsSheetOpen,
-    subAgentLinkOpen,
-    welileHomesOpen,
-    floatAllocationsOpen,
-    floatPayoutOpen,
-    cashPayoutsOpen,
-    landlordPayoutFlowOpen,
-    recordCollectionOpen,
-    receiptCheckOpen,
-    receiptOpen,
-    recoveryLedgerOpen,
-    regFormKind,
-    rentalFinderOpen,
-    myListingsOpen,
-    listHouseOpen,
-    landlordsSheetOpen,
-    tokenDialogOpen,
-    visitDialogOpen,
-    nearbyTenantsOpen,
-    payoutStatusOpen,
-    payoutDialogOpen,
-    lendingAgentOpen,
-    borrowOpen,
-    investForPartnerOpen,
-    requisitionOpen,
-    rentPosterOpen,
-  ]);
 
   const { submittedCount, approvedCount, rejectedCount, isLoading: countsLoading } = useAgentPipelineCounts();
   useEffect(() => {
@@ -636,6 +532,111 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   const [lendingAgentOpen, setLendingAgentOpen] = useState(false);
   const [borrowOpen, setBorrowOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<AgentHubTab>('home');
+
+  // Dynamic telemetry tracking across agent tabs, sheets, and drawers
+  useEffect(() => {
+    if (showWallet) {
+      userBehaviourTracker.setSection('agent-wallet', 'agent');
+    } else if (tenantsSheetOpen) {
+      userBehaviourTracker.setSection('agent-my-tenants', 'agent');
+    } else if (managedPropertiesSheetOpen) {
+      userBehaviourTracker.setSection('agent-managed-properties', 'agent');
+    } else if (myRentRequestsOpen || rentRequestOpen) {
+      userBehaviourTracker.setSection('agent-rent-requests', 'agent');
+    } else if (businessAdvanceOpen) {
+      userBehaviourTracker.setSection('agent-shopping-advance', 'agent');
+    } else if (phoneOpen) {
+      userBehaviourTracker.setSection('agent-smartphones', 'agent');
+    } else if (bikeOpen) {
+      userBehaviourTracker.setSection('agent-motor-bikes', 'agent');
+    } else if (depositOpen || depositCashOpen) {
+      userBehaviourTracker.setSection('agent-cash-deposit', 'agent');
+    } else if (subAgentsSheetOpen || subAgentLinkOpen) {
+      userBehaviourTracker.setSection('agent-subagents', 'agent');
+    } else if (welileHomesOpen) {
+      userBehaviourTracker.setSection('agent-welile-homes', 'agent');
+    } else if (floatAllocationsOpen || floatPayoutOpen) {
+      userBehaviourTracker.setSection('agent-landlord-float', 'agent');
+    } else if (cashPayoutsOpen) {
+      userBehaviourTracker.setSection('agent-cash-payouts', 'agent');
+    } else if (landlordPayoutFlowOpen) {
+      userBehaviourTracker.setSection('agent-landlord-payout', 'agent');
+    } else if (recordCollectionOpen) {
+      userBehaviourTracker.setSection('agent-record-collection', 'agent');
+    } else if (receiptCheckOpen || receiptOpen) {
+      userBehaviourTracker.setSection('agent-receipts', 'agent');
+    } else if (recoveryLedgerOpen) {
+      userBehaviourTracker.setSection('agent-recovery-ledger', 'agent');
+    } else if (regFormKind === 'landlord') {
+      userBehaviourTracker.setSection('agent-register-landlord', 'agent');
+    } else if (regFormKind === 'tenant') {
+      userBehaviourTracker.setSection('agent-register-tenant', 'agent');
+    } else if (rentalFinderOpen || myListingsOpen || listHouseOpen) {
+      userBehaviourTracker.setSection('agent-house-listings', 'agent');
+    } else if (landlordsSheetOpen) {
+      userBehaviourTracker.setSection('agent-my-landlords', 'agent');
+    } else if (tokenDialogOpen) {
+      userBehaviourTracker.setSection('agent-token-dialog', 'agent');
+    } else if (visitDialogOpen) {
+      userBehaviourTracker.setSection('agent-visit-dialog', 'agent');
+    } else if (nearbyTenantsOpen) {
+      userBehaviourTracker.setSection('agent-nearby-tenants', 'agent');
+    } else if (payoutStatusOpen) {
+      userBehaviourTracker.setSection('agent-payout-status', 'agent');
+    } else if (payoutDialogOpen) {
+      userBehaviourTracker.setSection('agent-payout-dialog', 'agent');
+    } else if (lendingAgentOpen || borrowOpen) {
+      userBehaviourTracker.setSection('agent-peer-lending', 'agent');
+    } else if (investForPartnerOpen) {
+      userBehaviourTracker.setSection('agent-invest-partner', 'agent');
+    } else if (requisitionOpen) {
+      userBehaviourTracker.setSection('agent-requisitions', 'agent');
+    } else if (rentPosterOpen) {
+      userBehaviourTracker.setSection('agent-rent-poster', 'agent');
+    } else {
+      // Dynamic tracking of active hub tab (home -> overview, money, tenants, grow, subagents -> service-center)
+      const tabName = activeTab === 'home' ? 'overview' : activeTab === 'subagents' ? 'service-center' : activeTab;
+      userBehaviourTracker.setSection(`agent-${tabName}`, 'agent');
+    }
+  }, [
+    activeTab,
+    showWallet,
+    tenantsSheetOpen,
+    managedPropertiesSheetOpen,
+    myRentRequestsOpen,
+    rentRequestOpen,
+    businessAdvanceOpen,
+    phoneOpen,
+    bikeOpen,
+    depositOpen,
+    depositCashOpen,
+    subAgentsSheetOpen,
+    subAgentLinkOpen,
+    welileHomesOpen,
+    floatAllocationsOpen,
+    floatPayoutOpen,
+    cashPayoutsOpen,
+    landlordPayoutFlowOpen,
+    recordCollectionOpen,
+    receiptCheckOpen,
+    receiptOpen,
+    recoveryLedgerOpen,
+    regFormKind,
+    rentalFinderOpen,
+    myListingsOpen,
+    listHouseOpen,
+    landlordsSheetOpen,
+    tokenDialogOpen,
+    visitDialogOpen,
+    nearbyTenantsOpen,
+    payoutStatusOpen,
+    payoutDialogOpen,
+    lendingAgentOpen,
+    borrowOpen,
+    investForPartnerOpen,
+    requisitionOpen,
+    rentPosterOpen,
+  ]);
   const [slideDirection, setSlideDirection] = useState<'left' | 'right' | null>(null);
 
   // Deep-link: a "new cash-out to claim" push notification opens the app at
