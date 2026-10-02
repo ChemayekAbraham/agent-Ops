@@ -131,7 +131,7 @@ export function EvidenceResolutionS12() {
           </TabsContent>
 
           <TabsContent value="dups" className="max-h-[520px] overflow-auto space-y-2">
-            <p className="text-xs text-muted-foreground">{internalPairs} pairs have both collections inside the Stage 11 population (marked "Both in 659"). Falling inside the 30-minute rule does not make a collection a confirmed duplicate.</p>
+            <p className="text-xs text-muted-foreground">{dups.filter((r) => (r.matches ?? []).some((m) => m.in_population)).length} candidates have at least one matching collection inside the Stage 11 population (marked "Both in 659"), forming {internalPairs} distinct pairs. Falling inside the 30-minute rule does not make a collection a confirmed duplicate.</p>
             <table className="w-full text-xs">
               <thead className="sticky top-0 bg-background"><tr className="text-left text-muted-foreground">
                 <th>Collection</th><th>Tenant</th><th>Rent Plan</th><th>Agent</th><th className="text-right">Amount</th><th>Collected (EAT)</th><th>Suspected match(es)</th><th>Accounting</th><th>Reversal</th><th>Evidence</th><th />
