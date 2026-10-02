@@ -44,7 +44,7 @@ const errText = (e: any) => {
 export function MoneyDrilldownReport({ open, onOpenChange, preset, config }: {
   open: boolean; onOpenChange: (o: boolean) => void; preset?: DrilldownPreset | null; config: DrillConfig;
 }) {
-  const [from, setFrom] = useState(monthStart());
+  const [from, setFrom] = useState(kampalaDate());
   const [to, setTo] = useState(kampalaDate());
   const [status, setStatus] = useState('');
   const [method, setMethod] = useState('');
@@ -60,7 +60,11 @@ export function MoneyDrilldownReport({ open, onOpenChange, preset, config }: {
       setFrom(preset.from); setTo(preset.to); setStatus(preset.status); setMethod(''); setType(''); setPerson('');
       setActive(preset);
       setParams({ from: preset.from, to: preset.to, status: preset.status, method: '', type: '', person: '' });
-    } else { setActive(null); }
+    } else {
+      const t = kampalaDate();
+      setFrom(t); setTo(t); setActive(null);
+      setParams({ from: t, to: t, status, method, type, person });
+    }
   }, [open, preset]);
 
   const generate = () => { setActive(null); setParams({ from, to, status, method, type, person }); };
