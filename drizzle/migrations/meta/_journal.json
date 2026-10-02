@@ -2927,6 +2927,13 @@
       "when": 1790934605902,
       "tag": "0417_bike_lease_approver_names",
       "breakpoints": true
+    },
+    {
+      "idx": 418,
+      "version": "7",
+      "when": 1790938470819,
+      "tag": "0418_user_behaviour_telemetry",
+      "breakpoints": true
     }
   ]
 }

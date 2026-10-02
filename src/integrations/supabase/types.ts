@@ -49862,6 +49862,69 @@ export type Database = {
         }
         Relationships: []
       }
+      user_telemetry_events: {
+        Row: {
+          created_at: string
+          device_class: string | null
+          dialog_name: string | null
+          dwell_time_ms: number | null
+          event_type: string
+          id: string
+          ip_address: string | null
+          kind: string | null
+          latitude: number | null
+          longitude: number | null
+          metadata: Json | null
+          path: string | null
+          role: string
+          section: string | null
+          session_id: string
+          target: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          device_class?: string | null
+          dialog_name?: string | null
+          dwell_time_ms?: number | null
+          event_type: string
+          id?: string
+          ip_address?: string | null
+          kind?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          metadata?: Json | null
+          path?: string | null
+          role?: string
+          section?: string | null
+          session_id: string
+          target?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          device_class?: string | null
+          dialog_name?: string | null
+          dwell_time_ms?: number | null
+          event_type?: string
+          id?: string
+          ip_address?: string | null
+          kind?: string | null
+          latitude?: number | null
+          longitude?: number | null
+          metadata?: Json | null
+          path?: string | null
+          role?: string
+          section?: string | null
+          session_id?: string
+          target?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       user_two_factor: {
         Row: {
           created_at: string
@@ -65108,6 +65171,10 @@ export type Database = {
         Args: { p_user_id: string }
         Returns: number
       }
+      get_user_behaviour_analytics: {
+        Args: { p_days?: number; p_role?: string }
+        Returns: Json
+      }
       get_user_float_available_balance: {
         Args: { p_user_id: string }
         Returns: number
@@ -65804,6 +65871,7 @@ export type Database = {
         Args: { p_campaign_key: string }
         Returns: undefined
       }
+      ingest_user_telemetry_batch: { Args: { p_events: Json }; Returns: number }
       inspect_account_conflicts: {
         Args: { p_email?: string; p_national_id?: string; p_phone?: string }
         Returns: {
