@@ -160,6 +160,15 @@ export function HeroCard({ icon, iconBg, tone, title, value, percentageLabel, pe
                   </span>
                 </button>
               ) : (
+                <div key={it.label} className="flex items-center justify-between gap-3 py-2 border-b border-border/60 text-xs">
+                  <span className="flex items-center gap-2 min-w-0 text-muted-foreground">
+                    <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${it.dot}`} />
+                    <span className="truncate">{it.label}</span>
+                  </span>
+                  <span className="tabular-nums font-medium shrink-0 text-right text-foreground">{it.value}</span>
+                </div>
+              ),
+            )}
             {title !== 'Money We Have' && (
               <div className="mt-2 flex items-center justify-between gap-3 rounded-lg bg-muted/50 px-3 py-2.5">
                 <span className="text-xs font-semibold">Total {title}</span>
