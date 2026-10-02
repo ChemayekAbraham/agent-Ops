@@ -1,67 +1,68 @@
-import { NavLink, Route, Routes, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, FlaskConical } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { useAuth } from '@/hooks/useAuth';
-import { CommandStrip } from '@/components/rd/CommandStrip';
-import { Pipeline } from '@/components/rd/Pipeline';
-import { MissionDetail } from '@/components/rd/MissionDetail';
-import { DecisionLog } from '@/components/rd/DecisionLog';
-import { Signals } from '@/components/rd/Signals';
-import { Lab } from '@/components/rd/Lab';
-import { Risk } from '@/components/rd/Risk';
-import { SpeedOfLight } from '@/components/rd/SpeedOfLight';
-import { AuditTrail } from '@/components/rd/AuditTrail';
-import { Settings } from '@/components/rd/Settings';
-import { useRdMe } from '@/components/rd/useRd';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-const tabCls = ({ isActive }: { isActive: boolean }) =>
-  cn('shrink-0 whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium', isActive ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted');
+type Idea = { name: string; customers: number | null; cashIn: string | null; cashOut: string | null; net: string | null };
+
+// Figures as supplied by R&D (2026-10-02). Blank cells are not yet reported.
+const IDEAS: Idea[] = [
+  { name: 'Welile Car', customers: 19, cashIn: 'UGX 21M', cashOut: 'UGX 38M', net: 'UGX 17M' },
+  { name: 'Welile Dowry', customers: null, cashIn: null, cashOut: null, net: null },
+  { name: 'Welile Home', customers: null, cashIn: null, cashOut: null, net: null },
+  { name: 'Welile School of AI', customers: null, cashIn: null, cashOut: null, net: null },
+];
+
+const cell = (v: string | number | null) => (v === null ? <span className="text-muted-foreground">—</span> : v);
 
 export default function RDDashboard() {
   const navigate = useNavigate();
-  const { roles } = useAuth();
-  const { data: me } = useRdMe();
-  const showAudit = !!me?.is_lead || (roles ?? []).includes('super_admin');
 
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-20 border-b border-border bg-card/95 backdrop-blur">
-        <div className="mx-auto max-w-7xl px-4 py-2">
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="sm" className="gap-1.5 px-2" onClick={() => navigate('/admin/dashboard')}>
-              <ArrowLeft className="h-4 w-4" />
-              Back to dashboards
-            </Button>
-            <div className="ml-auto flex items-center gap-2">
-              <FlaskConical className="h-5 w-5 text-lime-700" />
-              <h1 className="text-lg font-bold text-foreground">R&amp;D</h1>
-            </div>
+        <div className="mx-auto flex max-w-7xl items-center gap-2 px-4 py-2">
+          <Button variant="ghost" size="sm" className="gap-1.5 px-2" onClick={() => navigate('/admin/dashboard')}>
+            <ArrowLeft className="h-4 w-4" />
+            Back to dashboards
+          </Button>
+          <div className="ml-auto flex items-center gap-2">
+            <FlaskConical className="h-5 w-5 text-primary" />
+            <h1 className="text-lg font-bold text-foreground">R&amp;D</h1>
           </div>
-          <nav className="-mx-4 mt-2 flex gap-1 overflow-x-auto px-4">
-            <NavLink to="/rd" end className={tabCls}>Pipeline</NavLink>
-            <NavLink to="/rd/sol" className={tabCls}>Speed of Light</NavLink>
-            <NavLink to="/rd/signals" className={tabCls}>Signals</NavLink>
-            <NavLink to="/rd/lab" className={tabCls}>Lab</NavLink>
-            <NavLink to="/rd/risk" className={tabCls}>Risk</NavLink>
-            <NavLink to="/rd/log" className={tabCls}>Decision log</NavLink>
-            {me?.is_lead && <NavLink to="/rd/settings" className={tabCls}>Settings</NavLink>}
-            {showAudit && <NavLink to="/rd/audit" className={tabCls}>Audit</NavLink>}
-          </nav>
         </div>
       </header>
-      <main className="mx-auto max-w-7xl space-y-4 px-4 py-4">
-        <Routes>
-          <Route index element={<><CommandStrip /><Pipeline /></>} />
-          <Route path="missions/:id" element={<MissionDetail />} />
-          <Route path="sol" element={<SpeedOfLight />} />
-          <Route path="signals" element={<Signals />} />
-          <Route path="lab" element={<Lab />} />
-          <Route path="risk" element={<Risk />} />
-          <Route path="log" element={<DecisionLog />} />
-          <Route path="settings" element={<Settings />} />
-          <Route path="audit" element={<AuditTrail />} />
-        </Routes>
+      <main className="mx-auto max-w-7xl px-4 py-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Business ideas</CardTitle>
+          </CardHeader>
+          <CardContent className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Business idea</TableHead>
+                  <TableHead className="text-right">No. of customers</TableHead>
+                  <TableHead className="text-right">Cash in</TableHead>
+                  <TableHead className="text-right">Cash out</TableHead>
+                  <TableHead className="text-right">Net position</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {IDEAS.map((i) => (
+                  <TableRow key={i.name}>
+                    <TableCell className="font-medium">{i.name}</TableCell>
+                    <TableCell className="text-right tabular-nums">{cell(i.customers)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{cell(i.cashIn)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{cell(i.cashOut)}</TableCell>
+                    <TableCell className="text-right font-semibold tabular-nums">{cell(i.net)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </CardContent>
+        </Card>
       </main>
     </div>
   );
