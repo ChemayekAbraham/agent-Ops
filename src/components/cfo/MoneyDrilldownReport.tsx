@@ -200,7 +200,7 @@ export function MoneyDrilldownReport({ open, onOpenChange, preset, config }: {
               {totalsQ.error ? <span className="text-destructive">{errText(totalsQ.error)}</span>
                 : !t ? <span className="text-muted-foreground inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Calculating totals…</span>
                 : <>
-                    {matchCount.toLocaleString()} transactions · {config.confirmedLabel} <b>{formatUGX(t.confirmed)}</b>
+                    {matchCount.toLocaleString()} transactions · {config.confirmedLabel} <b className="text-primary">{formatUGX(t.confirmed)}</b>
                     {t.pending > 0 && <> · Pending <b>{formatUGX(t.pending)}</b></>}
                     {matchCount > rows.length && <span className="text-muted-foreground"> · showing {rows.length.toLocaleString()} (totals cover all)</span>}
                   </>}
