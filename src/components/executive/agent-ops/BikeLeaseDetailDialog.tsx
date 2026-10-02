@@ -179,6 +179,21 @@ export function BikeLeaseDetailDialog({
     },
   });
 
+  // Who approved each stage (recorded on the lease record)
+  const { data: approvers } = useQuery({
+    queryKey: ['bike-lease-approvers', order?.id],
+    enabled: !!order?.id,
+    queryFn: async () => {
+      const { data, error } = await db
+        .from('agent_bike_leases')
+        .select('ops_approved_by_name, coo_approved_by_name, cfo_disbursed_by_name')
+        .eq('sale_id', order!.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data as { ops_approved_by_name: string | null; coo_approved_by_name: string | null; cfo_disbursed_by_name: string | null } | null;
+    },
+  });
+
   // Active tenants: strictly status IN ('funded', 'repaying') AND tenancy_status = 'active'
   const { data: activeTenantsCount = 0, isLoading: tenantsLoading } = useQuery({
     queryKey: ['bike-applicant-active-tenants', order?.customer_id],
@@ -752,9 +767,22 @@ export function BikeLeaseDetailDialog({
                 <span className="font-semibold text-foreground">{format(new Date(order.created_at), 'd MMM yyyy, HH:mm')}</span>
               </div>
 
+              {order.ops_approved_at && (
+                <div className="flex flex-wrap justify-between gap-1.5 py-1.5">
+                  <span className="text-muted-foreground font-medium">
+                    Agent Ops verified{approvers?.ops_approved_by_name ? ` by ${approvers.ops_approved_by_name}` : ''}
+                  </span>
+                  <span className="font-semibold text-foreground">
+                    {format(new Date(order.ops_approved_at), 'd MMM yyyy, HH:mm')}
+                  </span>
+                </div>
+              )}
+
               {order.coo_approved_at && (
                 <div className="flex flex-wrap justify-between gap-1.5 py-1.5">
-                  <span className="text-muted-foreground font-medium">COO Approved</span>
+                  <span className="text-muted-foreground font-medium">
+                    COO approved{approvers?.coo_approved_by_name ? ` by ${approvers.coo_approved_by_name}` : ''}
+                  </span>
                   <span className="font-semibold text-sky-600">
                     {format(new Date(order.coo_approved_at), 'd MMM yyyy, HH:mm')}
                   </span>
@@ -763,7 +791,9 @@ export function BikeLeaseDetailDialog({
 
               {order.cfo_disbursed_at && (
                 <div className="flex flex-wrap justify-between gap-1.5 py-1.5">
-                  <span className="text-muted-foreground font-medium">CFO Disbursed</span>
+                  <span className="text-muted-foreground font-medium">
+                    CFO disbursed{approvers?.cfo_disbursed_by_name ? ` by ${approvers.cfo_disbursed_by_name}` : ''}
+                  </span>
                   <span className="font-semibold text-emerald-600">
                     {format(new Date(order.cfo_disbursed_at), 'd MMM yyyy, HH:mm')}
                   </span>
