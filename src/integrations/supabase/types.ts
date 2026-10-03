@@ -16266,6 +16266,174 @@ export type Database = {
         }
         Relationships: []
       }
+      fin_s14_audit: {
+        Row: {
+          action: string
+          collection_id: string
+          created_at: string
+          details: Json | null
+          evidence_ids: string[]
+          evidence_refs: string[]
+          financial_records_changed: boolean
+          id: string
+          new_status: string
+          previous_status: string
+          reason: string
+          reviewer: string
+          reviewer_role: string
+          stage: string
+        }
+        Insert: {
+          action: string
+          collection_id: string
+          created_at?: string
+          details?: Json | null
+          evidence_ids?: string[]
+          evidence_refs?: string[]
+          financial_records_changed?: boolean
+          id?: string
+          new_status: string
+          previous_status: string
+          reason: string
+          reviewer: string
+          reviewer_role: string
+          stage?: string
+        }
+        Update: {
+          action?: string
+          collection_id?: string
+          created_at?: string
+          details?: Json | null
+          evidence_ids?: string[]
+          evidence_refs?: string[]
+          financial_records_changed?: boolean
+          id?: string
+          new_status?: string
+          previous_status?: string
+          reason?: string
+          reviewer?: string
+          reviewer_role?: string
+          stage?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_s14_audit_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "fin_s14_cases"
+            referencedColumns: ["collection_id"]
+          },
+        ]
+      }
+      fin_s14_cases: {
+        Row: {
+          case_type: string
+          collection_id: string
+          confirmed_agent_id: string | null
+          correction_status: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          status: string
+          updated_at: string
+          valid_original_id: string | null
+        }
+        Insert: {
+          case_type: string
+          collection_id: string
+          confirmed_agent_id?: string | null
+          correction_status?: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          status?: string
+          updated_at?: string
+          valid_original_id?: string | null
+        }
+        Update: {
+          case_type?: string
+          collection_id?: string
+          confirmed_agent_id?: string | null
+          correction_status?: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          status?: string
+          updated_at?: string
+          valid_original_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_s14_cases_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: true
+            referencedRelation: "fin_collection_reconciliation_s11"
+            referencedColumns: ["collection_id"]
+          },
+        ]
+      }
+      fin_s14_evidence: {
+        Row: {
+          attachment_path: string | null
+          collection_id: string
+          contact_date: string | null
+          contact_method: string | null
+          contact_person: string | null
+          created_at: string
+          evidence_date: string
+          evidence_source: string
+          evidence_type: string
+          id: string
+          notes: string
+          reference_number: string | null
+          reviewer: string
+          reviewer_role: string
+          tenant_confirmation: Json | null
+        }
+        Insert: {
+          attachment_path?: string | null
+          collection_id: string
+          contact_date?: string | null
+          contact_method?: string | null
+          contact_person?: string | null
+          created_at?: string
+          evidence_date: string
+          evidence_source: string
+          evidence_type: string
+          id?: string
+          notes: string
+          reference_number?: string | null
+          reviewer: string
+          reviewer_role: string
+          tenant_confirmation?: Json | null
+        }
+        Update: {
+          attachment_path?: string | null
+          collection_id?: string
+          contact_date?: string | null
+          contact_method?: string | null
+          contact_person?: string | null
+          created_at?: string
+          evidence_date?: string
+          evidence_source?: string
+          evidence_type?: string
+          id?: string
+          notes?: string
+          reference_number?: string | null
+          reviewer?: string
+          reviewer_role?: string
+          tenant_confirmation?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_s14_evidence_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "fin_s14_cases"
+            referencedColumns: ["collection_id"]
+          },
+        ]
+      }
       finance_anomaly_alert_config: {
         Row: {
           created_at: string
@@ -60059,6 +60227,21 @@ export type Database = {
       }
       cfo_s12_summary: { Args: never; Returns: Json }
       cfo_s13_correction_review: { Args: never; Returns: Json }
+      cfo_s14_add_evidence: {
+        Args: { p_collection_id: string; p_item: Json }
+        Returns: string
+      }
+      cfo_s14_decide: {
+        Args: {
+          p_collection_id: string
+          p_fields: Json
+          p_outcome: string
+          p_reason: string
+        }
+        Returns: undefined
+      }
+      cfo_s14_history: { Args: { p_collection_id: string }; Returns: Json }
+      cfo_s14_list: { Args: never; Returns: Json }
       cfo_save_evidence_review: {
         Args: { p: Json; p_collection_id: string }
         Returns: Json
@@ -61579,6 +61762,8 @@ export type Database = {
       }
       fin_s12_assert_controls: { Args: never; Returns: undefined }
       fin_s12_txn_financial_writes: { Args: never; Returns: number }
+      fin_s14_assert_controls: { Args: never; Returns: undefined }
+      fin_s14_txn_financial_writes: { Args: never; Returns: number }
       finance_alert_rank_severity: { Args: { p_rank: number }; Returns: string }
       finance_alert_severity_rank: {
         Args: { p_severity: string }
