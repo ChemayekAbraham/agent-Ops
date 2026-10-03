@@ -118,7 +118,8 @@ export function EvidenceResolutionS12() {
             <TabsTrigger value="preview">Correction Preview ({ready.length})</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="mismatch" className="max-h-[520px] overflow-auto">
+          <TabsContent value="mismatch" className="max-h-[520px] overflow-auto space-y-2">
+            <MismatchSummary rows={mismatch} />
             <table className="w-full text-xs">
               <thead className="sticky top-0 bg-background"><tr className="text-left text-muted-foreground">
                 <th>Collection</th><th>Collected (EAT)</th><th>Tenant</th><th>Rent Plan</th><th className="text-right">Amount</th><th>Recorded agent</th><th>Rent Plan agent</th><th>Stage 11</th><th>Accounting entries</th><th>Reversal</th><th>Stage 12 status</th><th />
@@ -185,6 +186,27 @@ export function EvidenceResolutionS12() {
   );
 }
 
+const MISMATCH_POP = { count: 14, amount: 1684334 };
+function MismatchSummary({ rows }: { rows: Row[] }) {
+  const by = (st: string) => rows.filter((r) => r.evidence?.evidence_status === st);
+  const tot = (xs: Row[]) => xs.reduce((a, r) => a + Number(r.amount), 0);
+  const ready = rows.filter((r) => r.evidence?.correction_status === 'Ready for CFO Review');
+  const total = tot(rows);
+  const ok = rows.length === MISMATCH_POP.count && total === MISMATCH_POP.amount;
+  const outcomes = ['Pending Evidence', 'Confirmed Agent Mismatch', 'Confirmed Genuine', 'Unresolved'];
+  return (
+    <div className="rounded-md border border-border p-2 text-xs">
+      <p className="font-medium mb-1">Stage 12B — agent mismatch outcomes</p>
+      <table className="w-full"><tbody>
+        {outcomes.map((o) => <tr key={o}><td>{o}</td><td className="text-right">{by(o).length}</td><td className="text-right">{formatUGX(tot(by(o)))}</td></tr>)}
+        <tr className="text-muted-foreground"><td>Ready for CFO Review (already counted above)</td><td className="text-right">{ready.length}</td><td className="text-right">{formatUGX(tot(ready))}</td></tr>
+        <tr className="border-t border-border font-semibold"><td>Total</td><td className="text-right">{rows.length}</td><td className="text-right">{formatUGX(total)}</td></tr>
+      </tbody></table>
+      {!ok && <p className="text-destructive mt-1">Expected {MISMATCH_POP.count} / {formatUGX(MISMATCH_POP.amount)} — out of balance.</p>}
+    </div>
+  );
+}
+
 function PreviewCard({ r, rows }: { r: Row; rows: Row[] }) {
   const e = r.evidence;
   const isDup = e.evidence_status === 'Confirmed Duplicate';
@@ -217,7 +239,7 @@ function EvidenceDialog({ row, onClose, onSaved }: { row: Row; onClose: () => vo
   const e = row.evidence;
   const allowed = allowedFor(row.reconciliation_result);
   const [f, setF] = useState<Record<string, string>>({
-    status: allowed.includes(e.evidence_status) ? e.evidence_status : allowed[allowed.length - 1], evidence_type: e.evidence_type ?? '', evidence_reference: e.evidence_reference ?? '', receipt_number: e.receipt_number ?? '',
+    status: allowed.includes(e.evidence_status) ? e.evidence_status : '', evidence_type: e.evidence_type ?? '', evidence_reference: e.evidence_reference ?? '', receipt_number: e.receipt_number ?? '',
     evidence_date: e.evidence_date ?? '', evidence_source: e.evidence_source ?? '', notes: e.notes ?? '',
     valid_original_id: e.valid_original_id ?? '', confirmed_agent_id: e.confirmed_agent_id ?? row.plan_agent_id ?? '', reason: '',
   });
@@ -265,7 +287,7 @@ function EvidenceDialog({ row, onClose, onSaved }: { row: Row; onClose: () => vo
         <p className="text-xs text-muted-foreground">{row.agent_name} · {row.tenant_name} · {eat(row.collected_at)} · Stage 11: {row.reconciliation_result} · Original: {row.original_classification}</p>
         <div className="grid gap-2 sm:grid-cols-2 text-sm">
           <label className="space-y-1"><span className="text-xs">Final evidence status</span>
-            <Select value={f.status} onValueChange={set('status')}><SelectTrigger><SelectValue /></SelectTrigger>
+            <Select value={f.status || undefined} onValueChange={set('status')}><SelectTrigger><SelectValue placeholder="Choose an outcome" /></SelectTrigger>
               <SelectContent>{allowed.map((x) => <SelectItem key={x} value={x}>{x}</SelectItem>)}</SelectContent></Select></label>
           <label className="space-y-1"><span className="text-xs">Evidence type</span>
             <Select value={f.evidence_type || undefined} onValueChange={set('evidence_type')}><SelectTrigger><SelectValue placeholder="Choose" /></SelectTrigger>
@@ -293,13 +315,13 @@ function EvidenceDialog({ row, onClose, onSaved }: { row: Row; onClose: () => vo
         <div className="text-xs">
           <p className="font-medium mb-1">Decision history</p>
           {(audit.data ?? []).length === 0 ? <p className="text-muted-foreground">No decisions yet.</p> : audit.data!.map((a) => (
-            <div key={a.id} className="border-t border-border py-1">{eat(a.created_at)} · {short(a.actor)} · {a.previous_status} → {a.new_status} · {a.reason}{a.evidence_reference ? ` · ref ${a.evidence_reference}` : ''}</div>
+            <div key={a.id} className="border-t border-border py-1">{eat(a.created_at)} · {short(a.actor)} · {a.previous_status} → {a.new_status} · {a.reason}{a.evidence_reference ? ` · ref ${a.evidence_reference}` : ''}{a.details?.evidence_type ? ` · ${a.details.evidence_type}` : ''}{a.details?.evidence_date ? ` · dated ${a.details.evidence_date}` : ''}{a.details?.evidence_source ? ` · source ${a.details.evidence_source}` : ''}{a.new_status === 'Confirmed Agent Mismatch' && a.details?.confirmed_agent_id ? ` · confirmed agent ${short(a.details.confirmed_agent_id)}` : ''}{a.notes ? ` · notes: ${a.notes}` : ''}</div>
           ))}
         </div>
         {CONFIRMED.includes(f.status) && <p className="text-xs text-muted-foreground">Confirmed outcomes need evidence type, reference, date, source and notes.</p>}
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button disabled={busy || f.reason.trim().length < 10 || (CONFIRMED.includes(f.status) && (!f.evidence_type || !f.evidence_reference.trim() || !f.evidence_date || !f.evidence_source.trim() || !f.notes.trim()))} onClick={save}>Record decision</Button>
+          <Button disabled={busy || !f.status || f.reason.trim().length < 10 || (CONFIRMED.includes(f.status) && (!f.evidence_type || !f.evidence_reference.trim() || !f.evidence_date || !f.evidence_source.trim() || !f.notes.trim()))} onClick={save}>Record decision</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
