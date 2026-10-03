@@ -3102,6 +3102,13 @@
       "when": 1791059458511,
       "tag": "0442_stage14_batch1_restoration_delta_plans",
       "breakpoints": true
+    },
+    {
+      "idx": 443,
+      "version": "7",
+      "when": 1791061797502,
+      "tag": "0443_batch1_restore_wallet_rule_exception",
+      "breakpoints": true
     }
   ]
 }
