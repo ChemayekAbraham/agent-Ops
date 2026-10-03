@@ -4,7 +4,7 @@ import { HeroCard } from '@/components/cfo/HeroCard';
 import { formatUGX } from '@/lib/creditFeeCalculations';
 import { ArrowDownLeft } from 'lucide-react';
 import { useState } from 'react';
-import { allTime, kampalaDate, monthStart, type DrilldownPreset } from '@/components/cfo/MoneyDrilldownReport';
+import { allTime, type DrilldownPreset } from '@/components/cfo/MoneyDrilldownReport';
 import { MoneyReceivedReport } from '@/components/cfo/MoneyReceivedReport';
 
 type Row = {
@@ -12,18 +12,41 @@ type Row = {
   month_received: number; month_count: number; pending_amount: number; pending_count: number;
 };
 
+const RECEIPT_SOURCES = ['Operational float', 'Personal deposit', 'Partnership deposit', 'Rent repayment', 'Other'] as const;
+type SourceTotal = { label: string; amount: number; count: number };
+
 /** Actual external money received (approved deposits). Read-only. */
 export function MoneyReceivedCard({ moneyWeHaveTotal }: { moneyWeHaveTotal: number }) {
   const q = useQuery({
     queryKey: ['cfo-money-received'],
     queryFn: async () => {
-      const { data, error } = await (supabase.rpc as any)('get_cfo_money_received');
-      if (error) throw error;
-      return ((data ?? [])[0] ?? null) as Row | null;
+      const range = allTime();
+      const end = new Date(`${range.to}T00:00:00Z`);
+      end.setUTCDate(end.getUTCDate() + 1);
+      const p_from = new Date(`${range.from}T00:00:00+03:00`).toISOString();
+      const p_to = new Date(`${end.toISOString().slice(0, 10)}T00:00:00+03:00`).toISOString();
+      const [summaryResult, ...sourceResults] = await Promise.all([
+        (supabase.rpc as any)('get_cfo_money_received'),
+        ...RECEIPT_SOURCES.map(p_type => (supabase.rpc as any)('get_cfo_money_drilldown_totals', {
+          p_kind: 'received', p_from, p_to, p_status: 'approved', p_method: null, p_type, p_person: null,
+        })),
+      ]);
+      if (summaryResult.error) throw summaryResult.error;
+      const sources = sourceResults.map((result, index): SourceTotal => {
+        if (result.error) throw result.error;
+        const row = (result.data ?? [])[0] ?? {};
+        return {
+          label: RECEIPT_SOURCES[index],
+          amount: Number(row.confirmed_amount ?? 0),
+          count: Number(row.confirmed_count ?? 0),
+        };
+      });
+      return { summary: ((summaryResult.data ?? [])[0] ?? null) as Row | null, sources };
     },
     refetchInterval: 60000,
   });
-  const d = q.data;
+  const d = q.data?.summary;
+  const sources = q.data?.sources ?? [];
   const [report, setReport] = useState(false);
   const [preset, setPreset] = useState<DrilldownPreset | null>(null);
   const conf = 'approved';
@@ -45,12 +68,21 @@ export function MoneyReceivedCard({ moneyWeHaveTotal }: { moneyWeHaveTotal: numb
       percentageDirection="up"
       percentageValue={!q.isLoading && !q.error && d ? n(d.total_received) : undefined}
       percentageTotal={moneyWeHaveTotal}
-      items={d ? [
-        { dot: 'bg-emerald-500', label: `Received today (${n(d.today_count).toLocaleString()})`, value: formatUGX(n(d.today_received)), onSelect: () => drill({ label: 'Today', from: kampalaDate(), to: kampalaDate(), status: conf, expected: { amount: n(d.today_received), count: n(d.today_count), basis: 'confirmed' } }) },
-        { dot: 'bg-emerald-400', label: `Received this month (${n(d.month_count).toLocaleString()})`, value: formatUGX(n(d.month_received)), onSelect: () => drill({ label: 'This month', from: monthStart(), to: kampalaDate(), status: conf, expected: { amount: n(d.month_received), count: n(d.month_count), basis: 'confirmed' } }) },
-        { dot: 'bg-slate-400', label: 'Number of receipts', value: n(d.total_count).toLocaleString(), onSelect: total },
-        { dot: 'bg-amber-500', label: `Pending / unconfirmed (${n(d.pending_count).toLocaleString()})`, value: formatUGX(n(d.pending_amount)), onSelect: () => drill({ label: 'Pending', ...allTime(), status: 'pending', expected: { amount: n(d.pending_amount), count: n(d.pending_count), basis: 'pending' } }) },
-      ] : []}
+      items={d ? sources.filter(source => source.count > 0).map((source, index) => ({
+        dot: ['bg-success', 'bg-info', 'bg-primary', 'bg-warning', 'bg-muted-foreground'][index],
+        label: `${source.label} (${source.count.toLocaleString()})`,
+        value: formatUGX(source.amount),
+        onSelect: () => {
+          const range = allTime();
+          drill({
+            label: source.label,
+            ...range,
+            status: conf,
+            type: source.label,
+            expected: { amount: source.amount, count: source.count, basis: 'confirmed' },
+          });
+        },
+      })) : []}
       onClick={() => drill(null)}
       footer={q.error ? 'Could not load receipts' : 'Confirmed deposits by mobile money, bank & cash'}
     />
