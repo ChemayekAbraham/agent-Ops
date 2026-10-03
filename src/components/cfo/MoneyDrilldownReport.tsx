@@ -61,7 +61,7 @@ export function MoneyDrilldownReport({ open, onOpenChange, preset, config }: {
     if (preset) {
       setFrom(preset.from); setTo(preset.to); setStatus(preset.status); setMethod(''); setType(preset.type ?? ''); setPerson('');
       setActive(preset);
-      setParams({ from: preset.from, to: preset.to, status: preset.status, method: '', type: '', person: '' });
+      setParams({ from: preset.from, to: preset.to, status: preset.status, method: '', type: preset.type ?? '', person: '' });
     } else {
       const t = kampalaDate();
       setFrom(t); setTo(t); setActive(null);
