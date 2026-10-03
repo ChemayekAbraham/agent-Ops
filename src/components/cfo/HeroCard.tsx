@@ -66,7 +66,7 @@ export function HeroCard({ icon, iconBg, tone, title, value, percentageLabel, pe
   onClick?: () => void;
   /** Sizing hooks for the caller's layout (e.g. "flex-1" inside a column). */
   className?: string;
-  /** Optional control rendered inside the card, below the tappable summary. */
+  /** Optional control rendered inside the card's drill-down, above its source rows. */
   action?: React.ReactNode;
 }) {
 
@@ -118,7 +118,6 @@ export function HeroCard({ icon, iconBg, tone, title, value, percentageLabel, pe
           )}
           {footer ? <p className="mt-2.5 text-[11px] text-muted-foreground line-clamp-2">{footer}</p> : null}
         </button>
-        {action ? <div className="px-5 pb-5">{action}</div> : null}
       </div>
 
 
@@ -141,6 +140,7 @@ export function HeroCard({ icon, iconBg, tone, title, value, percentageLabel, pe
           </div>
 
           <div className="space-y-1">
+            {action ? <div className="pb-2">{action}</div> : null}
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Where it comes from</p>
             {items.map((it) =>
               it.onSelect ? (
