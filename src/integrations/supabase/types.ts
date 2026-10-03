@@ -61572,6 +61572,8 @@ export type Database = {
         }
         Returns: string
       }
+      fin_s12_assert_controls: { Args: never; Returns: undefined }
+      fin_s12_txn_financial_writes: { Args: never; Returns: number }
       finance_alert_rank_severity: { Args: { p_rank: number }; Returns: string }
       finance_alert_severity_rank: {
         Args: { p_severity: string }
