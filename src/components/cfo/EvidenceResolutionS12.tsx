@@ -16,6 +16,11 @@ import { Lock, ShieldAlert } from 'lucide-react';
 const STATUSES = ['Pending Evidence', 'Confirmed Genuine', 'Confirmed Duplicate', 'Confirmed Agent Mismatch', 'Valid Separate Payment', 'Unresolved'];
 const TYPES = ['Agent receipt', 'Tenant confirmation', 'Cash handover record', 'Deposit/bank evidence', 'Mobile-money evidence', 'Other supporting evidence'];
 const POP = { count: 659, amount: 56946270 };
+const CONFIRMED = ['Confirmed Genuine', 'Confirmed Duplicate', 'Confirmed Agent Mismatch', 'Valid Separate Payment'];
+const allowedFor = (result: string) =>
+  result === 'System-inconsistent' ? ['Confirmed Agent Mismatch', 'Confirmed Genuine', 'Unresolved']
+  : result === 'System duplicate candidate' ? STATUSES
+  : STATUSES.filter((x) => x !== 'Confirmed Duplicate');
 
 type Match = { id: string; collected_at: string; agent_id: string; amount: number; seconds_apart: number; reversed_at: string | null; in_population: boolean };
 type Ev = Record<string, any>;
@@ -94,7 +99,7 @@ export function EvidenceResolutionS12() {
             </div>
           ))}
           <div className="rounded-md border border-border p-2">
-            <p className="text-xs text-muted-foreground">Correction-ready</p>
+            <p className="text-xs text-muted-foreground">Ready for CFO Review</p>
             <p className="font-semibold">{s?.correction_ready.count ?? 0}</p>
             <p className="text-xs">{formatUGX(Number(s?.correction_ready.amount ?? 0))}</p>
           </div>
@@ -116,7 +121,7 @@ export function EvidenceResolutionS12() {
           <TabsContent value="mismatch" className="max-h-[520px] overflow-auto">
             <table className="w-full text-xs">
               <thead className="sticky top-0 bg-background"><tr className="text-left text-muted-foreground">
-                <th>Collection</th><th>Collected (EAT)</th><th>Tenant</th><th>Rent Plan</th><th className="text-right">Amount</th><th>Recorded agent</th><th>Rent Plan agent</th><th>Stage 11</th><th>Accounting entries</th><th>Evidence</th><th />
+                <th>Collection</th><th>Collected (EAT)</th><th>Tenant</th><th>Rent Plan</th><th className="text-right">Amount</th><th>Recorded agent</th><th>Rent Plan agent</th><th>Stage 11</th><th>Accounting entries</th><th>Reversal</th><th>Stage 12 status</th><th />
               </tr></thead>
               <tbody>{mismatch.map((r) => (
                 <tr key={r.collection_id} className="border-t border-border align-top">
@@ -124,6 +129,7 @@ export function EvidenceResolutionS12() {
                   <td className="font-mono">{short(r.rent_plan_id)}</td><td className="text-right whitespace-nowrap">{ugx(r.amount)}</td>
                   <td>{r.agent_name}</td><td>{r.plan_agent_name ?? '—'}</td><td>{r.reconciliation_result}</td>
                   <td className="whitespace-nowrap">Group {short(r.ledger_group)} · receipt {ugx(r.ledger_receipt)} · commission {ugx(r.ledger_commission)}</td>
+                  <td>{r.reversed_at ? 'Reversed' : 'Not reversed'}</td>
                   <td>{r.evidence.evidence_status}<br /><span className="text-muted-foreground">{r.evidence.evidence_type ? 'Evidence recorded' : 'Evidence missing'}{r.evidence.attachment_path ? ' · file attached' : ''}</span>{r.evidence.notes && <><br /><span className="text-muted-foreground">{r.evidence.notes}</span></>}</td>
                   <td><Button size="sm" variant="outline" disabled={!balanced} onClick={() => setOpen(r)}>Evidence</Button></td>
                 </tr>))}</tbody>
@@ -134,7 +140,7 @@ export function EvidenceResolutionS12() {
             <p className="text-xs text-muted-foreground">{dups.filter((r) => (r.matches ?? []).some((m) => m.in_population)).length} candidates have at least one matching collection inside the Stage 11 population (marked "Both in 659"), forming {internalPairs} distinct pairs. Falling inside the 30-minute rule does not make a collection a confirmed duplicate.</p>
             <table className="w-full text-xs">
               <thead className="sticky top-0 bg-background"><tr className="text-left text-muted-foreground">
-                <th>Collection</th><th>Tenant</th><th>Rent Plan</th><th>Agent</th><th className="text-right">Amount</th><th>Collected (EAT)</th><th>Suspected match(es)</th><th>Accounting</th><th>Reversal</th><th>Evidence</th><th />
+                <th>Collection</th><th>Tenant</th><th>Rent Plan</th><th>Agent</th><th className="text-right">Amount</th><th>Collected (EAT)</th><th>Suspected match(es)</th><th>Multiple</th><th>Accounting</th><th>Reversal</th><th>Stage 11</th><th>Stage 12 status</th><th />
               </tr></thead>
               <tbody>{dups.map((r) => {
                 const both = (r.matches ?? []).some((m) => m.in_population);
@@ -146,8 +152,9 @@ export function EvidenceResolutionS12() {
                     <td>{(r.matches ?? []).map((m) => (
                       <div key={m.id} className="whitespace-nowrap"><span className="font-mono">{short(m.id)}</span> · {eat(m.collected_at)} · {mins(m.seconds_apart)} · {m.in_population ? 'in 659' : 'outside 659'}{m.reversed_at ? ' · reversed' : ''}</div>
                     ))}</td>
+                    <td>{(r.matches ?? []).length > 1 ? `Yes (${(r.matches ?? []).length})` : 'No'}</td>
                     <td>Posted · group {short(r.ledger_group)}</td><td>{r.reversed_at ? 'Reversed' : 'Not reversed'}</td>
-                    <td>{r.evidence.evidence_status}</td>
+                    <td>{r.reconciliation_result}</td><td>{r.evidence.evidence_status}</td>
                     <td><Button size="sm" variant="outline" disabled={!balanced} onClick={() => setOpen(r)}>Evidence</Button></td>
                   </tr>);
               })}</tbody>
@@ -208,8 +215,9 @@ function PreviewCard({ r, rows }: { r: Row; rows: Row[] }) {
 
 function EvidenceDialog({ row, onClose, onSaved }: { row: Row; onClose: () => void; onSaved: () => void }) {
   const e = row.evidence;
+  const allowed = allowedFor(row.reconciliation_result);
   const [f, setF] = useState<Record<string, string>>({
-    status: e.evidence_status, evidence_type: e.evidence_type ?? '', evidence_reference: e.evidence_reference ?? '', receipt_number: e.receipt_number ?? '',
+    status: allowed.includes(e.evidence_status) ? e.evidence_status : allowed[allowed.length - 1], evidence_type: e.evidence_type ?? '', evidence_reference: e.evidence_reference ?? '', receipt_number: e.receipt_number ?? '',
     evidence_date: e.evidence_date ?? '', evidence_source: e.evidence_source ?? '', notes: e.notes ?? '',
     valid_original_id: e.valid_original_id ?? '', confirmed_agent_id: e.confirmed_agent_id ?? row.plan_agent_id ?? '', reason: '',
   });
@@ -235,7 +243,7 @@ function EvidenceDialog({ row, onClose, onSaved }: { row: Row; onClose: () => vo
       }
       const { status, reason, ...fields } = f;
       const { error } = await (supabase.rpc as any)('cfo_s12_save_evidence', {
-        p_collection_id: row.collection_id, p_status: status, p_reason: reason, p_fields: { ...fields, attachment_path },
+        p_collection_id: row.collection_id, p_status: status, p_reason: reason, p_fields: { ...fields, attachment_path, duplicate_collection_id: status === 'Confirmed Duplicate' ? row.collection_id : '' },
       });
       if (error) throw error;
       toast.success('Evidence decision recorded. Nothing was posted.');
@@ -249,7 +257,6 @@ function EvidenceDialog({ row, onClose, onSaved }: { row: Row; onClose: () => vo
     if (error) return toast.error(error.message);
     window.open(data.signedUrl, '_blank');
   };
-  const matchIds = (row.matches ?? []).map((m) => m.id);
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
@@ -259,7 +266,7 @@ function EvidenceDialog({ row, onClose, onSaved }: { row: Row; onClose: () => vo
         <div className="grid gap-2 sm:grid-cols-2 text-sm">
           <label className="space-y-1"><span className="text-xs">Final evidence status</span>
             <Select value={f.status} onValueChange={set('status')}><SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>{STATUSES.map((x) => <SelectItem key={x} value={x}>{x}</SelectItem>)}</SelectContent></Select></label>
+              <SelectContent>{allowed.map((x) => <SelectItem key={x} value={x}>{x}</SelectItem>)}</SelectContent></Select></label>
           <label className="space-y-1"><span className="text-xs">Evidence type</span>
             <Select value={f.evidence_type || undefined} onValueChange={set('evidence_type')}><SelectTrigger><SelectValue placeholder="Choose" /></SelectTrigger>
               <SelectContent>{TYPES.map((x) => <SelectItem key={x} value={x}>{x}</SelectItem>)}</SelectContent></Select></label>
@@ -268,12 +275,12 @@ function EvidenceDialog({ row, onClose, onSaved }: { row: Row; onClose: () => vo
           <label className="space-y-1"><span className="text-xs">Evidence date</span><Input type="date" value={f.evidence_date} onChange={(ev) => set('evidence_date')(ev.target.value)} /></label>
           <label className="space-y-1"><span className="text-xs">Evidence source</span><Input value={f.evidence_source} onChange={(ev) => set('evidence_source')(ev.target.value)} /></label>
           {f.status === 'Confirmed Duplicate' && (
-            <label className="space-y-1 sm:col-span-2"><span className="text-xs">Valid original collection (this one becomes the duplicate)</span>
+            <label className="space-y-1 sm:col-span-2"><span className="text-xs">Valid original collection — this collection ({short(row.collection_id)}) is recorded as the duplicate. Neither collection is changed.</span>
               <Select value={f.valid_original_id || undefined} onValueChange={set('valid_original_id')}><SelectTrigger><SelectValue placeholder="Choose matching collection" /></SelectTrigger>
-                <SelectContent>{matchIds.map((id) => <SelectItem key={id} value={id}>{id}</SelectItem>)}</SelectContent></Select></label>
+                <SelectContent>{(row.matches ?? []).map((m) => <SelectItem key={m.id} value={m.id}>{short(m.id)} · {eat(m.collected_at)} · {mins(m.seconds_apart)} · {m.in_population ? 'in 659' : 'outside 659'}{m.reversed_at ? ' · reversed' : ''}</SelectItem>)}</SelectContent></Select></label>
           )}
           {f.status === 'Confirmed Agent Mismatch' && (
-            <label className="space-y-1 sm:col-span-2"><span className="text-xs">Confirmed collecting agent ID (Rent Plan agent: {row.plan_agent_name ?? '—'})</span>
+            <label className="space-y-1 sm:col-span-2"><span className="text-xs">Confirmed collecting agent ID (recorded: {row.agent_name}; Rent Plan agent: {row.plan_agent_name ?? '—'}). If evidence shows the recorded agent collected, choose Confirmed Genuine instead.</span>
               <Input value={f.confirmed_agent_id} onChange={(ev) => set('confirmed_agent_id')(ev.target.value)} /></label>
           )}
           <label className="space-y-1 sm:col-span-2"><span className="text-xs">Attachment (photo or PDF)</span>
@@ -289,9 +296,10 @@ function EvidenceDialog({ row, onClose, onSaved }: { row: Row; onClose: () => vo
             <div key={a.id} className="border-t border-border py-1">{eat(a.created_at)} · {short(a.actor)} · {a.previous_status} → {a.new_status} · {a.reason}{a.evidence_reference ? ` · ref ${a.evidence_reference}` : ''}</div>
           ))}
         </div>
+        {CONFIRMED.includes(f.status) && <p className="text-xs text-muted-foreground">Confirmed outcomes need evidence type, reference, date, source and notes.</p>}
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancel</Button>
-          <Button disabled={busy || f.reason.trim().length < 10} onClick={save}>Record decision</Button>
+          <Button disabled={busy || f.reason.trim().length < 10 || (CONFIRMED.includes(f.status) && (!f.evidence_type || !f.evidence_reference.trim() || !f.evidence_date || !f.evidence_source.trim() || !f.notes.trim()))} onClick={save}>Record decision</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
