@@ -16325,6 +16325,35 @@ export type Database = {
           },
         ]
       }
+      fin_s14_batch_cases: {
+        Row: {
+          batch_no: number
+          collection_id: string
+          created_at: string
+          position: number
+        }
+        Insert: {
+          batch_no: number
+          collection_id: string
+          created_at?: string
+          position: number
+        }
+        Update: {
+          batch_no?: number
+          collection_id?: string
+          created_at?: string
+          position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fin_s14_batch_cases_collection_id_fkey"
+            columns: ["collection_id"]
+            isOneToOne: false
+            referencedRelation: "fin_s14_cases"
+            referencedColumns: ["collection_id"]
+          },
+        ]
+      }
       fin_s14_cases: {
         Row: {
           case_type: string
@@ -60231,6 +60260,7 @@ export type Database = {
         Args: { p_collection_id: string; p_item: Json }
         Returns: string
       }
+      cfo_s14_batch: { Args: { p_batch: number }; Returns: Json }
       cfo_s14_decide: {
         Args: {
           p_collection_id: string
