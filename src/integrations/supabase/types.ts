@@ -57425,6 +57425,7 @@ export type Database = {
           roi_percentage: number
         }[]
       }
+      _cfo_credit_type: { Args: { p_category: string }; Returns: string }
       _cfo_paid_out_base: {
         Args: {
           p_from: string
@@ -63381,6 +63382,28 @@ export type Database = {
         Returns: Json
       }
       get_cfo_weekly_report: { Args: { p_end?: string }; Returns: Json }
+      get_cfo_withdrawable_credits_page: {
+        Args: {
+          p_from: string
+          p_limit?: number
+          p_offset?: number
+          p_person?: string
+          p_to: string
+          p_type?: string
+        }
+        Returns: {
+          amount: number
+          category: string
+          created_at: string
+          credit_type: string
+          description: string
+          full_name: string
+          id: string
+          ledger_reference: string
+          phone: string
+          reference_id: string
+        }[]
+      }
       get_cfo_withdrawable_credits_range: {
         Args: { p_from: string; p_to?: string }
         Returns: {
