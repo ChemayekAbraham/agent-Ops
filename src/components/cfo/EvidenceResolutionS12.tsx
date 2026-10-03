@@ -378,7 +378,7 @@ function EvidenceDialog({ row, onClose, onSaved }: { row: Row; onClose: () => vo
             <label className="space-y-1 sm:col-span-2"><span className="text-xs">Confirmed collecting agent ID (recorded: {row.agent_name}; Rent Plan agent: {row.plan_agent_name ?? '—'}). If evidence shows the recorded agent collected, choose Confirmed Genuine instead.</span>
               <Input value={f.confirmed_agent_id} onChange={(ev) => set('confirmed_agent_id')(ev.target.value)} /></label>
           )}
-          {isMismatch && (
+          {(isMismatch || row.reconciliation_result === 'System duplicate candidate') && (
             <fieldset className="sm:col-span-2 space-y-1"><legend className="text-xs">Evidence on hand (tick only what applies — none is compulsory)</legend>
               <div className="flex flex-wrap gap-3">{CHECKLIST.map((c) => (
                 <label key={c} className="flex items-center gap-1 text-xs"><input type="checkbox" checked={checks.includes(c)} onChange={(ev) => setChecks((p) => ev.target.checked ? [...p, c] : p.filter((x) => x !== c))} />{c}</label>
