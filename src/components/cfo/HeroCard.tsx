@@ -148,15 +148,19 @@ export function HeroCard({ icon, iconBg, tone, title, value, percentageLabel, pe
                   key={it.label}
                   type="button"
                   onClick={() => { setOpen(false); it.onSelect?.(); }}
-                  className="w-full flex items-center justify-between gap-3 py-2 border-b border-border/60 text-xs text-left rounded-md px-1 hover:bg-muted/50 transition-colors"
+                  className="w-full min-h-14 flex items-center justify-between gap-3 py-2 border-b border-border/60 text-xs text-left rounded-md px-1 hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label={`View breakdown for ${it.label}, ${it.value}`}
                 >
                   <span className="flex items-center gap-2 min-w-0 text-muted-foreground">
                     <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${it.dot}`} />
                     <span className="truncate">{it.label}</span>
                   </span>
                   <span className="flex items-center gap-1.5 shrink-0">
-                    <span className="tabular-nums font-medium text-right text-foreground">{it.value}</span>
-                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="flex flex-col items-end gap-0.5">
+                      <span className="tabular-nums font-medium text-right text-foreground">{it.value}</span>
+                      <span className="text-[10px] font-semibold text-primary">View breakdown</span>
+                    </span>
+                    <ChevronRight className="h-4 w-4 text-primary" aria-hidden="true" />
                   </span>
                 </button>
               ) : (
