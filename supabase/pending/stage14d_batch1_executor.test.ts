@@ -5,7 +5,7 @@ const CFO='29a0cfa8-1eaf-453c-874c-0fc72fa4f74b', AGENT='dc5ba4af-cb53-4fe8-9aa5
 const q=async(s:string)=>{try{const r=await db.query(s);return r.rows}catch(e:any){return 'ERR: '+e.message.slice(0,160)}};
 const as=(u:string|null)=>db.exec(`UPDATE auth.cur SET uid=${u?`'${u}'`:'NULL'}`);
 const snap=()=>q(`select (select count(*) from general_ledger) gl,(select count(*) from general_ledger where reference_id like 's14b1:%') s14,(select sum(withdrawable_balance) from wallets) w,(select count(*) from agent_collections where reversed_at is null and id in (select collection_id from fin_s14_batch_cases)) unrev,(select sum(amount_repaid) from rent_requests) rr`);
-await db.exec(readFileSync('seed.sql','utf8'));
+await db.exec(readFileSync(process.env.S14_SEED ?? 'seed.sql','utf8'));
 await db.exec(readFileSync('/dev-server/supabase/pending/stage14d_batch1_executor.sql','utf8'));
 const log=(n:string,v:any)=>console.log(n.padEnd(46),JSON.stringify(v));
 log('T0 applied; fingerprint',await q('select fin_s14b1_fingerprint() f'));
@@ -44,6 +44,13 @@ await db.exec(`delete from general_ledger where category='x'`);
 await db.exec(`create function boom() returns trigger language plpgsql as $$begin if NEW.id='2ca84e52-973b-4ed6-a5b8-5bc28ba6cd84' then raise exception 'injected failure'; end if; return NEW; end$$; create trigger boom before update on rent_requests for each row execute function boom();`);
 log('T19 failure injected at last step',await q(`select cfo_s14b1_execute('${ap}',true)`)); log('   snapshot (no partial?)',await snap());
 await db.exec(`drop trigger boom on rent_requests`);
+// Referral hard stop: (a) unpaid bonus present before run, (b) bonus paid during run
+await db.exec(`insert into referrals(referrer_id,referred_id) values (gen_random_uuid(),'dc5ba4af-cb53-4fe8-9aa5-b1b73d0402aa')`);
+log('T19b pending referral before run',await q(`select cfo_s14b1_execute('${ap}',true)`)); log('   snapshot',await snap());
+await db.exec(`delete from referrals`);
+await db.exec(`create function refpay() returns trigger language plpgsql as $$begin insert into general_ledger(amount,direction,category,ledger_scope,source_table) values (500,'cash_in','referral_bonus','wallet','referrals'); return NEW; end$$; create trigger refpay after update on rent_requests for each row execute function refpay();`);
+log('T19c referral paid during run',await q(`select cfo_s14b1_execute('${ap}',true)`)); log('   snapshot',await snap());
+await db.exec(`drop trigger refpay on rent_requests`);
 const w0=await q(`select left(user_id::text,8) u, withdrawable_balance, float_balance from wallets order by 1`);
 log('T20 EXECUTE',await q(`select cfo_s14b1_execute('${ap}',true) r`));
 log('   snapshot after',await snap());
@@ -54,6 +61,8 @@ log('   plans',await q(`select left(id::text,8) p,amount_repaid,status,total_rep
 log('   recruiter legs',await q(`select count(*) from general_ledger where reference_id like 's14b1:%' and left(user_id::text,8) in ('98ee118b','ebd985fb','ebf0897b')`));
 log('   16 Sep set',await q(`select count(*),sum(amount) from agent_collections where reversed_at='2026-09-16 14:08:40.882504+00'`));
 log('   29 Sep row',await q(`select reversed_at from agent_collections where id='dab3bc9f-1ba2-4151-a344-fdd09132b7f8'`));
+log('   mapped per group',await q(`with m as (select g.transaction_group_id t, g.ledger_scope||'.'||g.category||'/'||g.direction k, case when g.ledger_scope='wallet' then 'L1' else coalesce(am.account_code,'A9') end acct, (g.direction=coalesce(am.debit_when, case when g.ledger_scope='wallet' then 'cash_out' else 'cash_in' end)) dr, g.amount from general_ledger g left join ledger_account_map am on am.ledger_scope=g.ledger_scope and am.category=g.category where g.reference_id like 's14b1:%:commission') select string_agg(distinct acct||case when dr then ' DR' else ' CR' end, ' / ') shape, count(distinct t) groups, sum(amount) filter (where dr) dr, sum(amount) filter (where not dr) cr from m`));
+log('   float after (should equal before)',await q(`select sum(float_balance) from wallets`));
 log('T21 second execute same approval',await q(`select cfo_s14b1_execute('${ap}',true)`));
 const ap2=await q(`select cfo_s14b1_approve(fin_s14b1_fingerprint(),'second approval attempt for test')`);
 log('T22 new approval after execution',ap2);
