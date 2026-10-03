@@ -60018,6 +60018,10 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      cfo_s12_case_evidence: {
+        Args: { p_collection_id: string }
+        Returns: Json
+      }
       cfo_s12_list: {
         Args: never
         Returns: {
