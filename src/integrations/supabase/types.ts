@@ -15822,6 +15822,7 @@ export type Database = {
           confirmed_agent_id: string | null
           correction_status: string
           duplicate_of_id: string | null
+          evidence_checklist: string[]
           evidence_date: string | null
           evidence_reference: string | null
           evidence_source: string | null
@@ -15840,6 +15841,7 @@ export type Database = {
           confirmed_agent_id?: string | null
           correction_status?: string
           duplicate_of_id?: string | null
+          evidence_checklist?: string[]
           evidence_date?: string | null
           evidence_reference?: string | null
           evidence_source?: string | null
@@ -15858,6 +15860,7 @@ export type Database = {
           confirmed_agent_id?: string | null
           correction_status?: string
           duplicate_of_id?: string | null
+          evidence_checklist?: string[]
           evidence_date?: string | null
           evidence_reference?: string | null
           evidence_source?: string | null
