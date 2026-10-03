@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { formatUGX } from '@/lib/businessAdvanceCalculations';
 import { Lock, ShieldAlert } from 'lucide-react';
+import { S12CaseEvidencePanel } from './S12CaseEvidencePanel';
 
 const STATUSES = ['Pending Evidence', 'Confirmed Genuine', 'Confirmed Duplicate', 'Confirmed Agent Mismatch', 'Valid Separate Payment', 'Unresolved'];
 const TYPES = ['Agent receipt', 'Tenant confirmation', 'Cash handover record', 'Deposit/bank evidence', 'Mobile-money evidence', 'Other supporting evidence'];
@@ -175,6 +176,7 @@ export function EvidenceResolutionS12() {
 const CHECKLIST = ['Agent receipt', 'Tenant confirmation', 'Cash handover evidence', 'Deposit evidence', 'Other supporting evidence'];
 function MismatchCaseCard({ r, disabled, onOpen }: { r: Row; disabled: boolean; onOpen: () => void }) {
   const e = r.evidence ?? {};
+  const [show, setShow] = useState(false);
   const have: string[] = e.evidence_checklist ?? [];
   const available = [
     ...have,
@@ -205,7 +207,11 @@ function MismatchCaseCard({ r, disabled, onOpen }: { r: Row; disabled: boolean; 
     <div className="rounded-md border border-border p-3 text-xs">
       <table className="w-full"><tbody>{lines.map(([k, v]) => <tr key={k}><td className="py-0.5 pr-3 text-muted-foreground whitespace-nowrap align-top">{k}</td><td>{v}</td></tr>)}</tbody></table>
       <div className="mt-2 flex flex-wrap gap-1">{CHECKLIST.map((c) => <Badge key={c} variant={have.includes(c) ? 'secondary' : 'outline'}>{have.includes(c) ? '✓ ' : ''}{c}</Badge>)}</div>
-      <Button size="sm" variant="outline" className="mt-2" disabled={disabled} onClick={onOpen}>Review evidence</Button>
+      <div className="mt-2 flex flex-wrap gap-2">
+        <Button size="sm" variant="secondary" onClick={() => setShow((v) => !v)}>{show ? 'Hide evidence' : 'Inspect evidence'}</Button>
+        <Button size="sm" variant="outline" disabled={disabled} onClick={onOpen}>Review evidence</Button>
+      </div>
+      {show && <div className="mt-2"><S12CaseEvidencePanel collectionId={r.collection_id} recordedName={r.agent_name} planName={r.plan_agent_name} /></div>}
     </div>
   );
 }
