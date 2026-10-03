@@ -158,7 +158,6 @@ export function HeroCard({ icon, iconBg, tone, title, value, percentageLabel, pe
                   <span className="flex items-center gap-1.5 shrink-0">
                     <span className="flex flex-col items-end gap-0.5">
                       <span className="tabular-nums font-medium text-right text-foreground">{it.value}</span>
-                      <span className="text-[10px] font-semibold text-primary">View breakdown</span>
                     </span>
                     <ChevronRight className="h-4 w-4 text-primary" aria-hidden="true" />
                   </span>
