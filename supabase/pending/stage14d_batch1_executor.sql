@@ -11,7 +11,8 @@
 -- Frozen package: version s14b1-v2 (regenerated 2026-10-03 18:25 UTC from a fresh snapshot; supersedes s14b1-v1 / 274de655…, now stale), 20 collections (UGX 483,685),
 -- 20 cash entries + 13 commission entries = 33 entries / 66 legs,
 -- debits = credits = UGX 523,085.42, 13 Rent Plans (UGX 479,685).
--- Fingerprint (sha256): 274de6552922cbdc2f7d346903ef5ac0300681646fd6e35f9b781959e422a385
+-- Fingerprint (sha256): 3898220f4fdd4ffc0eb166ed0dccc13c7ec05c2e7147681219b85d49395ce1d2
+-- Previous fingerprint 274de655… (s14b1-v1) is STALE and cannot be executed: Nyanzi Lydia Eseri received UGX 420 commission after its snapshot.
 -- (Rebuilt 2026-10-03: commission contra leg relabelled system_balance_correction -> agent_commission_earned; supersedes 16d1ae84...)
 -- Held open (NOT in this package, no transaction of any kind): UGX 6,132.40
 --   status "Held Open — Unrecoverable at Current Wallet Balance" — not recovered,
@@ -312,7 +313,7 @@ BEGIN
   IF auth.uid() IS DISTINCT FROM '29a0cfa8-1eaf-453c-874c-0fc72fa4f74b'::uuid THEN RAISE EXCEPTION 'S14B1_NOT_BATCH1_EXECUTOR'; END IF;
   -- Gate 2b: deliberate confirmation — exact phrase and fingerprint supplied again
   IF p_confirmation IS DISTINCT FROM 'EXECUTE BATCH 1 CORRECTION' THEN RAISE EXCEPTION 'S14B1_CONFIRMATION_PHRASE_MISMATCH'; END IF;
-  IF p_package_hash IS DISTINCT FROM '274de6552922cbdc2f7d346903ef5ac0300681646fd6e35f9b781959e422a385' THEN RAISE EXCEPTION 'S14B1_CONFIRMATION_HASH_MISMATCH'; END IF;
+  IF p_package_hash IS DISTINCT FROM '3898220f4fdd4ffc0eb166ed0dccc13c7ec05c2e7147681219b85d49395ce1d2' THEN RAISE EXCEPTION 'S14B1_CONFIRMATION_HASH_MISMATCH'; END IF;
   -- Serialise: only one executor at a time
   PERFORM pg_advisory_xact_lock(hashtext('s14b1_execute'));
   -- Gate 3: stored approval for this exact fingerprint, never executed
@@ -450,7 +451,7 @@ GRANT EXECUTE ON FUNCTION public.cfo_s14b1_manifest(), public.cfo_s14b1_approve(
 
 -- 8. Apply-time self-check: abort the whole file unless the frozen package hashes to the reviewed value
 DO $c$ BEGIN
-  IF public.fin_s14b1_fingerprint() <> '274de6552922cbdc2f7d346903ef5ac0300681646fd6e35f9b781959e422a385' THEN
-    RAISE EXCEPTION 'S14B1 package fingerprint % differs from reviewed 274de6552922cbdc2f7d346903ef5ac0300681646fd6e35f9b781959e422a385', public.fin_s14b1_fingerprint();
+  IF public.fin_s14b1_fingerprint() <> '3898220f4fdd4ffc0eb166ed0dccc13c7ec05c2e7147681219b85d49395ce1d2' THEN
+    RAISE EXCEPTION 'S14B1 package fingerprint % differs from reviewed 3898220f4fdd4ffc0eb166ed0dccc13c7ec05c2e7147681219b85d49395ce1d2', public.fin_s14b1_fingerprint();
   END IF;
 END $c$;

@@ -1,10 +1,10 @@
 // Private in-memory test suite for the single-CFO Batch 1 executor. Never touches the live database.
-// Run: S14_SEED=/tmp/s14g/seed.sql NODE_PATH=/dev-server/node_modules bun stage14d_batch1_executor.test.ts
+// Run: S14_SEED=/tmp/s14g/fseed.sql NODE_PATH=/dev-server/node_modules bun stage14d_batch1_executor.test.ts
 import { PGlite } from "@electric-sql/pglite";
 import { readFileSync } from "fs";
 const db = new PGlite();
 const CFO='29a0cfa8-1eaf-453c-874c-0fc72fa4f74b', CFO2='00000000-0000-4000-8000-0000000000c2', AGENT='dc5ba4af-cb53-4fe8-9aa5-b1b73d0402aa';
-const FP='274de6552922cbdc2f7d346903ef5ac0300681646fd6e35f9b781959e422a385', PH='EXECUTE BATCH 1 CORRECTION';
+const FP='3898220f4fdd4ffc0eb166ed0dccc13c7ec05c2e7147681219b85d49395ce1d2', PH='EXECUTE BATCH 1 CORRECTION';
 const q=async(s:string)=>{try{const r=await db.query(s);return r.rows}catch(e:any){return 'ERR: '+e.message.slice(0,2000)}};
 const as=(u:string|null)=>db.exec(`UPDATE auth.cur SET uid=${u?`'${u}'`:'NULL'}`);
 const snap=async()=>(await q(`select (select count(*) from general_ledger) gl,(select count(*) from general_ledger where reference_id like 's14b1:%') s14,(select sum(withdrawable_balance)::text from wallets) w,(select sum(float_balance)::text from wallets) f,(select count(*) from agent_collections where reversed_at is null and id in (select collection_id from fin_s14_batch_cases)) unrev,(select sum(amount_repaid)::text from rent_requests) rr,(select count(*) from fin_s14b1_approvals where executed_at is not null) ex`) as any)[0];
@@ -15,12 +15,12 @@ const exec=(id:string,ph=PH,fp=FP)=>q(`select cfo_s14b1_execute('${id}',true,'${
 const backdate=async(id:string,iv:string)=>{await db.exec(`alter table fin_s14b1_approvals disable trigger trg_s14b1_appr_frozen; update fin_s14b1_approvals set approved_at=now()-interval '${iv}' where id='${id}'; alter table fin_s14b1_approvals enable trigger trg_s14b1_appr_frozen;`)};
 const approve=async()=>(await q(`select cfo_s14b1_approve('${FP}','CFO approves Stage 14 Batch 1 package v1') id`) as any)[0].id as string;
 
-await db.exec(readFileSync(process.env.S14_SEED ?? '/tmp/s14g/seed.sql','utf8'));
+await db.exec(readFileSync(process.env.S14_SEED ?? '/tmp/s14g/fseed.sql','utf8'));
 await db.exec(readFileSync('/dev-server/supabase/pending/stage14d_batch1_executor.sql','utf8'));
 await db.exec(`insert into cfo_approval_approvers values ('${CFO2}')`); // a second CFO-gated account, for the wrong-user test only
 const fp=(await q('select fin_s14b1_fingerprint() f') as any)[0].f;
 const v0=(await q('select fin_s14b1_validate() v') as any)[0].v;
-check('T0 package frozen + validates','fingerprint 274de655…, all_ok',{fp:fp.slice(0,8),...v0},fp===FP&&v0.all_ok===true&&v0.entries===33&&v0.lines===66&&Number(v0.total)===522665.42);
+check('T0 package frozen + validates','fingerprint 274de655…, all_ok',{fp:fp.slice(0,8),...v0},fp===FP&&v0.all_ok===true&&v0.entries===33&&v0.lines===66&&Number(v0.total)===523085.42);
 const S0=await snap();
 
 await as(CFO);
@@ -36,11 +36,13 @@ await as(CFO);
 const r6=await exec(ap,'EXECUTE BATCH 1'); check('T6 wrong confirmation phrase','REFUSED',r6,err(r6,'S14B1_CONFIRMATION_PHRASE_MISMATCH'));
 const r6b=await q(`select cfo_s14b1_execute('${ap}',true,NULL,'${FP}')`); check('T6b missing phrase','REFUSED',r6b,err(r6b,'S14B1_CONFIRMATION_PHRASE_MISMATCH'));
 const r7=await exec(ap,PH,'16d1ae84'+FP.slice(8)); check('T7 wrong fingerprint','REFUSED',r7,err(r7,'S14B1_CONFIRMATION_HASH_MISMATCH'));
+const r7b=await exec(ap,PH,'274de6552922cbdc2f7d346903ef5ac0300681646fd6e35f9b781959e422a385'); check('T7b stale v1 fingerprint 274de655','REFUSED',r7b,err(r7b,'S14B1_CONFIRMATION_HASH_MISMATCH'));
+const r7c=await q(`select cfo_s14b1_approve('274de6552922cbdc2f7d346903ef5ac0300681646fd6e35f9b781959e422a385','approve stale package attempt')`); check('T7c approve stale v1 fingerprint','REFUSED',r7c,err(r7c,'S14B1_HASH_MISMATCH'));
 
 // T8 unexpected commission payment to a collecting agent since the snapshot
 await db.exec(`insert into general_ledger(amount,direction,category,user_id,ledger_scope,wallet_bucket,recipient_type) values (140,'cash_in','agent_commission_earned','e1bb1b7c-14a6-4a25-a82c-dffe345b7170','wallet','withdrawable','user')`);
 const r8=await exec(ap); const s8=await snap(); check('T8 unexpected commission payment','REFUSED, nothing written',r8,err(r8,'"new_commission_payments": 1')&&s8.s14===0);
-await db.exec(`delete from general_ledger where category='agent_commission_earned' and amount=140 and created_at>'2026-10-03 13:00+00'; update wallets set withdrawable_balance=1590.32 where user_id='e1bb1b7c-14a6-4a25-a82c-dffe345b7170'`);
+await db.exec(`delete from general_ledger where category='agent_commission_earned' and amount=140 and created_at>'2026-10-03 13:00+00'; update wallets set withdrawable_balance=2010.32 where user_id='e1bb1b7c-14a6-4a25-a82c-dffe345b7170'`);
 
 // T9 negative tenant balance — (a) before: a plan driven negative; (b) after: a write that would leave a plan negative
 await db.exec(`update rent_requests set amount_repaid=-5 where id='1019b84b-b964-4d38-a97e-5d56978499e0'`);
@@ -68,7 +70,7 @@ const negw=(await q(`select count(*) n from wallets where withdrawable_balance<0
 const recr=(await q(`select count(*) n from general_ledger where reference_id like 's14b1:%' and user_id in ('98ee118b-06d1-47a4-aa2b-76bd12170b70','ebd985fb-dc19-43f8-b5f4-4e8cf1150fd4','ebf0897b-dfdf-4403-ad5c-1c988c72e67c')`) as any)[0].n;
 const sep16=(await q(`select count(*) n, sum(amount)::text s from agent_collections where reversed_at='2026-09-16 14:08:40.882504+00'`) as any)[0];
 const sep29=(await q(`select reversed_at from agent_collections where id='dab3bc9f-1ba2-4151-a344-fdd09132b7f8'`) as any)[0];
-const ok1=typeof r1!=='string'&&tot.legs==66&&tot.grp==33&&tot.cin==='522665.42'&&tot.cout==='522665.42'&&com==='38980.42'&&restored.s==='479685.00'&&restored.neg==0&&negw==0&&recr==0&&s1.f===S0.f&&sep16.n==1210&&sep16.s==='92656683'&&s1.unrev===0;
+const ok1=typeof r1!=='string'&&tot.legs==66&&tot.grp==33&&tot.cin==='523085.42'&&tot.cout==='523085.42'&&com==='39400.42'&&restored.s==='479685.00'&&restored.neg==0&&negw==0&&recr==0&&s1.f===S0.f&&sep16.n==1210&&sep16.s==='92656683'&&s1.unrev===0;
 check('T1 same CFO approves and executes','ALLOWED',{r1,tot,com,restored,negw,recr,float:[S0.f,s1.f],sep16,sep29},ok1);
 check('T4 executed after 5+ minutes','ALLOWED TO PROCEED',{approved_6min_ago:true},ok1);
 
