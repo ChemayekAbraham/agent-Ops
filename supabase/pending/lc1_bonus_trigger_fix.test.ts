@@ -86,7 +86,7 @@ await db.exec(`insert into lc1_chairpersons(id,name,registered_by) values ('${gl
 const gw0 = (await state(glc)).w;
 await db.exec(`update rent_requests set landlord_ops_reviewed_at='2026-08-01 09:00+00', landlord_ops_reviewed_by='${REV}' where id='${grr}'`);
 const g = await one(`select c.verified, c.verified_by::text vb, c.verified_at > '2026-09-01' real_time, c.verification_reason, (select count(*)::int from general_ledger where idem='lc1_reg_verify_v1:${glc}') legs, (select withdrawable_balance::text from wallets where user_id='${AG}') w, (select count(*)::int from audit_logs where action_type='lc1_verified_at_landlord_review' and record_id='${glc}') audit from lc1_chairpersons c where id='${glc}'`);
-check("G genuine review: verified once, real time, paid once", g.verified && g.vb === REV && g.real_time && g.legs === 2 && Number(g.w) - Number(gw0) === 2000 && g.audit === 1, g);
+check("G genuine review: verified once, real time, paid once", g.verified && g.vb === REV && g.real_time && g.legs === 2 && Math.round((Number(g.w) - Number(gw0))*100) === 200000 && g.audit === 1, g);
 
 await db.exec(`update rent_requests set landlord_ops_reviewed_at=landlord_ops_reviewed_at, landlord_ops_reviewed_by=landlord_ops_reviewed_by, status='funded' where id='${grr}'`);
 const h = await state(glc);
