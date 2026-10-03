@@ -60058,6 +60058,7 @@ export type Database = {
         Returns: undefined
       }
       cfo_s12_summary: { Args: never; Returns: Json }
+      cfo_s13_correction_review: { Args: never; Returns: Json }
       cfo_save_evidence_review: {
         Args: { p: Json; p_collection_id: string }
         Returns: Json
