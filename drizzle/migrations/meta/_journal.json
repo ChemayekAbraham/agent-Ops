@@ -3116,6 +3116,13 @@
       "when": 1791064478309,
       "tag": "0444_s14b1w_three_agent_wallet_refresh_approval_controls",
       "breakpoints": true
+    },
+    {
+      "idx": 445,
+      "version": "7",
+      "when": 1791064616413,
+      "tag": "0445_s14b1w_validate_skip_slow_view_in_session_path",
+      "breakpoints": true
     }
   ]
 }
