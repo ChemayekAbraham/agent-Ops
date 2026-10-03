@@ -5,7 +5,7 @@ import { CREDITS_GROUP_LABELS } from '@/lib/withdrawableCreditsGroups';
 const when = (r: any) => new Date(r.created_at).toLocaleString('en-GB', { timeZone: 'Africa/Kampala' });
 
 const config: DrillConfig = {
-  title: 'Wearable credits'.replace('Wearable', 'Withdrawable'),
+  title: 'Withdrawable credits',
   description: 'Every credit into a user\'s withdrawable balance, straight from the ledger. Filter by source, person and Kampala day range; totals cover the full filtered set.',
   rpc: 'get_cfo_withdrawable_credits_page',
   kind: 'credits',
