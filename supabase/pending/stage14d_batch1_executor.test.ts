@@ -73,7 +73,7 @@ check('T1 same CFO approves and executes','ALLOWED',{r1,tot,com,restored,negw,re
 check('T4 executed after 5+ minutes','ALLOWED TO PROCEED',{approved_6min_ago:true},ok1);
 
 const g0=s1.gl;
-const r12=await exec(ap); const r12b=await exec(apX); const ap3=await approve(); const s12=await snap();
+const r12=await exec(ap); const r12b=await exec(apX); const ap3=await q(`select cfo_s14b1_approve('${FP}','another approval after execution')`); const s12=await snap();
 check('T12 second execution attempt','0 new records',{r12,r12b,ap3,s12},err(r12,'S14B1_ALREADY_EXECUTED')&&s12.gl===g0&&s12.s14===66);
 
 console.log(`\n${results.filter(r=>r[2]).length}/${results.length} passed`);
