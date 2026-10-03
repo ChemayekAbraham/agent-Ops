@@ -5,7 +5,7 @@ import { readFileSync } from "fs";
 const db = new PGlite();
 const CFO='29a0cfa8-1eaf-453c-874c-0fc72fa4f74b', CFO2='00000000-0000-4000-8000-0000000000c2', AGENT='dc5ba4af-cb53-4fe8-9aa5-b1b73d0402aa';
 const FP='274de6552922cbdc2f7d346903ef5ac0300681646fd6e35f9b781959e422a385', PH='EXECUTE BATCH 1 CORRECTION';
-const q=async(s:string)=>{try{const r=await db.query(s);return r.rows}catch(e:any){return 'ERR: '+e.message.slice(0,140)}};
+const q=async(s:string)=>{try{const r=await db.query(s);return r.rows}catch(e:any){return 'ERR: '+e.message.slice(0,2000)}};
 const as=(u:string|null)=>db.exec(`UPDATE auth.cur SET uid=${u?`'${u}'`:'NULL'}`);
 const snap=async()=>(await q(`select (select count(*) from general_ledger) gl,(select count(*) from general_ledger where reference_id like 's14b1:%') s14,(select sum(withdrawable_balance)::text from wallets) w,(select sum(float_balance)::text from wallets) f,(select count(*) from agent_collections where reversed_at is null and id in (select collection_id from fin_s14_batch_cases)) unrev,(select sum(amount_repaid)::text from rent_requests) rr,(select count(*) from fin_s14b1_approvals where executed_at is not null) ex`) as any)[0];
 const results:[string,string,boolean][]=[];

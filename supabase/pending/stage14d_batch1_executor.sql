@@ -402,10 +402,10 @@ BEGIN
   END LOOP;
   SELECT count(*) INTO n_plans FROM fin_s14b1_package_plans;
   -- Tenant-balance safety (after): no negative paid/outstanding, no overpayment, terms unchanged
-  IF EXISTS (SELECT 1 FROM fin_s14b1_package_plans p JOIN rent_requests rr ON rr.id=p.rent_request_id
+  IF EXISTS (SELECT 1 FROM fin_s14b1_package_plans pp JOIN rent_requests rr ON rr.id=pp.rent_request_id
               WHERE rr.amount_repaid < 0 OR rr.total_repayment - rr.amount_repaid < 0
-                 OR rr.amount_repaid::numeric(18,2) <> p.amount_repaid_after
-                 OR rr.total_repayment::numeric(18,2) <> p.total_repayment)
+                 OR rr.amount_repaid::numeric(18,2) <> pp.amount_repaid_after
+                 OR rr.total_repayment::numeric(18,2) <> pp.total_repayment)
   THEN RAISE EXCEPTION 'S14B1_TENANT_BALANCE_UNSAFE'; END IF;
 
   -- Final balance assertions
