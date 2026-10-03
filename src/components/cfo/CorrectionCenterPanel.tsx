@@ -12,6 +12,7 @@ import { ShieldAlert, Lock } from 'lucide-react';
 import { EvidenceReviewQueue } from './EvidenceReviewQueue';
 import { CollectionReconciliationS11 } from './CollectionReconciliationS11';
 import { EvidenceResolutionS12 } from './EvidenceResolutionS12';
+import { CorrectionReviewS13 } from './CorrectionReviewS13';
 
 type Bucket = { count: number; amount: number };
 type Scenario = Record<string, number | string>;
@@ -155,6 +156,8 @@ export function CorrectionCenterPanel() {
       <CollectionReconciliationS11 />
 
       <EvidenceResolutionS12 />
+
+      <CorrectionReviewS13 />
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
