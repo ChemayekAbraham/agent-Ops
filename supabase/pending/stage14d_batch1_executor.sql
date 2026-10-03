@@ -131,7 +131,7 @@ CREATE TRIGGER trg_s14b1_lines_frozen BEFORE UPDATE OR DELETE ON public.fin_s14b
 CREATE TRIGGER trg_s14b1_plans_frozen BEFORE UPDATE OR DELETE ON public.fin_s14b1_package_plans FOR EACH ROW EXECUTE FUNCTION public.fin_s14b1_freeze();
 CREATE TRIGGER trg_s14b1_appr_frozen  BEFORE UPDATE OR DELETE ON public.fin_s14b1_approvals     FOR EACH ROW EXECUTE FUNCTION public.fin_s14b1_freeze();
 CREATE OR REPLACE FUNCTION public.fin_s14b1_no_insert() RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $f$
-BEGIN RAISE EXCEPTION 'S14B1_FROZEN: package rows cannot be added'; END $;
+BEGIN RAISE EXCEPTION 'S14B1_FROZEN: package rows cannot be added'; END $f$;
 CREATE TRIGGER trg_s14b1_lines_noins AFTER INSERT ON public.fin_s14b1_package_lines FOR EACH STATEMENT EXECUTE FUNCTION public.fin_s14b1_no_insert();
 CREATE TRIGGER trg_s14b1_plans_noins AFTER INSERT ON public.fin_s14b1_package_plans FOR EACH STATEMENT EXECUTE FUNCTION public.fin_s14b1_no_insert();
 -- (These two INSERT blockers are created AFTER the seed above, so they block every later insert.)
