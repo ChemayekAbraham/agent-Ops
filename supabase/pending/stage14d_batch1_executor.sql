@@ -16,7 +16,11 @@
 -- Held open (NOT in this package, no transaction of any kind): UGX 6,552.40
 --   status "Held Open — Unrecoverable at Current Wallet Balance" — not recovered,
 --   not written off, not moved, not expensed.
--- Execution requires a SECOND, different CFO approver from the one who approved.
+-- Single-CFO workflow (2026-10-03): the approving CFO may also execute, but only
+-- Angwen Sarah's account (29a0cfa8-…) may execute this Batch 1 tool, only between
+-- 5 minutes and 24 hours after approval, and only with the typed phrase
+-- 'EXECUTE BATCH 1 CORRECTION' plus the fingerprint supplied again. Approval never
+-- accepts the phrase and never executes. is_cfo_approver is NOT changed.
 -- Audit/event identifier: ACCOUNTING_CORRECTION_BATCH_1_DUPLICATE_COLLECTIONS
 -- Recruiter commission (UGX 2,835.68) and unrecoverable collecting commission
 -- (UGX 6,552.40) have NO lines: they are neither recovered nor written off.
@@ -238,6 +242,21 @@ BEGIN
   SELECT count(*) INTO bad FROM fin_s14b1_package_lines WHERE recipient_user_id IN
    ('98ee118b-06d1-47a4-aa2b-76bd12170b70','ebd985fb-dc19-43f8-b5f4-4e8cf1150fd4','ebf0897b-dfdf-4403-ad5c-1c988c72e67c');
   ok := ok AND bad = 0;
+
+  -- Unexpected commission payment: no new commission to the three collecting agents
+  -- after the last commission leg included in the reviewed snapshot. Never recalculated.
+  SELECT count(*) INTO bad FROM general_ledger g
+   WHERE g.category='agent_commission_earned' AND g.ledger_scope='wallet' AND g.direction='cash_in'
+     AND g.created_at > '2026-10-03 12:34:34.025297+00'::timestamptz
+     AND g.user_id IN (SELECT DISTINCT recipient_user_id FROM fin_s14b1_package_lines WHERE kind='commission');
+  v := v || jsonb_build_object('new_commission_payments', bad); ok := ok AND bad = 0;
+
+  -- Tenant-balance safety (before): every plan in range now and after the planned restore
+  SELECT count(*) INTO bad FROM fin_s14b1_package_plans p JOIN rent_requests rr ON rr.id=p.rent_request_id
+   WHERE rr.amount_repaid < 0 OR rr.total_repayment - rr.amount_repaid < 0
+      OR p.amount_repaid_after < 0 OR p.amount_repaid_after > rr.total_repayment
+      OR p.amount_repaid_after <> p.amount_repaid_before - p.restore_amount;
+  v := v || jsonb_build_object('tenant_balance_unsafe', bad); ok := ok AND bad = 0;
 
   v := v || jsonb_build_object('fingerprint', public.fin_s14b1_fingerprint(), 'all_ok', ok);
   RETURN v;
