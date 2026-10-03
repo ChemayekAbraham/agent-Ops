@@ -72927,8 +72927,26 @@ export type Database = {
         Args: { p_threshold?: number; p_user_id: string }
         Returns: Json
       }
+      verify_landlord_on_landlord_review: {
+        Args: {
+          p_landlord_id: string
+          p_rent_request_id: string
+          p_reviewed_at: string
+          p_reviewer: string
+        }
+        Returns: boolean
+      }
       verify_landlord_registered: {
         Args: { p_landlord_id: string }
+        Returns: boolean
+      }
+      verify_lc1_on_landlord_review: {
+        Args: {
+          p_lc1_id: string
+          p_rent_request_id: string
+          p_reviewed_at: string
+          p_reviewer: string
+        }
         Returns: boolean
       }
       verify_ledger_delivery: {
