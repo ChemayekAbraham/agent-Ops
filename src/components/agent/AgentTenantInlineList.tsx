@@ -347,7 +347,6 @@ export function AgentTenantInlineList({ onOpenTenantSheet, onAddTenant }: AgentT
             const latest = tenant.latest_status;
             const isPendingReview = latest === 'pending';
             const isApproved = latest === 'approved';
-            const isLiveRequest = latest === 'funded' || latest === 'disbursed' || latest === 'repaying';
             const statusBadge = isNotPaying
               ? { label: 'Not paying', cls: 'bg-amber-100 text-amber-700' }
               : isPendingReview
@@ -356,14 +355,14 @@ export function AgentTenantInlineList({ onOpenTenantSheet, onAddTenant }: AgentT
                   ? { label: 'Landlord not paid', cls: 'bg-amber-100 text-amber-700' }
                   : isApproved
                     ? { label: 'Approved', cls: 'bg-emerald-100 text-emerald-700' }
-                    : hasDebt && isLiveRequest
-                      ? { label: 'Repaying', cls: 'bg-rose-100 text-rose-700' }
+                    : hasDebt
+                      ? { label: 'Owing', cls: 'bg-rose-100 text-rose-700' }
                       : isCompleted
                         ? { label: 'Completed', cls: 'bg-emerald-100 text-emerald-700' }
                         : { label: 'Paid up', cls: 'bg-emerald-100 text-emerald-700' };
             const toneText = isNotPaying || isPendingReview || awaitingLandlord
               ? 'text-amber-600'
-              : hasDebt && isLiveRequest
+              : hasDebt
                 ? 'text-rose-600'
                 : 'text-emerald-600';
             const initial = (tenant.full_name?.trim()?.charAt(0) || tenant.phone?.charAt(0) || '?').toUpperCase();
@@ -380,7 +379,7 @@ export function AgentTenantInlineList({ onOpenTenantSheet, onAddTenant }: AgentT
                   className={`w-9 h-9 sm:w-11 sm:h-11 rounded-full flex items-center justify-center shrink-0 text-sm sm:text-base font-bold ${
                     isNotPaying || isPendingReview || awaitingLandlord
                       ? 'bg-amber-100 text-amber-700'
-                      : hasDebt && isLiveRequest
+                      : hasDebt
                         ? 'bg-rose-100 text-rose-700'
                         : 'bg-emerald-100 text-emerald-700'
                   } overflow-hidden`}
