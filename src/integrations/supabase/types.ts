@@ -64201,6 +64201,15 @@ export type Database = {
           withdrawal_id: string
         }[]
       }
+      get_landlord_payout_budget: {
+        Args: never
+        Returns: {
+          allowed_today: number
+          budget: number
+          enabled: boolean
+          remaining: number
+        }[]
+      }
       get_landlord_payout_receipt: { Args: { p_code: string }; Returns: Json }
       get_landlord_verification_actors: {
         Args: { p_from?: string; p_to?: string }
@@ -71143,6 +71152,10 @@ export type Database = {
       }
       set_landlord_payout_block_exemption: {
         Args: { p_allow: boolean; p_withdrawal_ids: string[] }
+        Returns: number
+      }
+      set_landlord_payout_budget: {
+        Args: { p_budget: number }
         Returns: number
       }
       set_landlord_verification: {
