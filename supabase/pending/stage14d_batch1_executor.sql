@@ -116,7 +116,7 @@ INSERT INTO public.fin_s14b1_package_plans
   ('cd49828e-3635-4631-a015-5676342a9e4f'::uuid,60888.00,209500.00,'repaying',6984.00,53904.00,'repaying');
 
 -- Package rows are frozen: no UPDATE/DELETE ever; approvals may only gain execution stamps once.
-CREATE OR REPLACE FUNCTION public.fin_s14b1_freeze() RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $
+CREATE OR REPLACE FUNCTION public.fin_s14b1_freeze() RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $f$
 BEGIN
   IF TG_TABLE_NAME = 'fin_s14b1_approvals' AND TG_OP = 'UPDATE'
      AND OLD.executed_at IS NULL AND NEW.executed_at IS NOT NULL
@@ -126,11 +126,11 @@ BEGIN
     RETURN NEW;
   END IF;
   RAISE EXCEPTION 'S14B1_FROZEN: % on % is not allowed', TG_OP, TG_TABLE_NAME;
-END $;
+END $f$;
 CREATE TRIGGER trg_s14b1_lines_frozen BEFORE UPDATE OR DELETE ON public.fin_s14b1_package_lines FOR EACH ROW EXECUTE FUNCTION public.fin_s14b1_freeze();
 CREATE TRIGGER trg_s14b1_plans_frozen BEFORE UPDATE OR DELETE ON public.fin_s14b1_package_plans FOR EACH ROW EXECUTE FUNCTION public.fin_s14b1_freeze();
 CREATE TRIGGER trg_s14b1_appr_frozen  BEFORE UPDATE OR DELETE ON public.fin_s14b1_approvals     FOR EACH ROW EXECUTE FUNCTION public.fin_s14b1_freeze();
-CREATE OR REPLACE FUNCTION public.fin_s14b1_no_insert() RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $
+CREATE OR REPLACE FUNCTION public.fin_s14b1_no_insert() RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $f$
 BEGIN RAISE EXCEPTION 'S14B1_FROZEN: package rows cannot be added'; END $;
 CREATE TRIGGER trg_s14b1_lines_noins AFTER INSERT ON public.fin_s14b1_package_lines FOR EACH STATEMENT EXECUTE FUNCTION public.fin_s14b1_no_insert();
 CREATE TRIGGER trg_s14b1_plans_noins AFTER INSERT ON public.fin_s14b1_package_plans FOR EACH STATEMENT EXECUTE FUNCTION public.fin_s14b1_no_insert();
@@ -138,7 +138,7 @@ CREATE TRIGGER trg_s14b1_plans_noins AFTER INSERT ON public.fin_s14b1_package_pl
 
 -- 2. Fingerprint of the frozen package -------------------------------------
 CREATE OR REPLACE FUNCTION public.fin_s14b1_fingerprint() RETURNS text
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $f$
   SELECT encode(sha256(convert_to(
     's14b1-v1' || '|' ||
     (SELECT string_agg(entry_key||';'||kind||';'||collection_id||';'||rent_request_id||';'||coalesce(recipient_user_id::text,'')||';'||
@@ -147,13 +147,13 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $
     (SELECT string_agg('plan;'||rent_request_id||';'||amount_repaid_before::numeric(18,2)::text||';'||status_before||';'||
                        restore_amount::numeric(18,2)::text||';'||amount_repaid_after::numeric(18,2)::text||';'||status_after, '|' ORDER BY rent_request_id)
        FROM public.fin_s14b1_package_plans), 'UTF8')), 'hex')
-$;
+$f$;
 -- The hashed string is built exactly as in the Stage 14 review (tag 's14b1-v1').
 -- The constant below is what fin_s14b1_fingerprint() must return; it is re-checked at apply time.
 
 -- 3. Live validation (read-only; returns every check) ----------------------
 CREATE OR REPLACE FUNCTION public.fin_s14b1_validate() RETURNS jsonb
-LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $f$
 DECLARE
   v jsonb := '{}'::jsonb; ok boolean := true; n int; s numeric; bad int;
 BEGIN
@@ -234,11 +234,11 @@ BEGIN
 
   v := v || jsonb_build_object('fingerprint', public.fin_s14b1_fingerprint(), 'all_ok', ok);
   RETURN v;
-END $;
+END $f$;
 
 -- 4. Manifest (read-only) -------------------------------------------------
 CREATE OR REPLACE FUNCTION public.cfo_s14b1_manifest() RETURNS jsonb
-LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $f$
 BEGIN
   IF NOT public.is_cfo_approver(auth.uid()) THEN RAISE EXCEPTION 'S14B1_NOT_CFO'; END IF;
   RETURN jsonb_build_object(
@@ -250,11 +250,11 @@ BEGIN
     'protected', jsonb_build_array('16 Sep: 1,210 reversed collections, UGX 92,656,683','29 Sep: collection dab3bc9f UGX 10,000'),
     'not_in_package', jsonb_build_object('recruiter_commission', 2835.68, 'unrecoverable_collecting_commission', 6552.40),
     'validation', public.fin_s14b1_validate());
-END $;
+END $f$;
 
 -- 5. CFO approval (records a decision only; moves no money) ----------------
 CREATE OR REPLACE FUNCTION public.cfo_s14b1_approve(p_package_hash text, p_reason text) RETURNS uuid
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $f$
 DECLARE v_id uuid; v jsonb;
 BEGIN
   IF NOT public.is_cfo_approver(auth.uid()) THEN RAISE EXCEPTION 'S14B1_NOT_CFO'; END IF;
@@ -270,11 +270,11 @@ BEGIN
   INSERT INTO audit_logs (user_id, action_type, table_name, record_id, reason, metadata)
   VALUES (auth.uid(), 's14b1_package_approved', 'fin_s14b1_approvals', v_id::text, p_reason, jsonb_build_object('hash', p_package_hash));
   RETURN v_id;
-END $;
+END $f$;
 
 -- 6. Executor (atomic; one function call = one transaction) ----------------
 CREATE OR REPLACE FUNCTION public.cfo_s14b1_execute(p_approval_id uuid, p_approved boolean) RETURNS jsonb
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $f$
 DECLARE
   a record; l record; p record; v jsonb; v_grp uuid; v_avail numeric;
   n_entries int := 0; n_legs int := 0; v_dr numeric := 0; v_cr numeric := 0; n_coll int; n_plans int;
@@ -376,7 +376,7 @@ BEGIN
   VALUES ('ledger_classification_backfilled', auth.uid(), 'fin_s14b1_approvals', p_approval_id, v || jsonb_build_object('kind','s14b1_correction'));
   RETURN v;
   -- Any RAISE above aborts the whole call: all 66 legs, wallet movements, collection marks and plan updates roll back together.
-END $;
+END $f$;
 
 -- 7. Access: no ordinary path can reach these ------------------------------
 REVOKE ALL ON FUNCTION public.fin_s14b1_fingerprint(), public.fin_s14b1_validate(), public.cfo_s14b1_manifest(),
