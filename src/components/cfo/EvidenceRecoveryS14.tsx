@@ -53,6 +53,14 @@ export function EvidenceRecoveryS14() {
       return data as { controls: Record<string, number>; cases: Case[] };
     },
   });
+  const batch = useQuery({
+    queryKey: ['cfo-s14-batch', 1],
+    queryFn: async () => {
+      const { data, error } = await (supabase.rpc as any)('cfo_s14_batch', { p_batch: 1 });
+      if (error) throw error;
+      return (data ?? []) as { collection_id: string; position: number }[];
+    },
+  });
   const refresh = () => qc.invalidateQueries({ queryKey: ['cfo-s14-list'] });
 
   if (q.isLoading) return <Card><CardContent className="p-4 text-sm text-muted-foreground">Loading Stage 14…</CardContent></Card>;
@@ -63,6 +71,9 @@ export function EvidenceRecoveryS14() {
   const dups = cases.filter((c) => c.case_type === 'duplicate');
   const mis = cases.filter((c) => c.case_type === 'agent_mismatch');
   const ready = cases.filter((c) => c.correction_status === 'Ready for Correction Review');
+  const batchIds = new Set((batch.data ?? []).map((b) => b.collection_id));
+  const b1 = (batch.data ?? []).map((b) => cases.find((c) => c.collection_id === b.collection_id)!).filter(Boolean);
+  const b1Done = b1.filter((c) => !['Awaiting Evidence Recovery', 'Evidence Collected'].includes(c.status));
   const balanced = cases.length === POP.count && sum(cases) === POP.amount;
 
   return (
@@ -89,17 +100,22 @@ export function EvidenceRecoveryS14() {
           </tbody>
         </table>
 
-        <Tabs defaultValue="dups">
+        <Tabs defaultValue="b1">
           <TabsList className="flex-wrap h-auto">
+            <TabsTrigger value="b1">Batch 1 ({b1Done.length}/{b1.length} reviewed)</TabsTrigger>
             <TabsTrigger value="dups">A. Duplicate recovery ({dups.length})</TabsTrigger>
             <TabsTrigger value="mis">B. Agent mismatch recovery ({mis.length})</TabsTrigger>
             <TabsTrigger value="preview">Correction impact preview ({ready.length})</TabsTrigger>
           </TabsList>
+          <TabsContent value="b1" className="max-h-[560px] overflow-auto space-y-2">
+            <BatchSummary rows={b1} />
+            {b1.map((c) => <CaseCard key={c.collection_id} c={c} disabled={!balanced || !batchIds.has(c.collection_id)} onEvidence={() => setEvFor(c)} onDecide={() => setDecFor(c)} />)}
+          </TabsContent>
           <TabsContent value="dups" className="max-h-[560px] overflow-auto space-y-2">
-            {dups.map((c) => <CaseCard key={c.collection_id} c={c} disabled={!balanced} onEvidence={() => setEvFor(c)} onDecide={() => setDecFor(c)} />)}
+            {dups.map((c) => <CaseCard key={c.collection_id} c={c} disabled={!balanced || !batchIds.has(c.collection_id)} onEvidence={() => setEvFor(c)} onDecide={() => setDecFor(c)} />)}
           </TabsContent>
           <TabsContent value="mis" className="max-h-[560px] overflow-auto space-y-2">
-            {mis.map((c) => <CaseCard key={c.collection_id} c={c} disabled={!balanced} onEvidence={() => setEvFor(c)} onDecide={() => setDecFor(c)} />)}
+            {mis.map((c) => <CaseCard key={c.collection_id} c={c} disabled={!balanced || !batchIds.has(c.collection_id)} onEvidence={() => setEvFor(c)} onDecide={() => setDecFor(c)} />)}
           </TabsContent>
           <TabsContent value="preview" className="space-y-2">
             <div className="flex items-center gap-2 text-xs font-medium"><Lock className="h-3 w-3" />Preview only — no financial records have been changed.</div>
@@ -111,6 +127,26 @@ export function EvidenceRecoveryS14() {
       {evFor && <EvidenceForm c={evFor} onClose={() => setEvFor(null)} onSaved={() => { setEvFor(null); refresh(); }} />}
       {decFor && <DecisionForm c={decFor} onClose={() => setDecFor(null)} onSaved={() => { setDecFor(null); refresh(); }} />}
     </Card>
+  );
+}
+
+function BatchSummary({ rows }: { rows: Case[] }) {
+  const by = (st: string) => rows.filter((c) => c.status === st);
+  const ev = rows.reduce((a, c) => a + c.evidence.length, 0);
+  const lines: [string, Case[] | null, string?][] = [
+    ['Awaiting Evidence Recovery', by('Awaiting Evidence Recovery')], ['Evidence Collected', by('Evidence Collected')],
+    ['Confirmed Duplicate (Ready for Correction Review)', by('Confirmed Duplicate')], ['Valid Separate Payment (no correction)', by('Valid Separate Payment')],
+    ['Insufficient Evidence (no correction)', by('Insufficient Evidence')],
+  ];
+  return (
+    <div className="rounded-md border border-border p-2 text-xs">
+      <p className="font-medium mb-1">Batch 1 — first 20 duplicate cases (oldest first). Only these 20 accept evidence or outcomes; others are read-only.</p>
+      <table className="w-full"><tbody>
+        {lines.map(([k, xs]) => <tr key={k}><td>{k}</td><td className="text-right">{xs!.length}</td><td className="text-right">{formatUGX(sum(xs!))}</td></tr>)}
+        <tr className="border-t border-border font-semibold"><td>Batch total</td><td className="text-right">{rows.length}</td><td className="text-right">{formatUGX(sum(rows))}</td></tr>
+      </tbody></table>
+      <p className="text-muted-foreground mt-1">Evidence items recorded: {ev}. Nothing is filled in or decided for you.</p>
+    </div>
   );
 }
 
