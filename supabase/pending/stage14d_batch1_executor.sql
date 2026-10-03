@@ -13,6 +13,11 @@
 -- debits = credits = UGX 522,665.42, 13 Rent Plans (UGX 479,685).
 -- Fingerprint (sha256): 274de6552922cbdc2f7d346903ef5ac0300681646fd6e35f9b781959e422a385
 -- (Rebuilt 2026-10-03: commission contra leg relabelled system_balance_correction -> agent_commission_earned; supersedes 16d1ae84...)
+-- Held open (NOT in this package, no transaction of any kind): UGX 6,552.40
+--   status "Held Open — Unrecoverable at Current Wallet Balance" — not recovered,
+--   not written off, not moved, not expensed.
+-- Execution requires a SECOND, different CFO approver from the one who approved.
+-- Audit/event identifier: ACCOUNTING_CORRECTION_BATCH_1_DUPLICATE_COLLECTIONS
 -- Recruiter commission (UGX 2,835.68) and unrecoverable collecting commission
 -- (UGX 6,552.40) have NO lines: they are neither recovered nor written off.
 -- ============================================================================
@@ -292,6 +297,8 @@ BEGIN
   IF NOT FOUND THEN RAISE EXCEPTION 'S14B1_APPROVAL_NOT_FOUND'; END IF;
   IF a.executed_at IS NOT NULL THEN RAISE EXCEPTION 'S14B1_ALREADY_EXECUTED'; END IF;
   IF EXISTS (SELECT 1 FROM fin_s14b1_approvals WHERE executed_at IS NOT NULL) THEN RAISE EXCEPTION 'S14B1_ALREADY_EXECUTED'; END IF;
+  -- Gate 3b: separation of duties — the executing CFO must differ from the approving CFO
+  IF a.approved_by IS NULL OR a.approved_by = auth.uid() THEN RAISE EXCEPTION 'S14B1_SAME_APPROVER_AND_EXECUTOR'; END IF;
   IF a.package_version <> 'S14B1-v1' OR a.package_hash <> public.fin_s14b1_fingerprint() THEN RAISE EXCEPTION 'S14B1_HASH_MISMATCH'; END IF;
   IF (a.approved_totals->>'debits')::numeric <> 522665.42 THEN RAISE EXCEPTION 'S14B1_TOTALS_MISMATCH'; END IF;
 
@@ -399,7 +406,7 @@ BEGIN
   INSERT INTO audit_logs (user_id, action_type, table_name, record_id, reason, metadata)
   VALUES (auth.uid(), 's14b1_correction_executed', 'fin_s14b1_approvals', p_approval_id::text, 'Stage 14 Batch 1 correction executed under CFO approval', v);
   INSERT INTO system_events (event_type, user_id, related_entity_type, related_entity_id, metadata)
-  VALUES ('ledger_classification_backfilled', auth.uid(), 'fin_s14b1_approvals', p_approval_id, v || jsonb_build_object('kind','s14b1_correction'));
+  VALUES ('ACCOUNTING_CORRECTION_BATCH_1_DUPLICATE_COLLECTIONS', auth.uid(), 'fin_s14b1_approvals', p_approval_id, v || jsonb_build_object('kind','s14b1_correction'));
   RETURN v;
   -- Any RAISE above aborts the whole call: all 66 legs, wallet movements, collection marks and plan updates roll back together.
 END $f$;

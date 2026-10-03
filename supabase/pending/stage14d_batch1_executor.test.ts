@@ -1,7 +1,7 @@
 import { PGlite } from "@electric-sql/pglite";
 import { readFileSync } from "fs";
 const db = new PGlite();
-const CFO='29a0cfa8-1eaf-453c-874c-0fc72fa4f74b', AGENT='dc5ba4af-cb53-4fe8-9aa5-b1b73d0402aa';
+const CFO='29a0cfa8-1eaf-453c-874c-0fc72fa4f74b', CFO2='00000000-0000-4000-8000-0000000000c2', AGENT='dc5ba4af-cb53-4fe8-9aa5-b1b73d0402aa';
 const q=async(s:string)=>{try{const r=await db.query(s);return r.rows}catch(e:any){return 'ERR: '+e.message.slice(0,160)}};
 const as=(u:string|null)=>db.exec(`UPDATE auth.cur SET uid=${u?`'${u}'`:'NULL'}`);
 const snap=()=>q(`select (select count(*) from general_ledger) gl,(select count(*) from general_ledger where reference_id like 's14b1:%') s14,(select sum(withdrawable_balance) from wallets) w,(select count(*) from agent_collections where reversed_at is null and id in (select collection_id from fin_s14_batch_cases)) unrev,(select sum(amount_repaid) from rent_requests) rr`);
@@ -19,6 +19,9 @@ log('T6 approve wrong hash',await q(`select cfo_s14b1_approve('abc','CFO approva
 log('T7 approve short reason',await q(`select cfo_s14b1_approve(fin_s14b1_fingerprint(),'ok')`));
 const ap=(await q(`select cfo_s14b1_approve(fin_s14b1_fingerprint(),'CFO approves Stage 14 Batch 1 package v1') id`) as any)[0].id;
 log('T8 approve OK -> id',ap);
+await db.exec(`insert into cfo_approval_approvers values ('${CFO2}')`);
+log('T8b same CFO approves and executes',await q(`select cfo_s14b1_execute('${ap}',true)`)); log('   snapshot',await snap());
+await as(CFO2);
 log('T9 execute approved=false',await q(`select cfo_s14b1_execute('${ap}',false)`));
 log('T10 execute approved=NULL',await q(`select cfo_s14b1_execute('${ap}',NULL)`));
 log('T11 execute unknown approval',await q(`select cfo_s14b1_execute(gen_random_uuid(),true)`));
@@ -64,6 +67,8 @@ log('   29 Sep row',await q(`select reversed_at from agent_collections where id=
 log('   mapped per group',await q(`with m as (select g.transaction_group_id t, g.ledger_scope||'.'||g.category||'/'||g.direction k, case when g.ledger_scope='wallet' then 'L1' else coalesce(am.account_code,'A9') end acct, (g.direction=coalesce(am.debit_when, case when g.ledger_scope='wallet' then 'cash_out' else 'cash_in' end)) dr, g.amount from general_ledger g left join ledger_account_map am on am.ledger_scope=g.ledger_scope and am.category=g.category where g.reference_id like 's14b1:%:commission') select string_agg(distinct acct||case when dr then ' DR' else ' CR' end, ' / ') shape, count(distinct t) groups, sum(amount) filter (where dr) dr, sum(amount) filter (where not dr) cr from m`));
 log('   float after (should equal before)',await q(`select sum(float_balance) from wallets`));
 log('T21 second execute same approval',await q(`select cfo_s14b1_execute('${ap}',true)`));
+await as(CFO);
 const ap2=await q(`select cfo_s14b1_approve(fin_s14b1_fingerprint(),'second approval attempt for test')`);
 log('T22 new approval after execution',ap2);
+log('   event label',await q(`select event_type from system_events`));
 log('   s14b1 legs after retries',await snap());
