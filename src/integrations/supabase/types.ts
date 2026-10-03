@@ -16463,6 +16463,120 @@ export type Database = {
           },
         ]
       }
+      fin_s14b1_approvals: {
+        Row: {
+          approved_at: string
+          approved_by: string
+          approved_totals: Json
+          executed_at: string | null
+          executed_by: string | null
+          execution_result: Json | null
+          id: string
+          package_hash: string
+          package_version: string
+          reason: string
+        }
+        Insert: {
+          approved_at?: string
+          approved_by: string
+          approved_totals: Json
+          executed_at?: string | null
+          executed_by?: string | null
+          execution_result?: Json | null
+          id?: string
+          package_hash: string
+          package_version: string
+          reason: string
+        }
+        Update: {
+          approved_at?: string
+          approved_by?: string
+          approved_totals?: Json
+          executed_at?: string | null
+          executed_by?: string | null
+          execution_result?: Json | null
+          id?: string
+          package_hash?: string
+          package_version?: string
+          reason?: string
+        }
+        Relationships: []
+      }
+      fin_s14b1_package_lines: {
+        Row: {
+          amount: number
+          case_position: number
+          collection_id: string
+          credit_account: string
+          debit_account: string
+          entry_key: string
+          kind: string
+          origin_group_id: string
+          origin_leg_amount: number | null
+          origin_leg_ids: string
+          recipient_user_id: string | null
+          rent_request_id: string
+        }
+        Insert: {
+          amount: number
+          case_position: number
+          collection_id: string
+          credit_account: string
+          debit_account: string
+          entry_key: string
+          kind: string
+          origin_group_id: string
+          origin_leg_amount?: number | null
+          origin_leg_ids: string
+          recipient_user_id?: string | null
+          rent_request_id: string
+        }
+        Update: {
+          amount?: number
+          case_position?: number
+          collection_id?: string
+          credit_account?: string
+          debit_account?: string
+          entry_key?: string
+          kind?: string
+          origin_group_id?: string
+          origin_leg_amount?: number | null
+          origin_leg_ids?: string
+          recipient_user_id?: string | null
+          rent_request_id?: string
+        }
+        Relationships: []
+      }
+      fin_s14b1_package_plans: {
+        Row: {
+          amount_repaid_after: number
+          amount_repaid_before: number
+          rent_request_id: string
+          restore_amount: number
+          status_after: string
+          status_before: string
+          total_repayment: number
+        }
+        Insert: {
+          amount_repaid_after: number
+          amount_repaid_before: number
+          rent_request_id: string
+          restore_amount: number
+          status_after: string
+          status_before: string
+          total_repayment: number
+        }
+        Update: {
+          amount_repaid_after?: number
+          amount_repaid_before?: number
+          rent_request_id?: string
+          restore_amount?: number
+          status_after?: string
+          status_before?: string
+          total_repayment?: number
+        }
+        Relationships: []
+      }
       finance_anomaly_alert_config: {
         Row: {
           created_at: string
@@ -60272,6 +60386,20 @@ export type Database = {
       }
       cfo_s14_history: { Args: { p_collection_id: string }; Returns: Json }
       cfo_s14_list: { Args: never; Returns: Json }
+      cfo_s14b1_approve: {
+        Args: { p_package_hash: string; p_reason: string }
+        Returns: string
+      }
+      cfo_s14b1_execute: {
+        Args: {
+          p_approval_id: string
+          p_approved: boolean
+          p_confirmation: string
+          p_package_hash: string
+        }
+        Returns: Json
+      }
+      cfo_s14b1_manifest: { Args: never; Returns: Json }
       cfo_save_evidence_review: {
         Args: { p: Json; p_collection_id: string }
         Returns: Json
@@ -61794,6 +61922,8 @@ export type Database = {
       fin_s12_txn_financial_writes: { Args: never; Returns: number }
       fin_s14_assert_controls: { Args: never; Returns: undefined }
       fin_s14_txn_financial_writes: { Args: never; Returns: number }
+      fin_s14b1_fingerprint: { Args: never; Returns: string }
+      fin_s14b1_validate: { Args: never; Returns: Json }
       finance_alert_rank_severity: { Args: { p_rank: number }; Returns: string }
       finance_alert_severity_rank: {
         Args: { p_severity: string }
