@@ -11,7 +11,8 @@
 -- Frozen package: version s14b1-v1, 20 collections (UGX 483,685),
 -- 20 cash entries + 13 commission entries = 33 entries / 66 legs,
 -- debits = credits = UGX 522,665.42, 13 Rent Plans (UGX 479,685).
--- Fingerprint (sha256): 16d1ae848d0f05e879c42c1a57823d7bc4d9fd7f0ce8026c73809a251c8bafd9
+-- Fingerprint (sha256): 274de6552922cbdc2f7d346903ef5ac0300681646fd6e35f9b781959e422a385
+-- (Rebuilt 2026-10-03: commission contra leg relabelled system_balance_correction -> agent_commission_earned; supersedes 16d1ae84...)
 -- Recruiter commission (UGX 2,835.68) and unrecoverable collecting commission
 -- (UGX 6,552.40) have NO lines: they are neither recovered nor written off.
 -- ============================================================================
@@ -411,7 +412,7 @@ GRANT EXECUTE ON FUNCTION public.cfo_s14b1_manifest(), public.cfo_s14b1_approve(
 
 -- 8. Apply-time self-check: abort the whole file unless the frozen package hashes to the reviewed value
 DO $c$ BEGIN
-  IF public.fin_s14b1_fingerprint() <> '16d1ae848d0f05e879c42c1a57823d7bc4d9fd7f0ce8026c73809a251c8bafd9' THEN
-    RAISE EXCEPTION 'S14B1 package fingerprint % differs from reviewed 16d1ae848d0f05e879c42c1a57823d7bc4d9fd7f0ce8026c73809a251c8bafd9', public.fin_s14b1_fingerprint();
+  IF public.fin_s14b1_fingerprint() <> '274de6552922cbdc2f7d346903ef5ac0300681646fd6e35f9b781959e422a385' THEN
+    RAISE EXCEPTION 'S14B1 package fingerprint % differs from reviewed 274de6552922cbdc2f7d346903ef5ac0300681646fd6e35f9b781959e422a385', public.fin_s14b1_fingerprint();
   END IF;
 END $c$;
