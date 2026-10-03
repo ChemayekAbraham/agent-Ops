@@ -5,7 +5,7 @@
 -- Preview and production share ONE database, so applying this file IS a
 -- production change. It must not be applied until the CFO approves the code,
 -- and creating these objects moves no money by itself. Money moves only when
--- cfo_s14b1_execute(<approval_id>, true) is called by a CFO approver after
+-- cfo_s14b1_execute(<approval_id>, true, <phrase>, <fingerprint>) is called by the Batch 1 executor after
 -- cfo_s14b1_approve() has recorded an approval for the exact fingerprint.
 --
 -- Frozen package: version s14b1-v1, 20 collections (UGX 483,685),
@@ -444,8 +444,8 @@ END $f$;
 
 -- 7. Access: no ordinary path can reach these ------------------------------
 REVOKE ALL ON FUNCTION public.fin_s14b1_fingerprint(), public.fin_s14b1_validate(), public.cfo_s14b1_manifest(),
-  public.cfo_s14b1_approve(text, text), public.cfo_s14b1_execute(uuid, boolean) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.cfo_s14b1_manifest(), public.cfo_s14b1_approve(text, text), public.cfo_s14b1_execute(uuid, boolean) TO authenticated;
+  public.cfo_s14b1_approve(text, text), public.cfo_s14b1_execute(uuid, boolean, text, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.cfo_s14b1_manifest(), public.cfo_s14b1_approve(text, text), public.cfo_s14b1_execute(uuid, boolean, text, text) TO authenticated;
 -- (Each of these checks is_cfo_approver(auth.uid()) itself; no app screen calls them.)
 
 -- 8. Apply-time self-check: abort the whole file unless the frozen package hashes to the reviewed value
