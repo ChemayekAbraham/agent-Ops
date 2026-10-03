@@ -40,9 +40,9 @@ const r7b=await exec(ap,PH,'274de6552922cbdc2f7d346903ef5ac0300681646fd6e35f9b78
 const r7c=await q(`select cfo_s14b1_approve('274de6552922cbdc2f7d346903ef5ac0300681646fd6e35f9b781959e422a385','approve stale package attempt')`); check('T7c approve stale v1 fingerprint','REFUSED',r7c,err(r7c,'S14B1_HASH_MISMATCH'));
 
 // T8 unexpected commission payment to a collecting agent since the snapshot
-await db.exec(`insert into general_ledger(amount,direction,category,user_id,ledger_scope,wallet_bucket,recipient_type) values (140,'cash_in','agent_commission_earned','e1bb1b7c-14a6-4a25-a82c-dffe345b7170','wallet','withdrawable','user')`);
+await db.exec(`insert into general_ledger(reference_id,amount,direction,category,user_id,ledger_scope,wallet_bucket,recipient_type) values ('test:t8',140,'cash_in','agent_commission_earned','e1bb1b7c-14a6-4a25-a82c-dffe345b7170','wallet','withdrawable','user')`);
 const r8=await exec(ap); const s8=await snap(); check('T8 unexpected commission payment','REFUSED, nothing written',r8,err(r8,'"new_commission_payments": 1')&&s8.s14===0);
-await db.exec(`delete from general_ledger where category='agent_commission_earned' and amount=140 and created_at>'2026-10-03 13:00+00'; update wallets set withdrawable_balance=2010.32 where user_id='e1bb1b7c-14a6-4a25-a82c-dffe345b7170'`);
+await db.exec(`delete from general_ledger where reference_id='test:t8'; update wallets set withdrawable_balance=2010.32 where user_id='e1bb1b7c-14a6-4a25-a82c-dffe345b7170'`);
 
 // T9 negative tenant balance — (a) before: a plan driven negative; (b) after: a write that would leave a plan negative
 await db.exec(`update rent_requests set amount_repaid=-5 where id='1019b84b-b964-4d38-a97e-5d56978499e0'`);
