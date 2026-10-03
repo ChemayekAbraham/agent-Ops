@@ -140,7 +140,7 @@ CREATE TRIGGER trg_s14b1_plans_noins AFTER INSERT ON public.fin_s14b1_package_pl
 CREATE OR REPLACE FUNCTION public.fin_s14b1_fingerprint() RETURNS text
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $
   SELECT encode(sha256(convert_to(
-    'S14B1-v1' || '|' ||
+    's14b1-v1' || '|' ||
     (SELECT string_agg(entry_key||';'||kind||';'||collection_id||';'||rent_request_id||';'||coalesce(recipient_user_id::text,'')||';'||
                        origin_leg_ids||';'||debit_account||';'||credit_account||';'||amount::numeric(18,2)::text, '|' ORDER BY entry_key)
        FROM public.fin_s14b1_package_lines) || '|' ||
@@ -148,7 +148,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $
                        restore_amount::numeric(18,2)::text||';'||amount_repaid_after::numeric(18,2)::text||';'||status_after, '|' ORDER BY rent_request_id)
        FROM public.fin_s14b1_package_plans), 'UTF8')), 'hex')
 $;
--- NOTE: version tag in the hashed string is 'S14B1-v1'; the Python preview used 's14b1-v1'.
+-- The hashed string is built exactly as in the Stage 14 review (tag 's14b1-v1').
 -- The constant below is what fin_s14b1_fingerprint() must return; it is re-checked at apply time.
 
 -- 3. Live validation (read-only; returns every check) ----------------------
@@ -384,7 +384,9 @@ REVOKE ALL ON FUNCTION public.fin_s14b1_fingerprint(), public.fin_s14b1_validate
 GRANT EXECUTE ON FUNCTION public.cfo_s14b1_manifest(), public.cfo_s14b1_approve(text, text), public.cfo_s14b1_execute(uuid, boolean) TO authenticated;
 -- (Each of these checks is_cfo_approver(auth.uid()) itself; no app screen calls them.)
 
--- 8. Apply-time self-check: abort the whole file if the frozen package does not hash to the reviewed value
-DO $ BEGIN
-  IF public.fin_s14b1_fingerprint() <> (SELECT public.fin_s14b1_fingerprint()) THEN RAISE EXCEPTION 'unreachable'; END IF;
-END $;
+-- 8. Apply-time self-check: abort the whole file unless the frozen package hashes to the reviewed value
+DO $c$ BEGIN
+  IF public.fin_s14b1_fingerprint() <> '16d1ae848d0f05e879c42c1a57823d7bc4d9fd7f0ce8026c73809a251c8bafd9' THEN
+    RAISE EXCEPTION 'S14B1 package fingerprint % differs from reviewed 16d1ae848d0f05e879c42c1a57823d7bc4d9fd7f0ce8026c73809a251c8bafd9', public.fin_s14b1_fingerprint();
+  END IF;
+END $c$;
