@@ -20,10 +20,10 @@ const POP = { count: 659, amount: 56946270 };
 const CONFIRMED = ['Confirmed Genuine', 'Confirmed Duplicate', 'Confirmed Agent Mismatch', 'Valid Separate Payment'];
 const allowedFor = (result: string) =>
   result === 'System-inconsistent' ? ['Confirmed Agent Mismatch', 'Confirmed Genuine', 'Unresolved']
-  : result === 'System duplicate candidate' ? STATUSES
+  : result === 'System duplicate candidate' ? ['Confirmed Duplicate', 'Valid Separate Payment', 'Unresolved']
   : STATUSES.filter((x) => x !== 'Confirmed Duplicate');
 
-type Match = { id: string; collected_at: string; agent_id: string; amount: number; seconds_apart: number; reversed_at: string | null; in_population: boolean };
+type Match = { id: string; collected_at: string; agent_id: string; agent_name?: string; tenant_name?: string; rent_plan_id?: string | null; amount: number; seconds_apart: number; reversed_at: string | null; in_population: boolean };
 type Ev = Record<string, any>;
 type Row = {
   collection_id: string; collected_at: string; agent_id: string; agent_name: string; tenant_name: string; rent_plan_id: string;
@@ -125,28 +125,9 @@ export function EvidenceResolutionS12() {
           </TabsContent>
 
           <TabsContent value="dups" className="max-h-[520px] overflow-auto space-y-2">
-            <p className="text-xs text-muted-foreground">{dups.filter((r) => (r.matches ?? []).some((m) => m.in_population)).length} candidates have at least one matching collection inside the Stage 11 population (marked "Both in 659"), forming {internalPairs} distinct pairs. Falling inside the 30-minute rule does not make a collection a confirmed duplicate.</p>
-            <table className="w-full text-xs">
-              <thead className="sticky top-0 bg-background"><tr className="text-left text-muted-foreground">
-                <th>Collection</th><th>Tenant</th><th>Rent Plan</th><th>Agent</th><th className="text-right">Amount</th><th>Collected (EAT)</th><th>Suspected match(es)</th><th>Multiple</th><th>Accounting</th><th>Reversal</th><th>Stage 11</th><th>Stage 12 status</th><th />
-              </tr></thead>
-              <tbody>{dups.map((r) => {
-                const both = (r.matches ?? []).some((m) => m.in_population);
-                return (
-                  <tr key={r.collection_id} className={`border-t border-border align-top ${both ? 'bg-muted' : ''}`}>
-                    <td className="py-1 font-mono">{short(r.collection_id)}{both && <Badge className="ml-1" variant="secondary">Both in 659</Badge>}</td>
-                    <td>{r.tenant_name}</td><td className="font-mono">{short(r.rent_plan_id)}</td><td>{r.agent_name}</td>
-                    <td className="text-right whitespace-nowrap">{ugx(r.amount)}</td><td className="whitespace-nowrap">{eat(r.collected_at)}</td>
-                    <td>{(r.matches ?? []).map((m) => (
-                      <div key={m.id} className="whitespace-nowrap"><span className="font-mono">{short(m.id)}</span> · {eat(m.collected_at)} · {mins(m.seconds_apart)} · {m.in_population ? 'in 659' : 'outside 659'}{m.reversed_at ? ' · reversed' : ''}</div>
-                    ))}</td>
-                    <td>{(r.matches ?? []).length > 1 ? `Yes (${(r.matches ?? []).length})` : 'No'}</td>
-                    <td>Posted · group {short(r.ledger_group)}</td><td>{r.reversed_at ? 'Reversed' : 'Not reversed'}</td>
-                    <td>{r.reconciliation_result}</td><td>{r.evidence.evidence_status}</td>
-                    <td><Button size="sm" variant="outline" disabled={!balanced} onClick={() => setOpen(r)}>Evidence</Button></td>
-                  </tr>);
-              })}</tbody>
-            </table>
+            <OutcomeSummary rows={dups} title="Stage 12C — duplicate candidate outcomes" pop={DUP_POP} outcomes={['Pending Evidence', 'Confirmed Duplicate', 'Valid Separate Payment', 'Unresolved']} />
+            <p className="text-xs text-muted-foreground">{dups.filter((r) => (r.matches ?? []).some((m) => m.in_population)).length} candidates have at least one possible match also inside Stage 11 (marked "Both in Stage 11"), forming {internalPairs} distinct pairs; {dups.filter((r) => (r.matches ?? []).length > 1).length} have more than one possible match. A matching time, amount, tenant or Rent Plan is only a signal — it is not proof of duplication. Nothing is picked for you.</p>
+            {dups.map((r) => <DupCaseCard key={r.collection_id} r={r} disabled={!balanced} onOpen={() => setOpen(r)} />)}
           </TabsContent>
 
           <TabsContent value="consistent" className="max-h-[520px] overflow-auto">
