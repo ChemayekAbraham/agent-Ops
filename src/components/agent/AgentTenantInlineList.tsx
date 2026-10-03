@@ -421,7 +421,7 @@ export function AgentTenantInlineList({ onOpenTenantSheet, onAddTenant }: AgentT
                 </div>
                 <div className="text-right shrink-0 flex flex-col items-end min-w-0 max-w-[38%] sm:max-w-[40%]">
                   <p className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-wide ${toneText}`}>
-                    {hasDebt && isLiveRequest
+                    {hasDebt
                       ? 'Owing'
                       : isNotPaying
                         ? 'On hold'
