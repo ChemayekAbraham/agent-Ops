@@ -8,12 +8,12 @@
 -- cfo_s14b1_execute(<approval_id>, true, <phrase>, <fingerprint>) is called by the Batch 1 executor after
 -- cfo_s14b1_approve() has recorded an approval for the exact fingerprint.
 --
--- Frozen package: version s14b1-v1, 20 collections (UGX 483,685),
+-- Frozen package: version s14b1-v2 (regenerated 2026-10-03 18:25 UTC from a fresh snapshot; supersedes s14b1-v1 / 274de655…, now stale), 20 collections (UGX 483,685),
 -- 20 cash entries + 13 commission entries = 33 entries / 66 legs,
 -- debits = credits = UGX 522,665.42, 13 Rent Plans (UGX 479,685).
 -- Fingerprint (sha256): 274de6552922cbdc2f7d346903ef5ac0300681646fd6e35f9b781959e422a385
 -- (Rebuilt 2026-10-03: commission contra leg relabelled system_balance_correction -> agent_commission_earned; supersedes 16d1ae84...)
--- Held open (NOT in this package, no transaction of any kind): UGX 6,552.40
+-- Held open (NOT in this package, no transaction of any kind): UGX 6,132.40
 --   status "Held Open — Unrecoverable at Current Wallet Balance" — not recovered,
 --   not written off, not moved, not expensed.
 -- Single-CFO workflow (2026-10-03): the approving CFO may also execute, but only
@@ -23,7 +23,7 @@
 -- accepts the phrase and never executes. is_cfo_approver is NOT changed.
 -- Audit/event identifier: ACCOUNTING_CORRECTION_BATCH_1_DUPLICATE_COLLECTIONS
 -- Recruiter commission (UGX 2,835.68) and unrecoverable collecting commission
--- (UGX 6,552.40) have NO lines: they are neither recovered nor written off.
+-- (UGX 6,132.40) have NO lines: they are neither recovered nor written off.
 -- ============================================================================
 
 -- 1. Frozen package (append-only) --------------------------------------------
@@ -106,7 +106,7 @@ INSERT INTO public.fin_s14b1_package_lines
   ('s14b1:d8e2e9f6-fce4-4909-8270-90da797463ec:receipt','cash',19,'d8e2e9f6-fce4-4909-8270-90da797463ec'::uuid,'0b0b7e91-0765-4527-93aa-633828f5753a'::uuid,NULL::uuid,'69d4dd7e-26de-4cb6-b54d-b1637acc4b23'::uuid,'432f9463-6beb-48dd-9b97-b91b1c3cff5b,4e0acbcf-0395-44bf-ac55-a39696003938','tenant_repayment_collected/platform/cash_in','cash_receipt_in_transit/platform/cash_out',100000.00,NULL),
   ('s14b1:ddb33eb4-6f79-4212-af65-bd587a927dc1:receipt','cash',15,'ddb33eb4-6f79-4212-af65-bd587a927dc1'::uuid,'b76711ef-9574-49c0-b02b-57b1133c4d38'::uuid,NULL::uuid,'cd8f32da-289d-400e-b44e-1775a0686a93'::uuid,'a9c9479f-7832-4672-92fd-27875018920f,45ac16cd-064e-4d06-a052-cb00833f3379','tenant_repayment_collected/platform/cash_in','cash_receipt_in_transit/platform/cash_out',9200.00,NULL),
   ('s14b1:e272754e-c6bd-4fe4-9f32-f33653322774:receipt','cash',8,'e272754e-c6bd-4fe4-9f32-f33653322774'::uuid,'090754f1-99eb-4f45-9493-a1fdc0cb3906'::uuid,NULL::uuid,'86e4148d-b628-4d83-8396-36fccb94ae8a'::uuid,'76376a3d-b0c8-4da6-b940-ff43ba849e58,1af0131b-b172-4465-b177-145816225492','tenant_repayment_collected/platform/cash_in','cash_receipt_in_transit/platform/cash_out',10000.00,NULL),
-  ('s14b1:f110f18e-9165-4e09-9f7f-96e2fe76ba49:commission','commission',12,'d46fe205-b52f-4795-ab84-8cac0fe15915'::uuid,'9d4e941e-1cfc-4506-a554-5af3d5daca5e'::uuid,'e1bb1b7c-14a6-4a25-a82c-dffe345b7170'::uuid,'414658b4-11d9-49f9-9bc8-e36d2cbb22a5'::uuid,'f110f18e-9165-4e09-9f7f-96e2fe76ba49','system_balance_correction/wallet/cash_out','agent_commission_earned/platform/cash_in',295.60,1472.00),
+  ('s14b1:f110f18e-9165-4e09-9f7f-96e2fe76ba49:commission','commission',12,'d46fe205-b52f-4795-ab84-8cac0fe15915'::uuid,'9d4e941e-1cfc-4506-a554-5af3d5daca5e'::uuid,'e1bb1b7c-14a6-4a25-a82c-dffe345b7170'::uuid,'414658b4-11d9-49f9-9bc8-e36d2cbb22a5'::uuid,'f110f18e-9165-4e09-9f7f-96e2fe76ba49','system_balance_correction/wallet/cash_out','agent_commission_earned/platform/cash_in',715.60,1472.00),
   ('s14b1:f52b56cf-740d-4764-9f51-ba396c056c07:commission','commission',8,'e272754e-c6bd-4fe4-9f32-f33653322774'::uuid,'090754f1-99eb-4f45-9493-a1fdc0cb3906'::uuid,'d5304353-9b99-42e5-bcda-28ba96cc0bbc'::uuid,'86e4148d-b628-4d83-8396-36fccb94ae8a'::uuid,'f52b56cf-740d-4764-9f51-ba396c056c07','system_balance_correction/wallet/cash_out','agent_commission_earned/platform/cash_in',800.00,800.00);
 
 INSERT INTO public.fin_s14b1_package_plans
@@ -151,7 +151,7 @@ CREATE TRIGGER trg_s14b1_plans_noins AFTER INSERT ON public.fin_s14b1_package_pl
 CREATE OR REPLACE FUNCTION public.fin_s14b1_fingerprint() RETURNS text
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $f$
   SELECT encode(sha256(convert_to(
-    's14b1-v1' || '|' ||
+    's14b1-v2' || '|' ||
     (SELECT string_agg(entry_key||';'||kind||';'||collection_id||';'||rent_request_id||';'||coalesce(recipient_user_id::text,'')||';'||
                        origin_leg_ids||';'||debit_account||';'||credit_account||';'||amount::numeric(18,2)::text, '|' ORDER BY entry_key)
        FROM public.fin_s14b1_package_lines) || '|' ||
@@ -159,7 +159,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $f$
                        restore_amount::numeric(18,2)::text||';'||amount_repaid_after::numeric(18,2)::text||';'||status_after, '|' ORDER BY rent_request_id)
        FROM public.fin_s14b1_package_plans), 'UTF8')), 'hex')
 $f$;
--- The hashed string is built exactly as in the Stage 14 review (tag 's14b1-v1').
+-- The hashed string is built exactly as in the Stage 14 review (tag 's14b1-v2').
 -- The constant below is what fin_s14b1_fingerprint() must return; it is re-checked at apply time.
 
 -- 3. Live validation (read-only; returns every check) ----------------------
@@ -171,11 +171,11 @@ BEGIN
   -- Package shape
   SELECT count(*), sum(amount) INTO n, s FROM fin_s14b1_package_lines;
   v := v || jsonb_build_object('entries', n, 'lines', n*2, 'total', s);
-  ok := ok AND n = 33 AND s = 522665.42;
+  ok := ok AND n = 33 AND s = 523085.42;
   SELECT count(*), sum(amount) INTO n, s FROM fin_s14b1_package_lines WHERE kind='cash';
   ok := ok AND n = 20 AND s = 483685;
   SELECT count(*), sum(amount) INTO n, s FROM fin_s14b1_package_lines WHERE kind='commission';
-  ok := ok AND n = 13 AND s = 38980.42;
+  ok := ok AND n = 13 AND s = 39400.42;
   SELECT count(*), sum(restore_amount) INTO n, s FROM fin_s14b1_package_plans;
   ok := ok AND n = 13 AND s = 479685;
 
@@ -247,7 +247,7 @@ BEGIN
   -- after the last commission leg included in the reviewed snapshot. Never recalculated.
   SELECT count(*) INTO bad FROM general_ledger g
    WHERE g.category='agent_commission_earned' AND g.ledger_scope='wallet' AND g.direction='cash_in'
-     AND g.created_at > '2026-10-03 12:34:34.025297+00'::timestamptz
+     AND g.created_at > '2026-10-03 17:15:08.846739+00'::timestamptz
      AND g.user_id IN (SELECT DISTINCT recipient_user_id FROM fin_s14b1_package_lines WHERE kind='commission');
   v := v || jsonb_build_object('new_commission_payments', bad); ok := ok AND bad = 0;
 
@@ -268,13 +268,13 @@ LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $f$
 BEGIN
   IF NOT public.is_cfo_approver(auth.uid()) THEN RAISE EXCEPTION 'S14B1_NOT_CFO'; END IF;
   RETURN jsonb_build_object(
-    'version','S14B1-v1',
+    'version','S14B1-v2',
     'fingerprint', public.fin_s14b1_fingerprint(),
     'latest_approval', (SELECT to_jsonb(a) FROM fin_s14b1_approvals a ORDER BY approved_at DESC LIMIT 1),
     'entries', (SELECT jsonb_agg(to_jsonb(l) ORDER BY l.kind, l.case_position, l.entry_key) FROM fin_s14b1_package_lines l),
     'plans',   (SELECT jsonb_agg(to_jsonb(p)) FROM fin_s14b1_package_plans p),
     'protected', jsonb_build_array('16 Sep: 1,210 reversed collections, UGX 92,656,683','29 Sep: collection dab3bc9f UGX 10,000'),
-    'not_in_package', jsonb_build_object('recruiter_commission', 2835.68, 'unrecoverable_collecting_commission', 6552.40),
+    'not_in_package', jsonb_build_object('recruiter_commission', 2835.68, 'unrecoverable_collecting_commission', 6132.40),
     'validation', public.fin_s14b1_validate());
 END $f$;
 
@@ -289,8 +289,8 @@ BEGIN
   v := public.fin_s14b1_validate();
   IF NOT (v->>'all_ok')::boolean THEN RAISE EXCEPTION 'S14B1_VALIDATION_FAILED: %', v; END IF;
   INSERT INTO fin_s14b1_approvals (package_version, package_hash, approved_by, approved_totals, reason)
-  VALUES ('S14B1-v1', p_package_hash, auth.uid(),
-          jsonb_build_object('entries',33,'lines',66,'debits',522665.42,'credits',522665.42,'cash',483685,'commission',38980.42,'tenant_restoration',479685),
+  VALUES ('S14B1-v2', p_package_hash, auth.uid(),
+          jsonb_build_object('entries',33,'lines',66,'debits',523085.42,'credits',523085.42,'cash',483685,'commission',39400.42,'tenant_restoration',479685),
           p_reason)
   RETURNING id INTO v_id;
   INSERT INTO audit_logs (user_id, action_type, table_name, record_id, reason, metadata)
@@ -324,8 +324,8 @@ BEGIN
   -- Gate 3b: timing, server clock — at least 5 minutes after approval, expires after 24 hours
   IF clock_timestamp() < a.approved_at + interval '5 minutes' THEN RAISE EXCEPTION 'S14B1_WAITING_PERIOD'; END IF;
   IF clock_timestamp() > a.approved_at + interval '24 hours' THEN RAISE EXCEPTION 'S14B1_APPROVAL_EXPIRED'; END IF;
-  IF a.package_version <> 'S14B1-v1' OR a.package_hash <> public.fin_s14b1_fingerprint() OR a.package_hash <> p_package_hash THEN RAISE EXCEPTION 'S14B1_HASH_MISMATCH'; END IF;
-  IF (a.approved_totals->>'debits')::numeric <> 522665.42 THEN RAISE EXCEPTION 'S14B1_TOTALS_MISMATCH'; END IF;
+  IF a.package_version <> 'S14B1-v2' OR a.package_hash <> public.fin_s14b1_fingerprint() OR a.package_hash <> p_package_hash THEN RAISE EXCEPTION 'S14B1_HASH_MISMATCH'; END IF;
+  IF (a.approved_totals->>'debits')::numeric <> 523085.42 THEN RAISE EXCEPTION 'S14B1_TOTALS_MISMATCH'; END IF;
 
   -- Lock every affected wallet owner, collection and plan before re-validating
   PERFORM pg_advisory_xact_lock(hashtext('bucket_reclass:' || u::text))
@@ -409,7 +409,7 @@ BEGIN
   THEN RAISE EXCEPTION 'S14B1_TENANT_BALANCE_UNSAFE'; END IF;
 
   -- Final balance assertions
-  IF n_entries <> 33 OR n_legs <> 66 OR v_dr <> 522665.42 OR v_cr <> 522665.42 THEN
+  IF n_entries <> 33 OR n_legs <> 66 OR v_dr <> 523085.42 OR v_cr <> 523085.42 THEN
     RAISE EXCEPTION 'S14B1_TOTALS_POST % % % %', n_entries, n_legs, v_dr, v_cr; END IF;
   IF (SELECT count(*) FROM general_ledger WHERE reference_id LIKE 's14b1:%') <> 66 THEN RAISE EXCEPTION 'S14B1_LEG_COUNT'; END IF;
   IF EXISTS (SELECT transaction_group_id FROM general_ledger WHERE reference_id LIKE 's14b1:%' GROUP BY 1
