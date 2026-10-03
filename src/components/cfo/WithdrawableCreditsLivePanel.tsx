@@ -49,7 +49,7 @@ const periodTitle = (p: Period) => PERIODS.find((x) => x.key === p)?.title ?? 'T
  * (UTC+3), so the buckets match the RPC-side reporting convention whatever
  * device timezone the CFO is in.
  */
-function periodBounds(p: Period): { from: number; to: number | null; phrase: string } {
+export function periodBounds(p: Period): { from: number; to: number | null; phrase: string } {
   const todayYmd = kampalaTodayYmd();
   const midnight = (ymd: string) => new Date(`${ymd}T00:00:00+03:00`).getTime();
   switch (p) {
