@@ -6,6 +6,7 @@ import { formatUGX } from '@/lib/creditFeeCalculations';
 import { kampalaTodayYmd, kampalaOffsetYmd, kampalaLabel } from '@/lib/kampalaDays';
 import { Coins } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 
 const GROUPS: Record<string, string> = {
   roi_wallet_credit: 'Supporter returns',
@@ -70,8 +71,8 @@ export function periodBounds(p: Period): { from: number; to: number | null; phra
  * Wallet credits into the withdrawable bucket for a selectable Kampala period
  * (today, yesterday, past 7 days, this month), grouped by what they were for.
  * Rendered through the same compact card the treasury and bank cards use, so
- * the three sit in one row as a set: amount on the face, period selector below,
- * breakdown in the modal. Nothing is derived here beyond grouping — every
+ * the three sit in one row as a set: amount on the face, period selector in
+ * the card drill-down, then the source breakdown. Nothing is derived here beyond grouping — every
  * figure is the ledger total the RPC returns.
  */
 export function WithdrawableCreditsLivePanel({ moneyWeHaveTotal }: { moneyWeHaveTotal: number }) {
@@ -150,19 +151,21 @@ export function WithdrawableCreditsLivePanel({ moneyWeHaveTotal }: { moneyWeHave
       {PERIODS.map((p) => {
         const active = p.key === period;
         return (
-          <button
+          <Button
             key={p.key}
             type="button"
+            variant="ghost"
+            size="sm"
             aria-pressed={active}
             onClick={() => setPeriod(p.key)}
-            className={`min-h-[28px] truncate rounded-md px-1 py-1 text-[10px] font-medium transition-colors ${
+            className={`min-h-[32px] h-auto truncate rounded-md px-1 py-1 text-[10px] font-medium transition-colors ${
               active
                 ? 'bg-background shadow-sm font-semibold text-foreground'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             {p.short}
-          </button>
+          </Button>
         );
       })}
     </div>
