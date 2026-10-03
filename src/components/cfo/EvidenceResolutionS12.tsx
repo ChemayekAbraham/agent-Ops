@@ -197,6 +197,66 @@ function MismatchCaseCard({ r, disabled, onOpen }: { r: Row; disabled: boolean; 
   );
 }
 
+const DUP_POP = { count: 253, amount: 23231059 };
+function OutcomeSummary({ rows, title, pop, outcomes }: { rows: Row[]; title: string; pop: { count: number; amount: number }; outcomes: string[] }) {
+  const by = (st: string) => rows.filter((r) => r.evidence?.evidence_status === st);
+  const tot = (xs: Row[]) => xs.reduce((a, r) => a + Number(r.amount), 0);
+  const ready = rows.filter((r) => r.evidence?.correction_status === 'Ready for CFO Review');
+  const total = tot(rows);
+  const ok = rows.length === pop.count && total === pop.amount;
+  return (
+    <div className="rounded-md border border-border p-2 text-xs">
+      <p className="font-medium mb-1">{title}</p>
+      <table className="w-full"><tbody>
+        {outcomes.map((o) => <tr key={o}><td>{o}</td><td className="text-right">{by(o).length}</td><td className="text-right">{formatUGX(tot(by(o)))}</td></tr>)}
+        <tr className="text-muted-foreground"><td>Ready for CFO Review (already counted above)</td><td className="text-right">{ready.length}</td><td className="text-right">{formatUGX(tot(ready))}</td></tr>
+        <tr className="border-t border-border font-semibold"><td>Total</td><td className="text-right">{rows.length}</td><td className="text-right">{formatUGX(total)}</td></tr>
+      </tbody></table>
+      {!ok && <p className="text-destructive mt-1">Expected {pop.count} / {formatUGX(pop.amount)} — out of balance.</p>}
+    </div>
+  );
+}
+
+function DupCaseCard({ r, disabled, onOpen }: { r: Row; disabled: boolean; onOpen: () => void }) {
+  const e = r.evidence ?? {};
+  const [show, setShow] = useState<string | null>(null);
+  const ms = r.matches ?? [];
+  const both = ms.some((m) => m.in_population);
+  const lines: [string, React.ReactNode][] = [
+    ['Collection', <span className="font-mono">{r.collection_id}</span>],
+    ['Collected (EAT)', eat(r.collected_at)],
+    ['Tenant', r.tenant_name],
+    ['Rent Plan', <span className="font-mono">{r.rent_plan_id}</span>],
+    ['Amount', ugx(r.amount)],
+    ['Recorded agent', r.agent_name],
+    ['Stage 11', r.reconciliation_result],
+    ['Reversal', r.reversed_at ? `Reversed ${eat(r.reversed_at)}` : 'Not reversed'],
+    ['Stage 12 status', e.evidence_status + (e.valid_original_id ? ` · original ${short(e.valid_original_id)}` : '')],
+    ['Possible matches', `${ms.length}${ms.length > 1 ? ' (multiple — none chosen)' : ''}`],
+  ];
+  return (
+    <div className="rounded-md border border-border p-3 text-xs">
+      {both && <Badge variant="secondary" className="mb-1">Both in Stage 11</Badge>}
+      <table className="w-full"><tbody>{lines.map(([k, v]) => <tr key={k}><td className="py-0.5 pr-3 text-muted-foreground whitespace-nowrap align-top">{k}</td><td>{v}</td></tr>)}</tbody></table>
+      <table className="w-full mt-2">
+        <thead><tr className="text-left text-muted-foreground"><th>Match</th><th>Collected (EAT)</th><th>Difference</th><th>Tenant</th><th>Rent Plan</th><th className="text-right">Amount</th><th>Agent</th><th>Population</th><th>Reversal</th><th /></tr></thead>
+        <tbody>{ms.map((m) => (
+          <tr key={m.id} className="border-t border-border">
+            <td className="font-mono">{m.id}</td><td className="whitespace-nowrap">{eat(m.collected_at)}</td><td>{mins(m.seconds_apart)}</td>
+            <td>{m.tenant_name ?? r.tenant_name}</td><td className="font-mono">{short(m.rent_plan_id ?? r.rent_plan_id)}</td><td className="text-right whitespace-nowrap">{ugx(m.amount)}</td>
+            <td>{m.agent_name ?? r.agent_name}</td><td>{m.in_population ? 'Inside the 659' : 'Outside the 659'}</td><td>{m.reversed_at ? 'Reversed' : 'Not reversed'}</td>
+            <td><Button size="sm" variant="ghost" onClick={() => setShow(show === m.id ? null : m.id)}>{show === m.id ? 'Hide' : 'Inspect'}</Button></td>
+          </tr>))}</tbody>
+      </table>
+      <div className="mt-2 flex flex-wrap gap-2">
+        <Button size="sm" variant="secondary" onClick={() => setShow(show === r.collection_id ? null : r.collection_id)}>{show === r.collection_id ? 'Hide evidence' : 'Inspect evidence (this collection)'}</Button>
+        <Button size="sm" variant="outline" disabled={disabled} onClick={onOpen}>Review evidence</Button>
+      </div>
+      {show && <div className="mt-2"><p className="font-medium mb-1">Evidence for {show === r.collection_id ? 'this collection' : `possible match ${short(show)}`}</p><S12CaseEvidencePanel collectionId={show} recordedName={r.agent_name} planName={r.plan_agent_name} /></div>}
+    </div>
+  );
+}
+
 const MISMATCH_POP = { count: 14, amount: 1684334 };
 function MismatchSummary({ rows }: { rows: Row[] }) {
   const by = (st: string) => rows.filter((r) => r.evidence?.evidence_status === st);
@@ -312,7 +372,7 @@ function EvidenceDialog({ row, onClose, onSaved }: { row: Row; onClose: () => vo
           {f.status === 'Confirmed Duplicate' && (
             <label className="space-y-1 sm:col-span-2"><span className="text-xs">Valid original collection — this collection ({short(row.collection_id)}) is recorded as the duplicate. Neither collection is changed.</span>
               <Select value={f.valid_original_id || undefined} onValueChange={set('valid_original_id')}><SelectTrigger><SelectValue placeholder="Choose matching collection" /></SelectTrigger>
-                <SelectContent>{(row.matches ?? []).map((m) => <SelectItem key={m.id} value={m.id}>{short(m.id)} · {eat(m.collected_at)} · {mins(m.seconds_apart)} · {m.in_population ? 'in 659' : 'outside 659'}{m.reversed_at ? ' · reversed' : ''}</SelectItem>)}</SelectContent></Select></label>
+                <SelectContent>{(row.matches ?? []).filter((m) => !m.reversed_at).map((m) => <SelectItem key={m.id} value={m.id}>{short(m.id)} · {eat(m.collected_at)} · {mins(m.seconds_apart)} · {m.in_population ? 'in 659' : 'outside 659'}{m.reversed_at ? ' · reversed' : ''}</SelectItem>)}</SelectContent></Select></label>
           )}
           {f.status === 'Confirmed Agent Mismatch' && (
             <label className="space-y-1 sm:col-span-2"><span className="text-xs">Confirmed collecting agent ID (recorded: {row.agent_name}; Rent Plan agent: {row.plan_agent_name ?? '—'}). If evidence shows the recorded agent collected, choose Confirmed Genuine instead.</span>
