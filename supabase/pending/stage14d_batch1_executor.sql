@@ -299,7 +299,7 @@ BEGIN
 END $f$;
 
 -- 6. Executor (atomic; one function call = one transaction) ----------------
-CREATE OR REPLACE FUNCTION public.cfo_s14b1_execute(p_approval_id uuid, p_approved boolean) RETURNS jsonb
+CREATE OR REPLACE FUNCTION public.cfo_s14b1_execute(p_approval_id uuid, p_approved boolean, p_confirmation text, p_package_hash text) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $f$
 DECLARE
   a record; l record; p record; v jsonb; v_grp uuid; v_avail numeric;
@@ -307,8 +307,12 @@ DECLARE
 BEGIN
   -- Gate 1: explicit flag, no default
   IF p_approved IS DISTINCT FROM true THEN RAISE EXCEPTION 'S14B1_NOT_APPROVED_FLAG'; END IF;
-  -- Gate 2: caller is a CFO approver
+  -- Gate 2: caller is a CFO approver AND is the single designated Batch 1 executor (Angwen Sarah)
   IF NOT public.is_cfo_approver(auth.uid()) THEN RAISE EXCEPTION 'S14B1_NOT_CFO'; END IF;
+  IF auth.uid() IS DISTINCT FROM '29a0cfa8-1eaf-453c-874c-0fc72fa4f74b'::uuid THEN RAISE EXCEPTION 'S14B1_NOT_BATCH1_EXECUTOR'; END IF;
+  -- Gate 2b: deliberate confirmation — exact phrase and fingerprint supplied again
+  IF p_confirmation IS DISTINCT FROM 'EXECUTE BATCH 1 CORRECTION' THEN RAISE EXCEPTION 'S14B1_CONFIRMATION_PHRASE_MISMATCH'; END IF;
+  IF p_package_hash IS DISTINCT FROM '274de6552922cbdc2f7d346903ef5ac0300681646fd6e35f9b781959e422a385' THEN RAISE EXCEPTION 'S14B1_CONFIRMATION_HASH_MISMATCH'; END IF;
   -- Serialise: only one executor at a time
   PERFORM pg_advisory_xact_lock(hashtext('s14b1_execute'));
   -- Gate 3: stored approval for this exact fingerprint, never executed
@@ -316,9 +320,11 @@ BEGIN
   IF NOT FOUND THEN RAISE EXCEPTION 'S14B1_APPROVAL_NOT_FOUND'; END IF;
   IF a.executed_at IS NOT NULL THEN RAISE EXCEPTION 'S14B1_ALREADY_EXECUTED'; END IF;
   IF EXISTS (SELECT 1 FROM fin_s14b1_approvals WHERE executed_at IS NOT NULL) THEN RAISE EXCEPTION 'S14B1_ALREADY_EXECUTED'; END IF;
-  -- Gate 3b: separation of duties — the executing CFO must differ from the approving CFO
-  IF a.approved_by IS NULL OR a.approved_by = auth.uid() THEN RAISE EXCEPTION 'S14B1_SAME_APPROVER_AND_EXECUTOR'; END IF;
-  IF a.package_version <> 'S14B1-v1' OR a.package_hash <> public.fin_s14b1_fingerprint() THEN RAISE EXCEPTION 'S14B1_HASH_MISMATCH'; END IF;
+  IF a.approved_by IS NULL OR NOT public.is_cfo_approver(a.approved_by) THEN RAISE EXCEPTION 'S14B1_APPROVER_INVALID'; END IF;
+  -- Gate 3b: timing, server clock — at least 5 minutes after approval, expires after 24 hours
+  IF clock_timestamp() < a.approved_at + interval '5 minutes' THEN RAISE EXCEPTION 'S14B1_WAITING_PERIOD'; END IF;
+  IF clock_timestamp() > a.approved_at + interval '24 hours' THEN RAISE EXCEPTION 'S14B1_APPROVAL_EXPIRED'; END IF;
+  IF a.package_version <> 'S14B1-v1' OR a.package_hash <> public.fin_s14b1_fingerprint() OR a.package_hash <> p_package_hash THEN RAISE EXCEPTION 'S14B1_HASH_MISMATCH'; END IF;
   IF (a.approved_totals->>'debits')::numeric <> 522665.42 THEN RAISE EXCEPTION 'S14B1_TOTALS_MISMATCH'; END IF;
 
   -- Lock every affected wallet owner, collection and plan before re-validating
@@ -395,6 +401,12 @@ BEGIN
                                'restored', p.restore_amount, 'status_before', p.status_before, 'status_after', p.status_after));
   END LOOP;
   SELECT count(*) INTO n_plans FROM fin_s14b1_package_plans;
+  -- Tenant-balance safety (after): no negative paid/outstanding, no overpayment, terms unchanged
+  IF EXISTS (SELECT 1 FROM fin_s14b1_package_plans p JOIN rent_requests rr ON rr.id=p.rent_request_id
+              WHERE rr.amount_repaid < 0 OR rr.total_repayment - rr.amount_repaid < 0
+                 OR rr.amount_repaid::numeric(18,2) <> p.amount_repaid_after
+                 OR rr.total_repayment::numeric(18,2) <> p.total_repayment)
+  THEN RAISE EXCEPTION 'S14B1_TENANT_BALANCE_UNSAFE'; END IF;
 
   -- Final balance assertions
   IF n_entries <> 33 OR n_legs <> 66 OR v_dr <> 522665.42 OR v_cr <> 522665.42 THEN
