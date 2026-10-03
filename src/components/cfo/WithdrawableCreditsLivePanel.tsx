@@ -86,7 +86,7 @@ export function WithdrawableCreditsLivePanel({ moneyWeHaveTotal }: { moneyWeHave
     queryFn: async () => {
       const { data, error } = await supabase.rpc('get_cfo_withdrawable_credits_range', {
         p_from: fromIso,
-        p_to: toIso,
+        p_to: toIso ?? undefined,
       });
       if (error) throw error;
       return (data ?? []) as Row[];
@@ -117,7 +117,7 @@ export function WithdrawableCreditsLivePanel({ moneyWeHaveTotal }: { moneyWeHave
       const { data, error } = await supabase.rpc('get_cfo_withdrawable_credits_range_detail', {
         p_categories: cats,
         p_from: fromIso,
-        p_to: toIso,
+        p_to: toIso ?? undefined,
       });
       if (error) throw error;
       return data ?? [];
