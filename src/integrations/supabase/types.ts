@@ -16577,6 +16577,117 @@ export type Database = {
         }
         Relationships: []
       }
+      fin_s14b1r_approvals: {
+        Row: {
+          approved_at: string
+          approved_by: string
+          approved_totals: Json
+          exclusions: Json
+          executed_at: string | null
+          executed_by: string | null
+          execution_result: Json | null
+          id: string
+          package_hash: string
+          package_title: string
+          package_version: string
+          reason: string
+        }
+        Insert: {
+          approved_at?: string
+          approved_by: string
+          approved_totals: Json
+          exclusions: Json
+          executed_at?: string | null
+          executed_by?: string | null
+          execution_result?: Json | null
+          id?: string
+          package_hash: string
+          package_title: string
+          package_version: string
+          reason: string
+        }
+        Update: {
+          approved_at?: string
+          approved_by?: string
+          approved_totals?: Json
+          exclusions?: Json
+          executed_at?: string | null
+          executed_by?: string | null
+          execution_result?: Json | null
+          id?: string
+          package_hash?: string
+          package_title?: string
+          package_version?: string
+          reason?: string
+        }
+        Relationships: []
+      }
+      fin_s14b1r_lines: {
+        Row: {
+          amount: number
+          category: string
+          collection_id: string
+          ledger_scope: string
+          orig_direction: string
+          orig_group_id: string
+          orig_idempotency_key: string
+          orig_leg_id: string
+          orig_reference_id: string
+          recipient_type: string | null
+          rent_request_id: string | null
+          user_id: string | null
+          wallet_bucket: string | null
+        }
+        Insert: {
+          amount: number
+          category: string
+          collection_id: string
+          ledger_scope: string
+          orig_direction: string
+          orig_group_id: string
+          orig_idempotency_key: string
+          orig_leg_id: string
+          orig_reference_id: string
+          recipient_type?: string | null
+          rent_request_id?: string | null
+          user_id?: string | null
+          wallet_bucket?: string | null
+        }
+        Update: {
+          amount?: number
+          category?: string
+          collection_id?: string
+          ledger_scope?: string
+          orig_direction?: string
+          orig_group_id?: string
+          orig_idempotency_key?: string
+          orig_leg_id?: string
+          orig_reference_id?: string
+          recipient_type?: string | null
+          rent_request_id?: string | null
+          user_id?: string | null
+          wallet_bucket?: string | null
+        }
+        Relationships: []
+      }
+      fin_s14b1r_plan_pins: {
+        Row: {
+          amount_repaid_pinned: number
+          rent_request_id: string
+          status_pinned: string
+        }
+        Insert: {
+          amount_repaid_pinned: number
+          rent_request_id: string
+          status_pinned: string
+        }
+        Update: {
+          amount_repaid_pinned?: number
+          rent_request_id?: string
+          status_pinned?: string
+        }
+        Relationships: []
+      }
       finance_anomaly_alert_config: {
         Row: {
           created_at: string
@@ -60400,6 +60511,19 @@ export type Database = {
         Returns: Json
       }
       cfo_s14b1_manifest: { Args: never; Returns: Json }
+      cfo_s14b1r_approve: {
+        Args: { p_package_hash: string; p_reason: string }
+        Returns: string
+      }
+      cfo_s14b1r_execute: {
+        Args: {
+          p_approval_id: string
+          p_confirmation: string
+          p_package_hash: string
+        }
+        Returns: Json
+      }
+      cfo_s14b1r_manifest: { Args: never; Returns: Json }
       cfo_save_evidence_review: {
         Args: { p: Json; p_collection_id: string }
         Returns: Json
@@ -61924,6 +62048,8 @@ export type Database = {
       fin_s14_txn_financial_writes: { Args: never; Returns: number }
       fin_s14b1_fingerprint: { Args: never; Returns: string }
       fin_s14b1_validate: { Args: never; Returns: Json }
+      fin_s14b1r_fingerprint: { Args: never; Returns: string }
+      fin_s14b1r_validate: { Args: never; Returns: Json }
       finance_alert_rank_severity: { Args: { p_rank: number }; Returns: string }
       finance_alert_severity_rank: {
         Args: { p_severity: string }
