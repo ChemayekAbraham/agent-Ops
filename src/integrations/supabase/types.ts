@@ -16688,6 +16688,51 @@ export type Database = {
         }
         Relationships: []
       }
+      fin_s14b1w_approvals: {
+        Row: {
+          approved_at: string
+          approved_by: string
+          authorization_scope: Json
+          earliest_execution_at: string
+          executed_at: string | null
+          executed_by: string | null
+          execution_result: Json | null
+          expires_at: string
+          id: string
+          manifest: Json
+          package_fingerprint: string
+          reason: string
+        }
+        Insert: {
+          approved_at?: string
+          approved_by: string
+          authorization_scope: Json
+          earliest_execution_at: string
+          executed_at?: string | null
+          executed_by?: string | null
+          execution_result?: Json | null
+          expires_at: string
+          id?: string
+          manifest: Json
+          package_fingerprint: string
+          reason: string
+        }
+        Update: {
+          approved_at?: string
+          approved_by?: string
+          authorization_scope?: Json
+          earliest_execution_at?: string
+          executed_at?: string | null
+          executed_by?: string | null
+          execution_result?: Json | null
+          expires_at?: string
+          id?: string
+          manifest?: Json
+          package_fingerprint?: string
+          reason?: string
+        }
+        Relationships: []
+      }
       finance_anomaly_alert_config: {
         Row: {
           created_at: string
@@ -60524,6 +60569,18 @@ export type Database = {
         Returns: Json
       }
       cfo_s14b1r_manifest: { Args: never; Returns: Json }
+      cfo_s14b1w_approve: {
+        Args: { p_fingerprint: string; p_reason: string }
+        Returns: string
+      }
+      cfo_s14b1w_execute: {
+        Args: {
+          p_approval_id: string
+          p_confirmation: string
+          p_fingerprint: string
+        }
+        Returns: Json
+      }
       cfo_save_evidence_review: {
         Args: { p: Json; p_collection_id: string }
         Returns: Json
@@ -62050,6 +62107,8 @@ export type Database = {
       fin_s14b1_validate: { Args: never; Returns: Json }
       fin_s14b1r_fingerprint: { Args: never; Returns: string }
       fin_s14b1r_validate: { Args: never; Returns: Json }
+      fin_s14b1w_manifest_text: { Args: never; Returns: string }
+      fin_s14b1w_validate: { Args: { p_mode?: string }; Returns: Json }
       finance_alert_rank_severity: { Args: { p_rank: number }; Returns: string }
       finance_alert_severity_rank: {
         Args: { p_severity: string }
