@@ -51,7 +51,6 @@ export function MoneyReceivedCard({ moneyWeHaveTotal }: { moneyWeHaveTotal: numb
   const [preset, setPreset] = useState<DrilldownPreset | null>(null);
   const conf = 'approved';
   const drill = (p: DrilldownPreset | null) => { setPreset(p); setReport(true); };
-  const total = () => d && drill({ label: 'All time', ...allTime(), status: conf, expected: { amount: n(d.total_received), count: n(d.total_count), basis: 'confirmed' } });
   const n = (v?: number) => Number(v ?? 0);
   return (
     <>
