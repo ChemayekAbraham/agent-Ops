@@ -1,0 +1,1 @@
+- The Stage 11 collection register is a frozen data snapshot rebuilt only from `supabase/seeds/stage11/` (exact CSV + idempotent loader), because recomputing it from live ledger data would change its findings; its original migration is kept there, not re-registered in the Drizzle journal, since it is already applied live.
