@@ -11,7 +11,7 @@ const check = (n: string, pass: boolean, got: unknown) => { ok.push(pass); conso
 const one = async (s: string) => (await db.query(s)).rows[0] as any;
 
 await db.exec(`
-create table landlords(id uuid primary key, verified boolean, verification_status text, verification_source text, verification_reason text, verified_at timestamptz, verified_by uuid);
+create table landlords(id uuid primary key, name text, phone text, mobile_money_number text, registered_by uuid, verified boolean, verification_status text, verification_source text, verification_reason text, verified_at timestamptz, verified_by uuid, verification_updated_at timestamptz, verified_mobile_money_number text, verified_mobile_money_set_at timestamptz, verified_mobile_money_source text, registration_verification_bonus_paid boolean default false, registration_verification_bonus_paid_at timestamptz);
 create table lc1_chairpersons(id uuid primary key, name text, registered_by uuid, verified boolean default false, verification_status text default 'pending', verification_reason text, verified_at timestamptz, verified_by uuid, registration_verification_bonus_paid boolean default false, registration_verification_bonus_paid_at timestamptz);
 create table rent_requests(id uuid primary key, landlord_id uuid, lc1_id uuid, landlord_ops_reviewed_at timestamptz, landlord_ops_reviewed_by uuid, status text, amount_repaid numeric default 0);
 create table audit_logs(id uuid default gen_random_uuid(), user_id uuid, action_type text, table_name text, record_id text, metadata jsonb, reason text, created_at timestamptz default now());
@@ -40,6 +40,9 @@ BEGIN
 END; $function$;
 CREATE TRIGGER trg_pay_lc1_registration_verified_bonus AFTER INSERT OR UPDATE ON public.lc1_chairpersons FOR EACH ROW WHEN ((new.verified IS TRUE)) EXECUTE FUNCTION pay_lc1_registration_verified_bonus();
 `);
+
+// live landlord gate + bonus function + triggers, verbatim from production
+await db.exec(readFileSync("/tmp/s14g/landlord_live.sql","utf8"));
 await db.exec(`create role anon; create role authenticated;`);
 await db.exec(readFileSync("/dev-server/supabase/pending/lc1_bonus_trigger_fix.sql", "utf8"));
 await db.exec(`CREATE TRIGGER trg_sync_landlord_verified_on_pipeline_approval AFTER INSERT OR UPDATE OF landlord_ops_reviewed_at, landlord_ops_reviewed_by, status ON public.rent_requests FOR EACH ROW EXECUTE FUNCTION sync_landlord_verified_on_pipeline_approval();`);
@@ -100,11 +103,58 @@ await db.exec(`update rent_requests set landlord_ops_reviewed_at=now(), landlord
 const i = await state(ilc);
 check("I already-verified LC1: no duplicate bonus", i.legs === 0 && i.w === iw0, i);
 
+
+// ---------- Landlord path ----------
+const lstate = async (ll: string) => one(`select (select verified from landlords where id='${ll}') v,(select count(*)::int from general_ledger where idem='landlord_reg_verify_v2:${ll}') legs,(select withdrawable_balance::text from wallets where user_id='${AG}') w`);
+const llegacy = async () => { n++; const ll = `22222222-0000-4000-8000-${String(n).padStart(12, "0")}`, rr = `33333333-0000-4000-8000-${String(n).padStart(12, "0")}`;
+  await db.exec(`alter table rent_requests disable trigger trg_sync_landlord_verified_on_pipeline_approval;
+    insert into landlords(id,name,phone,registered_by) values ('${ll}','LL ${n}','0700000${n}','${AG}');
+    insert into rent_requests values ('${rr}','${ll}',null,'2026-08-27 12:06:25+00','${REV}','repaying',100);
+    alter table rent_requests enable trigger trg_sync_landlord_verified_on_pipeline_approval;`); return { ll, rr }; };
+const lquiet = (s: any, s0: any) => s.v === false && s.legs === 0 && s.w === s0.w;
+const lcases: [string, (rr: string) => string][] = [
+  ["LA unchanged status='repaying'", rr => `update rent_requests set status='repaying' where id='${rr}'`],
+  ["LB repayment", rr => `update rent_requests set amount_repaid=amount_repaid+5000, status='repaying' where id='${rr}'`],
+  ["LC reversal", rr => `update rent_requests set amount_repaid=amount_repaid-5000, status='repaying' where id='${rr}'`],
+  ["LD accounting correction (Batch 1 shape)", rr => `update rent_requests set amount_repaid=amount_repaid-9200, status='repaying' where id='${rr}'`],
+  ["LE settlement/status rebuild", rr => `update rent_requests set status='completed' where id='${rr}'; update rent_requests set status='repaying' where id='${rr}'`],
+  ["LF admin refresh (same values)", rr => `update rent_requests set status=status, landlord_ops_reviewed_by=landlord_ops_reviewed_by where id='${rr}'`],
+  ["LF2 re-save existing review date", rr => `update rent_requests set landlord_ops_reviewed_at=landlord_ops_reviewed_at where id='${rr}'`],
+  ["LF3 other ordinary update (amount only)", rr => `update rent_requests set amount_repaid=amount_repaid+1 where id='${rr}'`],
+];
+for (const [name, sql] of lcases) { const c = await llegacy(); const s0 = await lstate(c.ll); await db.exec(sql(c.rr)); check(name, lquiet(await lstate(c.ll), s0), await lstate(c.ll)); }
+
+n++; const gll = `22222222-0000-4000-8000-${String(n).padStart(12, "0")}`, glr = `33333333-0000-4000-8000-${String(n).padStart(12, "0")}`;
+await db.exec(`insert into landlords(id,name,phone,registered_by) values ('${gll}','LL G','0711111111','${AG}'); insert into rent_requests(id,landlord_id,status) values ('${glr}','${gll}','pending');`);
+const lw0 = (await lstate(gll)).w;
+await db.exec(`update rent_requests set landlord_ops_reviewed_at='2026-08-01 09:00+00', landlord_ops_reviewed_by='${REV}' where id='${glr}'`);
+const lg = await one(`select l.verified, l.verification_status, l.verified_by::text vb, l.verified_at > '2026-09-01' real_time, (select count(*)::int from general_ledger where idem='landlord_reg_verify_v2:${gll}') legs, (select withdrawable_balance::text from wallets where user_id='${AG}') w, (select count(*)::int from audit_logs where action_type='landlord_verified_at_landlord_review' and record_id='${gll}') audit from landlords l where id='${gll}'`);
+check("LG genuine review: verified once, real time, paid 5,000 once", lg.verified && lg.verification_status === 'verified' && lg.vb === REV && lg.real_time && lg.legs === 2 && Math.round((Number(lg.w) - Number(lw0)) * 100) === 500000 && lg.audit === 1, lg);
+await db.exec(`update rent_requests set landlord_ops_reviewed_at=landlord_ops_reviewed_at, status='funded' where id='${glr}'`);
+const lh = await lstate(gll);
+check("LH repeated review write: no second bonus", lh.legs === 2 && lh.w === lg.w, lh);
+
+n++; const ill = `22222222-0000-4000-8000-${String(n).padStart(12, "0")}`, ilr = `33333333-0000-4000-8000-${String(n).padStart(12, "0")}`;
+await db.exec(`insert into landlords(id,name,phone,registered_by,verified,verification_status,registration_verification_bonus_paid) values ('${ill}','LL I','0722222222','${AG}',true,'verified',true); insert into rent_requests(id,landlord_id,status) values ('${ilr}','${ill}','pending');`);
+const liw = (await lstate(ill)).w;
+await db.exec(`update rent_requests set landlord_ops_reviewed_at=now(), landlord_ops_reviewed_by='${REV}' where id='${ilr}'`);
+const li = await lstate(ill);
+check("LI already-verified landlord: no duplicate bonus", li.legs === 0 && li.w === liw, li);
+
+// Combined: one genuine review of a plan with both an unverified landlord and LC1
+n++; const cll = `22222222-0000-4000-8000-${String(n).padStart(12, "0")}`, clc = `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`, crr = `33333333-0000-4000-8000-${String(n).padStart(12, "0")}`;
+await db.exec(`insert into landlords(id,name,phone,registered_by) values ('${cll}','LL J','0733333333','${AG}'); insert into lc1_chairpersons(id,name,registered_by) values ('${clc}','LC J','${AG}'); insert into rent_requests(id,landlord_id,lc1_id,status) values ('${crr}','${cll}','${clc}','pending');`);
+const cw0 = (await lstate(cll)).w;
+await db.exec(`update rent_requests set landlord_ops_reviewed_at=now(), landlord_ops_reviewed_by='${REV}' where id='${crr}'; update rent_requests set status='repaying' where id='${crr}'; update rent_requests set status='repaying' where id='${crr}';`);
+const cj = await one(`select (select withdrawable_balance::text from wallets where user_id='${AG}') w`);
+check("J both on one review: 5,000 + 2,000 once, later writes add 0", Math.round((Number(cj.w) - Number(cw0)) * 100) === 700000, cj);
+
 // Install safety: re-running the migration on existing state moves nothing
-const pre = await one(`select (select count(*)::int from general_ledger) gl,(select count(*)::int from lc1_chairpersons where verified) v,(select withdrawable_balance::text from wallets) w`);
+const pre = await one(`select (select count(*)::int from general_ledger) gl,(select count(*)::int from lc1_chairpersons where verified) v,(select count(*)::int from landlords where verified) lv,(select withdrawable_balance::text from wallets) w,(select md5(string_agg(r::text,',' order by id)) from rent_requests r) rr`);
 await db.exec(readFileSync("/dev-server/supabase/pending/lc1_bonus_trigger_fix.sql", "utf8"));
-const post = await one(`select (select count(*)::int from general_ledger) gl,(select count(*)::int from lc1_chairpersons where verified) v,(select withdrawable_balance::text from wallets) w`);
-check("Install: no ledger/wallet/verification change", JSON.stringify(pre) === JSON.stringify(post), post);
+await db.exec(readFileSync("/dev-server/supabase/pending/lc1_bonus_trigger_fix.sql", "utf8"));
+const post = await one(`select (select count(*)::int from general_ledger) gl,(select count(*)::int from lc1_chairpersons where verified) v,(select count(*)::int from landlords where verified) lv,(select withdrawable_balance::text from wallets) w,(select md5(string_agg(r::text,',' order by id)) from rent_requests r) rr`);
+check("Install twice: no ledger/wallet/verification/plan change", JSON.stringify(pre) === JSON.stringify(post), post);
 
 console.log(`\n${ok.filter(Boolean).length}/${ok.length} passed`);
 process.exit(ok.every(Boolean) ? 0 : 1);
