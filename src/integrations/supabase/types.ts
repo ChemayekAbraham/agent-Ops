@@ -16670,6 +16670,24 @@ export type Database = {
         }
         Relationships: []
       }
+      fin_s14b1r_plan_pins: {
+        Row: {
+          amount_repaid_pinned: number
+          rent_request_id: string
+          status_pinned: string
+        }
+        Insert: {
+          amount_repaid_pinned: number
+          rent_request_id: string
+          status_pinned: string
+        }
+        Update: {
+          amount_repaid_pinned?: number
+          rent_request_id?: string
+          status_pinned?: string
+        }
+        Relationships: []
+      }
       finance_anomaly_alert_config: {
         Row: {
           created_at: string
