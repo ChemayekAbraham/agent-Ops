@@ -30,7 +30,7 @@ describe('periodBounds (Kampala day buckets)', () => {
     const b = periodBounds('yesterday');
     expect(iso(b.from)).toBe('2026-10-01T21:00:00.000Z');
     expect(iso(b.to)).toBe('2026-10-02T21:00:00.000Z');
-    expect(b.phrase).toContain('Fri, 02 Oct');
+    expect(b.phrase).toContain('Fri 02 Oct');
   });
 
   it('past 7 days spans six full days back to today, open-ended', () => {
@@ -47,11 +47,11 @@ describe('periodBounds (Kampala day buckets)', () => {
     expect(b.phrase).toContain('this month');
   });
 
-  it('is timezone-independent: same bounds viewed from a UTC-5 browser', () => {
-    // kampalaTodayYmd uses Intl with a fixed zone, so device offset cannot
-    // shift the buckets; assert via a second frozen moment late in the UTC day.
+  it('is timezone-independent: late UTC night rolls to the next Kampala day', () => {
+    // 23:30 UTC on 3 Oct is already 02:30 on 4 Oct in Kampala, so "today"
+    // must start at Kampala midnight of the 4th (2026-10-03T21:00Z).
     vi.setSystemTime(Date.UTC(2026, 9, 3, 23, 30, 0));
     const b = periodBounds('today');
-    expect(iso(b.from)).toBe('2026-10-02T21:00:00.000Z');
+    expect(iso(b.from)).toBe('2026-10-03T21:00:00.000Z');
   });
 });
