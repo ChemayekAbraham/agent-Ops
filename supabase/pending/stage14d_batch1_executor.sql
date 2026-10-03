@@ -118,12 +118,13 @@ INSERT INTO public.fin_s14b1_package_plans
 -- Package rows are frozen: no UPDATE/DELETE ever; approvals may only gain execution stamps once.
 CREATE OR REPLACE FUNCTION public.fin_s14b1_freeze() RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $f$
 BEGIN
-  IF TG_TABLE_NAME = 'fin_s14b1_approvals' AND TG_OP = 'UPDATE'
-     AND OLD.executed_at IS NULL AND NEW.executed_at IS NOT NULL
-     AND (NEW.id, NEW.package_version, NEW.package_hash, NEW.approved_by, NEW.approved_at, NEW.approved_totals, NEW.reason)
-       = (OLD.id, OLD.package_version, OLD.package_hash, OLD.approved_by, OLD.approved_at, OLD.approved_totals, OLD.reason)
-     AND current_setting('s14b1.executing', true) = 'on' THEN
-    RETURN NEW;
+  IF TG_TABLE_NAME = 'fin_s14b1_approvals' AND TG_OP = 'UPDATE' THEN
+    IF OLD.executed_at IS NULL AND NEW.executed_at IS NOT NULL
+       AND (NEW.id, NEW.package_version, NEW.package_hash, NEW.approved_by, NEW.approved_at, NEW.approved_totals, NEW.reason)
+         = (OLD.id, OLD.package_version, OLD.package_hash, OLD.approved_by, OLD.approved_at, OLD.approved_totals, OLD.reason)
+       AND current_setting('s14b1.executing', true) = 'on' THEN
+      RETURN NEW;
+    END IF;
   END IF;
   RAISE EXCEPTION 'S14B1_FROZEN: % on % is not allowed', TG_OP, TG_TABLE_NAME;
 END $f$;
