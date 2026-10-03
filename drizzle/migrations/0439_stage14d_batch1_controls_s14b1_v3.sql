@@ -1,34 +1,8 @@
--- ============================================================================
--- Stage 14D — Batch 1 correction executor (APPROVAL-GATED)
--- STATUS: APPROVED FOR CONTROL INSTALLATION 2026-10-03 (approval-only; execution remains a separate deliberate call).
---
--- Preview and production share ONE database, so applying this file IS a
--- production change. It must not be applied until the CFO approves the code,
--- and creating these objects moves no money by itself. Money moves only when
--- cfo_s14b1_execute(<approval_id>, true, <phrase>, <fingerprint>) is called by the Batch 1 executor after
--- cfo_s14b1_approve() has recorded an approval for the exact fingerprint.
---
--- Frozen package: version s14b1-v3 (regenerated 2026-10-03 18:42 UTC from a fresh snapshot; supersedes s14b1-v2 / 3898220f… and s14b1-v1 / 274de655…, both stale), 20 collections (UGX 483,685),
--- 20 cash entries + 13 commission entries = 33 entries / 66 legs,
--- debits = credits = UGX 523,485.42, 13 Rent Plans (UGX 479,685).
--- Fingerprint (sha256): 905eb51e0c84b4080fe6f4e05774f0271f60c4587575d1b76e94d1887dfd2791
--- Previous fingerprint 274de655… (s14b1-v1) is STALE and cannot be executed: Nyanzi Lydia Eseri received UGX 420 commission after its snapshot.
--- Previous fingerprint 3898220f… (s14b1-v2) is STALE and cannot be executed: Nyanzi Lydia Eseri received UGX 400 commission at 18:31:06 UTC after its snapshot.
--- (Rebuilt 2026-10-03: commission contra leg relabelled system_balance_correction -> agent_commission_earned; supersedes 16d1ae84...)
--- Held open (NOT in this package, no transaction of any kind): UGX 5,732.40
---   status "Held Open — Unrecoverable at Current Wallet Balance" — not recovered,
---   not written off, not moved, not expensed.
--- Single-CFO workflow (2026-10-03): the approving CFO may also execute, but only
--- Angwen Sarah's account (29a0cfa8-…) may execute this Batch 1 tool, only between
--- 5 minutes and 24 hours after approval, and only with the typed phrase
--- 'EXECUTE BATCH 1 CORRECTION' plus the fingerprint supplied again. Approval never
--- accepts the phrase and never executes. is_cfo_approver is NOT changed.
--- Audit/event identifier: ACCOUNTING_CORRECTION_BATCH_1_DUPLICATE_COLLECTIONS
--- Recruiter commission (UGX 2,835.68) and unrecoverable collecting commission
--- (UGX 5,732.40) have NO lines: they are neither recovered nor written off.
--- ============================================================================
+-- Stage 14D — Batch 1 correction controls, package s14b1-v3, fingerprint 905eb51e0c84b4080fe6f4e05774f0271f60c4587575d1b76e94d1887dfd2791
+-- CONTROL INSTALLATION ONLY. Creates frozen-package tables, validation, approval and a separate gated executor.
+-- Nothing here posts ledger entries, moves wallets, changes Rent Plans or reverses collections.
+-- Held open (no transaction): UGX 5,732.40. Recruiter commission UGX 2,835.68 not in package.
 
--- 1. Frozen package (append-only) --------------------------------------------
 CREATE TABLE public.fin_s14b1_package_lines (
   entry_key            text PRIMARY KEY,
   kind                 text NOT NULL CHECK (kind IN ('cash','commission')),
@@ -127,7 +101,6 @@ INSERT INTO public.fin_s14b1_package_plans
   ('be7f78ad-1b16-4c7f-ba23-5af2886fd9a6'::uuid,276000.00,276000.00,'completed',22000.00,254000.00,'repaying'),
   ('cd49828e-3635-4631-a015-5676342a9e4f'::uuid,60888.00,209500.00,'repaying',6984.00,53904.00,'repaying');
 
--- Package rows are frozen: no UPDATE/DELETE ever; approvals may only gain execution stamps once.
 CREATE OR REPLACE FUNCTION public.fin_s14b1_freeze() RETURNS trigger LANGUAGE plpgsql SET search_path = public AS $f$
 BEGIN
   IF TG_TABLE_NAME = 'fin_s14b1_approvals' AND TG_OP = 'UPDATE' THEN
@@ -147,9 +120,7 @@ CREATE OR REPLACE FUNCTION public.fin_s14b1_no_insert() RETURNS trigger LANGUAGE
 BEGIN RAISE EXCEPTION 'S14B1_FROZEN: package rows cannot be added'; END $f$;
 CREATE TRIGGER trg_s14b1_lines_noins AFTER INSERT ON public.fin_s14b1_package_lines FOR EACH STATEMENT EXECUTE FUNCTION public.fin_s14b1_no_insert();
 CREATE TRIGGER trg_s14b1_plans_noins AFTER INSERT ON public.fin_s14b1_package_plans FOR EACH STATEMENT EXECUTE FUNCTION public.fin_s14b1_no_insert();
--- (These two INSERT blockers are created AFTER the seed above, so they block every later insert.)
 
--- 2. Fingerprint of the frozen package -------------------------------------
 CREATE OR REPLACE FUNCTION public.fin_s14b1_fingerprint() RETURNS text
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $f$
   SELECT encode(sha256(convert_to(
@@ -161,16 +132,12 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $f$
                        restore_amount::numeric(18,2)::text||';'||amount_repaid_after::numeric(18,2)::text||';'||status_after, '|' ORDER BY rent_request_id)
        FROM public.fin_s14b1_package_plans), 'UTF8')), 'hex')
 $f$;
--- The hashed string is built exactly as in the Stage 14 review (tag 's14b1-v3').
--- The constant below is what fin_s14b1_fingerprint() must return; it is re-checked at apply time.
 
--- 3. Live validation (read-only; returns every check) ----------------------
 CREATE OR REPLACE FUNCTION public.fin_s14b1_validate() RETURNS jsonb
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $f$
 DECLARE
   v jsonb := '{}'::jsonb; ok boolean := true; n int; s numeric; bad int;
 BEGIN
-  -- Package shape
   SELECT count(*), sum(amount) INTO n, s FROM fin_s14b1_package_lines;
   v := v || jsonb_build_object('entries', n, 'lines', n*2, 'total', s);
   ok := ok AND n = 33 AND s = 523485.42;
@@ -181,7 +148,6 @@ BEGIN
   SELECT count(*), sum(restore_amount) INTO n, s FROM fin_s14b1_package_plans;
   ok := ok AND n = 13 AND s = 479685;
 
-  -- Collections: same 20, still in frozen Stage 14 batch 1, unreversed, same amounts
   SELECT count(*) INTO bad FROM fin_s14b1_package_lines l
    WHERE l.kind='cash' AND NOT EXISTS (
      SELECT 1 FROM agent_collections ac JOIN fin_s14_batch_cases b ON b.collection_id=ac.id AND b.batch_no=1
@@ -191,7 +157,6 @@ BEGIN
   SELECT count(*) INTO n FROM fin_s14_batch_cases WHERE batch_no=1;
   v := v || jsonb_build_object('batch1_size', n); ok := ok AND n = 20;
 
-  -- Original legs still present and unchanged
   SELECT count(*) INTO bad FROM fin_s14b1_package_lines l
    WHERE (l.kind='cash' AND (SELECT count(*) FROM general_ledger g WHERE g.transaction_group_id=l.origin_group_id
             AND ((g.category='cash_receipt_in_transit' AND g.direction='cash_in') OR (g.category='tenant_repayment_collected' AND g.direction='cash_out'))
@@ -201,7 +166,6 @@ BEGIN
             AND g.category='agent_commission_earned' AND g.ledger_scope='wallet' AND g.amount=l.origin_leg_amount));
   v := v || jsonb_build_object('origin_legs_invalid', bad); ok := ok AND bad = 0;
 
-  -- Protected corrections
   SELECT count(*), sum(amount) INTO n, s FROM agent_collections WHERE reversed_at='2026-09-16 14:08:40.882504+00';
   v := v || jsonb_build_object('sep16_count', n, 'sep16_amount', s); ok := ok AND n = 1210 AND s = 92656683;
   SELECT count(*) INTO bad FROM fin_s14b1_package_lines l JOIN agent_collections ac ON ac.id=l.collection_id
@@ -215,19 +179,15 @@ BEGIN
   SELECT count(*) INTO bad FROM fin_s14b1_package_lines WHERE collection_id='dab3bc9f-1ba2-4151-a344-fdd09132b7f8';
   ok := ok AND bad = 0;
 
-  -- Rent Plans unchanged since the package
   SELECT count(*) INTO bad FROM fin_s14b1_package_plans p JOIN rent_requests rr ON rr.id=p.rent_request_id
    WHERE rr.amount_repaid::numeric(18,2) <> p.amount_repaid_before OR rr.status <> p.status_before OR rr.total_repayment::numeric(18,2) <> p.total_repayment;
   v := v || jsonb_build_object('plans_changed', bad); ok := ok AND bad = 0;
-  -- Case 20 UGX 4,000 stays excluded
   SELECT count(*) INTO n FROM fin_s14b1_package_plans WHERE rent_request_id='2ca84e52-973b-4ed6-a5b8-5bc28ba6cd84' AND restore_amount=96000;
   ok := ok AND n = 1;
 
-  -- Idempotency
   SELECT count(*) INTO n FROM general_ledger WHERE reference_id IN (SELECT entry_key FROM fin_s14b1_package_lines) OR idempotency_key IN (SELECT entry_key FROM fin_s14b1_package_lines);
   v := v || jsonb_build_object('keys_used', n); ok := ok AND n = 0;
 
-  -- Commission: live safe recovery must equal the package, line by line (collection order)
   WITH c AS (
     SELECT l.entry_key, l.recipient_user_id, l.amount, l.origin_leg_amount,
            sum(l.origin_leg_amount) OVER (PARTITION BY l.recipient_user_id ORDER BY l.case_position, l.entry_key) - l.origin_leg_amount AS before_cum,
@@ -236,24 +196,19 @@ BEGIN
   SELECT count(*) INTO bad FROM c
    WHERE round(least(origin_leg_amount, greatest(avail - before_cum, 0)),2) <> amount;
   v := v || jsonb_build_object('commission_mismatch_lines', bad); ok := ok AND bad = 0;
-  -- No wallet below zero
   SELECT count(*) INTO bad FROM (SELECT recipient_user_id, sum(amount) a FROM fin_s14b1_package_lines WHERE kind='commission' GROUP BY 1) x
    WHERE greatest(coalesce(public.get_user_available_balance(x.recipient_user_id),0),0) < x.a;
   v := v || jsonb_build_object('wallets_insufficient', bad); ok := ok AND bad = 0;
-  -- Recruiters never present
   SELECT count(*) INTO bad FROM fin_s14b1_package_lines WHERE recipient_user_id IN
    ('98ee118b-06d1-47a4-aa2b-76bd12170b70','ebd985fb-dc19-43f8-b5f4-4e8cf1150fd4','ebf0897b-dfdf-4403-ad5c-1c988c72e67c');
   ok := ok AND bad = 0;
 
-  -- Unexpected commission payment: no new commission to the three collecting agents
-  -- after the last commission leg included in the reviewed snapshot. Never recalculated.
   SELECT count(*) INTO bad FROM general_ledger g
    WHERE g.category='agent_commission_earned' AND g.ledger_scope='wallet' AND g.direction='cash_in'
      AND g.created_at > '2026-10-03 18:31:06.812619+00'::timestamptz
      AND g.user_id IN (SELECT DISTINCT recipient_user_id FROM fin_s14b1_package_lines WHERE kind='commission');
   v := v || jsonb_build_object('new_commission_payments', bad); ok := ok AND bad = 0;
 
-  -- Tenant-balance safety (before): every plan in range now and after the planned restore
   SELECT count(*) INTO bad FROM fin_s14b1_package_plans p JOIN rent_requests rr ON rr.id=p.rent_request_id
    WHERE rr.amount_repaid < 0 OR rr.total_repayment - rr.amount_repaid < 0
       OR p.amount_repaid_after < 0 OR p.amount_repaid_after > rr.total_repayment
@@ -264,7 +219,6 @@ BEGIN
   RETURN v;
 END $f$;
 
--- 4. Manifest (read-only) -------------------------------------------------
 CREATE OR REPLACE FUNCTION public.cfo_s14b1_manifest() RETURNS jsonb
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $f$
 BEGIN
@@ -280,7 +234,6 @@ BEGIN
     'validation', public.fin_s14b1_validate());
 END $f$;
 
--- 5. CFO approval (records a decision only; moves no money) ----------------
 CREATE OR REPLACE FUNCTION public.cfo_s14b1_approve(p_package_hash text, p_reason text) RETURNS uuid
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $f$
 DECLARE v_id uuid; v jsonb;
@@ -300,47 +253,36 @@ BEGIN
   RETURN v_id;
 END $f$;
 
--- 6. Executor (atomic; one function call = one transaction) ----------------
 CREATE OR REPLACE FUNCTION public.cfo_s14b1_execute(p_approval_id uuid, p_approved boolean, p_confirmation text, p_package_hash text) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $f$
 DECLARE
   a record; l record; p record; v jsonb; v_grp uuid; v_avail numeric;
   n_ref bigint; n_entries int := 0; n_legs int := 0; v_dr numeric := 0; v_cr numeric := 0; n_coll int; n_plans int;
 BEGIN
-  -- Gate 1: explicit flag, no default
   IF p_approved IS DISTINCT FROM true THEN RAISE EXCEPTION 'S14B1_NOT_APPROVED_FLAG'; END IF;
-  -- Gate 2: caller is a CFO approver AND is the single designated Batch 1 executor (Angwen Sarah)
   IF NOT public.is_cfo_approver(auth.uid()) THEN RAISE EXCEPTION 'S14B1_NOT_CFO'; END IF;
   IF auth.uid() IS DISTINCT FROM '29a0cfa8-1eaf-453c-874c-0fc72fa4f74b'::uuid THEN RAISE EXCEPTION 'S14B1_NOT_BATCH1_EXECUTOR'; END IF;
-  -- Gate 2b: deliberate confirmation — exact phrase and fingerprint supplied again
   IF p_confirmation IS DISTINCT FROM 'EXECUTE BATCH 1 CORRECTION' THEN RAISE EXCEPTION 'S14B1_CONFIRMATION_PHRASE_MISMATCH'; END IF;
   IF p_package_hash IS DISTINCT FROM '905eb51e0c84b4080fe6f4e05774f0271f60c4587575d1b76e94d1887dfd2791' THEN RAISE EXCEPTION 'S14B1_CONFIRMATION_HASH_MISMATCH'; END IF;
-  -- Serialise: only one executor at a time
   PERFORM pg_advisory_xact_lock(hashtext('s14b1_execute'));
-  -- Gate 3: stored approval for this exact fingerprint, never executed
   SELECT * INTO a FROM fin_s14b1_approvals WHERE id = p_approval_id FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'S14B1_APPROVAL_NOT_FOUND'; END IF;
   IF a.executed_at IS NOT NULL THEN RAISE EXCEPTION 'S14B1_ALREADY_EXECUTED'; END IF;
   IF EXISTS (SELECT 1 FROM fin_s14b1_approvals WHERE executed_at IS NOT NULL) THEN RAISE EXCEPTION 'S14B1_ALREADY_EXECUTED'; END IF;
   IF a.approved_by IS NULL OR NOT public.is_cfo_approver(a.approved_by) THEN RAISE EXCEPTION 'S14B1_APPROVER_INVALID'; END IF;
-  -- Gate 3b: timing, server clock — at least 5 minutes after approval, expires after 24 hours
   IF clock_timestamp() < a.approved_at + interval '5 minutes' THEN RAISE EXCEPTION 'S14B1_WAITING_PERIOD'; END IF;
   IF clock_timestamp() > a.approved_at + interval '24 hours' THEN RAISE EXCEPTION 'S14B1_APPROVAL_EXPIRED'; END IF;
   IF a.package_version <> 'S14B1-v3' OR a.package_hash <> public.fin_s14b1_fingerprint() OR a.package_hash <> p_package_hash THEN RAISE EXCEPTION 'S14B1_HASH_MISMATCH'; END IF;
   IF (a.approved_totals->>'debits')::numeric <> 523485.42 THEN RAISE EXCEPTION 'S14B1_TOTALS_MISMATCH'; END IF;
 
-  -- Lock every affected wallet owner, collection and plan before re-validating
   PERFORM pg_advisory_xact_lock(hashtext('bucket_reclass:' || u::text))
      FROM (SELECT DISTINCT recipient_user_id u FROM fin_s14b1_package_lines WHERE kind='commission' ORDER BY 1) x;
   PERFORM 1 FROM agent_collections WHERE id IN (SELECT collection_id FROM fin_s14b1_package_lines) FOR UPDATE;
   PERFORM 1 FROM rent_requests WHERE id IN (SELECT rent_request_id FROM fin_s14b1_package_plans) FOR UPDATE;
 
-  -- Gate 4: full re-validation inside the same transaction
   v := public.fin_s14b1_validate();
   IF NOT (v->>'all_ok')::boolean THEN RAISE EXCEPTION 'S14B1_VALIDATION_FAILED: %', v; END IF;
 
-  -- Gate 5: referral hard stop. No unpaid referral bonus may exist for the recovered agents
-  -- or the 13 plans' agents; a bonus must never be paid inside this transaction.
   SELECT count(*) INTO n_ref FROM referrals r
    WHERE r.referred_id IN (SELECT recipient_user_id FROM fin_s14b1_package_lines WHERE kind='commission'
                            UNION SELECT rr.agent_id FROM rent_requests rr WHERE rr.id IN (SELECT rent_request_id FROM fin_s14b1_package_plans))
@@ -350,7 +292,6 @@ BEGIN
 
   PERFORM set_config('ledger.authorized', 'true', true);
 
-  -- Cash entries (20): Dr tenant_repayment_collected / Cr cash_receipt_in_transit
   FOR l IN SELECT * FROM fin_s14b1_package_lines WHERE kind='cash' ORDER BY case_position LOOP
     IF EXISTS (SELECT 1 FROM general_ledger WHERE reference_id = l.entry_key) THEN RAISE EXCEPTION 'S14B1_KEY_EXISTS %', l.entry_key; END IF;
     v_grp := gen_random_uuid();
@@ -364,7 +305,6 @@ BEGIN
     n_entries := n_entries + 1; n_legs := n_legs + 2; v_dr := v_dr + l.amount; v_cr := v_cr + l.amount;
   END LOOP;
 
-  -- Commission entries (13): withdrawable only, re-checked per line, never negative, never float
   FOR l IN SELECT * FROM fin_s14b1_package_lines WHERE kind='commission' ORDER BY recipient_user_id, case_position, entry_key LOOP
     IF EXISTS (SELECT 1 FROM general_ledger WHERE reference_id = l.entry_key) THEN RAISE EXCEPTION 'S14B1_KEY_EXISTS %', l.entry_key; END IF;
     v_avail := coalesce(public.get_user_available_balance(l.recipient_user_id), 0);
@@ -380,18 +320,15 @@ BEGIN
     n_entries := n_entries + 1; n_legs := n_legs + 2; v_dr := v_dr + l.amount; v_cr := v_cr + l.amount;
   END LOOP;
 
-  -- Post-condition: no wallet negative
   IF EXISTS (SELECT 1 FROM wallets WHERE user_id IN (SELECT recipient_user_id FROM fin_s14b1_package_lines WHERE kind='commission')
              AND (withdrawable_balance < 0 OR float_balance < 0)) THEN RAISE EXCEPTION 'S14B1_NEGATIVE_WALLET'; END IF;
 
-  -- Mark the 20 collections reversed
   UPDATE agent_collections ac SET reversed_at = now(),
          notes = coalesce(ac.notes,'') || ' [REVERSED: Stage 14 Batch 1 confirmed duplicate, approval '||p_approval_id||']'
    WHERE ac.id IN (SELECT collection_id FROM fin_s14b1_package_lines WHERE kind='cash') AND ac.reversed_at IS NULL;
   GET DIAGNOSTICS n_coll = ROW_COUNT;
   IF n_coll <> 20 THEN RAISE EXCEPTION 'S14B1_COLLECTIONS_MARKED %', n_coll; END IF;
 
-  -- Restore tenant debt on the 13 Rent Plans (UGX 479,685; case 20 net of UGX 4,000)
   FOR p IN SELECT * FROM fin_s14b1_package_plans LOOP
     UPDATE rent_requests SET amount_repaid = p.amount_repaid_after, status = p.status_after
      WHERE id = p.rent_request_id AND amount_repaid::numeric(18,2) = p.amount_repaid_before AND status = p.status_before;
@@ -403,23 +340,19 @@ BEGIN
                                'restored', p.restore_amount, 'status_before', p.status_before, 'status_after', p.status_after));
   END LOOP;
   SELECT count(*) INTO n_plans FROM fin_s14b1_package_plans;
-  -- Tenant-balance safety (after): no negative paid/outstanding, no overpayment, terms unchanged
   IF EXISTS (SELECT 1 FROM fin_s14b1_package_plans pp JOIN rent_requests rr ON rr.id=pp.rent_request_id
               WHERE rr.amount_repaid < 0 OR rr.total_repayment - rr.amount_repaid < 0
                  OR rr.amount_repaid::numeric(18,2) <> pp.amount_repaid_after
                  OR rr.total_repayment::numeric(18,2) <> pp.total_repayment)
   THEN RAISE EXCEPTION 'S14B1_TENANT_BALANCE_UNSAFE'; END IF;
 
-  -- Final balance assertions
   IF n_entries <> 33 OR n_legs <> 66 OR v_dr <> 523485.42 OR v_cr <> 523485.42 THEN
     RAISE EXCEPTION 'S14B1_TOTALS_POST % % % %', n_entries, n_legs, v_dr, v_cr; END IF;
   IF (SELECT count(*) FROM general_ledger WHERE reference_id LIKE 's14b1:%') <> 66 THEN RAISE EXCEPTION 'S14B1_LEG_COUNT'; END IF;
   IF EXISTS (SELECT transaction_group_id FROM general_ledger WHERE reference_id LIKE 's14b1:%' GROUP BY 1
              HAVING sum(CASE WHEN direction='cash_in' THEN amount ELSE -amount END) <> 0) THEN RAISE EXCEPTION 'S14B1_UNBALANCED_GROUP'; END IF;
 
-  -- Referral post-check: nothing paid from referrals during this run
   IF (SELECT count(*) FROM general_ledger WHERE source_table='referrals') <> n_ref THEN RAISE EXCEPTION 'S14B1_REFERRAL_PAID_DURING_RUN'; END IF;
-  -- Mapped double-entry: every s14b1 group must balance on ledger_account_map treatment (same rules as live check)
   IF EXISTS (
     SELECT 1 FROM general_ledger gl
       LEFT JOIN ledger_account_map mb ON mb.ledger_scope=gl.ledger_scope AND mb.category=gl.category AND mb.wallet_bucket IS NOT NULL AND mb.wallet_bucket=gl.wallet_bucket
@@ -427,7 +360,7 @@ BEGIN
      WHERE gl.reference_id LIKE 's14b1:%'
      GROUP BY gl.transaction_group_id
     HAVING abs(sum(CASE WHEN gl.direction = COALESCE(mb.debit_when, mw.debit_when,
-                 CASE WHEN gl.ledger_scope='wallet' AND gl.wallet_bucket IN ('float','advance') THEN 'cash_in'
+                  CASE WHEN gl.ledger_scope='wallet' AND gl.wallet_bucket IN ('float','advance') THEN 'cash_in'
                       WHEN gl.ledger_scope='wallet' THEN 'cash_out' ELSE 'cash_in' END)
                THEN gl.amount ELSE -gl.amount END)) > 0.005)
   THEN RAISE EXCEPTION 'S14B1_MAPPED_UNBALANCED'; END IF;
@@ -441,16 +374,12 @@ BEGIN
   INSERT INTO system_events (event_type, user_id, related_entity_type, related_entity_id, metadata)
   VALUES ('ACCOUNTING_CORRECTION_BATCH_1_DUPLICATE_COLLECTIONS', auth.uid(), 'fin_s14b1_approvals', p_approval_id, v || jsonb_build_object('kind','s14b1_correction'));
   RETURN v;
-  -- Any RAISE above aborts the whole call: all 66 legs, wallet movements, collection marks and plan updates roll back together.
 END $f$;
 
--- 7. Access: no ordinary path can reach these ------------------------------
 REVOKE ALL ON FUNCTION public.fin_s14b1_fingerprint(), public.fin_s14b1_validate(), public.cfo_s14b1_manifest(),
   public.cfo_s14b1_approve(text, text), public.cfo_s14b1_execute(uuid, boolean, text, text) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.cfo_s14b1_manifest(), public.cfo_s14b1_approve(text, text), public.cfo_s14b1_execute(uuid, boolean, text, text) TO authenticated;
--- (Each of these checks is_cfo_approver(auth.uid()) itself; no app screen calls them.)
 
--- 8. Apply-time self-check: abort the whole file unless the frozen package hashes to the reviewed value
 DO $c$ BEGIN
   IF public.fin_s14b1_fingerprint() <> '905eb51e0c84b4080fe6f4e05774f0271f60c4587575d1b76e94d1887dfd2791' THEN
     RAISE EXCEPTION 'S14B1 package fingerprint % differs from reviewed 905eb51e0c84b4080fe6f4e05774f0271f60c4587575d1b76e94d1887dfd2791', public.fin_s14b1_fingerprint();
