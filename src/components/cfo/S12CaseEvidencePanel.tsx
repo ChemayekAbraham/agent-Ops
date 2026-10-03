@@ -70,7 +70,8 @@ export function S12CaseEvidencePanel({ collectionId, recordedName, planName }: {
       note: d.deposits?.length ? 'Linked deposit, or deposits by either agent for this amount within 2 days.' : 'No linked deposit, and no deposit by either agent for this amount within 2 days.',
       body: (d.deposits ?? []).map((x: Ev) => (
         <Item key={x.id} rows={[['Reference', x.transaction_id ?? x.id], ['Date/time', eat(x.transaction_date ?? x.created_at)], ['Amount', ugx(x.amount)],
-          ['Depositing account', who(x.user_id, x.user_name)], ['Provider / status', `${x.provider ?? '—'} · ${x.status}`], ['Linked to this collection', x.linked ? 'Yes' : 'No — matched by agent, amount and date only']]} />
+          ['Depositing agent', who(x.agent_id ?? x.user_id, x.agent_id && x.agent_id !== x.user_id ? null : x.user_name)], ['Account', `${x.user_name ?? short8(x.user_id)} · ${x.provider ?? 'no provider recorded'}`], ['Status', x.status],
+          ['Linked to this collection', x.linked ? 'Yes — the collection record points to this deposit' : 'No — same agent, amount and nearby date only; this is not proof the deposit belongs to this collection']]} />
       )),
     },
     {
@@ -97,6 +98,9 @@ export function S12CaseEvidencePanel({ collectionId, recordedName, planName }: {
 
   return (
     <div className="space-y-2">
+      <Item rows={[['Collection', <span className="font-mono">{collectionId}</span>], ['Date/time', c.created_at ? eat(c.created_at) : '—'], ['Tenant', d.tenant_name ?? '—'],
+        ['Rent Plan', <span className="font-mono">{d.rent_plan_id ?? '—'}</span>], ['Amount', ugx(d.amount)], ['Recorded agent', d.agent_name ?? '—'],
+        ['Stage 11', d.in_population === false ? 'Outside the 659' : 'Inside the 659'], ['Reversal', d.reversed_at ? `Reversed ${eat(d.reversed_at)}` : 'Not reversed']]} />
       <p className="text-muted-foreground">Read-only. "Present" means a record exists; it is not a conclusion. Inconclusive items are system-generated. Nothing here classifies the case.</p>
       {sections.map((s) => (
         <div key={s.title} className="rounded border border-border p-2">
@@ -110,6 +114,7 @@ export function S12CaseEvidencePanel({ collectionId, recordedName, planName }: {
   );
 }
 
+const short8 = (id?: string | null) => (id ? id.slice(0, 8) : '—');
 function Item({ rows, action, extra, inconclusive }: { rows: [string, React.ReactNode][]; action?: React.ReactNode; extra?: React.ReactNode; inconclusive?: boolean }) {
   return (
     <div className="rounded bg-muted p-2">
