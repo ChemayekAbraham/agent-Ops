@@ -1,6 +1,6 @@
 -- ============================================================================
 -- Stage 14D — Batch 1 correction executor (APPROVAL-GATED)
--- STATUS: PENDING REVIEW. NOT APPLIED. NOT REGISTERED IN THE MIGRATION JOURNAL.
+-- STATUS: APPROVED FOR CONTROL INSTALLATION 2026-10-03 (approval-only; execution remains a separate deliberate call).
 --
 -- Preview and production share ONE database, so applying this file IS a
 -- production change. It must not be applied until the CFO approves the code,
@@ -25,7 +25,7 @@
 -- accepts the phrase and never executes. is_cfo_approver is NOT changed.
 -- Audit/event identifier: ACCOUNTING_CORRECTION_BATCH_1_DUPLICATE_COLLECTIONS
 -- Recruiter commission (UGX 2,835.68) and unrecoverable collecting commission
--- (UGX 6,132.40) have NO lines: they are neither recovered nor written off.
+-- (UGX 5,732.40) have NO lines: they are neither recovered nor written off.
 -- ============================================================================
 
 -- 1. Frozen package (append-only) --------------------------------------------
