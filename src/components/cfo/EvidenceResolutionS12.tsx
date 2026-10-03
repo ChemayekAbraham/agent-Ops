@@ -20,10 +20,10 @@ const POP = { count: 659, amount: 56946270 };
 const CONFIRMED = ['Confirmed Genuine', 'Confirmed Duplicate', 'Confirmed Agent Mismatch', 'Valid Separate Payment'];
 const allowedFor = (result: string) =>
   result === 'System-inconsistent' ? ['Confirmed Agent Mismatch', 'Confirmed Genuine', 'Unresolved']
-  : result === 'System duplicate candidate' ? STATUSES
+  : result === 'System duplicate candidate' ? ['Confirmed Duplicate', 'Valid Separate Payment', 'Unresolved']
   : STATUSES.filter((x) => x !== 'Confirmed Duplicate');
 
-type Match = { id: string; collected_at: string; agent_id: string; amount: number; seconds_apart: number; reversed_at: string | null; in_population: boolean };
+type Match = { id: string; collected_at: string; agent_id: string; agent_name?: string; tenant_name?: string; rent_plan_id?: string | null; amount: number; seconds_apart: number; reversed_at: string | null; in_population: boolean };
 type Ev = Record<string, any>;
 type Row = {
   collection_id: string; collected_at: string; agent_id: string; agent_name: string; tenant_name: string; rent_plan_id: string;
@@ -125,28 +125,9 @@ export function EvidenceResolutionS12() {
           </TabsContent>
 
           <TabsContent value="dups" className="max-h-[520px] overflow-auto space-y-2">
-            <p className="text-xs text-muted-foreground">{dups.filter((r) => (r.matches ?? []).some((m) => m.in_population)).length} candidates have at least one matching collection inside the Stage 11 population (marked "Both in 659"), forming {internalPairs} distinct pairs. Falling inside the 30-minute rule does not make a collection a confirmed duplicate.</p>
-            <table className="w-full text-xs">
-              <thead className="sticky top-0 bg-background"><tr className="text-left text-muted-foreground">
-                <th>Collection</th><th>Tenant</th><th>Rent Plan</th><th>Agent</th><th className="text-right">Amount</th><th>Collected (EAT)</th><th>Suspected match(es)</th><th>Multiple</th><th>Accounting</th><th>Reversal</th><th>Stage 11</th><th>Stage 12 status</th><th />
-              </tr></thead>
-              <tbody>{dups.map((r) => {
-                const both = (r.matches ?? []).some((m) => m.in_population);
-                return (
-                  <tr key={r.collection_id} className={`border-t border-border align-top ${both ? 'bg-muted' : ''}`}>
-                    <td className="py-1 font-mono">{short(r.collection_id)}{both && <Badge className="ml-1" variant="secondary">Both in 659</Badge>}</td>
-                    <td>{r.tenant_name}</td><td className="font-mono">{short(r.rent_plan_id)}</td><td>{r.agent_name}</td>
-                    <td className="text-right whitespace-nowrap">{ugx(r.amount)}</td><td className="whitespace-nowrap">{eat(r.collected_at)}</td>
-                    <td>{(r.matches ?? []).map((m) => (
-                      <div key={m.id} className="whitespace-nowrap"><span className="font-mono">{short(m.id)}</span> · {eat(m.collected_at)} · {mins(m.seconds_apart)} · {m.in_population ? 'in 659' : 'outside 659'}{m.reversed_at ? ' · reversed' : ''}</div>
-                    ))}</td>
-                    <td>{(r.matches ?? []).length > 1 ? `Yes (${(r.matches ?? []).length})` : 'No'}</td>
-                    <td>Posted · group {short(r.ledger_group)}</td><td>{r.reversed_at ? 'Reversed' : 'Not reversed'}</td>
-                    <td>{r.reconciliation_result}</td><td>{r.evidence.evidence_status}</td>
-                    <td><Button size="sm" variant="outline" disabled={!balanced} onClick={() => setOpen(r)}>Evidence</Button></td>
-                  </tr>);
-              })}</tbody>
-            </table>
+            <OutcomeSummary rows={dups} title="Stage 12C — duplicate candidate outcomes" pop={DUP_POP} outcomes={['Pending Evidence', 'Confirmed Duplicate', 'Valid Separate Payment', 'Unresolved']} />
+            <p className="text-xs text-muted-foreground">{dups.filter((r) => (r.matches ?? []).some((m) => m.in_population)).length} candidates have at least one possible match also inside Stage 11 (marked "Both in Stage 11"), forming {internalPairs} distinct pairs; {dups.filter((r) => (r.matches ?? []).length > 1).length} have more than one possible match. A matching time, amount, tenant or Rent Plan is only a signal — it is not proof of duplication. Nothing is picked for you.</p>
+            {dups.map((r) => <DupCaseCard key={r.collection_id} r={r} disabled={!balanced} onOpen={() => setOpen(r)} />)}
           </TabsContent>
 
           <TabsContent value="consistent" className="max-h-[520px] overflow-auto">
@@ -212,6 +193,66 @@ function MismatchCaseCard({ r, disabled, onOpen }: { r: Row; disabled: boolean; 
         <Button size="sm" variant="outline" disabled={disabled} onClick={onOpen}>Review evidence</Button>
       </div>
       {show && <div className="mt-2"><S12CaseEvidencePanel collectionId={r.collection_id} recordedName={r.agent_name} planName={r.plan_agent_name} /></div>}
+    </div>
+  );
+}
+
+const DUP_POP = { count: 253, amount: 23231059 };
+function OutcomeSummary({ rows, title, pop, outcomes }: { rows: Row[]; title: string; pop: { count: number; amount: number }; outcomes: string[] }) {
+  const by = (st: string) => rows.filter((r) => r.evidence?.evidence_status === st);
+  const tot = (xs: Row[]) => xs.reduce((a, r) => a + Number(r.amount), 0);
+  const ready = rows.filter((r) => r.evidence?.correction_status === 'Ready for CFO Review');
+  const total = tot(rows);
+  const ok = rows.length === pop.count && total === pop.amount;
+  return (
+    <div className="rounded-md border border-border p-2 text-xs">
+      <p className="font-medium mb-1">{title}</p>
+      <table className="w-full"><tbody>
+        {outcomes.map((o) => <tr key={o}><td>{o}</td><td className="text-right">{by(o).length}</td><td className="text-right">{formatUGX(tot(by(o)))}</td></tr>)}
+        <tr className="text-muted-foreground"><td>Ready for CFO Review (already counted above)</td><td className="text-right">{ready.length}</td><td className="text-right">{formatUGX(tot(ready))}</td></tr>
+        <tr className="border-t border-border font-semibold"><td>Total</td><td className="text-right">{rows.length}</td><td className="text-right">{formatUGX(total)}</td></tr>
+      </tbody></table>
+      {!ok && <p className="text-destructive mt-1">Expected {pop.count} / {formatUGX(pop.amount)} — out of balance.</p>}
+    </div>
+  );
+}
+
+function DupCaseCard({ r, disabled, onOpen }: { r: Row; disabled: boolean; onOpen: () => void }) {
+  const e = r.evidence ?? {};
+  const [show, setShow] = useState<string | null>(null);
+  const ms = r.matches ?? [];
+  const both = ms.some((m) => m.in_population);
+  const lines: [string, React.ReactNode][] = [
+    ['Collection', <span className="font-mono">{r.collection_id}</span>],
+    ['Collected (EAT)', eat(r.collected_at)],
+    ['Tenant', r.tenant_name],
+    ['Rent Plan', <span className="font-mono">{r.rent_plan_id}</span>],
+    ['Amount', ugx(r.amount)],
+    ['Recorded agent', r.agent_name],
+    ['Stage 11', r.reconciliation_result],
+    ['Reversal', r.reversed_at ? `Reversed ${eat(r.reversed_at)}` : 'Not reversed'],
+    ['Stage 12 status', e.evidence_status + (e.valid_original_id ? ` · original ${short(e.valid_original_id)}` : '')],
+    ['Possible matches', `${ms.length}${ms.length > 1 ? ' (multiple — none chosen)' : ''}`],
+  ];
+  return (
+    <div className="rounded-md border border-border p-3 text-xs">
+      {both && <Badge variant="secondary" className="mb-1">Both in Stage 11</Badge>}
+      <table className="w-full"><tbody>{lines.map(([k, v]) => <tr key={k}><td className="py-0.5 pr-3 text-muted-foreground whitespace-nowrap align-top">{k}</td><td>{v}</td></tr>)}</tbody></table>
+      <table className="w-full mt-2">
+        <thead><tr className="text-left text-muted-foreground"><th>Match</th><th>Collected (EAT)</th><th>Difference</th><th>Tenant</th><th>Rent Plan</th><th className="text-right">Amount</th><th>Agent</th><th>Population</th><th>Reversal</th><th /></tr></thead>
+        <tbody>{ms.map((m) => (
+          <tr key={m.id} className="border-t border-border">
+            <td className="font-mono">{m.id}</td><td className="whitespace-nowrap">{eat(m.collected_at)}</td><td>{mins(m.seconds_apart)}</td>
+            <td>{m.tenant_name ?? r.tenant_name}</td><td className="font-mono">{short(m.rent_plan_id ?? r.rent_plan_id)}</td><td className="text-right whitespace-nowrap">{ugx(m.amount)}</td>
+            <td>{m.agent_name ?? r.agent_name}</td><td>{m.in_population ? 'Inside the 659' : 'Outside the 659'}</td><td>{m.reversed_at ? 'Reversed' : 'Not reversed'}</td>
+            <td><Button size="sm" variant="ghost" onClick={() => setShow(show === m.id ? null : m.id)}>{show === m.id ? 'Hide' : 'Inspect'}</Button></td>
+          </tr>))}</tbody>
+      </table>
+      <div className="mt-2 flex flex-wrap gap-2">
+        <Button size="sm" variant="secondary" onClick={() => setShow(show === r.collection_id ? null : r.collection_id)}>{show === r.collection_id ? 'Hide evidence' : 'Inspect evidence (this collection)'}</Button>
+        <Button size="sm" variant="outline" disabled={disabled} onClick={onOpen}>Review evidence</Button>
+      </div>
+      {show && <div className="mt-2"><p className="font-medium mb-1">Evidence for {show === r.collection_id ? 'this collection' : `possible match ${short(show)}`}</p><S12CaseEvidencePanel collectionId={show} recordedName={r.agent_name} planName={r.plan_agent_name} /></div>}
     </div>
   );
 }
@@ -331,13 +372,13 @@ function EvidenceDialog({ row, onClose, onSaved }: { row: Row; onClose: () => vo
           {f.status === 'Confirmed Duplicate' && (
             <label className="space-y-1 sm:col-span-2"><span className="text-xs">Valid original collection — this collection ({short(row.collection_id)}) is recorded as the duplicate. Neither collection is changed.</span>
               <Select value={f.valid_original_id || undefined} onValueChange={set('valid_original_id')}><SelectTrigger><SelectValue placeholder="Choose matching collection" /></SelectTrigger>
-                <SelectContent>{(row.matches ?? []).map((m) => <SelectItem key={m.id} value={m.id}>{short(m.id)} · {eat(m.collected_at)} · {mins(m.seconds_apart)} · {m.in_population ? 'in 659' : 'outside 659'}{m.reversed_at ? ' · reversed' : ''}</SelectItem>)}</SelectContent></Select></label>
+                <SelectContent>{(row.matches ?? []).filter((m) => !m.reversed_at).map((m) => <SelectItem key={m.id} value={m.id}>{short(m.id)} · {eat(m.collected_at)} · {mins(m.seconds_apart)} · {m.in_population ? 'in 659' : 'outside 659'}{m.reversed_at ? ' · reversed' : ''}</SelectItem>)}</SelectContent></Select></label>
           )}
           {f.status === 'Confirmed Agent Mismatch' && (
             <label className="space-y-1 sm:col-span-2"><span className="text-xs">Confirmed collecting agent ID (recorded: {row.agent_name}; Rent Plan agent: {row.plan_agent_name ?? '—'}). If evidence shows the recorded agent collected, choose Confirmed Genuine instead.</span>
               <Input value={f.confirmed_agent_id} onChange={(ev) => set('confirmed_agent_id')(ev.target.value)} /></label>
           )}
-          {isMismatch && (
+          {(isMismatch || row.reconciliation_result === 'System duplicate candidate') && (
             <fieldset className="sm:col-span-2 space-y-1"><legend className="text-xs">Evidence on hand (tick only what applies — none is compulsory)</legend>
               <div className="flex flex-wrap gap-3">{CHECKLIST.map((c) => (
                 <label key={c} className="flex items-center gap-1 text-xs"><input type="checkbox" checked={checks.includes(c)} onChange={(ev) => setChecks((p) => ev.target.checked ? [...p, c] : p.filter((x) => x !== c))} />{c}</label>
