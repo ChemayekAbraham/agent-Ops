@@ -120,21 +120,7 @@ export function EvidenceResolutionS12() {
 
           <TabsContent value="mismatch" className="max-h-[520px] overflow-auto space-y-2">
             <MismatchSummary rows={mismatch} />
-            <table className="w-full text-xs">
-              <thead className="sticky top-0 bg-background"><tr className="text-left text-muted-foreground">
-                <th>Collection</th><th>Collected (EAT)</th><th>Tenant</th><th>Rent Plan</th><th className="text-right">Amount</th><th>Recorded agent</th><th>Rent Plan agent</th><th>Stage 11</th><th>Accounting entries</th><th>Reversal</th><th>Stage 12 status</th><th />
-              </tr></thead>
-              <tbody>{mismatch.map((r) => (
-                <tr key={r.collection_id} className="border-t border-border align-top">
-                  <td className="py-1 font-mono">{short(r.collection_id)}</td><td className="whitespace-nowrap">{eat(r.collected_at)}</td><td>{r.tenant_name}</td>
-                  <td className="font-mono">{short(r.rent_plan_id)}</td><td className="text-right whitespace-nowrap">{ugx(r.amount)}</td>
-                  <td>{r.agent_name}</td><td>{r.plan_agent_name ?? '—'}</td><td>{r.reconciliation_result}</td>
-                  <td className="whitespace-nowrap">Group {short(r.ledger_group)} · receipt {ugx(r.ledger_receipt)} · commission {ugx(r.ledger_commission)}</td>
-                  <td>{r.reversed_at ? 'Reversed' : 'Not reversed'}</td>
-                  <td>{r.evidence.evidence_status}<br /><span className="text-muted-foreground">{r.evidence.evidence_type ? 'Evidence recorded' : 'Evidence missing'}{r.evidence.attachment_path ? ' · file attached' : ''}</span>{r.evidence.notes && <><br /><span className="text-muted-foreground">{r.evidence.notes}</span></>}</td>
-                  <td><Button size="sm" variant="outline" disabled={!balanced} onClick={() => setOpen(r)}>Evidence</Button></td>
-                </tr>))}</tbody>
-            </table>
+            {mismatch.map((r) => <MismatchCaseCard key={r.collection_id} r={r} disabled={!balanced} onOpen={() => setOpen(r)} />)}
           </TabsContent>
 
           <TabsContent value="dups" className="max-h-[520px] overflow-auto space-y-2">
@@ -183,6 +169,44 @@ export function EvidenceResolutionS12() {
       </CardContent>
       {open && <EvidenceDialog row={open} onClose={() => setOpen(null)} onSaved={() => { setOpen(null); refresh(); }} />}
     </Card>
+  );
+}
+
+const CHECKLIST = ['Agent receipt', 'Tenant confirmation', 'Cash handover evidence', 'Deposit evidence', 'Other supporting evidence'];
+function MismatchCaseCard({ r, disabled, onOpen }: { r: Row; disabled: boolean; onOpen: () => void }) {
+  const e = r.evidence ?? {};
+  const have: string[] = e.evidence_checklist ?? [];
+  const available = [
+    ...have,
+    e.evidence_type && `Recorded type: ${e.evidence_type}`,
+    e.evidence_reference && `Ref ${e.evidence_reference}`,
+    e.attachment_path && 'File attached',
+  ].filter(Boolean) as string[];
+  const decided = e.evidence_status !== 'Pending Evidence';
+  const missing = decided && e.evidence_status !== 'Unresolved' ? [] : ['Who actually collected the cash: at least one of agent receipt, tenant confirmation, cash handover or deposit evidence'];
+  const lines: [string, React.ReactNode][] = [
+    ['Collection', <span className="font-mono">{r.collection_id}</span>],
+    ['Collected (EAT)', eat(r.collected_at)],
+    ['Tenant', r.tenant_name],
+    ['Rent Plan', <span className="font-mono">{r.rent_plan_id}</span>],
+    ['Amount', ugx(r.amount)],
+    ['Recorded collecting agent', r.agent_name],
+    ['Rent Plan agent', r.plan_agent_name ?? '—'],
+    ['Difference', r.plan_agent_id && r.plan_agent_id !== r.agent_id ? `Recorded as ${r.agent_name}, but the Rent Plan belongs to ${r.plan_agent_name ?? 'another agent'}` : 'No agent difference on record'],
+    ['Stage 11', r.reconciliation_result],
+    ['Accounting entries', `Group ${short(r.ledger_group)} · receipt ${ugx(r.ledger_receipt)} · repayment ${ugx(r.ledger_repayment)} · commission ${ugx(r.ledger_commission)}`],
+    ['Reversal', r.reversed_at ? `Reversed ${eat(r.reversed_at)}` : 'Not reversed'],
+    ['Stage 12 status', e.evidence_status],
+    ['Evidence available', available.length ? available.join(' · ') : 'None yet'],
+    ['Evidence still required', missing.length ? missing.join('; ') : 'None'],
+    ['Decision status', decided ? `Decided ${e.verified_at ? eat(e.verified_at) : ''}` : 'Awaiting CFO decision'],
+  ];
+  return (
+    <div className="rounded-md border border-border p-3 text-xs">
+      <table className="w-full"><tbody>{lines.map(([k, v]) => <tr key={k}><td className="py-0.5 pr-3 text-muted-foreground whitespace-nowrap align-top">{k}</td><td>{v}</td></tr>)}</tbody></table>
+      <div className="mt-2 flex flex-wrap gap-1">{CHECKLIST.map((c) => <Badge key={c} variant={have.includes(c) ? 'secondary' : 'outline'}>{have.includes(c) ? '✓ ' : ''}{c}</Badge>)}</div>
+      <Button size="sm" variant="outline" className="mt-2" disabled={disabled} onClick={onOpen}>Review evidence</Button>
+    </div>
   );
 }
 
@@ -241,8 +265,10 @@ function EvidenceDialog({ row, onClose, onSaved }: { row: Row; onClose: () => vo
   const [f, setF] = useState<Record<string, string>>({
     status: allowed.includes(e.evidence_status) ? e.evidence_status : '', evidence_type: e.evidence_type ?? '', evidence_reference: e.evidence_reference ?? '', receipt_number: e.receipt_number ?? '',
     evidence_date: e.evidence_date ?? '', evidence_source: e.evidence_source ?? '', notes: e.notes ?? '',
-    valid_original_id: e.valid_original_id ?? '', confirmed_agent_id: e.confirmed_agent_id ?? row.plan_agent_id ?? '', reason: '',
+    valid_original_id: e.valid_original_id ?? '', confirmed_agent_id: e.confirmed_agent_id ?? '', reason: '',
   });
+  const [checks, setChecks] = useState<string[]>(e.evidence_checklist ?? []);
+  const isMismatch = row.reconciliation_result === 'System-inconsistent';
   const [file, setFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const audit = useQuery({
@@ -265,7 +291,7 @@ function EvidenceDialog({ row, onClose, onSaved }: { row: Row; onClose: () => vo
       }
       const { status, reason, ...fields } = f;
       const { error } = await (supabase.rpc as any)('cfo_s12_save_evidence', {
-        p_collection_id: row.collection_id, p_status: status, p_reason: reason, p_fields: { ...fields, attachment_path, duplicate_collection_id: status === 'Confirmed Duplicate' ? row.collection_id : '' },
+        p_collection_id: row.collection_id, p_status: status, p_reason: reason, p_fields: { ...fields, attachment_path, evidence_checklist: checks, duplicate_collection_id: status === 'Confirmed Duplicate' ? row.collection_id : '' },
       });
       if (error) throw error;
       toast.success('Evidence decision recorded. Nothing was posted.');
@@ -304,6 +330,12 @@ function EvidenceDialog({ row, onClose, onSaved }: { row: Row; onClose: () => vo
           {f.status === 'Confirmed Agent Mismatch' && (
             <label className="space-y-1 sm:col-span-2"><span className="text-xs">Confirmed collecting agent ID (recorded: {row.agent_name}; Rent Plan agent: {row.plan_agent_name ?? '—'}). If evidence shows the recorded agent collected, choose Confirmed Genuine instead.</span>
               <Input value={f.confirmed_agent_id} onChange={(ev) => set('confirmed_agent_id')(ev.target.value)} /></label>
+          )}
+          {isMismatch && (
+            <fieldset className="sm:col-span-2 space-y-1"><legend className="text-xs">Evidence on hand (tick only what applies — none is compulsory)</legend>
+              <div className="flex flex-wrap gap-3">{CHECKLIST.map((c) => (
+                <label key={c} className="flex items-center gap-1 text-xs"><input type="checkbox" checked={checks.includes(c)} onChange={(ev) => setChecks((p) => ev.target.checked ? [...p, c] : p.filter((x) => x !== c))} />{c}</label>
+              ))}</div></fieldset>
           )}
           <label className="space-y-1 sm:col-span-2"><span className="text-xs">Attachment (photo or PDF)</span>
             <Input type="file" accept="image/*,application/pdf" onChange={(ev) => setFile(ev.target.files?.[0] ?? null)} />
