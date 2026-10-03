@@ -11,13 +11,15 @@ import { CheckCircle2, AlertTriangle, Download, Loader2 } from 'lucide-react';
 /** A preset opened from a card metric. `expected` is the figure shown on the card. */
 export type DrilldownPreset = {
   label: string; from: string; to: string; status: string;
+  /** Preselected type filter (source group for the credits report). */
+  type?: string;
   expected?: { amount: number; count: number; basis: 'confirmed' | 'pending' };
 };
 
 export type DrillColumn = { head: string; cell: (r: any) => React.ReactNode; csv: (r: any) => unknown; className?: string };
 
 export type DrillConfig = {
-  title: string; description: string; rpc: string; kind: 'paid_out' | 'received'; payerParam: string; filename: string;
+  title: string; description: string; rpc: string; kind: 'paid_out' | 'received' | 'credits'; payerParam: string; filename: string;
   personLabel: string; confirmedLabel: string;
   types: string[];
   statuses: { value: string; label: string }[];
@@ -57,7 +59,7 @@ export function MoneyDrilldownReport({ open, onOpenChange, preset, config }: {
   useEffect(() => {
     if (!open) return;
     if (preset) {
-      setFrom(preset.from); setTo(preset.to); setStatus(preset.status); setMethod(''); setType(''); setPerson('');
+      setFrom(preset.from); setTo(preset.to); setStatus(preset.status); setMethod(''); setType(preset.type ?? ''); setPerson('');
       setActive(preset);
       setParams({ from: preset.from, to: preset.to, status: preset.status, method: '', type: '', person: '' });
     } else {
