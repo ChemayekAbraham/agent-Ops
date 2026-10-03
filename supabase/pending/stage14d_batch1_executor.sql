@@ -10,7 +10,7 @@
 --
 -- Frozen package: version s14b1-v2 (regenerated 2026-10-03 18:25 UTC from a fresh snapshot; supersedes s14b1-v1 / 274de655…, now stale), 20 collections (UGX 483,685),
 -- 20 cash entries + 13 commission entries = 33 entries / 66 legs,
--- debits = credits = UGX 522,665.42, 13 Rent Plans (UGX 479,685).
+-- debits = credits = UGX 523,085.42, 13 Rent Plans (UGX 479,685).
 -- Fingerprint (sha256): 274de6552922cbdc2f7d346903ef5ac0300681646fd6e35f9b781959e422a385
 -- (Rebuilt 2026-10-03: commission contra leg relabelled system_balance_correction -> agent_commission_earned; supersedes 16d1ae84...)
 -- Held open (NOT in this package, no transaction of any kind): UGX 6,132.40
