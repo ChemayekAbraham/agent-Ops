@@ -66961,6 +66961,7 @@ export type Database = {
         Args: { p_house_id: string; p_reason: string }
         Returns: Json
       }
+      landlord_payout_allowed_today: { Args: never; Returns: number }
       landlord_payout_queue_blocked: {
         Args: { p_exempt_at: string; p_landlord_payout_id: string }
         Returns: boolean
