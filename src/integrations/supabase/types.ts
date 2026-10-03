@@ -63381,6 +63381,28 @@ export type Database = {
         Returns: Json
       }
       get_cfo_weekly_report: { Args: { p_end?: string }; Returns: Json }
+      get_cfo_withdrawable_credits_range: {
+        Args: { p_from: string; p_to?: string }
+        Returns: {
+          category: string
+          credits: number
+          total: number
+        }[]
+      }
+      get_cfo_withdrawable_credits_range_detail: {
+        Args: { p_categories: string[]; p_from: string; p_to?: string }
+        Returns: {
+          amount: number
+          category: string
+          created_at: string
+          description: string
+          full_name: string
+          id: string
+          phone: string
+          reference_id: string
+          user_id: string
+        }[]
+      }
       get_cfo_withdrawable_credits_today: {
         Args: never
         Returns: {
