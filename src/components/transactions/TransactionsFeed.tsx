@@ -216,6 +216,12 @@ export function TransactionsFeed({
             options={TX_ITEM_OPTIONS}
             onChange={(v) => setItem(v as TxItemFilter)}
           />
+          <FilterPill
+            label="Reversal"
+            value={reversal}
+            options={TX_REVERSAL_OPTIONS}
+            onChange={(v) => setReversal(v as TxReversalFilter)}
+          />
         </div>
       )}
 
@@ -244,6 +250,26 @@ export function TransactionsFeed({
           </p>
         </div>
       )}
+
+      {reversalLoading && rows.length > 0 && (
+        <div className="flex items-center justify-center gap-2 rounded-2xl bg-background p-6 text-sm font-medium text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Checking transfers…
+        </div>
+      )}
+
+      {!query.isLoading &&
+        !reversalLoading &&
+        rows.length > 0 &&
+        visibleRows.length === 0 && (
+          <div className="rounded-2xl bg-background p-10 text-center">
+            <p className="font-semibold">No matching transfers</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              None of the loaded transactions are{" "}
+              {TX_REVERSAL_OPTIONS.find((o) => o.value === reversal)?.label.toLowerCase()}.
+            </p>
+          </div>
+        )}
 
       {groups.map((group) => (
         <section key={group.day} className="space-y-3">
@@ -360,6 +386,12 @@ export function TransactionsFeed({
           })}
         </section>
       ))}
+
+      {reversal !== "all" && query.hasNextPage && (
+        <p className="text-center text-xs text-muted-foreground">
+          Only the transactions already loaded are searched — tap Load more to look further back.
+        </p>
+      )}
 
       {query.hasNextPage && (
         <Button
