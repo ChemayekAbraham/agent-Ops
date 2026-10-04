@@ -259,10 +259,39 @@ export function ValuationModelPanel() {
             <tbody className="[&_td]:py-1.5 [&_td]:text-right [&_tr]:border-t [&_tr]:border-border">
               <tr><td className="text-left text-muted-foreground">Value today</td>{results.map(({ k, r }) => <td key={k} className="font-semibold">{fmt(r.todayPreMoney)}</td>)}</tr>
               <tr><td className="text-left text-muted-foreground">Raise</td>{results.map(({ k, r }) => <td key={k}>{fmt(r.todayRaise)}</td>)}</tr>
-              <tr><td className="text-left text-muted-foreground">Year 3 value</td>{results.map(({ k, r }) => <td key={k}>{fmt(r.rows[r.rows.length - 1].valuation)}</td>)}</tr>
-              <tr><td className="text-left text-muted-foreground">Year 3 stake</td>{results.map(({ k, r }) => <td key={k}>{r.rows[r.rows.length - 1].founderStakePct.toFixed(1)}%</td>)}</tr>
             </tbody>
           </table>
+          <div className="mt-3 space-y-3">
+            {r2(0, 3).map((i) => {
+              const isFinal = i === 2;
+              const shown = results.filter(({ k }) => !hidden.includes(k));
+              return (
+                <div key={i} className={`rounded-lg border p-2 ${isFinal ? 'border-primary/40 bg-primary/5' : 'border-border'}`}>
+                  <div className="mb-1 grid grid-cols-[58px_1fr_1fr_1fr] items-baseline gap-1 text-[10px] text-muted-foreground">
+                    <span className={isFinal ? 'font-semibold text-foreground' : 'font-semibold'}>Year {i + 1}{isFinal ? ' · final' : ''}</span>
+                    <span className="text-right">Value</span>
+                    <span className="text-right">Revenue</span>
+                    <span className="text-right">Stake</span>
+                  </div>
+                  {shown.map(({ k, r: res }) => {
+                    const y = res.rows[i];
+                    return (
+                      <div key={k} className="grid grid-cols-[58px_1fr_1fr_1fr] items-baseline gap-1 border-t border-border/60 py-1 text-[11px] tabular-nums">
+                        <span className="flex min-w-0 items-center gap-1 truncate" style={{ color: COLORS[k] }}>
+                          <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: COLORS[k] }} />
+                          {LABELS[k].replace(' growth', '').replace('Conservative', 'Conserv.')}
+                        </span>
+                        <span className="text-right font-semibold">{fmt(y.valuation)}</span>
+                        <span className="text-right text-muted-foreground">{fmt(y.revenue)}</span>
+                        <span className="text-right">{y.founderStakePct.toFixed(1)}%</span>
+                      </div>
+                    );
+                  })}
+                  {!shown.length && <p className="py-1 text-[11px] text-muted-foreground">All scenarios hidden.</p>}
+                </div>
+              );
+            })}
+          </div>
         </CardContent>
       </Card>
 
