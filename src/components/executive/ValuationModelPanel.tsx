@@ -34,7 +34,7 @@ type Metric = 'valuation' | 'stake' | 'stakeValue';
 const METRICS: { id: Metric; label: string }[] = [
   { id: 'valuation', label: 'Company value' },
   { id: 'stake', label: 'Ownership %' },
-  { id: 'stakeValue', label: 'Value of your stake' },
+  { id: 'stakeValue', label: 'Stake value' },
 ];
 
 interface Baseline {
@@ -127,7 +127,7 @@ export function ValuationModelPanel() {
   }, [results, inputs, metric]);
   const fmt = (v: number) => (currency === 'USD' ? usd(v) : compact(v));
   const fmtOther = (v: number) => (currency === 'USD' ? compact(v) : usd(v));
-  const fmtAxis = (v: number) => (metric === 'stake' ? `${v.toFixed(0)}%` : fmt(v));
+  const fmtAxis = (v: number) => (metric === 'stake' ? `${v.toFixed(0)}%` : isMobile ? fmt(v).replace(/^UGX /, '').replace(/^US\$/, '$').replace(/\.\d+/, '') : fmt(v));
 
   if (base.isLoading) return <div className="flex justify-center p-10"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   if (base.error) return <p className="p-6 text-destructive">Could not load the latest figures.</p>;
@@ -217,7 +217,7 @@ export function ValuationModelPanel() {
           <CardTitle className="text-base">How the scenarios play out over time</CardTitle>
           <div className="flex flex-wrap gap-2 pt-2">
             {METRICS.map((m) => (
-              <Button key={m.id} size="sm" className="h-10 sm:h-9 flex-1 sm:flex-none" variant={metric === m.id ? 'default' : 'outline'} onClick={() => setMetric(m.id)}>{m.label}</Button>
+              <Button key={m.id} size="sm" className="h-10 sm:h-9 flex-1 sm:flex-none px-2" variant={metric === m.id ? 'default' : 'outline'} onClick={() => setMetric(m.id)}>{m.label}</Button>
             ))}
             <span className="mx-1 hidden sm:block w-px bg-border" />
             {(Object.keys(LABELS) as Key[]).map((k) => (
@@ -234,12 +234,12 @@ export function ValuationModelPanel() {
               <LineChart data={chartData} margin={{ top: 8, right: isMobile ? 8 : 16, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="year" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} tickFormatter={fmtAxis} width={isMobile ? 48 : 70} domain={metric === 'stake' ? [0, 100] : [0, 'auto']} />
+                <YAxis tick={{ fontSize: 12 }} tickFormatter={fmtAxis} width={isMobile ? 44 : 70} domain={metric === 'stake' ? [0, 100] : [0, 'auto']} />
                 <Tooltip
                   formatter={(v: number, n: string) => [metric === 'stake' ? `${v.toFixed(1)}%` : `${fmt(v)} (${fmtOther(v)})`, LABELS[n as Key] ?? n]}
                   contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
                 />
-                <Legend formatter={(n: string) => LABELS[n as Key] ?? n} />
+                {!isMobile && <Legend formatter={(n: string) => LABELS[n as Key] ?? n} />}
                 {(Object.keys(LABELS) as Key[]).filter((k) => !hidden.includes(k)).map((k) => (
                   <Line key={k} type="monotone" dataKey={k} stroke={COLORS[k]} strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 6 }} />
                 ))}
