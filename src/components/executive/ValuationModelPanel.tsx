@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Files, Loader2, RefreshCw, Share2 } from 'lucide-react';
 import { shareValuationComparisonPdf as rawCmp, shareValuationPdf as rawOne } from '@/lib/valuationPdf';
 import { toast } from 'sonner';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 async function notify(fn: () => Promise<'shared' | 'downloaded'>) {
   try {
@@ -33,7 +34,7 @@ type Metric = 'valuation' | 'stake' | 'stakeValue';
 const METRICS: { id: Metric; label: string }[] = [
   { id: 'valuation', label: 'Company value' },
   { id: 'stake', label: 'Ownership %' },
-  { id: 'stakeValue', label: 'Value of your stake' },
+  { id: 'stakeValue', label: 'Stake value' },
 ];
 
 interface Baseline {
@@ -98,6 +99,7 @@ export function ValuationModelPanel() {
   const refreshRate = () => queryClient.invalidateQueries({ queryKey: ['ugx-usd-live-rate'] });
   const [inputs, setInputs] = useState<Record<Key, ScenarioInputs>>({ ...SCENARIO_PRESETS });
   const [metric, setMetric] = useState<Metric>('valuation');
+  const isMobile = useIsMobile();
   const [currency, setCurrency] = useState<'UGX' | 'USD'>('UGX');
   const [hidden, setHidden] = useState<Key[]>([]);
   const [monthly, setMonthly] = useState<number | null>(null);
@@ -125,7 +127,7 @@ export function ValuationModelPanel() {
   }, [results, inputs, metric]);
   const fmt = (v: number) => (currency === 'USD' ? usd(v) : compact(v));
   const fmtOther = (v: number) => (currency === 'USD' ? compact(v) : usd(v));
-  const fmtAxis = (v: number) => (metric === 'stake' ? `${v.toFixed(0)}%` : fmt(v));
+  const fmtAxis = (v: number) => (metric === 'stake' ? `${v.toFixed(0)}%` : isMobile ? fmt(v).replace(/^UGX /, '').replace(/^US\$/, '$').replace(/\.\d+/, '') : fmt(v));
 
   if (base.isLoading) return <div className="flex justify-center p-10"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   if (base.error) return <p className="p-6 text-destructive">Could not load the latest figures.</p>;
@@ -213,31 +215,32 @@ export function ValuationModelPanel() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">How the scenarios play out over time</CardTitle>
-          <div className="flex flex-wrap gap-2 pt-2">
+          <div className="grid grid-cols-3 sm:flex sm:flex-wrap gap-2 pt-2">
             {METRICS.map((m) => (
-              <Button key={m.id} size="sm" variant={metric === m.id ? 'default' : 'outline'} onClick={() => setMetric(m.id)}>{m.label}</Button>
+              <Button key={m.id} size="sm" className="h-10 sm:h-9 px-1 text-xs sm:text-sm whitespace-normal leading-tight" variant={metric === m.id ? 'default' : 'outline'} onClick={() => setMetric(m.id)}>{m.label}</Button>
             ))}
-            <span className="mx-1 w-px bg-border" />
+            </div>
+          <div className="grid grid-cols-3 sm:flex sm:flex-wrap gap-2">
             {(Object.keys(LABELS) as Key[]).map((k) => (
-              <Button key={k} size="sm" variant={hidden.includes(k) ? 'ghost' : 'secondary'}
+              <Button key={k} size="sm" className="h-10 sm:h-9 px-1 text-xs sm:text-sm" variant={hidden.includes(k) ? 'ghost' : 'secondary'}
                 onClick={() => setHidden((h) => (h.includes(k) ? h.filter((x) => x !== k) : [...h, k]))}>
-                <span className="mr-2 inline-block h-2 w-2 rounded-full" style={{ background: COLORS[k] }} />{LABELS[k]}
+                <span className="mr-1 sm:mr-2 inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: COLORS[k] }} />{LABELS[k].replace(' growth', '')}
               </Button>
             ))}
           </div>
-        </CardHeader>
+          </CardHeader>
         <CardContent>
-          <div className="h-72 w-full">
+          <div className="h-64 sm:h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+              <LineChart data={chartData} margin={{ top: 8, right: isMobile ? 8 : 16, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis dataKey="year" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} tickFormatter={fmtAxis} width={70} domain={metric === 'stake' ? [0, 100] : [0, 'auto']} />
+                <YAxis tick={{ fontSize: 12 }} tickFormatter={fmtAxis} width={isMobile ? 44 : 70} domain={metric === 'stake' ? [0, 100] : [0, 'auto']} />
                 <Tooltip
                   formatter={(v: number, n: string) => [metric === 'stake' ? `${v.toFixed(1)}%` : `${fmt(v)} (${fmtOther(v)})`, LABELS[n as Key] ?? n]}
                   contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
                 />
-                <Legend formatter={(n: string) => LABELS[n as Key] ?? n} />
+                {!isMobile && <Legend formatter={(n: string) => LABELS[n as Key] ?? n} />}
                 {(Object.keys(LABELS) as Key[]).filter((k) => !hidden.includes(k)).map((k) => (
                   <Line key={k} type="monotone" dataKey={k} stroke={COLORS[k]} strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 6 }} />
                 ))}
@@ -245,6 +248,21 @@ export function ValuationModelPanel() {
             </ResponsiveContainer>
           </div>
           <p className="text-xs text-muted-foreground mt-2">Move any slider below and the lines redraw instantly. Hover a point for exact figures.</p>
+        </CardContent>
+      </Card>
+
+      <Card className="md:hidden">
+        <CardHeader className="pb-2"><CardTitle className="text-base">Scenarios at a glance</CardTitle></CardHeader>
+        <CardContent className="px-3 pb-3">
+          <table className="w-full text-xs">
+            <thead><tr className="text-muted-foreground text-right"><th className="text-left font-medium"> </th>{results.map(({ k }) => <th key={k} className="font-medium pb-1" style={{ color: COLORS[k] }}>{LABELS[k].replace(' growth', '')}</th>)}</tr></thead>
+            <tbody className="[&_td]:py-1.5 [&_td]:text-right [&_tr]:border-t [&_tr]:border-border">
+              <tr><td className="text-left text-muted-foreground">Value today</td>{results.map(({ k, r }) => <td key={k} className="font-semibold">{fmt(r.todayPreMoney)}</td>)}</tr>
+              <tr><td className="text-left text-muted-foreground">Raise</td>{results.map(({ k, r }) => <td key={k}>{fmt(r.todayRaise)}</td>)}</tr>
+              <tr><td className="text-left text-muted-foreground">Year 3 value</td>{results.map(({ k, r }) => <td key={k}>{fmt(r.rows[r.rows.length - 1].valuation)}</td>)}</tr>
+              <tr><td className="text-left text-muted-foreground">Year 3 stake</td>{results.map(({ k, r }) => <td key={k}>{r.rows[r.rows.length - 1].founderStakePct.toFixed(1)}%</td>)}</tr>
+            </tbody>
+          </table>
         </CardContent>
       </Card>
 
@@ -277,24 +295,20 @@ export function ValuationModelPanel() {
                 <p className="text-xl font-bold text-primary">{fmt(r.todayPreMoney)}</p>
                 <p className="text-xs text-muted-foreground">{fmtOther(r.todayPreMoney)} · raise {fmt(r.todayRaise)} for {inputs[k].dilutionPct}%</p>
               </div>
-              <Button size="sm" variant="outline" className="w-full gap-2" onClick={() => shareValuationPdf({
+              <Button size="sm" variant="outline" className="w-full gap-2 h-10 sm:h-9" onClick={() => shareValuationPdf({
                 scenarioLabel: LABELS[k], inputs: inputs[k], result: r, monthlyRevenue: monthlyRev, ugxPerUsd: UGX_PER_USD, rateNote,
               })}>
                 <Share2 className="h-4 w-4" /> Share as PDF
               </Button>
-              <table className="w-full text-xs">
-                <thead><tr className="text-muted-foreground text-left"><th>Year</th><th>Revenue</th><th>Value</th><th>Your stake</th></tr></thead>
-                <tbody>
-                  {r.rows.map((y) => (
-                    <tr key={y.year} className="border-t border-border">
-                      <td className="py-1">{y.year}</td>
-                      <td>{fmt(y.revenue)}</td>
-                      <td>{fmt(y.valuation)}</td>
-                      <td>{y.founderStakePct.toFixed(1)}% · {fmt(y.stakeValue)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <div className="space-y-2">
+                {r.rows.map((y) => (
+                  <div key={y.year} className="rounded-lg border border-border p-2 text-xs">
+                    <div className="flex justify-between font-semibold"><span>Year {y.year}</span><span>{fmt(y.valuation)}</span></div>
+                    <div className="flex justify-between text-muted-foreground"><span>Revenue</span><span>{fmt(y.revenue)}</span></div>
+                    <div className="flex justify-between text-muted-foreground"><span>Your stake</span><span>{y.founderStakePct.toFixed(1)}% · {fmt(y.stakeValue)}</span></div>
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
         ))}
