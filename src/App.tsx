@@ -265,6 +265,7 @@ const HREmployeeProfilePage = lazy(() => import('./pages/hr/EmployeeProfile'));
 const DirectorDashboardPage = lazy(() => import('./pages/director/Dashboard'));
 const AdminDashboardPage = lazy(() => import('./pages/admin/Dashboard'));
 const LandlordOpsPage = lazy(() => import('./pages/landlord-ops/LandlordOpsPage'));
+const LandlordPrincipalRecoveredPage = lazy(() => import('./pages/landlord-ops/principal/PrincipalRecovered'));
 
 const AdminUsersPage = lazy(() => import('./pages/admin/Users'));
 const AdminAccessAuditPage = lazy(() => import('./pages/admin/AccessAudit'));
@@ -785,6 +786,7 @@ function AppRoutes() {
                 element={<RouteView />}
               />
             ))}
+            <Route path="principal-recovered" element={<LandlordPrincipalRecoveredPage />} />
           </Route>
           <Route path="/agents-space" element={<AgentsSpacePage />} />
           <Route path="/agent-ops/reports/tenant-portfolio-performance" element={<RoleGuard allowedRoles={['ceo', 'cto', 'cmo', 'crm', 'coo', 'cfo', 'super_admin', 'manager', 'employee', 'operations']}><TppoPortfolioPerformanceReport /></RoleGuard>} />
