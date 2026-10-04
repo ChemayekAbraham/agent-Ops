@@ -5,7 +5,19 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
 import { Files, Loader2, RefreshCw, Share2 } from 'lucide-react';
-import { shareValuationComparisonPdf, shareValuationPdf } from '@/lib/valuationPdf';
+import { shareValuationComparisonPdf as rawCmp, shareValuationPdf as rawOne } from '@/lib/valuationPdf';
+import { toast } from 'sonner';
+
+async function notify(fn: () => Promise<'shared' | 'downloaded'>) {
+  try {
+    const r = await fn();
+    if (r === 'downloaded') toast.success('PDF ready — save or share it from your phone or downloads.');
+  } catch {
+    toast.error('Could not create the PDF. Please try again.');
+  }
+}
+const shareValuationPdf = (d: Parameters<typeof rawOne>[0]) => notify(() => rawOne(d));
+const shareValuationComparisonPdf = (d: Parameters<typeof rawCmp>[0]) => notify(() => rawCmp(d));
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { formatUGX } from '@/lib/businessAdvanceCalculations';
 import { runScenario, SCENARIO_PRESETS, type ScenarioInputs } from '@/lib/valuationModel';

@@ -172,8 +172,14 @@ async function sharePdf(blob: Blob, fileName: string, title: string): Promise<'s
     }
   }
   const url = URL.createObjectURL(blob);
+  const isTouch = /iPhone|iPad|Android/i.test(navigator.userAgent);
+  if (isTouch) {
+    // Phones without file-share support: open the PDF so it can be saved/shared from the viewer.
+    const w = window.open(url, '_blank');
+    if (w) { setTimeout(() => URL.revokeObjectURL(url), 60000); return 'downloaded'; }
+  }
   const a = document.createElement('a');
-  a.href = url; a.download = fileName; a.click();
+  a.href = url; a.download = fileName; document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 2000);
   return 'downloaded';
 }
