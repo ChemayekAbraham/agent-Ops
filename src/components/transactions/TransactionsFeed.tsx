@@ -266,6 +266,7 @@ export function TransactionsFeed({
                     >
                       {isIn ? "Money In" : "Money Out"}
                     </Badge>
+                    <TransferReversalBadge row={row} />
                   </span>
                   {peer ? (
                     <span className="block truncate text-xs sm:text-sm font-bold text-foreground">
