@@ -355,6 +355,8 @@ function useTransferReversalStatus(ref: string | null) {
         reason?: string;
         sent?: number;
         reversible?: number;
+        /** ISO 8601 — when the transfer was reversed ('reversed' state only). */
+        reversed_at?: string;
       };
     },
   });
@@ -392,15 +394,26 @@ function TransferReversalBadge({ row }: { row: TxFeedRow }) {
 }
 
 /**
- * Brief reason under an outgoing transfer that can no longer be reversed.
- * Shows only where the cause isn't already obvious from the badge
- * ("Reversed" explains itself); explains withdrawn / fully-spent cases.
+ * Reversal detail under a transfer row. For a reversed transfer (sender OR
+ * recipient): when it was reversed. For an outgoing transfer that can no
+ * longer be reversed: why (withdrawn / fully-spent cases — "Reversed"
+ * already explains itself, so it gets the timestamp instead).
  */
 function TransferReversalReason({ row }: { row: TxFeedRow }) {
   const ref = transferRefOf(row);
   const status = useTransferReversalStatus(ref);
-  if (!ref || row.direction !== "cash_out" || !status.data) return null;
-  const { state } = status.data;
+  if (!ref || !status.data) return null;
+  const { state, reversed_at } = status.data;
+  if (state === "reversed") {
+    if (!reversed_at) return null;
+    const when = format(parseISO(reversed_at), "MMM d, yyyy 'at' h:mm a");
+    return (
+      <p className="px-1 text-xs font-medium leading-snug text-muted-foreground">
+        Reversed on {when}.
+      </p>
+    );
+  }
+  if (row.direction !== "cash_out") return null;
   let reason: string | null = null;
   if (state === "withdrawn") {
     reason = "Can't reverse — the recipient has already withdrawn these funds.";
