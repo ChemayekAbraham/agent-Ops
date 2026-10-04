@@ -1,0 +1,1 @@
+ALTER TABLE public.investor_portfolios ADD COLUMN IF NOT EXISTS display_currency TEXT NOT NULL DEFAULT 'UGX';

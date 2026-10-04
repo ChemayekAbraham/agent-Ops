@@ -1,0 +1,1 @@
+ALTER TABLE public.browser_compat_events ADD COLUMN IF NOT EXISTS choice text;

@@ -1,0 +1,3 @@
+ALTER TABLE public.hr_tickets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.hr_ticket_surfaces ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.hr_review_weeks ENABLE ROW LEVEL SECURITY;

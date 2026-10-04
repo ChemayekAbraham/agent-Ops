@@ -1,0 +1,1 @@
+ALTER TABLE public.rent_requests ADD COLUMN IF NOT EXISTS tenant_photo_url text;

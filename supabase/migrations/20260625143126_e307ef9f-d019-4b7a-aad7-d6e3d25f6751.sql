@@ -1,0 +1,1 @@
+ALTER TABLE public.dashboard_missions ADD COLUMN IF NOT EXISTS posted_by_name text;

@@ -1,0 +1,1 @@
+ALTER TABLE public.pending_wallet_operations ADD COLUMN IF NOT EXISTS payment_method text, ADD COLUMN IF NOT EXISTS payment_reference text;

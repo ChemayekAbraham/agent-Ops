@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.record_rent_request_repayment(uuid, numeric);

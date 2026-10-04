@@ -1,0 +1,1 @@
+DELETE FROM public.user_roles WHERE user_id = '3bd228fd-7a9a-47f3-bed3-44cbce81854a' AND role IN ('cfo','cto');

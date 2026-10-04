@@ -1,0 +1,1 @@
+ALTER VIEW public.v_user_wallet_strict SET (security_invoker = on);

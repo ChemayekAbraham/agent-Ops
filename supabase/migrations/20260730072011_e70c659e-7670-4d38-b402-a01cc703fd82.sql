@@ -1,0 +1,1 @@
+ALTER FUNCTION public.get_cto_issue_intelligence(date) SET search_path = public, extensions;

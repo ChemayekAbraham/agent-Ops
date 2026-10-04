@@ -1,0 +1,2 @@
+DELETE FROM public.portfolio_completion_tokens WHERE portfolio_id='670d1c4f-4c0e-414b-a5d6-517312e90316';
+DELETE FROM public.investor_portfolios WHERE id='670d1c4f-4c0e-414b-a5d6-517312e90316' AND status='awaiting_partner_details';

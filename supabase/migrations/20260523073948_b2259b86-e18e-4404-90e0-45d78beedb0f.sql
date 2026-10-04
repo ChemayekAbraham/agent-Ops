@@ -1,0 +1,1 @@
+UPDATE public.profiles SET forced_default_role='agent', forced_default_role_set_at=now() WHERE id='9bb21b14-cf97-428d-960a-abdd244e80b8';

@@ -1,0 +1,1 @@
+UPDATE proxy_agent_assignments SET approval_status = 'pending', is_active = false, approved_by = NULL, approved_at = NULL WHERE id = '30ee9c51-7677-4064-95c7-9a9c68c1ca19';

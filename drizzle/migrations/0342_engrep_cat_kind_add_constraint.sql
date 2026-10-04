@@ -1,0 +1,2 @@
+ALTER TABLE public.engrep_catalog_snapshot DROP CONSTRAINT engrep_cat_kind;
+ALTER TABLE public.engrep_catalog_snapshot ADD CONSTRAINT engrep_cat_kind CHECK (object_kind = ANY (ARRAY['table'::text, 'column'::text, 'view'::text, 'function'::text, 'trigger'::text, 'policy'::text, 'index'::text, 'constraint'::text]));

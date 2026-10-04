@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS profiles_national_id_unique ON public.profiles (national_id) WHERE national_id IS NOT NULL AND national_id != '';

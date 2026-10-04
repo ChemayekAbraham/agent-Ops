@@ -1,0 +1,2 @@
+UPDATE public.seo_index_monitor_settings SET alert_email = 'benjamin@welile.com' WHERE alert_email = 'weliletenants@gmail.com';
+ALTER TABLE public.seo_index_monitor_settings ALTER COLUMN alert_email SET DEFAULT 'benjamin@welile.com';

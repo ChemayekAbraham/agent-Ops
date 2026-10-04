@@ -1,0 +1,1 @@
+ALTER TABLE public.merchant_agreement_acceptance ADD COLUMN IF NOT EXISTS signature_data_url TEXT;

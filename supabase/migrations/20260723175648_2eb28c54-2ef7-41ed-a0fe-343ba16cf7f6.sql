@@ -1,0 +1,1 @@
+UPDATE public.treasury_controls SET enabled = false, updated_at = now() WHERE control_key = 'maintenance_mode';

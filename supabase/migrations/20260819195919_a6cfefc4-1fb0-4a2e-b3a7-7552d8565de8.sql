@@ -1,0 +1,16 @@
+REVOKE EXECUTE ON FUNCTION public.budget_review_queue(uuid, text) FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.budget_coo_start_review(uuid) FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.budget_coo_decide_line(uuid, text, numeric, text) FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.budget_coo_forward_submission(uuid, text) FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.budget_coo_return_submission(uuid, text, text) FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.budget_log_event(uuid, text, jsonb) FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.budget_department_route(uuid) FROM anon, public;
+REVOKE EXECUTE ON FUNCTION public.is_budget_coo_reviewer(uuid) FROM anon, public;
+GRANT EXECUTE ON FUNCTION public.budget_review_queue(uuid, text) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.budget_coo_start_review(uuid) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.budget_coo_decide_line(uuid, text, numeric, text) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.budget_coo_forward_submission(uuid, text) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.budget_coo_return_submission(uuid, text, text) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.budget_log_event(uuid, text, jsonb) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.budget_department_route(uuid) TO authenticated, service_role;
+GRANT EXECUTE ON FUNCTION public.is_budget_coo_reviewer(uuid) TO authenticated, service_role;

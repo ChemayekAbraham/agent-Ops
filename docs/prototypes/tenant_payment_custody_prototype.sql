@@ -1,0 +1,63 @@
+-- PROTOTYPE ONLY — NOT APPLIED, NOT A MIGRATION.
+-- Forward-only correction of the tenant-payment posting shape.
+--
+-- Current (defective) shape produced by agent_allocate_tenant_payment_internal
+-- and the offline/manual collection paths:
+--
+--   DR  A3 Rent Access Receivables      (bridge.rent_receivable_created)
+--   CR  A2 Float with Agents            (wallet.agent_float_used_for_rent /
+--                                        wallet.rent_payment_for_tenant)
+--
+-- i.e. a tenant PAYMENT is posted with the shape of a rent PLAN FUNDING:
+-- it increases the tenant receivable and drains float, and never records
+-- where the tenant's cash went.
+--
+-- Prototype shape (per tenant payment of X, principal portion only):
+--
+--   DR  A5 Cash in Transit — Received, Not Yet Banked  (platform.cash_receipt_in_transit, cash_in)
+--   CR  A3 Rent Access Receivables (Tenants)           (platform.tenant_repayment_collected, cash_out)
+--
+-- Commission stays in its own balanced group (DR X3 / CR L1) and is untouched.
+-- Agent float is NOT a leg of a collection: the wallet float decrement stays an
+-- operational allowance control, not an accounting event.
+--
+-- Banking/remittance is UNCHANGED and reused as-is (already live since 17 Aug,
+-- process_verified_field_deposit / verify-field-deposit / agent-cash-deposit-*):
+--
+--   DR  A1 Cash and Bank        (platform.cash_at_bank_reclass, cash_in)
+--   CR  A5 Cash in Transit      (platform.cash_receipt_in_transit, cash_out)
+--
+-- Duplicate-custody guard: collections since 17 Aug already post a custody pair
+-- for the FEE portion only (platform.cash_receipt_in_transit +
+-- platform.agent_float_cash_offset, 253 legs / UGX 1,483,821). The prototype
+-- posts custody for the PRINCIPAL portion only, so the two cannot overlap.
+
+-- ---------------------------------------------------------------------------
+-- Candidate posting block (would replace the float/receivable pair inside
+-- public.agent_allocate_tenant_payment_internal). Shown for review only.
+-- ---------------------------------------------------------------------------
+-- PERFORM public.create_ledger_transaction(
+--   p_category   => 'tenant_repayment_collected',
+--   p_source     => 'agent_collections',
+--   p_source_id  => v_collection_id,
+--   p_entries    => jsonb_build_array(
+--     jsonb_build_object(
+--       'ledger_scope','platform','category','cash_receipt_in_transit',
+--       'direction','cash_in','amount',v_principal,
+--       'counterparty_user_id',v_agent_id,'recipient_type','operational_wallet'),
+--     jsonb_build_object(
+--       'ledger_scope','platform','category','tenant_repayment_collected',
+--       'direction','cash_out','amount',v_principal,
+--       'counterparty_user_id',v_tenant_id)
+--   ));
+--
+-- Removed from that function, forward-only:
+--   * the bridge  rent_receivable_created  leg
+--   * the wallet  agent_float_used_for_rent / rent_payment_for_tenant  leg
+--
+-- Reporting-only companion change (no ledger rows):
+--   UPDATE ledger_account_catalog
+--      SET label   = 'Float with Agents — Advances Due from Agents',
+--          section = 'current_asset'   -- moved OUT of the cash block
+--    WHERE code = 'A2';
+--   and the cash-flow definition of cash becomes A1 + A5 (was A1 + A2).

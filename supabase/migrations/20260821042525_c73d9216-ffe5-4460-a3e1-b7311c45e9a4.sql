@@ -1,0 +1,1 @@
+delete from public.service_centre_setups where id = 'fc264a7b-856c-49a7-a6bb-7a74dfb0d04e';

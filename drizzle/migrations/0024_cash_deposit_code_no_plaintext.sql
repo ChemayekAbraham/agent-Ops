@@ -1,0 +1,93 @@
+-- Stop exposing the deposit verification code in readable form.
+-- The code is only ever compared server-side against code_hash; the readable
+-- copy is no longer selectable by anyone and is no longer written.
+
+REVOKE SELECT (code_plain) ON public.cash_deposit_verifications FROM authenticated;
+REVOKE SELECT (code_plain) ON public.cash_deposit_verifications FROM anon;
+
+CREATE OR REPLACE FUNCTION public.fin_ops_recent_cash_codes(p_limit integer DEFAULT 50)
+RETURNS TABLE(
+  verification_id uuid,
+  deposit_request_id uuid,
+  depositor_name text,
+  wallet_holder_name text,
+  cash_owner_name text,
+  depositor_phone text,
+  amount numeric,
+  code text,
+  status text,
+  attempts integer,
+  max_attempts integer,
+  deposit_purpose text,
+  cash_location text,
+  delivery_channel text,
+  expires_at timestamp with time zone,
+  created_at timestamp with time zone
+)
+LANGUAGE plpgsql
+STABLE SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+BEGIN
+  IF auth.uid() IS NULL OR NOT (
+    public.has_role(auth.uid(), 'cfo')
+    OR public.has_role(auth.uid(), 'coo')
+    OR public.has_role(auth.uid(), 'manager')
+    OR public.has_role(auth.uid(), 'super_admin')
+    OR public.has_role(auth.uid(), 'operations')
+    OR public.has_role(auth.uid(), 'financial_ops')
+  ) THEN
+    RAISE EXCEPTION 'not_authorized';
+  END IF;
+
+  RETURN QUERY
+  WITH latest AS (
+    SELECT DISTINCT ON (v.deposit_request_id)
+      v.id,
+      v.deposit_request_id,
+      v.user_id,
+      v.amount,
+      v.status,
+      v.attempts,
+      v.max_attempts,
+      v.expires_at,
+      v.created_at
+    FROM public.cash_deposit_verifications v
+    ORDER BY v.deposit_request_id, v.created_at DESC
+  )
+  SELECT
+    l.id,
+    l.deposit_request_id,
+    COALESCE(NULLIF(TRIM(dr.purpose_audit->>'cash_owner_name'), ''), p.full_name) AS depositor_name,
+    p.full_name AS wallet_holder_name,
+    NULLIF(TRIM(dr.purpose_audit->>'cash_owner_name'), '') AS cash_owner_name,
+    p.phone,
+    l.amount,
+    NULL::text AS code,
+    l.status,
+    l.attempts,
+    l.max_attempts,
+    dr.deposit_purpose::text,
+    COALESCE(dr.purpose_audit->>'cash_location', 'cash_at_hand') AS cash_location,
+    delivery.metadata->>'delivery' AS delivery_channel,
+    l.expires_at,
+    l.created_at
+  FROM latest l
+  LEFT JOIN public.profiles p ON p.id = l.user_id
+  LEFT JOIN public.deposit_requests dr ON dr.id = l.deposit_request_id
+  LEFT JOIN LATERAL (
+    SELECT e.metadata
+    FROM public.cash_deposit_verification_events e
+    WHERE e.verification_id = l.id
+      AND e.event_type IN ('code_issued', 'code_reissued')
+    ORDER BY e.created_at DESC
+    LIMIT 1
+  ) delivery ON true
+  ORDER BY l.created_at DESC
+  LIMIT GREATEST(1, LEAST(COALESCE(p_limit, 50), 200));
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.fin_ops_recent_cash_codes(integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.fin_ops_recent_cash_codes(integer) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.fin_ops_recent_cash_codes(integer) TO service_role;

@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS routing_preferences jsonb NOT NULL DEFAULT '{}'::jsonb;

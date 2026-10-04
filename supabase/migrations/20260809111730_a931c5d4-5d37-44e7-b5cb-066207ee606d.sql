@@ -1,0 +1,1 @@
+DROP TABLE IF EXISTS public._sc_smoke_results;

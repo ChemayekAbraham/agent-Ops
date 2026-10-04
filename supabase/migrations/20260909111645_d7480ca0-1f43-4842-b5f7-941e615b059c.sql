@@ -1,0 +1,2 @@
+ALTER TABLE public.budget_calls DROP CONSTRAINT budget_calls_period_type_check;
+ALTER TABLE public.budget_calls ADD CONSTRAINT budget_calls_period_type_check CHECK (period_type = ANY (ARRAY['monthly','quarterly','yearly','5days']));

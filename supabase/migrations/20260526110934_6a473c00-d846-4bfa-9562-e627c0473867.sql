@@ -1,0 +1,1 @@
+ALTER TYPE public.system_event_type ADD VALUE IF NOT EXISTS 'house_listings.region_normalized';

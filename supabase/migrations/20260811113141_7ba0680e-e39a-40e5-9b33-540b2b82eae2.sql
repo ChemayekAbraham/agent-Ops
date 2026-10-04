@@ -1,0 +1,1 @@
+ALTER TABLE public.merchandise_catalog ADD COLUMN IF NOT EXISTS sizes text[] NOT NULL DEFAULT '{}'::text[];

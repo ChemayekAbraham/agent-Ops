@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.credit_agent_event_bonus(uuid, uuid, text, text);

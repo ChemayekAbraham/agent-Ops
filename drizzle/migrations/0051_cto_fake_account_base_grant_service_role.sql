@@ -1,0 +1,1 @@
+grant execute on function public.cto_fake_account_base() to service_role;

@@ -1,0 +1,2 @@
+ALTER TABLE public.agent_advances ADD COLUMN IF NOT EXISTS monthly_rate numeric NOT NULL DEFAULT 0.33;
+ALTER TABLE public.agent_advance_topups ADD COLUMN IF NOT EXISTS monthly_rate numeric NOT NULL DEFAULT 0.33;

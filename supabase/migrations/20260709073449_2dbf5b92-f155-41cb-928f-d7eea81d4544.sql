@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.resolve_short_link(text) TO anon, authenticated;

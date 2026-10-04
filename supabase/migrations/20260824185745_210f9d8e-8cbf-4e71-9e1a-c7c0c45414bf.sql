@@ -1,0 +1,1 @@
+ALTER TABLE public.smartphone_catalog ALTER COLUMN model_name DROP NOT NULL;

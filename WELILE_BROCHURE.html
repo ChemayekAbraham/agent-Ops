@@ -1,0 +1,1528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Welile Technologies Limited — Official Tri-Fold Corporate Brochure</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+      color-adjust: exact !important;
+    }
+
+    :root {
+      --purple-darkest: #1a0836;
+      --purple-dark: #2c0e57;
+      --purple-primary: #471d87;
+      --purple-vibrant: #6b21a8;
+      --purple-light: #f3e8ff;
+      --purple-soft: #faf5ff;
+      --gold: #f59e0b;
+      --gold-bright: #fbbf24;
+      --tenant-purple: #6d28d9;
+      --landlord-green: #15803d;
+      --partner-orange: #ea580c;
+      --agent-blue: #0284c7;
+      --text-dark: #0f172a;
+      --text-muted: #475569;
+      --border-light: #e2e8f0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background-color: #0f172a;
+      color: var(--text-dark);
+      line-height: 1.4;
+      -webkit-font-smoothing: antialiased;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    /* ── Sticky Top Bar (Screen Only) ── */
+    .screen-toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 9999;
+      background: rgba(15, 23, 42, 0.98);
+      backdrop-filter: blur(14px);
+      padding: 10px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    }
+
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #ffffff;
+      font-weight: 800;
+      font-size: 14px;
+      letter-spacing: 0.05em;
+    }
+
+    .toolbar-buttons {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 20px;
+      border-radius: 9999px;
+      font-size: 13px;
+      font-weight: 800;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+
+    .btn-print {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: #0f172a;
+      box-shadow: 0 2px 10px rgba(245, 158, 11, 0.4);
+    }
+    .btn-print:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.08);
+    }
+
+    /* ── Color Print Notice Alert ── */
+    .print-tip-bar {
+      max-width: 1440px;
+      margin: 16px auto 0 auto;
+      padding: 0 20px;
+    }
+
+    .print-tip-content {
+      background: linear-gradient(135deg, #2e1065, #3b1b6a);
+      border: 2px solid var(--gold);
+      border-radius: 12px;
+      padding: 12px 18px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      color: #ffffff;
+      font-size: 12.5px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+    }
+
+    .print-tip-badge {
+      background: var(--gold);
+      color: #0f172a;
+      font-weight: 900;
+      font-size: 11px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      white-space: nowrap;
+    }
+
+    /* ── Tri-Fold Brochure Outer Canvas ── */
+    .brochure-container {
+      max-width: 1440px;
+      margin: 20px auto 40px auto;
+      padding: 0 20px;
+    }
+
+    .brochure-spread {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      background: #ffffff;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.5);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    /* ── Individual Tri-Fold Panels ── */
+    .panel {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      border-right: 1px solid #e2e8f0;
+      background: #ffffff;
+      padding: 26px 24px;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    .panel:last-child {
+      border-right: none;
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       PANEL 1 (LEFT): COVER & THE CHALLENGE
+    ══════════════════════════════════════════════════════════════════ */
+    .logo-container {
+      margin-bottom: 16px;
+    }
+
+    .welile-brand-text {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 34px;
+      font-weight: 900;
+      color: var(--purple-primary);
+      letter-spacing: -0.03em;
+      line-height: 1;
+    }
+
+    .welile-sub-text {
+      font-size: 9.5px;
+      font-weight: 800;
+      letter-spacing: 0.18em;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-top: 2px;
+    }
+
+    .hero-heading {
+      margin-bottom: 12px;
+    }
+
+    .turning-text {
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+      color: var(--purple-darkest);
+      display: block;
+      line-height: 1.1;
+    }
+
+    .rent-text {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 50px;
+      font-weight: 900;
+      color: var(--purple-primary);
+      line-height: 0.95;
+      letter-spacing: -0.04em;
+      display: block;
+      margin: 2px 0;
+    }
+
+    .into-an-text {
+      font-size: 18px;
+      font-weight: 800;
+      letter-spacing: -0.01em;
+      color: var(--purple-darkest);
+      display: block;
+      line-height: 1.1;
+    }
+
+    .asset-text {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 38px;
+      font-weight: 900;
+      color: var(--purple-darkest);
+      line-height: 1;
+      letter-spacing: -0.03em;
+      display: block;
+    }
+
+    .company-summary {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      line-height: 1.45;
+      margin-bottom: 16px;
+      font-weight: 600;
+    }
+
+    /* Hero Photo & Quote */
+    .hero-photo-wrap {
+      position: relative;
+      border-radius: 14px;
+      overflow: hidden;
+      margin-bottom: 16px;
+      background: #f1f5f9;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    }
+
+    .hero-photo-img {
+      width: 100%;
+      height: 220px;
+      object-fit: cover;
+      object-position: center 20%;
+      display: block;
+    }
+
+    .quote-badge {
+      position: absolute;
+      bottom: 8px;
+      left: 8px;
+      right: 8px;
+      background: rgba(44, 14, 87, 0.96);
+      backdrop-filter: blur(8px);
+      color: #ffffff;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border-left: 4px solid var(--gold);
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    .quote-badge p {
+      font-size: 10.5px;
+      line-height: 1.4;
+      font-weight: 600;
+      color: #f8fafc;
+    }
+
+    .quote-badge .quote-mark {
+      color: var(--gold);
+      font-size: 15px;
+      font-weight: 900;
+    }
+
+    /* Challenge Dark Box */
+    .challenge-section {
+      background-color: #2c0e57 !important;
+      color: #ffffff !important;
+      padding: 16px 18px;
+      border-radius: 14px;
+      margin-top: auto;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    .challenge-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--gold) !important;
+      margin-bottom: 6px;
+    }
+
+    .challenge-desc {
+      font-size: 11px;
+      color: #cbd5e1 !important;
+      line-height: 1.4;
+      margin-bottom: 12px;
+    }
+
+    .comparison-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(255, 255, 255, 0.12) !important;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 10px;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    .comp-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+    }
+
+    .comp-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.2) !important;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .comp-item span {
+      font-size: 10px;
+      font-weight: 800;
+      line-height: 1.25;
+      color: #ffffff !important;
+    }
+
+    .comp-arrow {
+      color: var(--gold) !important;
+      font-weight: 900;
+      font-size: 16px;
+      padding: 0 6px;
+    }
+
+    .challenge-footer-note {
+      font-size: 10px;
+      color: #94a3b8 !important;
+      line-height: 1.35;
+      border-top: 1px solid rgba(255, 255, 255, 0.15);
+      padding-top: 8px;
+    }
+
+    /* Bottom KPI Bar */
+    .kpi-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 6px;
+      background-color: #1a0836 !important;
+      color: #ffffff !important;
+      padding: 10px 12px;
+      text-align: center;
+      margin-top: 12px;
+      border-radius: 10px;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    .kpi-item svg {
+      width: 15px;
+      height: 15px;
+      color: var(--gold) !important;
+      margin: 0 auto 3px;
+      display: block;
+    }
+
+    .kpi-item span {
+      font-size: 8.5px;
+      font-weight: 800;
+      color: #cbd5e1 !important;
+      display: block;
+      line-height: 1.15;
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       PANEL 2 (CENTER): HOW IT WORKS & ECOSYSTEM
+    ══════════════════════════════════════════════════════════════════ */
+    .section-ribbon {
+      text-align: center;
+      position: relative;
+      margin-bottom: 16px;
+    }
+
+    .section-ribbon h2 {
+      display: inline-block;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 12px;
+      font-weight: 900;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--purple-primary);
+      background: #ffffff;
+      padding: 0 12px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .section-ribbon::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 50%;
+      height: 1px;
+      background: #cbd5e1;
+      z-index: 1;
+    }
+
+    /* 5-Step Vertical Timeline */
+    .timeline {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      position: relative;
+      margin-bottom: 20px;
+    }
+
+    .timeline::before {
+      content: '';
+      position: absolute;
+      left: 31px;
+      top: 10px;
+      bottom: 10px;
+      width: 2px;
+      background: #e2e8f0;
+      z-index: 1;
+    }
+
+    .timeline-step {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .step-number-badge {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background-color: #471d87 !important;
+      color: #ffffff !important;
+      font-size: 10px;
+      font-weight: 900;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 5px;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    .step-icon-badge {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background-color: #f3e8ff !important;
+      border: 2px solid #471d87 !important;
+      color: #471d87 !important;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    .step-icon-badge svg {
+      width: 15px;
+      height: 15px;
+    }
+
+    .step-content {
+      flex: 1;
+    }
+
+    .step-content h3 {
+      font-size: 11.5px;
+      font-weight: 900;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: var(--purple-darkest);
+      margin-bottom: 1px;
+    }
+
+    .step-content p {
+      font-size: 10px;
+      color: var(--text-muted);
+      line-height: 1.35;
+    }
+
+    /* Central Circular Ecosystem Diagram */
+    .ecosystem-container {
+      position: relative;
+      background-color: #faf5ff !important;
+      border-radius: 14px;
+      padding: 16px 10px;
+      border: 1px solid #e9d5ff;
+      margin-bottom: 16px;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    .hub-grid {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      position: relative;
+    }
+
+    .node-pill {
+      border-radius: 6px;
+      padding: 5px 12px;
+      color: #ffffff !important;
+      font-size: 9.5px;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    .node-pill.tenant {
+      background-color: #6d28d9 !important;
+    }
+
+    .node-middle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      width: 100%;
+      gap: 6px;
+    }
+
+    .node-card {
+      flex: 1;
+      border-radius: 8px;
+      padding: 6px 8px;
+      color: #ffffff !important;
+      text-align: center;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    .node-card.partners {
+      background-color: #0284c7 !important;
+    }
+
+    .node-card.landlords {
+      background-color: #15803d !important;
+    }
+
+    .node-card strong {
+      display: block;
+      font-size: 9.5px;
+      font-weight: 900;
+      text-transform: uppercase;
+      line-height: 1.1;
+    }
+
+    .node-card span {
+      display: block;
+      font-size: 7.5px;
+      opacity: 0.95;
+      margin-top: 1px;
+    }
+
+    .center-hub {
+      width: 96px;
+      height: 96px;
+      border-radius: 50%;
+      background-color: #2c0e57 !important;
+      color: #ffffff !important;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 8px;
+      flex-shrink: 0;
+      border: 3px solid rgba(71, 29, 135, 0.3);
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    .hub-brand {
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 15px;
+      font-weight: 900;
+      color: #ffffff !important;
+      line-height: 1;
+    }
+
+    .hub-title {
+      font-size: 7.5px;
+      font-weight: 900;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--gold) !important;
+      margin-top: 2px;
+    }
+
+    .hub-pillars {
+      font-size: 6.8px;
+      color: #cbd5e1 !important;
+      line-height: 1.15;
+      margin-top: 3px;
+    }
+
+    .node-card.agents {
+      background-color: #ea580c !important;
+      padding: 5px 14px;
+    }
+
+    /* Technology Powers Strip */
+    .tech-strip {
+      background-color: #2c0e57 !important;
+      color: #ffffff !important;
+      border-radius: 10px;
+      padding: 10px 8px;
+      margin-top: auto;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    .tech-strip-title {
+      font-size: 9px;
+      font-weight: 900;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--gold) !important;
+      text-align: center;
+      margin-bottom: 8px;
+    }
+
+    .tech-icons-grid {
+      display: grid;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 4px;
+      text-align: center;
+    }
+
+    .tech-icon-box svg {
+      width: 14px;
+      height: 14px;
+      color: #ffffff !important;
+      margin: 0 auto 2px;
+      display: block;
+    }
+
+    .tech-icon-box span {
+      font-size: 7.5px;
+      font-weight: 800;
+      color: #cbd5e1 !important;
+      display: block;
+      line-height: 1.15;
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       PANEL 3 (RIGHT): VALUE FOR EVERY STAKEHOLDER
+    ══════════════════════════════════════════════════════════════════ */
+    .stakeholders-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .stakeholder-card {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .sh-icon-circle {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #ffffff !important;
+      flex-shrink: 0;
+      margin-top: 1px;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    .sh-icon-circle.tenants { background-color: #6d28d9 !important; }
+    .sh-icon-circle.landlords { background-color: #15803d !important; }
+    .sh-icon-circle.partners { background-color: #ea580c !important; }
+    .sh-icon-circle.agents { background-color: #0284c7 !important; }
+
+    .sh-icon-circle svg {
+      width: 15px;
+      height: 15px;
+    }
+
+    .sh-details h3 {
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--purple-darkest);
+      margin-bottom: 2px;
+    }
+
+    .sh-details ul {
+      list-style: none;
+    }
+
+    .sh-details li {
+      font-size: 9.8px;
+      color: var(--text-muted);
+      line-height: 1.35;
+      position: relative;
+      padding-left: 9px;
+      margin-bottom: 1px;
+    }
+
+    .sh-details li::before {
+      content: '•';
+      position: absolute;
+      left: 0;
+      color: var(--purple-primary);
+      font-weight: 900;
+    }
+
+    /* Partner With Welile Card */
+    .partner-banner {
+      background-color: #2c0e57 !important;
+      color: #ffffff !important;
+      border-radius: 12px;
+      padding: 12px 14px;
+      margin-bottom: 12px;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    .partner-banner-header {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+
+    .partner-banner-header svg {
+      width: 16px;
+      height: 16px;
+      color: var(--gold) !important;
+    }
+
+    .partner-banner-header h3 {
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #ffffff !important;
+    }
+
+    .partner-tagline {
+      font-size: 9.8px;
+      color: #cbd5e1 !important;
+      line-height: 1.3;
+      margin-bottom: 8px;
+    }
+
+    .partner-metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 5px;
+      margin-bottom: 8px;
+    }
+
+    .metric-chip {
+      background-color: #ffffff !important;
+      color: var(--purple-darkest) !important;
+      border-radius: 6px;
+      padding: 6px 4px;
+      text-align: center;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    .metric-chip .chip-label {
+      font-size: 7px;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: #64748b !important;
+      display: block;
+      margin-bottom: 1px;
+    }
+
+    .metric-chip .chip-value {
+      font-size: 10.5px;
+      font-weight: 900;
+      color: #471d87 !important;
+      display: block;
+    }
+
+    .partner-fineprint {
+      font-size: 7.8px;
+      color: #94a3b8 !important;
+      line-height: 1.25;
+    }
+
+    /* Mission & Vision Footer Box */
+    .mission-vision-strip {
+      background-color: #1a0836 !important;
+      color: #ffffff !important;
+      border-radius: 12px;
+      padding: 12px;
+      margin-top: auto;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    .mv-layout {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .mv-col {
+      flex: 1;
+    }
+
+    .mv-title {
+      font-size: 8px;
+      font-weight: 900;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--gold) !important;
+      margin-bottom: 2px;
+    }
+
+    .mv-text {
+      font-size: 8px;
+      color: #cbd5e1 !important;
+      line-height: 1.25;
+    }
+
+    .center-logo-badge {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background-color: #ffffff !important;
+      color: #471d87 !important;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 900;
+      font-size: 16px;
+      flex-shrink: 0;
+      border: 2px solid var(--gold);
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    .center-logo-badge .dot {
+      color: var(--gold);
+    }
+
+    .gold-cta-banner {
+      background: linear-gradient(135deg, var(--gold-bright), var(--gold)) !important;
+      background-color: #f59e0b !important;
+      color: #0f172a !important;
+      text-align: center;
+      font-weight: 900;
+      font-size: 9.5px;
+      letter-spacing: 0.04em;
+      padding: 6px 8px;
+      border-radius: 5px;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      -webkit-print-color-adjust: exact !important;
+      print-color-adjust: exact !important;
+    }
+
+    .contact-info-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 7.5px;
+      color: #94a3b8 !important;
+      font-weight: 700;
+    }
+
+    .contact-item {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .contact-item svg {
+      width: 9px;
+      height: 9px;
+      color: var(--gold) !important;
+    }
+
+    /* ══════════════════════════════════════════════════════════════════
+       PRINT STYLESHEET (ENFORCE FULL COLOR & A4 LANDSCAPE)
+    ══════════════════════════════════════════════════════════════════ */
+    @media print {
+      @page {
+        size: A4 landscape;
+        margin: 5mm;
+      }
+
+      *, *::before, *::after {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+      }
+
+      body {
+        background: #ffffff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      .screen-toolbar, .print-tip-bar {
+        display: none !important;
+      }
+
+      .brochure-container {
+        max-width: 100% !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+
+      .brochure-spread {
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        border: none !important;
+        width: 100% !important;
+        height: 198mm !important;
+        grid-template-columns: 1fr 1fr 1fr !important;
+      }
+
+      .panel {
+        height: 198mm !important;
+        padding: 14px 16px !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      .hero-photo-img {
+        height: 180px !important;
+      }
+
+      .quote-badge {
+        bottom: 6px !important;
+        left: 6px !important;
+        right: 6px !important;
+        padding: 8px 10px !important;
+      }
+    }
+
+    @media (max-width: 1024px) {
+      .brochure-spread {
+        grid-template-columns: 1fr;
+      }
+      .panel {
+        border-right: none;
+        border-bottom: 2px solid #e2e8f0;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── Top Screen Toolbar (Hidden When Printing) ── -->
+  <header class="screen-toolbar">
+    <div class="brand-title">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+        <polyline points="9 22 9 12 15 12 15 22"/>
+      </svg>
+      <span>WELILE TECHNOLOGIES LIMITED · TRI-FOLD CORPORATE BROCHURE</span>
+    </div>
+    <div class="toolbar-buttons">
+      <button onclick="window.print()" class="btn btn-print">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 6 2 18 2 18 9"/>
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+          <rect width="12" height="8" x="6" y="14"/>
+        </svg>
+        Print / Save PDF (Landscape)
+      </button>
+    </div>
+  </header>
+
+  <!-- ── Print Tip Instruction (Visible on Screen) ── -->
+  <div class="print-tip-bar">
+    <div class="print-tip-content">
+      <span class="print-tip-badge">💡 Print in Full Color</span>
+      <div>
+        When the print dialog opens: (1) Set <strong>Layout to Landscape</strong> &nbsp;|&nbsp; (2) Click <strong>More settings</strong> &nbsp;|&nbsp; (3) Check the box for <strong>☑ Background graphics</strong> so all rich purples, golds &amp; photos print!
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Tri-Fold Brochure Spread ── -->
+  <div class="brochure-container">
+    <div class="brochure-spread">
+
+      <!-- ══════════════════════════════════════════════════════════════════
+           PANEL 1 (LEFT): COVER & THE CHALLENGE
+      ══════════════════════════════════════════════════════════════════ -->
+      <section class="panel">
+        <div>
+          <!-- Logo -->
+          <div class="logo-container">
+            <div class="welile-brand-text">welile</div>
+            <div class="welile-sub-text">TECHNOLOGIES LIMITED</div>
+          </div>
+
+          <!-- Headline -->
+          <div class="hero-heading">
+            <span class="turning-text">TURNING</span>
+            <span class="rent-text">RENT</span>
+            <span class="into-an-text">INTO AN</span>
+            <span class="asset-text">ASSET</span>
+          </div>
+
+          <!-- Summary paragraph -->
+          <p class="company-summary">
+            Welile Technologies is a technology company building a smarter rental ecosystem that connects tenants, landlords, partners and agents through one trusted platform.
+          </p>
+
+          <!-- Photo with Quote Overlay -->
+          <div class="hero-photo-wrap">
+            <img src="welile_tenant_hero.jpg" onerror="this.onerror=null;this.src='./public/welile_tenant_hero.jpg';" alt="Welile Tenant Using Mobile Rent Platform" class="hero-photo-img" />
+            <div class="quote-badge">
+              <p>
+                <span class="quote-mark">“</span> We help tenants access rent, landlords get paid on time, and partners grow their money – while building financial identity through everyday behaviour. <span class="quote-mark">”</span>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Challenge Dark Card -->
+        <div>
+          <div class="challenge-section">
+            <div class="challenge-header">THE CHALLENGE</div>
+            <p class="challenge-desc">
+              Many people earn income daily, weekly or through irregular streams, yet rent is often demanded as a large lump sum.
+            </p>
+
+            <div class="comparison-row">
+              <div class="comp-item">
+                <div class="comp-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5">
+                    <path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/>
+                    <path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>
+                  </svg>
+                </div>
+                <span>Income comes<br />in small amounts</span>
+              </div>
+              <div class="comp-arrow">→</div>
+              <div class="comp-item" style="justify-content: flex-end;">
+                <div class="comp-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5">
+                    <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                    <polyline points="9 22 9 12 15 12 15 22"/>
+                  </svg>
+                </div>
+                <span>Rent is demanded<br />in large amounts</span>
+              </div>
+            </div>
+
+            <p class="challenge-footer-note">
+              This creates rent pressure for tenants, uncertainty for landlords and missed opportunities for the ecosystem.
+            </p>
+          </div>
+
+          <!-- Bottom KPI Bar -->
+          <div class="kpi-strip">
+            <div class="kpi-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+              </svg>
+              <span>Thriving Tenant Network</span>
+            </div>
+            <div class="kpi-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <rect width="16" height="20" x="4" y="2" rx="2" ry="2"/>
+                <path d="M9 22v-4h6v4"/>
+              </svg>
+              <span>Thousands of Landlords</span>
+            </div>
+            <div class="kpi-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+              </svg>
+              <span>Active Partners</span>
+            </div>
+            <div class="kpi-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>
+                <polyline points="16 7 22 7 22 13"/>
+              </svg>
+              <span>Financial Identity</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══════════════════════════════════════════════════════════════════
+           PANEL 2 (CENTER): HOW IT WORKS & ECOSYSTEM
+      ══════════════════════════════════════════════════════════════════ -->
+      <section class="panel">
+        <div>
+          <!-- Ribbon Title -->
+          <div class="section-ribbon">
+            <h2>HOW WELILE WORKS</h2>
+          </div>
+
+          <!-- 5 Steps Timeline -->
+          <div class="timeline">
+            <!-- Step 1 -->
+            <div class="timeline-step">
+              <div class="step-number-badge">1</div>
+              <div class="step-icon-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <line x1="19" x2="19" y1="8" y2="14"/>
+                  <line x1="22" x2="16" y1="11" y2="11"/>
+                </svg>
+              </div>
+              <div class="step-content">
+                <h3>TENANT APPLIES</h3>
+                <p>Tenant applies for rent support through the Welile platform or a Welile service centre.</p>
+              </div>
+            </div>
+
+            <!-- Step 2 -->
+            <div class="timeline-step">
+              <div class="step-number-badge">2</div>
+              <div class="step-icon-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/>
+                  <path d="m9 12 2 2 4-4"/>
+                </svg>
+              </div>
+              <div class="step-content">
+                <h3>VERIFICATION</h3>
+                <p>Welile verifies the tenant, landlord and rental information to ensure transparency and trust.</p>
+              </div>
+            </div>
+
+            <!-- Step 3 -->
+            <div class="timeline-step">
+              <div class="step-number-badge">3</div>
+              <div class="step-icon-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                  <polyline points="9 22 9 12 15 12 15 22"/>
+                </svg>
+              </div>
+              <div class="step-content">
+                <h3>RENT PAYMENT</h3>
+                <p>Welile facilitates payment of the approved rent to the verified landlord.</p>
+              </div>
+            </div>
+
+            <!-- Step 4 -->
+            <div class="timeline-step">
+              <div class="step-number-badge">4</div>
+              <div class="step-icon-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <rect width="14" height="20" x="5" y="2" rx="2" ry="2"/>
+                  <path d="M12 18h.01"/>
+                </svg>
+              </div>
+              <div class="step-content">
+                <h3>REPAYMENT</h3>
+                <p>The tenant repays Welile in small, manageable instalments based on the agreed schedule.</p>
+              </div>
+            </div>
+
+            <!-- Step 5 -->
+            <div class="timeline-step">
+              <div class="step-number-badge">5</div>
+              <div class="step-icon-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>
+                  <polyline points="16 7 22 7 22 13"/>
+                </svg>
+              </div>
+              <div class="step-content">
+                <h3>TRACKING &amp; RECORDS</h3>
+                <p>Payments are recorded digitally, creating a reliable rental behaviour history that builds financial identity.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Ribbon Title -->
+          <div class="section-ribbon" style="margin-top: 18px;">
+            <h2>THE WELILE ECOSYSTEM</h2>
+          </div>
+
+          <!-- Central Hub Diagram -->
+          <div class="ecosystem-container">
+            <div class="hub-grid">
+              <!-- Top: Tenants -->
+              <div class="node-pill tenant">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                </svg>
+                <span>TENANTS · Need rent access</span>
+              </div>
+
+              <!-- Middle Row -->
+              <div class="node-middle-row">
+                <!-- Left: Partners -->
+                <div class="node-card partners">
+                  <strong>TENANT PARTNERS</strong>
+                  <span>Provide support for verified rent transactions</span>
+                </div>
+
+                <!-- Center: Welile Technology -->
+                <div class="center-hub">
+                  <div class="hub-brand">welile</div>
+                  <div class="hub-title">TECHNOLOGY</div>
+                  <div class="hub-pillars">Verification • Payments<br />Data • Management<br />Platform</div>
+                </div>
+
+                <!-- Right: Landlords -->
+                <div class="node-card landlords">
+                  <strong>LANDLORDS</strong>
+                  <span>Receive timely rent payments</span>
+                </div>
+              </div>
+
+              <!-- Bottom: Agents -->
+              <div class="node-card agents">
+                <strong>AGENTS</strong>
+                <span>Onboard, support and connect participants</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tech Strip -->
+        <div class="tech-strip">
+          <div class="tech-strip-title">OUR TECHNOLOGY POWERS</div>
+          <div class="tech-icons-grid">
+            <div class="tech-icon-box">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+                <circle cx="12" cy="7" r="4"/>
+              </svg>
+              <span>Tenant<br />Management</span>
+            </div>
+            <div class="tech-icon-box">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <rect width="16" height="20" x="4" y="2" rx="2" ry="2"/>
+                <path d="M9 22v-4h6v4"/>
+              </svg>
+              <span>Landlord<br />Management</span>
+            </div>
+            <div class="tech-icon-box">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+              </svg>
+              <span>Partner<br />Management</span>
+            </div>
+            <div class="tech-icon-box">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <rect width="14" height="20" x="5" y="2" rx="2" ry="2"/>
+                <path d="M12 18h.01"/>
+              </svg>
+              <span>Agent<br />Management</span>
+            </div>
+            <div class="tech-icon-box">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/>
+                <path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>
+              </svg>
+              <span>Payments &amp;<br />Collections</span>
+            </div>
+            <div class="tech-icon-box">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="18" x2="18" y1="20" y2="10"/>
+                <line x1="12" x2="12" y1="20" y2="4"/>
+                <line x1="6" x2="6" y1="20" y2="14"/>
+              </svg>
+              <span>Data &amp;<br />Analytics</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══════════════════════════════════════════════════════════════════
+           PANEL 3 (RIGHT): VALUE FOR EVERY STAKEHOLDER
+      ══════════════════════════════════════════════════════════════════ -->
+      <section class="panel">
+        <div>
+          <!-- Ribbon Title -->
+          <div class="section-ribbon">
+            <h2>VALUE FOR EVERY STAKEHOLDER</h2>
+          </div>
+
+          <!-- Stakeholders List -->
+          <div class="stakeholders-list">
+            <!-- For Tenants -->
+            <div class="stakeholder-card">
+              <div class="sh-icon-circle tenants">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                </svg>
+              </div>
+              <div class="sh-details">
+                <h3>FOR TENANTS</h3>
+                <ul>
+                  <li>Access rent in a way that fits your income</li>
+                  <li>Make manageable daily/periodic repayments</li>
+                  <li>Build a consistent rental payment history</li>
+                  <li>Reduce the pressure of paying large lump sums</li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- For Landlords -->
+            <div class="stakeholder-card">
+              <div class="sh-icon-circle landlords">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                  <polyline points="9 22 9 12 15 12 15 22"/>
+                </svg>
+              </div>
+              <div class="sh-details">
+                <h3>FOR LANDLORDS</h3>
+                <ul>
+                  <li>Receive rent upfront and on time</li>
+                  <li>Reduce rent collection stress</li>
+                  <li>Better tenant verification and records</li>
+                  <li>Access to a growing tenant network</li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- For Tenant Partners -->
+            <div class="stakeholder-card">
+              <div class="sh-icon-circle partners">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+              </div>
+              <div class="sh-details">
+                <h3>FOR TENANT PARTNERS</h3>
+                <ul>
+                  <li>Support tenants and earn attractive platform rewards</li>
+                  <li>Transparent tracking of your partnership performance</li>
+                  <li>Your money working within a structured ecosystem</li>
+                  <li>Contribute to financial inclusion and impact</li>
+                </ul>
+              </div>
+            </div>
+
+            <!-- For Agents -->
+            <div class="stakeholder-card">
+              <div class="sh-icon-circle agents">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/>
+                  <circle cx="12" cy="7" r="4"/>
+                </svg>
+              </div>
+              <div class="sh-details">
+                <h3>FOR AGENTS</h3>
+                <ul>
+                  <li>Earn commissions by onboarding tenants</li>
+                  <li>Build long-term relationships</li>
+                  <li>Real-time tools and support</li>
+                  <li>Grow with the Welile network</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <!-- Partner With Welile Card -->
+          <div class="partner-banner">
+            <div class="partner-banner-header">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="m11 17 2 2a1 1 0 0 0 1.4 0l4.3-4.3a1 1 0 0 0 0-1.4l-2-2a1 1 0 0 0-1.4 0l-4.3 4.3a1 1 0 0 0 0 1.4z"/>
+                <path d="m14 14 2.5 2.5"/>
+                <path d="m3 7 3-3 4 4-3 3z"/>
+                <path d="m9 13 2 2"/>
+              </svg>
+              <h3>PARTNER WITH WELILE</h3>
+            </div>
+            <p class="partner-tagline">
+              Join a structured partnership that supports verified rental transactions and earns you platform rewards.
+            </p>
+
+            <div class="partner-metrics-grid">
+              <div class="metric-chip">
+                <span class="chip-label">Minimum Support</span>
+                <span class="chip-value">UGX 100,000</span>
+              </div>
+              <div class="metric-chip">
+                <span class="chip-label">Maximum Support</span>
+                <span class="chip-value" style="font-size: 14px;">∞ No Limit</span>
+              </div>
+              <div class="metric-chip">
+                <span class="chip-label">Standard Period</span>
+                <span class="chip-value">12 MONTHS</span>
+              </div>
+            </div>
+
+            <p class="partner-fineprint">
+              The standard partnership agreement with Welile is 12 months. All partnerships are governed by a formal Partnership Agreement and Welile's terms and conditions.
+            </p>
+          </div>
+        </div>
+
+        <!-- Mission & Vision Strip -->
+        <div class="mission-vision-strip">
+          <div class="mv-layout">
+            <div class="mv-col">
+              <div class="mv-title">OUR MISSION</div>
+              <p class="mv-text">
+                To build trusted financial identities by transforming everyday economic behaviour into meaningful financial opportunity.
+              </p>
+            </div>
+
+            <div class="center-logo-badge">
+              <span>w<span class="dot">.</span></span>
+            </div>
+
+            <div class="mv-col">
+              <div class="mv-title">OUR VISION</div>
+              <p class="mv-text">
+                A financially empowered Africa where people's economic behaviour can create greater access to opportunity.
+              </p>
+            </div>
+          </div>
+
+          <div class="gold-cta-banner">
+            LET'S BUILD A BETTER RENTAL FUTURE TOGETHER.
+          </div>
+
+          <div class="contact-info-row">
+            <div class="contact-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+              </svg>
+              <span>+256 200 909 000</span>
+            </div>
+            <div class="contact-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="2" x2="22" y1="12" y2="12"/>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+              </svg>
+              <span>www.welile.com</span>
+            </div>
+            <div class="contact-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/>
+                <circle cx="12" cy="10" r="3"/>
+              </svg>
+              <span>Kabale Entebbe Rd</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+
+</body>
+</html>

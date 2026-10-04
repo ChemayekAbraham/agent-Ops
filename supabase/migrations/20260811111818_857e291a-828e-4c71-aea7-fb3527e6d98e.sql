@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.get_proxy_agent_team(uuid);

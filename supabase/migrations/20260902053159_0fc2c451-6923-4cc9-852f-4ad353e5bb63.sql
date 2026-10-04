@@ -1,0 +1,1 @@
+GRANT EXECUTE ON FUNCTION public.get_proxy_agent_pv_activity(uuid, date, text) TO service_role;

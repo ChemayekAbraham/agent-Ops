@@ -1,0 +1,1 @@
+ALTER TABLE public.rent_requests ALTER COLUMN lc1_id DROP NOT NULL;

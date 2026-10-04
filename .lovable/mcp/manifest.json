@@ -1,0 +1,147 @@
+{
+  "version": 1,
+  "sdk_version": "0.26.1",
+  "path": "/functions/v1/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://wirntoujqoyjobfhyelc.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "welile-mcp",
+      "version": "0.1.0",
+      "title": "Welile Receipts MCP"
+    },
+    "tools": [
+      {
+        "name": "get_my_profile",
+        "title": "Get my profile",
+        "description": "Return the signed-in Welile user's profile: name, phone, verification status, and location.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_my_wallet",
+        "title": "Get my wallet balance",
+        "description": "Return the signed-in user's Welile wallet: withdrawable balance (the amount they can withdraw) plus float and advance buckets. Amounts are in UGX.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_my_transactions",
+        "title": "List my recent transactions",
+        "description": "List the signed-in user's most recent wallet ledger entries (deposits, withdrawals, commissions). Amounts are in UGX.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991,
+              "description": "How many recent entries to return. Defaults to 20; capped at 100."
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "get_my_wallet_statement",
+        "title": "View my wallet statement",
+        "description": "Return the signed-in user's Welile wallet statement for an optional date range: every wallet ledger entry with money-in / money-out totals, net movement and the current withdrawable balance. Amounts are in UGX.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "from": {
+              "type": "string",
+              "description": "Optional start date, YYYY-MM-DD (inclusive)."
+            },
+            "to": {
+              "type": "string",
+              "description": "Optional end date, YYYY-MM-DD (inclusive)."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991,
+              "description": "Maximum number of entries to include. Defaults to 200; capped at 1000."
+            }
+          }
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "export_my_wallet_statement",
+        "title": "Export my wallet statement",
+        "description": "Generate the signed-in user's Welile wallet statement as a PDF, Excel (.xlsx) or CSV file and return a private download link valid for 7 days. Optionally limit it to a date range. Amounts are in UGX.",
+        "annotations": {
+          "readOnlyHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "format": {
+              "type": "string",
+              "enum": [
+                "pdf",
+                "xlsx",
+                "csv"
+              ],
+              "description": "File format to generate. Defaults to pdf."
+            },
+            "from": {
+              "type": "string",
+              "description": "Optional start date, YYYY-MM-DD (inclusive)."
+            },
+            "to": {
+              "type": "string",
+              "description": "Optional end date, YYYY-MM-DD (inclusive)."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": -9007199254740991,
+              "maximum": 9007199254740991,
+              "description": "Maximum number of entries to include. Defaults to 200; capped at 1000."
+            }
+          }
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}

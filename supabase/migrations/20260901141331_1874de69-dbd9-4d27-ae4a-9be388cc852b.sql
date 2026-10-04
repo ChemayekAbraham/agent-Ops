@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.sync_tenant_house_images(uuid, text[], uuid, uuid) FROM PUBLIC, anon, authenticated;

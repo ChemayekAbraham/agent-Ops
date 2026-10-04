@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS create_ledger_transaction(jsonb, text);

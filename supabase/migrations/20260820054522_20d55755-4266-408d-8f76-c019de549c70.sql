@@ -1,0 +1,1 @@
+REVOKE SELECT, UPDATE ON SEQUENCE public.hr_task_ref_seq FROM anon;

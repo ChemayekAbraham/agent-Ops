@@ -1,0 +1,1 @@
+ALTER VIEW public.vw_agent_ops_directory SET (security_invoker = true);

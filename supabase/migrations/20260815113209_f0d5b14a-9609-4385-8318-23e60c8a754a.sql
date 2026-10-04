@@ -1,0 +1,1 @@
+CREATE INDEX IF NOT EXISTS idx_gl_txdate_id_asc ON public.general_ledger (transaction_date ASC, id ASC);

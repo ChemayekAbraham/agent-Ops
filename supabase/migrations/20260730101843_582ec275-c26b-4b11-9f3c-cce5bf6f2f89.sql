@@ -1,0 +1,1 @@
+UPDATE public.system_config SET value = to_jsonb((now() + interval '1 hour')::text), updated_at = now() WHERE key = 'agent_perf_gate_disabled_until';

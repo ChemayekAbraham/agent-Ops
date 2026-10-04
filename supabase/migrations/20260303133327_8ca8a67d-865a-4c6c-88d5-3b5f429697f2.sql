@@ -1,0 +1,1 @@
+ALTER TABLE public.agent_advances ADD COLUMN IF NOT EXISTS registration_fee numeric DEFAULT 0;

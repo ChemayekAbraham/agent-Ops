@@ -1,0 +1,1 @@
+ALTER TABLE public.agent_subagents ADD COLUMN IF NOT EXISTS invite_message text;

@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.apply_portfolio_renewal(uuid, uuid, text);

@@ -1,0 +1,1 @@
+ALTER TABLE public.subscription_charges ADD COLUMN IF NOT EXISTS consecutive_failures integer NOT NULL DEFAULT 0;

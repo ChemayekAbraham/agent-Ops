@@ -1,0 +1,1 @@
+ALTER TABLE public.audit_logs ADD COLUMN IF NOT EXISTS action text;

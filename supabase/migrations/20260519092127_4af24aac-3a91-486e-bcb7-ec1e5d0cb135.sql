@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS easy_read_size smallint NOT NULL DEFAULT 0;

@@ -1,0 +1,1 @@
+ALTER TABLE public.landlords ADD COLUMN IF NOT EXISTS is_occupied boolean NOT NULL DEFAULT false;

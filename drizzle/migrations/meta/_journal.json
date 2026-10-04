@@ -1,0 +1,2960 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1789118990166,
+      "tag": "0000_tenant_locations_readonly_browser",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789122162329,
+      "tag": "0001_tenant_nin_photo_and_lc_letter_docs",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789125405137,
+      "tag": "0002_speed_up_merchant_money_owed",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789126381487,
+      "tag": "0003_cc_remove_open_attempt_wip_block",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789129891101,
+      "tag": "0004_tpsp_rent_projections_readonly",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789131280697,
+      "tag": "0005_smartphone_three_stage_approval_terms",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1789143422684,
+      "tag": "0006_merchant_one_active_claim_and_stale_release_cron",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789148487759,
+      "tag": "0007_identity_photo_fingerprints",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789190453300,
+      "tag": "0008_payments_by_location_cfo_reporting",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789194075805,
+      "tag": "0009_payment_collections_projection_rpc",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789194477375,
+      "tag": "0010_fix_projection_dow_factors",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1789195189374,
+      "tag": "0011_add_yearly_granularity_to_collections_projection",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1789204951338,
+      "tag": "0012_cash_deposit_code_delivery_channel",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1789212862613,
+      "tag": "0013_landlord_ops_float_overview_rpc",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1789213442744,
+      "tag": "0014_landlord_ops_float_drilldown",
+      "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1789213875587,
+      "tag": "0015_fix_landlord_float_is_ops_role_arg",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1789215121917,
+      "tag": "0016_landlord_float_needed_geo",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1789215650578,
+      "tag": "0017_landlord_ops_district_alias_overrides",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1789215729152,
+      "tag": "0018_landlord_float_geo_use_alias_view",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1789216121318,
+      "tag": "0019_district_alias_conflict_guard",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1789216693713,
+      "tag": "0020_landlord_float_paid_all_time",
+      "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1789216911401,
+      "tag": "0021_landlord_float_remove_collecting_cap",
+      "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1789217212867,
+      "tag": "0022_engrep_rows_lovable_edit_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1789218253280,
+      "tag": "0023_landlord_ops_payouts_page",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1789218685120,
+      "tag": "0024_cash_deposit_code_no_plaintext",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1789219090479,
+      "tag": "0025_landlord_payouts_page_sorting",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1789219199420,
+      "tag": "0026_landlord_payouts_page_sort_order_stable",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1789219368640,
+      "tag": "0027_engrep_session_views",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1789219414503,
+      "tag": "0028_engrep_session_views_security_invoker_true",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1789219453034,
+      "tag": "0029_engrep_sessions_empty_array_fix",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1789219650102,
+      "tag": "0030_landlord_payouts_geo_breakdown",
+      "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1789220219837,
+      "tag": "0031_landlord_payouts_geo_page_and_sources",
+      "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1789220321129,
+      "tag": "0032_landlord_payouts_geo_page_no_temp_table",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1789221462043,
+      "tag": "0033_landlord_float_collecting_geo_drilldown",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1789221623903,
+      "tag": "0034_landlord_float_collecting_geo_richer_sources",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1789222167499,
+      "tag": "0035_engrep_liveness_partial_credit",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1789222772504,
+      "tag": "0036_landlord_collecting_geo_daterange_and_suggest",
+      "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1789226924437,
+      "tag": "0037_engrep_survival_evidence",
+      "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1789227644566,
+      "tag": "0038_engrep_t3_lineage_fix_selffix_of",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1789276167223,
+      "tag": "0039_cfo_sole_approver_gate",
+      "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1789281956970,
+      "tag": "0040_self_repayments_honest_float_kept",
+      "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1789303447128,
+      "tag": "0041_user_location_corrections",
+      "breakpoints": true
+    },
+    {
+      "idx": 42,
+      "version": "7",
+      "when": 1789314118071,
+      "tag": "0042_wallet_transfer_schedules",
+      "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1789315770734,
+      "tag": "0043_transfer_peer_lookup",
+      "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1789315944173,
+      "tag": "0044_transfer_peers_by_ids",
+      "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1789316759257,
+      "tag": "0045_transfer_recipient_eligibility",
+      "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1789317601349,
+      "tag": "0046_lock_schedule_receiver_per_item",
+      "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1789332442207,
+      "tag": "0047_payout_destination_verifications",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1789332558230,
+      "tag": "0048_payout_destination_verification_gate",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1789332651983,
+      "tag": "0049_withdrawal_requires_verified_destination",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1789366623268,
+      "tag": "0050_cto_fake_account_radar",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1789366669012,
+      "tag": "0051_cto_fake_account_base_grant_service_role",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1789366734222,
+      "tag": "0052_cto_fake_account_radar_tuning",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1789367398373,
+      "tag": "0053_log_verification_selfie_crop",
+      "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1789370542484,
+      "tag": "0054_hide_unverified_withdrawals_from_merchant_agents",
+      "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1789370767403,
+      "tag": "0055_gate_merchant_claim_and_dispatch_on_id_verified",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1789371031345,
+      "tag": "0056_merchant_claim_requires_id_and_selfie_submitted",
+      "breakpoints": true
+    },
+    {
+      "idx": 57,
+      "version": "7",
+      "when": 1789371631147,
+      "tag": "0057_finops_unverified_withdrawals_view",
+      "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1789372039757,
+      "tag": "0058_finops_unverified_withdrawals_filter_sort",
+      "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1789372237325,
+      "tag": "0059_finops_unverified_withdrawals_verified_filter",
+      "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1789373922792,
+      "tag": "0060_hr_staff_require_employee_role",
+      "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1789374630156,
+      "tag": "0061_smartphone_reducing_balance_repayment",
+      "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1789374789817,
+      "tag": "0062_smartphone_full_payment_order",
+      "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1789375208537,
+      "tag": "0063_payout_verification_ready_first_sort",
+      "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1789375920432,
+      "tag": "0064_finops_adopt_national_id_name",
+      "breakpoints": true
+    },
+    {
+      "idx": 65,
+      "version": "7",
+      "when": 1789376232686,
+      "tag": "0065_finops_verify_adopts_national_id_name",
+      "breakpoints": true
+    },
+    {
+      "idx": 66,
+      "version": "7",
+      "when": 1789376384963,
+      "tag": "0066_finops_manual_holder_name_override",
+      "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "7",
+      "when": 1789376456443,
+      "tag": "0067_decide_payout_uses_final_name_override",
+      "breakpoints": true
+    },
+    {
+      "idx": 68,
+      "version": "7",
+      "when": 1789376729142,
+      "tag": "0068_finops_holder_name_history",
+      "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1789377027628,
+      "tag": "0069_payout_queue_name_source",
+      "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "7",
+      "when": 1789377459831,
+      "tag": "0070_decide_payout_returns_verified_name",
+      "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1789377921225,
+      "tag": "0071_limit_identity_photo_submissions_to_3_per_week",
+      "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1789378209216,
+      "tag": "0072_finops_revert_holder_name",
+      "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1789378484235,
+      "tag": "0073_hr_staff_revoke_employee_role_on_exit",
+      "breakpoints": true
+    },
+    {
+      "idx": 74,
+      "version": "7",
+      "when": 1789378641818,
+      "tag": "0074_agent_weekly_champion_team",
+      "breakpoints": true
+    },
+    {
+      "idx": 75,
+      "version": "7",
+      "when": 1789393732796,
+      "tag": "0075_payout_verification_real_submissions_first",
+      "breakpoints": true
+    },
+    {
+      "idx": 76,
+      "version": "7",
+      "when": 1789393778438,
+      "tag": "0076_restore_payout_decision_events_and_return",
+      "breakpoints": true
+    },
+    {
+      "idx": 77,
+      "version": "7",
+      "when": 1789394180542,
+      "tag": "0077_finops_queue_date_type_filters",
+      "breakpoints": true
+    },
+    {
+      "idx": 78,
+      "version": "7",
+      "when": 1789396156812,
+      "tag": "0078_identity_double_submission_first_account_only",
+      "breakpoints": true
+    },
+    {
+      "idx": 79,
+      "version": "7",
+      "when": 1789396505173,
+      "tag": "0079_index_normalized_national_id_and_phone",
+      "breakpoints": true
+    },
+    {
+      "idx": 80,
+      "version": "7",
+      "when": 1789397599955,
+      "tag": "0080_identity_double_submission_ocr_confusable_ids",
+      "breakpoints": true
+    },
+    {
+      "idx": 81,
+      "version": "7",
+      "when": 1789398074308,
+      "tag": "0081_identity_double_submission_earliest_wins",
+      "breakpoints": true
+    },
+    {
+      "idx": 82,
+      "version": "7",
+      "when": 1789399323307,
+      "tag": "0082_finops_queue_setbased_doubles",
+      "breakpoints": true
+    },
+    {
+      "idx": 83,
+      "version": "7",
+      "when": 1789399842207,
+      "tag": "0083_identity_double_verified_id_wins",
+      "breakpoints": true
+    },
+    {
+      "idx": 84,
+      "version": "7",
+      "when": 1789400013416,
+      "tag": "0084_identity_image_hash_face_dedupe",
+      "breakpoints": true
+    },
+    {
+      "idx": 85,
+      "version": "7",
+      "when": 1789400406022,
+      "tag": "0085_identity_submit_once_verified_block",
+      "breakpoints": true
+    },
+    {
+      "idx": 86,
+      "version": "7",
+      "when": 1789400668456,
+      "tag": "0086_auto_verify_matching_id_name_payouts",
+      "breakpoints": true
+    },
+    {
+      "idx": 87,
+      "version": "7",
+      "when": 1789400828866,
+      "tag": "0087_allow_single_side_id_when_names_match",
+      "breakpoints": true
+    },
+    {
+      "idx": 88,
+      "version": "7",
+      "when": 1789401609362,
+      "tag": "0088_auto_verify_registers_id_name",
+      "breakpoints": true
+    },
+    {
+      "idx": 89,
+      "version": "7",
+      "when": 1789413898014,
+      "tag": "0089_tenant_rent_plan_detail",
+      "breakpoints": true
+    },
+    {
+      "idx": 90,
+      "version": "7",
+      "when": 1789414341213,
+      "tag": "0090_tenant_payment_history",
+      "breakpoints": true
+    },
+    {
+      "idx": 91,
+      "version": "7",
+      "when": 1789420000000,
+      "tag": "0091_allow_verify_own_payout_destination",
+      "breakpoints": true
+    },
+    {
+      "idx": 92,
+      "version": "7",
+      "when": 1789450023810,
+      "tag": "0092_promissory_ops_report_fulfilment_due_on",
+      "breakpoints": true
+    },
+    {
+      "idx": 93,
+      "version": "7",
+      "when": 1789452999278,
+      "tag": "0093_enable_realtime_promissory_notes",
+      "breakpoints": true
+    },
+    {
+      "idx": 94,
+      "version": "7",
+      "when": 1789453634530,
+      "tag": "0094_cc_feedback_amendments_tracked_edits",
+      "breakpoints": true
+    },
+    {
+      "idx": 95,
+      "version": "7",
+      "when": 1789454284919,
+      "tag": "0095_withdrawal_verification_exemptions_legacy_pending",
+      "breakpoints": true
+    },
+    {
+      "idx": 96,
+      "version": "7",
+      "when": 1789454569511,
+      "tag": "0096_pso_widen_note_events_pre_enrolment",
+      "breakpoints": true
+    },
+    {
+      "idx": 97,
+      "version": "7",
+      "when": 1789454687720,
+      "tag": "0097_pso_conversions_ledger_and_funded_summary",
+      "breakpoints": true
+    },
+    {
+      "idx": 98,
+      "version": "7",
+      "when": 1789455489954,
+      "tag": "0098_cfo_approver_generic_refusal_message",
+      "breakpoints": true
+    },
+    {
+      "idx": 99,
+      "version": "7",
+      "when": 1789456261054,
+      "tag": "0099_pso_non_officer_report",
+      "breakpoints": true
+    },
+    {
+      "idx": 100,
+      "version": "7",
+      "when": 1789457574571,
+      "tag": "0100_withdrawal_creation_gate_close_blank_raiser",
+      "breakpoints": true
+    },
+    {
+      "idx": 101,
+      "version": "7",
+      "when": 1789459560310,
+      "tag": "0101_smartphone_periods_1_to_12_months",
+      "breakpoints": true
+    },
+    {
+      "idx": 102,
+      "version": "7",
+      "when": 1789459948929,
+      "tag": "0102_withdrawal_partner_proxy_destination_carveout",
+      "breakpoints": true
+    },
+    {
+      "idx": 103,
+      "version": "7",
+      "when": 1789465926733,
+      "tag": "0103_stale_return_does_not_consume_agent_reopen_allowance",
+      "breakpoints": true
+    },
+    {
+      "idx": 104,
+      "version": "7",
+      "when": 1789466100162,
+      "tag": "0104_pure_partner_agent_activity_is_collections_only",
+      "breakpoints": true
+    },
+    {
+      "idx": 105,
+      "version": "7",
+      "when": 1789468592510,
+      "tag": "0105_create_staff_requisition_usage_reports",
+      "breakpoints": true
+    },
+    {
+      "idx": 106,
+      "version": "7",
+      "when": 1789469269681,
+      "tag": "0106_add_usage_report_attachment_paths",
+      "breakpoints": true
+    },
+    {
+      "idx": 107,
+      "version": "7",
+      "when": 1789469795325,
+      "tag": "0107_usage_report_cfo_review",
+      "breakpoints": true
+    },
+    {
+      "idx": 108,
+      "version": "7",
+      "when": 1789470022881,
+      "tag": "0108_renew_expired_rent_request",
+      "breakpoints": true
+    },
+    {
+      "idx": 109,
+      "version": "7",
+      "when": 1789473527405,
+      "tag": "0109_cfo_disburse_smartphone_no_pickup_gate",
+      "breakpoints": true
+    },
+    {
+      "idx": 110,
+      "version": "7",
+      "when": 1789475587676,
+      "tag": "0110_pso_conv_04_revoke_anon_and_fix_portfolio_fallback",
+      "breakpoints": true
+    },
+    {
+      "idx": 111,
+      "version": "7",
+      "when": 1789476677686,
+      "tag": "0111_fix_sofp_balanced_leg_sides",
+      "breakpoints": true
+    },
+    {
+      "idx": 112,
+      "version": "7",
+      "when": 1789486508941,
+      "tag": "0112_fix_submit_national_id_details_array_append",
+      "breakpoints": true
+    },
+    {
+      "idx": 113,
+      "version": "7",
+      "when": 1789487255274,
+      "tag": "0113_finops_payout_number_ownership_confirmed",
+      "breakpoints": true
+    },
+    {
+      "idx": 114,
+      "version": "7",
+      "when": 1789487962649,
+      "tag": "0114_tenant_payment_custody_posting_shape",
+      "breakpoints": true
+    },
+    {
+      "idx": 115,
+      "version": "7",
+      "when": 1789490175233,
+      "tag": "0115_national_id_link_requests",
+      "breakpoints": true
+    },
+    {
+      "idx": 116,
+      "version": "7",
+      "when": 1789490987716,
+      "tag": "0116_payout_number_ownership_durable_auto_verify",
+      "breakpoints": true
+    },
+    {
+      "idx": 117,
+      "version": "7",
+      "when": 1789491045727,
+      "tag": "0117_allow_holder_auto_verify_payout_destination",
+      "breakpoints": true
+    },
+    {
+      "idx": 118,
+      "version": "7",
+      "when": 1789492228048,
+      "tag": "0118_identity_binding_locked_withdrawal_number",
+      "breakpoints": true
+    },
+    {
+      "idx": 119,
+      "version": "7",
+      "when": 1789493199126,
+      "tag": "0119_payout_number_change_requests",
+      "breakpoints": true
+    },
+    {
+      "idx": 120,
+      "version": "7",
+      "when": 1789493593339,
+      "tag": "0120_fix_block_reasons_array_append",
+      "breakpoints": true
+    },
+    {
+      "idx": 121,
+      "version": "7",
+      "when": 1789494618257,
+      "tag": "0121_remove_weekly_identity_submission_limit",
+      "breakpoints": true
+    },
+    {
+      "idx": 122,
+      "version": "7",
+      "when": 1789496336920,
+      "tag": "0122_drop_back_of_national_id_verify_gate",
+      "breakpoints": true
+    },
+    {
+      "idx": 123,
+      "version": "7",
+      "when": 1789497783897,
+      "tag": "0123_withdrawal_gate_allow_pending_verification",
+      "breakpoints": true
+    },
+    {
+      "idx": 124,
+      "version": "7",
+      "when": 1789497816295,
+      "tag": "0124_withdrawal_gate_fix_binding_photo_column",
+      "breakpoints": true
+    },
+    {
+      "idx": 125,
+      "version": "7",
+      "when": 1789500398970,
+      "tag": "0125_s2_bank_cash_recognition_and_float_reclass",
+      "breakpoints": true
+    },
+    {
+      "idx": 126,
+      "version": "7",
+      "when": 1789500506070,
+      "tag": "0126_s2_float_restatement_same_account",
+      "breakpoints": true
+    },
+    {
+      "idx": 127,
+      "version": "7",
+      "when": 1789500607096,
+      "tag": "0127_s2_allowlist_bank_recognition_categories",
+      "breakpoints": true
+    },
+    {
+      "idx": 128,
+      "version": "7",
+      "when": 1789500750900,
+      "tag": "0128_restrict_payout_proof_ocr_log_insert",
+      "breakpoints": true
+    },
+    {
+      "idx": 129,
+      "version": "7",
+      "when": 1789532056640,
+      "tag": "0129_engrep_ingest_attribution_fix",
+      "breakpoints": true
+    },
+    {
+      "idx": 130,
+      "version": "7",
+      "when": 1789533656398,
+      "tag": "0130_identity_fifo_name_inheritance",
+      "breakpoints": true
+    },
+    {
+      "idx": 131,
+      "version": "7",
+      "when": 1789535823668,
+      "tag": "0131_house_support_share_deeplink",
+      "breakpoints": true
+    },
+    {
+      "idx": 132,
+      "version": "7",
+      "when": 1789538701067,
+      "tag": "0132_cash_flow_uses_sofp_resolver",
+      "breakpoints": true
+    },
+    {
+      "idx": 133,
+      "version": "7",
+      "when": 1789539260128,
+      "tag": "0133_cash_flow_statement_timeout",
+      "breakpoints": true
+    },
+    {
+      "idx": 134,
+      "version": "7",
+      "when": 1789539378503,
+      "tag": "0134_cash_flow_group_counterparts",
+      "breakpoints": true
+    },
+    {
+      "idx": 135,
+      "version": "7",
+      "when": 1789539974066,
+      "tag": "0135_report_functions_statement_timeout",
+      "breakpoints": true
+    },
+    {
+      "idx": 136,
+      "version": "7",
+      "when": 1789542607343,
+      "tag": "0136_national_id_fifo_hardening",
+      "breakpoints": true
+    },
+    {
+      "idx": 137,
+      "version": "7",
+      "when": 1789543612315,
+      "tag": "0137_writeoff_line_reclass_to_a8",
+      "breakpoints": true
+    },
+    {
+      "idx": 138,
+      "version": "7",
+      "when": 1789543869061,
+      "tag": "0138_payout_number_change_same_number_and_server_checks",
+      "breakpoints": true
+    },
+    {
+      "idx": 139,
+      "version": "7",
+      "when": 1789543932646,
+      "tag": "0139_restore_payout_number_change_approval_steps",
+      "breakpoints": true
+    },
+    {
+      "idx": 140,
+      "version": "7",
+      "when": 1789544927077,
+      "tag": "0140_promissory_fulfilment_due_notices",
+      "breakpoints": true
+    },
+    {
+      "idx": 141,
+      "version": "7",
+      "when": 1789546917676,
+      "tag": "0141_fix_landlord_float_split_party_coalesce",
+      "breakpoints": true
+    },
+    {
+      "idx": 142,
+      "version": "7",
+      "when": 1789564325500,
+      "tag": "0142_national_id_link_owner_approved_unblocks_submit",
+      "breakpoints": true
+    },
+    {
+      "idx": 143,
+      "version": "7",
+      "when": 1789569437789,
+      "tag": "0143_national_id_link_code_sent_after_delivery",
+      "breakpoints": true
+    },
+    {
+      "idx": 144,
+      "version": "7",
+      "when": 1789581156488,
+      "tag": "0144_tenant_ops_home_range_pinned_bill",
+      "breakpoints": true
+    },
+    {
+      "idx": 145,
+      "version": "7",
+      "when": 1789581433316,
+      "tag": "0145_ops_repayment_trend_pinned_bill",
+      "breakpoints": true
+    },
+    {
+      "idx": 146,
+      "version": "7",
+      "when": 1789617174337,
+      "tag": "0146_payout_queue_id_account_count",
+      "breakpoints": true
+    },
+    {
+      "idx": 147,
+      "version": "7",
+      "when": 1789617228094,
+      "tag": "0147_payout_queue_id_account_count_fix_alias",
+      "breakpoints": true
+    },
+    {
+      "idx": 148,
+      "version": "7",
+      "when": 1789618197750,
+      "tag": "0148_payout_queue_verified_numbers",
+      "breakpoints": true
+    },
+    {
+      "idx": 149,
+      "version": "7",
+      "when": 1789628207817,
+      "tag": "0149_pin_expected_day_topup_and_past_term_fallback",
+      "breakpoints": true
+    },
+    {
+      "idx": 150,
+      "version": "7",
+      "when": 1789638100728,
+      "tag": "0150_merchandise_installment_term_plan",
+      "breakpoints": true
+    },
+    {
+      "idx": 151,
+      "version": "7",
+      "when": 1789642499421,
+      "tag": "0151_arrears_cap_at_plan_outstanding",
+      "breakpoints": true
+    },
+    {
+      "idx": 152,
+      "version": "7",
+      "when": 1789643050485,
+      "tag": "0152_arrears_never_bill_before_go_live",
+      "breakpoints": true
+    },
+    {
+      "idx": 153,
+      "version": "7",
+      "when": 1789645089817,
+      "tag": "0153_block_collection_until_landlord_paid",
+      "breakpoints": true
+    },
+    {
+      "idx": 154,
+      "version": "7",
+      "when": 1789648591722,
+      "tag": "0154_promissory_fuzzy_suggestions_include_dangling_links",
+      "breakpoints": true
+    },
+    {
+      "idx": 155,
+      "version": "7",
+      "when": 1789649606279,
+      "tag": "0155_one_commission_rate_source_of_truth",
+      "breakpoints": true
+    },
+    {
+      "idx": 156,
+      "version": "7",
+      "when": 1789649906871,
+      "tag": "0156_fuzzy_suggestions_include_candidate_email",
+      "breakpoints": true
+    },
+    {
+      "idx": 157,
+      "version": "7",
+      "when": 1789650900054,
+      "tag": "0157_grant_merchandise_tables_api_access",
+      "breakpoints": true
+    },
+    {
+      "idx": 158,
+      "version": "7",
+      "when": 1789651320237,
+      "tag": "0158_pso_non_officer_summary_include_commission_only_people",
+      "breakpoints": true
+    },
+    {
+      "idx": 159,
+      "version": "7",
+      "when": 1789653655607,
+      "tag": "0159_engrep_file_touches",
+      "breakpoints": true
+    },
+    {
+      "idx": 160,
+      "version": "7",
+      "when": 1789654129303,
+      "tag": "0160_engrep_work_units_view",
+      "breakpoints": true
+    },
+    {
+      "idx": 161,
+      "version": "7",
+      "when": 1789654307285,
+      "tag": "0161_engrep_repetition_view",
+      "breakpoints": true
+    },
+    {
+      "idx": 162,
+      "version": "7",
+      "when": 1789654380495,
+      "tag": "0162_engrep_rows_backfill_engineer_code",
+      "breakpoints": true
+    },
+    {
+      "idx": 163,
+      "version": "7",
+      "when": 1789654849146,
+      "tag": "0163_national_id_group_view_and_unlink",
+      "breakpoints": true
+    },
+    {
+      "idx": 164,
+      "version": "7",
+      "when": 1789655337310,
+      "tag": "0164_staff_loans_from_requisitions",
+      "breakpoints": true
+    },
+    {
+      "idx": 165,
+      "version": "7",
+      "when": 1789656021747,
+      "tag": "0165_block_taken_national_id_names",
+      "breakpoints": true
+    },
+    {
+      "idx": 166,
+      "version": "7",
+      "when": 1789656329139,
+      "tag": "0166_block_taken_name_on_finops_adopt",
+      "breakpoints": true
+    },
+    {
+      "idx": 167,
+      "version": "7",
+      "when": 1789656693890,
+      "tag": "0167_national_id_name_taken_check",
+      "breakpoints": true
+    },
+    {
+      "idx": 168,
+      "version": "7",
+      "when": 1789656993152,
+      "tag": "0168_tighten_tautology_select_policies",
+      "breakpoints": true
+    },
+    {
+      "idx": 169,
+      "version": "7",
+      "when": 1789657349121,
+      "tag": "0169_calling_center_received_calls_and_forwarded_concerns",
+      "breakpoints": true
+    },
+    {
+      "idx": 170,
+      "version": "7",
+      "when": 1789658226539,
+      "tag": "0170_tenant_self_payment_use_own_deposited_float",
+      "breakpoints": true
+    },
+    {
+      "idx": 171,
+      "version": "7",
+      "when": 1789658458904,
+      "tag": "0171_cc_concern_reassignment_and_deadline_controls",
+      "breakpoints": true
+    },
+    {
+      "idx": 172,
+      "version": "7",
+      "when": 1789658839581,
+      "tag": "0172_tighten_cc_populations_redirect_alerts_share_codes_reads",
+      "breakpoints": true
+    },
+    {
+      "idx": 173,
+      "version": "7",
+      "when": 1789659467542,
+      "tag": "0173_engrep_work_units_changed_across_window_boundary",
+      "breakpoints": true
+    },
+    {
+      "idx": 174,
+      "version": "7",
+      "when": 1789659663847,
+      "tag": "0174_engrep_repetition_priority_no_op_last_and_safe_to_zero",
+      "breakpoints": true
+    },
+    {
+      "idx": 175,
+      "version": "7",
+      "when": 1789661177306,
+      "tag": "0175_fix_calling_concern_policy_recursion",
+      "breakpoints": true
+    },
+    {
+      "idx": 176,
+      "version": "7",
+      "when": 1789661251929,
+      "tag": "0176_restrict_internal_targets_and_hr_metrics_to_staff",
+      "breakpoints": true
+    },
+    {
+      "idx": 177,
+      "version": "7",
+      "when": 1789661269745,
+      "tag": "0177_bind_calling_concern_access_to_current_user",
+      "breakpoints": true
+    },
+    {
+      "idx": 178,
+      "version": "7",
+      "when": 1789661871561,
+      "tag": "0178_cc_concern_single_thread_reviewers",
+      "breakpoints": true
+    },
+    {
+      "idx": 179,
+      "version": "7",
+      "when": 1789664033638,
+      "tag": "0179_tighten_three_internal_access_policies",
+      "breakpoints": true
+    },
+    {
+      "idx": 180,
+      "version": "7",
+      "when": 1789678128048,
+      "tag": "0180_engrep_catalog_base_index_and_seekable_work_units",
+      "breakpoints": true
+    },
+    {
+      "idx": 181,
+      "version": "7",
+      "when": 1789678333506,
+      "tag": "0181_tighten_perf_participants_and_proxy_agreement_reads",
+      "breakpoints": true
+    },
+    {
+      "idx": 182,
+      "version": "7",
+      "when": 1789678842193,
+      "tag": "0182_engrep_work_units_catalogue_only_objects_and_claim_noise",
+      "breakpoints": true
+    },
+    {
+      "idx": 183,
+      "version": "7",
+      "when": 1789679014261,
+      "tag": "0183_engrep_repetition_tighten_no_op_stability_window",
+      "breakpoints": true
+    },
+    {
+      "idx": 184,
+      "version": "7",
+      "when": 1789679339989,
+      "tag": "0184_engrep_svc_record_file_touches_batch",
+      "breakpoints": true
+    },
+    {
+      "idx": 185,
+      "version": "7",
+      "when": 1789679860232,
+      "tag": "0185_engrep_work_units_unit_state_and_shape_noise",
+      "breakpoints": true
+    },
+    {
+      "idx": 186,
+      "version": "7",
+      "when": 1789679938360,
+      "tag": "0186_restore_engrep_repetition_after_work_units_rebuild",
+      "breakpoints": true
+    },
+    {
+      "idx": 187,
+      "version": "7",
+      "when": 1789680190436,
+      "tag": "0187_engrep_repetition_no_op_sibling_and_fp_moved_cte",
+      "breakpoints": true
+    },
+    {
+      "idx": 188,
+      "version": "7",
+      "when": 1789680625949,
+      "tag": "0188_engrep_catalog_movement",
+      "breakpoints": true
+    },
+    {
+      "idx": 189,
+      "version": "7",
+      "when": 1789680740747,
+      "tag": "0189_engrep_refresh_catalog_movement_indexed_nearby",
+      "breakpoints": true
+    },
+    {
+      "idx": 190,
+      "version": "7",
+      "when": 1789680923832,
+      "tag": "0190_engrep_views_on_movement",
+      "breakpoints": true
+    },
+    {
+      "idx": 191,
+      "version": "7",
+      "when": 1789681373099,
+      "tag": "0191_engrep_repetition_inherit_units",
+      "breakpoints": true
+    },
+    {
+      "idx": 192,
+      "version": "7",
+      "when": 1789681450255,
+      "tag": "0192_engrep_repetition_priority_shared_before_no_op",
+      "breakpoints": true
+    },
+    {
+      "idx": 193,
+      "version": "7",
+      "when": 1789683983978,
+      "tag": "0193_engrep_grants_lockdown",
+      "breakpoints": true
+    },
+    {
+      "idx": 194,
+      "version": "7",
+      "when": 1789706936187,
+      "tag": "0194_tighten_ratings_and_review_response_reads",
+      "breakpoints": true
+    },
+    {
+      "idx": 195,
+      "version": "7",
+      "when": 1789707817901,
+      "tag": "0195_partner_ops_returns_forecast_vs_actual",
+      "breakpoints": true
+    },
+    {
+      "idx": 196,
+      "version": "7",
+      "when": 1789707901756,
+      "tag": "0196_partner_ops_returns_forecast_cleanup",
+      "breakpoints": true
+    },
+    {
+      "idx": 197,
+      "version": "7",
+      "when": 1789708407721,
+      "tag": "0197_partner_ops_returns_forecast_drilldown",
+      "breakpoints": true
+    },
+    {
+      "idx": 198,
+      "version": "7",
+      "when": 1789708525056,
+      "tag": "0198_forecast_drilldown_order_before_limit",
+      "breakpoints": true
+    },
+    {
+      "idx": 199,
+      "version": "7",
+      "when": 1789708978376,
+      "tag": "0199_partner_ops_topup_forecast",
+      "breakpoints": true
+    },
+    {
+      "idx": 200,
+      "version": "7",
+      "when": 1789709900848,
+      "tag": "0200_partner_ops_topup_model_params",
+      "breakpoints": true
+    },
+    {
+      "idx": 201,
+      "version": "7",
+      "when": 1789712293344,
+      "tag": "0201_staff_loan_eligibility_rate_28",
+      "breakpoints": true
+    },
+    {
+      "idx": 202,
+      "version": "7",
+      "when": 1789713129082,
+      "tag": "0202_agent_pay_merchandise_plan",
+      "breakpoints": true
+    },
+    {
+      "idx": 203,
+      "version": "7",
+      "when": 1789716589627,
+      "tag": "0203_withdrawal_requires_national_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 204,
+      "version": "7",
+      "when": 1789717569409,
+      "tag": "0204_linked_national_id_name_match_guard",
+      "breakpoints": true
+    },
+    {
+      "idx": 205,
+      "version": "7",
+      "when": 1789717916367,
+      "tag": "0205_rls_restrict_public_readable_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 206,
+      "version": "7",
+      "when": 1789718564682,
+      "tag": "0206_drop_linked_national_id_name_match_guard",
+      "breakpoints": true
+    },
+    {
+      "idx": 207,
+      "version": "7",
+      "when": 1789718777792,
+      "tag": "0207_fix_national_id_group_view_linked_members",
+      "breakpoints": true
+    },
+    {
+      "idx": 208,
+      "version": "7",
+      "when": 1789718947509,
+      "tag": "0208_tighten_rls_three_findings",
+      "breakpoints": true
+    },
+    {
+      "idx": 209,
+      "version": "7",
+      "when": 1789719589519,
+      "tag": "0209_received_call_record_without_notes",
+      "breakpoints": true
+    },
+    {
+      "idx": 210,
+      "version": "7",
+      "when": 1789719877505,
+      "tag": "0210_national_id_unlink_finops_approval",
+      "breakpoints": true
+    },
+    {
+      "idx": 211,
+      "version": "7",
+      "when": 1789721232456,
+      "tag": "0211_finops_queue_linked_id_flag",
+      "breakpoints": true
+    },
+    {
+      "idx": 212,
+      "version": "7",
+      "when": 1789721441156,
+      "tag": "0212_finops_queue_linked_id_detail",
+      "breakpoints": true
+    },
+    {
+      "idx": 213,
+      "version": "7",
+      "when": 1789721814866,
+      "tag": "0213_cc_concern_multi_recipients_audit",
+      "breakpoints": true
+    },
+    {
+      "idx": 214,
+      "version": "7",
+      "when": 1789723018202,
+      "tag": "0214_cancel_tenant_return_landlord_float",
+      "breakpoints": true
+    },
+    {
+      "idx": 215,
+      "version": "7",
+      "when": 1789724250284,
+      "tag": "0215_tenant_ops_pipeline_trend_rpc",
+      "breakpoints": true
+    },
+    {
+      "idx": 216,
+      "version": "7",
+      "when": 1789725179970,
+      "tag": "0216_tenant_ops_repayment_watchlist",
+      "breakpoints": true
+    },
+    {
+      "idx": 217,
+      "version": "7",
+      "when": 1789725288672,
+      "tag": "0217_tenant_ops_repayment_watchlist_schedule_source",
+      "breakpoints": true
+    },
+    {
+      "idx": 218,
+      "version": "7",
+      "when": 1789726480843,
+      "tag": "0218_tenant_ops_watchlist_landlord_paid_only",
+      "breakpoints": true
+    },
+    {
+      "idx": 219,
+      "version": "7",
+      "when": 1789727718375,
+      "tag": "0219_promissory_note_email_optional",
+      "breakpoints": true
+    },
+    {
+      "idx": 220,
+      "version": "7",
+      "when": 1789729302057,
+      "tag": "0220_landlord_payout_receipt_number",
+      "breakpoints": true
+    },
+    {
+      "idx": 221,
+      "version": "7",
+      "when": 1789730441891,
+      "tag": "0221_fix_reject_merchandise_purchase_status_check",
+      "breakpoints": true
+    },
+    {
+      "idx": 222,
+      "version": "7",
+      "when": 1789731558534,
+      "tag": "0222_cascade_delete_merchandise_recovery_plans",
+      "breakpoints": true
+    },
+    {
+      "idx": 223,
+      "version": "7",
+      "when": 1789734149892,
+      "tag": "0223_cc_concern_assignment_notice",
+      "breakpoints": true
+    },
+    {
+      "idx": 224,
+      "version": "7",
+      "when": 1789740189380,
+      "tag": "0224_tenant_status_sms_appendix",
+      "breakpoints": true
+    },
+    {
+      "idx": 225,
+      "version": "7",
+      "when": 1789741478238,
+      "tag": "0225_agent_performance_home_basis_logic",
+      "breakpoints": true
+    },
+    {
+      "idx": 226,
+      "version": "7",
+      "when": 1789741981052,
+      "tag": "0226_tighten_rls_permissive_policy_findings",
+      "breakpoints": true
+    },
+    {
+      "idx": 227,
+      "version": "7",
+      "when": 1789742256813,
+      "tag": "0227_agent_ops_report_agent_tenant_expected_window",
+      "breakpoints": true
+    },
+    {
+      "idx": 228,
+      "version": "7",
+      "when": 1789742619489,
+      "tag": "0228_tighten_exposed_read_policies",
+      "breakpoints": true
+    },
+    {
+      "idx": 229,
+      "version": "7",
+      "when": 1789743466953,
+      "tag": "0229_tighten_misc_sensitive_read_policies",
+      "breakpoints": true
+    },
+    {
+      "idx": 230,
+      "version": "7",
+      "when": 1789812464650,
+      "tag": "0230_tighten_partner_and_marketing_reference_reads",
+      "breakpoints": true
+    },
+    {
+      "idx": 231,
+      "version": "7",
+      "when": 1789813449153,
+      "tag": "0231_sofp_account_detail",
+      "breakpoints": true
+    },
+    {
+      "idx": 232,
+      "version": "7",
+      "when": 1789814364260,
+      "tag": "0232_fix_sofp_account_detail_no_temp_table",
+      "breakpoints": true
+    },
+    {
+      "idx": 233,
+      "version": "7",
+      "when": 1789818142995,
+      "tag": "0233_split_bike_receivables_in_view",
+      "breakpoints": true
+    },
+    {
+      "idx": 234,
+      "version": "7",
+      "when": 1789820080381,
+      "tag": "0234_payroll_statutory_liability",
+      "breakpoints": true
+    },
+    {
+      "idx": 235,
+      "version": "7",
+      "when": 1789820476208,
+      "tag": "0235_statutory_liability_current_payslips_only",
+      "breakpoints": true
+    },
+    {
+      "idx": 236,
+      "version": "7",
+      "when": 1789822219910,
+      "tag": "0236_landlord_float_split_follow_subscription",
+      "breakpoints": true
+    },
+    {
+      "idx": 237,
+      "version": "7",
+      "when": 1789822502324,
+      "tag": "0237_landlord_float_self_managed_by_funder",
+      "breakpoints": true
+    },
+    {
+      "idx": 238,
+      "version": "7",
+      "when": 1789829088371,
+      "tag": "0238_unmatched_postings_breakdown",
+      "breakpoints": true
+    },
+    {
+      "idx": 239,
+      "version": "7",
+      "when": 1789829208852,
+      "tag": "0239_unmatched_postings_breakdown_labels",
+      "breakpoints": true
+    },
+    {
+      "idx": 240,
+      "version": "7",
+      "when": 1789832615532,
+      "tag": "0240_deferred_fee_breakdown",
+      "breakpoints": true
+    },
+    {
+      "idx": 241,
+      "version": "7",
+      "when": 1789849772234,
+      "tag": "0241_coverage_per_agent_capped_on_schedule",
+      "breakpoints": true
+    },
+    {
+      "idx": 242,
+      "version": "7",
+      "when": 1789853673420,
+      "tag": "0242_pin_concern_oversight_to_named_overseers",
+      "breakpoints": true
+    },
+    {
+      "idx": 243,
+      "version": "7",
+      "when": 1789857021833,
+      "tag": "0243_engrep_reevaluate_liveness",
+      "breakpoints": true
+    },
+    {
+      "idx": 244,
+      "version": "7",
+      "when": 1789857059578,
+      "tag": "0244_engrep_reeval_liveness_cron_and_backfill",
+      "breakpoints": true
+    },
+    {
+      "idx": 245,
+      "version": "7",
+      "when": 1789857291423,
+      "tag": "0245_engrep_file_unit_noise_and_repeat_rules",
+      "breakpoints": true
+    },
+    {
+      "idx": 246,
+      "version": "7",
+      "when": 1789907035977,
+      "tag": "0246_scope_internal_reference_tables_to_relevant_staff",
+      "breakpoints": true
+    },
+    {
+      "idx": 247,
+      "version": "7",
+      "when": 1789911741924,
+      "tag": "0247_partner_house_placement_status",
+      "breakpoints": true
+    },
+    {
+      "idx": 248,
+      "version": "7",
+      "when": 1789912137260,
+      "tag": "0248_funder_house_progress_notices",
+      "breakpoints": true
+    },
+    {
+      "idx": 249,
+      "version": "7",
+      "when": 1789912336285,
+      "tag": "0249_funder_house_notice_wake_on_enqueue",
+      "breakpoints": true
+    },
+    {
+      "idx": 250,
+      "version": "7",
+      "when": 1789913069567,
+      "tag": "0250_map_empty_house_cells_viewport_clusters",
+      "breakpoints": true
+    },
+    {
+      "idx": 251,
+      "version": "7",
+      "when": 1789915027038,
+      "tag": "0251_map_query_telemetry_production_monitoring",
+      "breakpoints": true
+    },
+    {
+      "idx": 252,
+      "version": "7",
+      "when": 1789915414164,
+      "tag": "0252_map_empty_house_cells_listing_age_filter",
+      "breakpoints": true
+    },
+    {
+      "idx": 253,
+      "version": "7",
+      "when": 1789916302197,
+      "tag": "0253_map_empty_house_cells_rent_totals",
+      "breakpoints": true
+    },
+    {
+      "idx": 254,
+      "version": "7",
+      "when": 1789916746742,
+      "tag": "0254_map_empty_house_trend",
+      "breakpoints": true
+    },
+    {
+      "idx": 255,
+      "version": "7",
+      "when": 1789969015910,
+      "tag": "0255_allow_tenant_repayment_before_landlord_paid",
+      "breakpoints": true
+    },
+    {
+      "idx": 256,
+      "version": "7",
+      "when": 1789991574936,
+      "tag": "0256_adv_gate_2026_09_21_a",
+      "breakpoints": true
+    },
+    {
+      "idx": 257,
+      "version": "7",
+      "when": 1789991970707,
+      "tag": "0257_tenant_self_repayment_full_deposit",
+      "breakpoints": true
+    },
+    {
+      "idx": 258,
+      "version": "7",
+      "when": 1789993397754,
+      "tag": "0258_loan_chain_2026_09_21_e",
+      "breakpoints": true
+    },
+    {
+      "idx": 259,
+      "version": "7",
+      "when": 1789994043944,
+      "tag": "0259_loan_schedule_2026_09_21_f",
+      "breakpoints": true
+    },
+    {
+      "idx": 260,
+      "version": "7",
+      "when": 1789994166478,
+      "tag": "0260_loan_recovery_2026_09_21_g",
+      "breakpoints": true
+    },
+    {
+      "idx": 261,
+      "version": "7",
+      "when": 1789994682243,
+      "tag": "0261_loan_policy_confirm_2026_09_21_h",
+      "breakpoints": true
+    },
+    {
+      "idx": 262,
+      "version": "7",
+      "when": 1789995628489,
+      "tag": "0262_pso_facil_schema_2026_09_21_j",
+      "breakpoints": true
+    },
+    {
+      "idx": 263,
+      "version": "7",
+      "when": 1789996225238,
+      "tag": "0263_pso_facil_guard_2026_09_21_k",
+      "breakpoints": true
+    },
+    {
+      "idx": 264,
+      "version": "7",
+      "when": 1789996516870,
+      "tag": "0264_pso_facil_prompt_2026_09_21_l",
+      "breakpoints": true
+    },
+    {
+      "idx": 265,
+      "version": "7",
+      "when": 1789997044266,
+      "tag": "0265_tw_gitemail_alias_2026_09_21_a",
+      "breakpoints": true
+    },
+    {
+      "idx": 266,
+      "version": "7",
+      "when": 1789998140590,
+      "tag": "0266_pso_facil_cfo_2026_09_21_p",
+      "breakpoints": true
+    },
+    {
+      "idx": 267,
+      "version": "7",
+      "when": 1789998348147,
+      "tag": "0267_pso_facil_rls_2026_09_21_q",
+      "breakpoints": true
+    },
+    {
+      "idx": 268,
+      "version": "7",
+      "when": 1789998743436,
+      "tag": "0268_pso_facil_release_2026_09_21_t",
+      "breakpoints": true
+    },
+    {
+      "idx": 269,
+      "version": "7",
+      "when": 1789999834976,
+      "tag": "0269_ledger_category_2026_09_21_v",
+      "breakpoints": true
+    },
+    {
+      "idx": 270,
+      "version": "7",
+      "when": 1790000064113,
+      "tag": "0270_pso_facil_disburser_fix_2026_09_21_w",
+      "breakpoints": true
+    },
+    {
+      "idx": 271,
+      "version": "7",
+      "when": 1790001376258,
+      "tag": "0271_reversal_recompute_repaid_2026_09_21",
+      "breakpoints": true
+    },
+    {
+      "idx": 272,
+      "version": "7",
+      "when": 1790001677891,
+      "tag": "0272_cc_concern_attachments_and_context",
+      "breakpoints": true
+    },
+    {
+      "idx": 273,
+      "version": "7",
+      "when": 1790001753946,
+      "tag": "0273_cc_concern_context_column_fix",
+      "breakpoints": true
+    },
+    {
+      "idx": 274,
+      "version": "7",
+      "when": 1790002235984,
+      "tag": "0274_rls_tid_backed_float_and_staff_loan_policy",
+      "breakpoints": true
+    },
+    {
+      "idx": 275,
+      "version": "7",
+      "when": 1790004996675,
+      "tag": "0275_tenant_topup_eligibility_workspace",
+      "breakpoints": true
+    },
+    {
+      "idx": 276,
+      "version": "7",
+      "when": 1790005118863,
+      "tag": "0276_tenant_topup_eligibility_fix_temp_table",
+      "breakpoints": true
+    },
+    {
+      "idx": 277,
+      "version": "7",
+      "when": 1790005188226,
+      "tag": "0277_tenant_topup_eligibility_reached_on_fallback",
+      "breakpoints": true
+    },
+    {
+      "idx": 278,
+      "version": "7",
+      "when": 1790005611908,
+      "tag": "0278_tenant_payment_message_eligibility",
+      "breakpoints": true
+    },
+    {
+      "idx": 279,
+      "version": "7",
+      "when": 1790005727087,
+      "tag": "0279_tenant_payment_message_nearest_next_level",
+      "breakpoints": true
+    },
+    {
+      "idx": 280,
+      "version": "7",
+      "when": 1790005914137,
+      "tag": "0280_tenant_communications_overview_and_guard",
+      "breakpoints": true
+    },
+    {
+      "idx": 281,
+      "version": "7",
+      "when": 1790006887598,
+      "tag": "0281_agent_registration_control",
+      "breakpoints": true
+    },
+    {
+      "idx": 282,
+      "version": "7",
+      "when": 1790006948702,
+      "tag": "0282_agent_registration_control_list_fix",
+      "breakpoints": true
+    },
+    {
+      "idx": 283,
+      "version": "7",
+      "when": 1790008229314,
+      "tag": "0283_tenant_payment_message_vars_align_reached_on",
+      "breakpoints": true
+    },
+    {
+      "idx": 284,
+      "version": "7",
+      "when": 1790008279730,
+      "tag": "0284_tenant_payment_message_vars_reached_on_fallback",
+      "breakpoints": true
+    },
+    {
+      "idx": 285,
+      "version": "7",
+      "when": 1790008364712,
+      "tag": "0285_tenant_payment_message_vars_last_payment_source",
+      "breakpoints": true
+    },
+    {
+      "idx": 286,
+      "version": "7",
+      "when": 1790010388120,
+      "tag": "0286_agent_registration_gate_default_no_barrier",
+      "breakpoints": true
+    },
+    {
+      "idx": 287,
+      "version": "7",
+      "when": 1790019996190,
+      "tag": "0287_restrict_tenant_support_contacts_read",
+      "breakpoints": true
+    },
+    {
+      "idx": 288,
+      "version": "7",
+      "when": 1790059239560,
+      "tag": "0288_agent_collection_quality_from_daily_settlements",
+      "breakpoints": true
+    },
+    {
+      "idx": 289,
+      "version": "7",
+      "when": 1790063898972,
+      "tag": "0289_crm_call_centre_five_overlapping_queues",
+      "breakpoints": true
+    },
+    {
+      "idx": 290,
+      "version": "7",
+      "when": 1790064428198,
+      "tag": "0290_agent_active_breakdown",
+      "breakpoints": true
+    },
+    {
+      "idx": 291,
+      "version": "7",
+      "when": 1790066039375,
+      "tag": "0291_crm_call_queues_real_definitions",
+      "breakpoints": true
+    },
+    {
+      "idx": 292,
+      "version": "7",
+      "when": 1790066438265,
+      "tag": "0292_allow_system_reaper_ended_by",
+      "breakpoints": true
+    },
+    {
+      "idx": 293,
+      "version": "7",
+      "when": 1790066485886,
+      "tag": "0293_reap_stale_calls_and_make_ops_staff_callable",
+      "breakpoints": true
+    },
+    {
+      "idx": 294,
+      "version": "7",
+      "when": 1790074614230,
+      "tag": "0294_fix_queue_scoping_and_add_subtype_filter",
+      "breakpoints": true
+    },
+    {
+      "idx": 295,
+      "version": "7",
+      "when": 1790076254996,
+      "tag": "0295_cc_concern_handling_report_read",
+      "breakpoints": true
+    },
+    {
+      "idx": 296,
+      "version": "7",
+      "when": 1790079325110,
+      "tag": "0296_record_system_reaper_ended_by_constraint",
+      "breakpoints": true
+    },
+    {
+      "idx": 297,
+      "version": "7",
+      "when": 1790079657558,
+      "tag": "0297_allow_staff_loan_repayment_ledger_category",
+      "breakpoints": true
+    },
+    {
+      "idx": 298,
+      "version": "7",
+      "when": 1790080807427,
+      "tag": "0298_hr_staff_birthdays_and_forceful_notice",
+      "breakpoints": true
+    },
+    {
+      "idx": 299,
+      "version": "7",
+      "when": 1790080984530,
+      "tag": "0299_loan_auth_named_position_holders",
+      "breakpoints": true
+    },
+    {
+      "idx": 300,
+      "version": "7",
+      "when": 1790082308504,
+      "tag": "0300_loan_rate_confirm_ceo_only",
+      "breakpoints": true
+    },
+    {
+      "idx": 301,
+      "version": "7",
+      "when": 1790084244530,
+      "tag": "0301_fix_a2_float_spent_direction_classification",
+      "breakpoints": true
+    },
+    {
+      "idx": 302,
+      "version": "7",
+      "when": 1790085913855,
+      "tag": "0302_loan_gate_prompts_and_disbursement",
+      "breakpoints": true
+    },
+    {
+      "idx": 303,
+      "version": "7",
+      "when": 1790086500000,
+      "tag": "0303_hr_birthday_layer_corrections",
+      "breakpoints": true
+    },
+    {
+      "idx": 304,
+      "version": "7",
+      "when": 1790169810257,
+      "tag": "0304_add_pso_promise_and_funding_commission_reporting",
+      "breakpoints": true
+    },
+    {
+      "idx": 305,
+      "version": "7",
+      "when": 1790236347017,
+      "tag": "0305_add_rd_app_role",
+      "breakpoints": true
+    },
+    {
+      "idx": 306,
+      "version": "7",
+      "when": 1790236987097,
+      "tag": "0306_add_rd_dashboard_schema",
+      "breakpoints": true
+    },
+    {
+      "idx": 307,
+      "version": "7",
+      "when": 1790237755909,
+      "tag": "0307_remap_partner_funding_float_wallet_leg_to_l1",
+      "breakpoints": true
+    },
+    {
+      "idx": 308,
+      "version": "7",
+      "when": 1790240098129,
+      "tag": "0308_add_rd_notifications",
+      "breakpoints": true
+    },
+    {
+      "idx": 309,
+      "version": "7",
+      "when": 1790241484620,
+      "tag": "0309_add_rd_products_and_company_values",
+      "breakpoints": true
+    },
+    {
+      "idx": 310,
+      "version": "7",
+      "when": 1790244156592,
+      "tag": "0310_share_onboarding_requests",
+      "breakpoints": true
+    },
+    {
+      "idx": 311,
+      "version": "7",
+      "when": 1790246455824,
+      "tag": "0311_linked_identities_may_withdraw",
+      "breakpoints": true
+    },
+    {
+      "idx": 312,
+      "version": "7",
+      "when": 1790255023899,
+      "tag": "0312_payout_name_check_log",
+      "breakpoints": true
+    },
+    {
+      "idx": 313,
+      "version": "7",
+      "when": 1790258501979,
+      "tag": "0313_allow_lending_repayment_notifications",
+      "breakpoints": true
+    },
+    {
+      "idx": 314,
+      "version": "7",
+      "when": 1790260390374,
+      "tag": "0314_patience_ruba_repayment_starts_25_sept",
+      "breakpoints": true
+    },
+    {
+      "idx": 315,
+      "version": "7",
+      "when": 1790261708385,
+      "tag": "0315_defaulter_uses_repayment_start_not_funding",
+      "breakpoints": true
+    },
+    {
+      "idx": 316,
+      "version": "7",
+      "when": 1790319209959,
+      "tag": "0316_growth_commission_excludes_deleted_users",
+      "breakpoints": true
+    },
+    {
+      "idx": 317,
+      "version": "7",
+      "when": 1790322052908,
+      "tag": "0317_next_day_payout_projection",
+      "breakpoints": true
+    },
+    {
+      "idx": 318,
+      "version": "7",
+      "when": 1790322877036,
+      "tag": "0318_share_onboarding_funding_source",
+      "breakpoints": true
+    },
+    {
+      "idx": 319,
+      "version": "7",
+      "when": 1790324705632,
+      "tag": "0319_payout_projection_no_landlord_double_count",
+      "breakpoints": true
+    },
+    {
+      "idx": 320,
+      "version": "7",
+      "when": 1790330396543,
+      "tag": "0320_cfo_period_breakdown_by_pool",
+      "breakpoints": true
+    },
+    {
+      "idx": 321,
+      "version": "7",
+      "when": 1790332575180,
+      "tag": "0321_cfo_treasury_wallet_flow_summary",
+      "breakpoints": true
+    },
+    {
+      "idx": 322,
+      "version": "7",
+      "when": 1790332885282,
+      "tag": "0322_cfo_treasury_wallet_flow_summary_json",
+      "breakpoints": true
+    },
+    {
+      "idx": 323,
+      "version": "7",
+      "when": 1790416620320,
+      "tag": "0323_rent_access_promo_engagement",
+      "breakpoints": true
+    },
+    {
+      "idx": 324,
+      "version": "7",
+      "when": 1790509402018,
+      "tag": "0324_partner_ops_compound_topup_outlook",
+      "breakpoints": true
+    },
+    {
+      "idx": 325,
+      "version": "7",
+      "when": 1790511186230,
+      "tag": "0325_league_stats_fix_reversals_and_membership_overlap",
+      "breakpoints": true
+    },
+    {
+      "idx": 326,
+      "version": "7",
+      "when": 1790539597113,
+      "tag": "0326_smartphone_eligibility_blocks_active_advance",
+      "breakpoints": true
+    },
+    {
+      "idx": 327,
+      "version": "7",
+      "when": 1790578202259,
+      "tag": "0327_boutique_coo_cfo_approval",
+      "breakpoints": true
+    },
+    {
+      "idx": 328,
+      "version": "7",
+      "when": 1790578478500,
+      "tag": "0328_boutique_coo_requires_ops_first",
+      "breakpoints": true
+    },
+    {
+      "idx": 329,
+      "version": "7",
+      "when": 1790579622479,
+      "tag": "0329_proxy_agent_performance_dashboard",
+      "breakpoints": true
+    },
+    {
+      "idx": 330,
+      "version": "7",
+      "when": 1790579692529,
+      "tag": "0330_proxy_dashboard_house_count_fix",
+      "breakpoints": true
+    },
+    {
+      "idx": 331,
+      "version": "7",
+      "when": 1790579769527,
+      "tag": "0331_proxy_dashboard_house_intents_link",
+      "breakpoints": true
+    },
+    {
+      "idx": 332,
+      "version": "7",
+      "when": 1790584490964,
+      "tag": "0332_payroll_approval_prompts",
+      "breakpoints": true
+    },
+    {
+      "idx": 333,
+      "version": "7",
+      "when": 1790584798452,
+      "tag": "0333_proxy_dashboard_today_yesterday",
+      "breakpoints": true
+    },
+    {
+      "idx": 334,
+      "version": "7",
+      "when": 1790587772244,
+      "tag": "0334_proxy_dashboard_series_pending_created",
+      "breakpoints": true
+    },
+    {
+      "idx": 335,
+      "version": "7",
+      "when": 1790594079324,
+      "tag": "0335_cfo_withdrawable_credits_today",
+      "breakpoints": true
+    },
+    {
+      "idx": 336,
+      "version": "7",
+      "when": 1790599473639,
+      "tag": "0336_cfo_money_drilldown",
+      "breakpoints": true
+    },
+    {
+      "idx": 337,
+      "version": "7",
+      "when": 1790601607716,
+      "tag": "0337_cfo_money_drilldown_paged",
+      "breakpoints": true
+    },
+    {
+      "idx": 338,
+      "version": "7",
+      "when": 1790625322849,
+      "tag": "0338_engrep_register_mb_engineer",
+      "breakpoints": true
+    },
+    {
+      "idx": 339,
+      "version": "7",
+      "when": 1790625416919,
+      "tag": "0339_engrep_fingerprint_tables_constraints",
+      "breakpoints": true
+    },
+    {
+      "idx": 340,
+      "version": "7",
+      "when": 1790625615987,
+      "tag": "0340_engrep_file_survival_views",
+      "breakpoints": true
+    },
+    {
+      "idx": 341,
+      "version": "7",
+      "when": 1790626720237,
+      "tag": "0341_rent_plan_waterfall_reporting",
+      "breakpoints": true
+    },
+    {
+      "idx": 342,
+      "version": "7",
+      "when": 1790627833633,
+      "tag": "0342_engrep_cat_kind_add_constraint",
+      "breakpoints": true
+    },
+    {
+      "idx": 343,
+      "version": "7",
+      "when": 1790627969136,
+      "tag": "0343_engrep_reevaluate_liveness_noise_match",
+      "breakpoints": true
+    },
+    {
+      "idx": 344,
+      "version": "7",
+      "when": 1790628205405,
+      "tag": "0344_engrep_file_survival_fix",
+      "breakpoints": true
+    },
+    {
+      "idx": 345,
+      "version": "7",
+      "when": 1790669278334,
+      "tag": "0345_deactivate_referral_link_timothy_and_cutovers_rls",
+      "breakpoints": true
+    },
+    {
+      "idx": 346,
+      "version": "7",
+      "when": 1790689391050,
+      "tag": "0346_unlock_portfolio",
+      "breakpoints": true
+    },
+    {
+      "idx": 347,
+      "version": "7",
+      "when": 1790690475720,
+      "tag": "0347_add_welile_gift_item",
+      "breakpoints": true
+    },
+    {
+      "idx": 348,
+      "version": "7",
+      "when": 1790693416692,
+      "tag": "0348_payroll_rework_prompt",
+      "breakpoints": true
+    },
+    {
+      "idx": 349,
+      "version": "7",
+      "when": 1790694748994,
+      "tag": "0349_restrict_staff_surveys_read_to_staff_and_hr",
+      "breakpoints": true
+    },
+    {
+      "idx": 350,
+      "version": "7",
+      "when": 1790694782670,
+      "tag": "0350_grant_execute_staff_survey_is_employee",
+      "breakpoints": true
+    },
+    {
+      "idx": 351,
+      "version": "7",
+      "when": 1790696615300,
+      "tag": "0351_merchandise_share_code_welile_prefix",
+      "breakpoints": true
+    },
+    {
+      "idx": 352,
+      "version": "7",
+      "when": 1790701943043,
+      "tag": "0352_four_part_split_validation_and_principal_destination",
+      "breakpoints": true
+    },
+    {
+      "idx": 353,
+      "version": "7",
+      "when": 1790717988990,
+      "tag": "0353_cfo_seven_day_lines",
+      "breakpoints": true
+    },
+    {
+      "idx": 354,
+      "version": "7",
+      "when": 1790718887161,
+      "tag": "0354_cfo_seven_day_expenses",
+      "breakpoints": true
+    },
+    {
+      "idx": 355,
+      "version": "7",
+      "when": 1790727797510,
+      "tag": "0355_gmail_intake_silence_alarm",
+      "breakpoints": true
+    },
+    {
+      "idx": 356,
+      "version": "7",
+      "when": 1790746055684,
+      "tag": "0356_agent_ops_shopping_advance_qualified_senders",
+      "breakpoints": true
+    },
+    {
+      "idx": 357,
+      "version": "7",
+      "when": 1790746708642,
+      "tag": "0357_agent_ops_shopping_advance_qualified_profiles",
+      "breakpoints": true
+    },
+    {
+      "idx": 358,
+      "version": "7",
+      "when": 1790748149065,
+      "tag": "0358_prompt_snooze_one_hour",
+      "breakpoints": true
+    },
+    {
+      "idx": 359,
+      "version": "7",
+      "when": 1790748662242,
+      "tag": "0359_staff_survey_monthly_cycles",
+      "breakpoints": true
+    },
+    {
+      "idx": 360,
+      "version": "7",
+      "when": 1790750367659,
+      "tag": "0360_staff_survey_return_option_and_reset",
+      "breakpoints": true
+    },
+    {
+      "idx": 361,
+      "version": "7",
+      "when": 1790750609433,
+      "tag": "0361_payroll_reinvest_and_tax_acceptance",
+      "breakpoints": true
+    },
+    {
+      "idx": 362,
+      "version": "7",
+      "when": 1790751002566,
+      "tag": "0362_remove_service_centre_from_receivables_frame",
+      "breakpoints": true
+    },
+    {
+      "idx": 363,
+      "version": "7",
+      "when": 1790751773839,
+      "tag": "0363_staff_salary_reinvestment",
+      "breakpoints": true
+    },
+    {
+      "idx": 364,
+      "version": "7",
+      "when": 1790753014567,
+      "tag": "0364_auto_repaying_on_landlord_payment",
+      "breakpoints": true
+    },
+    {
+      "idx": 365,
+      "version": "7",
+      "when": 1790758812886,
+      "tag": "0365_agent_weekly_collection_streak",
+      "breakpoints": true
+    },
+    {
+      "idx": 366,
+      "version": "7",
+      "when": 1790759810649,
+      "tag": "0366_weekly_streak_payouts",
+      "breakpoints": true
+    },
+    {
+      "idx": 367,
+      "version": "7",
+      "when": 1790765930371,
+      "tag": "0367_support_uses_operational_float_only",
+      "breakpoints": true
+    },
+    {
+      "idx": 368,
+      "version": "7",
+      "when": 1790769936605,
+      "tag": "0368_reinvest_zero_net_and_auto_post",
+      "breakpoints": true
+    },
+    {
+      "idx": 369,
+      "version": "7",
+      "when": 1790778248956,
+      "tag": "0369_cc_reassign_concern_allow_current_handler",
+      "breakpoints": true
+    },
+    {
+      "idx": 370,
+      "version": "7",
+      "when": 1790805869316,
+      "tag": "0370_sofp_topup_reclass_pius_receivable",
+      "breakpoints": true
+    },
+    {
+      "idx": 371,
+      "version": "7",
+      "when": 1790833928100,
+      "tag": "0371_restore_tenancy_active_refunded_plan_1c635d8d",
+      "breakpoints": true
+    },
+    {
+      "idx": 372,
+      "version": "7",
+      "when": 1790834106626,
+      "tag": "0372_daily_eligibility_unpinned_plan_fallback",
+      "breakpoints": true
+    },
+    {
+      "idx": 373,
+      "version": "7",
+      "when": 1790834152873,
+      "tag": "0373_daily_eligibility_fallback_only_unbilled_agents",
+      "breakpoints": true
+    },
+    {
+      "idx": 374,
+      "version": "7",
+      "when": 1790834275861,
+      "tag": "0374_landlord_pool_reserve_counts_staff_reinvestment",
+      "breakpoints": true
+    },
+    {
+      "idx": 375,
+      "version": "7",
+      "when": 1790836086557,
+      "tag": "0375_engrep_reevaluate_liveness_recent",
+      "breakpoints": true
+    },
+    {
+      "idx": 376,
+      "version": "7",
+      "when": 1790836396540,
+      "tag": "0376_rls_evaluate_role_checks_once_per_query",
+      "breakpoints": true
+    },
+    {
+      "idx": 377,
+      "version": "7",
+      "when": 1790836656179,
+      "tag": "0377_engrep_reevaluate_liveness_recent_record",
+      "breakpoints": true
+    },
+    {
+      "idx": 378,
+      "version": "7",
+      "when": 1790836713010,
+      "tag": "0378_engrep_week_wednesday",
+      "breakpoints": true
+    },
+    {
+      "idx": 379,
+      "version": "7",
+      "when": 1790837120335,
+      "tag": "0379_wallet_cache_functions_work_mem",
+      "breakpoints": true
+    },
+    {
+      "idx": 380,
+      "version": "7",
+      "when": 1790837149334,
+      "tag": "0380_collections_monitor_error_log_signal_vs_noise",
+      "breakpoints": true
+    },
+    {
+      "idx": 381,
+      "version": "7",
+      "when": 1790838462928,
+      "tag": "0381_staff_requisition_approval_prompts",
+      "breakpoints": true
+    },
+    {
+      "idx": 382,
+      "version": "7",
+      "when": 1790839455339,
+      "tag": "0382_fix_broadcast_status_phone_regex",
+      "breakpoints": true
+    },
+    {
+      "idx": 383,
+      "version": "7",
+      "when": 1790839610702,
+      "tag": "0383_staff_requisition_prompt_reopen_on_reentry",
+      "breakpoints": true
+    },
+    {
+      "idx": 384,
+      "version": "7",
+      "when": 1790845243948,
+      "tag": "0384_crm_callee_dossier",
+      "breakpoints": true
+    },
+    {
+      "idx": 385,
+      "version": "7",
+      "when": 1790849899091,
+      "tag": "0385_index_crm_callee_dossier_reads",
+      "breakpoints": true
+    },
+    {
+      "idx": 386,
+      "version": "7",
+      "when": 1790850213153,
+      "tag": "0386_complete_crm_dossier_read_indexes",
+      "breakpoints": true
+    },
+    {
+      "idx": 387,
+      "version": "7",
+      "when": 1790851989493,
+      "tag": "0387_agent_ops_shopping_advance_user_dossier",
+      "breakpoints": true
+    },
+    {
+      "idx": 388,
+      "version": "7",
+      "when": 1790854986987,
+      "tag": "0388_pin_finance_actions_to_cfo_office_and_named_super_admins",
+      "breakpoints": true
+    },
+    {
+      "idx": 389,
+      "version": "7",
+      "when": 1790855200394,
+      "tag": "0389_pso_officer_names_for_executives",
+      "breakpoints": true
+    },
+    {
+      "idx": 390,
+      "version": "7",
+      "when": 1790855411055,
+      "tag": "0390_crm_dossier_tenant_paid_totals",
+      "breakpoints": true
+    },
+    {
+      "idx": 391,
+      "version": "7",
+      "when": 1790856156561,
+      "tag": "0391_crm_dossier_plan_repayment_frequency",
+      "breakpoints": true
+    },
+    {
+      "idx": 392,
+      "version": "7",
+      "when": 1790857404178,
+      "tag": "0392_cfo_statutory_consent_list",
+      "breakpoints": true
+    },
+    {
+      "idx": 393,
+      "version": "7",
+      "when": 1790857535301,
+      "tag": "0393_statutory_consent_push_on_paid",
+      "breakpoints": true
+    },
+    {
+      "idx": 394,
+      "version": "7",
+      "when": 1790858948874,
+      "tag": "0394_pin_cfo_dashboard_money_actions",
+      "breakpoints": true
+    },
+    {
+      "idx": 395,
+      "version": "7",
+      "when": 1790859038870,
+      "tag": "0395_cfo_approver_follows_cfo_office",
+      "breakpoints": true
+    },
+    {
+      "idx": 396,
+      "version": "7",
+      "when": 1790867973289,
+      "tag": "0396_cfo_correction_center_review_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 397,
+      "version": "7",
+      "when": 1790868041286,
+      "tag": "0397_cfo_correction_decision_cleanup",
+      "breakpoints": true
+    },
+    {
+      "idx": 398,
+      "version": "7",
+      "when": 1790868196278,
+      "tag": "0398_cfo_correction_center_summary_fix",
+      "breakpoints": true
+    },
+    {
+      "idx": 399,
+      "version": "7",
+      "when": 1790884919765,
+      "tag": "0399_cfo_correction_evidence_review",
+      "breakpoints": true
+    },
+    {
+      "idx": 400,
+      "version": "7",
+      "when": 1790885088063,
+      "tag": "0400_cfo_correction_evidence_review_fix",
+      "breakpoints": true
+    },
+    {
+      "idx": 401,
+      "version": "7",
+      "when": 1790885327277,
+      "tag": "0401_fin_correction_review_flags_array_fix",
+      "breakpoints": true
+    },
+    {
+      "idx": 402,
+      "version": "7",
+      "when": 1790886482039,
+      "tag": "0402_engrep_repetition_for",
+      "breakpoints": true
+    },
+    {
+      "idx": 403,
+      "version": "7",
+      "when": 1790924414929,
+      "tag": "0403_migration",
+      "breakpoints": true
+    },
+    {
+      "idx": 404,
+      "version": "7",
+      "when": 1790926877037,
+      "tag": "0404_migration",
+      "breakpoints": true
+    },
+    {
+      "idx": 405,
+      "version": "7",
+      "when": 1790927196228,
+      "tag": "0405_pso_tracking_from_7_sep",
+      "breakpoints": true
+    },
+    {
+      "idx": 406,
+      "version": "7",
+      "when": 1790927790870,
+      "tag": "0406_bike_leases_dedicated_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 407,
+      "version": "7",
+      "when": 1790927937670,
+      "tag": "0407_refuse_permanent_delete_with_financial_history",
+      "breakpoints": true
+    },
+    {
+      "idx": 408,
+      "version": "7",
+      "when": 1790928439699,
+      "tag": "0408_one_credit_charge_per_draw_per_day",
+      "breakpoints": true
+    },
+    {
+      "idx": 409,
+      "version": "7",
+      "when": 1790929979613,
+      "tag": "0409_fix_landlord_float_due_today_cte_scope",
+      "breakpoints": true
+    },
+    {
+      "idx": 410,
+      "version": "7",
+      "when": 1790930178819,
+      "tag": "0410_cfo_withdrawable_credits_today_detail",
+      "breakpoints": true
+    },
+    {
+      "idx": 411,
+      "version": "7",
+      "when": 1790932581796,
+      "tag": "0411_agent_recalled_rent_request_ids",
+      "breakpoints": true
+    },
+    {
+      "idx": 412,
+      "version": "7",
+      "when": 1790932695100,
+      "tag": "0412_merge_topups_after_compounding_roi",
+      "breakpoints": true
+    },
+    {
+      "idx": 413,
+      "version": "7",
+      "when": 1790932836706,
+      "tag": "0413_fundin_p2a_commission_gate_tables",
+      "breakpoints": true
+    },
+    {
+      "idx": 414,
+      "version": "7",
+      "when": 1790933111517,
+      "tag": "0414_fundin_p2b_commission_pay_reconcile_review",
+      "breakpoints": true
+    },
+    {
+      "idx": 415,
+      "version": "7",
+      "when": 1790933611153,
+      "tag": "0415_bike_lease_fixed_28pct_reducing_balance",
+      "breakpoints": true
+    },
+    {
+      "idx": 416,
+      "version": "7",
+      "when": 1790933633303,
+      "tag": "0416_bike_lease_rate_check_28",
+      "breakpoints": true
+    },
+    {
+      "idx": 417,
+      "version": "7",
+      "when": 1790934605902,
+      "tag": "0417_bike_lease_approver_names",
+      "breakpoints": true
+    },
+    {
+      "idx": 418,
+      "version": "7",
+      "when": 1790938470819,
+      "tag": "0418_user_behaviour_telemetry",
+      "breakpoints": true
+    },
+    {
+      "idx": 419,
+      "version": "7",
+      "when": 1790939226636,
+      "tag": "0419_fundin_p2c_v2_switch_to_fund_in_gate",
+      "breakpoints": true
+    },
+    {
+      "idx": 420,
+      "version": "7",
+      "when": 1790941442328,
+      "tag": "0420_search_users_fast_welile_id",
+      "breakpoints": true
+    },
+    {
+      "idx": 421,
+      "version": "7",
+      "when": 1790943923316,
+      "tag": "0421_user_behaviour_telemetry_v2",
+      "breakpoints": true
+    }
+  ]
+}

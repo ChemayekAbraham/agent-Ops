@@ -1,0 +1,1 @@
+ALTER TYPE system_event_type ADD VALUE IF NOT EXISTS 'merchant_cashout_daily_report';

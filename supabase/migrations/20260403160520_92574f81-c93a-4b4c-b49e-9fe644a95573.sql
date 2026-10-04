@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.credit_agent_rent_commission(uuid, numeric, text, uuid);

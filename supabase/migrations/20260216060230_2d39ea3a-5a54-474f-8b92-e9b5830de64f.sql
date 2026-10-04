@@ -1,0 +1,1 @@
+ALTER VIEW public.supporter_referral_leaderboard SET (security_invoker = on);

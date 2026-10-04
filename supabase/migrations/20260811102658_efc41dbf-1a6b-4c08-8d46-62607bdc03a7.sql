@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.fin_ops_set_cash_location(uuid, text);

@@ -1,0 +1,2225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes" />
+  <title>Welile Platform Architecture</title>
+  <style>
+    :root {
+      --bg-space: #060b17;
+      --bg-panel: rgba(8, 16, 34, 0.92);
+      --cyan-glow: #00d2ff;
+      --cyan-bright: #38bdf8;
+      --cyan-deep: #0284c7;
+      --purple-glow: #c084fc;
+      --purple-neon: #a855f7;
+      --purple-deep: #7c3aed;
+      --magenta-glow: #f43f5e;
+      --magenta-bright: #fb7185;
+      --orange-glow: #f97316;
+      --orange-bright: #fb923c;
+      --emerald-glow: #10b981;
+      --amber-glow: #f59e0b;
+      --text-white: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --font-hud: "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      --font-mono: "SF Mono", Menlo, Consolas, Monaco, "Liberation Mono", monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-space);
+      color: var(--text-white);
+      font-family: var(--font-hud);
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Top HUD Navigation Bar */
+    header {
+      background: rgba(6, 11, 23, 0.96);
+      border-bottom: 1px solid rgba(0, 210, 255, 0.28);
+      box-shadow: 0 4px 24px rgba(0, 0, 0, 0.85), 0 0 16px rgba(0, 210, 255, 0.12);
+      padding: 0.5rem 1.1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      z-index: 100;
+      backdrop-filter: blur(12px);
+      flex-wrap: nowrap;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      flex-shrink: 0;
+    }
+
+    .hud-badge-icon {
+      width: 32px;
+      height: 32px;
+      border: 1.5px solid var(--cyan-glow);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 210, 255, 0.12);
+      box-shadow: 0 0 12px rgba(0, 210, 255, 0.35);
+    }
+
+    .header-titles {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .header-title {
+      font-size: 0.92rem;
+      font-weight: 900;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      background: linear-gradient(90deg, #ffffff 0%, #38bdf8 50%, #c084fc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      text-shadow: 0 0 18px rgba(0, 210, 255, 0.4);
+    }
+
+    .header-sub {
+      font-size: 0.65rem;
+      color: var(--text-muted);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    /* Handover Chapters Navigation Pills */
+    .handover-nav-pills {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      overflow-x: auto;
+      padding: 0.1rem 0;
+    }
+
+    .doc-pill {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(0, 210, 255, 0.25);
+      color: #94a3b8;
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 0.25rem 0.55rem;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s;
+      white-space: nowrap;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .doc-pill:hover {
+      background: rgba(0, 210, 255, 0.2);
+      border-color: var(--cyan-glow);
+      color: #ffffff;
+      box-shadow: 0 0 10px rgba(0, 210, 255, 0.3);
+    }
+
+    .doc-pill.urgent {
+      border-color: rgba(244, 63, 94, 0.5);
+      color: #fb7185;
+    }
+
+    .doc-pill.urgent:hover {
+      background: rgba(244, 63, 94, 0.2);
+      border-color: var(--magenta-glow);
+      color: #ffffff;
+      box-shadow: 0 0 10px rgba(244, 63, 94, 0.4);
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      flex-shrink: 0;
+    }
+
+    .sim-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      background: rgba(0, 210, 255, 0.15);
+      border: 1px solid var(--cyan-glow);
+      color: var(--cyan-bright);
+      font-family: var(--font-hud);
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 0.32rem 0.75rem;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: all 0.2s;
+      box-shadow: 0 0 10px rgba(0, 210, 255, 0.2);
+      white-space: nowrap;
+    }
+
+    .sim-btn:hover {
+      background: var(--cyan-glow);
+      color: #030712;
+      box-shadow: 0 0 16px rgba(0, 210, 255, 0.6);
+    }
+
+    .sim-btn.active {
+      background: var(--magenta-glow);
+      border-color: var(--magenta-bright);
+      color: #ffffff;
+      box-shadow: 0 0 18px rgba(244, 63, 94, 0.7);
+    }
+
+    .mode-toggle {
+      display: flex;
+      background: rgba(15, 23, 42, 0.9);
+      padding: 0.2rem;
+      border-radius: 6px;
+      border: 1px solid rgba(0, 210, 255, 0.3);
+    }
+
+    .mode-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-family: var(--font-hud);
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      padding: 0.3rem 0.65rem;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+
+    .mode-btn:hover {
+      color: #ffffff;
+    }
+
+    .mode-btn.active {
+      background: var(--cyan-glow);
+      color: #030712;
+      box-shadow: 0 0 12px rgba(0, 210, 255, 0.55);
+    }
+
+    .search-box {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .search-input {
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(0, 210, 255, 0.3);
+      border-radius: 6px;
+      padding: 0.3rem 0.6rem 0.3rem 1.7rem;
+      color: #f8fafc;
+      font-size: 0.72rem;
+      font-family: var(--font-hud);
+      outline: none;
+      width: 170px;
+      transition: all 0.2s;
+    }
+
+    .search-input:focus {
+      border-color: var(--cyan-glow);
+      box-shadow: 0 0 12px rgba(0, 210, 255, 0.35);
+      width: 220px;
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 0.5rem;
+      pointer-events: none;
+      stroke: var(--text-muted);
+    }
+
+    /* Simulation Scrubber Banner */
+    #sim-banner {
+      display: none;
+      background: rgba(10, 20, 42, 0.96);
+      border-bottom: 1px solid var(--cyan-glow);
+      padding: 0.35rem 1.25rem;
+      font-size: 0.74rem;
+      color: var(--cyan-bright);
+      font-family: var(--font-mono);
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 10px rgba(0, 210, 255, 0.25);
+      z-index: 99;
+    }
+
+    #sim-banner.visible {
+      display: flex;
+    }
+
+    /* Viewport Container */
+    #viewport-container {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      position: relative;
+      overflow: hidden;
+      cursor: grab;
+      background: radial-gradient(circle at 60% 45%, #0f1c3d 0%, #081124 50%, #040813 90%);
+    }
+
+    #viewport-container:active {
+      cursor: grabbing;
+    }
+
+    #architecture-canvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+      transform-origin: 0 0;
+    }
+
+    /* Laser Conduit Glows & Stream Animations */
+    .laser-cyan {
+      filter: drop-shadow(0 0 8px rgba(0, 210, 255, 0.85));
+    }
+    .laser-magenta {
+      filter: drop-shadow(0 0 10px rgba(244, 63, 94, 0.9));
+    }
+    .laser-orange {
+      filter: drop-shadow(0 0 9px rgba(249, 115, 22, 0.85));
+    }
+    .laser-purple {
+      filter: drop-shadow(0 0 9px rgba(192, 132, 252, 0.9));
+    }
+
+    @keyframes dashStream {
+      0% { stroke-dashoffset: 120; }
+      100% { stroke-dashoffset: 0; }
+    }
+
+    @keyframes dashStreamFast {
+      0% { stroke-dashoffset: 80; }
+      100% { stroke-dashoffset: 0; }
+    }
+
+    @keyframes brainOrbital {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    @keyframes brainPulse {
+      0%, 100% { transform: scale(1); filter: drop-shadow(0 0 14px rgba(192, 132, 252, 0.65)); }
+      50% { transform: scale(1.02); filter: drop-shadow(0 0 28px rgba(0, 210, 255, 0.85)) drop-shadow(0 0 18px rgba(192, 132, 252, 0.9)); }
+    }
+
+    .pulse-stream-cyan {
+      stroke-dasharray: 8, 10;
+      animation: dashStream 1.8s linear infinite;
+    }
+
+    .pulse-stream-magenta {
+      stroke-dasharray: 10, 12;
+      animation: dashStreamFast 1.2s linear infinite;
+    }
+
+    .pulse-stream-orange {
+      stroke-dasharray: 10, 12;
+      animation: dashStreamFast 1.3s linear infinite;
+    }
+
+    .brain-anim-core {
+      animation: brainPulse 3.8s ease-in-out infinite;
+      transform-origin: 950px 490px;
+    }
+
+    .orbit-ring {
+      animation: brainOrbital 24s linear infinite;
+      transform-origin: 950px 490px;
+    }
+
+    /* Node Hover Interactions */
+    .arch-node {
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .arch-node:hover .node-frame {
+      filter: drop-shadow(0 0 14px currentColor);
+      stroke-width: 2.4px !important;
+    }
+
+    .arch-node:hover text {
+      text-shadow: 0 0 8px currentColor;
+    }
+
+    .arch-pill {
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .arch-pill:hover rect {
+      fill: rgba(0, 210, 255, 0.25) !important;
+      stroke: #00d2ff !important;
+      filter: drop-shadow(0 0 8px #00d2ff);
+    }
+
+    /* Floating Zoom Controls */
+    .zoom-toolbar {
+      position: absolute;
+      bottom: 1.25rem;
+      left: 1.25rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.35rem;
+      background: rgba(8, 16, 34, 0.92);
+      border: 1px solid rgba(0, 210, 255, 0.3);
+      padding: 0.35rem;
+      border-radius: 8px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 6px 22px rgba(0, 0, 0, 0.7);
+      z-index: 50;
+    }
+
+    .zoom-btn {
+      width: 30px;
+      height: 30px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      color: #f1f5f9;
+      border-radius: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 0.95rem;
+      font-weight: 800;
+      transition: all 0.15s;
+    }
+
+    .zoom-btn:hover {
+      background: rgba(0, 210, 255, 0.25);
+      border-color: var(--cyan-glow);
+      color: var(--cyan-glow);
+    }
+
+    /* Holographic Drawer */
+    .hud-drawer-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(2, 6, 16, 0.78);
+      backdrop-filter: blur(6px);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+      z-index: 200;
+    }
+
+    .hud-drawer-backdrop.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .hud-drawer {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: 100%;
+      max-width: 620px;
+      background: #070d1d;
+      border-left: 1.5px solid var(--cyan-glow);
+      box-shadow: -15px 0 45px rgba(0, 0, 0, 0.95), 0 0 35px rgba(0, 210, 255, 0.2);
+      transform: translateX(100%);
+      transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      flex-direction: column;
+      z-index: 201;
+      overflow: hidden;
+    }
+
+    .hud-drawer.active {
+      transform: translateX(0);
+    }
+
+    .drawer-top {
+      padding: 1.15rem 1.4rem;
+      border-bottom: 1px solid rgba(0, 210, 255, 0.25);
+      background: rgba(12, 22, 45, 0.85);
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+    }
+
+    .drawer-badge {
+      font-size: 0.65rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 0.2rem 0.55rem;
+      border-radius: 4px;
+      display: inline-block;
+      margin-bottom: 0.35rem;
+    }
+
+    .drawer-title {
+      font-size: 1.2rem;
+      font-weight: 800;
+      color: #ffffff;
+      letter-spacing: 0.02em;
+    }
+
+    .drawer-sub {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+      margin-top: 0.2rem;
+    }
+
+    .drawer-close {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.6rem;
+      cursor: pointer;
+      line-height: 1;
+      padding: 0.2rem;
+      transition: color 0.15s;
+    }
+
+    .drawer-close:hover {
+      color: var(--cyan-glow);
+    }
+
+    .drawer-body {
+      padding: 1.4rem;
+      overflow-y: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 1.15rem;
+    }
+
+    .detail-card {
+      background: rgba(12, 22, 45, 0.7);
+      border: 1px solid rgba(0, 210, 255, 0.2);
+      border-radius: 8px;
+      padding: 1rem;
+    }
+
+    .detail-card.danger {
+      border-color: rgba(244, 63, 94, 0.4);
+      background: rgba(30, 10, 20, 0.7);
+    }
+
+    .detail-card.warning {
+      border-color: rgba(245, 158, 11, 0.4);
+      background: rgba(30, 20, 10, 0.7);
+    }
+
+    .detail-card-title {
+      font-size: 0.76rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .code-box {
+      background: #030712;
+      border: 1px solid rgba(0, 210, 255, 0.25);
+      border-radius: 6px;
+      padding: 0.75rem;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: #bae6fd;
+      position: relative;
+      overflow-x: auto;
+      user-select: text;
+      -webkit-user-select: text;
+      line-height: 1.45;
+    }
+
+    .code-copy-btn {
+      position: absolute;
+      top: 0.4rem;
+      right: 0.4rem;
+      background: rgba(30, 41, 59, 0.85);
+      border: 1px solid rgba(0, 210, 255, 0.3);
+      color: var(--cyan-bright);
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .code-copy-btn:hover {
+      background: var(--cyan-glow);
+      color: #030712;
+    }
+
+    .handover-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      color: var(--cyan-bright);
+      font-weight: 700;
+      font-size: 0.75rem;
+      text-decoration: none;
+      margin-top: 0.4rem;
+    }
+    .handover-link:hover {
+      color: #ffffff;
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top HUD Header -->
+  <header>
+    <div class="header-left">
+      <div class="hud-badge-icon">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#00d2ff" stroke-width="2">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+        </svg>
+      </div>
+      <div class="header-titles">
+        <div id="main-header-title" class="header-title">WELILE PLATFORM ARCHITECTURE: External Rails to Double-Entry Ledger</div>
+        <div id="main-header-sub" class="header-sub">Engineer Survival Blueprint &bull; 627,405 Ledger Rows &bull; 388 Edge Functions &bull; 22 Treasury Switches &bull; Verified 2026-09-28</div>
+      </div>
+    </div>
+
+    <!-- Handover Chapters Direct Nav Pills -->
+    <div class="handover-nav-pills">
+      <button class="doc-pill" onclick="openHandoverDoc('01')">01 Access</button>
+      <button class="doc-pill urgent" onclick="openHandoverDoc('02')">02 Danger Zones</button>
+      <button class="doc-pill urgent" onclick="openHandoverDoc('03')">03 Invariants</button>
+      <button class="doc-pill urgent" onclick="openHandoverDoc('04')">04 Runbooks</button>
+      <button class="doc-pill" onclick="openHandoverDoc('05')">05 DR Recovery</button>
+      <button class="doc-pill" onclick="openHandoverDoc('06')">06 Verification</button>
+      <button class="doc-pill" onclick="openHandoverDoc('07')">07 Tribal Traps</button>
+      <button class="doc-pill urgent" onclick="openHandoverDoc('08')">08 Known Gaps</button>
+    </div>
+
+    <div class="header-right">
+      <button id="btn-simulate" class="sim-btn" onclick="toggleSimulation()">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        <span id="sim-btn-text">Simulate Money Flow</span>
+      </button>
+
+      <div class="search-box">
+        <svg class="search-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="node-search" class="search-input" placeholder="Search tables, RPCs, locks..." />
+      </div>
+
+    </div>
+  </header>
+
+  <!-- Live Simulation Scrubber Banner -->
+  <div id="sim-banner">
+    <div style="display: flex; align-items: center; gap: 0.75rem;">
+      <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #00d2ff; box-shadow: 0 0 8px #00d2ff;"></span>
+      <span id="sim-step-text">STEP 1 / 8: Tenant pays by MoMo / Airtel</span>
+    </div>
+    <div style="display: flex; gap: 0.5rem;">
+      <button onclick="prevSimStep()" style="background: rgba(15,23,42,0.8); border: 1px solid #00d2ff; color: #fff; padding: 0.15rem 0.5rem; border-radius: 3px; cursor: pointer; font-size: 0.7rem;">&larr; Prev</button>
+      <button onclick="nextSimStep()" style="background: rgba(0,210,255,0.2); border: 1px solid #00d2ff; color: #00d2ff; padding: 0.15rem 0.5rem; border-radius: 3px; cursor: pointer; font-size: 0.7rem; font-weight: 700;">Next &rarr;</button>
+    </div>
+  </div>
+
+  <!-- Interactive Viewport Canvas -->
+  <div id="viewport-container">
+    <svg id="architecture-canvas" viewBox="0 0 1500 1000" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <!-- PCB Circuit Grid Pattern -->
+        <pattern id="pcb-pattern" width="40" height="40" patternUnits="userSpaceOnUse">
+          <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(0, 210, 255, 0.035)" stroke-width="1"/>
+          <circle cx="0" cy="0" r="1.5" fill="rgba(0, 210, 255, 0.15)"/>
+        </pattern>
+
+        <!-- Filters for High-Intensity Neon Glow -->
+        <filter id="glow-cyan" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="6" result="blur"/>
+          <feMerge>
+            <feMergeNode in="blur"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+
+        <filter id="glow-magenta" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="7" result="blur"/>
+          <feMerge>
+            <feMergeNode in="blur"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+
+        <filter id="glow-orange" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="6" result="blur"/>
+          <feMerge>
+            <feMergeNode in="blur"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+
+        <filter id="glow-purple" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="8" result="blur"/>
+          <feMerge>
+            <feMergeNode in="blur"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+
+        <!-- Gradients -->
+        <linearGradient id="grad-panel-cyan" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#0284c7" stop-opacity="0.2"/>
+          <stop offset="100%" stop-color="#071022" stop-opacity="0.95"/>
+        </linearGradient>
+
+        <linearGradient id="grad-panel-purple" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#7c3aed" stop-opacity="0.25"/>
+          <stop offset="100%" stop-color="#080e22" stop-opacity="0.95"/>
+        </linearGradient>
+
+        <linearGradient id="grad-panel-orange" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#ea580c" stop-opacity="0.25"/>
+          <stop offset="100%" stop-color="#081022" stop-opacity="0.95"/>
+        </linearGradient>
+
+        <linearGradient id="grad-cylinder" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#00d2ff" stop-opacity="0.35"/>
+          <stop offset="25%" stop-color="#081836" stop-opacity="0.85"/>
+          <stop offset="75%" stop-color="#081836" stop-opacity="0.85"/>
+          <stop offset="100%" stop-color="#00d2ff" stop-opacity="0.35"/>
+        </linearGradient>
+
+        <linearGradient id="grad-brain-aura" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#38bdf8" stop-opacity="0.4"/>
+          <stop offset="50%" stop-color="#a855f7" stop-opacity="0.3"/>
+          <stop offset="100%" stop-color="#f43f5e" stop-opacity="0.25"/>
+        </linearGradient>
+
+        <!-- Arrow Markers -->
+        <marker id="arrowhead-cyan" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 8 5 L 0 9 z" fill="#00d2ff"/>
+        </marker>
+        <marker id="arrowhead-magenta" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 8 5 L 0 9 z" fill="#f43f5e"/>
+        </marker>
+        <marker id="arrowhead-orange" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M 0 1 L 8 5 L 0 9 z" fill="#f97316"/>
+        </marker>
+      </defs>
+
+      <!-- Background Pattern Grid -->
+      <rect width="1500" height="1000" fill="url(#pcb-pattern)"/>
+
+      <!-- Ambient Glow Behind Core Nodes -->
+      <circle cx="950" cy="490" r="280" fill="rgba(124, 58, 237, 0.12)" filter="url(#glow-purple)"/>
+      <circle cx="525" cy="500" r="200" fill="rgba(0, 210, 255, 0.08)" filter="url(#glow-cyan)"/>
+
+      <!-- Authentic Motherboard PCB Micro-Traces -->
+      <g stroke="rgba(0, 210, 255, 0.18)" stroke-width="1.2" fill="none">
+        <path d="M 320 120 L 450 120 L 490 80 L 730 80"/>
+        <circle cx="490" cy="80" r="2.5" fill="rgba(0, 210, 255, 0.35)"/>
+        <path d="M 1100 80 L 1140 80 L 1160 60 L 1380 60"/>
+        <circle cx="1160" cy="60" r="2.5" fill="rgba(0, 210, 255, 0.35)"/>
+        <path d="M 640 250 L 640 330 L 700 330"/>
+        <circle cx="700" cy="330" r="2.5" fill="rgba(0, 210, 255, 0.35)"/>
+        <path d="M 1180 340 L 1220 340 L 1250 370"/>
+        <circle cx="1220" cy="340" r="2.5" fill="rgba(244, 63, 94, 0.4)"/>
+        <path d="M 680 750 L 640 750 L 600 790 L 525 790"/>
+        <circle cx="600" cy="790" r="2.5" fill="rgba(0, 210, 255, 0.35)"/>
+        <path d="M 1240 730 L 1260 730 L 1280 750 L 1280 820"/>
+        <circle cx="1280" cy="750" r="2.5" fill="rgba(249, 115, 22, 0.4)"/>
+        <path d="M 1180 600 L 1200 600 L 1220 620 L 1220 700"/>
+        <circle cx="1200" cy="600" r="2.5" fill="rgba(0, 210, 255, 0.35)"/>
+        <path d="M 330 670 L 370 670 L 400 700 L 400 760"/>
+        <circle cx="370" cy="670" r="2.5" fill="rgba(0, 210, 255, 0.35)"/>
+      </g>
+
+      <!-- Outer HUD Blueprint Frame with 4 Corner Accents -->
+      <rect x="25" y="25" width="1450" height="950" rx="14" fill="none" stroke="rgba(0, 210, 255, 0.3)" stroke-width="1.6"/>
+      <path d="M 25 55 L 25 25 L 55 25" fill="none" stroke="#00d2ff" stroke-width="3"/>
+      <path d="M 1445 25 L 1475 25 L 1475 55" fill="none" stroke="#00d2ff" stroke-width="3"/>
+      <path d="M 1475 945 L 1475 975 L 1445 975" fill="none" stroke="#00d2ff" stroke-width="3"/>
+      <path d="M 55 975 L 25 975 L 25 945" fill="none" stroke="#00d2ff" stroke-width="3"/>
+
+      <!-- TOP BANNER TITLE IN SVG -->
+      <text id="canvas-main-title" x="35" y="48" fill="#ffffff" font-size="14" font-weight="900" letter-spacing="1.2" filter="url(#glow-cyan)">WELILE PLATFORM ARCHITECTURE: External Rails to Double-Entry Ledger</text>
+
+      <!-- ========================================================================= -->
+      <!-- CONDUIT PIPELINES LAYER                                                   -->
+      <!-- ========================================================================= -->
+      <g id="conduits-layer">
+        <!-- Left Ingestion Rails lines converging into Gateway Canister -->
+        <path d="M 180 330 L 330 330 L 350 460 L 420 460" fill="none" stroke="#00d2ff" stroke-width="1.8" class="pulse-stream-cyan"/>
+        <path d="M 315 330 L 370 330 L 385 475 L 420 475" fill="none" stroke="#00d2ff" stroke-width="1.8" class="pulse-stream-cyan"/>
+        <path d="M 180 405 L 340 405 L 360 490 L 420 490" fill="none" stroke="#00d2ff" stroke-width="1.8" class="pulse-stream-cyan"/>
+        <path d="M 315 405 L 365 405 L 380 505 L 420 505" fill="none" stroke="#00d2ff" stroke-width="1.8" class="pulse-stream-cyan"/>
+        <path d="M 180 480 L 330 480 L 350 520 L 420 520" fill="none" stroke="#00d2ff" stroke-width="1.8" class="pulse-stream-cyan"/>
+        <path d="M 315 480 L 355 480 L 370 535 L 420 535" fill="none" stroke="#00d2ff" stroke-width="1.8" class="pulse-stream-cyan"/>
+        <path d="M 180 555 L 320 555 L 345 550 L 420 550" fill="none" stroke="#00d2ff" stroke-width="1.8" class="pulse-stream-cyan"/>
+        <path d="M 315 555 L 350 555 L 365 565 L 420 565" fill="none" stroke="#00d2ff" stroke-width="1.8" class="pulse-stream-cyan"/>
+        <path d="M 180 630 L 310 630 L 340 580 L 420 580" fill="none" stroke="#00d2ff" stroke-width="1.8" class="pulse-stream-cyan"/>
+        <path d="M 315 630 L 345 630 L 360 595 L 420 595" fill="none" stroke="#00d2ff" stroke-width="1.8" class="pulse-stream-cyan"/>
+
+        <!-- Client Portal down bus feeding to rails -->
+        <path d="M 185 280 L 185 295 M 185 295 L 115 295 L 115 300 M 185 295 L 255 295 L 255 300" fill="none" stroke="#00d2ff" stroke-width="1.6" class="pulse-stream-cyan"/>
+
+        <!-- Glowing Cyan Elbow Tube between Client Portal and Edge Functions Gateway -->
+        <path d="M 320 185 L 525 185 L 525 360" fill="none" stroke="rgba(0, 210, 255, 0.22)" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow-cyan)"/>
+        <path d="M 320 185 L 525 185 L 525 360" fill="none" stroke="rgba(8, 24, 52, 0.9)" stroke-width="14" stroke-linejoin="round"/>
+        <path d="M 320 185 L 525 185 L 525 360" fill="none" stroke="#00d2ff" stroke-width="3.5" class="pulse-stream-cyan" stroke-linejoin="round"/>
+        <polygon points="325,175 305,185 325,195" fill="#00d2ff" filter="url(#glow-cyan)"/>
+        <polygon points="515,350 525,368 535,350" fill="#00d2ff" filter="url(#glow-cyan)"/>
+
+        <!-- Glowing Cyan Tube: Edge Gateway to Pre-Flight Advisory Locks -->
+        <path d="M 630 490 L 675 490 L 675 200 L 730 200" fill="none" stroke="rgba(0, 210, 255, 0.25)" stroke-width="22" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow-cyan)"/>
+        <path d="M 630 490 L 675 490 L 675 200 L 730 200" fill="none" stroke="rgba(8, 24, 52, 0.9)" stroke-width="14" stroke-linejoin="round"/>
+        <path d="M 630 490 L 675 490 L 675 200 L 730 200" fill="none" stroke="#00d2ff" stroke-width="3.5" class="pulse-stream-cyan" stroke-linejoin="round"/>
+        <polygon points="720,190 740,200 720,210" fill="#00d2ff" filter="url(#glow-cyan)"/>
+
+        <!-- Floating Data Packet Icons -->
+        <g transform="translate(663, 370)">
+          <rect x="0" y="0" width="24" height="28" rx="3" fill="#040814" stroke="#00d2ff" stroke-width="1.5"/>
+          <line x1="5" y1="8" x2="19" y2="8" stroke="#38bdf8" stroke-width="1.2"/>
+          <line x1="5" y1="14" x2="19" y2="14" stroke="#38bdf8" stroke-width="1.2"/>
+          <line x1="5" y1="20" x2="14" y2="20" stroke="#38bdf8" stroke-width="1.2"/>
+        </g>
+        <g transform="translate(663, 270)">
+          <rect x="0" y="0" width="24" height="28" rx="3" fill="#040814" stroke="#00d2ff" stroke-width="1.5"/>
+          <line x1="5" y1="8" x2="19" y2="8" stroke="#38bdf8" stroke-width="1.2"/>
+          <line x1="5" y1="14" x2="19" y2="14" stroke="#38bdf8" stroke-width="1.2"/>
+          <line x1="5" y1="20" x2="14" y2="20" stroke="#38bdf8" stroke-width="1.2"/>
+        </g>
+
+        <!-- Cyan Tube: Pre-Flight Locks to Transaction Packing -->
+        <path d="M 1100 200 L 1180 200" fill="none" stroke="rgba(0, 210, 255, 0.25)" stroke-width="20" stroke-linecap="round" filter="url(#glow-cyan)"/>
+        <path d="M 1100 200 L 1180 200" fill="none" stroke="rgba(8, 24, 52, 0.9)" stroke-width="14"/>
+        <path d="M 1100 200 L 1180 200" fill="none" stroke="#00d2ff" stroke-width="3.5" class="pulse-stream-cyan"/>
+        <polygon points="1170,190 1190,200 1170,210" fill="#00d2ff" filter="url(#glow-cyan)"/>
+
+        <g transform="translate(1128, 186)">
+          <rect x="0" y="0" width="24" height="28" rx="3" fill="#040814" stroke="#00d2ff" stroke-width="1.5"/>
+          <line x1="5" y1="8" x2="19" y2="8" stroke="#38bdf8" stroke-width="1.2"/>
+          <line x1="5" y1="14" x2="19" y2="14" stroke="#38bdf8" stroke-width="1.2"/>
+          <line x1="5" y1="20" x2="14" y2="20" stroke="#38bdf8" stroke-width="1.2"/>
+        </g>
+
+        <!-- Magenta S-Curve Conduit: Transaction Packing into Core Ledger Engine -->
+        <path d="M 1320 310 L 1320 355 C 1320 375, 1280 375, 1260 375 L 1140 375 C 1100 375, 1090 395, 1085 410" fill="none" stroke="rgba(244, 63, 94, 0.25)" stroke-width="22" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow-magenta)"/>
+        <path d="M 1320 310 L 1320 355 C 1320 375, 1280 375, 1260 375 L 1140 375 C 1100 375, 1090 395, 1085 410" fill="none" stroke="rgba(20, 6, 18, 0.9)" stroke-width="14" stroke-linejoin="round"/>
+        <path d="M 1320 310 L 1320 355 C 1320 375, 1280 375, 1260 375 L 1140 375 C 1100 375, 1090 395, 1085 410" fill="none" stroke="#f43f5e" stroke-width="4" class="pulse-stream-magenta" stroke-linejoin="round"/>
+        <polygon points="1075,398 1095,418 1080,422" fill="#f43f5e" filter="url(#glow-magenta)"/>
+
+        <!-- Amber Orange Conduit: Core Ledger Engine to Settlements & Wallets -->
+        <path d="M 1170 510 L 1230 510" fill="none" stroke="rgba(249, 115, 22, 0.25)" stroke-width="20" stroke-linecap="round" filter="url(#glow-orange)"/>
+        <path d="M 1170 510 L 1230 510" fill="none" stroke="rgba(24, 12, 6, 0.9)" stroke-width="14"/>
+        <path d="M 1170 510 L 1230 510" fill="none" stroke="#f97316" stroke-width="3.5" class="pulse-stream-orange"/>
+        <polygon points="1220,500 1240,510 1220,520" fill="#f97316" filter="url(#glow-orange)"/>
+
+        <!-- Amber Orange Conduit: Settlements down to Treasury Safety Loop -->
+        <path d="M 1345 685 L 1345 825 L 1170 825" fill="none" stroke="rgba(249, 115, 22, 0.25)" stroke-width="22" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow-orange)"/>
+        <path d="M 1345 685 L 1345 825 L 1170 825" fill="none" stroke="rgba(24, 12, 6, 0.9)" stroke-width="14" stroke-linejoin="round"/>
+        <path d="M 1345 685 L 1345 825 L 1170 825" fill="none" stroke="#f97316" stroke-width="4" class="pulse-stream-orange" stroke-linejoin="round"/>
+        <polygon points="1180,815 1160,825 1180,835" fill="#f97316" filter="url(#glow-orange)"/>
+
+        <!-- Purple Conduit: Core Engine down to Treasury Safety Loop -->
+        <path d="M 950 660 L 950 710" fill="none" stroke="rgba(192, 132, 252, 0.25)" stroke-width="18" stroke-linecap="round" filter="url(#glow-purple)"/>
+        <path d="M 950 660 L 950 710" fill="none" stroke="rgba(18, 8, 30, 0.9)" stroke-width="12"/>
+        <path d="M 950 660 L 950 710" fill="none" stroke="#c084fc" stroke-width="3.5" class="pulse-stream-magenta"/>
+        <polygon points="940,700 950,720 960,700" fill="#c084fc" filter="url(#glow-purple)"/>
+
+        <!-- Cyan Conduit: Edge Gateway Base into Treasury Safety Loop -->
+        <path d="M 525 670 L 525 825 L 730 825" fill="none" stroke="rgba(0, 210, 255, 0.25)" stroke-width="22" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow-cyan)"/>
+        <path d="M 525 670 L 525 825 L 730 825" fill="none" stroke="rgba(8, 24, 52, 0.9)" stroke-width="14" stroke-linejoin="round"/>
+        <path d="M 525 670 L 525 825 L 730 825" fill="none" stroke="#00d2ff" stroke-width="3.5" class="pulse-stream-cyan" stroke-linejoin="round"/>
+      </g>
+
+      <!-- ========================================================================= -->
+      <!-- BOX 1: PWA CLIENT PORTAL (TOP LEFT)                                       -->
+      <!-- ========================================================================= -->
+      <g id="box-client" class="arch-node" onclick="inspectNode('client')" color="#00d2ff">
+        <rect class="node-frame" x="50" y="95" width="270" height="185" rx="10" fill="url(#grad-panel-cyan)" stroke="#00d2ff" stroke-width="1.8"/>
+        <rect x="50" y="95" width="270" height="26" rx="10" fill="rgba(0, 210, 255, 0.18)"/>
+        <rect x="62" y="103" width="8" height="8" rx="1.5" fill="#00d2ff"/>
+        <text id="lbl-dev-ide-title" x="185" y="113" fill="#00d2ff" font-size="10.5" font-weight="900" text-anchor="middle" letter-spacing="1">PWA CLIENT PORTAL</text>
+
+        <!-- Code Editor Window -->
+        <rect x="62" y="130" width="246" height="138" rx="6" fill="#040814" stroke="rgba(0, 210, 255, 0.3)" stroke-width="1"/>
+        <circle cx="75" cy="142" r="3.2" fill="#f43f5e"/>
+        <circle cx="85" cy="142" r="3.2" fill="#f59e0b"/>
+        <circle cx="95" cy="142" r="3.2" fill="#10b981"/>
+
+        <text id="lbl-dev-ide-code1" x="75" y="166" fill="#94a3b8" font-size="8.8" font-family="var(--font-mono)">const { user } = useAuth();</text>
+        <text id="lbl-dev-ide-code2" x="75" y="184" fill="#64748b" font-size="8.2" font-family="var(--font-mono)">// 02-Danger-Zones §8: Never write</text>
+        <text id="lbl-dev-ide-code3" x="75" y="202" fill="#38bdf8" font-size="8.5" font-family="var(--font-mono)">// ledger directly from frontend!</text>
+        <text id="lbl-dev-ide-code4" x="75" y="220" fill="#c084fc" font-size="8.8" font-family="var(--font-mono)">await invoke('submit-rent-request')</text>
+
+        <polygon points="230,195 230,216 236,210 242,221 246,219 239,208 248,208" fill="#ffffff" stroke="#040814" stroke-width="1.4"/>
+      </g>
+
+      <!-- ========================================================================= -->
+      <!-- 10 INGESTION & STORAGE RAILS (LEFT 2x5 GRID)                              -->
+      <!-- ========================================================================= -->
+      <g id="context-tiles-grid">
+        <!-- ROW 1: MTN MOMO & AIRTEL MONEY -->
+        <g class="arch-node" onclick="inspectNode('telco-sms')" color="#00d2ff">
+          <rect class="node-frame" x="50" y="300" width="130" height="62" rx="6" fill="rgba(8, 16, 34, 0.9)" stroke="#00d2ff" stroke-width="1.3"/>
+          <rect x="75" y="310" width="16" height="20" rx="1.5" fill="none" stroke="#00d2ff" stroke-width="1"/>
+          <rect x="80" y="314" width="16" height="20" rx="1.5" fill="none" stroke="#38bdf8" stroke-width="1"/>
+          <rect x="85" y="318" width="16" height="20" rx="1.5" fill="rgba(0, 210, 255, 0.2)" stroke="#00d2ff" stroke-width="1.2"/>
+          <text id="lbl-t1-title" x="115" y="352" fill="#f8fafc" font-size="7.6" font-weight="800" text-anchor="middle">MOMO/AIRTEL→IFTTT</text>
+        </g>
+
+        <path d="M 180 331 L 190 331" stroke="#00d2ff" stroke-width="1.5" marker-end="url(#arrowhead-cyan)"/>
+
+        <g class="arch-node" onclick="inspectNode('ussd-callback')" color="#00d2ff">
+          <rect class="node-frame" x="190" y="300" width="125" height="62" rx="6" fill="rgba(8, 16, 34, 0.9)" stroke="#00d2ff" stroke-width="1.3"/>
+          <path d="M 215 314 L 225 314 L 228 318 L 245 318 L 245 334 L 215 334 Z" fill="rgba(0, 210, 255, 0.15)" stroke="#00d2ff" stroke-width="1.2"/>
+          <text x="250" y="322" fill="#64748b" font-size="6.5" font-family="var(--font-mono)">ussd</text>
+          <text x="250" y="331" fill="#64748b" font-size="6.5" font-family="var(--font-mono)">session</text>
+          <text id="lbl-t2-title" x="252" y="352" fill="#f8fafc" font-size="8.8" font-weight="800" text-anchor="middle">USSD CALLBACK</text>
+        </g>
+
+        <!-- ROW 2: GMAIL POLL & YOOLA SMS -->
+        <g class="arch-node" onclick="inspectNode('gmail-poller')" color="#c084fc">
+          <rect class="node-frame" x="50" y="375" width="130" height="62" rx="6" fill="rgba(8, 16, 34, 0.9)" stroke="#c084fc" stroke-width="1.3"/>
+          <polygon points="115,385 127,397 115,409 103,397" fill="rgba(192, 132, 252, 0.2)" stroke="#c084fc" stroke-width="1.3"/>
+          <circle cx="111" cy="397" r="1.8" fill="#ffffff"/>
+          <circle cx="119" cy="393" r="1.8" fill="#ffffff"/>
+          <circle cx="119" cy="401" r="1.8" fill="#ffffff"/>
+          <path d="M 111 397 L 119 393 M 111 397 L 119 401" stroke="#ffffff" stroke-width="1"/>
+          <text id="lbl-t3-title" x="115" y="427" fill="#f8fafc" font-size="8.8" font-weight="800" text-anchor="middle">GMAIL POLL (1M)</text>
+        </g>
+
+        <path d="M 180 406 L 190 406" stroke="#00d2ff" stroke-width="1.5" marker-end="url(#arrowhead-cyan)"/>
+
+        <g class="arch-node" onclick="inspectNode('yoola-sms')" color="#00d2ff">
+          <rect class="node-frame" x="190" y="375" width="125" height="62" rx="6" fill="rgba(8, 16, 34, 0.9)" stroke="#00d2ff" stroke-width="1.3"/>
+          <text x="210" y="390" fill="#94a3b8" font-size="7.5" font-weight="700">OTP Rail</text>
+          <line x1="210" y1="395" x2="210" y2="415" stroke="#00d2ff" stroke-width="1.2"/>
+          <circle cx="210" cy="397" r="2" fill="#38bdf8"/>
+          <circle cx="210" cy="413" r="2" fill="#38bdf8"/>
+          <rect x="225" y="402" width="40" height="13" rx="2" fill="rgba(244,63,94,0.18)" stroke="#f43f5e" stroke-width="0.8"/>
+          <text x="245" y="411" fill="#fecdd3" font-size="5.8" font-family="var(--font-mono)" text-anchor="middle">Trap 1: Default</text>
+          <text id="lbl-t4-title" x="252" y="427" fill="#f8fafc" font-size="8.8" font-weight="800" text-anchor="middle">YOOLA SMS</text>
+        </g>
+
+        <!-- ROW 3: AFRICA'S TALKING & 27 S3 BUCKETS -->
+        <g class="arch-node" onclick="inspectNode('africas-talking')" color="#00d2ff">
+          <rect class="node-frame" x="50" y="450" width="130" height="62" rx="6" fill="rgba(8, 16, 34, 0.9)" stroke="#00d2ff" stroke-width="1.3"/>
+          <path d="M 103 463 Q 115 461 115 476 Q 115 461 127 463 L 127 476 Q 115 474 115 481 Q 115 474 103 476 Z" fill="rgba(0, 210, 255, 0.2)" stroke="#00d2ff" stroke-width="1.2"/>
+          <text x="109" y="471" fill="#38bdf8" font-size="5.5" font-weight="900">SMS</text>
+          <text id="lbl-t5-title" x="115" y="502" fill="#f8fafc" font-size="8.5" font-weight="800" text-anchor="middle">AFRICA'S TALKING</text>
+        </g>
+
+        <path d="M 180 481 L 190 481" stroke="#00d2ff" stroke-width="1.5" marker-end="url(#arrowhead-cyan)"/>
+
+        <g class="arch-node" onclick="inspectNode('storage')" color="#00d2ff">
+          <rect class="node-frame" x="190" y="450" width="125" height="62" rx="6" fill="rgba(8, 16, 34, 0.9)" stroke="#00d2ff" stroke-width="1.3"/>
+          <circle cx="242" cy="468" r="7" fill="none" stroke="#00d2ff" stroke-width="1.8"/>
+          <circle cx="256" cy="478" r="6" fill="none" stroke="#38bdf8" stroke-width="1.6"/>
+          <text x="210" y="468" fill="#64748b" font-size="6" font-family="var(--font-mono)">agreements</text>
+          <text x="265" y="480" fill="#64748b" font-size="6" font-family="var(--font-mono)">proofs</text>
+          <text id="lbl-t6-title" x="252" y="502" fill="#f8fafc" font-size="8.8" font-weight="800" text-anchor="middle">31 BUCKETS</text>
+        </g>
+
+        <!-- ROW 4: AGENT ADVANCE SWEEP & DEPOSIT BRIDGE -->
+        <g class="arch-node" onclick="inspectNode('advance-sweep')" color="#00d2ff">
+          <rect class="node-frame" x="50" y="525" width="130" height="62" rx="6" fill="rgba(8, 16, 34, 0.9)" stroke="#00d2ff" stroke-width="1.3"/>
+          <rect x="95" y="534" width="40" height="23" rx="2" fill="#040814" stroke="#00d2ff" stroke-width="0.9"/>
+          <circle cx="99" cy="538" r="1" fill="#f43f5e"/>
+          <circle cx="102" cy="538" r="1" fill="#f59e0b"/>
+          <circle cx="105" cy="538" r="1" fill="#10b981"/>
+          <text x="98" y="546" fill="#38bdf8" font-size="5" font-family="var(--font-mono)">16:50 UTC</text>
+          <text x="98" y="553" fill="#10b981" font-size="4.8" font-family="var(--font-mono)">pg_cron 204</text>
+          <text id="lbl-t7-title" x="115" y="577" fill="#f8fafc" font-size="8.8" font-weight="800" text-anchor="middle">ADVANCE SWEEP</text>
+        </g>
+
+        <path d="M 180 556 L 190 556" stroke="#00d2ff" stroke-width="1.5" marker-end="url(#arrowhead-cyan)"/>
+
+        <g class="arch-node" onclick="inspectNode('deposit-bridge')" color="#00d2ff">
+          <rect class="node-frame" x="190" y="525" width="125" height="62" rx="6" fill="rgba(8, 16, 34, 0.9)" stroke="#00d2ff" stroke-width="1.3"/>
+          <rect x="232" y="534" width="40" height="23" rx="2" fill="#040814" stroke="#00d2ff" stroke-width="0.9"/>
+          <path d="M 238 542 L 243 545 L 238 548" fill="none" stroke="#38bdf8" stroke-width="1.2"/>
+          <line x1="245" y1="548" x2="251" y2="548" stroke="#38bdf8" stroke-width="1.2"/>
+          <text id="lbl-t8-title" x="252" y="577" fill="#f8fafc" font-size="8.8" font-weight="800" text-anchor="middle">DEPOSIT MATCH</text>
+        </g>
+
+        <!-- ROW 5: IMBALANCE ALERTS & PHANTOM DRIFT -->
+        <g class="arch-node" onclick="inspectNode('imbalance-detector')" color="#f43f5e">
+          <rect class="node-frame" x="50" y="600" width="130" height="62" rx="6" fill="rgba(8, 16, 34, 0.9)" stroke="#f43f5e" stroke-width="1.3"/>
+          <polygon points="107,624 113,613 119,624" fill="none" stroke="#f59e0b" stroke-width="1.3"/>
+          <line x1="113" y1="617" x2="113" y2="620" stroke="#f59e0b" stroke-width="1"/>
+          <circle cx="113" cy="622" r="0.6" fill="#f59e0b"/>
+          <text x="122" y="620" fill="#f43f5e" font-size="6" font-weight="700">2,195 open</text>
+          <circle cx="110" cy="633" r="3.8" fill="none" stroke="#f43f5e" stroke-width="1.1"/>
+          <text x="117" y="635" fill="#f43f5e" font-size="6" font-weight="700">NO CRON</text>
+          <text id="lbl-t9-title" x="115" y="652" fill="#f8fafc" font-size="8.5" font-weight="800" text-anchor="middle">IMBALANCE ALERTS</text>
+        </g>
+
+        <path d="M 180 631 L 190 631" stroke="#00d2ff" stroke-width="1.5" marker-end="url(#arrowhead-cyan)"/>
+
+        <g class="arch-node" onclick="inspectNode('projection-drift')" color="#00d2ff">
+          <rect class="node-frame" x="190" y="600" width="125" height="62" rx="6" fill="rgba(8, 16, 34, 0.9)" stroke="#00d2ff" stroke-width="1.3"/>
+          <rect x="235" y="612" width="22" height="11" rx="2" fill="none" stroke="#00d2ff" stroke-width="1.1"/>
+          <line x1="239" y1="617" x2="251" y2="617" stroke="#00d2ff" stroke-width="0.8"/>
+          <rect x="245" y="624" width="22" height="11" rx="2" fill="rgba(0, 210, 255, 0.2)" stroke="#38bdf8" stroke-width="1.1"/>
+          <line x1="249" y1="629" x2="261" y2="629" stroke="#38bdf8" stroke-width="0.8"/>
+          <text id="lbl-t10-title" x="252" y="647" fill="#f8fafc" font-size="7.5" font-weight="800" text-anchor="middle">PROJECTION</text>
+          <text id="lbl-t10-sub" x="252" y="655" fill="#f8fafc" font-size="7.5" font-weight="800" text-anchor="middle">DRIFT (15 MIN)</text>
+        </g>
+      </g>
+
+      <!-- ========================================================================= -->
+      <!-- BOX 2: 388 EDGE FUNCTIONS GATEWAY (3D CANISTER)                           -->
+      <!-- ========================================================================= -->
+      <g id="box-edge-functions" class="arch-node" onclick="inspectNode('edge-functions')" color="#00d2ff">
+        <rect x="420" y="365" width="210" height="26" rx="6" fill="rgba(0, 210, 255, 0.18)" stroke="#00d2ff" stroke-width="1.2"/>
+        <text id="lbl-cylinder-title" x="525" y="382" fill="#00d2ff" font-size="10.5" font-weight="900" text-anchor="middle" letter-spacing="0.8">388 EDGE FUNCTIONS</text>
+
+        <!-- 3D Cylindrical Glass Canister -->
+        <path class="node-frame" d="M 445 435 C 445 408, 605 408, 605 435 L 605 645 C 605 672, 445 672, 445 645 Z" fill="url(#grad-cylinder)" stroke="#00d2ff" stroke-width="2.6" filter="url(#glow-cyan)"/>
+        <ellipse cx="525" cy="435" rx="80" ry="22" fill="rgba(56, 189, 248, 0.3)" stroke="#00d2ff" stroke-width="2"/>
+        <path d="M 445 645 C 445 672, 605 672, 605 645" fill="none" stroke="#00d2ff" stroke-width="2.2"/>
+        <ellipse cx="525" cy="645" rx="80" ry="22" fill="none" stroke="#00d2ff" stroke-width="1.2" stroke-dasharray="4,4"/>
+
+        <!-- 4 Ingestion Cards inside the Gateway -->
+        <g transform="translate(460, 465)">
+          <rect x="0" y="0" width="46" height="36" rx="3" fill="rgba(4, 12, 30, 0.9)" stroke="#00d2ff" stroke-width="1"/>
+          <text id="lbl-c-card1" x="23" y="18" fill="#f8fafc" font-size="6" font-weight="800" text-anchor="middle">verify_jwt</text>
+          <text x="23" y="27" fill="#38bdf8" font-size="5.5" font-family="var(--font-mono)" text-anchor="middle">Router</text>
+        </g>
+
+        <g transform="translate(545, 465)">
+          <rect x="0" y="0" width="46" height="36" rx="3" fill="rgba(4, 12, 30, 0.9)" stroke="#00d2ff" stroke-width="1"/>
+          <text id="lbl-c-card2" x="23" y="16" fill="#f8fafc" font-size="5.8" font-weight="800" text-anchor="middle">approve-</text>
+          <text x="23" y="24" fill="#f8fafc" font-size="5.8" font-weight="800" text-anchor="middle">deposit</text>
+          <text x="23" y="32" fill="#f43f5e" font-size="5.2" font-weight="800" text-anchor="middle">30s Lock</text>
+        </g>
+
+        <g transform="translate(535, 520)">
+          <rect x="0" y="0" width="56" height="42" rx="3" fill="rgba(4, 12, 30, 0.95)" stroke="#00d2ff" stroke-width="1.3"/>
+          <line x1="8" y1="10" x2="48" y2="10" stroke="#f97316" stroke-width="1.4"/>
+          <line x1="8" y1="16" x2="40" y2="16" stroke="#f97316" stroke-width="1.4"/>
+          <text id="lbl-c-card3" x="28" y="28" fill="#f8fafc" font-size="6" font-weight="800" text-anchor="middle">gmail-poll-</text>
+          <text x="28" y="36" fill="#f8fafc" font-size="6" font-weight="800" text-anchor="middle">transactions</text>
+        </g>
+
+        <g transform="translate(460, 560)">
+          <rect x="4" y="0" width="48" height="28" rx="2" fill="none" stroke="rgba(0,210,255,0.4)" stroke-width="0.8"/>
+          <rect x="0" y="4" width="48" height="28" rx="2" fill="rgba(4, 12, 30, 0.9)" stroke="#00d2ff" stroke-width="1"/>
+          <text id="lbl-c-card4" x="24" y="16" fill="#f8fafc" font-size="5.8" font-weight="800" text-anchor="middle">ussd-</text>
+          <text x="24" y="24" fill="#f8fafc" font-size="5.8" font-weight="800" text-anchor="middle">callback</text>
+        </g>
+
+        <path d="M 506 485 C 520 485, 525 510, 535 528" fill="none" stroke="#00d2ff" stroke-width="1.2"/>
+        <path d="M 545 485 C 538 495, 542 510, 548 520" fill="none" stroke="#00d2ff" stroke-width="1.2"/>
+        <path d="M 508 575 C 520 570, 528 550, 535 545" fill="none" stroke="#00d2ff" stroke-width="1.2"/>
+      </g>
+
+      <!-- ========================================================================= -->
+      <!-- BOX 3: PRE-FLIGHT ADVISORY LOCKS & ALLOWLIST (TOP CENTER)                 -->
+      <!-- ========================================================================= -->
+      <g id="box-preflight" class="arch-node" onclick="inspectNode('preflight')" color="#00d2ff">
+        <rect class="node-frame" x="730" y="95" width="370" height="215" rx="10" fill="url(#grad-panel-cyan)" stroke="#00d2ff" stroke-width="1.8"/>
+        <rect x="730" y="95" width="370" height="26" rx="10" fill="rgba(0, 210, 255, 0.18)"/>
+        <text id="lbl-proc-title" x="915" y="113" fill="#00d2ff" font-size="10" font-weight="900" text-anchor="middle" letter-spacing="0.8">PRE-FLIGHT ADVISORY LOCKS &amp; ALLOWLIST</text>
+
+        <!-- SUB-PANEL 1: Advisory Locks -->
+        <g transform="translate(750, 135)">
+          <rect x="0" y="0" width="160" height="160" rx="8" fill="rgba(4, 12, 30, 0.6)" stroke="rgba(0, 210, 255, 0.3)" stroke-width="1"/>
+          <text id="lbl-proc-sub1" x="80" y="22" fill="#38bdf8" font-size="10.5" font-weight="800" text-anchor="middle">Advisory Locks</text>
+
+          <ellipse cx="80" cy="50" rx="28" ry="9" fill="rgba(0, 210, 255, 0.35)" stroke="#00d2ff" stroke-width="1.3"/>
+          <path d="M 52 50 L 52 80 C 52 89, 108 89, 108 80 L 108 50 Z" fill="rgba(8, 24, 52, 0.85)" stroke="#00d2ff" stroke-width="1.3"/>
+          <circle cx="88" cy="72" r="14" fill="rgba(4, 12, 30, 0.8)" stroke="#38bdf8" stroke-width="2.2"/>
+          <line x1="98" y1="82" x2="112" y2="96" stroke="#38bdf8" stroke-width="3.5" stroke-linecap="round"/>
+
+          <text id="lbl-proc-desc1" x="80" y="125" fill="#f8fafc" font-size="9" font-weight="700" text-anchor="middle">pg_advisory_xact_lock</text>
+          <text id="lbl-proc-desc2" x="80" y="142" fill="#94a3b8" font-size="8" text-anchor="middle">Replay Attack Prevention</text>
+        </g>
+
+        <path d="M 915 210 L 930 210" stroke="#00d2ff" stroke-width="1.8" marker-end="url(#arrowhead-cyan)"/>
+
+        <!-- SUB-PANEL 2: 160 Categories Allowlist -->
+        <g transform="translate(925, 135)">
+          <rect x="0" y="0" width="160" height="160" rx="8" fill="rgba(4, 12, 30, 0.6)" stroke="rgba(0, 210, 255, 0.3)" stroke-width="1"/>
+          <text id="lbl-proc-sub2" x="80" y="22" fill="#38bdf8" font-size="10.5" font-weight="800" text-anchor="middle">Allowlist Gate</text>
+
+          <g transform="translate(56, 42)">
+            <rect x="0" y="0" width="48" height="48" rx="5" fill="#040814" stroke="#00d2ff" stroke-width="2"/>
+            <rect x="10" y="10" width="28" height="28" rx="3" fill="rgba(0, 210, 255, 0.2)" stroke="#38bdf8" stroke-width="1.2"/>
+            <circle cx="24" cy="24" r="6" fill="#00d2ff"/>
+            <path d="M 12 -6 L 12 0 M 20 -6 L 20 0 M 28 -6 L 28 0 M 36 -6 L 36 0" stroke="#00d2ff" stroke-width="1.8"/>
+            <path d="M 12 48 L 12 54 M 20 48 L 20 54 M 28 48 L 28 54 M 36 48 L 36 54" stroke="#00d2ff" stroke-width="1.8"/>
+            <path d="M -6 12 L 0 12 M -6 20 L 0 20 M -6 28 L 0 28 M -6 36 L 0 36" stroke="#00d2ff" stroke-width="1.8"/>
+            <path d="M 48 12 L 54 12 M 48 20 L 54 20 M 48 28 L 54 28 M 48 36 L 54 36" stroke="#00d2ff" stroke-width="1.8"/>
+          </g>
+
+          <text id="lbl-proc-desc3" x="80" y="125" fill="#f8fafc" font-size="9" font-weight="700" text-anchor="middle">160 Allowed Categories</text>
+          <text id="lbl-proc-desc4" x="80" y="142" fill="#94a3b8" font-size="8" text-anchor="middle">ledger_category_allowlist()</text>
+        </g>
+      </g>
+
+      <!-- ========================================================================= -->
+      <!-- BOX 4: DOUBLE-ENTRY TRANSACTION PACKING (TOP RIGHT)                       -->
+      <!-- ========================================================================= -->
+      <g id="box-packing" class="arch-node" onclick="inspectNode('packing')" color="#00d2ff">
+        <rect class="node-frame" x="1180" y="95" width="280" height="215" rx="10" fill="url(#grad-panel-cyan)" stroke="#00d2ff" stroke-width="1.8"/>
+        <rect x="1180" y="95" width="280" height="26" rx="10" fill="rgba(0, 210, 255, 0.18)"/>
+        <text id="lbl-prompt-title" x="1320" y="113" fill="#00d2ff" font-size="10.5" font-weight="900" text-anchor="middle" letter-spacing="0.8">TRANSACTION PACKING</text>
+
+        <!-- Blueprint Scroll Document Icon -->
+        <g transform="translate(1195, 135)">
+          <path d="M 0 0 L 30 0 C 35 0, 35 10, 30 10 L 6 10 C 0 10, 0 45, 6 45 L 34 45" fill="none" stroke="#00d2ff" stroke-width="1.8"/>
+          <rect x="8" y="10" width="30" height="38" rx="2" fill="rgba(0, 210, 255, 0.15)" stroke="#00d2ff" stroke-width="1.2"/>
+          <line x1="14" y1="18" x2="32" y2="18" stroke="#38bdf8" stroke-width="1.2"/>
+          <line x1="14" y1="24" x2="32" y2="24" stroke="#38bdf8" stroke-width="1.2"/>
+          <line x1="14" y1="30" x2="28" y2="30" stroke="#38bdf8" stroke-width="1.2"/>
+
+          <path d="M 38 18 C 50 18, 55 10, 65 10" fill="none" stroke="#00d2ff" stroke-width="1.2"/>
+          <path d="M 38 24 C 50 24, 55 24, 65 24" fill="none" stroke="#00d2ff" stroke-width="1.2"/>
+          <path d="M 38 30 C 50 30, 55 38, 65 38" fill="none" stroke="#00d2ff" stroke-width="1.2"/>
+          <path d="M 38 36 C 50 36, 55 52, 65 52" fill="none" stroke="#00d2ff" stroke-width="1.2"/>
+        </g>
+
+        <g transform="translate(1265, 135)">
+          <text id="lbl-p-b1" x="0" y="14" fill="#f8fafc" font-size="8.8" font-weight="700">Multi-Leg Entries</text>
+          <text id="lbl-p-b2" x="0" y="28" fill="#f8fafc" font-size="8.8" font-weight="700">Idempotency Key</text>
+          <text id="lbl-p-b3" x="0" y="42" fill="#f8fafc" font-size="8.8" font-weight="700">Zero-Sum Check</text>
+          <text id="lbl-p-b4" x="0" y="56" fill="#f8fafc" font-size="8.8" font-weight="700">Recipient Routing</text>
+        </g>
+
+        <path d="M 1215 186 L 1215 198" stroke="#00d2ff" stroke-width="1.5" marker-end="url(#arrowhead-cyan)"/>
+
+        <!-- Mini Code Box -->
+        <rect x="1195" y="202" width="250" height="95" rx="6" fill="#040814" stroke="rgba(244, 63, 94, 0.45)" stroke-width="1"/>
+        <text id="lbl-p-box1" x="1205" y="220" fill="#f43f5e" font-size="7.8" font-family="var(--font-mono)">create_ledger_transaction({</text>
+        <text id="lbl-p-box2" x="1205" y="236" fill="#38bdf8" font-size="7.8" font-family="var(--font-mono)">  entries: [cash_in, cash_out],</text>
+        <text id="lbl-p-box3" x="1205" y="252" fill="#94a3b8" font-size="7.8" font-family="var(--font-mono)">  idempotency_key: "tx_99812",</text>
+        <text id="lbl-p-box4" x="1205" y="268" fill="#c084fc" font-size="7.8" font-family="var(--font-mono)">  skip_balance_check: false });</text>
+      </g>
+
+      <!-- ========================================================================= -->
+      <!-- BOX 5: THE DOUBLE-ENTRY LEDGER CORE (CENTER PURPLE)                       -->
+      <!-- ========================================================================= -->
+      <g id="box-ledger-core" class="arch-node" onclick="inspectNode('ledger-core')" color="#c084fc">
+        <rect class="node-frame" x="730" y="365" width="440" height="295" rx="14" fill="url(#grad-panel-purple)" stroke="#c084fc" stroke-width="2.2" filter="url(#glow-purple)"/>
+        <rect x="730" y="365" width="440" height="32" rx="14" fill="rgba(192, 132, 252, 0.28)"/>
+        <text id="lbl-ledger-title" x="950" y="387" fill="#ffffff" font-size="12" font-weight="900" text-anchor="middle" letter-spacing="1.2">THE DOUBLE-ENTRY CORE: general_ledger</text>
+
+        <!-- Left Column of 4 Feature Pills -->
+        <g transform="translate(745, 415)">
+          <g id="pill-llm" class="arch-pill" onclick="event.stopPropagation(); inspectNode('ledger-core')">
+            <rect x="0" y="0" width="135" height="34" rx="6" fill="rgba(4, 12, 30, 0.85)" stroke="#c084fc" stroke-width="1.2"/>
+            <text id="lbl-aim-p1" x="67" y="15" fill="#f8fafc" font-size="8" font-weight="800" text-anchor="middle">general_ledger</text>
+            <text id="lbl-aim-p1b" x="67" y="26" fill="#38bdf8" font-size="8" font-weight="800" text-anchor="middle">627,405 Rows</text>
+          </g>
+          <path d="M 135 17 L 175 17 L 195 40" fill="none" stroke="#c084fc" stroke-width="1.2"/>
+          <circle cx="195" cy="40" r="2" fill="#ffffff"/>
+
+          <g id="pill-attn" class="arch-pill" onclick="event.stopPropagation(); inspectNode('ledger-core')" transform="translate(0, 46)">
+            <rect x="0" y="0" width="135" height="34" rx="6" fill="rgba(4, 12, 30, 0.85)" stroke="#c084fc" stroke-width="1.2"/>
+            <text id="lbl-aim-p2" x="67" y="15" fill="#f8fafc" font-size="8" font-weight="800" text-anchor="middle">Append-Only</text>
+            <text id="lbl-aim-p2b" x="67" y="26" fill="#10b981" font-size="8" font-weight="800" text-anchor="middle">Zero Deletes</text>
+          </g>
+          <path d="M 135 63 L 180 63" fill="none" stroke="#c084fc" stroke-width="1.2"/>
+          <circle cx="180" cy="63" r="2" fill="#ffffff"/>
+
+          <g id="pill-reason" class="arch-pill" onclick="event.stopPropagation(); inspectNode('ledger-core')" transform="translate(0, 92)">
+            <rect x="0" y="0" width="135" height="34" rx="6" fill="rgba(4, 12, 30, 0.85)" stroke="#c084fc" stroke-width="1.2"/>
+            <text id="lbl-aim-p3" x="67" y="15" fill="#f8fafc" font-size="8" font-weight="800" text-anchor="middle">Zero-Sum Invariant</text>
+            <text id="lbl-aim-p3b" x="67" y="26" fill="#f8fafc" font-size="8" font-weight="800" text-anchor="middle">Sum(In) = Sum(Out)</text>
+          </g>
+          <path d="M 135 109 L 185 109 L 205 95" fill="none" stroke="#c084fc" stroke-width="1.2"/>
+          <circle cx="205" cy="95" r="2" fill="#ffffff"/>
+
+          <g id="pill-spec" class="arch-pill" onclick="event.stopPropagation(); inspectNode('ledger-core')" transform="translate(0, 138)">
+            <rect x="0" y="0" width="135" height="34" rx="6" fill="rgba(4, 12, 30, 0.85)" stroke="#c084fc" stroke-width="1.2"/>
+            <text id="lbl-aim-p4" x="67" y="22" fill="#f8fafc" font-size="8" font-weight="800" text-anchor="middle">Main Door + 13 Direct</text>
+          </g>
+          <path d="M 135 155 L 195 155 L 210 135" fill="none" stroke="#c084fc" stroke-width="1.2"/>
+          <circle cx="210" cy="135" r="2" fill="#ffffff"/>
+        </g>
+
+        <!-- CENTRAL HOLOGRAPHIC LEDGER ENGINE CORE -->
+        <g id="holographic-brain-group">
+          <g class="orbit-ring">
+            <ellipse cx="950" cy="490" rx="90" ry="72" fill="none" stroke="rgba(0, 210, 255, 0.35)" stroke-width="1.2" stroke-dasharray="6,8"/>
+            <ellipse cx="950" cy="490" rx="106" ry="84" fill="none" stroke="rgba(192, 132, 252, 0.3)" stroke-width="1.2" stroke-dasharray="4,10"/>
+            <circle cx="860" cy="490" r="3.5" fill="#00d2ff" filter="url(#glow-cyan)"/>
+            <circle cx="1040" cy="490" r="3.5" fill="#f43f5e" filter="url(#glow-magenta)"/>
+            <circle cx="950" cy="406" r="2.5" fill="#ffffff" filter="url(#glow-cyan)"/>
+            <circle cx="950" cy="574" r="2.5" fill="#38bdf8" filter="url(#glow-cyan)"/>
+          </g>
+
+          <g class="brain-anim-core">
+            <ellipse cx="950" cy="485" rx="80" ry="60" fill="url(#grad-brain-aura)" filter="url(#glow-purple)"/>
+
+            <!-- Left Lobe (Credits) -->
+            <path d="M 945 430 C 915 422, 880 436, 875 468 C 870 492, 882 514, 902 525 C 918 535, 935 532, 945 522" fill="rgba(0, 210, 255, 0.18)" stroke="#00d2ff" stroke-width="2.6" filter="url(#glow-cyan)"/>
+
+            <!-- Right Lobe (Debits) -->
+            <path d="M 945 430 C 980 422, 1022 436, 1026 472 C 1030 500, 1015 524, 992 536 C 972 546, 955 535, 945 522" fill="rgba(192, 132, 252, 0.18)" stroke="#c084fc" stroke-width="2.6" filter="url(#glow-purple)"/>
+
+            <!-- Central Junction -->
+            <path d="M 915 522 C 925 540, 955 545, 972 530 C 988 544, 1010 540, 1008 522 C 1008 510, 996 498, 990 494" fill="none" stroke="#f43f5e" stroke-width="2.2" filter="url(#glow-magenta)"/>
+            <path d="M 945 522 L 945 560 C 945 568, 955 568, 955 560 L 955 522" fill="rgba(124, 58, 237, 0.45)" stroke="#a855f7" stroke-width="2"/>
+
+            <path d="M 896 462 C 918 450, 938 472, 955 448 C 972 470, 996 450, 1012 466" fill="none" stroke="rgba(255,255,255,0.75)" stroke-width="1.5"/>
+            <path d="M 885 486 C 912 496, 935 480, 955 492 C 975 482, 1000 504, 1018 488" fill="none" stroke="rgba(255,255,255,0.75)" stroke-width="1.5"/>
+            <path d="M 902 510 C 928 502, 945 516, 968 505 C 985 515, 1002 508, 1008 516" fill="none" stroke="rgba(255,255,255,0.75)" stroke-width="1.5"/>
+
+            <circle cx="896" cy="462" r="3.2" fill="#ffffff" filter="url(#glow-cyan)"/>
+            <circle cx="926" cy="450" r="3.5" fill="#00d2ff" filter="url(#glow-cyan)"/>
+            <circle cx="955" cy="448" r="3.5" fill="#ffffff" filter="url(#glow-cyan)"/>
+            <circle cx="984" cy="450" r="3.5" fill="#f43f5e" filter="url(#glow-magenta)"/>
+            <circle cx="1012" cy="466" r="3.2" fill="#ffffff" filter="url(#glow-cyan)"/>
+
+            <circle cx="885" cy="486" r="3.2" fill="#00d2ff" filter="url(#glow-cyan)"/>
+            <circle cx="918" cy="482" r="3.5" fill="#ffffff" filter="url(#glow-cyan)"/>
+            <circle cx="945" cy="480" r="4.2" fill="#f43f5e" filter="url(#glow-magenta)"/>
+            <circle cx="978" cy="482" r="3.5" fill="#38bdf8" filter="url(#glow-cyan)"/>
+            <circle cx="1008" cy="488" r="3.2" fill="#ffffff" filter="url(#glow-cyan)"/>
+
+            <circle cx="902" cy="510" r="3.2" fill="#38bdf8" filter="url(#glow-cyan)"/>
+            <circle cx="935" cy="508" r="3.5" fill="#ffffff" filter="url(#glow-cyan)"/>
+            <circle cx="960" cy="505" r="4" fill="#f43f5e" filter="url(#glow-magenta)"/>
+            <circle cx="990" cy="508" r="3.2" fill="#00d2ff" filter="url(#glow-cyan)"/>
+            <circle cx="970" cy="532" r="3" fill="#ffffff" filter="url(#glow-cyan)"/>
+
+            <line x1="896" y1="462" x2="926" y2="450" stroke="rgba(255,255,255,0.6)" stroke-width="0.9"/>
+            <line x1="926" y1="450" x2="955" y2="448" stroke="rgba(0,210,255,0.8)" stroke-width="1.1"/>
+            <line x1="955" y1="448" x2="984" y2="450" stroke="rgba(244,63,94,0.8)" stroke-width="1.1"/>
+            <line x1="984" y1="450" x2="1012" y2="466" stroke="rgba(255,255,255,0.6)" stroke-width="0.9"/>
+            <line x1="918" y1="482" x2="945" y2="480" stroke="rgba(244,63,94,0.8)" stroke-width="1.3"/>
+            <line x1="945" y1="480" x2="978" y2="482" stroke="rgba(0,210,255,0.8)" stroke-width="1.3"/>
+            <line x1="935" y1="508" x2="960" y2="505" stroke="rgba(244,63,94,0.8)" stroke-width="1.3"/>
+            <line x1="960" y1="505" x2="990" y2="508" stroke="rgba(0,210,255,0.8)" stroke-width="1.1"/>
+          </g>
+        </g>
+
+        <!-- Right Side: 3 Stacked Ledger Legs -->
+        <g transform="translate(1065, 450)">
+          <g class="token-chip" onclick="event.stopPropagation(); inspectNode('ledger-core')">
+            <rect x="0" y="0" width="62" height="20" rx="3" fill="#040814" stroke="#00d2ff" stroke-width="1"/>
+            <text id="lbl-stack-1" x="31" y="14" fill="#38bdf8" font-size="7" font-family="var(--font-mono)" text-anchor="middle">[CASH_IN]</text>
+          </g>
+          <g class="token-chip" onclick="event.stopPropagation(); inspectNode('ledger-core')" transform="translate(0, 24)">
+            <rect x="0" y="0" width="62" height="20" rx="3" fill="#040814" stroke="#f43f5e" stroke-width="1"/>
+            <text id="lbl-stack-2" x="31" y="14" fill="#fb7185" font-size="7" font-family="var(--font-mono)" text-anchor="middle">[CASH_OUT]</text>
+          </g>
+          <g class="token-chip" onclick="event.stopPropagation(); inspectNode('ledger-core')" transform="translate(0, 48)">
+            <rect x="0" y="0" width="62" height="20" rx="3" fill="#040814" stroke="#10b981" stroke-width="1"/>
+            <text id="lbl-stack-3" x="31" y="14" fill="#34d399" font-size="7" font-family="var(--font-mono)" text-anchor="middle">[BAL: 0]</text>
+          </g>
+
+          <g transform="translate(10, 80)">
+            <circle cx="5" cy="5" r="2.5" fill="#f43f5e"/>
+            <circle cx="5" cy="18" r="2.5" fill="#f43f5e"/>
+            <circle cx="22" cy="12" r="3" fill="#10b981"/>
+            <circle cx="38" cy="5" r="2.5" fill="#38bdf8"/>
+            <circle cx="38" cy="18" r="2.5" fill="#38bdf8"/>
+            <line x1="5" y1="5" x2="22" y2="12" stroke="#f43f5e" stroke-width="1"/>
+            <line x1="5" y1="18" x2="22" y2="12" stroke="#f43f5e" stroke-width="1"/>
+            <line x1="22" y1="12" x2="38" y2="5" stroke="#10b981" stroke-width="1"/>
+            <line x1="22" y1="12" x2="38" y2="18" stroke="#10b981" stroke-width="1"/>
+          </g>
+        </g>
+
+        <!-- Lower Section: [CREDIT] -> [DEBIT] Pairing Pipeline -->
+        <g transform="translate(915, 605)">
+          <path d="M 0 -35 L 0 -15 L 20 -15 L 20 0" fill="none" stroke="#f43f5e" stroke-width="1.2"/>
+          <path d="M 25 -35 L 25 0" fill="none" stroke="#f97316" stroke-width="1.2"/>
+
+          <rect x="15" y="0" width="55" height="22" rx="3" fill="#040814" stroke="#00d2ff" stroke-width="1"/>
+          <text id="lbl-tok1" x="42" y="15" fill="#38bdf8" font-size="8" font-family="var(--font-mono)" text-anchor="middle">[CREDIT]</text>
+
+          <path d="M 75 11 L 95 11" stroke="#c084fc" stroke-width="1.5" marker-end="url(#arrowhead-cyan)"/>
+
+          <rect x="100" y="0" width="55" height="22" rx="3" fill="#040814" stroke="#00d2ff" stroke-width="1"/>
+          <text id="lbl-tok2" x="127" y="15" fill="#38bdf8" font-size="8" font-family="var(--font-mono)" text-anchor="middle">[DEBIT]</text>
+
+          <path d="M 160 11 L 180 11" stroke="#c084fc" stroke-width="1.5" marker-end="url(#arrowhead-cyan)"/>
+        </g>
+      </g>
+
+      <!-- ========================================================================= -->
+      <!-- BOX 6: DISBURSEMENTS & WALLETS PROJECTION (RIGHT COLUMN)                  -->
+      <!-- ========================================================================= -->
+      <g id="box-settlement" class="arch-node" onclick="inspectNode('settlement')" color="#f97316">
+        <rect class="node-frame" x="1230" y="400" width="230" height="285" rx="10" fill="url(#grad-panel-orange)" stroke="#f97316" stroke-width="1.8"/>
+        <rect x="1230" y="400" width="230" height="34" rx="10" fill="rgba(249, 115, 22, 0.25)"/>
+        <text id="lbl-comp-title" x="1345" y="415" fill="#f97316" font-size="8.8" font-weight="900" text-anchor="middle" letter-spacing="0.5">SETTLEMENT &amp;</text>
+        <text id="lbl-comp-title2" x="1345" y="427" fill="#f97316" font-size="8.8" font-weight="900" text-anchor="middle" letter-spacing="0.5">DISBURSEMENT PIPELINE</text>
+
+        <text id="lbl-comp-sub" x="1345" y="452" fill="#fed7aa" font-size="9.5" font-weight="800" text-anchor="middle">wallet_balances_projection</text>
+
+        <rect x="1242" y="462" width="206" height="85" rx="5" fill="#040814" stroke="rgba(249, 115, 22, 0.4)" stroke-width="1"/>
+        <text id="lbl-comp-code1" x="1250" y="476" fill="#64748b" font-size="7.2" font-family="var(--font-mono)">-- Wallets are a cache, never</text>
+        <text id="lbl-comp-code2" x="1250" y="490" fill="#64748b" font-size="7.2" font-family="var(--font-mono)">-- directly updated (02-Danger §2)</text>
+
+        <rect x="1252" y="498" width="186" height="15" rx="3" fill="rgba(249, 115, 22, 0.25)" stroke="#f97316" stroke-width="1"/>
+        <text id="lbl-comp-code3" x="1260" y="509" fill="#f97316" font-size="7.5" font-family="var(--font-mono)">get_user_available_balance()</text>
+
+        <path d="M 1290 514 L 1290 550" stroke="#f97316" stroke-width="1.2"/>
+        <path d="M 1395 514 L 1395 550" stroke="#f97316" stroke-width="1.2"/>
+
+        <g transform="translate(1242, 555)">
+          <rect x="0" y="0" width="100" height="28" rx="4" fill="rgba(4, 12, 30, 0.9)" stroke="#f97316" stroke-width="1"/>
+          <text id="lbl-comp-p1" x="50" y="18" fill="#f8fafc" font-size="7.2" font-weight="700" text-anchor="middle">Landlord Rent</text>
+
+          <rect x="106" y="0" width="100" height="28" rx="4" fill="rgba(4, 12, 30, 0.9)" stroke="#f97316" stroke-width="1"/>
+          <text id="lbl-comp-p2" x="156" y="18" fill="#f8fafc" font-size="7.2" font-weight="700" text-anchor="middle">Returns Pool</text>
+
+          <rect x="0" y="34" width="100" height="28" rx="4" fill="rgba(4, 12, 30, 0.9)" stroke="#f97316" stroke-width="1"/>
+          <text id="lbl-comp-p3" x="50" y="51" fill="#f8fafc" font-size="7" font-weight="700" text-anchor="middle">Commissions</text>
+
+          <rect x="106" y="34" width="100" height="28" rx="4" fill="rgba(4, 12, 30, 0.9)" stroke="#f97316" stroke-width="1"/>
+          <text id="lbl-comp-p4" x="156" y="51" fill="#f8fafc" font-size="7" font-weight="700" text-anchor="middle">Float Desks</text>
+        </g>
+      </g>
+
+      <!-- ========================================================================= -->
+      <!-- BOX 7: TREASURY CONTROLS & 22 SWITCHES (BOTTOM CENTER)               -->
+      <!-- ========================================================================= -->
+      <g id="box-treasury" class="arch-node" onclick="inspectNode('treasury-controls')" color="#00d2ff">
+        <rect class="node-frame" x="730" y="710" width="440" height="225" rx="12" fill="url(#grad-panel-cyan)" stroke="#00d2ff" stroke-width="1.8"/>
+        <rect x="730" y="710" width="440" height="26" rx="12" fill="rgba(0, 210, 255, 0.18)"/>
+        <text id="lbl-fb-title" x="950" y="728" fill="#00d2ff" font-size="10.5" font-weight="900" text-anchor="middle" letter-spacing="0.8">TREASURY CONTROLS &amp; 22 SWITCHES</text>
+
+        <!-- Left Column: 4 Safety Pills with Pointers to Editor -->
+        <g transform="translate(745, 748)">
+          <rect x="0" y="0" width="125" height="32" rx="6" fill="rgba(4, 12, 30, 0.85)" stroke="#00d2ff" stroke-width="1"/>
+          <text id="lbl-fb-p1" x="62" y="20" fill="#f8fafc" font-size="8.2" font-weight="700" text-anchor="middle">22 Switches</text>
+          <path d="M 125 16 C 145 16, 150 25, 175 25" fill="none" stroke="#00d2ff" stroke-width="1.2"/>
+
+          <rect x="0" y="40" width="125" height="32" rx="6" fill="rgba(4, 12, 30, 0.85)" stroke="#f43f5e" stroke-width="1.2"/>
+          <text id="lbl-fb-p2" x="62" y="54" fill="#fb7185" font-size="7.2" font-weight="800" text-anchor="middle">advance_withdrawals</text>
+          <text x="62" y="64" fill="#fb7185" font-size="6.8" font-weight="800" text-anchor="middle">paused = true (LOAD)</text>
+          <path d="M 125 56 C 145 56, 155 65, 175 65" fill="none" stroke="#00d2ff" stroke-width="1.2"/>
+
+          <rect x="0" y="80" width="125" height="32" rx="6" fill="rgba(4, 12, 30, 0.85)" stroke="#f59e0b" stroke-width="1"/>
+          <text id="lbl-fb-p3" x="62" y="94" fill="#f59e0b" font-size="7.5" font-weight="800" text-anchor="middle">maintenance_mode</text>
+          <text x="62" y="104" fill="#f59e0b" font-size="7" font-weight="700" text-anchor="middle">(UI-only, no DB lock)</text>
+          <path d="M 125 96 C 145 96, 155 105, 175 105" fill="none" stroke="#00d2ff" stroke-width="1.2"/>
+
+          <rect x="0" y="120" width="125" height="32" rx="6" fill="rgba(4, 12, 30, 0.85)" stroke="#00d2ff" stroke-width="1"/>
+          <text id="lbl-fb-p4" x="62" y="140" fill="#f8fafc" font-size="8" font-weight="700" text-anchor="middle">9 Tribal Traps</text>
+          <path d="M 125 136 C 145 136, 155 145, 175 145" fill="none" stroke="#00d2ff" stroke-width="1.2"/>
+        </g>
+
+        <!-- Right Side: Live Switch Status Box -->
+        <g transform="translate(920, 748)">
+          <rect x="0" y="0" width="235" height="170" rx="6" fill="#040814" stroke="rgba(0, 210, 255, 0.3)" stroke-width="1"/>
+          <circle cx="14" cy="14" r="3" fill="#f43f5e"/>
+          <circle cx="23" cy="14" r="3" fill="#f59e0b"/>
+          <circle cx="32" cy="14" r="3" fill="#10b981"/>
+
+          <text x="14" y="36" fill="#64748b" font-size="7.2" font-family="var(--font-mono)">-- Check treasury_controls FIRST</text>
+          <text x="14" y="48" fill="#38bdf8" font-size="7.5" font-family="var(--font-mono)">SELECT control_key, enabled FROM ...</text>
+
+          <g id="ide-suggestion-popup">
+            <rect x="25" y="56" width="195" height="52" rx="4" fill="rgba(8, 28, 62, 0.95)" stroke="#00d2ff" stroke-width="1.2"/>
+            <text x="35" y="70" fill="#fb7185" font-size="7.5" font-weight="800">advance_withdrawals_paused: true</text>
+            <text x="35" y="82" fill="#10b981" font-size="7.2" font-family="var(--font-mono)">maintenance_mode: false</text>
+            <text x="35" y="94" fill="#fb7185" font-size="7.2" font-family="var(--font-mono)">landlord_payouts_blocked: true</text>
+            <circle cx="185" cy="82" r="3.5" fill="#00d2ff" filter="url(#glow-cyan)"/>
+          </g>
+
+          <text x="14" y="125" fill="#f43f5e" font-size="7.2" font-family="var(--font-mono)">imbalance detector: NOT SCHEDULED</text>
+
+          <!-- Interactive Emergency Actions -->
+          <g transform="translate(25, 136)">
+            <g class="arch-pill" onclick="event.stopPropagation(); toggleEmergencyPause()">
+              <rect id="btn-emergency-rect" x="0" y="0" width="85" height="20" rx="3" fill="#f43f5e"/>
+              <text id="btn-emergency-text" x="42" y="13" fill="#ffffff" font-size="7.2" font-weight="900" text-anchor="middle">Pause (demo)</text>
+            </g>
+
+            <g class="arch-pill" onclick="event.stopPropagation(); openHandoverDoc('04')" transform="translate(95, 0)">
+              <rect x="0" y="0" width="85" height="20" rx="3" fill="rgba(0, 210, 255, 0.2)" stroke="#00d2ff" stroke-width="1"/>
+              <text x="42" y="13" fill="#38bdf8" font-size="7.2" font-weight="700" text-anchor="middle">Open Runbooks</text>
+            </g>
+          </g>
+        </g>
+      </g>
+
+      <!-- ========================================================================= -->
+      <!-- LEGEND (BOTTOM RIGHT HUD CONTAINER)                                       -->
+      <!-- ========================================================================= -->
+      <g id="box-legend" transform="translate(1260, 855)">
+        <rect x="0" y="0" width="200" height="105" rx="8" fill="rgba(8, 16, 34, 0.94)" stroke="rgba(0, 210, 255, 0.35)" stroke-width="1.4"/>
+
+        <g transform="translate(16, 18)">
+          <line x1="0" y1="8" x2="32" y2="8" stroke="#00d2ff" stroke-width="2.5"/>
+          <text id="lbl-leg-1" x="44" y="11" fill="#f8fafc" font-size="8.8" font-weight="700">External Ingest Rail</text>
+        </g>
+
+        <g transform="translate(16, 42)">
+          <line x1="0" y1="8" x2="28" y2="8" stroke="#38bdf8" stroke-width="2" marker-end="url(#arrowhead-cyan)"/>
+          <text id="lbl-leg-2" x="44" y="11" fill="#f8fafc" font-size="8.8" font-weight="700">Internal Route / RPC</text>
+        </g>
+
+        <g transform="translate(16, 66)">
+          <line x1="0" y1="8" x2="32" y2="8" stroke="#f97316" stroke-width="2.5"/>
+          <text id="lbl-leg-3" x="44" y="11" fill="#f8fafc" font-size="8.8" font-weight="700">Financial Cash Move</text>
+        </g>
+
+        <g transform="translate(16, 88)">
+          <rect x="0" y="0" width="32" height="12" rx="3" fill="rgba(2, 132, 199, 0.3)" stroke="#00d2ff" stroke-width="1"/>
+          <text id="lbl-leg-4" x="44" y="10" fill="#f8fafc" font-size="8.8" font-weight="700">Security Subsystems</text>
+        </g>
+      </g>
+    </svg>
+
+    <!-- Floating Zoom Controls -->
+    <div class="zoom-toolbar">
+      <button class="zoom-btn" onclick="zoomCanvas(1.2)" title="Zoom In">+</button>
+      <button class="zoom-btn" onclick="zoomCanvas(0.8)" title="Zoom Out">&minus;</button>
+      <button class="zoom-btn" onclick="resetCanvas()" title="Reset View" style="font-size: 0.65rem;">RESET</button>
+      <button class="zoom-btn" onclick="toggleFullScreen()" title="Fullscreen" style="font-size: 0.65rem;">FULL</button>
+    </div>
+  </div>
+
+  <!-- Holographic Handover Inspector Drawer -->
+  <div id="drawer-backdrop" class="hud-drawer-backdrop" onclick="closeNodeDrawer()"></div>
+  <aside id="node-drawer" class="hud-drawer" aria-label="Handover Inspector">
+    <div class="drawer-top">
+      <div>
+        <span id="drawer-badge" class="drawer-badge" style="background: rgba(0, 210, 255, 0.15); color: #00d2ff; border: 1px solid rgba(0, 210, 255, 0.3);">HANDOVER ARCHITECTURE</span>
+        <h3 id="drawer-title" class="drawer-title">Component Title</h3>
+        <div id="drawer-sub" class="drawer-sub">Subtitle</div>
+      </div>
+      <button id="btn-close-drawer" class="drawer-close" onclick="closeNodeDrawer()">&times;</button>
+    </div>
+
+    <div id="drawer-body" class="drawer-body">
+      <!-- Dynamic Handover Documentation Injected Here -->
+    </div>
+  </aside>
+
+  <!-- Interactive Logic Engine -->
+  <script>
+    // Pan & Zoom Engine
+    const container = document.getElementById('viewport-container');
+    const svg = document.getElementById('architecture-canvas');
+
+    let isPanning = false;
+    let startX = 0, startY = 0;
+    let translateX = 0, translateY = 0;
+    let scale = 1;
+
+    function updateTransform() {
+      svg.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+    }
+
+    container.addEventListener('mousedown', (e) => {
+      if (e.target.closest('.arch-node') || e.target.closest('.zoom-toolbar') || e.target.closest('.arch-pill')) return;
+      isPanning = true;
+      startX = e.clientX - translateX;
+      startY = e.clientY - translateY;
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isPanning) return;
+      translateX = e.clientX - startX;
+      translateY = e.clientY - startY;
+      updateTransform();
+    });
+
+    window.addEventListener('mouseup', () => { isPanning = false; });
+
+    container.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+      scale = Math.min(Math.max(0.45, scale * zoomFactor), 3.5);
+      updateTransform();
+    }, { passive: false });
+
+    function zoomCanvas(factor) {
+      scale = Math.min(Math.max(0.45, scale * factor), 3.5);
+      updateTransform();
+    }
+
+    function resetCanvas() {
+      scale = 1;
+      translateX = 0;
+      translateY = 0;
+      updateTransform();
+    }
+
+    function toggleFullScreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen();
+      }
+    }
+
+    // Emergency Pause: DEMO ONLY. This button changes nothing outside this page.
+    let isEmergencyPaused = false;
+    function toggleEmergencyPause() {
+      isEmergencyPaused = !isEmergencyPaused;
+      const btnRect = document.getElementById('btn-emergency-rect');
+      const btnText = document.getElementById('btn-emergency-text');
+      if (isEmergencyPaused) {
+        btnRect.setAttribute('fill', '#10b981');
+        btnText.textContent = 'Demo: Resume';
+        showNotification('DEMO ONLY: nothing was changed. Real maintenance_mode only locks the UI and 32 of 388 edge functions; the DB keeps accepting ledger writes. See Runbook 1.');
+      } else {
+        btnRect.setAttribute('fill', '#f43f5e');
+        btnText.textContent = 'Pause (demo)';
+        showNotification('DEMO ONLY: nothing was changed.');
+      }
+    }
+
+    function showNotification(msg) {
+      const banner = document.getElementById('sim-banner');
+      const text = document.getElementById('sim-step-text');
+      banner.classList.add('visible');
+      text.textContent = msg;
+      setTimeout(() => {
+        if (!isSimulating) banner.classList.remove('visible');
+      }, 6000);
+    }
+
+    // Pipeline Flow Simulation (Money Flow)
+    let isSimulating = false;
+    let simStep = 0;
+    const SIM_STEPS = [
+      {
+        text: 'STEP 1 / 8: Tenant pays by MTN MoMo / Airtel. There is NO telco webhook: the payment SMS is forwarded by IFTTT into the Gmail inbox (or arrives via ussd-callback)',
+        action: () => highlightNodeTemporary('context-tiles-grid', '#00d2ff')
+      },
+      {
+        text: 'STEP 2 / 8: gmail-poll-transactions (every 1 min) ingests the email into gmail_transactions; email-auto-create-deposits (every 2 min) matches it by TID to a pending deposit',
+        action: () => highlightNodeTemporary('box-edge-functions', '#00d2ff')
+      },
+      {
+        text: 'STEP 3 / 8: Advisory lock on the idempotency key stops the same TID being credited twice (cross-user TID collisions are flagged, not auto-resolved)',
+        action: () => highlightNodeTemporary('box-preflight', '#00d2ff')
+      },
+      {
+        text: 'STEP 4 / 8: Category is checked against the 160 entries in ledger_category_allowlist()',
+        action: () => highlightNodeTemporary('box-preflight', '#00d2ff')
+      },
+      {
+        text: 'STEP 5 / 8: Legs are packed into one transaction_group_id with an idempotency key',
+        action: () => highlightNodeTemporary('box-packing', '#00d2ff')
+      },
+      {
+        text: 'STEP 6 / 8: create_ledger_transaction appends the rows to general_ledger (13 other functions also insert directly; see the Ledger Core drawer)',
+        action: () => highlightNodeTemporary('box-ledger-core', '#c084fc')
+      },
+      {
+        text: 'STEP 7 / 8: Ledger triggers update wallet_balances_projection; payouts then route (landlord payouts currently BLOCKED by treasury_controls)',
+        action: () => highlightNodeTemporary('box-settlement', '#f97316')
+      },
+      {
+        text: 'STEP 8 / 8: wallet-projection-drift runs every 15 min. The imbalance detector is NOT scheduled (last run 2026-07-23, 2,195 open alerts)',
+        action: () => highlightNodeTemporary('box-treasury', '#00d2ff')
+      }
+    ];
+
+    function toggleSimulation() {
+      isSimulating = !isSimulating;
+      const btn = document.getElementById('btn-simulate');
+      const btnText = document.getElementById('sim-btn-text');
+      const banner = document.getElementById('sim-banner');
+
+      if (isSimulating) {
+        btn.classList.add('active');
+        btnText.textContent = 'Pause Simulation';
+        banner.classList.add('visible');
+        simStep = 0;
+        executeSimStep();
+      } else {
+        btn.classList.remove('active');
+        btnText.textContent = 'Simulate Money Flow';
+        banner.classList.remove('visible');
+      }
+    }
+
+    function executeSimStep() {
+      if (!isSimulating) return;
+      const step = SIM_STEPS[simStep];
+      document.getElementById('sim-step-text').textContent = step.text;
+      step.action();
+    }
+
+    function nextSimStep() {
+      simStep = (simStep + 1) % SIM_STEPS.length;
+      executeSimStep();
+    }
+
+    function prevSimStep() {
+      simStep = (simStep - 1 + SIM_STEPS.length) % SIM_STEPS.length;
+      executeSimStep();
+    }
+
+    function highlightNodeTemporary(elementId, color) {
+      const el = document.getElementById(elementId);
+      if (!el) return;
+      el.style.filter = `drop-shadow(0 0 20px ${color})`;
+      setTimeout(() => {
+        el.style.filter = '';
+      }, 1500);
+    }
+
+    // Handover chapters. All figures verified against production on 2026-09-28.
+    const HANDOVER_CHAPTERS = {
+      '01': {
+        badge: 'HANDOVER CHAPTER 1',
+        color: '#00d2ff',
+        title: '01. Ownership and Access Map',
+        sub: 'Account Credentials • Vendor Portals • Secret Rotation • Infrastructure Keys',
+        content: `
+          <div class="detail-card">
+            <div class="detail-card-title" style="color: #00d2ff;">Vendor Access Roster</div>
+            <p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">
+              Everything in this platform runs on external vendor infrastructure. If you are locked out, start here:
+            </p>
+            <ul style="padding-left: 1.2rem; font-size: 0.78rem; color: #94a3b8; line-height: 1.6; margin-top: 0.5rem;">
+              <li><strong>Lovable / Supabase:</strong> Primary database, Auth, Storage, Edge Functions. Live SQL goes through the Lovable project UUID, not the Supabase ref.</li>
+              <li><strong>Cloudflare:</strong> DNS and edge proxy for welileapp.com</li>
+              <li><strong>Gmail (payments inbox):</strong> The real money-in rail. Every MoMo/Airtel receipt reaches the platform as an email that <code>gmail-poll-transactions</code> reads.</li>
+              <li><strong>IFTTT:</strong> Forwards the telco payment SMS into that inbox. If IFTTT stops, deposits stop matching.</li>
+              <li><strong>MTN MoMo / Airtel Money:</strong> Tills and merchant accounts. There is <strong>no API or webhook integration</strong>; payouts are made by people and evidenced back into the system.</li>
+              <li><strong>Yoola SMS:</strong> Primary Ugandan OTP gateway (never force the "WELILE" sender ID)</li>
+              <li><strong>Africa's Talking:</strong> Secondary SMS failover</li>
+              <li><strong>Resend:</strong> Transactional email</li>
+            </ul>
+          </div>
+          <div class="detail-card warning">
+            <div class="detail-card-title" style="color: #f59e0b;">Founder Escrow Keys</div>
+            <p style="font-size: 0.78rem; color: #fde68a; line-height: 1.5;">
+              Ensure the founder has deposited master 2FA recovery codes and banking root credentials in physical escrow before handoff. The payments Gmail account belongs on that list: losing it stops all automatic deposit matching.
+            </p>
+          </div>
+        `
+      },
+      '02': {
+        badge: 'HANDOVER CHAPTER 2',
+        color: '#f43f5e',
+        title: '02. Danger Zones — Irreversible Operations',
+        sub: 'Kill Switches • 22 treasury_controls • Destructive RPCs',
+        content: `
+          <div class="detail-card danger">
+            <div class="detail-card-title" style="color: #f43f5e;">Master Safety Principle</div>
+            <p style="font-size: 0.8rem; color: #fecdd3; line-height: 1.6;">
+              <strong>A wrong balance is recoverable; a lost record is not.</strong> Prefer the operation that adds a balanced compensating entry over the one that edits or removes history, every single time.
+            </p>
+          </div>
+
+          <div class="detail-card">
+            <div class="detail-card-title" style="color: #00d2ff;">22 Switches in treasury_controls</div>
+            <p style="font-size: 0.78rem; color: #cbd5e1; line-height: 1.5; margin-bottom: 0.5rem;">
+              Check <code>treasury_controls</code> <strong>first</strong> in any incident: a platform that looks broken may simply be paused.
+            </p>
+            <div class="code-box">
+              <button class="code-copy-btn" onclick="navigator.clipboard.writeText('SELECT control_key, enabled, value, updated_at FROM public.treasury_controls ORDER BY control_key;')">Copy SQL</button>
+SELECT control_key, enabled, value, updated_at
+FROM public.treasury_controls
+ORDER BY control_key;
+            </div>
+            <p style="font-size: 0.75rem; color: #fb7185; margin-top: 0.4rem;">
+              As of 2026-09-28: <strong>landlord_payouts_blocked = true</strong> (since 2026-09-25), advance_withdrawals_paused = true, maintenance_mode = false, withdrawals_paused = false.
+            </p>
+          </div>
+
+          <div class="detail-card warning">
+            <div class="detail-card-title" style="color: #f59e0b;">Load-Bearing: advance_withdrawals_paused = true</div>
+            <p style="font-size: 0.78rem; color: #fde68a; line-height: 1.5;">
+              This switch makes <code>get_user_available_balance</code> subtract advance-locked funds. Turning it off immediately raises every affected user's withdrawable balance and lets them withdraw money earmarked against an outstanding advance. <strong>Do not flip it without the CFO.</strong>
+            </p>
+          </div>
+
+          <div class="detail-card danger">
+            <div class="detail-card-title" style="color: #f43f5e;">maintenance_mode does NOT stop money moving</div>
+            <p style="font-size: 0.78rem; color: #fecdd3; line-height: 1.5;">
+              No database function reads it. It shows the UI lock screen and is honoured by only the 32 edge functions that import <code>treasuryGuard</code>. The other 356 edge functions, all 204 cron jobs and direct RPC calls keep writing to the ledger. Treat it as "hide the app", not "freeze the books".
+            </p>
+          </div>
+
+          <div class="detail-card danger">
+            <div class="detail-card-title" style="color: #f43f5e;">The 8 Absolute "NEVER" Rules</div>
+            <ul style="padding-left: 1.2rem; font-size: 0.78rem; color: #fecdd3; line-height: 1.6;">
+              <li><strong>1. Never UPDATE or DELETE general_ledger:</strong> 627,405 rows of history. Reversals must be new balanced compensating rows recorded in <code>voided_ledger_entries</code>.</li>
+              <li><strong>2. Never UPDATE wallets:</strong> Wallets is a view; <code>apply_wallet_movement</code> is the sole legitimate writer.</li>
+              <li><strong>3. Never bulk-deploy the 388 edge functions:</strong> Deploy 1-at-a-time via the GitHub Actions manual workflow.</li>
+              <li><strong>4. Never run absolute "set float to X":</strong> Re-credits spent float (Sky Bubbles UGX 10.2M incident). Use delta operations.</li>
+              <li><strong>5. Never force sender ID "WELILE" on SMS:</strong> Unregistered; carriers drop OTPs silently.</li>
+              <li><strong>6. Never add a caching service worker:</strong> <code>public/sw.js</code> exists but is push-notification only with no fetch/caching handler. Keep it that way; caching workers caused stale-chunk lockouts on mobile.</li>
+              <li><strong>7. Never trust supabase/migrations/ as live schema:</strong> 3,549 files, and pushed migrations sometimes auto-apply and sometimes never do. Check the live object (<code>pg_get_functiondef</code>, <code>information_schema.columns</code>) after every push.</li>
+              <li><strong>8. Never write ledger/wallet state from frontend:</strong> Enforced by build guard <code>guard-frontend-ledger-writes.mjs</code>.</li>
+            </ul>
+          </div>
+        `
+      },
+      '03': {
+        badge: 'HANDOVER CHAPTER 3',
+        color: '#00d2ff',
+        title: '03. Money Invariants — The Financial Contract',
+        sub: 'The 5 Invariants • What Holds, What Leaks • Health Checks',
+        content: `
+          <div class="detail-card">
+            <div class="detail-card-title" style="color: #00d2ff;">The 5 Invariants (re-verified 2026-09-28)</div>
+            <ul style="padding-left: 1.2rem; font-size: 0.78rem; color: #94a3b8; line-height: 1.6;">
+              <li><strong>1. general_ledger is the single source of truth:</strong> 627,405 rows in 297,457 groups, append-only. <span style="color:#10b981">Holds.</span></li>
+              <li><strong>2. Wallets are a cache:</strong> Derived from ledger rows by triggers into <code>wallet_balances_projection</code>. <span style="color:#10b981">Holds</span>; drift is checked every 15 min by <code>detect_wallet_projection_drift</code>.</li>
+              <li><strong>3. Writes go through create_ledger_transaction:</strong> <span style="color:#f59e0b">Partly.</span> 13 other SECURITY DEFINER functions also <code>INSERT INTO general_ledger</code> directly (e.g. <code>record_double_entry</code>, <code>sync_collection_to_ledger</code>, <code>credit_agent_rent_commission</code>, <code>reconcile_negative_wallets</code>). The frontend cannot write, but "one door" is not literally true.</li>
+              <li><strong>4. Every transaction group balances:</strong> <span style="color:#f59e0b">Multi-leg groups only.</span> 0 unbalanced multi-leg groups in 30 days, but <strong>1,256 single-leg groups (~UGX 146M)</strong> in the same window are excluded by the check (mostly <code>interest_expense</code>, plus wallet deposits and float assignments). Some may be balanced by synthetic legs in the <code>sofp_ledger_legs</code> resolver; that is unconfirmed.</li>
+              <li><strong>5. Categories are allowlisted:</strong> 160 categories in <code>ledger_category_allowlist()</code>. <span style="color:#10b981">Holds.</span></li>
+            </ul>
+          </div>
+
+          <div class="detail-card">
+            <div class="detail-card-title" style="color: #38bdf8;">Ledger Health Check Query</div>
+            <div class="code-box">
+              <button class="code-copy-btn" onclick="navigator.clipboard.writeText(this.parentElement.innerText)">Copy SQL</button>
+WITH g AS (
+  SELECT transaction_group_id, count(*) AS legs,
+         SUM(amount) AS amt,
+         SUM(CASE WHEN direction IN ('cash_in','credit') THEN amount ELSE -amount END) AS net
+  FROM public.general_ledger
+  WHERE classification = 'production'
+    AND created_at >= now() - interval '30 days'
+  GROUP BY transaction_group_id
+)
+SELECT count(*) AS groups_30d,
+       count(*) FILTER (WHERE abs(net) > 0.005 AND legs > 1) AS unbalanced_multileg,
+       count(*) FILTER (WHERE legs = 1) AS single_leg,
+       sum(amt) FILTER (WHERE legs = 1) AS single_leg_amount
+FROM g;
+            </div>
+            <p style="font-size: 0.75rem; color: #10b981; margin-top: 0.4rem;">
+              Baseline: <strong>unbalanced_multileg MUST BE ZERO</strong>. Watch <strong>single_leg</strong> too (1,256 on 2026-09-28): a jump there is an imbalance the first column cannot see.
+            </p>
+          </div>
+        `
+      },
+      '04': {
+        badge: 'HANDOVER CHAPTER 4',
+        color: '#f97316',
+        title: '04. Incident Runbooks — Emergency Operating Procedures',
+        sub: 'Step-by-Step Recovery • Symptom Diagnostics • Containment Sequences',
+        content: `
+          <div class="detail-card danger">
+            <div class="detail-card-title" style="color: #f43f5e;">Runbook 1: Ledger Imbalance Emergency</div>
+            <p style="font-size: 0.78rem; color: #fecdd3; line-height: 1.5;">
+              <strong>Symptom:</strong> <code>unbalanced_multileg > 0</code> or a jump in <code>single_leg</code> in the health check.<br/>
+              <strong>Action:</strong> 1. Find the writer first. <code>maintenance_mode</code> will <strong>not</strong> stop it (UI + 32 edge functions only). Stop the specific source: unschedule its cron job (<code>cron.alter_job(jobid, active := false)</code>) or pause the relevant control (<code>withdrawals_paused</code>, <code>credits_paused</code>, <code>landlord_payouts_blocked</code>).<br/>
+              2. Run <code>detect_ledger_group_imbalances()</code> by hand. It is not scheduled, and <code>ledger_group_imbalance_alerts</code> still holds 2,195 unresolved rows from its only run (2026-07-23), so filter to recent groups.<br/>
+              3. DO NOT EDIT ROWS. Post a compensating transaction with <code>create_ledger_transaction</code>.
+            </p>
+          </div>
+
+          <div class="detail-card">
+            <div class="detail-card-title" style="color: #f97316;">Runbook 2: Stuck Payouts</div>
+            <p style="font-size: 0.78rem; color: #cbd5e1; line-height: 1.5;">
+              <strong>Symptom:</strong> Landlord rent or Supporter withdrawals sit pending.<br/>
+              <strong>Check first:</strong> <code>treasury_controls</code>: <code>landlord_payouts_blocked</code> (true since 2026-09-25), <code>payouts_ui_enabled</code>, <code>withdrawals_paused</code>, <code>landlord_float_withdrawals_paused</code>. A switch is the most common cause.<br/>
+              <strong>Then:</strong> the merchant/cashout desk's float. Fund it with a delta top-up, never an absolute "set float to X".
+            </p>
+          </div>
+
+          <div class="detail-card">
+            <div class="detail-card-title" style="color: #38bdf8;">Runbook 3: Deposit Paid but Not Credited</div>
+            <p style="font-size: 0.78rem; color: #cbd5e1; line-height: 1.5;">
+              <strong>Symptom:</strong> "I paid, my balance didn't move." (The old "MoMo webhook storm" runbook was removed: there is no MoMo/Airtel webhook.)<br/>
+              <strong>Check, in order:</strong><br/>
+              1. Is the row in <code>gmail_transactions</code>? Search the payments Gmail inbox for the TID before saying "it never arrived" (a same-second cutoff bug dropped emails until 2026-09-24).<br/>
+              2. Is the poller alive? <code>gmail-poll-transactions-every-1min</code> and <code>gmail-poll-heartbeat</code>.<br/>
+              3. MTN till receipts carry the <strong>name only</strong>, no phone: name-only matches are fuzzy-flagged, not auto-credited.<br/>
+              4. Cross-user TID collisions are flagged and re-flagged forever by the relink job; they need a FinOps decision, not a retry.<br/>
+              5. Never diagnose from the payer's SMS screenshot; check the merchant-side row actually ingested.
+            </p>
+          </div>
+        `
+      },
+      '05': {
+        badge: 'HANDOVER CHAPTER 5',
+        color: '#00d2ff',
+        title: '05. Disaster Recovery — Rebuild Order',
+        sub: 'Total Infrastructure Loss • Sequential Restoration • 10-Phase Dependency Chain',
+        content: `
+          <div class="detail-card danger">
+            <div class="detail-card-title" style="color: #f43f5e;">Data backup is the weak link</div>
+            <p style="font-size: 0.78rem; color: #fecdd3; line-height: 1.5;">
+              The steps below rebuild the <strong>structure</strong>. Restoring the <strong>money</strong> depends on backups: the old weekly full backup only ever captured 1,000 rows per table (PostgREST cap). A complete general ledger backup has existed only since 2026-09-27 (nightly email to joshwanda17@gmail.com, handover doc 141) and covers the ledger only. Supabase's own point-in-time recovery is the only full copy of every other table; confirm it is enabled on the plan.
+            </p>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title" style="color: #00d2ff;">Strict Rebuild Sequence</div>
+            <ol style="padding-left: 1.2rem; font-size: 0.78rem; color: #94a3b8; line-height: 1.6;">
+              <li><strong>1. Extensions:</strong> <code>pgcrypto</code>, <code>pg_cron</code>, <code>pg_net</code>, <code>pgmq</code>, <code>postgis</code>, <code>pg_trgm</code>, <code>pg_stat_statements</code>, <code>supabase_vault</code>, <code>uuid-ossp</code> (not <code>pgjwt</code> or <code>vector</code>; neither is installed)</li>
+              <li><strong>2. Enums:</strong> 33 custom enum types</li>
+              <li><strong>3. Core Schema & Tables:</strong> 763 tables and foreign keys</li>
+              <li><strong>4. Row-Level Security:</strong> 1,714 RLS policies</li>
+              <li><strong>5. Functions:</strong> 2,473 public functions (including <code>create_ledger_transaction</code>)</li>
+              <li><strong>6. Triggers:</strong> 682 triggers, 39 of them on <code>general_ledger</code></li>
+              <li><strong>7. Data:</strong> restore from PITR or backups (see warning above). Ledger before wallets.</li>
+              <li><strong>8. Scheduled Crons:</strong> 204 pg_cron jobs (9 inactive; keep them inactive)</li>
+              <li><strong>9. Edge Functions:</strong> 388 functions, 1-at-a-time via the manual workflow</li>
+              <li><strong>10. Wallet Re-Anchoring:</strong> <code>reconcile_wallet_from_ledger</code>, then confirm <code>detect_wallet_projection_drift</code> is clean</li>
+            </ol>
+          </div>
+        `
+      },
+      '06': {
+        badge: 'HANDOVER CHAPTER 6',
+        color: '#00d2ff',
+        title: '06. Live State Verification — Catalog Introspection',
+        sub: 'Live Database Counts • Catalog SQL Scripts • Drift Detection Queries',
+        content: `
+          <div class="detail-card">
+            <div class="detail-card-title" style="color: #00d2ff;">Production Catalog Counts (2026-09-28)</div>
+            <div class="code-box">
+Tables:             763
+Public Functions:   2,473
+Triggers:           682 (39 on general_ledger)
+RLS Policies:       1,714
+Views / MatViews:   96 / 7
+Storage Buckets:    31
+Edge Functions:     388 (32 honour maintenance_mode)
+pg_cron Jobs:       204 (9 inactive)
+treasury_controls:  22
+Ledger Categories:  160
+Auth Users:         96,974
+Ledger Rows:        627,405
+Transaction Groups: 297,457
+            </div>
+            <p style="font-size: 0.75rem; color: #94a3b8; margin-top: 0.4rem;">
+              These counts move weekly. Re-run the catalog queries rather than trusting this box; the previous edition (2026-09-09) was off by a third within three weeks.
+            </p>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title" style="color: #38bdf8;">Did my migration actually land?</div>
+            <p style="font-size: 0.78rem; color: #94a3b8; line-height: 1.5;">
+              <code>schema_migrations</code> does not reliably record it. Check the object itself: <code>SELECT pg_get_functiondef('public.fn_name'::regproc);</code> or <code>information_schema.columns</code>. Watched functions are also compared every 5 min against <code>critical_function_baselines</code> (cron <code>scan-critical-function-drift</code>); if you deliberately change one, re-baseline it in the same migration or it raises a drift alert.
+            </p>
+          </div>
+        `
+      },
+      '07': {
+        badge: 'HANDOVER CHAPTER 7',
+        color: '#f43f5e',
+        title: '07. Tribal Knowledge — The Costly Traps',
+        sub: 'Bugs That Already Cost Money • Latent Landmines • Hard Lessons',
+        content: `
+          <div class="detail-card danger">
+            <div class="detail-card-title" style="color: #f43f5e;">Traps Already Paid For in Real Money</div>
+            <ul style="padding-left: 1.2rem; font-size: 0.78rem; color: #fecdd3; line-height: 1.6;">
+              <li><strong>Trap 1: Never force "WELILE" sender ID on SMS:</strong> Unregistered carrier trap; OTPs silently drop.</li>
+              <li><strong>Trap 2: Deposit approval race:</strong> Two tabs approving the same deposit double-credit without the advisory lock.</li>
+              <li><strong>Trap 3: Agent advance sweep schedule:</strong> Runs at 16:50 UTC, not every 15 minutes.</li>
+              <li><strong>Trap 4: Float desk segregation:</strong> Only TID-backed deposits may fund tenant rent-collection float: Gmail-matched deposits, Financial Ops routed emails with a TID, and (since doc 167) Manual Float Credits, whose TID must be unique in <code>ledger_reconciled_tids</code>. Never mix it with landlord payout float.</li>
+              <li><strong>Trap 5: get_user_available_balance reads the projection:</strong> <code>wallet_balances_projection</code>, not <code>v_user_wallet_strict</code>.</li>
+              <li><strong>Trap 6: No caching service worker:</strong> The push-only <code>public/sw.js</code> is fine; adding fetch caching locks mobile users onto stale chunks.</li>
+              <li><strong>Trap 7: Sky Bubbles float re-credit:</strong> Over-credited UGX 10.2M by an absolute "set float". Always use delta operations.</li>
+              <li><strong>Trap 8: Treasury figure:</strong> <code>get_treasury_cash_position</code> (A1+A5) is correct. <code>get_treasury_snapshot</code> is superseded and shows a malformed negative that looks like a deficit.</li>
+              <li><strong>Trap 9: Merchant "owed" buckets:</strong> Rejected OOP claims and ledger-vs-withdrawal gaps were settled off-system. They are not debt; do not publish them as such.</li>
+              <li><strong>Trap 10: TID spelling vs the lock (doc 166):</strong> <code>ledger_reconciled_tids</code> holds bare digits for MTN/Airtel. Any path that checks or locks a TID must strip non-alphanumerics and Airtel's <code>TID</code> prefix first, or <code>TID157…</code> / <code>157….</code> credits the same money twice.</li>
+              <li><strong>Trap 11: No deposit gate on user-to-user transfers (doc 169):</strong> Server (<code>wallet-transfer</code>), <code>get_user_available_balance</code> and the Send Money dialog all agree: any user may send from their withdrawable balance however it got there. The old "7 approved deposits" lock lived only in <code>SendMoneyDialog.tsx</code> after 09-29. Do not re-add a deposit-history gate in one layer only.</li>
+              <li><strong>Trap 13: intake silence (doc 170):</strong> <code>gmail-poll-heartbeat</code> only proves the poller runs; a dead forwarding phone leaves it healthy and finding nothing. <code>gmail-intake-silence-alarm</code> watches the last ingested <code>direction='in'</code> email instead. SMS goes to <code>gmail_intake_silence_config.notify_sms_phones</code>, which ships empty.</li>
+              <li><strong>Trap 14: system-only edge functions (doc 174):</strong> a Bearer token is not authentication, the anon key is public. Functions that text or email people (<code>notify-advance-deduction</code>, <code>gmail-intake-silence-alarm</code>) must call <code>requireServiceRole()</code>, and their pg_net/cron callers must send vault secret <code>email_queue_service_role_key</code>, never the anon JWT. Switch callers before deploying the guard.</li>
+              <li><strong>Trap 15: RLS role checks must be evaluated once per query (doc 175):</strong> in policies, write <code>(SELECT auth.uid())</code> and <code>(SELECT current_user_has_enabled_role(...))</code>, never a bare <code>has_role(auth.uid(),...)</code> or a <code>user_roles</code> subquery; the bare forms re-run per row and drove promissory_notes to ~30% of DB time.</li>
+              <li><strong>Trap 17: verify a perf report against live before building (doc 177):</strong> an external DB-CPU report named indexes that already exist and tables with 56 rows. Check <code>pg_indexes</code>, row counts and selectivity first; and check that doc 175's migration is actually applied (it was not on 2026-10-01). <code>last_active_at</code> is written at most once per 15 min per user from <code>useAuth.tsx</code>.</li>
+              <li><strong>Trap 14: SMS Forwarder is shadow-only (doc 171):</strong> the Android app + <code>sms-forwarder-ingest</code> store and compare raw SMS against <code>gmail_transactions</code> but post no money. IFTTT → Gmail is still the only live rail until phase 2 (shared processor, live mode) is built and <code>sms_forwarder_shadow_coverage</code> shows parity.</li>
+              <li><strong>Trap 15: advance deductions had no SMS on two paths (doc 172):</strong> the credit-time arrears intercept and the withdrawal-time collect write an in-app notification only. <code>trg_sms_advance_deduction</code> (AFTER INSERT on <code>general_ledger</code>, migration 20260930170000) now texts every one of those deductions via <code>notify-advance-deduction</code> <code>mode=deduction</code>; the earlier daily summary cron is unscheduled. The daily cron and the 16:50 sweep already SMS on their own and are not counted.</li>
+              <li><strong>Trap 16: staff requisitions are six-eyes, and Marketing has no CMO stage (doc 173):</strong> every <code>request_kind=requisition</code> runs COO → CEO → CFO with three different signers, enforced by <code>staff_requisition_six_eyes_guard_trg</code> (migration 20260924130000, only applied 2026-09-30). Moving a row past a stage by hand is refused by the guard; deploy edge functions before any change to it. Marketing's department route is <code>coo</code> (migration 20260930180000).</li>
+              <li><strong>Trap 12: TID guard length (doc 168):</strong> <code>enforce_tid_deposit_uniqueness</code> only extracts 12-13 digit TIDs from text; 11-digit MTN ids are protected only via the <code>reference_id</code> fallback added in doc 168. Never assume a lock exists for a TID unless the credit carried it in <code>reference_id</code>.</li>
+            </ul>
+          </div>
+        `
+      },
+      '08': {
+        badge: 'HANDOVER CHAPTER 8',
+        color: '#f59e0b',
+        title: '08. Known Gaps — Not Yet Fixed',
+        sub: 'Open as of 2026-09-29 • Read before trusting any safety net above',
+        content: `
+          <div class="detail-card danger">
+            <div class="detail-card-title" style="color: #f43f5e;">Safety nets that don't work as named</div>
+            <ul style="padding-left: 1.2rem; font-size: 0.78rem; color: #fecdd3; line-height: 1.6;">
+              <li><strong>maintenance_mode is UI-only.</strong> No DB guard in <code>create_ledger_transaction</code>; crons and 356 edge functions ignore it. Fix proposed (DB-level guard), needs sign-off because it touches the money path.</li>
+              <li><strong>Imbalance detector unscheduled.</strong> <code>detect_ledger_group_imbalances()</code> has no cron job; ran once on 2026-07-23 and left 2,195 alerts (~UGX 293M) untriaged.</li>
+              <li><strong>Balance check skips single-leg groups.</strong> 1,256 in 30 days (~UGX 146M). Unconfirmed whether the resolver's synthetic legs cover them.</li>
+              <li><strong>15–16 Sep float-gate: ~UGX 57M A5 custody never cleared (doc 158).</strong> 659 genuine collections consumed no float; the monitor's anomalies were closed on 2026-09-29 with no ledger posting. The <code>cash_receipt_in_transit</code> legs stay on the books for Finance. The agents hold about 1.09M of float between them.</li>
+              <li><strong>Plan balances vs reversals (doc 161).</strong> Reversing a collection does not by itself lower <code>rent_requests.amount_repaid</code>. 31 plans kept UGX 7.45M of reversed duplicates until 2026-09-29. <code>plan_reversed_money_still_held()</code> is the evidence test; any future reversal must also decrement the plan.</li>
+              <li><strong>rent_requests BEFORE-trigger order matters (doc 164).</strong> Triggers fire in name order. The <code>amount_repaid</code> clamp is <code>zz_clamp_…</code> so it runs after the formula recalculates <code>total_repayment</code>. Keep any new balance/total trigger sorted before it.</li>
+            </ul>
+          </div>
+          <div class="detail-card warning">
+            <div class="detail-card-title" style="color: #f59e0b;">Subsystems with no box on this map yet</div>
+            <ul style="padding-left: 1.2rem; font-size: 0.78rem; color: #fde68a; line-height: 1.6;">
+              <li><strong>Merchant float, desk funding and out-of-pocket claims:</strong> the area with the most money incidents this quarter (<code>get_merchant_desk_funding_tracker</code>, float returns, OOP attestation/settlement).</li>
+              <li><strong>Realtime:</strong> listeners on busy tables without filters; suspected source of rollback-rate spikes.</li>
+              <li><strong>Critical-function drift detection:</strong> <code>critical_function_baselines</code> + 5-min scan catches silent reverts of watched function bodies.</li>
+              <li><strong>Auth:</strong> a client-side sign-in race plus a high wrong-password rate dominate auth failures in the CTO report.</li>
+              <li><strong>Backups:</strong> ledger-only nightly backup since 2026-09-27; nothing else is exported in full.</li>
+            </ul>
+          </div>
+        `
+      }
+    };
+
+    const NODE_DATA = {
+      'client': {
+        badge: 'CLIENT LAYER',
+        color: '#00d2ff',
+        title: 'PWA CLIENT APP & PORTAL',
+        sub: 'React 18 • Vite • Low-Bandwidth Mobile PWA',
+        content: `
+          <div class="detail-card">
+            <div class="detail-card-title" style="color: #00d2ff;">Frontend Client Role</div>
+            <p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">
+              The portal serving Tenants, Supporters, Field Agents, Landlords, merchant/cashout desks and internal Ops.
+            </p>
+          </div>
+          <div class="detail-card danger">
+            <div class="detail-card-title" style="color: #f43f5e;">Never write ledger/wallet state from the frontend</div>
+            <p style="font-size: 0.78rem; color: #fecdd3; line-height: 1.5;">
+              All monetary actions call SECURITY DEFINER RPCs or edge functions. Enforced at build time by <code>scripts/guard-frontend-ledger-writes.mjs</code>.
+            </p>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title" style="color: #38bdf8;">Regulatory Copy Enforcement</div>
+            <p style="font-size: 0.78rem; color: #94a3b8; line-height: 1.5;">
+              Always use "Rent Plan" (never "loan"), "Supporter" (never "lender"), and "Returns" (never "ROI" or "interest").
+            </p>
+          </div>
+          <div class="detail-card warning">
+            <div class="detail-card-title" style="color: #f59e0b;">Known client issues</div>
+            <p style="font-size: 0.78rem; color: #fde68a; line-height: 1.5;">
+              Sign-in race (client-side) is unfixed. <code>public/sw.js</code> is a push-only worker; never give it a fetch/caching handler. Mobile browsers discard backgrounded pages, so anything the user must not lose mid-payment is cached in localStorage. Lazy screens: only a failed <em>CSS</em> preload may be <code>preventDefault</code>ed on <code>vite:preloadError</code>. Swallowing a JS one makes the import resolve <code>undefined</code> (doc 159). <code>navigator.clipboard.writeText</code> is patched at startup to fall back to <code>execCommand('copy')</code> when refused (doc 160). Login-phone changes need a code to the <em>old</em> number and a DB trigger blocks direct <code>profiles.phone</code> self-writes; withdrawals pause 24h after a change (doc 162).
+            </p>
+          </div>
+        `
+      },
+      'edge-functions': {
+        badge: 'EDGE FUNCTIONS',
+        color: '#00d2ff',
+        title: '388 EDGE FUNCTIONS',
+        sub: 'Deno Runtime • verify_jwt • Pollers & Callbacks (no telco webhooks)',
+        content: `
+          <div class="detail-card">
+            <div class="detail-card-title" style="color: #00d2ff;">What actually comes in</div>
+            <p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">
+              There is <strong>no MTN MoMo or Airtel webhook</strong>. Money-in arrives through <code>gmail-poll-transactions</code> (every 1 min, reading IFTTT-forwarded payment SMS from the payments inbox), <code>email-auto-create-deposits</code> (every 2 min) and <code>ussd-callback</code>. Everything else authenticates client actions with JWT.
+            </p>
+          </div>
+          <div class="detail-card warning">
+            <div class="detail-card-title" style="color: #f59e0b;">Only 32 of 388 honour the kill switch</div>
+            <p style="font-size: 0.78rem; color: #fde68a; line-height: 1.5;">
+              Functions that import <code>_shared/treasuryGuard</code> refuse work under <code>maintenance_mode</code>. The other 356 don't check it.
+            </p>
+          </div>
+          <div class="detail-card danger">
+            <div class="detail-card-title" style="color: #f43f5e;">Deploy 1-at-a-time</div>
+            <p style="font-size: 0.78rem; color: #fecdd3; line-height: 1.5;">
+              <strong>Never bulk-deploy.</strong> Use <code>.github/workflows/deploy-edge-function.yml</code> with typed DEPLOY confirmation. After a local Windows <code>npm run build</code>, check <code>supabase/functions/mcp(-public)/index.ts</code> wasn't overwritten before committing.
+            </p>
+          </div>
+        `
+      },
+      'preflight': {
+        badge: 'PRE-FLIGHT GATE',
+        color: '#00d2ff',
+        title: 'PRE-FLIGHT ADVISORY LOCKS & ALLOWLIST',
+        sub: 'pg_advisory_xact_lock • 160-Category Allowlist • Replay Prevention',
+        content: `
+          <div class="detail-card">
+            <div class="detail-card-title" style="color: #00d2ff;">Two-Stage Pre-Flight Verification</div>
+            <p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">
+              <strong>1. Replay lock:</strong> <code>pg_advisory_xact_lock(hashtext(idempotency_key))</code> prevents the same key posting twice under concurrency.<br/>
+              <strong>2. Category allowlist:</strong> the tag must be one of the 160 in <code>ledger_category_allowlist()</code>. An invented category raises immediately.
+            </p>
+          </div>
+          <div class="detail-card warning">
+            <div class="detail-card-title" style="color: #f59e0b;">Idempotency is per key, not per payment</div>
+            <p style="font-size: 0.78rem; color: #fde68a; line-height: 1.5;">
+              Two callers that build different keys for the same payment both post. The float guard once took over the telecom fee's idempotency key and ~770 fees went unposted. When adding a flow, reuse the payment's existing key scheme.
+            </p>
+          </div>
+        `
+      },
+      'packing': {
+        badge: 'TRANSACTION PACKING',
+        color: '#00d2ff',
+        title: 'DOUBLE-ENTRY TRANSACTION PACKING',
+        sub: 'Multi-Leg Entries • Idempotency Key • Zero-Sum Check',
+        content: `
+          <div class="detail-card">
+            <div class="detail-card-title" style="color: #00d2ff;">Group Balancing</div>
+            <p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">
+              Packs legs so <code>sum(cash_in) == sum(cash_out)</code> per <code>transaction_group_id</code>. Verified: 0 unbalanced <strong>multi-leg</strong> groups in 30 days. Single-leg groups (1,256 in the same window) are not covered by this check; see Chapter 03.
+            </p>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title" style="color: #c084fc;">RPC Invocation Shape (illustrative)</div>
+            <div class="code-box">
+              <button class="code-copy-btn" onclick="navigator.clipboard.writeText(this.parentElement.innerText)">Copy</button>
+<span style="color:#64748b">// Check the live signature first: pg_get_functiondef('public.create_ledger_transaction'::regproc)</span>
+<span style="color:#38bdf8">const</span> { data: groupId, error } = <span style="color:#38bdf8">await</span> adminClient.rpc(<span style="color:#38bdf8">'create_ledger_transaction'</span>, {
+  entries: [
+    { user_id: userId, category: <span style="color:#38bdf8">'wallet_deposit'</span>, amount: <span style="color:#f97316">50000</span>,
+      direction: <span style="color:#38bdf8">'cash_in'</span>, ledger_scope: <span style="color:#38bdf8">'wallet'</span> },
+    { category: <span style="color:#38bdf8">'...'</span>, amount: <span style="color:#f97316">50000</span>,
+      direction: <span style="color:#38bdf8">'cash_out'</span>, ledger_scope: <span style="color:#38bdf8">'platform'</span> }
+  ],
+  idempotency_key: <span style="color:#38bdf8">\`deposit:\${depositId}\`</span>
+});
+            </div>
+          </div>
+        `
+      },
+      'ledger-core': {
+        badge: 'THE FINANCIAL HEART',
+        color: '#c084fc',
+        title: 'THE DOUBLE-ENTRY CORE: general_ledger',
+        sub: '627,405 Append-Only Rows • 297,457 Groups • 39 Triggers',
+        content: `
+          <div class="detail-card">
+            <div class="detail-card-title" style="color: #c084fc;">The Single Source of Truth</div>
+            <p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">
+              Every monetary movement ends up as rows in append-only <code>general_ledger</code>. Wallet balances, reports and the balance sheet are all derived from it.
+            </p>
+          </div>
+          <div class="detail-card warning">
+            <div class="detail-card-title" style="color: #f59e0b;">More than one door</div>
+            <p style="font-size: 0.78rem; color: #fde68a; line-height: 1.5;">
+              <code>create_ledger_transaction</code> is the main door, but 13 other functions also insert directly: <code>admin_void_unverified_collection</code>, <code>agent_deposit_to_partner</code>, <code>agent_reverse_tenant_allocation</code>, <code>bulk_recover_gap_alerts</code>, <code>credit_agent_rent_commission</code>, <code>credit_proxy_approval</code> (2 overloads), <code>log_agent_earning_to_ledger</code>, <code>log_platform_transaction_to_ledger</code>, <code>reconcile_negative_wallets</code>, <code>record_double_entry</code>, <code>reseed_wallets_to_cached_balance</code>, <code>sync_collection_to_ledger</code>. Any rule you add to the main door must be added to these too.
+            </p>
+          </div>
+          <div class="detail-card danger">
+            <div class="detail-card-title" style="color: #f43f5e;">The Iron Rule: Zero Updates or Deletes</div>
+            <p style="font-size: 0.78rem; color: #fecdd3; line-height: 1.5;">
+              Update/delete are blocked by triggers. Reversals are new rows recorded in <code>voided_ledger_entries</code>. There are 39 triggers on the table in total (wallet-projection sync, TID uniqueness, anti-inflation and routing guards among them); read them before assuming what an insert will do: <code>SELECT tgname FROM pg_trigger WHERE tgrelid = 'public.general_ledger'::regclass AND NOT tgisinternal;</code>
+            </p>
+          </div>
+        `
+      },
+      'settlement': {
+        badge: 'SETTLEMENT',
+        color: '#f97316',
+        title: 'DISBURSEMENTS & WALLETS PROJECTION',
+        sub: 'wallet_balances_projection • Landlord Payouts • Supporter Returns • Merchant Desks',
+        content: `
+          <div class="detail-card">
+            <div class="detail-card-title" style="color: #f97316;">Projection Caching</div>
+            <p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">
+              Wallets is a view over <code>wallet_balances_projection</code>, kept in sync by ledger triggers. <code>get_user_available_balance</code> computes withdrawable cash by subtracting holds and advance locks.
+            </p>
+          </div>
+          <div class="detail-card warning">
+            <div class="detail-card-title" style="color: #f59e0b;">Current state: landlord payouts blocked</div>
+            <p style="font-size: 0.78rem; color: #fde68a; line-height: 1.5;">
+              <code>landlord_payouts_blocked = true</code> since 2026-09-25. Payouts are made by people on merchant/cashout desks from their float, then evidenced; there is no telco payout API.
+            </p>
+          </div>
+          <div class="detail-card danger">
+            <div class="detail-card-title" style="color: #f43f5e;">Never Set Float to X</div>
+            <p style="font-size: 0.78rem; color: #fecdd3; line-height: 1.5;">
+              Setting a desk's float to an absolute figure re-credits spent funds. Always use delta operations. The telecom fee is part of the same atomic float debit (UGX 5,000 payout + 500 fee = one 5,500 debit).
+            </p>
+          </div>
+        `
+      },
+      'treasury-controls': {
+        badge: 'CIRCUIT BREAKERS',
+        color: '#00d2ff',
+        title: 'TREASURY CONTROLS & 22 SWITCHES',
+        sub: 'landlord_payouts_blocked = true • advance_withdrawals_paused = true • Detectors',
+        content: `
+          <div class="detail-card danger">
+            <div class="detail-card-title" style="color: #f43f5e;">What the switches really do</div>
+            <p style="font-size: 0.8rem; color: #fecdd3; line-height: 1.6;">
+              <strong>maintenance_mode:</strong> UI lock screen + 32 edge functions. Does <strong>not</strong> block DB writes, crons or other edge functions.<br/>
+              <strong>advance_withdrawals_paused = true:</strong> Load-bearing. Deducts advance obligations from available balances.<br/>
+              <strong>landlord_payouts_blocked = true:</strong> Set 2026-09-25. First thing to check for "landlord not paid".
+            </p>
+          </div>
+          <div class="detail-card">
+            <div class="detail-card-title" style="color: #00d2ff;">Detectors and whether they actually run</div>
+            <ul style="padding-left: 1.2rem; font-size: 0.78rem; color: #94a3b8; line-height: 1.6;">
+              <li><code>detect_wallet_projection_drift</code>: <span style="color:#10b981">every 15 min</span> (cron <code>wallet-projection-drift</code>).</li>
+              <li><code>critical_function_baselines</code> scan: <span style="color:#10b981">every 5 min</span>, catches silent reverts of watched function bodies.</li>
+              <li><code>detect_ledger_group_imbalances</code> → <code>ledger_group_imbalance_alerts</code>: <span style="color:#f43f5e">NOT scheduled.</span> One run (2026-07-23), 2,195 open alerts.</li>
+              <li><code>wallet_routing_violations</code>: flags illegal category routes.</li>
+            </ul>
+          </div>
+          <div class="detail-card warning">
+            <div class="detail-card-title" style="color: #f59e0b;">The "Pause" button on this map is a demo</div>
+            <p style="font-size: 0.78rem; color: #fde68a; line-height: 1.5;">
+              It only recolours itself. It does not touch <code>treasury_controls</code>.
+            </p>
+          </div>
+        `
+      },
+      'telco-sms': {
+        badge: 'MONEY-IN RAIL',
+        color: '#00d2ff',
+        title: 'MTN MOMO / AIRTEL → IFTTT',
+        sub: 'No API, no webhook: payment SMS forwarded by IFTTT',
+        content: '<p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Tenants and agents pay into MTN/Airtel tills and merchant numbers. The telco confirmation SMS is forwarded by IFTTT into the payments Gmail inbox; per-agent phones forward their own merchant-float top-ups. MTN till receipts carry the payer\'s <strong>name only</strong>, so exact matching can orphan a deposit; name-only matches are fuzzy-flagged for review.</p>'
+      },
+      'ussd-callback': {
+        badge: 'MONEY-IN RAIL',
+        color: '#00d2ff',
+        title: 'USSD CALLBACK',
+        sub: 'ussd-callback edge function',
+        content: '<p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">USSD session callbacks handled by the <code>ussd-callback</code> edge function. It does not honour <code>maintenance_mode</code> unless it imports treasuryGuard; check before relying on the kill switch.</p>'
+      },
+      'gmail-poller': {
+        badge: 'MONEY-IN RAIL',
+        color: '#c084fc',
+        title: 'GMAIL POLL (1 MIN)',
+        sub: 'gmail-poll-transactions → gmail_transactions',
+        content: '<p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Cron <code>gmail-poll-transactions-every-1min</code> ingests payment emails into <code>gmail_transactions</code>; <code>email-auto-create-deposits-24h</code> (every 2 min) matches them to deposits and <code>gmail-withdrawal-backfill-every-5min</code> backfills withdrawals. <code>gmail-poll-heartbeat</code> watches the poller. A same-second cutoff bug silently dropped emails until the 2026-09-24 fix: search the inbox for the TID before concluding a payment never arrived.</p>'
+      },
+      'yoola-sms': {
+        badge: 'OUTBOUND RAIL',
+        color: '#00d2ff',
+        title: 'YOOLA SMS',
+        sub: 'Primary OTP Delivery Channel',
+        content: '<p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Delivers OTPs and notifications; <code>sms-yoola-delivery-sweep</code> reconciles delivery reports. <strong>Never force sender ID "WELILE"</strong>: carriers drop unregistered IDs silently.</p>'
+      },
+      'africas-talking': {
+        badge: 'OUTBOUND RAIL',
+        color: '#00d2ff',
+        title: "AFRICA'S TALKING",
+        sub: 'Fallback SMS Gateway',
+        content: '<p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Secondary SMS pipeline used when Yoola fails. <code>sms-failure-daily-alert</code> reports delivery failures.</p>'
+      },
+      'storage': {
+        badge: 'STORAGE',
+        color: '#00d2ff',
+        title: '31 STORAGE BUCKETS',
+        sub: 'Agreements, National IDs, Payout Proofs',
+        content: '<p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Supabase Storage buckets protected by policies for KYC documents, signed agreements and payout evidence. Not covered by the nightly ledger backup.</p>'
+      },
+      'advance-sweep': {
+        badge: 'CRON SWEEP',
+        color: '#00d2ff',
+        title: 'AGENT ADVANCE SWEEP',
+        sub: 'Daily at 16:50 UTC (Trap 3)',
+        content: '<p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Sweeps agent advance repayments from earnings daily at 16:50 UTC (not every 15 minutes). One of 204 pg_cron jobs.</p><p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Related (doc 152, migration written, not applied): <code>cfo_settle_tenant_shortfall_via_advance_topup</code> tops up an agent advance and settles that agent&#39;s tenant shortfall from it in one transaction. CFO only, no commission, no float.</p><p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Statement vs wallet (doc 154, live 2026-09-29): <code>get_advance_wallet_reconciliation</code> matches each <code>agent_advance_ledger</code> deduction one-to-one to a wallet debit; CFO Advances shows a Wallet ✓ / N issues badge per row. Of 326 open advances, 130 do not reconcile (fake clearances, +0/−0 reinstatements, unrecorded balance moves). Doc 150 cleaned Ian Muhwezi&#39;s by hand; the others are uncorrected.</p><p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Recording guarantee (doc 156, live 2026-09-29): deferred triggers <code>zz_advance_balance_must_be_on_statement</code> (any balance change without a row gets a <code>balance_adjustment</code> row + CFO exception) and <code>zz_advance_deduction_link_payment</code> (each deduction linked to its wallet debit via <code>wallet_entry_id</code>, else flagged in <code>advance_statement_exceptions</code>).</p>'
+      },
+      'deposit-bridge': {
+        badge: 'CRON SWEEP',
+        color: '#00d2ff',
+        title: 'DEPOSIT MATCH & RELINK',
+        sub: 'email-auto-create-deposits • relink retries',
+        content: '<p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Matches ingested emails to pending deposits by TID, protected by an advisory lock against double approval. The relink job no longer abandons deposits after 14 days (fixed 2026-09-01), but cross-user TID collisions are re-flagged indefinitely and need a FinOps decision.</p>'
+      },
+      'imbalance-detector': {
+        badge: 'SAFETY DETECTOR',
+        color: '#f43f5e',
+        title: 'IMBALANCE DETECTOR: NOT RUNNING',
+        sub: 'detect_ledger_group_imbalances → ledger_group_imbalance_alerts',
+        content: '<p style="font-size: 0.8rem; color: #fecdd3; line-height: 1.6;"><strong>No cron job calls it.</strong> It ran once, on 2026-07-23, and left 2,195 alerts (~UGX 293M) that were never resolved. An empty result since then means nobody checked, not that the ledger is clean. Run it by hand and filter to recent groups; scheduling and triage are open work (Chapter 08).</p>'
+      },
+      'projection-drift': {
+        badge: 'SAFETY DETECTOR',
+        color: '#00d2ff',
+        title: 'WALLET PROJECTION DRIFT',
+        sub: 'detect_wallet_projection_drift • every 15 min',
+        content: '<p style="font-size: 0.8rem; color: #cbd5e1; line-height: 1.6;">Cron <code>wallet-projection-drift</code> compares <code>wallet_balances_projection</code> with the ledger every 15 minutes. (Earlier editions called this <code>phantom_wallet_drift</code>; no such object exists.) Note: single-bucket negative-balance sweeps look alarming but are an isolation artifact; look across all buckets.</p>'
+      }
+    };
+
+    function inspectNode(nodeKey) {
+      const data = NODE_DATA[nodeKey];
+      if (!data) return;
+
+      const drawer = document.getElementById('node-drawer');
+      const backdrop = document.getElementById('drawer-backdrop');
+      const badge = document.getElementById('drawer-badge');
+      const title = document.getElementById('drawer-title');
+      const sub = document.getElementById('drawer-sub');
+      const body = document.getElementById('drawer-body');
+
+      badge.textContent = data.badge;
+      badge.style.color = data.color;
+      badge.style.borderColor = data.color;
+      badge.style.background = `${data.color}20`;
+
+      title.textContent = data.title;
+      sub.textContent = data.sub;
+      body.innerHTML = data.content;
+
+      drawer.classList.add('active');
+      backdrop.classList.add('active');
+    }
+
+    function openHandoverDoc(chapterNum) {
+      const doc = HANDOVER_CHAPTERS[chapterNum];
+      if (!doc) return;
+
+      const drawer = document.getElementById('node-drawer');
+      const backdrop = document.getElementById('drawer-backdrop');
+      const badge = document.getElementById('drawer-badge');
+      const title = document.getElementById('drawer-title');
+      const sub = document.getElementById('drawer-sub');
+      const body = document.getElementById('drawer-body');
+
+      badge.textContent = doc.badge;
+      badge.style.color = doc.color;
+      badge.style.borderColor = doc.color;
+      badge.style.background = `${doc.color}20`;
+
+      title.textContent = doc.title;
+      sub.textContent = doc.sub;
+      body.innerHTML = doc.content;
+
+      drawer.classList.add('active');
+      backdrop.classList.add('active');
+    }
+
+    function closeNodeDrawer() {
+      document.getElementById('node-drawer').classList.remove('active');
+      document.getElementById('drawer-backdrop').classList.remove('active');
+    }
+
+    // Live Search Filtering
+    const searchInput = document.getElementById('node-search');
+    searchInput.addEventListener('input', (e) => {
+      const q = e.target.value.toLowerCase().trim();
+      document.querySelectorAll('.arch-node').forEach(node => {
+        const text = node.textContent.toLowerCase();
+        if (!q || text.includes(q)) {
+          node.style.opacity = '1';
+          node.querySelector('.node-frame')?.setAttribute('stroke-width', q ? '2.8' : '1.8');
+        } else {
+          node.style.opacity = '0.2';
+          node.querySelector('.node-frame')?.setAttribute('stroke-width', '1.8');
+        }
+      });
+    });
+  </script>
+</body>
+</html>

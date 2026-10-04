@@ -1,0 +1,1 @@
+ALTER VIEW public.v_crm_person_roles SET (security_invoker = on);

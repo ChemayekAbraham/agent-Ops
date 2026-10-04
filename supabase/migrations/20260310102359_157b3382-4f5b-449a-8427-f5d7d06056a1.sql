@@ -1,0 +1,1 @@
+ALTER TABLE investor_portfolios ADD COLUMN IF NOT EXISTS payout_day integer DEFAULT 15;

@@ -1,0 +1,127 @@
+DROP FUNCTION IF EXISTS public.renew_rent_request(uuid);
+
+CREATE OR REPLACE FUNCTION public.renew_rent_request(
+  p_prev_request_id uuid,
+  p_latitude numeric DEFAULT NULL,
+  p_longitude numeric DEFAULT NULL
+)
+RETURNS uuid
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path TO 'public'
+AS $function$
+DECLARE
+  v_agent uuid := auth.uid();
+  v_prev  public.rent_requests%ROWTYPE;
+  v_new_id uuid;
+  v_photo text;
+  v_lat numeric;
+  v_lng numeric;
+BEGIN
+  IF v_agent IS NULL THEN
+    RAISE EXCEPTION 'NOT_AUTHENTICATED';
+  END IF;
+  SELECT * INTO v_prev FROM public.rent_requests WHERE id = p_prev_request_id;
+  IF NOT FOUND THEN RAISE EXCEPTION 'PREVIOUS_REQUEST_NOT_FOUND'; END IF;
+  IF v_prev.agent_id IS DISTINCT FROM v_agent THEN RAISE EXCEPTION 'NOT_YOUR_REQUEST'; END IF;
+  IF v_prev.landlord_id IS NULL THEN RAISE EXCEPTION 'LANDLORD_MISSING'; END IF;
+
+  -- 1. GPS captured fresh at the house by the renewing agent wins (must be inside Uganda).
+  IF p_latitude IS NOT NULL AND p_longitude IS NOT NULL THEN
+    IF p_latitude < -1.6 OR p_latitude > 4.3 OR p_longitude < 29.4 OR p_longitude > 35.1 THEN
+      RAISE EXCEPTION 'RENT_REQUEST_GPS_OUT_OF_RANGE: the captured GPS (%, %) is not inside Uganda — recapture it at the house',
+        p_latitude, p_longitude USING ERRCODE = '23514';
+    END IF;
+    v_lat := p_latitude;
+    v_lng := p_longitude;
+  END IF;
+
+  -- 2. The plan being renewed.
+  IF v_lat IS NULL OR v_lng IS NULL THEN
+    v_lat := v_prev.request_latitude;
+    v_lng := v_prev.request_longitude;
+  END IF;
+
+  -- 3. Any earlier plan for the same tenant that carried GPS.
+  IF v_lat IS NULL OR v_lng IS NULL THEN
+    SELECT r.request_latitude, r.request_longitude
+      INTO v_lat, v_lng
+    FROM public.rent_requests r
+    WHERE r.tenant_id = v_prev.tenant_id
+      AND r.request_latitude IS NOT NULL
+      AND r.request_longitude IS NOT NULL
+    ORDER BY r.created_at DESC
+    LIMIT 1;
+  END IF;
+
+  -- 4. The tenant's house listing.
+  IF v_lat IS NULL OR v_lng IS NULL THEN
+    SELECT h.latitude, h.longitude
+      INTO v_lat, v_lng
+    FROM public.house_listings h
+    WHERE (h.tenant_id = v_prev.tenant_id OR h.suspended_tenant_id = v_prev.tenant_id)
+      AND h.latitude IS NOT NULL
+      AND h.longitude IS NOT NULL
+    ORDER BY h.created_at DESC
+    LIMIT 1;
+  END IF;
+
+  -- 5. A house listing belonging to the same landlord.
+  IF v_lat IS NULL OR v_lng IS NULL THEN
+    SELECT h.latitude, h.longitude
+      INTO v_lat, v_lng
+    FROM public.house_listings h
+    WHERE h.landlord_id = v_prev.landlord_id
+      AND h.latitude IS NOT NULL
+      AND h.longitude IS NOT NULL
+    ORDER BY h.created_at DESC
+    LIMIT 1;
+  END IF;
+
+  -- 6. The landlord's own saved location.
+  IF v_lat IS NULL OR v_lng IS NULL THEN
+    SELECT l.latitude, l.longitude
+      INTO v_lat, v_lng
+    FROM public.landlords l
+    WHERE l.id = v_prev.landlord_id;
+  END IF;
+
+  IF v_lat IS NULL OR v_lng IS NULL THEN
+    RAISE EXCEPTION 'GPS_REQUIRED: no property GPS on record for this tenant — capture the GPS at the house to renew';
+  END IF;
+
+  -- Carry the freshest passport photo we have for this tenant.
+  SELECT tenant_photo_url INTO v_photo
+  FROM public.rent_requests
+  WHERE tenant_id = v_prev.tenant_id
+    AND tenant_photo_url IS NOT NULL
+    AND btrim(tenant_photo_url) <> ''
+  ORDER BY created_at DESC
+  LIMIT 1;
+
+  PERFORM set_config('app.bypass_daily_eligibility', 'true', true);
+
+  INSERT INTO public.rent_requests (
+    tenant_id, agent_id, landlord_id, lc1_id,
+    rent_amount, duration_days,
+    access_fee, request_fee, total_repayment, daily_repayment,
+    status, house_category, tenant_no_smartphone,
+    request_latitude, request_longitude,
+    tenant_photo_url, registration_type,
+    agent_guarantor_consent, agent_guarantor_consent_at, agent_guarantor_consent_version
+  ) VALUES (
+    v_prev.tenant_id, v_agent, v_prev.landlord_id, v_prev.lc1_id,
+    v_prev.rent_amount, v_prev.duration_days,
+    0, 0, 0, 0,
+    'pending', v_prev.house_category, COALESCE(v_prev.tenant_no_smartphone, false),
+    v_lat, v_lng,
+    v_photo, 'renewal',
+    true, now(), 'v1'
+  )
+  RETURNING id INTO v_new_id;
+
+  RETURN v_new_id;
+END;
+$function$;
+
+GRANT EXECUTE ON FUNCTION public.renew_rent_request(uuid, numeric, numeric) TO authenticated, service_role;

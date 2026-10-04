@@ -1,0 +1,205 @@
+{
+	"info": {
+		"_postman_id": "b1f0a2c4-7e21-4c9a-9d3f-welileapiv1000",
+		"name": "Welile API v1",
+		"description": "Official REST API for the Welile platform, consumed by the Welile Flutter application. Every response uses the envelope { status, message, data }. Login with a phone number or email to obtain a bearer access_token; all other requests send it as `Authorization: Bearer {{token}}`.\n\nBase URL options:\n- Custom domain (production): https://api.welileapp.com\n- Direct edge URL: https://wirntoujqoyjobfhyelc.supabase.co/functions/v1/api\n\nThe `apikey` header is required when calling the direct edge URL.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "System",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/health",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "health"]
+						},
+						"description": "Public health probe. Returns { status: 'success', data: { name, version, status } }."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Authentication",
+			"item": [
+				{
+					"name": "Login",
+					"event": [
+						{
+							"listen": "test",
+							"script": {
+								"exec": [
+									"const response = pm.response.json();",
+									"if (response.status === 'success' && response.data && response.data.access_token) {",
+									"    pm.collectionVariables.set(\"token\", response.data.access_token);",
+									"    pm.collectionVariables.set(\"refresh_token\", response.data.refresh_token);",
+									"    console.log(\"Saved access_token to collection variable 'token'\");",
+									"}"
+								],
+								"type": "text/javascript"
+							}
+						}
+					],
+					"request": {
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json", "type": "text" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"phone\": \"0701355245\",\n  \"password\": \"YourPasswordHere\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/login",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "auth", "login"]
+						},
+						"description": "Authenticate with a phone number OR an email plus password. Returns a Supabase-compatible access_token (JWT), refresh_token, expiry, and the user's profile summary + roles. A phone can be provided in any local format (0701..., 256701..., +256701...)."
+					},
+					"response": []
+				},
+				{
+					"name": "Get My Profile (me)",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [ { "key": "token", "value": "{{token}}", "type": "string" } ]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/auth/me",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "auth", "me"]
+						},
+						"description": "Returns the signed-in user's full profile and roles."
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Wallets & Ledger",
+			"item": [
+				{
+					"name": "Get Dashboard Bootstrap",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [ { "key": "token", "value": "{{token}}", "type": "string" } ]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/wallets/bootstrap?role=agent",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "wallets", "bootstrap"],
+							"query": [ { "key": "role", "value": "agent" } ]
+						},
+						"description": "Role-aware dashboard payload: profile, roles, active_role, wallet buckets (available/withdrawable/float/advance/locked), and 30-day inflow/outflow KPIs."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Wallet details & History",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [ { "key": "token", "value": "{{token}}", "type": "string" } ]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/v1/wallets?page=1&limit=50",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "wallets"],
+							"query": [
+								{ "key": "page", "value": "1" },
+								{ "key": "limit", "value": "50" }
+							]
+						},
+						"description": "Current wallet balances plus a paginated, user-facing ledger history (deposits, withdrawals, commissions). Admin-correction and system-balance-correction entries are excluded."
+					},
+					"response": []
+				},
+				{
+					"name": "Unified Deposit",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [ { "key": "token", "value": "{{token}}", "type": "string" } ]
+						},
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json", "type": "text" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"amount\": 25000,\n  \"provider\": \"MTN\",\n  \"transactionId\": \"TID1782902900\",\n  \"notes\": \"Testing deposit request from Postman\",\n  \"purpose\": \"personal_deposit\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/wallets/deposits",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "wallets", "deposits"]
+						},
+						"description": "Submit a staged deposit using a mobile-money transaction ID (TID) to be verified by Financial Ops. purpose ∈ personal_deposit | operational_float | partnership_deposit | personal_rent_repayment | other."
+					},
+					"response": []
+				},
+				{
+					"name": "Unified Withdrawal",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [ { "key": "token", "value": "{{token}}", "type": "string" } ]
+						},
+						"method": "POST",
+						"header": [
+							{ "key": "Content-Type", "value": "application/json", "type": "text" }
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"amount\": 20000,\n  \"provider\": \"MTN\",\n  \"accountNumber\": \"0701355245\",\n  \"accountName\": \"SSENKAALI PIUS\",\n  \"payoutMethod\": \"mobile_money\",\n  \"reason\": \"Testing withdrawal request from Postman\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/v1/wallets/withdrawals",
+							"host": ["{{base_url}}"],
+							"path": ["api", "v1", "wallets", "withdrawals"]
+						},
+						"description": "Request a withdrawal from the strict available (withdrawable) balance. Rejected with 400 if the amount exceeds the available balance. Staged for FinOps review before execution. For bank payouts set payoutMethod=bank and pass provider as the bank name."
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"auth": {
+		"type": "bearer",
+		"bearer": [ { "key": "token", "value": "{{token}}", "type": "string" } ]
+	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"// Attach the Supabase apikey header automatically when calling the direct edge URL.",
+					"const apikey = pm.collectionVariables.get('apikey');",
+					"if (apikey) { pm.request.headers.upsert({ key: 'apikey', value: apikey }); }"
+				]
+			}
+		}
+	],
+	"variable": [
+		{ "key": "base_url", "value": "https://api.welileapp.com", "type": "string" },
+		{ "key": "apikey", "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Indpcm50b3VqcW95am9iZmh5ZWxjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY1NjE1MTYsImV4cCI6MjA4MjEzNzUxNn0.5-zxcRPVxvpxNiXhoo5VHpIuvbtuOLfiI3ph8jPIod8", "type": "string" },
+		{ "key": "token", "value": "", "type": "string" },
+		{ "key": "refresh_token", "value": "", "type": "string" }
+	]
+}

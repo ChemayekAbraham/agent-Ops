@@ -1,0 +1,1 @@
+DELETE FROM public.merchandise_share_codes WHERE code = 'tstchk';

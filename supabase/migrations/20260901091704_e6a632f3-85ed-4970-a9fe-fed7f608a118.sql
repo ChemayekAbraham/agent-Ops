@@ -1,0 +1,1 @@
+DROP POLICY IF EXISTS "Agents can create deposits" ON public.wallet_deposits;

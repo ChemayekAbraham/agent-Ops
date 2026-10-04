@@ -1,0 +1,63 @@
+-- SUPERSEDED — intentionally a no-op. Do not apply.
+--
+-- This migration was Josh Wanda's fix for the 2026-09-15 collection runaway
+-- (commit 23153433f, 11:28 EAT). It was never applied to production: his own
+-- commit message records that the auto-mode classifier blocked the deploy.
+--
+-- WHY IT IS NEUTRALISED RATHER THAN DELETED
+-- Its body redefines `agent_allocate_tenant_payment_internal`. Applying it now
+-- would overwrite what is live and silently undo the behaviour the product
+-- owner asked for, with no error to show for it. Leaving an unapplied migration
+-- in the tree that quietly reverts a money-path decision is exactly the hazard
+-- this incident was made of, so the body is removed and the reasoning kept.
+--
+-- THE DIFFERENCE, STATED FAIRLY
+-- Both fixes stop the runaway. They answer a different question about float:
+--
+--   Josh's:  float stays a non-consuming eligibility gate
+--            (`float_before = float_after`), and a same-day
+--            collected-vs-float cap limits the day's total.
+--   Live:    float is consumed by the collection, so 20,000 of float settles
+--            20,000 of rent and no more - see 20260916120000.
+--
+-- The product owner specified the second on 2026-09-16: "the system deducts
+-- that amount {AgentOperationalFloat} - {TenantRepaidAmount} ... the agent
+-- float reduces since it's a successful operation". That is the decision this
+-- file defers to.
+--
+-- His stated blocker - that a float-debit leg cannot return without
+-- unbalancing `create_ledger_transaction` against the custody-cash shape - is
+-- correct while the A5 `cash_receipt_in_transit` leg is kept. 20260916120000
+-- drops that leg, so the entry balances: verified on a real 2,600 collection,
+-- cash_in 2,860 = cash_out 2,860.
+--
+-- WHAT WAS KEPT FROM THIS WORK
+--   * `p_client_ref` wired into BOTH callers (AgentTenantCollectDialog and
+--     submit-offline-collection) - his commit, still live, untouched here.
+--   * The 2-minute duplicate-submission guard, ported verbatim into
+--     20260916120000. It closes a gap client_ref cannot: a re-tap gets a fresh
+--     reference, so only a content+window check catches it.
+--
+-- WHAT WAS NOT KEPT, AND WHY
+--   * The same-day float cap (`collected_today + amount > float_balance`). It
+--     assumes float is static. Once float is actually consumed the two figures
+--     move toward each other and the cap fires early - an agent would be
+--     blocked after roughly half their float. The consumption itself is now the
+--     cap, and it is exact.
+--
+-- STILL OPEN, tracked for Phase 2
+--   * A5 no longer rises on collection. His assertion guarded that leg because
+--     "financial statements read this" - the CFO custody line will read
+--     differently and needs review.
+--   * `tenant_repayment_collected` posts cash_in, which debits A3 and raises
+--     the tenant receivable where it should fall. Fixing it needs the A2
+--     classification settled first: agent-funded float is a liability to the
+--     agent, platform-advanced float is an asset, and both share one bucket.
+--   * The 1,198 duplicate collection rows and ~UGX 9.7M of over-paid
+--     commission from 2026-09-16 are untouched by either fix.
+
+DO $$
+BEGIN
+  RAISE NOTICE
+    'Superseded by 20260916120000 (float is consumed on collection). No action taken.';
+END $$;

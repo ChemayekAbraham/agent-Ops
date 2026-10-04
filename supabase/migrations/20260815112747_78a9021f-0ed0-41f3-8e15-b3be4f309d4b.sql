@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.get_financial_statement_ledger_sums(timestamptz, timestamptz) FROM anon;

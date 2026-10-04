@@ -1,0 +1,262 @@
+project_id = "wirntoujqoyjobfhyelc"
+
+[functions]
+  # Africa's Talking cannot present our JWT, so the voice callback must be
+  # reachable unauthenticated or every answered call hangs up immediately.
+  # It is safe because it trusts nothing in the payload to identify a user: it
+  # matches only on our own row id / the AT sessionId we already stored, and
+  # rejects direction=Inbound outright.
+  # NOTE: crm-place-call is deliberately NOT listed — it is staff-initiated and
+  # must keep the default verify_jwt = true plus its own role gate.
+  [functions.crm-voice-callback]
+    verify_jwt = false
+  [functions.og-merchandise]
+    verify_jwt = false
+  [functions.og-house]
+    verify_jwt = false
+  [functions.og-plan]
+    verify_jwt = false
+  [functions.api]
+    verify_jwt = false
+  [functions.submit-diagnostics-report]
+    verify_jwt = false
+  [functions.view-diagnostics-report]
+    verify_jwt = false
+  [functions.activate-supporter]
+    verify_jwt = false
+  [functions.admin-reset-password]
+    verify_jwt = false
+  [functions.agent-deposit]
+    verify_jwt = false
+  [functions.agent-invest-for-partner]
+    verify_jwt = false
+  [functions.agent-withdrawal]
+    verify_jwt = false
+  [functions.approve-deposit]
+    verify_jwt = false
+  [functions.approve-loan-application]
+    verify_jwt = false
+  [functions.approve-rent-request]
+    verify_jwt = false
+  [functions.auth-email-hook]
+    verify_jwt = false
+  [functions.check-repayment-status]
+    verify_jwt = false
+  [functions.confirm-phone-account]
+    verify_jwt = false
+  [functions.coo-invest-for-partner]
+    verify_jwt = false
+  [functions.create-investor-portfolio]
+    verify_jwt = false
+  [functions.create-supporter-invite]
+    verify_jwt = false
+  [functions.credit-listing-bonus]
+    verify_jwt = false
+  [functions.fund-tenant-from-pool]
+    verify_jwt = false
+  [functions.fund-tenants]
+    verify_jwt = false
+  # The single most valuable collection error report comes from a device whose
+  # session has just expired, and that device cannot present a JWT. Verifying it
+  # would discard exactly the evidence this function exists to capture. The
+  # function trusts nothing in the payload to identify a user: it verifies the
+  # token itself when one is supplied and stores a null agent_id when it cannot,
+  # with a tighter per-IP rate limit on unattributed rows.
+  [functions.log-collection-error]
+    verify_jwt = false
+  [functions.manager-portfolio-topup]
+    verify_jwt = false
+  [functions.password-reset-sms]
+    verify_jwt = false
+  [functions.payment-reminder]
+    verify_jwt = false
+  [functions.process-investment-interest]
+    verify_jwt = false
+  [functions.process-monthly-rewards]
+    verify_jwt = false
+  [functions.process-supporter-roi]
+    verify_jwt = false
+  [functions.product-purchase]
+    verify_jwt = false
+  [functions.rent-reminders]
+    verify_jwt = false
+  [functions.tenant-behavior-messages]
+    verify_jwt = false
+  [functions.tenant-default-agent-opportunity]
+    verify_jwt = false
+  [functions.tenant-payment-notices]
+    verify_jwt = false
+  [functions.tenant-relocation-notices]
+    verify_jwt = false
+  [functions.tenant-rent-limit-notices]
+    verify_jwt = false
+  [functions.tenant-merchant-code-notices]
+    verify_jwt = false
+  [functions.tenant-dashboard-invites]
+    verify_jwt = false
+  # Public: reached from welileapp.com/t/{token} by tenants who are not signed
+  # in. It returns no financial data and does not create a session.
+  [functions.tenant-dashboard-open]
+    verify_jwt = false
+  [functions.tenant-notification-attribution]
+    verify_jwt = false
+  [functions.tenant-push-migration-notices]
+    verify_jwt = false
+  [functions.requisition-approval-push]
+    verify_jwt = false
+  [functions.scan-receipt]
+    verify_jwt = false
+  [functions.seed-test-funds]
+    verify_jwt = false
+  [functions.send-push-notification]
+    verify_jwt = false
+  [functions.sms-otp]
+    verify_jwt = false
+  [functions.user-snapshot]
+    verify_jwt = false
+  [functions.vendor-login]
+    verify_jwt = false
+  [functions.vendor-mark-receipt]
+    verify_jwt = false
+  [functions.verify-viewing-checkin]
+    verify_jwt = false
+  [functions.viewing-confirmation-sms]
+    verify_jwt = false
+  [functions.wallet-transfer]
+    verify_jwt = false
+  [functions.welile-ai-chat]
+    verify_jwt = false
+  [functions.diagnose-auth]
+    verify_jwt = false
+  [functions.bulk-password-reset]
+    verify_jwt = false
+  [functions.process-agent-advance-deductions]
+    verify_jwt = false
+  [functions.inngest-send-sms]
+    verify_jwt = false
+  [functions.inngest]
+    verify_jwt = false
+  [functions.process-email-queue]
+    verify_jwt = true
+  [functions.agent-directory]
+    verify_jwt = false
+  [functions.agent-ops-balances]
+    verify_jwt = false
+  [functions.landlord-ops]
+    verify_jwt = false
+  [functions.send-transactional-email]
+    verify_jwt = false
+  [functions.preview-transactional-email]
+    verify_jwt = false
+  [functions.handle-email-unsubscribe]
+    verify_jwt = false
+  [functions.handle-email-suppression]
+    verify_jwt = false
+  [functions.generate-daily-merchant-commission]
+    verify_jwt = false
+  [functions.github-commit-activity]
+    verify_jwt = false
+  [functions.validate-deposit-reference]
+    verify_jwt = false
+  [functions.send-rent-access-sms]
+    verify_jwt = false
+  [functions.send-signup-invite-sms]
+    verify_jwt = false
+  [functions.credit-house-listed-bonus]
+    verify_jwt = false
+  [functions.credit-lc1-registered-bonus]
+    verify_jwt = false
+  [functions.credit-lc1-verification-bonus]
+    verify_jwt = false
+
+[functions.cash-deposit-verify-code]
+verify_jwt = false
+
+[functions.notify-merchants-new-withdrawal]
+verify_jwt = false
+
+[functions.merchant-cashout-daily-report]
+verify_jwt = false
+
+[functions.daily-cto-report]
+verify_jwt = false
+
+[functions.agent-ops-daily-report]
+verify_jwt = false
+
+[functions.agent-ops-comprehensive-daily-report]
+verify_jwt = false
+
+[functions.agent-growth-daily-report]
+verify_jwt = false
+
+[functions.create-director-requisition]
+verify_jwt = false
+
+[functions.director-requisition-action]
+verify_jwt = false
+
+[functions.verify-redirects]
+verify_jwt = false
+
+[functions.seo-index-monitor]
+verify_jwt = false
+
+[functions.sitemap-resubmit]
+verify_jwt = false
+
+[functions.seo-coverage-dashboard]
+verify_jwt = false
+
+[functions.seo-redirect-audit]
+verify_jwt = false
+
+[functions.redispatch-withdrawals]
+verify_jwt = false
+
+[functions.requisition-link-validate]
+verify_jwt = false
+
+[functions.requisition-upload]
+verify_jwt = false
+
+[functions.requisition-submit]
+verify_jwt = false
+
+[functions.agent-daily-performance-report]
+verify_jwt = false
+
+[functions.weekly-landlord-ops-report]
+verify_jwt = false
+
+[functions.weekly-agent-ops-report]
+verify_jwt = false
+
+[functions.weekly-tenant-ops-report]
+verify_jwt = false
+
+[functions.weekly-messaging-usage-report]
+verify_jwt = false
+
+[functions.staff-requisition-submit]
+verify_jwt = false
+
+[functions.staff-requisition-decide]
+verify_jwt = false
+
+[functions.tenant-self-onboarding]
+verify_jwt = false
+
+[functions.notify-promissory-fulfilment-due]
+verify_jwt = false
+
+[functions.confirm-landlord-payout-receipt]
+verify_jwt = false
+
+[functions.rent-plan-transition-notices]
+verify_jwt = false
+
+# Android SMS forwarder authenticates with its own hashed device token, not a
+# Supabase JWT (see docs/HANDOVER/171).
+[functions.sms-forwarder-ingest]
+  verify_jwt = false

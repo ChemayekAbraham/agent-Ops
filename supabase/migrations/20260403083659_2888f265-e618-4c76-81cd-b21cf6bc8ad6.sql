@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS idx_deposit_requests_transaction_id_unique ON public.deposit_requests (transaction_id) WHERE transaction_id IS NOT NULL;

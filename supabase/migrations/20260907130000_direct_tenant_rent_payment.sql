@@ -1,0 +1,25 @@
+-- RETIRED 2026-09-24 — intentionally a no-op (handover 126).
+--
+-- This migration originally created direct_tenant_rent_payments and
+-- record_direct_tenant_rent_payment(). It was never applied to production
+-- (gmail-poll-transactions logged 116 "function not found" errors between
+-- 2026-09-07 and 2026-09-24 and fell through each time), and it must not be
+-- applied late:
+--
+--   * Every one of those 116 payers who had an open rent request was an AGENT
+--     topping up their own float. The function had no agent check, so it would
+--     have turned those float top-ups into rent repayments on the agent's own
+--     tenant plan, and (e.g. when the agent is the plan's own agent) paid the
+--     agent commission on their own rent.
+--   * It treated 'pending' and 'deleted_by_agent' plans as owed.
+--   * Its ledger legs predate the live collection path (get_agent_commission_rate,
+--     post_rent_fee_collection, treasury waterfall).
+--
+-- The requirement it targeted (tenant pays the Welile till directly -> Rent
+-- Plan credited, responsible agent earns commission, agent is notified) is
+-- already met in production by settle_tenant_rent_from_deposit(), fired by
+-- trg_tenant_self_repayment_on_approval when the auto-credited deposit is
+-- approved. The gmail-poll-transactions call site was removed in the same
+-- change.
+
+select 1;

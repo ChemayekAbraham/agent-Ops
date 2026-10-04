@@ -1,0 +1,1 @@
+UPDATE pending_wallet_operations SET status = 'completed', reviewed_at = now() WHERE id = 'dc21746d-848a-458e-8f33-952b68f08197' AND status = 'approved';

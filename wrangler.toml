@@ -1,0 +1,23 @@
+# Cloudflare Worker that serves the branded share links
+#   https://welileapp.com/s/<code>  and  https://welileapp.com/m/<code>
+# by proxying the internal Supabase Open Graph functions (never redirecting to them).
+name = "welile-share-proxy"
+main = "infra/share-proxy/worker.js"
+compatibility_date = "2026-08-19"
+
+[[routes]]
+pattern = "welileapp.com/s/*"
+zone_name = "welileapp.com"
+
+[[routes]]
+pattern = "www.welileapp.com/s/*"
+zone_name = "welileapp.com"
+
+# Legacy merchandise short links (kept for backward compatibility).
+[[routes]]
+pattern = "welileapp.com/m/*"
+zone_name = "welileapp.com"
+
+[[routes]]
+pattern = "www.welileapp.com/m/*"
+zone_name = "welileapp.com"

@@ -1,0 +1,1 @@
+ALTER FUNCTION public.create_outstanding_subscription_charge() SECURITY DEFINER;

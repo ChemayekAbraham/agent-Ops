@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.agent_order_smartphone(numeric);

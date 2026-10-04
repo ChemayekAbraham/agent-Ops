@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.get_statement_of_cash_flows(timestamptz, timestamptz) FROM anon;

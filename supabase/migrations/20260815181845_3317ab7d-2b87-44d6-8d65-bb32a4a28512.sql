@@ -1,0 +1,1 @@
+grant execute on function public.get_tenant_repayment_reliability(int,int,text) to service_role, postgres;

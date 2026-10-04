@@ -1,0 +1,1 @@
+ALTER VIEW public.wallet_ledger_truth_view SET (security_invoker = true);

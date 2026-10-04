@@ -1,0 +1,1 @@
+DELETE FROM public.sms_delivery_log WHERE idempotency_key = 'test:idem-check-001';

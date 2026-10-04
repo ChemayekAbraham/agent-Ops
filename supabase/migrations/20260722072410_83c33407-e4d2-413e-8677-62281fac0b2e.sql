@@ -1,0 +1,232 @@
+CREATE OR REPLACE FUNCTION public.generate_merchant_cashout_daily_report(p_date date)
+ RETURNS jsonb
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+WITH comm AS (
+  SELECT
+    gl.user_id                       AS agent_id,
+    gl.source_id                     AS withdrawal_id,
+    SUM(gl.amount)                   AS commission,
+    MIN(gl.transaction_date)         AS ts
+  FROM general_ledger gl
+  WHERE gl.reference_id LIKE '%-cashout-commission'
+    AND gl.ledger_scope = 'wallet'
+    AND gl.direction = 'cash_in'
+    AND gl.category = 'agent_commission_earned'
+    AND (gl.transaction_date AT TIME ZONE 'Africa/Kampala')::date = p_date
+  GROUP BY gl.user_id, gl.source_id
+),
+principal AS (
+  SELECT
+    gl.user_id       AS agent_id,
+    gl.source_id     AS withdrawal_id,
+    SUM(gl.amount)   AS principal
+  FROM general_ledger gl
+  WHERE (gl.reference_id LIKE '%-merchant-float-consume'
+         OR gl.reference_id LIKE '%-merchant-reimbursement')
+    AND gl.ledger_scope = 'wallet'
+    AND gl.direction = 'cash_out'
+    AND (gl.transaction_date AT TIME ZONE 'Africa/Kampala')::date = p_date
+  GROUP BY gl.user_id, gl.source_id
+),
+telecom AS (
+  SELECT
+    gl.user_id       AS agent_id,
+    gl.source_id     AS withdrawal_id,
+    SUM(gl.amount)   AS telecom_charge
+  FROM general_ledger gl
+  WHERE gl.reference_id LIKE '%-merchant-telecom-charge'
+    AND gl.ledger_scope = 'wallet'
+    AND gl.direction = 'cash_out'
+    AND (gl.transaction_date AT TIME ZONE 'Africa/Kampala')::date = p_date
+  GROUP BY gl.user_id, gl.source_id
+),
+payouts_from_comm AS (
+  SELECT
+    c.agent_id,
+    c.withdrawal_id,
+    c.ts,
+    c.commission,
+    COALESCE(p.principal, c.commission * 200) AS principal,
+    COALESCE(t.telecom_charge, 0)             AS telecom_charge
+  FROM comm c
+  LEFT JOIN principal p
+    ON p.agent_id = c.agent_id AND p.withdrawal_id = c.withdrawal_id
+  LEFT JOIN telecom t
+    ON t.agent_id = c.agent_id AND t.withdrawal_id = c.withdrawal_id
+),
+-- Backfill: proxy / ROI / portfolio payouts that completed on p_date
+-- but have NO cashout-commission ledger row (so they were previously
+-- invisible to this report). Attribute to the merchant/cashout agent
+-- that actually delivered the payout.
+proxy_extra AS (
+  SELECT
+    COALESCE(
+      wr.assigned_cashout_agent_id,
+      wr.dispatch_claimed_by,
+      wr.fin_ops_approved_by,
+      wr.processed_by
+    )                                                AS agent_id,
+    wr.id                                            AS withdrawal_id,
+    COALESCE(wr.processed_at, wr.updated_at, wr.created_at) AS ts,
+    0::numeric                                       AS commission,
+    wr.amount::numeric                               AS principal,
+    0::numeric                                       AS telecom_charge
+  FROM withdrawal_requests wr
+  WHERE wr.status = 'completed'
+    AND (COALESCE(wr.processed_at, wr.updated_at, wr.created_at) AT TIME ZONE 'Africa/Kampala')::date = p_date
+    AND (
+      wr.proxy_partner_id IS NOT NULL
+      OR wr.reason ILIKE '%Portfolio:%'
+      OR LOWER(COALESCE(wr.reason, '')) ~ '(proxy|roi|return)'
+    )
+    AND NOT EXISTS (
+      SELECT 1 FROM payouts_from_comm pc WHERE pc.withdrawal_id = wr.id
+    )
+),
+proxy_extra_enriched AS (
+  SELECT
+    pe.agent_id,
+    pe.withdrawal_id,
+    pe.ts,
+    pe.commission,
+    -- Prefer ledger-derived principal/telecom when they exist for that agent
+    COALESCE(p.principal, pe.principal) AS principal,
+    COALESCE(t.telecom_charge, 0)       AS telecom_charge
+  FROM proxy_extra pe
+  LEFT JOIN principal p
+    ON p.agent_id = pe.agent_id AND p.withdrawal_id = pe.withdrawal_id
+  LEFT JOIN telecom t
+    ON t.agent_id = pe.agent_id AND t.withdrawal_id = pe.withdrawal_id
+),
+payouts AS (
+  SELECT * FROM payouts_from_comm
+  UNION ALL
+  SELECT * FROM proxy_extra_enriched
+),
+enriched AS (
+  SELECT
+    po.*,
+    (po.principal + po.telecom_charge) AS float_consumed,
+    mp.full_name AS merchant_name,
+    mp.phone     AS merchant_phone,
+    cp.full_name AS customer_name,
+    wr.payout_method,
+    wr.reason    AS wr_reason,
+    CASE
+      WHEN wr.proxy_partner_id IS NOT NULL
+        OR wr.reason ILIKE '%Portfolio:%'
+        OR LOWER(COALESCE(wr.reason,'')) ~ '(proxy|roi|return)'
+        THEN 'proxy_partner_withdrawal'
+      WHEN wr.landlord_payout_id IS NOT NULL
+        OR LOWER(COALESCE(wr.reason,'')) LIKE 'landlord float payout%'
+        THEN 'landlord_payouts'
+      WHEN LOWER(COALESCE(wr.reason,'')) ~ '(salary|payroll)'
+        THEN 'payroll_payments'
+      WHEN LOWER(COALESCE(wr.reason,'')) LIKE '%commission%'
+        THEN 'agent_commissions'
+      ELSE 'wallet_withdrawals'
+    END AS category_id
+  FROM payouts po
+  LEFT JOIN profiles mp ON mp.id = po.agent_id
+  LEFT JOIN withdrawal_requests wr ON wr.id = po.withdrawal_id
+  LEFT JOIN profiles cp ON cp.id = wr.user_id
+),
+summary AS (
+  SELECT
+    agent_id,
+    COALESCE(MAX(merchant_name), 'Unknown agent') AS merchant_name,
+    MAX(merchant_phone)                           AS merchant_phone,
+    COUNT(*)                                       AS payouts,
+    SUM(principal)                                 AS total_paid,
+    SUM(commission)                               AS total_commission,
+    SUM(telecom_charge)                           AS total_telecom,
+    SUM(principal + telecom_charge)               AS total_float_consumed
+  FROM enriched
+  GROUP BY agent_id
+),
+by_cat AS (
+  SELECT
+    category_id,
+    COUNT(DISTINCT agent_id)         AS merchant_count,
+    COUNT(*)                         AS payouts,
+    SUM(principal)                   AS total_paid,
+    SUM(commission)                  AS total_commission,
+    SUM(telecom_charge)              AS total_telecom,
+    SUM(principal + telecom_charge)  AS total_float_consumed
+  FROM enriched
+  GROUP BY category_id
+),
+cat_labeled AS (
+  SELECT
+    category_id,
+    CASE category_id
+      WHEN 'proxy_partner_withdrawal' THEN 'Partner Withdrawal (Proxy Initiated)'
+      WHEN 'landlord_payouts'         THEN 'Landlord Payouts'
+      WHEN 'payroll_payments'         THEN 'Payroll Payments'
+      WHEN 'agent_commissions'        THEN 'Agent Commissions'
+      WHEN 'wallet_withdrawals'       THEN 'Wallet Withdrawals'
+      ELSE category_id
+    END AS category_label,
+    merchant_count,
+    payouts,
+    total_paid,
+    total_commission,
+    total_telecom,
+    total_float_consumed
+  FROM by_cat
+)
+SELECT jsonb_build_object(
+  'date', p_date,
+  'merchant_count', (SELECT COUNT(*) FROM summary),
+  'total_payouts', (SELECT COALESCE(SUM(payouts), 0) FROM summary),
+  'total_paid', (SELECT COALESCE(SUM(total_paid), 0) FROM summary),
+  'total_commission', (SELECT COALESCE(SUM(total_commission), 0) FROM summary),
+  'total_telecom', (SELECT COALESCE(SUM(total_telecom), 0) FROM summary),
+  'total_float_consumed', (SELECT COALESCE(SUM(total_float_consumed), 0) FROM summary),
+  'summary', COALESCE((
+    SELECT jsonb_agg(jsonb_build_object(
+      'agent_id', agent_id,
+      'merchant_name', merchant_name,
+      'merchant_phone', merchant_phone,
+      'payouts', payouts,
+      'total_paid', total_paid,
+      'total_commission', total_commission,
+      'total_telecom', total_telecom,
+      'total_float_consumed', total_float_consumed
+    ) ORDER BY total_paid DESC)
+    FROM summary
+  ), '[]'::jsonb),
+  'by_category', COALESCE((
+    SELECT jsonb_agg(jsonb_build_object(
+      'category_id', category_id,
+      'category_label', category_label,
+      'merchant_count', merchant_count,
+      'payouts', payouts,
+      'total_paid', total_paid,
+      'total_commission', total_commission,
+      'total_telecom', total_telecom,
+      'total_float_consumed', total_float_consumed
+    ) ORDER BY total_paid DESC)
+    FROM cat_labeled
+  ), '[]'::jsonb),
+  'detail', COALESCE((
+    SELECT jsonb_agg(jsonb_build_object(
+      'time', to_char(ts AT TIME ZONE 'Africa/Kampala', 'HH24:MI'),
+      'merchant_name', merchant_name,
+      'merchant_phone', merchant_phone,
+      'customer_name', customer_name,
+      'amount', principal,
+      'commission', commission,
+      'telecom_charge', telecom_charge,
+      'float_consumed', float_consumed,
+      'payout_method', payout_method,
+      'category_id', category_id,
+      'withdrawal_id', withdrawal_id
+    ) ORDER BY ts ASC)
+    FROM enriched
+  ), '[]'::jsonb)
+)
+$function$;

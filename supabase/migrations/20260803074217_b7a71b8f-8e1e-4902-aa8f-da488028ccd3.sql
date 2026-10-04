@@ -1,0 +1,2 @@
+REVOKE ALL ON FUNCTION public.fraud_block_user_identifiers(uuid, text, uuid, jsonb) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.fraud_block_user_identifiers(uuid, text, uuid, jsonb) TO service_role;

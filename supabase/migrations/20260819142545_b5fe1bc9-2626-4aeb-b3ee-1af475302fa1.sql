@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.ops_tenant_ops_weekly_bundle(timestamptz, timestamptz) FROM authenticated;

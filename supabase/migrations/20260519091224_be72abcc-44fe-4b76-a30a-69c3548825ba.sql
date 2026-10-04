@@ -1,0 +1,1 @@
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS prefers_easy_read boolean NOT NULL DEFAULT false;

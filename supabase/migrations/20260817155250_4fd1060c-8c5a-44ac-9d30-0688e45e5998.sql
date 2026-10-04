@@ -1,0 +1,4 @@
+INSERT INTO public.merchant_float_reconciliations (desk_id, agent_id, adjustment_type, amount, reason, evidence_note, created_by)
+VALUES
+  ('a1603adc-3831-4a3e-a6b9-99255a6c04a6','5f5847d2-d719-40f1-a702-297da1417bc7','reimbursement_recorded',4599509,'CFO confirmation 2026-08-17: Entebbe desk (Mudumba samuel) is fully reimbursed; no balance is owed to this desk.','CFO directive: only the Sky Bubbles (BAITA) desk carries an outstanding balance.','29a0cfa8-1eaf-453c-874c-0fc72fa4f74b'),
+  ('6078d940-3c87-425b-8b36-f6462bb2e406','1a88b1b8-6601-477b-b119-8e18d5dc9ebd','reimbursement_recorded',10960700,'CFO confirmation 2026-08-17: Sky Bubbles reconciled position is UGX 47,230,700 sent against UGX 52,080,259 paid out, leaving UGX 4,849,559 owed.','CFO reconciliation: 47,230,700 - 52,080,259 = -4,849,559 outstanding to the BAITA desk.','29a0cfa8-1eaf-453c-874c-0fc72fa4f74b');

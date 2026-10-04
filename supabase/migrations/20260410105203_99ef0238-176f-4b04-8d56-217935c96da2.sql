@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.create_ledger_transaction(jsonb);

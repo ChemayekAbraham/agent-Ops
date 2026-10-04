@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.cfo_decide_service_centre(uuid, text, text, numeric);

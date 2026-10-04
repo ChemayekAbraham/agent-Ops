@@ -1,0 +1,1 @@
+ALTER TYPE public.system_event_type ADD VALUE IF NOT EXISTS 'finops_provider_mismatch';
