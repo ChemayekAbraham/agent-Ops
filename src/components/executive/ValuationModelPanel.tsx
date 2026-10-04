@@ -224,7 +224,7 @@ export function ValuationModelPanel() {
             {(Object.keys(LABELS) as Key[]).map((k) => (
               <Button key={k} size="sm" className="h-10 sm:h-9 px-1 text-xs sm:text-sm" variant={hidden.includes(k) ? 'ghost' : 'secondary'}
                 onClick={() => setHidden((h) => (h.includes(k) ? h.filter((x) => x !== k) : [...h, k]))}>
-                <span className="mr-1 sm:mr-2 inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: COLORS[k] }} />{LABELS[k]}
+                <span className="mr-1 sm:mr-2 inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: COLORS[k] }} />{LABELS[k].replace(' growth', '')}
               </Button>
             ))}
           </div>
