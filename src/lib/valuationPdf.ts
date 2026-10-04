@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { ScenarioInputs, ScenarioResult } from '@/lib/valuationModel';
+import { WELILE_LOGO } from '@/hr/pay/letterheadLogo';
 
 export interface ValuationPdfInput {
   scenarioLabel: string;
