@@ -7099,6 +7099,66 @@ export type Database = {
         }
         Relationships: []
       }
+      bank_account_change_requests: {
+        Row: {
+          created_at: string
+          current_account_name: string | null
+          current_account_number: string | null
+          current_bank_name: string | null
+          decided_at: string | null
+          decided_by: string | null
+          decision_reason: string | null
+          id: string
+          name_match_score: number | null
+          national_id_name: string | null
+          request_reason: string
+          requested_account_name: string
+          requested_account_number: string
+          requested_bank_name: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_account_name?: string | null
+          current_account_number?: string | null
+          current_bank_name?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_reason?: string | null
+          id?: string
+          name_match_score?: number | null
+          national_id_name?: string | null
+          request_reason: string
+          requested_account_name: string
+          requested_account_number: string
+          requested_bank_name: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_account_name?: string | null
+          current_account_number?: string | null
+          current_bank_name?: string | null
+          decided_at?: string | null
+          decided_by?: string | null
+          decision_reason?: string | null
+          id?: string
+          name_match_score?: number | null
+          national_id_name?: string | null
+          request_reason?: string
+          requested_account_name?: string
+          requested_account_number?: string
+          requested_bank_name?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       bank_cash_recognition_log: {
         Row: {
           amount: number
@@ -27707,6 +27767,39 @@ export type Database = {
             referencedColumns: ["plan_id"]
           },
         ]
+      }
+      locked_bank_accounts: {
+        Row: {
+          account_key: string
+          account_name: string
+          account_number: string
+          bank_name: string
+          locked_at: string
+          source: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_key: string
+          account_name: string
+          account_number: string
+          bank_name: string
+          locked_at?: string
+          source?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_key?: string
+          account_name?: string
+          account_number?: string
+          bank_name?: string
+          locked_at?: string
+          source?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       login_phase_events: {
         Row: {
@@ -59801,6 +59894,10 @@ export type Database = {
         Args: { _job_id: string }
         Returns: undefined
       }
+      cancel_bank_account_change: {
+        Args: { p_request_id: string }
+        Returns: undefined
+      }
       cancel_national_id_link: { Args: { p_request_id: string }; Returns: Json }
       cancel_payout_number_change: {
         Args: { p_request_id: string }
@@ -62239,6 +62336,34 @@ export type Database = {
       }
       finops_auto_approve_waiting_payout_destinations: {
         Args: never
+        Returns: Json
+      }
+      finops_bank_account_change_requests: {
+        Args: { p_status?: string }
+        Returns: {
+          created_at: string
+          current_account_name: string
+          current_account_number: string
+          current_bank_name: string
+          decided_at: string
+          decided_by_name: string
+          decision_reason: string
+          full_name: string
+          id: string
+          name_match_score: number
+          national_id: string
+          national_id_name: string
+          phone: string
+          request_reason: string
+          requested_account_name: string
+          requested_account_number: string
+          requested_bank_name: string
+          status: string
+          user_id: string
+        }[]
+      }
+      finops_decide_bank_account_change: {
+        Args: { p_decision: string; p_reason: string; p_request_id: string }
         Returns: Json
       }
       finops_decide_payout_destination: {
@@ -68060,6 +68185,7 @@ export type Database = {
         }
         Returns: number
       }
+      my_bank_account_lock: { Args: never; Returns: Json }
       my_location_correction_status: { Args: never; Returns: Json }
       my_partner_lead_agents: {
         Args: never
@@ -70980,6 +71106,15 @@ export type Database = {
         Args: { p_allocation_id: string; p_reason: string }
         Returns: Json
       }
+      request_bank_account_change: {
+        Args: {
+          p_account_name: string
+          p_account_number: string
+          p_bank_name: string
+          p_reason: string
+        }
+        Returns: Json
+      }
       request_landlord_number_change: {
         Args: {
           p_field: string
@@ -71242,6 +71377,14 @@ export type Database = {
         }[]
       }
       run_signup_rent_prompt_backfill: { Args: never; Returns: undefined }
+      save_withdrawal_bank_account: {
+        Args: {
+          p_account_name: string
+          p_account_number: string
+          p_bank_name: string
+        }
+        Returns: Json
+      }
       sc_assignment_admin: { Args: { _user_id: string }; Returns: boolean }
       sc_duration_to_days: {
         Args: { p_unit: string; p_value: number }
