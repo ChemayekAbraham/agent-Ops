@@ -1,13 +1,15 @@
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
+import { Loader2, RefreshCw } from 'lucide-react';
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { formatUGX } from '@/lib/businessAdvanceCalculations';
 import { runScenario, SCENARIO_PRESETS, type ScenarioInputs } from '@/lib/valuationModel';
+
+const RATE_PROVIDER = 'exchangerate-api.com';
 
 type Key = keyof typeof SCENARIO_PRESETS;
 const LABELS: Record<Key, string> = { conservative: 'Conservative', base: 'Base', high: 'High growth' };
@@ -56,6 +58,8 @@ export function ValuationModelPanel() {
     },
   });
   UGX_PER_USD = fx.data?.rate ?? FALLBACK_UGX_PER_USD;
+  const queryClient = useQueryClient();
+  const refreshRate = () => queryClient.invalidateQueries({ queryKey: ['ugx-usd-live-rate'] });
   const [inputs, setInputs] = useState<Record<Key, ScenarioInputs>>({ ...SCENARIO_PRESETS });
   const [metric, setMetric] = useState<Metric>('valuation');
   const [currency, setCurrency] = useState<'UGX' | 'USD'>('UGX');
@@ -102,15 +106,21 @@ export function ValuationModelPanel() {
           <p className="text-sm text-muted-foreground max-w-2xl">
             Starts from live fee income (access + registration fees on funded Rent Plans). Adjust each scenario; nothing is saved.
             Before any new rounds, existing holders own 92% (8% is the Angel Pool). {fx.data
-              ? <>Live rate: US$1 = UGX {Math.round(UGX_PER_USD).toLocaleString()}, last updated {new Date(fx.data.at).toLocaleString('en-GB', { timeZone: 'Africa/Kampala', dateStyle: 'medium', timeStyle: 'short' })} (Kampala).</>
+              ? <>Live rate: US$1 = UGX {Math.round(UGX_PER_USD).toLocaleString()} (source: {RATE_PROVIDER}), last updated {new Date(fx.data.at).toLocaleString('en-GB', { timeZone: 'Africa/Kampala', dateStyle: 'medium', timeStyle: 'short' })} (Kampala).</>
               : fx.isLoading ? 'Loading live exchange rate…'
-              : <>Live rate unavailable; using a fixed US$1 = UGX {FALLBACK_UGX_PER_USD.toLocaleString()}.</>}
+              : <>Live rate unavailable from {RATE_PROVIDER}; using a fixed US$1 = UGX {FALLBACK_UGX_PER_USD.toLocaleString()}.</>}
           </p>
         </div>
-        <div className="flex shrink-0 rounded-lg border border-border p-1">
-          {(['UGX', 'USD'] as const).map((c) => (
-            <Button key={c} size="sm" variant={currency === c ? 'default' : 'ghost'} className="px-3" onClick={() => setCurrency(c)}>{c}</Button>
-          ))}
+        <div className="flex shrink-0 items-center gap-2">
+          <Button size="sm" variant="outline" className="gap-2" onClick={refreshRate} disabled={fx.isFetching} title={`Refresh the rate from ${RATE_PROVIDER}`}>
+            <RefreshCw className={`h-4 w-4${fx.isFetching ? ' animate-spin' : ''}`} />
+            {fx.isFetching ? 'Refreshing…' : 'Refresh rate'}
+          </Button>
+          <div className="flex rounded-lg border border-border p-1">
+            {(['UGX', 'USD'] as const).map((c) => (
+              <Button key={c} size="sm" variant={currency === c ? 'default' : 'ghost'} className="px-3" onClick={() => setCurrency(c)}>{c}</Button>
+            ))}
+          </div>
         </div>
       </div>
 
