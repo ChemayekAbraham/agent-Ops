@@ -88,7 +88,9 @@ export function CashPositionInsights({ totalReceivables, receivablesCategories, 
       }
       return { outstanding: Number(d.outstanding || 0), dueInRange: Number(d.due_in_range || 0), count: all.length, top };
     },
-    staleTime: 120_000,
+    staleTime: 300_000,
+    gcTime: 600_000,
+    refetchOnWindowFocus: false,
   });
 
   const recent = useQuery({
@@ -107,7 +109,7 @@ export function CashPositionInsights({ totalReceivables, receivablesCategories, 
     staleTime: 60_000,
   });
 
-  const payablesTotal = rp.data?.outstanding ?? 0;
+  const payablesTotal = rp.data?.outstanding ?? 0; // receivables show immediately; payables fill in when ready
   const outstanding = totalReceivables + payablesTotal;
   const recvPct = outstanding > 0 ? (totalReceivables / outstanding) * 100 : 0;
   const pie = [
@@ -197,7 +199,7 @@ export function CashPositionInsights({ totalReceivables, receivablesCategories, 
 
         <Card className="rounded-xl shadow-sm min-w-0"><CardContent className="p-4">
           <Head icon={<Scale className="h-4 w-4" />} title="Receivables vs Payables" sub="Outstanding amounts" />
-          {rp.isLoading ? <p className="text-xs text-muted-foreground">Loading…</p> : outstanding <= 0 ? (
+          {outstanding <= 0 && rp.isLoading ? <p className="text-xs text-muted-foreground animate-pulse">Loading…</p> : outstanding <= 0 ? (
             <p className="text-xs text-muted-foreground">No data yet.</p>
           ) : (
             <div className="flex flex-col sm:flex-row 2xl:flex-col items-center gap-3">
