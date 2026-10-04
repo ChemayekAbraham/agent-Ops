@@ -3158,6 +3158,13 @@
       "when": 1791121188375,
       "tag": "0450_wallet_transfer_sender_reversal",
       "breakpoints": true
+    },
+    {
+      "idx": 451,
+      "version": "7",
+      "when": 1791121623277,
+      "tag": "0451_wallet_transfer_reversal_atomic_and_notify",
+      "breakpoints": true
     }
   ]
 }
