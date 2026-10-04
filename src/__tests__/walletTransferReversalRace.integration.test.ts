@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
 import postgres from 'postgres';
 
 /**
@@ -18,11 +18,23 @@ import postgres from 'postgres';
  * Needs PG env vars and a role allowed to execute create_ledger_transaction
  * and reverse_wallet_transfer and to insert withdrawal_requests. Skips
  * otherwise (the sandbox read role cannot execute the reversal function).
+ *
+ * Isolation + cleanup: runs ONLY when RACE_TEST_ISOLATED_DB=1 and the
+ * database looks like a test database (< 1,000 profiles). Each run creates
+ * two throwaway accounts (race-test+<run>-…@example.invalid). After each
+ * test, and again after the run, everything tagged with this run's id —
+ * notifications, withdrawal requests, transfer ledger rows, and the two
+ * accounts — is deleted, so nothing is left behind even if a test crashes
+ * mid-transaction or something was committed by mistake.
  */
 
 const AMOUNT = 1000;
 const LOCK_WAIT = '1500ms';
 const LOCK_NOT_AVAILABLE = '55P03';
+const MAX_TEST_DB_PROFILES = 1000;
+const RUN_ID = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`.toUpperCase();
+const REF_PREFIX = `WT-RACE-${RUN_ID}-`;
+const EMAIL_PREFIX = `race-test+${RUN_ID.toLowerCase()}-`;
 
 type Sql = ReturnType<typeof postgres>;
 type Tx = Awaited<ReturnType<Sql['reserve']>>;
@@ -31,6 +43,7 @@ let sql: Sql | null = null;
 let canRun = false;
 let sender = '';
 let recipient = '';
+const createdUsers: string[] = [];
 
 async function begin(c: Tx, actor: string) {
   await c`begin`;
@@ -39,7 +52,7 @@ async function begin(c: Tx, actor: string) {
 
 /** Creates an uncommitted transfer inside the caller's transaction. */
 async function seedTransfer(c: Tx): Promise<string> {
-  const ref = `WT-TEST${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+  const ref = `${REF_PREFIX}${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
   const leg = (user: string, direction: string) => ({
     user_id: user, amount: AMOUNT, direction, category: 'wallet_transfer',
     ledger_scope: 'wallet', source_table: 'wallet_transactions',
@@ -61,21 +74,76 @@ async function codeOf(p: Promise<unknown>): Promise<string | null> {
   try { await p; return null; } catch (e: any) { return e?.code ?? e?.message ?? 'error'; }
 }
 
+/** Creates one throwaway account; the signup trigger creates its profile. */
+async function createThrowawayUser(label: string): Promise<string> {
+  const [{ id }] = await sql!`
+    insert into auth.users (id, instance_id, aud, role, email, encrypted_password,
+                            email_confirmed_at, raw_user_meta_data, created_at, updated_at)
+    values (gen_random_uuid(), '00000000-0000-0000-0000-000000000000', 'authenticated',
+            'authenticated', ${`${EMAIL_PREFIX}${label}@example.invalid`}, '', now(),
+            ${sql!.json({ full_name: `Race test ${label}` })}, now(), now())
+    returning id`;
+  createdUsers.push(id);
+  return id;
+}
+
+/** Removes every row this run could have left behind. Never touches other users. */
+async function cleanupRun() {
+  if (!sql || !canRun) return;
+  const steps: Array<[string, () => Promise<unknown>]> = [
+    ['notifications', () => sql!`delete from public.notifications
+        where metadata->>'reference' like ${REF_PREFIX + '%'}
+           or user_id = any(${createdUsers}::uuid[])`],
+    ['withdrawal_requests', () => sql!`delete from public.withdrawal_requests
+        where user_id = any(${createdUsers}::uuid[])`],
+    ['system_events', () => sql!`delete from public.system_events
+        where metadata->>'reference_id' like ${REF_PREFIX + '%'}`],
+    ['general_ledger', () => sql!`delete from public.general_ledger
+        where reference_id like ${REF_PREFIX + '%'}`],
+    ['auth.users', () => sql!`delete from auth.users
+        where id = any(${createdUsers}::uuid[]) and email like ${EMAIL_PREFIX + '%'}`],
+  ];
+  const failures: string[] = [];
+  for (const [name, run] of steps) {
+    try { await run(); } catch (e: any) { failures.push(`${name}: ${e?.message ?? e}`); }
+  }
+  if (failures.length) console.warn(`[race-test cleanup ${RUN_ID}]`, failures.join('; '));
+}
+
 beforeAll(async () => {
-  if (!process.env.PGHOST) return;
+  if (!process.env.PGHOST || process.env.RACE_TEST_ISOLATED_DB !== '1') return;
   sql = postgres({ max: 3, onnotice: () => {} });
   const [priv] = await sql`
     select has_function_privilege('public.reverse_wallet_transfer(text)', 'execute')
        and has_function_privilege('public.create_ledger_transaction(jsonb,text,boolean)', 'execute')
-       and has_table_privilege('public.withdrawal_requests', 'insert') as ok`;
-  const users = await sql`select id from public.profiles order by created_at limit 2`;
-  if (!priv?.ok || users.length < 2) return;
-  sender = users[0].id;
-  recipient = users[1].id;
+       and has_table_privilege('public.withdrawal_requests', 'insert')
+       and has_table_privilege('auth.users', 'insert,delete') as ok`;
+  const [{ n }] = await sql`select count(*)::int as n from public.profiles`;
+  if (!priv?.ok || n >= MAX_TEST_DB_PROFILES) return; // never run against live
   canRun = true;
+  try {
+    sender = await createThrowawayUser('sender');
+    recipient = await createThrowawayUser('recipient');
+  } catch {
+    await cleanupRun();
+    canRun = false;
+  }
 });
 
-afterAll(async () => { await sql?.end(); });
+afterEach(async () => { await cleanupRun(); });
+
+afterAll(async () => {
+  await cleanupRun();
+  if (sql && canRun) {
+    const [{ left }] = await sql`
+      select (select count(*) from auth.users where email like ${EMAIL_PREFIX + '%'})
+           + (select count(*) from public.general_ledger where reference_id like ${REF_PREFIX + '%'})
+           + (select count(*) from public.notifications where metadata->>'reference' like ${REF_PREFIX + '%'})
+           as left`;
+    if (Number(left) > 0) console.warn(`[race-test cleanup ${RUN_ID}] ${left} rows remain`);
+  }
+  await sql?.end();
+});
 
 describe('wallet transfer reversal vs withdrawal race (integration)', () => {
   it('A) reversal wins: notifies both with returned amount and blocks the withdrawal', async (ctx) => {
