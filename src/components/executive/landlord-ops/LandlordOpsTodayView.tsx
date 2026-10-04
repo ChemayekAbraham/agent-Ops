@@ -46,6 +46,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { useLandlordOpsTotals } from '@/hooks/useLandlordOps';
 import { useLandlordOpsBadgeCounts } from '@/hooks/useLandlordOpsBadgeCounts';
 import { useLandlordFloatOverview } from '@/hooks/useLandlordFloatOverview';
 import {
