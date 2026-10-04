@@ -3137,6 +3137,13 @@
       "when": 1791108600816,
       "tag": "0447_landlord_ops_principal_periods",
       "breakpoints": true
+    },
+    {
+      "idx": 448,
+      "version": "7",
+      "when": 1791109856472,
+      "tag": "0448_landlord_ops_principal_recovered_rows",
+      "breakpoints": true
     }
   ]
 }

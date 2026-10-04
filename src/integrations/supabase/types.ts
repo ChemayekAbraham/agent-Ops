@@ -67283,6 +67283,24 @@ export type Database = {
           }
       landlord_ops_principal_recovered: { Args: never; Returns: number }
       landlord_ops_principal_recovered_periods: { Args: never; Returns: Json }
+      landlord_ops_principal_recovered_rows: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: {
+          access_fee: number
+          agent_commission: number
+          id: string
+          landlord_name: string
+          plan_status: string
+          platform_fee: number
+          principal: number
+          registration_fee: number
+          rent_request_id: string
+          repayment_date: string
+          returns: number
+          tenant_name: string
+          total_repayment: number
+        }[]
+      }
       landlord_ops_remove_tenant_from_house: {
         Args: { p_house_id: string; p_reason: string }
         Returns: Json
