@@ -295,6 +295,65 @@ export function ValuationModelPanel() {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader className="pb-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <CardTitle className="text-base">Assumptions</CardTitle>
+            <Button size="sm" variant="outline" className="h-10 sm:h-9" onClick={() => { setInputs({ ...SCENARIO_PRESETS }); setMonthly(null); }}>
+              Reset all to defaults
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Everything the three scenarios are built on. Type a number or use the sliders below; results update straight away.
+            Values that differ from the default are marked.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-1">
+            <label className="text-xs font-medium" htmlFor="asm-start">Starting monthly revenue (UGX) · live 30-day figure {formatUGX(Number(b.fees_30d))}</label>
+            <input
+              id="asm-start" type="number" inputMode="numeric" min={0} step={500000}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              value={Math.round(monthlyRev)}
+              onChange={(e) => setMonthly(Math.max(0, Number(e.target.value) || 0))}
+            />
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            {results.map(({ k }) => (
+              <div key={k} className="rounded-lg border p-3 space-y-2">
+                <p className="text-sm font-semibold">{LABELS[k]}</p>
+                {([
+                  ['monthlyGrowthPct', 'Monthly growth (%)', 0, 30, 0.5],
+                  ['multiple', 'Revenue multiple (×)', 2, 40, 1],
+                  ['dilutionPct', 'Equity sold per round (%)', 5, 40, 1],
+                ] as const).map(([f, l, min, max, step]) => {
+                  const changed = inputs[k][f] !== SCENARIO_PRESETS[k][f];
+                  return (
+                    <div key={f} className="flex items-center justify-between gap-2">
+                      <label htmlFor={`asm-${k}-${f}`} className="text-xs">
+                        {l}{changed && <span className="ml-1 text-primary" title={`Default ${SCENARIO_PRESETS[k][f]}`}>● changed</span>}
+                      </label>
+                      <input
+                        id={`asm-${k}-${f}`} type="number" inputMode="decimal" min={min} max={max} step={step}
+                        className="h-10 w-20 shrink-0 rounded-md border border-input bg-background px-2 text-right text-sm tabular-nums"
+                        value={inputs[k][f]}
+                        onChange={(e) => {
+                          const n = Number(e.target.value);
+                          if (e.target.value !== '' && Number.isFinite(n)) set(k, f, Math.min(max, Math.max(min, n)));
+                        }}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Company value = monthly revenue × 12 × multiple. Each round sells the equity % shown, so your ownership shrinks by that share. Ranges: growth 0–30%, multiple 2–40×, equity sold 5–40%.
+          </p>
+        </CardContent>
+      </Card>
+
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-muted-foreground">Scenario comparison</h3>
         <Button size="sm" variant="outline" className="gap-2" onClick={() => shareValuationComparisonPdf({
