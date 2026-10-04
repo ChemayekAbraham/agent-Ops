@@ -11,7 +11,8 @@ import { runScenario, SCENARIO_PRESETS, type ScenarioInputs } from '@/lib/valuat
 
 type Key = keyof typeof SCENARIO_PRESETS;
 const LABELS: Record<Key, string> = { conservative: 'Conservative', base: 'Base', high: 'High growth' };
-const UGX_PER_USD = 3700;
+const FALLBACK_UGX_PER_USD = 3700;
+let UGX_PER_USD = FALLBACK_UGX_PER_USD;
 const COLORS: Record<Key, string> = { conservative: 'hsl(var(--muted-foreground))', base: 'hsl(var(--primary))', high: 'hsl(var(--accent-foreground))' };
 type Metric = 'valuation' | 'stake' | 'stakeValue';
 const METRICS: { id: Metric; label: string }[] = [
@@ -41,6 +42,20 @@ export function ValuationModelPanel() {
       return data as unknown as Baseline;
     },
   });
+  const fx = useQuery({
+    queryKey: ['ugx-usd-live-rate'],
+    staleTime: 30 * 60 * 1000,
+    queryFn: async () => {
+      const res = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+      if (!res.ok) throw new Error('rate');
+      const j = await res.json();
+      const rate = Number(j?.rates?.UGX);
+      if (!rate) throw new Error('rate');
+      const at = j.time_last_updated ? new Date(j.time_last_updated * 1000) : new Date();
+      return { rate, at: at.toISOString() };
+    },
+  });
+  UGX_PER_USD = fx.data?.rate ?? FALLBACK_UGX_PER_USD;
   const [inputs, setInputs] = useState<Record<Key, ScenarioInputs>>({ ...SCENARIO_PRESETS });
   const [metric, setMetric] = useState<Metric>('valuation');
   const [hidden, setHidden] = useState<Key[]>([]);
@@ -82,7 +97,10 @@ export function ValuationModelPanel() {
         <h2 className="text-xl font-bold">Valuation Model</h2>
         <p className="text-sm text-muted-foreground">
           Starts from live fee income (access + registration fees on funded Rent Plans). Adjust each scenario; nothing is saved.
-          Before any new rounds, existing holders own 92% (8% is the Angel Pool). US$1 = UGX {UGX_PER_USD.toLocaleString()} for display.
+          Before any new rounds, existing holders own 92% (8% is the Angel Pool). {fx.data
+            ? <>Live rate: US$1 = UGX {Math.round(UGX_PER_USD).toLocaleString()}, last updated {new Date(fx.data.at).toLocaleString('en-GB', { timeZone: 'Africa/Kampala', dateStyle: 'medium', timeStyle: 'short' })} (Kampala).</>
+            : fx.isLoading ? 'Loading live exchange rate…'
+            : <>Live rate unavailable; using a fixed US$1 = UGX {FALLBACK_UGX_PER_USD.toLocaleString()}.</>}
         </p>
       </div>
 
