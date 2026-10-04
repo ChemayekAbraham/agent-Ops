@@ -1,9 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { useCFODailyReceivablesPayables } from '@/hooks/useCFODailyReceivablesPayables';
 import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid, PieChart, Pie, Cell,
 } from 'recharts';
@@ -67,12 +66,30 @@ export function CashPositionInsights({ totalReceivables, receivablesCategories, 
     staleTime: 60_000,
   });
 
-  const range = useMemo(() => {
-    const from = new Date();
-    const to = new Date(); to.setDate(to.getDate() + 30);
-    return { from, to };
-  }, []);
-  const rp = useCFODailyReceivablesPayables(range);
+  const rp = useQuery({
+    queryKey: ['cfo-cash-position-payables-30d'],
+    queryFn: async () => {
+      const today = kampalaToday();
+      const to = new Date(); to.setDate(to.getDate() + 30);
+      const toKey = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Kampala' }).format(to);
+      const { data, error } = await (supabase.rpc as any)('get_payables_due_range', { p_from: today, p_to: toKey });
+      if (error) throw error;
+      const d = (data || {}) as any;
+      const all = ((d.rows || []) as any[]).map((r) => ({
+        id: String(r.id), user_id: r.user_id ?? null, name: r.name as string | null,
+        amount: Number(r.amount || 0), due_date: r.due_date ?? null, category_label: r.category_label ?? null,
+      }));
+      const top = all.slice().sort((a, b) => b.amount - a.amount).slice(0, 5);
+      const ids = top.filter((r) => !r.name && r.user_id).map((r) => r.user_id as string);
+      if (ids.length) {
+        const { data: profs } = await supabase.from('profiles').select('id, full_name').in('id', ids);
+        const m = new Map((profs || []).map((p: any) => [p.id, p.full_name]));
+        top.forEach((r) => { if (!r.name) r.name = m.get(r.user_id) || 'Unknown'; });
+      }
+      return { outstanding: Number(d.outstanding || 0), dueInRange: Number(d.due_in_range || 0), count: all.length, top };
+    },
+    staleTime: 120_000,
+  });
 
   const recent = useQuery({
     queryKey: ['cfo-cash-position-recent-tx'],
@@ -90,7 +107,7 @@ export function CashPositionInsights({ totalReceivables, receivablesCategories, 
     staleTime: 60_000,
   });
 
-  const payablesTotal = rp.data?.payables.outstanding ?? 0;
+  const payablesTotal = rp.data?.outstanding ?? 0;
   const outstanding = totalReceivables + payablesTotal;
   const recvPct = outstanding > 0 ? (totalReceivables / outstanding) * 100 : 0;
   const pie = [
@@ -98,7 +115,7 @@ export function CashPositionInsights({ totalReceivables, receivablesCategories, 
     { name: 'Payables', value: payablesTotal, color: 'hsl(var(--destructive))' },
   ];
 
-  const topPayables = (rp.data?.payables.rows ?? []).slice().sort((a, b) => b.amount - a.amount).slice(0, 5);
+  const topPayables = rp.data?.top ?? [];
   const topReceivables = receivablesCategories.slice().sort((a, b) => b.outstanding - a.outstanding).slice(0, 5);
 
   const series = flow.data ?? [];
@@ -107,8 +124,7 @@ export function CashPositionInsights({ totalReceivables, receivablesCategories, 
   const priorIn = series.slice(0, half).reduce((s, d) => s + d.inflow, 0);
   const inChange = priorIn > 0 ? ((recentIn - priorIn) / priorIn) * 100 : null;
   const netAll = series.reduce((s, d) => s + d.net, 0);
-  const overdueRecv = rp.data?.receivables.overdue ?? 0;
-
+  
   const insights = [
     inChange !== null && {
       icon: inChange >= 0 ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />,
@@ -120,7 +136,7 @@ export function CashPositionInsights({ totalReceivables, receivablesCategories, 
     {
       icon: <AlertTriangle className="h-4 w-4" />, tone: 'bg-destructive text-destructive-foreground',
       title: 'Payables due soon',
-      sub: `${rp.data?.payables.rows.length ?? 0} items due in 30 days, totalling ${fmt(rp.data?.payables.dueInRange ?? 0)}`,
+      sub: `${rp.data?.count ?? 0} items due in 30 days, totalling ${fmt(rp.data?.dueInRange ?? 0)}`,
       go: 'withdrawals',
     },
     {
@@ -128,13 +144,6 @@ export function CashPositionInsights({ totalReceivables, receivablesCategories, 
       title: `Net cash movement ${netAll >= 0 ? 'positive' : 'negative'}`,
       sub: `${netAll >= 0 ? '+' : ''}${fmt(netAll)} over the last ${days} days`,
       go: 'cash-position',
-    },
-    {
-      icon: overdueRecv > 0 ? <AlertTriangle className="h-4 w-4" /> : <CheckCircle2 className="h-4 w-4" />,
-      tone: overdueRecv > 0 ? 'bg-warning text-warning-foreground' : 'bg-success text-success-foreground',
-      title: overdueRecv > 0 ? 'Rent Plan repayments overdue' : 'No overdue Rent Plan repayments',
-      sub: overdueRecv > 0 ? `${fmt(overdueRecv)} behind schedule` : 'All repaying plans are on schedule',
-      go: 'reconciliation',
     },
   ].filter(Boolean) as Array<{ icon: React.ReactNode; tone: string; title: string; sub: string; go: string }>;
 
