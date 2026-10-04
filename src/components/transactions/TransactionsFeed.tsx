@@ -328,7 +328,7 @@ export function TransactionsFeed({
 }
 
 /** Reference of an original (non-reversal) wallet transfer row, else null. */
-function transferRefOf(row: any): string | null {
+function transferRefOf(row: TxFeedRow): string | null {
   return row.category === "wallet_transfer" &&
     row.reference_id &&
     !String(row.reference_id).endsWith("-REV")
@@ -391,7 +391,7 @@ function TransferReversalBadge({ row }: { row: TxFeedRow }) {
 }
 
 /** Shows "Reverse transfer" under an outgoing transfer while the server says it can still be reversed. */
-function ReverseTransferRowButton({ row, onOpen }: { row: any; onOpen: () => void }) {
+function ReverseTransferRowButton({ row, onOpen }: { row: TxFeedRow; onOpen: () => void }) {
   const ref = transferRefOf(row);
   const status = useTransferReversalStatus(ref);
   if (!ref || !status.data?.can_reverse) return null;
