@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Home,
   User,
@@ -92,6 +92,7 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
   // Drill-down: principal recovered per Kampala-day period. Fetched fresh each
   // time the dialog opens (enabled gate), same population as the headline KPI.
   const [principalDrilldownOpen, setPrincipalDrilldownOpen] = useState(false);
+  const navigate = useNavigate();
   interface PrincipalPeriods {
     today: number;
     yesterday: number;
@@ -302,11 +303,11 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
       <div
         role="button"
         tabIndex={0}
-        onClick={() => setPrincipalDrilldownOpen(true)}
+        onClick={() => navigate('/landlord-ops/principal-recovered')}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault();
-            setPrincipalDrilldownOpen(true);
+            navigate('/landlord-ops/principal-recovered');
           }
         }}
         className="p-4 rounded-lg border border-border bg-card hover:border-primary/60 hover:shadow-sm transition-all cursor-pointer group"
