@@ -51,12 +51,19 @@ export default function PrincipalRecovered() {
     queryKey: ['landlord-ops-principal-rows', period.from, period.to],
     staleTime: 0,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('landlord_ops_principal_recovered_rows', {
-        p_from: period.from as any,
-        p_to: period.to as any,
-      });
-      if (error) throw error;
-      return data ?? [];
+      // Server caps each response at 1,000 rows — fetch in stable-ordered batches until done.
+      const PAGE = 1000;
+      const all: any[] = [];
+      for (let offset = 0; ; offset += PAGE) {
+        const { data, error } = await (supabase.rpc as any)('landlord_ops_principal_recovered_rows', {
+          p_from: period.from,
+          p_to: period.to,
+        }).range(offset, offset + PAGE - 1);
+        if (error) throw error;
+        all.push(...(data ?? []));
+        if (!data || data.length < PAGE) break;
+      }
+      return all;
     },
   });
 
@@ -132,7 +139,17 @@ export default function PrincipalRecovered() {
                     {new Date(r.repayment_date).toLocaleString('en-GB', { timeZone: 'Africa/Kampala', dateStyle: 'medium', timeStyle: 'short' })}
                   </td>
                   <td className="px-3 py-2">{r.tenant_name ?? '—'}</td>
-                  <td className="px-3 py-2 font-mono">{r.rent_request_id?.slice(0, 8)}</td>
+                  <td className="px-3 py-2">
+                    <div className="font-medium whitespace-nowrap">
+                      {r.plan_rent_amount != null ? formatUGX(Number(r.plan_rent_amount)) : 'Rent Plan'}
+                      {r.plan_duration_days ? ` · ${r.plan_duration_days} days` : ''}
+                    </div>
+                    <div className="text-[10px] text-muted-foreground whitespace-nowrap">
+                      {r.plan_start ? `Started ${new Date(r.plan_start).toLocaleDateString('en-GB', { timeZone: 'Africa/Kampala', day: 'numeric', month: 'short', year: 'numeric' })}` : ''}
+                      {r.plan_house_category ? ` · ${String(r.plan_house_category).replace(/_/g, ' ')}` : ''}
+                      {` · RP-${String(r.rent_request_id ?? '').slice(0, 6).toUpperCase()}`}
+                    </div>
+                  </td>
                   <td className="px-3 py-2">{r.landlord_name ?? '—'}</td>
                   <td className="px-3 py-2 text-right tabular-nums">{formatUGX(Number(r.total_repayment))}</td>
                   <td className="px-3 py-2 text-right font-semibold tabular-nums">{formatUGX(Number(r.principal))}</td>
