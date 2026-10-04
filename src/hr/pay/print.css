@@ -1,0 +1,380 @@
+@page {
+  size: A4 landscape;
+  margin: 8mm 8mm 10mm;
+}
+
+/* Page furniture. Browsers without margin-box support ignore this rule and
+   keep the one above. */
+@page {
+  @bottom-left {
+    content: 'Welile Technologies Ltd \00B7  Payroll enrollment sheet \00B7  Confidential';
+    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+    font-size: 6.5pt;
+    color: #52525b;
+  }
+  @bottom-right {
+    content: 'Page ' counter(page) ' of ' counter(pages);
+    font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+    font-size: 6.5pt;
+    color: #52525b;
+  }
+}
+
+@media print {
+  html,
+  body,
+  #root {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    background: #fff !important;
+    color: #000;
+    font-size: 8pt;
+    line-height: 1.25;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .print-root,
+  .print-root * {
+    visibility: visible;
+  }
+
+  .print-root {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    box-shadow: none;
+    border: none;
+    background: transparent;
+  }
+
+  /* Tailwind's space-y gap between top-level blocks costs a page on paper. */
+  .print-root > * {
+    margin-top: 0 !important;
+  }
+
+  .print-root .no-print,
+  .print-root button,
+  .print-root [role='switch'],
+  .print-root [role='checkbox'] {
+    display: none !important;
+  }
+
+  .print-root .print-hide {
+    display: none !important;
+  }
+
+  /* Collapsed to zero width rather than removed, so every colSpan in the
+     department, subtotal and total rows still lines up. */
+  .print-root .print-collapse {
+    width: 0 !important;
+    min-width: 0 !important;
+    max-width: 0 !important;
+    padding: 0 !important;
+    border: 0 !important;
+    font-size: 0 !important;
+    line-height: 0 !important;
+    overflow: hidden !important;
+    visibility: hidden !important;
+  }
+
+  .print-root .overflow-x-auto,
+  .print-root .overflow-auto {
+    overflow: visible !important;
+  }
+
+  .print-root [class*='rounded'] {
+    border: none !important;
+    box-shadow: none !important;
+    border-radius: 0 !important;
+  }
+
+  /* ---- Letterhead ---- */
+  .print-letterhead {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 10mm;
+    padding-bottom: 2.5mm;
+    border-bottom: 1.25pt solid #481a7f;
+  }
+
+  .print-logo {
+    display: block;
+    height: 12mm;
+    width: auto;
+  }
+
+  .print-values {
+    margin: 1.2mm 0 0;
+    font-size: 6.5pt;
+    font-weight: 600;
+    letter-spacing: 1.4pt;
+    text-transform: uppercase;
+    color: #481a7f;
+  }
+
+  .print-company {
+    text-align: right;
+    font-size: 7.5pt;
+    line-height: 1.4;
+  }
+
+  .print-company p {
+    margin: 0;
+  }
+
+  .print-title {
+    margin: 3mm 0 1.5mm;
+  }
+
+  .print-title h2 {
+    font-size: 12pt;
+    font-weight: 700;
+    margin: 0;
+  }
+
+  .print-title p {
+    font-size: 7.5pt;
+    margin: 0.8mm 0 0;
+    color: #3f3f46;
+  }
+
+  .print-summary {
+    display: flex;
+    gap: 8mm;
+    padding: 1.5mm 0 2mm;
+    font-size: 8pt;
+    border-bottom: 0.5pt solid #d4d4d8;
+    margin-bottom: 2mm;
+  }
+
+  /* ---- Table. Scoped under .print-root and !important so these beat the
+     Tailwind p-4 / h-12 / text-sm classes on every cell. ---- */
+  .print-root table {
+    width: 100% !important;
+    table-layout: fixed;
+    border-collapse: collapse;
+  }
+
+  .print-root thead {
+    display: table-header-group;
+  }
+
+  /* The grand total prints once, after the last department. As a footer group
+     it would repeat at the foot of every page and read as a page total. */
+  .print-root tfoot {
+    display: table-row-group;
+  }
+
+  .print-root tr {
+    height: auto !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .print-root th,
+  .print-root td {
+    font-size: 7pt !important;
+    line-height: 1.2 !important;
+    padding: 0.4mm 1mm !important;
+    height: auto !important;
+    vertical-align: middle !important;
+    white-space: nowrap;
+    word-break: normal !important;
+    overflow-wrap: break-word;
+    border-bottom: 0.4pt solid #e4e4e7;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Amounts in the document font with aligned figures, not the code font. */
+  .print-root th,
+  .print-root td,
+  .print-root td * {
+    font-family: inherit !important;
+  }
+
+  .print-root td * {
+    font-size: inherit !important;
+    line-height: inherit !important;
+  }
+
+  /* Only names and positions may wrap. */
+  .print-root tbody td:nth-child(2),
+  .print-root tbody td:nth-child(4) {
+    white-space: normal;
+  }
+
+  .print-root th {
+    font-size: 6.5pt !important;
+    font-weight: 700 !important;
+    color: #000 !important;
+    white-space: normal;
+    vertical-align: bottom !important;
+    padding-top: 1mm !important;
+    padding-bottom: 1mm !important;
+    border-bottom: 1pt solid #000;
+    text-align: left;
+  }
+
+  /* Status prints as plain coloured text, not a pill. */
+  .print-root td .rounded-full {
+    background: none !important;
+    padding: 0 !important;
+    font-weight: 600 !important;
+  }
+
+  .print-root td svg {
+    width: 2.6mm !important;
+    height: 2.6mm !important;
+  }
+
+  /* Column widths from the header row. Indices count every column in the
+     markup: 3 (Department) is collapsed to zero, 13 to 17 are hidden. The
+     twelve that print are 1, 2, 4 to 12 and 18, and they sum to 100%. */
+  .print-root th:nth-child(1) { width: 6%; }
+  .print-root th:nth-child(2) { width: 13%; }
+  .print-root th:nth-child(3) { width: 0; }
+  .print-root th:nth-child(4) { width: 18%; }
+  .print-root th:nth-child(5) { width: 6%; }
+  .print-root th:nth-child(6) { width: 8%; }
+  .print-root th:nth-child(7) { width: 6%; }
+  .print-root th:nth-child(8) { width: 7%; }
+  .print-root th:nth-child(9) { width: 7%; }
+  .print-root th:nth-child(10) { width: 7%; }
+  .print-root th:nth-child(11) { width: 9%; }
+  .print-root th:nth-child(12) { width: 7%; }
+  .print-root th:nth-child(18) { width: 6%; }
+
+  .print-root th:nth-child(6),
+  .print-root td:nth-child(6),
+  .print-root th:nth-child(7),
+  .print-root td:nth-child(7),
+  .print-root th:nth-child(8),
+  .print-root td:nth-child(8),
+  .print-root th:nth-child(9),
+  .print-root td:nth-child(9),
+  .print-root th:nth-child(10),
+  .print-root td:nth-child(10),
+  .print-root th:nth-child(11),
+  .print-root td:nth-child(11) {
+    text-align: right;
+  }
+
+  /* ---- Department grouping ---- */
+  .print-root tr.dept-header td {
+    font-size: 7.5pt !important;
+    font-weight: 700 !important;
+    color: #481a7f !important;
+    background: #f5f3f9 !important;
+    border-bottom: 0.75pt solid #481a7f;
+    padding-top: 1.1mm !important;
+    padding-bottom: 0.8mm !important;
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  .print-root tr.dept-header td span {
+    color: #52525b !important;
+    font-weight: 400 !important;
+  }
+
+  .print-root tr.dept-subtotal td {
+    font-weight: 700 !important;
+    border-top: 0.5pt solid #71717a;
+    border-bottom: 0.75pt solid #a1a1aa;
+    background: #fafafa !important;
+    break-before: avoid;
+    page-break-before: avoid;
+  }
+
+  /* The totals row has to read as the answer, not another row. */
+  .print-root tfoot td {
+    font-size: 7.5pt !important;
+    font-weight: 700 !important;
+    border-top: 1.25pt solid #000;
+    border-bottom: 1.25pt solid #000;
+    padding-top: 1.2mm !important;
+    padding-bottom: 1.2mm !important;
+    background: #f4f4f5 !important;
+  }
+
+  /* ---- Foot: statutory position and sign-off side by side ---- */
+  .print-root > .print-statutory,
+  .print-root > .print-signoff {
+    display: inline-block !important;
+    vertical-align: top;
+    margin-top: 3.5mm !important;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .print-root > .print-statutory {
+    width: 62%;
+  }
+
+  .print-root > .print-signoff {
+    width: 36%;
+    margin-left: 2% !important;
+  }
+
+  .print-statutory h3 {
+    font-size: 8.5pt;
+    font-weight: 700;
+    margin: 0 0 1.5mm;
+    padding-bottom: 0.8mm;
+    border-bottom: 0.5pt solid #000;
+  }
+
+  .print-statutory-grid {
+    display: flex;
+    gap: 10mm;
+    font-size: 7.5pt;
+  }
+
+  .print-statutory-grid p {
+    margin: 0;
+    line-height: 1.45;
+  }
+
+  .print-note {
+    margin-top: 1.5mm;
+    font-size: 6.5pt;
+    line-height: 1.35;
+    color: #52525b;
+    max-width: none;
+  }
+
+  .print-signoff .gap-16 {
+    gap: 6mm !important;
+  }
+
+  .print-signoff .mt-8 {
+    margin-top: 7mm !important;
+  }
+
+  .print-signoff .mt-6 {
+    margin-top: 6mm !important;
+  }
+
+  .print-signoff p {
+    font-size: 7pt !important;
+    margin: 0.8mm 0 0;
+  }
+}

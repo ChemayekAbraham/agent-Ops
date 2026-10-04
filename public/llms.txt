@@ -1,0 +1,23 @@
+# Welile
+
+> Africa's rent facilitation platform. Access rent today and pay it back over time, fund verified tenants for steady returns, and manage everything from your phone.
+
+Welile connects tenants, landlords, agents, and funders. Tenants get help paying rent and build a trust profile; funders earn managed returns by supporting verified tenants; landlords list properties and receive guaranteed rent.
+
+## Pages
+
+- [Welcome](/welcome): Explore housing and funding opportunities across Africa.
+- [Rent Money](/rent-money): Digital wallet to deposit, send, withdraw, and pay rent on MTN & Airtel Mobile Money.
+- [Find a House](/find-a-house): Browse verified homes available for rent near you.
+- [Opportunities](/opportunities): Discover funding and earning opportunities on Welile.
+- [Become a Funder](/funder-onboarding): Fund verified tenants and grow your capital with managed returns.
+- [Become a Partner](/partner-onboarding): Partner with Welile to expand housing access.
+- [Internship](/internship): Join the Welile internship program to learn, earn, and grow.
+
+## Optional
+
+- [Terms of Service](/terms): Platform terms and conditions.
+- [Privacy Policy](/privacy): How Welile handles your data.
+- [Partner Terms](/partners-terms): Terms for Welile partners.
+- [Agent Agreement](/agent-agreement): Agreement for Welile agents.
+- [Landlord Agreement](/landlord-agreement): Agreement for Welile landlords.

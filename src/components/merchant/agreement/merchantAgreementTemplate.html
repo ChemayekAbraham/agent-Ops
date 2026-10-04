@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welile Merchant Agent Agreement</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Crimson+Text:wght@700&family=Oswald:wght@500&family=Nunito:wght@700&display=swap"
+        rel="stylesheet">
+
+    <style>
+        /* Reset & Base Styles */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --primary-purple: #7b19d4;
+            --text-dark: #0f172a;
+            --text-muted: #334155;
+            --border-color: #94a3b8;
+            --light-border: #cbd5e1;
+            --bg-light: #f8fafc;
+            --font-body: 'Inter', sans-serif;
+        }
+
+        body {
+            font-family: var(--font-body);
+            color: var(--text-dark);
+            background-color: #f1f5f9;
+            line-height: 1.65;
+            font-size: 13px;
+            padding: 40px 0;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* Page-by-Page Layout */
+        .page-section {
+            width: 210mm;
+            /* Standard A4 Width */
+            min-height: 297mm;
+            /* Standard A4 Height */
+            margin: 0 auto 30px auto;
+            background-color: #ffffff;
+            padding: 45px 50px 50px 50px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+            border: 1px solid #e2e8f0;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .page-content {
+            flex-grow: 1;
+        }
+
+        /* Headers */
+        .header-block {
+            width: 100%;
+            border-bottom: 2px solid var(--primary-purple);
+            padding-bottom: 12px;
+            margin-bottom: 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+        }
+
+        .header-logo img {
+            height: 38px;
+            width: auto;
+            display: block;
+        }
+
+        .header-title-meta {
+            text-align: right;
+            font-size: 10px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Document Title Block */
+        .title-container {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        .doc-main-title {
+            font-size: 20px;
+            font-weight: 800;
+            color: var(--text-dark);
+            margin-bottom: 5px;
+            letter-spacing: 0.5px;
+        }
+
+        .doc-subtitle {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--text-muted);
+            margin-bottom: 15px;
+        }
+
+        /* Section & Headings */
+        .section-container {
+            margin-bottom: 25px;
+        }
+
+        .section-header {
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--text-dark);
+            margin-bottom: 12px;
+            padding-bottom: 4px;
+            /* border-bottom: 1px solid var(--light-border); */
+            letter-spacing: 0.3px;
+        }
+
+        /* Paragraph and Bullet formatting */
+        .clause-block {
+            margin-bottom: 12px;
+            text-align: justify;
+        }
+
+        .clause-text {
+            font-size: 12.5px;
+            color: var(--text-muted);
+            line-height: 1.6;
+        }
+
+        .clause-text strong {
+            color: var(--text-dark);
+            font-weight: 700;
+        }
+
+        .bullet-list {
+            margin: 8px 0 8px 20px;
+            list-style-type: disc;
+        }
+
+        .bullet-list li {
+            font-size: 12.5px;
+            color: var(--text-muted);
+            margin-bottom: 5px;
+            line-height: 1.5;
+        }
+
+        .bullet-list li strong {
+            color: var(--text-dark);
+            font-weight: 700;
+        }
+
+        /* Boxed emphasis for key legal points */
+        .legal-alert-box {
+            border: 1px solid var(--border-color);
+            padding: 12px 15px;
+            background-color: var(--bg-light);
+            margin: 10px 0;
+            font-size: 12.5px;
+        }
+
+        .legal-alert-box strong {
+            color: var(--text-dark);
+        }
+
+        /* Footer structure for page sections */
+        .footer-block {
+            width: 100%;
+            border-top: 1px solid var(--light-border);
+            padding-top: 12px;
+            margin-top: 25px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 10px;
+            color: var(--text-muted);
+            font-weight: 500;
+        }
+
+        .footer-block a {
+            color: var(--text-dark);
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        /* Signatures Table */
+        .sig-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 30px;
+        }
+
+        .sig-table td {
+            width: 50%;
+            vertical-align: top;
+            padding: 0 20px 0 0;
+        }
+
+        .sig-table td:last-child {
+            padding-right: 0;
+            padding-left: 20px;
+        }
+
+        .sig-placeholder-line {
+            border-bottom: 1.5px solid var(--border-color);
+            height: 45px;
+            margin-bottom: 8px;
+        }
+
+        .sig-detail-name {
+            font-weight: 700;
+            color: var(--text-dark);
+            font-size: 13px;
+            margin-bottom: 2px;
+        }
+
+        .sig-detail-role {
+            font-size: 12px;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+        }
+
+        .sig-detail-date {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .sig-detail-date span {
+            display: inline-block;
+            width: 130px;
+            border-bottom: 1px solid var(--light-border);
+            margin-left: 5px;
+            height: 14px;
+        }
+
+        .stamp-box-container {
+            margin-top: 20px;
+            display: flex;
+            justify-content: flex-end;
+        }
+
+        .stamp-container {
+            position: absolute;
+            right: 120px;
+            bottom: 160px;
+            transform: scale(1.5) rotate(-45deg);
+            opacity: 0.82;
+            display: inline-block;
+            pointer-events: none;
+        }
+
+        .stamp {
+            width: 200px;
+            border: 2px solid #1134a6;
+            border-radius: 6px;
+            padding: 8px 10px;
+            text-align: center;
+            background-color: transparent;
+            box-sizing: border-box;
+        }
+
+        .stamp .company {
+            color: #1134a6;
+            font-family: 'Crimson Text', serif;
+            font-weight: 700;
+            font-size: 12px;
+            line-height: 1.1;
+            letter-spacing: 0.4px;
+            margin-bottom: 6px;
+        }
+
+        .stamp .middle-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+            padding: 0 3px;
+        }
+
+        .stamp .star {
+            color: #1134a6;
+            font-size: 14px;
+            line-height: 1;
+        }
+
+        .stamp .date {
+            color: #e51921;
+            font-family: 'Oswald', sans-serif;
+            font-size: 18px;
+            font-weight: 500;
+            letter-spacing: 0.8px;
+        }
+
+        .stamp .address {
+            color: #1134a6;
+            font-family: 'Nunito', sans-serif;
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 0.2px;
+        }
+
+        /* Print settings optimization */
+        @media print {
+            body {
+                background-color: #ffffff;
+                padding: 0;
+            }
+
+            .page-section {
+                margin: 0;
+                box-shadow: none;
+                border: none;
+                page-break-after: always;
+                height: 297mm;
+                padding: 40px 40px 40px 40px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- ==================== PAGE 1 ==================== -->
+    <div class="page-section">
+        <div class="stamp-container" aria-hidden="true">
+            <div class="stamp">
+                <div class="company">WELILE TECHNOLOGIES<br>LIMITED</div>
+                <div class="middle-row">
+                    <span class="star">&#9733;</span>
+                    <span class="date">{{StampDate}}</span>
+                    <span class="star">&#9733;</span>
+                </div>
+                <div class="address">PO Box 167564 Kampala Uganda</div>
+            </div>
+        </div>
+        <div class="page-content">
+            <header class="header-block">
+                <div class="header-logo">
+                    <img src="{{LogoUrl}}" alt="Welile Logo">
+                </div>
+                <div class="header-title-meta">
+                    Welile Merchant Agent Agreement
+                </div>
+            </header>
+
+            <div class="title-container">
+                <h1 class="doc-main-title">WELILE MERCHANT AGENT AGREEMENT</h1>
+                <p class="doc-subtitle">(Cash-Out Agent — Float Distribution & Payout Services)</p>
+            </div>
+
+            <!-- Section 1 -->
+            <div class="section-container">
+                <h2 class="section-header">1) PURPOSE OF THIS AGREEMENT</h2>
+
+                <div class="clause-block">
+                    <p class="clause-text">
+                        <strong>1.1</strong> This Agreement is entered into between <strong>Welile Technologies
+                            Limited</strong>
+                        (&ldquo;Welile&rdquo;, &ldquo;the Company&rdquo;, &ldquo;we&rdquo;, &ldquo;us&rdquo;) and the
+                        Merchant
+                        Agent, <strong>{{MerchantName}}</strong> (&ldquo;Merchant Agent&rdquo;, &ldquo;Cash-Out Agent&rdquo;,
+                        &ldquo;you&rdquo;), for the platform <strong>welile.com</strong>, effective <strong>{{EffectiveDate}}</strong>
+                        (Version <strong>v{{Version}}</strong>). By clicking &ldquo;I Agree&rdquo;, you confirm that you have
+                        read,
+                        understood, and accepted this Agreement in full. This Agreement sets out the terms under which
+                        you act as a
+                        Welile Merchant Agent (also called a Cash-Out Agent).
+                    </p>
+                </div>
+
+                <div class="clause-block">
+                    <p class="clause-text">
+                        <strong>1.2</strong> Your core role is simple:
+                    </p>
+                    <ul class="bullet-list">
+                        <li>Welile gives you <strong>FLOAT</strong> (company money) to hold and distribute.</li>
+                        <li>Users on the platform request to withdraw money from their wallets.</li>
+                        <li>You pay those users in cash (or mobile money) using the float Welile provided.</li>
+                        <li>Welile pays you a commission for each payout you complete and verify.</li>
+                    </ul>
+                </div>
+
+                <div class="clause-block">
+                    <p class="clause-text">
+                        <strong>1.3</strong> You are a trusted distribution point for the Company's money.
+                    </p>
+                    <div class="legal-alert-box">
+                        <strong>The float is NOT yours — it belongs to Welile at all times</strong> until it is
+                        correctly paid out
+                        to a verified user.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Section 2 -->
+            <div class="section-container">
+                <h2 class="section-header">2) RELATIONSHIP OF THE PARTIES (NOT AN EMPLOYEE)</h2>
+
+                <div class="clause-block">
+                    <p class="clause-text">
+                        <strong>2.1</strong> You are an independent merchant partner, <strong>NOT</strong> an employee
+                        of Welile.
+                    </p>
+                </div>
+
+                <div class="clause-block">
+                    <p class="clause-text">
+                        <strong>2.2</strong> This Agreement does <strong>NOT</strong> create:
+                    </p>
+                    <ul class="bullet-list">
+                        <li>a salary or wage entitlement</li>
+                        <li>employee benefits (NSSF, pension, leave, insurance)</li>
+                        <li>an employment relationship</li>
+                        <li>any authority to bind Welile in contracts with third parties</li>
+                    </ul>
+                </div>
+
+                <div class="clause-block">
+                    <p class="clause-text">
+                        <strong>2.3</strong> You are responsible for your own:
+                    </p>
+                    <ul class="bullet-list">
+                        <li>business location and operating hours</li>
+                        <li>transport, airtime, data, and running costs</li>
+                        <li>taxes and statutory obligations on your commission income</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <footer class="footer-block">
+            <div>Welile Technologies Limited &middot; Page 1 of 7</div>
+            <div>Platform: <a href="https://welile.com" target="_blank">welile.com</a></div>
+        </footer>
+    </div>
+
+
+    <!-- ==================== PAGE 2 ==================== -->
+    <div class="page-section">
+        <div class="stamp-container" aria-hidden="true">
+            <div class="stamp">
+                <div class="company">WELILE TECHNOLOGIES<br>LIMITED</div>
+                <div class="middle-row">
+                    <span class="star">&#9733;</span>
+                    <span class="date">{{StampDate}}</span>
+                    <span class="star">&#9733;</span>
+                </div>
+                <div class="address">PO Box 167564 Kampala Uganda</div>
+            </div>
+        </div>
+        <div class="page-content">
+            <header class="header-block">
+                <div class="header-logo">
+                    <img src="{{LogoUrl}}" alt="Welile Logo">
+                </div>
+                <div class="header-title-meta">
+                    Welile Merchant Agent Agreement
+                </div>
+            </header>
+
+            <!-- Section 3 -->
+            <div class="section-container">
+                <h2 class="section-header">3) THE FLOAT (COMPANY MONEY HELD IN TRUST)</h2>
+
+                <div class="clause-block">
+                    <p class="clause-text">
+                        <strong>3.1 OWNERSHIP:</strong> All float advanced to you remains the property of Welile. You
+                        hold it
+                        strictly in trust (&ldquo;on behalf of the Company&rdquo;) for the sole purpose of paying out
+                        approved user
+                        withdrawals.
+                    </p>
+                </div>
+
+                <div class="clause-block">
+                    <p class="clause-text">
+                        <strong>3.2 PERMITTED USE:</strong> Float may <strong>ONLY</strong> be used to:
+                    </p>
+                    <ul class="bullet-list">
+                        <li>pay out verified, platform-approved user withdrawal requests, and</li>
+                        <li>be returned/reconciled to Welile on request.</li>
+                    </ul>
+                </div>
+
+                <div class="clause-block">
+                    <p class="clause-text">
+                        <strong>3.3 PROHIBITED USE:</strong> You must <strong>NEVER</strong> use float for:
+                    </p>
+                    <ul class="bullet-list">
+                        <li>your own personal expenses or business</li>
+                        <li>lending money to other people</li>
+                        <li>any payment not generated and approved through the Welile platform</li>
+                    </ul>
+                    <div class="legal-alert-box">
+                        <strong>Using float for any unauthorised purpose is a serious breach and may be treated as
+                            misappropriation
+                            of company funds.</strong>
+                    </div>
+                </div>
+
+                <div class="clause-block">
+                    <p class="clause-text">
+                        <strong>3.4 FLOAT BALANCE:</strong> Your float balance is tracked in the platform at all times.
+                        Every payout
+                        you make reduces your float; every top-up increases it. The platform ledger is the final record
+                        of how much
+                        float you hold.
+                    </p>
+                </div>
+
+                <div class="clause-block">
+                    <p class="clause-text">
+                        <strong>3.5 TOP-UPS & LIMITS:</strong> Welile decides how much float to advance you and may
+                        increase,
+                        reduce, freeze, or recall float at any time based on your performance, volume, and risk profile.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Section 4 -->
+            <div class="section-container">
+                <h2 class="section-header">4) HOW A PAYOUT WORKS</h2>
+
+                <div class="clause-block">
+                    <p class="clause-text">
+                        <strong>4.1</strong> A user requests a withdrawal from their wallet on the platform.
+                    </p>
+                </div>
+
+                <div class="clause-block">
+                    <p class="clause-text">
+                        <strong>4.2</strong> You <strong>CLAIM</strong> the request in the app before paying — this
+                        locks the
+                        request to you so two agents cannot pay the same user.
+                    </p>
+                </div>
+
+                <div class="clause-block">
+                    <p class="clause-text">
+                        <strong>4.3</strong> You verify the user (4-digit withdrawal code / user identity) before
+                        releasing any
+                        cash.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <footer class="footer-block">
+            <div>Welile Technologies Limited &middot; Page 2 of 7</div>
+            <div>Platform: <a href="https://welile.com" target="_blank">welile.com</a></div>
+        </footer>
+    </div>
+
+
+    <!-- ==================== PAGE 3 ==================== -->
+    <div class="page-section">
+        <div class="stamp-container" aria-hidden="true">
+            <div class="stamp">
+                <div class="company">WELILE TECHNOLOGIES<br>LIMITED</div>
+                <div class="middle-row">
+                    <span class="star">&#9733;</span>
+                    <span class="date">{{StampDate}}</span>
+                    <span class="star">&#9733;</span>
+                </div>
+                <div class="address">PO Box 167564 Kampala Uganda</div>
+            </div>
+        </div>
+        <div class="page-content">
+            <header class="header-block">
+                <div class="header-logo">
+                    <img src="{{LogoUrl}}" alt="Welile Logo">
+                </div>
+                <div class="header-title-meta">
+                    Welile Merchant Agent Agreement
+                </div>
+            </header>
+
+            <!-- Section 4 continued -->
+            <div class="section-container">
+                <div class="clause-block">
+                    <p class="clause-text">
+                        <strong>4.4</strong> You pay the user the exact approved amount using your float.
+                    </p>
+                </div>
+
+                <div class="clause-block">
+                    <p class="clause-text">
+                        <strong>4.5</strong> You submit proof of payment (reference, screenshot, or confirmation) in the
+                        app.
+                    </p>
+                </div>
+
+                <div class="clause-block">
+                    <p class="clause-text">
+                        <strong>4.6</strong> The platform then:
+                    </p>
+                    <ul class="bullet-list">
+                        <li>debits the float you used against the company money you hold, and</li>
+                        <li>credits your COMMISSION for that payout.</li>
+                    </ul>
+                </div>
+
+                <div class="clause-block">
+                    <p class="clause-text">
+                        <strong>4.7</strong> Both you and the user receive an SMS confirming the payout and the user's
+                        remaining
+                        wallet balance.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Section 5 -->
+            <div class="section-container">
+                <h2 class="section-header">5) COMMISSION & SETTLEMENT</h2>
+
+                <div class="clause-block">
+                    <p class="clause-text">
+                        <strong>5.1 COMMISSION RATE:</strong> You earn a commission of <strong>0.5%</strong> of the
+                        value of each
+                        successfully completed and verified payout.
+                    </p>
+                </div>
+
+                <div class="clause-block">
+                    <p class="clause-text">
+                        <strong>5.2 PRINCIPAL RECONCILIATION:</strong> Where you pay a user out of your own
+                        mobile-money/cash and
+                        not from pre-loaded float, the full principal you paid is reimbursed to your withdrawable
+                        wallet, plus the
+                        0.5% commission. You never lose your principal on a correctly executed, verified payout.
+                    </p>
+                </div>
+
+                <div class="clause-block">
+                    <p class="clause-text">
+                        <strong>5.3 SEPARATION OF FUNDS:</strong>
+                    </p>
+                    <ul class="bullet-list">
+                        <li><strong>FLOAT WALLET</strong> — company money you hold to distribute. It is NOT income and
+                            is NOT
+                            withdrawable as your own money.</li>
+                        <li><strong>COMMISSION / WITHDRAWABLE WALLET</strong> — your earned commission and reimbursed
+                            principal.
+                            This is YOUR money.</li>
+                    </ul>
+                    <p class="clause-text" style="margin-top: 5px;">
+                        These wallets are kept strictly separate. Float can never be reclassified as your earnings.
+                    </p>
+                </div>
+
+                <div class="clause-block">
+                    <p class="clause-text">
+                        <strong>5.4 NO COMMISSION ON INVALID PAYOUTS:</strong> Commission is only earned on payouts that
+                        are
+                        claimed, verified, paid, proven, and approved through the platform. Unverified, duplicated, or
+                        self-paid
+                        transactions earn nothing and may be reversed.
+                    </p>
+                </div>
+
+                <div class="clause-block">
+                    <p class="clause-text">
+                        <strong>5.5 RATE CHANGES:</strong> Welile may revise the commission rate from time to time for
+                        policy,
+                        sustainability, fraud-risk, or market reasons. Changes are communicated within the platform.
+                    </p>
+                </div>
+
+                <div class="clause-block">
+                    <p class="clause-text">
+                        <strong>5.6 REVERSALS:</strong> Welile may withhold or reverse commission where fraud, error, or
+                        an
+                        unresolved dispute is detected.
+                    </p>
+                </div>
+            </div>
+
+        </div>
+
+        <footer class="footer-block">
+            <div>Welile Technologies Limited &middot; Page 3 of 7</div>
+            <div>Platform: <a href="https://welile.com" target="_blank">welile.com</a></div>
+        </footer>
+    </div>
+
+    <!-- ==================== PAGE 4 ==================== -->
+    <div class="page-section">
+        <div class="stamp-container" aria-hidden="true">
+            <div class="stamp">
+                <div class="company">WELILE TECHNOLOGIES<br>LIMITED</div>
+                <div class="middle-row">
+                    <span class="star">&#9733;</span>
+                    <span class="date">{{StampDate}}</span>
+                    <span class="star">&#9733;</span>
+                </div>
+                <div class="address">PO Box 167564 Kampala Uganda</div>
+            </div>
+        </div>
+        <div class="page-content">
+            <header class="header-block">
+                <div class="header-logo">
+                    <img src="{{LogoUrl}}" alt="Welile Logo">
+                </div>
+                <div class="header-title-meta">
+                    Welile Merchant Agent Agreement
+                </div>
+            </header>
+
+            <!-- Section 6 -->
+            <div class="section-container">
+                <h2 class="section-header">6) MERCHANT AGENT RESPONSIBILITIES</h2>
+
+                <div class="clause-block">
+                    <p class="clause-text">You agree to:</p>
+                    <ul class="bullet-list">
+                        <li>keep enough float available to serve users during your operating hours</li>
+                        <li>pay users promptly once a request is claimed and verified</li>
+                        <li>always verify the user's withdrawal code / identity before paying</li>
+                        <li>submit accurate proof of every payout</li>
+                        <li>reconcile your float honestly and keep your records matching the platform ledger</li>
+                        <li>keep the float safe and secured against theft or loss</li>
+                        <li>treat users courteously and professionally</li>
+                    </ul>
+                </div>
+            </div>
+            <!-- Section 7 -->
+            <div class="section-container">
+                <h2 class="section-header">7) LIABILITY FOR FLOAT (KEY SECTION)</h2>
+
+                <div class="clause-block">
+                    <p class="clause-text">
+                        <strong>7.1 FULL ACCOUNTABILITY:</strong> You are fully accountable for all float advanced to
+                        you. At any
+                        time, the float you hold PLUS the verified payouts you have made must equal the float Welile
+                        advanced to
+                        you.
+                    </p>
+                </div>
+
+                <div class="clause-block">
+                    <p class="clause-text">
+                        <strong>7.2 SHORTFALLS:</strong> Any unexplained shortfall, missing float, or money paid out
+                        without valid
+                        platform approval and proof is YOUR personal liability and becomes a debt owed by you to Welile.
+                    </p>
+                </div>
+
+                <div class="clause-block">
+                    <p class="clause-text">
+                        <strong>7.3 RECOVERY OF DEBT:</strong> Welile may recover any float shortfall or wrongful payout
+                        by:
+                    </p>
+                    <ul class="bullet-list">
+                        <li>deducting from your commission / withdrawable wallet,</li>
+                        <li>deducting from future earnings,</li>
+                        <li>recalling remaining float, and/or</li>
+                        <li>lawful debt-recovery and legal action where necessary.</li>
+                    </ul>
+                </div>
+
+                <div class="clause-block">
+                    <p class="clause-text">
+                        <strong>7.4 PAYING WITHOUT VERIFICATION:</strong> If you pay a user without a valid claimed
+                        request, without
+                        the correct withdrawal code, or without proof, you do so at your OWN RISK and you bear the full
+                        loss.
+                    </p>
+                </div>
+
+                <div class="clause-block">
+                    <p class="clause-text">
+                        <strong>7.5 THEFT / LOSS OF FLOAT:</strong> You are responsible for safeguarding the float in
+                        your custody.
+                        Loss due to your negligence, robbery without report, or mishandling is your liability. Genuine
+                        incidents
+                        must be reported to Welile and the authorities immediately.
+                    </p>
+                </div>
+            </div>
+
+        </div>
+
+        <footer class="footer-block">
+            <div>Welile Technologies Limited &middot; Page 4 of 7</div>
+            <div>Platform: <a href="https://welile.com" target="_blank">welile.com</a></div>
+        </footer>
+    </div>
+
+    <!-- ==================== PAGE 5 ==================== -->
+    <div class="page-section">
+        <div class="stamp-container" aria-hidden="true">
+            <div class="stamp">
+                <div class="company">WELILE TECHNOLOGIES<br>LIMITED</div>
+                <div class="middle-row">
+                    <span class="star">&#9733;</span>
+                    <span class="date">{{StampDate}}</span>
+                    <span class="star">&#9733;</span>
+                </div>
+                <div class="address">PO Box 167564 Kampala Uganda</div>
+            </div>
+        </div>
+        <div class="page-content">
+            <header class="header-block">
+                <div class="header-logo">
+                    <img src="{{LogoUrl}}" alt="Welile Logo">
+                </div>
+                <div class="header-title-meta">
+                    Welile Merchant Agent Agreement
+                </div>
+            </header>
+
+            <!-- Section 8 -->
+            <div class="section-container">
+                <h2 class="section-header">8) PROHIBITED CONDUCT (ZERO TOLERANCE)</h2>
+
+                <div class="clause-block">
+                    <p class="clause-text">You must <strong>NEVER</strong>:</p>
+                    <ul class="bullet-list">
+                        <li>charge users extra/unauthorised fees on top of their withdrawal</li>
+                        <li>pay a user less than the approved amount and keep the difference</li>
+                        <li>use float for personal or third-party purposes</li>
+                        <li>fake payout proof or create false transactions</li>
+                        <li>pay yourself or related accounts to harvest commission</li>
+                        <li>share user data, codes, or contacts externally</li>
+                        <li>collude with users or other agents to defraud the platform</li>
+                    </ul>
+
+                    <p class="clause-text" style="margin-top: 10px;">Violations may result in:</p>
+                    <ul class="bullet-list">
+                        <li>immediate termination and float recall</li>
+                        <li>forfeiture of pending commission</li>
+                        <li>full personal liability for losses</li>
+                        <li>reporting to authorities and legal action</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Section 9 -->
+            <div class="section-container">
+                <h2 class="section-header">9) DATA PROTECTION & CONFIDENTIALITY</h2>
+
+                <div class="clause-block">
+                    <p class="clause-text">
+                        <strong>9.1</strong> You must keep all user and platform information strictly confidential.
+                    </p>
+                </div>
+
+                <div class="clause-block">
+                    <p class="clause-text">
+                        <strong>9.2</strong> You must not store, share, post, or sell user IDs, phone numbers, codes, or
+                        payout
+                        details outside the platform. Breach may result in termination and legal action.
+                    </p>
+                </div>
+            </div>
+
+        </div>
+
+        <footer class="footer-block">
+            <div>Welile Technologies Limited &middot; Page 5 of 7</div>
+            <div>Platform: <a href="https://welile.com" target="_blank">welile.com</a></div>
+        </footer>
+    </div>
+
+    <!-- ==================== PAGE 6 ==================== -->
+    <div class="page-section">
+        <div class="stamp-container" aria-hidden="true">
+            <div class="stamp">
+                <div class="company">WELILE TECHNOLOGIES<br>LIMITED</div>
+                <div class="middle-row">
+                    <span class="star">&#9733;</span>
+                    <span class="date">{{StampDate}}</span>
+                    <span class="star">&#9733;</span>
+                </div>
+                <div class="address">PO Box 167564 Kampala Uganda</div>
+            </div>
+        </div>
+        <div class="page-content">
+            <header class="header-block">
+                <div class="header-logo">
+                    <img src="{{LogoUrl}}" alt="Welile Logo">
+                </div>
+                <div class="header-title-meta">
+                    Welile Merchant Agent Agreement
+                </div>
+            </header>
+
+            <!-- Section 10 -->
+            <div class="section-container">
+                <h2 class="section-header">10) SUSPENSION, FLOAT RECALL & TERMINATION</h2>
+
+                <div class="clause-block">
+                    <p class="clause-text">
+                        <strong>10.1</strong> Welile may suspend you, freeze your float, or recall all float at any time
+                        for fraud,
+                        shortfalls, complaints, poor performance, or breach of this Agreement.
+                    </p>
+                </div>
+
+                <div class="clause-block">
+                    <p class="clause-text">
+                        <strong>10.2</strong> On termination (by either party), you must immediately:
+                    </p>
+                    <ul class="bullet-list">
+                        <li>stop accepting new payout requests,</li>
+                        <li>reconcile your account, and</li>
+                        <li>return ALL remaining float held to Welile.</li>
+                    </ul>
+                </div>
+
+                <div class="clause-block">
+                    <p class="clause-text">
+                        <strong>10.3</strong> Outstanding float or debts remain payable after termination.
+                    </p>
+                </div>
+            </div>
+            <!-- Section 11 -->
+            <div class="section-container">
+                <h2 class="section-header">11) LIMITATION OF LIABILITY</h2>
+
+                <div class="clause-block">
+                    <p class="clause-text">
+                        <strong>11.1</strong> Welile is not responsible for:
+                    </p>
+                    <ul class="bullet-list">
+                        <li>your personal accidents, injuries, or business losses</li>
+                        <li>losses arising from your own negligence, fraud, or breach</li>
+                        <li>device loss or local operating costs</li>
+                    </ul>
+                </div>
+
+                <div class="clause-block">
+                    <p class="clause-text">
+                        <strong>11.2</strong> Welile's responsibility is limited to crediting commission and reimbursing
+                        principal
+                        correctly for valid, verified, platform-approved payouts.
+                    </p>
+                </div>
+            </div>
+
+        </div>
+
+        <footer class="footer-block">
+            <div>Welile Technologies Limited &middot; Page 6 of 7</div>
+            <div>Platform: <a href="https://welile.com" target="_blank">welile.com</a></div>
+        </footer>
+    </div>
+
+    <!-- ==================== PAGE 7 ==================== -->
+    <div class="page-section">
+        <div class="stamp-container" aria-hidden="true">
+            <div class="stamp">
+                <div class="company">WELILE TECHNOLOGIES<br>LIMITED</div>
+                <div class="middle-row">
+                    <span class="star">&#9733;</span>
+                    <span class="date">{{StampDate}}</span>
+                    <span class="star">&#9733;</span>
+                </div>
+                <div class="address">PO Box 167564 Kampala Uganda</div>
+            </div>
+        </div>
+        <div class="page-content">
+            <header class="header-block">
+                <div class="header-logo">
+                    <img src="{{LogoUrl}}" alt="Welile Logo">
+                </div>
+                <div class="header-title-meta">
+                    Welile Merchant Agent Agreement
+                </div>
+            </header>
+
+            <!-- Section 12 -->
+            <div class="section-container">
+                <h2 class="section-header">12) DISPUTE RESOLUTION</h2>
+                <div class="clause-block">
+                    <p class="clause-text">
+                        Any dispute about float, payouts, commission, shortfalls, or penalties will be reviewed by
+                        Welile using the
+                        platform's transaction logs, claim records, and payout proofs, which both parties accept as
+                        primary
+                        evidence. Unresolved matters are settled under Ugandan law.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Section 13 -->
+            <div class="section-container">
+                <h2 class="section-header">13) GOVERNING LAW</h2>
+                <div class="clause-block">
+                    <p class="clause-text">
+                        This Agreement is governed by the laws of the Republic of Uganda.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Section 14 -->
+            <div class="section-container">
+                <h2 class="section-header">14) ACCEPTANCE</h2>
+                <div class="clause-block">
+                    <p class="clause-text">
+                        By clicking &ldquo;I Agree&rdquo;, you confirm that:
+                    </p>
+                    <ul class="bullet-list">
+                        <li>you understand you are an independent merchant partner, not an employee</li>
+                        <li>you understand the float is company money held in trust (Section 3)</li>
+                        <li>you accept full accountability and liability for the float (Section 7)</li>
+                        <li>you will only pay verified, platform-approved requests with valid proof</li>
+                        <li>you accept the 0.5% commission and principal-reconciliation terms (Section 5)</li>
+                        <li>you accept that shortfalls and wrongful payouts are recoverable from you</li>
+                        <li>you agree to return all remaining float on suspension or termination</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Signatures Block -->
+            <div class="section-container" style="page-break-inside: avoid; margin-top: 30px;">
+                <table class="sig-table">
+                    <tr>
+                        <td>
+                            <div class="sig-placeholder-line"></div>
+                            <div class="sig-detail-name">{{MerchantName}}</div><div class="sig-detail-role" style="font-weight:500;">{{MerchantPhone}}</div>
+                            <div class="sig-detail-role">Merchant Agent / Cash-Out Agent</div>
+                            <div class="sig-detail-date">Date: <span></span></div>
+                        </td>
+                        <td style="position: relative;">
+                            <div class="sig-placeholder-line"></div>
+                            <div class="sig-detail-name">Mercy Bayo</div>
+                            <div class="sig-detail-role">Authorized Signatory</div>
+                            <div class="sig-detail-date">Date: <span></span></div>
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+
+        <footer class="footer-block">
+            <div>Welile Technologies Limited &middot; Page 7 of 7</div>
+            <div>Platform: <a href="https://welile.com" target="_blank">welile.com</a></div>
+        </footer>
+    </div>
+
+</body>
+
+</html>

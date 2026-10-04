@@ -1,0 +1,41 @@
+export interface TppoZoneAReport {
+  period_start: string | null;
+  period_end: string | null;
+  granularity: string | null;
+  status: string | null;
+  report_id: string | null;
+  collected_ugx: number | null;
+  scheduled_due_ugx: number | null;
+  collection_rate_pct: number | null;
+  threshold_pct: number | null;
+  below_threshold: boolean | null;
+  provisional: boolean | null;
+  rate_variance_pp: number | null;
+  collected_delta_ugx: number | null;
+  scheduled_delta_ugx: number | null;
+  arrears_recovered_ugx: number | null;
+  collected_total_ugx: number | null;
+  unallocated_ugx: number | null;
+  cohort_plan_count: number | null;
+  arrears_plan_count: number | null;
+  arrears_target_ugx?: number | null;
+  arrears_target_plan_count?: number | null;
+  arrears_outstanding_ugx?: number | null;
+  total_field_target_ugx?: number | null;
+  prior: {
+    period_start: string | null;
+    period_end: string | null;
+    collected_ugx: number | null;
+    scheduled_due_ugx: number | null;
+    collection_rate_pct: number | null;
+    arrears_recovered_ugx: number | null;
+    collected_total_ugx: number | null;
+    unallocated_ugx: number | null;
+    cohort_plan_count: number | null;
+    arrears_plan_count: number | null;
+  arrears_target_ugx?: number | null;
+    arrears_target_plan_count?: number | null;
+    arrears_outstanding_ugx?: number | null;
+    total_field_target_ugx?: number | null;
+  } | null;
+}

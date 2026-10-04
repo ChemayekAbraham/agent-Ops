@@ -1,0 +1,8 @@
+# welile.tech is fully retired (mem/constraints/canonical-domain.md). Host-level
+# 301 so crawlers/browsers get a real redirect before the SPA ever loads —
+# the client-side JS redirect in index.html alone was not enough to stop
+# Google indexing welile.tech pages under this canonical page's title/description.
+https://welile.tech/*  https://welileapp.com/:splat  301!
+https://www.welile.tech/*  https://welileapp.com/:splat  301!
+
+/* /index.html 200

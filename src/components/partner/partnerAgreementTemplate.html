@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tenant Partnership Agreement - Welile Technologies Limited</title>
+  <style>
+    :root {
+      --primary: #0F172A;
+      --primary-hover: #0F172A;
+      --text-main: #0f172a;
+      --text-muted: #1e293b;
+      --text-light: #64748b;
+      --border-color: #cbd5e1;
+      --bg-slate: #f8fafc;
+      --font-family: 'Times New Roman', Times, serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-family);
+      background-color: var(--bg-slate);
+      color: var(--text-main);
+      line-height: 1.6;
+      font-size: 15.5px;
+      padding: 40px 20px;
+    }
+
+    /* Container for the paper document */
+    .document-wrapper {
+      max-width: 850px;
+      margin: 0 auto;
+      background-color: #ffffff;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.02);
+      border-radius: 8px;
+      padding: 80px;
+      border: 1px solid var(--border-color);
+      position: relative;
+    }
+
+    /* Page break indicators (visual helpers on screen, page breaks on print) */
+    .page-section {
+      position: relative;
+      min-height: 960px; /* keep each on-screen section a full page so the
+                            centered stamp lands center-right and never clips
+                            (the PDF rasterises each section individually) */
+      display: flex;
+      flex-direction: column;
+      margin-bottom: 60px;
+      padding-bottom: 60px;
+    }
+
+    .page-section:last-child {
+      margin-bottom: 0;
+      padding-bottom: 0;
+      border-bottom: none;
+    }
+
+    /* Header & Logo styling */
+    .logo-container {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 60px;
+    }
+
+    .logo-img {
+      height: 80px;
+      width: 200px;
+      display: block;
+    }
+
+    /* Title page elements */
+    .title-group {
+      text-align: center;
+      margin-top: 40px;
+      margin-bottom: 80px;
+    }
+
+    .country-header {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text-main);
+      margin-bottom: 8px;
+    }
+
+    .act-header {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 24px;
+    }
+
+    .agreement-title {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--primary);
+      text-transform: uppercase;
+      letter-spacing: -0.5px;
+      line-height: 1.2;
+    }
+
+    .between-divider {
+      text-align: center;
+      font-size: 15px;
+      font-weight: 600;
+      font-style: italic;
+      color: var(--text-light);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin: 40px 0;
+    }
+
+    .party-block {
+      text-align: center;
+      font-size: 18px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--text-main);
+    }
+
+    .placeholder-line {
+      display: inline-block;
+      width: 320px;
+      border-bottom: 2px solid var(--text-main);
+      margin-top: 10px;
+      vertical-align: bottom;
+      padding-bottom: 2px;
+      color: var(--primary);
+      font-weight: 700;
+    }
+
+    /* Standard paragraph & headings */
+    .section-title {
+      font-size: 15px;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: var(--text-main);
+      margin-top: 24px;
+      margin-bottom: 12px;
+      letter-spacing: 0.5px;
+    }
+
+    .contract-text {
+      color: var(--text-muted);
+      margin-bottom: 16px;
+      text-align: justify;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    .contract-list {
+      margin-left: 20px;
+      margin-bottom: 16px;
+    }
+
+    .contract-list li {
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    /* Template Placeholder highlight style */
+    .var-placeholder {
+      color: var(--primary);
+      font-weight: 700;
+      display: inline-block;
+      font-family: inherit;
+    }
+
+    /* Payment Channels Table */
+    .table-container {
+      margin: 24px 0;
+      overflow-x: auto;
+    }
+
+    .payment-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13.5px;
+    }
+
+    .payment-table th, .payment-table td {
+      border: 1px solid var(--border-color);
+      padding: 12px 16px;
+      text-align: left;
+    }
+
+    .payment-table th {
+      background-color: var(--bg-slate);
+      color: var(--text-main);
+      font-weight: 700;
+      text-transform: uppercase;
+      font-size: 12px;
+      letter-spacing: 0.5px;
+    }
+
+    .payment-table td {
+      color: var(--text-muted);
+    }
+
+    /* Signatures Section styles */
+    .sig-container {
+      margin-top: 35px;
+      display: flex;
+      flex-direction: column;
+      gap: 35px;
+    }
+
+    .sig-box {
+      padding-top: 15px;
+    }
+
+    .sig-box-title {
+      font-size: 13.5px;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: var(--text-main);
+      letter-spacing: 0.5px;
+      margin-bottom: 16px;
+    }
+
+    .sig-fields-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px 24px;
+    }
+
+    .sig-field-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .sig-label {
+      font-size: 11px;
+      color: var(--text-light);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .sig-value {
+      font-size: 14px;
+      color: var(--text-main);
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 4px;
+      min-height: 25px;
+    }
+
+    .sig-value-full {
+      grid-column: span 2;
+    }
+
+    /* Page Footer / Page Number */
+    .doc-footer {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-light);
+      border-top: 1px solid var(--border-color);
+      padding-top: 12px;
+      margin-top: 40px;
+      font-weight: 500;
+    }
+
+    /* Print-specific layout adjustment */
+    @media print {
+      @page {
+        size: A4;
+        margin: 15mm 15mm 15mm 15mm;
+      }
+
+      body {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        font-size: 10pt !important;
+        line-height: 1.4 !important;
+      }
+
+      .document-wrapper {
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        max-width: 100% !important;
+      }
+
+      .page-section {
+        margin-bottom: 0 !important;
+        padding-bottom: 0 !important;
+        border-bottom: none !important;
+        page-break-after: always !important;
+        page-break-inside: avoid !important;
+        height: 267mm !important; /* A4 height 297mm minus 30mm margins */
+        display: flex !important;
+        flex-direction: column !important;
+        justify-content: space-between !important;
+        box-sizing: border-box !important;
+      }
+
+      .page-section:last-child {
+        page-break-after: avoid !important;
+      }
+
+      .var-placeholder {
+        color: #000000 !important;
+        background-color: transparent !important;
+        padding: 0 !important;
+        border-radius: 0 !important;
+      }
+
+      .section-title {
+        font-size: 11pt !important;
+        margin-top: 10px !important;
+        margin-bottom: 4px !important;
+      }
+
+      .contract-text {
+        font-size: 9.5pt !important;
+        line-height: 1.4 !important;
+        margin-bottom: 8px !important;
+      }
+
+      .contract-list {
+        margin-bottom: 8px !important;
+        margin-left: 15px !important;
+      }
+
+      .contract-list li {
+        font-size: 9.5pt !important;
+        line-height: 1.4 !important;
+        margin-bottom: 4px !important;
+      }
+
+      .logo-container {
+        margin-bottom: 30px !important;
+      }
+
+      .title-group {
+        margin-top: 20px !important;
+        margin-bottom: 40px !important;
+      }
+
+      .agreement-title {
+        font-size: 22pt !important;
+      }
+
+      .between-divider {
+        margin: 20px 0 !important;
+      }
+
+      .table-container {
+        margin: 12px 0 !important;
+      }
+
+      .payment-table th, .payment-table td {
+        padding: 8px 12px !important;
+        font-size: 9pt !important;
+      }
+
+      .sig-container {
+        gap: 15px !important;
+        margin-top: 15px !important;
+      }
+
+      .sig-box {
+        border-top: none !important;
+        padding-top: 8px !important;
+        margin-bottom: 0 !important;
+      }
+
+      .sig-box-title {
+        font-size: 10pt !important;
+        margin-bottom: 8px !important;
+      }
+
+      .sig-fields-grid {
+        gap: 6px 16px !important;
+      }
+
+      .sig-value {
+        font-size: 9.5pt !important;
+        min-height: 20px !important;
+      }
+
+      .doc-footer {
+        border-top: 1px solid #000000 !important;
+        padding-top: 6px !important;
+        margin-top: auto !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="document-wrapper">
+
+    <!-- ================= PAGE 1 (COVER) ================= -->
+    <div class="page-section" id="section-page-1">
+      {{CoverStamp}}
+      <div style="flex: 1; display: flex; flex-direction: column; justify-content: center; margin-top: 60px; position: relative;">
+        <div class="logo-container">
+          <img src="{{LogoUrl}}" alt="Welile Technologies Limited" class="logo-img">
+        </div>
+        
+        <div class="title-group">
+          <div class="country-header">The Republic of Uganda</div>
+          <div class="act-header">The Contracts Act</div>
+          <h1 class="agreement-title">Tenant Partnership Agreement</h1>
+        </div>
+        <div class="between-divider">Between</div>
+        
+        <div class="party-block">
+          <div>Welile Technologies Limited</div>
+          <div class="between-divider" style="margin: 15px 0 10px 0;">And</div>
+          <div style="margin-top: 10px;">
+            <span class="placeholder-line"><span class="var-placeholder">{{PartnerName}}</span></span>
+          </div>
+        </div>
+      </div>
+
+      <div class="doc-footer">
+        <span>Confidential</span>
+      </div>
+    </div>
+
+
+    <!-- ================= PAGE 2 ================= -->
+    <div class="page-section" id="section-page-2">
+      {{StampPage}}
+      <div style="flex: 1; margin-top: 20px;">
+        <p class="contract-text">
+          <strong>THIS AGREEMENT</strong> is made this <span class="var-placeholder">{{AgreementDay}}</span> day of <span class="var-placeholder">{{AgreementMonth}}</span>, 2026 
+          <strong>BETWEEN Welile Technologies Limited</strong>, a limited liability company incorporated in Uganda, with its Head Quarters office in Hosanna Estate, Palm Road, Kabale–Entebbe, P.O. Box 167564, Kampala – Uganda Tel: 0793750331, 0748747134 (hereinafter referred to as “the Company”, which expression shall, where the context so admits, include its Nominees, Agents, Successors in Title and Assignees) of the one part;
+        </p>
+
+        <p class="contract-text">
+          <strong>AND <span class="var-placeholder">{{PartnerName}}</span></strong>, holder of National ID/Passport No. <span class="var-placeholder">{{PartnerID}}</span>, residing at <span class="var-placeholder">{{PartnerAddress}}</span> (hereinafter referred to as “the Partner”, which expression shall, where the context so admits, include his/her Nominees, Agents, Successors in Title and Assignees) of the other part; The Company and the Partner shall individually be referred to as “the Party” and collectively as “the Parties.”
+        </p>
+
+        <h2 class="section-title">Background</h2>
+        <p class="contract-text">
+          WHEREAS, the Company operates as a technology platform that facilitates rent access for tenants by connecting them with Tenant Partners, who are financial contributors that provide the funds for rent payments in exchange for a return on their contribution;
+        </p>
+
+        <h2 class="section-title">Agreement</h2>
+        <p class="contract-text">The Parties agree to the following terms and conditions:</p>
+
+        <h3 class="section-title">1. Platform Overview and Nature of Business</h3>
+        <p class="contract-text">
+          The Company operates a digital platform that connects tenants seeking rent with individuals willing to support them in exchange for returns.
+        </p>
+        <p class="contract-text">
+          The Company is not a deposit-taking institution or an insurance company. It is a technology platform that manages and facilitates all transactions between the Parties.
+        </p>
+
+        <h3 class="section-title">2. Partner's Role</h3>
+        <p class="contract-text">
+          The Partner agrees to contribute a total partnership amount of UGX <span class="var-placeholder">{{PartnershipAmount}}</span> (<span class="var-placeholder">{{PartnershipAmountWords}}</span> Only).
+        </p>
+        <p class="contract-text">
+          The Partner will receive access to periodic reports or a dashboard to monitor the performance of their contribution.
+        </p>
+        <p class="contract-text">
+          The Partner agrees to comply with all platform terms, policies, and partner guidelines.
+        </p>
+
+        <h3 class="section-title">3. Company's Responsibilities and Assurances</h3>
+        <p class="contract-text">The Company commits to:</p>
+        <ul class="contract-list">
+          <li>Conduct full due diligence on all tenants and landlords.</li>
+          <li>Facilitate and manage all rent payment transactions.</li>
+          <li>Guarantee the repayment of the full principal amount and expected returns.</li>
+          <li>Absorb any losses, delays, or defaults from tenants.</li>
+          <li>Provide a detailed Individual financial report to the Partner upon request.</li>
+        </ul>
+
+        <h3 class="section-title">4. Returns and Payouts</h3>
+      </div>
+
+      <div class="doc-footer">
+        <span>Confidential</span>
+        <span>Page 1 of 4</span>
+      </div>
+    </div>
+
+
+    <!-- ================= PAGE 3 ================= -->
+    <div class="page-section" id="section-page-3">
+      {{StampPage}}
+      <div style="flex: 1; margin-top: 20px;">
+        <ul class="contract-list" style="margin-top: 10px;">
+          <li>The Partner will earn a monthly return of {{ReturnPercentage}}% on the principal partnership amount.</li>
+          <li>The monthly returns will be paid to the Partner's provided bank account or mobile money details at the end of each month.</li>
+          <li>The Partner’s earnings are not available for early withdrawal and can only be accessed on the agreed payout date.</li>
+        </ul>
+
+        <h3 class="section-title">5. Withdrawal of Principal</h3>
+        <ul class="contract-list">
+          <li>This agreement is in force for a period of one (1) year. A notice for renewal shall be given three (3) months before the expiration of this agreement by either Party.</li>
+          <li>To withdraw the principal amount, the Partner must notify the Company in writing at least ninety (90) days prior to the intended withdrawal date.</li>
+          <li>Upon receipt of a withdrawal request, the Company shall have a principal recovery period of ninety (90) days. During this period, no monthly interest shall accrue or be payable to the Partner, as the funds will no longer be in active use.</li>
+        </ul>
+
+        <h3 class="section-title">6. Risk and Liability</h3>
+        <ul class="contract-list">
+          <li>The Company bears full liability for tenant defaults, delays, or losses.</li>
+          <li>The Partner's principal and expected returns are fully guaranteed by the Company.</li>
+          <li>The Company shall promptly communicate any payout delays caused by external factors and ensures all such issues are resolved within two to three business days.</li>
+        </ul>
+
+        <h3 class="section-title">7. Default and Termination</h3>
+        <ul class="contract-list">
+          <li><strong>Default:</strong> If a Party fails to make a payment or comply with the terms of this agreement, the other Party reserves the right to take legal action for breach of contract. Both Parties have a right to settle any default within a period of two weeks (14) days before the other Party takes action.</li>
+          <li><strong>Termination:</strong> This Agreement may be terminated by the Partner with a ninety (90)-day written withdrawal notice, or by the Company in case of any breach, fraud, or misuse.</li>
+        </ul>
+
+        <h3 class="section-title">8. Dispute Resolution</h3>
+        <ul class="contract-list">
+          <li>The Parties shall resolve the matter through arbitration in accordance with the laws of Uganda. In cases where the Parties have failed to agree under arbitration, the matter can be referred to the courts of Uganda with competent jurisdiction.</li>
+        </ul>
+
+        <h3 class="section-title">9. Entire Agreement</h3>
+        <ul class="contract-list">
+          <li>This document contains the full agreement between the Parties. There are no agreements collateral hereto, and no oral promises override this agreement.</li>
+        </ul>
+
+        <h3 class="section-title">10. Amendments</h3>
+        <ul class="contract-list">
+          <li>All amendments to this agreement shall be in writing and all Parties must sign.</li>
+        </ul>
+
+        <h3 class="section-title">11. Legal Fees</h3>
+        <ul class="contract-list">
+          <li>The legal fees for preparing this agreement shall be borne by the Company.</li>
+        </ul>
+
+        <p class="contract-text" style="margin-top: 30px; font-weight: 700; text-align: center; color: var(--text-main);">
+          IN WITNESS WHEREOF, the Parties have executed these presents the day and year first above written.
+        </p>
+
+        <h3 class="section-title">12. Approved Company Payment Channels</h3>
+      </div>
+
+      <div class="doc-footer">
+        <span>Confidential</span>
+        <span>Page 2 of 4</span>
+      </div>
+    </div>
+
+
+    <!-- ================= PAGE 4 ================= -->
+    <div class="page-section" id="section-page-4">
+      {{StampPage}}
+      <div style="flex: 1; margin-top: 20px;">
+        <ul class="contract-list" style="margin-top: 10px;">
+          <li>All partner contributions to the Company shall be made only through the approved payment channels listed below. The Partner should confirm payment details with the Company before making any transfer.</li>
+        </ul>
+
+        <div class="table-container">
+          <table class="payment-table">
+            <thead>
+              <tr>
+                <th style="width: 25%;">Channel</th>
+                <th style="width: 35%;">Instruction</th>
+                <th style="width: 40%;">Details</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Airtel Money</strong></td>
+                <td>Dial *185*9#</td>
+                <td>Merchant ID: 4380664</td>
+              </tr>
+              <tr>
+                <td><strong>MTN MoMo</strong></td>
+                <td>Use MoMo App or dial *165*3#</td>
+                <td>MoMo Code: 090777</td>
+              </tr>
+              <tr>
+                <td><strong>Bank Transfer</strong></td>
+                <td>Equity Bank</td>
+                <td>
+                  <strong>Account Name:</strong> Welile Technologies Limited<br>
+                  <strong>Account Number:</strong> 1046203375259<br>
+                  <strong>SWIFT Code:</strong> EQBLUGKA
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="doc-footer">
+        <span>Confidential</span>
+        <span>Page 3 of 4</span>
+      </div>
+    </div>
+
+
+    <!-- ================= PAGE 5 ================= -->
+    <div class="page-section" id="section-page-5">
+      {{StampOverlay}}
+      <div style="flex: 1; margin-top: 20px;">
+        <p class="contract-text" style="font-weight: 700; text-align: center; color: var(--text-main); margin-bottom: 30px;">
+          IN WITNESS WHEREOF, the Parties have executed these presents the day and year first above written.
+        </p>
+
+        <div class="sig-container" style="position: relative;">
+
+          <!-- Welile Signature Block -->
+          <div class="sig-box">
+            <h4 class="sig-box-title">Signed for and on behalf of Welile Technologies Limited</h4>
+            <div class="sig-fields-grid">
+              <div class="sig-field-row">
+                <span class="sig-label">Name</span>
+                <div class="sig-value"><span class="var-placeholder">{{WelileRepName}}</span></div>
+              </div>
+              <div class="sig-field-row">
+                <span class="sig-label">Position</span>
+                <div class="sig-value"><span class="var-placeholder">{{WelileRepPosition}}</span></div>
+              </div>
+              <div class="sig-field-row">
+                <span class="sig-label">Contact</span>
+                <div class="sig-value"><span class="var-placeholder">{{WelileRepContact}}</span></div>
+              </div>
+              <div class="sig-field-row">
+                <span class="sig-label">Date</span>
+                <div class="sig-value"><span class="var-placeholder">{{AgreementDay}} {{AgreementMonth}} 2026</span></div>
+              </div>
+              <div class="sig-field-row sig-value-full" style="margin-top: 8px;">
+                <span class="sig-label">Signature</span>
+                <div class="sig-value" style="min-height: 40px;"><span class="var-placeholder">{{WelileSignature}}</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Partner Signature Block -->
+          <div class="sig-box">
+            <h4 class="sig-box-title">Signed by the said Tenant Partner</h4>
+            <div class="sig-fields-grid">
+              <div class="sig-field-row">
+                <span class="sig-label">Name</span>
+                <div class="sig-value"><span class="var-placeholder">{{PartnerName}}</span></div>
+              </div>
+              <div class="sig-field-row">
+                <span class="sig-label">Residence</span>
+                <div class="sig-value"><span class="var-placeholder">{{PartnerAddress}}</span></div>
+              </div>
+              <div class="sig-field-row">
+                <span class="sig-label">Contact (Telephone)</span>
+                <div class="sig-value"><span class="var-placeholder">{{PartnerPhone}}</span></div>
+              </div>
+              <div class="sig-field-row">
+                <span class="sig-label">Email</span>
+                <div class="sig-value"><span class="var-placeholder">{{PartnerEmail}}</span></div>
+              </div>
+              <div class="sig-field-row">
+                <span class="sig-label">Bank Name</span>
+                <div class="sig-value"><span class="var-placeholder">{{BankName}}</span></div>
+              </div>
+              <div class="sig-field-row">
+                <span class="sig-label">Account Name</span>
+                <div class="sig-value"><span class="var-placeholder">{{BankAccountName}}</span></div>
+              </div>
+              <div class="sig-field-row">
+                <span class="sig-label">Account No</span>
+                <div class="sig-value"><span class="var-placeholder">{{BankAccountNumber}}</span></div>
+              </div>
+              <div class="sig-field-row">
+                <span class="sig-label">Date</span>
+                <div class="sig-value"><span class="var-placeholder">{{AgreementDay}} {{AgreementMonth}} 2026</span></div>
+              </div>
+              <div class="sig-field-row sig-value-full" style="margin-top: 8px;">
+                <span class="sig-label">Signature</span>
+                <div class="sig-value" style="min-height: 40px;"><span class="var-placeholder">{{PartnerSignature}}</span></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Next of Kin Signature Block -->
+          <div class="sig-box">
+            <h4 class="sig-box-title">Next of Kin Details</h4>
+            <div class="sig-fields-grid">
+              <div class="sig-field-row">
+                <span class="sig-label">Next of Kin Name</span>
+                <div class="sig-value"><span class="var-placeholder">{{KinName}}</span></div>
+              </div>
+              <div class="sig-field-row">
+                <span class="sig-label">Contact</span>
+                <div class="sig-value"><span class="var-placeholder">{{KinContact}}</span></div>
+              </div>
+              <div class="sig-field-row">
+                <span class="sig-label">Date</span>
+                <div class="sig-value"><span class="var-placeholder">{{AgreementDay}} {{AgreementMonth}} 2026</span></div>
+              </div>
+              <div class="sig-field-row">
+                <span class="sig-label">Signature</span>
+                <div class="sig-value" style="min-height: 40px;"><span class="var-placeholder">{{KinSignature}}</span></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="doc-footer">
+        <span>Confidential</span>
+        <span>Page 4 of 4</span>
+      </div>
+    </div>
+
+  </div>
+
+</body>
+</html>

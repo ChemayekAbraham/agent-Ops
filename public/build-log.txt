@@ -1,0 +1,14 @@
+
+==============================================================================
+[build-log] stage=prebuild
+[build-log] started=2026-08-03T18:25:29.582Z
+[build-log] node=v22.22.0 platform=linux
+[build-log] command=node scripts/run-optional.mjs node --import tsx scripts/generate-sitemap.ts
+==============================================================================
+sitemap.xml written (1056 entries, 1000 houses)
+sitemap-welilereceipts.xml written (1056 entries, base https://[legacy-domain-redacted])
+
+------------------------------------------------------------------------------
+[build-log] stage=prebuild finished=2026-08-03T18:25:30.292Z duration=0.7s exit=0
+[build-log] suspicious lines: 0
+------------------------------------------------------------------------------

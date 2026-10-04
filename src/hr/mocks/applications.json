@@ -1,0 +1,31 @@
+{
+
+  "applications": [
+
+    { "id": "app_001", "ref": "APP-00001", "candidate_id": "cnd_001", "job_posting_id": "job_001", "cv_file_url": "https://example.com/mock/cv-aisha.pdf", "cover_note": "I have led arrears recovery for a microfinance portfolio in Kampala for three years.", "stage": "shortlisted", "stage_changed_at": "2026-07-24T09:30:00Z", "decided_by_employee_id": "emp_001", "decision_reason": "Meets field experience and language requirements; strong work-sample.", "extraction_status": "done",
+
+      "extracted": { "years_experience": 3.2, "education_level": "degree", "institutions": ["Makerere University"], "skills": ["arrears recovery", "payment planning", "field visits", "MS Excel"], "last_role": "Credit Control Officer", "last_employer": "Kampala Microfinance Ltd", "months_in_last_role": 26, "languages": ["English", "Luganda"], "certifications": [], "extraction_model": "mock-model-v0", "extracted_at": "2026-07-18T10:07:00Z", "confidence_flags": [] },
+
+      "score": { "id": "scr_001", "application_id": "app_001", "rubric_id": "rub_001", "rubric_version": 3, "total_points": 33, "max_points": 40, "percentage": 82.5, "criterion_scores": [ { "criterion_id": "crt_001", "label": "Relevant field experience", "points": 10, "max_points": 10, "evidence": "38 months against a 24-month requirement" }, { "criterion_id": "crt_002", "label": "Education level", "points": 5, "max_points": 5, "evidence": "Degree, Makerere University" }, { "criterion_id": "crt_003", "label": "Language coverage", "points": 5, "max_points": 5, "evidence": "English and Luganda" }, { "criterion_id": "crt_004", "label": "Tenure stability", "points": 5, "max_points": 5, "evidence": "26 months in most recent role" }, { "criterion_id": "crt_005", "label": "Work-sample response", "points": 8, "max_points": 15, "evidence": "Scored by Mercy Bayo, 24 Jul" } ], "inputs_snapshot": { "years_experience": 3.2, "education_level": "degree", "languages": "English,Luganda", "months_in_last_role": 26 }, "computed_at": "2026-07-18T10:08:00Z", "decided_by_employee_id": "emp_001", "decided_at": "2026-07-24T09:30:00Z", "rationale_text": "Scored 33 of 40. Full marks on field experience (38 months against a 24-month requirement), education, language coverage and tenure. The work-sample response scored 8 of 15, losing points for a thin escalation plan.", "rationale_model": "mock-model-v0", "rationale_generated_at": "2026-07-24T09:31:00Z" },
+
+      "created_at": "2026-07-18T10:05:00Z" },
+
+    { "id": "app_002", "ref": "APP-00002", "candidate_id": "cnd_002", "job_posting_id": "job_001", "cv_file_url": "https://example.com/mock/cv-peter.pdf", "cover_note": null, "stage": "screening", "stage_changed_at": "2026-07-19T15:42:00Z", "decided_by_employee_id": null, "decision_reason": null, "extraction_status": "done",
+
+      "extracted": { "years_experience": 1.1, "education_level": "diploma", "institutions": ["Nakawa Vocational Institute"], "skills": ["customer service", "field sales"], "last_role": "Sales Agent", "last_employer": "Unknown", "months_in_last_role": 9, "languages": ["English", "Luganda"], "certifications": [], "extraction_model": "mock-model-v0", "extracted_at": "2026-07-19T15:44:00Z", "confidence_flags": ["last_employer", "months_in_last_role"] },
+
+      "score": { "id": "scr_002", "application_id": "app_002", "rubric_id": "rub_001", "rubric_version": 3, "total_points": 16, "max_points": 40, "percentage": 40.0, "criterion_scores": [ { "criterion_id": "crt_001", "label": "Relevant field experience", "points": 4, "max_points": 10, "evidence": "13 months against a 24-month requirement" }, { "criterion_id": "crt_002", "label": "Education level", "points": 5, "max_points": 5, "evidence": "Diploma, Nakawa Vocational Institute" }, { "criterion_id": "crt_003", "label": "Language coverage", "points": 5, "max_points": 5, "evidence": "English and Luganda" }, { "criterion_id": "crt_004", "label": "Tenure stability", "points": 2, "max_points": 5, "evidence": "9 months in most recent role, below the 12-month floor" }, { "criterion_id": "crt_005", "label": "Work-sample response", "points": 0, "max_points": 15, "evidence": "Not yet scored" } ], "inputs_snapshot": { "years_experience": 1.1, "education_level": "diploma", "languages": "English,Luganda", "months_in_last_role": 9 }, "computed_at": "2026-07-19T15:45:00Z", "decided_by_employee_id": null, "decided_at": null, "rationale_text": "Scored 16 of 40 before the work-sample. Field experience is 13 months against a 24-month requirement and the most recent role lasted 9 months, below the 12-month stability floor. Two extracted fields were flagged low-confidence and should be confirmed with the candidate.", "rationale_model": "mock-model-v0", "rationale_generated_at": "2026-07-19T15:46:00Z" },
+
+      "created_at": "2026-07-19T15:40:00Z" },
+
+    { "id": "app_003", "ref": "APP-00003", "candidate_id": "cnd_004", "job_posting_id": "job_001", "cv_file_url": null, "cover_note": "Submitting the scenario response only; my CV is thin but I have run a rent collection round for a family property for four years.", "stage": "received", "stage_changed_at": "2026-07-22T12:00:00Z", "decided_by_employee_id": null, "decision_reason": null, "extraction_status": "manual", "extracted": null, "score": null, "created_at": "2026-07-22T12:00:00Z" },
+
+    { "id": "app_004", "ref": "APP-00004", "candidate_id": "cnd_003", "job_posting_id": "job_002", "cv_file_url": "https://example.com/mock/cv-diana.pdf", "cover_note": "Open to collections or customer care roles.", "stage": "received", "stage_changed_at": "2026-03-02T08:20:00Z", "decided_by_employee_id": null, "decision_reason": null, "extraction_status": "done",
+
+      "extracted": { "years_experience": 4.5, "education_level": "degree", "institutions": ["Busitema University"], "skills": ["call centre", "arrears follow-up", "reporting"], "last_role": "Customer Care Team Lead", "last_employer": "Jinja Telecom Services", "months_in_last_role": 31, "languages": ["English", "Lusoga", "Luganda"], "certifications": ["Customer Experience Level 2"], "extraction_model": "mock-model-v0", "extracted_at": "2026-03-02T08:22:00Z", "confidence_flags": [] },
+
+      "score": null, "created_at": "2026-03-02T08:20:00Z" }
+
+  ]
+
+}

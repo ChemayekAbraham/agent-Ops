@@ -1,0 +1,1713 @@
+/* Critical base styles (variables, resets) are in critical.css — loaded eagerly */
+@tailwind components;
+@tailwind utilities;
+
+/* Sonner toaster — prevent phantom right gutter on mobile */
+/* Hide the sonner notifications section entirely when no toasts are active.
+   It re-appears automatically when a toast is rendered inside it. */
+section[aria-label*="Notifications" i]:empty {
+  display: none !important;
+}
+
+/* iOS PWA Safe Area Utilities & Inset Handling */
+@layer utilities {
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .pl-safe {
+    padding-left: env(safe-area-inset-left, 0px);
+  }
+  .pr-safe {
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+  .px-safe {
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+  .py-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .top-safe {
+    top: env(safe-area-inset-top, 0px);
+  }
+  .bottom-safe {
+    bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
+
+
+/* Toasts must always render above every dialog/sheet/overlay so critical
+   error messages (KYC blocks, validation, etc.) are never hidden behind a
+   modal. Radix Dialog uses z-50; sonner defaults are lower, and on mobile
+   we intentionally `display: contents` the toaster wrapper (see below),
+   which strips its own stacking context. Force a max z-index on the
+   individual toast items themselves so they win regardless. */
+[data-sonner-toaster],
+[data-sonner-toaster] > ol,
+[data-sonner-toast] {
+  z-index: 2147483647 !important;
+}
+
+@media (max-width: 640px) {
+  html,
+  body,
+  #root {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  body {
+    position: relative;
+  }
+
+  [data-sonner-toaster] {
+    display: contents !important;
+    right: 0 !important;
+    left: 0 !important;
+    width: 0 !important;
+    max-width: 100vw !important;
+    --offset: 0px !important;
+    --mobile-offset: 0px !important;
+  }
+
+  [data-sonner-toast] {
+    width: min(calc(100vw - 24px), 356px) !important;
+    margin-inline: auto !important;
+  }
+
+  .agent-dashboard-shell,
+  .agent-dashboard-scroll,
+  .agent-dashboard-main {
+    width: 100%;
+    max-width: 100vw;
+    min-width: 0;
+    overflow-x: hidden;
+    overflow-x: clip;
+    overscroll-behavior-x: none;
+  }
+
+  .agent-dashboard-main > * {
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  [role="dialog"].app-sheet-content {
+    max-width: 100vw !important;
+    overflow-x: hidden;
+  }
+
+  [role="dialog"].app-sheet-content[data-sheet-side="bottom"],
+  [role="dialog"].app-sheet-content[data-sheet-side="top"] {
+    left: 0 !important;
+    right: 0 !important;
+    width: 100vw !important;
+    transform: translate3d(0, 0, 0) !important;
+    -webkit-transform: translate3d(0, 0, 0) !important;
+  }
+}
+
+@layer components {
+  /* ── Purple-themed map pins ─────────────────────────────────── */
+
+  .empty-house-map-pin {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: hsl(271 100% 40%);
+    color: #fff;
+    border: 2px solid #fff;
+    box-shadow: 0 2px 6px rgba(88,0,200,0.35);
+    pointer-events: none;
+    transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.2s ease;
+    transform: none;
+  }
+
+  .empty-house-map-pin svg {
+    width: 14px;
+    height: 14px;
+    fill: #fff;
+    flex-shrink: 0;
+  }
+
+  .empty-house-map-pin-hitbox {
+    align-items: center;
+    justify-content: center;
+    background: transparent;
+    border: 0;
+    display: flex;
+    margin: 0;
+    touch-action: manipulation;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .empty-house-map-pin:hover {
+      transform: scale(1.18);
+      box-shadow: 0 4px 16px rgba(88,0,200,0.45);
+      background: hsl(271 100% 35%);
+    }
+  }
+
+  .empty-house-map-pin--active {
+    transform: scale(1.22);
+    box-shadow: 0 4px 16px rgba(88,0,200,0.45);
+    background: hsl(271 100% 30%);
+  }
+
+  /* Price pill variant: Airbnb-style amount labels */
+  .empty-house-map-pin--price {
+    width: auto;
+    height: auto;
+    border-radius: 20px;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    background: #fff;
+    color: hsl(271 100% 35%);
+    border: 2px solid hsl(271 100% 85%);
+    box-shadow: 0 2px 6px rgba(88,0,200,0.18);
+  }
+
+  .empty-house-map-pin--price.empty-house-map-pin--active {
+    background: hsl(271 100% 40%);
+    color: #fff;
+    border-color: hsl(271 100% 40%);
+    box-shadow: 0 4px 14px rgba(88,0,200,0.4);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .empty-house-map-pin--price:hover {
+      background: hsl(271 100% 40%);
+      color: #fff;
+      border-color: hsl(271 100% 40%);
+      transform: scale(1.08);
+      box-shadow: 0 4px 14px rgba(88,0,200,0.35);
+    }
+  }
+
+  /* ── Rent-tier price pin colours ──────────────────────────── */
+  /* Affordable: < 300K — green */
+  .empty-house-map-pin--affordable {
+    background: #fff;
+    color: #16a34a;
+    border-color: #bbf7d0;
+    box-shadow: 0 2px 6px rgba(22,163,74,0.18);
+  }
+  .empty-house-map-pin--affordable.empty-house-map-pin--active,
+  .empty-house-map-pin--affordable:hover {
+    background: #16a34a;
+    color: #fff;
+    border-color: #16a34a;
+    box-shadow: 0 4px 14px rgba(22,163,74,0.35);
+  }
+
+  /* Mid-range: 300K – 800K — blue */
+  .empty-house-map-pin--mid {
+    background: #fff;
+    color: #2563eb;
+    border-color: #bfdbfe;
+    box-shadow: 0 2px 6px rgba(37,99,235,0.18);
+  }
+  .empty-house-map-pin--mid.empty-house-map-pin--active,
+  .empty-house-map-pin--mid:hover {
+    background: #2563eb;
+    color: #fff;
+    border-color: #2563eb;
+    box-shadow: 0 4px 14px rgba(37,99,235,0.35);
+  }
+
+  /* Premium: 800K – 2M — purple (default, inherits from --price) */
+  .empty-house-map-pin--premium {
+    /* uses the default purple from .empty-house-map-pin--price */
+  }
+
+  /* Luxury: 2M+ — gold */
+  .empty-house-map-pin--luxury {
+    background: #fff;
+    color: #b45309;
+    border-color: #fde68a;
+    box-shadow: 0 2px 6px rgba(180,83,9,0.2);
+  }
+  .empty-house-map-pin--luxury.empty-house-map-pin--active,
+  .empty-house-map-pin--luxury:hover {
+    background: #b45309;
+    color: #fff;
+    border-color: #b45309;
+    box-shadow: 0 4px 14px rgba(180,83,9,0.35);
+  }
+
+  /* ── Density-tiered cluster bubbles ─────────────────────── */
+  /* Cool: 1-9 houses — light purple */
+  .empty-house-map-cluster-cool {
+    background: hsl(271 80% 70%);
+    box-shadow: 0 2px 6px rgba(88,0,200,0.2);
+  }
+  /* Warm: 10-49 houses — medium purple */
+  .empty-house-map-cluster-warm {
+    background: hsl(271 100% 50%);
+    box-shadow: 0 2px 8px rgba(88,0,200,0.3);
+  }
+  /* Hot: 50+ houses — deep saturated purple */
+  .empty-house-map-cluster-hot {
+    background: hsl(271 100% 35%);
+    box-shadow: 0 2px 10px rgba(88,0,200,0.45);
+  }
+
+  /* Grouped empty houses: base cluster styles */
+  .empty-house-map-cluster {
+    @apply inline-flex items-center justify-center rounded-full text-[11px] font-black transition-transform;
+    background: hsl(271 100% 50%);
+    color: #fff;
+    border: 3px solid #fff;
+    box-shadow: 0 2px 8px rgba(88,0,200,0.3);
+  }
+
+  .empty-house-map-me {
+    @apply block h-[18px] w-[18px] rounded-full border-2 border-background shadow-lg;
+    background: #4285F4;
+    box-shadow: 0 0 0 6px rgba(66,133,244,0.25), 0 2px 6px rgba(0,0,0,0.2);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .empty-house-map-cluster:hover {
+      transform: scale(1.12);
+      box-shadow: 0 4px 14px rgba(88,0,200,0.4);
+    }
+  }
+
+  /* WhatsApp-style Header */
+  .wa-header {
+    @apply bg-primary text-primary-foreground;
+    background: hsl(var(--header-bg));
+    color: hsl(var(--header-foreground));
+  }
+
+  /* WhatsApp-style Card */
+  .glass-card {
+    @apply bg-card border-b border-border/30;
+  }
+
+  .elevated-card {
+    @apply bg-card border border-border/50 rounded-lg transition-all duration-150;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+  }
+
+  .elevated-card:hover {
+    box-shadow: 0 2px 8px rgb(0 0 0 / 0.06);
+  }
+
+  /* WhatsApp-style list item */
+  .wa-list-item {
+    @apply flex items-center gap-3 px-4 py-3 bg-card hover:bg-muted/50 active:bg-muted border-b border-border/30 transition-colors;
+  }
+
+  /* Typography */
+  .metric-value {
+    @apply font-mono text-2xl font-semibold tracking-tight;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .metric-label {
+    @apply text-xs font-medium text-muted-foreground;
+  }
+
+  /* Status Colors */
+  .stat-positive { @apply text-success; }
+  .stat-negative { @apply text-destructive; }
+
+  /* Gradients */
+  .gradient-primary {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--gradient-start)) 0%,
+      hsl(var(--gradient-end)) 100%
+    );
+  }
+
+  .gradient-primary-text {
+    background: linear-gradient(
+      135deg,
+      hsl(var(--gradient-start)) 0%,
+      hsl(var(--gradient-end)) 100%
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Subtle glow effects */
+  .glow-primary {
+    box-shadow: 0 0 20px -4px hsl(var(--primary) / 0.25);
+  }
+
+  .glow-success {
+    box-shadow: 0 0 20px -4px hsl(var(--success) / 0.25);
+  }
+
+  /* Interactive Elements */
+  .interactive {
+    @apply transition-all duration-150 ease-out;
+  }
+
+  .interactive:active {
+    @apply scale-[0.98];
+  }
+
+  /* Hover lift */
+  .hover-lift {
+    @apply transition-all duration-150 ease-out;
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgb(0 0 0 / 0.06);
+  }
+
+  /* Section headings */
+  .section-heading {
+    @apply text-base font-semibold;
+  }
+
+  .section-subheading {
+    @apply text-sm text-muted-foreground;
+  }
+
+  /* Data display */
+  .data-row {
+    @apply flex items-center justify-between py-3 border-b border-border/50 last:border-0;
+  }
+
+  .data-label {
+    @apply text-sm text-muted-foreground;
+  }
+
+  .data-value {
+    @apply text-sm font-medium font-mono;
+  }
+
+  /* Status Badges */
+  .badge-success {
+    @apply bg-success/10 text-success border-success/20;
+  }
+
+  .badge-warning {
+    @apply bg-warning/10 text-warning border-warning/20;
+  }
+
+  .badge-destructive {
+    @apply bg-destructive/10 text-destructive border-destructive/20;
+  }
+
+  .badge-primary {
+    @apply bg-primary/10 text-primary border-primary/20;
+  }
+
+  /* Icon Containers */
+  .icon-container {
+    @apply p-2 rounded-full transition-colors duration-150;
+  }
+
+  .icon-container-primary { @apply bg-primary/10 text-primary; }
+  .icon-container-success { @apply bg-success/10 text-success; }
+  .icon-container-warning { @apply bg-warning/10 text-warning; }
+  .icon-container-destructive { @apply bg-destructive/10 text-destructive; }
+
+  /* Empty State */
+  .empty-state {
+    @apply flex flex-col items-center justify-center py-12 text-center;
+  }
+
+  .empty-state-icon {
+    @apply h-12 w-12 text-muted-foreground/30 mb-3;
+  }
+
+  .empty-state-title {
+    @apply text-sm font-medium text-muted-foreground mb-1;
+  }
+
+  .empty-state-description {
+    @apply text-xs text-muted-foreground/70;
+  }
+
+  /* WhatsApp FAB */
+  .wa-fab {
+    @apply fixed bottom-24 right-4 md:bottom-6 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center z-50;
+    box-shadow: 0 4px 16px hsl(var(--primary) / 0.4);
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+    user-select: none;
+  }
+
+  .wa-fab:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 20px hsl(var(--primary) / 0.5);
+  }
+
+  .wa-fab:active {
+    transform: scale(0.95);
+  }
+
+  /* Ensure buttons have good touch targets */
+  .touch-target {
+    min-height: 44px;
+    min-width: 44px;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+}
+
+@layer utilities {
+  /* Animations */
+  .animate-fade-in {
+    animation: fade-in 0.2s ease-out;
+  }
+
+  /* Entrance used by the motion-lite shim (replaces framer-motion).
+     Neutralized automatically by the html.lite-mode global rule. */
+  .motion-lite-enter {
+    animation: fade-in 0.22s ease-out both;
+  }
+
+  /* Spring-like pop entrance for the FAB (replaces framer-motion variants).
+     Neutralized automatically by the html.lite-mode global rule. */
+  .motion-lite-pop {
+    animation: motion-lite-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+
+  @keyframes motion-lite-pop {
+    from { opacity: 0; transform: scale(0.6); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  .animate-fade-in-up {
+    animation: fade-in-up 0.2s ease-out;
+  }
+
+  .animate-scale-in {
+    animation: scale-in 0.15s ease-out;
+  }
+
+  .animate-slide-in-right {
+    animation: slide-in-right 0.2s ease-out;
+  }
+
+  .animate-pulse-subtle {
+    animation: pulse-subtle 2s ease-in-out infinite;
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes fade-in-up {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes scale-in {
+    from { opacity: 0; transform: scale(0.95); }
+    to { opacity: 1; transform: scale(1); }
+  }
+
+  @keyframes slide-in-right {
+    from { opacity: 0; transform: translateX(10px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  @keyframes pulse-subtle {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+
+  @keyframes shimmer {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+  }
+
+  /* Safe area for mobile */
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .safe-area-left {
+    padding-left: env(safe-area-inset-left);
+  }
+
+  .safe-area-right {
+    padding-right: env(safe-area-inset-right);
+  }
+
+  /* Hide scrollbar */
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Text balance */
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Interactive hover */
+  .hover-scale {
+    @apply transition-transform duration-150 ease-out;
+  }
+  .hover-scale:hover {
+    transform: scale(1.02);
+  }
+  .hover-scale:active {
+    transform: scale(0.98);
+  }
+
+  /* Press effect */
+  .press-effect {
+    @apply transition-all duration-100 ease-out;
+  }
+  .press-effect:active {
+    transform: scale(0.97);
+  }
+
+  /* Card lift with shadow */
+  .card-lift {
+    @apply transition-all duration-150 ease-out;
+  }
+  .card-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgb(0 0 0 / 0.08);
+  }
+
+  /* QR Scanner scan line animation */
+  @keyframes scanLine {
+    0% {
+      top: 0;
+    }
+    50% {
+      top: calc(100% - 2px);
+    }
+    100% {
+      top: 0;
+    }
+  }
+  
+  .animate-scan-line {
+    animation: scanLine 2s ease-in-out infinite;
+  }
+
+  /* iOS-specific optimizations */
+  
+  /* Prevent iOS bounce/overscroll on fixed containers */
+  .ios-fixed-scroll {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* iOS-safe input styling */
+  .ios-input {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    font-size: 16px; /* Prevents iOS zoom on focus */
+  }
+
+  /* Prevent iOS text selection on interactive elements */
+  .ios-no-select {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* iOS standalone mode adjustments */
+  @supports (-webkit-touch-callout: none) {
+    /* iOS Safari specific */
+    .ios-standalone-padding {
+      padding-top: constant(safe-area-inset-top);
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: constant(safe-area-inset-bottom);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+  }
+
+  /* Smooth momentum scrolling for iOS */
+  .ios-momentum-scroll {
+    -webkit-overflow-scrolling: touch;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+  }
+
+  /* Fix iOS button appearance */
+  button, 
+  [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* iOS PWA status bar area */
+  @media (display-mode: standalone) {
+    .ios-status-bar-padding {
+      padding-top: constant(safe-area-inset-top);
+      padding-top: env(safe-area-inset-top);
+    }
+  }
+
+  /* Prevent iOS rubber-band in standalone PWA without locking layout */
+  html.ios-standalone,
+  html.ios-standalone body {
+    overscroll-behavior-y: none;
+  }
+}
+
+/* ============================================
+   HIGH CONTRAST MODE - Accessibility
+   ============================================ */
+
+.high-contrast {
+  /* Enhanced contrast colors */
+  --background: 0 0% 100%;
+  --foreground: 0 0% 0%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 0%;
+  --primary: 271 100% 40%;
+  --primary-foreground: 0 0% 100%;
+  --muted: 0 0% 95%;
+  --muted-foreground: 0 0% 25%;
+  --border: 0 0% 0%;
+  --ring: 271 100% 40%;
+}
+
+.high-contrast.dark {
+  --background: 0 0% 0%;
+  --foreground: 0 0% 100%;
+  --card: 0 0% 5%;
+  --card-foreground: 0 0% 100%;
+  --primary: 271 100% 70%;
+  --primary-foreground: 0 0% 0%;
+  --muted: 0 0% 15%;
+  --muted-foreground: 0 0% 80%;
+  --border: 0 0% 100%;
+  --ring: 271 100% 70%;
+}
+
+/* Base font size increase */
+.high-contrast {
+  font-size: 18px !important;
+}
+
+/* Increased text sizes for readability */
+.high-contrast p,
+.high-contrast span,
+.high-contrast div {
+  letter-spacing: 0.02em;
+}
+
+.high-contrast h1 {
+  font-size: 2.5rem !important;
+  font-weight: 800 !important;
+}
+
+.high-contrast h2 {
+  font-size: 2rem !important;
+  font-weight: 700 !important;
+}
+
+.high-contrast h3 {
+  font-size: 1.5rem !important;
+  font-weight: 700 !important;
+}
+
+.high-contrast h4 {
+  font-size: 1.25rem !important;
+  font-weight: 600 !important;
+}
+
+/* Larger body text */
+.high-contrast .text-sm {
+  font-size: 1rem !important;
+}
+
+.high-contrast .text-xs {
+  font-size: 0.9rem !important;
+}
+
+.high-contrast .text-base {
+  font-size: 1.125rem !important;
+}
+
+.high-contrast .text-lg {
+  font-size: 1.25rem !important;
+}
+
+.high-contrast .text-xl {
+  font-size: 1.5rem !important;
+}
+
+.high-contrast .text-2xl {
+  font-size: 1.75rem !important;
+}
+
+.high-contrast .text-3xl {
+  font-size: 2rem !important;
+}
+
+/* Thicker borders */
+.high-contrast .border,
+.high-contrast [class*="border-"] {
+  border-width: 2px !important;
+}
+
+/* Enhanced button styling */
+.high-contrast button,
+.high-contrast [role="button"] {
+  font-weight: 700 !important;
+  border-width: 2px !important;
+}
+
+/* Better focus visibility */
+.high-contrast *:focus-visible {
+  outline: 4px solid hsl(var(--primary)) !important;
+  outline-offset: 2px !important;
+}
+
+/* Card enhancements */
+.high-contrast .rounded-xl,
+.high-contrast .rounded-lg,
+.high-contrast .rounded-md {
+  border: 2px solid hsl(var(--border)) !important;
+}
+
+/* Badge readability */
+.high-contrast [class*="badge"],
+.high-contrast .badge {
+  font-weight: 700 !important;
+  font-size: 0.95rem !important;
+  padding: 0.5rem 0.75rem !important;
+}
+
+/* Input fields */
+.high-contrast input,
+.high-contrast textarea,
+.high-contrast select {
+  font-size: 1.1rem !important;
+  border-width: 2px !important;
+  font-weight: 500 !important;
+}
+
+/* Link underlines for visibility */
+.high-contrast a {
+  text-decoration: underline !important;
+  text-underline-offset: 3px !important;
+}
+
+/* Icon sizes */
+.high-contrast svg.h-4 {
+  width: 1.25rem !important;
+  height: 1.25rem !important;
+}
+
+.high-contrast svg.h-5 {
+  width: 1.5rem !important;
+  height: 1.5rem !important;
+}
+
+.high-contrast svg.h-6 {
+  width: 1.75rem !important;
+  height: 1.75rem !important;
+}
+
+/* Enhanced shadows for depth */
+.high-contrast .shadow,
+.high-contrast .shadow-sm,
+.high-contrast .shadow-md,
+.high-contrast .shadow-lg {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+}
+
+/* Progress bars */
+.high-contrast [role="progressbar"] {
+  height: 12px !important;
+}
+
+/* Skeleton loading states - more visible */
+.high-contrast .animate-pulse {
+  background: repeating-linear-gradient(
+    90deg,
+    hsl(var(--muted)) 0%,
+    hsl(var(--muted-foreground) / 0.3) 50%,
+    hsl(var(--muted)) 100%
+  ) !important;
+}
+
+/* Mobile input zoom prevention — static CSS, no JS injection needed */
+input, textarea, select, button {
+  -webkit-text-size-adjust: 100%;
+  touch-action: manipulation;
+}
+@media (max-width: 768px) {
+  input, textarea, select {
+    font-size: 16px !important;
+  }
+  input:focus, textarea:focus, select:focus {
+    font-size: 16px !important;
+  }
+}
+
+/* ===== SMALL SCREEN OPTIMIZATIONS (agents with small smartphones) ===== */
+
+/* Screens under 360px (very small phones like Tecno Pop, Itel A14, etc.) */
+@media (max-width: 360px) {
+  /* Increase minimum touch targets to 48px */
+  button, a, [role="button"], .cursor-pointer {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Reduce padding to save space */
+  .p-4 { padding: 0.75rem !important; }
+  .p-6 { padding: 1rem !important; }
+  .px-4 { padding-left: 0.75rem !important; padding-right: 0.75rem !important; }
+  .px-6 { padding-left: 1rem !important; padding-right: 1rem !important; }
+  .gap-4 { gap: 0.75rem !important; }
+  .gap-6 { gap: 1rem !important; }
+
+  /* Reduce font sizes slightly for small screens */
+  .text-2xl { font-size: 1.25rem !important; }
+  .text-3xl { font-size: 1.5rem !important; }
+  .text-4xl { font-size: 1.75rem !important; }
+
+  /* Cards take full width */
+  .rounded-2xl { border-radius: 0.75rem !important; }
+
+  /* Stack elements that might overflow */
+  .flex-row { flex-direction: column !important; }
+  
+  /* Ensure text doesn't overflow */
+  h1, h2, h3, h4, p, span, label {
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+}
+
+/* Screens under 320px (extremely small phones) */
+@media (max-width: 320px) {
+  .p-4 { padding: 0.5rem !important; }
+  .p-3 { padding: 0.375rem !important; }
+  .text-sm { font-size: 0.8125rem !important; }
+  .text-base { font-size: 0.875rem !important; }
+  
+  /* Hide non-essential decorative elements */
+  .hidden-tiny { display: none !important; }
+}
+
+/* ===== SLOW CONNECTION: reduce motion & hide heavy visuals ===== */
+@media (prefers-reduced-data: reduce) {
+  /* Disable all animations */
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  
+  /* Hide decorative images */
+  img[aria-hidden="true"],
+  .decorative-image {
+    display: none !important;
+  }
+}
+
+/* Save-data mode: also triggered by slow connections */
+.save-data * {
+  animation-duration: 0.01ms !important;
+  transition-duration: 0.01ms !important;
+}
+
+.save-data .bg-gradient-to-r,
+.save-data .bg-gradient-to-br,
+.save-data .bg-gradient-to-b {
+  background: hsl(var(--background)) !important;
+}
+
+/* ===== AGGRESSIVE OFFLINE INDICATOR ===== */
+.offline-indicator {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 9999;
+  background: hsl(var(--destructive));
+  color: hsl(var(--destructive-foreground));
+  text-align: center;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* ===== SUPPORTER DASHBOARD — PERFORMANCE-OPTIMIZED CSS ===== */
+
+/* Portfolio hero card — Premium fintech style */
+.portfolio-hero-card {
+  background-color: hsl(271 81% 44%);
+  background-image: linear-gradient(145deg, hsl(271 81% 52%), hsl(271 81% 44%), hsl(260 70% 38%));
+  color: hsl(var(--primary-foreground));
+  box-shadow: 
+    0 20px 40px -15px hsl(271 81% 40% / 0.35),
+    0 0 0 1px hsl(271 81% 60% / 0.15) inset;
+  will-change: auto;
+  contain: layout paint style;
+  isolation: isolate;
+  overflow: hidden;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+
+/* Legacy fallback */
+.portfolio-summary-card {
+  background: linear-gradient(145deg, hsl(271 81% 52%), hsl(271 81% 44%), hsl(260 70% 38%));
+  color: hsl(var(--primary-foreground));
+  box-shadow: 0 20px 40px -15px hsl(271 81% 40% / 0.35);
+  will-change: auto;
+  contain: layout paint style;
+  isolation: isolate;
+  overflow: hidden;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Translucent stat cells inside the gradient hero card.
+   NOTE: no `backdrop-filter` here. A blur layer composited inside a
+   rounded + clipped gradient card is the root cause of the horizontal
+   "rainbow tearing" band on Android Mali/Adreno GPUs and installed PWAs.
+   A slightly more opaque flat fill reads just as well and composites once. */
+.portfolio-stat-cell-v2 {
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.portfolio-stat-cell {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.wallet-balance-text {
+  color: hsl(var(--primary-foreground));
+}
+
+.wallet-label-text {
+  color: hsl(var(--primary-foreground) / 0.8);
+}
+
+.wallet-icon-svg {
+  color: hsl(var(--primary-foreground) / 0.7);
+}
+
+/* Virtual house card — lightweight health badges */
+.house-card {
+  contain: layout style;
+}
+
+.house-health-badge-green {
+  background: hsl(142 71% 45% / 0.12);
+  border-color: hsl(142 71% 45% / 0.3);
+  color: hsl(142 71% 35%);
+}
+
+.house-health-badge-amber {
+  background: hsl(38 92% 50% / 0.12);
+  border-color: hsl(38 92% 50% / 0.3);
+  color: hsl(38 70% 35%);
+}
+
+.house-health-badge-red {
+  background: hsl(0 72% 51% / 0.12);
+  border-color: hsl(0 72% 51% / 0.3);
+  color: hsl(0 72% 41%);
+}
+
+.house-health-dot-green { background: hsl(142 71% 45%); }
+.house-health-dot-amber { background: hsl(38 92% 50%); }
+.house-health-dot-red { background: hsl(0 72% 51%); }
+
+/* Dark mode overrides */
+.dark .portfolio-hero-card {
+  background-color: hsl(271 81% 28%);
+  background-image: linear-gradient(145deg, hsl(271 81% 36%), hsl(271 81% 28%), hsl(260 70% 22%));
+  color: hsl(0 0% 100%);
+  box-shadow: 
+    0 20px 40px -15px hsl(271 81% 20% / 0.5),
+    0 0 0 1px hsl(271 81% 50% / 0.1) inset;
+}
+
+.dark .portfolio-summary-card {
+  background: linear-gradient(145deg, hsl(271 81% 36%), hsl(271 81% 28%), hsl(260 70% 22%));
+}
+
+.dark .portfolio-stat-cell-v2 {
+  background: rgba(255, 255, 255, 0.10);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.dark .house-health-badge-green {
+  color: hsl(142 71% 55%);
+}
+
+.dark .house-health-badge-amber {
+  color: hsl(38 92% 60%);
+}
+
+.dark .house-health-badge-red {
+  color: hsl(0 72% 60%);
+}
+
+/* ==========================================
+   AFRICAN SMARTPHONE OPTIMIZATIONS
+   Targets: Tecno, Itel, Infinix, Samsung A-series,
+   Xiaomi Redmi, Nokia, KaiOS feature phones
+   ========================================== */
+
+/* Ultra-small screens (240-320px) — Feature phones & KaiOS */
+@media (max-width: 320px) {
+  html { font-size: 13px; }
+  .text-2xl { font-size: 1.125rem; }
+  .text-3xl { font-size: 1.25rem; }
+  .p-4 { padding: 0.625rem; }
+  .p-6 { padding: 0.75rem; }
+  .gap-4 { gap: 0.5rem; }
+  .gap-6 { gap: 0.625rem; }
+}
+
+/* Small Android screens (321-375px) — budget Tecno/Itel */
+@media (min-width: 321px) and (max-width: 375px) {
+  html { font-size: 14px; }
+}
+
+/* Ensure interactive elements meet touch targets while keeping checkboxes compact */
+button:not([role="checkbox"]):not([role="radio"]):not(.no-min-tap),
+a,
+[role="button"]:not([role="checkbox"]):not([role="radio"]),
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+textarea,
+[tabindex]:not([role="checkbox"]):not([role="radio"]) {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+input[type="checkbox"], input[type="radio"], [role="checkbox"] {
+  min-height: 16px !important;
+  min-width: 16px !important;
+  max-height: 16px !important;
+  max-width: 16px !important;
+}
+
+/* Prevent text overflow on small screens with UGX amounts */
+.truncate-amount {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+/* Smoother scrolling on low-RAM devices.
+   NOTE: `will-change: scroll-position` was removed — it permanently promotes a
+   full-height composited layer that overruns the GPU texture budget on entry-
+   level Mali/Adreno GPUs and produces the rainbow tearing band. Momentum
+   scrolling + overscroll containment are enough and stay cheap. */
+.scroll-container {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* Skeleton shimmer — CSS replacement for the former Framer Motion shimmer so
+   skeletons no longer pull the vendor-motion chunk into the initial load.
+   Neutralised automatically in lite-mode (the global lite rule zeroes it). */
+@keyframes skeleton-shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+.skeleton-shimmer {
+  animation: skeleton-shimmer 2.4s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  animation-delay: 0.3s;
+  will-change: transform;
+}
+html.lite-mode .skeleton-shimmer { animation: none !important; }
+
+/* Soften Tailwind's default animate-pulse — the stock 0.5↔1 opacity swing
+   reads as a harsh blink when many skeletons stack on one card. */
+@keyframes soft-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.75; }
+}
+.animate-pulse {
+  animation: soft-pulse 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+html.lite-mode .animate-pulse { animation: none !important; }
+
+/* Reduce paint on low-end GPUs */
+@media (max-resolution: 1.5dppx) {
+  * {
+    box-shadow: none !important;
+  }
+  .glass-card, [class*="backdrop-blur"] {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
+
+/* GPU backdrop-filter corruption fix (Android Mali/Adreno tearing).
+   Set via runtime detector in main.tsx (.no-backdrop-blur on <html>).
+
+   IMPORTANT: only disable the blur here — do NOT repaint the surface.
+   Many translucent overlays (e.g. wallet hero action buttons that use
+   `bg-white/20 backdrop-blur-sm` over the purple gradient card) carry their
+   own background. Forcing `hsl(var(--card))` (white in light mode) turned
+   those into solid white rectangles that hid their white text/icons. */
+html.no-backdrop-blur [class*="backdrop-blur"] {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Defensive: also strip any custom (non-utility) blur surfaces, and force
+   the wallet/portfolio hero cards to paint into an isolated, clipped layer
+   so a child can never overflow into the tearing band. */
+html.no-backdrop-blur .portfolio-stat-cell-v2,
+html.android-compositor-safe .portfolio-stat-cell-v2 {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+html.android-compositor-safe .portfolio-hero-card,
+html.android-compositor-safe .portfolio-summary-card {
+  contain: layout paint style;
+  isolation: isolate;
+  overflow: hidden;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  will-change: auto !important;
+}
+
+/* The hero/wallet cards carry a heavy custom drop-shadow plus an `inset`
+   highlight. On clipped gradient surfaces that inset layer is a primary
+   source of the horizontal "rainbow tearing" band on Mali/Adreno GPUs.
+   Drop the inset entirely and soften the outer shadow so the driver never
+   allocates an oversized texture for the card. This is NOT covered by the
+   generic `.shadow-2xl/.shadow-xl` rule because the shadow is a custom
+   property on these classes. */
+html.android-compositor-safe .portfolio-hero-card,
+html.android-compositor-safe .portfolio-summary-card,
+html.no-backdrop-blur .portfolio-hero-card,
+html.no-backdrop-blur .portfolio-summary-card {
+  box-shadow: 0 8px 20px -12px hsl(271 81% 40% / 0.35) !important;
+}
+
+/* Decorative absolutely-positioned glow circles inside the hero cards add
+   extra composited layers with no informational value. Flatten them on
+   affected devices so the card paints in a single pass. */
+html.android-compositor-safe .portfolio-hero-card [class*="rounded-full"][class*="absolute"],
+html.android-compositor-safe .portfolio-summary-card [class*="rounded-full"][class*="absolute"] {
+  display: none !important;
+}
+
+/* True glass panels rely on the blur for legibility over arbitrary content,
+   so they (and only they) get an opaque fallback surface. */
+html.no-backdrop-blur .glass-card {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  background-color: hsl(var(--card)) !important;
+}
+
+/* =====================================================================
+   Android 12-14 Chrome / Samsung Internet compositor safe-mode.
+   Applied by main.tsx when an affected UA is detected.
+   Fixes:
+    1. Rainbow tearing band on tall blurred cards (oversized GPU texture).
+    2. Duplicated "sticky" rows inside transformed/rounded scroll containers.
+    3. Re-paint smear when Framer Motion leaves `will-change: transform` on.
+   ===================================================================== */
+html.android-compositor-safe [class*="backdrop-blur"],
+html.android-compositor-safe .glass-card {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Kill nested GPU layer promotion inside dialogs/sheets/drawers — the
+   compositor doubles sticky/fixed children when their ancestor is
+   transformed. Only the outermost overlay gets a promoted layer. */
+html.android-compositor-safe [role="dialog"] *:not(.app-sheet-content):not(.app-dialog-content):not(.photo-slider-slide),
+html.android-compositor-safe [data-radix-popper-content-wrapper] *:not(.photo-slider-slide) {
+  transform: none !important;
+  -webkit-transform: none !important;
+  will-change: auto !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Image sliders inside sheets/dialogs position their slides with a transform.
+   Restore it explicitly (the offset travels through the --slide-x variable) so
+   next/prev navigation still moves on Android/lite-mode devices. */
+html.android-compositor-safe [role="dialog"] .photo-slider-slide,
+html.lite-mode [role="dialog"] .photo-slider-slide {
+  transform: translate3d(var(--slide-x, 0%), 0, 0) !important;
+  -webkit-transform: translate3d(var(--slide-x, 0%), 0, 0) !important;
+}
+
+
+/* The overlay itself stays promoted, but constrain its paint so the
+   driver never allocates a texture larger than the viewport. */
+html.android-compositor-safe [role="dialog"].app-dialog-content {
+  contain: layout paint;
+  transform: translate3d(-50%, -50%, 0) !important;
+  -webkit-transform: translate3d(-50%, -50%, 0) !important;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+html.android-compositor-safe [role="dialog"].app-sheet-content[data-sheet-side="bottom"],
+html.android-compositor-safe [role="dialog"].app-sheet-content[data-sheet-side="top"] {
+  contain: layout paint;
+  transform: translate3d(0, 0, 0) !important;
+  -webkit-transform: translate3d(0, 0, 0) !important;
+  left: 0 !important;
+  right: 0 !important;
+  max-width: 100vw !important;
+  overflow-x: hidden;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Opt-in: dialogs that render as a full-width bottom sheet on mobile.
+   On <sm screens, neutralize the forced centered translate so the dialog
+   can sit flush at the bottom edge using its own left-0/right-0/bottom-0
+   utility classes. On >=sm, fall back to the standard centered dialog. */
+@media (max-width: 639px) {
+  [role="dialog"].app-dialog-bottom-sheet {
+    transform: translate3d(0, 0, 0) !important;
+    -webkit-transform: translate3d(0, 0, 0) !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: auto !important;
+    bottom: 0 !important;
+    max-width: 100vw !important;
+    width: 100% !important;
+  }
+  html.android-compositor-safe [role="dialog"].app-dialog-content.app-dialog-bottom-sheet {
+    transform: translate3d(0, 0, 0) !important;
+    -webkit-transform: translate3d(0, 0, 0) !important;
+    left: 0 !important;
+    right: 0 !important;
+    top: auto !important;
+    bottom: 0 !important;
+    max-width: 100vw !important;
+    width: 100% !important;
+  }
+}
+
+html.android-compositor-safe [role="dialog"].app-sheet-content[data-sheet-side="left"],
+html.android-compositor-safe [role="dialog"].app-sheet-content[data-sheet-side="right"] {
+  contain: layout paint;
+  max-width: 100vw !important;
+  overflow-x: hidden;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+[role="dialog"].app-sheet-content.advance-request-sheet[data-sheet-side="bottom"] {
+  left: 50% !important;
+  right: auto !important;
+  width: min(100vw, 32rem) !important;
+  max-width: 32rem !important;
+  transform: translate3d(-50%, 0, 0) !important;
+  -webkit-transform: translate3d(-50%, 0, 0) !important;
+}
+
+@media (max-width: 640px) {
+  [role="dialog"].app-sheet-content.advance-request-sheet[data-sheet-side="bottom"] {
+    left: 0 !important;
+    right: 0 !important;
+    width: 100vw !important;
+    max-width: 100vw !important;
+    transform: translate3d(0, 0, 0) !important;
+    -webkit-transform: translate3d(0, 0, 0) !important;
+  }
+}
+
+/* Heavy shadows on rounded cards are the second-biggest source of
+   oversized textures. Soften them on affected devices. */
+html.android-compositor-safe .shadow-2xl,
+html.android-compositor-safe .shadow-xl {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+}
+
+/* Disable position:sticky inside transformed ancestors (root of the
+   "duplicated Auto-Reinvest / Next ROI Date" bug). */
+html.android-compositor-safe [role="dialog"] .sticky,
+html.android-compositor-safe [role="dialog"] [class*="sticky"] {
+  position: relative !important;
+  top: auto !important;
+}
+
+/* The main scroll shells get framer-motion / pull-to-refresh transforms
+   left on them which promote a full-viewport-tall GPU layer. On low-end
+   Mali/Adreno GPUs that texture overruns the max size and the driver
+   returns a corrupted buffer (rainbow tearing band). Force them to paint
+   into the parent layer. */
+html.android-compositor-safe .agent-dashboard-shell,
+html.android-compositor-safe .agent-dashboard-main,
+html.android-compositor-safe [data-pull-to-refresh],
+html.android-compositor-safe [data-pull-to-refresh] > * {
+  transform: none !important;
+  -webkit-transform: none !important;
+  will-change: auto !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  filter: none !important;
+}
+
+/* ===== LITE MODE (Android Go-class: <=3GB RAM / <=4 cores / reduced-motion /
+   Data Saver). Set by the runtime detector in main.tsx as `html.lite-mode`.
+   It also inherits every android-compositor-safe rule above. These extra rules
+   strip animation/compositing weight app-wide so entry-level phones stay
+   responsive and never tear. Progressive enhancement: the UI is fully usable
+   with no blur, no transforms, no heavy shadows. ===== */
+html.lite-mode *,
+html.lite-mode *::before,
+html.lite-mode *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+/* Keep a couple of essential feedback spinners visible. */
+html.lite-mode .animate-spin {
+  animation: spin 0.8s linear infinite !important;
+}
+html.lite-mode [class*="backdrop-blur"],
+html.lite-mode .glass-card {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+html.lite-mode .shadow-2xl,
+html.lite-mode .shadow-xl,
+html.lite-mode .shadow-lg {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+}
+/* Never leave a full-height composited layer on scroll shells in lite mode. */
+html.lite-mode .scroll-container,
+html.lite-mode .agent-dashboard-shell,
+html.lite-mode .agent-dashboard-main {
+  will-change: auto !important;
+  transform: none !important;
+  -webkit-transform: none !important;
+}
+
+/* Data-saver: hide decorative elements */
+@media (prefers-reduced-data: reduce) {
+  [data-decorative], .decorative, [save-data-hidden] {
+    display: none !important;
+  }
+  img:not([data-essential]) {
+    image-rendering: pixelated;
+  }
+}
+
+/* Safe area insets for notched phones (Tecno Spark, Infinix Note) */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .safe-top { padding-top: env(safe-area-inset-top); }
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+  .safe-left { padding-left: env(safe-area-inset-left); }
+  .safe-right { padding-right: env(safe-area-inset-right); }
+}
+
+/* Clearance for fixed bottom role / tab nav on mobile.
+   Bottom nav is ~72px (56px min-h + py-2); add safe-area-inset-bottom for
+   iPhone home indicator PLUS a comfortable 24px buffer so the last row of
+   content (e.g. the agent hub tab strip) never sits flush behind the nav. */
+.pb-nav {
+  padding-bottom: calc(9rem + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 1024px) {
+  .pb-nav { padding-bottom: 1rem; }
+}
+
+/* Single source of truth for how far floating action buttons must sit above
+   the bottom of the viewport so they never collide with the fixed bottom
+   role switcher (~72px) or the iPhone home indicator (safe-area-inset-bottom).
+   The +12px gives every FAB a visible breathing gap above the nav.
+
+   Used by: FieldCollectFab, FloatingToolbar (WhatsApp), AgentNavFAB, and any
+   future mobile FAB. Reference it as `bottom: var(--fab-bottom)` (or the
+   Tailwind arbitrary value `bottom-[var(--fab-bottom)]`). */
+:root {
+  /* Floating pill nav: 64px bar + 10px bottom inset = 74px of occupied space. */
+  --fab-bottom: calc(74px + env(safe-area-inset-bottom, 0px) + 12px);
+  --fab-bottom-stacked: calc(74px + env(safe-area-inset-bottom, 0px) + 76px);
+}
+@media (min-width: 768px) {
+  /* Desktop has no bottom role switcher — anchor FABs to a small inset only. */
+  :root {
+    --fab-bottom: 1.5rem;
+    --fab-bottom-stacked: 5.5rem;
+  }
+}
+/* Short landscape phones (≤ 500px tall): collapse non-critical FABs so they
+   don't dominate the limited vertical space or overlap each other. */
+@media (max-height: 500px) and (orientation: landscape) {
+  .fab-hide-landscape { display: none !important; }
+  .fab-shrink-landscape { transform: scale(0.85); transform-origin: bottom right; }
+}
+
+/* Sticky header that respects the iOS notch */
+.sticky-top-safe {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 30;
+}
+
+/* ============================================
+   INSTALLED APP (iOS home screen) SAFE AREAS
+   The app declares viewport-fit=cover +
+   apple-mobile-web-app-status-bar-style=black-translucent, so in standalone
+   mode the web view spans the FULL screen — content would otherwise render
+   underneath the iPhone status bar (clock / battery / signal) and the home
+   indicator. These rules inset the app shell once, globally, instead of
+   relying on each screen to remember a safe-area class.
+   ============================================ */
+@media (display-mode: standalone), (display-mode: fullscreen), (display-mode: minimal-ui) {
+  /* App shell: push all in-flow content below the status bar and inside the
+     notch cut-outs in landscape. Portalled overlays (dialogs / sheets) live
+     outside #root and keep their own safe-area handling. */
+  #root {
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+
+  /* Sticky / fixed bars are positioned against the viewport, so the #root
+     padding above does not protect them — offset them explicitly. */
+  #root .sticky.top-0,
+  #root .fixed.top-0 {
+    top: env(safe-area-inset-top, 0px);
+  }
+
+  /* Avoid double insets for screens that already opted in manually. */
+  #root .safe-area-top,
+  #root .safe-top,
+  #root .ios-status-bar-padding,
+  #root .ios-standalone-padding {
+    padding-top: 0;
+  }
+  #root .sticky-top-safe {
+    top: 0;
+  }
+}
+
+/* Same treatment for the iOS standalone class set at boot, for older iOS
+   versions that do not report display-mode reliably. */
+html.ios-standalone #root {
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+html.ios-standalone #root .sticky.top-0,
+html.ios-standalone #root .fixed.top-0 {
+  top: env(safe-area-inset-top, 0px);
+}
+html.ios-standalone #root .safe-area-top,
+html.ios-standalone #root .safe-top,
+html.ios-standalone #root .ios-status-bar-padding {
+  padding-top: 0;
+}
+html.ios-standalone #root .sticky-top-safe {
+  top: 0;
+}
+
+/* Minimum 44x44 thumb-friendly tap target (WCAG / Apple HIG) */
+.min-tap { min-height: 44px; min-width: 44px; }
+
+/* RTL support for North/East African markets */
+[dir="rtl"] .flex-row { flex-direction: row-reverse; }
+[dir="rtl"] .text-left { text-align: right; }
+[dir="rtl"] .text-right { text-align: left; }
+
+/* High contrast mode for outdoor visibility (bright African sun) */
+@media (prefers-contrast: more) {
+  :root {
+    --border: 220 20% 70%;
+    --muted-foreground: 220 15% 30%;
+  }
+  button, a {
+    text-decoration: underline;
+    font-weight: 600;
+  }
+}
+
+/* Print styles for receipt screenshots */
+@media print {
+  nav, header, footer, .no-print { display: none !important; }
+  body { background: white !important; }
+  .printable, .printable * { color: black !important; box-shadow: none !important; }
+}
+
+/* Hide scrollbars on horizontally-scrollable chip strips (e.g. AgentNavFAB) */
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* =========================================================================
+   Easy-read mode (accessibility)
+   Toggled by adding `.a11y-large` to <body> + setting `--a11y-scale`
+   (1 = M, 1.15 = L, 1.3 = XL) via the `useEasyReadMode` hook.
+   Applies globally so wallet + receipt + dialog components stay uniform.
+   ========================================================================= */
+body.a11y-large { font-size: calc(17px * var(--a11y-scale, 1)); }
+
+body.a11y-large .text-\[10px\] { font-size: calc(13px * var(--a11y-scale, 1)) !important; line-height: 1.3 !important; }
+body.a11y-large .text-\[11px\] { font-size: calc(14px * var(--a11y-scale, 1)) !important; line-height: 1.4 !important; }
+body.a11y-large .text-xs       { font-size: calc(15px * var(--a11y-scale, 1)) !important; line-height: 1.45 !important; }
+body.a11y-large .text-sm       { font-size: calc(16px * var(--a11y-scale, 1)) !important; line-height: 1.5 !important; }
+body.a11y-large .text-base     { font-size: calc(17px * var(--a11y-scale, 1)) !important; line-height: 1.55 !important; }
+
+/* Stronger contrast on muted text inside any wallet/receipt surface */
+body.a11y-large .text-muted-foreground       { color: hsl(var(--foreground) / 0.92) !important; }
+body.a11y-large .text-muted-foreground\/80,
+body.a11y-large .text-muted-foreground\/70   { color: hsl(var(--foreground) / 0.85) !important; }
+body.a11y-large .border                      { border-color: hsl(var(--foreground) / 0.35) !important; }
+
+/* Tap targets: WCAG 2.5.5 — applied broadly but opt-out via .a11y-exempt */
+body.a11y-large button:not(.a11y-exempt),
+body.a11y-large [role="button"]:not(.a11y-exempt),
+body.a11y-large [role="radio"]:not(.a11y-exempt),
+body.a11y-large summary:not(.a11y-exempt),
+body.a11y-large a:not(.a11y-exempt) {
+  min-height: 48px;
+  min-width: 44px;
+}
+
+body.a11y-large [role="radiogroup"] { padding: 4px; gap: 4px; }
+body.a11y-large [role="radiogroup"] > button {
+  padding-top: 12px !important;
+  padding-bottom: 12px !important;
+  padding-left: 14px !important;
+  padding-right: 14px !important;
+}
+
+body.a11y-large summary { padding-top: 14px !important; padding-bottom: 14px !important; }
+body.a11y-large details > summary,
+body.a11y-large [aria-expanded] { padding-top: 12px; padding-bottom: 12px; }
+
+/* ============================================================
+   Three-body screen loader (used by StalledLoaderWatchdog)
+   ============================================================ */
+.three-body {
+  --uib-size: 35px;
+  --uib-speed: 1.4s;
+  --uib-color: hsl(var(--primary));
+  position: relative;
+  display: inline-block;
+  height: var(--uib-size);
+  width: var(--uib-size);
+  animation: spin78236 calc(var(--uib-speed) * 2.5) infinite linear;
+}
+
+.three-body__dot {
+  position: absolute;
+  height: 100%;
+  width: 30%;
+}
+
+.three-body__dot:after {
+  content: '';
+  position: absolute;
+  height: 0%;
+  width: 100%;
+  padding-bottom: 100%;
+  background-color: var(--uib-color);
+  border-radius: 50%;
+}
+
+.three-body__dot:nth-child(1) {
+  bottom: 5%;
+  left: 0;
+  transform: rotate(60deg);
+  transform-origin: 50% 85%;
+}
+
+.three-body__dot:nth-child(1)::after {
+  bottom: 0;
+  left: 0;
+  animation: wobble1 var(--uib-speed) infinite ease-in-out;
+  animation-delay: calc(var(--uib-speed) * -0.3);
+}
+
+.three-body__dot:nth-child(2) {
+  bottom: 5%;
+  right: 0;
+  transform: rotate(-60deg);
+  transform-origin: 50% 85%;
+}
+
+.three-body__dot:nth-child(2)::after {
+  bottom: 0;
+  left: 0;
+  animation: wobble1 var(--uib-speed) infinite calc(var(--uib-speed) * -0.15) ease-in-out;
+}
+
+.three-body__dot:nth-child(3) {
+  bottom: -5%;
+  left: 0;
+  transform: translateX(116.666%);
+}
+
+.three-body__dot:nth-child(3)::after {
+  top: 0;
+  left: 0;
+  animation: wobble2 var(--uib-speed) infinite ease-in-out;
+}
+
+@keyframes spin78236 {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes wobble1 {
+  0%, 100% { transform: translateY(0%) scale(1); opacity: 1; }
+  50% { transform: translateY(-66%) scale(0.65); opacity: 0.8; }
+}
+
+@keyframes wobble2 {
+  0%, 100% { transform: translateY(0%) scale(1); opacity: 1; }
+  50% { transform: translateY(66%) scale(0.65); opacity: 0.8; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .three-body {
+    --uib-speed: 2.4s;
+  }
+}
+
+/* In-app "Reduce motion" choice (Settings → Accessibility → Motion).
+   Mirrors the OS-level prefers-reduced-motion behaviour for users whose
+   phone setting says otherwise. */
+html.reduce-motion *,
+html.reduce-motion *::before,
+html.reduce-motion *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}

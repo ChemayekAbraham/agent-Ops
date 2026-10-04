@@ -1,0 +1,165 @@
+import { useEffect, useRef, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { HeroCard } from '@/components/cfo/HeroCard';
+import { formatUGX } from '@/lib/creditFeeCalculations';
+import { Coins } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+
+const GROUPS: Record<string, string> = {
+  roi_wallet_credit: 'Supporter returns',
+  roi_payout: 'Supporter returns',
+  wallet_deposit: 'Deposits',
+  wallet_transfer: 'Wallet transfers in',
+  bucket_reclass_in: 'Float moved to withdrawable',
+  agent_commission: 'Commissions',
+  agent_commission_earned: 'Commissions',
+  partner_commission: 'Commissions',
+  proxy_investment_commission: 'Commissions',
+  agent_investment_commission: 'Commissions',
+  agent_advance_credit: 'Agent advances',
+  system_balance_correction: 'Corrections',
+};
+const label = (c: string) =>
+  GROUPS[c] ??
+  (c.includes('bonus') ? 'Bonuses'
+    : c.includes('salary') || c.includes('payroll') ? 'Salary & payroll'
+    : c.includes('correction') ? 'Corrections'
+    : c.includes('commission') ? 'Commissions'
+    : 'Other');
+
+type Row = { category: string; total: number; credits: number };
+
+/**
+ * Today's wallet credits into the withdrawable bucket, grouped by what they
+ * were for. Rendered through the same compact card the treasury and bank cards
+ * use, so the three sit in one row as a set: amount on the face, breakdown in
+ * the modal. Nothing is derived here beyond grouping — every figure is the
+ * ledger total the RPC returns.
+ */
+export function WithdrawableCreditsLivePanel({ moneyWeHaveTotal }: { moneyWeHaveTotal: number }) {
+  const [live, setLive] = useState(false);
+  const q = useQuery({
+    queryKey: ['cfo-withdrawable-credits-today'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_cfo_withdrawable_credits_today');
+      if (error) throw error;
+      return (data ?? []) as Row[];
+    },
+    refetchInterval: live ? false : 30000,
+  });
+  const timer = useRef<number | null>(null);
+  const refetch = q.refetch;
+
+  useEffect(() => {
+    const ch = supabase
+      .channel('cfo-withdrawable-credits')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'general_ledger' }, () => {
+        if (timer.current) return;
+        timer.current = window.setTimeout(() => { timer.current = null; refetch(); }, 5000);
+      })
+      .subscribe((s) => setLive(s === 'SUBSCRIBED'));
+    return () => { if (timer.current) clearTimeout(timer.current); supabase.removeChannel(ch); };
+  }, [refetch]);
+
+  const [openGroup, setOpenGroup] = useState<string | null>(null);
+  const cats = (q.data ?? []).filter((r) => label(r.category) === openGroup).map((r) => r.category);
+  const detail = useQuery({
+    queryKey: ['cfo-withdrawable-credits-detail', openGroup, cats.join(',')],
+    enabled: !!openGroup && cats.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_cfo_withdrawable_credits_today_detail', { p_categories: cats });
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+
+  const grouped = new Map<string, { total: number; credits: number }>();
+  (q.data ?? []).forEach((r) => {
+    const k = label(r.category);
+    const g = grouped.get(k) ?? { total: 0, credits: 0 };
+    g.total += Number(r.total); g.credits += Number(r.credits);
+    grouped.set(k, g);
+  });
+  const rows = [...grouped.entries()].sort((a, b) => b[1].total - a[1].total);
+  const total = rows.reduce((s, [, g]) => s + g.total, 0);
+  const count = rows.reduce((s, [, g]) => s + g.credits, 0);
+
+  const items = rows.map(([k, g]) => ({
+    dot: 'bg-emerald-500',
+    label: `${k} (${g.credits.toLocaleString()})`,
+    value: formatUGX(g.total),
+    onSelect: () => setOpenGroup(k),
+  }));
+
+  const openTotals = openGroup ? grouped.get(openGroup) : undefined;
+
+  return (
+    <>
+    <HeroCard
+      icon={<Coins className="h-4 w-4" />}
+      tone="success"
+      title="Withdrawable credits today"
+      value={q.isLoading || q.error ? '—' : formatUGX(total)}
+      percentageLabel={q.isLoading || q.error || moneyWeHaveTotal <= 0
+        ? '—'
+        : `${((total / moneyWeHaveTotal) * 100).toFixed(1)}% of Money We Have`}
+      percentageDirection="up"
+      percentageValue={!q.isLoading && !q.error ? total : undefined}
+      percentageTotal={moneyWeHaveTotal}
+      items={items}
+      footer={
+        q.error
+          ? 'Could not load today’s credits from the ledger.'
+          : `${count.toLocaleString()} credits since midnight (Kampala)`
+      }
+      footerTone="bg-emerald-50/70 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 italic"
+    />
+    <Dialog open={!!openGroup} onOpenChange={(o) => !o && setOpenGroup(null)}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="text-base">{openGroup} — today</DialogTitle>
+          <DialogDescription className="text-xs">
+            {openTotals ? `${openTotals.credits.toLocaleString()} credits · ${formatUGX(openTotals.total)} since midnight (Kampala)` : ''}
+          </DialogDescription>
+        </DialogHeader>
+        {openGroup && (
+          <div className="rounded-md border border-border/60 bg-muted/30 p-2 text-xs space-y-1">
+            <p className="font-medium text-foreground">By type</p>
+            {(q.data ?? [])
+              .filter((r) => label(r.category) === openGroup)
+              .sort((a, b) => Number(b.total) - Number(a.total))
+              .map((r) => (
+                <div key={r.category} className="flex items-center justify-between gap-3">
+                  <span className="text-muted-foreground capitalize">{r.category.replace(/_/g, ' ')} ({Number(r.credits).toLocaleString()})</span>
+                  <span className="tabular-nums font-medium text-foreground">{formatUGX(Number(r.total))}</span>
+                </div>
+              ))}
+            {openTotals && (
+              <div className="flex items-center justify-between gap-3 border-t border-border/60 pt-1 font-medium">
+                <span>Total</span>
+                <span className="tabular-nums">{formatUGX(openTotals.total)}</span>
+              </div>
+            )}
+          </div>
+        )}
+        <div className="max-h-[50vh] overflow-y-auto space-y-0">
+          {detail.isLoading && <p className="text-xs text-muted-foreground py-4">Loading…</p>}
+          {detail.error && <p className="text-xs text-destructive py-4">Could not load these credits.</p>}
+          {(detail.data ?? []).map((r: any) => (
+            <div key={r.id} className="flex items-start justify-between gap-3 py-2 border-b border-border/60 text-xs">
+              <div className="min-w-0">
+                <p className="font-medium text-foreground truncate">{r.full_name || 'Unknown user'}{r.phone ? ` · ${r.phone}` : ''}</p>
+                <p className="text-muted-foreground truncate">{(r.category as string).replace(/_/g, ' ')} · {new Date(r.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Africa/Kampala' })}</p>
+                {r.description && <p className="text-muted-foreground truncate">{r.description}</p>}
+              </div>
+              <span className="tabular-nums font-medium shrink-0 text-foreground">{formatUGX(Number(r.amount))}</span>
+            </div>
+          ))}
+          {detail.data && detail.data.length >= 1000 && <p className="text-[11px] text-muted-foreground pt-2">Showing the largest 1,000 credits.</p>}
+        </div>
+      </DialogContent>
+    </Dialog>
+    </>
+  );
+}
