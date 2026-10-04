@@ -215,19 +215,20 @@ export function ValuationModelPanel() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-base">How the scenarios play out over time</CardTitle>
-          <div className="flex flex-wrap gap-2 pt-2">
+          <div className="grid grid-cols-3 sm:flex sm:flex-wrap gap-2 pt-2">
             {METRICS.map((m) => (
-              <Button key={m.id} size="sm" className="h-10 sm:h-9 flex-1 sm:flex-none px-2" variant={metric === m.id ? 'default' : 'outline'} onClick={() => setMetric(m.id)}>{m.label}</Button>
+              <Button key={m.id} size="sm" className="h-10 sm:h-9 px-1 text-xs sm:text-sm whitespace-normal leading-tight" variant={metric === m.id ? 'default' : 'outline'} onClick={() => setMetric(m.id)}>{m.label}</Button>
             ))}
-            <span className="mx-1 hidden sm:block w-px bg-border" />
+            </div>
+          <div className="grid grid-cols-3 sm:flex sm:flex-wrap gap-2">
             {(Object.keys(LABELS) as Key[]).map((k) => (
-              <Button key={k} size="sm" className="h-10 sm:h-9" variant={hidden.includes(k) ? 'ghost' : 'secondary'}
+              <Button key={k} size="sm" className="h-10 sm:h-9 px-1 text-xs sm:text-sm" variant={hidden.includes(k) ? 'ghost' : 'secondary'}
                 onClick={() => setHidden((h) => (h.includes(k) ? h.filter((x) => x !== k) : [...h, k]))}>
-                <span className="mr-2 inline-block h-2 w-2 rounded-full" style={{ background: COLORS[k] }} />{LABELS[k]}
+                <span className="mr-1 sm:mr-2 inline-block h-2 w-2 shrink-0 rounded-full" style={{ background: COLORS[k] }} />{LABELS[k]}
               </Button>
             ))}
           </div>
-        </CardHeader>
+          </CardHeader>
         <CardContent>
           <div className="h-64 sm:h-72 w-full">
             <ResponsiveContainer width="100%" height="100%">
