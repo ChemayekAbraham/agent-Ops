@@ -32,7 +32,6 @@ import airtelLogoAsset from '@/assets/airtel-logo.png.asset.json';
 
 import { ReceivablesCardDrilldown } from '@/components/cfo/ReceivablesCardDrilldown';
 import { PayablesCardDrilldown } from '@/components/cfo/PayablesCardDrilldown';
-import { GeneralPayoutActivities } from '@/components/cfo/GeneralPayoutActivities';
 import { CFOReceivablesPayablesHome } from '@/components/cfo/CFOReceivablesPayablesHome';
 import { WithdrawableCreditsLivePanel } from '@/components/cfo/WithdrawableCreditsLivePanel';
 import { MoneyPaidOutCard } from '@/components/cfo/MoneyPaidOutCard';
@@ -533,9 +532,6 @@ export function CFOOverviewDashboard({
           />
         )}
 
-        {/* General Payouts activity lives only on the Cash Position page —
-            removed from Home at the CFO's request. */}
-        {cashPositionOnly && <GeneralPayoutActivities />}
 
         {!cashPositionOnly && <>
         {/* ─────────── 2 · RECEIVABLES & PAYABLES ─────────── */}
