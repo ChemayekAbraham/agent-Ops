@@ -934,7 +934,7 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
             )}
             {principalRecovered != null && (
               <p className="pt-2 text-[11px] text-muted-foreground">
-                All time: <span className="font-semibold text-foreground tabular-nums">{formatUGX(principalRecovered)}</span>
+                All time: <span className="font-semibold text-primary tabular-nums">{formatUGX(principalRecovered)}</span>
               </p>
             )}
           </div>
