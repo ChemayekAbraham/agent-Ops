@@ -324,7 +324,7 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
           </div>
           <div className="flex items-center gap-2">
             <span
-              className="text-xl font-black tabular-nums text-foreground"
+              className="text-xl font-black tabular-nums text-primary"
               title={principalRecovered != null ? formatUGX(principalRecovered) : undefined}
             >
               {principalRecovered == null ? '—' : `UGX ${(principalRecovered / 1_000_000).toFixed(2)}M`}
