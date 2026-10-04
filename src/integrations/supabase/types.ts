@@ -67290,6 +67290,10 @@ export type Database = {
           agent_commission: number
           id: string
           landlord_name: string
+          plan_duration_days: number
+          plan_house_category: string
+          plan_rent_amount: number
+          plan_start: string
           plan_status: string
           platform_fee: number
           principal: number
