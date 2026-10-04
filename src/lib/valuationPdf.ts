@@ -128,8 +128,8 @@ export function buildValuationComparisonPdf(d: ValuationComparisonPdfInput): { b
   });
 
   for (const s of d.scenarios) {
-    let headingY = lastAutoTable(doc).finalY + 28;
-    if (headingY > 660) {
+    let headingY = lastAutoTable(doc).finalY + 16;
+    if (headingY > 700) {
       doc.addPage();
       drawLetterhead(doc);
       headingY = 120;
@@ -137,7 +137,7 @@ export function buildValuationComparisonPdf(d: ValuationComparisonPdfInput): { b
     doc.setFont('helvetica', 'bold'); doc.setFontSize(12);
     doc.text(`${s.label} — 3-year outlook`, 40, headingY);
     autoTable(doc, {
-      startY: headingY + 8,
+      startY: headingY + 6,
       head: [['Year', 'Yearly revenue', 'Company value', 'Existing holders stake', 'Stake value']],
       body: yearRows(s.result, d.ugxPerUsd),
       styles: { fontSize: 9 },
@@ -146,8 +146,8 @@ export function buildValuationComparisonPdf(d: ValuationComparisonPdfInput): { b
     });
   }
 
-  const dy = lastAutoTable(doc).finalY + 24;
-  if (dy > 780) {
+  const dy = lastAutoTable(doc).finalY + 14;
+  if (dy > 786) {
     doc.addPage();
     drawLetterhead(doc);
     doc.setFontSize(8); doc.setTextColor(110);
