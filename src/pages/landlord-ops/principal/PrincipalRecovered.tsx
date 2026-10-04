@@ -9,6 +9,31 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { formatUGX } from '@/lib/rentCalculations';
 
+interface PrincipalRow {
+  id: string;
+  repayment_date: string;
+  tenant_name: string | null;
+  landlord_name: string | null;
+  rent_request_id: string | null;
+  total_repayment: number | string;
+  principal: number | string;
+  returns: number | string;
+  agent_commission: number | string;
+  platform_fee: number | string;
+  access_fee: number | string;
+  registration_fee: number | string;
+  plan_status: string | null;
+  plan_rent_amount: number | string | null;
+  plan_start: string | null;
+  plan_duration_days: number | null;
+  plan_house_category: string | null;
+}
+
+type RangedRpc = (
+  fn: string,
+  args: { p_from: string | null; p_to: string | null },
+) => { range: (from: number, to: number) => PromiseLike<{ data: PrincipalRow[] | null; error: Error | null }> };
+
 /** Kampala (EAT) calendar date as YYYY-MM-DD, offset by n days. */
 function kampalaDate(offsetDays = 0): string {
   const d = new Date(Date.now() + 3 * 3600_000 + offsetDays * 86400_000);
@@ -53,15 +78,16 @@ export default function PrincipalRecovered() {
     queryFn: async () => {
       // Server caps each response at 1,000 rows — fetch in stable-ordered batches until done.
       const PAGE = 1000;
-      const all: any[] = [];
+      const all: PrincipalRow[] = [];
       for (let offset = 0; ; offset += PAGE) {
-        const { data, error } = await (supabase.rpc as any)('landlord_ops_principal_recovered_rows', {
+        const { data, error } = await (supabase.rpc as unknown as RangedRpc)('landlord_ops_principal_recovered_rows', {
           p_from: period.from,
           p_to: period.to,
         }).range(offset, offset + PAGE - 1);
         if (error) throw error;
-        all.push(...(data ?? []));
-        if (!data || data.length < PAGE) break;
+        const batch = (data ?? []) as PrincipalRow[];
+        all.push(...batch);
+        if (batch.length < PAGE) break;
       }
       return all;
     },
@@ -70,7 +96,7 @@ export default function PrincipalRecovered() {
   const totals = useMemo(
     () =>
       rows.reduce(
-        (a, r: any) => ({
+        (a, r) => ({
           total: a.total + Number(r.total_repayment),
           principal: a.principal + Number(r.principal),
           other: a.other + Number(r.total_repayment) - Number(r.principal),
@@ -133,7 +159,7 @@ export default function PrincipalRecovered() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((r: any) => (
+              {rows.map((r) => (
                 <tr key={r.id} className="border-b border-border/60 hover:bg-muted/30">
                   <td className="px-3 py-2 whitespace-nowrap">
                     {new Date(r.repayment_date).toLocaleString('en-GB', { timeZone: 'Africa/Kampala', dateStyle: 'medium', timeStyle: 'short' })}
