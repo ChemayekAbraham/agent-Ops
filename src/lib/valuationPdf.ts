@@ -147,7 +147,7 @@ export function buildValuationComparisonPdf(d: ValuationComparisonPdfInput): { b
   }
 
   const dy = lastAutoTable(doc).finalY + 24;
-  if (dy > 780) {
+  if (dy > 766) {
     doc.addPage();
     drawLetterhead(doc);
     doc.setFontSize(8); doc.setTextColor(110);
