@@ -67282,6 +67282,7 @@ export type Database = {
             Returns: Json
           }
       landlord_ops_principal_recovered: { Args: never; Returns: number }
+      landlord_ops_principal_recovered_periods: { Args: never; Returns: Json }
       landlord_ops_remove_tenant_from_house: {
         Args: { p_house_id: string; p_reason: string }
         Returns: Json

@@ -21,6 +21,8 @@ import {
   Wrench,
   AlertCircle,
   ExternalLink,
+  ChevronDown,
+  Loader2,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -37,6 +39,13 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { useLandlordOpsTotals } from '@/hooks/useLandlordOps';
 import { useLandlordOpsBadgeCounts } from '@/hooks/useLandlordOpsBadgeCounts';
 import { useLandlordFloatOverview } from '@/hooks/useLandlordFloatOverview';
@@ -79,6 +88,47 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
     },
     staleTime: 60_000,
   });
+
+  // Drill-down: principal recovered per Kampala-day period. Fetched fresh each
+  // time the dialog opens (enabled gate), same population as the headline KPI.
+  const [principalDrilldownOpen, setPrincipalDrilldownOpen] = useState(false);
+  interface PrincipalPeriods {
+    today: number;
+    yesterday: number;
+    this_week: number;
+    this_month: number;
+    past_7_days: number;
+  }
+  const { data: principalPeriods, isFetching: principalPeriodsLoading } = useQuery({
+    queryKey: ['landlord-ops-principal-recovered-periods'],
+    enabled: principalDrilldownOpen,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('landlord_ops_principal_recovered_periods');
+      if (error) throw error;
+      return data as unknown as PrincipalPeriods;
+    },
+    staleTime: 0,
+  });
+
+  const principalPeriodRows = useMemo(() => {
+    const fmt = new Intl.DateTimeFormat('en-GB', {
+      day: 'numeric',
+      month: 'short',
+      timeZone: 'Africa/Kampala',
+    });
+    const dayMs = 86_400_000;
+    // Read Kampala calendar fields by shifting to UTC+3, then reading UTC parts.
+    const shifted = new Date(Date.now() + 3 * 3_600_000);
+    const mondayOffset = (shifted.getUTCDay() + 6) % 7;
+    const dom = shifted.getUTCDate();
+    return [
+      { key: 'today', label: 'Today', range: fmt.format(new Date()), value: principalPeriods?.today },
+      { key: 'yesterday', label: 'Yesterday', range: fmt.format(new Date(Date.now() - dayMs)), value: principalPeriods?.yesterday },
+      { key: 'this_week', label: 'This week', range: `${fmt.format(new Date(Date.now() - mondayOffset * dayMs))} – ${fmt.format(new Date())}`, value: principalPeriods?.this_week },
+      { key: 'this_month', label: 'This month', range: `${fmt.format(new Date(Date.now() - (dom - 1) * dayMs))} – ${fmt.format(new Date())}`, value: principalPeriods?.this_month },
+      { key: 'past_7_days', label: 'Past 7 days', range: `${fmt.format(new Date(Date.now() - 6 * dayMs))} – ${fmt.format(new Date())}`, value: principalPeriods?.past_7_days },
+    ];
+  }, [principalPeriods]);
 
   // 'Today' | 'Last 7 days' | 'Last 30 days' — drives the activity chart and the
   // decision mix beside it, so the two always describe the same window.
@@ -248,8 +298,19 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
         </div>
       </div>
 
-      {/* Landlord Principal Recovered — hard KPI */}
-      <div className="p-4 rounded-lg border border-border bg-card">
+      {/* Landlord Principal Recovered — hard KPI; click opens the period drill-down */}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => setPrincipalDrilldownOpen(true)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setPrincipalDrilldownOpen(true);
+          }
+        }}
+        className="p-4 rounded-lg border border-border bg-card hover:border-primary/60 hover:shadow-sm transition-all cursor-pointer group"
+      >
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-primary text-primary-foreground">
@@ -260,12 +321,15 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
               <p className="text-xs text-muted-foreground">Net principal from tenant repayments</p>
             </div>
           </div>
-          <span
-            className="text-xl font-black tabular-nums text-foreground"
-            title={principalRecovered != null ? formatUGX(principalRecovered) : undefined}
-          >
-            {principalRecovered == null ? '—' : `UGX ${(principalRecovered / 1_000_000).toFixed(2)}M`}
-          </span>
+          <div className="flex items-center gap-2">
+            <span
+              className="text-xl font-black tabular-nums text-foreground"
+              title={principalRecovered != null ? formatUGX(principalRecovered) : undefined}
+            >
+              {principalRecovered == null ? '—' : `UGX ${(principalRecovered / 1_000_000).toFixed(2)}M`}
+            </span>
+            <ChevronDown className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-all" />
+          </div>
         </div>
       </div>
 
@@ -835,6 +899,46 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
           </table>
         </div>
       </div>
+
+      {/* Landlord Principal Recovered — period drill-down */}
+      <Dialog open={principalDrilldownOpen} onOpenChange={setPrincipalDrilldownOpen}>
+        <DialogContent className="max-w-md p-0 gap-0 overflow-hidden">
+          <DialogHeader className="p-5 pb-3 space-y-1">
+            <DialogTitle className="text-base font-bold">Principal recovered by period</DialogTitle>
+            <DialogDescription className="text-xs">
+              Net principal from tenant repayments — excludes Returns, agent commission and platform
+              fees; reversed repayments are removed. Days follow Kampala time.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="px-5 pb-5 space-y-1.5">
+            {principalPeriodsLoading && !principalPeriods ? (
+              <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Calculating…
+              </div>
+            ) : (
+              principalPeriodRows.map((row) => (
+                <div
+                  key={row.key}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/40 px-3.5 py-3"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{row.label}</p>
+                    <p className="text-[11px] text-muted-foreground">{row.range}</p>
+                  </div>
+                  <span className="text-sm font-bold tabular-nums text-foreground">
+                    {row.value == null ? '—' : formatUGX(row.value)}
+                  </span>
+                </div>
+              ))
+            )}
+            {principalRecovered != null && (
+              <p className="pt-2 text-[11px] text-muted-foreground">
+                All time: <span className="font-semibold text-foreground tabular-nums">{formatUGX(principalRecovered)}</span>
+              </p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
