@@ -527,15 +527,17 @@ function TransferReversalDetails({
 }) {
   const [open, setOpen] = useState(false);
   const leg = useQuery({
-    queryKey: ["wallet-transfer-reversal-leg", reference, row.user_id],
+    queryKey: ["wallet-transfer-reversal-leg", reference],
     enabled: open,
     staleTime: 60_000,
     queryFn: async () => {
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth.user) return null;
       const { data, error } = await supabase
         .from("general_ledger")
         .select("amount, created_at")
         .eq("reference_id", `${reference}-REV`)
-        .eq("user_id", row.user_id)
+        .eq("user_id", auth.user.id)
         .eq("ledger_scope", "wallet")
         .order("created_at", { ascending: true })
         .limit(1)
@@ -570,7 +572,7 @@ function TransferReversalDetails({
             <p className="text-muted-foreground">
               {isSender ? "Sent to" : "Received from"} {row.peer_name ?? "—"}
             </p>
-            <p className="text-muted-foreground">{fmtWhen(row.created_at)}</p>
+            <p className="text-muted-foreground">{fmtWhen(row.transaction_date)}</p>
           </div>
           <div className="space-y-0.5">
             <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Reversal</p>
