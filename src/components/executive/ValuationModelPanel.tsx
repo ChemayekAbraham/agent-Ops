@@ -4,8 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
-import { Loader2, RefreshCw, Share2 } from 'lucide-react';
-import { shareValuationPdf } from '@/lib/valuationPdf';
+import { Files, Loader2, RefreshCw, Share2 } from 'lucide-react';
+import { shareValuationComparisonPdf, shareValuationPdf } from '@/lib/valuationPdf';
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { formatUGX } from '@/lib/businessAdvanceCalculations';
 import { runScenario, SCENARIO_PRESETS, type ScenarioInputs } from '@/lib/valuationModel';
@@ -121,6 +121,10 @@ export function ValuationModelPanel() {
 
   const set = (k: Key, f: keyof ScenarioInputs, v: number) =>
     setInputs((s) => ({ ...s, [k]: { ...s[k], [f]: v } }));
+
+  const rateNote = fx.data
+    ? `Rate US$1 = UGX ${Math.round(UGX_PER_USD).toLocaleString()} (source: ${RATE_PROVIDER}).`
+    : `Fixed rate US$1 = UGX ${FALLBACK_UGX_PER_USD.toLocaleString()}.`;
 
   return (
     <div className="space-y-6">
