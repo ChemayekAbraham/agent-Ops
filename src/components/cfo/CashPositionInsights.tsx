@@ -67,7 +67,7 @@ export function CashPositionInsights({ totalReceivables, receivablesCategories, 
   });
 
   const rp = useQuery({
-    queryKey: ['cfo-cash-position-payables-30d'],
+    queryKey: ['cfo-cash-position-payables-by-source-v2'],
     queryFn: async () => {
       const today = kampalaToday();
       const to = new Date(); to.setDate(to.getDate() + 30);
@@ -221,7 +221,7 @@ export function CashPositionInsights({ totalReceivables, receivablesCategories, 
         </CardContent></Card>
 
         <Card className="rounded-xl shadow-sm min-w-0"><CardContent className="p-4">
-          <Head icon={<Receipt className="h-4 w-4" />} title="Top 5 Payables" sub="Largest sources due in the next 30 days"
+          <Head icon={<Receipt className="h-4 w-4" />} title="Top 5 Payables" sub="Largest sources due now or within 30 days"
             right={onNavigate && <button className="text-xs font-medium text-primary" onClick={() => onNavigate('withdrawals')}>View All</button>} />
           {topPayables.length === 0 ? <p className="text-xs text-muted-foreground">{rp.isLoading ? 'Loading…' : 'No data yet.'}</p> : (
             <div className="overflow-x-auto"><table className="w-full text-[11px]">
