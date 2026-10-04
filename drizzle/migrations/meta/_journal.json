@@ -3179,6 +3179,13 @@
       "when": 1791122863459,
       "tag": "0453_wallet_transfer_reversal_status_reversed_at",
       "breakpoints": true
+    },
+    {
+      "idx": 454,
+      "version": "7",
+      "when": 1791123143481,
+      "tag": "0454_wallet_transfer_reversal_states",
+      "breakpoints": true
     }
   ]
 }
