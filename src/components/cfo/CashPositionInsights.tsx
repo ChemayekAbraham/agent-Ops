@@ -79,13 +79,15 @@ export function CashPositionInsights({ totalReceivables, receivablesCategories, 
         id: String(r.id), user_id: r.user_id ?? null, name: r.name as string | null,
         amount: Number(r.amount || 0), due_date: r.due_date ?? null, category_label: r.category_label ?? null,
       }));
-      const top = all.slice().sort((a, b) => b.amount - a.amount).slice(0, 5);
-      const ids = top.filter((r) => !r.name && r.user_id).map((r) => r.user_id as string);
-      if (ids.length) {
-        const { data: profs } = await supabase.from('profiles').select('id, full_name').in('id', ids);
-        const m = new Map((profs || []).map((p: any) => [p.id, p.full_name]));
-        top.forEach((r) => { if (!r.name) r.name = m.get(r.user_id) || 'Unknown'; });
-      }
+      const groups = new Map<string, { id: string; name: string; amount: number; due_date: string | null; count: number }>();
+      all.forEach((r) => {
+        const k = r.category_label || 'Other';
+        const g = groups.get(k) || { id: k, name: k, amount: 0, due_date: null as string | null, count: 0 };
+        g.amount += r.amount; g.count += 1;
+        if (r.due_date && (!g.due_date || r.due_date < g.due_date)) g.due_date = r.due_date;
+        groups.set(k, g);
+      });
+      const top = Array.from(groups.values()).sort((x, y) => y.amount - x.amount).slice(0, 5);
       return { outstanding: Number(d.outstanding || 0), dueInRange: Number(d.due_in_range || 0), count: all.length, top };
     },
     staleTime: 300_000,
@@ -225,14 +227,14 @@ export function CashPositionInsights({ totalReceivables, receivablesCategories, 
         </CardContent></Card>
 
         <Card className="rounded-xl shadow-sm min-w-0"><CardContent className="p-4">
-          <Head icon={<Receipt className="h-4 w-4" />} title="Top 5 Payables" sub="Largest due in the next 30 days"
+          <Head icon={<Receipt className="h-4 w-4" />} title="Top 5 Payables" sub="Largest categories due in the next 30 days"
             right={onNavigate && <button className="text-xs font-medium text-primary" onClick={() => onNavigate('withdrawals')}>View All</button>} />
           {topPayables.length === 0 ? <p className="text-xs text-muted-foreground">{rp.isLoading ? 'Loading…' : 'No data yet.'}</p> : (
             <div className="overflow-x-auto"><table className="w-full text-[11px]">
-              <thead className="text-muted-foreground"><tr className="text-left"><th className="py-1.5 font-medium">Payee</th><th className="font-medium">Amount</th><th className="font-medium">Due Date</th><th className="font-medium">Status</th></tr></thead>
+              <thead className="text-muted-foreground"><tr className="text-left"><th className="py-1.5 font-medium">Category</th><th className="font-medium">Amount</th><th className="font-medium">Next Due</th><th className="font-medium">Status</th></tr></thead>
               <tbody>{topPayables.map((p) => (
                 <tr key={p.id} className="border-t border-border/60">
-                  <td className="py-2 pr-2 max-w-[120px] truncate">{p.name}{p.category_label && <span className="block text-[10px] text-muted-foreground truncate">{p.category_label}</span>}</td>
+                  <td className="py-2 pr-2 max-w-[120px] truncate">{p.name}<span className="block text-[10px] text-muted-foreground truncate">{p.count} payment{p.count === 1 ? '' : 's'}</span></td>
                   <td className="pr-2 tabular-nums whitespace-nowrap">{fmt(p.amount)}</td>
                   <td className="pr-2 whitespace-nowrap">{fmtDate(p.due_date)}</td>
                   <td>{statusBadge(p.due_date)}</td>
