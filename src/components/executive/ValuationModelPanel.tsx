@@ -4,7 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
-import { Loader2, RefreshCw } from 'lucide-react';
+import { Loader2, RefreshCw, Share2 } from 'lucide-react';
+import { shareValuationPdf } from '@/lib/valuationPdf';
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { formatUGX } from '@/lib/businessAdvanceCalculations';
 import { runScenario, SCENARIO_PRESETS, type ScenarioInputs } from '@/lib/valuationModel';
@@ -251,6 +252,12 @@ export function ValuationModelPanel() {
                 <p className="text-xl font-bold text-primary">{fmt(r.todayPreMoney)}</p>
                 <p className="text-xs text-muted-foreground">{fmtOther(r.todayPreMoney)} · raise {fmt(r.todayRaise)} for {inputs[k].dilutionPct}%</p>
               </div>
+              <Button size="sm" variant="outline" className="w-full gap-2" onClick={() => shareValuationPdf({
+                scenarioLabel: LABELS[k], inputs: inputs[k], result: r, monthlyRevenue: monthlyRev, ugxPerUsd: UGX_PER_USD,
+                rateNote: fx.data ? `Rate US$1 = UGX ${Math.round(UGX_PER_USD).toLocaleString()} (source: ${RATE_PROVIDER}).` : `Fixed rate US$1 = UGX ${FALLBACK_UGX_PER_USD.toLocaleString()}.`,
+              })}>
+                <Share2 className="h-4 w-4" /> Share as PDF
+              </Button>
               <table className="w-full text-xs">
                 <thead><tr className="text-muted-foreground text-left"><th>Year</th><th>Revenue</th><th>Value</th><th>Your stake</th></tr></thead>
                 <tbody>
