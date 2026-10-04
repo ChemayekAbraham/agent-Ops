@@ -328,8 +328,8 @@ export function GrowthMetricsView() {
         <ResponsiveContainer width="100%" height={240}>
           <AreaChart data={signupTrend || []}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-            <XAxis dataKey="label" className="text-xs" />
-            <YAxis className="text-xs" />
+            <XAxis dataKey="label" className="text-xs" tick={{ fontSize: 10 }} interval="preserveStartEnd" minTickGap={12} />
+            <YAxis className="text-xs" tick={{ fontSize: 10 }} width={40} tickFormatter={(v: number) => Math.abs(v)>=1e9?`${(v/1e9).toFixed(1)}B`:Math.abs(v)>=1e6?`${(v/1e6).toFixed(1)}M`:Math.abs(v)>=1e3?`${(v/1e3).toFixed(0)}K`:String(v)} />
             <Tooltip />
             <Area
               type="monotone"
@@ -350,10 +350,10 @@ export function GrowthMetricsView() {
           <ResponsiveContainer width="100%" height={240}>
             <BarChart data={signupTrend || []}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-              <XAxis dataKey="label" className="text-xs" />
-              <YAxis className="text-xs" />
+              <XAxis dataKey="label" className="text-xs" tick={{ fontSize: 10 }} interval="preserveStartEnd" minTickGap={12} />
+              <YAxis className="text-xs" tick={{ fontSize: 10 }} width={40} tickFormatter={(v: number) => Math.abs(v)>=1e9?`${(v/1e9).toFixed(1)}B`:Math.abs(v)>=1e6?`${(v/1e6).toFixed(1)}M`:Math.abs(v)>=1e3?`${(v/1e3).toFixed(0)}K`:String(v)} />
               <Tooltip />
-              <Legend />
+              <Legend iconSize={8} wrapperStyle={{ fontSize: 11 }} />
               <Bar
                 dataKey="referred"
                 stackId="a"
@@ -399,9 +399,10 @@ export function GrowthMetricsView() {
                 </Pie>
                 <Tooltip />
                 <Legend
-                  layout="vertical"
-                  align="right"
-                  verticalAlign="middle"
+                  layout="horizontal"
+                  align="center"
+                  verticalAlign="bottom"
+                  iconSize={8}
                   wrapperStyle={{ fontSize: 11 }}
                 />
               </PieChart>
@@ -424,10 +425,10 @@ export function GrowthMetricsView() {
           </div>
         ) : (
           <ResponsiveContainer width="100%" height={Math.max(220, roleData.length * 30)}>
-            <BarChart data={roleData} layout="vertical" margin={{ left: 24, right: 16 }}>
+            <BarChart data={roleData} layout="vertical" margin={{ left: 4, right: 12 }}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-              <XAxis type="number" className="text-xs" />
-              <YAxis dataKey="name" type="category" width={110} className="text-xs" />
+              <XAxis type="number" className="text-xs" tick={{ fontSize: 10 }} />
+              <YAxis dataKey="name" type="category" width={84} tick={{ fontSize: 10 }} className="text-xs" />
               <Tooltip />
               <Bar dataKey="value" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
             </BarChart>

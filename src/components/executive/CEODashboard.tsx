@@ -244,8 +244,8 @@ export function CEODashboard() {
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart data={monthlyGrowth || []}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-              <XAxis dataKey="month" className="text-xs" />
-              <YAxis className="text-xs" />
+              <XAxis dataKey="month" className="text-xs" tick={{ fontSize: 10 }} interval="preserveStartEnd" minTickGap={12} />
+              <YAxis className="text-xs" tick={{ fontSize: 10 }} width={40} tickFormatter={(v: number) => Math.abs(v)>=1e9?`${(v/1e9).toFixed(1)}B`:Math.abs(v)>=1e6?`${(v/1e6).toFixed(1)}M`:Math.abs(v)>=1e3?`${(v/1e3).toFixed(0)}K`:String(v)} />
               <Tooltip />
               <Area type="monotone" dataKey="tenants" fill="hsl(var(--primary)/0.2)" stroke="hsl(var(--primary))" />
             </AreaChart>
@@ -256,8 +256,8 @@ export function CEODashboard() {
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={monthlyGrowth || []}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-              <XAxis dataKey="month" className="text-xs" />
-              <YAxis className="text-xs" />
+              <XAxis dataKey="month" className="text-xs" tick={{ fontSize: 10 }} interval="preserveStartEnd" minTickGap={12} />
+              <YAxis className="text-xs" tick={{ fontSize: 10 }} width={40} tickFormatter={(v: number) => Math.abs(v)>=1e9?`${(v/1e9).toFixed(1)}B`:Math.abs(v)>=1e6?`${(v/1e6).toFixed(1)}M`:Math.abs(v)>=1e3?`${(v/1e3).toFixed(0)}K`:String(v)} />
               <Tooltip />
               <Bar dataKey="capital" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
             </BarChart>
@@ -268,8 +268,8 @@ export function CEODashboard() {
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={monthlyGrowth || []}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-              <XAxis dataKey="month" className="text-xs" />
-              <YAxis className="text-xs" />
+              <XAxis dataKey="month" className="text-xs" tick={{ fontSize: 10 }} interval="preserveStartEnd" minTickGap={12} />
+              <YAxis className="text-xs" tick={{ fontSize: 10 }} width={40} tickFormatter={(v: number) => Math.abs(v)>=1e9?`${(v/1e9).toFixed(1)}B`:Math.abs(v)>=1e6?`${(v/1e6).toFixed(1)}M`:Math.abs(v)>=1e3?`${(v/1e3).toFixed(0)}K`:String(v)} />
               <Tooltip />
               <Line type="monotone" dataKey="repaid" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
             </LineChart>
