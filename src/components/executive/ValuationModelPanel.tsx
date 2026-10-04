@@ -310,8 +310,8 @@ export function ValuationModelPanel() {
                         <span className="font-semibold">Year {y.year}</span>
                         <span className="text-sm font-bold">{fmt(y.valuation)}</span>
                       </div>
-                      <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-muted" title="Company value, scaled against the other scenarios">
-                        <div className="h-full rounded-full" style={{ width: `${maxY > 0 ? (y.valuation / maxY) * 100 : 0}%`, background: COLORS[k] }} />
+                      <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-muted" title="Company value, scaled to this scenario's final year">
+                        <div className="h-full rounded-full" style={{ width: `${cardMax > 0 ? (y.valuation / cardMax) * 100 : 0}%`, background: COLORS[k] }} />
                       </div>
                       <div className="mt-1.5 flex justify-between gap-2 text-muted-foreground">
                         <span>Revenue</span><span>{fmt(y.revenue)}</span>
