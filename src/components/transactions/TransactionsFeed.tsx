@@ -300,6 +300,7 @@ export function TransactionsFeed({
                 </span>
               </button>
               <ReverseTransferRowButton row={row} onOpen={() => setSelected({ ...row, balanceAfter })} />
+              <TransferReversalReason row={row} />
               </div>
             );
           })}
@@ -388,6 +389,30 @@ function TransferReversalBadge({ row }: { row: TxFeedRow }) {
   }
   // 'received' (incoming, not reversed), 'not_involved', 'not_found', 'sign_in'
   return null;
+}
+
+/**
+ * Brief reason under an outgoing transfer that can no longer be reversed.
+ * Shows only where the cause isn't already obvious from the badge
+ * ("Reversed" explains itself); explains withdrawn / fully-spent cases.
+ */
+function TransferReversalReason({ row }: { row: TxFeedRow }) {
+  const ref = transferRefOf(row);
+  const status = useTransferReversalStatus(ref);
+  if (!ref || row.direction !== "cash_out" || !status.data) return null;
+  const { state } = status.data;
+  let reason: string | null = null;
+  if (state === "withdrawn") {
+    reason = "Can't reverse — the recipient has already withdrawn these funds.";
+  } else if (state === "nothing_left") {
+    reason = "Can't reverse — the recipient's wallet has nothing left to return.";
+  }
+  if (!reason) return null;
+  return (
+    <p className="px-1 text-xs font-medium leading-snug text-muted-foreground">
+      {reason}
+    </p>
+  );
 }
 
 /** Shows "Reverse transfer" under an outgoing transfer while the server says it can still be reversed. */
