@@ -106,15 +106,21 @@ export function ValuationModelPanel() {
           <p className="text-sm text-muted-foreground max-w-2xl">
             Starts from live fee income (access + registration fees on funded Rent Plans). Adjust each scenario; nothing is saved.
             Before any new rounds, existing holders own 92% (8% is the Angel Pool). {fx.data
-              ? <>Live rate: US$1 = UGX {Math.round(UGX_PER_USD).toLocaleString()}, last updated {new Date(fx.data.at).toLocaleString('en-GB', { timeZone: 'Africa/Kampala', dateStyle: 'medium', timeStyle: 'short' })} (Kampala).</>
+              ? <>Live rate: US$1 = UGX {Math.round(UGX_PER_USD).toLocaleString()} (source: {RATE_PROVIDER}), last updated {new Date(fx.data.at).toLocaleString('en-GB', { timeZone: 'Africa/Kampala', dateStyle: 'medium', timeStyle: 'short' })} (Kampala).</>
               : fx.isLoading ? 'Loading live exchange rate…'
-              : <>Live rate unavailable; using a fixed US$1 = UGX {FALLBACK_UGX_PER_USD.toLocaleString()}.</>}
+              : <>Live rate unavailable from {RATE_PROVIDER}; using a fixed US$1 = UGX {FALLBACK_UGX_PER_USD.toLocaleString()}.</>}
           </p>
         </div>
-        <div className="flex shrink-0 rounded-lg border border-border p-1">
-          {(['UGX', 'USD'] as const).map((c) => (
-            <Button key={c} size="sm" variant={currency === c ? 'default' : 'ghost'} className="px-3" onClick={() => setCurrency(c)}>{c}</Button>
-          ))}
+        <div className="flex shrink-0 items-center gap-2">
+          <Button size="sm" variant="outline" className="gap-2" onClick={refreshRate} disabled={fx.isFetching} title={`Refresh the rate from ${RATE_PROVIDER}`}>
+            <RefreshCw className={`h-4 w-4${fx.isFetching ? ' animate-spin' : ''}`} />
+            {fx.isFetching ? 'Refreshing…' : 'Refresh rate'}
+          </Button>
+          <div className="flex rounded-lg border border-border p-1">
+            {(['UGX', 'USD'] as const).map((c) => (
+              <Button key={c} size="sm" variant={currency === c ? 'default' : 'ghost'} className="px-3" onClick={() => setCurrency(c)}>{c}</Button>
+            ))}
+          </div>
         </div>
       </div>
 
