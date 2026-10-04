@@ -298,8 +298,19 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
         </div>
       </div>
 
-      {/* Landlord Principal Recovered — hard KPI */}
-      <div className="p-4 rounded-lg border border-border bg-card">
+      {/* Landlord Principal Recovered — hard KPI; click opens the period drill-down */}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => setPrincipalDrilldownOpen(true)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            setPrincipalDrilldownOpen(true);
+          }
+        }}
+        className="p-4 rounded-lg border border-border bg-card hover:border-primary/60 hover:shadow-sm transition-all cursor-pointer group"
+      >
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-lg bg-primary text-primary-foreground">
@@ -310,12 +321,15 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
               <p className="text-xs text-muted-foreground">Net principal from tenant repayments</p>
             </div>
           </div>
-          <span
-            className="text-xl font-black tabular-nums text-foreground"
-            title={principalRecovered != null ? formatUGX(principalRecovered) : undefined}
-          >
-            {principalRecovered == null ? '—' : `UGX ${(principalRecovered / 1_000_000).toFixed(2)}M`}
-          </span>
+          <div className="flex items-center gap-2">
+            <span
+              className="text-xl font-black tabular-nums text-foreground"
+              title={principalRecovered != null ? formatUGX(principalRecovered) : undefined}
+            >
+              {principalRecovered == null ? '—' : `UGX ${(principalRecovered / 1_000_000).toFixed(2)}M`}
+            </span>
+            <ChevronDown className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-all" />
+          </div>
         </div>
       </div>
 
