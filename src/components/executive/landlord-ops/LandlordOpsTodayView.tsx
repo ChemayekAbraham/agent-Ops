@@ -21,6 +21,8 @@ import {
   Wrench,
   AlertCircle,
   ExternalLink,
+  ChevronDown,
+  Loader2,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
