@@ -1,13 +1,15 @@
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
+import { Loader2, RefreshCw } from 'lucide-react';
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { formatUGX } from '@/lib/businessAdvanceCalculations';
 import { runScenario, SCENARIO_PRESETS, type ScenarioInputs } from '@/lib/valuationModel';
+
+const RATE_PROVIDER = 'exchangerate-api.com';
 
 type Key = keyof typeof SCENARIO_PRESETS;
 const LABELS: Record<Key, string> = { conservative: 'Conservative', base: 'Base', high: 'High growth' };
@@ -56,6 +58,8 @@ export function ValuationModelPanel() {
     },
   });
   UGX_PER_USD = fx.data?.rate ?? FALLBACK_UGX_PER_USD;
+  const queryClient = useQueryClient();
+  const refreshRate = () => queryClient.invalidateQueries({ queryKey: ['ugx-usd-live-rate'] });
   const [inputs, setInputs] = useState<Record<Key, ScenarioInputs>>({ ...SCENARIO_PRESETS });
   const [metric, setMetric] = useState<Metric>('valuation');
   const [currency, setCurrency] = useState<'UGX' | 'USD'>('UGX');
