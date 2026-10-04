@@ -124,7 +124,7 @@ export function RevenueMixDrivers() {
                 ))}
               </Pie>
               <Tooltip formatter={(v: number) => formatUGX(v)} />
-              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Legend iconSize={8} wrapperStyle={{ fontSize: 11 }} />
             </PieChart>
           </ResponsiveContainer>
         )}
