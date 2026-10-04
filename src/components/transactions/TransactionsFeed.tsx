@@ -86,6 +86,16 @@ function FilterPill({
   );
 }
 
+/** Reversal-state filter for person-to-person wallet transfers. */
+type TxReversalFilter = "all" | "reversible" | "reversed" | "ineligible";
+
+const TX_REVERSAL_OPTIONS: { value: TxReversalFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "reversible", label: "Reversible" },
+  { value: "reversed", label: "Reversed" },
+  { value: "ineligible", label: "No longer eligible" },
+];
+
 export interface TransactionsFeedProps {
   userId: string | null | undefined;
   /** Hide the date / service / method filter row. */
@@ -111,6 +121,7 @@ export function TransactionsFeed({
   const [service, setService] = useState<TxServiceFilter>("all");
   const [method, setMethod] = useState<TxMethodFilter>("all");
   const [item, setItem] = useState<TxItemFilter>("all");
+  const [reversal, setReversal] = useState<TxReversalFilter>("all");
   const [selected, setSelected] = useState<TxFeedRow | null>(null);
 
   const filters = useMemo(
@@ -132,7 +143,50 @@ export function TransactionsFeed({
     () => (query.data?.pages ?? []).flatMap((p) => p.rows),
     [query.data],
   );
-  const groups = useMemo(() => groupTxByDay(rows), [rows]);
+
+  // Reversal filter: resolve the reversal state of every loaded wallet transfer
+  // in ONE batched round trip. The server function reuses the exact per-transfer
+  // logic the badges and Reverse button use, so a filter match can never
+  // disagree with the badge on the same row.
+  const transferRefs = useMemo(
+    () =>
+      [...new Set(rows.map((r) => transferRefOf(r)).filter((r): r is string => r !== null))],
+    [rows],
+  );
+  const states = useQuery({
+    queryKey: ["wallet-transfer-reversal-states", userId ?? "", transferRefs] as const,
+    enabled: reversal !== "all" && transferRefs.length > 0,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("wallet_transfer_reversal_states", {
+        p_references: transferRefs,
+      });
+      if (error) throw error;
+      const byRef: Record<string, string> = {};
+      for (const s of (data ?? []) as { reference_id: string; state: string }[]) {
+        byRef[s.reference_id] = s.state;
+      }
+      return byRef;
+    },
+  });
+  const reversalLoading = reversal !== "all" && states.isLoading;
+
+  const visibleRows = useMemo(() => {
+    if (reversal === "all") return rows;
+    const byRef = states.data;
+    if (!byRef) return [];
+    return rows.filter((row) => {
+      const ref = transferRefOf(row);
+      if (!ref) return false;
+      const state = byRef[ref];
+      if (reversal === "reversible") return state === "reversible";
+      if (reversal === "reversed") return state === "reversed";
+      return state === "withdrawn" || state === "nothing_left";
+    });
+  }, [rows, reversal, states.data]);
+
+  const groups = useMemo(() => groupTxByDay(visibleRows), [visibleRows]);
 
   return (
     <div className={cn("space-y-6", className)}>
@@ -162,6 +216,12 @@ export function TransactionsFeed({
             options={TX_ITEM_OPTIONS}
             onChange={(v) => setItem(v as TxItemFilter)}
           />
+          <FilterPill
+            label="Reversal"
+            value={reversal}
+            options={TX_REVERSAL_OPTIONS}
+            onChange={(v) => setReversal(v as TxReversalFilter)}
+          />
         </div>
       )}
 
@@ -190,6 +250,26 @@ export function TransactionsFeed({
           </p>
         </div>
       )}
+
+      {reversalLoading && rows.length > 0 && (
+        <div className="flex items-center justify-center gap-2 rounded-2xl bg-background p-6 text-sm font-medium text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Checking transfers…
+        </div>
+      )}
+
+      {!query.isLoading &&
+        !reversalLoading &&
+        rows.length > 0 &&
+        visibleRows.length === 0 && (
+          <div className="rounded-2xl bg-background p-10 text-center">
+            <p className="font-semibold">No matching transfers</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              None of the loaded transactions are{" "}
+              {TX_REVERSAL_OPTIONS.find((o) => o.value === reversal)?.label.toLowerCase()}.
+            </p>
+          </div>
+        )}
 
       {groups.map((group) => (
         <section key={group.day} className="space-y-3">
@@ -306,6 +386,12 @@ export function TransactionsFeed({
           })}
         </section>
       ))}
+
+      {reversal !== "all" && query.hasNextPage && (
+        <p className="text-center text-xs text-muted-foreground">
+          Only the transactions already loaded are searched — tap Load more to look further back.
+        </p>
+      )}
 
       {query.hasNextPage && (
         <Button

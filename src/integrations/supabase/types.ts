@@ -73239,6 +73239,13 @@ export type Database = {
           withdrawable: number
         }[]
       }
+      wallet_transfer_reversal_states: {
+        Args: { p_references: string[] }
+        Returns: {
+          reference_id: string
+          state: string
+        }[]
+      }
       wallet_transfer_reversal_status: {
         Args: { p_reference: string }
         Returns: Json
