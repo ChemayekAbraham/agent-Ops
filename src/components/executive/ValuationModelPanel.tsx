@@ -262,7 +262,7 @@ export function ValuationModelPanel() {
             </tbody>
           </table>
           <div className="mt-3 space-y-3">
-            {r2(0, 3).map((i) => {
+            {[0, 1, 2].map((i) => {
               const isFinal = i === 2;
               const shown = results.filter(({ k }) => !hidden.includes(k));
               return (
