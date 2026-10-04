@@ -5,7 +5,9 @@
 import { Drawer, DrawerContent } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, Copy, Download, FileSpreadsheet, X } from "lucide-react";
+import { ArrowRight, Copy, Download, FileSpreadsheet, Undo2, X } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { welileItemImage } from "@/lib/welileItemImages";
 import { useState } from "react";
 import { useProfile } from "@/hooks/useProfile";
@@ -72,6 +74,52 @@ export function TransactionDetailDrawer({ row, open, onOpenChange }: Props) {
 
   const { profile } = useProfile();
   const [busy, setBusy] = useState<"pdf" | "xlsx" | null>(null);
+  const [confirmReverse, setConfirmReverse] = useState(false);
+  const [reversing, setReversing] = useState(false);
+  const queryClient = useQueryClient();
+
+  // Sender-side reversal of a person-to-person transfer (allowed until the
+  // recipient withdraws). The server decides eligibility and amount.
+  const reversalRef =
+    row && row.category === "wallet_transfer" && row.direction === "cash_out" &&
+    row.reference_id && !row.reference_id.endsWith("-REV")
+      ? row.reference_id
+      : null;
+  const reversalStatus = useQuery({
+    queryKey: ["wallet-transfer-reversal-status", reversalRef],
+    enabled: open && !!reversalRef,
+    staleTime: 0,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("wallet_transfer_reversal_status", {
+        p_reference: reversalRef as string,
+      });
+      if (error) throw error;
+      return data as { can_reverse: boolean; reason?: string; sent?: number; reversible?: number };
+    },
+  });
+
+  const handleReverse = async () => {
+    if (!reversalRef) return;
+    setReversing(true);
+    try {
+      const { data, error } = await supabase.rpc("reverse_wallet_transfer", { p_reference: reversalRef });
+      if (error) throw error;
+      const res = data as { amount: number; sent: number };
+      toast.success(
+        res.amount < res.sent
+          ? `${formatUGX(res.amount)} of ${formatUGX(res.sent)} returned to your wallet`
+          : `${formatUGX(res.amount)} returned to your wallet`,
+      );
+      setConfirmReverse(false);
+      queryClient.invalidateQueries();
+      onOpenChange(false);
+    } catch (e: any) {
+      toast.error(e?.message || "Could not reverse this transfer.");
+      reversalStatus.refetch();
+    } finally {
+      setReversing(false);
+    }
+  };
 
   const me = profile?.full_name?.trim() || "Me";
   const other = peer?.name ?? (row ? txCounterparty(row) : null) ?? "—";
@@ -272,6 +320,39 @@ export function TransactionDetailDrawer({ row, open, onOpenChange }: Props) {
                 {busy === "xlsx" ? "Preparing…" : "Excel receipt"}
               </Button>
             </div>
+
+            {reversalRef && reversalStatus.data && (
+              reversalStatus.data.can_reverse ? (
+                confirmReverse ? (
+                  <div className="mt-3 rounded-2xl border border-destructive/40 bg-destructive/5 p-3">
+                    <p className="text-sm font-medium text-foreground">
+                      {Number(reversalStatus.data.reversible) < Number(reversalStatus.data.sent)
+                        ? `Only ${formatUGX(Number(reversalStatus.data.reversible))} of ${formatUGX(Number(reversalStatus.data.sent))} is still in their wallet. That amount will come back to you.`
+                        : `${formatUGX(Number(reversalStatus.data.reversible))} will come back to your wallet.`}
+                    </p>
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <Button variant="outline" className="h-11 rounded-xl" disabled={reversing} onClick={() => setConfirmReverse(false)}>
+                        Keep transfer
+                      </Button>
+                      <Button variant="destructive" className="h-11 rounded-xl" disabled={reversing} onClick={handleReverse}>
+                        {reversing ? "Reversing…" : "Yes, reverse"}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button
+                    variant="outline"
+                    className="mt-3 h-12 w-full rounded-2xl text-sm font-bold text-destructive"
+                    onClick={() => setConfirmReverse(true)}
+                  >
+                    <Undo2 className="mr-1.5 h-4 w-4" />
+                    Reverse transfer
+                  </Button>
+                )
+              ) : (
+                <p className="mt-3 text-center text-xs text-muted-foreground">{reversalStatus.data.reason}</p>
+              )
+            )}
 
             <Button
               className="mt-2 h-14 w-full rounded-2xl text-base font-bold"
