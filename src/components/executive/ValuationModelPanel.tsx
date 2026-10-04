@@ -58,6 +58,7 @@ export function ValuationModelPanel() {
   UGX_PER_USD = fx.data?.rate ?? FALLBACK_UGX_PER_USD;
   const [inputs, setInputs] = useState<Record<Key, ScenarioInputs>>({ ...SCENARIO_PRESETS });
   const [metric, setMetric] = useState<Metric>('valuation');
+  const [currency, setCurrency] = useState<'UGX' | 'USD'>('UGX');
   const [hidden, setHidden] = useState<Key[]>([]);
   const [monthly, setMonthly] = useState<number | null>(null);
   const monthlyRev = monthly ?? Number(base.data?.fees_30d ?? 0);
@@ -82,7 +83,9 @@ export function ValuationModelPanel() {
     });
     return pts;
   }, [results, inputs, metric]);
-  const fmtAxis = (v: number) => (metric === 'stake' ? `${v.toFixed(0)}%` : usd(v));
+  const fmt = (v: number) => (currency === 'USD' ? usd(v) : compact(v));
+  const fmtOther = (v: number) => (currency === 'USD' ? compact(v) : usd(v));
+  const fmtAxis = (v: number) => (metric === 'stake' ? `${v.toFixed(0)}%` : fmt(v));
 
   if (base.isLoading) return <div className="flex justify-center p-10"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   if (base.error) return <p className="p-6 text-destructive">Could not load the latest figures.</p>;
@@ -93,22 +96,29 @@ export function ValuationModelPanel() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-bold">Valuation Model</h2>
-        <p className="text-sm text-muted-foreground">
-          Starts from live fee income (access + registration fees on funded Rent Plans). Adjust each scenario; nothing is saved.
-          Before any new rounds, existing holders own 92% (8% is the Angel Pool). {fx.data
-            ? <>Live rate: US$1 = UGX {Math.round(UGX_PER_USD).toLocaleString()}, last updated {new Date(fx.data.at).toLocaleString('en-GB', { timeZone: 'Africa/Kampala', dateStyle: 'medium', timeStyle: 'short' })} (Kampala).</>
-            : fx.isLoading ? 'Loading live exchange rate…'
-            : <>Live rate unavailable; using a fixed US$1 = UGX {FALLBACK_UGX_PER_USD.toLocaleString()}.</>}
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold">Valuation Model</h2>
+          <p className="text-sm text-muted-foreground max-w-2xl">
+            Starts from live fee income (access + registration fees on funded Rent Plans). Adjust each scenario; nothing is saved.
+            Before any new rounds, existing holders own 92% (8% is the Angel Pool). {fx.data
+              ? <>Live rate: US$1 = UGX {Math.round(UGX_PER_USD).toLocaleString()}, last updated {new Date(fx.data.at).toLocaleString('en-GB', { timeZone: 'Africa/Kampala', dateStyle: 'medium', timeStyle: 'short' })} (Kampala).</>
+              : fx.isLoading ? 'Loading live exchange rate…'
+              : <>Live rate unavailable; using a fixed US$1 = UGX {FALLBACK_UGX_PER_USD.toLocaleString()}.</>}
+          </p>
+        </div>
+        <div className="flex shrink-0 rounded-lg border border-border p-1">
+          {(['UGX', 'USD'] as const).map((c) => (
+            <Button key={c} size="sm" variant={currency === c ? 'default' : 'ghost'} className="px-3" onClick={() => setCurrency(c)}>{c}</Button>
+          ))}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          ['Fees, last 30 days', compact(Number(b.fees_30d))],
-          ['Fees, prior 30 days', compact(Number(b.fees_prev_30d))],
-          ['Yearly pace', compact(Number(b.fees_30d) * 12)],
+          ['Fees, last 30 days', fmt(Number(b.fees_30d))],
+          ['Fees, prior 30 days', fmt(Number(b.fees_prev_30d))],
+          ['Yearly pace', fmt(Number(b.fees_30d) * 12)],
           ['Users / Rent Plans', `${Number(b.users).toLocaleString()} / ${Number(b.plans_funded).toLocaleString()}`],
         ].map(([l, v]) => (
           <Card key={l}><CardContent className="p-4"><p className="text-xs text-muted-foreground">{l}</p><p className="text-lg font-bold">{v}</p></CardContent></Card>
@@ -119,7 +129,7 @@ export function ValuationModelPanel() {
         <CardContent className="p-4 space-y-2">
           <div className="flex justify-between text-sm">
             <span>Starting monthly revenue</span>
-            <span className="font-semibold">{formatUGX(monthlyRev)}</span>
+            <span className="font-semibold">{currency === 'USD' ? usd(monthlyRev) : formatUGX(monthlyRev)}</span>
           </div>
           <Slider value={[monthlyRev]} min={0} max={Math.max(Number(b.fees_30d) * 3, 1_000_000)} step={500_000} onValueChange={([v]) => setMonthly(v)} />
           {monthly !== null && <Button variant="ghost" size="sm" onClick={() => setMonthly(null)}>Reset to live figure</Button>}
@@ -150,7 +160,7 @@ export function ValuationModelPanel() {
                 <XAxis dataKey="year" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} tickFormatter={fmtAxis} width={70} domain={metric === 'stake' ? [0, 100] : [0, 'auto']} />
                 <Tooltip
-                  formatter={(v: number, n: string) => [metric === 'stake' ? `${v.toFixed(1)}%` : `${usd(v)} (${compact(v)})`, LABELS[n as Key] ?? n]}
+                  formatter={(v: number, n: string) => [metric === 'stake' ? `${v.toFixed(1)}%` : `${fmt(v)} (${fmtOther(v)})`, LABELS[n as Key] ?? n]}
                   contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
                 />
                 <Legend formatter={(n: string) => LABELS[n as Key] ?? n} />
@@ -181,8 +191,8 @@ export function ValuationModelPanel() {
               ))}
               <div className="rounded-lg bg-primary/5 p-3">
                 <p className="text-xs text-muted-foreground">Value today (before new money)</p>
-                <p className="text-xl font-bold text-primary">{usd(r.todayPreMoney)}</p>
-                <p className="text-xs text-muted-foreground">{compact(r.todayPreMoney)} · raise {usd(r.todayRaise)} for {inputs[k].dilutionPct}%</p>
+                <p className="text-xl font-bold text-primary">{fmt(r.todayPreMoney)}</p>
+                <p className="text-xs text-muted-foreground">{fmtOther(r.todayPreMoney)} · raise {fmt(r.todayRaise)} for {inputs[k].dilutionPct}%</p>
               </div>
               <table className="w-full text-xs">
                 <thead><tr className="text-muted-foreground text-left"><th>Year</th><th>Revenue</th><th>Value</th><th>Your stake</th></tr></thead>
@@ -190,9 +200,9 @@ export function ValuationModelPanel() {
                   {r.rows.map((y) => (
                     <tr key={y.year} className="border-t border-border">
                       <td className="py-1">{y.year}</td>
-                      <td>{compact(y.revenue)}</td>
-                      <td>{usd(y.valuation)}</td>
-                      <td>{y.founderStakePct.toFixed(1)}% · {usd(y.stakeValue)}</td>
+                      <td>{fmt(y.revenue)}</td>
+                      <td>{fmt(y.valuation)}</td>
+                      <td>{y.founderStakePct.toFixed(1)}% · {fmt(y.stakeValue)}</td>
                     </tr>
                   ))}
                 </tbody>
