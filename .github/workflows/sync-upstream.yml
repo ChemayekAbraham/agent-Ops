@@ -1,0 +1,54 @@
+name: Auto-Sync Upstream Lovable
+
+on:
+  schedule:
+    # Run automatically every 3 hours
+    - cron: '0 */3 * * *'
+  # Allow manual trigger anytime from GitHub Actions tab
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync-upstream:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Fetch and Merge Upstream
+        env:
+          UPSTREAM_TOKEN: ${{ secrets.UPSTREAM_TOKEN }}
+        run: |
+          if [ -z "$UPSTREAM_TOKEN" ]; then
+            echo "::warning ::UPSTREAM_TOKEN secret is not set yet. Please add a Personal Access Token with repo read permission to repository secrets."
+            echo "Using default public/authenticated fetch URL..."
+            UPSTREAM_URL="https://github.com/weliletenants-sys/welilereceipts-com-98bba33b.git"
+          else
+            UPSTREAM_URL="https://x-access-token:${UPSTREAM_TOKEN}@github.com/weliletenants-sys/welilereceipts-com-98bba33b.git"
+          fi
+
+          git remote add upstream "$UPSTREAM_URL" || git remote set-url upstream "$UPSTREAM_URL"
+          git fetch upstream lovable
+
+          echo "Attempting auto-merge from upstream/lovable..."
+          if git merge upstream/lovable -m "chore(sync): auto-merge updates from lovable" --no-edit; then
+            echo "Merge succeeded without conflicts."
+          else
+            echo "Resolving conflicts by preserving standalone iOS files..."
+            git checkout HEAD -- src/App.tsx capacitor.config.ts package.json .github/ ios/ 2>/dev/null || true
+            git add .
+            git commit -m "chore(sync): resolve conflicts preserving iOS standalone configuration" || true
+          fi
+
+          git push origin main
+          echo "Sync completed successfully."
