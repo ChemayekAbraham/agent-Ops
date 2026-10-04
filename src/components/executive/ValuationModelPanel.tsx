@@ -5,12 +5,20 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
+import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { formatUGX } from '@/lib/businessAdvanceCalculations';
 import { runScenario, SCENARIO_PRESETS, type ScenarioInputs } from '@/lib/valuationModel';
 
 type Key = keyof typeof SCENARIO_PRESETS;
 const LABELS: Record<Key, string> = { conservative: 'Conservative', base: 'Base', high: 'High growth' };
 const UGX_PER_USD = 3700;
+const COLORS: Record<Key, string> = { conservative: 'hsl(var(--muted-foreground))', base: 'hsl(var(--primary))', high: 'hsl(var(--accent-foreground))' };
+type Metric = 'valuation' | 'stake' | 'stakeValue';
+const METRICS: { id: Metric; label: string }[] = [
+  { id: 'valuation', label: 'Company value' },
+  { id: 'stake', label: 'Ownership %' },
+  { id: 'stakeValue', label: 'Value of your stake' },
+];
 
 interface Baseline {
   fees_30d: number; fees_prev_30d: number; fees_all_time: number; rent_30d: number;
@@ -34,6 +42,8 @@ export function ValuationModelPanel() {
     },
   });
   const [inputs, setInputs] = useState<Record<Key, ScenarioInputs>>({ ...SCENARIO_PRESETS });
+  const [metric, setMetric] = useState<Metric>('valuation');
+  const [hidden, setHidden] = useState<Key[]>([]);
   const [monthly, setMonthly] = useState<number | null>(null);
   const monthlyRev = monthly ?? Number(base.data?.fees_30d ?? 0);
 
@@ -41,6 +51,23 @@ export function ValuationModelPanel() {
     () => (Object.keys(inputs) as Key[]).map((k) => ({ k, r: runScenario(monthlyRev, inputs[k]) })),
     [inputs, monthlyRev],
   );
+
+  const chartData = useMemo(() => {
+    const pts = [0, 1, 2, 3].map((year) => ({ year: year === 0 ? 'Today' : `Year ${year}` } as Record<string, number | string>));
+    results.forEach(({ k, r }) => {
+      const d = Math.min(Math.max(inputs[k].dilutionPct, 0), 90) / 100;
+      const todayStake = 92 * (1 - d);
+      const todayValue = r.todayPreMoney + r.todayRaise;
+      const val = (m: Metric, i: number) => {
+        if (i === 0) return m === 'valuation' ? todayValue : m === 'stake' ? todayStake : (todayValue * todayStake) / 100;
+        const y = r.rows[i - 1];
+        return m === 'valuation' ? y.valuation : m === 'stake' ? y.founderStakePct : y.stakeValue;
+      };
+      pts.forEach((p, i) => { p[k] = val(metric, i); });
+    });
+    return pts;
+  }, [results, inputs, metric]);
+  const fmtAxis = (v: number) => (metric === 'stake' ? `${v.toFixed(0)}%` : usd(v));
 
   if (base.isLoading) return <div className="flex justify-center p-10"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   if (base.error) return <p className="p-6 text-destructive">Could not load the latest figures.</p>;
@@ -78,6 +105,44 @@ export function ValuationModelPanel() {
           </div>
           <Slider value={[monthlyRev]} min={0} max={Math.max(Number(b.fees_30d) * 3, 1_000_000)} step={500_000} onValueChange={([v]) => setMonthly(v)} />
           {monthly !== null && <Button variant="ghost" size="sm" onClick={() => setMonthly(null)}>Reset to live figure</Button>}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">How the scenarios play out over time</CardTitle>
+          <div className="flex flex-wrap gap-2 pt-2">
+            {METRICS.map((m) => (
+              <Button key={m.id} size="sm" variant={metric === m.id ? 'default' : 'outline'} onClick={() => setMetric(m.id)}>{m.label}</Button>
+            ))}
+            <span className="mx-1 w-px bg-border" />
+            {(Object.keys(LABELS) as Key[]).map((k) => (
+              <Button key={k} size="sm" variant={hidden.includes(k) ? 'ghost' : 'secondary'}
+                onClick={() => setHidden((h) => (h.includes(k) ? h.filter((x) => x !== k) : [...h, k]))}>
+                <span className="mr-2 inline-block h-2 w-2 rounded-full" style={{ background: COLORS[k] }} />{LABELS[k]}
+              </Button>
+            ))}
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="h-72 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="year" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} tickFormatter={fmtAxis} width={70} domain={metric === 'stake' ? [0, 100] : [0, 'auto']} />
+                <Tooltip
+                  formatter={(v: number, n: string) => [metric === 'stake' ? `${v.toFixed(1)}%` : `${usd(v)} (${compact(v)})`, LABELS[n as Key] ?? n]}
+                  contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, fontSize: 12 }}
+                />
+                <Legend formatter={(n: string) => LABELS[n as Key] ?? n} />
+                {(Object.keys(LABELS) as Key[]).filter((k) => !hidden.includes(k)).map((k) => (
+                  <Line key={k} type="monotone" dataKey={k} stroke={COLORS[k]} strokeWidth={2.5} dot={{ r: 3 }} activeDot={{ r: 6 }} />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">Move any slider below and the lines redraw instantly. Hover a point for exact figures.</p>
         </CardContent>
       </Card>
 
