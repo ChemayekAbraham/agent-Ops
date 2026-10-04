@@ -9,7 +9,9 @@
     "preview": "vite preview",
     "cap:sync": "cap sync",
     "cap:ios": "cap open ios",
-    "cap:run": "cap run ios"
+    "cap:run": "cap run ios",
+    "fetch:upstream": "git fetch upstream",
+    "log:upstream": "git log -n 10 upstream/lovable --oneline"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
