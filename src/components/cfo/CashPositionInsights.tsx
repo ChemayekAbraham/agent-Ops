@@ -75,19 +75,13 @@ export function CashPositionInsights({ totalReceivables, receivablesCategories, 
       const { data, error } = await (supabase.rpc as any)('get_payables_due_range', { p_from: today, p_to: toKey });
       if (error) throw error;
       const d = (data || {}) as any;
-      const all = ((d.rows || []) as any[]).map((r) => ({
-        id: String(r.id), user_id: r.user_id ?? null, name: r.name as string | null,
-        amount: Number(r.amount || 0), due_date: r.due_date ?? null, category_label: r.category_label ?? null,
+      const { data: src, error: e2 } = await (supabase.rpc as any)('get_payables_by_source', { p_from: today, p_to: toKey });
+      if (e2) throw e2;
+      const top = ((src || []) as any[]).slice(0, 5).map((r) => ({
+        id: String(r.source), name: String(r.source), amount: Number(r.amount || 0),
+        due_date: r.due_date ?? null, count: Number(r.count || 0),
       }));
-      const groups = new Map<string, { id: string; name: string; amount: number; due_date: string | null; count: number }>();
-      all.forEach((r) => {
-        const k = r.category_label || 'Other';
-        const g = groups.get(k) || { id: k, name: k, amount: 0, due_date: null as string | null, count: 0 };
-        g.amount += r.amount; g.count += 1;
-        if (r.due_date && (!g.due_date || r.due_date < g.due_date)) g.due_date = r.due_date;
-        groups.set(k, g);
-      });
-      const top = Array.from(groups.values()).sort((x, y) => y.amount - x.amount).slice(0, 5);
+      const all = { length: ((src || []) as any[]).reduce((n, r) => n + Number(r.count || 0), 0) };
       return { outstanding: Number(d.outstanding || 0), dueInRange: Number(d.due_in_range || 0), count: all.length, top };
     },
     staleTime: 300_000,
