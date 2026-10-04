@@ -8,7 +8,9 @@
 import { useMemo, useState } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
-import { ChevronDown, Loader2 } from "lucide-react";
+import { ChevronDown, Loader2, Undo2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -208,8 +210,8 @@ export function TransactionsFeed({
                 : null;
             const itemPhoto = welileItemImage(row.description);
             return (
+              <div key={row.id} className="space-y-1.5">
               <button
-                key={row.id}
                 type="button"
                 onClick={() => setSelected({ ...row, balanceAfter })}
                 className="flex w-full items-center gap-3 sm:gap-4 rounded-2xl bg-background p-3 sm:p-4 text-left shadow-sm transition-transform active:scale-[0.98]"
@@ -296,6 +298,8 @@ export function TransactionsFeed({
                   <span className="text-xs font-medium text-muted-foreground">UGX</span>
                 </span>
               </button>
+              <ReverseTransferRowButton row={row} onOpen={() => setSelected({ ...row, balanceAfter })} />
+              </div>
             );
           })}
         </section>
@@ -319,6 +323,36 @@ export function TransactionsFeed({
         onOpenChange={(open) => !open && setSelected(null)}
       />
     </div>
+  );
+}
+
+/** Shows "Reverse transfer" under an outgoing transfer while the server says it can still be reversed. */
+function ReverseTransferRowButton({ row, onOpen }: { row: any; onOpen: () => void }) {
+  const ref: string | null =
+    row.category === "wallet_transfer" && row.direction === "cash_out" &&
+    row.reference_id && !String(row.reference_id).endsWith("-REV")
+      ? row.reference_id
+      : null;
+  const status = useQuery({
+    queryKey: ["wallet-transfer-reversal-status", ref],
+    enabled: !!ref,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("wallet_transfer_reversal_status", { p_reference: ref as string });
+      if (error) throw error;
+      return data as { can_reverse: boolean };
+    },
+  });
+  if (!ref || !status.data?.can_reverse) return null;
+  return (
+    <Button
+      variant="outline"
+      className="h-10 w-full rounded-xl text-sm font-bold text-destructive"
+      onClick={onOpen}
+    >
+      <Undo2 className="mr-1.5 h-4 w-4" />
+      Reverse transfer
+    </Button>
   );
 }
 
