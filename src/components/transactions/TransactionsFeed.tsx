@@ -327,23 +327,73 @@ export function TransactionsFeed({
   );
 }
 
-/** Shows "Reverse transfer" under an outgoing transfer while the server says it can still be reversed. */
-function ReverseTransferRowButton({ row, onOpen }: { row: any; onOpen: () => void }) {
-  const ref: string | null =
-    row.category === "wallet_transfer" && row.direction === "cash_out" &&
-    row.reference_id && !String(row.reference_id).endsWith("-REV")
-      ? row.reference_id
-      : null;
-  const status = useQuery({
+/** Reference of an original (non-reversal) wallet transfer row, else null. */
+function transferRefOf(row: any): string | null {
+  return row.category === "wallet_transfer" &&
+    row.reference_id &&
+    !String(row.reference_id).endsWith("-REV")
+    ? String(row.reference_id)
+    : null;
+}
+
+/**
+ * Reversal status for a person-to-person wallet transfer. Shared React Query
+ * key with ReverseTransferRowButton, so the two components fetch once.
+ */
+function useTransferReversalStatus(ref: string | null) {
+  return useQuery({
     queryKey: ["wallet-transfer-reversal-status", ref],
     enabled: !!ref,
     staleTime: 60_000,
     queryFn: async () => {
       const { data, error } = await supabase.rpc("wallet_transfer_reversal_status", { p_reference: ref as string });
       if (error) throw error;
-      return data as { can_reverse: boolean };
+      return data as {
+        state?: "reversible" | "reversed" | "withdrawn" | "nothing_left" | "received" | "not_involved" | "not_found" | "sign_in";
+        can_reverse: boolean;
+        reason?: string;
+        sent?: number;
+        reversible?: number;
+      };
     },
   });
+}
+
+/** Clear status chip on every wallet transfer: Reversible / Reversed / No longer eligible. */
+function TransferReversalBadge({ row }: { row: TxFeedRow }) {
+  const ref = transferRefOf(row);
+  const status = useTransferReversalStatus(ref);
+  if (!ref || !status.data) return null;
+  const { state } = status.data;
+  if (state === "reversible") {
+    return (
+      <Badge variant="secondary" className="shrink-0 bg-success/10 text-[9px] font-bold uppercase tracking-wide text-success">
+        Reversible
+      </Badge>
+    );
+  }
+  if (state === "reversed") {
+    return (
+      <Badge variant="secondary" className="shrink-0 bg-muted text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
+        Reversed
+      </Badge>
+    );
+  }
+  if (state === "withdrawn" || state === "nothing_left") {
+    return (
+      <Badge variant="secondary" className="shrink-0 bg-muted text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
+        No longer eligible
+      </Badge>
+    );
+  }
+  // 'received' (incoming, not reversed), 'not_involved', 'not_found', 'sign_in'
+  return null;
+}
+
+/** Shows "Reverse transfer" under an outgoing transfer while the server says it can still be reversed. */
+function ReverseTransferRowButton({ row, onOpen }: { row: any; onOpen: () => void }) {
+  const ref = transferRefOf(row);
+  const status = useTransferReversalStatus(ref);
   if (!ref || !status.data?.can_reverse) return null;
   return (
     <Button
