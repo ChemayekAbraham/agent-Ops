@@ -303,7 +303,7 @@ export function ValuationModelPanel() {
               <div className="space-y-2">
                 {r.rows.map((y, i) => {
                   const isFinal = i === r.rows.length - 1;
-                  const maxY = Math.max(0, ...results.map(({ r: rr }) => rr.rows[i]?.valuation ?? 0));
+                  const cardMax = Math.max(0, ...r.rows.map((row) => row.valuation));
                   return (
                     <div key={y.year} className={`rounded-lg border p-2.5 text-xs tabular-nums ${isFinal ? 'border-primary/40 bg-primary/5' : 'border-border'}`}>
                       <div className="flex items-baseline justify-between gap-2">
