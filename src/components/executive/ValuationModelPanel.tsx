@@ -4,8 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
-import { Loader2, RefreshCw, Share2 } from 'lucide-react';
-import { shareValuationPdf } from '@/lib/valuationPdf';
+import { Files, Loader2, RefreshCw, Share2 } from 'lucide-react';
+import { shareValuationComparisonPdf, shareValuationPdf } from '@/lib/valuationPdf';
 import { CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { formatUGX } from '@/lib/businessAdvanceCalculations';
 import { runScenario, SCENARIO_PRESETS, type ScenarioInputs } from '@/lib/valuationModel';
@@ -122,6 +122,10 @@ export function ValuationModelPanel() {
   const set = (k: Key, f: keyof ScenarioInputs, v: number) =>
     setInputs((s) => ({ ...s, [k]: { ...s[k], [f]: v } }));
 
+  const rateNote = fx.data
+    ? `Rate US$1 = UGX ${Math.round(UGX_PER_USD).toLocaleString()} (source: ${RATE_PROVIDER}).`
+    : `Fixed rate US$1 = UGX ${FALLBACK_UGX_PER_USD.toLocaleString()}.`;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -232,6 +236,15 @@ export function ValuationModelPanel() {
         </CardContent>
       </Card>
 
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold text-muted-foreground">Scenario comparison</h3>
+        <Button size="sm" variant="outline" className="gap-2" onClick={() => shareValuationComparisonPdf({
+          scenarios: results.map(({ k, r }) => ({ label: LABELS[k], inputs: inputs[k], result: r })),
+          monthlyRevenue: monthlyRev, ugxPerUsd: UGX_PER_USD, rateNote,
+        })}>
+          <Files className="h-4 w-4" /> All three scenarios as one PDF
+        </Button>
+      </div>
       <div className="grid md:grid-cols-3 gap-4">
         {results.map(({ k, r }) => (
           <Card key={k}>
@@ -253,8 +266,7 @@ export function ValuationModelPanel() {
                 <p className="text-xs text-muted-foreground">{fmtOther(r.todayPreMoney)} · raise {fmt(r.todayRaise)} for {inputs[k].dilutionPct}%</p>
               </div>
               <Button size="sm" variant="outline" className="w-full gap-2" onClick={() => shareValuationPdf({
-                scenarioLabel: LABELS[k], inputs: inputs[k], result: r, monthlyRevenue: monthlyRev, ugxPerUsd: UGX_PER_USD,
-                rateNote: fx.data ? `Rate US$1 = UGX ${Math.round(UGX_PER_USD).toLocaleString()} (source: ${RATE_PROVIDER}).` : `Fixed rate US$1 = UGX ${FALLBACK_UGX_PER_USD.toLocaleString()}.`,
+                scenarioLabel: LABELS[k], inputs: inputs[k], result: r, monthlyRevenue: monthlyRev, ugxPerUsd: UGX_PER_USD, rateNote,
               })}>
                 <Share2 className="h-4 w-4" /> Share as PDF
               </Button>
