@@ -71179,6 +71179,7 @@ export type Database = {
         Args: { p_entity_id: string; p_entity_type: string; p_reason: string }
         Returns: Json
       }
+      reverse_wallet_transfer: { Args: { p_reference: string }; Returns: Json }
       review_landlord_number_change: {
         Args: { p_comment: string; p_decision: string; p_request_id: string }
         Returns: Json
@@ -73237,6 +73238,10 @@ export type Database = {
           user_id: string
           withdrawable: number
         }[]
+      }
+      wallet_transfer_reversal_status: {
+        Args: { p_reference: string }
+        Returns: Json
       }
       wallet_transfer_schedule_next_run: {
         Args: {
