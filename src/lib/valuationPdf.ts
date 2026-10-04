@@ -18,16 +18,25 @@ const usd = (v: number, r: number) => `US$${Math.round(v / r).toLocaleString('en
 export function buildValuationPdf(d: ValuationPdfInput): { blob: Blob; fileName: string } {
   const doc = new jsPDF({ unit: 'pt', format: 'a4' });
   const now = new Date().toLocaleString('en-GB', { timeZone: 'Africa/Kampala', dateStyle: 'medium', timeStyle: 'short' });
+  // Letterhead: logo on the left, contact details top-right.
+  doc.addImage(WELILE_LOGO, 'PNG', 40, 36, 110, 39.8);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(110);
+  doc.text('+256 200 909 000', 555, 42, { align: 'right' });
+  doc.text('www.welile.com', 555, 55, { align: 'right' });
+  doc.text('Kabale Entebbe Rd', 555, 68, { align: 'right' });
+  doc.setDrawColor(200); doc.setLineWidth(0.7);
+  doc.line(40, 88, 555, 88);
+  doc.setTextColor(0);
   doc.setFont('helvetica', 'bold'); doc.setFontSize(18);
-  doc.text('Welile — Company Valuation', 40, 50);
+  doc.text('Company Valuation', 40, 112);
   doc.setFont('helvetica', 'normal'); doc.setFontSize(11);
-  doc.text(`Scenario: ${d.scenarioLabel}`, 40, 72);
+  doc.text(`Scenario: ${d.scenarioLabel}`, 40, 130);
   doc.setFontSize(9); doc.setTextColor(110);
-  doc.text(`Prepared ${now} (Kampala). ${d.rateNote}`, 40, 88, { maxWidth: 515 });
+  doc.text(`Prepared ${now} (Kampala). ${d.rateNote}`, 40, 146, { maxWidth: 515 });
   doc.setTextColor(0);
 
   autoTable(doc, {
-    startY: 108,
+    startY: 164,
     head: [['Assumption', 'Value']],
     body: [
       ['Starting monthly revenue', `${ugx(d.monthlyRevenue)} (${usd(d.monthlyRevenue, d.ugxPerUsd)})`],
