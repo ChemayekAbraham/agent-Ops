@@ -225,7 +225,7 @@ export function CashPositionInsights({ totalReceivables, receivablesCategories, 
             right={onNavigate && <button className="text-xs font-medium text-primary" onClick={() => onNavigate('withdrawals')}>View All</button>} />
           {topPayables.length === 0 ? <p className="text-xs text-muted-foreground">{rp.isLoading ? 'Loading…' : 'No data yet.'}</p> : (
             <div className="overflow-x-auto"><table className="w-full text-[11px]">
-              <thead className="text-muted-foreground"><tr className="text-left"><th className="py-1.5 font-medium">Category</th><th className="font-medium">Amount</th><th className="font-medium">Next Due</th><th className="font-medium">Status</th></tr></thead>
+              <thead className="text-muted-foreground"><tr className="text-left"><th className="py-1.5 font-medium">Source</th><th className="font-medium">Amount</th><th className="font-medium">Next Due</th><th className="font-medium">Status</th></tr></thead>
               <tbody>{topPayables.map((p) => (
                 <tr key={p.id} className="border-t border-border/60">
                   <td className="py-2 pr-2 max-w-[120px] truncate">{p.name}<span className="block text-[10px] text-muted-foreground truncate">{p.count} payment{p.count === 1 ? '' : 's'}</span></td>
