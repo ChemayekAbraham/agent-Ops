@@ -58,6 +58,29 @@ export function ValuationModelPanel() {
     },
   });
   UGX_PER_USD = fx.data?.rate ?? FALLBACK_UGX_PER_USD;
+  const hist = useQuery({
+    queryKey: ['ugx-usd-rate-history'],
+    staleTime: 6 * 60 * 60 * 1000,
+    queryFn: async () => {
+      const days = Array.from({ length: 13 }, (_, i) => 90 - i * 7.5).map((d) => Math.round(d)).filter((d) => d > 0);
+      const out = await Promise.all(days.map(async (d) => {
+        const dt = new Date(Date.now() - d * 86400000).toISOString().slice(0, 10);
+        try {
+          const r = await fetch(`https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@${dt}/v1/currencies/usd.json`);
+          if (!r.ok) return null;
+          const j = await r.json();
+          const rate = Number(j?.usd?.ugx);
+          return rate ? { date: dt, rate } : null;
+        } catch { return null; }
+      }));
+      return out.filter(Boolean) as { date: string; rate: number }[];
+    },
+  });
+  const histData = useMemo(() => {
+    const pts = (hist.data ?? []).map((p) => ({ label: new Date(p.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }), rate: p.rate }));
+    if (pts.length && fx.data) pts.push({ label: 'Today', rate: fx.data.rate });
+    return pts;
+  }, [hist.data, fx.data]);
   const queryClient = useQueryClient();
   const refreshRate = () => queryClient.invalidateQueries({ queryKey: ['ugx-usd-live-rate'] });
   const [inputs, setInputs] = useState<Record<Key, ScenarioInputs>>({ ...SCENARIO_PRESETS });
@@ -143,6 +166,30 @@ export function ValuationModelPanel() {
           </div>
           <Slider value={[monthlyRev]} min={0} max={Math.max(Number(b.fees_30d) * 3, 1_000_000)} step={500_000} onValueChange={([v]) => setMonthly(v)} />
           {monthly !== null && <Button variant="ghost" size="sm" onClick={() => setMonthly(null)}>Reset to live figure</Button>}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">UGX per US$1 — last 90 days</CardTitle>
+          <p className="text-xs text-muted-foreground">Daily closing rates sampled weekly (source: currency-api via jsDelivr), plus today's live rate from {RATE_PROVIDER}.</p>
+        </CardHeader>
+        <CardContent className="h-56">
+          {hist.isLoading ? (
+            <div className="flex h-full items-center justify-center"><Loader2 className="h-5 w-5 animate-spin" /></div>
+          ) : !histData.length ? (
+            <p className="text-sm text-muted-foreground">Rate history is unavailable right now.</p>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={histData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="label" tick={{ fontSize: 11 }} />
+                <YAxis domain={['auto', 'auto']} tick={{ fontSize: 11 }} width={50} />
+                <Tooltip formatter={(v: number) => [`UGX ${Math.round(v).toLocaleString()}`, 'US$1']} />
+                <Line type="monotone" dataKey="rate" stroke="hsl(var(--primary))" strokeWidth={2} dot={{ r: 2 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
         </CardContent>
       </Card>
 
