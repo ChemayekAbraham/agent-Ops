@@ -3130,6 +3130,13 @@
       "when": 1791107903046,
       "tag": "0446_landlord_ops_principal_recovered_kpi",
       "breakpoints": true
+    },
+    {
+      "idx": 447,
+      "version": "7",
+      "when": 1791108600816,
+      "tag": "0447_landlord_ops_principal_periods",
+      "breakpoints": true
     }
   ]
 }
