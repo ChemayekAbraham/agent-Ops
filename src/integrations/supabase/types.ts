@@ -60240,6 +60240,7 @@ export type Database = {
           status: string
         }[]
       }
+      ceo_valuation_baseline: { Args: never; Returns: Json }
       cfo_approve_float_request: {
         Args: { p_amount: number; p_reason: string; p_request_id: string }
         Returns: Json
