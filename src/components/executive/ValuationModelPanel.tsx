@@ -301,13 +301,28 @@ export function ValuationModelPanel() {
                 <Share2 className="h-4 w-4" /> Share as PDF
               </Button>
               <div className="space-y-2">
-                {r.rows.map((y) => (
-                  <div key={y.year} className="rounded-lg border border-border p-2 text-xs">
-                    <div className="flex justify-between font-semibold"><span>Year {y.year}</span><span>{fmt(y.valuation)}</span></div>
-                    <div className="flex justify-between text-muted-foreground"><span>Revenue</span><span>{fmt(y.revenue)}</span></div>
-                    <div className="flex justify-between text-muted-foreground"><span>Your stake</span><span>{y.founderStakePct.toFixed(1)}% · {fmt(y.stakeValue)}</span></div>
-                  </div>
-                ))}
+                {r.rows.map((y, i) => {
+                  const isFinal = i === r.rows.length - 1;
+                  const cardMax = Math.max(0, ...r.rows.map((row) => row.valuation));
+                  return (
+                    <div key={y.year} className={`rounded-lg border p-2.5 text-xs tabular-nums ${isFinal ? 'border-primary/40 bg-primary/5' : 'border-border'}`}>
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className="font-semibold">Year {y.year}</span>
+                        <span className="text-sm font-bold">{fmt(y.valuation)}</span>
+                      </div>
+                      <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-muted" title="Company value, scaled to this scenario's final year">
+                        <div className="h-full rounded-full" style={{ width: `${cardMax > 0 ? (y.valuation / cardMax) * 100 : 0}%`, background: COLORS[k] }} />
+                      </div>
+                      <div className="mt-1.5 flex justify-between gap-2 text-muted-foreground">
+                        <span>Revenue</span><span>{fmt(y.revenue)}</span>
+                      </div>
+                      <div className="flex justify-between gap-2 text-muted-foreground">
+                        <span>Your stake</span>
+                        <span><span className="font-semibold text-foreground">{y.founderStakePct.toFixed(1)}%</span> · {fmt(y.stakeValue)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
