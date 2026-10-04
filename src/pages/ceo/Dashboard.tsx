@@ -11,6 +11,7 @@ import { RequisitionsWorkspace } from '@/components/requisitions/RequisitionsWor
 import ExecutiveBrief from '@/hr/components/ExecutiveBrief';
 import { GlobalVerificationHub } from '@/components/executive/GlobalVerificationHub';
 import { WelileOperationsHub } from '@/components/executive/WelileOperationsHub';
+import { ValuationModelPanel } from '@/components/executive/ValuationModelPanel';
 
 export default function CEODashboardPage() {
   const [activeTab, setActiveTab] = usePersistedActiveTab('ceo');
@@ -21,6 +22,8 @@ export default function CEODashboardPage() {
         return <CEORevenueGrowth />;
       case 'revenue-recognition':
         return <RevenueRecognitionPanel />;
+      case 'valuation':
+        return <ValuationModelPanel />;
       case 'staff-performance':
         return (
           <div className="space-y-6">

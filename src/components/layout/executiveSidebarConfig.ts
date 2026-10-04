@@ -399,6 +399,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Platform Overview', icon: Crown, id: 'overview' },
         { label: 'Revenue & Growth', icon: TrendingUp, id: 'revenue' },
         { label: 'Revenue Recognition', icon: Gauge, id: 'revenue-recognition' },
+        { label: 'Valuation Model', icon: Scale, id: 'valuation' },
         { label: 'Users & Coverage', icon: Globe, id: 'users' },
         { label: 'Global Verification Center', icon: ShieldCheck, id: 'global-verification' },
         { label: 'Welile Operations', icon: Landmark, id: 'welile-operations' },
