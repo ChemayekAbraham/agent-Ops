@@ -492,12 +492,7 @@ function TransferReversalReason({ row }: { row: TxFeedRow }) {
   const { state, reversed_at } = status.data;
   if (state === "reversed") {
     if (!reversed_at) return null;
-    const when = format(parseISO(reversed_at), "MMM d, yyyy 'at' h:mm a");
-    return (
-      <p className="px-1 text-xs font-medium leading-snug text-muted-foreground">
-        Reversed on {when}.
-      </p>
-    );
+    return <TransferReversalDetails row={row} reference={ref} reversedAt={reversed_at} />;
   }
   if (row.direction !== "cash_out") return null;
   let reason: string | null = null;
@@ -511,6 +506,95 @@ function TransferReversalReason({ row }: { row: TxFeedRow }) {
     <p className="px-1 text-xs font-medium leading-snug text-muted-foreground">
       {reason}
     </p>
+  );
+}
+
+const fmtWhen = (iso: string) => format(parseISO(iso), "MMM d, yyyy 'at' h:mm a");
+
+/**
+ * Compact side-by-side view of a reversed transfer: the original transfer and
+ * its reversal. Read-only — reads this user's own reversal leg (reference
+ * `<original>-REV`) to show the exact amount moved back.
+ */
+function TransferReversalDetails({
+  row,
+  reference,
+  reversedAt,
+}: {
+  row: TxFeedRow;
+  reference: string;
+  reversedAt: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const leg = useQuery({
+    queryKey: ["wallet-transfer-reversal-leg", reference],
+    enabled: open,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth.user) return null;
+      const { data, error } = await supabase
+        .from("general_ledger")
+        .select("amount, created_at")
+        .eq("reference_id", `${reference}-REV`)
+        .eq("user_id", auth.user.id)
+        .eq("ledger_scope", "wallet")
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data as { amount: number; created_at: string } | null;
+    },
+  });
+  const sent = Number(row.amount);
+  const isSender = row.direction === "cash_out";
+  const returned = leg.data ? Number(leg.data.amount) : null;
+
+  return (
+    <div className="px-1 text-xs leading-snug">
+      <button
+        type="button"
+        className="flex w-full items-center justify-between font-medium text-muted-foreground"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+      >
+        <span>Reversed on {fmtWhen(reversedAt)}.</span>
+        <span className="flex items-center gap-0.5 font-bold text-foreground">
+          {open ? "Hide details" : "View details"}
+          <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
+        </span>
+      </button>
+      {open && (
+        <div className="mt-2 grid grid-cols-2 gap-2 rounded-xl border bg-muted/40 p-3">
+          <div className="space-y-0.5">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Original transfer</p>
+            <p className="font-bold tabular-nums text-foreground">{formatUGX(sent)}</p>
+            <p className="text-muted-foreground">
+              {isSender ? "Sent to" : "Received from"} {row.peer_name ?? "—"}
+            </p>
+            <p className="text-muted-foreground">{fmtWhen(row.transaction_date)}</p>
+          </div>
+          <div className="space-y-0.5">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Reversal</p>
+            {leg.isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            ) : (
+              <p className="font-bold tabular-nums text-foreground">
+                {returned != null ? formatUGX(returned) : "—"}
+              </p>
+            )}
+            <p className="text-muted-foreground">
+              {isSender ? "Returned to your wallet" : "Taken back from your wallet"}
+            </p>
+            <p className="text-muted-foreground">{fmtWhen(reversedAt)}</p>
+            {returned != null && returned < sent && (
+              <p className="text-muted-foreground">Partial — of {formatUGX(sent)} sent</p>
+            )}
+          </div>
+          <p className="col-span-2 truncate text-[10px] text-muted-foreground">Ref: {reference}</p>
+        </div>
+      )}
+    </div>
   );
 }
 
