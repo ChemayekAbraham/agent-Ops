@@ -49,6 +49,13 @@ const usd = (ugx: number) => {
 const compact = (n: number) =>
   n >= 1e9 ? `UGX ${(n / 1e9).toFixed(2)}B` : n >= 1e6 ? `UGX ${(n / 1e6).toFixed(1)}M` : formatUGX(n);
 
+interface SavedPreset { name: string; inputs: Record<Key, ScenarioInputs>; monthly: number | null; savedAt: string }
+const PRESET_KEY = 'welile-valuation-presets';
+const loadPresets = (): SavedPreset[] => {
+  try { const v = JSON.parse(localStorage.getItem(PRESET_KEY) || '[]'); return Array.isArray(v) ? v : []; } catch { return []; }
+};
+const persistPresets = (p: SavedPreset[]) => { try { localStorage.setItem(PRESET_KEY, JSON.stringify(p)); } catch { /* storage unavailable */ } };
+
 export function ValuationModelPanel() {
   const base = useQuery({
     queryKey: ['ceo-valuation-baseline'],
@@ -103,6 +110,9 @@ export function ValuationModelPanel() {
   const [currency, setCurrency] = useState<'UGX' | 'USD'>('UGX');
   const [hidden, setHidden] = useState<Key[]>([]);
   const [monthly, setMonthly] = useState<number | null>(null);
+  const [presets, setPresets] = useState<SavedPreset[]>(loadPresets);
+  const [presetName, setPresetName] = useState('');
+  const [presetSel, setPresetSel] = useState('');
   const monthlyRev = monthly ?? Number(base.data?.fees_30d ?? 0);
 
   const results = useMemo(
@@ -132,6 +142,26 @@ export function ValuationModelPanel() {
   if (base.isLoading) return <div className="flex justify-center p-10"><Loader2 className="h-6 w-6 animate-spin" /></div>;
   if (base.error) return <p className="p-6 text-destructive">Could not load the latest figures.</p>;
   const b = base.data!;
+
+  const savePreset = () => {
+    const name = presetName.trim();
+    if (!name) { toast.error('Give the preset a name first.'); return; }
+    const entry: SavedPreset = { name, inputs: JSON.parse(JSON.stringify(inputs)), monthly, savedAt: new Date().toISOString() };
+    const next = [...presets.filter((p) => p.name.toLowerCase() !== name.toLowerCase()), entry];
+    setPresets(next); persistPresets(next); setPresetSel(name); setPresetName('');
+    toast.success(`Saved "${name}".`);
+  };
+  const restorePreset = () => {
+    const p = presets.find((x) => x.name === presetSel);
+    if (!p) return;
+    setInputs({ ...SCENARIO_PRESETS, ...p.inputs }); setMonthly(p.monthly);
+    toast.success(`Restored "${p.name}".`);
+  };
+  const deletePreset = () => {
+    const next = presets.filter((x) => x.name !== presetSel);
+    setPresets(next); persistPresets(next); setPresetSel('');
+    toast.success('Preset deleted.');
+  };
 
   const set = (k: Key, f: keyof ScenarioInputs, v: number) =>
     setInputs((s) => ({ ...s, [k]: { ...s[k], [f]: v } }));
@@ -309,6 +339,33 @@ export function ValuationModelPanel() {
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="rounded-lg border p-3 space-y-2">
+            <p className="text-sm font-semibold">Saved presets</p>
+            <div className="flex flex-wrap gap-2">
+              <input
+                aria-label="Preset name" placeholder="Name, e.g. Investor pitch"
+                className="h-10 min-w-0 flex-1 basis-40 rounded-md border border-input bg-background px-3 text-sm"
+                value={presetName} maxLength={40}
+                onChange={(e) => setPresetName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') savePreset(); }}
+              />
+              <Button size="sm" className="h-10" onClick={savePreset}>Save current</Button>
+            </div>
+            {presets.length ? (
+              <div className="flex flex-wrap gap-2">
+                <select
+                  aria-label="Saved presets"
+                  className="h-10 min-w-0 flex-1 basis-40 rounded-md border border-input bg-background px-2 text-sm"
+                  value={presetSel} onChange={(e) => setPresetSel(e.target.value)}
+                >
+                  <option value="">Choose a saved preset…</option>
+                  {presets.map((p) => <option key={p.name} value={p.name}>{p.name} · {new Date(p.savedAt).toLocaleDateString()}</option>)}
+                </select>
+                <Button size="sm" variant="outline" className="h-10" disabled={!presetSel} onClick={restorePreset}>Restore</Button>
+                <Button size="sm" variant="ghost" className="h-10" disabled={!presetSel} onClick={deletePreset}>Delete</Button>
+              </div>
+            ) : <p className="text-[11px] text-muted-foreground">No presets yet. Saving stores all three scenarios and the starting revenue on this device.</p>}
+          </div>
           <div className="space-y-1">
             <label className="text-xs font-medium" htmlFor="asm-start">Starting monthly revenue (UGX) · live 30-day figure {formatUGX(Number(b.fees_30d))}</label>
             <input
