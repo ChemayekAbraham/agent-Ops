@@ -899,6 +899,46 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
           </table>
         </div>
       </div>
+
+      {/* Landlord Principal Recovered — period drill-down */}
+      <Dialog open={principalDrilldownOpen} onOpenChange={setPrincipalDrilldownOpen}>
+        <DialogContent className="max-w-md p-0 gap-0 overflow-hidden">
+          <DialogHeader className="p-5 pb-3 space-y-1">
+            <DialogTitle className="text-base font-bold">Principal recovered by period</DialogTitle>
+            <DialogDescription className="text-xs">
+              Net principal from tenant repayments — excludes Returns, agent commission and platform
+              fees; reversed repayments are removed. Days follow Kampala time.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="px-5 pb-5 space-y-1.5">
+            {principalPeriodsLoading && !principalPeriods ? (
+              <div className="flex items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" /> Calculating…
+              </div>
+            ) : (
+              principalPeriodRows.map((row) => (
+                <div
+                  key={row.key}
+                  className="flex items-center justify-between gap-3 rounded-lg border border-border/60 bg-muted/40 px-3.5 py-3"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">{row.label}</p>
+                    <p className="text-[11px] text-muted-foreground">{row.range}</p>
+                  </div>
+                  <span className="text-sm font-bold tabular-nums text-foreground">
+                    {row.value == null ? '—' : formatUGX(row.value)}
+                  </span>
+                </div>
+              ))
+            )}
+            {principalRecovered != null && (
+              <p className="pt-2 text-[11px] text-muted-foreground">
+                All time: <span className="font-semibold text-foreground tabular-nums">{formatUGX(principalRecovered)}</span>
+              </p>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
