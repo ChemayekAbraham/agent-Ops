@@ -99,6 +99,7 @@ export function ValuationModelPanel() {
   const refreshRate = () => queryClient.invalidateQueries({ queryKey: ['ugx-usd-live-rate'] });
   const [inputs, setInputs] = useState<Record<Key, ScenarioInputs>>({ ...SCENARIO_PRESETS });
   const [metric, setMetric] = useState<Metric>('valuation');
+  const isMobile = useIsMobile();
   const [currency, setCurrency] = useState<'UGX' | 'USD'>('UGX');
   const [hidden, setHidden] = useState<Key[]>([]);
   const [monthly, setMonthly] = useState<number | null>(null);
@@ -302,7 +303,7 @@ export function ValuationModelPanel() {
                 {r.rows.map((y) => (
                   <div key={y.year} className="rounded-lg border border-border p-2 text-xs">
                     <div className="flex justify-between font-semibold"><span>Year {y.year}</span><span>{fmt(y.valuation)}</span></div>
-                    <div className="flex justify-between text-muted-foreground"><span>Revenue / month</span><span>{fmt(y.revenue)}</span></div>
+                    <div className="flex justify-between text-muted-foreground"><span>Revenue</span><span>{fmt(y.revenue)}</span></div>
                     <div className="flex justify-between text-muted-foreground"><span>Your stake</span><span>{y.founderStakePct.toFixed(1)}% · {fmt(y.stakeValue)}</span></div>
                   </div>
                 ))}
