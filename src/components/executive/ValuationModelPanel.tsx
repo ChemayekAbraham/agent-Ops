@@ -58,6 +58,7 @@ export function ValuationModelPanel() {
   UGX_PER_USD = fx.data?.rate ?? FALLBACK_UGX_PER_USD;
   const [inputs, setInputs] = useState<Record<Key, ScenarioInputs>>({ ...SCENARIO_PRESETS });
   const [metric, setMetric] = useState<Metric>('valuation');
+  const [currency, setCurrency] = useState<'UGX' | 'USD'>('UGX');
   const [hidden, setHidden] = useState<Key[]>([]);
   const [monthly, setMonthly] = useState<number | null>(null);
   const monthlyRev = monthly ?? Number(base.data?.fees_30d ?? 0);
