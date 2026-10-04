@@ -2,8 +2,8 @@ name: Auto-Sync Upstream Lovable
 
 on:
   schedule:
-    # Run automatically every 3 hours
-    - cron: '0 */3 * * *'
+    # Run automatically every 30 minutes
+    - cron: '*/30 * * * *'
   # Allow manual trigger anytime from GitHub Actions tab
   workflow_dispatch:
 
