@@ -373,7 +373,7 @@ export function WelileMissionBoard() {
             List empty houses → place tenants → onboard funders. Progress &amp; live recommendations.
           </p>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 flex-wrap max-w-full">
           <div className="flex items-center gap-1.5 rounded-lg border border-border px-2 py-0.5 bg-card">
             <span className={cn('text-[10px] font-semibold', autoRefresh ? 'text-emerald-600' : 'text-muted-foreground')}>
               {autoRefresh ? 'Live' : 'Auto'}
@@ -393,19 +393,19 @@ export function WelileMissionBoard() {
                 type="button"
                 disabled={!isDayPreset}
                 onClick={() => setDayBoundary(b)}
-                className={cn('px-2 py-1 text-[10px] font-semibold transition disabled:cursor-not-allowed',
+                className={cn('px-3 py-2 sm:px-2 sm:py-1 text-[10px] font-semibold transition disabled:cursor-not-allowed',
                   dayBoundary === b ? 'bg-primary text-primary-foreground' : 'bg-card hover:bg-muted/40')}
               >
                 {b === 'kampala' ? 'EAT' : 'UTC'}
               </button>
             ))}
           </div>
-          <div className="flex rounded-lg border border-border overflow-hidden">
+          <div className="flex rounded-lg border border-border overflow-x-auto max-w-full">
             {WINDOWS.map((w) => (
               <button
                 key={w.id}
                 onClick={() => setWin(w.id)}
-                className={cn('px-2.5 py-1 text-[11px] font-semibold transition',
+                className={cn('px-3 py-2 sm:px-2.5 sm:py-1 text-[11px] whitespace-nowrap shrink-0 font-semibold transition',
                   win === w.id ? 'bg-primary text-primary-foreground' : 'bg-card hover:bg-muted/40')}
               >
                 {w.label}
