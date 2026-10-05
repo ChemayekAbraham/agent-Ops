@@ -73461,6 +73461,28 @@ export type Database = {
         Args: { p_cadence: string; p_reason: string; p_rent_request_id: string }
         Returns: undefined
       }
+      tops_shortfall_breakdown: {
+        Args: {
+          p_area_level?: string
+          p_end: string
+          p_group: string
+          p_start: string
+        }
+        Returns: {
+          avg_days_behind: number
+          collected_ugx: number
+          expected_ugx: number
+          group_key: string
+          group_name: string
+          max_days_behind: number
+          oldest_unpaid_due: string
+          parent_name: string
+          plan_count: number
+          short_pct: number
+          short_ugx: number
+          tenant_count: number
+        }[]
+      }
       tops_shortfall_lines: {
         Args: { p_end: string; p_start: string }
         Returns: {
