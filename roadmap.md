@@ -55,3 +55,5 @@
 - [x] CFO Cash Position: replace Cash Movement with screenshot layout
 - [x] CFO Cash Position: add a decision-focused liquidity brief, refresh control, reconciliation status, and professional page hierarchy.
 - [x] R&D page: apply format from user's screenshot (Namatovu Gloria)
+
+- [ ] Spiro bike lease v3: daily = month due / real days in that repayment month (Kampala), exact principal (price / months); 100,000 x 12 = fees 182,000, total 282,000; released leases unchanged; rollback updated; self-test
