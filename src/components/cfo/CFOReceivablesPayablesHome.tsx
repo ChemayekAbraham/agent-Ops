@@ -40,7 +40,7 @@ const isoDay = (d: Date) => d.toISOString().slice(0, 10);
 type Cat = { key: string; label: string; outstanding: number; item_count: number };
 
 export function CFOReceivablesPayablesHome() {
-  const [sheet, setSheet] = useState<'rec' | 'pay' | null>(null);
+  const [sheet, setSheet] = useState<'pay' | null>(null);
   const rec = useReceivablesTotal();
   const pay = usePayablesTotal();
   const today = new Date();
@@ -167,12 +167,10 @@ export function CFOReceivablesPayablesHome() {
       <Sheet open={sheet !== null} onOpenChange={(o) => !o && setSheet(null)}>
         <SheetContent side="center" className="overflow-y-auto overflow-x-hidden p-4 sm:p-6">
           <SheetHeader className="text-left">
-            <SheetTitle className="text-base sm:text-lg">
-              {sheet === 'pay' ? 'Payables Breakdown & Forecast' : 'Receivables Breakdown & Forecast'}
-            </SheetTitle>
+            <SheetTitle className="text-base sm:text-lg">Payables Breakdown &amp; Forecast</SheetTitle>
           </SheetHeader>
           <div className="mt-3">
-            {sheet === 'pay' ? <PayablesBreakdownForecast hideHeadline /> : sheet === 'rec' ? <ReceivablesBreakdownForecast hideHeadline /> : null}
+            {sheet === 'pay' ? <PayablesBreakdownForecast hideHeadline /> : null}
           </div>
         </SheetContent>
       </Sheet>
