@@ -195,6 +195,8 @@ Deno.serve(async (req) => {
           error: `Wallet deduction failed: ${msg}. Portfolio was NOT activated.`,
         }, 500);
       }
+    } else if (fundedFromPayroll) {
+      console.log("[approve-pending-portfolio] Staff salary reinvestment portfolio", portfolioId, "— funded by payroll; no wallet debit.");
     } else if (fundedFromFloatByRpc) {
       console.log(
         "[approve-pending-portfolio] Self-managed/self-support portfolio",
