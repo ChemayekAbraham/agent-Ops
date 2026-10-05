@@ -38,7 +38,6 @@ const isoDay = (d: Date) => d.toISOString().slice(0, 10);
 type Cat = { key: string; label: string; outstanding: number; item_count: number };
 
 export function CFOReceivablesPayablesHome() {
-  const [sheet, setSheet] = useState<'pay' | null>(null);
   const rec = useReceivablesTotal();
   const pay = usePayablesTotal();
   const today = new Date();
