@@ -905,14 +905,21 @@ export function EmailTransactionsPanel() {
                 // tells reviewers this email's money already landed in the
                 // shown user's wallet — DO NOT credit again.
                 const credited = creditedDeposits[r.id] ?? [];
+                // PR A: parked unmatched MoMo pending_claim rows are linked but
+                // NOT wallet-credited — keep them out of the emerald "credited"
+                // path and surface a violet "Awaiting claim" badge instead.
+                const parkedClaims = credited.filter((c) => c.pending_claim);
+                const walletCredited = credited.filter((c) => !c.pending_claim);
+                const isParkedPendingClaim = parkedClaims.length > 0 && walletCredited.length === 0;
+                const parkClaim = parkedClaims[0] ?? null;
                 const manualMark = manualMarks[r.id];
                 const isCredited = manualMark
                   ? manualMark.mark === 'credited'
-                  : credited.length > 0;
+                  : walletCredited.length > 0;
                 // Bank "received from WELILE TECHNOLOGIES LIMITED" echo of a
                 // payout we already sent — never a real uncredited deposit.
                 const isEcho = isWelileOutboundEcho(r);
-                const totalCredited = credited.reduce((s, c) => s + c.amount, 0);
+                const totalCredited = walletCredited.reduce((s, c) => s + c.amount, 0);
                 const emailAmount = Number(r.amount ?? 0);
                 const creditShortfall = emailAmount > 0 ? Math.max(0, emailAmount - totalCredited) : 0;
                 const isFullyCredited = manualMark?.mark === 'credited'
@@ -921,13 +928,13 @@ export function EmailTransactionsPanel() {
                 // True when at least one credited deposit was matched to this
                 // email by its transaction reference (TID). Drives the clear
                 // "Already Credited — No Routing Needed" status.
-                const matchedByTid = credited.some((c) => c.matched_by_tid);
-                const matchedTid = credited.find((c) => c.matched_tid)?.matched_tid ?? null;
+                const matchedByTid = walletCredited.some((c) => c.matched_by_tid);
+                const matchedTid = walletCredited.find((c) => c.matched_tid)?.matched_tid ?? null;
                 // Auto-credit provenance: which signal resolved the wallet and
                 // how confident the matcher was. phone_source='body' at ≈0.6 is
                 // the "possible user ≈60%" body-phone signal — surface it plainly
                 // so reviewers know to spot-check those credits.
-                const autoCredit = credited.find((c) => c.auto_confidence || c.auto_phone_source || c.auto_match_method);
+                const autoCredit = walletCredited.find((c) => c.auto_confidence || c.auto_phone_source || c.auto_match_method);
                 const autoConfidence = autoCredit?.auto_confidence ?? null;
                 const autoScore = autoCredit?.auto_confidence_score ?? null;
                 const autoPhoneSource = autoCredit?.auto_phone_source ?? null;
@@ -1002,7 +1009,7 @@ export function EmailTransactionsPanel() {
                 // unrouted payouts charge a wallet (debit). Anything already
                 // settled has no swipe action.
                 const swipeAction: SwipeAction | null =
-                  r.direction === 'in' && !isCredited && !isRouted && !isEcho
+                  r.direction === 'in' && !isCredited && !isRouted && !isEcho && !isParkedPendingClaim
                     ? {
                         label: 'Send to wallet',
                         hint: 'Route deposit',
@@ -1064,9 +1071,15 @@ export function EmailTransactionsPanel() {
                             : 'Routed at',
                         field: 'email_routing_history.created_at',
                       }
-                    : isCredited && credited[0]?.credited_at
+                    : isParkedPendingClaim && (parkClaim?.credited_at || parkClaim?.unclaimed_expires_at)
                       ? {
-                          when: credited[0].credited_at,
+                          when: (parkClaim?.credited_at || parkClaim?.unclaimed_expires_at) as string,
+                          label: parkClaim?.credited_at ? 'Parked at' : 'Claim TTL',
+                          field: parkClaim?.credited_at ? 'deposit_requests.created_at' : 'auto_match_audit.unclaimed_expires_at',
+                        }
+                      : isCredited && walletCredited[0]?.credited_at
+                      ? {
+                          when: walletCredited[0].credited_at,
                           label: 'Credited at',
                           field: 'deposit_requests.credited_at',
                         }
@@ -1090,6 +1103,13 @@ export function EmailTransactionsPanel() {
                       tone: 'bg-amber-500/15 text-amber-700 border-amber-500/30',
                       tip: 'A previous credit or charge was undone. The money is back where it started — re-route it to the correct wallet if needed.',
                     }
+                  : isParkedPendingClaim
+                    ? {
+                        label: 'Awaiting claim',
+                        detail: `${fmtUgx(parkClaim?.amount ?? emailAmount)} parked pending OTP claim — not in any wallet.`,
+                        tone: 'bg-violet-500/15 text-violet-700 border-violet-500/30',
+                        tip: 'Unmatched MoMo receipt parked as pending_claim. Wallet credit is blocked until the payer claims via OTP (PR C). Do not route or credit.',
+                      }
                   : isCredited
                     ? {
                         label: isFullyCredited ? 'Credited' : 'Partially credited',
@@ -1146,6 +1166,9 @@ export function EmailTransactionsPanel() {
                     // tinted surface, persistent ring, and a slow pulse so
                     // the row catches the eye even when scrolling fast.
                     ? 'bg-destructive/15 hover:bg-destructive/20 border-l-8 border-l-destructive ring-2 ring-destructive/40 ring-inset shadow-sm focus-within:ring-2 focus-within:ring-destructive/60'
+                    : isParkedPendingClaim
+                    // PR A: parked unmatched MoMo — violet (linked, not credited).
+                    ? 'bg-violet-500/10 hover:bg-violet-500/15 border-l-4 border-l-violet-500 focus-within:ring-2 focus-within:ring-violet-500/40'
                     : isCredited
                     // Already-credited incoming deposits get a distinct
                     // treatment so reviewers can scan the list and see at a
@@ -1445,6 +1468,31 @@ export function EmailTransactionsPanel() {
                           </Badge>
                         </BadgeTip>
                       )}
+                      {isParkedPendingClaim && (
+                        <BadgeTip
+                          plain="Unmatched MoMo parked pending OTP claim — amount is NOT in any wallet. Do not route or credit."
+                          details={[
+                            'Awaiting claim — pending_claim / claim_state=awaiting_otp',
+                            `Deposit: ${parkClaim?.deposit_id ?? 'n/a'}`,
+                            `Amount: ${fmtUgx(parkClaim?.amount ?? emailAmount)} (hidden from payer until claim)`,
+                            parkClaim?.payer_name ? `Payer on receipt: ${parkClaim.payer_name}` : null,
+                            parkClaim?.needs_finops_confirm_before_invite
+                              ? 'Amount > UGX 500,000 — FinOps confirm required before invite (PR B).'
+                              : null,
+                            parkClaim?.unclaimed_expires_at
+                              ? `TTL: ${new Date(parkClaim.unclaimed_expires_at).toLocaleString()} (30d FinOps queue)`
+                              : 'TTL: 30 days FinOps queue (no auto-forfeit)',
+                          ].filter(Boolean).join('\n')}
+                        >
+                          <Badge
+                            variant="outline"
+                            className="text-[10px] gap-1 bg-violet-500/15 text-violet-700 border-violet-500/40 font-semibold"
+                          >
+                            <Clock className="h-3 w-3" />
+                            Awaiting claim · {fmtUgx(parkClaim?.amount ?? emailAmount)}
+                          </Badge>
+                        </BadgeTip>
+                      )}
                       {isCredited && (
                         <BadgeTip
                           plain={
@@ -1457,7 +1505,7 @@ export function EmailTransactionsPanel() {
                             `Email amount: ${fmtUgx(emailAmount)}`,
                             `Total credited: ${fmtUgx(totalCredited)}`,
                             creditShortfall > 0 ? `Shortfall: ${fmtUgx(creditShortfall)}` : null,
-                            ...credited.map((c, i) => [
+                            ...walletCredited.map((c, i) => [
                               `— Deposit ${i + 1}: ${c.deposit_id}`,
                               `  Recipient: ${c.user_name}${c.user_phone ? ' (' + c.user_phone + ')' : ''}`,
                               `  Amount: ${fmtUgx(c.amount)}`,
@@ -1473,7 +1521,7 @@ export function EmailTransactionsPanel() {
                           >
                             <CheckCircle2 className="h-3 w-3" />
                             {isFullyCredited ? 'paid into wallet' : 'partly paid in'} · {fmtUgx(totalCredited)}{creditShortfall > 0 ? ` / ${fmtUgx(emailAmount)}` : ''}
-                            {credited.length > 1 && <span className="font-mono tabular-nums opacity-80">×{credited.length}</span>}
+                            {walletCredited.length > 1 && <span className="font-mono tabular-nums opacity-80">×{walletCredited.length}</span>}
                           </Badge>
                         </BadgeTip>
                       )}
@@ -1540,7 +1588,7 @@ export function EmailTransactionsPanel() {
                           wallet (no credit + not routed). Flag it clearly and
                           explain which reference fields are missing so the
                           operator knows why it couldn't auto-map. */}
-                      {r.parsed && r.direction === 'in' && !isCredited && !isRouted && !isEcho && (
+                      {r.parsed && r.direction === 'in' && !isCredited && !isRouted && !isEcho && !isParkedPendingClaim && (
                         <BadgeTip
                           plain="This money has not reached any wallet yet — it still needs to be sorted and sent to the right person."
                           details={[

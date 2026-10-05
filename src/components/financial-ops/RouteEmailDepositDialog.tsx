@@ -1090,25 +1090,45 @@ export function RouteEmailDepositDialog({ open, onOpenChange, row, suggestedUser
       if (!depId) return null;
 
       const { data: dep } = await (supabase.from('deposit_requests') as any)
-        .select('id, user_id, amount, deposit_purpose, status, auto_approved')
+        .select('id, user_id, amount, deposit_purpose, status, auto_approved, auto_match_audit')
         .eq('id', depId)
         .maybeSingle();
       if (!dep) return null;
       const terminalReversed = ['rejected', 'cancelled', 'failed', 'reversed'];
       if (terminalReversed.includes(dep.status)) return null;
 
-      // Pull the original user's identity for display + SMS.
-      const { data: prof } = await (supabase.from('profiles') as any)
-        .select('id, full_name, phone')
-        .eq('id', dep.user_id)
-        .maybeSingle();
+      const audit = (dep.auto_match_audit ?? {}) as {
+        pending_claim?: boolean;
+        claim_state?: string;
+        payer_name?: string | null;
+        park_phone_last9?: string | null;
+        needs_finops_confirm_before_invite?: boolean;
+        unclaimed_expires_at?: string | null;
+      };
+      const isPendingClaim = audit.pending_claim === true && audit.claim_state !== 'claimed';
+
+      // Pull the original user's identity for display + SMS (may be null for park).
+      let prof: { full_name?: string | null; phone?: string | null } | null = null;
+      if (dep.user_id) {
+        const { data: p } = await (supabase.from('profiles') as any)
+          .select('id, full_name, phone')
+          .eq('id', dep.user_id)
+          .maybeSingle();
+        prof = p;
+      }
       return {
         deposit_id: dep.id as string,
-        original_user_id: dep.user_id as string,
-        original_user_name: (prof?.full_name as string) ?? 'Unknown user',
-        original_user_phone: (prof?.phone as string) ?? '',
+        original_user_id: (dep.user_id as string | null) ?? null,
+        original_user_name: (prof?.full_name as string)
+          ?? (isPendingClaim ? 'Pending claim (unmatched MoMo)' : 'Unknown user'),
+        original_user_phone: (prof?.phone as string) ?? (audit.park_phone_last9 ? `…${audit.park_phone_last9}` : ''),
         original_amount: Number(dep.amount) || 0,
         deposit_purpose: (dep.deposit_purpose as string) ?? 'operational_float',
+        pending_claim: isPendingClaim,
+        claim_state: audit.claim_state ?? null,
+        payer_name: audit.payer_name ?? null,
+        needs_finops_confirm_before_invite: !!audit.needs_finops_confirm_before_invite,
+        unclaimed_expires_at: audit.unclaimed_expires_at ?? null,
       };
     },
   });
@@ -1625,7 +1645,14 @@ export function RouteEmailDepositDialog({ open, onOpenChange, row, suggestedUser
 
       // ── 0) Reversal leg (only when prior auto-credit exists) ────────
       const prior = existing.data;
-      const mustReverse = !!prior && prior.original_user_id !== user.id;
+      // PR A: parked pending_claim has no wallet credit — block route entirely.
+      if (prior && (prior as any).pending_claim) {
+        throw new Error(
+          'PENDING_CLAIM: this email is linked to a parked unmatched MoMo deposit awaiting OTP claim. '
+          + 'Do not route/credit. Cancel the park in FinOps first, or wait for the payer to claim (PR C).',
+        );
+      }
+      const mustReverse = !!prior && !!prior.original_user_id && prior.original_user_id !== user.id;
       if (mustReverse && prior) {
         const wasFloat = (prior.deposit_purpose ?? 'operational_float') === 'operational_float';
         const debitBody = {
@@ -2099,7 +2126,26 @@ export function RouteEmailDepositDialog({ open, onOpenChange, row, suggestedUser
           </div>
         )}
 
-        {mode === 'credit' && existing.data && user && existing.data.original_user_id !== user.id && (
+        {mode === 'credit' && existing.data && (existing.data as any).pending_claim && (
+          <div className="rounded-lg border border-violet-300 bg-violet-50 p-3 text-xs flex gap-2 dark:bg-violet-950/30 dark:border-violet-800">
+            <AlertTriangle className="h-4 w-4 text-violet-600 shrink-0 mt-0.5" />
+            <div className="space-y-0.5">
+              <p className="font-medium text-violet-900 dark:text-violet-200">Parked unmatched MoMo — awaiting OTP claim</p>
+              {!lowData && (
+                <p className="text-violet-800 dark:text-violet-300">
+                  Deposit <span className="font-mono">{(existing.data as any).deposit_id}</span> is linked
+                  with pending_claim / claim_state=awaiting_otp. Wallet credit is blocked until claim (PR C).
+                  Route is disabled to prevent double credit.
+                  {(existing.data as any).payer_name ? <> Payer on receipt: <span className="font-semibold">{(existing.data as any).payer_name}</span>.</> : null}
+                  {(existing.data as any).needs_finops_confirm_before_invite
+                    ? <> Amount &gt; UGX 500,000 — FinOps confirm required before invite (PR B).</>
+                    : null}
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+        {mode === 'credit' && existing.data && user && existing.data.original_user_id && existing.data.original_user_id !== user.id && !(existing.data as any).pending_claim && (
           <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs flex gap-2 dark:bg-amber-950/30 dark:border-amber-800">
             <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
             <div className="space-y-0.5">
@@ -2131,7 +2177,7 @@ export function RouteEmailDepositDialog({ open, onOpenChange, row, suggestedUser
             </div>
           </div>
         )}
-        {mode === 'credit' && existing.data && user && existing.data.original_user_id === user.id && (
+        {mode === 'credit' && existing.data && user && existing.data.original_user_id === user.id && !(existing.data as any).pending_claim && (
           <div className="rounded-lg border bg-muted/30 p-3 text-xs text-muted-foreground">
             This deposit was already auto-credited to {existing.data.original_user_name}. Routing will add another credit — confirm this is intentional.
           </div>
@@ -2797,6 +2843,10 @@ export function RouteEmailDepositDialog({ open, onOpenChange, row, suggestedUser
               }
               if (bucketShort) missing.push(`insufficient ${debitRoute === 'landlord_float' ? 'Float' : 'Withdrawable'}`);
               if (sourceBucketShort) missing.push(`source ${transferFromBucket === 'withdrawable' ? 'Withdrawable' : 'Float'} short`);
+              // PR A: block one-tap route when linked parked pending_claim exists.
+              if (mode === 'credit' && existing.data && (existing.data as any).pending_claim) {
+                missing.push('parked pending claim — do not route');
+              }
               const ready = missing.length === 0 && !send.isPending;
               return (
                 <div className="space-y-2">

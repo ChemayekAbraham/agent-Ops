@@ -293,6 +293,43 @@ Deno.serve(async (req) => {
       );
     }
 
+    // ── PR A fortress: parked unmatched MoMo claims (pending_claim) must NOT
+    // be wallet-credited until claim_state=claimed (OTP claim — PR C).
+    // Blocks system_auto_credit sweep, manual approve, and any other path.
+    if (action === "approve") {
+      const blockedClaim = depositRequests.filter((d: any) => {
+        const audit = (d.auto_match_audit ?? {}) as { pending_claim?: boolean; claim_state?: string };
+        return audit.pending_claim === true && audit.claim_state !== "claimed";
+      });
+      if (blockedClaim.length > 0) {
+        for (const d of blockedClaim) {
+          await logDepositDecision(supabaseAdmin, {
+            source: "approval",
+            decision: "blocked",
+            reason: "pending_claim_awaiting_otp",
+            deposit_request_id: d.id,
+            amount: Number(d.amount),
+            actor_id: user?.id ?? null,
+            actor_email: actorEmail,
+            metadata: {
+              claim_state: (d.auto_match_audit as any)?.claim_state ?? null,
+              system_auto_credit: isSystemAutoCredit,
+              auto_match_method: auto_match_method ?? null,
+            },
+          });
+        }
+        return new Response(
+          JSON.stringify({
+            error: "pending_claim_awaiting_otp",
+            message:
+              "This deposit is parked as an unmatched MoMo pending claim. Wallet credit is blocked until the payer claims via OTP (PR C). Do not approve or auto-credit.",
+            blocked_ids: blockedClaim.map((d: any) => d.id),
+          }),
+          { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+    }
+
     // ── FORTRESS: cash-code deposits can ONLY be approved after the depositor
     // entered the receipt code. Regardless of caller (manager, Financial-Ops
     // matcher auto-approve, auto_approved flag, or system auto-credit), every

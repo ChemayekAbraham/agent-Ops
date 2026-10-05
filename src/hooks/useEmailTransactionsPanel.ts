@@ -511,7 +511,7 @@ export function useEmailTransactionsPanel() {
    */
   interface CreditedDeposit {
     deposit_id: string;
-    user_id: string;
+    user_id: string | null;
     user_name: string;
     user_phone: string;
     amount: number;
@@ -532,6 +532,12 @@ export function useEmailTransactionsPanel() {
     auto_phone_source?: 'counterparty' | 'body' | null;
     auto_confidence?: 'high' | 'medium' | 'low' | null;
     auto_confidence_score?: number | null;
+    /** PR A: unmatched MoMo parked pending OTP claim — NOT wallet-credited. */
+    pending_claim?: boolean;
+    claim_state?: string | null;
+    payer_name?: string | null;
+    needs_finops_confirm_before_invite?: boolean;
+    unclaimed_expires_at?: string | null;
   }
   const [creditedDeposits, setCreditedDeposits] = useState<Record<string, CreditedDeposit[]>>({});
 
@@ -1173,11 +1179,18 @@ export function useEmailTransactionsPanel() {
               phone_source?: string | null;
               confidence?: string | null;
               confidence_score?: number | null;
+              pending_claim?: boolean;
+              claim_state?: string | null;
+              payer_name?: string | null;
+              needs_finops_confirm_before_invite?: boolean;
+              unclaimed_expires_at?: string | null;
             };
+            const isPendingClaim = audit.pending_claim === true && audit.claim_state !== 'claimed';
             list.push({
               deposit_id: d.id,
-              user_id: d.user_id,
-              user_name: (p?.full_name as string) ?? 'Unknown user',
+              user_id: d.user_id ?? null,
+              user_name: (p?.full_name as string)
+                ?? (isPendingClaim ? 'Pending claim (unmatched MoMo)' : 'Unknown user'),
               user_phone: (p?.phone as string) ?? '',
               amount: Number(d.amount) || 0,
               status: d.status,
@@ -1190,6 +1203,11 @@ export function useEmailTransactionsPanel() {
               auto_phone_source: (audit.phone_source as 'counterparty' | 'body' | null) ?? null,
               auto_confidence: (audit.confidence as 'high' | 'medium' | 'low' | null) ?? null,
               auto_confidence_score: typeof audit.confidence_score === 'number' ? audit.confidence_score : null,
+              pending_claim: isPendingClaim,
+              claim_state: audit.claim_state ?? null,
+              payer_name: audit.payer_name ?? null,
+              needs_finops_confirm_before_invite: !!audit.needs_finops_confirm_before_invite,
+              unclaimed_expires_at: audit.unclaimed_expires_at ?? null,
             });
           }
           if (list.length) next[r.id] = list;
@@ -2307,9 +2325,14 @@ export function useEmailTransactionsPanel() {
     if (justRoutedIds.has(r.id)) return false;
     const isRouted = (routingHistory[r.id] ?? []).length > 0;
     const credited = creditedDeposits[r.id] ?? [];
+    const parkedOnly = credited.length > 0 && credited.every((c) => c.pending_claim);
+    // Parked pending claims are linked — do not treat as open routing work,
+    // but they are also NOT wallet-credited (badge handles that separately).
+    if (parkedOnly) return false;
     const manualMark = manualMarks[r.id];
     const ledgerHit = (ledgerCredits[r.id] ?? []).length > 0;
-    const isCredited = manualMark ? manualMark.mark === 'credited' : (credited.length > 0 || ledgerHit);
+    const walletCredited = credited.filter((c) => !c.pending_claim);
+    const isCredited = manualMark ? manualMark.mark === 'credited' : (walletCredited.length > 0 || ledgerHit);
     return !isCredited && !isRouted;
   }, [routingHistory, creditedDeposits, manualMarks, justRoutedIds, ledgerCredits]);
 
@@ -2327,9 +2350,14 @@ export function useEmailTransactionsPanel() {
     if (justRoutedIds.has(r.id)) return 'credited';
     const isRouted = (routingHistory[r.id] ?? []).length > 0;
     const credited = creditedDeposits[r.id] ?? [];
+    const parkedOnly = credited.length > 0 && credited.every((c) => c.pending_claim);
+    // Keep parked claims out of both "needs_routing" and "credited" chips —
+    // FinOps sees them via the violet "Awaiting claim" badge on the row.
+    if (parkedOnly && !isRouted) return 'other';
     const manualMark = manualMarks[r.id];
     const ledgerHit = (ledgerCredits[r.id] ?? []).length > 0;
-    const isCredited = manualMark ? manualMark.mark === 'credited' : (credited.length > 0 || ledgerHit);
+    const walletCredited = credited.filter((c) => !c.pending_claim);
+    const isCredited = manualMark ? manualMark.mark === 'credited' : (walletCredited.length > 0 || ledgerHit);
     return isCredited || isRouted ? 'credited' : 'needs_routing';
   }, [routingHistory, creditedDeposits, manualMarks, justRoutedIds, ledgerCredits]);
 
