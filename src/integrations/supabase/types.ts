@@ -44128,6 +44128,75 @@ export type Database = {
           },
         ]
       }
+      staff_requisition_notices: {
+        Row: {
+          acknowledged_at: string | null
+          actor_name: string | null
+          amount_after: number | null
+          amount_before: number | null
+          body: string
+          created_at: string
+          from_stage: string | null
+          id: string
+          kind: string
+          last_pushed_at: string | null
+          push_count: number
+          recipient_id: string
+          requisition_id: string
+          title: string
+          to_stage: string | null
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          actor_name?: string | null
+          amount_after?: number | null
+          amount_before?: number | null
+          body: string
+          created_at?: string
+          from_stage?: string | null
+          id?: string
+          kind: string
+          last_pushed_at?: string | null
+          push_count?: number
+          recipient_id: string
+          requisition_id: string
+          title: string
+          to_stage?: string | null
+        }
+        Update: {
+          acknowledged_at?: string | null
+          actor_name?: string | null
+          amount_after?: number | null
+          amount_before?: number | null
+          body?: string
+          created_at?: string
+          from_stage?: string | null
+          id?: string
+          kind?: string
+          last_pushed_at?: string | null
+          push_count?: number
+          recipient_id?: string
+          requisition_id?: string
+          title?: string
+          to_stage?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_requisition_notices_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "staff_requisitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_requisition_notices_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_facilitation_position"
+            referencedColumns: ["requisition_id"]
+          },
+        ]
+      }
       staff_requisition_office_history: {
         Row: {
           from_holder: string | null
@@ -72128,6 +72197,27 @@ export type Database = {
           p_role: string
           p_signer: string
         }
+        Returns: undefined
+      }
+      staff_requisition_my_notices: {
+        Args: never
+        Returns: {
+          actor_name: string
+          amount_after: number
+          amount_before: number
+          body: string
+          created_at: string
+          from_stage: string
+          id: string
+          kind: string
+          requisition_code: string
+          requisition_id: string
+          title: string
+          to_stage: string
+        }[]
+      }
+      staff_requisition_notice_ack: {
+        Args: { p_notice_id: string }
         Returns: undefined
       }
       staff_requisition_office_candidates: {
