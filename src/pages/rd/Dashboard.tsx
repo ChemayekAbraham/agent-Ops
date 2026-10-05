@@ -1,9 +1,9 @@
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
-  ArrowLeft, Target, CheckSquare, Check, Gauge, AlertTriangle, ArrowRight, CalendarDays, MapPin,
+  ArrowLeft, Target, CheckSquare, Check, Gauge, ArrowRight, CalendarDays, MapPin,
   BarChart3, TrendingUp, Car, Gem, Cpu, Users, Wallet, Handshake, FileText, BookOpen, Layers,
-  FlaskConical, PlayCircle, Clock, PieChart, type LucideIcon,
+  FlaskConical, PlayCircle, Clock, PieChart, ClipboardList, type LucideIcon,
 } from 'lucide-react';
 import WelileLogo from '@/components/WelileLogo';
 import { useEffect, useState } from 'react';
