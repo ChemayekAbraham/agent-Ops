@@ -3193,6 +3193,13 @@
       "when": 1791140308237,
       "tag": "0457_payables_by_source_include_overdue",
       "breakpoints": true
+    },
+    {
+      "idx": 61,
+      "version": "7",
+      "when": 1789373281683,
+      "tag": "0061_landlord_payout_legs_exempt_from_merchant_id_gate",
+      "breakpoints": true
     }
   ]
 }
