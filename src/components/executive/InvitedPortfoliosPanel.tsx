@@ -268,7 +268,7 @@ export function InvitedPortfoliosPanel() {
     for (const r of targets) {
       const ok = await handleApprove(r);
       if (!ok) {
-        setBulkError(`Stopped at ${r.portfolio_code}. See the error above.`);
+        setBulkError(`Stopped at ${r.portfolio_code}:`);
         break;
       }
       done++;
@@ -672,7 +672,7 @@ export function InvitedPortfoliosPanel() {
           <p className="text-xs text-muted-foreground">
             Funded from payroll. No wallet is charged. Each portfolio goes live and its agreement is emailed to the staff member.
           </p>
-          {bulkError && <p className="text-xs text-destructive">{bulkError}</p>}
+          {bulkError && <p className="text-xs text-destructive">{bulkError}{approvalError ? ` ${approvalError}` : ''}</p>}
           <div className="flex justify-end gap-2 pt-1">
             <Button variant="ghost" size="sm" disabled={bulkWorking} onClick={() => { setBulkOpen(false); setBulkError(null); }}>Cancel</Button>
             <Button size="sm" disabled={bulkWorking || wsrRows.length === 0} onClick={handleBulkActivate}>
