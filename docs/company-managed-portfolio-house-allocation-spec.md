@@ -1,6 +1,6 @@
 # Company-managed portfolios claim houses — implementation spec
 
-**Status** Design agreed, not built. No code or data has been changed.
+**Status** Design agreed, not built. Revised 2026-10-05 after review. No code or data has been changed.
 **Written** 2026-10-05, from live production figures.
 
 ---
@@ -54,6 +54,18 @@ Fires when a portfolio is created with **`pool_origin = 'company_managed'`**
   re-balanced across portfolios.
 - `self_support` portfolios are **out of scope** for now (1 portfolio, 50,000).
 
+### Empty houses only — Rent Plans are out of scope
+
+Allocation reads **`house_listings`** and nothing else. It must not look at
+`rent_requests`, and it must not claim against fundable Rent Plans.
+
+The two are different products and the platform already treats them separately:
+the funder hero reads `empty_house_opportunity_summary()` (empty houses), while
+`SelfPortfolioFundingCard` reads `partner_self_list_fundable_plans()` (Rent
+Plans). Only the first is affected by this feature. A later phase may extend it
+to Rent Plans; until then, mixing them would make the 5.83B figure stop meaning
+what its own subtitle says.
+
 ---
 
 ## 4. The algorithm
@@ -91,6 +103,32 @@ INPUT   portfolio P, principal = P.investment_amount
 5. NEVER OVERSHOOT
    A house is never claimed if its rent exceeds the principal still unclaimed.
 ```
+
+### Allocation never blocks portfolio creation
+
+**The portfolio is always created. Allocation is best-effort and may claim
+nothing at all.** There are exactly three outcomes, and all three are valid:
+
+| Outcome | When | Result |
+|---|---|---|
+| **Full** | enough houses fit the principal | houses claimed, small or zero remainder |
+| **Partial** | the queue runs out mid-pack, or only some houses fit | the houses that fit are claimed; the rest of the principal is unallocated |
+| **None** | the queue is empty, fully claimed, or the principal is smaller than the cheapest available house | **no houses claimed, the whole principal is unallocated** |
+
+A 50,000 or 100,000 portfolio is a normal case, not an error. The cheapest house
+in the queue is 10,000, so a 50,000 portfolio will usually claim one to three
+houses — but if the only houses left are dearer than the principal, it claims
+none and that is correct. The portfolio still exists, still earns its ROI, still
+appears in reporting, and simply shows **0 homes supported**.
+
+The same applies when the queue is exhausted. Houses run out long before capital
+does, and that must never stop Partner Ops creating a portfolio.
+
+**Implementation consequence:** the allocation routine must never raise. A
+failure inside it must not roll back the portfolio insert. Log the reason
+(`queue_empty`, `principal_below_cheapest_house`, `no_fitting_house`) on the
+portfolio so Ops can see *why* nothing was claimed rather than wondering whether
+it broke.
 
 ### Why no re-sweep
 
@@ -244,8 +282,11 @@ across portfolios, and claims released in the last 30 days with reasons.
 
 | Case | Behaviour |
 |---|---|
-| Principal smaller than the cheapest house (10,000) | Nothing claimed; entire principal sits unallocated. Allowed, and visible. |
-| Queue is empty or fully claimed | Nothing claimed; entire principal unallocated. Never fail the portfolio creation. |
+| Principal smaller than the cheapest house (10,000) | Nothing claimed; entire principal unallocated, reason `principal_below_cheapest_house`. Portfolio created normally. |
+| Queue empty or fully claimed | Nothing claimed; entire principal unallocated, reason `queue_empty`. Portfolio created normally. |
+| Queue runs out mid-pack | Claim what fits, leave the rest unallocated. Partial is a valid end state. |
+| Small portfolio (50,000 / 100,000) | Normal case. Usually claims 1–3 houses; claims none if nothing fits. Never an error. |
+| Allocation routine throws | Portfolio insert must still commit. Allocation is best-effort and never rolls back the portfolio. |
 | The 500,000,000 listing | A packing rule will never reach it from a normal portfolio, and a portfolio large enough would spend itself on one house. **Verify this listing is real before go-live** — it is 8.6% of the whole queue and drags the average rent to 903,740 against a median of 150,000. |
 | Portfolio cancelled or redeemed before any house is let | Release all `reserved` allocations; houses return to the queue. |
 | Landlord raises the rent after the claim | Claim stands at the snapshotted `monthly_rent`. Flag the difference to Ops rather than silently re-pricing. |
