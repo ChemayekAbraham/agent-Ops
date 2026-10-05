@@ -52,5 +52,5 @@
 - [x] Add drill-down breakdown to CFO "Withdrawable credits today" window.
 - [ ] Credit Lillian Nabwire UGX 9,818,988 to withdrawable wallet — blocked: needs CFO to post via CFO Direct Credit (no approved principal-return ledger path).
 - [x] Redesign /rd page from reference image (Namatovu Gloria)
-- [x] CFO Cash Position: replace Cash Movement with screenshot layout
-- [x] CFO Cash Position: add a decision-focused liquidity brief, refresh control, reconciliation status, and professional page hierarchy.
+- [ ] CFO Cash Position: replace Cash Movement with screenshot layout
+- [x] SRQ-FLOW-04 (uploaded brief)

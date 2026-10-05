@@ -8,9 +8,8 @@ import {
 } from 'recharts';
 import {
   LineChart as LineIcon, Receipt, Lightbulb, Zap, ChevronRight, FileText, Scale, Download, ShieldCheck,
-  TrendingUp, TrendingDown, AlertTriangle, Info, CheckCircle2, Landmark, Gauge, ArrowRight,
+  TrendingUp, TrendingDown, AlertTriangle, Info, CheckCircle2,
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 
 const fmt = (n: number) => `UGX ${Math.round(n).toLocaleString()}`;
 const short = (n: number) => {
@@ -32,10 +31,6 @@ const label = (s: string) => s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUp
 interface Props {
   totalReceivables: number;
   receivablesCategories: Array<{ key: string; label: string; outstanding: number }>;
-  moneyWeHave: number;
-  moneyWeCanUse: number;
-  moneyWeOwe: number;
-  bankReconciled?: boolean;
   onNavigate?: (section: string) => void;
 }
 
@@ -54,9 +49,7 @@ function Head({ icon, title, sub, right }: { icon: React.ReactNode; title: strin
   );
 }
 
-export function CashPositionInsights({
-  totalReceivables, receivablesCategories, moneyWeHave, moneyWeCanUse, moneyWeOwe, bankReconciled, onNavigate,
-}: Props) {
+export function CashPositionInsights({ totalReceivables, receivablesCategories, onNavigate }: Props) {
   const [days, setDays] = useState(30);
 
   const flow = useQuery({
@@ -122,14 +115,6 @@ export function CashPositionInsights({
 
   const topPayables = rp.data?.top ?? [];
   const topReceivables = receivablesCategories.slice().sort((a, b) => b.outstanding - a.outstanding).slice(0, 5);
-  const liquidityCoverage = payablesTotal > 0 ? moneyWeCanUse / payablesTotal : null;
-  const netOutstanding = totalReceivables - payablesTotal;
-  const obligationsShare = moneyWeHave > 0 ? (moneyWeOwe / moneyWeHave) * 100 : 0;
-  const liquidityState = liquidityCoverage === null
-    ? { label: 'No payables recorded', tone: 'text-muted-foreground', surface: 'bg-muted' }
-    : liquidityCoverage >= 1
-      ? { label: 'Covered', tone: 'text-success', surface: 'bg-success/10' }
-      : { label: 'Attention required', tone: 'text-destructive', surface: 'bg-destructive/10' };
 
   const series = flow.data ?? [];
   const half = Math.floor(series.length / 2);
@@ -175,57 +160,14 @@ export function CashPositionInsights({
   };
 
   return (
-    <div className="space-y-5">
-      <section aria-labelledby="executive-brief-title" className="border-y border-border/70 bg-muted/20 py-4">
-        <div className="mb-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">Decision brief</p>
-            <h2 id="executive-brief-title" className="font-serif text-xl font-semibold">Liquidity at a glance</h2>
-          </div>
-          <p className="text-xs text-muted-foreground">Figures reconcile the live cash, receivables and payables shown below.</p>
-        </div>
-        <div className="grid grid-cols-2 divide-x divide-y divide-border/70 border border-border/70 bg-card sm:grid-cols-4 sm:divide-y-0">
-          <div className="min-w-0 p-3.5">
-            <div className="flex items-center gap-2 text-muted-foreground"><Gauge className="h-4 w-4" /><span className="text-[11px] font-semibold">Payables coverage</span></div>
-            <p className="mt-2 text-lg font-bold tabular-nums">{liquidityCoverage === null ? '—' : `${liquidityCoverage.toFixed(2)}×`}</p>
-            <p className={`mt-1 text-[11px] font-semibold ${liquidityState.tone}`}>{liquidityState.label}</p>
-          </div>
-          <div className="min-w-0 p-3.5">
-            <div className="flex items-center gap-2 text-muted-foreground"><Landmark className="h-4 w-4" /><span className="text-[11px] font-semibold">Net outstanding</span></div>
-            <p className={`mt-2 truncate text-lg font-bold tabular-nums ${netOutstanding < 0 ? 'text-destructive' : 'text-success'}`}>{netOutstanding >= 0 ? '+' : '−'}{fmt(Math.abs(netOutstanding))}</p>
-            <p className="mt-1 text-[11px] text-muted-foreground">Receivables less payables</p>
-          </div>
-          <div className="min-w-0 p-3.5">
-            <div className="flex items-center gap-2 text-muted-foreground"><AlertTriangle className="h-4 w-4" /><span className="text-[11px] font-semibold">Due within 30 days</span></div>
-            <p className="mt-2 truncate text-lg font-bold tabular-nums">{rp.isLoading ? '—' : fmt(rp.data?.dueInRange ?? 0)}</p>
-            <p className="mt-1 text-[11px] text-muted-foreground">{rp.isLoading ? 'Checking obligations' : `${rp.data?.count ?? 0} payable items`}</p>
-          </div>
-          <div className="min-w-0 p-3.5">
-            <div className="flex items-center gap-2 text-muted-foreground"><CheckCircle2 className="h-4 w-4" /><span className="text-[11px] font-semibold">Control status</span></div>
-            <p className={`mt-2 text-sm font-bold ${bankReconciled === false ? 'text-warning' : 'text-success'}`}>{bankReconciled === false ? 'Review bank variance' : 'Bank reconciled'}</p>
-            <p className="mt-1 text-[11px] text-muted-foreground">External money owed: {obligationsShare.toFixed(1)}% of cash</p>
-          </div>
-        </div>
-      </section>
-
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-primary">Analysis</p>
-          <h2 className="font-serif text-xl font-semibold">Cash movement and obligations</h2>
-        </div>
-        {onNavigate && (
-          <Button variant="ghost" size="sm" className="hidden rounded-md sm:inline-flex" onClick={() => onNavigate('statements')}>
-            Financial reports <ArrowRight className="h-4 w-4" />
-          </Button>
-        )}
-      </div>
+    <div className="space-y-3">
       {/* Row 1 */}
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 2xl:grid-cols-[1.4fr_1fr_1.1fr_1.1fr]">
-        <Card className="min-w-0 rounded-md border-border/70 shadow-sm"><CardContent className="p-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-[1.4fr_1fr_1.1fr_1.1fr] gap-3">
+        <Card className="rounded-xl shadow-sm min-w-0"><CardContent className="p-4">
           <Head icon={<LineIcon className="h-4 w-4" />} title="Cash Flow Trend" sub="Money in, money out and net movement"
             right={
               <select value={days} onChange={(e) => setDays(Number(e.target.value))}
-                className="h-9 rounded-md border border-border bg-card px-2 text-xs">
+                className="h-8 rounded-md border border-border bg-card px-2 text-xs">
                 <option value={7}>Last 7 days</option><option value={30}>Last 30 days</option><option value={90}>Last 90 days</option>
               </select>
             } />
@@ -251,7 +193,7 @@ export function CashPositionInsights({
           </div>
         </CardContent></Card>
 
-        <Card className="min-w-0 rounded-md border-border/70 shadow-sm"><CardContent className="p-4">
+        <Card className="rounded-xl shadow-sm min-w-0"><CardContent className="p-4">
           <Head icon={<Scale className="h-4 w-4" />} title="Receivables vs Payables" sub="Outstanding amounts" />
           {outstanding <= 0 && rp.isLoading ? <p className="text-xs text-muted-foreground animate-pulse">Loading…</p> : outstanding <= 0 ? (
             <p className="text-xs text-muted-foreground">No data yet.</p>
@@ -278,7 +220,7 @@ export function CashPositionInsights({
           )}
         </CardContent></Card>
 
-        <Card className="min-w-0 rounded-md border-border/70 shadow-sm"><CardContent className="p-4">
+        <Card className="rounded-xl shadow-sm min-w-0"><CardContent className="p-4">
           <Head icon={<Receipt className="h-4 w-4" />} title="Top 5 Payables" sub="Largest sources due now or within 30 days"
             right={onNavigate && <button className="text-xs font-medium text-primary" onClick={() => onNavigate('withdrawals')}>View All</button>} />
           {topPayables.length === 0 ? <p className="text-xs text-muted-foreground">{rp.isLoading ? 'Loading…' : 'No data yet.'}</p> : (
@@ -295,7 +237,7 @@ export function CashPositionInsights({
           )}
         </CardContent></Card>
 
-        <Card className="min-w-0 rounded-md border-border/70 shadow-sm"><CardContent className="p-4">
+        <Card className="rounded-xl shadow-sm min-w-0"><CardContent className="p-4">
           <Head icon={<Receipt className="h-4 w-4" />} title="Top 5 Receivables" sub="Largest outstanding sources"
             right={onNavigate && <button className="text-xs font-medium text-primary" onClick={() => onNavigate('reconciliation')}>View All</button>} />
           {topReceivables.length === 0 ? <p className="text-xs text-muted-foreground">No data yet.</p> : (
@@ -314,8 +256,8 @@ export function CashPositionInsights({
       </div>
 
       {/* Row 2 */}
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2 2xl:grid-cols-[1.8fr_1fr_1fr]">
-        <Card className="min-w-0 rounded-md border-border/70 shadow-sm lg:col-span-2 2xl:col-span-1"><CardContent className="p-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-[1.8fr_1fr_1fr] gap-3">
+        <Card className="rounded-xl shadow-sm min-w-0 lg:col-span-2 2xl:col-span-1"><CardContent className="p-4">
           <Head icon={<Receipt className="h-4 w-4" />} title="Recent Transactions" sub="Latest financial activity"
             right={onNavigate && <button className="text-xs font-medium text-primary" onClick={() => onNavigate('ledger')}>View All</button>} />
           {(recent.data ?? []).length === 0 ? <p className="text-xs text-muted-foreground">{recent.isLoading ? 'Loading…' : 'No data yet.'}</p> : (
@@ -333,7 +275,7 @@ export function CashPositionInsights({
           )}
         </CardContent></Card>
 
-        <Card className="min-w-0 rounded-md border-border/70 shadow-sm"><CardContent className="p-4">
+        <Card className="rounded-xl shadow-sm min-w-0"><CardContent className="p-4">
           <Head icon={<Lightbulb className="h-4 w-4" />} title="Key Insights" />
           <div className="divide-y divide-border/60">
             {insights.map((i) => (
@@ -346,7 +288,7 @@ export function CashPositionInsights({
           </div>
         </CardContent></Card>
 
-        <Card className="min-w-0 rounded-md border-border/70 shadow-sm"><CardContent className="p-4">
+        <Card className="rounded-xl shadow-sm min-w-0"><CardContent className="p-4">
           <Head icon={<Zap className="h-4 w-4" />} title="Quick Actions" />
           <div className="space-y-2">
             {actions.map((a) => (
