@@ -110,7 +110,7 @@ export default function ReceivablesAnalysis() {
   const count = cat === 'all' ? cats.reduce((s, c) => s + c.item_count, 0) : selectedCat?.item_count ?? 0;
   const dated = filteredItems.filter((i) => i.due_date);
   const overdueAmt = dated.filter((i) => i.due_date! < t).reduce((s, i) => s + i.amount, 0);
-  const due7 = dated.filter((i) => i.due_date! >= t && daysBetween(t, i.due_date!) <= 7).reduce((s, i) => s + i.amount, 0);
+  const due7 = dated.filter((i) => i.due_date! < t && daysBetween(i.due_date!, t) <= 7).reduce((s, i) => s + i.amount, 0);
   const hasDates = dated.length > 0;
 
   // ---------- Projection ----------
@@ -224,7 +224,7 @@ export default function ReceivablesAnalysis() {
           <Figure label="Total outstanding" value={breakdown.isLoading ? '—' : formatUGX(outstanding)} sub={cat === 'all' ? 'All categories' : selectedCat?.label} />
           <Figure label="Current / not yet due" value={hasDates ? formatUGX(Math.max(0, outstanding - overdueAmt)) : 'Insufficient data'} />
           <Figure label="Overdue" value={hasDates ? formatUGX(overdueAmt) : 'Insufficient data'} sub={hasDates ? 'Past due date' : undefined} />
-          <Figure label="Due in 7 days" value={hasDates ? formatUGX(due7) : 'Insufficient data'} />
+          <Figure label="Due in the past 7 days" value={hasDates ? formatUGX(due7) : 'Insufficient data'} />
           <Figure label="Collection rate" value="Insufficient data" sub="No originated-vs-collected figure per category yet" />
           <Figure label="Accounts / obligations" value={count.toLocaleString()} />
         </section>
