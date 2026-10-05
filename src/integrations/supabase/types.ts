@@ -59053,26 +59053,6 @@ export type Database = {
           tenant_phone: string
         }[]
       }
-      agent_record_landlord_float_withdrawal: {
-        Args: {
-          p_agent_latitude?: number
-          p_agent_location_accuracy?: number
-          p_agent_longitude?: number
-          p_amount: number
-          p_gps_distance_meters?: number
-          p_gps_match?: boolean
-          p_landlord_name: string
-          p_landlord_phone: string
-          p_mobile_money_provider: string
-          p_notes?: string
-          p_property_latitude?: number
-          p_property_longitude?: number
-          p_receipt_photo_urls?: string[]
-          p_rent_request_id: string
-          p_transaction_id?: string
-        }
-        Returns: Json
-      }
       agent_reverse_tenant_allocation: {
         Args: { p_collection_id: string; p_reason: string }
         Returns: Json
@@ -60852,6 +60832,10 @@ export type Database = {
         Args: { p: Json; p_collection_id: string }
         Returns: Json
       }
+      cfo_set_staff_tax_ids: {
+        Args: { _nssf: string; _staff_id: string; _tin: string }
+        Returns: Json
+      }
       cfo_settle_tenant_shortfall_via_advance_topup: {
         Args: {
           p_advance_id: string
@@ -60861,6 +60845,42 @@ export type Database = {
           p_rent_request_id: string
         }
         Returns: Json
+      }
+      cfo_staff_tax_register: {
+        Args: { p_run_id?: string }
+        Returns: {
+          accepted_at: string
+          chargeable_income: number
+          full_name: string
+          gross: number
+          ids_updated_at: string
+          ids_updated_by: string
+          lst: number
+          nssf_employee: number
+          nssf_employer: number
+          nssf_number: string
+          nssf_on: boolean
+          nssf_total: number
+          paye: number
+          paye_on: boolean
+          period_code: string
+          phone: string
+          run_id: string
+          source: string
+          staff_id: string
+          staff_ref: string
+          starts_next_run: boolean
+          tin: string
+          total_remittance: number
+        }[]
+      }
+      cfo_staff_tax_staff_options: {
+        Args: never
+        Returns: {
+          full_name: string
+          staff_id: string
+          staff_ref: string
+        }[]
       }
       cfo_statutory_consent_list: {
         Args: { p_run_id?: string }
