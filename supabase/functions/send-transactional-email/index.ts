@@ -160,33 +160,6 @@ Deno.serve(async (req) => {
   // Create Supabase client with service role (bypasses RLS)
   const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-  // Placeholder / phone-only accounts have no real mailbox. Never hand these to
-  // the mail provider — record the skip and return success:false so callers do
-  // not treat it as an outage. SMS / in-app notification still reaches them.
-  if (isPlaceholderRecipient(effectiveRecipient)) {
-    console.log('Email skipped — placeholder recipient', {
-      effectiveRecipient,
-      templateName,
-    })
-    await supabase.from('email_send_log').insert({
-      message_id: messageId,
-      template_name: templateName,
-      recipient_email: effectiveRecipient,
-      status: 'suppressed',
-      metadata: {
-        suppressed: true,
-        suppressed_reason: PLACEHOLDER_SUPPRESSION_REASON,
-      },
-    })
-    return new Response(
-      JSON.stringify({ success: false, reason: PLACEHOLDER_SUPPRESSION_REASON }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      }
-    )
-  }
-
   // Partner/funder emails send from the partnerships mailbox with replies
   // routed to partnership@welile.com.
   const isPartnerFunder = PARTNER_FUNDER_TEMPLATES.has(templateName)

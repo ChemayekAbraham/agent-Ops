@@ -327,6 +327,33 @@ function nameChangeSourceLabel(source: string | null): string {
   return 'Taken from the National ID';
 }
 
+/** Turns a raw browser user-agent string into a short, readable device name. */
+function deviceLabel(ua: string | null | undefined): string | null {
+  if (!ua || !ua.trim()) return null;
+  const s = ua;
+  let os: string | null = null;
+  const android = s.match(/Android\s([\d.]+)/);
+  const ios = s.match(/(?:iPhone|iPad|CPU) OS\s([\d_]+)/);
+  if (android) os = `Android ${android[1]}`;
+  else if (/iPhone/.test(s)) os = `iPhone${ios ? ` iOS ${ios[1].replace(/_/g, '.')}` : ''}`;
+  else if (/iPad/.test(s)) os = `iPad${ios ? ` iOS ${ios[1].replace(/_/g, '.')}` : ''}`;
+  else if (/Windows NT 10/.test(s)) os = 'Windows';
+  else if (/Mac OS X/.test(s)) os = 'Mac';
+  else if (/Linux/.test(s)) os = 'Linux';
+
+  let browser: string | null = null;
+  if (/Edg\//.test(s)) browser = 'Edge';
+  else if (/OPR\//.test(s)) browser = 'Opera';
+  else if (/SamsungBrowser/.test(s)) browser = 'Samsung Internet';
+  else if (/Chrome\//.test(s)) browser = 'Chrome';
+  else if (/Firefox\//.test(s)) browser = 'Firefox';
+  else if (/Safari\//.test(s)) browser = 'Safari';
+
+  const model = s.match(/Android[^;)]*;\s([^;)]+?)(?:\sBuild|\)|;)/);
+  const parts = [model?.[1]?.trim(), os, browser].filter(Boolean) as string[];
+  return parts.length ? parts.join(' · ') : s.slice(0, 60);
+}
+
 function NameChangeHistory({ userId }: { userId: string }) {
   const { data, isLoading } = useHolderNameHistory(userId);
   const { roles } = useAuth();
@@ -357,6 +384,11 @@ function NameChangeHistory({ userId }: { userId: string }) {
                 minute: '2-digit',
               })}
             </p>
+            {(deviceLabel(h.user_agent) || h.ip_address) && (
+              <p className="mt-0.5 text-[11px] text-muted-foreground/80" title={h.user_agent ?? undefined}>
+                {[deviceLabel(h.user_agent), h.ip_address].filter(Boolean).join(' · ')}
+              </p>
+            )}
             {h.reason && <p className="mt-0.5 text-xs italic text-muted-foreground">{h.reason}</p>}
             {isAdmin && h.can_revert && (
               <Button
