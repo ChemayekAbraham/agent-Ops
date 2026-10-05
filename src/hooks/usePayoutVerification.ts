@@ -1,14 +1,4 @@
-/**
- * Payout destination verification — Financial Ops queue + decisions.
- *
- * Every mobile money number and bank account a user can be paid to must be
- * verified by Financial Ops before any withdrawal to it is allowed. The gate
- * itself lives in the database (`submit_withdrawal_request`, the
- * `enforce_withdrawal_destination_verified` trigger and the approve-withdrawal
- * edge function). These hooks are read + decide only; nothing here writes the
- * table directly.
- */
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { publishAvatarUpdate } from '@/lib/avatarSync';
 import {
@@ -21,12 +11,14 @@ export type PayoutVerificationStatus = 'waiting' | 'verified' | 'rejected';
 export type PayoutQueueFilter = PayoutVerificationStatus | 'all' | 'mismatch' | 'no_id' | 'double';
 export type PayoutQueueSort = 'ready_first' | 'newest' | 'oldest' | 'balance';
 
-export interface PayoutDestinationRow {
+export type DestinationStatus = 'waiting' | 'verified' | 'rejected';
+
+export interface PayoutQueueRow {
   id: string;
   user_id: string;
   full_name: string | null;
   user_phone: string | null;
-  destination_type: 'mobile_money' | 'bank_transfer';
+  destination_type: string;
   provider: string | null;
   momo_number: string | null;
   bank_name: string | null;
@@ -35,8 +27,8 @@ export interface PayoutDestinationRow {
   national_id: string | null;
   national_id_name: string | null;
   name_match_score: number | null;
-  name_mismatch_tokens: string[] | null;
-  status: PayoutVerificationStatus;
+  name_mismatch_tokens: unknown;
+  status: DestinationStatus;
   decision_reason: string | null;
   call_outcome: string | null;
   decided_by_name: string | null;
@@ -90,6 +82,10 @@ export interface PayoutVerificationCounts {
   double: number;
   waiting_balance: number;
 }
+
+export type QueueFilter = 'waiting' | 'verified' | 'rejected' | 'mismatch' | 'no_id' | 'all';
+/** `newest` = most recently submitted National ID on top. */
+export type QueueSort = 'newest' | 'oldest' | 'balance';
 
 export const PAYOUT_VERIFICATION_PAGE_SIZE = 20;
 
@@ -202,6 +198,7 @@ export function usePayoutVerificationCounts(enabled = true) {
         waiting_balance: Number(row.waiting_balance ?? 0),
       };
     },
+    staleTime: 30_000,
   });
 }
 
@@ -210,9 +207,9 @@ export type PayoutQueueUserType = 'all' | 'funder' | 'tenant' | 'other';
 
 /** One page of destinations for the given filter/search/sort. */
 export function usePayoutVerificationQueue(opts: {
-  status: PayoutQueueFilter;
+  status: QueueFilter;
   search: string;
-  sort: PayoutQueueSort;
+  sort: QueueSort;
   page: number;
   dateFrom?: string | null;
   dateTo?: string | null;
@@ -233,7 +230,7 @@ export function usePayoutVerificationQueue(opts: {
     queryFn: async (): Promise<{ rows: PayoutDestinationRow[]; total: number }> => {
       const params = {
         p_status: status,
-        p_search: search.trim() || null,
+        p_search: search.trim() || undefined,
         p_sort: sort,
         p_limit: PAYOUT_VERIFICATION_PAGE_SIZE,
         p_offset: page * PAYOUT_VERIFICATION_PAGE_SIZE,
@@ -271,7 +268,6 @@ export function usePayoutVerificationQueue(opts: {
   });
 }
 
-/** Verify or reject one destination. Reason is mandatory (10+ characters). */
 export function useDecidePayoutDestination() {
   const qc = useQueryClient();
   return useMutation({
@@ -283,11 +279,14 @@ export function useDecidePayoutDestination() {
       /** Holder — used to apply their verified selfie as the profile picture. */
       userId?: string;
     }) => {
+      if (input.reason.trim().length < 10) {
+        throw new Error('Write at least 10 characters explaining the decision.');
+      }
       const { data, error } = await supabase.rpc('finops_decide_payout_destination', {
         p_id: input.id,
         p_decision: input.decision,
-        p_reason: input.reason,
-        p_call_outcome: input.callOutcome ?? null,
+        p_reason: input.reason.trim(),
+        p_call_outcome: input.callOutcome?.trim() || undefined,
       });
       if (error) throw new Error(error.message);
 
@@ -477,30 +476,31 @@ export function useSubmitNationalId() {
   return useMutation({
     mutationFn: async (input: { nationalId: string; idName: string }) => {
       const { data, error } = await supabase.rpc('submit_national_id', {
-        p_national_id: input.nationalId,
-        p_id_name: input.idName,
+        p_national_id: input.nationalId.trim(),
+        p_id_name: input.idName.trim(),
       });
-      if (error) throw new Error(error.message);
+      if (error) throw error;
       const res = (data ?? {}) as { success?: boolean; message?: string };
-      if (!res.success) throw new Error(res.message || 'Could not save your National ID.');
+      if (!res.success) throw new Error(res.message || 'Could not record your National ID.');
       return res;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['profile'] });
+      qc.invalidateQueries({ queryKey: ['my-national-id'] });
       qc.invalidateQueries({ queryKey: ['my-payout-destinations'] });
+      qc.invalidateQueries({ queryKey: ['payout-verification-counts'] });
     },
   });
 }
 
-export interface MyPayoutDestination {
+export interface MyDestination {
   id: string;
-  destination_type: 'mobile_money' | 'bank_transfer';
+  destination_type: string;
   provider: string | null;
   momo_number: string | null;
   bank_name: string | null;
   bank_account_number: string | null;
   account_name: string | null;
-  status: PayoutVerificationStatus;
+  status: DestinationStatus;
   decision_reason: string | null;
   decided_at: string | null;
   /** Timeline fields — when the account appeared, when the ID arrived and
@@ -516,11 +516,7 @@ export interface MyPayoutDestination {
   ownership_code_confirmed_at: string | null;
 }
 
-/**
- * The signed-in user's own destinations and their verification state, so the
- * withdraw screen can show "Verified" / "Waiting for verification" per saved
- * destination instead of failing at submit time.
- */
+/** Read-only: the states of the signed-in user's own payout destinations. */
 export function useMyPayoutDestinations(userId?: string | null) {
   return useQuery({
     queryKey: ['my-payout-destinations', userId],
@@ -542,34 +538,45 @@ export function useMyPayoutDestinations(userId?: string | null) {
         )
         .eq('user_id', userId as string);
       if (error) throw error;
-      return (data ?? []) as unknown as MyPayoutDestination[];
+      return (data ?? []) as unknown as MyDestination[];
     },
+    staleTime: 30_000,
   });
 }
 
-/** Last 9 digits — the platform-wide way of comparing Ugandan numbers. */
-export function last9(value?: string | null): string {
-  return (value ?? '').replace(/\D/g, '').slice(-9);
+/** Ugandan numbers are compared on their last 9 digits, platform-wide. */
+export function last9(raw?: string | null): string {
+  const digits = String(raw ?? '').replace(/\D/g, '');
+  return digits.slice(-9);
 }
 
-/** Verification state for one destination out of the user's own list. */
+/**
+ * The verification state of the destination the user is about to be paid to.
+ * Cash pickup has no destination to verify, so it returns null.
+ */
 export function destinationStateFor(
-  list: MyPayoutDestination[] | undefined,
-  input: { mode: 'mobile_money' | 'bank_transfer' | 'cash'; momoNumber?: string | null; bankAccountNumber?: string | null },
-): MyPayoutDestination | null {
-  if (!list || input.mode === 'cash') return null;
-  if (input.mode === 'mobile_money') {
-    const key = last9(input.momoNumber);
+  list: MyDestination[] | undefined,
+  target: { mode: string; momoNumber?: string; bankAccountNumber?: string },
+): MyDestination | null {
+  if (!list?.length) return null;
+  if (target.mode === 'cash') return null;
+  if (target.mode === 'mobile_money') {
+    const key = last9(target.momoNumber);
     if (!key) return null;
     return list.find((d) => d.destination_type === 'mobile_money' && last9(d.momo_number) === key) ?? null;
   }
-  const acct = (input.bankAccountNumber ?? '').replace(/\D/g, '');
-  if (!acct) return null;
-  return (
-    list.find(
-      (d) => d.destination_type === 'bank_transfer' && (d.bank_account_number ?? '').replace(/\D/g, '') === acct,
-    ) ?? null
-  );
+  if (target.mode === 'bank_transfer') {
+    const acct = String(target.bankAccountNumber ?? '').replace(/\s/g, '');
+    if (!acct) return null;
+    return (
+      list.find(
+        (d) =>
+          d.destination_type === 'bank_transfer' &&
+          String(d.bank_account_number ?? '').replace(/\s/g, '') === acct,
+      ) ?? null
+    );
+  }
+  return null;
 }
 
 /* ------------------------------------------------------------------ */

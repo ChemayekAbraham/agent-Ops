@@ -44,9 +44,9 @@ import {
 import { toast } from 'sonner';
 import { format } from 'date-fns';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Badge } from '@/components/ui/badge';
+import { Textarea } from '@/components/ui/textarea';
 import {
   Dialog,
   DialogContent,
@@ -1038,8 +1038,8 @@ function DecisionDialog({
         id: row.id,
         userId: row.user_id,
         decision,
-        reason: reason.trim(),
-        callOutcome: callOutcome.trim() || undefined,
+        reason,
+        callOutcome,
       });
       toast.success(decision === 'verified' ? 'Verified.' : 'Rejected.');
       onClose();

@@ -1,17 +1,5 @@
-/**
- * National ID prompt.
- *
- * Anyone holding a withdrawable balance must record their National ID and the
- * exact name printed on it. Financial Ops compares that name with the name on
- * the mobile money number or bank account before any payout is released, so
- * this cannot be skipped — it only disappears once the ID is submitted.
- */
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { IdCard, Loader2, ShieldCheck } from 'lucide-react';
-import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -23,24 +11,15 @@ import {
   validateNationalIdName,
 } from '@/lib/nationalId';
 
-export function useMyNationalId() {
-  const { user } = useAuth();
-  return useQuery({
-    queryKey: ['my-national-id', user?.id],
-    enabled: !!user?.id,
-    staleTime: 60_000,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('national_id, national_id_name, full_name')
-        .eq('id', user!.id)
-        .maybeSingle();
-      if (error) throw error;
-      return (data ?? null) as
-        | { national_id: string | null; national_id_name: string | null; full_name: string | null }
-        | null;
-    },
-  });
+interface NationalIdPromptProps {
+  /** Only prompt people who actually have money to take out. */
+  maxAmount?: number;
+  /**
+   * When true the card is styled as a hard stop (used inside the withdraw
+   * flow, where nothing can continue until the ID is recorded).
+   */
+  blocking?: boolean;
+  onSubmitted?: () => void;
 }
 
 export default function NationalIdPrompt({
@@ -136,6 +115,7 @@ export default function NationalIdPrompt({
           </p>
         </div>
       </div>
+
       <div className="space-y-2">
         <div>
           <Label className="text-xs">National ID number</Label>
@@ -182,6 +162,6 @@ export default function NationalIdPrompt({
         {submit.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : <ShieldCheck className="h-4 w-4 mr-1.5" />}
         Save my National ID
       </Button>
-    </div>
+    </Card>
   );
 }

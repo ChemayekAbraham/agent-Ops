@@ -1542,7 +1542,6 @@ export default function WithdrawFlow({
         );
         return (
           <div className="space-y-5">
-            <NationalIdPrompt withdrawableBalance={maxAmount} />
             {payoutMode !== 'cash' && !(payoutMode === 'mobile_money' && lockedMomo) && compatibleSaved.length > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -1570,6 +1569,11 @@ export default function WithdrawFlow({
                       m.payout_mode === 'mobile_money'
                         ? m.momo_number ?? ''
                         : m.bank_account_number ?? '';
+                    const verState = destinationStateFor(myDestinations.data, {
+                      mode: m.payout_mode,
+                      momoNumber: m.momo_number ?? undefined,
+                      bankAccountNumber: m.bank_account_number ?? undefined,
+                    });
                     return (
                       <Card
                         key={m.id}
