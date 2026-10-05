@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { forbidden, getCaller, hasAnyRole, isServiceRoleRequest, STAFF_ROLES } from "../_shared/callerAuth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,6 +10,15 @@ Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Staff-only. verify_jwt is off, so check the caller here; otherwise anyone
+  // holding the public anon key could run the monthly referral payout on demand.
+  if (!isServiceRoleRequest(req)) {
+    const authClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+    const caller = await getCaller(authClient, req);
+    if (!caller) return forbidden(corsHeaders, 401);
+    if (!hasAnyRole(caller, STAFF_ROLES)) return forbidden(corsHeaders, 403);
   }
 
   try {

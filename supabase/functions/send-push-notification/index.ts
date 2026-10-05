@@ -1,6 +1,19 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { sendPushToSubscription, type PushPayload } from "../_shared/webPushSend.ts";
+import { forbidden, getCaller, hasAnyRole, isServiceRoleRequest, STAFF_ROLES } from "../_shared/callerAuth.ts";
+
+const MAX_NON_STAFF_RECIPIENTS = 50;
+
+function isAllowedPushUrl(url: string): boolean {
+  if (/^\/(?!\/)/.test(url)) return true;
+  try {
+    const u = new URL(url);
+    return u.protocol === 'https:' && /(^|\.)(welile\.com|welileapp\.com)$/.test(u.hostname);
+  } catch {
+    return false;
+  }
+}
 
 // VAPID encryption/JWT signing moved to ../_shared/webPushSend.ts (Stage 6),
 // so the Stage 6 channel router and this broadcast entrypoint share exactly
@@ -28,6 +41,15 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // verify_jwt is off for this function, so authenticate here: server-side
+    // callers present the service-role key; browsers must be a real signed-in
+    // user. Without this, anyone holding the public anon key could push any
+    // text and link to every Welile device.
+    const isService = isServiceRoleRequest(req);
+    const caller = isService ? null : await getCaller(supabase, req);
+    if (!isService && !caller) return forbidden(corsHeaders, 401);
+    const isStaff = isService || hasAnyRole(caller, STAFF_ROLES);
+
     const { userIds, all, payload }: RequestBody = await req.json();
 
     if (!payload || !payload.title) {
@@ -35,6 +57,23 @@ serve(async (req) => {
         JSON.stringify({ error: "Missing payload or title" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    if (!isStaff) {
+      // Broadcast to everyone is a staff action.
+      if (all) return forbidden(corsHeaders, 403);
+      if ((userIds?.length ?? 0) > MAX_NON_STAFF_RECIPIENTS) {
+        return new Response(
+          JSON.stringify({ error: `At most ${MAX_NON_STAFF_RECIPIENTS} recipients per request` }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    // Notification taps may only open in-app paths or Welile's own domains —
+    // never an attacker-chosen site.
+    if (payload.url && !isAllowedPushUrl(payload.url)) {
+      payload.url = '/';
     }
 
     // Fetch push subscriptions
