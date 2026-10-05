@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { formatDynamic, formatDynamicCompact } from '@/lib/currencyFormat';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import { useIsMobile } from '@/hooks/use-mobile';
 import type { FunderNewEmptyHouse } from './types';
 import { emptyHouseTitle, itemAmount } from './utils';
 import './funderNewMap.css';
@@ -239,6 +240,7 @@ export function FunderNewRouteMap({
   loadedNote: string;
   onExpandedChange?: (expanded: boolean) => void;
 }) {
+  const isMobile = useIsMobile();
   const hostRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
   const markersRef = useRef<Map<string, { marker: google.maps.Marker; sig: string; cell: FunderNewMapCell }>>(new Map());
@@ -323,7 +325,7 @@ export function FunderNewRouteMap({
     if (!map) return;
     map.setOptions({ gestureHandling: 'greedy' });
     window.setTimeout(() => google.maps.event.trigger(map, 'resize'), 120);
-  }, [fullscreen]);
+  }, [fullscreen, isMobile]);
 
   useEffect(() => {
     const map = mapRef.current;
