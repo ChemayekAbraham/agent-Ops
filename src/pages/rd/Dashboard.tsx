@@ -77,11 +77,15 @@ const PROJECTS: Project[] = [
   },
 ];
 
-const OVERVIEW: Metric[] = [
-  { icon: Users, value: '17', label: 'Total customers (across projects)' },
-  { icon: Wallet, value: 'UGX 6.3M', label: 'Total savings (so far)' },
-  { icon: Handshake, value: '4', label: 'Partners (engaged / in progress)' },
-];
+// Key metrics overview is generated live from the editable Business Ideas cash table.
+function overviewMetrics(rows: IdeaRow[]): Metric[] {
+  const tot = rows.reduce((a, r) => ({ c: a.c + r.customers, i: a.i + r.cashIn, o: a.o + r.cashOut }), { c: 0, i: 0, o: 0 });
+  return [
+    { icon: Users, value: tot.c.toLocaleString('en-US'), label: 'Total customers (across projects)' },
+    { icon: Wallet, value: fmt(tot.i), label: 'Total cash in' },
+    { icon: TrendingUp, value: fmt(tot.i - tot.o), label: 'Net position (cash in − out)' },
+  ];
+}
 
 function Ring({ value, label }: { value: number; label: string }) {
   const r = 22; const c = 2 * Math.PI * r;
@@ -163,11 +167,7 @@ const DEFAULT_IDEAS: IdeaRow[] = [
 ];
 const fmt = (n: number) => `UGX ${n.toLocaleString('en-US')}`;
 
-function BusinessIdeasCashTable() {
-  const [rows, setRows] = useState<IdeaRow[]>(() => {
-    try { const v = localStorage.getItem(IDEAS_KEY); if (v) return JSON.parse(v); } catch { /* ignore */ }
-    return DEFAULT_IDEAS;
-  });
+function BusinessIdeasCashTable({ rows, setRows }: { rows: IdeaRow[]; setRows: React.Dispatch<React.SetStateAction<IdeaRow[]>> }) {
   useEffect(() => { try { localStorage.setItem(IDEAS_KEY, JSON.stringify(rows)); } catch { /* ignore */ } }, [rows]);
   const upd = (id: string, patch: Partial<IdeaRow>) => setRows((r) => r.map((x) => (x.id === id ? { ...x, ...patch } : x)));
   const num = (v: string) => Math.max(0, Number(v.replace(/[^0-9]/g, '')) || 0);
@@ -242,6 +242,11 @@ const WEEK_COLS: { key: keyof Project['week']; title: string; icon: LucideIcon }
 
 export default function RDDashboard() {
   const navigate = useNavigate();
+  const [ideaRows, setIdeaRows] = useState<IdeaRow[]>(() => {
+    try { const v = localStorage.getItem(IDEAS_KEY); if (v) return JSON.parse(v); } catch { /* ignore */ }
+    return DEFAULT_IDEAS;
+  });
+  const OVERVIEW = overviewMetrics(ideaRows);
 
   return (
     <div className="min-h-screen bg-background">
@@ -271,7 +276,7 @@ export default function RDDashboard() {
           ))}
         </div>
 
-        <BusinessIdeasCashTable />
+        <BusinessIdeasCashTable rows={ideaRows} setRows={setIdeaRows} />
 
         <div className="grid gap-4 lg:grid-cols-3">
           {PROJECTS.map((p) => <ProjectCard key={p.name} p={p} />)}
