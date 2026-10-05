@@ -273,47 +273,6 @@ export function useForwardedConcerns(opts: { days?: number; scope?: 'all' | 'to_
   });
 }
 
-/**
- * Every concern still open (status <> 'completed'), for any active staff
- * member — backs the "Open Concerns" browse/join tab in My Space. Eligibility
- * mirrors the same hr_my_staff_id() check that gates access to the Concerns
- * page itself, not the narrower cc_forward_staff_options() forwarding list.
- */
-export function useOpenConcernsDirectory(enabled = true) {
-  return useQuery({
-    queryKey: ['cc-open-concerns-directory'],
-    enabled,
-    staleTime: 30 * 1000,
-    queryFn: async (): Promise<ForwardedConcern[]> => {
-      const { data, error } = await anyDb.rpc('cc_open_concerns_directory');
-      if (error) throw new Error(error.message);
-      return (data ?? []) as ForwardedConcern[];
-    },
-  });
-}
-
-/** Add the signed-in person to a concern they were not originally forwarded. */
-export function useJoinConcern() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (input: { concern_id: string; note?: string | null }) => {
-      const { data, error } = await anyDb.rpc('cc_join_concern', {
-        p_concern_id: input.concern_id,
-        p_note: input.note ?? null,
-      });
-      if (error) throw new Error(error.message);
-      return data as { success: boolean; already_present: boolean; reviewer_name: string };
-    },
-    onSuccess: (_d, vars) => {
-      void qc.invalidateQueries({ queryKey: ['cc-open-concerns-directory'] });
-      void qc.invalidateQueries({ queryKey: ['cc-forwarded-concerns'] });
-      void qc.invalidateQueries({ queryKey: ['cc-concern-reviewers'] });
-      void qc.invalidateQueries({ queryKey: ['cc-concern-events', vars.concern_id] });
-      void qc.invalidateQueries({ queryKey: ['cc-my-pending-concerns'] });
-    },
-  });
-}
-
 export function useConcernEvents(concernId: string | null) {
   return useQuery({
     queryKey: ['cc-concern-events', concernId],

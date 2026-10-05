@@ -23,7 +23,6 @@ import { useCcSubjectCallHistory } from '@/hooks/useCcSubjectCallHistory';
 import { useCcFeedbackAmendments, type CcFeedbackAmendment } from '@/hooks/useCcFeedbackAmendments';
 import { EditCallFeedbackDialog } from './EditCallFeedbackDialog';
 import { TenantCallContextPanel } from './TenantCallContextPanel';
-import { TenantCallPacePanel } from './TenantCallPacePanel';
 import { TenantPaymentHistoryPanel } from './TenantPaymentHistoryPanel';
 
 const titleCase = (v?: string | null) => (v ? String(v).replace(/_/g, ' ') : null);
@@ -230,7 +229,6 @@ export function TenantCallDetailsDialog({
                 phone={null}
                 row={row}
               />
-              <TenantCallPacePanel subjectId={row.subject_id} />
             </div>
 
             <div className="flex items-center gap-2 border-t bg-background p-3">

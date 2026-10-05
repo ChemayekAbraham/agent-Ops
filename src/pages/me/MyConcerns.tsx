@@ -3,11 +3,8 @@
  *
  * The same append-only record the Calling Center writes. The sender, the current
  * recipient and anyone still an active recipient on the thread can see a concern
- * and act on it. Two named overseers can see all concerns (any status) and can
- * reassign one or change its answer time. Any other active staff member (same
- * access check as this page) can see and browse every concern that is still
- * open under "Open Concerns" and add themselves to it; once completed, a
- * concern reverts to being visible only to the people above.
+ * and act on it. Two named overseers can see all concerns and can reassign one or
+ * change its answer time. Nobody else can see any of it.
  */
 import { useMemo, useState } from 'react';
 import PersonalLayout from '@/components/layout/PersonalLayout';
@@ -36,8 +33,6 @@ import {
   useConcernReviewers,
   type ConcernReviewer,
   useForwardedConcerns,
-  useOpenConcernsDirectory,
-  useJoinConcern,
   type ConcernStatus,
   type ForwardedConcern,
 } from '@/hooks/useCallingConcerns';
@@ -58,28 +53,16 @@ function ConcernCard({
   concern,
   mine,
   reviewerRows,
-  joinable = false,
 }: {
   concern: ForwardedConcern;
   mine: boolean;
   reviewerRows: ConcernReviewer[];
-  joinable?: boolean;
 }) {
   const events = useConcernEvents(concern.id);
   const act = useConcernEvent();
-  const join = useJoinConcern();
   const [note, setNote] = useState('');
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
-
-  const addMyself = async () => {
-    try {
-      const res = await join.mutateAsync({ concern_id: concern.id });
-      toast.success(res.already_present ? "You're already on this concern." : 'Added — it now shows under "Sent to me".');
-    } catch (e: any) {
-      toast.error(e?.message ?? 'Could not add you to this concern.');
-    }
-  };
 
   const run = async (action: 'accepted' | 'started' | 'progress_note' | 'completed') => {
     try {
@@ -356,14 +339,8 @@ const MyConcerns = () => {
   const { user } = useAuth();
   const fromMe = useForwardedConcerns({ days: 120, scope: 'from_me' });
   const everything = useForwardedConcerns({ days: 120, scope: 'all' });
-  const directory = useOpenConcernsDirectory();
   const allConcerns = useMemo(() => everything.data ?? [], [everything.data]);
-  const reviewerIds = useMemo(() => {
-    const ids = new Set(allConcerns.map((c) => c.id));
-    (directory.data ?? []).forEach((c) => ids.add(c.id));
-    return Array.from(ids);
-  }, [allConcerns, directory.data]);
-  const reviewers = useConcernReviewers(reviewerIds);
+  const reviewers = useConcernReviewers(allConcerns.map((c) => c.id));
   const reviewersByConcern = useMemo(() => {
     const map = new Map<string, typeof reviewers.data>();
     (reviewers.data ?? []).forEach((r) => map.set(r.concern_id, [...(map.get(r.concern_id) ?? []), r]));
@@ -386,13 +363,6 @@ const MyConcerns = () => {
     const ids = new Set([...mine, ...sent].map((c) => c.id));
     return (everything.data ?? []).filter((c) => !ids.has(c.id));
   }, [everything.data, mine, sent]);
-
-  // Open concerns not already carried by this person — anyone with access to
-  // this page can add themselves from here.
-  const openToJoin = useMemo(() => {
-    const mineIds = new Set(mine.map((c) => c.id));
-    return (directory.data ?? []).filter((c) => !mineIds.has(c.id));
-  }, [directory.data, mine]);
 
   const openCount = mine.filter((c) => c.status !== 'completed').length;
 
@@ -490,22 +460,6 @@ const MyConcerns = () => {
                   />
                 )}
               </>
-            )}
-          </TabsContent>
-
-          <TabsContent value="open" className="mt-3 space-y-2">
-            <p className="rounded-xl border border-border/80 bg-muted/30 px-2.5 py-2 text-[11px] text-muted-foreground">
-              Every concern still open across the Calling Center, not yet yours. Add yourself to help out or take
-              over — it moves to "Sent to me" and is logged on the concern's history like any other hand-off.
-            </p>
-            {directory.isLoading || reviewers.isLoading ? (
-              <Skeleton className="h-24 w-full" />
-            ) : openToJoin.length === 0 ? (
-              <CCEmpty icon={ClipboardList} title="No open concerns to join" hint="Everything currently open is already assigned to someone." />
-            ) : (
-              openToJoin.map((c) => (
-                <ConcernCard key={c.id} concern={c} mine={false} reviewerRows={reviewersByConcern.get(c.id) ?? []} joinable />
-              ))
             )}
           </TabsContent>
 
