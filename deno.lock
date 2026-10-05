@@ -161,7 +161,7 @@
         "npm:tsx@^4.20.6",
         "npm:typescript-eslint@^8.38.0",
         "npm:typescript@^5.8.3",
-        "npm:vaul@^0.9.9",
+        "npm:vaul@^1.1.2",
         "npm:vite-plugin-pwa@^1.3.0",
         "npm:vite@^5.4.21",
         "npm:vitest@^3.2.6",
