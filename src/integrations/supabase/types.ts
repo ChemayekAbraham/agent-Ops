@@ -59450,6 +59450,10 @@ export type Database = {
         }
         Returns: Json
       }
+      allocate_company_managed_portfolio: {
+        Args: { p_portfolio_id: string }
+        Returns: Json
+      }
       allocate_instalment: {
         Args: { p_instalment_amount: number; p_rent_request_id: string }
         Returns: {
@@ -67009,6 +67013,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      house_has_live_claim: { Args: { p_house_id: string }; Returns: boolean }
       house_listing_protected_unchanged: {
         Args: {
           _house_verified_bonus_paid: boolean

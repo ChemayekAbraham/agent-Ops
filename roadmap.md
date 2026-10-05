@@ -57,3 +57,5 @@
 - [x] R&D page: apply format from user's screenshot (Namatovu Gloria)
 
 - [x] Spiro bike lease v3: daily = month due / real days in that repayment month (Kampala), exact principal (price / months); 100,000 x 12 = fees 182,000, total 282,000; released leases unchanged; rollback updated; self-test
+
+- [ ] Restart merchandise/phone/older bike collection (fix the broken collection record, once per Kampala day for all plans, one day max). BLOCKED: user wants the old plan amounts reviewed first (e.g. Annet Nabutsale "Company Ids" UGX 3.16B). Preview: /mnt/documents/merchandise-collection-restart-preview-2026-10-05.csv
