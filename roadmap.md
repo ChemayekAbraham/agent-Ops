@@ -4,6 +4,7 @@
 - [x] Verify calculations, safeguards, and desktop/mobile presentation.
 
 ## Pending
+- [ ] Redesign Receivables Analysis consistently with existing CFO pages; unify category/location scopes and read-only behaviour-versus-ideal forecast presentation, then verify signed-in flows.
 - [x] Make Agent Ops open on 14 business-area panels; preserve existing sections in a collapsible side menu and mobile sections menu.
 - [x] Show the unique number of users who have sent wallet-to-wallet transfers on the Agent Ops Shopping Advance page, including historical transfers.
 - [x] CI: map load-test budgets run in build workflow and block deploy on regression (done 2026-09-21)
