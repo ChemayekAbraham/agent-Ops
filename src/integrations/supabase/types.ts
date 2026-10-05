@@ -58961,6 +58961,26 @@ export type Database = {
         Args: { p_ids: string[] }
         Returns: string[]
       }
+      agent_record_landlord_float_withdrawal: {
+        Args: {
+          p_agent_latitude?: number
+          p_agent_location_accuracy?: number
+          p_agent_longitude?: number
+          p_amount: number
+          p_gps_distance_meters?: number
+          p_gps_match?: boolean
+          p_landlord_name: string
+          p_landlord_phone: string
+          p_mobile_money_provider: string
+          p_notes?: string
+          p_property_latitude?: number
+          p_property_longitude?: number
+          p_receipt_photo_urls?: string[]
+          p_rent_request_id: string
+          p_transaction_id?: string
+        }
+        Returns: Json
+      }
       agent_record_landlord_payout_receipt: {
         Args: { p_payout_id: string; p_receipt_number: string }
         Returns: Json
