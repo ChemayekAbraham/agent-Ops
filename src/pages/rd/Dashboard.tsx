@@ -1,9 +1,9 @@
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
-  ArrowLeft, Target, CheckSquare, Check, Gauge, AlertTriangle, ArrowRight, CalendarDays, MapPin,
+  ArrowLeft, Target, CheckSquare, Check, Gauge, ArrowRight, CalendarDays, MapPin,
   BarChart3, TrendingUp, Car, Gem, Cpu, Users, Wallet, Handshake, FileText, BookOpen, Layers,
-  FlaskConical, PlayCircle, Clock, PieChart, type LucideIcon,
+  FlaskConical, PlayCircle, Clock, PieChart, ClipboardList, type LucideIcon,
 } from 'lucide-react';
 import WelileLogo from '@/components/WelileLogo';
 import { useEffect, useState } from 'react';
@@ -111,8 +111,30 @@ function Bullets({ items }: { items: string[] }) {
   return <ul className="mt-1.5 list-disc space-y-1 pl-5 text-xs text-muted-foreground">{items.map((t) => <li key={t}>{t}</li>)}</ul>;
 }
 
+// Editable dated updates, saved per project on this device.
+type IdeaUpdate = { id: string; date: string; text: string };
+const UPDATES_KEY = 'rd-project-updates-v1';
+function loadUpdates(name: string): IdeaUpdate[] {
+  try {
+    const all = JSON.parse(localStorage.getItem(UPDATES_KEY) || '{}');
+    if (Array.isArray(all[name])) return all[name];
+  } catch { /* ignore */ }
+  return [];
+}
+function saveUpdates(name: string, updates: IdeaUpdate[]) {
+  try {
+    const all = JSON.parse(localStorage.getItem(UPDATES_KEY) || '{}');
+    all[name] = updates;
+    localStorage.setItem(UPDATES_KEY, JSON.stringify(all));
+  } catch { /* ignore */ }
+}
+const today = () => new Date().toISOString().slice(0, 10);
+
 function ProjectCard({ p }: { p: Project }) {
   const Icon = p.icon;
+  const [updates, setUpdates] = useState<IdeaUpdate[]>(() => loadUpdates(p.name));
+  useEffect(() => { saveUpdates(p.name, updates); }, [p.name, updates]);
+  const upd = (id: string, patch: Partial<IdeaUpdate>) => setUpdates((u) => u.map((x) => (x.id === id ? { ...x, ...patch } : x)));
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
       <div className="flex items-start gap-3 bg-primary/5 p-4">
@@ -148,9 +170,31 @@ function ProjectCard({ p }: { p: Project }) {
             ))}
           </div>
         </div>
-        <div className="mt-auto grid grid-cols-2 gap-3">
-          <div className="rounded-xl bg-muted/50 p-3"><SectionTitle icon={AlertTriangle}>Challenges</SectionTitle><Bullets items={p.challenges} /></div>
-          <div className="rounded-xl bg-muted/50 p-3"><SectionTitle icon={ArrowRight}>Next Steps</SectionTitle><Bullets items={p.nextSteps} /></div>
+        <div className="mt-auto rounded-xl bg-muted/50 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <SectionTitle icon={ClipboardList}>Updates</SectionTitle>
+            <Button size="sm" variant="outline" className="h-7 gap-1 px-2 text-xs"
+              onClick={() => setUpdates((u) => [...u, { id: crypto.randomUUID(), date: today(), text: '' }])}>
+              <Plus className="h-3 w-3" />Add update
+            </Button>
+          </div>
+          {updates.length === 0 && (
+            <p className="mt-1.5 text-xs text-muted-foreground">No updates recorded yet. Add one with its date.</p>
+          )}
+          <div className="mt-2 space-y-2">
+            {updates.map((u) => (
+              <div key={u.id} className="flex items-center gap-1.5">
+                <Input type="date" className="h-8 w-32 shrink-0 text-xs" value={u.date}
+                  onChange={(e) => upd(u.id, { date: e.target.value })} />
+                <Input className="h-8 min-w-0 flex-1 text-xs" placeholder="Record an update…" value={u.text}
+                  onChange={(e) => upd(u.id, { text: e.target.value })} />
+                <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" aria-label="Remove update"
+                  onClick={() => setUpdates((list) => list.filter((x) => x.id !== u.id))}>
+                  <Trash2 className="h-3.5 w-3.5" />
+                </Button>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     </div>
