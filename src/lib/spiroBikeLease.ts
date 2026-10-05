@@ -5,8 +5,9 @@
  *   • the bike price (principal) is split equally across the chosen months,
  *   • each month's fee is 28% of the principal still outstanding at the START
  *     of that month (so it falls every month),
- *   • the daily wallet deduction is that month's due amount divided by 30,
- *     so it also falls every month.
+ *   • the daily wallet deduction is that month's due amount divided by the
+ *     real number of days in that repayment month, so it also falls every month.
+ * Must stay identical to public._spiro_lease_month / _spiro_month_days on the server.
  */
 export const SPIRO_BIKE_BASE_PRICE = 120_000;
 
@@ -91,7 +92,8 @@ export function spiroLeaseSchedule(
 ): SpiroLeaseSchedule {
   const n = clampMonths(months);
   const base = Math.max(0, Math.round(Number(basePrice) || 0));
-  const principalPerMonth = Math.ceil(base / n);
+  // Exact slice (not rounded up): 100,000 over 12 months -> fees 182,000.
+  const principalPerMonth = base / n;
 
   const start = new Date(startDate);
   start.setHours(0, 0, 0, 0);
@@ -104,7 +106,7 @@ export function spiroLeaseSchedule(
     const openingPrincipal = outstanding;
     // The last month clears whatever rounding left behind.
     const principalDue = m === n ? openingPrincipal : Math.min(principalPerMonth, openingPrincipal);
-    const feeDue = Math.round(openingPrincipal * SPIRO_MONTHLY_RATE);
+    const feeDue = openingPrincipal * SPIRO_MONTHLY_RATE;
     const totalDue = principalDue + feeDue;
     const closingPrincipal = Math.max(0, openingPrincipal - principalDue);
 
@@ -120,14 +122,14 @@ export function spiroLeaseSchedule(
       totalDue,
       closingPrincipal,
       days,
-      daily: Math.round(totalDue / 30),
+      daily: Math.round(totalDue / days),
     });
 
     outstanding = closingPrincipal;
     cursor = next;
   }
 
-  const accessFee = rows.reduce((s, r) => s + r.feeDue, 0);
+  const accessFee = Math.round(rows.reduce((s, r) => s + r.feeDue, 0));
   const total = base + accessFee;
   const days = rows.reduce((s, r) => s + r.days, 0);
   const first = rows[0];

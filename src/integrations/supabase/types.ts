@@ -58299,6 +58299,10 @@ export type Database = {
           total_due: number
         }[]
       }
+      _spiro_month_days: {
+        Args: { p_month: number; p_start: string }
+        Returns: number
+      }
       _tenant_ops_weekly_metrics_raw: {
         Args: { p_week_end: string; p_week_start: string }
         Returns: {
