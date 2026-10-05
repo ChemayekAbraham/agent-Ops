@@ -3256,6 +3256,13 @@
       "when": 1791202717063,
       "tag": "0464_spiro_bike_lease_v3_real_days",
       "breakpoints": true
+    },
+    {
+      "idx": 465,
+      "version": "7",
+      "when": 1791206352734,
+      "tag": "0465_bike_daily_rate_zero_and_coo_price_lock",
+      "breakpoints": true
     }
   ]
 }
