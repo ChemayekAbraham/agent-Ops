@@ -1776,8 +1776,8 @@ export default function LandlordFloat() {
     return (
       <div className="space-y-4">
         <Skeleton className="h-9 w-64" />
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          {[0, 1, 2, 3, 4].map((i) => (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => (
             <Skeleton key={i} className="h-24 w-full" />
           ))}
         </div>
@@ -1835,7 +1835,7 @@ export default function LandlordFloat() {
       </div>
 
       {/* Headline tiles */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile
           label="Float needed"
           value={formatUGX(needed.total_amount)}
@@ -1971,22 +1971,29 @@ export default function LandlordFloat() {
             })
           }
         />
-        <StatTile
-          label="Landlord Float Pool"
-          value={pool ? formatUGX(pool.available_to_deploy) : '—'}
-          sub={
-            poolError
+      </div>
+
+      {/* Landlord Float Pool — live position, read-only */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Landlord Float Pool</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Available to deploy
+          </p>
+          <p className="mt-1 text-2xl font-bold tabular-nums leading-tight">
+            {pool ? formatUGX(pool.available_to_deploy) : '—'}
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {poolError
               ? 'Pool position could not be loaded'
               : poolLoading
                 ? 'Loading pool position…'
-                : pool
-                  ? 'Available to deploy'
-                  : 'Pool position not available for your role'
-          }
-          icon={Landmark}
-          tone="default"
-        />
-      </div>
+                : 'Live landlord float pool position, refreshed automatically'}
+          </p>
+        </CardContent>
+      </Card>
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="flex w-full flex-wrap justify-start gap-1 h-auto">
