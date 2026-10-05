@@ -160,17 +160,6 @@ export function CFOReceivablesPayablesHome() {
         <Insight icon={<CalendarClock className="h-4 w-4" />} tone="primary"
           title="Next 30 days" sub={inflow30 === undefined ? '' : `${formatUGX(inflow30)} expected inflow`} />
       </div>
-
-      <Sheet open={sheet !== null} onOpenChange={(o) => !o && setSheet(null)}>
-        <SheetContent side="center" className="overflow-y-auto overflow-x-hidden p-4 sm:p-6">
-          <SheetHeader className="text-left">
-            <SheetTitle className="text-base sm:text-lg">Payables Breakdown &amp; Forecast</SheetTitle>
-          </SheetHeader>
-          <div className="mt-3">
-            {sheet === 'pay' ? <PayablesBreakdownForecast hideHeadline /> : null}
-          </div>
-        </SheetContent>
-      </Sheet>
     </div>
   );
 }
