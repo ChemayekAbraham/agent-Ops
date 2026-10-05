@@ -66934,6 +66934,7 @@ export type Database = {
         }[]
       }
       hr_pay_my_positions: { Args: never; Returns: string[] }
+      hr_pay_my_reinvest_signing_link: { Args: never; Returns: Json }
       hr_pay_pending_prompt: {
         Args: never
         Returns: {
