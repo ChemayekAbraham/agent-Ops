@@ -9,7 +9,6 @@ import {
   type UnverifiedSort,
   type UnverifiedWithdrawalRow,
 } from '@/hooks/useUnverifiedWithdrawals';
-import PayoutStatusDetailSheet from '@/components/financial-ops/PayoutStatusDetailSheet';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -71,12 +70,8 @@ function MissingChips({ row }: { row: UnverifiedWithdrawalRow }) {
   );
 }
 
-/** Colourblind-friendly outcome badge: icon + plain words, never colour alone.
- *  Tapping it opens the full status timeline and verification notes. */
-function StatusBadge({
-  badge,
-  onOpen,
-}: { badge: UnverifiedWithdrawalRow['badge']; onOpen?: () => void }) {
+/** Colourblind-friendly outcome badge: icon + plain words, never colour alone. */
+function StatusBadge({ badge }: { badge: UnverifiedWithdrawalRow['badge'] }) {
   const label = badgeLabel(badge);
   const Icon = badge === 'verified' ? BadgeCheck : badge === 'needs_review' ? AlertTriangle : Clock;
   const tone =
@@ -85,32 +80,15 @@ function StatusBadge({
       : badge === 'needs_review'
         ? 'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400'
         : 'border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-400';
-  const content = (
-    <>
+  return (
+    <Badge variant="outline" className={`gap-1 ${tone}`} role="status" aria-label={`Status: ${label}`}>
       <Icon className="h-3 w-3" aria-hidden />
       {label}
-    </>
-  );
-  if (!onOpen) {
-    return (
-      <Badge variant="outline" className={`gap-1 ${tone}`} role="status" aria-label={`Status: ${label}`}>
-        {content}
-      </Badge>
-    );
-  }
-  return (
-    <button type="button" onClick={onOpen} aria-label={`Status: ${label}. Open verification timeline and notes`}>
-      <Badge
-        variant="outline"
-        className={`gap-1 underline decoration-dotted underline-offset-2 hover:brightness-95 ${tone}`}
-      >
-        {content}
-      </Badge>
-    </button>
+    </Badge>
   );
 }
 
-function Row({ row, onOpenDetail }: { row: UnverifiedWithdrawalRow; onOpenDetail: (row: UnverifiedWithdrawalRow) => void }) {
+function Row({ row }: { row: UnverifiedWithdrawalRow }) {
   const call = telHref(row.phone ?? row.mobile_money_number);
   return (
     <li className="rounded-2xl border bg-card p-4 shadow-sm">
@@ -122,7 +100,7 @@ function Row({ row, onOpenDetail }: { row: UnverifiedWithdrawalRow; onOpenDetail
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <p className="truncate text-base font-semibold">{row.full_name ?? 'Unknown user'}</p>
-            <StatusBadge badge={row.badge} onOpen={() => onOpenDetail(row)} />
+            <StatusBadge badge={row.badge} />
             <Badge
               variant="outline"
               className="gap-1 border-sky-500/40 bg-sky-500/10 text-sky-700 dark:text-sky-400"
@@ -184,7 +162,6 @@ export default function UnverifiedWithdrawalsPanel() {
   const [page, setPage] = useState(0);
   const [filter, setFilter] = useState<UnverifiedBadgeFilter>('all');
   const [sort, setSort] = useState<UnverifiedSort>('newest');
-  const [detailRow, setDetailRow] = useState<UnverifiedWithdrawalRow | null>(null);
   const { data, isLoading, isError, error } = useUnverifiedWithdrawals(search, page, filter, sort);
   const rows = data?.rows ?? [];
   const total = data?.total ?? 0;
@@ -284,7 +261,7 @@ export default function UnverifiedWithdrawalsPanel() {
             {filter === 'all' ? ' waiting on verification' : ` marked ${badgeLabel(filter === 'needs_review' ? 'needs_review' : filter).toLowerCase()}`}
           </p>
           <ul className="space-y-3">
-            {rows.map((r) => <Row key={r.id} row={r} onOpenDetail={setDetailRow} />)}
+            {rows.map((r) => <Row key={r.id} row={r} />)}
           </ul>
           {pageCount > 1 ? (
             <nav className="flex items-center justify-between" aria-label="Pages">
@@ -311,11 +288,6 @@ export default function UnverifiedWithdrawalsPanel() {
           ) : null}
         </>
       )}
-      <PayoutStatusDetailSheet
-        row={detailRow}
-        open={!!detailRow}
-        onOpenChange={(o) => { if (!o) setDetailRow(null); }}
-      />
     </section>
   );
 }

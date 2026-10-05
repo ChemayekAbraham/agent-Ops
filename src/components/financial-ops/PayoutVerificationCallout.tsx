@@ -1,40 +1,54 @@
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { ShieldAlert } from 'lucide-react';
+/**
+ * Full-width callout at the top of the Financial Ops dashboard: how many
+ * payout numbers and bank accounts are waiting to be called and verified,
+ * and how much money is held behind that verification.
+ */
+import { PhoneCall, ShieldAlert } from 'lucide-react';
+import { formatUGX } from '@/lib/rentCalculations';
 import { usePayoutVerificationCounts } from '@/hooks/usePayoutVerification';
 
-/**
- * Full-width card at the very top of the Financial Ops dashboard: how many
- * payout destinations are waiting for a verification call, and how much money
- * is held until they are cleared.
- */
 export default function PayoutVerificationCallout({ onOpen }: { onOpen: () => void }) {
-  const counts = usePayoutVerificationCounts();
-  const waiting = counts.data?.waiting ?? 0;
-  const held = counts.data?.waiting_balance ?? 0;
+  const { data, isLoading } = usePayoutVerificationCounts();
+  const waiting = data?.waiting ?? 0;
 
   return (
-    <Card className="border-2 border-primary/50 bg-primary/5 p-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-start gap-3">
-          <ShieldAlert className="mt-0.5 h-6 w-6 shrink-0 text-primary" />
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <h3 className="text-base font-bold leading-tight">Verify Payout Numbers</h3>
-              {waiting > 0 && <Badge variant="destructive">{waiting > 999 ? '999+' : waiting} waiting</Badge>}
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {waiting > 0
-                ? `UGX ${Math.round(held).toLocaleString()} cannot be paid out until these numbers are confirmed by phone.`
-                : 'Every payout destination has been confirmed by phone.'}
-            </p>
-          </div>
+    <button
+      type="button"
+      onClick={onOpen}
+      className="w-full text-left rounded-2xl border-2 border-primary/40 bg-gradient-to-br from-primary/10 via-card to-card p-4 sm:p-5 shadow-2xs hover:border-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+    >
+      <div className="flex items-start gap-3">
+        <div className="h-12 w-12 rounded-2xl bg-primary/15 border border-primary/30 flex items-center justify-center shrink-0">
+          <ShieldAlert className="h-6 w-6 text-primary" />
         </div>
-        <Button onClick={onOpen} className="h-12 w-full sm:w-auto">
-          Open queue
-        </Button>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-base sm:text-lg font-bold text-foreground">Verify Payout Numbers</h2>
+            {waiting > 0 && (
+              <span className="rounded-full bg-destructive px-2 py-0.5 text-[10px] font-bold text-destructive-foreground">
+                {waiting > 999 ? '999+' : waiting} waiting
+              </span>
+            )}
+          </div>
+          <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+            Call each holder, confirm the number or bank account is theirs and that it matches their
+            National ID. Nobody is paid until you verify.
+          </p>
+          <p className="text-xs sm:text-sm font-semibold text-foreground mt-2">
+            {isLoading
+              ? 'Loading…'
+              : waiting === 0
+                ? 'Everything verified — no numbers waiting.'
+                : `${formatUGX(data?.waiting_balance ?? 0)} held behind verification`}
+          </p>
+        </div>
+        <span className="hidden sm:inline-flex items-center gap-1.5 shrink-0 rounded-xl bg-primary text-primary-foreground px-3 py-2 text-xs font-bold">
+          <PhoneCall className="h-4 w-4" /> Start calling
+        </span>
       </div>
-    </Card>
+      <span className="sm:hidden mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-primary text-primary-foreground h-11 text-sm font-bold">
+        <PhoneCall className="h-4 w-4" /> Start calling
+      </span>
+    </button>
   );
 }

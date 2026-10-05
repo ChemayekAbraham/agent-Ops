@@ -3,7 +3,6 @@ import ExecutiveDashboardLayout from '@/components/layout/ExecutiveDashboardLayo
 import { usePersistedActiveTab } from '@/hooks/usePersistedActiveTab';
 import { CRMDashboard } from '@/components/executive/CRMDashboard';
 import { CRMSupportLogPanel } from '@/components/executive/CRMSupportLogPanel';
-import { CallCentrePanel } from '@/components/executive/crm/CallCentrePanel';
 import { CTOCommunicationOverview } from '@/components/executive/CTOCommunicationOverview';
 import { RequisitionsWorkspace } from '@/components/requisitions/RequisitionsWorkspace';
 import { Skeleton } from '@/components/ui/skeleton';

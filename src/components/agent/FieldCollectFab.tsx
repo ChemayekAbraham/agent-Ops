@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Banknote, WifiOff } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
-import { getQueuedEntries, isFieldCollectStorageUnavailable, onFieldCollectStorageUnavailable } from '@/lib/fieldCollectStore';
+import { getQueuedEntries } from '@/lib/fieldCollectStore';
 import { cn } from '@/lib/utils';
 
 interface FieldCollectFabProps {
@@ -24,15 +24,12 @@ export function FieldCollectFab({ onClick }: FieldCollectFabProps) {
     };
     refresh();
     const t = setInterval(refresh, 5000);
-    if (isFieldCollectStorageUnavailable()) clearInterval(t);
-    const offUnavailable = onFieldCollectStorageUnavailable(() => clearInterval(t));
     const on = () => setOnline(true);
     const off = () => setOnline(false);
     window.addEventListener('online', on);
     window.addEventListener('offline', off);
     return () => {
       clearInterval(t);
-      offUnavailable();
       window.removeEventListener('online', on);
       window.removeEventListener('offline', off);
     };

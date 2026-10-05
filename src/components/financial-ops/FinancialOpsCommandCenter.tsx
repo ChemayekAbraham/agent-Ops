@@ -885,7 +885,6 @@ export function FinancialOpsCommandCenter({ requirePaymentRef }: { requirePaymen
 
         {!activeTool && view === 'home' && (
           <div className="mt-6 space-y-4">
-            <PayoutVerificationCallout onOpen={() => setActiveTool('payout_verification')} />
             <MomoFeedSilenceAlert />
 
             {/* IFTTT Diagnostics Accordion — collapsed by default */}
@@ -1103,6 +1102,9 @@ function FinOpsHome({
           </button>
         </div>
       </div>
+
+      {/* Verified payout destinations — nobody is paid to an unverified number */}
+      <PayoutVerificationCallout onOpen={() => onOpenTool('payout_verification')} />
 
       {/* Above-the-fold highest frequency daily operations */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">

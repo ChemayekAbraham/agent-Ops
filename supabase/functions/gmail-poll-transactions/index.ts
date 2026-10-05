@@ -2342,21 +2342,6 @@ async function _tryAutoCreditOperationalFloat(
   }
 
   if (!profile?.id) {
-    // PR A: optionally park as pending_claim behind flag (default OFF).
-    // Never mint users / send SMS / call approve-deposit here.
-    const parkCfg = await loadAutoAccountOnUnmatchedMomoConfig(supabase);
-    if (parkCfg.enabled) {
-      const parkResult = await parkUnmatchedMomoPendingClaim(supabase, {
-        parsed,
-        gmailMessageId,
-        internalMs,
-        emailLast9Set,
-        cfg: parkCfg,
-      });
-      if (parkResult === 'parked' || parkResult === 'already_linked' || parkResult === 'no_phone' || parkResult === 'insert_failed') {
-        return;
-      }
-    }
     await logDepositDecision(supabase, {
       source: 'matcher',
       decision: 'skipped',
@@ -3009,218 +2994,6 @@ const DEFAULT_MOMO_SIGNUP_SMS: MomoSignupSmsTemplate = {
   support_email: '',
 };
 
-
-// ── PR A: Park unmatched MoMo as pending claim (flag OFF by default) ──────
-// CEO Faith LOCKED (2026-09-24) — encode in audit; do NOT expand scope:
-//   unclaimed_ttl_days=30 (FinOps queue; no auto-forfeit without Benjamin)
-//   park ALL sizes; needs_finops_confirm_before_invite when amount > 500_000
-//   pre-claim amount HIDDEN from user UI (FinOps may see)
-//   no extra withdrawal hold beyond today's OTP/KYC
-//   payer_name recorded for third-party confirm in PR C
-//   NEVER call approve-deposit here (credit only after OTP claim in PR C)
-// Does NOT: create auth users, send claim SMS, credit wallets.
-const FINOPS_CONFIRM_ABOVE_UGX = 500_000;
-const UNCLAIMED_TTL_DAYS = 30;
-
-type AutoAccountUnmatchedConfig = {
-  enabled: boolean;
-  credit_on_claim: boolean;
-  finops_confirm_above_ugx: number;
-  unclaimed_ttl_days: number;
-};
-
-const DEFAULT_AUTO_ACCOUNT_UNMATCHED: AutoAccountUnmatchedConfig = {
-  enabled: false,
-  credit_on_claim: true,
-  finops_confirm_above_ugx: FINOPS_CONFIRM_ABOVE_UGX,
-  unclaimed_ttl_days: UNCLAIMED_TTL_DAYS,
-};
-
-async function loadAutoAccountOnUnmatchedMomoConfig(
-  supabase: ReturnType<typeof createClient>,
-): Promise<AutoAccountUnmatchedConfig> {
-  try {
-    const { data } = await supabase
-      .from('system_config')
-      .select('value')
-      .eq('key', 'auto_account_on_unmatched_momo')
-      .maybeSingle();
-    const v = (data?.value ?? {}) as Partial<AutoAccountUnmatchedConfig>;
-    return {
-      enabled: v.enabled === true, // default OFF
-      credit_on_claim: v.credit_on_claim !== false,
-      finops_confirm_above_ugx: typeof v.finops_confirm_above_ugx === 'number'
-        ? v.finops_confirm_above_ugx
-        : FINOPS_CONFIRM_ABOVE_UGX,
-      unclaimed_ttl_days: typeof v.unclaimed_ttl_days === 'number'
-        ? v.unclaimed_ttl_days
-        : UNCLAIMED_TTL_DAYS,
-    };
-  } catch (_e) {
-    return DEFAULT_AUTO_ACCOUNT_UNMATCHED;
-  }
-}
-
-/** Extract a single parkable phone last-9 from counterparty or unique body set. */
-function extractParkPhoneLast9(
-  counterparty: string,
-  emailLast9Set: Set<string>,
-): { last9: string; phone_source: 'counterparty' | 'body' } | null {
-  const phoneMatch = counterparty.match(/(?:\+?256|0)?7\d{8}/);
-  if (phoneMatch) {
-    const last9 = toLast9(phoneMatch[0]);
-    if (last9) return { last9, phone_source: 'counterparty' };
-  }
-  if (emailLast9Set.size === 1) {
-    const only = Array.from(emailLast9Set)[0];
-    if (only) return { last9: only, phone_source: 'body' };
-  }
-  return null;
-}
-
-/**
- * PR A park path: insert pending deposit_requests with pending_claim audit,
- * link gmail row, do NOT approve-deposit / mint user / send SMS.
- * Idempotent via linked_deposit_request_id + TID uniqueness.
- */
-async function parkUnmatchedMomoPendingClaim(
-  supabase: ReturnType<typeof createClient>,
-  args: {
-    parsed: ReturnType<typeof parseTransaction>;
-    gmailMessageId: string;
-    internalMs: number;
-    emailLast9Set: Set<string>;
-    cfg: AutoAccountUnmatchedConfig;
-  },
-): Promise<'parked' | 'already_linked' | 'no_phone' | 'insert_failed' | 'skipped'> {
-  const { parsed, gmailMessageId, internalMs, emailLast9Set, cfg } = args;
-  if (!cfg.enabled) return 'skipped';
-  if (!parsed.amount || parsed.amount <= 0) return 'skipped';
-  if (!parsed.transaction_id) return 'skipped';
-
-  const cp = (parsed.counterparty ?? '').toString();
-  const phone = extractParkPhoneLast9(cp, emailLast9Set);
-  if (!phone) {
-    await logDepositDecision(supabase, {
-      source: 'matcher',
-      decision: 'skipped',
-      reason: 'no_user_match_no_phone_for_park',
-      amount: parsed.amount ?? null,
-      metadata: { gmail_message_id: gmailMessageId, parsed_tid: parsed.transaction_id ?? null },
-    });
-    return 'no_phone';
-  }
-
-  const { data: gmailRow } = await supabase
-    .from('gmail_transactions')
-    .select('id, linked_deposit_request_id')
-    .eq('gmail_message_id', gmailMessageId)
-    .maybeSingle();
-  if (!gmailRow?.id) return 'skipped';
-  if (gmailRow.linked_deposit_request_id) return 'already_linked';
-
-  const provider = parsed.channel === 'mtn_momo' ? 'mtn' : 'airtel';
-  const payerName = (((parsed as any).counterparty_name ?? cp) || '').toString().replace(/\s+/g, ' ').trim() || null;
-  const amount = Number(parsed.amount);
-  const needsFinopsConfirm = amount > cfg.finops_confirm_above_ugx;
-  const ttlDays = cfg.unclaimed_ttl_days;
-  const expiresAt = new Date(Date.now() + ttlDays * 24 * 3600 * 1000).toISOString();
-
-  const auditMeta = {
-    source: 'gmail_park_unmatched_claim',
-    gmail_message_id: gmailMessageId,
-    pending_claim: true,
-    claim_state: 'awaiting_otp',
-    // CEO Faith LOCKED defaults (recorded for FinOps / later PRs):
-    unclaimed_ttl_days: ttlDays,
-    unclaimed_expires_at: expiresAt,
-    needs_finops_confirm_before_invite: needsFinopsConfirm,
-    finops_confirm_above_ugx: cfg.finops_confirm_above_ugx,
-    payer_name: payerName,
-    park_phone_last9: phone.last9,
-    phone_source: phone.phone_source,
-    provider,
-    parsed_amount: amount,
-    parsed_tid: parsed.transaction_id,
-    internal_date: internalMs ? new Date(internalMs).toISOString() : null,
-    created_at: new Date().toISOString(),
-    // Explicit: no wallet credit, no user mint, no invite SMS in PR A.
-    credit_blocked_until_claim: true,
-    identity_mint: false,
-    invite_sent: false,
-    pre_claim_user_visibility: 'hidden',
-  };
-
-  const { data: newDep, error: depErr } = await supabase
-    .from('deposit_requests')
-    .insert({
-      // NULL until PR B mints / attaches a claimant (Slice A = park only).
-      user_id: null,
-      agent_id: null,
-      amount,
-      status: 'pending',
-      provider,
-      transaction_id: parsed.transaction_id,
-      transaction_date: internalMs ? new Date(internalMs).toISOString() : new Date().toISOString(),
-      deposit_purpose: 'operational_float',
-      auto_approved: false,
-      auto_match_audit: auditMeta,
-      notes: '[park] Unmatched MoMo receipt parked pending OTP claim — NOT credited. No account minted (PR A).',
-    } as any)
-    .select('id')
-    .single();
-
-  if (depErr || !newDep?.id) {
-    // Likely unique TID collision — treat as already handled if a pending_claim exists.
-    console.warn('[gmail-poll] park pending_claim insert failed', depErr);
-    await logDepositDecision(supabase, {
-      source: 'matcher',
-      decision: 'failed',
-      reason: 'park_pending_claim_insert_failed',
-      amount,
-      metadata: {
-        gmail_message_id: gmailMessageId,
-        error: depErr?.message ?? null,
-        park_phone_last9: phone.last9,
-      },
-    });
-    return 'insert_failed';
-  }
-
-  await supabase
-    .from('gmail_transactions')
-    .update({
-      linked_deposit_request_id: newDep.id,
-      auto_matched_at: new Date().toISOString(),
-      auto_match_method: 'park_unmatched_pending_claim',
-    } as any)
-    .eq('id', gmailRow.id);
-
-  console.log(
-    `[gmail-poll] parked unmatched MoMo as pending_claim dep=${newDep.id} ` +
-    `amt=${amount} last9=${phone.last9} needs_finops_confirm=${needsFinopsConfirm}`,
-  );
-
-  await logDepositDecision(supabase, {
-    source: 'matcher',
-    decision: 'parked_pending_claim',
-    reason: 'no_user_match_parked',
-    deposit_request_id: newDep.id,
-    amount,
-    metadata: {
-      gmail_message_id: gmailMessageId,
-      park_phone_last9: phone.last9,
-      phone_source: phone.phone_source,
-      needs_finops_confirm_before_invite: needsFinopsConfirm,
-      claim_state: 'awaiting_otp',
-      unclaimed_expires_at: expiresAt,
-      payer_name: payerName,
-    },
-  });
-
-  return 'parked';
-}
-
 async function loadMomoSignupSmsTemplate(
   supabase: ReturnType<typeof createClient>,
 ): Promise<MomoSignupSmsTemplate> {
@@ -3319,20 +3092,12 @@ async function sweepLinkedPendingDeposits(
 
   const { data: deps } = await supabase
     .from('deposit_requests')
-    .select('id, status, amount, user_id, transaction_id, provider, auto_match_audit')
+    .select('id, status, amount, user_id, transaction_id, provider')
     .in('id', depIds)
     .eq('status', 'pending')
     .in('provider', ['mtn', 'airtel'])
     .limit(25);
   if (!deps?.length) return;
-
-  // PR A: never auto-approve parked unmatched claims (credit only after OTP claim).
-  const depsCreditable = (deps as any[]).filter((d) => {
-    const audit = (d.auto_match_audit ?? {}) as { pending_claim?: boolean; claim_state?: string };
-    if (audit.pending_claim === true && audit.claim_state !== 'claimed') return false;
-    return true;
-  });
-  if (!depsCreditable.length) return;
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -3347,7 +3112,7 @@ async function sweepLinkedPendingDeposits(
   // out the one genuinely stuck deposit (pending since 2026-08-17) in noise.
   const BENIGN_DUPLICATE_RE = /already credited|duplicate tid|no duplicate needed/i;
 
-  for (const dep of depsCreditable) {
+  for (const dep of deps) {
     // Re-verify amount + provider before kicking approve-deposit.
     const match = rows.find(
       (r: any) =>

@@ -7,6 +7,8 @@ import { Banknote, TrendingUp, PieChart, ChevronDown, ChevronUp, Receipt } from 
 import { Loader2 } from 'lucide-react';
 import { useState } from 'react';
 import { Progress } from '@/components/ui/progress';
+import { useReceivablesTotal } from '@/hooks/useReceivables';
+
 
 interface Receivable {
   id: string;
@@ -26,6 +28,14 @@ interface Receivable {
 export function CFOReceivablesTracker() {
   const [expanded, setExpanded] = useState(false);
   const [advanceExpanded, setAdvanceExpanded] = useState(false);
+
+  // Authoritative Total Receivables (server-side v_receivables_lines) — this
+  // tracker no longer derives its headline receivables figure locally.
+  const { data: authoritative } = useReceivablesTotal();
+  const authoritativeTotal = authoritative ? Number(authoritative.total || 0) : null;
+  const authoritativeItems = authoritative?.item_count ?? 0;
+
+
 
   // Advance access fee receivables
   const { data: advanceReceivables = [] } = useQuery({
@@ -173,11 +183,30 @@ export function CFOReceivablesTracker() {
         <span className="text-[10px] text-muted-foreground">{fundedCount + repayingCount} active</span>
       </div>
 
-      {/* Principal KPIs */}
+      {/* Authoritative Total Receivables — single server-side definition, shared
+          with useCFOOverviewData and useFinancialStatements. The rent-plan KPIs
+          below remain scoped to the rent plans listed in this tracker. */}
+      <div className="rounded-lg border border-primary/20 bg-primary/5 px-2.5 py-2 flex items-center justify-between gap-2">
+        <div>
+          <p className="text-[8px] uppercase tracking-wider text-muted-foreground">
+            Total Receivables (all products)
+          </p>
+          <p className="text-sm font-bold font-mono">
+            {authoritativeTotal === null ? '—' : formatUGX(authoritativeTotal)}
+          </p>
+        </div>
+        <span className="text-[9px] text-muted-foreground text-right">
+          {authoritativeItems} open items
+          <br />
+          v_receivables_lines
+        </span>
+      </div>
+
+      {/* Principal KPIs — rent plans in this tracker only */}
       <div className="grid grid-cols-4 gap-1.5">
         {[
           { label: 'Funded', value: formatUGX(totals.totalFunded) },
-          { label: 'Outstanding', value: formatUGX(totalOutstanding), accent: 'text-amber-600' },
+          { label: 'Rent Outstanding', value: formatUGX(totalOutstanding), accent: 'text-amber-600' },
           { label: 'Awaiting', value: String(fundedCount) },
           { label: 'Repaying', value: String(repayingCount) },
         ].map(k => (
@@ -187,6 +216,7 @@ export function CFOReceivablesTracker() {
           </div>
         ))}
       </div>
+
 
       {/* Revenue Recognition Breakdown */}
       <div className="rounded-xl border border-primary/20 bg-primary/5 p-3 space-y-3">

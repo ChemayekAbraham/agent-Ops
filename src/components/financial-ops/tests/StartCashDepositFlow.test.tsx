@@ -85,8 +85,11 @@ describe('StartCashDepositDialog — steps and errors', () => {
 
     next();
     onEmailStep();
+    next();
+    onEmailStep();
+    expect(screen.getByText(/Please type the email address/i)).toBeTruthy();
     fill(/Depositor email address/i, 'depositor@example.com');
-    expect(screen.queryByText(/does not look right/i)).toBeNull();
+    expect(screen.queryByText(/Please type the email address/i)).toBeNull();
     expect(invokeSpy).not.toHaveBeenCalled();
   });
 
@@ -119,23 +122,15 @@ describe('StartCashDepositDialog — steps and errors', () => {
     expect(screen.getAllByText(/Operational Float/i).length).toBeGreaterThan(0);
   });
 
-  it('step 3: a blank email is allowed and moves on to the review step', () => {
+  it('step 3: missing and malformed email show messages and stay put', () => {
     setup();
     completePerson();
     fill(/Cash amount/i, '250000');
     next();
     onEmailStep();
     next();
-    expect(screen.getByRole("heading", { name: /Check and send/i })).toBeTruthy();
-    expect(screen.getByText(/Not provided/i)).toBeTruthy();
-  });
-
-  it('step 3: a malformed email shows a message and stays put', () => {
-    setup();
-    completePerson();
-    fill(/Cash amount/i, '250000');
-    next();
     onEmailStep();
+    expect(screen.getByText(/Please type the email address/i)).toBeTruthy();
     fill(/Depositor email address/i, 'bad');
     next();
     onEmailStep();

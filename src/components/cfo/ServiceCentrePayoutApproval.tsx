@@ -30,8 +30,8 @@ export function ServiceCentrePayoutApproval() {
     if (!user?.id) return;
     setProcessingId(setup.id);
     try {
-      // Call staff_credit_agent_event_bonus RPC (role-gated wrapper) for UGX 25,000
-      const { data: result, error: rpcError } = await supabase.rpc('staff_credit_agent_event_bonus', {
+      // Call credit_agent_event_bonus RPC for UGX 25,000
+      const { data: result, error: rpcError } = await supabase.rpc('credit_agent_event_bonus', {
         p_agent_id: setup.agent_id,
         p_event_type: 'service_centre_setup',
         p_tenant_id: setup.agent_id, // self-referencing for non-tenant events

@@ -28,8 +28,7 @@ type ReportSource =
   | 'dashboard-error-boundary'
   | 'window-onerror'
   | 'unhandled-rejection'
-  | 'manual'
-  | 'field-collect-store';
+  | 'manual';
 
 export interface ErrorReportInput {
   source: ReportSource;
@@ -73,8 +72,6 @@ function shouldDedupe(signature: string) {
  * Send a single error to the reporting pipeline. Always resolves — never
  * throws — so callers (including error boundaries) are safe to await.
  */
-let idbFailureReported = false;
-
 export async function reportClientError(input: ErrorReportInput): Promise<boolean> {
   // Dev/preview errors stay visible in that environment's own console —
   // they just never reach the table the CTO report reads as "production".
@@ -85,12 +82,6 @@ export async function reportClientError(input: ErrorReportInput): Promise<boolea
   // Manual user-triggered reports always go through, even if the same error
   // was just auto-captured by the boundary.
   if (input.source !== 'manual' && shouldDedupe(signature)) return true;
-  // IndexedDB "connection is closing" / offline-storage-unavailable: report
-  // at most once per page load — it can't recover without a reload.
-  if (input.source !== 'manual' && /connection is closing|in-progress transaction|Offline storage stopped responding/i.test(input.message ?? '')) {
-    if (idbFailureReported) return true;
-    idbFailureReported = true;
-  }
 
   try {
     const { error } = await supabase.from('client_error_reports').insert({

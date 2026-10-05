@@ -1239,7 +1239,7 @@ function AllocateDialog({ sub, onClose, onDone }: {
     const periodLabel = monthOptions.find((m) => m.value === period)?.label || period;
     setSubmitting(true);
     try {
-      const { data, error } = await supabase.rpc('agent_welile_home_record_collection', {
+      const { data, error } = await supabase.rpc('welile_home_record_collection', {
         p_subscription_id: sub.id,
         p_amount: amt,
         p_source: 'agent_allocation',

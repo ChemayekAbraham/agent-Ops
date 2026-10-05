@@ -1,6 +1,5 @@
 import "../_shared/smsFooterInterceptor.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-import { forbidden, getCaller, hasAnyRole, isServiceRoleRequest, STAFF_ROLES } from "../_shared/callerAuth.ts";
 import { attemptYoolaPrimary } from "../_shared/yoolaPrimary.ts";
 
 const corsHeaders = {
@@ -11,15 +10,6 @@ const corsHeaders = {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
-  }
-
-  // Staff-only. verify_jwt is off, so check the caller here; otherwise anyone
-  // holding the public anon key could send Welile-branded SMS with arbitrary text to any phone number.
-  if (!isServiceRoleRequest(req)) {
-    const authClient = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-    const caller = await getCaller(authClient, req);
-    if (!caller) return forbidden(corsHeaders, 401);
-    if (!hasAnyRole(caller, STAFF_ROLES)) return forbidden(corsHeaders, 403);
   }
 
   try {

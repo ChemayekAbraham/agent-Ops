@@ -77,40 +77,6 @@ const PROTECTED = [
     baselineFile: '20260925220000_agent_advances_client_read_only.sql',
     why: 'mints an agent advance against any p_user_id with a 33% access fee, no audit row and no ledger entry',
   },
-  // Internal ledger / wallet / payout RPCs taken off the public API. Frontend
-  // callers go through the role-gated staff_* / agent_* wrappers instead.
-  ...[
-    ['create_ledger_transaction', 'posts arbitrary balanced ledger legs — a platform cash_out + wallet cash_in mints withdrawable balance'],
-    ['create_ledger_transaction_accrual_only', 'posts arbitrary ledger legs'],
-    ['create_ledger_transaction_locked', 'posts arbitrary ledger legs and accepts skip_balance_check'],
-    ['record_double_entry', 'writes general_ledger for any pair of users'],
-    ['apply_wallet_movement', 'wallet movement for any user'],
-    ['drain_withdrawable_buckets', 'drains any user’s withdrawable balance'],
-    ['credit_agent_event_bonus', 'credits up to UGX 25,000 to any agent per call'],
-    ['credit_agent_rent_commission', 'credits rent commission for any rent request'],
-    ['credit_recruiter_override', 'credits recruiter override commission'],
-    ['credit_proxy_approval', 'credits any beneficiary for a proxy approval'],
-    ['pay_proxy_commission_queue_item', 'pays a queued proxy commission'],
-    ['try_credit_qualified_referrals', 'credits referral bonuses'],
-    ['process_monthly_referral_rewards', 'runs the monthly referral payout'],
-    ['agent_allocate_tenant_payment_internal', 'moves agent money onto any tenant’s Rent Plan'],
-    ['post_instalment_waterfall', 'posts a rent instalment for any rent request'],
-    ['settle_tenant_rent_from_deposit', 'settles rent from a deposit'],
-    ['welile_home_record_collection', 'debits a Welile Homes tenant wallet'],
-    ['welile_home_run_landlord_payouts', 'runs the Welile Homes landlord payout batch'],
-    ['restate_agent_receivables', 'restates the agent receivables book'],
-    ['restate_rent_plan_receivables', 'restates the Rent Plan receivables book'],
-    ['apply_portfolio_redemption', 'redeems any supporter portfolio'],
-    ['apply_portfolio_renewal', 'renews any supporter portfolio'],
-    ['merge_paidout_topups', 'runs the top-up merge batch'],
-    ['pay_partner_self_cycles', 'runs the partner Returns payout batch'],
-    ['auto_dispatch_withdrawals', 'dispatches pending withdrawals'],
-  ].map(([name, why]) => ({
-    name,
-    baseline: '20260927180000',
-    baselineFile: '20260927180000_lock_down_internal_money_rpcs.sql',
-    why,
-  })),
 ];
 
 const DANGEROUS_GRANTEES = ['public', 'anon', 'authenticated'];

@@ -15,9 +15,6 @@ import {
   type AllocationSettlement,
 } from '@/lib/collectibleRentRequests';
 import { describePlanSchedule, type PlanSchedule } from '@/lib/agentMonitoringSchedule';
-import { useMarkAgentOverdueTouch, touchMapFrom, useAgentOverdueTouches } from '@/hooks/useAgentOverdueTouches';
-import { toast } from 'sonner';
-
 
 interface CollectionItem {
   rent_request_id: string;
@@ -48,9 +45,6 @@ export function PriorityCollectionQueue({ open, onOpenChange, agentId }: Props) 
   const [editTarget, setEditTarget] = useState<CollectionItem | null>(null);
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 15;
-  const { data: touchDay } = useAgentOverdueTouches(agentId, open);
-  const markTouch = useMarkAgentOverdueTouch(agentId);
-  const touches = touchMapFrom(touchDay?.touches);
 
   const { data: queue = [], isLoading } = useQuery({
     queryKey: ['priority-collection-queue', agentId],
@@ -287,48 +281,13 @@ export function PriorityCollectionQueue({ open, onOpenChange, agentId }: Props) 
                 </button>
 
                 <div className="flex items-center gap-1.5">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="flex-1 h-8 text-xs gap-1"
-                    disabled={markTouch.isPending}
-                    onClick={() => {
-                      // Call CTA persists called_at (+ tapped_at). Raw tel: alone does not count.
-                      void markTouch
-                        .mutateAsync({
-                          rentRequestId: item.rent_request_id,
-                          event: 'called',
-                          tenantId: item.tenant_id,
-                        })
-                        .catch(() => toast.error('Could not save call mark'));
-                      if (item.tenant_phone) {
-                        window.location.href = `tel:${item.tenant_phone}`;
-                      } else {
-                        toast.message('No phone — use Mark called after you reach them');
-                      }
-                    }}
-                  >
-                    <Phone className="h-3 w-3" /> Call
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant={touches[item.rent_request_id]?.done ? 'secondary' : 'outline'}
-                    className="flex-1 h-8 text-xs gap-1"
-                    disabled={markTouch.isPending || Boolean(touches[item.rent_request_id]?.done)}
-                    onClick={() => {
-                      void markTouch
-                        .mutateAsync({
-                          rentRequestId: item.rent_request_id,
-                          event: 'called',
-                          tenantId: item.tenant_id,
-                        })
-                        .then(() => toast.success(`Marked called — ${item.tenant_name}`))
-                        .catch(() => toast.error('Could not save Mark called'));
-                    }}
-                  >
-                    <CheckCircle2 className="h-3 w-3" />
-                    {touches[item.rent_request_id]?.called_at ? 'Called' : 'Mark called'}
-                  </Button>
+                  {item.tenant_phone && (
+                    <a href={`tel:${item.tenant_phone}`} className="flex-1">
+                      <Button size="sm" variant="outline" className="w-full h-8 text-xs gap-1">
+                        <Phone className="h-3 w-3" /> Call
+                      </Button>
+                    </a>
+                  )}
                   {item.latitude && item.longitude && (
                     <a
                       href={`https://www.google.com/maps/dir/?api=1&destination=${item.latitude},${item.longitude}`}

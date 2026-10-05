@@ -353,10 +353,17 @@ export function useCFOOverviewData() {
     staleTime: STALE_TIME,
   });
 
-  // Receivables: tenant outstanding + advances outstanding
+  // Receivables. The headline total comes from the single authoritative
+  // server-side definition (get_receivables_total -> v_receivables_lines) so
+  // this hook, useFinancialStatements and CFOReceivablesTracker cannot drift.
+  // The advance detail below is kept purely for the existing breakdown cards.
   const receivables = useQuery({
     queryKey: ['cfo-overview-receivables'],
     queryFn: async () => {
+      const { data: authoritative, error: authErr } = await supabase.rpc('get_receivables_total');
+      if (authErr) throw authErr;
+      const auth = authoritative as any;
+
       const { data: charges } = await supabase
         .from('subscription_charges')
         .select('accumulated_debt')
@@ -375,7 +382,7 @@ export function useCFOOverviewData() {
 
       let advancesPrincipal = 0;
       let advancesOutstandingAll = 0;
-      let advancesOutstanding = 0; // active only — feeds totalReceivables (unchanged behaviour)
+      let advancesOutstanding = 0;
       const advanceStatusCounts: Record<string, number> = {};
       (advances || []).forEach((a: any) => {
         const principal = Number(a.principal || 0);
@@ -395,7 +402,10 @@ export function useCFOOverviewData() {
         advancesOutstandingAll,
         advancesRecovered,
         advanceStatusCounts,
-        totalReceivables: tenantOutstanding + advancesOutstanding,
+        totalReceivables: Number(auth?.total ?? 0),
+        receivablesCategories: (auth?.categories ?? []) as Array<{
+          key: string; label: string; outstanding: number; item_count: number;
+        }>,
       };
     },
     staleTime: STALE_TIME,

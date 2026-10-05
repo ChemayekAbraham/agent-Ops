@@ -385,6 +385,9 @@ async function notifyRequester(admin: any, row: any, message: string) {
   try {
     const { data: p } = await admin.from("profiles").select("phone, full_name").eq("id", row.requester_id).maybeSingle();
     if (p?.phone) {
+      // The requester always gets the in-app notification above; the text
+      // message is restricted to senior/finance roles.
+      if (!(await maySendRequisitionSms(admin, row.requester_id))) return;
       await sendSMS(p.phone, `Welile: ${message}`, {
         admin,
         source: "staff-requisition-decide",
@@ -399,54 +402,15 @@ async function notifyRequester(admin: any, row: any, message: string) {
 
 const EXEC_APPROVER_ROLES = new Set(["ceo", "cto", "cfo", "coo"]);
 
-/** decided_by columns for every six-eyes stage; a holder who already signed an
- *  earlier stage is not asked again for the same requisition. */
-const EARLIER_STAGE_SIGNER_COLS = [
-  "supervisor_decided_by",
-  "coo_decided_by",
-  "ceo_decided_by",
-  "cfo_decided_by",
-] as const;
-
 // deno-lint-ignore no-explicit-any
 async function notifyApprovers(admin: any, approverRole: string, row: any) {
   if (!EXEC_APPROVER_ROLES.has(approverRole)) return;
   try {
-    let recipientIds: string[] = [];
-    const isRequisitionOfficeStage =
-      String(row?.request_kind ?? "requisition") === "requisition" &&
-      ["coo", "ceo", "cfo"].includes(approverRole);
-    if (isRequisitionOfficeStage) {
-      // Ordinary requisitions notify exactly one person: the holder of the
-      // next stage's approval office (staff_requisition_offices) — never
-      // every enabled holder of that role. Skip the office holder if they
-      // raised the requisition or already signed an earlier stage.
-      const { data: office } = await admin
-        .from("staff_requisition_offices")
-        .select("holder_id")
-        .eq("office_key", approverRole)
-        .maybeSingle();
-      const holder = office?.holder_id as string | undefined;
-      const earlierSigners = new Set(
-        EARLIER_STAGE_SIGNER_COLS.map((col) => row?.[col]).filter(Boolean),
-      );
-      if (holder && holder !== row?.requester_id && !earlierSigners.has(holder)) {
-        recipientIds = [holder];
-      }
-      if (!recipientIds.length) {
-        console.error(
-          `notifyApprovers: no eligible ${approverRole} office holder for requisition ${row?.id ?? "unknown"}`,
-        );
-        return;
-      }
-    } else {
-      // Other request kinds keep the existing role-wide fan-out.
-      const { data: holders } = await admin
-        .from("user_roles").select("user_id").eq("role", approverRole).eq("enabled", true).limit(20);
-      recipientIds = (holders || []).map((r: { user_id: string }) => r.user_id);
-      if (!recipientIds.length) return;
-    }
-    await admin.from("notifications").insert(recipientIds.map((id: string) => ({
+    const { data: holders } = await admin
+      .from("user_roles").select("user_id").eq("role", approverRole).eq("enabled", true).limit(20);
+    const ids = (holders || []).map((r: { user_id: string }) => r.user_id);
+    if (!ids.length) return;
+    await admin.from("notifications").insert(ids.map((id: string) => ({
       user_id: id,
       type: "staff_requisition",
       title: `Requisition ${row.requisition_code} needs your review`,

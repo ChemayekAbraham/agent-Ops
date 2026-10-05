@@ -227,24 +227,14 @@ export function StaffRequisitionQueue() {
   const [submittedTo, setSubmittedTo] = useState('');
   const [page, setPage] = useState(1);
 
-  const [officeHolders, setOfficeHolders] = useState<Record<string, string>>({});
-
   const fetchAll = useCallback(async () => {
-    const [reqRes, budgetRes, usageRes, officeRes] = await Promise.all([
+    const [reqRes, budgetRes, usageRes] = await Promise.all([
       supabase.from('staff_requisitions').select('*').order('created_at', { ascending: false }),
       supabase.from('v_staff_requisition_budget_context').select('*'),
       supabase
         .from('staff_requisition_usage_reports')
         .select('id, requisition_id, amount_used, summary, submitted_at, attachment_paths'),
-      supabase.rpc('staff_requisition_offices_list' as never),
     ]);
-    if (!officeRes.error && Array.isArray(officeRes.data)) {
-      const omap: Record<string, string> = {};
-      for (const o of officeRes.data as unknown as { office_key: string; holder_id: string }[]) {
-        omap[o.office_key] = o.holder_id;
-      }
-      setOfficeHolders(omap);
-    }
     if (!usageRes.error) {
       const umap: Record<string, UsageReport> = {};
       for (const rep of (usageRes.data || []) as unknown as UsageReport[]) umap[rep.requisition_id] = rep;
@@ -296,15 +286,12 @@ export function StaffRequisitionQueue() {
           row.stage === 'ceo' || row.stage === 'cfo' ? row.coo_decided_by : null,
           row.stage === 'cfo' ? row.ceo_decided_by : null,
         ].includes(user?.id ?? '__none__');
-        // COO / CEO / CFO stages: only that office's current holder.
-        const isOfficeStage = row.stage === 'coo' || row.stage === 'ceo' || row.stage === 'cfo';
-        const holdsOffice = !isOfficeStage || officeHolders[row.stage] === user?.id;
-        return r.includes(row.current_approver_role) && !signedEarlier && holdsOffice;
+        return r.includes(row.current_approver_role) && !signedEarlier;
       }
       // Inbox lists only items waiting at this desk; no executive override.
       return r.includes(row.current_approver_role);
     },
-    [roles, user?.id, officeHolders],
+    [roles, user?.id],
   );
 
   // Each executive dashboard lists only requisitions waiting at its own desk:

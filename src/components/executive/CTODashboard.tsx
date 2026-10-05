@@ -41,7 +41,6 @@ import { DeletedAccountsPanel } from '@/components/cto/DeletedAccountsPanel';
 import { CTOUserDossier } from '@/components/cto/dossier/CTOUserDossier';
 import { FakeAccountRadarPanel } from '@/components/cto/FakeAccountRadarPanel';
 import GitCommitsPanel from '@/components/cto/GitCommitsPanel';
-import { CTOUserDossier } from '@/components/cto/dossier/CTOUserDossier';
 
 
 

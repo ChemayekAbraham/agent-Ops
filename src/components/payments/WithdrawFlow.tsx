@@ -166,11 +166,6 @@ export default function WithdrawFlow({
     (needsNationalId || needsIdentityPhotos || !!identityBlock.data?.blocked);
 
   const [currentStep, setCurrentStep] = useState(0);
-  // Set when the user taps "Resubmit National ID" on the rejection banner: the
-  // first step then shows the ID form and the photo capture even though an ID
-  // and photos are already on file (they were rejected).
-  const [resubmitIdentity, setResubmitIdentity] = useState(false);
-
   const [source, setSource] = useState<'available' | 'roi'>('available');
   const [amount, setAmount] = useState(100000);
   // Reason / purpose the user selects for this withdrawal. The stored reason
@@ -1547,6 +1542,7 @@ export default function WithdrawFlow({
         );
         return (
           <div className="space-y-5">
+            <NationalIdPrompt withdrawableBalance={maxAmount} />
             {payoutMode !== 'cash' && !(payoutMode === 'mobile_money' && lockedMomo) && compatibleSaved.length > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -1574,11 +1570,6 @@ export default function WithdrawFlow({
                       m.payout_mode === 'mobile_money'
                         ? m.momo_number ?? ''
                         : m.bank_account_number ?? '';
-                    const verState = destinationStateFor(myDestinations.data, {
-                      mode: m.payout_mode,
-                      momoNumber: m.momo_number ?? undefined,
-                      bankAccountNumber: m.bank_account_number ?? undefined,
-                    });
                     return (
                       <Card
                         key={m.id}

@@ -5,7 +5,6 @@ import { ChevronDown, ChevronUp, Archive, Plus } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { StaffRequisitionQueue } from './StaffRequisitionQueue';
 import { DirectorRequisitionsPanel } from './DirectorRequisitionsPanel';
-import { RequisitionOfficesCard } from './RequisitionOfficesCard';
 
 const ManualRequisitionQueuePanel = lazy(() => import('@/components/financial-ops/ManualRequisitionQueuePanel').then((module) => ({ default: module.ManualRequisitionQueuePanel })));
 const RequisitionUsageReportsReview = lazy(() => import('./RequisitionUsageReportsReview').then((module) => ({ default: module.RequisitionUsageReportsReview })));
@@ -29,7 +28,6 @@ export function RequisitionsWorkspace({ manualStage = 'coo' }: { manualStage?: '
           </Link>
         </Button>
       </div>
-      <RequisitionOfficesCard />
       <Suspense fallback={<Card className="p-4 text-sm text-muted-foreground">Loading manual requisitions…</Card>}>
         <ManualRequisitionQueuePanel stage={manualStage} />
       </Suspense>

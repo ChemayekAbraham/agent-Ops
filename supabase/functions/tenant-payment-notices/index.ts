@@ -47,7 +47,6 @@ import {
   renderTemplate,
   type NotificationEvent,
 } from "../_shared/tenantTemplates.ts";
-import { ReminderSmsGuard, reminderCopyViolation } from "../_shared/reminderSmsControls.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -275,19 +274,6 @@ Deno.serve(async (req) => {
         );
       }
     } else {
-      // PAYMENT_MISSED is a reminder: it obeys the reminder SMS controls in
-      // system_config (_shared/reminderSmsControls.ts). Kill switch off (or
-      // missing) = nothing dispatched, push/in-app included; re-read before
-      // every dispatch so flipping it stops a run in progress. Caps: one
-      // reminder per tenant per Kampala day, max N dispatches per run.
-      const guard = new ReminderSmsGuard(admin, { enforceKillSwitch: !dryRun });
-      const controls = await guard.load();
-      if (!controls.enabled && !dryRun) {
-        return new Response(
-          JSON.stringify({ success: true, mode, sent: 0, stopped_reason: "reminder_sms_disabled", sms_controls: controls }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-        );
-      }
       // Default to the day that has just closed; today is still in progress
       // and a tenant who has not paid yet this morning has missed nothing.
       const day = String(body.as_of ?? kampalaDate(-1));
@@ -310,9 +296,6 @@ Deno.serve(async (req) => {
         domainName,
       );
 
-      // Largest balances first, so the per-run cap drops the smallest.
-      rows.sort((a, b) => Number(b.outstanding || 0) - Number(a.outstanding || 0));
-      let copyChecked = false;
       for (const row of rows) {
         const phone = String(row.tenant_phone ?? "").trim();
         if (!phone) continue;
@@ -325,22 +308,6 @@ Deno.serve(async (req) => {
           dashboard_suffix: suffix,
           status_appendix: statusAppendices.get(row.tenant_id) ?? "",
         };
-
-        // The template is DB-editable; refuse to run if it ever gains promo /
-        // top-up / "repay up to 70%" copy.
-        if (!copyChecked) {
-          const rendered = renderTemplate(events.get("PAYMENT_MISSED")!.body_template!, vars);
-          const bad = reminderCopyViolation(rendered);
-          if (bad) throw new Error(`PAYMENT_MISSED template contains blocked reminder copy ("${bad}") - run aborted, nothing sent`);
-          copyChecked = true;
-        }
-        const decision = await guard.beforeSend(row.tenant_id);
-        if (!decision.ok) {
-          results.skipped++;
-          skipReasons[decision.reason] = (skipReasons[decision.reason] ?? 0) + 1;
-          if (decision.stopRun) break;
-          continue;
-        }
 
         await dispatch(
           row.tenant_id,

@@ -316,7 +316,10 @@ export interface BalanceSheetData {
     rentReceivablesCreated: number;
     advanceAccessFeeReceivables: number;
     promissoryNotesReceivable: number;
+    /** Authoritative all-inclusive receivables from get_receivables_total(). */
+    totalReceivables: number;
     totalAssets: number;
+
   };
   platformObligations: {
     userWalletCustody: number;
@@ -580,6 +583,8 @@ async function generateStatementsRaw(activeFilters: StatementFilters): Promise<F
       const activeAdvances = advancesRes.data || [];
       const allTimePlatformSummary = allTimePlatformRes.data as any;
       const promissoryNotes = promissoryNotesRes.data || [];
+      const authoritativeReceivables = Number((receivablesTotalRes.data as any)?.total ?? 0);
+
 
       const excludeSynthetic = (rows: any[]) => rows.filter(r => r.category !== 'opening_balance');
       const sumBy = (rows: any[], cats: string[]) =>
@@ -1131,7 +1136,14 @@ async function generateStatementsRaw(activeFilters: StatementFilters): Promise<F
       const promissoryNotesReceivable = promissoryNotes.reduce((s: number, n: any) =>
         s + (Number(n.amount || 0) - Number(n.total_collected || 0)), 0);
 
-      const totalAssets = platformCash + userFundsHeld + outstandingRent + rentReceivablesCreated + advanceAccessFeeReceivables + promissoryNotesReceivable;
+      // Total receivables is the authoritative server-side figure, replacing the
+      // former partial sum of (outstandingRent + rentReceivablesCreated +
+      // advanceAccessFeeReceivables + promissoryNotesReceivable). The individual
+      // components above are retained for the detail rows only.
+      const totalReceivables = authoritativeReceivables;
+
+      const totalAssets = platformCash + userFundsHeld + totalReceivables;
+
 
       const userWalletCustody = userFundsHeld;
       const pendingWithdrawals = sumBy(platformOut, ['wallet_withdrawal']) * 0.1;
@@ -1172,7 +1184,7 @@ async function generateStatementsRaw(activeFilters: StatementFilters): Promise<F
       const badDebtProvision = arDays31to60 * 0.05 + arDays61to90 * 0.15 + arOver90 * 0.50;
 
       // ── GAAP: Working Capital ──
-      const currentAssets = platformCash + userFundsHeld + outstandingRent + advanceAccessFeeReceivables;
+      const currentAssets = platformCash + userFundsHeld + totalReceivables;
       const currentLiabilities = userWalletCustody + pendingWithdrawals + accruedPlatformRewards + agentCommissionsPayable + deferredRevenue;
       const workingCapitalAmount = currentAssets - currentLiabilities;
       const currentRatio = currentLiabilities > 0 ? currentAssets / currentLiabilities : 0;
@@ -1381,8 +1393,11 @@ async function generateStatementsRaw(activeFilters: StatementFilters): Promise<F
         balanceSheet: {
           assets: {
             platformCash, userFundsHeld, receivables: outstandingRent, rentReceivablesCreated,
-            advanceAccessFeeReceivables, promissoryNotesReceivable, totalAssets,
+            advanceAccessFeeReceivables, promissoryNotesReceivable,
+            // Authoritative, all-inclusive receivables (get_receivables_total).
+            totalReceivables, totalAssets,
           },
+
           platformObligations: { userWalletCustody, pendingWithdrawals, accruedPlatformRewards, agentCommissionsPayable, deferredRevenue, totalObligations },
           platformEquity: { retainedOperatingSurplus, totalEquity: retainedOperatingSurplus },
           revenueRecognition: {

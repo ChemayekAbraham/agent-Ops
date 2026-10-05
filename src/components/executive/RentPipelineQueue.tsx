@@ -8,8 +8,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { getRentCycleLabel, RENT_CYCLE_BADGE_CLASSES } from '@/lib/rentCycleLabel';
-import { useTenantRenewalMap } from '@/hooks/useTenantRenewalMap';
-import { TenantRelationshipBadge } from '@/components/rent/TenantRelationshipBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -20,7 +18,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
-import { CheckCircle2, XCircle, Clock, MapPin, User, UserCheck, Users, Home, Banknote, ArrowRight, ArrowRightLeft, Loader2, Search, MessageCircle, Phone, Pencil, Check, X, PhoneCall, ShieldCheck, AlertCircle, Image as ImageIcon, Camera, Cloud, HardDrive, RotateCcw, ArrowUpDown, ChevronDown, Filter, Eye, CalendarClock } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, MapPin, User, UserCheck, Home, Banknote, ArrowRight, ArrowRightLeft, Loader2, Search, MessageCircle, Phone, Pencil, Check, X, PhoneCall, ShieldCheck, AlertCircle, Image as ImageIcon, Camera, Cloud, HardDrive, RotateCcw, ArrowUpDown, ChevronDown, Filter, Eye, CalendarClock, Repeat, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { calculateRentRepayment } from '@/lib/rentCalculations';
 import { formatTenantSync } from '@/lib/tenantFilterSyncFormat';
@@ -829,46 +827,32 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
 
   const rows = requests || [];
 
-  // New / Renewing classification for every tenant in this queue, from their
-  // real prior approved plans. Presentation only — drives the "Cycle N" and
-  // New tenant / Renewing tags.
+  // How many rent plans each tenant in this queue has already had approved.
+  // Presentation only — drives the "Cycle N" and New/Renewal badges.
   const queueTenantIds = Array.from(new Set(rows.map(r => r.tenant_id).filter(Boolean))) as string[];
-  const queueRequestIds = rows.map(r => r.id);
-  const { data: renewalMap } = useTenantRenewalMap(queueTenantIds, queueRequestIds);
-
-  // Sub-agent → parent-agent map for every agent visible in this queue.
-  // Presentation only: when the request's agent is a verified sub-agent we
-  // show a "Sub-agent of <parent>" tag next to their name.
-  const queueAgentIds = Array.from(
-    new Set(rows.flatMap(r => [r.agent_id, r.assigned_agent_id]).filter(Boolean)),
-  ) as string[];
-  const { data: subAgentParentMap } = useQuery({
-    queryKey: ['rent-pipeline-sub-agent-parents', queueAgentIds],
-    enabled: queueAgentIds.length > 0,
+  const { data: approvedCycleMap } = useQuery({
+    queryKey: ['rent-pipeline-approved-cycles', queueTenantIds.join(',')],
+    enabled: queueTenantIds.length > 0,
     staleTime: 300_000,
     refetchOnWindowFocus: false,
     queryFn: async () => {
-      const { data: links } = await supabase
-        .from('agent_subagents')
-        .select('sub_agent_id, parent_agent_id')
-        .in('sub_agent_id', queueAgentIds)
-        .in('status', ['verified', 'approved']);
-      const map = new Map<string, { parentId: string; parentName: string }>();
-      if (!links || links.length === 0) return map;
-      const parentIds = Array.from(new Set(links.map(l => l.parent_agent_id).filter(Boolean))) as string[];
-      const { data: parents } = parentIds.length > 0
-        ? await supabase.from('profiles').select('id, full_name').in('id', parentIds)
-        : { data: [] as any[] };
-      const nameMap = new Map(((parents as any[]) || []).map(p => [p.id, p.full_name]));
-      for (const l of links) {
-        if (!map.has(l.sub_agent_id)) {
-          map.set(l.sub_agent_id, {
-            parentId: l.parent_agent_id,
-            parentName: nameMap.get(l.parent_agent_id) || 'Parent agent',
-          });
-        }
+      const counts = new Map<string, number>();
+      const chunkSize = 300;
+      for (let i = 0; i < queueTenantIds.length; i += chunkSize) {
+        const chunk = queueTenantIds.slice(i, i + chunkSize);
+        const { data, error: cycleError } = await supabase
+          .from('rent_requests')
+          .select('tenant_id')
+          .in('tenant_id', chunk)
+          .in('status', ['coo_approved', 'funded', 'repaying', 'completed'])
+          .limit(5000);
+        if (cycleError) throw cycleError;
+        (data || []).forEach(row => {
+          if (!row.tenant_id) return;
+          counts.set(row.tenant_id, (counts.get(row.tenant_id) || 0) + 1);
+        });
       }
-      return map;
+      return counts;
     },
   });
 
@@ -1695,13 +1679,34 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                           );
                         })()}
                         {(() => {
-                          const rel = renewalMap?.get(req.tenant_id);
+                          const approved = approvedCycleMap?.get(req.tenant_id) ?? 0;
+                          const isRenewal = approved > 0;
                           return (
-                            <TenantRelationshipBadge
-                              relationship={rel?.relationship}
-                              approvedPlans={rel?.approvedPlans ?? 0}
-                              showCycle={!!rel}
-                            />
+                            <>
+                              <span
+                                className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-slate-500/15 text-slate-700 dark:text-slate-300 border border-slate-500/30 shrink-0"
+                                title={`Approved rent plans for this tenant: ${approved}`}
+                              >
+                                <Repeat className="h-2.5 w-2.5" />
+                                Cycle {approved}
+                              </span>
+                              <span
+                                className={cn(
+                                  'inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full border shrink-0',
+                                  isRenewal
+                                    ? 'bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30'
+                                    : 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30',
+                                )}
+                                title={
+                                  isRenewal
+                                    ? 'Renewal — this tenant has had a rent plan approved before'
+                                    : 'New — no approved rent plan for this tenant yet'
+                                }
+                              >
+                                <Sparkles className="h-2.5 w-2.5" />
+                                {isRenewal ? 'Renewal' : 'New'}
+                              </span>
+                            </>
                           );
                         })()}
                         {req.registration_type === 'outstanding_balance' && (
@@ -1751,19 +1756,6 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                             <span className="truncate max-w-[140px] sm:max-w-[180px]">{req.assigned_agent_name || req.agent_name || 'No Agent'}</span>
                           </span>
                         )}
-                        {(() => {
-                          const sub = subAgentParentMap?.get(req.assigned_agent_id || req.agent_id);
-                          if (!sub) return null;
-                          return (
-                            <span
-                              className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-700 border border-indigo-500/30 shrink-0"
-                              title={`Sub-agent of ${sub.parentName}`}
-                            >
-                              <Users className="h-2.5 w-2.5" />
-                              Sub-agent · {sub.parentName}
-                            </span>
-                          );
-                        })()}
                         {req.landlord_id && (
                           <span
                             role="button"
@@ -1849,19 +1841,6 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                           No Agent
                         </span>
                       )}
-                      {(() => {
-                        const sub = subAgentParentMap?.get(req.assigned_agent_id || req.agent_id);
-                        if (!sub) return null;
-                        return (
-                          <span
-                            className="inline-flex items-center gap-1 text-indigo-700"
-                            title={`Sub-agent of ${sub.parentName}`}
-                          >
-                            <Users className="h-3 w-3" />
-                            Sub-agent of {sub.parentName}
-                          </span>
-                        );
-                      })()}
                       {(req.request_city || req.landlord_district || req.tenant_district) && (
                         <span className="flex items-center gap-1">
                           <MapPin className="h-3 w-3" />
@@ -2113,19 +2092,6 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                 <div className="space-y-0.5 col-span-2">
                   <p className="text-xs text-muted-foreground">Assigned Agent</p>
                   <p className="font-semibold">{selectedRequest.assigned_agent_name || selectedRequest.agent_name || 'No Agent'}</p>
-                  {(() => {
-                    const sub = subAgentParentMap?.get(selectedRequest.assigned_agent_id || selectedRequest.agent_id);
-                    if (!sub) return null;
-                    return (
-                      <span
-                        className="inline-flex items-center gap-1 mt-0.5 text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-indigo-500/15 text-indigo-700 border border-indigo-500/30 w-fit"
-                        title={`Sub-agent of ${sub.parentName}`}
-                      >
-                        <Users className="h-2.5 w-2.5" />
-                        Sub-agent of {sub.parentName}
-                      </span>
-                    );
-                  })()}
                   <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                     <span className="text-xs text-muted-foreground">{selectedRequest.agent_phone}</span>
                     <WhatsAppButton phone={selectedRequest.agent_phone} name={selectedRequest.assigned_agent_name || selectedRequest.agent_name} label="WhatsApp" />

@@ -50,7 +50,7 @@ describe('StartCashDepositDialog — accessibility', () => {
     fill(/Cash amount/i, '250000');
     next();
     const email = field(/email/i);
-    expect(email.required || email.getAttribute('aria-required') === 'true').toBe(false);
+    expect(email.required || email.getAttribute('aria-required') === 'true').toBe(true);
   });
 
   it('does not read the visual required star as part of the label', () => {

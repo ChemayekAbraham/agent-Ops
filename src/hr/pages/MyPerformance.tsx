@@ -165,18 +165,6 @@ export default function MyPerformancePage() {
 
   const { from, to, label } = useMemo(() => getWindowDates(mode, todayStr), [mode, todayStr]);
 
-  // Officers have personal figures; reviewers (hr, coo, ceo, super_admin) do not.
-  const { data: isOfficer } = useQuery<boolean>({
-    queryKey: ['pso-is-officer'],
-    staleTime: 5 * 60 * 1000,
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('pso_is_officer' as any);
-      if (error) return false;
-      return data === true;
-    },
-  });
-
-
   const {
     data: rows = [],
     isLoading,
@@ -275,7 +263,7 @@ export default function MyPerformancePage() {
     );
   }
 
-  if (isOfficer === undefined || isLoading) {
+  if (isLoading) {
     return (
       <PersonalLayout title="My performance">
         <div className="space-y-4">
@@ -298,14 +286,14 @@ export default function MyPerformancePage() {
         {/* Header */}
         <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-foreground">
           <span>MY PERFORMANCE</span>
-          {isOfficer === true && staffRef && (
+          {staffRef && (
             <>
               <span className="text-muted-foreground">·</span>
               <span>{staffRef}</span>
             </>
           )}
           <span className="text-muted-foreground">·</span>
-          <span>{isOfficer === true ? 'Platform Sales Officer' : 'reviewer view'}</span>
+          <span>Platform Sales Officer</span>
           <span className="text-muted-foreground">·</span>
           <span>{label}</span>
           <span className="text-muted-foreground">·</span>
@@ -334,13 +322,7 @@ export default function MyPerformancePage() {
         </div>
 
 
-        {isOfficer !== true ? (
-          <div className="rounded-xl border bg-card p-4">
-            <p className="text-sm text-muted-foreground">
-              You are viewing this as a reviewer, so there are no personal figures here. The leaderboard below is the same one every officer sees.
-            </p>
-          </div>
-        ) : rows.length === 0 ? (
+        {rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">No days in this window yet.</p>
         ) : (
           <>
@@ -461,7 +443,6 @@ export default function MyPerformancePage() {
         )}
 
         {/* Zone B */}
-        {isOfficer === true && (
         <div className="rounded-2xl border border-border bg-card p-4">
           <h2 className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
             Funded sales
@@ -520,7 +501,6 @@ export default function MyPerformancePage() {
           </div>
 
         </div>
-        )}
 
         {/* Zone C */}
         {!cohortError && (

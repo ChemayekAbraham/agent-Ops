@@ -51,7 +51,6 @@ import { AgentBulkOpsConsole } from './AgentBulkOpsConsole';
 import { AgentDailyOverviewReportButton } from './AgentDailyOverviewReportButton';
 import { AgentRentCapacityPanel } from './AgentRentCapacityPanel';
 import { AgentAdvanceRepaymentMonitor } from './agent-ops-v2/AgentAdvanceRepaymentMonitor';
-import { DormantBikeLeasesPanel } from './agent-ops/DormantBikeLeasesPanel';
 import { AgentMonthlyKpis } from './agent-ops-v2/AgentMonthlyKpis';
 import { AgentAdvancePotential } from './agent-ops-v2/AgentAdvancePotential';
 import { AgentAdvanceLimits } from './agent-ops-v2/AgentAdvanceLimits';
@@ -332,7 +331,6 @@ export function AgentOpsDashboard() {
       case 'agents-rent': return <AgentCollectionsCommandCenter />;
       case 'agents-bikes': return (
         <div className="space-y-4">
-          <DormantBikeLeasesPanel />
           <AgentProductsPanel category="motor_bike" />
           <Button variant="outline" asChild><Link to="/agent-ops/products/motor-bikes">Bike applications and orders</Link></Button>
         </div>
@@ -631,7 +629,6 @@ export function AgentOpsDashboard() {
   // HOME VIEW / shell
   return (
     <div className="space-y-4 pb-[calc(env(safe-area-inset-bottom)+72px)] sm:pb-4">
-      <DormantBikeLeasesPanel />
       {/* Greeting header */}
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">

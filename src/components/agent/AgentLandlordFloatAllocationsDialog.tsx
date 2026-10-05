@@ -290,11 +290,6 @@ export function AgentLandlordFloatAllocationsDialog({ open, onOpenChange, onSele
                             <Clock3 className="h-3.5 w-3.5" />
                             Track
                           </span>
-                        ) : inflight ? (
-                          <span className="flex items-center gap-1 text-amber-600 dark:text-amber-500">
-                            <Clock3 className="h-3.5 w-3.5" />
-                            Track
-                          </span>
                         ) : (
                           <span className="flex items-center gap-1 text-xs font-semibold text-[#9234EA]">
                             Withdraw
