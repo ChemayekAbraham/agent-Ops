@@ -64826,6 +64826,7 @@ export type Database = {
           total_clicks: number
         }[]
       }
+      get_liquidity_forecast: { Args: { p_days?: number }; Returns: Json }
       get_listing_agent_contacts: {
         Args: { p_listing_ids: string[] }
         Returns: {
