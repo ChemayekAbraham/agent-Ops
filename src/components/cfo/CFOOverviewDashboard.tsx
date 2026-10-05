@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { CashPositionInsights } from '@/components/cfo/CashPositionInsights';
 import { useCFOOverviewData } from '@/hooks/useCFOOverviewData';
 import { useCFO7DayCashFlow } from '@/hooks/useCFO7DayCashFlow';
@@ -14,7 +15,7 @@ import {
   Loader2, ArrowDownRight, ArrowUpRight, Scale, Wallet,
   ChevronRight, CalendarDays, Download,
   PiggyBank, BarChart3, Package, ChevronDown,
-  Landmark, Vault, CheckCircle2, AlertTriangle,
+  Landmark, Vault, CheckCircle2, AlertTriangle, RefreshCw,
 } from 'lucide-react';
 import {
   ResponsiveContainer, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -67,53 +68,6 @@ export function CFOOverviewDashboard({
   onTabChange, cashPositionOnly = false, showCashPosition = true,
 }: CFOOverviewDashboardProps) {
   const [exportingCommissions, setExportingCommissions] = useState(false);
-  const reportRef = useRef<HTMLDivElement>(null);
-  const [downloadingPdf, setDownloadingPdf] = useState(false);
-
-  const handleDownloadPdf = useCallback(async () => {
-    const node = reportRef.current;
-    if (!node) return;
-    setDownloadingPdf(true);
-    try {
-      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')]);
-      const canvas = await html2canvas(node, {
-        scale: 1.5, useCORS: true, backgroundColor: '#ffffff',
-        ignoreElements: (el) => el.hasAttribute('data-pdf-hide'),
-      });
-      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
-      const pw = pdf.internal.pageSize.getWidth();
-      const ph = pdf.internal.pageSize.getHeight();
-      const m = 8;
-      const imgW = pw - m * 2;
-      const pageH = ph - m * 2;
-      const sliceHpx = Math.floor((pageH * canvas.width) / imgW);
-      let offset = 0;
-      let first = true;
-      while (offset < canvas.height) {
-        const h = Math.min(sliceHpx, canvas.height - offset);
-        const slice = document.createElement('canvas');
-        slice.width = canvas.width;
-        slice.height = h;
-        const ctx = slice.getContext('2d');
-        if (!ctx) throw new Error('Canvas unavailable');
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, slice.width, slice.height);
-        ctx.drawImage(canvas, 0, offset, canvas.width, h, 0, 0, canvas.width, h);
-        if (!first) pdf.addPage();
-        pdf.addImage(slice.toDataURL('image/jpeg', 0.92), 'JPEG', m, m, imgW, (h * imgW) / canvas.width);
-        first = false;
-        offset += h;
-      }
-      const stamp = new Date().toISOString().slice(0, 10);
-      pdf.save(`cash-position-report-${stamp}.pdf`);
-      toast.success('Report downloaded');
-    } catch (e) {
-      console.error(e);
-      toast.error('Could not create the PDF. Please try again.');
-    } finally {
-      setDownloadingPdf(false);
-    }
-  }, []);
   const [activeBreakdown, setActiveBreakdown] = useState<string | null>(null);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   // Sections default to expanded unless explicitly collapsed above; the chevron toggles.
@@ -131,6 +85,23 @@ export function CFOOverviewDashboard({
   const [merchantOwedOpen, setMerchantOwedOpen] = useState(false);
   const [actualMoneyLine, setActualMoneyLine] = useState<PhoneMoneyLine | null>(null);
   const [moneyWeHaveOpen, setMoneyWeHaveOpen] = useState(false);
+  const queryClient = useQueryClient();
+  const [refreshingCashPosition, setRefreshingCashPosition] = useState(false);
+
+  const refreshCashPosition = useCallback(async () => {
+    setRefreshingCashPosition(true);
+    try {
+      await queryClient.invalidateQueries({
+        predicate: ({ queryKey }) => {
+          const key = String(queryKey[0] ?? '');
+          return key.startsWith('cfo-') || key.includes('actual-money') || key.includes('merchant');
+        },
+      });
+      toast.success('Cash position refreshed');
+    } finally {
+      setRefreshingCashPosition(false);
+    }
+  }, [queryClient]);
 
 
   const handleExportCommissions = useCallback(async () => {
@@ -258,7 +229,7 @@ export function CFOOverviewDashboard({
 
 
   return (
-    <div ref={reportRef} className="space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6 max-w-7xl mx-auto">
 
       {/* ══════════════ GREETING HEADER ══════════════ */}
       {!cashPositionOnly && <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -287,15 +258,21 @@ export function CFOOverviewDashboard({
       </div>}
 
       {cashPositionOnly && (
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-col gap-4 border-b border-border/70 pb-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-normal">{greeting}, CFO</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Here&apos;s what&apos;s happening with your finances today.</p>
+            <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-primary">Finance command centre</p>
+            <h1 className="font-serif text-3xl font-semibold tracking-normal sm:text-4xl">Cash Position</h1>
+            <p className="mt-1 text-sm text-muted-foreground">{greeting}, CFO. Live liquidity, obligations and cash movement.</p>
           </div>
-          <div className="flex h-10 items-center gap-2 rounded-lg border border-border bg-card px-4 text-xs font-medium shadow-sm">
-            <CalendarDays className="h-4 w-4 text-info" />
-            {monthRangeLabel}
-            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex h-10 items-center gap-2 rounded-md border border-border bg-card px-3 text-xs font-medium shadow-sm">
+              <CalendarDays className="h-4 w-4 text-primary" />
+              {monthRangeLabel}
+            </div>
+            <Button variant="outline" size="sm" className="h-10 rounded-md" onClick={refreshCashPosition} disabled={refreshingCashPosition}>
+              <RefreshCw className={refreshingCashPosition ? 'animate-spin' : ''} />
+              Refresh
+            </Button>
           </div>
         </div>
       )}
@@ -575,6 +552,10 @@ export function CFOOverviewDashboard({
           <CashPositionInsights
             totalReceivables={receivables?.totalReceivables ?? 0}
             receivablesCategories={receivables?.receivablesCategories ?? []}
+            moneyWeHave={actualMoneyTotal}
+            moneyWeCanUse={moneyWeCanUse}
+            moneyWeOwe={moneyWeOweTotal}
+            bankReconciled={actualMoney?.bankedInSync}
             onNavigate={onTabChange}
           />
         )}
