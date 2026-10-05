@@ -28386,13 +28386,19 @@ export type Database = {
           customer_phone: string | null
           daily_deduction_amount: number
           daily_rate: number
+          fee_recovered: number
+          fee_total: number | null
           id: string
           item_name: string
+          last_bike_recovery_on: string | null
           last_recovery_at: string | null
           last_surcharge_on: string | null
           original_amount: number
           outstanding_balance: number
           overdue_surcharge_total: number
+          pricing_basis: string | null
+          principal_recovered: number
+          principal_total: number | null
           sale_id: string | null
           starts_on: string | null
           status: string
@@ -28408,13 +28414,19 @@ export type Database = {
           customer_phone?: string | null
           daily_deduction_amount?: number
           daily_rate?: number
+          fee_recovered?: number
+          fee_total?: number | null
           id?: string
           item_name: string
+          last_bike_recovery_on?: string | null
           last_recovery_at?: string | null
           last_surcharge_on?: string | null
           original_amount?: number
           outstanding_balance?: number
           overdue_surcharge_total?: number
+          pricing_basis?: string | null
+          principal_recovered?: number
+          principal_total?: number | null
           sale_id?: string | null
           starts_on?: string | null
           status?: string
@@ -28430,13 +28442,19 @@ export type Database = {
           customer_phone?: string | null
           daily_deduction_amount?: number
           daily_rate?: number
+          fee_recovered?: number
+          fee_total?: number | null
           id?: string
           item_name?: string
+          last_bike_recovery_on?: string | null
           last_recovery_at?: string | null
           last_surcharge_on?: string | null
           original_amount?: number
           outstanding_balance?: number
           overdue_surcharge_total?: number
+          pricing_basis?: string | null
+          principal_recovered?: number
+          principal_total?: number | null
           sale_id?: string | null
           starts_on?: string | null
           status?: string
@@ -58266,6 +58284,20 @@ export type Database = {
           p_source_table: string
         }
         Returns: Json
+      }
+      _spiro_lease_fee_total: {
+        Args: { p_base: number; p_term: number }
+        Returns: number
+      }
+      _spiro_lease_month: {
+        Args: { p_base: number; p_month: number; p_term: number }
+        Returns: {
+          daily: number
+          fee_due: number
+          opening_principal: number
+          principal_due: number
+          total_due: number
+        }[]
       }
       _tenant_ops_weekly_metrics_raw: {
         Args: { p_week_end: string; p_week_start: string }
