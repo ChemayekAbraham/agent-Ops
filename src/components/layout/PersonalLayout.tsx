@@ -75,11 +75,11 @@ const PersonalLayout = ({ children, title }: PersonalLayoutProps) => {
     window.addEventListener('pointerup', onUp);
   }, [sidebarWidth]);
 
-  const { data: isPsoOfficer } = useQuery<boolean>({
-    queryKey: ['pso-is-officer'],
+  const { data: canViewPerformance } = useQuery<boolean>({
+    queryKey: ['pso-can-view-performance'],
     staleTime: 5 * 60 * 1000,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('pso_is_officer' as any);
+      const { data, error } = await supabase.rpc('pso_can_view_my_performance' as any);
       if (error) return false;
       return data === true;
     },
