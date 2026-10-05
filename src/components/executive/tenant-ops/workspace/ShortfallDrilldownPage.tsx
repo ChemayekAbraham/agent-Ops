@@ -12,7 +12,8 @@
  */
 import { useMemo, useState } from 'react';
 import type { DateRange } from 'react-day-picker';
-import { format, parseISO } from 'date-fns';
+import { useSearchParams } from 'react-router-dom';
+import { format, isValid, parseISO } from 'date-fns';
 import { toast } from 'sonner';
 import {
   AlertTriangle, ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Download, FileText, Gauge,
@@ -30,7 +31,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { downloadCsv } from '@/lib/csvExport';
 import { KPICard } from '@/components/executive/KPICard';
 import {
-  OpsDateRangeFilter, rangePhrase, resolveRange, type PresetKey,
+  OpsDateRangeFilter, PRESETS, rangePhrase, resolveRange, type PresetKey,
 } from '@/components/executive/shared/OpsDateRangeFilter';
 import { WorkspaceEmptyState } from '@/components/executive/tenant-ops/workspace/WorkspaceEmptyState';
 import { WorkspaceMobileRow } from '@/components/executive/tenant-ops/workspace/WorkspaceMobileRow';
@@ -88,6 +89,23 @@ const fmtDateTime = (iso: string | null) => (iso ? format(parseISO(iso), 'dd MMM
 const fmtDays = (n: number | null) => (n === null ? '—' : String(n));
 const fmtAvg = (n: number | null) => (n === null ? '—' : n.toFixed(1));
 const fmtPct = (n: number | null) => (n === null ? '—' : `${n.toFixed(1)}%`);
+
+// The date range travels in the URL (sf_range, plus sf_from / sf_to for a custom
+// range) so the Tenant Ops Home card can open this page on the same range it shows.
+const RANGE_PARAMS = ['sf_range', 'sf_from', 'sf_to'] as const;
+
+function readRange(params: URLSearchParams): { preset: PresetKey; custom?: DateRange } {
+  const range = params.get('sf_range');
+  if (range === 'custom') {
+    const fromRaw = params.get('sf_from');
+    const toRaw = params.get('sf_to');
+    const from = fromRaw ? parseISO(fromRaw) : null;
+    const to = toRaw ? parseISO(toRaw) : null;
+    if (from && isValid(from)) return { preset: 'custom', custom: { from, to: to && isValid(to) ? to : from } };
+  }
+  if (range && PRESETS.some((p) => p.key === range && p.key !== 'custom')) return { preset: range as PresetKey };
+  return { preset: 'today' };
+}
 
 interface SelectedGroup {
   group: ShortfallGroup;
@@ -423,9 +441,34 @@ function ShortfallDetailBody({
 // ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function ShortfallDrilldownPage() {
-  const [preset, setPreset] = useState<PresetKey>('today');
-  const [custom, setCustom] = useState<DateRange | undefined>();
+  const [params, setParams] = useSearchParams();
+  const [initialRange] = useState(() => readRange(params));
+  const [preset, setPreset] = useState<PresetKey>(initialRange.preset);
+  const [custom, setCustom] = useState<DateRange | undefined>(initialRange.custom);
   const { start, end } = useMemo(() => resolveRange(preset, custom), [preset, custom]);
+
+  // Keep the URL truthful when the range is changed here (replace, so Back still
+  // leaves the page rather than stepping through every preset click).
+  const writeRange = (nextPreset: PresetKey, nextCustom: DateRange | undefined) => {
+    setParams((prev) => {
+      const next = new URLSearchParams(prev);
+      RANGE_PARAMS.forEach((k) => next.delete(k));
+      next.set('sf_range', nextPreset);
+      if (nextPreset === 'custom' && nextCustom?.from) {
+        next.set('sf_from', format(nextCustom.from, 'yyyy-MM-dd'));
+        next.set('sf_to', format(nextCustom.to ?? nextCustom.from, 'yyyy-MM-dd'));
+      }
+      return next;
+    }, { replace: true });
+  };
+  const changePreset = (p: PresetKey) => {
+    setPreset(p);
+    writeRange(p, custom);
+  };
+  const changeCustom = (c: DateRange | undefined) => {
+    setCustom(c);
+    writeRange(preset, c);
+  };
   const startIso = start.toISOString();
   const endIso = end.toISOString();
   const phrase = useMemo(() => rangePhrase(preset, start, end), [preset, start, end]);
@@ -472,8 +515,8 @@ export default function ShortfallDrilldownPage() {
           <OpsDateRangeFilter
             preset={preset}
             custom={custom}
-            onPresetChange={setPreset}
-            onCustomChange={setCustom}
+            onPresetChange={changePreset}
+            onCustomChange={changeCustom}
           />
         </CardHeader>
         <CardContent className="min-w-0 space-y-3 px-3 sm:px-6">

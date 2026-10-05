@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter, useLocation } from 'react-router-dom';
+import { parseISO } from 'date-fns';
 import type { ReactNode } from 'react';
 
 const rpcMock = vi.fn();
@@ -17,6 +19,7 @@ const toastError = vi.fn();
 vi.mock('sonner', () => ({ toast: { success: (...a: unknown[]) => toastSuccess(...a), error: (...a: unknown[]) => toastError(...a) } }));
 
 import ShortfallDrilldownPage from './ShortfallDrilldownPage';
+import { resolveRange } from '@/components/executive/shared/OpsDateRangeFilter';
 
 type RpcArgs = Record<string, unknown>;
 
@@ -81,10 +84,25 @@ function install(s: Scenario) {
   });
 }
 
-function wrapper({ children }: { children: ReactNode }) {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+function LocationProbe() {
+  const { search } = useLocation();
+  return <div data-testid="url-search">{search}</div>;
 }
+
+function wrapperAt(url: string) {
+  return function Wrapper({ children }: { children: ReactNode }) {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    return (
+      <QueryClientProvider client={qc}>
+        <MemoryRouter initialEntries={[url]}>
+          <LocationProbe />
+          {children}
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+  };
+}
+const wrapper = wrapperAt('/executive-hub?tab=tenant-ops&view=collection-shortfall');
 
 const callsTo = (fn: string) => rpcMock.mock.calls.filter((c) => c[0] === fn).map((c) => c[1] as RpcArgs);
 
@@ -254,5 +272,65 @@ describe('ShortfallDrilldownPage — Rent Plan sheet', () => {
     await user.click(within(dialog).getByRole('button', { name: /export csv/i }));
     await waitFor(() => expect(toastError).toHaveBeenCalledWith('boom'));
     expect(downloadCsvMock).not.toHaveBeenCalled();
+  });
+});
+
+
+describe('ShortfallDrilldownPage — range carried in the URL', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const homeCall = () => callsTo('ops_tenant_ops_home_range')[0];
+
+  it('opens on the preset named in sf_range, using the same range Tenant Ops Home resolves', async () => {
+    install({ home: { expected: 1000, collected: 400 }, totalCount: 1, totalShort: 600 });
+    render(<ShortfallDrilldownPage />, { wrapper: wrapperAt('/?view=collection-shortfall&sf_range=five') });
+    await screen.findAllByText('Atimango Joyce');
+    const five = resolveRange('five');
+    expect(homeCall().p_start).toBe(five.start.toISOString());
+    expect(homeCall().p_end).toBe(five.end.toISOString());
+    expect(callsTo('tops_shortfall_breakdown')[0].p_start).toBe(five.start.toISOString());
+    expect(screen.getByText(/in the last 5 days/)).toBeInTheDocument();
+  });
+
+  it('opens on a custom range from sf_from / sf_to (a "7 days" window)', async () => {
+    install({ home: { expected: 1000, collected: 400 }, totalCount: 1, totalShort: 600 });
+    render(<ShortfallDrilldownPage />, {
+      wrapper: wrapperAt('/?view=collection-shortfall&sf_range=custom&sf_from=2026-09-29&sf_to=2026-10-05'),
+    });
+    await screen.findAllByText('Atimango Joyce');
+    const custom = resolveRange('custom', { from: parseISO('2026-09-29'), to: parseISO('2026-10-05') });
+    expect(homeCall().p_start).toBe(custom.start.toISOString());
+    expect(homeCall().p_end).toBe(custom.end.toISOString());
+    expect(callsTo('tops_shortfall_detail')[0].p_start).toBe(custom.start.toISOString());
+    expect(callsTo('tops_shortfall_detail')[0].p_end).toBe(custom.end.toISOString());
+  });
+
+  it.each([
+    ['missing', '/?view=collection-shortfall'],
+    ['unknown preset', '/?view=collection-shortfall&sf_range=forever'],
+    ['custom with no usable date', '/?view=collection-shortfall&sf_range=custom&sf_from=not-a-date'],
+  ])('falls back to Today when sf_range is %s', async (_label, url) => {
+    install({ home: { expected: 1000, collected: 400 }, totalCount: 1, totalShort: 600 });
+    render(<ShortfallDrilldownPage />, { wrapper: wrapperAt(url) });
+    await screen.findAllByText('Atimango Joyce');
+    const today = resolveRange('today');
+    expect(homeCall().p_start).toBe(today.start.toISOString());
+  });
+
+  it('writes a changed range back to the URL without losing the other parameters', async () => {
+    install({ home: { expected: 1000, collected: 400 }, totalCount: 1, totalShort: 600 });
+    const user = userEvent.setup();
+    render(<ShortfallDrilldownPage />, { wrapper: wrapperAt('/executive-hub?tab=tenant-ops&view=collection-shortfall&sf_range=today') });
+    await screen.findAllByText('Atimango Joyce');
+
+    // desktop pill buttons are in the DOM alongside the mobile dropdown
+    await user.click(screen.getAllByRole('button', { name: 'Yesterday' })[0]);
+    await waitFor(() => expect(screen.getByTestId('url-search').textContent).toContain('sf_range=yesterday'));
+    const search = screen.getByTestId('url-search').textContent ?? '';
+    expect(search).toContain('tab=tenant-ops');
+    expect(search).toContain('view=collection-shortfall');
+    expect(search).not.toContain('sf_range=today');
+    const yesterday = resolveRange('yesterday');
+    await waitFor(() => expect(callsTo('ops_tenant_ops_home_range').some((a) => a.p_start === yesterday.start.toISOString())).toBe(true));
   });
 });

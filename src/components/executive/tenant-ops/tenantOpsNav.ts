@@ -17,6 +17,7 @@ import {
   Network,
   MapPin,
   Gauge,
+  TrendingDown,
   ShieldCheck,
   Download,
   Copy,
@@ -41,7 +42,8 @@ export type TenantOpsShellOnlyView =
   | 'calling-hub'
   | 'calling-center'
   | 'tenant-operations-workspace'
-  | 'tenant-ops-weekly-performance';
+  | 'tenant-ops-weekly-performance'
+  | 'collection-shortfall';
 export type TenantOpsViewKey = TenantOpsShellOnlyView | TenantOpsClassicView;
 
 /** Actions that are not views — they open a sheet or leave the dashboard. */
@@ -111,6 +113,7 @@ export const TENANT_OPS_NAV: TenantOpsNavItem[] = [
     children: [
       { key: 'tenant-operations-workspace', label: 'Tenant Operations Workspace', icon: Gauge, keywords: ['workspace', 'top up', 'topup', 'top-up', 'eligibility', 'increase', 'tenant operations'] },
       { key: 'tenant-ops-weekly-performance', label: 'Weekly Performance', icon: CalendarX2, keywords: ['weekly', 'performance', 'management summary', 'active tenants', 'paying tenants', 'payment rate', 'new tenants', '20 days no payment', 'dormant', 'self payment', 'merchant'] },
+      { key: 'collection-shortfall', label: 'Collection Shortfall', icon: TrendingDown, keywords: ['short', 'shortfall', 'behind', 'arrears'] },
       { key: 'pipeline-hub', label: 'Pipeline Status', icon: Activity, keywords: ['lifecycle', 'receivables', 'payables', 'charts'] },
       { key: 'agent-capacity-hub', label: 'Agent Rent Capacity', icon: Gauge, keywords: ['capacity', 'eligibility', 'rating'] },
       { key: 'all-tenants-hub', label: 'All Tenants', icon: Users, keywords: ['register', 'search', 'bulk'] },

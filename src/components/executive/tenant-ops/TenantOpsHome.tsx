@@ -47,7 +47,7 @@ import type { TenantOpsActionKey, TenantOpsViewKey } from './tenantOpsNav';
  * reuses `get_tenant_repayment_reliability`. Every number on this page is a link
  * into an existing Classic view — no client-side business rules are re-derived.
  */
-export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsViewKey | TenantOpsActionKey) => void }) {
+export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsViewKey | TenantOpsActionKey, params?: Record<string, string>) => void }) {
   const [preset, setPreset] = useState<PresetKey>('today');
   const [custom, setCustom] = useState<DateRange | undefined>();
   const { start, end } = useMemo(() => resolveRange(preset, custom), [preset, custom]);
@@ -266,9 +266,20 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
             <Progress value={coverage} className="mt-3 h-2" />
             <div className="mt-2 flex items-center justify-between text-[11px]">
               <span className="font-semibold text-foreground">{coverage}% covered</span>
-              <span className={cn(shortfall > 0 ? 'text-destructive' : 'text-success', 'font-semibold')}>
-                {shortfall > 0 ? `${formatUGX(shortfall)} short` : 'Target met'}
-              </span>
+              {shortfall > 0 ? (
+                <button
+                  type="button"
+                  title="See which Rent Plans are short"
+                  onClick={() => onNavigate('collection-shortfall', preset === 'custom'
+                    ? { sf_range: 'custom', sf_from: format(start, 'yyyy-MM-dd'), sf_to: format(end, 'yyyy-MM-dd') }
+                    : { sf_range: preset })}
+                  className="font-semibold text-destructive hover:underline"
+                >
+                  {formatUGX(shortfall)} short
+                </button>
+              ) : (
+                <span className={cn('text-success', 'font-semibold')}>Target met</span>
+              )}
             </div>
             <button
               type="button"
