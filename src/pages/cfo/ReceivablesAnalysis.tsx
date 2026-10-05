@@ -53,7 +53,6 @@ function Section({ title, right, children }: { title: string; right?: React.Reac
   );
 }
 
-const Insufficient = () => <span className="text-muted-foreground text-xs">Insufficient data</span>;
 
 export default function ReceivablesAnalysis() {
   const [params, setParams] = useSearchParams();
