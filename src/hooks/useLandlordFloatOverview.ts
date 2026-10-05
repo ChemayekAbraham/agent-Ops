@@ -499,3 +499,32 @@ export function useLandlordPayoutsPage(args: LandlordPayoutsPageArgs, enabled = 
     },
   });
 }
+
+/** Live Landlord Float Pool position, read straight from the pool data. */
+export interface LandlordFloatPoolPosition {
+  available_to_deploy: number;
+  portfolios: number;
+  entries: number;
+  reserved: number;
+  deployed: number;
+  returned: number;
+  out_with_tenants: number;
+}
+
+/**
+ * Read-only Landlord Float Pool position. The single SECURITY DEFINER RPC
+ * `landlord_ops_pool_position()` aggregates the pool entries server-side
+ * (same role gate as `landlord_ops_float_overview`); nothing is recomputed in
+ * the browser and nothing is written.
+ */
+export function useLandlordFloatPoolPosition() {
+  return useQuery({
+    queryKey: ['landlord-ops-float-pool-position'],
+    staleTime: 60_000,
+    queryFn: async (): Promise<LandlordFloatPoolPosition | null> => {
+      const { data, error } = await (supabase as any).rpc('landlord_ops_pool_position');
+      if (error) throw error;
+      return (data ?? null) as LandlordFloatPoolPosition | null;
+    },
+  });
+}
