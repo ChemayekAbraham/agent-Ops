@@ -3228,6 +3228,13 @@
       "when": 1791188280866,
       "tag": "0460_landlord_ops_pool_position",
       "breakpoints": true
+    },
+    {
+      "idx": 461,
+      "version": "7",
+      "when": 1791190899121,
+      "tag": "0461_wsr_awaiting_partner_details_signing_link",
+      "breakpoints": true
     }
   ]
 }
