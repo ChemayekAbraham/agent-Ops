@@ -216,11 +216,18 @@ export function SupplierPicker({
     queryKey: ['smartphone-supplier-search', q],
     enabled: q.length >= 2 && !value,
     queryFn: async (): Promise<SupplierChoice[]> => {
-      const { data, error } = await db
-        .from('profiles')
-        .select('id, full_name, phone')
-        .or(`full_name.ilike.%${q}%,phone.ilike.%${q}%`)
-        .limit(15);
+      // Match every typed word in any order ("Kalyango Timothy" finds
+      // "TIMOTHY KALYANGO"); a phone typed as 07... also matches +2567...
+      const words = q.replace(/[,()%*]/g, ' ').split(/\s+/).filter(Boolean);
+      const digits = q.replace(/\D/g, '');
+      let query = db.from('profiles').select('id, full_name, phone');
+      if (digits.length >= 4 && digits.length === q.replace(/[\s+-]/g, '').length) {
+        const local = digits.replace(/^(256|0)/, '');
+        query = query.ilike('phone', `%${local}%`);
+      } else {
+        for (const w of words) query = query.ilike('full_name', `%${w}%`);
+      }
+      const { data, error } = await query.limit(15);
       if (error) throw error;
       return (data || []).map((p: any) => ({
         id: p.id,
