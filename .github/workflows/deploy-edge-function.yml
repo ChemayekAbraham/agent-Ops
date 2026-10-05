@@ -38,6 +38,13 @@ name: Deploy Edge Function (manual, one at a time)
 # 2026-09-25 12:37 UTC, verified present. Deploying without it would 404 on the
 # RPC for every payment.
 #
+# tenant-arrears-escalations / tenant-payment-notices added 2026-09-28: reminder
+# SMS kill switch + rate caps (_shared/reminderSmsControls.ts). PREREQUISITE:
+# migration 20260928090000 seeds reminder_sms_enabled=true; without it the new
+# code treats reminders as OFF (PAYMENT_MISSED pauses). tenant-arrears-escalations
+# stays verify_jwt=true (its cron sends a Bearer anon JWT);
+# tenant-payment-notices keeps its existing verify_jwt=false entry.
+#
 # issue-landlord-payout-otp / landlord-payout-disburse added 2026-09-22:
 # production trusted whatever landlord_phone string the CLIENT sent — an
 # agent-editable phone field, silently persisted into landlords.
@@ -96,6 +103,8 @@ on:
           - issue-landlord-payout-otp
           - landlord-payout-disburse
           - cfo-record-advance-payment
+          - tenant-arrears-escalations
+          - tenant-payment-notices
       confirm:
         description: 'Type DEPLOY to confirm you intend to change production'
         required: true
@@ -148,7 +157,7 @@ jobs:
           # entry appearing on a JWT function, or a public function quietly
           # losing the entry that keeps its scheduler able to call it.
           case "${{ inputs.function }}" in
-            agent-daily-performance-report|agent-ops-daily-report|redispatch-withdrawals|daily-cto-report|weekly-messaging-usage-report)
+            agent-daily-performance-report|agent-ops-daily-report|redispatch-withdrawals|daily-cto-report|weekly-messaging-usage-report|tenant-payment-notices)
               EXPECT_PUBLIC=yes ;;   # invoked by pg_cron, no user JWT exists
             sms-otp|password-reset-sms)
               EXPECT_PUBLIC=yes ;;   # called pre-signup/pre-login, no user session exists yet
