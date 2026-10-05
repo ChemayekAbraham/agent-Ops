@@ -309,6 +309,177 @@ Everything else in this document is settled. Name the order and it can be built.
 
 ---
 
+## 11b. Pool membership, provenance, and making room for Rent Plans
+
+This section replaces the house-only table in §6. Build this shape from the
+start, even though phase one claims empty houses only — retrofitting a
+polymorphic target onto a live allocation table is far more expensive than
+carrying one unused column for a few weeks.
+
+### 11b.1 How we know a portfolio is company-managed — and the gap today
+
+`pool_origin = 'company_managed'` is the **only** marker that exists, and it
+records *what* the portfolio is, never *who* made it.
+
+`investor_portfolios` has **no `created_by` column.** Its `agent_id` is the
+referring agent, not the creator — measured 2026-10-05, the roles behind that
+column come back as `tenant` (16), `supporter` (29) and one null across the
+company-managed set. **Nothing in the data says a Partner Ops or COO desk
+created these.**
+
+So the first thing to add is provenance, on the portfolio itself:
+
+```
+investor_portfolios
+  created_by        uuid     -- the human who clicked create
+  created_by_role   text     -- 'partner_ops' | 'coo' | ... resolved at creation
+  created_via       text     -- the edge function or RPC that did it
+```
+
+The creating edge function must stamp all three from the authenticated caller.
+Do not infer the desk later from roles — staff change roles, and a portfolio's
+provenance must not change with them.
+
+**`pool_origin` stays the authority on membership**, and `created_by_role` is
+the audit of who put it there. Keep them separate: one is what the money *is*,
+the other is who decided. Allocation fires on `pool_origin`, never on the role,
+so a future desk or an automated job can create company-managed portfolios
+without touching the allocation rule.
+
+### 11b.2 One allocation table, two kinds of target
+
+Rent Plans are coming, so the table is **not** house-specific. Replace
+`portfolio_house_allocations` with:
+
+```
+portfolio_allocations
+  id                   uuid primary key default gen_random_uuid()
+  portfolio_id         uuid NOT NULL REFERENCES investor_portfolios(id)
+
+  -- WHAT is claimed -----------------------------------------------------
+  target_type          text NOT NULL            -- 'empty_house' | 'rent_plan'
+  house_id             uuid REFERENCES house_listings(id) ON DELETE CASCADE
+  rent_request_id      uuid REFERENCES rent_requests(id)
+
+  -- HOW MUCH ------------------------------------------------------------
+  claimed_amount       numeric NOT NULL         -- snapshot, see 11b.3
+  claimed_basis        text NOT NULL            -- 'monthly_rent' | 'plan_principal'
+
+  -- STATE ---------------------------------------------------------------
+  status               text NOT NULL DEFAULT 'reserved'
+                                                -- reserved | fulfilled | released
+  created_at           timestamptz NOT NULL DEFAULT now()
+  fulfilled_at         timestamptz
+  fulfilled_rent_request_id uuid                -- the plan an empty house became
+  released_at          timestamptz
+  release_reason       text
+
+  -- PROVENANCE, denormalised on purpose ---------------------------------
+  pool_origin          text NOT NULL            -- 'company_managed'
+  created_by           uuid NOT NULL
+  created_by_role      text NOT NULL
+  created_via          text NOT NULL
+```
+
+**Why denormalise `pool_origin` onto the allocation row.** A pool report should
+not have to join back to the portfolio to know what kind of money claimed a
+house, and more importantly the row must keep saying `company_managed` even if
+someone later edits the portfolio. The claim is a historical fact; it should not
+be rewritten by a change made afterwards.
+
+### 11b.3 The trap: the two targets are not the same unit
+
+| target_type | claimed_basis | What the number means |
+|---|---|---|
+| `empty_house` | `monthly_rent` | **one rent cycle** for a house with no tenant |
+| `rent_plan` | `plan_principal` | the **full principal** of a live funded plan |
+
+These must never be summed blind. A 300,000 house claim and a 300,000 plan claim
+are different commitments over different horizons, and `SUM(claimed_amount)`
+across mixed rows would be a meaningless figure on a dashboard.
+
+**Rule:** every report that totals allocations either filters by `target_type`
+or shows the two subtotals separately. `claimed_basis` exists so a reader can
+never be in doubt which it is holding.
+
+### 11b.4 Integrity
+
+```sql
+-- exactly one target, and it must match the declared type
+ALTER TABLE public.portfolio_allocations ADD CONSTRAINT portfolio_allocations_target_shape
+  CHECK (
+    (target_type = 'empty_house' AND house_id IS NOT NULL AND rent_request_id IS NULL)
+    OR
+    (target_type = 'rent_plan'   AND rent_request_id IS NOT NULL AND house_id IS NULL)
+  );
+
+-- a house can carry only one live claim
+CREATE UNIQUE INDEX portfolio_allocations_one_live_house
+  ON public.portfolio_allocations (house_id) WHERE status = 'reserved';
+
+-- and so can a rent plan
+CREATE UNIQUE INDEX portfolio_allocations_one_live_plan
+  ON public.portfolio_allocations (rent_request_id) WHERE status = 'reserved';
+
+-- pool queries
+CREATE INDEX portfolio_allocations_pool
+  ON public.portfolio_allocations (pool_origin, status, target_type);
+```
+
+The CHECK is what stops the table rotting. Without it a row can declare
+`empty_house` while carrying a `rent_request_id`, and every reader downstream
+has to defend against it.
+
+### 11b.5 Portfolio-level counters
+
+```
+investor_portfolios
+  houses_claimed_count     integer NOT NULL DEFAULT 0
+  plans_claimed_count      integer NOT NULL DEFAULT 0
+  principal_allocated      numeric NOT NULL DEFAULT 0
+  principal_unallocated    numeric NOT NULL DEFAULT 0
+  allocation_note          text   -- queue_empty | principal_below_cheapest_house | no_fitting_house
+```
+
+Two counters, not one, for the reason in 11b.3. `principal_allocated +
+principal_unallocated` must always equal `investment_amount` — that invariant is
+the cheapest possible check that the allocator is behaving, and it is worth a
+health-check row in the CTO monitor.
+
+### 11b.6 What changes when Rent Plans are switched on
+
+Nothing structural. Phase two is:
+
+1. extend the candidate query to also select fundable Rent Plans
+2. write rows with `target_type = 'rent_plan'`, `claimed_basis = 'plan_principal'`
+3. widen the "is this already claimed" predicate to cover `rent_request_id`
+4. split the dashboard figures by `target_type`
+
+No table change, no backfill, no migration of existing rows. That is the whole
+reason for building the polymorphic shape now rather than later.
+
+Until phase two the allocator writes `target_type = 'empty_house'` only, and
+`rent_request_id` stays null on every row.
+
+### 11b.7 Reading the pool
+
+```sql
+-- what company-managed money is currently supporting
+SELECT target_type, status, COUNT(*) AS claims, SUM(claimed_amount) AS amount
+  FROM public.portfolio_allocations
+ WHERE pool_origin = 'company_managed'
+   AND status IN ('reserved','fulfilled')
+ GROUP BY target_type, status;
+
+-- the invariant that must never break
+SELECT COUNT(*) AS portfolios_out_of_balance
+  FROM public.investor_portfolios
+ WHERE pool_origin = 'company_managed'
+   AND ROUND(principal_allocated + principal_unallocated) <> ROUND(investment_amount);
+```
+
+---
+
 ## 12. Build order
 
 1. Widen the `funded` exclusion in `empty_house_opportunity_summary` (§8).
