@@ -242,36 +242,27 @@ export default function ReceivablesAnalysis() {
           ) : breakdown.isLoading ? (
             <p className="text-sm text-muted-foreground">Loading…</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border text-left text-[11px] uppercase tracking-normal text-muted-foreground">
-                    <th className="py-4">Product / service</th>
-                    {cat === 'all' && <th className="py-4">Category</th>}
-                    <th className="py-4 text-right">Accounts</th>
-                    <th className="py-4 text-right">Outstanding</th>
-                    <th className="py-4 text-right">% of total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(cat === 'all' ? cats : cats.filter((c) => c.key === cat)).flatMap((c) =>
-                    c.products.map((p) => (
-                      <tr key={`${c.key}-${p.label}`} className="border-b border-border/50">
-                        <td className="py-4">{p.label}</td>
-                        {cat === 'all' && <td className="py-4 text-muted-foreground">{c.label}</td>}
-                        <td className="py-4 text-right tabular-nums">{p.item_count.toLocaleString()}</td>
-                        <td className="py-4 text-right tabular-nums">{formatUGX(p.outstanding)}</td>
-                        <td className="py-4 text-right tabular-nums text-muted-foreground">
-                          {outstanding > 0 ? `${((p.outstanding / outstanding) * 100).toFixed(1)}%` : '—'}
-                        </td>
-                      </tr>
-                    )),
+            <div className="space-y-6">
+              {(cat === 'all' ? cats : cats.filter((c) => c.key === cat)).map((c) => (
+                <div key={c.key}>
+                  <p className="text-sm font-medium">{c.label}</p>
+                  {c.products.length === 0 ? (
+                    <p className="mt-2 pl-4 text-sm text-muted-foreground">No products or services recorded for this category.</p>
+                  ) : (
+                    <ul className="mt-2 border-l border-border pl-4">
+                      {c.products.map((p) => (
+                        <li key={`${c.key}-${p.label}`} className="flex flex-wrap items-baseline justify-between gap-2 py-2">
+                          <span>{p.label}</span>
+                          <span className="text-xs text-muted-foreground tabular-nums">
+                            {p.item_count.toLocaleString()} accounts · <span className="text-foreground">{formatUGX(p.outstanding)}</span>
+                            {outstanding > 0 && ` · ${((p.outstanding / outstanding) * 100).toFixed(1)}%`}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
                   )}
-                  {(cat === 'all' ? cats : cats.filter((c) => c.key === cat)).every((c) => c.products.length === 0) && (
-                    <tr><td colSpan={5} className="py-6 text-center text-muted-foreground">No products or services recorded for this category.</td></tr>
-                  )}
-                </tbody>
-              </table>
+                </div>
+              ))}
             </div>
           )}
         </Section>
