@@ -1755,6 +1755,13 @@ function ErrorDetails({ error }: { error: unknown }) {
 
 export default function LandlordFloat() {
   const { data, isLoading, isError, error, refetch, isFetching } = useLandlordFloatOverview();
+  const {
+    data: pool,
+    isLoading: poolLoading,
+    isError: poolError,
+    isFetching: poolFetching,
+    refetch: refetchPool,
+  } = useLandlordFloatPoolPosition();
   const [tab, setTab] = useState('needed');
   const [drill, setDrill] = useState<DrillTarget | null>(null);
   // Shared projection horizon: the Being collected tile and its drilldown
@@ -1769,8 +1776,8 @@ export default function LandlordFloat() {
     return (
       <div className="space-y-4">
         <Skeleton className="h-9 w-64" />
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {[0, 1, 2, 3].map((i) => (
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          {[0, 1, 2, 3, 4].map((i) => (
             <Skeleton key={i} className="h-24 w-full" />
           ))}
         </div>
@@ -1809,8 +1816,16 @@ export default function LandlordFloat() {
             sitting right now. As at {fmtDateTime(data.as_at)} (EAT).
           </p>
         </div>
-        <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isFetching}>
-          {isFetching ? (
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => {
+            refetch();
+            refetchPool();
+          }}
+          disabled={isFetching || poolFetching}
+        >
+          {isFetching || poolFetching ? (
             <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" />
           ) : (
             <RefreshCw className="mr-2 h-3.5 w-3.5" />
