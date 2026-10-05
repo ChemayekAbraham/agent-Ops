@@ -86,7 +86,7 @@ export function CFOReceivablesPayablesHome() {
           foot={p ? `${p.item_count} open obligations · overdue ${formatUGX(p.overdue)}` : 'Loading…'}
           percent={p ? pct(p.total, exposure) : undefined}
           percentLabel="of total money owed (receivables + payables)"
-          spark={spark.map((s) => s.pay)} onClick={() => setSheet('pay')}
+          spark={spark.map((s) => s.pay)}
         />
         <Kpi
           icon={<ArrowLeftRight className="h-4 w-4" />} tone="info" label="Net Position (Receivables − Payables)"
