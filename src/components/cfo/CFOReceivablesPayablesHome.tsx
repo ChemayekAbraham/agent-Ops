@@ -79,6 +79,7 @@ export function CFOReceivablesPayablesHome() {
           percent={r ? pct(r.total, exposure) : undefined}
           percentLabel="of total money owed (receivables + payables)"
           spark={spark.map((s) => s.rec)}
+          onClick={() => navigate('/cfo/receivables')} chevron
         />
         <Kpi
           icon={<TrendingDown className="h-4 w-4" />} tone="destructive" label="Total Payables"
