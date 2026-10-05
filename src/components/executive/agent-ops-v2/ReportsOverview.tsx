@@ -387,7 +387,7 @@ export function ReportsOverview() {
         </Card>
       ) : (
         <Card>
-          <CardHeader className="flex flex-row items-start justify-between gap-3 pb-3">
+          <CardHeader className="flex flex-col gap-3 pb-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <CardTitle className="text-sm">{active?.label} report</CardTitle>
               <p className="mt-0.5 text-[11px] text-muted-foreground">{rangeLabel}</p>
