@@ -178,8 +178,7 @@ BEGIN
     );
   ELSE
     UPDATE public.merchandise_recovery_plans
-    -- v_total already excludes what the agent paid before release (sale.amount_paid); don't subtract it twice.
-    SET original_amount = v_total + COALESCE(amount_recovered, 0),
+    SET original_amount = v_total,
         outstanding_balance = v_total,
         is_bike_lease = true,
         daily_rate = 0,
@@ -187,8 +186,7 @@ BEGIN
         fee_total = v_fee,
         principal_total = v_recover,
         fee_recovered = 0,
-        principal_recovered = COALESCE(amount_recovered, 0),
-        -- Fresh recovery state from the release: daily amount comes from the bike schedule.
+        principal_recovered = 0,
         status = 'active',
         completed_at = NULL,
         recovery_started_on = NULL, due_accrued_through = NULL, due_balance = 0, term_end_on = NULL,
@@ -251,7 +249,6 @@ BEGIN
       WHERE lease_id = l.id AND version = ver AND installment_no = LEAST(m, COALESCE(mx, 1));
     fee_ratio := 0;
   END IF;
-  -- This month's instalment ÷ the real number of days in that lease month (Kampala calendar).
   daily := GREATEST(round(COALESCE(inst,0) / public._spiro_month_days(a, m)), 0);
   RETURN NEXT;
 END $function$;
