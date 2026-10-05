@@ -184,8 +184,48 @@ async function sendWithFallback(phone: string, message: string) {
   };
 }
 
+// Staff-only. The broadcast-audience-sms roles, plus cfo / employee / operations
+// because /admin/financial-ops (MomoSignupSmsTemplatePanel "send test") admits
+// them. The CTO dashboard caller (SmsDeliveryLogViewer) needs cto / super_admin.
+const ALLOWED_ROLES = new Set([
+  "coo", "ceo", "cto", "cmo", "crm", "super_admin", "manager",
+  "cfo", "employee", "operations",
+]);
+
+function jsonError(status: number, error: string) {
+  return new Response(JSON.stringify({ error }), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  // Authorize BEFORE anything else: a bare GET used to send the default test
+  // SMS, so no code path may run ahead of this check.
+  const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "").trim();
+  if (!token) return jsonError(401, "Unauthorized");
+  try {
+    const admin = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+    const { data: userData, error: userErr } = await admin.auth.getUser(token);
+    if (userErr || !userData?.user) return jsonError(401, "Unauthorized");
+    const { data: roles, error: roleErr } = await admin
+      .from("user_roles")
+      .select("role, enabled")
+      .eq("user_id", userData.user.id);
+    if (roleErr) return jsonError(503, "Could not verify permissions");
+    const allowed = (roles || []).some(
+      (r: { role: string; enabled: boolean | null }) => r.enabled !== false && ALLOWED_ROLES.has(r.role),
+    );
+    if (!allowed) return jsonError(403, "Insufficient permissions");
+  } catch (authErr) {
+    console.error("[sms-test-send] auth check failed:", authErr);
+    return jsonError(401, "Unauthorized");
+  }
 
   try {
     let phone = "0777607640";
