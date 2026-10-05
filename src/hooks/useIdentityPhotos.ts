@@ -143,10 +143,13 @@ export function useSubmitIdentityPhotos() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['my-identity-photos'] });
       qc.invalidateQueries({ queryKey: ['payout-verification-queue'] });
+      qc.invalidateQueries({ queryKey: ['payout-verification-counts'] });
       qc.invalidateQueries({ queryKey: ['identity-photos-for'] });
+      qc.invalidateQueries({ queryKey: ['profile'] });
     },
   });
 }
+
 
 /**
  * Sets the CROPPED selfie as the profile picture. Best-effort: the archived
