@@ -110,11 +110,68 @@ export function resolveHorizon(key: string): { key: string; label: string; short
 
 export const DEFAULT_HORIZON = '12m';
 
+export const CUSTOM_HORIZON_KEY = 'custom';
+export const MAX_CUSTOM_YEARS = 10;
+
+export function isCustomHorizon(key: string): boolean {
+  return key.startsWith(`${CUSTOM_HORIZON_KEY}:`);
+}
+
+export function parseCustomYears(key: string): number {
+  if (!isCustomHorizon(key)) return 1;
+  const n = Number(key.split(':')[1]);
+  return Math.max(1, Math.min(MAX_CUSTOM_YEARS, Number.isFinite(n) ? n : 1));
+}
+
+export function makeCustomHorizonKey(years: number): string {
+  const y = Math.max(1, Math.min(MAX_CUSTOM_YEARS, Math.round(Number(years) || 1)));
+  return `${CUSTOM_HORIZON_KEY}:${y}`;
+}
+
+export function resolveHorizon(key: string): { key: string; label: string; short: string; days: number } {
+  if (isCustomHorizon(key)) {
+    const years = parseCustomYears(key);
+    return {
+      key,
+      label: `Custom: next ${years} year${years === 1 ? '' : 's'}`,
+      short: `${years}y`,
+      days: years * 365,
+    };
+  }
+  return HORIZONS.find((h) => h.key === key) ?? HORIZONS[4];
+}
+
 /**
- * The projection horizon always opens on the 12-month view so anyone opening
- * Landlord Float sees the next-12-months collection figure first. Switching the
- * horizon applies for the current view only and is not remembered.
+ * The projection horizon opens on the 12-month view by default, but the
+ * user's choice is persisted in localStorage so it survives refreshes and is
+ * shared between the Landlord Float overview card and this drilldown.
  */
+
+export const LANDLORD_FLOAT_COLLECT_HORIZON_KEY = 'landlord-float-collect-horizon-v1';
+
+
+export function readPersistedHorizon(defaultKey: string): string {
+  if (typeof window === 'undefined') return defaultKey;
+  try {
+    const saved = window.localStorage.getItem(LANDLORD_FLOAT_COLLECT_HORIZON_KEY);
+    if (saved) {
+      const resolved = resolveHorizon(saved);
+      if (resolved) return resolved.key;
+    }
+  } catch {
+    // localStorage can throw in private mode or restrictive contexts.
+  }
+  return defaultKey;
+}
+
+export function writePersistedHorizon(key: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(LANDLORD_FLOAT_COLLECT_HORIZON_KEY, key);
+  } catch {
+    // Ignore storage errors.
+  }
+}
 
 
 const ORDER: Array<keyof CollectingGeoPath> = [
@@ -246,7 +303,9 @@ export default function CollectingGeographyDrilldown({
   const [to, setTo] = useState('');
   const [suggestOpen, setSuggestOpen] = useState(false);
   const [debounced, setDebounced] = useState('');
-  const [localHorizonKey, setLocalHorizonKey] = useState<string>(DEFAULT_HORIZON);
+  const [localHorizonKey, setLocalHorizonKey] = useState<string>(() =>
+    readPersistedHorizon(DEFAULT_HORIZON),
+  );
   const horizonKey = controlledHorizonKey ?? localHorizonKey;
   const customYears = parseCustomYears(horizonKey);
   const setHorizonKey = (key: string) => {
@@ -956,6 +1015,7 @@ export default function CollectingGeographyDrilldown({
                     </div>
                   ))}
                 </div>
+
                 <p className="mt-2 text-[11px] text-muted-foreground">
                   Daily amount × days in each period. A straight projection — it does not stop at the
                   outstanding balance or assume any missed day.

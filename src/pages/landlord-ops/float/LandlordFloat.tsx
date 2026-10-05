@@ -1873,6 +1873,7 @@ export default function LandlordFloat() {
                   >
                     <SelectValue placeholder="Select projection period">{collectHorizon.label}</SelectValue>
                   </SelectTrigger>
+
                   <SelectContent>
                     {COLLECT_HORIZONS.map((h) => (
                       <SelectItem key={h.key} value={h.key}>
