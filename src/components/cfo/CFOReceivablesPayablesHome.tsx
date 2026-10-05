@@ -13,7 +13,6 @@ import {
   useReceivablesTotal, useReceivablesForecast, useReceivablesPredictiveForecast,
 } from '@/hooks/useReceivables';
 import { usePayablesTotal, usePayablesPredictiveForecast } from '@/hooks/usePayables';
-import { ReceivablesBreakdownForecast } from '@/components/cfo/ReceivablesBreakdownForecast';
 import { SevenDayFlowSection } from '@/components/cfo/SevenDayFlowSection';
 import { PayablesBreakdownForecast } from '@/components/cfo/PayablesBreakdownForecast';
 
@@ -41,7 +40,7 @@ const isoDay = (d: Date) => d.toISOString().slice(0, 10);
 type Cat = { key: string; label: string; outstanding: number; item_count: number };
 
 export function CFOReceivablesPayablesHome() {
-  const [sheet, setSheet] = useState<'rec' | 'pay' | null>(null);
+  const [sheet, setSheet] = useState<'pay' | null>(null);
   const rec = useReceivablesTotal();
   const pay = usePayablesTotal();
   const today = new Date();
@@ -82,7 +81,7 @@ export function CFOReceivablesPayablesHome() {
           foot={r ? `${r.item_count} open items` : 'Loading…'}
           percent={r ? pct(r.total, exposure) : undefined}
           percentLabel="of total money owed (receivables + payables)"
-          spark={spark.map((s) => s.rec)} onClick={() => setSheet('rec')}
+          spark={spark.map((s) => s.rec)}
         />
         <Kpi
           icon={<TrendingDown className="h-4 w-4" />} tone="destructive" label="Total Payables"
@@ -102,7 +101,7 @@ export function CFOReceivablesPayablesHome() {
         <Kpi
           icon={<CalendarClock className="h-4 w-4" />} tone="primary" label="Expected Cash Inflow (Next 30 Days)"
           value={inflow30 === undefined ? '—' : formatUGX(inflow30)}
-          foot="Scheduled + projected collections" onClick={() => setSheet('rec')} chevron
+          foot="Scheduled + projected collections"
           percent={inflow30 !== undefined && r ? pct(inflow30, r.total) : undefined}
           percentLabel="of receivables expected to come in within 30 days"
         />
@@ -146,7 +145,7 @@ export function CFOReceivablesPayablesHome() {
 
       {/* ── Tables row ── */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <CatTable title="Top Receivables" cats={recCats} total={r?.total ?? 0} count={r?.item_count ?? 0} totalLabel="Total Receivables" onViewAll={() => setSheet('rec')} />
+        <CatTable title="Top Receivables" cats={recCats} total={r?.total ?? 0} count={r?.item_count ?? 0} totalLabel="Total Receivables" />
         <CatTable title="Top Payables" cats={payCats} total={p?.total ?? 0} count={p?.item_count ?? 0} totalLabel="Total Payables" onViewAll={() => setSheet('pay')} />
       </div>
 
@@ -168,12 +167,10 @@ export function CFOReceivablesPayablesHome() {
       <Sheet open={sheet !== null} onOpenChange={(o) => !o && setSheet(null)}>
         <SheetContent side="center" className="overflow-y-auto overflow-x-hidden p-4 sm:p-6">
           <SheetHeader className="text-left">
-            <SheetTitle className="text-base sm:text-lg">
-              {sheet === 'pay' ? 'Payables Breakdown & Forecast' : 'Receivables Breakdown & Forecast'}
-            </SheetTitle>
+            <SheetTitle className="text-base sm:text-lg">Payables Breakdown &amp; Forecast</SheetTitle>
           </SheetHeader>
           <div className="mt-3">
-            {sheet === 'pay' ? <PayablesBreakdownForecast hideHeadline /> : sheet === 'rec' ? <ReceivablesBreakdownForecast hideHeadline /> : null}
+            {sheet === 'pay' ? <PayablesBreakdownForecast hideHeadline /> : null}
           </div>
         </SheetContent>
       </Sheet>
@@ -284,13 +281,15 @@ function Donut({ title, total, cats, centerLabel }: { title: string; total: numb
 }
 
 function CatTable({ title, cats, total, count, totalLabel, onViewAll }: {
-  title: string; cats: Cat[]; total: number; count: number; totalLabel: string; onViewAll: () => void;
+  title: string; cats: Cat[]; total: number; count: number; totalLabel: string; onViewAll?: () => void;
 }) {
   return (
     <Panel title={title} right={
-      <button type="button" onClick={onViewAll} className="text-xs font-medium text-primary inline-flex items-center gap-1">
-        View all <ChevronRight className="h-3 w-3" />
-      </button>
+      onViewAll ? (
+        <button type="button" onClick={onViewAll} className="text-xs font-medium text-primary inline-flex items-center gap-1">
+          View all <ChevronRight className="h-3 w-3" />
+        </button>
+      ) : undefined
     }>
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
