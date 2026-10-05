@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import {
   Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -37,12 +37,6 @@ interface Survey {
 
 type PayoutMode = 'monthly_payout' | 'monthly_compounding';
 
-interface WsrPortfolio {
-  id: string;
-  portfolio_code: string;
-  investment_amount: number | null;
-}
-
 const PAYOUT_LABEL: Record<PayoutMode, string> = {
   monthly_payout: 'Monthly withdrawable returns',
   monthly_compounding: 'Compounding',
@@ -59,10 +53,6 @@ export function StaffSurveyGate() {
   const [working, setWorking] = useState(false);
   const suppressedUntilRef = useRef(0);
   const location = useLocation();
-  const navigate = useNavigate();
-  const [wsr, setWsr] = useState<WsrPortfolio | null>(null);
-  const [wsrWorking, setWsrWorking] = useState(false);
-  const wsrSuppressedUntilRef = useRef(0);
 
   const load = useCallback(async () => {
     if (Date.now() < suppressedUntilRef.current) return;
@@ -88,32 +78,6 @@ export function StaffSurveyGate() {
   useEffect(() => {
     void load();
   }, [location.pathname, load]);
-
-  // Read-only check for a staff salary reinvestment portfolio awaiting signature.
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      if (Date.now() < wsrSuppressedUntilRef.current) { setWsr(null); return; }
-      try {
-        const { data: auth } = await supabase.auth.getUser();
-        const uid = auth?.user?.id;
-        if (!uid) { if (!cancelled) setWsr(null); return; }
-        const { data, error } = await supabase
-          .from('investor_portfolios')
-          .select('id, portfolio_code, investment_amount')
-          .eq('investor_id', uid)
-          .eq('status', 'awaiting_partner_details')
-          .like('portfolio_code', 'WSR%')
-          .order('created_at', { ascending: true })
-          .limit(1);
-        if (cancelled) return;
-        setWsr(error ? null : ((data?.[0] as WsrPortfolio | undefined) ?? null));
-      } catch {
-        if (!cancelled) setWsr(null);
-      }
-    })();
-    return () => { cancelled = true; };
-  }, [location.pathname]);
 
   useEffect(() => {
     setMode('ask');
@@ -169,57 +133,7 @@ export function StaffSurveyGate() {
     setSurvey(null);
   };
 
-  const openSigning = async () => {
-    setWsrWorking(true);
-    const { data, error } = await supabase.rpc('hr_pay_my_reinvest_signing_link' as never);
-    setWsrWorking(false);
-    const res = data as { status?: string; url?: string } | null;
-    if (error || res?.status !== 'ok' || !res?.url) {
-      toast.error(error?.message ?? 'Could not open your signing link. Please try again.');
-      return;
-    }
-    setWsr(null);
-    navigate(res.url);
-  };
-
-  if (!survey) {
-    if (!wsr || location.pathname.startsWith('/partners/')) return null;
-    return (
-      <Dialog open onOpenChange={() => { /* cannot be dismissed */ }}>
-        <DialogContent
-          className="max-h-[90vh] overflow-y-auto sm:max-w-lg [&>button]:hidden"
-          onEscapeKeyDown={(e) => e.preventDefault()}
-          onPointerDownOutside={(e) => e.preventDefault()}
-          onInteractOutside={(e) => e.preventDefault()}
-        >
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <ClipboardList className="h-5 w-5 text-primary" /> Sign your salary reinvestment agreement
-            </DialogTitle>
-            <DialogDescription>From HR · please read and respond</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <p className="text-sm leading-relaxed text-muted-foreground">
-              UGX {Number(wsr.investment_amount ?? 0).toLocaleString('en-US')} from your salary is in portfolio {wsr.portfolio_code}, earning 20% a month. Confirm your details and sign so Welile can activate it and send you the contract.
-            </p>
-            <div className="flex flex-wrap gap-2 pt-1">
-              <Button onClick={() => void openSigning()} disabled={wsrWorking}>
-                {wsrWorking && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Sign now
-              </Button>
-              <Button
-                variant="outline"
-                disabled={wsrWorking}
-                onClick={() => { wsrSuppressedUntilRef.current = Date.now() + SNOOZE_MS; setWsr(null); }}
-              >
-                Later
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    );
-  }
+  if (!survey) return null;
 
   const isStatutory = survey.kind === 'statutory_consent';
   const tinValid = noTin || /^[0-9]{10}$/.test(tin.trim());

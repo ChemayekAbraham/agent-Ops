@@ -62,6 +62,10 @@ export function InvitedPortfoliosPanel() {
   const [resendingId, setResendingId] = useState<string | null>(null);
   const [reviewRow, setReviewRow] = useState<Row | null>(null);
   const [forceRow, setForceRow] = useState<Row | null>(null);
+  const [wsrRow, setWsrRow] = useState<Row | null>(null);
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkWorking, setBulkWorking] = useState(false);
+  const [bulkError, setBulkError] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const { data, isLoading, refetch, isFetching } = useQuery<Row[]>({
@@ -236,6 +240,7 @@ export function InvitedPortfoliosPanel() {
       await queryClient.invalidateQueries({ queryKey: ['invited-portfolios'] });
       await queryClient.invalidateQueries({ queryKey: ['exec-partner-portfolios'] });
       setReviewRow(null);
+      return true;
     } catch (err: any) {
       const parsedMessage = await extractFromErrorObject(err, 'Approval failed. Please try again.');
       const message = parsedMessage === 'Failed to fetch'
@@ -243,9 +248,34 @@ export function InvitedPortfoliosPanel() {
         : parsedMessage;
       setApprovalError(message);
       toast.error('Approval failed', { description: message });
+      return false;
     } finally {
       setApprovingId(null);
     }
+  };
+
+  const wsrRows = useMemo(
+    () => (data || []).filter(r => r.portfolio_code?.startsWith('WSR')),
+    [data],
+  );
+  const wsrTotal = wsrRows.reduce((sum, r) => sum + Number(r.investment_amount ?? 0), 0);
+
+  const handleBulkActivate = async () => {
+    const targets = [...wsrRows];
+    setBulkError(null);
+    setBulkWorking(true);
+    let done = 0;
+    for (const r of targets) {
+      const ok = await handleApprove(r);
+      if (!ok) {
+        setBulkError(`Stopped at ${r.portfolio_code}:`);
+        break;
+      }
+      done++;
+    }
+    setBulkWorking(false);
+    toast(`${done} of ${targets.length} activated`);
+    if (done === targets.length) setBulkOpen(false);
   };
 
   const isExpired = (row: Row) =>
@@ -340,6 +370,15 @@ export function InvitedPortfoliosPanel() {
           })}
         </div>
       </div>
+
+      {wsrRows.length > 0 && (
+        <div className="flex justify-end">
+          <Button size="sm" className="h-8 text-xs gap-1.5" onClick={() => { setBulkError(null); setBulkOpen(true); }}>
+            <ShieldCheck className="h-3.5 w-3.5" />
+            Activate all staff reinvestments ({wsrRows.length} · {formatUGX(wsrTotal)})
+          </Button>
+        </div>
+      )}
 
       {/* List */}
       {isLoading ? (
@@ -454,7 +493,7 @@ export function InvitedPortfoliosPanel() {
                   )}
 
                   <div className="flex flex-wrap justify-end items-center gap-2 pt-1 border-t">
-                    {(row.status === 'awaiting_partner_details' || row.status === 'pending_ops_approval') && (
+                    {(row.status === 'awaiting_partner_details' || row.status === 'pending_ops_approval') && !row.portfolio_code?.startsWith('WSR') && (
                       <Button
                         size="sm"
                         variant={expired ? 'default' : 'ghost'}
@@ -484,7 +523,20 @@ export function InvitedPortfoliosPanel() {
                         Activate without partner details
                       </Button>
                     )}
-                    {row.status === 'pending_ops_approval' && (
+                    {row.portfolio_code?.startsWith('WSR') && (
+                      <Button
+                        size="sm"
+                        className="h-8 text-xs gap-1.5"
+                        onClick={() => { setApprovalError(null); setWsrRow(row); }}
+                        disabled={approvingId === row.id}
+                      >
+                        {approvingId === row.id
+                          ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          : <ShieldCheck className="h-3.5 w-3.5" />}
+                        Activate — consented in staff survey
+                      </Button>
+                    )}
+                    {row.status === 'pending_ops_approval' && !row.portfolio_code?.startsWith('WSR') && (
                       <Button
                         size="sm"
                         className="h-8 text-xs gap-1.5"
@@ -556,6 +608,78 @@ export function InvitedPortfoliosPanel() {
                 ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
                 : <ShieldCheck className="h-4 w-4 mr-1.5" />}
               Activate portfolio
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Staff reinvestment activation: consent was given in the staff survey. */}
+      <Dialog open={!!wsrRow} onOpenChange={(o) => { if (!o) setWsrRow(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Activate staff reinvestment?</DialogTitle>
+            <DialogDescription>
+              {wsrRow
+                ? `${wsrRow.portfolio_code} · ${wsrRow.partner_name} · ${formatUGX(wsrRow.investment_amount)}`
+                : ''}
+            </DialogDescription>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">
+            Funded from payroll. No wallet is charged. The portfolio goes live and the agreement is emailed to the staff member.
+          </p>
+          {approvalError && (
+            <p className="text-xs text-destructive">{approvalError}</p>
+          )}
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="ghost" size="sm" onClick={() => setWsrRow(null)}>Cancel</Button>
+            <Button
+              size="sm"
+              onClick={async () => {
+                if (!wsrRow) return;
+                const ok = await handleApprove(wsrRow);
+                if (ok) setWsrRow(null);
+              }}
+              disabled={!!wsrRow && approvingId === wsrRow.id}
+            >
+              {!!wsrRow && approvingId === wsrRow.id
+                ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
+                : <ShieldCheck className="h-4 w-4 mr-1.5" />}
+              Activate portfolio
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={bulkOpen} onOpenChange={(o) => { if (!o && !bulkWorking) { setBulkOpen(false); setBulkError(null); } }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Activate all staff reinvestments?</DialogTitle>
+            <DialogDescription>
+              {wsrRows.length} portfolio{wsrRows.length === 1 ? '' : 's'} · {formatUGX(wsrTotal)}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-64 overflow-y-auto rounded-md border divide-y text-xs">
+            {wsrRows.map(r => (
+              <div key={r.id} className="flex items-center justify-between gap-2 px-2.5 py-1.5">
+                <div className="min-w-0">
+                  <p className="font-mono text-[11px]">{r.portfolio_code}</p>
+                  <p className="truncate text-muted-foreground">{r.partner_name}</p>
+                </div>
+                <p className="font-semibold shrink-0">{formatUGX(r.investment_amount)}</p>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Funded from payroll. No wallet is charged. Each portfolio goes live and its agreement is emailed to the staff member.
+          </p>
+          {bulkError && <p className="text-xs text-destructive">{bulkError}{approvalError ? ` ${approvalError}` : ''}</p>}
+          <div className="flex justify-end gap-2 pt-1">
+            <Button variant="ghost" size="sm" disabled={bulkWorking} onClick={() => { setBulkOpen(false); setBulkError(null); }}>Cancel</Button>
+            <Button size="sm" disabled={bulkWorking || wsrRows.length === 0} onClick={handleBulkActivate}>
+              {bulkWorking
+                ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" />
+                : <ShieldCheck className="h-4 w-4 mr-1.5" />}
+              Activate all
             </Button>
           </div>
         </DialogContent>
