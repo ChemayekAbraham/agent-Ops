@@ -53,8 +53,9 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
   const purpose = 'operational_float';
   const [cashLocation, setCashLocation] = useState<'bank' | 'cash_at_hand'>('cash_at_hand');
   const [reason, setReason] = useState('');
-  // The depositor's email is required — the code always goes out by SMS and
-  // email together. Crediting still only happens when the depositor enters it.
+  // The depositor's email is optional — the code always goes out by SMS, and
+  // also by email when one is given. Crediting still only happens when the
+  // depositor enters it.
   const [email, setEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +71,8 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
   // Tell the operator exactly what is still blocking the send instead of leaving
   // the button greyed out with no explanation.
   const emailClean = email.trim();
-  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailClean);
+  // Blank is fine; a typed email must still be well-formed.
+  const emailValid = emailClean === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailClean);
   const blockedReason = !nameCheck.valid
     ? nameCheck.error || 'Enter the depositor\u2019s first and last name'
     : ownerNameClean.length < 3
@@ -80,7 +82,7 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
         : !Number.isFinite(amountNum) || amountNum < 500
           ? 'Enter a cash amount of at least UGX 500'
           : !emailValid
-            ? 'Enter the depositor\u2019s email address \u2014 it is required'
+            ? 'Enter a valid email address, or leave it blank'
             : null;
   const fieldErrors = {
     firstName: !nameNorm(nameParts.firstName) ? 'Please type the first name.' : null,
@@ -89,8 +91,7 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
       : digits.length < 9 ? 'This phone number is too short. It needs at least 9 digits, e.g. 0704 000 000.' : null,
     amount: amount.trim() === '' ? 'Please type the cash amount.'
       : !Number.isFinite(amountNum) || amountNum < 500 ? 'The smallest amount is UGX 500. Please type a bigger number.' : null,
-    email: emailClean === '' ? 'Please type the email address. It is required.'
-      : !emailValid ? 'This email does not look right. Check it has @ and a dot, e.g. name@example.com.' : null,
+    email: !emailValid ? 'This email does not look right. Check it has @ and a dot, e.g. name@example.com.' : null,
   };
   const show = (k: keyof typeof fieldErrors) => (touched[k] ? fieldErrors[k] : null);
   const nameOtherError = nameParts.firstName && nameParts.lastName && !nameCheck.valid ? nameCheck.error || null : null;
@@ -104,7 +105,7 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
         ? 'Enter the depositor\u2019s full name'
         : digits.length < 9 ? 'Enter a valid phone number (at least 9 digits)' : null,
     !Number.isFinite(amountNum) || amountNum < 500 ? 'Enter a cash amount of at least UGX 500' : null,
-    !emailValid ? 'Enter the depositor\u2019s email address \u2014 it is required' : null,
+    !emailValid ? 'Enter a valid email address, or leave it blank' : null,
     blockedReason,
   ];
   const STEPS = [
@@ -160,8 +161,7 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
         deposit_purpose: purpose,
         cash_location: cashLocation,
         reason: reason.trim() || undefined,
-        send_email: true,
-        email: emailClean,
+        ...(emailClean ? { send_email: true, email: emailClean } : {}),
       },
     });
       data = res.data;
@@ -323,13 +323,13 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
 
             {step === 2 && (
               <div className="space-y-1.5">
-                <Label htmlFor="fin-cash-email">Depositor email address <span className="text-destructive">*</span></Label>
+                <Label htmlFor="fin-cash-email">Depositor email address <span className="text-xs font-normal text-muted-foreground">(optional)</span></Label>
                 <Input id="fin-cash-email" type="email" inputMode="email" placeholder="depositor@example.com"
                   className={cn('h-12 text-base', show('email') && 'border-destructive focus-visible:ring-destructive')}
-                  aria-required="true" aria-invalid={!!show('email')} aria-describedby={show('email') ? 'fin-cash-email-error' : undefined} value={email} onBlur={() => touch('email')}
+                  aria-invalid={!!show('email')} aria-describedby={show('email') ? 'fin-cash-email-error' : undefined} value={email} onBlur={() => touch('email')}
                   onChange={(e) => setEmail(e.target.value)} />
                 <FieldError id="fin-cash-email-error" message={show('email')} className={ERR_TEXT} />
-                {!show('email') && <p className="text-xs text-muted-foreground">The code goes to this email and their phone.</p>}
+                {!show('email') && <p className="text-xs text-muted-foreground">The code always goes to their phone, and to this email if you add one.</p>}
               </div>
             )}
 
@@ -341,7 +341,7 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
                     [Smartphone, 'Phone', phone, 0],
                     [Banknote, 'Amount', `UGX ${amountNum.toLocaleString()}`, 1],
                     [Lock, 'Purpose', 'Operational Float', 1],
-                    [Mail, 'Email', emailClean, 2],
+                    [Mail, 'Email', emailClean || 'Not provided', 2],
                   ] as const).map(([Icon, label, value, target]) => (
                     <div key={label} className="flex items-center gap-3 px-3 py-2.5">
                       <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
