@@ -229,6 +229,44 @@ export default function ReceivablesAnalysis() {
           <Figure label="Accounts / obligations" value={count.toLocaleString()} />
         </section>
 
+        <Section title="Products & services">
+          {breakdown.isLoading ? (
+            <p className="text-sm text-muted-foreground">Loading…</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border text-left text-[11px] uppercase tracking-wider text-muted-foreground">
+                    <th className="py-2">Product / service</th>
+                    {cat === 'all' && <th className="py-2">Category</th>}
+                    <th className="py-2 text-right">Accounts</th>
+                    <th className="py-2 text-right">Outstanding</th>
+                    <th className="py-2 text-right">% of total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(cat === 'all' ? cats : cats.filter((c) => c.key === cat)).flatMap((c) =>
+                    c.products.map((p) => (
+                      <tr key={`${c.key}-${p.label}`} className="border-b border-border/50">
+                        <td className="py-2">{p.label}</td>
+                        {cat === 'all' && <td className="py-2 text-muted-foreground">{c.label}</td>}
+                        <td className="py-2 text-right tabular-nums">{p.item_count.toLocaleString()}</td>
+                        <td className="py-2 text-right tabular-nums">{formatUGX(p.outstanding)}</td>
+                        <td className="py-2 text-right tabular-nums text-muted-foreground">
+                          {outstanding > 0 ? `${((p.outstanding / outstanding) * 100).toFixed(1)}%` : '—'}
+                        </td>
+                      </tr>
+                    )),
+                  )}
+                  {(cat === 'all' ? cats : cats.filter((c) => c.key === cat)).every((c) => c.products.length === 0) && (
+                    <tr><td colSpan={5} className="py-6 text-center text-muted-foreground">No products or services recorded for this category.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Section>
+
         <Section title="Where the balance comes from">
           {!locEnabled ? (
             <p className="text-sm text-muted-foreground">
