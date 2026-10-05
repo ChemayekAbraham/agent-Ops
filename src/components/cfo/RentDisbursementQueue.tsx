@@ -20,6 +20,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Loader2, CheckCircle2, Banknote, TrendingUp, Users, Wallet, AlertTriangle, XCircle, Search, MapPin, Filter, Eye, ArrowRight, ShieldCheck } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetFooter, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { TenantPaymentHistoryCard } from '@/components/executive/TenantPaymentHistoryCard';
+import { TenantRelationshipBadge } from '@/components/rent/TenantRelationshipBadge';
+import { useTenantRenewalMap } from '@/hooks/useTenantRenewalMap';
 import {
   fetchPartnerReservedStages,
   PARTNER_RESERVED_HINT,
@@ -247,6 +249,11 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
   });
 
   const selectedItems = useMemo(() => items.filter(i => selected.has(i.id)), [items, selected]);
+  // New tenant / Renewing tag per row — presentation only, from real prior plans.
+  const { data: renewalMap } = useTenantRenewalMap(
+    useMemo(() => items.map(i => i.tenant_id), [items]),
+    useMemo(() => items.map(i => i.id), [items]),
+  );
 
   // Pre-tick rows handed over by the location/category recipient picker.
   useEffect(() => {
@@ -957,6 +964,12 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                             <td className="px-2 py-2.5 align-middle">
                               <div className="flex items-center gap-1.5 min-w-0">
                                 <span className={cn('truncate', isSel ? 'font-bold' : 'font-semibold')}>{item.tenant_name}</span>
+                                {renewalMap?.get(item.tenant_id) && (
+                                  <TenantRelationshipBadge
+                                    relationship={renewalMap.get(item.tenant_id)!.relationship}
+                                    approvedPlans={renewalMap.get(item.tenant_id)!.approvedPlans}
+                                  />
+                                )}
                                 {isNew && (
                                   <Badge className="text-[9px] px-1.5 py-0 shrink-0 bg-emerald-500 text-white border-0">
                                     NEW

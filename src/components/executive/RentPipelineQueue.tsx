@@ -8,6 +8,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { getRentCycleLabel, RENT_CYCLE_BADGE_CLASSES } from '@/lib/rentCycleLabel';
+import { useTenantRenewalMap } from '@/hooks/useTenantRenewalMap';
+import { TenantRelationshipBadge } from '@/components/rent/TenantRelationshipBadge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -18,7 +20,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from '@/components/ui/collapsible';
-import { CheckCircle2, XCircle, Clock, MapPin, User, UserCheck, Home, Banknote, ArrowRight, ArrowRightLeft, Loader2, Search, MessageCircle, Phone, Pencil, Check, X, PhoneCall, ShieldCheck, AlertCircle, Image as ImageIcon, Camera, Cloud, HardDrive, RotateCcw, ArrowUpDown, ChevronDown, Filter, Eye, CalendarClock, Repeat, Sparkles } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, MapPin, User, UserCheck, Home, Banknote, ArrowRight, ArrowRightLeft, Loader2, Search, MessageCircle, Phone, Pencil, Check, X, PhoneCall, ShieldCheck, AlertCircle, Image as ImageIcon, Camera, Cloud, HardDrive, RotateCcw, ArrowUpDown, ChevronDown, Filter, Eye, CalendarClock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { calculateRentRepayment } from '@/lib/rentCalculations';
 import { formatTenantSync } from '@/lib/tenantFilterSyncFormat';
@@ -827,34 +829,12 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
 
   const rows = requests || [];
 
-  // How many rent plans each tenant in this queue has already had approved.
-  // Presentation only — drives the "Cycle N" and New/Renewal badges.
+  // New / Renewing classification for every tenant in this queue, from their
+  // real prior approved plans. Presentation only — drives the "Cycle N" and
+  // New tenant / Renewing tags.
   const queueTenantIds = Array.from(new Set(rows.map(r => r.tenant_id).filter(Boolean))) as string[];
-  const { data: approvedCycleMap } = useQuery({
-    queryKey: ['rent-pipeline-approved-cycles', queueTenantIds.join(',')],
-    enabled: queueTenantIds.length > 0,
-    staleTime: 300_000,
-    refetchOnWindowFocus: false,
-    queryFn: async () => {
-      const counts = new Map<string, number>();
-      const chunkSize = 300;
-      for (let i = 0; i < queueTenantIds.length; i += chunkSize) {
-        const chunk = queueTenantIds.slice(i, i + chunkSize);
-        const { data, error: cycleError } = await supabase
-          .from('rent_requests')
-          .select('tenant_id')
-          .in('tenant_id', chunk)
-          .in('status', ['coo_approved', 'funded', 'repaying', 'completed'])
-          .limit(5000);
-        if (cycleError) throw cycleError;
-        (data || []).forEach(row => {
-          if (!row.tenant_id) return;
-          counts.set(row.tenant_id, (counts.get(row.tenant_id) || 0) + 1);
-        });
-      }
-      return counts;
-    },
-  });
+  const queueRequestIds = rows.map(r => r.id);
+  const { data: renewalMap } = useTenantRenewalMap(queueTenantIds, queueRequestIds);
 
   // Unique tenants in the queue, for the "choose a tenant" selector.
   const tenantOptions = Array.from(
@@ -1679,34 +1659,13 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                           );
                         })()}
                         {(() => {
-                          const approved = approvedCycleMap?.get(req.tenant_id) ?? 0;
-                          const isRenewal = approved > 0;
+                          const rel = renewalMap?.get(req.tenant_id);
                           return (
-                            <>
-                              <span
-                                className="inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full bg-slate-500/15 text-slate-700 dark:text-slate-300 border border-slate-500/30 shrink-0"
-                                title={`Approved rent plans for this tenant: ${approved}`}
-                              >
-                                <Repeat className="h-2.5 w-2.5" />
-                                Cycle {approved}
-                              </span>
-                              <span
-                                className={cn(
-                                  'inline-flex items-center gap-0.5 text-[9px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-full border shrink-0',
-                                  isRenewal
-                                    ? 'bg-teal-500/15 text-teal-700 dark:text-teal-300 border-teal-500/30'
-                                    : 'bg-blue-500/15 text-blue-700 dark:text-blue-300 border-blue-500/30',
-                                )}
-                                title={
-                                  isRenewal
-                                    ? 'Renewal — this tenant has had a rent plan approved before'
-                                    : 'New — no approved rent plan for this tenant yet'
-                                }
-                              >
-                                <Sparkles className="h-2.5 w-2.5" />
-                                {isRenewal ? 'Renewal' : 'New'}
-                              </span>
-                            </>
+                            <TenantRelationshipBadge
+                              relationship={rel?.relationship}
+                              approvedPlans={rel?.approvedPlans ?? 0}
+                              showCycle={!!rel}
+                            />
                           );
                         })()}
                         {req.registration_type === 'outstanding_balance' && (
