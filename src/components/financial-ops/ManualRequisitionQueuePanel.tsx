@@ -41,10 +41,10 @@ interface ManualRequisition {
 
 const stageCopy: Record<ReviewStage, { title: string; status: string; approve: string; empty: string }> = {
   coo: {
-    title: 'Manual requisitions awaiting COO review',
+    title: 'Manual requisitions awaiting CEO review',
     status: 'pending_coo',
     approve: 'Approve & send to CFO',
-    empty: 'No manual requisitions are waiting for COO review.',
+    empty: 'No manual requisitions are waiting for CEO review.',
   },
   cfo: {
     title: 'Manual requisitions awaiting CFO approval',
@@ -170,7 +170,7 @@ export function ManualRequisitionQueuePanel({ stage }: { stage: ReviewStage }) {
                       <p className="mt-0.5 text-[11px] text-muted-foreground">Submitted {new Date(row.submitted_at).toLocaleString()} · {row.priority}</p>
                     </div>
                     <div className="flex shrink-0 items-center gap-1.5">
-                      <Badge variant="secondary">{stage === 'coo' ? 'COO review' : 'CFO review'}</Badge>
+                      <Badge variant="secondary">{stage === 'coo' ? 'CEO review' : 'CFO review'}</Badge>
                       {open ? <ChevronUp className="h-4 w-4 text-muted-foreground" /> : <ChevronDown className="h-4 w-4 text-muted-foreground" />}
                     </div>
                   </div>
