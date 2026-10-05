@@ -167,7 +167,7 @@ function WalletTxnsSection({ d }: { d: CalleeDossier }) {
           <Row key={t.id} left={t.description || label(t.category)}
             sub={<>{fdate(t.created_at, 'd MMM yyyy, HH:mm')} · {label(t.wallet_bucket)}
               {t.paid_by && <Badge variant="outline" className="ml-1.5 px-1.5 py-0 text-[9px]">{t.paid_by === 'self' ? 'Self-repayment' : 'Via agent'}</Badge>}</>}
-            right={<span className={t.direction === 'cash_in' ? 'text-primary' : 'text-destructive'}>{t.direction === 'cash_in' ? '+' : '−'}{ugx(t.amount)}</span>} />
+            right={<span className={cn('inline-flex items-center gap-1', t.direction === 'cash_in' ? 'text-success' : 'text-destructive')}>{t.direction === 'cash_in' ? <ArrowDownLeft className="h-3.5 w-3.5" /> : <ArrowUpRight className="h-3.5 w-3.5" />}{t.direction === 'cash_in' ? '+' : '−'}{ugx(t.amount)}</span>} />
         ))}</div>
       )}
     </Section>
