@@ -360,11 +360,42 @@ BEGIN
 END;
 $function$;
 
+-- WHY TWO TRIGGERS, AND WHY THE zzz PREFIX.
+--
+-- pool_origin is NOT set by the creating edge function. coo-create-portfolio
+-- never writes it; it is stamped afterwards by landlord_pool_reserve(), which
+-- ends with:
+--
+--     UPDATE public.investor_portfolios SET pool_origin = v_origin
+--      WHERE id = p.id AND pool_origin IS DISTINCT FROM v_origin;
+--
+-- So at INSERT time pool_origin is NULL and an INSERT-only trigger keyed on it
+-- can never fire on the real path. The UPDATE trigger catches the stamp.
+--
+-- Triggers fire in name order, so the zzz prefix puts these after
+-- trg_zz_landlord_pool_reserve, which is what does the stamping. The INSERT
+-- trigger stays for any caller that sets pool_origin inline.
+--
+-- OLD cannot be referenced in an INSERT trigger WHEN clause, which is why this
+-- is two triggers rather than one AFTER INSERT OR UPDATE. The allocator is
+-- idempotent, so a double firing claims nothing twice.
 DROP TRIGGER IF EXISTS trg_allocate_company_managed_portfolio ON public.investor_portfolios;
-CREATE TRIGGER trg_allocate_company_managed_portfolio
+DROP TRIGGER IF EXISTS trg_zzz_allocate_company_managed_ins ON public.investor_portfolios;
+DROP TRIGGER IF EXISTS trg_zzz_allocate_company_managed_upd ON public.investor_portfolios;
+
+CREATE TRIGGER trg_zzz_allocate_company_managed_ins
   AFTER INSERT ON public.investor_portfolios
   FOR EACH ROW
   WHEN (NEW.pool_origin = 'company_managed' AND NEW.status IN ('active', 'locked'))
+  EXECUTE FUNCTION public.trg_allocate_company_managed_portfolio();
+
+CREATE TRIGGER trg_zzz_allocate_company_managed_upd
+  AFTER UPDATE ON public.investor_portfolios
+  FOR EACH ROW
+  WHEN (NEW.pool_origin = 'company_managed'
+        AND NEW.status IN ('active', 'locked')
+        AND (OLD.pool_origin IS DISTINCT FROM NEW.pool_origin
+             OR OLD.status IS DISTINCT FROM NEW.status))
   EXECUTE FUNCTION public.trg_allocate_company_managed_portfolio();
 
 -- ---------------------------------------------------------------------------
