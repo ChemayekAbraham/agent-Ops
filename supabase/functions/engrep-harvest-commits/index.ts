@@ -269,8 +269,12 @@ Deno.serve(async (req) => {
           const claimsSchema = claimedObjects.length > 0;
 
           let fencePath: string | null = null;
+          // Case-insensitive, matching engrep_svc_ingest_row: co-author emails are
+          // lowercased above, direct author emails are not.
+          const attributedLower = attributedEmail?.toLowerCase() ?? null;
           const eng = (engineers ?? []).find((e: any) =>
-            attributedEmail && Array.isArray(e.git_emails) && e.git_emails.includes(attributedEmail)
+            attributedLower && Array.isArray(e.git_emails) &&
+            e.git_emails.some((g: unknown) => String(g).toLowerCase() === attributedLower)
           );
           if (eng && paths.length > 0) {
             const { data: fp, error: fenceErr } = await admin.rpc("engrep_check_fence", { p_engineer_code: (eng as any).code, p_paths: paths, p_on: vDay });
