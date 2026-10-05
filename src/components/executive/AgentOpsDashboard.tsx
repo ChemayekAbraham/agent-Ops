@@ -162,6 +162,156 @@ const NAV_ITEMS: { key: ActiveView; icon: any; label: string; color: string; pri
   { key: 'tenant-self-repayments', icon: HandCoins, label: 'Tenant Self-Repayments', color: 'bg-emerald-600', priority: true },
 ];
 
+interface BusinessAreaItem {
+  num: string;
+  title: string;
+  icon: typeof Activity;
+  section: ActiveView;
+  highlight?: boolean;
+  category: 'advances' | 'rent-bikes' | 'commerce' | 'field' | 'reports';
+  desc: string;
+  keywords: string[];
+}
+
+const BUSINESS_AREAS: BusinessAreaItem[] = [
+  {
+    num: '01',
+    title: 'General Agents Activities',
+    icon: Activity,
+    section: 'general-activities',
+    category: 'field',
+    desc: 'Agent roster, active status & field operations',
+    keywords: ['activity', 'field', 'overview', 'agents', 'status', 'monitoring', 'general'],
+  },
+  {
+    num: '02',
+    title: 'Agent Advances',
+    icon: HandCoins,
+    section: 'advance-requests',
+    category: 'advances',
+    desc: 'Emergency & operational advance requests & reviews',
+    keywords: ['advance', 'loans', 'credit', 'cash advance', 'requests', 'limits', 'repayments'],
+  },
+  {
+    num: '03',
+    title: 'Agents Rent',
+    icon: Banknote,
+    section: 'agents-rent',
+    category: 'rent-bikes',
+    desc: 'Agent rent plans, landlords & collections',
+    keywords: ['rent', 'landlords', 'tenants', 'rent plans', 'lease', 'collections', 'properties'],
+  },
+  {
+    num: '04',
+    title: 'Agents Bikes',
+    icon: Bike,
+    section: 'agents-bikes',
+    category: 'rent-bikes',
+    desc: 'Spiro bike lease orders, reviews & verification',
+    keywords: ['bikes', 'spiro', 'motorcycle', 'boda', 'lease', 'riders', 'dossier', 'delivery'],
+  },
+  {
+    num: '05',
+    title: 'Welile Merchandise',
+    icon: ShoppingBag,
+    section: 'welile-merchandise',
+    category: 'commerce',
+    desc: 'Boutique merchandise, branded apparel & orders',
+    keywords: ['merchandise', 'boutique', 'shop', 'goods', 'store', 'apparel', 'uniforms'],
+  },
+  {
+    num: '06',
+    title: 'Service Centre as a Service',
+    icon: Building2,
+    section: 'sc-overview',
+    category: 'field',
+    desc: 'Service center branches, kiosks & physical hubs',
+    keywords: ['service centre', 'sc', 'branches', 'kiosks', 'hubs', 'centers', 'physical'],
+  },
+  {
+    num: '07',
+    title: 'Welile Lending Agents',
+    icon: UsersRound,
+    section: 'lending-agents',
+    category: 'advances',
+    desc: 'Lending agents management, capital & vetting',
+    keywords: ['lending', 'agents', 'capital', 'allocations', 'credit', 'vetted'],
+  },
+  {
+    num: '08',
+    title: 'Welile Shopping Advance',
+    icon: ShoppingBag,
+    section: 'shopping-advance',
+    highlight: true,
+    category: 'advances',
+    desc: 'Qualified agent shopping float advances',
+    keywords: ['shopping advance', 'advance', 'supermarket', 'retail', 'groceries', 'limits'],
+  },
+  {
+    num: '09',
+    title: 'Welile Business Advance',
+    icon: Briefcase,
+    section: 'business-advance',
+    category: 'advances',
+    desc: 'Merchant and enterprise commercial advances',
+    keywords: ['business advance', 'sme', 'commercial', 'enterprise', 'traders', 'merchants'],
+  },
+  {
+    num: '10',
+    title: 'Welile Marketplace',
+    icon: Store,
+    section: 'agent-marketplace',
+    category: 'commerce',
+    desc: 'Vendor portal and products marketplace',
+    keywords: ['marketplace', 'vendors', 'sellers', 'ecommerce', 'products', 'listings'],
+  },
+  {
+    num: '11',
+    title: 'Welile Wallet Business',
+    icon: Wallet,
+    section: 'balances',
+    category: 'commerce',
+    desc: 'Agent float balances, deposits and ledger',
+    keywords: ['wallet', 'balances', 'float', 'ledger', 'cash', 'deposits', 'withdrawals'],
+  },
+  {
+    num: '12',
+    title: 'Welile Homes',
+    icon: Building2,
+    section: 'welile-homes',
+    category: 'field',
+    desc: 'Housing pipeline, property acquisition & estates',
+    keywords: ['homes', 'real estate', 'housing', 'properties', 'land', 'plots'],
+  },
+  {
+    num: '13',
+    title: 'Welile Agents Hope',
+    icon: Sparkles,
+    section: 'agents-hope',
+    category: 'field',
+    desc: 'Community resilience and agent welfare programs',
+    keywords: ['hope', 'welfare', 'support', 'grants', 'charity', 'relief', 'benevolence'],
+  },
+  {
+    num: '14',
+    title: 'Welile Agents Ranks',
+    icon: Trophy,
+    section: 'leaderboard',
+    category: 'reports',
+    desc: 'Performance leaderboard & agent tier rankings',
+    keywords: ['ranks', 'leaderboard', 'top agents', 'tiers', 'performance', 'rewards', 'rankings'],
+  },
+];
+
+const CATEGORIES: { id: 'all' | 'advances' | 'rent-bikes' | 'commerce' | 'field' | 'reports'; label: string; count: number }[] = [
+  { id: 'all', label: 'All', count: 14 },
+  { id: 'advances', label: 'Advances', count: 4 },
+  { id: 'rent-bikes', label: 'Rent & Bikes', count: 2 },
+  { id: 'commerce', label: 'Commerce & Float', count: 3 },
+  { id: 'field', label: 'Field & Hubs', count: 4 },
+  { id: 'reports', label: 'Ranks & Reports', count: 1 },
+];
+
 export function AgentOpsDashboard() {
   const [searchParams, setSearchParams] = useSearchParams();
   // Overview dashboard is the default landing view when Agent Ops opens.
@@ -208,7 +358,6 @@ export function AgentOpsDashboard() {
     }
     const requested = s === 'products' ? 'sc-products' : s;
     setActiveView(NAV_ITEMS.some((item) => item.key === requested) ? requested as ActiveView : null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   useEffect(() => {
@@ -526,156 +675,6 @@ export function AgentOpsDashboard() {
   const ALL_SECTIONS = [
     ...MORE_GROUPS,
     { title: 'Additional tools', keys: NAV_ITEMS.map((item) => item.key).filter((key) => !groupedKeys.has(key)) },
-  ];
-
-  interface BusinessAreaItem {
-    num: string;
-    title: string;
-    icon: typeof Activity;
-    section: ActiveView;
-    highlight?: boolean;
-    category: 'advances' | 'rent-bikes' | 'commerce' | 'field' | 'reports';
-    desc: string;
-    keywords: string[];
-  }
-
-  const BUSINESS_AREAS: BusinessAreaItem[] = [
-    {
-      num: '01',
-      title: 'General Agents Activities',
-      icon: Activity,
-      section: 'general-activities',
-      category: 'field',
-      desc: 'Agent roster, active status & field operations',
-      keywords: ['activity', 'field', 'overview', 'agents', 'status', 'monitoring', 'general'],
-    },
-    {
-      num: '02',
-      title: 'Agent Advances',
-      icon: HandCoins,
-      section: 'advance-requests',
-      category: 'advances',
-      desc: 'Emergency & operational advance requests & reviews',
-      keywords: ['advance', 'loans', 'credit', 'cash advance', 'requests', 'limits', 'repayments'],
-    },
-    {
-      num: '03',
-      title: 'Agents Rent',
-      icon: Banknote,
-      section: 'agents-rent',
-      category: 'rent-bikes',
-      desc: 'Agent rent plans, landlords & collections',
-      keywords: ['rent', 'landlords', 'tenants', 'rent plans', 'lease', 'collections', 'properties'],
-    },
-    {
-      num: '04',
-      title: 'Agents Bikes',
-      icon: Bike,
-      section: 'agents-bikes',
-      category: 'rent-bikes',
-      desc: 'Spiro bike lease orders, reviews & verification',
-      keywords: ['bikes', 'spiro', 'motorcycle', 'boda', 'lease', 'riders', 'dossier', 'delivery'],
-    },
-    {
-      num: '05',
-      title: 'Welile Merchandise',
-      icon: ShoppingBag,
-      section: 'welile-merchandise',
-      category: 'commerce',
-      desc: 'Boutique merchandise, branded apparel & orders',
-      keywords: ['merchandise', 'boutique', 'shop', 'goods', 'store', 'apparel', 'uniforms'],
-    },
-    {
-      num: '06',
-      title: 'Service Centre as a Service',
-      icon: Building2,
-      section: 'sc-overview',
-      category: 'field',
-      desc: 'Service center branches, kiosks & physical hubs',
-      keywords: ['service centre', 'sc', 'branches', 'kiosks', 'hubs', 'centers', 'physical'],
-    },
-    {
-      num: '07',
-      title: 'Welile Lending Agents',
-      icon: UsersRound,
-      section: 'lending-agents',
-      category: 'advances',
-      desc: 'Lending agents management, capital & vetting',
-      keywords: ['lending', 'agents', 'capital', 'allocations', 'credit', 'vetted'],
-    },
-    {
-      num: '08',
-      title: 'Welile Shopping Advance',
-      icon: ShoppingBag,
-      section: 'shopping-advance',
-      highlight: true,
-      category: 'advances',
-      desc: 'Qualified agent shopping float advances',
-      keywords: ['shopping advance', 'advance', 'supermarket', 'retail', 'groceries', 'limits'],
-    },
-    {
-      num: '09',
-      title: 'Welile Business Advance',
-      icon: Briefcase,
-      section: 'business-advance',
-      category: 'advances',
-      desc: 'Merchant and enterprise commercial advances',
-      keywords: ['business advance', 'sme', 'commercial', 'enterprise', 'traders', 'merchants'],
-    },
-    {
-      num: '10',
-      title: 'Welile Marketplace',
-      icon: Store,
-      section: 'agent-marketplace',
-      category: 'commerce',
-      desc: 'Vendor portal and products marketplace',
-      keywords: ['marketplace', 'vendors', 'sellers', 'ecommerce', 'products', 'listings'],
-    },
-    {
-      num: '11',
-      title: 'Welile Wallet Business',
-      icon: Wallet,
-      section: 'balances',
-      category: 'commerce',
-      desc: 'Agent float balances, deposits and ledger',
-      keywords: ['wallet', 'balances', 'float', 'ledger', 'cash', 'deposits', 'withdrawals'],
-    },
-    {
-      num: '12',
-      title: 'Welile Homes',
-      icon: Building2,
-      section: 'welile-homes',
-      category: 'field',
-      desc: 'Housing pipeline, property acquisition & estates',
-      keywords: ['homes', 'real estate', 'housing', 'properties', 'land', 'plots'],
-    },
-    {
-      num: '13',
-      title: 'Welile Agents Hope',
-      icon: Sparkles,
-      section: 'agents-hope',
-      category: 'field',
-      desc: 'Community resilience and agent welfare programs',
-      keywords: ['hope', 'welfare', 'support', 'grants', 'charity', 'relief', 'benevolence'],
-    },
-    {
-      num: '14',
-      title: 'Welile Agents Ranks',
-      icon: Trophy,
-      section: 'leaderboard',
-      category: 'reports',
-      desc: 'Performance leaderboard & agent tier rankings',
-      keywords: ['ranks', 'leaderboard', 'top agents', 'tiers', 'performance', 'rewards', 'rankings'],
-    },
-  ];
-
-  const CATEGORIES: { id: 'all' | 'advances' | 'rent-bikes' | 'commerce' | 'field' | 'reports'; label: string; count: number }[] = [
-    { id: 'all', label: 'All', count: 14 },
-    { id: 'advances', label: 'Advances', count: 4 },
-    { id: 'rent-bikes', label: 'Rent & Bikes', count: 2 },
-    { id: 'commerce', label: 'Commerce & Float', count: 3 },
-    { id: 'field', label: 'Field & Hubs', count: 4 },
-    { id: 'reports', label: 'Ranks & Reports', count: 1 },
   ];
 
   const filteredBusinessAreas = useMemo(() => {
