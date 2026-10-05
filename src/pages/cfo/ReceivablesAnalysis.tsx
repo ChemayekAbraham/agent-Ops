@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import {
@@ -29,9 +29,7 @@ const PERIODS: { key: string; label: string; g: ForecastGranularity; n: number }
   { key: '1y', label: '1 year', g: 'month', n: 12 },
   { key: '2y', label: '2 years', g: 'month', n: 24 },
 ];
-const PAGE = 15;
 const today = kampalaTodayYmd;
-const daysBetween = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5);
 
 function Figure({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
@@ -52,17 +50,6 @@ function Section({ title, right, children }: { title: string; right?: React.Reac
       </div>
       {children}
     </section>
-  );
-}
-
-function Pager({ page, pages, set }: { page: number; pages: number; set: (n: number) => void }) {
-  if (pages <= 1) return null;
-  return (
-    <div className="mt-3 flex items-center justify-end gap-2 text-xs text-muted-foreground">
-      <Button size="sm" variant="ghost" disabled={page === 0} onClick={() => set(page - 1)}>Previous</Button>
-      <span className="tabular-nums">{page + 1} / {pages}</span>
-      <Button size="sm" variant="ghost" disabled={page >= pages - 1} onClick={() => set(page + 1)}>Next</Button>
-    </div>
   );
 }
 
