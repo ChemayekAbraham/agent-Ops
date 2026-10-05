@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, lazy, Suspense } from 'react';
+import { useEffect, useRef, useState, lazy, Suspense, useMemo } from 'react';
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { AgentOpsHomeView, type DateRange } from './agent-ops-v2/AgentOpsHomeView';
 import { AgentOpsBottomNav, type BottomTab } from './agent-ops-v2/AgentOpsBottomNav';
@@ -77,13 +77,14 @@ import { AgentsSpacePanel } from './AgentsSpacePanel';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { 
   Users, Banknote, DollarSign, Search, UserPlus, Trophy, BarChart3, 
   ClipboardList, AlertTriangle, Building2, Wallet, Bell, ArrowLeftRight,
   ChevronLeft, Briefcase, TrendingUp, TrendingDown, UsersRound, PiggyBank, HandCoins, ShieldCheck, FileBarChart,
   LayoutGrid, ChevronDown, ToggleRight, Layers, Gauge, Target, Activity, Clock3
   , Coins, Megaphone, Lock, Store, MapPinned, Workflow, Package,
-  Bike, ShoppingBag, Signpost, Smartphone, PhoneCall, Loader2, Sparkles
+  Bike, ShoppingBag, Signpost, Smartphone, PhoneCall, Loader2, Sparkles, X, ChevronRight
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -176,8 +177,27 @@ export function AgentOpsDashboard() {
   const [dateRange, setDateRange] = useState<DateRange>('24h');
   const [sidebarWidth, setSidebarWidth] = useState(224); // default w-56
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [activeCategory, setActiveCategory] = useState<'all' | 'advances' | 'rent-bikes' | 'commerce' | 'field' | 'reports'>('all');
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const pendingAdvanceCount = usePendingAdvanceCount();
   const navigate = useNavigate();
+
+  // Keyboard shortcut '/' or Cmd+K to focus search bar
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        (e.key === '/' || ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k')) &&
+        document.activeElement?.tagName !== 'INPUT' &&
+        document.activeElement?.tagName !== 'TEXTAREA'
+      ) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // Deep-linkable sections: /executive-hub?tab=agent-ops&section=products
   useEffect(() => {
@@ -508,22 +528,186 @@ export function AgentOpsDashboard() {
     { title: 'Additional tools', keys: NAV_ITEMS.map((item) => item.key).filter((key) => !groupedKeys.has(key)) },
   ];
 
-  const BUSINESS_AREAS: { title: string; icon: typeof Activity; section: ActiveView; highlight?: boolean }[] = [
-    { title: 'General Agents Activities', icon: Activity, section: 'general-activities' },
-    { title: 'Agent Advances', icon: HandCoins, section: 'advance-requests' },
-    { title: 'Agents Rent', icon: Banknote, section: 'agents-rent' },
-    { title: 'Agents Bikes', icon: Bike, section: 'agents-bikes' },
-    { title: 'Welile Merchandise', icon: ShoppingBag, section: 'welile-merchandise' },
-    { title: 'Service Centre as a Service', icon: Building2, section: 'sc-overview' },
-    { title: 'Welile Lending Agents', icon: UsersRound, section: 'lending-agents' },
-    { title: 'Welile Shopping Advance', icon: ShoppingBag, section: 'shopping-advance', highlight: true },
-    { title: 'Welile Business Advance', icon: Briefcase, section: 'business-advance' },
-    { title: 'Welile Marketplace', icon: Store, section: 'agent-marketplace' },
-    { title: 'Welile Wallet Business', icon: Wallet, section: 'balances' },
-    { title: 'Welile Homes', icon: Building2, section: 'welile-homes' },
-    { title: 'Welile Agents Hope', icon: Sparkles, section: 'agents-hope' },
-    { title: 'Welile Agents Ranks', icon: Trophy, section: 'leaderboard' },
+  interface BusinessAreaItem {
+    num: string;
+    title: string;
+    icon: typeof Activity;
+    section: ActiveView;
+    highlight?: boolean;
+    category: 'advances' | 'rent-bikes' | 'commerce' | 'field' | 'reports';
+    desc: string;
+    keywords: string[];
+  }
+
+  const BUSINESS_AREAS: BusinessAreaItem[] = [
+    {
+      num: '01',
+      title: 'General Agents Activities',
+      icon: Activity,
+      section: 'general-activities',
+      category: 'field',
+      desc: 'Agent roster, active status & field operations',
+      keywords: ['activity', 'field', 'overview', 'agents', 'status', 'monitoring', 'general'],
+    },
+    {
+      num: '02',
+      title: 'Agent Advances',
+      icon: HandCoins,
+      section: 'advance-requests',
+      category: 'advances',
+      desc: 'Emergency & operational advance requests & reviews',
+      keywords: ['advance', 'loans', 'credit', 'cash advance', 'requests', 'limits', 'repayments'],
+    },
+    {
+      num: '03',
+      title: 'Agents Rent',
+      icon: Banknote,
+      section: 'agents-rent',
+      category: 'rent-bikes',
+      desc: 'Agent rent plans, landlords & collections',
+      keywords: ['rent', 'landlords', 'tenants', 'rent plans', 'lease', 'collections', 'properties'],
+    },
+    {
+      num: '04',
+      title: 'Agents Bikes',
+      icon: Bike,
+      section: 'agents-bikes',
+      category: 'rent-bikes',
+      desc: 'Spiro bike lease orders, reviews & verification',
+      keywords: ['bikes', 'spiro', 'motorcycle', 'boda', 'lease', 'riders', 'dossier', 'delivery'],
+    },
+    {
+      num: '05',
+      title: 'Welile Merchandise',
+      icon: ShoppingBag,
+      section: 'welile-merchandise',
+      category: 'commerce',
+      desc: 'Boutique merchandise, branded apparel & orders',
+      keywords: ['merchandise', 'boutique', 'shop', 'goods', 'store', 'apparel', 'uniforms'],
+    },
+    {
+      num: '06',
+      title: 'Service Centre as a Service',
+      icon: Building2,
+      section: 'sc-overview',
+      category: 'field',
+      desc: 'Service center branches, kiosks & physical hubs',
+      keywords: ['service centre', 'sc', 'branches', 'kiosks', 'hubs', 'centers', 'physical'],
+    },
+    {
+      num: '07',
+      title: 'Welile Lending Agents',
+      icon: UsersRound,
+      section: 'lending-agents',
+      category: 'advances',
+      desc: 'Lending agents management, capital & vetting',
+      keywords: ['lending', 'agents', 'capital', 'allocations', 'credit', 'vetted'],
+    },
+    {
+      num: '08',
+      title: 'Welile Shopping Advance',
+      icon: ShoppingBag,
+      section: 'shopping-advance',
+      highlight: true,
+      category: 'advances',
+      desc: 'Qualified agent shopping float advances',
+      keywords: ['shopping advance', 'advance', 'supermarket', 'retail', 'groceries', 'limits'],
+    },
+    {
+      num: '09',
+      title: 'Welile Business Advance',
+      icon: Briefcase,
+      section: 'business-advance',
+      category: 'advances',
+      desc: 'Merchant and enterprise commercial advances',
+      keywords: ['business advance', 'sme', 'commercial', 'enterprise', 'traders', 'merchants'],
+    },
+    {
+      num: '10',
+      title: 'Welile Marketplace',
+      icon: Store,
+      section: 'agent-marketplace',
+      category: 'commerce',
+      desc: 'Vendor portal and products marketplace',
+      keywords: ['marketplace', 'vendors', 'sellers', 'ecommerce', 'products', 'listings'],
+    },
+    {
+      num: '11',
+      title: 'Welile Wallet Business',
+      icon: Wallet,
+      section: 'balances',
+      category: 'commerce',
+      desc: 'Agent float balances, deposits and ledger',
+      keywords: ['wallet', 'balances', 'float', 'ledger', 'cash', 'deposits', 'withdrawals'],
+    },
+    {
+      num: '12',
+      title: 'Welile Homes',
+      icon: Building2,
+      section: 'welile-homes',
+      category: 'field',
+      desc: 'Housing pipeline, property acquisition & estates',
+      keywords: ['homes', 'real estate', 'housing', 'properties', 'land', 'plots'],
+    },
+    {
+      num: '13',
+      title: 'Welile Agents Hope',
+      icon: Sparkles,
+      section: 'agents-hope',
+      category: 'field',
+      desc: 'Community resilience and agent welfare programs',
+      keywords: ['hope', 'welfare', 'support', 'grants', 'charity', 'relief', 'benevolence'],
+    },
+    {
+      num: '14',
+      title: 'Welile Agents Ranks',
+      icon: Trophy,
+      section: 'leaderboard',
+      category: 'reports',
+      desc: 'Performance leaderboard & agent tier rankings',
+      keywords: ['ranks', 'leaderboard', 'top agents', 'tiers', 'performance', 'rewards', 'rankings'],
+    },
   ];
+
+  const CATEGORIES: { id: 'all' | 'advances' | 'rent-bikes' | 'commerce' | 'field' | 'reports'; label: string; count: number }[] = [
+    { id: 'all', label: 'All', count: 14 },
+    { id: 'advances', label: 'Advances', count: 4 },
+    { id: 'rent-bikes', label: 'Rent & Bikes', count: 2 },
+    { id: 'commerce', label: 'Commerce & Float', count: 3 },
+    { id: 'field', label: 'Field & Hubs', count: 4 },
+    { id: 'reports', label: 'Ranks & Reports', count: 1 },
+  ];
+
+  const filteredBusinessAreas = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return BUSINESS_AREAS.filter((area) => {
+      if (activeCategory !== 'all' && area.category !== activeCategory && !q) {
+        return false;
+      }
+      if (!q) return true;
+      const matchesNum = area.num.includes(q) || String(parseInt(area.num, 10)).includes(q);
+      const matchesTitle = area.title.toLowerCase().includes(q);
+      const matchesDesc = area.desc.toLowerCase().includes(q);
+      const matchesKeywords = area.keywords.some((k) => k.toLowerCase().includes(q));
+      const matchesKey = area.section?.toLowerCase().includes(q);
+      return matchesNum || matchesTitle || matchesDesc || matchesKeywords || matchesKey;
+    });
+  }, [searchQuery, activeCategory]);
+
+  const matchingNavItems = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return [];
+    const directBusinessSections = new Set(filteredBusinessAreas.map((b) => b.section));
+    return NAV_ITEMS.filter((item) => {
+      if (!item.key) return false;
+      if (directBusinessSections.has(item.key)) return false;
+      const label = item.label.toLowerCase();
+      const key = String(item.key).toLowerCase();
+      return label.includes(q) || key.includes(q);
+    });
+  }, [searchQuery, filteredBusinessAreas]);
+
+  const totalResultsCount = filteredBusinessAreas.length + matchingNavItems.length;
 
   // Main content region — sub-view when one is active, else the business-area home / more-grid.
   const contentRegion = activeView ? (
@@ -544,44 +728,203 @@ export function AgentOpsDashboard() {
     </div>
   ) : bottomTab !== 'more' ? (
     <div className="space-y-4">
-      <h1 className="text-xl font-bold text-foreground">Agent Operations</h1>
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
-        {BUSINESS_AREAS.map(({ title, icon: Icon, section, highlight }, index) => (
-          <Button
-            key={title}
-            type="button"
-            variant="outline"
-            onClick={() => selectView(section)}
-            aria-label={title}
-            className={cn(
-              'group relative h-auto min-h-28 w-full whitespace-normal justify-start gap-4 rounded-md p-4 text-left',
-              highlight
-                ? [
-                    '!bg-primary !text-primary-foreground !border-primary-foreground/25',
-                    'hover:!bg-primary/90 hover:!border-primary-foreground/45 active:!bg-primary/80',
-                    'shadow-glow hover:shadow-lg hover:-translate-y-0.5',
-                  ]
-                : 'border-border bg-card shadow-sm hover:border-primary/50 hover:bg-muted/50'
-            )}
-          >
-            {highlight && (
-              <span
-                aria-hidden="true"
-                className="pointer-events-none absolute -inset-1 rounded-lg border-2 border-primary-foreground/55 animate-attention-halo"
-              />
-            )}
-            <span className={cn(
-              'flex size-10 shrink-0 items-center justify-center rounded-md',
-              highlight ? 'bg-primary-foreground/15 text-primary-foreground' : 'bg-primary/10 text-primary'
-            )}><Icon className="size-5" /></span>
-            <span className="min-w-0 flex-1">
-              <span className={cn('block text-xs font-medium', highlight ? 'text-primary-foreground/70' : 'text-muted-foreground')}>{String(index + 1).padStart(2, '0')}</span>
-              <span className={cn('block text-sm font-semibold leading-snug', highlight ? 'text-primary-foreground' : 'text-foreground')}>{title}</span>
-            </span>
-            <ChevronDown className={cn('size-4 shrink-0 -rotate-90 transition-transform group-hover:translate-x-1', highlight ? 'text-primary-foreground/70' : 'text-muted-foreground')} />
-          </Button>
-        ))}
+      {/* Title & Stats */}
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <h1 className="text-xl font-bold text-foreground">Agent Operations</h1>
+          <p className="text-xs text-muted-foreground hidden sm:block">
+            Instant search engine across all 14 business areas and operational tools.
+          </p>
+        </div>
+        <Badge variant="secondary" className="shrink-0 text-xs font-medium">
+          {searchQuery.trim() ? `${totalResultsCount} found` : '14 Business Areas'}
+        </Badge>
       </div>
+
+      {/* Search Engine Input & Category Filters */}
+      <div className="space-y-2.5">
+        <div className="relative">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+          <Input
+            ref={searchInputRef}
+            type="search"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search all 14 business areas, advances, bikes, rent, tools, reports..."
+            className="h-11 pl-10 pr-10 text-sm bg-card border-border rounded-xl shadow-2xs focus-visible:ring-primary/40 mb-0"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchQuery('');
+                searchInputRef.current?.focus();
+              }}
+              className="absolute right-3 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-muted hover:bg-muted-foreground/20 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+              aria-label="Clear search"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Quick Filter Categories */}
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar -mx-1 px-1">
+          {CATEGORIES.map((cat) => {
+            const isSelected = activeCategory === cat.id && !searchQuery;
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => {
+                  setActiveCategory(cat.id);
+                  if (searchQuery) setSearchQuery('');
+                }}
+                className={cn(
+                  'shrink-0 text-xs px-2.5 py-1 rounded-full font-medium transition-all select-none',
+                  isSelected
+                    ? 'bg-primary text-primary-foreground shadow-2xs'
+                    : 'bg-muted/70 text-muted-foreground hover:bg-muted hover:text-foreground border border-border/50'
+                )}
+              >
+                {cat.label}
+                <span className={cn('ml-1 text-[10px] opacity-75', isSelected ? 'text-primary-foreground' : 'text-muted-foreground')}>
+                  {cat.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Empty State */}
+      {filteredBusinessAreas.length === 0 && matchingNavItems.length === 0 ? (
+        <div className="flex flex-col items-center justify-center p-8 rounded-2xl border border-dashed border-border bg-card/60 text-center space-y-3">
+          <div className="h-12 w-12 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
+            <Search className="h-6 w-6" />
+          </div>
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-foreground">No Agent Ops items found</p>
+            <p className="text-xs text-muted-foreground max-w-sm">
+              We couldn&apos;t find any business areas or tools matching &ldquo;{searchQuery}&rdquo;. Try searching for &ldquo;advance&rdquo;, &ldquo;bikes&rdquo;, &ldquo;rent&rdquo;, &ldquo;calling&rdquo;, or &ldquo;merchandise&rdquo;.
+            </p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setSearchQuery('');
+              setActiveCategory('all');
+              searchInputRef.current?.focus();
+            }}
+            className="text-xs gap-1.5"
+          >
+            <X className="h-3.5 w-3.5" /> Clear search
+          </Button>
+        </div>
+      ) : (
+        <>
+          {/* Business Areas Grid */}
+          {filteredBusinessAreas.length > 0 && (
+            <div className="space-y-2">
+              {searchQuery.trim() && (
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-0.5">
+                  Core Business Areas ({filteredBusinessAreas.length})
+                </p>
+              )}
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
+                {filteredBusinessAreas.map(({ num, title, icon: Icon, section, highlight, desc }) => (
+                  <Button
+                    key={title}
+                    type="button"
+                    variant="outline"
+                    onClick={() => selectView(section)}
+                    aria-label={title}
+                    className={cn(
+                      'group relative h-auto min-h-24 w-full whitespace-normal justify-start gap-3.5 rounded-xl p-3.5 text-left transition-all',
+                      highlight
+                        ? [
+                            '!bg-primary !text-primary-foreground !border-primary-foreground/25',
+                            'hover:!bg-primary/90 hover:!border-primary-foreground/45 active:!bg-primary/80',
+                            'shadow-glow hover:shadow-lg hover:-translate-y-0.5',
+                          ]
+                        : 'border-border bg-card shadow-2xs hover:border-primary/50 hover:bg-muted/50 hover:-translate-y-0.5'
+                    )}
+                  >
+                    {highlight && (
+                      <span
+                        aria-hidden="true"
+                        className="pointer-events-none absolute -inset-1 rounded-xl border-2 border-primary-foreground/55 animate-attention-halo"
+                      />
+                    )}
+                    <span className={cn(
+                      'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg',
+                      highlight ? 'bg-primary-foreground/15 text-primary-foreground' : 'bg-primary/10 text-primary'
+                    )}>
+                      <Icon className="h-5 w-5" />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className={cn('block text-xs font-semibold tracking-wide', highlight ? 'text-primary-foreground/75' : 'text-muted-foreground')}>
+                        {num}
+                      </span>
+                      <span className={cn('block text-sm font-bold leading-snug', highlight ? 'text-primary-foreground' : 'text-foreground')}>
+                        {title}
+                      </span>
+                      {desc && (
+                        <span className={cn('block text-xs line-clamp-1 mt-0.5', highlight ? 'text-primary-foreground/85' : 'text-muted-foreground')}>
+                          {desc}
+                        </span>
+                      )}
+                    </span>
+                    <ChevronDown className={cn('h-4 w-4 shrink-0 -rotate-90 transition-transform group-hover:translate-x-1', highlight ? 'text-primary-foreground/70' : 'text-muted-foreground')} />
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Related Tools & Detailed Sub-sections */}
+          {matchingNavItems.length > 0 && (
+            <div className="space-y-2.5 pt-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-0.5">
+                Related Agent Ops Tools &amp; Reports ({matchingNavItems.length})
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 sm:gap-2.5">
+                {matchingNavItems.map((item) => {
+                  const Icon = item.icon;
+                  const showBadge = item.key === 'advance-requests' && pendingAdvanceCount > 0;
+                  return (
+                    <button
+                      key={item.key as string}
+                      type="button"
+                      onClick={() => selectView(item.key)}
+                      className="flex items-center gap-3 p-3 rounded-xl border border-border bg-card hover:bg-muted/50 hover:border-primary/40 active:scale-[0.99] transition-all text-left shadow-2xs group"
+                    >
+                      <span className={cn('h-8 w-8 rounded-lg flex items-center justify-center shrink-0', item.color)}>
+                        <Icon className="h-4 w-4 text-white" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <span className="block text-xs sm:text-sm font-semibold text-foreground truncate group-hover:text-primary transition-colors">
+                          {item.label}
+                        </span>
+                        <span className="block text-[10px] text-muted-foreground truncate">
+                          Direct view &bull; Agent Ops
+                        </span>
+                      </div>
+                      {showBadge && (
+                        <span className="min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
+                          {pendingAdvanceCount > 99 ? '99+' : pendingAdvanceCount}
+                        </span>
+                      )}
+                      <ChevronRight className="h-4 w-4 text-muted-foreground/60 shrink-0 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </>
+      )}
     </div>
   ) : (
     <div className="space-y-5 pb-20 sm:pb-4">

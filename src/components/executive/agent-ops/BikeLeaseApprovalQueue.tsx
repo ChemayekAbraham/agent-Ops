@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { Bike, Check, Edit3, Loader2, X, Download, Award, ShieldCheck, Wrench, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
+import { Bike, Check, Edit3, Loader2, X, Download, Award, ShieldCheck, Wrench, TrendingUp, ChevronDown, ChevronUp, FileText } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
@@ -373,14 +373,14 @@ export function BikeLeaseApprovalQueue({
                       isExpanded ? "border-primary/40 ring-1 ring-primary/20" : "hover:border-border"
                     )}
                   >
-                    {/* Collapsible Card Header - always visible & tappable */}
+                    {/* Card Header - tap to open full application details dossier */}
                     <div
-                      className="flex items-center justify-between gap-2 p-3 cursor-pointer select-none hover:bg-muted/30 transition-colors"
-                      onClick={() => toggleExpand(o.id)}
+                      className="flex items-center justify-between gap-2 p-3 cursor-pointer select-none hover:bg-muted/30 active:bg-muted/50 transition-colors"
+                      onClick={() => setDetailTarget(o)}
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5 flex-wrap">
-                          <p className="text-sm font-semibold truncate text-foreground">{o.client_name || 'Agent'}</p>
+                          <p className="text-sm font-semibold truncate text-foreground hover:text-primary transition-colors">{o.client_name || 'Agent'}</p>
                           <Badge variant="outline" className={cn("shrink-0 text-[10px] px-1.5 py-0 font-medium", STATUS_TONE[o.order_status] || '')}>
                             {statusLabel(o.order_status)}
                           </Badge>
@@ -401,9 +401,12 @@ export function BikeLeaseApprovalQueue({
                         </div>
                         <button
                           type="button"
-                          aria-label={isExpanded ? "Collapse card" : "Expand card"}
-                          className="h-7 w-7 rounded-full bg-muted/60 flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
-                          onClick={(e) => toggleExpand(o.id, e)}
+                          aria-label={isExpanded ? "Collapse quick summary" : "Expand quick summary"}
+                          className="h-7 w-7 rounded-full bg-muted/60 flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-muted transition-colors shrink-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleExpand(o.id);
+                          }}
                         >
                           {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                         </button>
@@ -444,12 +447,21 @@ export function BikeLeaseApprovalQueue({
                         </div>
 
                         {/* Action buttons with no collision */}
-                        <div className="space-y-1.5 pt-1" onClick={(e) => e.stopPropagation()}>
+                        <div className="space-y-2 pt-1" onClick={(e) => e.stopPropagation()}>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 w-full text-xs font-semibold border-primary/40 text-primary hover:bg-primary/10 gap-1.5 shadow-2xs"
+                            onClick={() => setDetailTarget(o)}
+                          >
+                            <FileText className="h-3.5 w-3.5" /> View Full Application Dossier
+                          </Button>
+
                           <div className="grid grid-cols-2 gap-2">
                             <Button
                               size="sm"
                               variant="outline"
-                              className="h-8 text-xs gap-1 border-primary/30 text-primary hover:bg-primary/10 font-medium"
+                              className="h-8 text-xs gap-1 border-border text-foreground hover:text-primary hover:bg-primary/10 font-medium"
                               onClick={() => setEditTarget(o)}
                             >
                               <Edit3 className="h-3.5 w-3.5" /> Edit Price
@@ -464,7 +476,7 @@ export function BikeLeaseApprovalQueue({
                             </Button>
                           </div>
 
-                          {canActOnRow(o.order_status) ? (
+                          {canActOnRow(o.order_status) && (
                             <div className="flex items-center gap-2">
                               <Button
                                 size="sm"
@@ -484,15 +496,6 @@ export function BikeLeaseApprovalQueue({
                                 <X className="h-3.5 w-3.5 mr-1" /> Reject
                               </Button>
                             </div>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-8 w-full text-xs text-muted-foreground hover:text-primary font-medium"
-                              onClick={() => setDetailTarget(o)}
-                            >
-                              View Full Details
-                            </Button>
                           )}
                         </div>
                       </div>
