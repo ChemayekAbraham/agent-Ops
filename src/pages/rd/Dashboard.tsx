@@ -111,6 +111,25 @@ function Bullets({ items }: { items: string[] }) {
   return <ul className="mt-1.5 list-disc space-y-1 pl-5 text-xs text-muted-foreground">{items.map((t) => <li key={t}>{t}</li>)}</ul>;
 }
 
+// Editable dated updates, saved per project on this device.
+type IdeaUpdate = { id: string; date: string; text: string };
+const UPDATES_KEY = 'rd-project-updates-v1';
+function loadUpdates(name: string): IdeaUpdate[] {
+  try {
+    const all = JSON.parse(localStorage.getItem(UPDATES_KEY) || '{}');
+    if (Array.isArray(all[name])) return all[name];
+  } catch { /* ignore */ }
+  return [];
+}
+function saveUpdates(name: string, updates: IdeaUpdate[]) {
+  try {
+    const all = JSON.parse(localStorage.getItem(UPDATES_KEY) || '{}');
+    all[name] = updates;
+    localStorage.setItem(UPDATES_KEY, JSON.stringify(all));
+  } catch { /* ignore */ }
+}
+const today = () => new Date().toISOString().slice(0, 10);
+
 function ProjectCard({ p }: { p: Project }) {
   const Icon = p.icon;
   return (
