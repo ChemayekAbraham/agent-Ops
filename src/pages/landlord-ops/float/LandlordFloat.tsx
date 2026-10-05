@@ -1835,7 +1835,7 @@ export default function LandlordFloat() {
       </div>
 
       {/* Headline tiles */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <StatTile
           label="Float needed"
           value={formatUGX(needed.total_amount)}
@@ -1970,6 +1970,27 @@ export default function LandlordFloat() {
               kind: 'portfolios',
             })
           }
+        />
+        <StatTile
+          label="Landlord Float Pool"
+          value={
+            pool
+              ? formatUGX(pool.available_to_deploy)
+              : poolError
+                ? '—'
+                : poolLoading
+                  ? '…'
+                  : '—'
+          }
+          sub={
+            poolError
+              ? 'Pool position could not be loaded'
+              : pool
+                ? 'Available to deploy'
+                : 'Loading pool position…'
+          }
+          icon={Landmark}
+          tone="default"
         />
       </div>
 
