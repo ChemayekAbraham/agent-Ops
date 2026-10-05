@@ -28419,6 +28419,7 @@ export type Database = {
           original_amount: number
           outstanding_balance: number
           overdue_surcharge_total: number
+          phone_collection_enabled: boolean
           pricing_basis: string | null
           principal_recovered: number
           principal_total: number | null
@@ -28459,6 +28460,7 @@ export type Database = {
           original_amount?: number
           outstanding_balance?: number
           overdue_surcharge_total?: number
+          phone_collection_enabled?: boolean
           pricing_basis?: string | null
           principal_recovered?: number
           principal_total?: number | null
@@ -28499,6 +28501,7 @@ export type Database = {
           original_amount?: number
           outstanding_balance?: number
           overdue_surcharge_total?: number
+          phone_collection_enabled?: boolean
           pricing_basis?: string | null
           principal_recovered?: number
           principal_total?: number | null
@@ -71199,6 +71202,7 @@ export type Database = {
         Args: { p_as_of?: string; p_test_agent?: string }
         Returns: Json
       }
+      recover_smartphone_from_wallets: { Args: never; Returns: Json }
       redeem_staff_access_code: { Args: { p_code: string }; Returns: Json }
       refresh_financial_summaries: { Args: never; Returns: undefined }
       refresh_house_location_rollup: { Args: never; Returns: undefined }
@@ -73467,7 +73471,38 @@ export type Database = {
         Args: { p_cadence: string; p_reason: string; p_rent_request_id: string }
         Returns: undefined
       }
+      tops_shortfall_age_fallback: {
+        Args: { p_asof: string }
+        Returns: {
+          basis: string
+          days_behind: number
+          oldest_unpaid_day: string
+          rent_request_id: string
+        }[]
+      }
       tops_shortfall_breakdown: {
+        Args: {
+          p_area_level?: string
+          p_end: string
+          p_group: string
+          p_start: string
+        }
+        Returns: {
+          avg_days_behind: number
+          collected_ugx: number
+          expected_ugx: number
+          group_key: string
+          group_name: string
+          max_days_behind: number
+          oldest_unpaid_due: string
+          parent_name: string
+          plan_count: number
+          short_pct: number
+          short_ugx: number
+          tenant_count: number
+        }[]
+      }
+      tops_shortfall_breakdown_v2: {
         Args: {
           p_area_level?: string
           p_end: string
@@ -73504,9 +73539,42 @@ export type Database = {
         }
         Returns: Json
       }
+      tops_shortfall_detail_v2: {
+        Args: {
+          p_area_level?: string
+          p_dir?: string
+          p_end: string
+          p_group?: string
+          p_group_key?: string
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_sort?: string
+          p_start: string
+        }
+        Returns: Json
+      }
       tops_shortfall_lines: {
         Args: { p_end: string; p_start: string }
         Returns: {
+          agent_id: string
+          cadence: string
+          collected_capped_ugx: number
+          collected_raw_ugx: number
+          days_behind: number
+          expected_ugx: number
+          last_paid_at: string
+          oldest_unpaid_due: string
+          periods_behind: number
+          rent_request_id: string
+          short_ugx: number
+          tenant_id: string
+        }[]
+      }
+      tops_shortfall_lines_v2: {
+        Args: { p_end: string; p_start: string }
+        Returns: {
+          age_basis: string
           agent_id: string
           cadence: string
           collected_capped_ugx: number
