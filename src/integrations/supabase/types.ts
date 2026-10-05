@@ -28399,24 +28399,34 @@ export type Database = {
           customer_id: string
           customer_name: string | null
           customer_phone: string | null
+          daily_amount_fixed: number | null
           daily_deduction_amount: number
           daily_rate: number
+          due_accrued_through: string | null
+          due_balance: number
           fee_recovered: number
           fee_total: number | null
           id: string
+          is_bike_lease: boolean
           item_name: string
+          last_attempt_on: string | null
+          last_attempt_result: string | null
           last_bike_recovery_on: string | null
           last_recovery_at: string | null
+          last_success_on: string | null
           last_surcharge_on: string | null
+          miss_alert_sent: boolean
           original_amount: number
           outstanding_balance: number
           overdue_surcharge_total: number
           pricing_basis: string | null
           principal_recovered: number
           principal_total: number | null
+          recovery_started_on: string | null
           sale_id: string | null
           starts_on: string | null
           status: string
+          term_end_on: string | null
           updated_at: string
         }
         Insert: {
@@ -28427,24 +28437,34 @@ export type Database = {
           customer_id: string
           customer_name?: string | null
           customer_phone?: string | null
+          daily_amount_fixed?: number | null
           daily_deduction_amount?: number
           daily_rate?: number
+          due_accrued_through?: string | null
+          due_balance?: number
           fee_recovered?: number
           fee_total?: number | null
           id?: string
+          is_bike_lease?: boolean
           item_name: string
+          last_attempt_on?: string | null
+          last_attempt_result?: string | null
           last_bike_recovery_on?: string | null
           last_recovery_at?: string | null
+          last_success_on?: string | null
           last_surcharge_on?: string | null
+          miss_alert_sent?: boolean
           original_amount?: number
           outstanding_balance?: number
           overdue_surcharge_total?: number
           pricing_basis?: string | null
           principal_recovered?: number
           principal_total?: number | null
+          recovery_started_on?: string | null
           sale_id?: string | null
           starts_on?: string | null
           status?: string
+          term_end_on?: string | null
           updated_at?: string
         }
         Update: {
@@ -28455,24 +28475,34 @@ export type Database = {
           customer_id?: string
           customer_name?: string | null
           customer_phone?: string | null
+          daily_amount_fixed?: number | null
           daily_deduction_amount?: number
           daily_rate?: number
+          due_accrued_through?: string | null
+          due_balance?: number
           fee_recovered?: number
           fee_total?: number | null
           id?: string
+          is_bike_lease?: boolean
           item_name?: string
+          last_attempt_on?: string | null
+          last_attempt_result?: string | null
           last_bike_recovery_on?: string | null
           last_recovery_at?: string | null
+          last_success_on?: string | null
           last_surcharge_on?: string | null
+          miss_alert_sent?: boolean
           original_amount?: number
           outstanding_balance?: number
           overdue_surcharge_total?: number
           pricing_basis?: string | null
           principal_recovered?: number
           principal_total?: number | null
+          recovery_started_on?: string | null
           sale_id?: string | null
           starts_on?: string | null
           status?: string
+          term_end_on?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -35440,6 +35470,7 @@ export type Database = {
           identity_photos_submitted_at: string | null
           is_frozen: boolean
           is_seller: boolean
+          is_test: boolean
           landmark: string | null
           last_active_at: string | null
           last_continuous_location_at: string | null
@@ -35558,6 +35589,7 @@ export type Database = {
           identity_photos_submitted_at?: string | null
           is_frozen?: boolean
           is_seller?: boolean
+          is_test?: boolean
           landmark?: string | null
           last_active_at?: string | null
           last_continuous_location_at?: string | null
@@ -35676,6 +35708,7 @@ export type Database = {
           identity_photos_submitted_at?: string | null
           is_frozen?: boolean
           is_seller?: boolean
+          is_test?: boolean
           landmark?: string | null
           last_active_at?: string | null
           last_continuous_location_at?: string | null
@@ -58423,6 +58456,15 @@ export type Database = {
         }
         Returns: string
       }
+      _merch_bike_day: {
+        Args: { p_day: string; p_sale_id: string; p_v2: boolean }
+        Returns: {
+          active: boolean
+          daily: number
+          fee_ratio: number
+          term_end: string
+        }[]
+      }
       _post_four_part_fee_split: {
         Args: {
           p_amount: number
@@ -71147,7 +71189,10 @@ export type Database = {
         }
         Returns: Json
       }
-      recover_merchandise_from_wallets: { Args: never; Returns: Json }
+      recover_merchandise_from_wallets: {
+        Args: { p_as_of?: string; p_test_agent?: string }
+        Returns: Json
+      }
       redeem_staff_access_code: { Args: { p_code: string }; Returns: Json }
       refresh_financial_summaries: { Args: never; Returns: undefined }
       refresh_house_location_rollup: { Args: never; Returns: undefined }
@@ -73415,6 +73460,23 @@ export type Database = {
       tops_set_plan_cadence: {
         Args: { p_cadence: string; p_reason: string; p_rent_request_id: string }
         Returns: undefined
+      }
+      tops_shortfall_lines: {
+        Args: { p_end: string; p_start: string }
+        Returns: {
+          agent_id: string
+          cadence: string
+          collected_capped_ugx: number
+          collected_raw_ugx: number
+          days_behind: number
+          expected_ugx: number
+          last_paid_at: string
+          oldest_unpaid_due: string
+          periods_behind: number
+          rent_request_id: string
+          short_ugx: number
+          tenant_id: string
+        }[]
       }
       tops_snapshot_agent_float_adequacy: { Args: never; Returns: number }
       tops_snooze_work_item: {
