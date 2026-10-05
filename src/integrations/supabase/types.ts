@@ -49207,6 +49207,36 @@ export type Database = {
         }
         Relationships: []
       }
+      tops_shortfall_followups: {
+        Row: {
+          actor_id: string
+          created_at: string
+          id: string
+          note: string
+          outcome: string
+          promised_date: string | null
+          rent_request_id: string
+        }
+        Insert: {
+          actor_id: string
+          created_at?: string
+          id?: string
+          note: string
+          outcome: string
+          promised_date?: string | null
+          rent_request_id: string
+        }
+        Update: {
+          actor_id?: string
+          created_at?: string
+          id?: string
+          note?: string
+          outcome?: string
+          promised_date?: string | null
+          rent_request_id?: string
+        }
+        Relationships: []
+      }
       tops_tenant_brief_log: {
         Row: {
           degraded_to_facts_only: boolean
@@ -73452,6 +73482,15 @@ export type Database = {
           sample_size_first_action: number
         }[]
       }
+      tops_record_shortfall_followup: {
+        Args: {
+          p_note: string
+          p_outcome: string
+          p_promised_date?: string
+          p_rent_request_id: string
+        }
+        Returns: Json
+      }
       tops_refresh_restructure_register: { Args: never; Returns: number }
       tops_refresh_work_items: { Args: never; Returns: number }
       tops_resolve_collection_anomaly: {
@@ -73553,6 +73592,20 @@ export type Database = {
           p_start: string
         }
         Returns: Json
+      }
+      tops_shortfall_followups_latest: {
+        Args: { p_rent_request_ids: string[] }
+        Returns: {
+          actor_id: string
+          actor_name: string
+          created_at: string
+          followup_count: number
+          followup_id: string
+          note: string
+          outcome: string
+          promised_date: string
+          rent_request_id: string
+        }[]
       }
       tops_shortfall_lines: {
         Args: { p_end: string; p_start: string }
