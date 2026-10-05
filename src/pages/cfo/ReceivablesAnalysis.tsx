@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from 'recharts';
@@ -9,12 +9,10 @@ import { supabase } from '@/integrations/supabase/client';
 import { kampalaTodayYmd } from '@/lib/kampalaDays';
 import { formatUGX } from '@/lib/rentCalculations';
 import {
-  useReceivablesBreakdown, useReceivablesPredictiveForecast, useTenantReceivablesByLocation,
-  useTenantReceivableAccounts, type ForecastGranularity, type TenantReceivablesLevel,
-  type ReceivableItem, type ReceivablesForecast,
+  useReceivablesBreakdown, useReceivablesPredictiveForecast,
+  type ForecastGranularity, type ReceivableItem, type ReceivablesForecast,
 } from '@/hooks/useReceivables';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 
 /**
@@ -31,16 +29,9 @@ const PERIODS: { key: string; label: string; g: ForecastGranularity; n: number }
   { key: '1y', label: '1 year', g: 'month', n: 12 },
   { key: '2y', label: '2 years', g: 'month', n: 24 },
 ];
-const LEVELS: TenantReceivablesLevel[] = ['region', 'district', 'subcounty', 'village'];
-const LEVEL_LABEL: Record<TenantReceivablesLevel, string> = {
-  region: 'Region', district: 'District', subcounty: 'Sub-county', village: 'Village',
-};
 const PAGE = 15;
 const today = kampalaTodayYmd;
 const daysBetween = (a: string, b: string) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5);
-const isTenantCat = (k: string) => /tenant/i.test(k);
-
-type Crumb = { level: TenantReceivablesLevel; label: string; region?: string | null; districtId?: number | null; subcountyId?: number | null };
 
 function Figure({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
@@ -159,46 +150,8 @@ export default function ReceivablesAnalysis() {
   const gapTotal = behaviourTotal !== null && idealTotal !== null ? idealTotal - behaviourTotal : null;
   const missingBehaviour = (fc?.scheduled_only_streams ?? []).filter(s => cat === 'all' || s.category_key === cat);
 
-  // ---------- Location drill (tenant receivables) ----------
-  const [crumbs, setCrumbs] = useState<Crumb[]>([]);
-  const [village, setVillage] = useState<string | null>(null);
-  const [locSearch, setLocSearch] = useState('');
-  const [locSort, setLocSort] = useState<'outstanding' | 'item_count' | 'label'>('outstanding');
-  const [locPage, setLocPage] = useState(0);
-  const [recPage, setRecPage] = useState(0);
-  const last = crumbs[crumbs.length - 1];
-  const level: TenantReceivablesLevel = last ? LEVELS[Math.min(LEVELS.indexOf(last.level) + 1, 3)] : 'region';
-  const locFilters = { level, region: last?.region ?? null, districtId: last?.districtId ?? null, subcountyId: last?.subcountyId ?? null };
-  const locEnabled = cat === 'all' || isTenantCat(cat);
-  const loc = useTenantReceivablesByLocation(locFilters, locEnabled);
-  const records = useTenantReceivableAccounts({ ...locFilters, groupLabel: village, limit: 500 }, locEnabled && !!village);
-
-  const locRows = useMemo(() => {
-    const rows = (loc.data?.rows ?? []).filter((r) => r.label.toLowerCase().includes(locSearch.toLowerCase()));
-    return [...rows].sort((a, b) => locSort === 'label' ? a.label.localeCompare(b.label) : (b[locSort] as number) - (a[locSort] as number));
-  }, [loc.data, locSearch, locSort]);
-  const locTotal = loc.data?.total ?? 0;
-
-  const drill = (r: (typeof locRows)[number]) => {
-    setLocPage(0); setRecPage(0); setLocSearch('');
-    if (level === 'village') { setVillage(r.label); return; }
-    setVillage(null);
-    setCrumbs([...crumbs, {
-      level, label: r.label,
-      region: level === 'region' ? r.region ?? r.label : last?.region ?? null,
-      districtId: r.district_id ?? last?.districtId ?? null,
-      subcountyId: r.subcounty_id ?? last?.subcountyId ?? null,
-    }]);
-  };
-
-  const accounts = records.data?.accounts ?? [];
-  const recPages = Math.ceil(accounts.length / PAGE);
-  const locationSelected = crumbs.length > 0 || !!village;
-  const scopeLabel = [selectedCat?.label ?? 'All categories', ...crumbs.map(c => c.label), village].filter(Boolean).join(' / ');
-  const scopedOutstanding = locationSelected ? (village ? records.data?.total : loc.data?.total) : outstanding;
-  const scopedCount = locationSelected ? (village ? records.data?.item_count : loc.data?.item_count) : count;
+  const scopeLabel = selectedCat?.label ?? 'All categories';
   const money = (value: number | null | undefined) => value == null ? 'Unavailable' : formatUGX(value);
-
 
   return (
     <main className="min-h-screen bg-background">
@@ -215,7 +168,7 @@ export default function ReceivablesAnalysis() {
           </div>
           <div className="w-full sm:w-80">
             <p className="mb-1 text-[11px] uppercase tracking-normal text-muted-foreground">Receivable category</p>
-            <Select value={cat} onValueChange={(v) => { setParam('cat', v === 'all' ? '' : v); setCrumbs([]); setVillage(null); }}>
+            <Select value={cat} onValueChange={(v) => setParam('cat', v === 'all' ? '' : v)}>
               <SelectTrigger aria-label="Receivable category" className="rounded-md shadow-none"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All categories</SelectItem>
@@ -227,19 +180,15 @@ export default function ReceivablesAnalysis() {
 
         <p className="text-xs text-muted-foreground" aria-live="polite">{scopeLabel}</p>
         <section aria-label="Receivables summary" className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-x-5 gap-y-2 border-y border-border/60 py-5">
-          <Figure label="Total outstanding" value={breakdown.isLoading ? '—' : money(scopedOutstanding)} />
-          <Figure label="Current" value={money(locationSelected ? undefined : currentAmt)} sub="Not yet due" />
-          <Figure label="Overdue" value={money(locationSelected ? undefined : overdueAmt)} sub="Past due date" />
-          <Figure label="Due soon" value={money(locationSelected ? undefined : dueSoonAmt)} sub="Today and the next 6 days · Kampala" />
-          <Figure label="Accounts / obligations" value={scopedCount?.toLocaleString() ?? 'Unavailable'} />
+          <Figure label="Total outstanding" value={breakdown.isLoading ? '—' : money(outstanding)} />
+          <Figure label="Current" value={money(currentAmt)} sub="Not yet due" />
+          <Figure label="Overdue" value={money(overdueAmt)} sub="Past due date" />
+          <Figure label="Due soon" value={money(dueSoonAmt)} sub="Today and the next 6 days · Kampala" />
+          <Figure label="Accounts / obligations" value={count?.toLocaleString() ?? 'Unavailable'} />
         </section>
 
         <Section title="Products & services">
-          {locationSelected ? (
-            <div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-border text-muted-foreground"><th className="py-3 text-left">Product / service</th><th className="py-3 text-right">Outstanding</th><th className="py-3 text-right">Obligations</th></tr></thead><tbody>
-              {(loc.data?.products ?? []).map(p => <tr key={p.key} className="border-b border-border/50"><td className="py-4">{p.label}</td><td className="py-4 text-right tabular-nums">{formatUGX(p.outstanding)}</td><td className="py-4 text-right">{p.item_count}</td></tr>)}
-            </tbody></table>{(loc.isError || village) && <p className="py-3 text-xs text-muted-foreground">Product totals for this location are unavailable.</p>}</div>
-          ) : breakdown.isLoading ? (
+          {breakdown.isLoading ? (
             <p className="text-sm text-muted-foreground">Loading…</p>
           ) : (
             <div className="space-y-6">
@@ -267,122 +216,11 @@ export default function ReceivablesAnalysis() {
           )}
         </Section>
 
-        <Section title="Where the balance comes from">
-          {!locEnabled ? (
-            <p className="text-sm text-muted-foreground">
-              Location breakdown is unavailable for {selectedCat?.label}.
-            </p>
-          ) : (
-            <>
-              {cat === 'all' && <p className="mb-4 text-xs text-muted-foreground">Geographic coverage: tenant receivables only. Other categories are not mapped.</p>}
-              {loc.isError && <p role="status" className="mb-4 text-sm text-muted-foreground">Location data could not be loaded. No location balances or forecasts are shown.</p>}
-              <div className="mb-3 flex flex-wrap items-center gap-1 text-xs">
-                <Button variant="ghost" size="sm" className="rounded-sm text-muted-foreground" onClick={() => { setCrumbs([]); setVillage(null); setLocPage(0); setLocSearch(''); }}>Country: Uganda</Button>
-                {crumbs.map((c, i) => (
-                  <span key={i} className="flex items-center gap-1">
-                    <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                    <Button variant="ghost" size="sm" className="rounded-sm text-muted-foreground" onClick={() => { setCrumbs(crumbs.slice(0, i + 1)); setVillage(null); setLocPage(0); setLocSearch(''); }}>{c.label}</Button>
-                  </span>
-                ))}
-                {village && <span className="flex items-center gap-1"><ChevronRight className="h-3 w-3 text-muted-foreground" /><span className="font-medium">{village}</span></span>}
-                <span className="ml-auto flex items-center gap-2">
-                  <Input placeholder={`Filter ${LEVEL_LABEL[level].toLowerCase()}…`} className="h-8 w-44" value={locSearch} onChange={(e) => { setLocSearch(e.target.value); setLocPage(0); }} />
-                  <Select value={locSort} onValueChange={(v) => setLocSort(v as typeof locSort)}>
-                    <SelectTrigger className="h-8 w-40"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="outstanding">Sort: outstanding</SelectItem>
-                      <SelectItem value="item_count">Sort: count</SelectItem>
-                      <SelectItem value="label">Sort: name</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </span>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="text-[11px] uppercase tracking-normal text-muted-foreground">
-                    <tr className="border-b border-border/60">
-                      <th className="py-4 text-left font-medium">{LEVEL_LABEL[level]}</th>
-                      <th className="py-4 text-right font-medium">Receivables</th>
-                      <th className="py-4 text-right font-medium">Outstanding</th>
-                      <th className="py-4 text-right font-medium">Scheduled</th>
-                      <th className="py-4 text-right font-medium">% of total</th>
-                      <th className="py-4 text-right font-medium">Average</th>
-                      <th className="py-4" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {loc.isLoading && <tr><td colSpan={7} className="py-6 text-center text-muted-foreground">Loading…</td></tr>}
-                    {locRows.slice(locPage * PAGE, locPage * PAGE + PAGE).map((r) => (
-                      <tr key={r.key ?? r.label} onClick={() => drill(r)} tabIndex={0} onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); drill(r); } }} className={`border-b border-border/40 cursor-pointer hover:bg-muted/40 ${village === r.label ? 'bg-muted/40' : ''}`}>
-                        <td className="py-4">{r.label}{!r.fully_mapped && <span className="ml-2 text-[10px] text-warning">partly unmapped</span>}</td>
-                        <td className="py-4 text-right tabular-nums">{r.item_count.toLocaleString()}</td>
-                        <td className="py-4 text-right tabular-nums">{formatUGX(r.outstanding)}</td>
-                        <td className="py-4 text-right tabular-nums">{formatUGX(r.scheduled_amount)}</td>
-                        <td className="py-4 text-right tabular-nums">{locTotal ? ((r.outstanding / locTotal) * 100).toFixed(1) : '0.0'}%</td>
-                        <td className="py-4 text-right tabular-nums">{formatUGX(r.item_count ? r.outstanding / r.item_count : 0)}</td>
-                        <td className="py-4 text-right"><ChevronRight className="inline h-4 w-4 text-muted-foreground" /></td>
-                      </tr>
-                    ))}
-                    {!loc.isLoading && !loc.isError && locRows.length === 0 && <tr><td colSpan={7} className="py-6 text-center text-muted-foreground">No receivables at this level.</td></tr>}
-                  </tbody>
-                </table>
-              </div>
-              <Pager page={locPage} pages={Math.ceil(locRows.length / PAGE)} set={setLocPage} />
-              <p className="mt-2 text-[11px] text-muted-foreground">Country → Region → District → Sub-county → Village → Account</p>
-            </>
-          )}
-        </Section>
-
-        {village && (
-          <Section title={`Underlying receivables · ${village}`} right={<Button size="sm" variant="ghost" onClick={() => setVillage(null)}>Close</Button>}>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="text-[11px] uppercase tracking-normal text-muted-foreground">
-                  <tr className="border-b border-border/60">
-                    <th className="py-4 text-left font-medium">Account</th>
-                    <th className="py-4 text-left font-medium">Products</th>
-                    <th className="py-4 text-right font-medium">Outstanding</th>
-                    <th className="py-4 text-right font-medium">Overdue</th>
-                    <th className="py-4 text-right font-medium">Next due</th>
-                    <th className="py-4 text-right font-medium">Days outstanding</th>
-                    <th className="py-4 text-left font-medium pl-4">District</th>
-                    <th className="py-4 text-left font-medium">Sub-county</th>
-                    <th className="py-4 text-left font-medium">Village</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {records.isLoading && <tr><td colSpan={9} className="py-6 text-center text-muted-foreground">Loading…</td></tr>}
-                  {accounts.slice(recPage * PAGE, recPage * PAGE + PAGE).map((a) => {
-                    const od = a.items.filter((i) => i.due_date && i.due_date < t).reduce((s, i) => s + i.amount, 0);
-                    const oldest = a.items.map((i) => i.due_date).filter(Boolean).sort()[0] as string | undefined;
-                    return (
-                      <tr key={a.tenant_id} className="border-b border-border/40">
-                        <td className="py-4">{a.tenant ?? '—'}<div className="text-[11px] text-muted-foreground">{a.phone ?? ''}</div></td>
-                        <td className="py-4 text-xs text-muted-foreground">{[...new Set(a.items.map((i) => i.product))].join(', ')}</td>
-                        <td className="py-4 text-right tabular-nums">{formatUGX(a.outstanding)}</td>
-                        <td className={`py-2 text-right tabular-nums ${od > 0 ? 'text-destructive' : ''}`}>{formatUGX(od)}</td>
-                        <td className="py-4 text-right tabular-nums">{a.next_due_date ?? '—'}</td>
-                        <td className="py-4 text-right tabular-nums">{oldest && oldest < t ? daysBetween(oldest, t) : '—'}</td>
-                        <td className="py-4 pl-4">{a.district ?? '—'}</td>
-                        <td className="py-4">{a.subcounty ?? '—'}</td>
-                        <td className="py-4">{a.village ?? '—'}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            <Pager page={recPage} pages={recPages} set={setRecPage} />
-            <p className="mt-2 text-[11px] text-muted-foreground">Original amount and amount collected per record are not returned by the receivables source yet.</p>
-          </Section>
-        )}
-
         <Section title="Receivables Forecast" right={<div className="flex flex-wrap gap-1" aria-label="Forecast horizon">
           {PERIODS.map(p => <Button key={p.key} size="sm" variant={p.key === period.key ? 'soft' : 'outline'} aria-pressed={p.key === period.key} className="rounded-sm shadow-none text-xs" onClick={() => setParam('p', p.key)}>{p.label}</Button>)}
         </div>}>
           <p className="mb-5 text-xs text-muted-foreground">{scopeLabel} · {proj[0]?.start ?? '—'} to {proj[proj.length - 1]?.end ?? '—'} · Kampala calendar periods</p>
-          {locationSelected ? <p className="py-8 text-sm text-muted-foreground">Historical collection behaviour and complete payment schedules are unavailable for this location. Category-wide forecasts are not substituted.</p>
-            : forecast.isLoading || ideal.isLoading ? <p className="py-8 text-sm text-muted-foreground">Loading forecast comparison…</p>
+          {forecast.isLoading || ideal.isLoading ? <p className="py-8 text-sm text-muted-foreground">Loading forecast comparison…</p>
             : forecast.isError || ideal.isError ? <p role="status" className="py-8 text-sm text-muted-foreground">Forecast comparison could not be loaded.</p> : <>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 border-y border-border/60 py-4 mb-8 gap-x-8">
                 <Figure label="Behaviour-Based Forecast" value={money(behaviourTotal)} sub="Historical collections · existing receivables" />
