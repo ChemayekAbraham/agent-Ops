@@ -242,6 +242,11 @@ const WEEK_COLS: { key: keyof Project['week']; title: string; icon: LucideIcon }
 
 export default function RDDashboard() {
   const navigate = useNavigate();
+  const [ideaRows, setIdeaRows] = useState<IdeaRow[]>(() => {
+    try { const v = localStorage.getItem(IDEAS_KEY); if (v) return JSON.parse(v); } catch { /* ignore */ }
+    return DEFAULT_IDEAS;
+  });
+  const OVERVIEW = overviewMetrics(ideaRows);
 
   return (
     <div className="min-h-screen bg-background">
