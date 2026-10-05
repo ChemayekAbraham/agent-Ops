@@ -346,7 +346,7 @@ Key columns: `transaction_group_id`, `user_id`, `category`, `cash_in`, `cash_out
 | Agent commission | `agent_commission_earned` cash_in (withdrawable) | `agent_commission_payable` cash_out |
 | Withdrawal | `wallet_withdrawal` cash_out | `proxy_partner_withdrawal` cash_in |
 | Advance issue | `agent_advance_credit` cash_in | agent-advance expense cash_out |
-| Advance recovery | `agent_repayment` cash_out (withdrawable only) | `agent_advance_repayment` cash_in |
+| Advance recovery | `agent_repayment` cash_out (withdrawable only) | `agent_repayment` cash_in (`operational_wallet`) |
 | Returns | `roi_wallet_credit` cash_in (always withdrawable) | `roi_expense` cash_out |
 | Correction | `system_balance_correction` | `phantom_writedown_clearing` / `balance_correction` |
 
@@ -455,7 +455,7 @@ Three distinct advance products share one recovery philosophy: **advances are re
 1. Recovery reads `get_user_available_balance`, never `wallets.balance`.
 2. Float and commission custody are never swept.
 3. The 15-min sweep adds no interest (that would double-count the daily cron).
-4. Recovery legs are `agent_repayment` (wallet, `recipient_type='user'`) against `agent_advance_repayment` (platform, `operational_wallet`).
+4. Recovery legs both use category `agent_repayment`, told apart by scope and recipient: wallet leg `cash_out` with `recipient_type='user'`, platform leg `cash_in` with `recipient_type='operational_wallet'`. `agent_advance_repayment` is a legacy category that the wallet-routing guards and CFO cash-movement reports still accept for older rows; no current writer posts it, so filter on both names when querying historical recoveries.
 
 ---
 
