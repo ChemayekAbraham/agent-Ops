@@ -1,3 +1,4 @@
+import { BikeLeaseDormancyBanner } from '@/components/agent/BikeLeaseDormancyBanner';
 import { useState, useEffect, useRef, useMemo, Suspense } from 'react';
 import { lazyWithRetry as lazy, lazyNamed } from '@/lib/lazyWithRetry';
 import { useNavigate } from 'react-router-dom';
@@ -964,6 +965,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         onRetry={handleRefresh}
       />
       
+      <BikeLeaseDormancyBanner />
       <DashboardHeader
         currentRole={currentRole}
         availableRoles={availableRoles}
