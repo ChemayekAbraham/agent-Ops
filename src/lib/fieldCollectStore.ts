@@ -116,7 +116,7 @@ function openDb(): Promise<IDBDatabase> {
       db.onclose = () => { if (dbPromise === p) dbPromise = null; };
       resolve(db);
     };
-    req.onerror = () => reject(req.error);
+    req.onerror = () => reject(req.error ?? namedError('UnknownError', 'Offline storage could not be opened'));
     req.onblocked = () => reject(new Error('IndexedDB open blocked by another tab'));
   });
   dbPromise = p;
@@ -124,37 +124,89 @@ function openDb(): Promise<IDBDatabase> {
   return p;
 }
 
-function isClosedConnectionError(e: unknown): boolean {
-  const name = (e as { name?: string } | null)?.name;
-  const msg = String((e as { message?: string } | null)?.message ?? '');
-  return name === 'InvalidStateError' || /connection is closing|in-progress transaction/i.test(msg);
+function namedError(name: string, message: string): Error {
+  const e = new Error(message);
+  e.name = name;
+  return e;
 }
 
 /**
- * Run `fn` against the shared connection; if the connection turns out to be
- * closing, discard it and retry exactly once on a fresh one.
+ * The error to reject with when a transaction fails. `t.error` is null when a
+ * transaction is aborted without a request error (e.g. the browser force-closes
+ * the connection), so fall back to an AbortError the retry check recognises.
+ */
+function txError(t: IDBTransaction): Error {
+  return t.error ?? namedError('AbortError', 'The offline storage transaction was aborted');
+}
+
+const STORAGE_FULL_MESSAGE = 'Phone storage is full. Free up some space, then try again.';
+const STORAGE_DEAD_MESSAGE = 'Offline storage stopped responding. Reload the page and try again.';
+
+/** Errors a retry can never fix: bad data, schema conflicts, or a full disk. */
+const NON_RETRYABLE_NAMES = new Set(['QuotaExceededError', 'ConstraintError', 'DataError', 'VersionError', 'DataCloneError']);
+
+function errorName(e: unknown): string {
+  return String((e as { name?: string } | null)?.name ?? '');
+}
+
+function isQuotaError(e: unknown): boolean {
+  return errorName(e) === 'QuotaExceededError';
+}
+
+/**
+ * True when the connection or the browser's storage backend dropped out from
+ * under us, so a fresh connection may succeed:
+ *  - InvalidStateError / "connection is closing": the connection was closed.
+ *  - UnknownError / "Indexed Database server": WebKit lost its storage
+ *    process (iOS Safari after backgrounding).
+ *  - AbortError: pending work aborted because the connection was force-closed.
+ *    Aborts caused by quota or constraint failures carry those names instead,
+ *    so they are excluded above.
+ */
+function isRetryableStorageError(e: unknown): boolean {
+  const name = errorName(e);
+  if (NON_RETRYABLE_NAMES.has(name)) return false;
+  if (name === 'InvalidStateError' || name === 'UnknownError' || name === 'AbortError') return true;
+  const msg = String((e as { message?: string } | null)?.message ?? '');
+  return /connection is closing|in-progress transaction|indexed database server/i.test(msg);
+}
+
+/** Safari's storage process reconnects asynchronously; give it a moment. */
+const RETRY_DELAY_MS = 150;
+
+/**
+ * Run `fn` against the shared connection. If opening or using it fails in a
+ * way a fresh connection can fix (see `isRetryableStorageError`), discard it
+ * and retry exactly once.
  *
- * If the fresh connection is closing too, the browser's IndexedDB backend is
- * gone for this page (iOS Safari loses it after backgrounding; only a reload
- * brings it back — 2026-09-28: one agent hit this every few seconds for 2h
- * after the doc-142 fix). Say so instead of surfacing the raw DOM message.
+ * Retrying is safe: a failed IndexedDB transaction commits nothing, and every
+ * write here is keyed (put/delete by id), so a repeat can't double-write.
+ *
+ * If the retry fails the same way, the browser's IndexedDB backend is gone for
+ * this page (iOS Safari loses it after backgrounding; only a reload brings it
+ * back — 2026-09-28: one agent hit this every few seconds for 2h after the
+ * doc-142 fix). Say so instead of surfacing the raw DOM message.
  */
 async function withDb<T>(fn: (db: IDBDatabase) => Promise<T>): Promise<T> {
-  const db = await openDb();
+  let db: IDBDatabase | null = null;
   try {
+    db = await openDb();
     return await fn(db);
   } catch (e) {
-    if (!isClosedConnectionError(e)) throw e;
+    if (isQuotaError(e)) throw new Error(STORAGE_FULL_MESSAGE);
+    if (!isRetryableStorageError(e)) throw e;
     if (dbPromise) {
-      const stale = await dbPromise.catch(() => null);
-      if (stale === db) dbPromise = null;
+      const current = await dbPromise.catch(() => null);
+      if (!current || current === db) dbPromise = null;
     }
+    await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
     try {
       return await fn(await openDb());
     } catch (e2) {
-      if (!isClosedConnectionError(e2)) throw e2;
+      if (isQuotaError(e2)) throw new Error(STORAGE_FULL_MESSAGE);
+      if (!isRetryableStorageError(e2)) throw e2;
       dbPromise = null;
-      throw new Error('Offline storage stopped responding. Reload the page and try again.');
+      throw new Error(STORAGE_DEAD_MESSAGE);
     }
   }
 }
@@ -167,8 +219,8 @@ function tx<T>(store: string, mode: IDBTransactionMode, fn: (s: IDBObjectStore) 
     const r = fn(s);
     if (r) r.onsuccess = () => { result = r.result; };
     t.oncomplete = () => resolve(result as T);
-    t.onerror = () => reject(t.error);
-    t.onabort = () => reject(t.error);
+    t.onerror = () => reject(txError(t));
+    t.onabort = () => reject(txError(t));
   }));
 }
 
@@ -194,8 +246,8 @@ export async function cacheTenants(agentId: string, tenants: Array<Omit<CachedTe
       }
     };
     t.oncomplete = () => resolve();
-    t.onerror = () => reject(t.error);
-    t.onabort = () => reject(t.error);
+    t.onerror = () => reject(txError(t));
+    t.onabort = () => reject(txError(t));
   }));
 }
 
@@ -205,7 +257,8 @@ export async function getCachedTenants(agentId: string): Promise<CachedTenant[]>
     const s = t.objectStore(STORE_TENANTS).index('by_agent');
     const req = s.getAll(IDBKeyRange.only(agentId));
     req.onsuccess = () => resolve((req.result || []) as CachedTenant[]);
-    req.onerror = () => reject(req.error);
+    req.onerror = () => reject(req.error ?? txError(t));
+    t.onabort = () => reject(txError(t));
   }));
 }
 
@@ -248,7 +301,8 @@ export async function getCachedNormalizedIndex(
         const rec = req.result as NormalizedIndexRecord | undefined;
         resolve(rec?.entries ?? null);
       };
-      req.onerror = () => reject(req.error);
+      req.onerror = () => reject(req.error ?? txError(t));
+      t.onabort = () => reject(txError(t));
     }));
   } catch (e) {
     console.warn('getCachedNormalizedIndex failed', e);
@@ -284,8 +338,8 @@ export async function saveCachedNormalizedIndex(
         }
       };
       t.oncomplete = () => resolve();
-      t.onerror = () => reject(t.error);
-      t.onabort = () => reject(t.error);
+      t.onerror = () => reject(txError(t));
+      t.onabort = () => reject(txError(t));
     }));
   } catch (e) {
     console.warn('saveCachedNormalizedIndex failed', e);
@@ -337,8 +391,8 @@ export async function updateEntry(id: string, patch: Partial<FieldEntry>): Promi
       s.put({ ...cur, ...patch });
     };
     t.oncomplete = () => resolve();
-    t.onerror = () => reject(t.error);
-    t.onabort = () => reject(t.error);
+    t.onerror = () => reject(txError(t));
+    t.onabort = () => reject(txError(t));
   }));
   emitFieldCollectChange('update');
 }
@@ -358,7 +412,8 @@ export async function getEntries(agentId: string): Promise<FieldEntry[]> {
       all.sort((a, b) => b.capturedAt - a.capturedAt);
       resolve(all);
     };
-    req.onerror = () => reject(req.error);
+    req.onerror = () => reject(req.error ?? txError(t));
+    t.onabort = () => reject(txError(t));
   }));
 }
 
@@ -427,8 +482,8 @@ export async function bumpTenantPick(agentId: string, tenantId: string): Promise
         s.put(next);
       };
       t.oncomplete = () => resolve();
-      t.onerror = () => reject(t.error);
-      t.onabort = () => reject(t.error);
+      t.onerror = () => reject(txError(t));
+      t.onabort = () => reject(txError(t));
     }));
     // Trim opportunistically when we cross the cap. Cheap relative to the
     // many writes it follows, and keeps cold-start reads bounded.
@@ -452,7 +507,8 @@ export async function getRecentPicks(agentId: string): Promise<TenantPickRecord[
         all.sort((a, b) => b.lastPickedAt - a.lastPickedAt);
         resolve(all);
       };
-      req.onerror = () => reject(req.error);
+      req.onerror = () => reject(req.error ?? txError(t));
+      t.onabort = () => reject(txError(t));
     }));
   } catch (e) {
     console.warn('getRecentPicks failed', e);
@@ -472,8 +528,8 @@ async function trimTenantPicks(agentId: string): Promise<void> {
       const s = t.objectStore(STORE_TENANT_PICKS);
       for (const r of toDelete) s.delete([r.agentId, r.tenantId]);
       t.oncomplete = () => resolve();
-      t.onerror = () => reject(t.error);
-      t.onabort = () => reject(t.error);
+      t.onerror = () => reject(txError(t));
+      t.onabort = () => reject(txError(t));
     }));
   } catch {
     /* best-effort cleanup */

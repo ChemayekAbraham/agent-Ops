@@ -47,6 +47,8 @@ export function FieldCollectReconciliationSheet({ open, onOpenChange }: Props) {
       await deleteEntry(e.id);
       toast.success('Local copy discarded — server version kept');
       await refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to discard local copy');
     } finally { setBusyId(null); }
   };
 
@@ -54,7 +56,11 @@ export function FieldCollectReconciliationSheet({ open, onOpenChange }: Props) {
     setBusyId(e.id);
     try {
       // Re-queue under a brand-new idempotency key so it lands as a fresh server row.
-      const newId = `${e.id}-r${Date.now().toString(36)}`;
+      // The key is derived from the original (no timestamp) so that if the add
+      // succeeds but the delete below fails, tapping "Keep both" again rewrites
+      // the same local entry and the server dedupes on client_uuid, instead of
+      // queuing a second copy of the receipt.
+      const newId = `${e.id}-r`;
       await updateEntry(e.id, {
         // Mutating the primary key isn't supported via updateEntry — instead
         // re-add as a new entry and remove the old. We use a workaround by
@@ -73,6 +79,9 @@ export function FieldCollectReconciliationSheet({ open, onOpenChange }: Props) {
       });
       await deleteEntry(e.id);
       toast.success('Re-queued as a new receipt — will sync on next attempt');
+      await refresh();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to re-queue receipt');
       await refresh();
     } finally { setBusyId(null); }
   };

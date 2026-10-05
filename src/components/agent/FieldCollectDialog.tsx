@@ -1738,8 +1738,12 @@ export function FieldCollectDialog({ open, onOpenChange }: FieldCollectDialogPro
   };
 
   const handleDelete = async (id: string) => {
-    await deleteEntry(id);
-    await refreshEntries();
+    try {
+      await deleteEntry(id);
+      await refreshEntries();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to delete entry');
+    }
   };
 
   const handleSync = async () => {
@@ -1834,6 +1838,11 @@ export function FieldCollectDialog({ open, onOpenChange }: FieldCollectDialogPro
       if (!parts.length) toast.info('Nothing to sync');
       else if (dup || fail) toast.warning(parts.join(' · '));
       else toast.success(parts.join(' · '));
+    } catch (storeErr) {
+      // Offline storage died mid-sync (the per-entry catch rethrows when its own
+      // write fails). Receipts already uploaded are deduped on client_uuid at the
+      // next sync, so nothing is counted twice.
+      toast.error(storeErr instanceof Error ? storeErr.message : 'Offline storage error — reload and try again');
     } finally {
       setSyncing(false);
     }

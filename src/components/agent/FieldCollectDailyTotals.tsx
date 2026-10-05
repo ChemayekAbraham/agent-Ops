@@ -273,77 +273,84 @@ export function FieldCollectDailyTotals({ variant = 'card', className, live = fa
     }
     const failed = today.filter(e => e.syncState === 'error');
     let ok = 0, fail = 0, dup = 0;
-    for (const e of failed) {
-      try {
-        // Reset to queued first so the UI/state stay consistent if the page reloads mid-sync.
-        await updateEntry(e.id, { syncState: 'queued', syncError: null });
-        const { data, error } = await (supabase.from('field_collections') as any)
-          .insert({
-            client_uuid: e.id,
-            agent_id: user.id,
-            tenant_id: e.tenantId,
-            tenant_name: e.tenantName,
-            tenant_phone: e.tenantPhone,
-            amount: e.amount,
-            notes: e.notes,
-            location_name: e.locationName,
-            latitude: e.latitude,
-            longitude: e.longitude,
-            captured_at: new Date(e.capturedAt).toISOString(),
-            status: 'pending',
-          })
-          .select('id')
-          .single();
-        if (error) {
-          if ((error as any).code === '23505') {
-            // Same idempotency-key collision logic as the capture dialog
-            const { data: existing } = await (supabase.from('field_collections') as any)
-              .select('id, amount, captured_at, tenant_name, status, created_at')
-              .eq('agent_id', user.id)
-              .eq('client_uuid', e.id)
-              .maybeSingle();
-            const sameAmount = existing && Number(existing.amount) === Number(e.amount);
-            if (existing && sameAmount) {
-              await updateEntry(e.id, {
-                syncState: 'synced',
-                serverId: existing.id,
-                syncError: null,
-                lastSyncAt: Date.now(),
-              });
-              ok++;
+    try {
+      for (const e of failed) {
+        try {
+          // Reset to queued first so the UI/state stay consistent if the page reloads mid-sync.
+          await updateEntry(e.id, { syncState: 'queued', syncError: null });
+          const { data, error } = await (supabase.from('field_collections') as any)
+            .insert({
+              client_uuid: e.id,
+              agent_id: user.id,
+              tenant_id: e.tenantId,
+              tenant_name: e.tenantName,
+              tenant_phone: e.tenantPhone,
+              amount: e.amount,
+              notes: e.notes,
+              location_name: e.locationName,
+              latitude: e.latitude,
+              longitude: e.longitude,
+              captured_at: new Date(e.capturedAt).toISOString(),
+              status: 'pending',
+            })
+            .select('id')
+            .single();
+          if (error) {
+            if ((error as any).code === '23505') {
+              // Same idempotency-key collision logic as the capture dialog
+              const { data: existing } = await (supabase.from('field_collections') as any)
+                .select('id, amount, captured_at, tenant_name, status, created_at')
+                .eq('agent_id', user.id)
+                .eq('client_uuid', e.id)
+                .maybeSingle();
+              const sameAmount = existing && Number(existing.amount) === Number(e.amount);
+              if (existing && sameAmount) {
+                await updateEntry(e.id, {
+                  syncState: 'synced',
+                  serverId: existing.id,
+                  syncError: null,
+                  lastSyncAt: Date.now(),
+                });
+                ok++;
+              } else {
+                await updateEntry(e.id, {
+                  syncState: 'duplicate',
+                  syncError: 'Already on server — needs reconciliation',
+                  duplicateOfServerId: existing?.id ?? null,
+                  duplicateServerSnapshot: existing ? {
+                    amount: Number(existing.amount),
+                    capturedAt: existing.captured_at,
+                    tenantName: existing.tenant_name,
+                    status: existing.status,
+                    createdAt: existing.created_at,
+                  } : null,
+                  lastSyncAt: Date.now(),
+                });
+                dup++;
+              }
             } else {
-              await updateEntry(e.id, {
-                syncState: 'duplicate',
-                syncError: 'Already on server — needs reconciliation',
-                duplicateOfServerId: existing?.id ?? null,
-                duplicateServerSnapshot: existing ? {
-                  amount: Number(existing.amount),
-                  capturedAt: existing.captured_at,
-                  tenantName: existing.tenant_name,
-                  status: existing.status,
-                  createdAt: existing.created_at,
-                } : null,
-                lastSyncAt: Date.now(),
-              });
-              dup++;
+              await updateEntry(e.id, { syncState: 'error', syncError: error.message, lastSyncAt: Date.now() });
+              fail++;
             }
           } else {
-            await updateEntry(e.id, { syncState: 'error', syncError: error.message, lastSyncAt: Date.now() });
-            fail++;
+            await updateEntry(e.id, {
+              syncState: 'synced',
+              serverId: (data as any)?.id,
+              syncError: null,
+              lastSyncAt: Date.now(),
+            });
+            ok++;
           }
-        } else {
-          await updateEntry(e.id, {
-            syncState: 'synced',
-            serverId: (data as any)?.id,
-            syncError: null,
-            lastSyncAt: Date.now(),
-          });
-          ok++;
+        } catch (err: any) {
+          // If this write throws too, offline storage is gone: the outer catch
+          // stops the loop. Anything already uploaded is deduped on client_uuid
+          // at the next sync, so nothing is counted twice.
+          await updateEntry(e.id, { syncState: 'error', syncError: err?.message || 'Unknown', lastSyncAt: Date.now() });
+          fail++;
         }
-      } catch (err: any) {
-        await updateEntry(e.id, { syncState: 'error', syncError: err?.message || 'Unknown', lastSyncAt: Date.now() });
-        fail++;
       }
+    } catch (storeErr) {
+      toast.error(storeErr instanceof Error ? storeErr.message : 'Offline storage error — reload and try again');
     }
     return { ok, fail, dup };
   }, [today, user?.id]);
