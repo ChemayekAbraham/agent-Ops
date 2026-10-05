@@ -42,6 +42,16 @@ export interface PdfAuditMeta {
   footerLabel?: string;
   /** Optional KPI cards rendered as a grid above the table. */
   kpis?: PdfKpi[];
+  /** Optional extra tables appended after the main table (comprehensive reports). */
+  sections?: PdfSection[];
+}
+
+export interface PdfSection {
+  title: string;
+  headers: string[];
+  rows: (string | number | null | undefined)[][];
+  /** Optional note printed under the section heading. */
+  note?: string;
 }
 
 export interface PdfKpi {
@@ -51,6 +61,7 @@ export interface PdfKpi {
   /** RGB accent for the card's left rail + value color. Defaults to brand purple. */
   accent?: [number, number, number];
 }
+
 
 export async function downloadAuditPdf(
   filename: string,
@@ -177,31 +188,63 @@ export async function downloadAuditPdf(
     cursorY += chipH + 8;
   }
 
+  const drawFooter = () => {
+    const pageNum = (doc as any).internal.getNumberOfPages();
+    doc.setDrawColor(230, 226, 240);
+    doc.setLineWidth(0.5);
+    doc.line(24, pageHeight - 26, pageWidth - 24, pageHeight - 26);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(140);
+    if (meta.footerLabel) {
+      doc.text(`${meta.footerLabel}  ·  welile.com`, 24, pageHeight - 14);
+    }
+    doc.text(`Page ${pageNum}`, pageWidth - 24, pageHeight - 14, { align: 'right' });
+  };
+
+  const tableStyles = {
+    styles: { fontSize: 7.5, cellPadding: 4, overflow: 'linebreak', valign: 'top', textColor: [40, 40, 50], lineColor: [235, 232, 242] },
+    headStyles: { fillColor: [88, 28, 135], textColor: 255, fontStyle: 'bold', fontSize: 7.5, cellPadding: 5 },
+    alternateRowStyles: { fillColor: [250, 248, 253] },
+    margin: { left: 24, right: 24, bottom: 36 },
+    didDrawPage: drawFooter,
+  } as any;
+
   // Render the table — jspdf-autotable handles pagination, column sizing, and
   // header repetition on every page.
   autoTable(doc, {
     startY: cursorY,
     head: [headers],
     body: rows.map((r) => r.map((c) => (c === null || c === undefined ? '' : String(c)))),
-    styles: { fontSize: 7.5, cellPadding: 4, overflow: 'linebreak', valign: 'top', textColor: [40, 40, 50], lineColor: [235, 232, 242] },
-    headStyles: { fillColor: [88, 28, 135], textColor: 255, fontStyle: 'bold', fontSize: 7.5, cellPadding: 5 },
-    alternateRowStyles: { fillColor: [250, 248, 253] },
-    margin: { left: 24, right: 24, bottom: 36 },
-    didDrawPage: () => {
-      const pageNum = (doc as any).internal.getNumberOfPages();
-      // Footer divider
-      doc.setDrawColor(230, 226, 240);
-      doc.setLineWidth(0.5);
-      doc.line(24, pageHeight - 26, pageWidth - 24, pageHeight - 26);
+    ...tableStyles,
+  });
+
+  // --- Optional appended sections (comprehensive reports) ---
+  for (const section of meta.sections ?? []) {
+    let y = ((doc as any).lastAutoTable?.finalY ?? cursorY) + 26;
+    if (y > pageHeight - 120) {
+      doc.addPage();
+      drawFooter();
+      y = 44;
+    }
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(88, 28, 135);
+    doc.text(section.title, marginX, y);
+    if (section.note) {
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
-      doc.setTextColor(140);
-      if (meta.footerLabel) {
-        doc.text(`${meta.footerLabel}  ·  welile.com`, 24, pageHeight - 14);
-      }
-      doc.text(`Page ${pageNum}`, pageWidth - 24, pageHeight - 14, { align: 'right' });
-    },
-  });
+      doc.setTextColor(140, 140, 150);
+      doc.text(section.note, marginX, y + 12);
+      y += 8;
+    }
+    autoTable(doc, {
+      startY: y + 10,
+      head: [section.headers],
+      body: section.rows.map((r) => r.map((c) => (c === null || c === undefined ? '' : String(c)))),
+      ...tableStyles,
+    });
+  }
 
   savePdfWithVault(doc as any, filename, {
     label: meta.title,

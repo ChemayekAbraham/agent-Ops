@@ -9,8 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, FileDown, FileSpreadsheet, RefreshCw, TrendingUp, Users, HandCoins, Trophy } from 'lucide-react';
 import { format, subDays, startOfMonth } from 'date-fns';
 import { downloadAuditPdf } from '@/lib/pdfAuditReport';
-import { downloadCsv } from '@/lib/csvExport';
-import { downloadXlsx, downloadXlsxWorkbook } from '@/lib/xlsxExport';
+import { SectionReportExport } from '@/components/reports/DailyRepaymentsSectionReports';
 
 
 const formatUGX = (n: number) => `UGX ${Math.round(Number(n) || 0).toLocaleString('en-UG')}`;
@@ -54,7 +53,6 @@ function toCsv(headers: string[], rows: (string | number)[][]) {
 export function DailyRentReport({ mode }: Props) {
   const qc = useQueryClient();
   const [date, setDate] = useState<string>(todayIso());
-  const [dateTo, setDateTo] = useState<string>(todayIso());
   const [agentFilter, setAgentFilter] = useState<string>('all');
   const [tenantFilter, setTenantFilter] = useState<string>('all');
   const [landlordFilter, setLandlordFilter] = useState<string>('all');
@@ -62,17 +60,13 @@ export function DailyRentReport({ mode }: Props) {
   const [methodFilter, setMethodFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [search, setSearch] = useState('');
-  // Per-section report windows (narrowed inside the loaded period only).
-  const [secRange, setSecRange] = useState<Record<string, { from: string; to: string }>>({});
 
-  // ---- Load agent_collections for the selected period (defaults to one day) ----
+  // ---- Load agent_collections for the selected day ----
   const { data: rawCollections = [], isLoading, refetch } = useQuery({
-    queryKey: ['daily-rent-report', date, dateTo],
+    queryKey: ['daily-rent-report', date],
     queryFn: async () => {
-      const start = date <= dateTo ? date : dateTo;
-      const end = date <= dateTo ? dateTo : date;
-      const from = new Date(`${start}T00:00:00`).toISOString();
-      const to = new Date(`${end}T23:59:59.999`).toISOString();
+      const from = new Date(`${date}T00:00:00`).toISOString();
+      const to = new Date(`${date}T23:59:59.999`).toISOString();
       const { data, error } = await supabase
         .from('agent_collections')
         .select('id, created_at, amount, payment_method, tracking_id, momo_transaction_id, notes, float_before, float_after, agent_id, tenant_id, rent_request_id').is('reversed_at', null)
@@ -84,7 +78,6 @@ export function DailyRentReport({ mode }: Props) {
     },
     staleTime: 30_000,
   });
-
 
   // ---- Realtime: refetch on any new agent_collections row today ----
   useEffect(() => {
@@ -226,12 +219,11 @@ export function DailyRentReport({ mode }: Props) {
     return true;
   }), [enriched, agentFilter, tenantFilter, landlordFilter, propertyFilter, methodFilter, statusFilter, search]);
 
-  // ---- Aggregations (pure, reused by the page and by every section export so
-  //      exported numbers are computed exactly like the numbers on screen) ----
-  const aggTotals = (rows: EnrichedRow[]) => {
+  // ---- Aggregates ----
+  const totals = useMemo(() => {
     let sum = 0, count = 0, successful = 0, pending = 0, failed = 0, commission = 0, outstanding = 0;
     const seenReq = new Set<string>();
-    rows.forEach(r => {
+    filtered.forEach(r => {
       sum += Number(r.amount) || 0;
       count += 1;
       if (r.status === 'successful') successful += 1;
@@ -246,11 +238,12 @@ export function DailyRentReport({ mode }: Props) {
       }
     });
     return { sum, count, successful, pending, failed, commission, outstanding, avg: count ? sum / count : 0 };
-  };
+  }, [filtered]);
 
-  const aggAgents = (rows: EnrichedRow[]) => {
+  // ---- Agent performance ranking ----
+  const agentRanking = useMemo(() => {
     const byAgent = new Map<string, { agent_id: string; agent_name: string; count: number; total: number; commission: number; successful: number; failed: number; pending: number }>();
-    rows.forEach(r => {
+    filtered.forEach(r => {
       const id = r.agent_id ?? 'unknown';
       const cur = byAgent.get(id) ?? { agent_id: id, agent_name: r.agent_name, count: 0, total: 0, commission: 0, successful: 0, failed: 0, pending: 0 };
       cur.count += 1;
@@ -262,35 +255,7 @@ export function DailyRentReport({ mode }: Props) {
       byAgent.set(id, cur);
     });
     return [...byAgent.values()].sort((a, b) => b.total - a.total);
-  };
-
-  const aggByHour = (rows: EnrichedRow[]) => {
-    const buckets: Record<string, number> = {};
-    for (let h = 0; h < 24; h++) buckets[String(h).padStart(2, '0')] = 0;
-    rows.forEach(r => {
-      const h = format(new Date(r.created_at), 'HH');
-      buckets[h] = (buckets[h] ?? 0) + (Number(r.amount) || 0);
-    });
-    return Object.entries(buckets).map(([hour, amount]) => ({ hour, amount }));
-  };
-
-  const aggByMethod = (rows: EnrichedRow[]) => {
-    const map: Record<string, number> = {};
-    rows.forEach(r => { const k = r.payment_method ?? 'unknown'; map[k] = (map[k] ?? 0) + (Number(r.amount) || 0); });
-    return Object.entries(map).map(([method, amount]) => ({ method, amount }));
-  };
-
-  const aggByProperty = (rows: EnrichedRow[], limit = 10) => {
-    const map: Record<string, number> = {};
-    rows.forEach(r => { const k = r.property; map[k] = (map[k] ?? 0) + (Number(r.amount) || 0); });
-    return Object.entries(map).map(([property, amount]) => ({ property, amount })).sort((a, b) => b.amount - a.amount).slice(0, limit);
-  };
-
-  // ---- Aggregates ----
-  const totals = useMemo(() => aggTotals(filtered), [filtered]);
-
-  // ---- Agent performance ranking ----
-  const agentRanking = useMemo(() => aggAgents(filtered), [filtered]);
+  }, [filtered]);
 
   const activeAgents = agentRanking.length;
   const avgPerAgent = activeAgents ? totals.sum / activeAgents : 0;
@@ -299,6 +264,17 @@ export function DailyRentReport({ mode }: Props) {
 
   // ---- Charts (scoped per section below, after rowsFor is defined) ----
 
+  const byMethod = useMemo(() => {
+    const map: Record<string, number> = {};
+    filtered.forEach(r => { const k = r.payment_method ?? 'unknown'; map[k] = (map[k] ?? 0) + (Number(r.amount) || 0); });
+    return Object.entries(map).map(([method, amount]) => ({ method, amount }));
+  }, [filtered]);
+
+  const byProperty = useMemo(() => {
+    const map: Record<string, number> = {};
+    filtered.forEach(r => { const k = r.property; map[k] = (map[k] ?? 0) + (Number(r.amount) || 0); });
+    return Object.entries(map).map(([property, amount]) => ({ property, amount })).sort((a, b) => b.amount - a.amount).slice(0, 10);
+  }, [filtered]);
 
   // ---- Exports ----
   const headers = mode === 'tenant'
@@ -790,6 +766,7 @@ export function DailyRentReport({ mode }: Props) {
           <Button size="sm" variant="outline" onClick={() => refetch()} className="h-9 gap-1.5"><RefreshCw className="h-3.5 w-3.5" />Refresh</Button>
           <Button size="sm" variant="outline" onClick={exportCsv} disabled={!filtered.length} className="h-9 gap-1.5"><FileSpreadsheet className="h-3.5 w-3.5" />CSV</Button>
           <Button size="sm" variant="outline" onClick={exportPdf} disabled={!filtered.length} className="h-9 gap-1.5"><FileDown className="h-3.5 w-3.5" />PDF</Button>
+          <SectionReportExport section="comprehensive" mode={mode} pageDate={date} variant="prominent" />
         </div>
       </Card>
 
@@ -836,6 +813,11 @@ export function DailyRentReport({ mode }: Props) {
       </div>
 
       {/* Summary cards */}
+      <div className="flex items-center justify-between">
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Summary</div>
+        <SectionReportExport section="summary" mode={mode} pageDate={date} />
+      </div>
+
       {mode === 'tenant' ? (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-2">
           <SummaryCard label="Total Rent Repaid" value={formatUGX(cardTotals.sum)} icon={HandCoins} tone="bg-emerald-500/10 text-emerald-700" />
@@ -857,14 +839,14 @@ export function DailyRentReport({ mode }: Props) {
         </div>
       )}
 
-      <Card className="p-0 overflow-hidden">
-        {bar('summary', 'Summary')}
-      </Card>
-
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         <Card className="p-3">
-          <div className="text-xs font-semibold mb-2">{mode === 'tenant' ? 'Repayments' : 'Collections'} by Hour</div>
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-xs font-semibold">{mode === 'tenant' ? 'Repayments' : 'Collections'} by Hour</div>
+            <SectionReportExport section="hourly" mode={mode} pageDate={date} />
+          </div>
+
           <div className="h-52">
             <ResponsiveContainer>
               <BarChart data={byHour}>
@@ -876,10 +858,13 @@ export function DailyRentReport({ mode }: Props) {
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <div className="-mx-3 -mb-3 mt-2">{bar('hour', 'Hourly')}</div>
         </Card>
         <Card className="p-3">
-          <div className="text-xs font-semibold mb-2">By Payment Method</div>
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-xs font-semibold">By Payment Method</div>
+            <SectionReportExport section="method" mode={mode} pageDate={date} />
+          </div>
+
           <div className="h-52">
             <ResponsiveContainer>
               <BarChart data={byMethod}>
@@ -891,10 +876,13 @@ export function DailyRentReport({ mode }: Props) {
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <div className="-mx-3 -mb-3 mt-2">{bar('method', 'Methods')}</div>
         </Card>
         <Card className="p-3">
-          <div className="text-xs font-semibold mb-2">Top Properties</div>
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-xs font-semibold">Top Properties</div>
+            <SectionReportExport section="property" mode={mode} pageDate={date} />
+          </div>
+
           <div className="h-52">
             <ResponsiveContainer>
               <BarChart data={byProperty} layout="vertical">
@@ -906,7 +894,6 @@ export function DailyRentReport({ mode }: Props) {
               </BarChart>
             </ResponsiveContainer>
           </div>
-          <div className="-mx-3 -mb-3 mt-2">{bar('property', 'Properties')}</div>
         </Card>
       </div>
 
@@ -917,7 +904,11 @@ export function DailyRentReport({ mode }: Props) {
           <div className="text-sm font-semibold">
             {mode === 'tenant' ? 'Daily Repayments' : 'Daily Collections'} · {txRows.length} rows
           </div>
-          {isLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+          <div className="flex items-center gap-2">
+            {isLoading && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+            <SectionReportExport section="transactions" mode={mode} pageDate={date} />
+          </div>
+
         </div>
         <div className="overflow-x-auto max-h-[560px]">
           <table className="w-full text-xs">
@@ -952,14 +943,16 @@ export function DailyRentReport({ mode }: Props) {
             )}
           </table>
         </div>
-        {bar('transactions', mode === 'tenant' ? 'Repayments table' : 'Collections table')}
       </Card>
-
 
       {/* Agent performance (agent mode only) */}
       {mode === 'agent' && (
         <Card className="p-0 overflow-hidden">
-          <div className="p-3 border-b text-sm font-semibold">Agent Performance — sorted by amount</div>
+          <div className="p-3 border-b flex items-center justify-between">
+            <div className="text-sm font-semibold">Agent Performance — sorted by amount</div>
+            <SectionReportExport section="agents" mode={mode} pageDate={date} />
+          </div>
+
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead className="bg-muted">
@@ -989,9 +982,7 @@ export function DailyRentReport({ mode }: Props) {
               </tbody>
             </table>
           </div>
-          {bar('agents', 'Agent performance')}
         </Card>
-
       )}
 
       {/* Totals footer */}
@@ -1030,7 +1021,6 @@ export function DailyRentReport({ mode }: Props) {
         />
       </Card>
     </div>
-
   );
 }
 
@@ -1045,80 +1035,5 @@ function SummaryCard({ label, value, icon: Icon, tone }: { label: string; value:
         </div>
       </div>
     </Card>
-  );
-}
-
-/**
- * Per-section report controls: an optional date window (narrowed inside the
- * period already loaded on the page, so no extra queries are issued) plus
- * CSV / Excel / PDF export for that section only.
- */
-export function SectionReportBar({
-  title,
-  from,
-  to,
-  minDate,
-  maxDate,
-  onFromChange,
-  onToChange,
-  onReset,
-  onCsv,
-  onXlsx,
-  onPdf,
-  disabled,
-  extra,
-}: {
-  title: string;
-  from: string;
-  to: string;
-  minDate: string;
-  maxDate: string;
-  onFromChange: (v: string) => void;
-  onToChange: (v: string) => void;
-  onReset: () => void;
-  onCsv: () => void;
-  onXlsx: () => void;
-  onPdf?: () => void;
-  disabled?: boolean;
-  extra?: string;
-}) {
-  return (
-    <div className="flex flex-wrap items-center gap-1.5 border-t bg-muted/30 px-3 py-2">
-      <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground mr-1">
-        {title} report
-      </span>
-      <Input
-        type="date"
-        value={from}
-        min={minDate}
-        max={maxDate}
-        onChange={e => onFromChange(e.target.value)}
-        className="h-7 w-[130px] text-[11px]"
-      />
-      <span className="text-[10px] text-muted-foreground">to</span>
-      <Input
-        type="date"
-        value={to}
-        min={minDate}
-        max={maxDate}
-        onChange={e => onToChange(e.target.value)}
-        className="h-7 w-[130px] text-[11px]"
-      />
-      <Button size="sm" variant="ghost" onClick={onReset} className="h-7 text-[11px]">Whole period</Button>
-      {extra && <span className="text-[10px] text-muted-foreground">{extra}</span>}
-      <div className="ml-auto flex gap-1.5">
-        <Button size="sm" variant="outline" disabled={disabled} onClick={onCsv} className="h-7 gap-1 text-[11px]">
-          <FileSpreadsheet className="h-3 w-3" />CSV
-        </Button>
-        <Button size="sm" variant="outline" disabled={disabled} onClick={onXlsx} className="h-7 gap-1 text-[11px]">
-          <FileSpreadsheet className="h-3 w-3" />Excel
-        </Button>
-        {onPdf && (
-          <Button size="sm" variant="outline" disabled={disabled} onClick={onPdf} className="h-7 gap-1 text-[11px]">
-            <FileDown className="h-3 w-3" />PDF
-          </Button>
-        )}
-      </div>
-    </div>
   );
 }

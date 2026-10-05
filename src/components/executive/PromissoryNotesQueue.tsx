@@ -1087,7 +1087,7 @@ export function PromissoryNotesQueue({
                     <tr className="text-left text-muted-foreground border-b">
                       <th className="py-2 pr-2 w-8"></th>
                       <th className="py-2 pr-3 font-medium">Agent</th>
-                          <th className="py-2 pr-3 font-medium">Promissory note</th>
+                      <th className="py-2 pr-3 font-medium">Partner</th>
                       <th className="py-2 pr-3 font-medium text-right">Promised</th>
                       <th className="py-2 pr-3 font-medium text-right">Fulfilled</th>
                       <th className="py-2 pr-3 font-medium">Created</th>
@@ -1124,7 +1124,7 @@ export function PromissoryNotesQueue({
                                   )}
                                   title={`Registered as "${ci.registeredName}" · matched on ${ci.matchedOn}${ci.matchedValue ? ` (${ci.matchedValue})` : ''}${ci.matches ? '' : ' · name differs from the note'}`}
                                 >
-                                  Registered partner: {ci.registeredName}{ci.matches ? '' : ' ⚠'}
+                                  Registered: {ci.registeredName}{ci.matches ? '' : ' ⚠'}
                                 </span>
                               );
                             })()}
@@ -1232,7 +1232,7 @@ export function PromissoryNotesQueue({
                               if (!ci) return null;
                               return (
                                 <p className={cn('text-[11px] truncate', ci.matches ? 'text-emerald-700' : 'text-amber-700 font-medium')}>
-                                  Registered partner: {ci.registeredName}{ci.matches ? '' : ' ⚠ differs'}
+                                  Registered: {ci.registeredName}{ci.matches ? '' : ' ⚠ differs'}
                                 </p>
                               );
                             })()}
@@ -1391,7 +1391,7 @@ export function PromissoryNotesQueue({
                 {/* Partner Info */}
                 <Card>
                   <CardContent className="p-3 space-y-2">
-                    <p className="text-xs font-medium text-muted-foreground uppercase">Partner comparison</p>
+                    <p className="text-xs font-medium text-muted-foreground uppercase">Partner</p>
                     <div className="flex items-center gap-2">
                       <User className="h-4 w-4 text-muted-foreground" />
                       <div className="min-w-0">
@@ -1468,18 +1468,11 @@ export function PromissoryNotesQueue({
                       }
                       return (
                         <div className={cn('rounded-md border p-2 text-xs', ci.matches ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50')}>
-                          <div className="grid gap-1 sm:grid-cols-2">
-                            <div>
-                              <p className="text-[11px] text-muted-foreground">Registered partner name</p>
-                              <p className="font-medium">{ci.registeredName}</p>
-                            </div>
-                            <div>
-                              <p className="text-[11px] text-muted-foreground">Promissory note name</p>
-                              <p className="font-medium">{selectedNote.partner_name}</p>
-                            </div>
-                          </div>
+                          <p className="font-medium">
+                            Came in as: {ci.registeredName}
+                          </p>
                           <p className="text-muted-foreground">
-                            Matched on {ci.matchedOn}{ci.matchedValue ? ` (${ci.matchedValue})` : ''}
+                            Matched on {ci.matchedOn}{ci.matchedValue ? ` (${ci.matchedValue})` : ''} · note name: {selectedNote.partner_name}
                           </p>
                           {!ci.matches && (
                             <p className="mt-1 font-medium text-amber-700">
