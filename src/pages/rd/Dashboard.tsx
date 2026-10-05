@@ -276,7 +276,7 @@ export default function RDDashboard() {
           ))}
         </div>
 
-        <BusinessIdeasCashTable />
+        <BusinessIdeasCashTable rows={ideaRows} setRows={setIdeaRows} />
 
         <div className="grid gap-4 lg:grid-cols-3">
           {PROJECTS.map((p) => <ProjectCard key={p.name} p={p} />)}
