@@ -3291,6 +3291,13 @@
       "when": 1791220825847,
       "tag": "0469_0473_smartphone_release_instalments",
       "breakpoints": true
+    },
+    {
+      "idx": 470,
+      "version": "7",
+      "when": 1791221934528,
+      "tag": "0470_0474_smartphone_collection_joel_only",
+      "breakpoints": true
     }
   ]
 }
