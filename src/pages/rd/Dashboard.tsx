@@ -163,11 +163,7 @@ const DEFAULT_IDEAS: IdeaRow[] = [
 ];
 const fmt = (n: number) => `UGX ${n.toLocaleString('en-US')}`;
 
-function BusinessIdeasCashTable() {
-  const [rows, setRows] = useState<IdeaRow[]>(() => {
-    try { const v = localStorage.getItem(IDEAS_KEY); if (v) return JSON.parse(v); } catch { /* ignore */ }
-    return DEFAULT_IDEAS;
-  });
+function BusinessIdeasCashTable({ rows, setRows }: { rows: IdeaRow[]; setRows: React.Dispatch<React.SetStateAction<IdeaRow[]>> }) {
   useEffect(() => { try { localStorage.setItem(IDEAS_KEY, JSON.stringify(rows)); } catch { /* ignore */ } }, [rows]);
   const upd = (id: string, patch: Partial<IdeaRow>) => setRows((r) => r.map((x) => (x.id === id ? { ...x, ...patch } : x)));
   const num = (v: string) => Math.max(0, Number(v.replace(/[^0-9]/g, '')) || 0);
