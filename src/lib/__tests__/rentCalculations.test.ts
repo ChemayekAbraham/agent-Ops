@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { calculateRentRepayment } from '@/lib/rentCalculations';
+import { calculateRentRepayment, calculateRepaymentBreakdown } from '@/lib/rentCalculations';
 
 /**
  * REGRESSION CONTRACT — Welile Rent Repayment Formula
@@ -57,5 +57,35 @@ describe('Welile rent repayment formula — reference table', () => {
 
   it('uses 20,000 registration fee for rent > 200,000', () => {
     expect(calculateRentRepayment(200001, 30).requestFee).toBe(20000);
+  });
+});
+
+describe('Rent Plan repayment breakdown', () => {
+  const calc = calculateRentRepayment(100000, 30);
+
+  it('splits 143,000 into principal and 43,000 of company fees, and the fees into partner reward, agent commission and company net', () => {
+    const b = calculateRepaymentBreakdown(calc, calc.totalRepayment);
+    expect(b.principal).toEqual({ amount: 100000, percent: 69.93 });
+    expect(b.accessFee).toEqual({ amount: 33000, percent: 23.08 });
+    expect(b.registrationFee).toEqual({ amount: 10000, percent: 6.99 });
+    expect(b.companyFees).toEqual({ amount: 43000, percent: 30.07 });
+    expect(b.partnerReward).toEqual({ amount: 15000, percent: 10.49 });
+    expect(b.agentCommission).toEqual({ amount: 14300, percent: 10 });
+    expect(b.companyNet).toEqual({ amount: 13700, percent: 9.58 });
+  });
+
+  it('splits the 4,767 daily installment by default', () => {
+    expect(calc.dailyRepayment).toBe(4767);
+    const b = calculateRepaymentBreakdown(calc);
+    expect(b.total).toBe(4767);
+    expect(b.principal.amount).toBe(3333.56);
+    expect(b.accessFee.amount).toBe(1100.08);
+    expect(b.registrationFee.amount).toBe(333.36);
+    expect(b.companyFees.amount).toBe(1433.44);
+    expect(b.partnerReward.amount).toBe(500.03);
+    expect(b.agentCommission.amount).toBe(476.7);
+    expect(b.companyNet.amount).toBe(456.71);
+    expect(b.principal.amount + b.companyFees.amount).toBeCloseTo(4767, 6);
+    expect(b.partnerReward.amount + b.agentCommission.amount + b.companyNet.amount).toBeCloseTo(b.companyFees.amount, 6);
   });
 });
