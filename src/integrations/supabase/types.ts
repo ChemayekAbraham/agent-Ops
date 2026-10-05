@@ -67542,6 +67542,7 @@ export type Database = {
             }
             Returns: Json
           }
+      landlord_ops_pool_position: { Args: never; Returns: Json }
       landlord_ops_principal_recovered: { Args: never; Returns: number }
       landlord_ops_principal_recovered_periods: { Args: never; Returns: Json }
       landlord_ops_principal_recovered_rows: {
