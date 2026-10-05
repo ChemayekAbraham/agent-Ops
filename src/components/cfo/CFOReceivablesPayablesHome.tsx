@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   TrendingUp, TrendingDown, ArrowLeftRight, CalendarClock, ChevronRight,
   Lightbulb, AlertTriangle, Info, Building2, Users, Home, Handshake, Package,
@@ -38,6 +39,7 @@ const isoDay = (d: Date) => d.toISOString().slice(0, 10);
 type Cat = { key: string; label: string; outstanding: number; item_count: number };
 
 export function CFOReceivablesPayablesHome() {
+  const navigate = useNavigate();
   const rec = useReceivablesTotal();
   const pay = usePayablesTotal();
   const today = new Date();
@@ -79,6 +81,7 @@ export function CFOReceivablesPayablesHome() {
           percent={r ? pct(r.total, exposure) : undefined}
           percentLabel="of total money owed (receivables + payables)"
           spark={spark.map((s) => s.rec)}
+          onClick={() => navigate('/cfo/receivables')} chevron
         />
         <Kpi
           icon={<TrendingDown className="h-4 w-4" />} tone="destructive" label="Total Payables"
