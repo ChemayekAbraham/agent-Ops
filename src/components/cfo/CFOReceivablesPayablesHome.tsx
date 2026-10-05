@@ -143,7 +143,7 @@ export function CFOReceivablesPayablesHome() {
       {/* ── Tables row ── */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <CatTable title="Top Receivables" cats={recCats} total={r?.total ?? 0} count={r?.item_count ?? 0} totalLabel="Total Receivables" />
-        <CatTable title="Top Payables" cats={payCats} total={p?.total ?? 0} count={p?.item_count ?? 0} totalLabel="Total Payables" onViewAll={() => setSheet('pay')} />
+        <CatTable title="Top Payables" cats={payCats} total={p?.total ?? 0} count={p?.item_count ?? 0} totalLabel="Total Payables" />
       </div>
 
       <SevenDayFlowSection />
