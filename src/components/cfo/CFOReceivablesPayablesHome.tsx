@@ -266,17 +266,11 @@ function Donut({ title, total, cats, centerLabel }: { title: string; total: numb
   );
 }
 
-function CatTable({ title, cats, total, count, totalLabel, onViewAll }: {
-  title: string; cats: Cat[]; total: number; count: number; totalLabel: string; onViewAll?: () => void;
+function CatTable({ title, cats, total, count, totalLabel }: {
+  title: string; cats: Cat[]; total: number; count: number; totalLabel: string;
 }) {
   return (
-    <Panel title={title} right={
-      onViewAll ? (
-        <button type="button" onClick={onViewAll} className="text-xs font-medium text-primary inline-flex items-center gap-1">
-          View all <ChevronRight className="h-3 w-3" />
-        </button>
-      ) : undefined
-    }>
+    <Panel title={title}>
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
