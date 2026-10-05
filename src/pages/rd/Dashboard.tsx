@@ -6,6 +6,9 @@ import {
   FlaskConical, PlayCircle, Clock, PieChart, type LucideIcon,
 } from 'lucide-react';
 import WelileLogo from '@/components/WelileLogo';
+import { useEffect, useState } from 'react';
+import { Input } from '@/components/ui/input';
+import { Plus, Trash2 } from 'lucide-react';
 
 type Metric = { icon: LucideIcon; value: string; label: string };
 type Project = {
@@ -150,6 +153,79 @@ function ProjectCard({ p }: { p: Project }) {
   );
 }
 
+
+type IdeaRow = { id: string; name: string; customers: number; cashIn: number; cashOut: number };
+const IDEAS_KEY = 'rd-business-ideas-v1';
+const DEFAULT_IDEAS: IdeaRow[] = [
+  { id: 'car', name: 'Welile Car', customers: 2, cashIn: 4000000, cashOut: 40000 },
+  { id: 'dowry', name: 'Welile Dowry', customers: 15, cashIn: 2300000, cashOut: 0 },
+  { id: 'ai', name: 'Welile School of AI', customers: 0, cashIn: 0, cashOut: 0 },
+];
+const fmt = (n: number) => `UGX ${n.toLocaleString('en-US')}`;
+
+function BusinessIdeasCashTable() {
+  const [rows, setRows] = useState<IdeaRow[]>(() => {
+    try { const v = localStorage.getItem(IDEAS_KEY); if (v) return JSON.parse(v); } catch { /* ignore */ }
+    return DEFAULT_IDEAS;
+  });
+  useEffect(() => { try { localStorage.setItem(IDEAS_KEY, JSON.stringify(rows)); } catch { /* ignore */ } }, [rows]);
+  const upd = (id: string, patch: Partial<IdeaRow>) => setRows((r) => r.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+  const num = (v: string) => Math.max(0, Number(v.replace(/[^0-9]/g, '')) || 0);
+  const tot = rows.reduce((a, r) => ({ c: a.c + r.customers, i: a.i + r.cashIn, o: a.o + r.cashOut }), { c: 0, i: 0, o: 0 });
+  const net = (r: { cashIn: number; cashOut: number }) => r.cashIn - r.cashOut;
+  const cls = (n: number) => (n < 0 ? 'text-destructive' : 'text-foreground');
+  return (
+    <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <SectionTitle icon={Wallet}><span className="text-base">Business Ideas: Cash Position</span></SectionTitle>
+          <p className="mt-0.5 pl-6 text-xs text-muted-foreground">Tap any figure to edit. Net position = cash in minus cash out. Saved on this device.</p>
+        </div>
+        <Button size="sm" variant="outline" className="gap-1.5"
+          onClick={() => setRows((r) => [...r, { id: crypto.randomUUID(), name: 'New idea', customers: 0, cashIn: 0, cashOut: 0 }])}>
+          <Plus className="h-4 w-4" />Add idea
+        </Button>
+      </div>
+      <div className="mt-3 overflow-x-auto">
+        <table className="w-full min-w-[640px] text-xs">
+          <thead>
+            <tr className="text-left text-muted-foreground">
+              <th className="p-2 font-medium">Business idea</th>
+              <th className="p-2 font-medium">Customers</th>
+              <th className="p-2 font-medium">Cash in (UGX)</th>
+              <th className="p-2 font-medium">Cash out (UGX)</th>
+              <th className="p-2 text-right font-medium">Net position</th>
+              <th className="w-8 p-2" />
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id} className="border-t border-border">
+                <td className="p-2"><Input className="h-8 text-xs" value={r.name} onChange={(e) => upd(r.id, { name: e.target.value })} /></td>
+                <td className="p-2"><Input className="h-8 w-24 text-xs" inputMode="numeric" value={r.customers.toLocaleString('en-US')} onChange={(e) => upd(r.id, { customers: num(e.target.value) })} /></td>
+                <td className="p-2"><Input className="h-8 text-xs" inputMode="numeric" value={r.cashIn.toLocaleString('en-US')} onChange={(e) => upd(r.id, { cashIn: num(e.target.value) })} /></td>
+                <td className="p-2"><Input className="h-8 text-xs" inputMode="numeric" value={r.cashOut.toLocaleString('en-US')} onChange={(e) => upd(r.id, { cashOut: num(e.target.value) })} /></td>
+                <td className={`p-2 text-right font-bold ${cls(net(r))}`}>{fmt(net(r))}</td>
+                <td className="p-2"><Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Remove idea" onClick={() => setRows((x) => x.filter((y) => y.id !== r.id))}><Trash2 className="h-3.5 w-3.5" /></Button></td>
+              </tr>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="border-t-2 border-border font-bold text-foreground">
+              <td className="p-2">Total</td>
+              <td className="p-2">{tot.c.toLocaleString('en-US')}</td>
+              <td className="p-2">{fmt(tot.i)}</td>
+              <td className="p-2">{fmt(tot.o)}</td>
+              <td className={`p-2 text-right ${cls(tot.i - tot.o)}`}>{fmt(tot.i - tot.o)}</td>
+              <td />
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+  );
+}
+
 const avg = Math.round(PROJECTS.reduce((s, p) => s + p.progress, 0) / PROJECTS.length);
 const SUMMARY: Metric[] = [
   { icon: Layers, value: String(PROJECTS.length), label: 'Active R&D Projects' },
@@ -194,6 +270,8 @@ export default function RDDashboard() {
             </div>
           ))}
         </div>
+
+        <BusinessIdeasCashTable />
 
         <div className="grid gap-4 lg:grid-cols-3">
           {PROJECTS.map((p) => <ProjectCard key={p.name} p={p} />)}
