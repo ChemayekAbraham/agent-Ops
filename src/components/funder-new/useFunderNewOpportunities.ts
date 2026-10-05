@@ -8,7 +8,7 @@ import type {
   FunderNewOrigin,
   FunderNewReadyPlan,
 } from './types';
-import { amountRange, matchesReadyPlanSearch, placeCase, toNumber } from './utils';
+import { amountRange, matchesReadyPlanSearch, toNumber } from './utils';
 
 const asRecord = (value: unknown): Record<string, unknown> =>
   value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
@@ -39,14 +39,7 @@ export function useFunderNewMarketSummary() {
       const houseCount = toNumber(raw.house_count);
       const totalRentNeeded = toNumber(raw.total_rent_needed);
       const avgMonthlyRent = toNumber(raw.avg_monthly_rent) || (houseCount > 0 ? totalRentNeeded / houseCount : 0);
-      const districts = (Array.isArray(raw.districts) ? raw.districts : [])
-        .map((entry) => asRecord(entry))
-        .map((entry) => {
-          const value = String(entry.district ?? '').trim();
-          return { value, label: placeCase(value) || value, count: toNumber(entry.house_count) };
-        })
-        .filter((entry) => entry.value.length > 0 && entry.count > 0);
-      return { houseCount, totalRentNeeded, avgMonthlyRent, districts };
+      return { houseCount, totalRentNeeded, avgMonthlyRent };
     },
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,

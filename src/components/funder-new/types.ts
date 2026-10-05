@@ -50,8 +50,6 @@ export interface FunderNewMarketSummary {
   houseCount: number;
   totalRentNeeded: number;
   avgMonthlyRent: number;
-  /** Market-wide district breakdown (every available empty house, not one page). */
-  districts: Array<{ value: string; label: string; count: number }>;
 }
 
 export interface FunderNewListResult<T> {

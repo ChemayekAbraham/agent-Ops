@@ -224,12 +224,7 @@ export default function FunderDashboardNew() {
 
   const availableBalance = wallet.isLoading || wallet.error ? null : wallet.withdrawable;
 
-  /**
-   * District chip lists every district in the whole market (from the summary
-   * service), not just the page of homes currently loaded. Any district found
-   * on loaded homes but missing from the summary is merged in so the select
-   * never hides the active filter value.
-   */
+  /** Districts present in the homes already loaded, used by the district chip. */
   const districtOptions = useMemo(() => {
     const counts = new Map<string, { label: string; count: number }>();
     (summary.data?.districts ?? []).forEach((item) => {
@@ -238,13 +233,15 @@ export default function FunderDashboardNew() {
     loadedItems.forEach(({ item }) => {
       const raw = (item as unknown as Record<string, unknown>).district;
       const value = typeof raw === 'string' ? raw.trim() : '';
-      if (!value || counts.has(value)) return;
-      counts.set(value, { label: placeCase(value) || value, count: 0 });
+      if (!value) return;
+      const existing = counts.get(value);
+      if (existing) existing.count += 1;
+      else counts.set(value, { label: placeCase(value) || value, count: 1 });
     });
     return [...counts.entries()]
       .map(([value, meta]) => ({ value, label: meta.label, count: meta.count }))
       .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
-  }, [summary.data, loadedItems]);
+  }, [loadedItems]);
 
   /**
    * The within-balance chip is applied to the homes already loaded, because the

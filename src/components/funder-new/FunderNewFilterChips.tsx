@@ -62,30 +62,19 @@ export function FunderNewFilterChips({
     filters.radiusKm !== 'all' ||
     filters.withinFloat;
 
-  const chip = stacked ? CHIP_STACKED : CHIP;
-  const field = (label: string, node: ReactNode, wide = false) =>
-    stacked ? (
-      <div className={wide ? 'sm:col-span-2 min-w-0' : 'min-w-0'}>
-        <span className="mb-1 block text-[11px] font-medium text-muted-foreground">{label}</span>
-        {node}
-      </div>
-    ) : (
-      node
-    );
-
   return (
     <div
       className={
         stacked
-          ? 'grid grid-cols-1 gap-3 sm:grid-cols-2'
+          ? 'flex flex-wrap items-center gap-2'
           : 'flex items-center gap-2 overflow-x-auto px-1 pb-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden'
       }
       aria-label="Filter homes"
     >
 
-      {supportsSort ? field('Sort by',
+      {supportsSort ? (
         <Select value={filters.sort} onValueChange={(value) => onSortChange(value as FunderNewSort)}>
-          <SelectTrigger className={chip} aria-label="Sort">
+          <SelectTrigger className={CHIP} aria-label="Sort">
             <ArrowUpDown className="mr-1 h-3 w-3 flex-none" aria-hidden />
             <SelectValue />
           </SelectTrigger>
@@ -101,12 +90,12 @@ export function FunderNewFilterChips({
         </Select>
       ) : null}
 
-      {districts.length > 0 ? field('District',
+      {districts.length > 0 ? (
         <Select
           value={filters.location.trim() === '' ? 'all' : filters.location}
           onValueChange={(value) => onChange({ location: value === 'all' ? '' : value })}
         >
-          <SelectTrigger className={chip} aria-label="District">
+          <SelectTrigger className={CHIP} aria-label="District">
             <MapPin className="mr-1 h-3 w-3 flex-none" aria-hidden />
             <SelectValue placeholder="All districts" />
           </SelectTrigger>
@@ -121,12 +110,12 @@ export function FunderNewFilterChips({
         </Select>
       ) : null}
 
-      {supportsSort ? field('Distance',
+      {supportsSort ? (
         <Select
           value={filters.radiusKm === 'all' ? 'all' : String(filters.radiusKm)}
           onValueChange={(value) => onChange({ radiusKm: value === 'all' ? 'all' : Number(value) })}
         >
-          <SelectTrigger className={chip} aria-label="Distance">
+          <SelectTrigger className={CHIP} aria-label="Distance">
             <SelectValue placeholder="Any distance" />
           </SelectTrigger>
           <SelectContent>
@@ -174,14 +163,8 @@ export function FunderNewFilterChips({
       <div className={stacked ? 'sm:col-span-2 flex flex-wrap items-center gap-2 pt-1' : 'contents'}>
         <button
           type="button"
-          aria-pressed={filters.withinFloat}
-          disabled={availableBalance === null}
-          onClick={() => onChange({ withinFloat: !filters.withinFloat })}
-          className={`h-8 flex-none rounded-full border px-3 text-[11px] font-semibold transition-colors disabled:opacity-50 ${
-            filters.withinFloat
-              ? 'border-primary bg-primary text-primary-foreground'
-              : 'border-border bg-background text-foreground hover:bg-muted'
-          }`}
+          onClick={onReset}
+          className="h-8 flex-none rounded-full border border-destructive/30 bg-destructive/5 px-3 text-[11px] font-semibold text-destructive transition-colors hover:bg-destructive/10"
         >
           <Wallet className="mr-1 inline h-3 w-3" aria-hidden />
           Within my balance
