@@ -2,9 +2,10 @@ import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.89.0";
 import { sendPushToSubscription, type PushPayload } from "../_shared/webPushSend.ts";
 
-// Re-sends the web push for a requisition approval prompt each time a deferral
-// expires while the item is still open. Takes NO input: any request body is
-// ignored. Prompt bookkeeping only -- no decision, wallet or ledger logic.
+// Pushes requisition approval prompts hourly until handled (first pushes only
+// during 21:00-07:00 Kampala), and pushes each requester notice once. Takes NO
+// input: any request body is ignored. Bookkeeping only -- no decision, wallet
+// or ledger logic.
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
