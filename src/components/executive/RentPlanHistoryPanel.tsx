@@ -112,8 +112,21 @@ const AMOUNT_COLOR: Partial<Record<EventKind, string>> = {
 
 // ─── Ledger category → event kind ────────────────────────────────────────────
 
+// Landlord-side legs of a plan, matched by ledger category (never by description):
+// rent float funded for the landlord and the payout to the landlord.
+const LANDLORD_FLOW_CATEGORIES = new Set([
+  'rent_disbursement',
+  'rent_float_funding',
+  'agent_landlord_payout',
+]);
+
 function categoryToKind(category: string, userId: string, tenantId: string): EventKind {
   if (category === 'advance_disbursement') return 'disbursed';
+  if (LANDLORD_FLOW_CATEGORIES.has(category)) return 'disbursed';
+  // rent_receivable_created is shared: booked on the agent/landlord side it is the
+  // "landlord float credited" leg; booked on the tenant it is a payment-allocation or
+  // A3-correction leg that duplicates the payments listed below, so it stays out.
+  if (category === 'rent_receivable_created' && userId !== tenantId) return 'disbursed';
   if (category === 'tenant_repayment' && userId === tenantId) return 'self_payment';
   if (category === 'agent_commission_earned') return 'commission';
   return 'other_ledger';
@@ -197,6 +210,9 @@ export function RentPlanHistoryPanel({
     // ② Ledger entries
     for (const leg of data.ledger) {
       const kind = categoryToKind(leg.category, leg.user_id, tenantId);
+      // Agent commission/bonus/override and other agent-money legs are not part of
+      // the plan's own history; `.includes` (not `===`) keeps `kind` un-narrowed below.
+      if ((['commission', 'other_ledger'] as EventKind[]).includes(kind)) continue;
       list.push({
         id: `ledger-${leg.id}`,
         kind,
