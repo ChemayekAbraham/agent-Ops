@@ -20,6 +20,7 @@ vi.mock('sonner', () => ({ toast: { success: (...a: unknown[]) => toastSuccess(.
 
 import ShortfallDrilldownPage from './ShortfallDrilldownPage';
 import { resolveRange } from '@/components/executive/shared/OpsDateRangeFilter';
+import { SHORTFALL_BREAKDOWN_RPC, SHORTFALL_DETAIL_RPC } from '@/hooks/tenantOpsWorkspace/shortfallRpcNames';
 
 type RpcArgs = Record<string, unknown>;
 
@@ -51,7 +52,7 @@ function install(s: Scenario) {
     if (fn === 'ops_tenant_ops_home_range') {
       return Promise.resolve({ data: { expected: s.home.expected, collected: s.home.collected }, error: null });
     }
-    if (fn === 'tops_shortfall_breakdown') {
+    if (fn === SHORTFALL_BREAKDOWN_RPC) {
       const rows: Record<string, unknown[]> = {
         tenant: [
           breakdownRow('t-1', 'Atimango Joyce', { parent_name: '+256772236357' }),
@@ -64,7 +65,7 @@ function install(s: Scenario) {
       };
       return Promise.resolve({ data: rows[args.p_group as string] ?? [], error: null });
     }
-    if (fn === 'tops_shortfall_detail') {
+    if (fn === SHORTFALL_DETAIL_RPC) {
       if (args.p_group === null) {
         return Promise.resolve({ data: { total_count: s.totalCount, total_short_ugx: s.totalShort, rows: [] }, error: null });
       }
@@ -134,8 +135,8 @@ describe('ShortfallDrilldownPage — header', () => {
     render(<ShortfallDrilldownPage />, { wrapper });
     await screen.findAllByText('Atimango Joyce');
     const home = callsTo('ops_tenant_ops_home_range')[0];
-    const breakdown = callsTo('tops_shortfall_breakdown')[0];
-    const totals = callsTo('tops_shortfall_detail')[0];
+    const breakdown = callsTo(SHORTFALL_BREAKDOWN_RPC)[0];
+    const totals = callsTo(SHORTFALL_DETAIL_RPC)[0];
     expect(typeof home.p_start).toBe('string');
     expect(breakdown.p_start).toBe(home.p_start);
     expect(breakdown.p_end).toBe(home.p_end);
@@ -163,19 +164,19 @@ describe('ShortfallDrilldownPage — tabs', () => {
 
     await user.click(screen.getByRole('tab', { name: 'Agents' }));
     expect(await screen.findAllByText('Agent One')).not.toHaveLength(0);
-    expect(callsTo('tops_shortfall_breakdown').some((a) => a.p_group === 'agent')).toBe(true);
+    expect(callsTo(SHORTFALL_BREAKDOWN_RPC).some((a) => a.p_group === 'agent')).toBe(true);
 
     await user.click(screen.getByRole('tab', { name: 'Service centres' }));
     expect((await screen.findAllByText('No service centre')).length).toBeGreaterThan(0);
 
     await user.click(screen.getByRole('tab', { name: 'Districts' }));
     expect((await screen.findAllByText('Wakiso')).length).toBeGreaterThan(0);
-    const area = callsTo('tops_shortfall_breakdown').find((a) => a.p_group === 'area');
+    const area = callsTo(SHORTFALL_BREAKDOWN_RPC).find((a) => a.p_group === 'area');
     expect(area?.p_area_level).toBe('district');
 
     await user.click(screen.getByRole('tab', { name: 'Ageing' }));
     expect((await screen.findAllByText('Not scheduled')).length).toBeGreaterThan(0);
-    expect(callsTo('tops_shortfall_breakdown').some((a) => a.p_group === 'ageing')).toBe(true);
+    expect(callsTo(SHORTFALL_BREAKDOWN_RPC).some((a) => a.p_group === 'ageing')).toBe(true);
   });
 });
 
@@ -197,7 +198,7 @@ describe('ShortfallDrilldownPage — Rent Plan sheet', () => {
     const dialog = await openAgent(user);
 
     await within(dialog).findByText('Tenant 0');
-    const call = callsTo('tops_shortfall_detail').find((a) => a.p_group === 'agent');
+    const call = callsTo(SHORTFALL_DETAIL_RPC).find((a) => a.p_group === 'agent');
     expect(call).toMatchObject({ p_group: 'agent', p_group_key: 'agent-1', p_limit: 25, p_offset: 0, p_sort: 'short_ugx', p_dir: 'desc' });
     expect(within(dialog).getByText('3 days')).toBeInTheDocument();
     expect(within(dialog).getByText('2 weeks')).toBeInTheDocument();
@@ -211,13 +212,13 @@ describe('ShortfallDrilldownPage — Rent Plan sheet', () => {
 
     await user.type(within(dialog).getByLabelText('Search Rent Plans'), '0772236357');
     await waitFor(
-      () => expect(callsTo('tops_shortfall_detail').some((a) => a.p_search === '0772236357')).toBe(true),
+      () => expect(callsTo(SHORTFALL_DETAIL_RPC).some((a) => a.p_search === '0772236357')).toBe(true),
       { timeout: 3000 },
     );
-    const searched = callsTo('tops_shortfall_detail').filter((a) => a.p_search === '0772236357');
+    const searched = callsTo(SHORTFALL_DETAIL_RPC).filter((a) => a.p_search === '0772236357');
     expect(searched.every((a) => a.p_offset === 0)).toBe(true);
     // not one request per keystroke
-    expect(callsTo('tops_shortfall_detail').filter((a) => typeof a.p_search === 'string').length).toBeLessThanOrEqual(2);
+    expect(callsTo(SHORTFALL_DETAIL_RPC).filter((a) => typeof a.p_search === 'string').length).toBeLessThanOrEqual(2);
   });
 
   it('pages through the server result', async () => {
@@ -226,7 +227,7 @@ describe('ShortfallDrilldownPage — Rent Plan sheet', () => {
     await within(dialog).findByText('Tenant 0');
 
     await user.click(within(dialog).getByRole('button', { name: /next/i }));
-    await waitFor(() => expect(callsTo('tops_shortfall_detail').some((a) => a.p_group === 'agent' && a.p_offset === 25)).toBe(true));
+    await waitFor(() => expect(callsTo(SHORTFALL_DETAIL_RPC).some((a) => a.p_group === 'agent' && a.p_offset === 25)).toBe(true));
     expect(await within(dialog).findByText(/Page 2 of 10/)).toBeInTheDocument();
   });
 
@@ -236,7 +237,7 @@ describe('ShortfallDrilldownPage — Rent Plan sheet', () => {
     await within(dialog).findByText('Tenant 0');
 
     await user.click(within(dialog).getByRole('button', { name: /sorted high to low/i }));
-    await waitFor(() => expect(callsTo('tops_shortfall_detail').some((a) => a.p_group === 'agent' && a.p_dir === 'asc')).toBe(true));
+    await waitFor(() => expect(callsTo(SHORTFALL_DETAIL_RPC).some((a) => a.p_group === 'agent' && a.p_dir === 'asc')).toBe(true));
   });
 
   it('exports every matching Rent Plan, not just the visible page', async () => {
@@ -253,7 +254,7 @@ describe('ShortfallDrilldownPage — Rent Plan sheet', () => {
     expect(headers).toContain('Behind');
     expect(rows).toHaveLength(230);
     // 230 rows at 200 per page = two export calls on top of the visible page
-    expect(callsTo('tops_shortfall_detail').filter((a) => a.p_limit === 200).map((a) => a.p_offset)).toEqual([0, 200]);
+    expect(callsTo(SHORTFALL_DETAIL_RPC).filter((a) => a.p_limit === 200).map((a) => a.p_offset)).toEqual([0, 200]);
     expect(toastSuccess).toHaveBeenCalledWith(expect.stringContaining('230'));
     // first row carries the server-built label
     expect(rows[0]).toContain('3 days');
@@ -266,7 +267,7 @@ describe('ShortfallDrilldownPage — Rent Plan sheet', () => {
 
     const base = rpcMock.getMockImplementation()!;
     rpcMock.mockImplementation((fn: string, args: RpcArgs) =>
-      fn === 'tops_shortfall_detail' && args.p_limit === 200
+      fn === SHORTFALL_DETAIL_RPC && args.p_limit === 200
         ? Promise.resolve({ data: null, error: new Error('boom') })
         : base(fn, args));
     await user.click(within(dialog).getByRole('button', { name: /export csv/i }));
@@ -288,7 +289,7 @@ describe('ShortfallDrilldownPage — range carried in the URL', () => {
     const five = resolveRange('five');
     expect(homeCall().p_start).toBe(five.start.toISOString());
     expect(homeCall().p_end).toBe(five.end.toISOString());
-    expect(callsTo('tops_shortfall_breakdown')[0].p_start).toBe(five.start.toISOString());
+    expect(callsTo(SHORTFALL_BREAKDOWN_RPC)[0].p_start).toBe(five.start.toISOString());
     expect(screen.getByText(/in the last 5 days/)).toBeInTheDocument();
   });
 
@@ -301,8 +302,8 @@ describe('ShortfallDrilldownPage — range carried in the URL', () => {
     const custom = resolveRange('custom', { from: parseISO('2026-09-29'), to: parseISO('2026-10-05') });
     expect(homeCall().p_start).toBe(custom.start.toISOString());
     expect(homeCall().p_end).toBe(custom.end.toISOString());
-    expect(callsTo('tops_shortfall_detail')[0].p_start).toBe(custom.start.toISOString());
-    expect(callsTo('tops_shortfall_detail')[0].p_end).toBe(custom.end.toISOString());
+    expect(callsTo(SHORTFALL_DETAIL_RPC)[0].p_start).toBe(custom.start.toISOString());
+    expect(callsTo(SHORTFALL_DETAIL_RPC)[0].p_end).toBe(custom.end.toISOString());
   });
 
   it.each([

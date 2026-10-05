@@ -10,6 +10,7 @@ vi.mock('@/integrations/supabase/client', () => ({
 
 import { fetchAllShortfallDetail, fetchShortfallDetail, useShortfallDetail } from './useShortfallDetail';
 import { useShortfallBreakdown } from './useShortfallBreakdown';
+import { SHORTFALL_BREAKDOWN_RPC, SHORTFALL_DETAIL_RPC } from './shortfallRpcNames';
 
 const BASE = { startIso: '2026-10-05T00:00:00.000Z', endIso: '2026-10-05T23:59:59.999Z' };
 
@@ -52,7 +53,7 @@ function wrapper({ children }: { children: ReactNode }) {
 describe('fetchShortfallDetail', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('passes every filter to tops_shortfall_detail and maps numbers, nulls and the server-built label', async () => {
+  it('passes every filter to the shortfall detail RPC and maps numbers, nulls and the server-built label', async () => {
     rpcMock.mockResolvedValue({
       data: {
         total_count: 1,
@@ -66,7 +67,7 @@ describe('fetchShortfallDetail', () => {
       ...BASE, group: 'agent', groupKey: 'a-1', areaLevel: 'village', search: '  joyce ', sort: 'days_behind', dir: 'asc', limit: 25, offset: 50,
     });
 
-    expect(rpcMock).toHaveBeenCalledWith('tops_shortfall_detail', {
+    expect(rpcMock).toHaveBeenCalledWith(SHORTFALL_DETAIL_RPC, {
       p_start: BASE.startIso, p_end: BASE.endIso, p_group: 'agent', p_group_key: 'a-1', p_area_level: 'village',
       p_search: 'joyce', p_sort: 'days_behind', p_dir: 'asc', p_limit: 25, p_offset: 50,
     });
@@ -81,7 +82,7 @@ describe('fetchShortfallDetail', () => {
   it('defaults to every short Rent Plan, biggest shortfall first, and sends a blank search as null', async () => {
     rpcMock.mockResolvedValue({ data: pageOf(0, 0, 50), error: null });
     await fetchShortfallDetail({ ...BASE, search: '   ' });
-    expect(rpcMock).toHaveBeenCalledWith('tops_shortfall_detail', expect.objectContaining({
+    expect(rpcMock).toHaveBeenCalledWith(SHORTFALL_DETAIL_RPC, expect.objectContaining({
       p_group: null, p_group_key: null, p_search: null, p_sort: 'short_ugx', p_dir: 'desc', p_limit: 50, p_offset: 0,
     }));
   });

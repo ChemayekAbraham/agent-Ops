@@ -1,8 +1,9 @@
-/** Reads tops_shortfall_detail(...) — one row per short Rent Plan, optionally for one group, server-searched, server-sorted and server-paged. Also exports a helper that walks every page for CSV export. */
+/** Reads tops_shortfall_detail (or its v2, see shortfallRpcNames.ts)(...) — one row per short Rent Plan, optionally for one group, server-searched, server-sorted and server-paged. Also exports a helper that walks every page for CSV export. */
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { AreaLevel } from './useAreaBook';
 import type { ShortfallGroup } from './useShortfallBreakdown';
+import { SHORTFALL_DETAIL_RPC } from './shortfallRpcNames';
 
 const anyDb = supabase as any;
 
@@ -71,7 +72,7 @@ const numOrNull = (v: unknown): number | null => (v === null || v === undefined 
 
 export async function fetchShortfallDetail(p: ShortfallDetailParams): Promise<ShortfallDetailResult> {
   const search = p.search?.trim();
-  const { data, error } = await anyDb.rpc('tops_shortfall_detail', {
+  const { data, error } = await anyDb.rpc(SHORTFALL_DETAIL_RPC, {
     p_start: p.startIso,
     p_end: p.endIso,
     p_group: p.group ?? null,

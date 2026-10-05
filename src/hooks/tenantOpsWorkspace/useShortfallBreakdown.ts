@@ -1,7 +1,8 @@
-/** Reads tops_shortfall_breakdown(p_start, p_end, p_group, p_area_level) — the collection shortfall grouped by tenant, agent, service centre, area or ageing, server-ordered by shortfall descending. */
+/** Reads tops_shortfall_breakdown (or its v2, see shortfallRpcNames.ts)(p_start, p_end, p_group, p_area_level) — the collection shortfall grouped by tenant, agent, service centre, area or ageing, server-ordered by shortfall descending. */
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { AreaLevel } from './useAreaBook';
+import { SHORTFALL_BREAKDOWN_RPC } from './shortfallRpcNames';
 
 const anyDb = supabase as any;
 
@@ -33,7 +34,7 @@ export interface ShortfallBreakdownParams {
 const numOrNull = (v: unknown): number | null => (v === null || v === undefined ? null : Number(v));
 
 async function fetchShortfallBreakdown(p: ShortfallBreakdownParams): Promise<ShortfallBreakdownRow[]> {
-  const { data, error } = await anyDb.rpc('tops_shortfall_breakdown', {
+  const { data, error } = await anyDb.rpc(SHORTFALL_BREAKDOWN_RPC, {
     p_start: p.startIso,
     p_end: p.endIso,
     p_group: p.group,
