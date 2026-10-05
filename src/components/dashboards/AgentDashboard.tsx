@@ -105,6 +105,7 @@ import { AgentPaymentEditAlert } from '@/components/agent/AgentPaymentEditAlert'
 import { AgentRejectedLandlordsPanel } from '@/components/agent/AgentRejectedLandlordsPanel';
 import { AgentDeadTenantsBanner } from '@/components/agent/AgentDeadTenantsBanner';
 import { AgentOverdueCallDrive } from '@/components/agent/AgentOverdueCallDrive';
+import { AgentOverdueChase } from '@/components/agent/AgentOverdueChase';
 import { AgentReturnedInactivationsPanel } from '@/components/agent/AgentReturnedInactivationsPanel';
 import { VerificationChecklist } from '@/components/shared/VerificationChecklist';
 import { useOffline } from '@/contexts/OfflineContext';
