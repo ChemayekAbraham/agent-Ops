@@ -44128,6 +44128,66 @@ export type Database = {
           },
         ]
       }
+      staff_requisition_office_history: {
+        Row: {
+          from_holder: string | null
+          id: string
+          office_key: string
+          prompts_moved: number
+          reason: string
+          to_holder: string
+          transferred_at: string
+          transferred_by: string
+        }
+        Insert: {
+          from_holder?: string | null
+          id?: string
+          office_key: string
+          prompts_moved?: number
+          reason: string
+          to_holder: string
+          transferred_at?: string
+          transferred_by: string
+        }
+        Update: {
+          from_holder?: string | null
+          id?: string
+          office_key?: string
+          prompts_moved?: number
+          reason?: string
+          to_holder?: string
+          transferred_at?: string
+          transferred_by?: string
+        }
+        Relationships: []
+      }
+      staff_requisition_offices: {
+        Row: {
+          holder_id: string
+          holder_since: string
+          office_code: string
+          office_key: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          holder_id: string
+          holder_since?: string
+          office_code: string
+          office_key: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          holder_id?: string
+          holder_since?: string
+          office_code?: string
+          office_key?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       staff_requisition_prompt_authorities: {
         Row: {
           created_at: string
@@ -72069,6 +72129,28 @@ export type Database = {
           p_signer: string
         }
         Returns: undefined
+      }
+      staff_requisition_office_candidates: {
+        Args: { p_office: string }
+        Returns: {
+          full_name: string
+          user_id: string
+        }[]
+      }
+      staff_requisition_office_transfer: {
+        Args: { p_new_holder: string; p_office: string; p_reason: string }
+        Returns: number
+      }
+      staff_requisition_offices_list: {
+        Args: never
+        Returns: {
+          can_transfer: boolean
+          holder_id: string
+          holder_name: string
+          holder_since: string
+          office_code: string
+          office_key: string
+        }[]
       }
       staff_requisition_pending_prompt: {
         Args: never
