@@ -132,6 +132,9 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 function ProjectCard({ p }: { p: Project }) {
   const Icon = p.icon;
+  const [updates, setUpdates] = useState<IdeaUpdate[]>(() => loadUpdates(p.name));
+  useEffect(() => { saveUpdates(p.name, updates); }, [p.name, updates]);
+  const upd = (id: string, patch: Partial<IdeaUpdate>) => setUpdates((u) => u.map((x) => (x.id === id ? { ...x, ...patch } : x)));
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
       <div className="flex items-start gap-3 bg-primary/5 p-4">
