@@ -73467,6 +73467,15 @@ export type Database = {
         Args: { p_cadence: string; p_reason: string; p_rent_request_id: string }
         Returns: undefined
       }
+      tops_shortfall_age_fallback: {
+        Args: { p_asof: string }
+        Returns: {
+          basis: string
+          days_behind: number
+          oldest_unpaid_day: string
+          rent_request_id: string
+        }[]
+      }
       tops_shortfall_breakdown: {
         Args: {
           p_area_level?: string
@@ -73507,6 +73516,24 @@ export type Database = {
       tops_shortfall_lines: {
         Args: { p_end: string; p_start: string }
         Returns: {
+          agent_id: string
+          cadence: string
+          collected_capped_ugx: number
+          collected_raw_ugx: number
+          days_behind: number
+          expected_ugx: number
+          last_paid_at: string
+          oldest_unpaid_due: string
+          periods_behind: number
+          rent_request_id: string
+          short_ugx: number
+          tenant_id: string
+        }[]
+      }
+      tops_shortfall_lines_v2: {
+        Args: { p_end: string; p_start: string }
+        Returns: {
+          age_basis: string
           agent_id: string
           cadence: string
           collected_capped_ugx: number
