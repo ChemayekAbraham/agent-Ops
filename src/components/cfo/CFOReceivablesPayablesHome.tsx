@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   TrendingUp, TrendingDown, ArrowLeftRight, CalendarClock, ChevronRight,
   Lightbulb, AlertTriangle, Info, Building2, Users, Home, Handshake, Package,
