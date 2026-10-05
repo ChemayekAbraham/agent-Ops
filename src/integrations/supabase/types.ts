@@ -64774,10 +64774,12 @@ export type Database = {
       get_landlord_payout_budget: {
         Args: never
         Returns: {
-          allowed_today: number
+          allowed_so_far: number
           budget: number
           enabled: boolean
+          reached: boolean
           remaining: number
+          started_at: string
         }[]
       }
       get_landlord_payout_receipt: { Args: { p_code: string }; Returns: Json }
@@ -67572,6 +67574,8 @@ export type Database = {
         Returns: Json
       }
       landlord_payout_allowed_today: { Args: never; Returns: number }
+      landlord_payout_goal_allowed: { Args: never; Returns: number }
+      landlord_payout_goal_started_at: { Args: never; Returns: string }
       landlord_payout_queue_blocked: {
         Args: { p_exempt_at: string; p_landlord_payout_id: string }
         Returns: boolean
@@ -71775,7 +71779,7 @@ export type Database = {
         Returns: number
       }
       set_landlord_payout_budget: {
-        Args: { p_budget: number }
+        Args: { p_budget: number; p_restart?: boolean }
         Returns: number
       }
       set_landlord_verification: {
