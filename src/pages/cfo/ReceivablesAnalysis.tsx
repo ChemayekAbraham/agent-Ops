@@ -141,7 +141,7 @@ export default function ReceivablesAnalysis() {
     },
   });
   const dueSoonAmt = dueSoon.data?.products.filter(p => cat === 'all' || p.category_key === cat)
-    .reduce((sum, p) => sum + p.total, 0);
+    .reduce((sum, p) => sum + p.scheduled, 0);
   const streams = fc?.streams.filter(s => cat === 'all' || s.category_key === cat) ?? [];
   const hasBehaviour = streams.some(s => !s.insufficient_data);
   const proj = (fc?.periods ?? []).map((p, index) => {
@@ -149,7 +149,7 @@ export default function ReceivablesAnalysis() {
     const behaviour = hasBehaviour ? sources.filter(s => s.basis === 'modelled')
       .reduce((sum, s) => sum + s.runoff, 0) : null;
     const scheduled = ideal.data?.[index]?.products.filter(s => cat === 'all' || s.category_key === cat)
-      .reduce((sum, s) => sum + s.total, 0) ?? null;
+      .reduce((sum, s) => sum + s.scheduled, 0) ?? null;
     return { label: p.label, start: p.forecast_from, end: p.period_end,
       behaviour, ideal: scheduled, gap: behaviour !== null && scheduled !== null ? scheduled - behaviour : null,
       quality: p.quality };
@@ -417,7 +417,7 @@ export default function ReceivablesAnalysis() {
                   <th className="py-3 text-left font-medium">Period</th><th className="py-3 text-right font-medium">Behaviour-Based</th><th className="py-3 text-right font-medium">Ideal</th><th className="py-3 text-right font-medium">Collection gap</th><th className="py-3 text-right font-medium">Model confidence</th>
                 </tr></thead><tbody>{proj.map(p => <tr key={p.start} className="border-b border-border/40"><td className="py-4">{p.label}<div className="text-xs text-muted-foreground">{p.start} – {p.end}</div></td><td className="py-4 text-right tabular-nums whitespace-nowrap">{money(p.behaviour)}</td><td className="py-4 text-right tabular-nums whitespace-nowrap">{money(p.ideal)}</td><td className="py-4 text-right tabular-nums whitespace-nowrap">{money(p.gap)}</td><td className="py-4 text-right capitalize text-muted-foreground">{hasBehaviour ? p.quality : 'Unavailable'}</td></tr>)}</tbody></table>
               </div>
-              <p className="mt-4 text-xs text-muted-foreground">Existing receivables only; anticipated new business is excluded. Undated obligations are not assigned invented due dates. A partial current calendar period is included; the dates above define the forecast window.</p>
+              <p className="mt-4 text-xs text-muted-foreground">Ideal means 100% of recorded scheduled amounts, not a complete contractual model for obligations without schedules. Behaviour uses the existing historical collection model and excludes anticipated new business. Undated obligations are not assigned invented due dates. A partial current calendar period is included; the dates above define the forecast window.</p>
             </>}
         </Section>
       </div>
