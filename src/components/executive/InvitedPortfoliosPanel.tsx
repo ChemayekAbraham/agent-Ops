@@ -389,6 +389,11 @@ export function InvitedPortfoliosPanel() {
                           <MailWarning className="h-3 w-3" /> Invite expired
                         </Badge>
                       )}
+                      {row.portfolio_code?.startsWith('WSR') && (
+                        <Badge variant="outline" className="text-[10px] gap-1">
+                          Staff reinvestment · funded from payroll
+                        </Badge>
+                      )}
                       {row.sent_count > 0 && (
                         <Badge variant="outline" className="text-[10px] gap-1 border-emerald-500/40 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400">
                           <Send className="h-3 w-3" /> Sent{row.sent_count > 1 ? ` ×${row.sent_count}` : ''}
@@ -465,7 +470,7 @@ export function InvitedPortfoliosPanel() {
                           : 'Resend invite (new 7-day link)'}
                       </Button>
                     )}
-                    {row.status === 'awaiting_partner_details' && (
+                    {row.status === 'awaiting_partner_details' && !row.portfolio_code?.startsWith('WSR') && (
                       <Button
                         size="sm"
                         variant="secondary"
@@ -477,6 +482,16 @@ export function InvitedPortfoliosPanel() {
                           ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
                           : <ShieldCheck className="h-3.5 w-3.5" />}
                         Activate without partner details
+                      </Button>
+                    )}
+                    {row.status === 'pending_ops_approval' && (
+                      <Button
+                        size="sm"
+                        className="h-8 text-xs gap-1.5"
+                        onClick={() => setReviewRow(row)}
+                      >
+                        <ShieldCheck className="h-3.5 w-3.5" />
+                        Review & approve
                       </Button>
                     )}
                     <Button
