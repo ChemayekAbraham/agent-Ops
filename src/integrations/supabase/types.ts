@@ -73593,6 +73593,22 @@ export type Database = {
         }
         Returns: Json
       }
+      tops_shortfall_detail_v3: {
+        Args: {
+          p_area_level?: string
+          p_dir?: string
+          p_end: string
+          p_followup?: string
+          p_group?: string
+          p_group_key?: string
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_sort?: string
+          p_start: string
+        }
+        Returns: Json
+      }
       tops_shortfall_followups_latest: {
         Args: { p_rent_request_ids: string[] }
         Returns: {
