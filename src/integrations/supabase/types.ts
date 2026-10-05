@@ -28422,6 +28422,8 @@ export type Database = {
           pricing_basis: string | null
           principal_recovered: number
           principal_total: number | null
+          recovery_hold: boolean
+          recovery_hold_reason: string | null
           recovery_started_on: string | null
           sale_id: string | null
           starts_on: string | null
@@ -28460,6 +28462,8 @@ export type Database = {
           pricing_basis?: string | null
           principal_recovered?: number
           principal_total?: number | null
+          recovery_hold?: boolean
+          recovery_hold_reason?: string | null
           recovery_started_on?: string | null
           sale_id?: string | null
           starts_on?: string | null
@@ -28498,6 +28502,8 @@ export type Database = {
           pricing_basis?: string | null
           principal_recovered?: number
           principal_total?: number | null
+          recovery_hold?: boolean
+          recovery_hold_reason?: string | null
           recovery_started_on?: string | null
           sale_id?: string | null
           starts_on?: string | null
@@ -73482,6 +73488,21 @@ export type Database = {
           short_ugx: number
           tenant_count: number
         }[]
+      }
+      tops_shortfall_detail: {
+        Args: {
+          p_area_level?: string
+          p_dir?: string
+          p_end: string
+          p_group?: string
+          p_group_key?: string
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_sort?: string
+          p_start: string
+        }
+        Returns: Json
       }
       tops_shortfall_lines: {
         Args: { p_end: string; p_start: string }
