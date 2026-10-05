@@ -13,7 +13,6 @@ import {
   useReceivablesTotal, useReceivablesForecast, useReceivablesPredictiveForecast,
 } from '@/hooks/useReceivables';
 import { usePayablesTotal, usePayablesPredictiveForecast } from '@/hooks/usePayables';
-import { ReceivablesBreakdownForecast } from '@/components/cfo/ReceivablesBreakdownForecast';
 import { SevenDayFlowSection } from '@/components/cfo/SevenDayFlowSection';
 import { PayablesBreakdownForecast } from '@/components/cfo/PayablesBreakdownForecast';
 
@@ -82,7 +81,7 @@ export function CFOReceivablesPayablesHome() {
           foot={r ? `${r.item_count} open items` : 'Loading…'}
           percent={r ? pct(r.total, exposure) : undefined}
           percentLabel="of total money owed (receivables + payables)"
-          spark={spark.map((s) => s.rec)} onClick={() => setSheet('rec')}
+          spark={spark.map((s) => s.rec)}
         />
         <Kpi
           icon={<TrendingDown className="h-4 w-4" />} tone="destructive" label="Total Payables"
