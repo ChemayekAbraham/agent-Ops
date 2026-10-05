@@ -334,8 +334,22 @@
     {
       "idx": 47,
       "version": "7",
-      "when": 1789334569601,
-      "tag": "0047_payout_verification_newest_first",
+      "when": 1789332442207,
+      "tag": "0047_payout_destination_verifications",
+      "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1789332558230,
+      "tag": "0048_payout_destination_verification_gate",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1789332651983,
+      "tag": "0049_withdrawal_requires_verified_destination",
       "breakpoints": true
     },
     {
@@ -845,8 +859,8 @@
     {
       "idx": 122,
       "version": "7",
-      "when": 1789497241660,
-      "tag": "0122_holder_name_history_include_device",
+      "when": 1789496336920,
+      "tag": "0122_drop_back_of_national_id_verify_gate",
       "breakpoints": true
     },
     {
@@ -1097,8 +1111,8 @@
     {
       "idx": 158,
       "version": "7",
-      "when": 1789651996309,
-      "tag": "0158_promissory_link_commission_catch_up",
+      "when": 1789651320237,
+      "tag": "0158_pso_non_officer_summary_include_commission_only_people",
       "breakpoints": true
     },
     {
@@ -2098,8 +2112,8 @@
     {
       "idx": 301,
       "version": "7",
-      "when": 1790085179318,
-      "tag": "0301_hr_birthday_layer_corrections",
+      "when": 1790084244530,
+      "tag": "0301_fix_a2_float_spent_direction_classification",
       "breakpoints": true
     },
     {
@@ -3195,24 +3209,10 @@
       "breakpoints": true
     },
     {
-      "idx": 61,
+      "idx": 458,
       "version": "7",
-      "when": 1789373281683,
-      "tag": "0061_landlord_payout_legs_exempt_from_merchant_id_gate",
-      "breakpoints": true
-    },
-    {
-      "idx": 76,
-      "version": "7",
-      "when": 1789392120860,
-      "tag": "0076_identity_submission_name_consent_waiting",
-      "breakpoints": true
-    },
-    {
-      "idx": 459,
-      "version": "7",
-      "when": 1791184222730,
-      "tag": "0459_staff_requisition_notices",
+      "when": 1791186290926,
+      "tag": "0458_staff_requisition_assert_signer_office_holder",
       "breakpoints": true
     }
   ]
