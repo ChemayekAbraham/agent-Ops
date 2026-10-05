@@ -14,6 +14,7 @@ import { requisitionApprovalError } from '@/lib/requisitionApprovalError';
 import {
   APPROVAL_TOAST_OPTIONS, REQUISITION_APPROVED_MESSAGE,
 } from './approvalToast';
+import { StaffRequisitionNoticeGate } from './StaffRequisitionNoticeGate';
 
 /**
  * Blocking requisition prompt — for the named approver only, at the COO, CEO
@@ -64,8 +65,11 @@ function fmtDay(iso: string | null) {
   return new Date(iso).toLocaleDateString('en-GB', { dateStyle: 'medium' });
 }
 
-export function StaffRequisitionApprovalGate() {
+export function StaffRequisitionApprovalGate(
+  { onOpenChange }: { onOpenChange?: (open: boolean) => void } = {},
+) {
   const [prompt, setPrompt] = useState<Prompt | null>(null);
+  useEffect(() => { onOpenChange?.(prompt !== null); }, [prompt, onOpenChange]);
   const [declining, setDeclining] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [working, setWorking] = useState(false);
@@ -177,7 +181,7 @@ export function StaffRequisitionApprovalGate() {
     setWorking(false);
     if (error) { toast.error(error.message); return; }
     const until = new Date(String(data)).getTime();
-    const delay = Number.isFinite(until) ? Math.max(1000, until - Date.now() + 5000) : 30 * 60 * 1000;
+    const delay = Number.isFinite(until) ? Math.max(1000, until - Date.now() + 5000) : 60 * 60 * 1000;
     suppressedUntilRef.current = Date.now() + delay;
     if (laterTimerRef.current) window.clearTimeout(laterTimerRef.current);
     laterTimerRef.current = window.setTimeout(() => { void load(); }, delay + 500);
@@ -300,4 +304,15 @@ export function StaffRequisitionApprovalGate() {
   );
 }
 
-export default StaffRequisitionApprovalGate;
+/** Approver prompt first; requester notices only while no approver prompt is open. */
+function StaffRequisitionGates() {
+  const [approverOpen, setApproverOpen] = useState(false);
+  return (
+    <>
+      <StaffRequisitionApprovalGate onOpenChange={setApproverOpen} />
+      <StaffRequisitionNoticeGate enabled={!approverOpen} />
+    </>
+  );
+}
+
+export default StaffRequisitionGates;
