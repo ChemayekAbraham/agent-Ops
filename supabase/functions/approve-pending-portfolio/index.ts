@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
       .limit(1)
       .maybeSingle();
 
-    if (!existingDebit && !fundedFromFloatByRpc) {
+    if (!existingDebit && !fundedFromFloatByRpc && !fundedFromPayroll) {
 
       // Funding source = OPERATIONAL FLOAT (never withdrawable).
       // `funder_float_available` subtracts `funder_pending_hold`, which holds
