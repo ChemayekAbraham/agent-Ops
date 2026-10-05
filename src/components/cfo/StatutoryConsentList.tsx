@@ -36,8 +36,8 @@ async function saveIds(staffId: string, tin: string, nssf: string) {
 
 function IdsDialog({ open, onClose, row, onSaved }: { open: boolean; onClose: () => void; row: Row | null; onSaved: () => void }) {
   const isAdd = !row;
-  const [tin, setTin] = useState('');
-  const [nssf, setNssf] = useState('');
+  const [tin, setTin] = useState(row?.tin ?? '');
+  const [nssf, setNssf] = useState(row?.nssf_number ?? '');
   const [search, setSearch] = useState('');
   const [picked, setPicked] = useState<StaffOpt | null>(null);
   const [busy, setBusy] = useState(false);
@@ -143,7 +143,6 @@ export function StatutoryConsentList() {
   }, [rows]);
   const refetch = () => qc.invalidateQueries({ queryKey: ['cfo-staff-tax-register'] });
 
-  // Initial edit dialog: prefill via placeholders; inputs start blank (blank keeps value).
   const downloadCsv = () => {
     const head = ['#', 'Name', 'Staff ref', 'Phone', 'Source', 'TIN', 'NSSF no.', 'Gross', 'PAYE', 'NSSF 5%', 'NSSF 10%', 'NSSF total', 'LST', 'Total to remit'];
     const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
@@ -229,7 +228,7 @@ export function StatutoryConsentList() {
             </>
           )}
       </CardContent>
-      <IdsDialog open={!!editRow} row={editRow} onClose={() => setEditRow(null)} onSaved={refetch} />
+      <IdsDialog key={editRow?.staff_id ?? 'none'} open={!!editRow} row={editRow} onClose={() => setEditRow(null)} onSaved={refetch} />
       <IdsDialog open={addOpen} row={null} onClose={() => setAddOpen(false)} onSaved={refetch} />
     </Card>
   );
