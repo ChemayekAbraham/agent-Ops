@@ -29,6 +29,9 @@ import { CalendarClock, ClipboardList, FileDown, History, LucideIcon, TrendingUp
 import { Button } from '@/components/ui/button';
 import { downloadPdf, generateWeeklyPerformancePdf } from '@/lib/tenantOpsWeeklyPerformancePdf';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { FileDown } from 'lucide-react';
+import { downloadPdf, generateWeeklyPerformancePdf } from '@/lib/tenantOpsWeeklyPerformancePdf';
 import { WorkspaceEmptyState } from '@/components/executive/tenant-ops/workspace/WorkspaceEmptyState';
 import { WorkspaceMobileRow } from '@/components/executive/tenant-ops/workspace/WorkspaceMobileRow';
 import { TenantSelfPaymentWeeklyTrend } from '@/components/executive/tenant-ops/workspace/TenantSelfPaymentWeeklyTrend';
