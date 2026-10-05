@@ -363,7 +363,7 @@ export function AgentTenantCollectDialog({
             })
           : humanizeAllocationError(rawMsg);
         console.error('[AgentTenantCollectDialog] allocation rejected:', res);
-        if (res?.error_code === 'INSUFFICIENT_TID_BACKED_FLOW'.replace('FLOW', 'FLOAT')) {
+        if (res?.error_code === 'INSUFFICIENT_TID_BACKED_FLOAT') {
           const bal = Math.max(0, Number(res?.tid_backed_balance ?? 0));
           const req = Number(res?.requested ?? amount);
           setTidBlock({ requested: req, balance: bal });
@@ -870,7 +870,7 @@ export function AgentTenantCollectDialog({
                 type="button"
                 className="flex-1 h-12 font-bold"
                 onClick={handleAllocate}
-                disabled={loading}
+                disabled={loading || tidLocked}
                 style={{ touchAction: 'manipulation' }}
               >
                 {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
