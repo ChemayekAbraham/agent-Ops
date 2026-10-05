@@ -1,18 +1,29 @@
-# GitHub sync prompt: findings (no code changes)
+# Receivables Analysis page (CFO)
 
-This is an answer, not a build plan. Approving it changes nothing.
+Clicking the Total Receivables card opens a full-page, read-only **Receivables Analysis** view (`/cfo/receivables`), replacing the removed pop-up sheet. Nothing about balances, Rent Plans, wallets or the ledger changes.
 
-## What the project's own history shows (checked read-only)
-- The project's `lovable` branch is at **32c1df45de** ("Fixed Spiro bike lease logic", 12:09 UTC).
-- Your merge **f118fca705 is already in that history**, so nothing from your merge is missing on this side.
-- There are 54 commits after f118fca705. Some are your later GitHub pushes, for example "Bike lease: show daily and monthly pay…", "Field Collect: retry Safari…" and "Agent landlord float: show only spendable float…". The rest are my edits from this session, such as the R&D page, the supplier search fix, CFO-TAX, the TID-backed balance and the Spiro bike lease fix.
-- The project's branch list contains no `lovable-sync-*` branches now. It does contain many old `lovable-backup-lovable-<timestamp>` branches, which are older automatic safety copies.
+## Layout (top to bottom)
 
-## Answers
-1. **Why the prompt appears.** It appears when a GitHub push lands on `lovable` while this project has saved work that is not in that push, meaning the two histories have split. I can't read GitHub or the prompt's internal state from here, so I can't name the exact commits it compared. The most likely trigger is that you pushed at about 11:30 while I was committing the R&D, CFO-TAX and supplier-search work.
-2. **Is the project identical to GitHub?** The project is at 32c1df45de and includes all of your merge. It can only match GitHub if GitHub's `lovable` also points at 32c1df45de. Check that on GitHub. If GitHub shows an older commit, the latest Spiro fix has simply not been pushed out yet.
-3. **The `lovable-sync-<timestamp>` branches.** I don't create them myself; the sync system creates them when it can't add its saved work cleanly on top of a GitHub push. Choosing an option on the prompt should stop new ones. New ones can still appear if a GitHub push and a Lovable edit happen at the same moment again.
-4. **Is it safe to click Keep repository version?** Only once GitHub's `lovable` contains 32c1df45de. If it doesn't, this session's edits could be dropped: the Spiro fix, the TID-backed balance, the CFO-TAX screens and the R&D changes. The database changes I applied stay in place either way, but their code and files would be lost. **Restore Lovable work** keeps everything because it already includes your merge. It is the safer choice if you're unsure.
+1. **Header row** — page title, back link, Receivable Category dropdown (loaded from the live breakdown, not hard-coded), compact filter bar: Country, Region, District, Sub-county, Village, Status, Overdue/Current, due-date range.
+2. **Current position** — one quiet strip of six figures: Total Outstanding, Current/Not yet due, Overdue, Due in 7 days, Collection rate, Number of accounts.
+3. **Where it comes from** — breadcrumb drill (Country → Region → District → Sub-county → Village) above one sortable, filterable, paginated table: count, outstanding, overdue, % of total, average, collection performance. Clicking a row goes one level deeper.
+4. **Underlying receivables** — at village level (or any row's "View records"), a paginated table of individual items: name, category, outstanding, original, collected, overdue, due date, days outstanding, location columns, agent.
+5. **Projection** — period chips (7 days, 1, 3, 6, 9 months, 1 year, 2 years), a line chart with solid Actual and dashed Projected lines, and a summary table: expected collections, outstanding, overdue, collection period, number of collections, cash inflow. Shows "Insufficient data" when the model reports low or no quality, rather than a number.
 
-## Suggested next step
-Check that GitHub `lovable` points at 32c1df45de or later. If it does, either button is safe. If it doesn't, choose **Restore Lovable work**.
+Neutral background, subtle dividers, right-aligned tabular UGX figures, restrained colour used only for status. No pop-ups stacked on pop-ups.
+
+## Data sources (reuse first)
+
+- Totals and categories: existing `get_receivables_total` / `get_receivables_breakdown`.
+- Tenant location drill and accounts: existing `useTenantReceivablesByLocation` / `useTenantReceivableAccounts`.
+- Projection: existing `get_receivables_predictive_forecast` (Actual vs Projected and quality bands are already built in).
+- Gap: the location drill only covers tenant receivables. A new read-only, role-gated function `get_receivables_by_location(category, level, filters)` would extend the same location grouping to other categories (agent, landlord, partner, service centre). It would read the same authoritative receivable items, so totals still tie out to the card. Where a category has no location data, its rows show "Unassigned location" and are never guessed.
+- Due-in-7-days / overdue / current split come from item due dates already in the breakdown; if a category lacks due dates, that figure shows "Insufficient data".
+
+## Technical details
+
+- New route `/cfo/receivables` (CFO role-gated like the dashboard); the card in `CFOReceivablesPayablesHome.tsx` becomes a link to it.
+- New files: `src/pages/cfo/ReceivablesAnalysis.tsx`, components under `src/components/cfo/receivables-analysis/` (CategorySelect, FilterBar, PositionStrip, LocationDrillTable, RecordsTable, ProjectionSection), filter state kept in the URL query so drill steps can be shared and the back button works.
+- One additive migration for `get_receivables_by_location` (SECURITY DEFINER, `receivables_guard()`, `search_path = public`, anon revoked), verified against the live schema first; it checks that the location total equals `get_receivables_total` for the category.
+- Projection periods map to the existing function: 7 days → day×7, 1–9 months → week/month, 1–2 years → month×12/24.
+- Read-only throughout; `npm run guard:all` run before finishing.
