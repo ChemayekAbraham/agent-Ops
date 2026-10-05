@@ -101,7 +101,7 @@ export function CFOReceivablesPayablesHome() {
         <Kpi
           icon={<CalendarClock className="h-4 w-4" />} tone="primary" label="Expected Cash Inflow (Next 30 Days)"
           value={inflow30 === undefined ? '—' : formatUGX(inflow30)}
-          foot="Scheduled + projected collections" onClick={() => setSheet('rec')} chevron
+          foot="Scheduled + projected collections"
           percent={inflow30 !== undefined && r ? pct(inflow30, r.total) : undefined}
           percentLabel="of receivables expected to come in within 30 days"
         />
@@ -145,7 +145,7 @@ export function CFOReceivablesPayablesHome() {
 
       {/* ── Tables row ── */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <CatTable title="Top Receivables" cats={recCats} total={r?.total ?? 0} count={r?.item_count ?? 0} totalLabel="Total Receivables" onViewAll={() => setSheet('rec')} />
+        <CatTable title="Top Receivables" cats={recCats} total={r?.total ?? 0} count={r?.item_count ?? 0} totalLabel="Total Receivables" />
         <CatTable title="Top Payables" cats={payCats} total={p?.total ?? 0} count={p?.item_count ?? 0} totalLabel="Total Payables" onViewAll={() => setSheet('pay')} />
       </div>
 
