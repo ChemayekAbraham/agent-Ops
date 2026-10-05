@@ -195,30 +195,6 @@ export default function ReceivablesAnalysis() {
           </div>
         </header>
 
-        {/* Filters */}
-        <div className="flex flex-wrap items-end gap-3 text-xs">
-          <div className="w-40">
-            <p className="mb-1 text-muted-foreground">Status</p>
-            <Select value={statusF} onValueChange={(v) => setParam('status', v === 'all' ? '' : v)}>
-              <SelectTrigger className="h-8"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                <SelectItem value="overdue">Overdue</SelectItem>
-                <SelectItem value="current">Current / not yet due</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <p className="mb-1 text-muted-foreground">Due from</p>
-            <Input type="date" className="h-8 w-40" value={dueFrom} onChange={(e) => setParam('from', e.target.value)} />
-          </div>
-          <div>
-            <p className="mb-1 text-muted-foreground">Due to</p>
-            <Input type="date" className="h-8 w-40" value={dueTo} onChange={(e) => setParam('to', e.target.value)} />
-          </div>
-          <p className="text-muted-foreground">Location filters: use the drill-down below (Country → Region → District → Sub-county → Village).</p>
-        </div>
-
         {/* Current position */}
         <section className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 divide-y md:divide-y-0 lg:divide-x divide-border/60">
           <Figure label="Total outstanding" value={breakdown.isLoading ? '—' : formatUGX(outstanding)} sub={cat === 'all' ? 'All categories' : selectedCat?.label} />
