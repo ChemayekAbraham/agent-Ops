@@ -1973,21 +1973,15 @@ export default function LandlordFloat() {
         />
         <StatTile
           label="Landlord Float Pool"
-          value={
-            pool
-              ? formatUGX(pool.available_to_deploy)
-              : poolError
-                ? '—'
-                : poolLoading
-                  ? '…'
-                  : '—'
-          }
+          value={pool ? formatUGX(pool.available_to_deploy) : '—'}
           sub={
             poolError
               ? 'Pool position could not be loaded'
-              : pool
-                ? 'Available to deploy'
-                : 'Loading pool position…'
+              : poolLoading
+                ? 'Loading pool position…'
+                : pool
+                  ? 'Available to deploy'
+                  : 'Pool position not available for your role'
           }
           icon={Landmark}
           tone="default"
