@@ -44128,6 +44128,135 @@ export type Database = {
           },
         ]
       }
+      staff_requisition_notices: {
+        Row: {
+          acknowledged_at: string | null
+          actor_name: string | null
+          amount_after: number | null
+          amount_before: number | null
+          body: string
+          created_at: string
+          from_stage: string | null
+          id: string
+          kind: string
+          last_pushed_at: string | null
+          push_count: number
+          recipient_id: string
+          requisition_id: string
+          title: string
+          to_stage: string | null
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          actor_name?: string | null
+          amount_after?: number | null
+          amount_before?: number | null
+          body: string
+          created_at?: string
+          from_stage?: string | null
+          id?: string
+          kind: string
+          last_pushed_at?: string | null
+          push_count?: number
+          recipient_id: string
+          requisition_id: string
+          title: string
+          to_stage?: string | null
+        }
+        Update: {
+          acknowledged_at?: string | null
+          actor_name?: string | null
+          amount_after?: number | null
+          amount_before?: number | null
+          body?: string
+          created_at?: string
+          from_stage?: string | null
+          id?: string
+          kind?: string
+          last_pushed_at?: string | null
+          push_count?: number
+          recipient_id?: string
+          requisition_id?: string
+          title?: string
+          to_stage?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_requisition_notices_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "staff_requisitions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_requisition_notices_requisition_id_fkey"
+            columns: ["requisition_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_facilitation_position"
+            referencedColumns: ["requisition_id"]
+          },
+        ]
+      }
+      staff_requisition_office_history: {
+        Row: {
+          from_holder: string | null
+          id: string
+          office_key: string
+          prompts_moved: number
+          reason: string
+          to_holder: string
+          transferred_at: string
+          transferred_by: string
+        }
+        Insert: {
+          from_holder?: string | null
+          id?: string
+          office_key: string
+          prompts_moved?: number
+          reason: string
+          to_holder: string
+          transferred_at?: string
+          transferred_by: string
+        }
+        Update: {
+          from_holder?: string | null
+          id?: string
+          office_key?: string
+          prompts_moved?: number
+          reason?: string
+          to_holder?: string
+          transferred_at?: string
+          transferred_by?: string
+        }
+        Relationships: []
+      }
+      staff_requisition_offices: {
+        Row: {
+          holder_id: string
+          holder_since: string
+          office_code: string
+          office_key: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          holder_id: string
+          holder_since?: string
+          office_code: string
+          office_key: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          holder_id?: string
+          holder_since?: string
+          office_code?: string
+          office_key?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       staff_requisition_prompt_authorities: {
         Row: {
           created_at: string
@@ -64697,6 +64826,7 @@ export type Database = {
           total_clicks: number
         }[]
       }
+      get_liquidity_forecast: { Args: { p_days?: number }; Returns: Json }
       get_listing_agent_contacts: {
         Args: { p_listing_ids: string[] }
         Returns: {
@@ -67185,6 +67315,7 @@ export type Database = {
         Args: { _role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean
       }
+      is_requisition_office_holder: { Args: { _uid: string }; Returns: boolean }
       is_sensitive_field_editor: { Args: { _uid: string }; Returns: boolean }
       is_service_center_manager: {
         Args: { p_agent_id: string }
@@ -72058,6 +72189,49 @@ export type Database = {
           p_signer: string
         }
         Returns: undefined
+      }
+      staff_requisition_my_notices: {
+        Args: never
+        Returns: {
+          actor_name: string
+          amount_after: number
+          amount_before: number
+          body: string
+          created_at: string
+          from_stage: string
+          id: string
+          kind: string
+          requisition_code: string
+          requisition_id: string
+          title: string
+          to_stage: string
+        }[]
+      }
+      staff_requisition_notice_ack: {
+        Args: { p_notice_id: string }
+        Returns: undefined
+      }
+      staff_requisition_office_candidates: {
+        Args: { p_office: string }
+        Returns: {
+          full_name: string
+          user_id: string
+        }[]
+      }
+      staff_requisition_office_transfer: {
+        Args: { p_new_holder: string; p_office: string; p_reason: string }
+        Returns: number
+      }
+      staff_requisition_offices_list: {
+        Args: never
+        Returns: {
+          can_transfer: boolean
+          holder_id: string
+          holder_name: string
+          holder_since: string
+          office_code: string
+          office_key: string
+        }[]
       }
       staff_requisition_pending_prompt: {
         Args: never
