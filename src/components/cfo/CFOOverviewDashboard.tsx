@@ -68,6 +68,53 @@ export function CFOOverviewDashboard({
   onTabChange, cashPositionOnly = false, showCashPosition = true,
 }: CFOOverviewDashboardProps) {
   const [exportingCommissions, setExportingCommissions] = useState(false);
+  const reportRef = useRef<HTMLDivElement>(null);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+
+  const handleDownloadPdf = useCallback(async () => {
+    const node = reportRef.current;
+    if (!node) return;
+    setDownloadingPdf(true);
+    try {
+      const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas'), import('jspdf')]);
+      const canvas = await html2canvas(node, {
+        scale: 1.5, useCORS: true, backgroundColor: '#ffffff',
+        ignoreElements: (el) => el.hasAttribute('data-pdf-hide'),
+      });
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
+      const pw = pdf.internal.pageSize.getWidth();
+      const ph = pdf.internal.pageSize.getHeight();
+      const m = 8;
+      const imgW = pw - m * 2;
+      const pageH = ph - m * 2;
+      const sliceHpx = Math.floor((pageH * canvas.width) / imgW);
+      let offset = 0;
+      let first = true;
+      while (offset < canvas.height) {
+        const h = Math.min(sliceHpx, canvas.height - offset);
+        const slice = document.createElement('canvas');
+        slice.width = canvas.width;
+        slice.height = h;
+        const ctx = slice.getContext('2d');
+        if (!ctx) throw new Error('Canvas unavailable');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, slice.width, slice.height);
+        ctx.drawImage(canvas, 0, offset, canvas.width, h, 0, 0, canvas.width, h);
+        if (!first) pdf.addPage();
+        pdf.addImage(slice.toDataURL('image/jpeg', 0.92), 'JPEG', m, m, imgW, (h * imgW) / canvas.width);
+        first = false;
+        offset += h;
+      }
+      const stamp = new Date().toISOString().slice(0, 10);
+      pdf.save(`cash-position-report-${stamp}.pdf`);
+      toast.success('Report downloaded');
+    } catch (e) {
+      console.error(e);
+      toast.error('Could not create the PDF. Please try again.');
+    } finally {
+      setDownloadingPdf(false);
+    }
+  }, []);
   const [activeBreakdown, setActiveBreakdown] = useState<string | null>(null);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   // Sections default to expanded unless explicitly collapsed above; the chevron toggles.
@@ -229,7 +276,7 @@ export function CFOOverviewDashboard({
 
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div ref={reportRef} className="space-y-6 max-w-7xl mx-auto">
 
       {/* ══════════════ GREETING HEADER ══════════════ */}
       {!cashPositionOnly && <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
