@@ -120,12 +120,14 @@ export function AgentLandlordPayoutDialog({ open, onOpenChange, property, onSucc
     if (!open || !user) return;
     let cancelled = false;
     (async () => {
-      const { data } = await supabase
-        .from('agent_landlord_float')
-        .select('balance')
-        .eq('agent_id', user.id)
-        .maybeSingle();
-      if (!cancelled) setFloatBalance(data?.balance ?? 0);
+      // Spendable float, not the gross balance: `agent_landlord_float.balance`
+      // still carries allocations the 24h idle recall has pulled back, and the
+      // disbursement backend enforces this same RPC. Validating against the
+      // gross figure would let an agent key in an amount the payout rejects.
+      const { data } = await supabase.rpc('get_agent_lp_float_available', {
+        p_agent_id: user.id,
+      });
+      if (!cancelled) setFloatBalance(Number(data ?? 0));
     })();
     return () => { cancelled = true; };
   }, [open, user, step]);

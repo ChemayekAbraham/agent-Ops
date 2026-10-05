@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useAgentLandlordFloat } from '@/hooks/useAgentLandlordFloat';
 import { formatUGX } from '@/lib/rentCalculations';
 import { Landmark, ArrowRight, Loader2, TrendingUp, History, ShieldCheck, KeyRound } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -16,23 +17,13 @@ interface AgentLandlordFloatCardProps {
 export function AgentLandlordFloatCard({ onPayLandlord, onOpenRecovery, onOpenHistory, onOpenStatusTracker, onOpenOtpAudit }: AgentLandlordFloatCardProps) {
   const { user } = useAuth();
 
-  const { data: floatData, isLoading } = useQuery({
-    queryKey: ['agent-landlord-float-row', user?.id],
-    queryFn: async () => {
-      if (!user) return null;
-      const { data } = await supabase
-        .from('agent_landlord_float')
-        .select('*')
-        .eq('agent_id', user.id)
-        .maybeSingle();
-      return data;
-    },
-    enabled: !!user,
-    staleTime: 0,
-    gcTime: 0,
-    refetchOnMount: 'always',
-    refetchOnWindowFocus: true,
-  });
+  // Spendable float, not the gross custody balance. `agent_landlord_float.balance`
+  // still counts allocations the 24h idle recall has pulled back
+  // (status `return_pending`), so reading it raw showed an agent money that was
+  // already reversed and that the payout backend would refuse. The RPC applies
+  // the same deductions the backend enforces — recalled allocations and float
+  // ring-fenced by a verified-but-unpaid payout.
+  const { availableBalance, isLoading } = useAgentLandlordFloat();
 
   const { data: pendingCount = 0 } = useQuery({
     queryKey: ['agent-float-pending-count', user?.id],
@@ -48,8 +39,11 @@ export function AgentLandlordFloatCard({ onPayLandlord, onOpenRecovery, onOpenHi
     enabled: !!user,
   });
 
-  const balance = floatData?.balance ?? 0;
-  const hasFloat = !!floatData;
+  const balance = availableBalance;
+  // Only float the agent can actually spend counts as having float. A recalled
+  // or fully ring-fenced allocation falls back to the "CFO will fund this"
+  // state rather than advertising an amount the payout will reject.
+  const hasFloat = availableBalance > 0;
 
   return (
     <div className="rounded-2xl border-2 border-[#9234EA]/30 bg-[#9234EA]/5 overflow-hidden">

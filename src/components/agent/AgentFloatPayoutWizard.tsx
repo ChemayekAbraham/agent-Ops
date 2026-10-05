@@ -888,28 +888,9 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
         gpsMatch = gpsDistanceMeters <= 500;
       }
 
-      // Deduct from Landlord Payout Float only. Wallet/rent-collection float is untouched.
-      const { data: floatData } = await supabase
-        .from('agent_landlord_float')
-        .select('balance, total_paid_out')
-        .eq('agent_id', user.id)
-        .single();
-
-      if (!floatData || floatData.balance < effectiveAmount) {
-        throw new Error('Insufficient Landlord Payout Float');
-      }
-
-      const { error: floatErr } = await supabase
-        .from('agent_landlord_float')
-        .update({
-          balance: floatData.balance - effectiveAmount,
-          total_paid_out: (floatData.total_paid_out || 0) + effectiveAmount,
-          updated_at: new Date().toISOString(),
-        } as any)
-        .eq('agent_id', user.id);
-
-      if (floatErr) throw new Error('Failed to deduct from Landlord Payout Float');
-
+      // Receipts are uploaded first so no float moves until the evidence is
+      // stored. The float check, the withdrawal record and the deduction then
+      // happen together inside agent_record_landlord_float_withdrawal.
       // Upload receipt photos
       const photoUrls: string[] = [];
       for (const file of receiptFiles) {
@@ -922,42 +903,36 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
         }
       }
 
-      // Create withdrawal record with OTP verification flag
-      const { error } = await supabase.from('agent_float_withdrawals').insert({
-        agent_id: user.id,
-        rent_request_id: req.id,
-        landlord_id: req.landlord_id,
-        tenant_id: req.tenant_id,
-        amount: effectiveAmount,
-        landlord_name: req.landlord?.name || 'Unknown',
-        landlord_phone: landlordPhone,
-        mobile_money_provider: provider,
-        transaction_id: tid.trim(),
-        notes: notes || null,
-        receipt_photo_urls: photoUrls.length > 0 ? photoUrls : null,
-        agent_latitude: loc.latitude,
-        agent_longitude: loc.longitude,
-        agent_location_accuracy: loc.accuracy,
-        property_latitude: propLat ?? null,
-        property_longitude: propLng ?? null,
-        gps_distance_meters: gpsDistanceMeters,
-        gps_match: gpsMatch,
-        landlord_otp_verified: true,
-        landlord_otp_verified_at: new Date().toISOString(),
-        status: 'pending_agent_ops',
-      } as any);
+      // Record the payout and deduct the float in one transaction. The RPC
+      // locks the float row, validates against the spendable figure the
+      // disbursement backend enforces, and writes both the withdrawal and the
+      // deduction together — so there is no window where float is spent with
+      // no record of where it went, and nothing to roll back by hand.
+      const { data: result, error } = await supabase.rpc(
+        'agent_record_landlord_float_withdrawal',
+        {
+          p_rent_request_id: req.id,
+          p_amount: effectiveAmount,
+          p_landlord_name: req.landlord?.name || 'Unknown',
+          p_landlord_phone: landlordPhone,
+          p_mobile_money_provider: provider,
+          p_transaction_id: tid.trim() || null,
+          p_notes: notes || null,
+          p_receipt_photo_urls: photoUrls.length > 0 ? photoUrls : null,
+          p_agent_latitude: loc.latitude,
+          p_agent_longitude: loc.longitude,
+          p_agent_location_accuracy: loc.accuracy,
+          p_property_latitude: propLat ?? null,
+          p_property_longitude: propLng ?? null,
+          p_gps_distance_meters: gpsDistanceMeters,
+          p_gps_match: gpsMatch,
+        },
+      );
 
-      if (error) {
-        // Rollback float
-        await supabase
-          .from('agent_landlord_float')
-          .update({
-            balance: floatData.balance,
-            total_paid_out: floatData.total_paid_out,
-            updated_at: new Date().toISOString(),
-          } as any)
-          .eq('agent_id', user.id);
-        throw error;
+      if (error) throw error;
+      const outcome = result as { success?: boolean; error?: string } | null;
+      if (!outcome?.success) {
+        throw new Error(outcome?.error || 'Could not record the landlord payout.');
       }
 
       // Send confirmation SMS to landlord

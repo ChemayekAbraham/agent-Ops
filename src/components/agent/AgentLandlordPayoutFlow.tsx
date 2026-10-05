@@ -75,7 +75,15 @@ export function AgentLandlordPayoutFlow({ open, onOpenChange }: AgentLandlordPay
         .select('balance, total_funded, total_paid_out')
         .eq('agent_id', user.id)
         .maybeSingle();
-      return data;
+      if (!data) return data;
+      // `balance` is gross custody and still counts allocations the 24h idle
+      // recall has pulled back (status `return_pending`). Everything in this
+      // flow compares it against a rent amount to decide whether the agent can
+      // pay, so it has to be the spendable figure the backend enforces.
+      const { data: available } = await supabase.rpc('get_agent_lp_float_available', {
+        p_agent_id: user.id,
+      });
+      return { ...data, balance: Number(available ?? 0) };
     },
     enabled: !!user && open,
     staleTime: 0,
