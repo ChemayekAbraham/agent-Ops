@@ -93,7 +93,6 @@ import {
 import {
   PAYOUT_VERIFICATION_PAGE_SIZE,
   last9,
-  useAdoptNationalIdName,
   useHolderNameHistory,
   useStoredIdReading,
   useStoredIdBackReading,
@@ -102,7 +101,6 @@ import {
   maskIdNumber,
   useDecidePayoutDestination,
   useRevertHolderName,
-  useSetHolderName,
 
 
   usePayoutVerificationCounts,
@@ -866,6 +864,7 @@ function StoredIdBackReadingCard({
     </div>
   );
 }
+
 
 
 /** One of the two hero photos, or a clear "not sent yet" placeholder. */

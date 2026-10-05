@@ -21,7 +21,7 @@ import { extractFromErrorObject } from '@/lib/extractEdgeFunctionError';
 
 export const IDENTITY_BUCKET = 'identity-verification';
 
-export type IdentityPhotoKind = 'national-id' | 'national-id-back' | 'selfie';
+export type IdentityPhotoKind = 'national-id' | 'selfie';
 
 export interface MyIdentityPhotos {
   national_id_photo_path: string | null;
@@ -228,7 +228,6 @@ export interface VerificationHistoryEntry {
 function kindOf(name: string): VerificationHistoryFile['kind'] {
   if (name.startsWith('profile-crop-')) return 'profile-crop';
   if (name.startsWith('selfie-')) return 'selfie';
-  if (name.startsWith('national-id-back-')) return 'national-id-back';
   if (name.startsWith('national-id-')) return 'national-id';
   return 'other';
 }
