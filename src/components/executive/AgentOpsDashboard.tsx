@@ -242,7 +242,6 @@ const BUSINESS_AREAS: BusinessAreaItem[] = [
     title: 'Welile Shopping Advance',
     icon: ShoppingBag,
     section: 'shopping-advance',
-    highlight: true,
     category: 'advances',
     desc: 'Qualified agent shopping float advances',
     keywords: ['shopping advance', 'advance', 'supermarket', 'retail', 'groceries', 'limits'],
