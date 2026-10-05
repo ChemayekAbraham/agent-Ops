@@ -21,6 +21,7 @@ import { template as funderHouseBookingTemplate } from './funder-house-booking.t
 import { template as funderSavedHouseFundableTemplate } from './funder-saved-house-fundable.tsx'
 import { template as funderHouseProgressTemplate } from './funder-house-progress.tsx'
 import { template as partnerAccountCreatedTemplate } from './partner-account-created.tsx'
+import { template as redemptionPaidTemplate } from './redemption-paid.tsx'
 import { template as databaseBackupReadyTemplate } from './database-backup-ready.tsx'
 import { template as databaseBackupLinkTemplate } from './database-backup-link.tsx'
 import { template as generalLedgerBackupReadyTemplate } from './general-ledger-backup-ready.tsx'
@@ -92,6 +93,7 @@ export const TEMPLATES: Record<string, TemplateEntry> = {
   'funder-saved-house-fundable': funderSavedHouseFundableTemplate,
   'funder-house-progress': funderHouseProgressTemplate,
   'partner-account-created': partnerAccountCreatedTemplate,
+  'redemption-paid': redemptionPaidTemplate,
   'database-backup-ready': databaseBackupReadyTemplate,
   'database-backup-link': databaseBackupLinkTemplate,
   'general-ledger-backup-ready': generalLedgerBackupReadyTemplate,
