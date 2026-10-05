@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { getEntries, onFieldCollectChange, deleteEntry, updateEntry, type FieldEntry } from '@/lib/fieldCollectStore';
+import { getEntries, isFieldCollectStorageUnavailable, onFieldCollectStorageUnavailable, onFieldCollectChange, deleteEntry, updateEntry, type FieldEntry } from '@/lib/fieldCollectStore';
 import { formatUGX } from '@/lib/rentCalculations';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
@@ -131,8 +131,10 @@ export function FieldCollectDailyTotals({ variant = 'card', className, live = fa
   useEffect(() => {
     refresh();
     if (!live) return;
+    if (isFieldCollectStorageUnavailable()) return;
     const iv = window.setInterval(refresh, 4000);
-    return () => window.clearInterval(iv);
+    const offUnavailable = onFieldCollectStorageUnavailable(() => window.clearInterval(iv));
+    return () => { window.clearInterval(iv); offUnavailable(); };
   }, [refresh, live]);
 
   /**

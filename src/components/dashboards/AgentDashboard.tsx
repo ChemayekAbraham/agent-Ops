@@ -139,7 +139,7 @@ import { CreditVerificationButton } from '@/components/agent/CreditVerificationB
 import { AgentRequestPipelineView, type PipelineTab } from '@/components/agent/AgentRequestPipelineView';
 import { useAgentPipelineCounts } from '@/hooks/useAgentPipelineCounts';
 
-import { getDuplicateEntries } from '@/lib/fieldCollectStore';
+import { getDuplicateEntries, isFieldCollectStorageUnavailable, onFieldCollectStorageUnavailable } from '@/lib/fieldCollectStore';
 import { FileWarning } from 'lucide-react';
 import { FieldCollectDailyTotals } from '@/components/agent/FieldCollectDailyTotals';
 import { FieldCollectCard } from '@/components/agent/FieldCollectCard';
@@ -482,8 +482,10 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
       } catch { /* ignore */ }
     };
     tick();
+    if (isFieldCollectStorageUnavailable()) return () => { alive = false; };
     const iv = window.setInterval(tick, 5000);
-    return () => { alive = false; window.clearInterval(iv); };
+    const offUnavailable = onFieldCollectStorageUnavailable(() => window.clearInterval(iv));
+    return () => { alive = false; window.clearInterval(iv); offUnavailable(); };
   }, [user?.id, reconcileOpen]);
   const [investForPartnerOpen, setInvestForPartnerOpen] = useState(false);
   const [proxyHistoryOpen, setProxyHistoryOpen] = useState(false);

@@ -139,8 +139,72 @@ function isClosedConnectionError(e: unknown): boolean {
  * brings it back — 2026-09-28: one agent hit this every few seconds for 2h
  * after the doc-142 fix). Say so instead of surfacing the raw DOM message.
  */
+export const FIELD_COLLECT_STORAGE_UNAVAILABLE_MESSAGE =
+  'Offline storage stopped responding. Reload the page and try again.';
+
+/**
+ * Once the browser's IndexedDB backend is gone for this page, every later
+ * call fails fast without touching IndexedDB again, pollers stop, the agent
+ * sees one toast and we report it once per page load (2026-09-30: raw
+ * "connection is closing" was still escaping once a minute).
+ */
+let storageUnavailable = false;
+const unavailableListeners = new Set<() => void>();
+
+export function isFieldCollectStorageUnavailable(): boolean {
+  return storageUnavailable;
+}
+
+export function onFieldCollectStorageUnavailable(cb: () => void): () => void {
+  unavailableListeners.add(cb);
+  return () => { unavailableListeners.delete(cb); };
+}
+
+function markStorageUnavailable(cause: unknown) {
+  if (storageUnavailable) return;
+  storageUnavailable = true;
+  dbPromise = null;
+  unavailableListeners.forEach(cb => { try { cb(); } catch { /* ignore */ } });
+  import('sonner')
+    .then(m => m.toast.warning('Offline storage stopped responding', {
+      description: 'Please reload the page to keep saving field collections offline.',
+      duration: 15000,
+      id: 'field-collect-storage-unavailable',
+    }))
+    .catch(() => {});
+  import('./errorReporting')
+    .then(m => m.reportClientError({
+      source: 'field-collect-store',
+      message: FIELD_COLLECT_STORAGE_UNAVAILABLE_MESSAGE,
+      stack: (cause as { stack?: string } | null)?.stack ?? null,
+      extra: { cause: String((cause as { message?: string } | null)?.message ?? cause) },
+    }))
+    .catch(() => {});
+}
+
+// Safety net: if any IndexedDB rejection for this page still escapes
+// unhandled, treat storage as gone so pollers stop and the agent is told once.
+if (typeof window !== 'undefined') {
+  window.addEventListener('unhandledrejection', (e) => {
+    if (isClosedConnectionError(e.reason)) markStorageUnavailable(e.reason);
+  });
+}
+
+function unavailableError(): Error {
+  const err = new Error(FIELD_COLLECT_STORAGE_UNAVAILABLE_MESSAGE);
+  err.name = 'OfflineStorageUnavailableError';
+  return err;
+}
+
 async function withDb<T>(fn: (db: IDBDatabase) => Promise<T>): Promise<T> {
-  const db = await openDb();
+  if (storageUnavailable) throw unavailableError();
+  let db: IDBDatabase;
+  try {
+    db = await openDb();
+  } catch (e) {
+    if (isClosedConnectionError(e)) { markStorageUnavailable(e); throw unavailableError(); }
+    throw e;
+  }
   try {
     return await fn(db);
   } catch (e) {
@@ -153,8 +217,8 @@ async function withDb<T>(fn: (db: IDBDatabase) => Promise<T>): Promise<T> {
       return await fn(await openDb());
     } catch (e2) {
       if (!isClosedConnectionError(e2)) throw e2;
-      dbPromise = null;
-      throw new Error('Offline storage stopped responding. Reload the page and try again.');
+      markStorageUnavailable(e2);
+      throw unavailableError();
     }
   }
 }
