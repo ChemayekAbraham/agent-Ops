@@ -110,6 +110,8 @@ describe('StartCashDepositDialog — keyboard navigation', () => {
     await typeInto(user, /Cash amount/i, '250000');
     await pressContinue(user);
     await waitFor(() => expect(field(/email/i)).toBeTruthy());
+    // Email is optional, so only a malformed one blocks Continue and takes focus.
+    await typeInto(user, /email/i, 'bad');
     await pressContinue(user);
     await waitFor(() => expect(document.activeElement).toBe(field(/email/i)));
   });
