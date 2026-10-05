@@ -77,11 +77,15 @@ const PROJECTS: Project[] = [
   },
 ];
 
-const OVERVIEW: Metric[] = [
-  { icon: Users, value: '17', label: 'Total customers (across projects)' },
-  { icon: Wallet, value: 'UGX 6.3M', label: 'Total savings (so far)' },
-  { icon: Handshake, value: '4', label: 'Partners (engaged / in progress)' },
-];
+// Key metrics overview is generated live from the editable Business Ideas cash table.
+function overviewMetrics(rows: IdeaRow[]): Metric[] {
+  const tot = rows.reduce((a, r) => ({ c: a.c + r.customers, i: a.i + r.cashIn, o: a.o + r.cashOut }), { c: 0, i: 0, o: 0 });
+  return [
+    { icon: Users, value: tot.c.toLocaleString('en-US'), label: 'Total customers (across projects)' },
+    { icon: Wallet, value: fmt(tot.i), label: 'Total cash in' },
+    { icon: TrendingUp, value: fmt(tot.i - tot.o), label: 'Net position (cash in − out)' },
+  ];
+}
 
 function Ring({ value, label }: { value: number; label: string }) {
   const r = 22; const c = 2 * Math.PI * r;
