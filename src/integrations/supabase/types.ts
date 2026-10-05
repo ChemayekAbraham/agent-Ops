@@ -22946,6 +22946,7 @@ export type Database = {
           account_number: string | null
           activation_token: string
           agent_id: string
+          allocation_note: string | null
           auto_reinvest: boolean
           bank_account_name: string | null
           bank_name: string | null
@@ -22956,6 +22957,7 @@ export type Database = {
           created_at: string
           display_currency: string
           duration_months: number
+          houses_claimed_count: number
           id: string
           investment_amount: number
           investment_reference: string | null
@@ -22976,10 +22978,13 @@ export type Database = {
           pending_renewal_duration_months: number | null
           pending_renewal_effective_date: string | null
           pending_renewal_request_id: string | null
+          plans_claimed_count: number
           pool_eligible: boolean
           pool_origin: string | null
           portfolio_code: string
           portfolio_pin: string
+          principal_allocated: number
+          principal_unallocated: number
           receipt_file_url: string | null
           roi_mode: string
           roi_percentage: number
@@ -22991,6 +22996,7 @@ export type Database = {
           account_number?: string | null
           activation_token?: string
           agent_id: string
+          allocation_note?: string | null
           auto_reinvest?: boolean
           bank_account_name?: string | null
           bank_name?: string | null
@@ -23001,6 +23007,7 @@ export type Database = {
           created_at?: string
           display_currency?: string
           duration_months: number
+          houses_claimed_count?: number
           id?: string
           investment_amount: number
           investment_reference?: string | null
@@ -23021,10 +23028,13 @@ export type Database = {
           pending_renewal_duration_months?: number | null
           pending_renewal_effective_date?: string | null
           pending_renewal_request_id?: string | null
+          plans_claimed_count?: number
           pool_eligible?: boolean
           pool_origin?: string | null
           portfolio_code: string
           portfolio_pin: string
+          principal_allocated?: number
+          principal_unallocated?: number
           receipt_file_url?: string | null
           roi_mode?: string
           roi_percentage?: number
@@ -23036,6 +23046,7 @@ export type Database = {
           account_number?: string | null
           activation_token?: string
           agent_id?: string
+          allocation_note?: string | null
           auto_reinvest?: boolean
           bank_account_name?: string | null
           bank_name?: string | null
@@ -23046,6 +23057,7 @@ export type Database = {
           created_at?: string
           display_currency?: string
           duration_months?: number
+          houses_claimed_count?: number
           id?: string
           investment_amount?: number
           investment_reference?: string | null
@@ -23066,10 +23078,13 @@ export type Database = {
           pending_renewal_duration_months?: number | null
           pending_renewal_effective_date?: string | null
           pending_renewal_request_id?: string | null
+          plans_claimed_count?: number
           pool_eligible?: boolean
           pool_origin?: string | null
           portfolio_code?: string
           portfolio_pin?: string
+          principal_allocated?: number
+          principal_unallocated?: number
           receipt_file_url?: string | null
           roi_mode?: string
           roi_percentage?: number
@@ -34513,6 +34528,170 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "v_landlord_pool_unreserved"
             referencedColumns: ["portfolio_id"]
+          },
+        ]
+      }
+      portfolio_allocations: {
+        Row: {
+          claimed_amount: number
+          claimed_basis: string
+          created_at: string
+          fulfilled_at: string | null
+          fulfilled_rent_request_id: string | null
+          house_id: string | null
+          id: string
+          pool_origin: string
+          portfolio_id: string
+          release_reason: string | null
+          released_at: string | null
+          rent_request_id: string | null
+          status: string
+          target_type: string
+        }
+        Insert: {
+          claimed_amount: number
+          claimed_basis: string
+          created_at?: string
+          fulfilled_at?: string | null
+          fulfilled_rent_request_id?: string | null
+          house_id?: string | null
+          id?: string
+          pool_origin: string
+          portfolio_id: string
+          release_reason?: string | null
+          released_at?: string | null
+          rent_request_id?: string | null
+          status?: string
+          target_type: string
+        }
+        Update: {
+          claimed_amount?: number
+          claimed_basis?: string
+          created_at?: string
+          fulfilled_at?: string | null
+          fulfilled_rent_request_id?: string | null
+          house_id?: string | null
+          id?: string
+          pool_origin?: string
+          portfolio_id?: string
+          release_reason?: string | null
+          released_at?: string | null
+          rent_request_id?: string | null
+          status?: string
+          target_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_allocations_house_id_fkey"
+            columns: ["house_id"]
+            isOneToOne: false
+            referencedRelation: "house_listings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portfolio_allocations_house_id_fkey"
+            columns: ["house_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_property_base"
+            referencedColumns: ["listing_id"]
+          },
+          {
+            foreignKeyName: "portfolio_allocations_house_id_fkey"
+            columns: ["house_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["house_id"]
+          },
+          {
+            foreignKeyName: "portfolio_allocations_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portfolio_allocations_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "portfolio_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_request_formula_drift"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portfolio_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portfolio_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "portfolio_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_partner_self_fundable_plans"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "portfolio_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_expired_owing"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "portfolio_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "portfolio_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "portfolio_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_daily_eligibility"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "portfolio_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "portfolio_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "portfolio_allocations_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
           },
         ]
       }
