@@ -103,6 +103,9 @@ function PanToHouse({ house }: { house: SupportableHouse | null }) {
     const lng = Number(house.longitude);
     if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
     map.flyTo([lat, lng], Math.max(map.getZoom(), 15), { duration: 0.6 });
+    return () => {
+      map.stop();
+    };
   }, [house, map]);
 
   return null;
@@ -215,6 +218,9 @@ export function EmptyHouseMapBrowser({
     if (!mapInstance || !country) return;
     const [south, west, north, east] = country.bbox;
     mapInstance.fitBounds(L.latLngBounds([south, west], [north, east]), { padding: [24, 24] });
+    return () => {
+      mapInstance.stop();
+    };
   }, [mapInstance, country]);
 
   // A keyword search queries the whole country so matches outside the visible
@@ -256,6 +262,9 @@ export function EmptyHouseMapBrowser({
     if (cells.length === 0) return;
     const bounds = L.latLngBounds(cells.map((cell) => [cell.latitude, cell.longitude] as [number, number]));
     mapInstance.fitBounds(bounds.pad(0.15), { padding: [48, 48], maxZoom: 13 });
+    return () => {
+      mapInstance.stop();
+    };
   }, [mapInstance, trimmedSearch, cells, cellsQuery.isFetching]);
 
   /**
@@ -372,6 +381,7 @@ export function EmptyHouseMapBrowser({
     );
     return () => {
       cancelled = true;
+      mapInstance.stop();
     };
   }, [mapInstance, locationPreviouslyGranted, requestLocationOnMount]);
 
@@ -499,6 +509,7 @@ export function EmptyHouseMapBrowser({
     );
     return () => {
       cancelled = true;
+      mapInstance.stop();
     };
   }, [mapInstance, locationPreviouslyGranted, userPosition, chooseManualArea, requestLocationOnMount]);
 
@@ -512,7 +523,18 @@ export function EmptyHouseMapBrowser({
     initialFitDone.current = true;
     if (points.length === 1) mapInstance.setView(points[0], 15);
     else mapInstance.fitBounds(L.latLngBounds(points), { padding: [36, 36], maxZoom: 13 });
+    return () => {
+      mapInstance.stop();
+    };
   }, [houses, mapInstance]);
+
+  // Cancel any in-flight pan/zoom/flyTo animation when unmounting so Leaflet's
+  // async transition end never touches a detached container (_leaflet_pos crash).
+  useEffect(() => {
+    return () => {
+      mapInstance?.stop();
+    };
+  }, [mapInstance]);
 
   // Marker rendering time: stamped while the marker list is rebuilt, closed after commit.
   const markerRenderStart = useRef<number | null>(null);
