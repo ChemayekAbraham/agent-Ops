@@ -1,4 +1,7 @@
 # Architecture Decisions
+<!-- LOVABLE:BEGIN -->
+- Receivables Analysis uses existing read-only reporting RPCs; aggregate totals outrank sampled items, behavioural runoff excludes new business, and unsupported location forecasts stay unavailable to prevent invented figures.
+<!-- LOVABLE:END -->
 
 - Requisition approval errors are normalized only in the client; server authorization remains the sole permission authority.
 - Four-part repayment validation reconciles Returns + Agent Commission + Platform Fee to Access Fee + Registration Fee, because those two stored fee components form the approved Platform Fee pool.
