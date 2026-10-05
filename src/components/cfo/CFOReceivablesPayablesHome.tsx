@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import {
   TrendingUp, TrendingDown, ArrowLeftRight, CalendarClock, ChevronRight,
   Lightbulb, AlertTriangle, Info, Building2, Users, Home, Handshake, Package,
@@ -7,14 +7,12 @@ import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   PieChart, Pie, Cell,
 } from 'recharts';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { formatUGX } from '@/lib/rentCalculations';
 import {
   useReceivablesTotal, useReceivablesForecast, useReceivablesPredictiveForecast,
 } from '@/hooks/useReceivables';
 import { usePayablesTotal, usePayablesPredictiveForecast } from '@/hooks/usePayables';
 import { SevenDayFlowSection } from '@/components/cfo/SevenDayFlowSection';
-import { PayablesBreakdownForecast } from '@/components/cfo/PayablesBreakdownForecast';
 
 /**
  * CFO Home — Receivables & Payables. Presentation only: every figure comes
