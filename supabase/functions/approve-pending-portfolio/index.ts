@@ -107,6 +107,13 @@ Deno.serve(async (req) => {
     const fundedFromFloatByRpc = ["self_managed", "self_managed_house"]
       .includes(String(prePending?.source || ""));
 
+    const { data: isStaffReinvest, error: srErr } = await admin.rpc("hr_pay_is_staff_reinvest_portfolio", { _portfolio_id: portfolioId });
+    if (srErr) {
+      console.error("[approve-pending-portfolio] staff-reinvest check failed:", srErr);
+      return json({ error: "Could not verify the portfolio's funding source. Portfolio was NOT activated. Please retry." }, 500);
+    }
+    const fundedFromPayroll = isStaffReinvest === true;
+
     // Skip re-debit if a partner_funding cash_out leg already exists for this
     // portfolio (defensive against retries or historical funding paths).
     const { data: existingDebit } = await admin
