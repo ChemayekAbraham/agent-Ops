@@ -70648,6 +70648,16 @@ export type Database = {
         }
         Returns: Json
       }
+      record_rent_request_repayment_v2: {
+        Args: {
+          p_amount: number
+          p_source_id?: string
+          p_source_table?: string
+          p_tenant_id: string
+          p_transaction_group_id?: string
+        }
+        Returns: Json
+      }
       record_short_link_click: {
         Args: { p_code: string; p_referrer?: string; p_user_agent?: string }
         Returns: undefined
