@@ -67315,6 +67315,7 @@ export type Database = {
         Args: { _role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean
       }
+      is_requisition_office_holder: { Args: { _uid: string }; Returns: boolean }
       is_sensitive_field_editor: { Args: { _uid: string }; Returns: boolean }
       is_service_center_manager: {
         Args: { p_agent_id: string }
