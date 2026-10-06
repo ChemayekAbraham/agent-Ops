@@ -147,7 +147,7 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
             <Bike className="h-4 w-4 text-primary" /> Order a Welile Spiro Bike
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Choose your repayment period — the total repayable amount updates automatically.
+            Choose your repayment period — see your first and last month daily payments on a reducing-balance plan.
           </DialogDescription>
         </DialogHeader>
 
@@ -238,15 +238,39 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
             )}
           </div>
 
-          <div className="rounded-lg border border-primary/30 bg-primary/5 px-3.5 py-3 space-y-2.5">
-            <div className="flex items-center justify-between gap-3">
+          <div className="rounded-lg border border-primary/30 bg-primary/5 p-3.5 space-y-2.5">
+            <div className="grid grid-cols-2 gap-2 text-xs">
+              <div className="rounded-md border border-primary/20 bg-background/70 p-2 space-y-0.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-primary">
+                  First month daily
+                </p>
+                <p className="text-sm font-bold text-foreground">
+                  {termValid ? formatUGX(schedule.firstDaily) : '—'}
+                  <span className="text-[10px] font-normal text-muted-foreground">/day</span>
+                </p>
+                <p className="text-[10px] text-muted-foreground">Month 1 repayment</p>
+              </div>
+
+              <div className="rounded-md border border-primary/20 bg-background/70 p-2 space-y-0.5">
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-600 dark:text-emerald-400">
+                  Last month daily
+                </p>
+                <p className="text-sm font-bold text-foreground">
+                  {termValid ? formatUGX(schedule.lastDaily) : '—'}
+                  <span className="text-[10px] font-normal text-muted-foreground">/day</span>
+                </p>
+                <p className="text-[10px] text-muted-foreground">Month {schedule.months} (reduced balance)</p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between gap-3 border-t border-primary/15 pt-2">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">
                   Total payable
                 </p>
                 <p className="text-[11px] text-muted-foreground">
                   {termValid
-                    ? `Over ${schedule.months} month${schedule.months === 1 ? '' : 's'} (${schedule.monthlyRatePct}% monthly reducing balance).`
+                    ? `Over ${schedule.months} month${schedule.months === 1 ? '' : 's'} (${schedule.monthlyRatePct}% monthly reducing balance)`
                     : 'Enter a period from 1 to 24 months.'}
                 </p>
               </div>
@@ -254,9 +278,10 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
                 {termValid ? formatUGX(schedule.total) : '—'}
               </p>
             </div>
-            <div className="border-t border-primary/15 pt-2 text-[11px] text-muted-foreground leading-snug">
-              <span className="font-semibold text-foreground">Repayment Schedule:</span> The daily payment plan is triggered only after your bike lease application is approved and activated. Daily deductions adjust downward each month on a reducing-balance basis.
-            </div>
+
+            <p className="text-[11px] text-muted-foreground pt-1 border-t border-primary/10 leading-snug">
+              ℹ Reducing balance plan: daily payments fall from Month 1 to Month {schedule.months}. The rest of the breakdown will be shown when you have received the bike.
+            </p>
           </div>
 
           {/* Terms & Conditions Section */}

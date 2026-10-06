@@ -22,6 +22,7 @@ import {
   downloadSpiroSettlementCertificate,
 } from '@/lib/spiroBikeSettlementCertificatePdf';
 import { useBikeCatalogCosts, resolveBikeBasePrice } from '@/hooks/useBikeCatalogCosts';
+import { spiroLeaseSchedule } from '@/lib/spiroBikeLease';
 
 const db = supabase as any;
 
@@ -197,6 +198,8 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder, filterStatu
   const valuation = resolveBikeBasePrice(selected.valuation_amount || selected.total_amount, selected.lease_term_months, selected.model_type, catalogCost);
   const outstanding = Number(selected.amount_outstanding || 0);
   const rate = 0.28;
+  const termMonths = selected.lease_term_months || 12;
+  const leaseSchedule = useMemo(() => spiroLeaseSchedule(termMonths, valuation), [termMonths, valuation]);
 
   const stageDates = [selected.created_at, selected.coo_approved_at, selected.lease_activated_at ?? selected.cfo_disbursed_at];
 
@@ -357,6 +360,29 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder, filterStatu
                   );
                 })}
               </ol>
+            )}
+
+            {current < 2 && !rejected && (
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-2 text-xs">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">
+                  Scheduled Daily Repayment
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-md border border-primary/20 bg-background/70 p-2 space-y-0.5">
+                    <span className="text-[10px] text-muted-foreground block">First Month Daily</span>
+                    <span className="text-xs font-bold text-foreground">{formatUGX(leaseSchedule.firstDaily)}/day</span>
+                    <span className="text-[10px] text-muted-foreground block">Month 1</span>
+                  </div>
+                  <div className="rounded-md border border-primary/20 bg-background/70 p-2 space-y-0.5">
+                    <span className="text-[10px] text-muted-foreground block">Last Month Daily</span>
+                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{formatUGX(leaseSchedule.lastDaily)}/day</span>
+                    <span className="text-[10px] text-muted-foreground block">Month {termMonths}</span>
+                  </div>
+                </div>
+                <p className="text-[10px] text-muted-foreground pt-1 border-t border-primary/10 leading-snug">
+                  ℹ Reducing balance plan: daily payments fall as principal decreases. The rest of the breakdown will be shown when you have received the bike.
+                </p>
+              </div>
             )}
 
             {current === 2 && !rejected && (
