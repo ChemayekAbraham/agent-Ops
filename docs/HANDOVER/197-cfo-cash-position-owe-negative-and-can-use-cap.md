@@ -19,11 +19,27 @@ debt, and `Have − Owe` added it back. The existing `Math.max(0, …)` only flo
 - The Money We Owe detail sheet (`MerchantAgentOwedSheet.tsx`) still reads the raw figure, so the
   negative stays visible there.
 
+## Why the Bayo balance goes negative (verified in `gmail_transactions`, 2026-10-06)
+Not a missing email. Money moves Welile Technologies -> Mercy (Equity …7542) -> Catherine (…9292),
+and Mercy pays Catherine **before** Welile's top-up lands. Replaying 28 Sep–6 Oct in order, the
+balance dips below zero on 1 Oct (−14.8M), 2 Oct (−25.9M), 5 Oct (−8.6M) and 6 Oct (−24.9M) and
+recovers after each top-up. The daily nets tie to the shilling. A negative balance is money Mercy
+fronted from her own funds; that money is already inside the merchant float, so the commitment
+is `float + max(0, bayo)` and the fronted amount must NOT be subtracted again (double count).
+(The 90M 10 Sep issue is resolved and is not a cause.)
+
+The arithmetic now lives in `src/lib/cashPosition.ts` (`computeCashPosition`, unit-tested) so no
+page re-derives it. It also returns `mercyFrontedPendingTopUp` for display; surfacing it is a UI job.
+
+## Known classifier leaks (not fixed, small)
+- `get_money_at_bank_reconciliation` reads `channel = 'bank'` only. Mercy's own Equity -> MoMo
+  transfers are tagged `mtn_momo` / `airtel_money` (5M on 2 Oct, 1M on 6 Oct) and are not counted
+  as Mercy outflows.
+- Welile MTN -> Mercy "Merchant Float" transfers (about 19M since 28 Sep) are outside her bank balance.
+- The live card read −3.28M; replaying the 20260918 migration's logic gave −24.9M. Production
+  likely runs a newer function version; the migration file is not the source of truth.
+
 ## NOT fixed / open
-- **Why the Bayo balance is negative is unknown**: real overpayment to Mercy, or Equity inflow
-  emails the classifier missed (it only counts emails naming Bayo/Mercy from `@equitybank`). The
-  RPC is staff-role gated, so it could not be run from the query tool. Check `gmail_transactions`
-  directly before treating the −3.28M as either.
 - **Bank + Treasury ≠ Money We Have.** Verified live 2026-10-06: verified deposits at `bank` =
   2,216,492,843 (equals the Money in Bank card); at `cash_at_hand` = 2,750,000 (equals the gap).
   The Treasury card uses `outsideBankHeld` = MTN + Airtel + custody cash, the headline excludes

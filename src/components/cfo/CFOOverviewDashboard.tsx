@@ -38,6 +38,7 @@ import { WithdrawableCreditsLivePanel } from '@/components/cfo/WithdrawableCredi
 import { MoneyPaidOutCard } from '@/components/cfo/MoneyPaidOutCard';
 import { MoneyReceivedCard } from '@/components/cfo/MoneyReceivedCard';
 import { HeroCard, PercentageCurve } from '@/components/cfo/HeroCard';
+import { computeCashPosition } from '@/lib/cashPosition';
 
 
 
@@ -194,16 +195,18 @@ export function CFOOverviewDashboard({
   // Money We Owe is deliberately only the money sitting with other people:
   // merchant agents and the Bayo Mercy account. Wallets and recorded
   // liabilities keep their own cards elsewhere on this page.
-  // The Bayo Mercy balance is the email extractor's running credits-less-debits
-  // figure and can dip below zero (more extracted outflow than inflow). A debt
-  // cannot be negative, so the headline floors it at 0; the raw figure stays
-  // visible in the Money We Owe detail sheet.
-  const bayoMercyOwed = Math.max(0, bayoMercyHeld);
-  const moneyWeOweTotal = merchantHeld + bayoMercyOwed;
-  // Money We Can Use = Money We Have − Money We Owe (money sitting with
-  // merchant agents and the Bayo Mercy account), kept within 0..Money We Have
-  // so it can never exceed the cash we actually hold.
-  const moneyWeCanUse = Math.min(actualMoneyTotal, Math.max(0, actualMoneyTotal - moneyWeOweTotal));
+  // All Owe / Can Use arithmetic lives in src/lib/cashPosition.ts (tested). A
+  // negative Bayo balance is Mercy fronting money ahead of a top-up, not a
+  // negative debt; the raw figure stays visible in the Money We Owe sheet.
+  const {
+    moneyWeOwe: moneyWeOweTotal,
+    moneyWeCanUse,
+    bayoMercyOwed,
+  } = computeCashPosition({
+    moneyWeHave: actualMoneyTotal,
+    merchantFloat: merchantHeld,
+    bayoMercyBalance: bayoMercyHeld,
+  });
   const netToday = todayCashFlow?.netToday ?? 0;
 
   
