@@ -12,10 +12,11 @@ import {
 } from 'recharts';
 import { KPICard } from './KPICard';
 import { SmsFailoverAlerts } from './SmsFailoverAlerts';
-import { MessageSquare, Loader2, CheckCircle2, XCircle, Radio, CalendarDays, CalendarRange, Calendar, FileDown } from 'lucide-react';
+import { MessageSquare, Loader2, CheckCircle2, XCircle, Radio, CalendarDays, CalendarRange, Calendar, FileDown, Wallet } from 'lucide-react';
 import { Send } from 'lucide-react';
 import { format, formatDistanceToNow, subDays, startOfWeek, startOfMonth, endOfMonth, startOfDay, subMonths, differenceInCalendarDays } from 'date-fns';
 import { downloadSmsTrafficPdf } from '@/lib/smsTrafficReportPdf';
+import { formatUGX } from '@/lib/rentCalculations';
 import { toast } from 'sonner';
 
 type SmsLog = {
