@@ -221,7 +221,9 @@ export function BikeLeaseApprovalQueue({
             : 'agent_ops_verify_bike_lease';
       const args =
         stage === 'cfo'
-          ? { p_sale_id: id, p_valuation: valuationNum }
+          ? // Locked: the CFO releases exactly the COO-approved valuation, which
+            // the server reads from the application when no price is sent.
+            { p_sale_id: id }
           : stage === 'coo'
             ? { p_sale_id: id, p_valuation: valuationNum, p_lease_term_months: termNum }
             : { p_sale_id: id };
@@ -736,6 +738,11 @@ export function BikeLeaseApprovalQueue({
                     <span className="text-muted-foreground">Avg. daily pay</span>
                     <span className="font-semibold" title={`${approveDailyRange} per day`}>{formatUGX(approveDailyPay)}/day</span>
                   </div>
+                </div>
+              ) : approveStage === 'cfo' ? (
+                <div className="rounded-lg border bg-muted/40 px-3 py-2 text-xs flex justify-between">
+                  <span className="text-muted-foreground">COO-approved bike valuation</span>
+                  <span className="font-semibold">{formatUGX(valuationNum)}</span>
                 </div>
               ) : (
                 <div className="space-y-1">
