@@ -14,7 +14,7 @@ import { KPICard } from './KPICard';
 import { SmsFailoverAlerts } from './SmsFailoverAlerts';
 import { MessageSquare, Loader2, CheckCircle2, XCircle, Radio, CalendarDays, CalendarRange, Calendar, FileDown, Wallet } from 'lucide-react';
 import { Send } from 'lucide-react';
-import { format, formatDistanceToNow, subDays, startOfWeek, startOfMonth, endOfMonth, startOfDay, subMonths, differenceInCalendarDays } from 'date-fns';
+import { format, formatDistanceToNow, subDays, startOfWeek, startOfMonth, endOfMonth, startOfDay, endOfDay, subMonths, differenceInCalendarDays } from 'date-fns';
 import { downloadSmsTrafficPdf } from '@/lib/smsTrafficReportPdf';
 import { formatUGX } from '@/lib/rentCalculations';
 import { toast } from 'sonner';
@@ -155,8 +155,11 @@ export function SmsDeliveryLogViewer() {
   const [previewRow, setPreviewRow] = useState<SmsRow | null>(null);
   const [generating, setGenerating] = useState(false);
   const [sendingTest, setSendingTest] = useState(false);
-  // 'current' = this month; otherwise a 'yyyy-MM' key for a past month.
+  // 'current' = this month; 'custom' = a user-picked date range; otherwise a
+  // 'yyyy-MM' key for a past month.
   const [monthFilter, setMonthFilter] = useState('current');
+  const [customFrom, setCustomFrom] = useState<Date | undefined>();
+  const [customTo, setCustomTo] = useState<Date | undefined>();
 
   // Test SMS that sends with the WELILE sender id on BOTH providers. All
   // production SMS channels now set WELILE explicitly. Fires one message per
@@ -205,6 +208,7 @@ export function SmsDeliveryLogViewer() {
   const monthOptions = (() => {
     const opts: { value: string; label: string }[] = [
       { value: 'current', label: 'This Month' },
+      { value: 'custom', label: 'Custom range' },
     ];
     for (let i = 1; i < 12; i++) {
       const d = subMonths(new Date(), i);
@@ -213,15 +217,29 @@ export function SmsDeliveryLogViewer() {
     return opts;
   })();
 
-  const isPastMonth = monthFilter !== 'current';
+  const isPastMonth = monthFilter !== 'current' && monthFilter !== 'custom';
+  const isCustom = monthFilter === 'custom';
+  const customActive = isCustom && !!customFrom && !!customTo && customFrom.getTime() <= customTo.getTime();
+  // "scoped" covers every non-default window uniformly: a past month or a
+  // valid custom range. Everything downstream filters by rangeStart/rangeEnd.
+  const scoped = isPastMonth || customActive;
   const selectedMonthDate = isPastMonth ? new Date(`${monthFilter}-01T00:00:00`) : new Date();
   const selectedMonthStart = startOfMonth(selectedMonthDate);
   const selectedMonthEnd = endOfMonth(selectedMonthDate);
-  // How far back the daily rollup must reach to cover the chosen month.
-  const rollupDays = Math.max(90, differenceInCalendarDays(new Date(), selectedMonthStart) + 40);
+  const rangeStart = customActive ? startOfDay(customFrom!) : selectedMonthStart;
+  const rangeEnd = customActive ? endOfDay(customTo!) : selectedMonthEnd;
+  const scopeLabel = customActive
+    ? `${format(customFrom!, 'dd MMM')} – ${format(customTo!, 'dd MMM yyyy')}`
+    : isPastMonth
+    ? format(selectedMonthDate, 'MMMM yyyy')
+    : 'This month';
+  const customFromKey = customFrom ? format(customFrom, 'yyyy-MM-dd') : '';
+  const customToKey = customTo ? format(customTo, 'yyyy-MM-dd') : '';
+  // How far back the daily rollup must reach to cover the chosen scope.
+  const rollupDays = Math.max(90, differenceInCalendarDays(new Date(), rangeStart) + 40);
 
   const { data: logs = [], isLoading } = useQuery({
-    queryKey: ['cto-sms-delivery-log', monthFilter, debouncedSearch],
+    queryKey: ['cto-sms-delivery-log', monthFilter, customFromKey, customToKey, debouncedSearch],
     queryFn: async () => {
       const q = debouncedSearch;
       let query = supabase
@@ -229,10 +247,10 @@ export function SmsDeliveryLogViewer() {
         .select('id, created_at, recipient_phone, recipient_name, message, status, provider, provider_response, reference_id, source, error, provider_message_id, cost')
         .order('created_at', { ascending: false })
         .limit(q ? 1000 : 500);
-      if (isPastMonth) {
+      if (scoped) {
         query = query
-          .gte('created_at', selectedMonthStart.toISOString())
-          .lte('created_at', selectedMonthEnd.toISOString());
+          .gte('created_at', rangeStart.toISOString())
+          .lte('created_at', rangeEnd.toISOString());
       }
       if (q) {
         // Search server-side so a phone/name outside the latest 300 rows is
@@ -303,8 +321,8 @@ export function SmsDeliveryLogViewer() {
   const now = new Date();
   const dayStart = startOfDay(now).getTime();
   const weekStart = startOfWeek(now, { weekStartsOn: 1 }).getTime();
-  const monthStart = selectedMonthStart.getTime();
-  const monthEnd = selectedMonthEnd.getTime();
+  const monthStart = rangeStart.getTime();
+  const monthEnd = rangeEnd.getTime();
 
   const costOf = (predicate: (t: number) => boolean) => {
     let cost = 0, foreign = 0;
@@ -318,7 +336,7 @@ export function SmsDeliveryLogViewer() {
   };
   const inRange = (start: number, end: number) => (t: number) => t >= startOfDay(new Date(start)).getTime() && t <= startOfDay(new Date(end)).getTime();
   const todaySpend = costOf((t) => t >= dayStart);
-  const thisMonthSpend = isPastMonth ? costOf(inRange(monthStart, monthEnd)) : costOf((t) => t >= monthStart);
+  const thisMonthSpend = scoped ? costOf(inRange(monthStart, monthEnd)) : costOf((t) => t >= monthStart);
 
   const countSince = (cutoff: number) => {
     let sent = 0, fail = 0;
@@ -342,15 +360,15 @@ export function SmsDeliveryLogViewer() {
   };
   const today = countSince(dayStart);
   const thisWeek = countSince(weekStart);
-  const thisMonth = isPastMonth ? countBetween(monthStart, monthEnd) : countSince(monthStart);
+  const thisMonth = scoped ? countBetween(monthStart, monthEnd) : countSince(monthStart);
 
-  // Daily traffic chart — last 30 days, or the full selected past month.
+  // Daily traffic chart — last 30 days, or the full selected window.
   const dailyTraffic = (() => {
     const byDay: Record<string, { delivered: number; failed: number }> = {};
-    if (isPastMonth) {
-      const days = differenceInCalendarDays(selectedMonthEnd, selectedMonthStart);
+    if (scoped) {
+      const days = differenceInCalendarDays(rangeEnd, rangeStart);
       for (let i = 0; i <= days; i++) {
-        byDay[format(subDays(selectedMonthEnd, days - i), 'yyyy-MM-dd')] = { delivered: 0, failed: 0 };
+        byDay[format(subDays(rangeEnd, days - i), 'yyyy-MM-dd')] = { delivered: 0, failed: 0 };
       }
     } else {
       for (let i = 29; i >= 0; i--) {
@@ -386,10 +404,10 @@ export function SmsDeliveryLogViewer() {
         at: Number(r.africastalking) || 0,
         other: Number(r.other) || 0,
       }));
-      // Scope the report to the selected month when a past month is chosen.
-      if (isPastMonth) {
-        const startKey = format(selectedMonthStart, 'yyyy-MM-dd');
-        const endKey = format(selectedMonthEnd, 'yyyy-MM-dd');
+      // Scope the report to the selected window (past month or custom range).
+      if (scoped) {
+        const startKey = format(rangeStart, 'yyyy-MM-dd');
+        const endKey = format(rangeEnd, 'yyyy-MM-dd');
         report = report.filter((r) => r.day >= startKey && r.day <= endKey);
       }
       if (report.length === 0) {
@@ -407,14 +425,16 @@ export function SmsDeliveryLogViewer() {
           at: a.at,
           other: a.other,
         }));
-      const windowLabel = isPastMonth
+      const windowLabel = customActive
+        ? `${format(customFrom!, 'dd MMM yyyy')} to ${format(customTo!, 'dd MMM yyyy')}`
+        : isPastMonth
         ? format(selectedMonthDate, 'MMMM yyyy')
         : `Last ${rollupDays} days`;
-      const rangeLabel = isPastMonth
-        ? `${format(selectedMonthStart, 'dd MMM yyyy')} to ${format(selectedMonthEnd, 'dd MMM yyyy')}`
+      const rangeLabel = scoped
+        ? `${format(rangeStart, 'dd MMM yyyy')} to ${format(rangeEnd, 'dd MMM yyyy')}`
         : `${format(subDays(startOfDay(new Date()), rollupDays - 1), 'dd MMM yyyy')} to ${format(new Date(), 'dd MMM yyyy')}`;
-      const contextLabel = `Today: ${today.total.toLocaleString()}  ·  This week: ${thisWeek.total.toLocaleString()}  ·  ${isPastMonth ? windowLabel : 'This month'}: ${thisMonth.total.toLocaleString()}`;
-      const fileTag = isPastMonth ? format(selectedMonthDate, 'yyyy-MM') : format(new Date(), 'yyyy-MM-dd');
+      const contextLabel = `Today: ${today.total.toLocaleString()}  ·  This week: ${thisWeek.total.toLocaleString()}  ·  ${scoped ? windowLabel : 'This month'}: ${thisMonth.total.toLocaleString()}`;
+      const fileTag = scoped ? format(rangeStart, 'yyyyMMdd') : format(new Date(), 'yyyy-MM-dd');
       await downloadSmsTrafficPdf(
         `sms-otp-traffic-report-${fileTag}.pdf`,
         reportRows,
@@ -555,6 +575,29 @@ export function SmsDeliveryLogViewer() {
             ))}
           </SelectContent>
         </Select>
+        {isCustom && (
+          <div className="flex items-center gap-1.5">
+            <input
+              type="date"
+              aria-label="Custom range start"
+              className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+              value={customFrom ? format(customFrom, 'yyyy-MM-dd') : ''}
+              max={format(new Date(), 'yyyy-MM-dd')}
+              onChange={(e) => setCustomFrom(e.target.value ? startOfDay(new Date(`${e.target.value}T00:00:00`)) : undefined)}
+            />
+            <span className="text-xs text-muted-foreground">to</span>
+            <input
+              type="date"
+              aria-label="Custom range end"
+              className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+              value={customTo ? format(customTo, 'yyyy-MM-dd') : ''}
+              min={customFrom ? format(customFrom, 'yyyy-MM-dd') : undefined}
+              max={format(new Date(), 'yyyy-MM-dd')}
+              onChange={(e) => setCustomTo(e.target.value ? startOfDay(new Date(`${e.target.value}T00:00:00`)) : undefined)}
+            />
+            {!customActive && <span className="text-xs text-destructive">Pick both dates</span>}
+          </div>
+        )}
         <Button
           size="sm"
           variant="outline"
@@ -587,7 +630,7 @@ export function SmsDeliveryLogViewer() {
           subtitle={`${thisWeek.sent} delivered · ${thisWeek.fail} failed`}
         />
         <KPICard
-          title={isPastMonth ? format(selectedMonthDate, 'MMMM yyyy') : 'This Month'}
+          title={scoped ? scopeLabel : 'This Month'}
           value={thisMonth.total.toLocaleString()}
           icon={Calendar}
           color="bg-teal-500/10 text-teal-600"
@@ -595,7 +638,7 @@ export function SmsDeliveryLogViewer() {
           subtitle={`${thisMonth.sent} delivered · ${thisMonth.fail} failed`}
         />
         <KPICard
-          title={isPastMonth ? `Spend — ${format(selectedMonthDate, 'MMM yyyy')}` : 'Spend This Month'}
+          title={scoped ? `Spend — ${scopeLabel}` : 'Spend This Month'}
           value={formatUGX(thisMonthSpend.cost)}
           icon={Wallet}
           color="bg-amber-500/10 text-amber-600"
@@ -609,7 +652,7 @@ export function SmsDeliveryLogViewer() {
         <CardHeader className="pb-2">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <CardTitle className="text-base flex items-center gap-2">
-              <MessageSquare className="h-4 w-4 text-primary" /> {isPastMonth ? `Daily Traffic — ${format(selectedMonthDate, 'MMM yyyy')}` : 'Daily Traffic (30d)'}
+              <MessageSquare className="h-4 w-4 text-primary" /> {scoped ? `Daily Traffic — ${scopeLabel}` : 'Daily Traffic (30d)'}
             </CardTitle>
             <Button size="sm" variant="outline" onClick={handleGenerateReport} disabled={generating} className="h-8 text-xs gap-1.5">
               {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />}
