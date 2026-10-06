@@ -109,9 +109,10 @@ export default function PredictivePayablesForecast() {
     [data]
   );
 
-  const changeGranularity = (g: PayablesGranularity) => {
-    setGranularity(g);
-    setPeriods(GRANULARITIES.find((x) => x.key === g)?.defaultPeriods ?? 12);
+  const selectPreset = (preset: (typeof PERIOD_PRESETS)[number]) => {
+    setGranularity(preset.granularity);
+    setPeriods(preset.periods);
+    setActivePreset(preset.label);
     setOpenPeriod(null);
   };
 
@@ -181,19 +182,11 @@ export default function PredictivePayablesForecast() {
             </p>
           </div>
           <div className="flex flex-col gap-2 sm:items-end">
-            <div className="inline-flex flex-wrap gap-1 rounded-lg bg-muted p-1" role="tablist" aria-label="Forecast interval">
-              {GRANULARITIES.map((g) => (
-                <button key={g.key} type="button" onClick={() => changeGranularity(g.key)}
-                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${granularity === g.key ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-primary/10 hover:text-primary'}`}>
-                  {g.label}
-                </button>
-              ))}
-            </div>
             <div className="inline-flex flex-wrap gap-1 rounded-lg bg-muted p-1" role="tablist" aria-label="Forecast period">
-              {HORIZONS[granularity].map((h) => (
-                <button key={h.value} type="button" onClick={() => setPeriods(h.value)}
-                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${periods === h.value ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-primary/10 hover:text-primary'}`}>
-                  {h.label}
+              {PERIOD_PRESETS.map((preset) => (
+                <button key={preset.label} type="button" onClick={() => selectPreset(preset)}
+                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${activePreset === preset.label ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-primary/10 hover:text-primary'}`}>
+                  {preset.label}
                 </button>
               ))}
             </div>
