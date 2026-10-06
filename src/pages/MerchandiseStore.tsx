@@ -267,34 +267,38 @@ export default function MerchandiseStore() {
   const totalRecovered = plans.reduce((s, p) => s + Number(p.amount_recovered), 0);
 
   // Calculate order counts per category and status
-  const pendingBikeCount = visibleBikeOrders.filter((b) =>
-    ['submitted', 'pending_approval', 'ops_approved', 'coo_approved'].includes(b.order_status),
+  const safeBikeOrders = visibleBikeOrders || [];
+  const safePhoneOrders = phoneOrders || [];
+  const safePlans = plans || [];
+
+  const pendingBikeCount = safeBikeOrders.filter((b) =>
+    ['submitted', 'pending_approval', 'ops_approved', 'coo_approved'].includes(b?.order_status || ''),
   ).length;
-  const approvedBikeCount = visibleBikeOrders.filter((b) =>
-    ['approved', 'completed'].includes(b.order_status),
+  const approvedBikeCount = safeBikeOrders.filter((b) =>
+    ['approved', 'completed'].includes(b?.order_status || ''),
   ).length;
-  const rejectedBikeCount = visibleBikeOrders.filter((b) =>
-    ['rejected', 'failed'].includes(b.order_status),
+  const rejectedBikeCount = safeBikeOrders.filter((b) =>
+    ['rejected', 'failed'].includes(b?.order_status || ''),
   ).length;
 
-  const pendingPhoneCount = phoneOrders.filter((p) =>
-    ['submitted', 'pending_approval', 'coo_approved'].includes(p.order_status),
+  const pendingPhoneCount = safePhoneOrders.filter((p) =>
+    ['submitted', 'pending_approval', 'coo_approved'].includes(p?.order_status || ''),
   ).length;
-  const approvedPhoneCount = phoneOrders.filter((p) =>
-    ['approved', 'processing', 'completed'].includes(p.order_status),
+  const approvedPhoneCount = safePhoneOrders.filter((p) =>
+    ['approved', 'processing', 'completed'].includes(p?.order_status || ''),
   ).length;
-  const rejectedPhoneCount = phoneOrders.filter((p) =>
-    ['rejected', 'failed'].includes(p.order_status),
+  const rejectedPhoneCount = safePhoneOrders.filter((p) =>
+    ['rejected', 'failed'].includes(p?.order_status || ''),
   ).length;
 
-  const pendingPlanCount = plans.filter((p) => p.status === 'active' && p.order_status === 'pending_approval').length;
-  const approvedPlanCount = plans.filter((p) => p.status === 'active' && p.order_status !== 'rejected').length;
-  const rejectedPlanCount = plans.filter((p) => p.order_status === 'rejected').length;
+  const pendingPlanCount = safePlans.filter((p) => p?.status === 'active' && p?.order_status === 'pending_approval').length;
+  const approvedPlanCount = safePlans.filter((p) => p?.status === 'active' && p?.order_status !== 'rejected').length;
+  const rejectedPlanCount = safePlans.filter((p) => p?.order_status === 'rejected').length;
 
   const totalPending = pendingBikeCount + pendingPhoneCount + pendingPlanCount;
   const totalApproved = approvedBikeCount + approvedPhoneCount + approvedPlanCount;
   const totalRejected = rejectedBikeCount + rejectedPhoneCount + rejectedPlanCount;
-  const totalOrdersCount = visibleBikeOrders.length + phoneOrders.length + plans.length;
+  const totalOrdersCount = safeBikeOrders.length + safePhoneOrders.length + safePlans.length;
   const hasOrders = totalOrdersCount > 0;
 
   useEffect(() => {
@@ -311,18 +315,18 @@ export default function MerchandiseStore() {
   }, [orderFilter, totalPending, totalApproved, totalRejected, totalOrdersCount]);
 
   const filteredPlans = useMemo(() => {
-    if (orderFilter === 'all') return plans;
+    if (orderFilter === 'all') return safePlans;
     if (orderFilter === 'pending') {
-      return plans.filter((p) => p.status === 'active' && p.order_status === 'pending_approval');
+      return safePlans.filter((p) => p?.status === 'active' && p?.order_status === 'pending_approval');
     }
     if (orderFilter === 'approved') {
-      return plans.filter((p) => p.status === 'active' && p.order_status !== 'rejected');
+      return safePlans.filter((p) => p?.status === 'active' && p?.order_status !== 'rejected');
     }
     if (orderFilter === 'rejected') {
-      return plans.filter((p) => p.order_status === 'rejected');
+      return safePlans.filter((p) => p?.order_status === 'rejected');
     }
-    return plans;
-  }, [plans, orderFilter]);
+    return safePlans;
+  }, [safePlans, orderFilter]);
 
   const qty = Math.max(1, parseInt(quantity || '1', 10) || 1);
   // Sizes on the catalog row are exactly what the company has in stock for the
