@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
   Phone, MessageCircle, MessageSquare, HandCoins, Loader2, ChevronDown,
-  CheckCircle2, Clock, AlertTriangle, CalendarClock, Repeat,
+  CheckCircle2, Clock, AlertTriangle, CalendarClock, Repeat, PlusCircle, CalendarPlus, Check,
 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { LendingLoan, outstandingOf, dueStateOf, normalizePhone } from './lendingHelpers';
@@ -16,6 +16,22 @@ import { motion } from 'framer-motion';
 interface Props {
   loan: LendingLoan;
   onRecordRepayment: (loan: LendingLoan, amount: number) => Promise<void>;
+  onTopUpOrRenew?: (loan: LendingLoan, extra: number, newDue: string) => Promise<void>;
+}
+
+const DAY_CHOICES = [7, 14, 30, 60];
+
+function DayPicker({ value, onChange }: { value: number; onChange: (d: number) => void }) {
+  return (
+    <div className="grid grid-cols-4 gap-1.5">
+      {DAY_CHOICES.map((d) => (
+        <Button key={d} variant={value === d ? 'default' : 'outline'} className="h-12 flex-col gap-0 text-sm font-bold leading-tight"
+          onClick={() => onChange(d)}>
+          {d}<span className="text-[10px] font-medium">days</span>
+        </Button>
+      ))}
+    </div>
+  );
 }
 
 const STATUS_STYLE: Record<string, { label: string; cls: string }> = {
@@ -31,9 +47,12 @@ const DUE_STYLE: Record<string, { label: string; cls: string; Icon: typeof Clock
   due_soon: { label: 'Due soon', cls: 'bg-amber-500/10 text-amber-600', Icon: CalendarClock },
 };
 
-export default function LendingBorrowerCard({ loan, onRecordRepayment }: Props) {
+export default function LendingBorrowerCard({ loan, onRecordRepayment, onTopUpOrRenew }: Props) {
   const [expanded, setExpanded] = useState(false);
+  const [mode, setMode] = useState<null | 'paid' | 'add' | 'time'>(null);
   const [payAmount, setPayAmount] = useState('');
+  const [extra, setExtra] = useState('');
+  const [days, setDays] = useState(30);
   const [saving, setSaving] = useState(false);
 
   const name = loan.borrower_display_name ?? loan.borrower_ai_id;
@@ -47,6 +66,26 @@ export default function LendingBorrowerCard({ loan, onRecordRepayment }: Props) 
   const dueStyle = DUE_STYLE[due];
   const autoOn = !!loan.auto_deduct_enabled && isOpen;
   const freqLabel = (loan.repayment_frequency ?? '').replace('_', ' ');
+
+  // New end date: count from today, or from the current end date if that is still ahead.
+  const currentDue = loan.expected_repayment_date ? new Date(loan.expected_repayment_date) : null;
+  const base = currentDue && currentDue.getTime() > Date.now() ? currentDue : new Date();
+  const newDue = new Date(base.getTime() + days * 86400000).toISOString().slice(0, 10);
+  const extraNum = Number(extra) || 0;
+  const rate = Number(loan.interest_rate_pct) || 0;
+  const previewBalance = Math.round(outstanding + extraNum * (1 + rate / 100));
+
+  const submitTopUp = async (amount: number) => {
+    if (!onTopUpOrRenew) return;
+    setSaving(true);
+    try {
+      await onTopUpOrRenew(loan, amount, newDue);
+      setExtra('');
+      setMode(null);
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const contact = (kind: 'call' | 'wa' | 'sms') => {
     if (!phone) { toast.error('No phone number on file for this borrower'); return; }
@@ -67,7 +106,7 @@ export default function LendingBorrowerCard({ loan, onRecordRepayment }: Props) 
     try {
       await onRecordRepayment(loan, amt);
       setPayAmount('');
-      setExpanded(false);
+      setMode(null);
     } finally {
       setSaving(false);
     }
@@ -132,7 +171,7 @@ export default function LendingBorrowerCard({ loan, onRecordRepayment }: Props) 
           )}
         </button>
 
-        {/* Expanded actions */}
+        {/* Expanded actions — big picture buttons, few words */}
         {expanded && (
           <motion.div
             initial={{ opacity: 0, height: 0 }}
@@ -140,53 +179,112 @@ export default function LendingBorrowerCard({ loan, onRecordRepayment }: Props) 
             className="border-t border-border/60 bg-muted/20 px-3.5 py-3 space-y-3"
           >
             <div className="grid grid-cols-3 gap-2">
-              <Button variant="outline" size="sm" className="h-9 flex-col gap-0.5 text-[10px]" onClick={() => contact('call')}>
-                <Phone className="h-4 w-4 text-emerald-600" /> Call
+              <Button variant="outline" className="h-16 flex-col gap-1 text-xs font-semibold" onClick={() => contact('call')}>
+                <Phone className="h-6 w-6 text-primary" /> Call
               </Button>
-              <Button variant="outline" size="sm" className="h-9 flex-col gap-0.5 text-[10px]" onClick={() => contact('wa')}>
-                <MessageCircle className="h-4 w-4 text-emerald-600" /> WhatsApp
+              <Button variant="outline" className="h-16 flex-col gap-1 text-xs font-semibold" onClick={() => contact('wa')}>
+                <MessageCircle className="h-6 w-6 text-primary" /> WhatsApp
               </Button>
-              <Button variant="outline" size="sm" className="h-9 flex-col gap-0.5 text-[10px]" onClick={() => contact('sms')}>
-                <MessageSquare className="h-4 w-4 text-primary" /> SMS
+              <Button variant="outline" className="h-16 flex-col gap-1 text-xs font-semibold" onClick={() => contact('sms')}>
+                <MessageSquare className="h-6 w-6 text-primary" /> SMS
               </Button>
             </div>
 
-            {isOpen ? (
-              <div className="space-y-2 rounded-lg bg-background border p-2.5">
-                <p className="text-[11px] font-semibold flex items-center gap-1.5">
-                  <HandCoins className="h-3.5 w-3.5 text-emerald-600" /> Record a repayment
-                </p>
-                <div className="flex gap-2">
-                  <Input
-                    type="number"
-                    inputMode="numeric"
-                    value={payAmount}
-                    onChange={(e) => setPayAmount(e.target.value)}
-                    placeholder={`Up to ${formatUGX(outstanding)}`}
-                    className="h-9 text-sm"
-                  />
-                  <Button size="sm" className="h-9 shrink-0" onClick={submitPayment} disabled={saving}>
-                    {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
-                  </Button>
-                </div>
-                <div className="flex gap-1.5">
+            <div className="grid grid-cols-3 gap-2">
+              {isOpen && (
+                <Button
+                  variant={mode === 'paid' ? 'default' : 'secondary'}
+                  className="h-20 flex-col gap-1 text-xs font-bold"
+                  onClick={() => setMode(mode === 'paid' ? null : 'paid')}
+                >
+                  <HandCoins className="h-7 w-7" /> Got paid
+                </Button>
+              )}
+              <Button
+                variant={mode === 'add' ? 'default' : 'secondary'}
+                className={`h-20 flex-col gap-1 text-xs font-bold ${isOpen ? '' : 'col-span-2'}`}
+                onClick={() => setMode(mode === 'add' ? null : 'add')}
+              >
+                <PlusCircle className="h-7 w-7" /> {isOpen ? 'Add money' : 'Lend again'}
+              </Button>
+              <Button
+                variant={mode === 'time' ? 'default' : 'secondary'}
+                className="h-20 flex-col gap-1 text-xs font-bold"
+                onClick={() => setMode(mode === 'time' ? null : 'time')}
+              >
+                <CalendarPlus className="h-7 w-7" /> More time
+              </Button>
+            </div>
+
+            {mode === 'paid' && isOpen && (
+              <div className="space-y-2 rounded-xl bg-background border p-3">
+                <p className="text-sm font-bold">How much did they pay?</p>
+                <Input
+                  type="number" inputMode="numeric" value={payAmount}
+                  onChange={(e) => setPayAmount(e.target.value)}
+                  placeholder="UGX" className="h-12 text-lg font-bold"
+                />
+                <div className="grid grid-cols-3 gap-1.5">
                   {[0.25, 0.5, 1].map((frac) => (
-                    <Button
-                      key={frac}
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 flex-1 text-[10px]"
-                      onClick={() => setPayAmount(String(Math.round(outstanding * frac)))}
-                    >
-                      {frac === 1 ? 'Full' : `${frac * 100}%`}
+                    <Button key={frac} variant="outline" className="h-10 text-xs font-semibold"
+                      onClick={() => setPayAmount(String(Math.round(outstanding * frac)))}>
+                      {frac === 1 ? 'All' : `${frac * 100}%`}
                     </Button>
                   ))}
                 </div>
+                <Button className="h-12 w-full text-base font-bold" onClick={submitPayment} disabled={saving}>
+                  {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <><Check className="h-5 w-5 mr-1" /> Save</>}
+                </Button>
               </div>
-            ) : (
-              <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
-                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                This loan is {statusStyle.label.toLowerCase()} — no balance to collect.
+            )}
+
+            {mode === 'add' && (
+              <div className="space-y-2 rounded-xl bg-background border p-3">
+                <p className="text-sm font-bold">How much more to give?</p>
+                <Input
+                  type="number" inputMode="numeric" value={extra}
+                  onChange={(e) => setExtra(e.target.value)}
+                  placeholder="UGX" className="h-12 text-lg font-bold"
+                />
+                <div className="grid grid-cols-3 gap-1.5">
+                  {[50000, 100000, 200000].map((v) => (
+                    <Button key={v} variant="outline" className="h-10 text-xs font-semibold" onClick={() => setExtra(String(v))}>
+                      {v / 1000}K
+                    </Button>
+                  ))}
+                </div>
+                <p className="text-sm font-bold pt-1">Pay back in</p>
+                <DayPicker value={days} onChange={setDays} />
+                {extraNum > 0 && (
+                  <div className="rounded-lg bg-primary/10 p-2.5 text-center">
+                    <p className="text-[11px] text-muted-foreground">New total to pay back</p>
+                    <p className="text-xl font-bold text-primary">{formatUGX(previewBalance)}</p>
+                    <p className="text-[11px] text-muted-foreground">by {new Date(newDue).toLocaleDateString()}</p>
+                  </div>
+                )}
+                <Button className="h-12 w-full text-base font-bold" onClick={() => submitTopUp(extraNum)} disabled={saving || extraNum <= 0}>
+                  {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <><Check className="h-5 w-5 mr-1" /> Give money</>}
+                </Button>
+              </div>
+            )}
+
+            {mode === 'time' && (
+              <div className="space-y-2 rounded-xl bg-background border p-3">
+                <p className="text-sm font-bold">Give how many more days?</p>
+                <DayPicker value={days} onChange={setDays} />
+                <div className="rounded-lg bg-primary/10 p-2.5 text-center">
+                  <p className="text-[11px] text-muted-foreground">New last day</p>
+                  <p className="text-xl font-bold text-primary">{new Date(newDue).toLocaleDateString()}</p>
+                </div>
+                <Button className="h-12 w-full text-base font-bold" onClick={() => submitTopUp(0)} disabled={saving}>
+                  {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <><Check className="h-5 w-5 mr-1" /> Save</>}
+                </Button>
+              </div>
+            )}
+
+            {!isOpen && mode === null && (
+              <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                <CheckCircle2 className="h-4 w-4 text-primary" /> Fully paid. Tap "Lend again" to give more.
               </p>
             )}
           </motion.div>
