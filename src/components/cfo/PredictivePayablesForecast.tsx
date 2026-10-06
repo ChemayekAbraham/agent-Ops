@@ -31,50 +31,16 @@ import {
   type PayablesPredictivePeriod,
 } from '@/hooks/usePayables';
 
-const GRANULARITIES: { key: PayablesGranularity; label: string; defaultPeriods: number }[] = [
-  { key: 'day', label: 'Daily', defaultPeriods: 30 },
-  { key: 'week', label: 'Weekly', defaultPeriods: 26 },
-  { key: 'month', label: 'Monthly', defaultPeriods: 12 },
-  { key: 'quarter', label: 'Quarterly', defaultPeriods: 12 },
-  { key: 'year', label: 'Yearly', defaultPeriods: 5 },
+const PERIOD_PRESETS: { label: string; granularity: PayablesGranularity; periods: number }[] = [
+  { label: 'Next 7 days', granularity: 'day', periods: 7 },
+  { label: 'Next 14 days', granularity: 'day', periods: 14 },
+  { label: 'Next 30 days', granularity: 'day', periods: 30 },
+  { label: 'Next 90 days', granularity: 'week', periods: 13 },
+  { label: '1 year', granularity: 'month', periods: 12 },
+  { label: '2 years', granularity: 'month', periods: 24 },
+  { label: '3 years', granularity: 'month', periods: 36 },
+  { label: '5 years', granularity: 'year', periods: 5 },
 ];
-
-const HORIZONS: Record<PayablesGranularity, { value: number; label: string }[]> = {
-  day: [
-    { value: 1, label: 'Today' },
-    { value: 2, label: 'Today + tomorrow' },
-    { value: 7, label: 'Next 7 days' },
-    { value: 14, label: 'Next 14 days' },
-    { value: 30, label: 'Next 30 days' },
-    { value: 60, label: 'Next 60 days' },
-  ],
-  week: [
-    { value: 4, label: 'Next 4 weeks' },
-    { value: 13, label: 'Next 13 weeks' },
-    { value: 26, label: 'Next 26 weeks' },
-    { value: 52, label: 'Next 52 weeks' },
-  ],
-  month: [
-    { value: 1, label: 'This month' },
-    { value: 3, label: 'Next 3 months' },
-    { value: 6, label: 'Next 6 months' },
-    { value: 12, label: 'Next 12 months' },
-    { value: 24, label: 'Next 24 months' },
-    { value: 36, label: 'Next 36 months' },
-  ],
-  quarter: [
-    { value: 4, label: 'Next 4 quarters' },
-    { value: 8, label: 'Next 8 quarters' },
-    { value: 12, label: 'Next 12 quarters' },
-    { value: 16, label: 'Next 16 quarters' },
-  ],
-  year: [
-    { value: 2, label: 'Year 1 – 2' },
-    { value: 3, label: 'Year 1 – 3' },
-    { value: 4, label: 'Year 1 – 4' },
-    { value: 5, label: 'Year 1 – 5' },
-  ],
-};
 
 const QUALITY_STYLE: Record<string, string> = {
   high: 'bg-emerald-500/15 text-emerald-700',
@@ -112,8 +78,9 @@ function downloadCsv(name: string, rows: (string | number)[][]) {
 }
 
 export default function PredictivePayablesForecast() {
-  const [granularity, setGranularity] = useState<PayablesGranularity>('month');
-  const [periods, setPeriods] = useState(12);
+  const [granularity, setGranularity] = useState<PayablesGranularity>('day');
+  const [periods, setPeriods] = useState(30);
+  const [activePreset, setActivePreset] = useState('Next 30 days');
   const [openPeriod, setOpenPeriod] = useState<number | null>(null);
   const [showStreams, setShowStreams] = useState(false);
 
