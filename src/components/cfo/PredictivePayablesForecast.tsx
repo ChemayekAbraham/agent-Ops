@@ -317,19 +317,12 @@ export default function PredictivePayablesForecast() {
                             {formatUGX(p.forecast_amount)}
                           </td>
                           <td className="px-2.5 py-1.5 text-right font-mono tabular-nums hidden sm:table-cell text-muted-foreground whitespace-nowrap">
-                            {compact(p.low)} – {compact(p.high)}
-                          </td>
-                          <td className="px-2.5 py-1.5 text-right">
-                            <Badge
-                              className={`text-[8px] sm:text-[9px] px-1 py-0 border-0 whitespace-nowrap ${QUALITY_STYLE[p.quality] ?? ''}`}
-                            >
-                              {p.quality} · {Math.round(p.confidence * 100)}%
-                            </Badge>
+                            {formatUGX(p.scheduled_amount)}
                           </td>
                         </tr>
                         {open && (
                           <tr className="bg-muted/20">
-                            <td colSpan={4} className="px-2.5 py-2">
+                            <td colSpan={3} className="px-2.5 py-2">
                               <div className="flex flex-wrap gap-1.5 mb-1.5">
                                 <Badge variant="outline" className="text-[9px] px-1.5 py-0">
                                   Existing obligations {formatUGX(p.runoff_amount)}
