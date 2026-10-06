@@ -17,6 +17,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
+          ref: main
           fetch-depth: 0
           persist-credentials: false
 
@@ -30,6 +31,11 @@ jobs:
         env:
           UPSTREAM_TOKEN: ${{ secrets.UPSTREAM_TOKEN }}
         run: |
+          # Configure authenticated origin and ensure branch is at latest origin/main
+          git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
+          git fetch origin main
+          git checkout -B main origin/main
+
           if [ -z "$UPSTREAM_TOKEN" ]; then
             echo "::warning ::UPSTREAM_TOKEN secret is not set yet. Please add a Personal Access Token with repo read permission to repository secrets."
             echo "Using default public/authenticated fetch URL..."
@@ -46,11 +52,37 @@ jobs:
             echo "Merge succeeded without conflicts."
           else
             echo "Resolving conflicts by preserving standalone iOS files..."
-            git checkout HEAD -- src/App.tsx capacitor.config.ts package.json vite.config.ts .github/ ios/ 2>/dev/null || true
+            git checkout HEAD -- src/App.tsx capacitor.config.ts package.json vite.config.ts index.html .github/ ios/ 2>/dev/null || true
+            if git diff --name-only --diff-filter=U | grep -q .; then
+              echo "Resolving remaining conflicts by keeping local version..."
+              git checkout HEAD -- $(git diff --name-only --diff-filter=U)
+            fi
             git add .
             git commit -m "chore(sync): resolve conflicts preserving iOS standalone configuration" || true
           fi
 
-          git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
-          git push origin main
+          # Push to origin with retry in case remote main moved
+          MAX_RETRIES=3
+          RETRY=0
+          PUSHED=false
+          while [ $RETRY -lt $MAX_RETRIES ]; do
+            if git push origin main; then
+              PUSHED=true
+              break
+            fi
+            echo "Push rejected (non-fast-forward). Fetching latest origin/main and merging before retrying..."
+            RETRY=$((RETRY + 1))
+            git fetch origin main
+            git merge origin/main -m "chore(sync): merge latest origin/main" --no-edit || {
+              git checkout HEAD -- $(git diff --name-only --diff-filter=U 2>/dev/null) 2>/dev/null || true
+              git add .
+              git commit -m "chore(sync): resolve conflicts with origin/main" || true
+            }
+          done
+
+          if [ "$PUSHED" = false ]; then
+            echo "::error::Failed to push changes to origin/main after $MAX_RETRIES attempts."
+            exit 1
+          fi
+
           echo "Sync completed successfully."
