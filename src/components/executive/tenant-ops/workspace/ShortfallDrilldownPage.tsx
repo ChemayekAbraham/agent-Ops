@@ -49,6 +49,7 @@ import {
 } from '@/hooks/tenantOpsWorkspace/useShortfallFollowups';
 import { FOLLOWUP_FILTERS, outcomeLabel } from '@/hooks/tenantOpsWorkspace/shortfallFollowupLabels';
 import { SHORTFALL_USE_FOLLOWUPS } from '@/hooks/tenantOpsWorkspace/shortfallRpcNames';
+import { ShortfallTrendCard } from '@/components/executive/tenant-ops/workspace/ShortfallTrendCard';
 import { MarkFollowedUpDialog, ShortfallRowActions } from '@/components/executive/tenant-ops/workspace/ShortfallFollowupControls';
 
 const TAB_TRIGGER_CLASS =
@@ -626,6 +627,9 @@ export default function ShortfallDrilldownPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Last 7 / 30 / 90 days. Its own query; it never feeds the header figures above. */}
+      <ShortfallTrendCard />
 
       <Card className="min-w-0 border-border/60">
         <CardContent className="min-w-0 px-3 pt-4 sm:px-6">

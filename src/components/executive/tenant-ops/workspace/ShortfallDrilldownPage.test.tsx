@@ -478,3 +478,27 @@ describe('ShortfallDrilldownPage — follow-ups', () => {
     expect(other.slice(-5)).toEqual(['Not followed up', '', '', '', 0]);
   });
 });
+
+describe('ShortfallDrilldownPage — trend', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('shows the trend above the tabs without touching the header figures', async () => {
+    install({ home: { expected: 1000000, collected: 400000 }, totalCount: 397, totalShort: 600000 });
+    const base = rpcMock.getMockImplementation()!;
+    rpcMock.mockImplementation((fn: string, args: RpcArgs) =>
+      fn === 'tops_shortfall_daily_trend'
+        ? Promise.resolve({ data: [{ day: '2026-10-05', expected_ugx: '1000000', collected_ugx: '100000', short_ugx: '900000', short_plans: 12, covered_pct: '10.0' }], error: null })
+        : base(fn, args));
+    render(<ShortfallDrilldownPage />, { wrapper });
+
+    expect(await screen.findByText('Is the shortfall improving?')).toBeInTheDocument();
+    const table = await screen.findByTestId('shortfall-trend-data');
+    expect(table).toHaveTextContent('900,000');                         // the trend's own figure
+    expect(screen.getByText('397')).toBeInTheDocument();                // header unchanged
+    expect(screen.getByText(/600,000/)).toBeInTheDocument();
+    expect(screen.getByText('40%')).toBeInTheDocument();
+    expect(callsTo('tops_shortfall_daily_trend')[0]).toEqual({ p_days: 30 });
+    // the trend reads no shortfall list RPC of its own
+    expect(callsTo(SHORTFALL_DETAIL_RPC).every((a) => a.p_limit === 1 || a.p_limit === 25 || a.p_limit === 200)).toBe(true);
+  });
+});
