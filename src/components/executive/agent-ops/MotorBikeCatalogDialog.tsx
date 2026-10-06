@@ -89,14 +89,27 @@ export const DEFAULT_MOTORBIKES: Omit<MotorBikeCatalogItem, 'id'>[] = [
 /** Sentinel stored in description to mark catalog rows owned by this dialog. */
 const MOTOR_BIKE_SENTINEL = '[motor_bike]';
 
-/** Keywords used as a fallback to identify legacy bike rows that predate the sentinel. */
-const BIKE_KEYWORDS = ['spiro', 'bike', 'ekoride', 'ekocycle', 'commando', 'mocoo', 'electric', 'moto', 'ebike', 'scooter', 'boda'];
+/** Precise bike model keywords and whole-word regex. */
+const BIKE_MODEL_WORDS = /\b(spiro|ekoride|ekocycle|commando|mocoo|ebike|motorcycle|motorbike|boda)\b/i;
+
+/** Exclude apparel, accessories, stationery, electronics and office gear. */
+const NON_BIKE_EXCLUSIONS = /\b(jacket|helmet|glove|polo|shirt|jumper|lock|kettle|motorola|phone|smartphone|laptop|signage|board|chair|table|id|evidence|accessory|parts|tyre|tire)\b/i;
 
 function isMotorBikeRow(row: MotorBikeCatalogItem): boolean {
   const desc = (row.description || '').toLowerCase();
   const name = (row.item_name || '').toLowerCase();
+
+  // Explicitly tagged as a motorbike by this dialog
   if (desc.includes(MOTOR_BIKE_SENTINEL)) return true;
-  return BIKE_KEYWORDS.some((kw) => name.includes(kw) || desc.includes(kw));
+
+  // Never match apparel, accessories, phones, or non-vehicle merchandise
+  if (NON_BIKE_EXCLUSIONS.test(name) || NON_BIKE_EXCLUSIONS.test(desc)) return false;
+
+  // Match genuine bike vehicles by model/vehicle keywords
+  if (BIKE_MODEL_WORDS.test(name)) return true;
+  if (/\bbike\b/i.test(name)) return true;
+
+  return false;
 }
 
 export function useMotorBikeCatalog() {
