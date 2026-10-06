@@ -92,7 +92,7 @@ export default function ReceivablesOverview() {
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-6 lg:min-h-[calc(100vh-9rem)] flex-1">
-          <nav aria-label="Receivable categories" className="rounded-2xl border border-border/70 bg-card p-2 flex flex-col lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
+          <nav aria-label="Receivable categories" className="rounded-2xl border border-border/70 bg-card p-2 flex flex-col lg:sticky lg:top-6 lg:h-[calc(100vh-3rem)] lg:overflow-hidden lg:self-start">
             <SideItem active={catKey === 'overview'} icon={LayoutGrid} label="Overview"
               value={breakdown.data?.total} onClick={() => go('overview')} />
             {cats.map((c) => (
