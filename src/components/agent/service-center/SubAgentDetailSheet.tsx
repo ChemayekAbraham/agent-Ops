@@ -183,7 +183,11 @@ export function SubAgentDetailSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="bottom" className="h-[92dvh] rounded-t-3xl p-0">
         <ScrollArea className="h-full">
-          <div className={`${tint.header} px-5 pb-6 pt-8`}>
+          <div className={`${tint.header} relative px-5 pb-6 pt-8`}>
+            <SheetClose className="absolute right-3 top-3 z-10 rounded-full bg-background/70 p-2 text-muted-foreground shadow-sm backdrop-blur transition-colors hover:bg-background hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close</span>
+            </SheetClose>
             <div className="flex items-start gap-3">
               <Avatar className="h-14 w-14 shrink-0 ring-2 ring-background">
                 <AvatarImage src={subAgent.avatar_url ?? undefined} alt={subAgent.full_name ?? 'Sub-agent'} />
