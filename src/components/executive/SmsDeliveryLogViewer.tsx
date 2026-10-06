@@ -282,7 +282,37 @@ export function SmsDeliveryLogViewer() {
     staleTime: 60_000,
   });
 
+  // Spend metrics: server-side daily rollup of provider-reported cost strings.
+  const { data: costRows = [], isLoading: costLoading } = useQuery({
+    queryKey: ['cto-sms-cost', rollupDays],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_sms_cost_daily', { p_days: rollupDays });
+      if (error) throw error;
+      return ((data || []) as any[]).map((r) => ({
+        day: String(r.day),
+        cost: Number(r.cost_ugx) || 0,
+        foreign: Number(r.msgs_foreign) || 0,
+        uncosted: Number(r.msgs_uncosted) || 0,
+      })) as DailyCostRow[];
+    },
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+  });
+
   const rows = metrics || [];
+  const costOf = (predicate: (t: number) => boolean) => {
+    let cost = 0, foreign = 0;
+    for (const r of costRows) {
+      const t = startOfDay(new Date(`${r.day}T00:00:00`)).getTime();
+      if (!predicate(t)) continue;
+      cost += r.cost;
+      foreign += r.foreign;
+    }
+    return { cost, foreign };
+  };
+  const inRange = (start: number, end: number) => (t: number) => t >= startOfDay(new Date(start)).getTime() && t <= startOfDay(new Date(end)).getTime();
+  const todaySpend = costOf((t) => t >= startOfDay(new Date(dayStart)).getTime());
+  const thisMonthSpend = isPastMonth ? costOf(inRange(monthStart, monthEnd)) : costOf((t) => t >= startOfDay(new Date(monthStart)).getTime());
   const now = new Date();
   const dayStart = startOfDay(now).getTime();
   const weekStart = startOfWeek(now, { weekStartsOn: 1 }).getTime();
