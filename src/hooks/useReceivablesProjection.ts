@@ -19,13 +19,44 @@ export const RECEIVABLE_FORECAST_PERIODS = [
 const ymd = (date: Date) => date.toISOString().slice(0, 10);
 const average = (values: number[]) => values.length ? values.reduce((a, b) => a + b, 0) / values.length : null;
 
+type CollectionHistory = { period_start: string; actual_amount: number };
+
+export function completedCollectionHistory(history: CollectionHistory[], today: string, daily: boolean) {
+  const current = new Date(`${today}T00:00:00Z`);
+  const earliest = new Date(current);
+  earliest.setUTCDate(earliest.getUTCDate() - 364);
+  if (!daily) {
+    current.setUTCDate(1);
+    return history.filter((h) => h.period_start.slice(0, 10) >= ymd(earliest) && h.period_start.slice(0, 10) < ymd(current));
+  }
+  // Only whole Monday–Sunday weeks; never average today's unfinished collections.
+  current.setUTCDate(current.getUTCDate() - (current.getUTCDay() + 6) % 7);
+  const byDate = new Map(history.map((h) => [h.period_start.slice(0, 10), h]));
+  const completed: CollectionHistory[] = [];
+  for (let week = 1; week <= 8; week++) {
+    const dates = Array.from({ length: 7 }, (_, day) => {
+      const date = new Date(current);
+      date.setUTCDate(date.getUTCDate() - week * 7 + day);
+      return ymd(date);
+    });
+    if (dates.every((date) => byDate.has(date))) {
+      for (const date of dates) {
+        const entry = byDate.get(date);
+        if (entry) completed.push(entry);
+      }
+    }
+  }
+  return completed;
+}
+
 /** Read-only history averages and exact scheduled amounts; no financial state is changed. */
 export function useReceivablesProjection(id: string) {
   const period = RECEIVABLE_FORECAST_PERIODS.find((p) => p.id === id) ?? RECEIVABLE_FORECAST_PERIODS[0];
   const today = kampalaTodayYmd();
   const daily = period.gran === 'day';
-  // Only history is consumed, so the live RPC's 60-period cap cannot truncate a 90-day display.
-  const historyQ = useReceivablesPredictiveForecast(period.gran, 1);
+  // The RPC caps BOTH history and forecast at p_periods. One period only returned
+  // today/this month, not a historical sample. Load history independently of horizon.
+  const historyQ = useReceivablesPredictiveForecast(period.gran, daily ? 60 : 12);
   const base = new Date(`${today}T00:00:00Z`);
   if (!daily) base.setUTCDate(1);
   const windows = Array.from({ length: period.n }, (_, index) => {
@@ -59,7 +90,7 @@ export function useReceivablesProjection(id: string) {
       return reports.flatMap((report) => report.days);
     },
   });
-  const history = historyQ.data?.history ?? [];
+  const history = completedCollectionHistory(historyQ.data?.history ?? [], today, daily);
   const overall = average(history.map((h) => h.actual_amount));
   const rows = windows.map((window) => {
     const weekday = new Date(`${window.start}T00:00:00Z`).getUTCDay();
