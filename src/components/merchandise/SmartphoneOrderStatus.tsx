@@ -111,6 +111,7 @@ interface Props {
   title?: string;
   /** Called when the user chooses to place a new order from inside the status card. */
   onRequestNewOrder?: () => void;
+  filterStatus?: 'all' | 'pending' | 'approved' | 'rejected';
 }
 
 export default function SmartphoneOrderStatus({
@@ -118,6 +119,7 @@ export default function SmartphoneOrderStatus({
   itemName = 'Welile Smartphone',
   title = 'Smartphone order status',
   onRequestNewOrder,
+  filterStatus = 'all',
 }: Props) {
   const queryClient = useQueryClient();
   const [emailingId, setEmailingId] = useState<string | null>(null);
@@ -166,6 +168,26 @@ export default function SmartphoneOrderStatus({
     },
   });
 
+  const filteredOrders = useMemo(() => {
+    if (!filterStatus || filterStatus === 'all') return orders;
+    if (filterStatus === 'pending') {
+      return orders.filter((o) =>
+        ['submitted', 'pending_approval', 'coo_approved'].includes(o.order_status),
+      );
+    }
+    if (filterStatus === 'approved') {
+      return orders.filter((o) =>
+        ['approved', 'processing', 'completed'].includes(o.order_status),
+      );
+    }
+    if (filterStatus === 'rejected') {
+      return orders.filter((o) =>
+        ['rejected', 'failed'].includes(o.order_status),
+      );
+    }
+    return orders;
+  }, [orders, filterStatus]);
+
   const { data: profile } = useQuery<{ email: string | null; full_name: string | null } | null>({
     queryKey: ['my-profile-email', userId],
     enabled: !!userId,
@@ -206,18 +228,18 @@ export default function SmartphoneOrderStatus({
 
   /** Keep the dropdown pointed at a still-existing order (newest by default). */
   useEffect(() => {
-    if (orders.length === 0) {
+    if (filteredOrders.length === 0) {
       setSelectedId(null);
       return;
     }
-    if (!selectedId || !orders.some((o) => o.id === selectedId)) {
-      setSelectedId(orders[0].id);
+    if (!selectedId || !filteredOrders.some((o) => o.id === selectedId)) {
+      setSelectedId(filteredOrders[0].id);
     }
-  }, [orders, selectedId]);
+  }, [filteredOrders, selectedId]);
 
   const selected = useMemo(
-    () => orders.find((o) => o.id === selectedId) ?? orders[0] ?? null,
-    [orders, selectedId],
+    () => filteredOrders.find((o) => o.id === selectedId) ?? filteredOrders[0] ?? null,
+    [filteredOrders, selectedId],
   );
 
   // Reducing-balance repayment schedule for the order on screen.
@@ -272,7 +294,7 @@ export default function SmartphoneOrderStatus({
     }
   };
 
-  if (!userId || orders.length === 0 || !selected) return null;
+  if (!userId || filteredOrders.length === 0 || !selected) return null;
 
 
   const isRealEmail = (email?: string | null) =>
@@ -386,13 +408,13 @@ export default function SmartphoneOrderStatus({
             </Button>
           </div>
         </div>
-        {expanded && orders.length > 1 && (
+        {expanded && filteredOrders.length > 1 && (
           <Select value={selected.id} onValueChange={setSelectedId}>
             <SelectTrigger className="h-8 text-xs">
               <SelectValue placeholder="Select an order" />
             </SelectTrigger>
             <SelectContent>
-              {orders.map((o) => (
+              {filteredOrders.map((o) => (
                 <SelectItem key={o.id} value={o.id} className="text-xs">
                   {format(new Date(o.created_at), 'd MMM yyyy, HH:mm')} · {formatUGX(accessFee(o))} ·{' '}
                   {STATUS_META[normalizeStatus(o.order_status)].label}

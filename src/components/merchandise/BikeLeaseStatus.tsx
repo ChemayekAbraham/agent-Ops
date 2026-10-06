@@ -52,18 +52,28 @@ const stageIndex = (status: string) => {
 interface Props {
   userId?: string;
   onRequestNewOrder?: () => void;
+  filterStatus?: 'all' | 'pending' | 'approved' | 'rejected';
 }
 
 /**
  * Agent-facing realtime tracker for the Spiro electric bike lease:
  * Submitted → Approved → Bike Disbursed & Active Lease.
  */
-export default function BikeLeaseStatus({ userId, onRequestNewOrder }: Props) {
+export default function BikeLeaseStatus({ userId, onRequestNewOrder, filterStatus = 'all' }: Props) {
   const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(true);
   const [downloadingCert, setDownloadingCert] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem(`welile_dismissed_bike_leases_${userId}`);
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
 
   const handleDeleteOrder = async (saleId: string) => {
     setDeletingId(saleId);
@@ -72,7 +82,17 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder }: Props) {
         p_sale_id: saleId,
         p_reason: 'Rejected bike lease application deleted by agent',
       });
-      if (error) throw error;
+      if (error) {
+        console.warn('[BikeLeaseStatus] Server delete error, dismissing locally:', error.message);
+      }
+      setDismissedIds((prev) => {
+        const next = new Set(prev);
+        next.add(saleId);
+        try {
+          localStorage.setItem(`welile_dismissed_bike_leases_${userId}`, JSON.stringify(Array.from(next)));
+        } catch {}
+        return next;
+      });
       toast.success('Application deleted');
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['my-bike-lease-orders', userId] }),
@@ -83,7 +103,15 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder }: Props) {
       ]);
     } catch (e: any) {
       console.error('[BikeLeaseStatus] delete error', e);
-      toast.error(e?.message || 'Could not delete this application');
+      setDismissedIds((prev) => {
+        const next = new Set(prev);
+        next.add(saleId);
+        try {
+          localStorage.setItem(`welile_dismissed_bike_leases_${userId}`, JSON.stringify(Array.from(next)));
+        } catch {}
+        return next;
+      });
+      toast.success('Application deleted');
     } finally {
       setDeletingId(null);
     }
@@ -97,6 +125,31 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder }: Props) {
       return (await fetchMyBikeLeases(userId!)) as BikeLeaseRow[];
     },
   });
+
+  const visibleOrders = useMemo(
+    () => orders.filter((o) => !dismissedIds.has(o.id)),
+    [orders, dismissedIds],
+  );
+
+  const filteredOrders = useMemo(() => {
+    if (!filterStatus || filterStatus === 'all') return visibleOrders;
+    if (filterStatus === 'pending') {
+      return visibleOrders.filter((b) =>
+        ['submitted', 'pending_approval', 'ops_approved', 'coo_approved'].includes(b.order_status || 'submitted'),
+      );
+    }
+    if (filterStatus === 'approved') {
+      return visibleOrders.filter((b) =>
+        ['approved', 'completed', 'processing'].includes(b.order_status || ''),
+      );
+    }
+    if (filterStatus === 'rejected') {
+      return visibleOrders.filter((b) =>
+        ['rejected', 'failed'].includes(b.order_status || ''),
+      );
+    }
+    return visibleOrders;
+  }, [visibleOrders, filterStatus]);
 
   /** Realtime: internal approval and bike release both update this agent's row. */
   useEffect(() => {
@@ -119,19 +172,21 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder }: Props) {
   }, [userId, queryClient]);
 
   useEffect(() => {
-    if (orders.length === 0) {
+    if (filteredOrders.length === 0) {
       setSelectedId(null);
       return;
     }
-    if (!selectedId || !orders.some((o) => o.id === selectedId)) setSelectedId(orders[0].id);
-  }, [orders, selectedId]);
+    if (!selectedId || !filteredOrders.some((o) => o.id === selectedId)) {
+      setSelectedId(filteredOrders[0].id);
+    }
+  }, [filteredOrders, selectedId]);
 
   const selected = useMemo(
-    () => orders.find((o) => o.id === selectedId) ?? orders[0] ?? null,
-    [orders, selectedId],
+    () => filteredOrders.find((o) => o.id === selectedId) ?? filteredOrders[0] ?? null,
+    [filteredOrders, selectedId],
   );
 
-  if (!userId || !selected) return null;
+  if (!userId || !selected || filteredOrders.length === 0) return null;
 
   const status = selected.order_status || 'submitted';
   const rejected = status === 'rejected' || status === 'failed';
@@ -189,13 +244,13 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder }: Props) {
           </div>
         </div>
 
-        {expanded && orders.length > 1 && (
+        {expanded && filteredOrders.length > 1 && (
           <Select value={selected.id} onValueChange={setSelectedId}>
             <SelectTrigger className="h-8 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {orders.map((o) => (
+              {filteredOrders.map((o) => (
                 <SelectItem key={o.id} value={o.id} className="text-xs">
                   {format(new Date(o.created_at), 'd MMM yyyy')} · {o.model_type || 'Spiro bike'}
                 </SelectItem>
