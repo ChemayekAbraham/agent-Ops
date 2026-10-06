@@ -147,8 +147,7 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
             <Bike className="h-4 w-4 text-primary" /> Order a Welile Spiro Bike
           </DialogTitle>
           <DialogDescription className="text-xs">
-            Choose your repayment period — the total repayable amount and daily payment update
-            automatically.
+            Choose your repayment period — the total repayable amount updates automatically.
           </DialogDescription>
         </DialogHeader>
 
@@ -239,35 +238,24 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
             )}
           </div>
 
-          <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2.5 space-y-2">
+          <div className="rounded-lg border border-primary/30 bg-primary/5 px-3.5 py-3 space-y-2.5">
             <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">
-                  Daily payment
-                </p>
-                <p className="text-[11px] text-muted-foreground">
-                  Recovered from your wallet earnings daily.
-                </p>
-              </div>
-              <p className="text-base font-bold text-foreground whitespace-nowrap">
-                {termValid ? formatUGX(schedule.firstDaily) : '—'}
-                <span className="text-[11px] font-medium text-muted-foreground">/day</span>
-              </p>
-            </div>
-            <div className="flex items-center justify-between gap-3 border-t border-primary/20 pt-2">
               <div>
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">
                   Total payable
                 </p>
                 <p className="text-[11px] text-muted-foreground">
                   {termValid
-                    ? `Over ${schedule.months} month${schedule.months === 1 ? '' : 's'}.`
+                    ? `Over ${schedule.months} month${schedule.months === 1 ? '' : 's'} (${schedule.monthlyRatePct}% monthly reducing balance).`
                     : 'Enter a period from 1 to 24 months.'}
                 </p>
               </div>
               <p className="text-base font-bold text-foreground whitespace-nowrap">
                 {termValid ? formatUGX(schedule.total) : '—'}
               </p>
+            </div>
+            <div className="border-t border-primary/15 pt-2 text-[11px] text-muted-foreground leading-snug">
+              <span className="font-semibold text-foreground">Repayment Schedule:</span> The daily payment plan is triggered only after your bike lease application is approved and activated. Daily deductions adjust downward each month on a reducing-balance basis.
             </div>
           </div>
 
@@ -299,7 +287,7 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
                 <div className="flex items-start gap-2">
                   <FileText className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
                   <p>
-                    <strong className="text-foreground">Daily Commission Sweeps:</strong> Daily repayments are automatically recovered from your agent wallet commission earnings up to the scheduled daily rate without overdrafting.
+                    <strong className="text-foreground">Daily Commission Sweeps:</strong> Once your bike lease is approved and activated, daily repayments are recovered from your agent wallet commission earnings on a reducing-balance schedule without overdrafting.
                   </p>
                 </div>
                 <div className="flex items-start gap-2">
@@ -322,7 +310,7 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
                 htmlFor="spiro-terms"
                 className="text-[11px] leading-tight text-foreground/90 cursor-pointer select-none"
               >
-                I agree to the Spiro Motorbike Lease Terms, including daily commission sweeps and Welile's custody of the logbook until final settlement.
+                I agree to the Spiro Motorbike Lease Terms, including daily commission sweeps upon lease approval and Welile's custody of the logbook until final settlement.
               </label>
             </div>
           </div>
