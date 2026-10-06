@@ -247,26 +247,29 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
       </div>
 
        {/* Selected-period collection hero + KPI strip */}
-       <div className="grid gap-3 lg:grid-cols-3">
-         <Card className="flex flex-col border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card shadow-sm">
-          <CardContent className="flex flex-1 flex-col p-4 sm:p-5">
-            <div className="flex items-center gap-2">
-              <div className="rounded-xl bg-primary/15 p-2">
-                <Wallet className="h-4 w-4 text-primary" />
+        <div className="space-y-3">
+        <Card className="border-primary/30 bg-gradient-to-r from-primary/10 via-card to-card shadow-sm">
+          <CardContent className="flex flex-col gap-3 p-4 sm:p-5 lg:flex-row lg:items-center lg:gap-8">
+            <div className="flex items-center gap-3 lg:shrink-0">
+              <div className="rounded-xl bg-primary/15 p-2.5">
+                <Wallet className="h-5 w-5 text-primary" />
               </div>
-              <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Collected {phrase}
-              </p>
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Collected {phrase}
+                </p>
+                <p className="text-xl font-bold tabular-nums leading-tight tracking-tight sm:text-2xl">
+                  {loadingHomeRange ? '—' : formatUGX(collected)}
+                </p>
+                <p className="text-[11px] text-muted-foreground">
+                  of <span className="font-semibold text-foreground">{formatUGX(expected)}</span> expected {phrase}
+                </p>
+              </div>
             </div>
-            <p className="mt-3 text-2xl font-bold tabular-nums leading-none tracking-tight sm:text-3xl">
-              {loadingHomeRange ? '—' : formatUGX(collected)}
-            </p>
-            <p className="mt-1.5 text-xs text-muted-foreground">
-              of <span className="font-semibold text-foreground">{formatUGX(expected)}</span> expected {phrase}
-            </p>
-            <div className="mt-auto pt-5">
+
+            <div className="min-w-0 flex-1">
               <Progress value={coverage} className="h-2" />
-              <div className="mt-2.5 flex items-center justify-between gap-2 text-[11px]">
+              <div className="mt-1.5 flex items-center justify-between gap-2 text-[11px]">
                 <span className="font-semibold text-foreground">{coverage}% covered</span>
                 {shortfall > 0 ? (
                   <button
@@ -284,27 +287,26 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
                 )}
               </div>
             </div>
-            <div className="pt-4">
-              <button
-                type="button"
-                onClick={() => onNavigate('daily-collections')}
-                className="flex w-full items-center justify-between gap-1 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2 text-[11px] font-bold text-primary transition-colors hover:bg-primary/10"
-              >
-                Open collection monitoring
-                <ChevronRight className="h-3.5 w-3.5" />
-              </button>
-            </div>
+
+            <button
+              type="button"
+              onClick={() => onNavigate('daily-collections')}
+              className="inline-flex shrink-0 items-center justify-center gap-1.5 self-start rounded-xl border border-primary/20 bg-primary/5 px-4 py-2.5 text-xs font-bold text-primary transition-colors hover:bg-primary/10 lg:self-center"
+            >
+              Open collection monitoring
+              <ChevronRight className="h-4 w-4" />
+            </button>
           </CardContent>
         </Card>
 
-        <div className="space-y-2.5 lg:col-span-2">
+        <div className="space-y-2.5">
           <div className="flex items-center gap-3">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
               Executive summary
             </p>
             <div className="h-px flex-1 bg-border/70" />
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 sm:grid-cols-3 lg:grid-cols-4">
             {stats.map((s) => (
               <button
                 key={s.label}

@@ -23,7 +23,7 @@ export function TenantPaymentBehaviorCard({
       type="button"
       onClick={onOpen}
       aria-label="Open Tenant Payment Behavior"
-      className="group col-span-2 flex flex-col rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card p-3.5 text-left shadow-sm transition-all hover:border-primary/50 hover:shadow-md active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 sm:col-span-3 sm:flex-row sm:items-center sm:gap-4 sm:p-4 xl:col-span-4"
+      className="group col-span-2 flex flex-col rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 via-card to-card p-3.5 text-left shadow-sm transition-all hover:border-primary/50 hover:shadow-md active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60 sm:col-span-3 sm:flex-row sm:items-center sm:gap-4 sm:p-4 lg:col-span-4"
     >
       <div className="flex min-w-0 flex-1 items-center gap-2.5">
         <div className="shrink-0 rounded-xl bg-primary/10 p-2 text-primary"><HandCoins className="h-4 w-4" /></div>
