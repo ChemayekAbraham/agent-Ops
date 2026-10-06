@@ -153,9 +153,9 @@ function SideItem({ active, icon: Icon, label, value, onClick }: {
   );
 }
 
-function Card({ title, right, children }: { title?: string; right?: React.ReactNode; children: React.ReactNode }) {
+function Card({ title, right, className, children }: { title?: string; right?: React.ReactNode; className?: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm min-w-0">
+    <section className={`rounded-2xl border border-border/70 bg-card p-5 shadow-sm min-w-0 ${className ?? ''}`}>
       {title && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-sm font-semibold">{title}</h3>{right}
@@ -261,7 +261,7 @@ function SubDetail({ catKey, label, productKey, product }: {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="flex-1 flex flex-col gap-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <Stat label="Outstanding" value={formatUGX(product.outstanding)} />
         <Stat label="Accounts" value={product.item_count.toLocaleString()} />
