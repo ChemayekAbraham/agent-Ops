@@ -66672,9 +66672,10 @@ export type Database = {
         Returns: Json
       }
       get_sms_traffic_daily: {
-        Args: { p_days?: number }
+        Args: { p_days: number }
         Returns: {
           africastalking: number
+          confirmed: number
           day: string
           delivered: number
           failed: number
@@ -74081,8 +74082,32 @@ export type Database = {
         }
         Returns: Json
       }
+      tops_payment_behaviour_by_v2: {
+        Args: {
+          p_agent_id?: string
+          p_cadence?: string
+          p_dimension: string
+          p_district?: string
+          p_end: string
+          p_limit?: number
+          p_region?: string
+          p_start: string
+        }
+        Returns: Json
+      }
       tops_payment_behaviour_options: { Args: never; Returns: Json }
       tops_payment_behaviour_overview: {
+        Args: {
+          p_agent_id?: string
+          p_cadence?: string
+          p_district?: string
+          p_end: string
+          p_region?: string
+          p_start: string
+        }
+        Returns: Json
+      }
+      tops_payment_behaviour_overview_v2: {
         Args: {
           p_agent_id?: string
           p_cadence?: string
@@ -74104,7 +74129,29 @@ export type Database = {
         }
         Returns: Json
       }
+      tops_payment_behaviour_summary_v2: {
+        Args: {
+          p_agent_id?: string
+          p_cadence?: string
+          p_district?: string
+          p_end: string
+          p_region?: string
+          p_start: string
+        }
+        Returns: Json
+      }
       tops_payment_behaviour_timing: {
+        Args: {
+          p_agent_id?: string
+          p_cadence?: string
+          p_district?: string
+          p_end: string
+          p_region?: string
+          p_start: string
+        }
+        Returns: Json
+      }
+      tops_payment_behaviour_timing_v2: {
         Args: {
           p_agent_id?: string
           p_cadence?: string
@@ -74126,7 +74173,32 @@ export type Database = {
         }
         Returns: Json
       }
+      tops_payment_behaviour_trend_v2: {
+        Args: {
+          p_agent_id?: string
+          p_cadence?: string
+          p_district?: string
+          p_end: string
+          p_region?: string
+          p_start: string
+        }
+        Returns: Json
+      }
       tops_payment_behaviour_watchlist: {
+        Args: {
+          p_agent_id?: string
+          p_cadence?: string
+          p_district?: string
+          p_end: string
+          p_limit?: number
+          p_min_score?: number
+          p_offset?: number
+          p_region?: string
+          p_start: string
+        }
+        Returns: Json
+      }
+      tops_payment_behaviour_watchlist_v2: {
         Args: {
           p_agent_id?: string
           p_cadence?: string
