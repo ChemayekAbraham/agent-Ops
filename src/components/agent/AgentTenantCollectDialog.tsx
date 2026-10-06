@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -116,6 +116,19 @@ export function AgentTenantCollectDialog({
   const queryClient = useQueryClient();
   const { isOnline } = useOffline();
   const [amount, setAmount] = useState<number>(0);
+  // One idempotency key per (plan, amount) ATTEMPT rather than per click. A
+  // fresh uuid on every Confirm is what let a double tap through: tap two
+  // carried a different ref, so the server's replay check could not see it.
+  // Keying on the amount too means changing the amount starts a new attempt,
+  // so a genuine follow-up collection is never swallowed as a replay.
+  const clientRefRef = useRef<{ key: string; value: string } | null>(null);
+  const clientRefFor = (planId: string, amt: number) => {
+    const key = `${planId}:${amt}`;
+    if (clientRefRef.current?.key !== key) {
+      clientRefRef.current = { key, value: crypto.randomUUID() };
+    }
+    return clientRefRef.current.value;
+  };
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
@@ -143,6 +156,7 @@ export function AgentTenantCollectDialog({
 
   useEffect(() => {
     if (open) {
+      clientRefRef.current = null;
       setAmount(0);
       setNotes('');
       setResult(null);
@@ -262,11 +276,12 @@ export function AgentTenantCollectDialog({
       // server instead of retrying, so a committed allocation is reported as
       // success and never allocated twice.
       //
-      // client_ref: a fresh id per Confirm click, so if this exact network
-      // call is ever resent (browser/service-worker replay, a double-fired
-      // handler) the server returns the original receipt instead of a second
-      // collection + a second commission payout.
-      const clientRef = crypto.randomUUID();
+      // client_ref: one id per (plan, amount) attempt — see clientRefFor. Every
+      // tap of the same attempt, and any resend of this call (service-worker
+      // replay, a double-fired handler), carries the same ref, so the server
+      // returns the original receipt instead of a second collection and a
+      // second commission payout.
+      const clientRef = clientRefFor(rentRequestId, amount);
       const rpcPromise = supabase.rpc('agent_allocate_tenant_payment', {
           p_agent_id: user.id,
           p_tenant_id: tenant.id,
