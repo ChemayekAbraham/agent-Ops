@@ -81,8 +81,8 @@ export default function ReceivablesOverview() {
   const product = cat && subKey ? liveCat(cat.key)?.products.find((p) => p.key === subKey) : undefined;
 
   return (
-    <main className="min-h-screen bg-muted/30">
-      <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
+    <main className="min-h-screen flex flex-col bg-muted/30">
+      <div className="flex-1 w-full px-4 sm:px-6 lg:px-8 py-6 flex flex-col">
         <header className="mb-8">
           <Link to="/cfo/dashboard" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
             <ArrowLeft className="h-3 w-3" /> CFO dashboard
