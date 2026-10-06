@@ -4,7 +4,6 @@ import { ArrowLeft, LayoutGrid, Search, RefreshCw, ChevronRight, TrendingDown, W
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, ComposedChart, CartesianGrid, XAxis, YAxis, Bar, Line } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import PayablesAccuracyPanel from '@/components/cfo/PayablesAccuracyPanel';
 import { usePayablesTotal, usePayablesBreakdown, usePayablesPredictiveForecast, usePayablesContractSchedule, type PayableProduct, type PayableItem } from '@/hooks/usePayables';
 import { formatUGX } from '@/lib/rentCalculations';
 
