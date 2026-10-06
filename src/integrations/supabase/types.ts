@@ -73955,6 +73955,30 @@ export type Database = {
           pay_tenant: string
         }[]
       }
+      tops_pay_behaviour_payments_capped: {
+        Args: {
+          p_agent_id?: string
+          p_cadence?: string
+          p_district?: string
+          p_end: string
+          p_region?: string
+          p_start: string
+        }
+        Returns: {
+          pay_agent: string
+          pay_amount: number
+          pay_at: string
+          pay_channel: string
+          pay_counted_ugx: number
+          pay_day: string
+          pay_dow: number
+          pay_excess_ugx: number
+          pay_hour: number
+          pay_id: string
+          pay_rr: string
+          pay_tenant: string
+        }[]
+      }
       tops_pay_behaviour_plans: {
         Args: {
           p_agent_id?: string
@@ -73968,6 +73992,46 @@ export type Database = {
           pl_agent: string
           pl_agent_n: number
           pl_agent_ugx: number
+          pl_billed_days: number
+          pl_billed_ugx: number
+          pl_cadence: string
+          pl_covered_ugx: number
+          pl_first_paid: string
+          pl_last_paid: string
+          pl_other_n: number
+          pl_other_ugx: number
+          pl_paid_days: number
+          pl_paid_ugx: number
+          pl_rent: number
+          pl_rr: string
+          pl_segment: string
+          pl_self_n: number
+          pl_self_ugx: number
+          pl_start: string
+          pl_tenant: string
+        }[]
+      }
+      tops_pay_behaviour_plans_capped: {
+        Args: {
+          p_agent_id?: string
+          p_cadence?: string
+          p_district?: string
+          p_end: string
+          p_region?: string
+          p_start: string
+        }
+        Returns: {
+          pl_agent: string
+          pl_agent_n: number
+          pl_agent_ugx: number
+          pl_ahead_agent_n: number
+          pl_ahead_agent_ugx: number
+          pl_ahead_n: number
+          pl_ahead_other_n: number
+          pl_ahead_other_ugx: number
+          pl_ahead_self_n: number
+          pl_ahead_self_ugx: number
+          pl_ahead_ugx: number
           pl_billed_days: number
           pl_billed_ugx: number
           pl_cadence: string
