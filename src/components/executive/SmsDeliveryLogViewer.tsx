@@ -615,7 +615,7 @@ export function SmsDeliveryLogViewer() {
           columns={recentColumns}
           loading={isLoading && !debouncedSearch}
           title={debouncedSearch ? `SMS search results for "${debouncedSearch}"` : 'Sent SMS'}
-          onRowClick={setPreviewRow}
+          onRowClick={(row: SmsRow) => setPreviewRow(row)}
           searchValue={search}
           onSearchChange={setSearch}
           searchPlaceholder="Search by name, phone, message text or reference…"
