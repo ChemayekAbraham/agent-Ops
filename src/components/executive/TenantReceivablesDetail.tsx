@@ -45,7 +45,7 @@ export default function TenantReceivablesDetail({ product, current, overdue, com
   const share = (value: number) => product.outstanding > 0 ? `${(value / product.outstanding * 100).toFixed(1)}%` : '0.0%';
   const overdueItems = product.items.filter((item) => item.due_date && item.due_date.slice(0, 10) < today);
   const largestLocation = rows[0];
-  const action = (expanded: boolean, onClick: () => void) => <Button variant="link" size="sm" onClick={onClick} className="h-auto min-h-0 p-0 text-[10px] text-info">{expanded ? 'Show less' : 'View all'}<ChevronRight className="h-3 w-3" /></Button>;
+  const action = (expanded: boolean, onClick: () => void) => <Button variant="link" size="sm" onClick={onClick} className="h-auto min-h-0 p-0 text-[10px] text-primary">{expanded ? 'Show less' : 'View all'}<ChevronRight className="h-3 w-3" /></Button>;
 
   return <div className="tenant-receivables-detail flex flex-col gap-3">
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
