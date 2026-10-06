@@ -73365,6 +73365,38 @@ export type Database = {
         }[]
       }
       tops_overnight_changes: { Args: { p_as_at?: string }; Returns: Json }
+      tops_pay_behaviour_flags: {
+        Args: {
+          p_agent_id?: string
+          p_asof: string
+          p_cadence?: string
+          p_district?: string
+          p_region?: string
+        }
+        Returns: {
+          f_behind: boolean
+          f_refused: boolean
+          f_silent: boolean
+          f_slipping: boolean
+          f_to_agent: boolean
+          fl_agent: string
+          fl_agent28: number
+          fl_behind_days: number
+          fl_bills_prev7: number
+          fl_bills7: number
+          fl_cadence: string
+          fl_days_since: number
+          fl_last_paid_day: string
+          fl_med_gap: number
+          fl_pay_prev7: number
+          fl_pay7: number
+          fl_rent: number
+          fl_rr: string
+          fl_score: number
+          fl_self28: number
+          fl_tenant: string
+        }[]
+      }
       tops_pay_behaviour_payments: {
         Args: {
           p_agent_id?: string
@@ -73436,6 +73468,20 @@ export type Database = {
           sc_tenant: string
         }[]
       }
+      tops_payment_behaviour_by: {
+        Args: {
+          p_agent_id?: string
+          p_cadence?: string
+          p_dimension: string
+          p_district?: string
+          p_end: string
+          p_limit?: number
+          p_region?: string
+          p_start: string
+        }
+        Returns: Json
+      }
+      tops_payment_behaviour_options: { Args: never; Returns: Json }
       tops_payment_behaviour_overview: {
         Args: {
           p_agent_id?: string
@@ -73475,6 +73521,20 @@ export type Database = {
           p_cadence?: string
           p_district?: string
           p_end: string
+          p_region?: string
+          p_start: string
+        }
+        Returns: Json
+      }
+      tops_payment_behaviour_watchlist: {
+        Args: {
+          p_agent_id?: string
+          p_cadence?: string
+          p_district?: string
+          p_end: string
+          p_limit?: number
+          p_min_score?: number
+          p_offset?: number
           p_region?: string
           p_start: string
         }
