@@ -3319,6 +3319,13 @@
       "when": 1791283267300,
       "tag": "0473_rd_ideas",
       "breakpoints": true
+    },
+    {
+      "idx": 474,
+      "version": "7",
+      "when": 1791287896850,
+      "tag": "0474_advance_lock_only_counts_withdrawable_bucket_credits",
+      "breakpoints": true
     }
   ]
 }
