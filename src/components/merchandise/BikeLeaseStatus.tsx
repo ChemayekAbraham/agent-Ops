@@ -76,6 +76,7 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder }: Props) {
       toast.success('Application deleted');
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['my-bike-lease-orders', userId] }),
+        queryClient.invalidateQueries({ queryKey: ['my-smartphone-orders'] }),
         queryClient.invalidateQueries({ queryKey: ['merchandise-recovery-plan', userId] }),
         queryClient.invalidateQueries({ queryKey: ['my-merchandise-plans', userId] }),
         queryClient.invalidateQueries({ queryKey: ['merchandise-order-lock', userId] }),
