@@ -333,6 +333,7 @@ const Internship = lazy(() => import('./pages/Internship'));
 const Careers = lazy(() => import('./pages/Careers'));
 const HolisticProfile = lazy(() => import('./pages/HolisticProfile'));
 const BorrowFromAgent = lazy(() => import('./pages/BorrowFromAgent'));
+const LendingRepayments = lazy(() => import('./pages/LendingRepayments'));
 // Public funder signup (multi-step) — lives in pages/Onboarding.tsx and is exported as FunderOnboarding.
 const FunderOnboarding = lazy(() => import('./pages/Onboarding'));
 const PortfolioCompletion = lazy(() => import('./pages/PortfolioCompletion'));
@@ -516,6 +517,7 @@ function AppRoutes() {
           <Route path="/merchant-agent/onboarding" element={<MerchantAgentOnboarding />} />
           <Route path="/merchant-agent-referrals" element={<MerchantAgentReferrals />} />
           <Route path="/borrow/:aiId" element={<BorrowFromAgent />} />
+          <Route path="/repay" element={<LendingRepayments />} />
           <Route path="/profile/:aiId" element={<HolisticProfile />} />
           <Route path="/id/:aiId" element={<HolisticProfile publicMode />} />
           {/* Persona-specific dashboards. URL is the source of truth for which
