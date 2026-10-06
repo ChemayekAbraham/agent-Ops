@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { lazy, Suspense, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +14,9 @@ import { KPICard } from '@/components/executive/KPICard';
 import TenantCommunicationsTab from '@/components/executive/tenant-ops/workspace/TenantCommunicationsTab';
 import AgentRegistrationControlTab from '@/components/executive/tenant-ops/workspace/AgentRegistrationControlTab';
 import ManagementOverviewTab from '@/components/executive/tenant-ops/workspace/ManagementOverviewTab';
+
+// Charts and the PDF builder are only needed when this tab is opened.
+const PaymentBehaviorTab = lazy(() => import('@/components/executive/tenant-ops/workspace/PaymentBehaviorTab'));
 import { toast } from 'sonner';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import {
@@ -466,7 +470,13 @@ function TopUpEligibilityTab() {
   );
 }
 
+const WORKSPACE_TABS = ['topup', 'comms', 'registration', 'overview', 'payment-behavior'];
+
 export default function TenantOperationsWorkspace() {
+  // `?wtab=payment-behavior` lets Tenant Ops Home open the Payment Behavior tab directly.
+  const [searchParams] = useSearchParams();
+  const requestedTab = searchParams.get('wtab');
+  const initialTab = requestedTab && WORKSPACE_TABS.includes(requestedTab) ? requestedTab : 'topup';
   return (
     <Card className="min-w-0 border-border/60">
       <CardHeader className="px-3 pb-3 sm:px-6">
@@ -476,12 +486,13 @@ export default function TenantOperationsWorkspace() {
         </CardTitle>
       </CardHeader>
       <CardContent className="min-w-0 px-3 sm:px-6">
-        <Tabs defaultValue="topup">
+        <Tabs defaultValue={initialTab}>
           <TabsList className="flex h-auto w-full flex-wrap justify-start gap-1.5 rounded-xl border border-border bg-muted/30 p-1.5">
             <TabsTrigger value="topup" className="h-9 shrink-0 whitespace-nowrap rounded-lg px-2.5 text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">Tenant Top-Up Eligibility</TabsTrigger>
             <TabsTrigger value="comms" className="h-9 shrink-0 whitespace-nowrap rounded-lg px-2.5 text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">Tenant Communications</TabsTrigger>
             <TabsTrigger value="registration" className="h-9 shrink-0 whitespace-nowrap rounded-lg px-2.5 text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">Agent Registration Control</TabsTrigger>
             <TabsTrigger value="overview" className="h-9 shrink-0 whitespace-nowrap rounded-lg px-2.5 text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">Management Overview</TabsTrigger>
+            <TabsTrigger value="payment-behavior" className="h-9 shrink-0 whitespace-nowrap rounded-lg px-2.5 text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">Payment Behavior</TabsTrigger>
           </TabsList>
           <TabsContent value="topup" className="mt-3">
             <TopUpEligibilityTab />
@@ -494,6 +505,11 @@ export default function TenantOperationsWorkspace() {
           </TabsContent>
           <TabsContent value="overview" className="mt-3">
             <ManagementOverviewTab />
+          </TabsContent>
+          <TabsContent value="payment-behavior" className="mt-3">
+            <Suspense fallback={<div className="flex min-h-48 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>}>
+              <PaymentBehaviorTab />
+            </Suspense>
           </TabsContent>
         </Tabs>
       </CardContent>

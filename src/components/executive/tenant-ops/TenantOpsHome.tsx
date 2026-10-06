@@ -27,6 +27,7 @@ import { RepaymentTrendChart } from '@/components/executive/RepaymentTrendChart'
 import { TenantRepaymentForecastPanel } from './TenantRepaymentForecastPanel';
 import { TenantOpsPipelineTrendChart } from './TenantOpsPipelineTrendChart';
 import { TenantOpsRepaymentWatchlistCards } from './TenantOpsRepaymentWatchlistCards';
+import { TenantPaymentBehaviorCard } from './TenantPaymentBehaviorCard';
 import { useTenantOpsToolCounts } from '@/hooks/useTenantOpsToolCounts';
 import { useTenantRepaymentReliability } from '@/hooks/useTenantRepaymentReliability';
 import { useTenantOpsAcquisition } from '@/hooks/useTenantOpsAcquisition';
@@ -318,6 +319,17 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
                 <p className="mt-1 text-[11px] leading-snug text-muted-foreground break-words line-clamp-2">{s.hint}</p>
               </button>
             ))}
+            <TenantPaymentBehaviorCard
+              startIso={startIso}
+              endIso={endIso}
+              phrase={phrase}
+              onOpen={() => onNavigate('tenant-operations-workspace', {
+                wtab: 'payment-behavior',
+                ...(preset === 'custom'
+                  ? { pb_range: 'custom', pb_from: format(start, 'yyyy-MM-dd'), pb_to: format(end, 'yyyy-MM-dd') }
+                  : { pb_range: preset }),
+              })}
+            />
           </div>
         </div>
       </div>

@@ -60,8 +60,8 @@ export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGe
   // because goTo builds the next URL from the params it rendered with.
   const goTo = useCallback((key: TenantOpsViewKey | TenantOpsActionKey, extraParams?: Record<string, string>) => {
     const next = new URLSearchParams(params);
-    // The shortfall page's range lives in the URL only while that page is open.
-    ['sf_range', 'sf_from', 'sf_to'].forEach((k) => next.delete(k));
+    // The shortfall page's and the Payment Behavior tab's range live in the URL only while they are open.
+    ['sf_range', 'sf_from', 'sf_to', 'pb_range', 'pb_from', 'pb_to', 'wtab'].forEach((k) => next.delete(k));
     if (key === 'action.portfolio-performance' || key === 'action.notifications-analytics') {
       // Kept inside the shell so the sidebar and top bar stay in place.
       next.set('view', key);
