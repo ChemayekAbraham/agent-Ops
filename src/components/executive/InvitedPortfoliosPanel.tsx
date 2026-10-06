@@ -28,7 +28,6 @@ import AgreementHtmlPreview, { type AgreementPreviewData } from '@/components/pa
 import { buildAgreementHtml, OPTION_FROM_ROI_MODE } from '@/components/partner/agreementTemplate';
 import { buildPartnerReference } from '@/lib/partnerReference';
 import { renderAgreementPdfBase64 } from '@/components/partner/renderAgreementPdf';
-import { buildPartnerReference } from '@/lib/partnerReference';
 import { useRestoreBodyPointerEvents } from '@/hooks/useRestoreBodyPointerEvents';
 
 type InviteStatus = 'awaiting_partner_details' | 'pending_ops_approval';
