@@ -129,7 +129,7 @@ export default function ReceivablesOverview() {
                       {cat.subs.map((s) => (
                         <Button variant="ghost" size="sm" key={s.key} role="tab" aria-selected={s.key === subKey} onClick={() => go(cat.key, s.key)}
                           className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${s.key === subKey
-                            ? catKey === 'tenant' ? 'bg-info text-info-foreground shadow-sm' : 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-primary hover:bg-primary/10'}`}>
+                            ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-primary hover:bg-primary/10'}`}>
                           {s.label}
                         </Button>
                       ))}
@@ -152,7 +152,7 @@ function SideItem({ active, icon: Icon, label, value, onClick }: {
 }) {
   return (
     <Button variant="ghost" type="button" onClick={onClick} aria-current={active ? 'page' : undefined}
-      className={`w-full h-auto justify-start flex items-center gap-2 rounded-md px-3 py-2 text-left transition-colors ${active ? 'bg-info/5 text-info' : 'hover:bg-muted text-foreground'}`}>
+      className={`w-full h-auto justify-start flex items-center gap-2 rounded-md px-3 py-2 text-left transition-colors ${active ? 'bg-primary/10 text-primary' : 'hover:bg-muted text-foreground'}`}>
       <Icon className="h-4 w-4 shrink-0" />
       <span className="flex-1 min-w-0">
         <span className="block text-[10px] font-medium whitespace-normal leading-4">{label}</span>
