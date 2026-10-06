@@ -226,10 +226,10 @@ export function SmsDeliveryLogViewer() {
   const selectedMonthDate = isPastMonth ? new Date(`${monthFilter}-01T00:00:00`) : new Date();
   const selectedMonthStart = startOfMonth(selectedMonthDate);
   const selectedMonthEnd = endOfMonth(selectedMonthDate);
-  const rangeStart = customActive ? startOfDay(customFrom) : selectedMonthStart;
-  const rangeEnd = customActive ? endOfDay(customTo) : selectedMonthEnd;
+  const rangeStart = customActive ? startOfDay(customFrom!) : selectedMonthStart;
+  const rangeEnd = customActive ? endOfDay(customTo!) : selectedMonthEnd;
   const scopeLabel = customActive
-    ? `${format(customFrom, 'dd MMM')} – ${format(customTo, 'dd MMM yyyy')}`
+    ? `${format(customFrom!, 'dd MMM')} – ${format(customTo!, 'dd MMM yyyy')}`
     : isPastMonth
     ? format(selectedMonthDate, 'MMMM yyyy')
     : 'This month';
