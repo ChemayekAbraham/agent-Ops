@@ -66,7 +66,6 @@ export default function LendingBorrowerCard({ loan, onRecordRepayment, onTopUpOr
   const statusStyle = STATUS_STYLE[loan.status] ?? STATUS_STYLE.active;
   const dueStyle = DUE_STYLE[due];
   const autoOn = !!loan.auto_deduct_enabled && isOpen;
-  const freqLabel = (loan.repayment_frequency ?? '').replace('_', ' ');
 
   // New end date: count from today, or from the current end date if that is still ahead.
   const currentDue = loan.expected_repayment_date ? new Date(loan.expected_repayment_date) : null;
