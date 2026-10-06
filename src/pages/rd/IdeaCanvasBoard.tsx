@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Lightbulb, Plus, Trash2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Lightbulb, Plus, Save, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 
 type CanvasKey =
   | 'partners' | 'activities' | 'resources' | 'value' | 'relationships'
@@ -11,6 +13,7 @@ type CanvasKey =
 type Idea = {
   id: string; title: string; owner: string; date: string; summary: string;
   canvas: Record<CanvasKey, string>;
+  isNew?: boolean; dirty?: boolean;
 };
 
 const BLOCKS: { key: CanvasKey; title: string; hint: string; area: string }[] = [
@@ -30,18 +33,47 @@ const emptyCanvas = (): Record<CanvasKey, string> =>
   Object.fromEntries(BLOCKS.map((b) => [b.key, ''])) as Record<CanvasKey, string>;
 
 export default function IdeaCanvasBoard() {
-  const [ideas, setIdeas] = useState<Idea[]>(() => {
-    try { const v = localStorage.getItem(KEY); if (v) return JSON.parse(v); } catch { /* ignore */ }
-    return [];
-  });
+  const [ideas, setIdeas] = useState<Idea[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(null);
-  useEffect(() => { try { localStorage.setItem(KEY, JSON.stringify(ideas)); } catch { /* ignore */ } }, [ideas]);
+  const db = supabase as any;
 
-  const upd = (id: string, patch: Partial<Idea>) => setIdeas((l) => l.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+  useEffect(() => {
+    (async () => {
+      const { data, error } = await db.from('rd_ideas').select('*').order('created_at', { ascending: false });
+      if (error) { toast.error('Could not load ideas'); setLoading(false); return; }
+      const rows: Idea[] = (data ?? []).map((r: any) => ({ id: r.id, title: r.title, owner: r.owner, date: r.idea_date, summary: r.summary, canvas: { ...emptyCanvas(), ...(r.canvas || {}) } }));
+      // Bring over ideas previously kept only in this browser, marked unsaved.
+      let local: Idea[] = [];
+      try { const v = localStorage.getItem(KEY); if (v) local = JSON.parse(v); } catch { /* ignore */ }
+      const known = new Set(rows.map((r) => r.id));
+      const pending = local.filter((l) => !known.has(l.id)).map((l) => ({ ...l, isNew: true, dirty: true }));
+      setIdeas([...pending, ...rows]);
+      setLoading(false);
+    })();
+  }, []);
+
+  useEffect(() => {
+    try { localStorage.setItem(KEY, JSON.stringify(ideas.filter((i) => i.dirty))); } catch { /* ignore */ }
+  }, [ideas]);
+
+  const upd = (id: string, patch: Partial<Idea>) => setIdeas((l) => l.map((x) => (x.id === id ? { ...x, ...patch, dirty: true } : x)));
   const add = () => {
     const id = crypto.randomUUID();
-    setIdeas((l) => [{ id, title: 'New idea', owner: '', date: new Date().toISOString().slice(0, 10), summary: '', canvas: emptyCanvas() }, ...l]);
+    setIdeas((l) => [{ id, title: 'New idea', owner: '', date: new Date().toISOString().slice(0, 10), summary: '', canvas: emptyCanvas(), isNew: true, dirty: true }, ...l]);
     setOpen(id);
+  };
+  const save = async (i: Idea) => {
+    setSaving(i.id);
+    const row = { title: i.title, owner: i.owner, idea_date: i.date, summary: i.summary, canvas: i.canvas };
+    const { error } = i.isNew
+      ? await db.from('rd_ideas').insert({ id: i.id, ...row })
+      : await db.from('rd_ideas').update(row).eq('id', i.id);
+    setSaving(null);
+    if (error) { toast.error('Could not save idea: ' + error.message); return; }
+    setIdeas((l) => l.map((x) => (x.id === i.id ? { ...x, isNew: false, dirty: false } : x)));
+    toast.success('Idea saved');
   };
 
   return (
@@ -49,12 +81,13 @@ export default function IdeaCanvasBoard() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
           <p className="flex items-center gap-2 text-base font-semibold text-foreground"><Lightbulb className="h-4 w-4 text-primary" />New Ideas &amp; Business Model Canvas</p>
-          <p className="mt-0.5 pl-6 text-xs text-muted-foreground">Record a new idea and fill in its business model canvas. Saved on this device.</p>
+          <p className="mt-0.5 pl-6 text-xs text-muted-foreground">Record a new idea and fill in its business model canvas. Tap Save to keep it for the whole team.</p>
         </div>
         <Button size="sm" variant="outline" className="gap-1.5" onClick={add}><Plus className="h-4 w-4" />Record idea</Button>
       </div>
 
-      {ideas.length === 0 && <p className="mt-3 text-xs text-muted-foreground">No ideas recorded yet.</p>}
+      {loading && <p className="mt-3 text-xs text-muted-foreground">Loading ideas…</p>}
+      {!loading && ideas.length === 0 && <p className="mt-3 text-xs text-muted-foreground">No ideas recorded yet.</p>}
 
       <div className="mt-3 space-y-3">
         {ideas.map((i) => {
@@ -68,9 +101,9 @@ export default function IdeaCanvasBoard() {
                   <span className="truncate text-sm font-semibold text-foreground">{i.title || 'Untitled idea'}</span>
                   <span className="shrink-0 text-xs text-muted-foreground">{i.date} · canvas {filled}/9</span>
                 </button>
-                <Button variant="ghost" size="icon" className="h-7 w-7" aria-label="Delete idea"
-                  onClick={() => { if (confirm('Delete this idea?')) setIdeas((l) => l.filter((x) => x.id !== i.id)); }}>
-                  <Trash2 className="h-3.5 w-3.5" />
+                {i.dirty && <span className="shrink-0 text-xs text-muted-foreground">Not saved</span>}
+                <Button size="sm" variant={i.dirty ? 'default' : 'outline'} className="h-7 gap-1.5" disabled={!i.dirty || saving === i.id} onClick={() => save(i)}>
+                  {saving === i.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}{i.dirty ? 'Save' : 'Saved'}
                 </Button>
               </div>
               {isOpen && (

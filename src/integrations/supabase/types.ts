@@ -38697,6 +38697,45 @@ export type Database = {
           },
         ]
       }
+      rd_ideas: {
+        Row: {
+          canvas: Json
+          created_at: string
+          created_by: string
+          id: string
+          idea_date: string
+          owner: string
+          summary: string
+          title: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          canvas?: Json
+          created_at?: string
+          created_by?: string
+          id?: string
+          idea_date?: string
+          owner?: string
+          summary?: string
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          canvas?: Json
+          created_at?: string
+          created_by?: string
+          id?: string
+          idea_date?: string
+          owner?: string
+          summary?: string
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       rd_missions: {
         Row: {
           bet: string | null
