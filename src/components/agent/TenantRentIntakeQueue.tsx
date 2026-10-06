@@ -65,10 +65,12 @@ const OPEN_STATUSES = ['submitted', 'claimed', 'visit_verified', 'approved'];
 export function useTenantRentIntakeQueue() {
   const query = useQuery({
     queryKey: QUEUE_KEY,
+    staleTime: 30_000,
+    retry: 1,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('tenant_rent_intake_requests')
-        .select('id, tenant_id, tenant_name, tenant_phone, rent_amount, location_name, village_name, district_name, landlord_name, landlord_phone, tenant_note, status, distance_km, service_centre_name, decline_reason, claimed_by, latitude, longitude, created_at, source, rent_request_id, assigned_agent_id, assigned_agent_distance_km, claim_distance_km, claim_proximity, forwarded_from_agent_id, forwarded_at, forward_reason')
+        .select('*')
         .order('created_at', { ascending: false })
         .limit(200);
       if (error) throw error;
