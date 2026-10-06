@@ -208,6 +208,8 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
     });
     await reloadLoans();
     await reloadRequests();
+  };
+
 
   /** Top up (add money) and/or renew (move the end date) an existing loan. */
   const handleTopUpOrRenew = async (loan: LendingLoan, extra: number, newDue: string) => {
