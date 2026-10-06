@@ -82,7 +82,7 @@ export default function ReceivablesOverview() {
 
   return (
     <main className="min-h-screen bg-muted/30">
-      <div className="mx-auto max-w-[1400px] px-4 sm:px-8 py-8">
+      <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
         <header className="mb-8">
           <Link to="/cfo/dashboard" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
             <ArrowLeft className="h-3 w-3" /> CFO dashboard
@@ -91,7 +91,7 @@ export default function ReceivablesOverview() {
           <p className="text-xs text-muted-foreground">Read-only · as at {breakdown.data?.as_at?.slice(0, 10) ?? '—'} · UGX</p>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-6">
           <nav aria-label="Receivable categories" className="rounded-2xl border border-border/70 bg-card p-2 h-fit lg:sticky lg:top-6">
             <SideItem active={catKey === 'overview'} icon={LayoutGrid} label="Overview"
               value={breakdown.data?.total} onClick={() => go('overview')} />
