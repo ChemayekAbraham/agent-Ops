@@ -1,7 +1,6 @@
 import { Fragment, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import {
-  AlertTriangle,
   ChevronDown,
   ChevronRight,
   Download,
@@ -76,7 +75,6 @@ export default function PredictivePayablesForecast() {
   const [periods, setPeriods] = useState(7);
   const [activePreset, setActivePreset] = useState('Next 7 days');
   const [openPeriod, setOpenPeriod] = useState<number | null>(null);
-  const [showStreams, setShowStreams] = useState(false);
 
   const q = usePayablesPredictiveForecast(granularity, periods);
   const data = q.data;
