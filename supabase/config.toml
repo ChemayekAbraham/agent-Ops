@@ -268,3 +268,9 @@ verify_jwt = false
 # Supabase JWT (see docs/HANDOVER/171).
 [functions.sms-forwarder-ingest]
   verify_jwt = false
+
+[functions.lending-borrower-pay]
+verify_jwt = false
+
+[functions.lending-payment-reminders]
+verify_jwt = false
