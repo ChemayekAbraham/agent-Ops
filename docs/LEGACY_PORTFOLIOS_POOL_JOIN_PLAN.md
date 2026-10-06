@@ -6,7 +6,7 @@
 - [LEGACY_PORTFOLIOS_POOL_IMPACT.md](./LEGACY_PORTFOLIOS_POOL_IMPACT.md) (options A–D). This is option D, applied to all older portfolios.
 - [LEGACY_PORTFOLIOS_POOL_CATEGORY_PLAN.md](./LEGACY_PORTFOLIOS_POOL_CATEGORY_PLAN.md) (the tagging run).
 
-**Status:** assessment and plan. Nothing has been built or changed.
+**Status:** **built and scheduled** (6 Oct 2026). J1–J5 approved as recommended. See §10, "As built".
 
 ---
 
@@ -180,3 +180,87 @@ This is a switch for the CFO, not a change to the decision.
 | J3 | Redemption rule: release the smaller of the amount redeemed and the portfolio's pool money? |
 | J4 | Build the optional ceiling switch (off by default)? |
 | J5 | Join date: which day's 20:00 EAT run, after the dry runs pass? |
+
+---
+
+## 10. As built (6 October 2026)
+
+### Decisions applied
+
+| # | Decision |
+|---|---|
+| J1 | Older portfolios join with a **zero** starting balance. Their principal is not moved in |
+| J2 | **Top-ups and compounding** both go into the pool from the join time |
+| J3 | A principal drop releases **the smaller of the drop and that portfolio's pool money**, newest first. Closing (redeemed / cancelled / rejected) releases everything still in the pool |
+| J4 | Ceiling switch built, **off** |
+| J5 | Join run: **7 Oct 2026, 20:00 EAT** |
+
+### Migration `20261006160000_landlord_pool_legacy_join.sql` (applied)
+
+| Object | Purpose |
+|---|---|
+| `landlord_pool_legacy_members` | one row per joined older portfolio (join time, category, status and principal at join). **Rows can never be changed or deleted** (trigger) |
+| `treasury_controls` `landlord_pool_legacy_from` | the switch. Off until the join run turns it on with the join time |
+| `treasury_controls` `landlord_pool_legacy_ceiling` | optional ceiling (UGX) on older-portfolio pool money. Off |
+| `landlord_pool_legacy_skips` | the part of a top-up or compound that the ceiling kept out |
+| `landlord_pool_is_member(portfolio)` | `pool_eligible` **or** (switch on and joined). Replaces the `pool_eligible` test in the top-up / compound and release steps |
+| `landlord_pool_reserve_increment` | now accepts joined older portfolios, and applies the ceiling to them only |
+| `trg_landlord_pool_increment_on_ledger` | uses `landlord_pool_is_member` |
+| `landlord_pool_legacy_release` + `trg_landlord_pool_release_on_change` | J3 rule for joined older portfolios. New portfolios are unchanged |
+| `v_landlord_pool_legacy_missed` | control: a top-up or compound on a joined portfolio with no pool record. **Must be empty** |
+| `v_portfolio_pool_category` | adds `legacy_joined_at` |
+| `landlord_pool_join_legacy_portfolios()` + `landlord_pool_legacy_join_runs` | the one-shot join run, with the same safeguards as the category run |
+| pg_cron `landlord-pool-legacy-join-once` (id 42388) | `0-55/5 17 7 10 *`: 20:00 EAT on 7 Oct, retries to 20:55. Refuses after 21:00, and **refuses to start unless tonight's category run succeeded** |
+
+**Not changed:**
+- house claims: `allocate_company_managed_portfolio` stays new-portfolios-only (`20261006150100`);
+- principal reserve for new portfolios, rent funding, tenant repayments, cancellations, the 24-hour recall.
+
+### Rehearsal (production, one transaction, rolled back)
+
+All the steps were simulated together: tagging, joining 1,353 portfolios, then the money events below.
+
+| Step | Result |
+|---|---|
+| Compounding 100,000 + top-up 200,000 on an older company-managed portfolio | entries `compound` 100,000 and `topup` 200,000. A22 +300,000, A1 −300,000 |
+| Rent funded 50,000 from that portfolio's compound money | drawn 50,000 |
+| Partial redemption 120,000 | 120,000 released from the newest money (the top-up). Compound 50,000 in pool, 50,000 out with the tenant |
+| Ceiling with 30,000 of room; top-up 100,000 on the older self-support portfolio | 30,000 reserved (A21), 70,000 recorded as skipped |
+| Full redemption | everything still in the pool released. The 50,000 out with the tenant comes back on repayment |
+| Compounding on an older portfolio that did not join (cancelled) | ignored |
+| House claims / pool exceptions / missed events | 0 / 0 / 0 |
+| Pool ledger groups | 7, all balanced; no wallet-scope pool legs |
+| Books vs pool records (A21, A22) | 0 difference |
+| Join-run dry run | 1,353 members = target; switch on; no ledger rows; rolled back |
+
+### Timeline
+
+| When (EAT) | What |
+|---|---|
+| 6 Oct 20:00 | category run tags 1,359 older portfolios (no money) |
+| 7 Oct 20:00 | join run: 1,353 active and locked older portfolios join; switch on |
+| 8 Oct 09:00 onwards | first compounding payments go into the pool (Returns processing) |
+| 8 Oct 19:00 onwards | first merged top-ups go into the pool |
+| 8 Oct morning, then weekly | checks: books = pool records, `v_landlord_pool_legacy_missed` empty, 0 exceptions, money path 17/17, pool size vs spare cash |
+
+### Watch: spare cash is lower than when this was assessed
+
+At 13:39 EAT on 6 Oct:
+- spare cash (A1) was **256.9m**, down from 488.6m on 5 Oct;
+- the pool was 124.2m.
+
+At September's rate (about 38m a day in, about 7m a day out to rent), spare cash would show **zero about a week after joining**, not two. The ceiling (J4) is the lever if the CFO wants to slow this:
+
+```sql
+UPDATE treasury_controls SET enabled = true, value = '<UGX ceiling>' WHERE control_key = 'landlord_pool_legacy_ceiling';
+```
+
+### Undo
+
+Turn the switch off:
+
+```sql
+UPDATE treasury_controls SET enabled = false WHERE control_key = 'landlord_pool_legacy_from';
+```
+
+New top-ups and compounding then stop going in, and principal drops stop releasing. To return the money already in, release each joined portfolio's pool money with `landlord_pool_legacy_release`. Membership rows stay as the record.
