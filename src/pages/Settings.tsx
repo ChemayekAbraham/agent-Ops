@@ -346,7 +346,7 @@ export default function Settings() {
     if (!user) return;
     const { data, error } = await supabase.from('profiles').select('*').eq('id', user.id).maybeSingle();
     if (error) { console.error('Error fetching profile:', error); setLoading(false); return; }
-    if (data) { setProfile(data as Profile); setNameParts(splitPersonName(data.full_name)); setPhone(data.phone); }
+    if (data) { setProfile(data as Profile); setNameParts(splitPersonName(data.full_name)); setPhone(data.phone ?? ''); }
     setLoading(false);
   };
 
