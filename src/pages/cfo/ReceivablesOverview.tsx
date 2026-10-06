@@ -81,8 +81,8 @@ export default function ReceivablesOverview() {
   const product = cat && subKey ? liveCat(cat.key)?.products.find((p) => p.key === subKey) : undefined;
 
   return (
-    <main className="min-h-screen bg-muted/30">
-      <div className="w-full px-4 sm:px-6 lg:px-8 py-6">
+    <main className="min-h-screen flex flex-col bg-muted/30">
+      <div className="flex-1 w-full px-4 sm:px-6 lg:px-8 py-6 flex flex-col">
         <header className="mb-8">
           <Link to="/cfo/dashboard" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground">
             <ArrowLeft className="h-3 w-3" /> CFO dashboard
@@ -91,17 +91,18 @@ export default function ReceivablesOverview() {
           <p className="text-xs text-muted-foreground">Read-only · as at {breakdown.data?.as_at?.slice(0, 10) ?? '—'} · UGX</p>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-6">
-          <nav aria-label="Receivable categories" className="rounded-2xl border border-border/70 bg-card p-2 h-fit lg:sticky lg:top-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-6 lg:min-h-[calc(100vh-9rem)] flex-1">
+          <nav aria-label="Receivable categories" className="rounded-2xl border border-border/70 bg-card p-2 flex flex-col lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
             <SideItem active={catKey === 'overview'} icon={LayoutGrid} label="Overview"
               value={breakdown.data?.total} onClick={() => go('overview')} />
             {cats.map((c) => (
               <SideItem key={c.key} active={catKey === c.key} icon={c.icon} label={c.label}
                 value={c.outstanding} onClick={() => go(c.key)} />
             ))}
+            <div className="flex-1 min-h-2" />
           </nav>
 
-          <div className="min-w-0 space-y-6">
+          <div className="min-w-0 flex flex-col gap-6">
             {breakdown.isLoading ? (
               <Card><p className="text-sm text-muted-foreground">Loading live receivables…</p></Card>
             ) : !cat ? (
@@ -152,9 +153,9 @@ function SideItem({ active, icon: Icon, label, value, onClick }: {
   );
 }
 
-function Card({ title, right, children }: { title?: string; right?: React.ReactNode; children: React.ReactNode }) {
+function Card({ title, right, className, children }: { title?: string; right?: React.ReactNode; className?: string; children: React.ReactNode }) {
   return (
-    <section className="rounded-2xl border border-border/70 bg-card p-5 shadow-sm min-w-0">
+    <section className={`rounded-2xl border border-border/70 bg-card p-5 shadow-sm min-w-0 ${className ?? ''}`}>
       {title && (
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-sm font-semibold">{title}</h3>{right}
@@ -184,7 +185,7 @@ function Overview({ cats, products, onOpen, total }: {
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         <Stat label="Total receivables" value={formatUGX(total)} sub={`${cats.reduce((s, c) => s + c.count, 0).toLocaleString()} open items`} />
       </div>
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 flex-1 auto-rows-fr">
         {cats.map((c) => (
           <Card key={c.key} title={c.label} right={
             <button onClick={() => onOpen(c.key)} className="text-xs font-medium text-primary hover:underline">{formatUGX(c.outstanding)}</button>
@@ -260,7 +261,7 @@ function SubDetail({ catKey, label, productKey, product }: {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="flex-1 flex flex-col gap-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <Stat label="Outstanding" value={formatUGX(product.outstanding)} />
         <Stat label="Accounts" value={product.item_count.toLocaleString()} />
@@ -305,11 +306,11 @@ function SubDetail({ catKey, label, productKey, product }: {
         </Card>
       </div>
 
-      <Card title="7-day forecast · behaviour-based vs ideal" right={
+      <Card title="7-day forecast · behaviour-based vs ideal" className="flex-1 flex flex-col" right={
         <span className="text-xs text-muted-foreground">Behaviour {money(bTotal)} · Ideal {money(iTotal)}</span>
       }>
         {!hasBehaviour && <p className="mb-2 text-xs text-muted-foreground">Not enough collection history for a behaviour-based forecast; ideal schedule shown.</p>}
-        <div className="h-64">
+        <div className="flex-1 min-h-64">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={proj} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
