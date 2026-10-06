@@ -109,7 +109,7 @@ export default function BorrowFromAgent() {
         Request a loan <ArrowRight className="ml-1.5 h-4 w-4" />
       </Button>
       {user && (
-        <Button variant="outline" className="mt-3 h-12 w-full rounded-2xl text-sm font-semibold" onClick={() => navigate('/my-loans')}>
+        <Button variant="outline" className="mt-3 h-12 w-full rounded-2xl text-sm font-semibold" onClick={() => navigate('/repay')}>
           <Wallet className="mr-1.5 h-4 w-4" /> Pay my loan
         </Button>
       )}
