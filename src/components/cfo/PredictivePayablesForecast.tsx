@@ -254,25 +254,23 @@ export default function PredictivePayablesForecast() {
                   />
                   <YAxis tick={{ fontSize: 9 }} tickFormatter={(v) => compact(Number(v))} width={44} />
                   <Tooltip
-                    formatter={(value: unknown, name) => {
-                      if (Array.isArray(value)) {
-                        return [`${compact(Number(value[0]))} – ${compact(Number(value[1]))}`, 'Range'];
-                      }
-                      return [formatUGX(Number(value ?? 0)), name === 'actual' ? 'Actual' : 'Forecast'];
-                    }}
+                    formatter={(value: unknown, name) =>
+                      [formatUGX(Number(value ?? 0)), name === 'actual' ? 'Actual' : name === 'ideal' ? 'Ideal (scheduled)' : 'Behavior projection']
+                    }
                     contentStyle={{ fontSize: 11 }}
                   />
                   <Legend wrapperStyle={{ fontSize: 10 }} />
-                  <Area
-                    type="monotone"
-                    dataKey="band"
-                    name="Forecast range"
-                    stroke="none"
-                    fill="hsl(var(--primary))"
-                    fillOpacity={0.12}
-                  />
                   <Bar dataKey="actual" name="Actual paid" fill="hsl(var(--muted-foreground))" />
-                  <Bar dataKey="forecast" name="Forecast (est.)" fill="hsl(var(--primary))" />
+                  <Bar dataKey="forecast" name="Behavior projection" fill="hsl(var(--primary))" />
+                  <Line
+                    type="monotone"
+                    dataKey="ideal"
+                    name="Ideal (scheduled)"
+                    stroke="hsl(var(--muted-foreground))"
+                    strokeDasharray="4 3"
+                    strokeWidth={1.5}
+                    dot={false}
+                  />
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
