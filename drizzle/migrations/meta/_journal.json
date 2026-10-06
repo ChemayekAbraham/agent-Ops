@@ -3305,6 +3305,13 @@
       "when": 1791272694318,
       "tag": "0471_sms_cost_daily_rpc",
       "breakpoints": true
+    },
+    {
+      "idx": 472,
+      "version": "7",
+      "when": 1791281745046,
+      "tag": "0472_payables_supporter_returns_exclude_capital",
+      "breakpoints": true
     }
   ]
 }
