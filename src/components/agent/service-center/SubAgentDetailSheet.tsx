@@ -1,11 +1,11 @@
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { Sheet, SheetClose, SheetContent } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  ArrowLeftRight, Building2, Home, KeyRound, Mail, Phone, ShieldCheck, ShieldOff, Unlink, Users, Wallet,
+  ArrowLeftRight, Building2, Home, KeyRound, Mail, Phone, ShieldCheck, ShieldOff, Unlink, Users, Wallet, X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -183,7 +183,11 @@ export function SubAgentDetailSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="bottom" className="h-[92dvh] rounded-t-3xl p-0">
         <ScrollArea className="h-full">
-          <div className={`${tint.header} px-5 pb-6 pt-8`}>
+          <div className={`${tint.header} relative px-5 pb-6 pt-8`}>
+            <SheetClose className="absolute right-3 top-3 z-10 rounded-full bg-background/70 p-2 text-muted-foreground shadow-sm backdrop-blur transition-colors hover:bg-background hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
+              <X className="h-4 w-4" />
+              <span className="sr-only">Close</span>
+            </SheetClose>
             <div className="flex items-start gap-3">
               <Avatar className="h-14 w-14 shrink-0 ring-2 ring-background">
                 <AvatarImage src={subAgent.avatar_url ?? undefined} alt={subAgent.full_name ?? 'Sub-agent'} />
