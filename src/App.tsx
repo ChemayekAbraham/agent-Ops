@@ -224,7 +224,7 @@ const MerchandiseShareAnalyticsPage = lazy(() => import('./pages/admin/Merchandi
 const MerchandiseSharePreviewCheckPage = lazy(() => import('./pages/admin/MerchandiseSharePreviewCheck'));
 const CRMDashboardPage = lazy(() => import('./pages/crm/Dashboard'));
 const CFODashboardPage = lazy(() => import('./pages/cfo/Dashboard'));
-const CFOReceivablesAnalysisPage = lazy(() => import('./pages/cfo/ReceivablesAnalysis'));
+const CFOReceivablesAnalysisPage = lazy(() => import('./pages/cfo/ReceivablesOverview'));
 const InvestorReportPage = lazy(() => import('./pages/cfo/InvestorReportPage'));
 const MoneyFlowTracePage = lazy(() => import('./pages/cfo/MoneyFlowTrace'));
 const LedgerEntryDetailPage = lazy(() => import('./pages/cfo/LedgerEntryDetail'));
