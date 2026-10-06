@@ -9,7 +9,7 @@ import {
   CheckCircle2, Clock, AlertTriangle, CalendarClock, Repeat, PlusCircle, CalendarPlus, Check,
 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
-import { LendingLoan, outstandingOf, dueStateOf, normalizePhone } from './lendingHelpers';
+import { LendingLoan, outstandingOf, dueStateOf, normalizePhone, repaymentPlanOf } from './lendingHelpers';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 
@@ -58,6 +58,7 @@ export default function LendingBorrowerCard({ loan, onRecordRepayment, onTopUpOr
   const name = loan.borrower_display_name ?? loan.borrower_ai_id;
   const phone = normalizePhone(loan.borrower_phone);
   const outstanding = outstandingOf(loan);
+  const plan = repaymentPlanOf(loan);
   const totalDue = loan.principal_ugx + (loan.principal_ugx * (Number(loan.interest_rate_pct) || 0)) / 100;
   const repaidPct = totalDue > 0 ? Math.min(100, Math.round((Number(loan.amount_repaid_ugx) / totalDue) * 100)) : 0;
   const isOpen = loan.status === 'active' || loan.status === 'partially_repaid';
@@ -65,7 +66,6 @@ export default function LendingBorrowerCard({ loan, onRecordRepayment, onTopUpOr
   const statusStyle = STATUS_STYLE[loan.status] ?? STATUS_STYLE.active;
   const dueStyle = DUE_STYLE[due];
   const autoOn = !!loan.auto_deduct_enabled && isOpen;
-  const freqLabel = (loan.repayment_frequency ?? '').replace('_', ' ');
 
   // New end date: count from today, or from the current end date if that is still ahead.
   const currentDue = loan.expected_repayment_date ? new Date(loan.expected_repayment_date) : null;
@@ -162,14 +162,34 @@ export default function LendingBorrowerCard({ loan, onRecordRepayment, onTopUpOr
             <span className="text-[9px] text-muted-foreground font-semibold tabular-nums">{repaidPct}%</span>
             <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${expanded ? 'rotate-180' : ''}`} />
           </div>
+
+          {/* Repayment plan — visible at a glance without expanding */}
+          {plan && (
+            <div className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 rounded-lg bg-muted/50 px-2.5 py-1.5 text-[10px] font-semibold text-muted-foreground">
+              <span className="inline-flex items-center gap-1 text-primary">
+                <Repeat className="h-3 w-3" /> {plan.frequencyLabel}
+              </span>
+              {plan.frequency !== 'once' && (
+                <span>· {formatUGX(plan.installment)} each</span>
+              )}
+              <span>
+                · {plan.remainingCount} {plan.remainingCount === 1 ? 'payment' : 'payments'} left
+              </span>
+              {plan.nextDueDate && (
+                <span className={plan.nextDueInPast ? 'text-destructive' : ''}>
+                  · Next {new Date(plan.nextDueDate).toLocaleDateString()}
+                </span>
+              )}
+            </div>
+          )}
+
           {!expanded && (
             <p className="mt-2 text-center text-xs font-semibold text-primary">Tap to pay, add money or give more time</p>
           )}
-          {autoOn && (
+          {autoOn && plan && (
             <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[9px] font-semibold text-primary">
               <Repeat className="h-2.5 w-2.5" />
-              Auto {freqLabel} · ~{formatUGX(Number(loan.installment_ugx) || 0)}
-              {loan.next_deduction_date ? ` · next ${new Date(loan.next_deduction_date).toLocaleDateString()}` : ''}
+              Money is taken automatically {plan.nextDueDate ? `· next ${new Date(plan.nextDueDate).toLocaleDateString()}` : ''}
             </div>
           )}
         </button>
@@ -181,6 +201,26 @@ export default function LendingBorrowerCard({ loan, onRecordRepayment, onTopUpOr
             animate={{ opacity: 1, height: 'auto' }}
             className="border-t border-border/60 bg-muted/20 px-3.5 py-3 space-y-3"
           >
+            {/* Plan at a glance — three big tiles */}
+            {plan && (
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-xl bg-background border p-2.5 text-center">
+                  <p className="text-[9px] uppercase tracking-wide text-muted-foreground font-bold">Left to pay</p>
+                  <p className="text-sm font-bold text-foreground leading-tight mt-0.5">{formatUGX(outstanding)}</p>
+                </div>
+                <div className="rounded-xl bg-background border p-2.5 text-center">
+                  <p className="text-[9px] uppercase tracking-wide text-muted-foreground font-bold">Payments left</p>
+                  <p className="text-sm font-bold text-foreground leading-tight mt-0.5">{plan.remainingCount}</p>
+                </div>
+                <div className="rounded-xl bg-background border p-2.5 text-center">
+                  <p className="text-[9px] uppercase tracking-wide text-muted-foreground font-bold">Next payment</p>
+                  <p className={`text-sm font-bold leading-tight mt-0.5 ${plan.nextDueInPast ? 'text-destructive' : 'text-foreground'}`}>
+                    {plan.nextDueDate ? new Date(plan.nextDueDate).toLocaleDateString() : '—'}
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-3 gap-2">
               <Button variant="outline" className="h-16 flex-col gap-1 text-xs font-semibold" onClick={() => contact('call')}>
                 <Phone className="h-6 w-6 text-primary" /> Call
