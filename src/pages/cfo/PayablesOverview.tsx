@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import PredictivePayablesForecast from '@/components/cfo/PredictivePayablesForecast';
 import PayablesAccuracyPanel from '@/components/cfo/PayablesAccuracyPanel';
-import { usePayablesTotal, usePayablesBreakdown, usePayablesPredictiveForecast, type PayableProduct, type PayableItem } from '@/hooks/usePayables';
+import { usePayablesTotal, usePayablesBreakdown, usePayablesPredictiveForecast, usePayablesContractSchedule, type PayableProduct, type PayableItem } from '@/hooks/usePayables';
 import { formatUGX } from '@/lib/rentCalculations';
 
 const COLORS = ['success', 'primary', 'warning', 'destructive', 'muted-foreground', 'receivable-rnd'].map((tone) => `hsl(var(--${tone}))`);
@@ -127,15 +127,24 @@ function ProductDetail({ product }: { product: PayableProduct }) {
 function DailyForecast() {
   const [days, setDays] = useState(7);
   const q = usePayablesPredictiveForecast('day', days);
-  const rows = q.data?.periods ?? [];
-  const sum = rows.reduce((a, p) => a + p.forecast_amount, 0);
-  const sched = rows.reduce((a, p) => a + p.scheduled_amount, 0);
+  const contractQ = usePayablesContractSchedule('day', days);
+  const history = q.data?.history ?? [];
+  const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
+  const overall = avg(history.map((x) => x.actual_amount));
+  const contractMap = new Map((contractQ.data ?? []).map((c) => [c.index, Number(c.contract_amount ?? 0)]));
+  const rows = (q.data?.periods ?? []).map((p) => {
+    const dow = new Date(p.period_start).getUTCDay();
+    const same = history.filter((x) => new Date(x.period_start).getUTCDay() === dow).map((x) => x.actual_amount);
+    return { key: p.period_start, date: p.period_start.slice(0, 10), label: p.label, behavior: Math.round(same.length ? avg(same) : overall), contract: contractMap.get(p.index) ?? 0 };
+  });
+  const sum = rows.reduce((a, r) => a + r.behavior, 0);
+  const sched = rows.reduce((a, r) => a + r.contract, 0);
   return <>
     <div role="tablist" aria-label="Forecast period" className="inline-flex gap-1 rounded-lg border border-border/70 bg-card p-1">{[7, 14, 30].map((d) => <Button key={d} variant="ghost" size="sm" role="tab" aria-selected={days === d} onClick={() => setDays(d)} className={`rounded-md text-xs ${days === d ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-primary hover:bg-primary/10'}`}>Next {d} days</Button>)}</div>
-    {q.isLoading ? <Panel><p className="text-xs text-muted-foreground">Loading forecast…</p></Panel> : q.isError ? <Panel><p className="text-xs text-destructive">Forecast unavailable. Please refresh.</p></Panel> : <>
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-3"><Metric label="Expected Payables (est.)" value={formatUGX(sum)} note={`Next ${days} days`} icon={Wallet} tone="primary" /><Metric label="Scheduled Portion" value={formatUGX(sched)} note="Contractual due dates" icon={CalendarDays} tone="success" /><Metric label="Daily Average" value={formatUGX(rows.length ? sum / rows.length : 0)} note="Expected per day" icon={TrendingDown} tone="warning" /></div>
-      <Panel title={`Expected Payables — Next ${days} Days`}><ForecastChart rows={rows.map((p) => ({ label: p.label, amount: p.forecast_amount, scheduled: p.scheduled_amount }))} /></Panel>
-      <Panel title="Day by Day"><div className="overflow-x-auto"><table className="w-full text-[10px]"><thead className="bg-muted/50 text-muted-foreground"><tr><th className="p-2 text-left font-medium">Date</th><th className="p-2 text-right font-medium">Expected (UGX)</th><th className="p-2 text-right font-medium">Scheduled (UGX)</th><th className="p-2 text-right font-medium">Range (UGX)</th><th className="p-2 text-left font-medium">Confidence</th></tr></thead><tbody className="divide-y divide-border">{rows.map((p) => <tr key={p.period_start}><td className="p-2">{p.period_start.slice(0, 10)}</td><td className="p-2 text-right tabular-nums">{formatUGX(p.forecast_amount)}</td><td className="p-2 text-right tabular-nums">{formatUGX(p.scheduled_amount)}</td><td className="p-2 text-right tabular-nums whitespace-nowrap">{compact(p.low)} – {compact(p.high)}</td><td className="p-2 capitalize text-muted-foreground">{p.quality}</td></tr>)}</tbody><tfoot><tr className="border-t border-border font-semibold"><td className="p-2">Total</td><td className="p-2 text-right tabular-nums">{formatUGX(sum)}</td><td className="p-2 text-right tabular-nums">{formatUGX(sched)}</td><td colSpan={2} /></tr></tfoot></table></div></Panel>
+    {q.isLoading || contractQ.isLoading ? <Panel><p className="text-xs text-muted-foreground">Loading forecast…</p></Panel> : q.isError ? <Panel><p className="text-xs text-destructive">Forecast unavailable. Please refresh.</p></Panel> : <>
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-3"><Metric label="Behavior projection" value={formatUGX(sum)} note="Based on past payables" icon={Wallet} tone="primary" /><Metric label="Ideal (contract)" value={contractQ.isError ? 'Unavailable' : formatUGX(sched)} note="Scheduled by contract" icon={CalendarDays} tone="success" /><Metric label="Daily Average" value={formatUGX(rows.length ? sum / rows.length : 0)} note="Behavior projection per day" icon={TrendingDown} tone="warning" /></div>
+      <Panel title={`Payables Projection — Next ${days} Days`}><ForecastChart rows={rows.map((r) => ({ label: r.label, amount: r.behavior, scheduled: r.contract }))} /></Panel>
+      <Panel title="Day by Day"><div className="overflow-x-auto"><table className="w-full text-[10px]"><thead className="bg-muted/50 text-muted-foreground"><tr><th className="p-2 text-left font-medium">Date</th><th className="p-2 text-right font-medium">Behavior projection (UGX)</th><th className="p-2 text-right font-medium">Ideal — contract (UGX)</th></tr></thead><tbody className="divide-y divide-border">{rows.map((r) => <tr key={r.key}><td className="p-2">{r.date}</td><td className="p-2 text-right tabular-nums">{formatUGX(r.behavior)}</td><td className="p-2 text-right tabular-nums">{formatUGX(r.contract)}</td></tr>)}</tbody><tfoot><tr className="border-t border-border font-semibold"><td className="p-2">Total</td><td className="p-2 text-right tabular-nums">{formatUGX(sum)}</td><td className="p-2 text-right tabular-nums">{formatUGX(sched)}</td></tr></tfoot></table></div></Panel>
     </>}
   </>;
 }
