@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, LayoutGrid, Users, Handshake, Home, Building2, Package, FlaskConical } from 'lucide-react';
+import { ArrowLeft, HandCoins, LayoutGrid, Users, Handshake, Home, Building2, Package, FlaskConical } from 'lucide-react';
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from 'recharts';
@@ -99,11 +99,15 @@ export default function ReceivablesOverview() {
               <SideItem key={c.key} active={catKey === c.key} icon={c.icon} label={c.label}
                 value={c.outstanding} onClick={() => go(c.key)} />
             ))}
+            <div className="my-2 border-t border-border/60" />
+            <p className="px-3 pb-1 text-[10px] uppercase tracking-wide text-muted-foreground">Not company money</p>
+            <SideItem active={catKey === 'agent_lending'} icon={HandCoins} label="Agent-to-borrower lending"
+              onClick={() => go('agent_lending')} />
             <div className="flex-1 min-h-2" />
           </nav>
 
           <div className="min-w-0 flex flex-col gap-6">
-            {breakdown.isLoading ? (
+            {catKey === 'agent_lending' ? <AgentLendingSection /> : breakdown.isLoading ? (
               <Card><p className="text-sm text-muted-foreground">Loading live receivables…</p></Card>
             ) : !cat ? (
               <Overview cats={cats} products={(k) => liveCat(k)?.products ?? []} onOpen={go} total={breakdown.data?.total ?? 0} />
@@ -325,5 +329,50 @@ function SubDetail({ catKey, label, productKey, product }: {
         </div>
       </Card>
     </div>
+  );
+}
+
+function AgentLendingSection() {
+  const q = useQuery({
+    queryKey: ['cfo-agent-lending-summary'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('cfo_agent_lending_summary' as any);
+      if (error) throw error;
+      return data as any;
+    },
+  });
+  const d = q.data;
+  return (
+    <>
+      <div>
+        <h2 className="text-lg font-semibold">Agent-to-borrower lending</h2>
+        <p className="text-xs text-muted-foreground">Agents lend from their own wallets and repayments go back to them. Not included in company receivables totals.</p>
+      </div>
+      {q.isLoading ? <Card><p className="text-sm text-muted-foreground">Loading…</p></Card>
+        : q.error ? <Card><p className="text-sm text-destructive">Could not load agent lending figures.</p></Card>
+        : (
+        <>
+          <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
+            <Stat label="Borrowers owe agents" value={formatUGX(d.outstanding)} sub={`${d.loans} open · ${d.borrowers} borrowers · ${d.agents} agents`} />
+            <Stat label="Past last day" value={formatUGX(d.overdue)} sub={`${d.overdue_loans} open past end date`} />
+            <Stat label="Repaid · last 30 days" value={formatUGX(d.repaid_30d)} sub={`${d.payments_30d} payments`} />
+            <Stat label="Current" value={formatUGX(Math.max(0, d.outstanding - d.overdue))} sub="Not yet past end date" />
+          </div>
+          <Card title="Borrower repayments · last 30 days" className="flex-1 flex flex-col">
+            <div className="flex-1 min-h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={d.daily} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(v: string) => v.slice(5)} />
+                  <YAxis tick={{ fontSize: 11 }} tickFormatter={compact} width={48} />
+                  <Tooltip formatter={(v: number) => formatUGX(v)} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+                  <Line type="monotone" dataKey="amount" name="Repaid" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </Card>
+        </>
+      )}
+    </>
   );
 }
