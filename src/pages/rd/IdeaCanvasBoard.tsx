@@ -147,6 +147,7 @@ export default function IdeaCanvasBoard() {
                 </div>
               )}
             </div>
+          );
   };
 
   return (
