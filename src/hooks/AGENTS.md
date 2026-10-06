@@ -1,4 +1,4 @@
 # Forecast hooks
 
-- Receivables Forecast uses read-only history averages and scheduled RPC amounts; generate windows independently of the predictive RPC's 60-period cap and split contract reads into non-overlapping windows at its 400-day limit, so long horizons are not truncated or double-counted.
+- Receivables Forecast uses read-only history averages for Behavior and both fixed-date scheduled amounts and recorded daily-installment amounts from get_receivables_forecast for Ideal; generate windows independently of the predictive RPC's 60-period cap and split contract reads into non-overlapping windows at its 400-day limit, so long horizons are not truncated or double-counted.
 - Load 60 daily or 12 monthly historical periods for Receivables Behavior, averaging same weekdays from complete Monday–Sunday weeks or complete months only; the RPC limits history by the requested period count, and incomplete current periods understate collections.
