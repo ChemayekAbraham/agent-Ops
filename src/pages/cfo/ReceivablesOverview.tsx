@@ -85,36 +85,30 @@ export default function ReceivablesOverview() {
   const product = cat && subKey ? liveCat(cat.key)?.products.find((p) => p.key === subKey) : undefined;
 
   return (
-    <main className="min-h-screen flex flex-col bg-background">
-      <div className="flex-1 w-full px-4 sm:px-6 lg:px-7 py-5 flex flex-col">
-        <header className="mb-5 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <Link to="/cfo/dashboard" className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"><ArrowLeft className="h-3 w-3" /> CFO dashboard</Link>
-            <h1 className="mt-1 text-2xl font-semibold">Receivables Overview</h1>
-            <p className="mt-1 text-xs text-muted-foreground">As at {breakdown.data?.as_at?.slice(0, 10) ?? '—'} · EAT · UGX</p>
-          </div>
-          <div className="flex w-full items-center gap-2 sm:w-auto">
-            <div className="relative flex-1 sm:w-64"><Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" /><Input aria-label="Search receivable categories" placeholder="Search categories…" value={search} onChange={(e) => setSearch(e.target.value)} className="rounded-lg pl-9" /></div>
-            <Button variant="outline" size="sm" className="rounded-lg" disabled={breakdown.isFetching} onClick={() => void breakdown.refetch()}><RefreshCw className={breakdown.isFetching ? 'animate-spin' : ''} /> Refresh</Button>
-          </div>
-        </header>
-
-        <div className="grid grid-cols-1 lg:grid-cols-[180px_minmax(0,1fr)] gap-5 lg:min-h-[calc(100vh-9rem)] flex-1">
-          <nav aria-label="Receivable categories" className="border-r border-border bg-background p-1 flex flex-col lg:sticky lg:top-5 lg:min-h-[calc(100vh-3rem)] lg:self-start">
-            <SideItem active={catKey === 'overview'} icon={LayoutGrid} label="Overview"
-              value={breakdown.data?.total} onClick={() => go('overview')} />
-            {cats.map((c) => (
-              <SideItem key={c.key} active={catKey === c.key} icon={c.icon} label={c.label}
-                value={c.outstanding} onClick={() => go(c.key)} />
-            ))}
-            <div className="my-2 border-t border-border/60" />
-            <p className="px-3 pb-1 text-[10px] uppercase tracking-wide text-muted-foreground">Not company money</p>
-            <SideItem active={catKey === 'agent_lending'} icon={HandCoins} label="Agent-to-borrower lending"
-              onClick={() => go('agent_lending')} />
-            <div className="flex-1 min-h-2" />
+    <main className="receivables-workspace min-h-screen bg-background">
+      <div className="border-b border-border bg-card lg:fixed lg:inset-x-0 lg:top-0 lg:z-30 flex h-14 items-center">
+        <Link to="/cfo/dashboard" className="hidden h-full w-[190px] shrink-0 items-center gap-2 border-r border-border px-4 text-base font-semibold lg:flex"><TrendingUp className="h-5 w-5 text-info" /> Welile CFO</Link>
+        <div className="relative mx-4 w-full max-w-lg"><Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" /><Input aria-label="Search receivable categories" placeholder="Search categories…" value={search} onChange={(e) => setSearch(e.target.value)} className="h-9 min-h-0 rounded-full bg-muted/40 pl-9 text-xs" /></div>
+        <span className="ml-auto hidden px-5 text-xs text-muted-foreground sm:block">CFO</span>
+      </div>
+      <div className="lg:pt-14">
+        <div className="grid grid-cols-1 lg:grid-cols-[190px_minmax(0,1fr)]">
+          <nav aria-label="Receivable categories" className="border-r border-border bg-card px-2 py-4 flex flex-col lg:fixed lg:bottom-0 lg:left-0 lg:top-14 lg:w-[190px]">
+            <p className="px-3 pb-3 text-[10px] text-muted-foreground">CFO</p>
+            <Button asChild variant="ghost" className="mb-2 h-9 justify-start px-3 text-xs font-medium"><Link to="/cfo/dashboard"><Home /> Overview</Link></Button>
+            <div className="mb-1 flex items-center gap-2 rounded-md bg-info/5 px-3 py-2 text-xs font-semibold text-info"><LayoutGrid className="h-4 w-4" /> Receivables</div>
+            <SideItem active={catKey === 'overview'} icon={LayoutGrid} label="Overview" onClick={() => go('overview')} />
+            {cats.map((c) => <SideItem key={c.key} active={catKey === c.key} icon={c.icon} label={c.label} onClick={() => go(c.key)} />)}
+            <div className="my-3 border-t border-border/60" />
+            <p className="px-3 pb-1 text-[10px] text-muted-foreground">Not company money</p>
+            <SideItem active={catKey === 'agent_lending'} icon={HandCoins} label="Agent-to-borrower lending" onClick={() => go('agent_lending')} />
           </nav>
-
-          <div className="min-w-0 flex flex-col gap-5">
+          <div className="min-w-0 px-4 py-5 lg:col-start-2">
+            <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
+              <div><h1 className="text-xl font-semibold">Receivables Overview</h1><p className="mt-1 text-xs text-muted-foreground">Outstanding receivables, collection risk and expected collections.</p></div>
+              <div className="flex items-center gap-3"><span className="text-[10px] text-muted-foreground">Last updated · {breakdown.data?.as_at?.slice(0,10) ?? '—'} · EAT</span><Button variant="outline" size="sm" className="rounded-md text-info" disabled={breakdown.isFetching} onClick={() => void breakdown.refetch()}><RefreshCw className={breakdown.isFetching ? 'animate-spin' : ''} />Refresh</Button></div>
+            </header>
+          <div className="min-w-0 flex flex-col gap-3">
             {catKey === 'agent_lending' ? <AgentLendingSection /> : breakdown.isLoading ? (
               <Card><p className="text-sm text-muted-foreground">Loading live receivables…</p></Card>
             ) : breakdown.isError ? (<Card><p className="text-sm text-destructive">Could not load receivables. Please refresh.</p></Card>) : !cat ? (
@@ -144,6 +138,7 @@ export default function ReceivablesOverview() {
               </>
             )}
           </div>
+          </div>
         </div>
       </div>
     </main>
@@ -155,10 +150,10 @@ function SideItem({ active, icon: Icon, label, value, onClick }: {
 }) {
   return (
     <Button variant="ghost" type="button" onClick={onClick} aria-current={active ? 'page' : undefined}
-      className={`w-full h-auto justify-start flex items-center gap-3 rounded-lg px-2 py-3 text-left transition-colors ${active ? 'bg-primary/10 text-primary' : 'hover:bg-muted text-foreground'}`}>
+      className={`w-full h-auto justify-start flex items-center gap-2 rounded-md px-3 py-2 text-left transition-colors ${active ? 'bg-info/5 text-info' : 'hover:bg-muted text-foreground'}`}>
       <Icon className="h-4 w-4 shrink-0" />
       <span className="flex-1 min-w-0">
-        <span className="block text-xs font-medium whitespace-normal leading-5">{label}</span>
+        <span className="block text-[10px] font-medium whitespace-normal leading-4">{label}</span>
         {value !== undefined && <span className="block text-[11px] text-muted-foreground tabular-nums">UGX {compact(value)}</span>}
       </span>
     </Button>
@@ -167,10 +162,10 @@ function SideItem({ active, icon: Icon, label, value, onClick }: {
 
 function Card({ title, right, className, children }: { title?: string; right?: React.ReactNode; className?: string; children: React.ReactNode }) {
   return (
-    <section className={`rounded-lg border border-border bg-card p-4 min-w-0 ${className ?? ''}`}>
+    <section className={`rounded-lg border border-border bg-card p-3 min-w-0 ${className ?? ''}`}>
       {title && (
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-sm font-semibold">{title}</h3>{right}
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-xs font-semibold">{title}</h3>{right}
         </div>
       )}
       {children}
@@ -220,7 +215,7 @@ function Overview({ cats, products, onOpen, total, search }: {
   const longest = complete && overdueItems.length ? Math.max(...overdueItems.map((i) => Math.floor((Date.parse(today) - Date.parse(i.due_date?.slice(0, 10) ?? today)) / 86400000))) : undefined;
   return (
     <>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
         <OverviewMetric label="Total Receivables" value={money(total)} note={`${counts.toLocaleString()} open items`} icon={Wallet} tone="info" />
         <OverviewMetric label="Current" value={money(actual?.not_yet_due)} note="Not yet due" icon={CheckCircle2} tone="success" />
         <OverviewMetric label="Overdue" value={money(actual?.overdue)} note="Past due date" icon={AlertTriangle} tone="destructive" />
@@ -228,29 +223,31 @@ function Overview({ cats, products, onOpen, total, search }: {
         <OverviewMetric label="Collection Rate" value="Unavailable" note="No consolidated rate" icon={TrendingUp} tone="success" />
         <OverviewMetric label="Accounts Receivable" value={counts.toLocaleString()} note="Open receivable items" icon={Users} tone="info" />
       </div>
-      <div className="grid gap-4 xl:grid-cols-[1.65fr_1fr_1fr] [&>*]:min-w-0">
-        <Card title="Receivables by Category" className="h-full">
+      <div className="grid gap-3 xl:grid-cols-[1.4fr_1.2fr_1fr] [&>*]:min-w-0">
+        <Card title="Receivables by Category" className="h-full category-table">
           <div className="overflow-x-auto">
             <table className="w-full text-[10px]"><thead className="bg-muted/50 text-muted-foreground"><tr><th className="p-1 text-left font-medium">Category</th><th className="p-1 text-right font-medium">Items</th><th className="p-1 text-right font-medium">Outstanding (UGX)</th><th className="p-1 text-right font-medium">Overdue (UGX)</th><th className="p-1 text-right font-medium">Share</th></tr></thead>
-              <tbody className="divide-y divide-border">{cats.filter((c) => c.label.toLowerCase().includes(search.toLowerCase())).map((c, index) => <tr key={c.key} className="hover:bg-muted/40"><td className="py-3 pr-2"><Button variant="ghost" className="h-auto min-h-0 justify-start whitespace-normal px-0 py-1 text-left text-[10px] font-medium" onClick={() => onOpen(c.key)}><c.icon className="h-4 w-4 shrink-0 text-muted-foreground" />{c.label}<ChevronRight className="h-3 w-3" /></Button></td><td className="p-1 text-right tabular-nums">{c.count.toLocaleString()}</td><td className="p-1 text-right tabular-nums whitespace-nowrap">{formatUGX(c.outstanding)}</td><td className="p-1 text-right tabular-nums whitespace-nowrap">{money(overdueFor(c.key))}</td><td className="p-1 text-right tabular-nums">{total > 0 ? (c.outstanding / total * 100).toFixed(1) : '0'}%</td></tr>)}</tbody>
+              <tbody className="divide-y divide-border">{cats.filter((c) => c.label.toLowerCase().includes(search.toLowerCase())).map((c, index) => <tr key={c.key} className="hover:bg-muted/40"><td className="py-2.5 pr-1"><Button variant="ghost" className="h-auto min-h-0 justify-start whitespace-normal px-0 py-1 text-left text-[10px] font-medium" onClick={() => onOpen(c.key)}><c.icon className="h-4 w-4 shrink-0 text-muted-foreground" />{c.label}<ChevronRight className="h-3 w-3" /></Button></td><td className="p-1 text-right tabular-nums">{c.count.toLocaleString()}</td><td className="p-1 text-right tabular-nums whitespace-nowrap">{formatUGX(c.outstanding).replace(/^UGX\s*/, '')}</td><td className="p-1 text-right tabular-nums whitespace-nowrap">{money(overdueFor(c.key)).replace(/^UGX\s*/, '')}</td><td className="p-1 text-right tabular-nums">{total > 0 ? (c.outstanding / total * 100).toFixed(1) : '0'}%</td></tr>)}</tbody>
             </table>
           </div>
         </Card>
-        <div className="grid gap-4">
-          <Card title="Receivables by Category">
-            <div className="relative h-52">
-              {total > 0 ? <ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={cats} dataKey="outstanding" nameKey="label" innerRadius="62%" outerRadius="88%" paddingAngle={1} stroke="hsl(var(--card))">{cats.map((c, i) => <Cell key={c.key} fill={SLICE_COLORS[i]} />)}</Pie><Tooltip formatter={(v: number) => formatUGX(v)} /></PieChart></ResponsiveContainer> : <p className="pt-16 text-center text-muted-foreground">No outstanding receivables</p>}
+        <div className="grid content-start gap-3">
+          <Card title="Receivables by Category" className="category-distribution">
+            <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)] items-center gap-2">
+            <div className="relative h-44">
+              {total > 0 ? <ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={cats} dataKey="outstanding" nameKey="label" innerRadius="62%" outerRadius="90%" paddingAngle={1} stroke="hsl(var(--card))">{cats.map((c, i) => <Cell key={c.key} fill={SLICE_COLORS[i]} />)}</Pie><Tooltip formatter={(v: number) => formatUGX(v)} /></PieChart></ResponsiveContainer> : <p className="pt-16 text-center text-muted-foreground">No outstanding receivables</p>}
               {total > 0 && <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center"><span className="text-xs text-muted-foreground">UGX</span><span className="text-xl font-semibold tabular-nums">{compact(total)}</span><span className="text-xs text-muted-foreground">Total</span></div>}
             </div>
-            <div className="mt-2 space-y-2">{cats.map((c, i) => <div key={c.key} className="flex items-center gap-2 text-[11px]"><svg width="8" height="8" aria-hidden="true"><circle cx="4" cy="4" r="4" fill={SLICE_COLORS[i]} /></svg><span className="flex-1">{c.label}</span><span className="tabular-nums">{total ? (c.outstanding / total * 100).toFixed(1) : '0'}%</span></div>)}</div>
+            <div className="space-y-2.5">{cats.map((c, i) => <div key={c.key} className="flex items-center gap-2 text-[11px]"><svg width="8" height="8" aria-hidden="true"><circle cx="4" cy="4" r="4" fill={SLICE_COLORS[i]} /></svg><span className="flex-1">{c.label}</span><span className="tabular-nums">{total ? (c.outstanding / total * 100).toFixed(1) : '0'}%</span></div>)}</div>
+            </div>
           </Card>
           <Card title="7-Day Receivables Forecast">
             <div className="mb-2 flex flex-wrap gap-3 text-[10px] text-muted-foreground"><span>Expected collections</span><span>Cumulative</span></div>
-            <div className="h-40"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={chartRows} margin={{ top: 8, right: 4, left: -20, bottom: 0 }}><CartesianGrid vertical={false} stroke="hsl(var(--border))" /><XAxis dataKey="label" tick={{ fontSize: 9 }} tickLine={false} axisLine={false} /><YAxis tickFormatter={compact} tick={{ fontSize: 9 }} tickLine={false} axisLine={false} /><Tooltip formatter={(v: number) => formatUGX(v)} /><Bar dataKey="amount" name="Expected collections" fill="hsl(var(--info))" maxBarSize={22} radius={[3,3,0,0]} /><Line dataKey="cumulative" name="Cumulative" stroke="hsl(var(--success))" strokeWidth={2} dot={false} /></ComposedChart></ResponsiveContainer></div>
+            <div className="h-36"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={chartRows} margin={{ top: 8, right: 4, left: -20, bottom: 0 }}><CartesianGrid vertical={false} stroke="hsl(var(--border))" /><XAxis dataKey="label" tick={{ fontSize: 9 }} tickLine={false} axisLine={false} /><YAxis tickFormatter={compact} tick={{ fontSize: 9 }} tickLine={false} axisLine={false} /><Tooltip formatter={(v: number) => formatUGX(v)} /><Bar dataKey="amount" name="Expected collections" fill="hsl(var(--info))" maxBarSize={22} radius={[3,3,0,0]} /><Line dataKey="cumulative" name="Cumulative" stroke="hsl(var(--success))" strokeWidth={2} dot={false} /></ComposedChart></ResponsiveContainer></div>
             {expected === undefined && <p className="mt-2 text-[11px] text-muted-foreground">Insufficient data for a complete forecast.</p>}
           </Card>
         </div>
-        <div className="grid content-start gap-4">
+        <div className="grid content-start gap-3">
           <Card title="Collection Outlook (Next 7 Days)"><div className="divide-y divide-border"><OutlookRow label="Expected Receipts" value={money(expected)} tone="success" /><OutlookRow label="Expected Payables" value={money(payable)} tone="destructive" /><OutlookRow label="Net Expected Cash Flow" value={expected !== undefined && payable !== undefined ? money(expected - payable) : 'Unavailable'} tone="info" /></div></Card>
           <Card title="Top Locations by Receivables" right={<Button variant="link" size="sm" className="h-auto min-h-0 p-0" onClick={() => onOpen('tenant')}>View all <ChevronRight /></Button>}>
             <p className="mb-3 text-[11px] text-muted-foreground">Tenant products & services</p>
@@ -266,10 +263,10 @@ function Overview({ cats, products, onOpen, total, search }: {
 
 function OverviewMetric({ label, value, note, icon: Icon, tone }: { label: string; value: string; note: string; icon: typeof Users; tone: string }) {
   const tones: Record<string, string> = { info: 'bg-info/5 text-info', success: 'bg-success/5 text-success', destructive: 'bg-destructive/5 text-destructive', primary: 'bg-primary/5 text-primary', warning: 'bg-warning/5 text-warning' };
-  return <div className={`min-w-0 rounded-lg border border-border p-3 ${tones[tone] ?? 'bg-muted text-foreground'}`}><div className="mb-2 flex items-center gap-2"><Icon className="h-4 w-4 shrink-0" /><span className="text-[11px] font-medium">{label}</span></div><p className="text-[11px] leading-5 font-semibold tabular-nums text-foreground">{value.startsWith('UGX ') ? <><span className="block text-[10px] font-medium">UGX</span><span className="whitespace-nowrap">{value.slice(4)}</span></> : value}</p><p className="mt-1 text-[10px] text-muted-foreground">{note}</p></div>;
+  return <div className={`min-w-0 rounded-lg border border-border p-2.5 ${tones[tone] ?? 'bg-muted text-foreground'}`}><div className="mb-2 flex items-center gap-2"><Icon className="h-4 w-4 shrink-0" /><span className="text-[10px] font-medium">{label}</span></div><p className="whitespace-nowrap text-xs leading-5 font-semibold tabular-nums text-foreground">{value}</p><p className="mt-1 text-[10px] text-muted-foreground">{note}</p></div>;
 }
 function OutlookRow({ label, value, tone }: { label: string; value: string; tone: string }) {
-  return <div className="flex flex-wrap items-center justify-between gap-2 py-4"><span className="flex items-center gap-2 text-[11px] text-muted-foreground"><Wallet className={`h-4 w-4 ${tone === 'success' ? 'text-success' : tone === 'destructive' ? 'text-destructive' : 'text-info'}`} />{label}</span><span className="text-xs font-semibold tabular-nums">{value}</span></div>;
+  return <div className="flex flex-wrap items-center justify-between gap-2 py-3"><span className="flex items-center gap-2 text-[11px] text-muted-foreground"><Wallet className={`h-4 w-4 ${tone === 'success' ? 'text-success' : tone === 'destructive' ? 'text-destructive' : 'text-info'}`} />{label}</span><span className="text-xs font-semibold tabular-nums">{value}</span></div>;
 }
 
 function SubDetail({ catKey, label, productKey, product }: {
