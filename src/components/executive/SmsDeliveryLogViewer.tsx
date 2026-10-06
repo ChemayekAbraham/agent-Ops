@@ -1,18 +1,18 @@
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { ExecutiveDataTable, Column } from './ExecutiveDataTable';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
 } from 'recharts';
 import { KPICard } from './KPICard';
 import { SmsFailoverAlerts } from './SmsFailoverAlerts';
-import { MessageSquare, Search, Loader2, CheckCircle2, XCircle, Radio, CalendarDays, CalendarRange, Calendar, FileDown } from 'lucide-react';
+import { MessageSquare, Loader2, CheckCircle2, XCircle, Radio, CalendarDays, CalendarRange, Calendar, FileDown } from 'lucide-react';
 import { Send } from 'lucide-react';
 import { format, formatDistanceToNow, subDays, startOfWeek, startOfMonth, endOfMonth, startOfDay, subMonths, differenceInCalendarDays } from 'date-fns';
 import { downloadSmsTrafficPdf } from '@/lib/smsTrafficReportPdf';
@@ -30,6 +30,8 @@ type SmsLog = {
   reference_id: string | null;
   source: string | null;
   error: string | null;
+  provider_message_id: string | null;
+  cost: string | null;
 };
 
 const PROVIDER_LABEL: Record<string, string> = {
@@ -54,6 +56,78 @@ function isSuccess(status: string) {
   return s === 'sent' || s === 'success' || s === 'delivered' || s === 'accepted';
 }
 
+// `sms_delivery_log.source` is a free-form tag set by each sender (~55 distinct
+// values in prod). Group them into a handful of categories for the CTO view;
+// anything unrecognised falls into "Other" and still shows its raw source.
+const CATEGORY_RULES: { category: string; test: (s: string) => boolean }[] = [
+  {
+    category: 'OTP & Verification',
+    test: (s) => /otp|password-reset|verify-code/.test(s),
+  },
+  {
+    category: 'Broadcasts',
+    test: (s) => s.startsWith('broadcast'),
+  },
+  {
+    category: 'Agent Alerts',
+    test: (s) => /agent/.test(s) && !s.startsWith('approve'),
+  },
+  {
+    category: 'Rent Collection & Arrears',
+    test: (s) =>
+      s.startsWith('advance_') ||
+      s.startsWith('tenant_arrears') ||
+      s.startsWith('tenant_self_repayment') ||
+      s.startsWith('tenant_rent_intake') ||
+      s.startsWith('tenant_notify:payment_'),
+  },
+  {
+    category: 'Tenant & Rent Plan Notices',
+    test: (s) =>
+      s.startsWith('tenant_notify') ||
+      s.startsWith('rent_plan') ||
+      s.startsWith('rent_access') ||
+      s.startsWith('signup_rent') ||
+      s.startsWith('landlord') ||
+      s.startsWith('welile_home') ||
+      s.startsWith('notify-house'),
+  },
+  {
+    category: 'Supporter & Partner',
+    test: (s) => /promissory|supporter|signup-invite|notify-email-routing|notify-id-name/.test(s),
+  },
+  {
+    category: 'Wallet, Deposits & Payouts',
+    test: (s) =>
+      /withdraw|payout|commission|deposit|finops|cfo-|requisition|hr-pay|wallet|gmail-poll|approve-/.test(s),
+  },
+];
+
+function smsCategory(source: string | null): string {
+  const s = (source || '').toLowerCase();
+  if (!s) return 'Uncategorised';
+  return CATEGORY_RULES.find((r) => r.test(s))?.category ?? 'Other';
+}
+
+// OTP / password-reset bodies carry live codes — never show them in a table
+// or preview, even to the CTO.
+function displayMessage(log: { message: string | null; category: string }): string {
+  const msg = log.message ?? '';
+  return log.category === 'OTP & Verification' ? msg.replace(/\d{4,8}/g, '••••••') : msg;
+}
+
+// GSM-7 segment count (160 single / 153 per part when concatenated). Messages
+// with non-GSM characters use UCS-2 (70 / 67) — approximate with a char check.
+function smsSegments(text: string) {
+  const unicode = /[^\x00-\x7F£¥èéùìòÇØøÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ ¡ÄÖÑÜ§¿äöñüà€]/.test(text);
+  const single = unicode ? 70 : 160;
+  const multi = unicode ? 67 : 153;
+  const len = text.length;
+  return { len, segments: len <= single ? (len ? 1 : 0) : Math.ceil(len / multi), unicode };
+}
+
+type SmsRow = SmsLog & { category: string; message_preview: string };
+
 type DailyTrafficRow = {
   day: string;
   total: number;
@@ -66,8 +140,8 @@ type DailyTrafficRow = {
 
 export function SmsDeliveryLogViewer() {
   const [search, setSearch] = useState('');
-  const [providerFilter, setProviderFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [previewRow, setPreviewRow] = useState<SmsRow | null>(null);
   const [generating, setGenerating] = useState(false);
   const [sendingTest, setSendingTest] = useState(false);
   // 'current' = this month; otherwise a 'yyyy-MM' key for a past month.
@@ -136,17 +210,14 @@ export function SmsDeliveryLogViewer() {
   const rollupDays = Math.max(90, differenceInCalendarDays(new Date(), selectedMonthStart) + 40);
 
   const { data: logs = [], isLoading } = useQuery({
-    queryKey: ['cto-sms-delivery-log', providerFilter, statusFilter, monthFilter, search.trim()],
+    queryKey: ['cto-sms-delivery-log', monthFilter, debouncedSearch],
     queryFn: async () => {
-      const q = search.trim();
+      const q = debouncedSearch;
       let query = supabase
         .from('sms_delivery_log')
-        .select('id, created_at, recipient_phone, recipient_name, message, status, provider, provider_response, reference_id, source, error')
+        .select('id, created_at, recipient_phone, recipient_name, message, status, provider, provider_response, reference_id, source, error, provider_message_id, cost')
         .order('created_at', { ascending: false })
-        .limit(q ? 1000 : 300);
-      if (providerFilter !== 'all') query = query.eq('provider', providerFilter);
-      if (statusFilter === 'success') query = query.in('status', ['sent', 'success', 'delivered', 'accepted']);
-      if (statusFilter === 'failed') query = query.not('status', 'in', '(sent,success,delivered,accepted)');
+        .limit(q ? 1000 : 500);
       if (isPastMonth) {
         query = query
           .gte('created_at', selectedMonthStart.toISOString())
@@ -315,10 +386,101 @@ export function SmsDeliveryLogViewer() {
     }
   };
 
+  // Debounce the search box so each keystroke doesn't fire a backend query.
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 350);
+    return () => clearTimeout(t);
+  }, [search]);
+
   // Search is applied server-side (see queryKey above) so we don't re-filter
   // client-side — otherwise phone variants like "0788…" vs "256788…" would
   // hide rows that the server correctly matched by last-9 digits.
-  const filtered = logs;
+  const tableRows: SmsRow[] = useMemo(
+    () =>
+      logs.map((l) => {
+        const category = smsCategory(l.source);
+        return { ...l, category, message_preview: displayMessage({ message: l.message, category }) };
+      }),
+    [logs],
+  );
+
+  // Per-category rollup of the loaded rows (the same set the table shows).
+  const categorySummary = useMemo(() => {
+    const map = new Map<string, { category: string; total: number; sent: number; failed: number; lastSentAt: string | null }>();
+    for (const r of tableRows) {
+      const e = map.get(r.category) ?? { category: r.category, total: 0, sent: 0, failed: 0, lastSentAt: null };
+      e.total += 1;
+      if (isSuccess(r.status)) e.sent += 1; else e.failed += 1;
+      if (!e.lastSentAt || r.created_at > e.lastSentAt) e.lastSentAt = r.created_at;
+      map.set(r.category, e);
+    }
+    return Array.from(map.values()).sort((a, b) => b.total - a.total);
+  }, [tableRows]);
+
+  const categoryFilterOptions = categorySummary.map((c) => ({ value: c.category, label: c.category }));
+
+  const categoryColumns: Column<(typeof categorySummary)[number]>[] = [
+    { key: 'category', label: 'Category' },
+    { key: 'total', label: 'Total', render: (v) => Number(v).toLocaleString() },
+    { key: 'sent', label: 'Delivered', render: (v) => <span className="text-green-600 font-medium">{Number(v).toLocaleString()}</span> },
+    {
+      key: 'failed',
+      label: 'Failed',
+      render: (v) => (
+        <span className={Number(v) > 0 ? 'text-destructive font-medium' : 'text-muted-foreground'}>{Number(v).toLocaleString()}</span>
+      ),
+    },
+    { key: 'lastSentAt', label: 'Last Activity', render: (v) => (v ? format(new Date(v as string), 'dd MMM HH:mm') : '—') },
+  ];
+
+  const recentColumns: Column<SmsRow>[] = [
+    { key: 'created_at', label: 'Time', render: (v) => format(new Date(v as string), 'dd MMM HH:mm') },
+    {
+      key: 'category',
+      label: 'Category',
+      render: (v, row) => (
+        <div className="leading-tight">
+          <span className="text-xs font-medium">{String(v)}</span>
+          {row.source && <p className="text-[10px] text-muted-foreground font-mono">{row.source}</p>}
+        </div>
+      ),
+    },
+    {
+      key: 'recipient_phone',
+      label: 'Recipient',
+      render: (v, row) => (
+        <div className="leading-tight">
+          <span className="text-xs font-medium">{row.recipient_name || String(v)}</span>
+          {row.recipient_name && <p className="text-[10px] text-muted-foreground">{String(v)}</p>}
+        </div>
+      ),
+    },
+    {
+      key: 'message_preview',
+      label: 'Message',
+      sortable: false,
+      className: 'max-w-[320px] truncate text-xs text-muted-foreground',
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (v) => {
+        const s = String(v);
+        const cls = isSuccess(s)
+          ? 'bg-green-500/10 text-green-600'
+          : s === 'queued' || s === 'pending'
+          ? 'bg-amber-500/10 text-amber-700'
+          : 'bg-destructive/10 text-destructive';
+        return <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>{s}</span>;
+      },
+    },
+    {
+      key: 'provider',
+      label: 'Provider',
+      render: (v) => <Badge className={`text-[10px] px-1.5 py-0 ${providerColor(String(v))}`}>{providerLabel(String(v))}</Badge>,
+    },
+    { key: 'error', label: 'Error', className: 'max-w-[240px] truncate text-xs text-muted-foreground' },
+  ];
 
   const total = logs.length;
   const yoolaSent = logs.filter((l) => (l.provider || '').toLowerCase() === 'yoola' && isSuccess(l.status)).length;
@@ -425,110 +587,139 @@ export function SmsDeliveryLogViewer() {
       </Card>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
-        <KPICard title="Total (last 300)" value={total.toLocaleString()} icon={Radio} loading={isLoading} />
+        <KPICard title="Total (loaded)" value={total.toLocaleString()} icon={Radio} loading={isLoading} />
         <KPICard title="Yoola Delivered" value={yoolaSent.toLocaleString()} icon={CheckCircle2} color="bg-primary/10 text-primary" loading={isLoading} />
         <KPICard title="AT Fallback Delivered" value={atSent.toLocaleString()} icon={CheckCircle2} color="bg-amber-500/10 text-amber-600" loading={isLoading} />
         <KPICard title="Failed Attempts" value={failed.toLocaleString()} icon={XCircle} color={failed > 0 ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'} loading={isLoading} />
       </div>
 
-      <Card>
-        <CardHeader className="pb-2">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
-            <CardTitle className="text-base flex items-center gap-2 shrink-0">
-              <MessageSquare className="h-4 w-4 text-primary" /> Delivery Attempts
-            </CardTitle>
-            <div className="flex flex-col sm:flex-row flex-wrap gap-2 w-full sm:w-auto">
-              <div className="relative flex-1 min-w-[220px]">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                <Input
-                  placeholder="Trace by name or phone number…"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="pl-9 h-9 text-xs w-full"
-                  aria-label="Trace delivery logs by name or phone number"
-                />
-              </div>
-              <Select value={providerFilter} onValueChange={setProviderFilter}>
-                <SelectTrigger className="w-[140px] h-9 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Providers</SelectItem>
-                  <SelectItem value="yoola">Yoola</SelectItem>
-                  <SelectItem value="africastalking">Africa's Talking</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[120px] h-9 text-xs"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="success">Delivered</SelectItem>
-                  <SelectItem value="failed">Failed</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <ScrollArea className="max-h-[600px]">
-            {isLoading ? (
-              <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>
-            ) : filtered.length === 0 ? (
-              <div className="py-10 text-center text-sm text-muted-foreground">No SMS delivery logs found</div>
-            ) : (
-              <div className="space-y-1.5">
-                {filtered.map((log) => {
-                  const ok = isSuccess(log.status);
-                  const attempts: any[] = Array.isArray(log.provider_response?.attempts)
-                    ? log.provider_response.attempts
-                    : [];
-                  return (
-                    <div key={log.id} className="flex items-start gap-3 p-2.5 rounded-lg border border-border/50 hover:bg-muted/30 transition-colors">
-                      <div className="mt-0.5">
-                        {ok ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <XCircle className="h-4 w-4 text-destructive" />}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <Badge className={`text-[10px] px-1.5 py-0 ${providerColor(log.provider)}`}>{providerLabel(log.provider)}</Badge>
-                          <Badge variant={ok ? 'secondary' : 'destructive'} className="text-[10px] px-1.5 py-0">{log.status}</Badge>
-                          {log.source && <span className="text-[10px] text-muted-foreground">via {log.source}</span>}
+      {/* Summary by category */}
+      <div>
+        <h3 className="text-sm font-semibold mb-3">Summary by Category</h3>
+        <ExecutiveDataTable
+          data={categorySummary}
+          columns={categoryColumns}
+          loading={isLoading}
+          title="SMS categories"
+        />
+      </div>
+
+      {/* Sent SMS list */}
+      <div>
+        <h3 className="text-sm font-semibold mb-3">Sent SMS</h3>
+        <p className="text-xs text-muted-foreground mb-2">
+          Search hits the database directly (name, phone, message text, category source or reference) — not just the rows shown. Click a row to preview the SMS. OTP codes are masked.
+        </p>
+        <ExecutiveDataTable
+          data={tableRows}
+          columns={recentColumns}
+          loading={isLoading && !debouncedSearch}
+          title={debouncedSearch ? `SMS search results for "${debouncedSearch}"` : 'Sent SMS'}
+          onRowClick={setPreviewRow}
+          searchValue={search}
+          onSearchChange={setSearch}
+          searchPlaceholder="Search by name, phone, message text or reference…"
+          searching={isLoading && !!debouncedSearch}
+          filters={[
+            { key: 'category', label: 'Category', options: categoryFilterOptions },
+            {
+              key: 'status',
+              label: 'Status',
+              options: [
+                { value: 'sent', label: 'Sent' },
+                { value: 'failed', label: 'Failed' },
+                { value: 'queued', label: 'Queued' },
+              ],
+            },
+            {
+              key: 'provider',
+              label: 'Provider',
+              options: [
+                { value: 'yoola', label: 'Yoola' },
+                { value: 'africastalking', label: "Africa's Talking" },
+              ],
+            },
+          ]}
+        />
+      </div>
+
+      <Dialog open={!!previewRow} onOpenChange={(o) => !o && setPreviewRow(null)}>
+        <DialogContent className="max-w-lg w-[95vw] max-h-[90vh] overflow-y-auto">
+          {previewRow && (() => {
+            const ok = isSuccess(previewRow.status);
+            const seg = smsSegments(previewRow.message_preview);
+            const attempts: any[] = Array.isArray(previewRow.provider_response?.attempts)
+              ? previewRow.provider_response.attempts
+              : [];
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="text-base">{previewRow.category}</DialogTitle>
+                  <DialogDescription className="text-xs">
+                    To <span className="font-medium text-foreground">{previewRow.recipient_name || previewRow.recipient_phone}</span>
+                    {previewRow.recipient_name && <> ({previewRow.recipient_phone})</>}
+                    {' • '}
+                    <span className="capitalize">{previewRow.status}</span>
+                    {' • '}
+                    {format(new Date(previewRow.created_at), 'dd MMM yyyy HH:mm:ss')}
+                  </DialogDescription>
+                </DialogHeader>
+
+                {/* Phone-style message bubble */}
+                <div className="rounded-xl border border-border bg-muted/30 p-4">
+                  <div className="max-w-[90%] rounded-2xl rounded-tl-sm bg-card border border-border px-3.5 py-2.5 shadow-sm">
+                    {previewRow.message_preview ? (
+                      <p className="text-sm whitespace-pre-wrap break-words">{previewRow.message_preview}</p>
+                    ) : (
+                      <p className="text-sm italic text-muted-foreground">No message body was archived for this SMS.</p>
+                    )}
+                  </div>
+                  <p className="mt-2 text-[10px] text-muted-foreground">
+                    {seg.len} characters · {seg.segments} SMS part{seg.segments === 1 ? '' : 's'}{seg.unicode ? ' (unicode)' : ''}
+                  </p>
+                </div>
+
+                <dl className="grid grid-cols-[110px_1fr] gap-x-3 gap-y-1.5 text-xs">
+                  <dt className="text-muted-foreground">Provider</dt>
+                  <dd><Badge className={`text-[10px] px-1.5 py-0 ${providerColor(previewRow.provider)}`}>{providerLabel(previewRow.provider)}</Badge></dd>
+                  <dt className="text-muted-foreground">Source</dt>
+                  <dd className="font-mono">{previewRow.source || '—'}</dd>
+                  {previewRow.reference_id && (<><dt className="text-muted-foreground">Reference</dt><dd className="font-mono break-all">{previewRow.reference_id}</dd></>)}
+                  {previewRow.provider_message_id && (<><dt className="text-muted-foreground">Provider msg ID</dt><dd className="font-mono break-all">{previewRow.provider_message_id}</dd></>)}
+                  {previewRow.cost && (<><dt className="text-muted-foreground">Cost</dt><dd>{previewRow.cost}</dd></>)}
+                  {previewRow.error && (<><dt className="text-muted-foreground">Error</dt><dd className="text-destructive break-words">{previewRow.error}</dd></>)}
+                </dl>
+
+                {attempts.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-semibold mb-1.5">Provider attempts</h4>
+                    <div className="flex flex-col gap-1">
+                      {attempts.map((a, i) => (
+                        <div key={i} className="text-[11px] text-muted-foreground flex flex-wrap items-center gap-1.5">
+                          <span className="font-medium">{i + 1}.</span>
+                          <Badge className={`text-[9px] px-1 py-0 ${providerColor(a.provider)}`}>{providerLabel(a.provider)}</Badge>
+                          <span className={a.accepted ?? a.ok ? 'text-emerald-600' : 'text-destructive'}>
+                            {a.accepted ?? a.ok ? 'accepted' : a.attempted === false ? 'skipped' : 'failed'}
+                          </span>
+                          {(a.reason || a.error) && <span className="italic break-words">{a.reason || a.error}</span>}
+                          {a.started_at && a.finished_at && (
+                            <span className="text-muted-foreground/60">
+                              ({Math.max(0, new Date(a.finished_at).getTime() - new Date(a.started_at).getTime())}ms)
+                            </span>
+                          )}
                         </div>
-                        <p className="text-sm mt-0.5">
-                          <span className="font-medium">{log.recipient_name || log.recipient_phone}</span>
-                          {log.recipient_name && <span className="text-muted-foreground text-xs"> · {log.recipient_phone}</span>}
-                        </p>
-                        {log.error && <p className="text-[11px] text-destructive truncate">{log.error}</p>}
-                        {attempts.length > 0 && (
-                          <div className="mt-1 flex flex-col gap-0.5">
-                            {attempts.map((a, i) => (
-                              <div key={i} className="text-[10px] text-muted-foreground flex items-center gap-1.5">
-                                <span className="font-medium">{i + 1}.</span>
-                                <Badge className={`text-[9px] px-1 py-0 ${providerColor(a.provider)}`}>{providerLabel(a.provider)}</Badge>
-                                <span className={a.accepted ? 'text-emerald-600' : 'text-destructive'}>
-                                  {a.accepted ? 'accepted' : a.attempted === false ? 'skipped' : 'failed'}
-                                </span>
-                                {a.reason && <span className="italic truncate">{a.reason}</span>}
-                                {a.started_at && a.finished_at && (
-                                  <span className="text-muted-foreground/60">
-                                    ({Math.max(0, new Date(a.finished_at).getTime() - new Date(a.started_at).getTime())}ms)
-                                  </span>
-                                )}
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                        {log.reference_id && <p className="text-[10px] text-muted-foreground/70">Ref: {log.reference_id}</p>}
-                      </div>
-                      <div className="text-right shrink-0">
-                        <p className="text-[11px] text-muted-foreground">{formatDistanceToNow(new Date(log.created_at), { addSuffix: true })}</p>
-                        <p className="text-[10px] text-muted-foreground/60">{format(new Date(log.created_at), 'dd MMM HH:mm:ss')}</p>
-                      </div>
+                      ))}
                     </div>
-                  );
-                })}
-              </div>
-            )}
-          </ScrollArea>
-        </CardContent>
-      </Card>
+                  </div>
+                )}
+                {!ok && !previewRow.error && attempts.length === 0 && (
+                  <p className="text-xs text-muted-foreground">No failure detail was recorded for this attempt.</p>
+                )}
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
