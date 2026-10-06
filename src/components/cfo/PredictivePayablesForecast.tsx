@@ -79,6 +79,24 @@ export default function PredictivePayablesForecast() {
   const q = usePayablesPredictiveForecast(granularity, periods);
   const data = q.data;
 
+  // Behavior projection = average actually paid in past periods (same weekday for daily view)
+  const historyProjection = useMemo(() => {
+    const h = data?.history ?? [];
+    const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
+    const overall = avg(h.map((x) => x.actual_amount));
+    const map = new Map<number, number>();
+    (data?.periods ?? []).forEach((p) => {
+      if (granularity === 'day') {
+        const dow = new Date(p.period_start).getUTCDay();
+        const same = h.filter((x) => new Date(x.period_start).getUTCDay() === dow).map((x) => x.actual_amount);
+        map.set(p.index, Math.round(same.length ? avg(same) : overall));
+      } else {
+        map.set(p.index, Math.round(overall));
+      }
+    });
+    return map;
+  }, [data, granularity]);
+
   const chartData = useMemo(() => {
     if (!data) return [];
     const hist = [...data.history].slice(-Math.min(periods, 12)).map((h) => ({
@@ -90,15 +108,15 @@ export default function PredictivePayablesForecast() {
     const fc = data.periods.map((p) => ({
       label: p.label,
       actual: null as number | null,
-      forecast: p.forecast_amount,
+      forecast: historyProjection.get(p.index) ?? 0,
       ideal: p.scheduled_amount,
     }));
     return [...hist, ...fc];
-  }, [data, periods]);
+  }, [data, periods, historyProjection]);
 
   const horizonTotal = useMemo(
-    () => (data?.periods ?? []).reduce((s, p) => s + p.forecast_amount, 0),
-    [data]
+    () => (data?.periods ?? []).reduce((s, p) => s + (historyProjection.get(p.index) ?? 0), 0),
+    [data, historyProjection]
   );
 
   const selectPreset = (preset: (typeof PERIOD_PRESETS)[number]) => {
@@ -312,7 +330,7 @@ export default function PredictivePayablesForecast() {
                             </span>
                           </td>
                           <td className="px-2.5 py-1.5 text-right font-mono tabular-nums font-semibold whitespace-nowrap">
-                            {formatUGX(p.forecast_amount)}
+                            {formatUGX(historyProjection.get(p.index) ?? 0)}
                           </td>
                           <td className="px-2.5 py-1.5 text-right font-mono tabular-nums hidden sm:table-cell text-muted-foreground whitespace-nowrap">
                             {formatUGX(p.scheduled_amount)}
