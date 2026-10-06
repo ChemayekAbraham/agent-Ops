@@ -29,11 +29,11 @@ export const overviewFixture: PaymentBehaviorOverview = {
       previous: { paying: 566, self_payers: 2, self_payers_pct: 0.4 }, self_payers_pct_change_pp: 4.7,
     },
     coverage: {
-      billed_ugx: 227715911, covered_ugx: 86853389, short_ugx: 140862522, coverage_pct: 38.1,
+      billed_ugx: 227715911, covered_ugx: 88191948, short_ugx: 139523963, coverage_pct: 38.7,
       by_segment: [
         { segment: 'self_only', tenants: 11, billed_ugx: 1287820, covered_ugx: 824500, short_ugx: 463320, coverage_pct: 64.0 },
         { segment: 'mixed', tenants: 27, billed_ugx: 6133359, covered_ugx: 3169932, short_ugx: 2963427, coverage_pct: 51.7 },
-        { segment: 'agent_only', tenants: 710, billed_ugx: 189359040, covered_ugx: 82858957, short_ugx: 106500083, coverage_pct: 43.8 },
+        { segment: 'agent_only', tenants: 710, billed_ugx: 189359040, covered_ugx: 84197516, short_ugx: 105161524, coverage_pct: 44.5 },
         { segment: 'no_payment', tenants: 131, billed_ugx: 30935692, covered_ugx: 0, short_ugx: 30935692, coverage_pct: 0 },
       ],
     },
@@ -43,7 +43,7 @@ export const overviewFixture: PaymentBehaviorOverview = {
     rows: [
       { segment: 'self_reliant', tenants: 12, billed_ugx: 1441457, covered_ugx: 860500, short_ugx: 580957, coverage_pct: 59.7, self_ugx: 859500, agent_ugx: 1000, avg_paid_day_pct: 62.8 },
       { segment: 'hybrid', tenants: 13, billed_ugx: 2835009, covered_ugx: 1387604, short_ugx: 1447405, coverage_pct: 48.9, self_ugx: 665997, agent_ugx: 848638, avg_paid_day_pct: 55.2 },
-      { segment: 'agent_dependent', tenants: 710, billed_ugx: 189359040, covered_ugx: 82858957, short_ugx: 106500083, coverage_pct: 43.8, self_ugx: 0, agent_ugx: 137980735, avg_paid_day_pct: 46.9 },
+      { segment: 'agent_dependent', tenants: 710, billed_ugx: 189359040, covered_ugx: 84197516, short_ugx: 105161524, coverage_pct: 44.5, self_ugx: 0, agent_ugx: 137980735, avg_paid_day_pct: 46.9 },
     ],
   },
   shift: {
