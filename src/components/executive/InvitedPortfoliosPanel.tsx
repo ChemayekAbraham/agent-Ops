@@ -25,7 +25,7 @@ import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import AgreementHtmlPreview, { type AgreementPreviewData } from '@/components/partner/AgreementHtmlPreview';
-import { buildAgreementHtml, OPTION_FROM_ROI_MODE } from '@/components/partner/agreementTemplate';
+import { buildAgreementHtml, OPTION_FROM_ROI_MODE, storedOption } from '@/components/partner/agreementTemplate';
 import { buildPartnerReference } from '@/lib/partnerReference';
 import { renderAgreementPdfBase64 } from '@/components/partner/renderAgreementPdf';
 import { useRestoreBodyPointerEvents } from '@/hooks/useRestoreBodyPointerEvents';
@@ -832,7 +832,7 @@ function ReviewSubmissionDialog({
     // Portfolio amount is authoritative so the preview/PDF always matches the
     // "Portfolio terms → Amount" shown in the details section.
     partnershipAmount: Number(row.investment_amount) || Number(agreement.partnership_amount) || 0,
-    returnOption: row.roi_mode ? OPTION_FROM_ROI_MODE[row.roi_mode] : undefined,
+    returnOption: storedOption(agreement.return_option) ?? (row.roi_mode ? OPTION_FROM_ROI_MODE[row.roi_mode] : undefined),
     reference: agreement.reference || buildPartnerReference(row.investor_id, row.created_at),
     payoutMode: agreement.payout_mode === 'momo' ? 'momo' : 'bank',
     bankName: agreement.bank_name || '',

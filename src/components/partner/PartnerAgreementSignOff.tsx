@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { buildPartnerReference } from '@/lib/partnerReference';
 import AgreementHtmlPreview, { type AgreementPreviewData } from './AgreementHtmlPreview';
-import { buildAgreementHtml, OPTION_FROM_ROI_MODE } from './agreementTemplate';
+import { buildAgreementHtml, OPTION_FROM_ROI_MODE, storedOption } from './agreementTemplate';
 import { renderAgreementPdfBase64 } from './renderAgreementPdf';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
@@ -170,7 +170,7 @@ export default function PartnerAgreementSignOff({
       partnerPhone: agreement.phone || partner?.phone || '',
       partnerEmail: agreement.email || partner?.email || '',
       partnershipAmount: Number(amountInput) || Number(agreement.partnership_amount) || 0,
-      returnOption: roiMode ? OPTION_FROM_ROI_MODE[roiMode] : undefined,
+      returnOption: storedOption(agreement.return_option) ?? (roiMode ? OPTION_FROM_ROI_MODE[roiMode] : undefined),
       reference: agreement.reference || buildPartnerReference(partner?.id ?? '', partner?.created_at),
       payoutMode: agreement.payout_mode === 'momo' ? 'momo' : 'bank',
       bankName: agreement.bank_name || '',

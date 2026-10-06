@@ -1379,6 +1379,7 @@ export default function FunderOnboarding() {
                   kin_name: cleanKinName || null,
                   kin_contact: cleanKinContact || null,
                   reference: partnerReference,
+                  return_option: form.investPath === 'pool' ? 'B' : 'A',
                   status: 'pending',
                   // Persist the partner's handwritten signature so the executed /
                   // countersigned agreement (rebuilt from this row by the admin)
