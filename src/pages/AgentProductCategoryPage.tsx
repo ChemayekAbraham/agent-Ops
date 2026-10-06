@@ -43,13 +43,22 @@ export default function AgentProductCategoryPage() {
   return (
     <div className="min-h-screen bg-background overflow-x-hidden w-full">
       <div className="mx-auto max-w-7xl px-3 sm:px-4 py-4 sm:py-5 pb-24 sm:pb-5 space-y-4 sm:space-y-5 overflow-x-hidden max-w-full">
-        <Link
-          to={AGENT_PRODUCTS_HUB_PATH}
-          className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Back to Products &amp; Services Hub
-        </Link>
+        <div className="flex items-center gap-3 text-sm">
+          <Link
+            to="/executive-hub?tab=agent-ops"
+            className="inline-flex items-center gap-1.5 font-semibold text-muted-foreground hover:text-foreground hover:underline"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Agent Operations
+          </Link>
+          <span className="text-muted-foreground/60">/</span>
+          <Link
+            to={AGENT_PRODUCTS_HUB_PATH}
+            className="inline-flex items-center gap-1.5 font-semibold text-primary hover:underline"
+          >
+            Products &amp; Services Hub
+          </Link>
+        </div>
 
         <header className="flex flex-col sm:flex-row sm:items-start gap-4 rounded-2xl border bg-card p-4 sm:p-5 shadow-sm max-w-full overflow-hidden">
           <div className="flex items-center gap-3 sm:contents">

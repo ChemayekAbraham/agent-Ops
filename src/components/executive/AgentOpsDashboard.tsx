@@ -160,6 +160,8 @@ const NAV_ITEMS: { key: ActiveView; icon: any; label: string; color: string; pri
   { key: 'agent-products-services', icon: Package, label: 'Agent Products & Services', color: 'bg-amber-600', priority: true },
   { key: 'calling-hub', icon: PhoneCall, label: 'Calling Hub', color: 'bg-sky-600', priority: true },
   { key: 'tenant-self-repayments', icon: HandCoins, label: 'Tenant Self-Repayments', color: 'bg-emerald-600', priority: true },
+  { key: 'trust-capture', icon: ShieldCheck, label: 'Trust Capture', color: 'bg-emerald-600', priority: true },
+  { key: 'feature-flags', icon: ToggleRight, label: 'Feature Flags', color: 'bg-indigo-600', priority: true },
 ];
 
 interface BusinessAreaItem {
@@ -171,6 +173,7 @@ interface BusinessAreaItem {
   category: 'advances' | 'rent-bikes' | 'commerce' | 'field' | 'reports';
   desc: string;
   keywords: string[];
+  to?: string;
 }
 
 const BUSINESS_AREAS: BusinessAreaItem[] = [
@@ -209,6 +212,7 @@ const BUSINESS_AREAS: BusinessAreaItem[] = [
     category: 'rent-bikes',
     desc: 'Spiro bike lease orders, reviews & verification',
     keywords: ['bikes', 'spiro', 'motorcycle', 'boda', 'lease', 'riders', 'dossier', 'delivery'],
+    to: '/agent-ops/products/motor-bikes',
   },
   {
     num: '05',
@@ -332,21 +336,38 @@ export function AgentOpsDashboard() {
   const pendingAdvanceCount = usePendingAdvanceCount();
   const navigate = useNavigate();
 
-  // Keyboard shortcut '/' or Cmd+K to focus search bar
+  // Keyboard shortcut '/' or Cmd+K to focus search bar (only on overview landing, never in inputs/editors/dialogs)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept if an active sub-view is open (search bar is not displayed)
+      if (activeView !== null) return;
+
+      const isSearchShortcut =
+        e.key === '/' || ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k');
+      if (!isSearchShortcut) return;
+
+      // Don't intercept if typing in an input, textarea, select, contenteditable, combobox, or modal dialog
+      const target = (e.target || document.activeElement) as HTMLElement | null;
+      const tag = target?.tagName;
       if (
-        (e.key === '/' || ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k')) &&
-        document.activeElement?.tagName !== 'INPUT' &&
-        document.activeElement?.tagName !== 'TEXTAREA'
+        tag === 'INPUT' ||
+        tag === 'TEXTAREA' ||
+        tag === 'SELECT' ||
+        target?.isContentEditable ||
+        target?.closest('[contenteditable="true"]') ||
+        target?.closest('[role="dialog"]') ||
+        target?.closest('[role="combobox"]') ||
+        document.querySelector('[role="dialog"]')
       ) {
-        e.preventDefault();
-        searchInputRef.current?.focus();
+        return;
       }
+
+      e.preventDefault();
+      searchInputRef.current?.focus();
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [activeView]);
 
   // Deep-linkable sections: /executive-hub?tab=agent-ops&section=products
   useEffect(() => {
@@ -497,12 +518,7 @@ export function AgentOpsDashboard() {
       case 'agents-space': return <AgentsSpacePanel mode="ops" onBack={() => setActiveView(null)} />;
       case 'general-activities': return <AgentOpsOverview onOpenSection={handleOpenSection} />;
       case 'agents-rent': return <AgentCollectionsCommandCenter />;
-      case 'agents-bikes': return (
-        <div className="space-y-4">
-          <AgentProductsPanel category="motor_bike" />
-          <Button variant="outline" asChild><Link to="/agent-ops/products/motor-bikes">Bike applications and orders</Link></Button>
-        </div>
-      );
+      case 'agents-bikes': return <Navigate to="/agent-ops/products/motor-bikes" replace />;
       case 'welile-merchandise': return (
         <div className="space-y-4">
           <AgentProductsPanel category="boutique" />
@@ -651,10 +667,18 @@ export function AgentOpsDashboard() {
   };
 
   const selectView = (key: ActiveView) => {
+    if (key === 'agents-bikes') {
+      navigate('/agent-ops/products/motor-bikes');
+      return;
+    }
     setActiveView(key);
   };
 
   const handleOpenSection = (key: string) => {
+    if (key === 'agents-bikes') {
+      navigate('/agent-ops/products/motor-bikes');
+      return;
+    }
     const next = NAV_ITEMS.some((item) => item.key === key) ? key as ActiveView : null;
     setActiveView(next);
   };
@@ -662,7 +686,7 @@ export function AgentOpsDashboard() {
   // Grouped sections for the "More" tab (mobile dropdown + grid)
   const MORE_GROUPS: { title: string; keys: ActiveView[] }[] = [
     { title: "Agents' Space", keys: ['agents-space'] },
-    { title: 'Agents', keys: ['directory', 'performance', 'sub-agents', 'subagent-commission-whitelist', 'bulk-ops'] },
+    { title: 'Agents', keys: ['directory', 'performance', 'sub-agents', 'subagent-commission-whitelist', 'bulk-ops', 'trust-capture', 'feature-flags'] },
     { title: 'Field Operations', keys: ['pipeline', 'rent-capacity', 'rent-behaviour', 'daily-collections-report', 'calling-hub', 'tasks', 'escalations', 'connector'] },
     { title: 'Service Centers', keys: ['sc-overview', 'service-centres', 'sc-directory', 'sc-payouts', 'sc-requests', 'sc-operating-model', 'sc-products'] },
     { title: 'Agent Products & Services', keys: ['agent-products-services'] },
@@ -831,12 +855,12 @@ export function AgentOpsDashboard() {
                 </p>
               )}
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-3">
-                {filteredBusinessAreas.map(({ num, title, icon: Icon, section, highlight, desc }) => (
+                {filteredBusinessAreas.map(({ num, title, icon: Icon, section, highlight, desc, to }) => (
                   <Button
                     key={title}
                     type="button"
                     variant="outline"
-                    onClick={() => selectView(section)}
+                    onClick={() => (to ? navigate(to) : selectView(section))}
                     aria-label={title}
                     className={cn(
                       'group relative h-auto min-h-24 w-full whitespace-normal justify-start gap-3.5 rounded-xl p-3.5 text-left transition-all',
@@ -1141,7 +1165,7 @@ function AgentOpsSideNav({
   // below Priority and is open by default (this dashboard is agent-centric).
   const SIDE_GROUPS: { title: string; keys: ActiveView[]; pinned?: boolean; defaultOpen?: boolean }[] = [
     { title: "Agents' Space", defaultOpen: true, keys: ['agents-space'] },
-    { title: 'Agents', defaultOpen: false, keys: ['directory', 'performance', 'sub-agents', 'subagent-commission-whitelist', 'bulk-ops'] },
+    { title: 'Agents', defaultOpen: false, keys: ['directory', 'performance', 'sub-agents', 'subagent-commission-whitelist', 'bulk-ops', 'trust-capture', 'feature-flags'] },
     { title: 'Field Operations', defaultOpen: false, keys: ['pipeline', 'rent-capacity', 'rent-behaviour', 'daily-collections-report', 'partial-collections', 'tasks', 'escalations', 'connector', 'guarantor-float'] },
     { title: 'Service Centers', keys: ['sc-overview', 'service-centres', 'sc-directory', 'sc-payouts', 'sc-requests', 'sc-operating-model', 'sc-products'] },
     { title: 'Agent Products & Services', keys: ['agent-products-services'] },
