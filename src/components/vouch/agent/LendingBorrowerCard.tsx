@@ -203,6 +203,26 @@ export default function LendingBorrowerCard({ loan, onRecordRepayment, onTopUpOr
             animate={{ opacity: 1, height: 'auto' }}
             className="border-t border-border/60 bg-muted/20 px-3.5 py-3 space-y-3"
           >
+            {/* Plan at a glance — three big tiles */}
+            {plan && (
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-xl bg-background border p-2.5 text-center">
+                  <p className="text-[9px] uppercase tracking-wide text-muted-foreground font-bold">Left to pay</p>
+                  <p className="text-sm font-bold text-foreground leading-tight mt-0.5">{formatUGX(outstanding)}</p>
+                </div>
+                <div className="rounded-xl bg-background border p-2.5 text-center">
+                  <p className="text-[9px] uppercase tracking-wide text-muted-foreground font-bold">Payments left</p>
+                  <p className="text-sm font-bold text-foreground leading-tight mt-0.5">{plan.remainingCount}</p>
+                </div>
+                <div className="rounded-xl bg-background border p-2.5 text-center">
+                  <p className="text-[9px] uppercase tracking-wide text-muted-foreground font-bold">Next payment</p>
+                  <p className={`text-sm font-bold leading-tight mt-0.5 ${plan.nextDueInPast ? 'text-destructive' : 'text-foreground'}`}>
+                    {plan.nextDueDate ? new Date(plan.nextDueDate).toLocaleDateString() : '—'}
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div className="grid grid-cols-3 gap-2">
               <Button variant="outline" className="h-16 flex-col gap-1 text-xs font-semibold" onClick={() => contact('call')}>
                 <Phone className="h-6 w-6 text-primary" /> Call
