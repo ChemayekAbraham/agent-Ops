@@ -140,6 +140,7 @@ const Onboarding = lazy(() => import("./pages/Onboarding"));
 const MyReceipts = lazy(() => import('./pages/MyReceipts'));
 const VendorPortal = lazy(() => import('./pages/VendorPortal'));
 const MyLoans = lazy(() => import('./pages/MyLoans'));
+const LoanDashboard = lazy(() => import('./pages/LoanDashboard'));
 const PaymentSchedule = lazy(() => import('./pages/PaymentSchedule'));
 const PayLandlord = lazy(() => import('./pages/PayLandlord'));
 const RentDiscountHistory = lazy(() => import('./pages/RentDiscountHistory'));
@@ -635,6 +636,7 @@ function AppRoutes() {
           <Route path="/bread/:code" element={<SharedBreadClaim />} />
           <Route path="/my-receipts" element={<MyReceipts />} />
           <Route path="/my-loans" element={<MyLoans />} />
+          <Route path="/loan-dashboard" element={<LoanDashboard />} />
           <Route path="/payment-schedule" element={<PaymentSchedule />} />
           <Route path="/pay-landlord" element={<PayLandlord />} />
           <Route path="/rent-discount-history" element={<RentDiscountHistory />} />
