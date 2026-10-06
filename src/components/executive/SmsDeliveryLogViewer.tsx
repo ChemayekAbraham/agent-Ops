@@ -426,7 +426,7 @@ export function SmsDeliveryLogViewer() {
           other: a.other,
         }));
       const windowLabel = customActive
-        ? `${format(customFrom, 'dd MMM yyyy')} to ${format(customTo, 'dd MMM yyyy')}`
+        ? `${format(customFrom!, 'dd MMM yyyy')} to ${format(customTo!, 'dd MMM yyyy')}`
         : isPastMonth
         ? format(selectedMonthDate, 'MMMM yyyy')
         : `Last ${rollupDays} days`;
