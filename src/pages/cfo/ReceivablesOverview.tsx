@@ -306,11 +306,11 @@ function SubDetail({ catKey, label, productKey, product }: {
         </Card>
       </div>
 
-      <Card title="7-day forecast · behaviour-based vs ideal" right={
+      <Card title="7-day forecast · behaviour-based vs ideal" className="flex-1 flex flex-col" right={
         <span className="text-xs text-muted-foreground">Behaviour {money(bTotal)} · Ideal {money(iTotal)}</span>
       }>
         {!hasBehaviour && <p className="mb-2 text-xs text-muted-foreground">Not enough collection history for a behaviour-based forecast; ideal schedule shown.</p>}
-        <div className="h-64">
+        <div className="flex-1 min-h-64">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={proj} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
