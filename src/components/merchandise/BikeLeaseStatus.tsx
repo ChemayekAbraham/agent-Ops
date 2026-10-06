@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/select';
 import { formatUGX } from '@/lib/rentCalculations';
 import BikeRepaymentTracker from '@/components/merchandise/BikeRepaymentTracker';
+import BikeRepaymentPlanSchedule from '@/components/merchandise/BikeRepaymentPlanSchedule';
 import {
   generateSpiroBikeSettlementCertificatePdf,
   downloadSpiroSettlementCertificate,
@@ -474,6 +475,14 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder, filterStatu
                   )}
                 </div>
               </div>
+            )}
+
+            {current === 2 && !rejected && (
+              <BikeRepaymentPlanSchedule
+                termMonths={termMonths}
+                valuation={valuation}
+                activatedAt={selected.lease_activated_at || selected.cfo_disbursed_at}
+              />
             )}
 
             {current === 2 && !rejected && (
