@@ -10,6 +10,52 @@ import {
 import { appendSupportFooter } from "./smsFooter.ts";
 import { confirmYoolaDelivery, extractYoolaMessageId } from "./yoolaDeliveryConfirm.ts";
 
+// ── GSM-7 normalisation ──────────────────────────────────────────────────────
+// A single character outside the GSM-7 alphabet forces the WHOLE message into
+// UCS-2, which cuts the concatenated segment size from 153 characters to 67 —
+// so one stray curly quote or a tick emoji in a name roughly 2.3x the number of
+// segments the handset has to reassemble. Measured 2026-10-06: 4.6% of the last
+// 7 days' messages carried non-ASCII, 205 of them smart punctuation that reads
+// identically once transliterated.
+//
+// This matters because segments are exactly what goes missing. An agent sent a
+// photo of a 361-character payout SMS that displayed only its first 153
+// characters — precisely segment 1 of 3 — with the rest shown as placeholder
+// glyphs, while our log recorded the message as "sent". Fewer segments is the
+// one lever we hold that makes a full message more likely to arrive intact
+// without cutting any content from it.
+//
+// Transliterate what has an obvious ASCII equivalent, drop what does not. Names
+// are the usual source of the latter (profiles hold values like "Shafiq
+// Senabulya ✅️"), and a dropped tick costs nothing; a tripled segment count
+// costs the whole message.
+const GSM7_SUBSTITUTIONS: Array<[RegExp, string]> = [
+  [/[‘’‚‛′]/g, "'"],
+  [/[“”„‟″]/g, '"'],
+  [/[‐‑‒–—―−]/g, "-"],
+  [/[…]/g, "..."],
+  [/[     ]/g, " "],
+  [/[​‌‍﻿️︎]/g, ""],
+  // Bullets are used to mask account digits ("on phone •••3651"), so "*" keeps
+  // that reading where "-" would not.
+  [/[•·]/g, "*"],
+  [/[€]/g, "EUR"],
+  [/[™]/g, "TM"],
+];
+
+/** GSM-7 basic set plus the extension table, which providers encode as 2 chars. */
+const GSM7_ALLOWED =
+  /[^@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !"#¤%&'()*+,\-./0-9:;<=>?¡A-ZÄÖÑÜ§¿a-zäöñüà^{}\\\[~\]|]/g;
+
+export function toGsm7(input: string): string {
+  let out = input ?? "";
+  for (const [pattern, replacement] of GSM7_SUBSTITUTIONS) out = out.replace(pattern, replacement);
+  // Anything still outside the alphabet would force UCS-2 on its own, so it goes.
+  out = out.replace(GSM7_ALLOWED, "");
+  // Transliteration can leave doubled spaces where a dropped glyph sat.
+  return out.replace(/[ \t]{2,}/g, " ").replace(/ +\n/g, "\n").trim();
+}
+
 export function formatPhoneInternational(phone: string): string {
   const digits = (phone || "").replace(/[^0-9]/g, "");
   if (digits.startsWith("256")) return `+${digits}`;
@@ -145,6 +191,9 @@ export async function sendSMS(phone: string, message: string, logCtx?: SmsLogCtx
   // Central support footer — applied once, before idempotency reservation, so
   // the reserved/logged body matches what providers actually transmit.
   message = appendSupportFooter(message);
+  // Then force the body into the GSM-7 alphabet, for the same reason and at the
+  // same point: the logged body must be what actually went down the wire.
+  message = toGsm7(message);
   // ── Phone-collection gate ────────────────────────────────────────────────
   // If the caller identifies a recipient user, require a valid profile phone
   // BEFORE reserving idempotency or contacting any provider. Blocked sends
