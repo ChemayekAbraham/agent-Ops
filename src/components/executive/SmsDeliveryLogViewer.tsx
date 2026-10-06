@@ -575,6 +575,29 @@ export function SmsDeliveryLogViewer() {
             ))}
           </SelectContent>
         </Select>
+        {isCustom && (
+          <div className="flex items-center gap-1.5">
+            <input
+              type="date"
+              aria-label="Custom range start"
+              className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+              value={customFrom ? format(customFrom, 'yyyy-MM-dd') : ''}
+              max={format(new Date(), 'yyyy-MM-dd')}
+              onChange={(e) => setCustomFrom(e.target.value ? startOfDay(new Date(`${e.target.value}T00:00:00`)) : undefined)}
+            />
+            <span className="text-xs text-muted-foreground">to</span>
+            <input
+              type="date"
+              aria-label="Custom range end"
+              className="h-8 rounded-md border border-input bg-background px-2 text-xs"
+              value={customTo ? format(customTo, 'yyyy-MM-dd') : ''}
+              min={customFrom ? format(customFrom, 'yyyy-MM-dd') : undefined}
+              max={format(new Date(), 'yyyy-MM-dd')}
+              onChange={(e) => setCustomTo(e.target.value ? startOfDay(new Date(`${e.target.value}T00:00:00`)) : undefined)}
+            />
+            {!customActive && <span className="text-xs text-destructive">Pick both dates</span>}
+          </div>
+        )}
         <Button
           size="sm"
           variant="outline"
@@ -607,7 +630,7 @@ export function SmsDeliveryLogViewer() {
           subtitle={`${thisWeek.sent} delivered · ${thisWeek.fail} failed`}
         />
         <KPICard
-          title={isPastMonth ? format(selectedMonthDate, 'MMMM yyyy') : 'This Month'}
+          title={scoped ? scopeLabel : 'This Month'}
           value={thisMonth.total.toLocaleString()}
           icon={Calendar}
           color="bg-teal-500/10 text-teal-600"
@@ -615,7 +638,7 @@ export function SmsDeliveryLogViewer() {
           subtitle={`${thisMonth.sent} delivered · ${thisMonth.fail} failed`}
         />
         <KPICard
-          title={isPastMonth ? `Spend — ${format(selectedMonthDate, 'MMM yyyy')}` : 'Spend This Month'}
+          title={scoped ? `Spend — ${scopeLabel}` : 'Spend This Month'}
           value={formatUGX(thisMonthSpend.cost)}
           icon={Wallet}
           color="bg-amber-500/10 text-amber-600"
@@ -629,7 +652,7 @@ export function SmsDeliveryLogViewer() {
         <CardHeader className="pb-2">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <CardTitle className="text-base flex items-center gap-2">
-              <MessageSquare className="h-4 w-4 text-primary" /> {isPastMonth ? `Daily Traffic — ${format(selectedMonthDate, 'MMM yyyy')}` : 'Daily Traffic (30d)'}
+              <MessageSquare className="h-4 w-4 text-primary" /> {scoped ? `Daily Traffic — ${scopeLabel}` : 'Daily Traffic (30d)'}
             </CardTitle>
             <Button size="sm" variant="outline" onClick={handleGenerateReport} disabled={generating} className="h-8 text-xs gap-1.5">
               {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />}
