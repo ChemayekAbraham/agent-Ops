@@ -57,7 +57,6 @@ export default function PayablesOverview() {
           {cats.map((c, i) => <SideItem key={c.key} active={catKey === c.key} icon={ICONS[i % ICONS.length]} label={c.label} onClick={() => go(c.key)} />)}
           <div className="my-3 border-t border-border/60" />
           <SideItem active={catKey === 'daily'} icon={TrendingDown} label="Forecast" onClick={() => go('daily')} />
-          <SideItem active={catKey === 'accuracy'} icon={CheckCircle2} label="Forecast Accuracy" onClick={() => go('accuracy')} />
         </nav>
         <div className="min-w-0 px-4 py-5 lg:col-start-2">
           {cat && <div className="mb-2 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground"><Button variant="link" className="h-auto min-h-0 p-0 text-[10px]" onClick={() => go('overview')}>Payables</Button><ChevronRight className="h-3 w-3" /><span>{cat.label}</span>{product && <><ChevronRight className="h-3 w-3" /><span>{product.label}</span></>}</div>}
