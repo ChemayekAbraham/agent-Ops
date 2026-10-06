@@ -84,8 +84,8 @@ const KNOWN_STATUSES: OrderStatus[] = ['submitted', 'pending_approval', 'coo_app
 /** Access amount is only revealed once an executive approves the order. */
 const APPROVED_STATUSES: OrderStatus[] = ['approved', 'processing', 'completed'];
 
-/** Agents may remove their own application while pending, or once rejected/failed. */
-const CANCELLABLE_STATUSES: OrderStatus[] = ['submitted', 'pending_approval', 'rejected', 'failed'];
+/** Only rejected or failed applications can be removed by the agent; pending orders cannot be deleted. */
+const CANCELLABLE_STATUSES: OrderStatus[] = ['rejected', 'failed'];
 
 
 function normalizeStatus(value: unknown): OrderStatus {
@@ -258,8 +258,11 @@ export default function SmartphoneOrderStatus({
       toast.success('Order deleted — you can place a new one');
       setCancelTarget(null);
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['my-smartphone-orders', userId, itemName] }),
-        queryClient.invalidateQueries({ queryKey: ['merchandise-order-lock', userId, itemName] }),
+        queryClient.invalidateQueries({ queryKey: ['my-smartphone-orders'] }),
+        queryClient.invalidateQueries({ queryKey: ['my-bike-lease-orders'] }),
+        queryClient.invalidateQueries({ queryKey: ['merchandise-order-lock'] }),
+        queryClient.invalidateQueries({ queryKey: ['merchandise-recovery-plan'] }),
+        queryClient.invalidateQueries({ queryKey: ['my-merchandise-plans'] }),
       ]);
     } catch (e: any) {
       console.error('[SmartphoneOrderStatus] cancel error', e);

@@ -60,6 +60,7 @@ import MerchandiseRepaymentPortfolio from '@/components/merchandise/MerchandiseR
 import { useMerchandiseOrderLock } from '@/hooks/useMerchandiseOrderLock';
 import SmartphoneOrderDialog from '@/components/merchandise/SmartphoneOrderDialog';
 import SpiroBikeOrderDialog from '@/components/merchandise/SpiroBikeOrderDialog';
+import BikeLeaseStatus from '@/components/merchandise/BikeLeaseStatus';
 
 
 
@@ -1430,11 +1431,9 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
                   </CardContent>
                 </Card>
 
-                {/* Spiro bike order status */}
-                <SmartphoneOrderStatus
+                {/* Spiro bike lease status */}
+                <BikeLeaseStatus
                   userId={user.id}
-                  itemName="Welile Spiro Bike"
-                  title="Spiro bike order status"
                   onRequestNewOrder={() => { setBikeAmount(''); setBikeOpen(true); }}
                 />
               </>
