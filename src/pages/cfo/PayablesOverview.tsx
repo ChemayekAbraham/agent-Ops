@@ -58,13 +58,12 @@ export default function PayablesOverview() {
           {cats.map((c, i) => <SideItem key={c.key} active={catKey === c.key} icon={ICONS[i % ICONS.length]} label={c.label} onClick={() => go(c.key)} />)}
           <div className="my-3 border-t border-border/60" />
           <SideItem active={catKey === 'daily'} icon={TrendingDown} label="Forecast" onClick={() => go('daily')} />
-          <SideItem active={catKey === 'forecast'} icon={CalendarDays} label="Detailed Forecast" onClick={() => go('forecast')} />
           <SideItem active={catKey === 'accuracy'} icon={CheckCircle2} label="Forecast Accuracy" onClick={() => go('accuracy')} />
         </nav>
         <div className="min-w-0 px-4 py-5 lg:col-start-2">
           {cat && <div className="mb-2 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground"><Button variant="link" className="h-auto min-h-0 p-0 text-[10px]" onClick={() => go('overview')}>Payables</Button><ChevronRight className="h-3 w-3" /><span>{cat.label}</span>{product && <><ChevronRight className="h-3 w-3" /><span>{product.label}</span></>}</div>}
           <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
-            <div><h1 className="text-xl font-semibold">{cat?.label ?? (catKey === 'daily' ? 'Forecast' : catKey === 'forecast' ? 'Payables Forecast' : catKey === 'accuracy' ? 'Forecast Accuracy' : 'Payables Overview')}</h1><p className="mt-1 text-xs text-muted-foreground">Outstanding obligations, payment schedules and expected payouts.</p></div>
+            <div><h1 className="text-xl font-semibold">{cat?.label ?? (catKey === 'daily' ? 'Forecast' : catKey === 'accuracy' ? 'Forecast Accuracy' : 'Payables Overview')}</h1><p className="mt-1 text-xs text-muted-foreground">Outstanding obligations, payment schedules and expected payouts.</p></div>
             <div className="flex flex-wrap items-center gap-3"><span className="text-[10px] text-muted-foreground">Last updated · {breakdown.data?.as_at?.slice(0, 10) ?? '—'} · EAT</span><Button variant="outline" size="sm" className="rounded-md text-primary hover:text-primary" disabled={refreshing} onClick={refresh}><RefreshCw className={refreshing ? 'animate-spin' : ''} />Refresh</Button></div>
           </header>
           <div className="flex flex-col gap-3 min-w-0">
