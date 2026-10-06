@@ -208,7 +208,54 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
     });
     await reloadLoans();
     await reloadRequests();
+
+  /** Top up (add money) and/or renew (move the end date) an existing loan. */
+  const handleTopUpOrRenew = async (loan: LendingLoan, extra: number, newDue: string) => {
+    if (!user) return;
+    const fee = Math.round(extra * PLATFORM_FEE_PCT);
+    if (extra > 0 && extra + fee > lendablePool) {
+      toast.error(`Not enough in your wallet. You need ${formatUGX(extra + fee)}.`);
+      return;
+    }
+    const newPrincipal = Number(loan.principal_ugx) + extra;
+    const rate = Number(loan.interest_rate_pct) || 0;
+    const repaid = Number(loan.amount_repaid_ugx) || 0;
+    const remaining = Math.max(0, Math.round(newPrincipal * (1 + rate / 100) - repaid));
+    const freq = ((loan.repayment_frequency as RepaymentFrequency) || 'monthly');
+    const schedule = buildSchedule(remaining, freq === 'once' ? 'monthly' : freq, new Date(), newDue);
+    const { error } = await (supabase.from('lending_agent_loans' as any)
+      .update({
+        principal_ugx: newPrincipal,
+        platform_fee_ugx: (Number((loan as any).platform_fee_ugx) || 0) + fee,
+        expected_repayment_date: newDue,
+        status: repaid > 0 ? 'partially_repaid' : 'active',
+        closed_at: null,
+        auto_deduct_enabled: true,
+        repayment_frequency: freq === 'once' ? 'monthly' : freq,
+        installment_ugx: schedule.installment,
+        next_deduction_date: schedule.firstDate,
+      })
+      .eq('id', loan.id) as any);
+    if (error) { toast.error('Could not save: ' + error.message); return; }
+    toast.success(extra > 0
+      ? `Added ${formatUGX(extra)}. New balance ${formatUGX(remaining)}`
+      : `New end date ${new Date(newDue).toLocaleDateString()}`);
+    await logLendingAudit({
+      actorId: user.id, actorDisplayName: myName, actionType: 'status_change',
+      entityType: 'loan', entityId: loan.id,
+      borrowerUserId: (loan as any).borrower_user_id ?? null, lenderAgentId: user.id,
+      amountUgx: extra, feeUgx: fee, oldStatus: loan.status,
+      newStatus: repaid > 0 ? 'partially_repaid' : 'active',
+      details: {
+        kind: extra > 0 ? 'topup' : 'renew',
+        old_principal_ugx: loan.principal_ugx, new_principal_ugx: newPrincipal,
+        old_due: loan.expected_repayment_date, new_due: newDue,
+      },
+    });
+    refetchBalances();
+    await reloadLoans();
   };
+
 
   const handleCreateOffer = async () => {
     if (!user) return;
@@ -696,7 +743,7 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
                   ) : (
                     <div className="space-y-2.5">
                       {filteredLoans.map((loan) => (
-                        <LendingBorrowerCard key={loan.id} loan={loan} onRecordRepayment={handleRecordRepayment} />
+                        <LendingBorrowerCard key={loan.id} loan={loan} onRecordRepayment={handleRecordRepayment} onTopUpOrRenew={handleTopUpOrRenew} />
                       ))}
                     </div>
                   )}
