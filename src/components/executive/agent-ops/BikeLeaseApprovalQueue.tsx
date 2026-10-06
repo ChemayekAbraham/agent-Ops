@@ -491,7 +491,7 @@ export function BikeLeaseApprovalQueue({
                                 disabled={rowBusy(o.id)}
                                 onClick={() => openApprove(o)}
                               >
-                                {ACTION_LABEL[approveStage]}
+                                {ACTION_LABEL[stageFilter || stageOf(o.order_status)]}
                               </Button>
                               <Button
                                 size="sm"
@@ -621,7 +621,7 @@ export function BikeLeaseApprovalQueue({
                                 ) : (
                                   <Check className="h-3.5 w-3.5" />
                                 )}
-                                <span className="ml-1">{SHORT_ACTION_LABEL[approveStage]}</span>
+                                <span className="ml-1">{SHORT_ACTION_LABEL[stageFilter || stageOf(o.order_status)]}</span>
                               </Button>
                               <Button
                                 size="sm"

@@ -34,7 +34,7 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
-import { spiroLeaseGrid, SPIRO_BIKE_BASE_PRICE, SPIRO_LEASE_PERIODS } from '@/lib/spiroBikeLease';
+import { spiroLeaseGrid, SPIRO_LEASE_PERIODS } from '@/lib/spiroBikeLease';
 
 const db = supabase as any;
 
@@ -87,7 +87,44 @@ export const DEFAULT_MOTORBIKES: Omit<MotorBikeCatalogItem, 'id'>[] = [
  * Shared hook to get active and all motorbike catalog items with automatic baseline seed.
  */
 /** Sentinel stored in description to mark catalog rows owned by this dialog. */
-const MOTOR_BIKE_SENTINEL = '[motor_bike]';
+export const MOTOR_BIKE_SENTINEL = '[motor_bike]';
+
+/** Sentinel prefix for disabled lease terms stored in description e.g. [disabled_terms:1,3] */
+const DISABLED_TERMS_REGEX = /\[disabled_terms:([0-9,]+)\]/;
+
+export function parseDisabledTerms(desc: string | null | undefined): Set<number> {
+  if (!desc) return new Set();
+  const match = desc.match(DISABLED_TERMS_REGEX);
+  if (!match) return new Set();
+  const nums = match[1]
+    .split(',')
+    .map((s) => parseInt(s.trim(), 10))
+    .filter((n) => !Number.isNaN(n) && n > 0 && n <= 24);
+  return new Set(nums);
+}
+
+export const MOTOR_BIKE_DELETED_SENTINEL = '[deleted]';
+
+export function cleanDescription(desc: string | null | undefined): string {
+  if (!desc) return '';
+  return desc
+    .replace(/\[motor_bike\]/g, '')
+    .replace(/\[deleted\]/g, '')
+    .replace(/\[disabled_terms:[0-9,]+\]/g, '')
+    .trim();
+}
+
+export function buildTaggedDescription(rawDesc: string | null | undefined, disabledTerms?: Set<number>): string {
+  const base = cleanDescription(rawDesc);
+  const parts: string[] = [];
+  if (base) parts.push(base);
+  parts.push(MOTOR_BIKE_SENTINEL);
+  if (disabledTerms && disabledTerms.size > 0) {
+    const sorted = Array.from(disabledTerms).sort((a, b) => a - b);
+    parts.push(`[disabled_terms:${sorted.join(',')}]`);
+  }
+  return parts.join(' ');
+}
 
 /** Precise bike model keywords and whole-word regex. */
 const BIKE_MODEL_WORDS = /\b(spiro|ekoride|ekocycle|commando|mocoo|ebike|motorcycle|motorbike|boda)\b/i;
@@ -98,6 +135,9 @@ const NON_BIKE_EXCLUSIONS = /\b(jacket|helmet|glove|polo|shirt|jumper|lock|kettl
 function isMotorBikeRow(row: MotorBikeCatalogItem): boolean {
   const desc = (row.description || '').toLowerCase();
   const name = (row.item_name || '').toLowerCase();
+
+  // Exclude soft-deleted rows
+  if (desc.includes(MOTOR_BIKE_DELETED_SENTINEL)) return false;
 
   // Explicitly tagged as a motorbike by this dialog
   if (desc.includes(MOTOR_BIKE_SENTINEL)) return true;
@@ -128,16 +168,21 @@ export function useMotorBikeCatalog() {
 
       const rows: MotorBikeCatalogItem[] = (data || []) as MotorBikeCatalogItem[];
 
-      // Only keep rows that are motor bikes (sentinel or keyword match).
+      // Track all names present in the database (including soft-deleted ones) so deleted defaults are not re-seeded
+      const existingDbNames = new Set(
+        rows.map((r) => r.item_name.toLowerCase().trim())
+      );
+
+      // Only keep rows that are motor bikes (sentinel or keyword match, not deleted).
       const bikeRows = rows.filter(isMotorBikeRow);
 
-      // Merge defaults: ensure all baseline Spiro models are always present.
+      // Merge defaults: only inject baseline models that do NOT already exist in db
       const merged: MotorBikeCatalogItem[] = [...bikeRows];
       for (const def of DEFAULT_MOTORBIKES) {
-        const found = merged.find((m) => m.item_name.toLowerCase() === def.item_name.toLowerCase());
-        if (!found) {
+        const nameKey = def.item_name.toLowerCase().trim();
+        if (!existingDbNames.has(nameKey)) {
           merged.push({
-            id: `default-${def.item_name.toLowerCase().replace(/\s+/g, '-')}`,
+            id: `default-${nameKey.replace(/\s+/g, '-')}`,
             ...def,
           });
         }
@@ -196,6 +241,7 @@ export function MotorBikeCatalogDialog() {
   const [cost, setCost] = useState('');
   const [desc, setDesc] = useState('');
   const [isActive, setIsActive] = useState(true);
+  const [disabledPeriods, setDisabledPeriods] = useState<Set<number>>(new Set());
 
   // Quick inline price editor map: { [bikeId]: string }
   const [inlinePrices, setInlinePrices] = useState<Record<string, string>>({});
@@ -228,8 +274,9 @@ export function MotorBikeCatalogDialog() {
     setName(item.item_name);
     setPrice(String(Math.round(item.unit_price || 0)));
     setCost(String(Math.round(item.unit_cost || 0)));
-    setDesc(item.description || '');
+    setDesc(cleanDescription(item.description));
     setIsActive(item.is_active);
+    setDisabledPeriods(parseDisabledTerms(item.description));
     setAddMode(false);
   };
 
@@ -249,32 +296,34 @@ export function MotorBikeCatalogDialog() {
       if (numPrice <= 0) throw new Error('Base valuation / price must be greater than zero');
       const numCost = Math.max(0, Math.round(Number(cost) || numPrice));
 
-      // Ensure description always includes the motor_bike sentinel so the filter
-      // recognises this row as a bike regardless of its name.
-      const taggedDesc = (rawDesc: string | null) => {
-        const base = (rawDesc || '').replace(MOTOR_BIKE_SENTINEL, '').trim();
-        return base ? `${base} ${MOTOR_BIKE_SENTINEL}` : MOTOR_BIKE_SENTINEL;
-      };
+      // If re-adding/updating, check if a row with this name already exists in DB
+      const { data: existing } = await db
+        .from('merchandise_catalog')
+        .select('id')
+        .ilike('item_name', cleanName)
+        .maybeSingle();
 
-      if (editItem && !editItem.id.startsWith('default-')) {
+      const targetId = editItem && !editItem.id.startsWith('default-') ? editItem.id : existing?.id;
+
+      if (targetId) {
         const { error } = await db
           .from('merchandise_catalog')
           .update({
             item_name: cleanName,
             unit_price: numPrice,
             unit_cost: numCost,
-            description: taggedDesc(desc.trim() || null),
+            description: buildTaggedDescription(desc.trim() || null, disabledPeriods),
             is_active: isActive,
             updated_at: new Date().toISOString(),
           })
-          .eq('id', editItem.id);
+          .eq('id', targetId);
         if (error) throw error;
       } else {
         const { error } = await db.from('merchandise_catalog').insert({
           item_name: cleanName,
           unit_price: numPrice,
           unit_cost: numCost,
-          description: taggedDesc(desc.trim() || null),
+          description: buildTaggedDescription(desc.trim() || null, disabledPeriods),
           is_active: isActive,
         });
         if (error) throw error;
@@ -356,7 +405,35 @@ export function MotorBikeCatalogDialog() {
 
   const deleteItem = useMutation({
     mutationFn: async (item: MotorBikeCatalogItem) => {
-      if (!item.id.startsWith('default-')) {
+      const isDefault = item.id.startsWith('default-');
+      const isDefaultName = DEFAULT_MOTORBIKES.some(
+        (d) => d.item_name.toLowerCase().trim() === item.item_name.toLowerCase().trim()
+      );
+
+      if (isDefault) {
+        // Built-in model with no DB row yet: insert a soft-deleted row so it stays permanently removed
+        const { error } = await db.from('merchandise_catalog').insert({
+          item_name: item.item_name,
+          unit_price: item.unit_price,
+          unit_cost: item.unit_cost || item.unit_price,
+          description: `${MOTOR_BIKE_SENTINEL} ${MOTOR_BIKE_DELETED_SENTINEL}`,
+          is_active: false,
+        });
+        if (error) throw error;
+      } else if (isDefaultName) {
+        // Built-in model that has a DB row: update description to include [deleted] and deactivate
+        const cleanDesc = (item.description || '').replace(MOTOR_BIKE_DELETED_SENTINEL, '').trim();
+        const { error } = await db
+          .from('merchandise_catalog')
+          .update({
+            description: `${cleanDesc} ${MOTOR_BIKE_DELETED_SENTINEL}`.trim(),
+            is_active: false,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', item.id);
+        if (error) throw error;
+      } else {
+        // Custom model: delete row completely
         const { error } = await db.from('merchandise_catalog').delete().eq('id', item.id);
         if (error) throw error;
       }
@@ -376,13 +453,17 @@ export function MotorBikeCatalogDialog() {
   }, [previewBasePrice]);
 
   // Periods the manager has toggled off for this bike
-  const [disabledPeriods, setDisabledPeriods] = useState<Set<number>>(new Set());
-  const togglePeriod = (months: number) =>
+  const togglePeriod = (months: number) => {
     setDisabledPeriods((prev) => {
       const next = new Set(prev);
-      next.has(months) ? next.delete(months) : next.add(months);
+      if (next.has(months)) {
+        next.delete(months);
+      } else {
+        next.add(months);
+      }
       return next;
     });
+  };
 
   return (
     <>

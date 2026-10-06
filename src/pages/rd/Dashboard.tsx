@@ -9,6 +9,7 @@ import WelileLogo from '@/components/WelileLogo';
 import { useEffect, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Plus, Trash2 } from 'lucide-react';
+import IdeaCanvasBoard from './IdeaCanvasBoard';
 
 type Metric = { icon: LucideIcon; value: string; label: string };
 type Project = {
@@ -277,6 +278,7 @@ const SUMMARY: Metric[] = [
   { icon: Clock, value: String(PROJECTS.filter((p) => p.stage !== 'Pilot').length), label: 'In development or planning' },
   { icon: PieChart, value: `${avg}%`, label: 'Average progress across all projects' },
 ];
+const SUMMARY_KEY = 'rd-summary-v1';
 
 const WEEK_COLS: { key: keyof Project['week']; title: string; icon: LucideIcon }[] = [
   { key: 'last', title: 'Last 7 days', icon: CalendarDays },
@@ -291,6 +293,14 @@ export default function RDDashboard() {
     return DEFAULT_IDEAS;
   });
   const OVERVIEW = overviewMetrics(ideaRows);
+  const [summaryText, setSummaryText] = useState<{ value: string; label: string }[]>(() => {
+    try { const v = localStorage.getItem(SUMMARY_KEY); if (v) return JSON.parse(v); } catch { /* ignore */ }
+    return SUMMARY.map((s) => ({ value: s.value, label: s.label }));
+  });
+  useEffect(() => { try { localStorage.setItem(SUMMARY_KEY, JSON.stringify(summaryText)); } catch { /* ignore */ } }, [summaryText]);
+  const summary = SUMMARY.map((s, i) => ({ ...s, ...(summaryText[i] ?? {}) }));
+  const editSummary = (i: number, patch: Partial<{ value: string; label: string }>) =>
+    setSummaryText(() => summary.map((s, j) => ({ value: s.value, label: s.label, ...(j === i ? patch : {}) })));
 
   return (
     <div className="min-h-screen bg-background">
@@ -312,15 +322,22 @@ export default function RDDashboard() {
               <p className="text-xs text-muted-foreground">Project progress at a glance</p>
             </div>
           </div>
-          {SUMMARY.map((s) => (
-            <div key={s.label} className="flex items-center gap-3 rounded-xl border border-border bg-background p-3">
+          {summary.map((s, idx) => (
+            <div key={idx} className="flex items-center gap-3 rounded-xl border border-border bg-background p-3">
               <s.icon className="h-6 w-6 shrink-0 text-primary" />
-              <div><p className="text-xl font-bold text-foreground">{s.value}</p><p className="text-xs text-muted-foreground">{s.label}</p></div>
+              <div className="min-w-0 flex-1 space-y-0.5">
+                <input aria-label="Value" className="w-full bg-transparent text-xl font-bold text-foreground outline-none focus:rounded focus:ring-1 focus:ring-ring"
+                  value={s.value} onChange={(e) => editSummary(idx, { value: e.target.value })} />
+                <input aria-label="Label" className="w-full bg-transparent text-xs text-muted-foreground outline-none focus:rounded focus:ring-1 focus:ring-ring"
+                  value={s.label} onChange={(e) => editSummary(idx, { label: e.target.value })} />
+              </div>
             </div>
           ))}
         </div>
 
         <BusinessIdeasCashTable rows={ideaRows} setRows={setIdeaRows} />
+
+        <IdeaCanvasBoard />
 
         <div className="grid gap-4 lg:grid-cols-3">
           {PROJECTS.map((p) => <ProjectCard key={p.name} p={p} />)}

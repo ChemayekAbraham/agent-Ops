@@ -486,7 +486,7 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
     return { ids, names };
   }, [category, approvedBikeOrders, isBikeOrdersLoading]);
 
-  const rawRows = data?.rows ?? [];
+  const rawRows = useMemo(() => data?.rows ?? [], [data?.rows]);
   const allRows = useMemo(() => {
     if (category !== 'motor_bike' || !approvedBikeAgentIds) return rawRows;
     return rawRows
@@ -538,9 +538,9 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
     };
   }, [kpis, category, approvedBikeAgentIds, allRows]);
 
-  const pendingApps = data?.pending ?? [];
-  const breakdown = data?.breakdown ?? [];
-  const activity = data?.activity ?? [];
+  const pendingApps = useMemo(() => data?.pending ?? [], [data?.pending]);
+  const breakdown = useMemo(() => data?.breakdown ?? [], [data?.breakdown]);
+  const activity = useMemo(() => data?.activity ?? [], [data?.activity]);
   const isSmartphone = category === 'smart_phone';
   const isMotorBike = category === 'motor_bike';
 
