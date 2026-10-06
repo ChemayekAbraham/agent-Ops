@@ -22,6 +22,11 @@ type SubDef = { key: string; label: string };
 type CatDef = { key: string; label: string; icon: typeof Users; subs: SubDef[] };
 
 const CATS: CatDef[] = [
+  { key: 'tenant', label: 'Tenant Products & Services', icon: Home, subs: [
+    { key: 'rent_plan', label: 'Rent Access Plans' },
+    { key: 'tenant_service_charge', label: 'Tenant Service Charges' },
+    { key: 'business_advance', label: 'Business Advances' },
+  ] },
   { key: 'agent', label: 'Agent Products & Services', icon: Users, subs: [
     { key: 'merchandise_recovery', label: 'Merchandise & Smartphone Recovery' },
     { key: 'agent_advance', label: 'Agent Advances' },
@@ -30,16 +35,11 @@ const CATS: CatDef[] = [
     { key: 'credit_access_draw', label: 'Credit Access Draws' },
     { key: 'merchandise_credit_sale', label: 'Merchandise Credit Sales' },
   ] },
-  { key: 'partner', label: 'Partner Products & Services', icon: Handshake, subs: [
-    { key: 'promissory_note', label: 'Promissory Notes' },
-  ] },
-  { key: 'tenant', label: 'Tenant Products & Services', icon: Home, subs: [
-    { key: 'rent_plan', label: 'Rent Access Plans' },
-    { key: 'tenant_service_charge', label: 'Tenant Service Charges' },
-    { key: 'business_advance', label: 'Business Advances' },
-  ] },
   { key: 'landlord', label: 'Landlord Products & Services', icon: Building2, subs: [
     { key: 'welile_homes', label: 'Welile Homes Subscriptions' },
+  ] },
+  { key: 'partner', label: 'Partner Products & Services', icon: Handshake, subs: [
+    { key: 'promissory_note', label: 'Promissory Notes' },
   ] },
   { key: 'other', label: 'Unclassified / Other', icon: Package, subs: [] },
   { key: 'rnd', label: 'R&D', icon: FlaskConical, subs: [] },
