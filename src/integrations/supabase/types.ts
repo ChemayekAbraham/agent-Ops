@@ -66240,6 +66240,10 @@ export type Database = {
         Args: { p_from: string; p_to: string }
         Returns: Json
       }
+      get_payables_contract_schedule: {
+        Args: { p_as_at?: string; p_granularity?: string; p_periods?: number }
+        Returns: Json
+      }
       get_payables_due_range: {
         Args: { p_from: string; p_to: string }
         Returns: Json

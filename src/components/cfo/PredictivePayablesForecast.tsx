@@ -26,6 +26,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { formatUGX } from '@/lib/rentCalculations';
 import {
   usePayablesPredictiveForecast,
+  usePayablesContractSchedule,
+  type PayablesContractPeriod,
   type PayablesGranularity,
   type PayablesPredictivePeriod,
 } from '@/hooks/usePayables';
@@ -78,6 +80,13 @@ export default function PredictivePayablesForecast() {
 
   const q = usePayablesPredictiveForecast(granularity, periods);
   const data = q.data;
+  const contractQ = usePayablesContractSchedule(granularity, periods);
+  const contractByIndex = useMemo(() => {
+    const m = new Map<number, PayablesContractPeriod>();
+    (contractQ.data ?? []).forEach((c) => m.set(c.index, c));
+    return m;
+  }, [contractQ.data]);
+  const idealOf = (i: number) => Number(contractByIndex.get(i)?.contract_amount ?? 0);
 
   // Behavior projection = average actually paid in past periods (same weekday for daily view)
   const historyProjection = useMemo(() => {
@@ -109,10 +118,10 @@ export default function PredictivePayablesForecast() {
       label: p.label,
       actual: null as number | null,
       forecast: historyProjection.get(p.index) ?? 0,
-      ideal: p.scheduled_amount,
+      ideal: idealOf(p.index),
     }));
     return [...hist, ...fc];
-  }, [data, periods, historyProjection]);
+  }, [data, periods, historyProjection, contractByIndex]);
 
   const horizonTotal = useMemo(
     () => (data?.periods ?? []).reduce((s, p) => s + (historyProjection.get(p.index) ?? 0), 0),
@@ -120,8 +129,8 @@ export default function PredictivePayablesForecast() {
   );
 
   const idealTotal = useMemo(
-    () => (data?.periods ?? []).reduce((s, p) => s + p.scheduled_amount, 0),
-    [data]
+    () => (data?.periods ?? []).reduce((s, p) => s + idealOf(p.index), 0),
+    [data, contractByIndex]
   );
 
   const selectPreset = (preset: (typeof PERIOD_PRESETS)[number]) => {
@@ -338,7 +347,7 @@ export default function PredictivePayablesForecast() {
                             {formatUGX(historyProjection.get(p.index) ?? 0)}
                           </td>
                           <td className="px-2.5 py-1.5 text-right font-mono tabular-nums hidden sm:table-cell text-muted-foreground whitespace-nowrap">
-                            {formatUGX(p.scheduled_amount)}
+                            {formatUGX(idealOf(p.index))}
                           </td>
                         </tr>
                         {open && (
@@ -352,7 +361,7 @@ export default function PredictivePayablesForecast() {
                                   New obligations {formatUGX(p.new_origination_amount)}
                                 </Badge>
                                 <Badge variant="outline" className="text-[9px] px-1.5 py-0">
-                                  Scheduled {formatUGX(p.scheduled_amount)}
+                                  Contract {formatUGX(idealOf(p.index))}
                                 </Badge>
                               </div>
                               {p.sources.length === 0 ? (
