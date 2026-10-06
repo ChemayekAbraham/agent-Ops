@@ -88,7 +88,7 @@ export function ProxyNotesSection({ agentId, summary, onCreate }: { agentId?: st
                     <div className="mt-2 grid grid-cols-3 gap-1.5">
                       <Button size="sm" variant="outline" className="h-8 px-2 text-xs" onClick={() => share(text)}><Share2 className="mr-1 h-3.5 w-3.5" />Share</Button>
                       <Button size="sm" variant="outline" className="h-8 px-2 text-xs" onClick={async () => { await navigator.clipboard.writeText(text); toast.success('Copied'); }}><Copy className="mr-1 h-3.5 w-3.5" />Copy</Button>
-                      <Button size="sm" variant="outline" className="h-8 px-2 text-xs" disabled={!phone || r.status !== 'pending'} onClick={() => followUp(phone, name)}><MessageCircle className="mr-1 h-3.5 w-3.5" />Follow up</Button>
+                      <Button size="sm" variant="outline" className="h-8 px-2 text-xs" onClick={() => followUp(phone, name)}><MessageCircle className="mr-1 h-3.5 w-3.5" />Follow up</Button>
                     </div>
                   </Card>
                 );
