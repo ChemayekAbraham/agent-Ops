@@ -6,10 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:ios": "vite build && npx @capacitor/cli copy ios",
     "preview": "vite preview",
-    "cap:sync": "cap sync",
-    "cap:ios": "cap open ios",
-    "cap:run": "cap run ios",
+    "cap:sync": "npx @capacitor/cli sync ios",
+    "cap:ios": "npx @capacitor/cli open ios",
+    "cap:run": "npx @capacitor/cli run ios",
     "fetch:upstream": "git fetch upstream",
     "log:upstream": "git log -n 10 upstream/lovable --oneline",
     "sync": "bash scripts/sync-upstream.sh"
