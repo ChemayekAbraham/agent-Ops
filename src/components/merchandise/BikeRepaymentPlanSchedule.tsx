@@ -116,31 +116,24 @@ export default function BikeRepaymentPlanSchedule({
         </div>
 
         {/* Breakdown for the selected month */}
-        <div className="grid grid-cols-2 gap-2 pt-2 border-t border-primary/15 text-[11px]">
+        <div className="grid grid-cols-3 gap-1.5 sm:gap-2 pt-2 border-t border-primary/15 text-[11px]">
           <div className="rounded-md border border-border/80 bg-background/80 p-2 space-y-0.5">
-            <span className="text-[10px] text-muted-foreground block">Principal Portion</span>
-            <span className="font-semibold text-foreground">
-              {formatUGX(Math.round(currentRow.principalDue))}
-            </span>
-          </div>
-
-          <div className="rounded-md border border-border/80 bg-background/80 p-2 space-y-0.5">
-            <span className="text-[10px] text-muted-foreground block">Monthly Fee (28%)</span>
-            <span className="font-semibold text-foreground">
-              {formatUGX(Math.round(currentRow.feeDue))}
-            </span>
-          </div>
-
-          <div className="rounded-md border border-border/80 bg-background/80 p-2 space-y-0.5">
-            <span className="text-[10px] text-muted-foreground block">Opening Balance</span>
-            <span className="font-semibold text-foreground">
+            <span className="text-[10px] text-muted-foreground block truncate">Opening Balance</span>
+            <span className="font-semibold text-foreground text-xs truncate block">
               {formatUGX(Math.round(currentRow.openingPrincipal))}
             </span>
           </div>
 
           <div className="rounded-md border border-border/80 bg-background/80 p-2 space-y-0.5">
-            <span className="text-[10px] text-muted-foreground block">Closing Balance</span>
-            <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+            <span className="text-[10px] text-muted-foreground block truncate">Monthly Fee (28%)</span>
+            <span className="font-semibold text-foreground text-xs truncate block">
+              {formatUGX(Math.round(currentRow.feeDue))}
+            </span>
+          </div>
+
+          <div className="rounded-md border border-border/80 bg-background/80 p-2 space-y-0.5">
+            <span className="text-[10px] text-muted-foreground block truncate">Closing Balance</span>
+            <span className="font-semibold text-emerald-600 dark:text-emerald-400 text-xs truncate block">
               {formatUGX(Math.round(currentRow.closingPrincipal))}
             </span>
           </div>
