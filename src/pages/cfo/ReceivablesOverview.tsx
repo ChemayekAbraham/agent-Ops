@@ -97,7 +97,6 @@ export default function ReceivablesOverview() {
           <nav aria-label="Receivable categories" className="border-r border-border bg-card px-2 py-4 flex flex-col lg:fixed lg:bottom-0 lg:left-0 lg:top-14 lg:w-[190px]">
             <p className="px-3 pb-3 text-[10px] text-muted-foreground">CFO</p>
             <Button asChild variant="ghost" className="mb-2 h-9 justify-start px-3 text-xs font-medium"><Link to="/cfo/dashboard"><Home /> Overview</Link></Button>
-            <div className="mb-1 flex items-center gap-2 rounded-md bg-info/5 px-3 py-2 text-xs font-semibold text-info"><LayoutGrid className="h-4 w-4" /> Receivables</div>
             <SideItem active={catKey === 'overview'} icon={LayoutGrid} label="Overview" onClick={() => go('overview')} />
             {cats.map((c) => <SideItem key={c.key} active={catKey === c.key} icon={c.icon} label={c.label} onClick={() => go(c.key)} />)}
             <div className="my-3 border-t border-border/60" />
