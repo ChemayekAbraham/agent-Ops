@@ -3326,6 +3326,20 @@
       "when": 1791287896850,
       "tag": "0474_advance_lock_only_counts_withdrawable_bucket_credits",
       "breakpoints": true
+    },
+    {
+      "idx": 475,
+      "version": "7",
+      "when": 1791300785227,
+      "tag": "0475_migration",
+      "breakpoints": true
+    },
+    {
+      "idx": 476,
+      "version": "7",
+      "when": 1791300949562,
+      "tag": "0476_migration",
+      "breakpoints": true
     }
   ]
 }
