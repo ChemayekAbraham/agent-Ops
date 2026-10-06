@@ -8,6 +8,7 @@ import {
   Calendar,
   Receipt,
   Banknote,
+  Wallet,
   ShoppingBag,
   History,
   Users,
