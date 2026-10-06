@@ -187,11 +187,10 @@ export default function LendingBorrowerCard({ loan, onRecordRepayment, onTopUpOr
           {!expanded && (
             <p className="mt-2 text-center text-xs font-semibold text-primary">Tap to pay, add money or give more time</p>
           )}
-          {autoOn && (
+          {autoOn && plan && (
             <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[9px] font-semibold text-primary">
               <Repeat className="h-2.5 w-2.5" />
-              Auto {freqLabel} · ~{formatUGX(Number(loan.installment_ugx) || 0)}
-              {loan.next_deduction_date ? ` · next ${new Date(loan.next_deduction_date).toLocaleDateString()}` : ''}
+              Money is taken automatically {plan.nextDueDate ? `· next ${new Date(plan.nextDueDate).toLocaleDateString()}` : ''}
             </div>
           )}
         </button>
