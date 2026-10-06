@@ -4,9 +4,7 @@ import { ArrowLeft, LayoutGrid, Search, RefreshCw, ChevronRight, TrendingDown, W
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, ComposedChart, CartesianGrid, XAxis, YAxis, Bar, Line } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import PredictivePayablesForecast from '@/components/cfo/PredictivePayablesForecast';
-import PayablesAccuracyPanel from '@/components/cfo/PayablesAccuracyPanel';
-import { usePayablesTotal, usePayablesBreakdown, usePayablesPredictiveForecast, type PayableProduct, type PayableItem } from '@/hooks/usePayables';
+import { usePayablesTotal, usePayablesBreakdown, usePayablesPredictiveForecast, usePayablesContractSchedule, type PayableProduct, type PayableItem } from '@/hooks/usePayables';
 import { formatUGX } from '@/lib/rentCalculations';
 
 const COLORS = ['success', 'primary', 'warning', 'destructive', 'muted-foreground', 'receivable-rnd'].map((tone) => `hsl(var(--${tone}))`);
@@ -57,18 +55,17 @@ export default function PayablesOverview() {
           <SideItem active={catKey === 'overview'} icon={LayoutGrid} label="Overview" onClick={() => go('overview')} />
           {cats.map((c, i) => <SideItem key={c.key} active={catKey === c.key} icon={ICONS[i % ICONS.length]} label={c.label} onClick={() => go(c.key)} />)}
           <div className="my-3 border-t border-border/60" />
-          <SideItem active={catKey === 'forecast'} icon={CalendarDays} label="Detailed Forecast" onClick={() => go('forecast')} />
-          <SideItem active={catKey === 'accuracy'} icon={CheckCircle2} label="Forecast Accuracy" onClick={() => go('accuracy')} />
+          <SideItem active={catKey === 'daily'} icon={TrendingDown} label="Forecast" onClick={() => go('daily')} />
         </nav>
         <div className="min-w-0 px-4 py-5 lg:col-start-2">
           {cat && <div className="mb-2 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground"><Button variant="link" className="h-auto min-h-0 p-0 text-[10px]" onClick={() => go('overview')}>Payables</Button><ChevronRight className="h-3 w-3" /><span>{cat.label}</span>{product && <><ChevronRight className="h-3 w-3" /><span>{product.label}</span></>}</div>}
           <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
-            <div><h1 className="text-xl font-semibold">{cat?.label ?? (catKey === 'forecast' ? 'Payables Forecast' : catKey === 'accuracy' ? 'Forecast Accuracy' : 'Payables Overview')}</h1><p className="mt-1 text-xs text-muted-foreground">Outstanding obligations, payment schedules and expected payouts.</p></div>
+            <div><h1 className="text-xl font-semibold">{cat?.label ?? (catKey === 'daily' ? 'Forecast' : 'Payables Overview')}</h1><p className="mt-1 text-xs text-muted-foreground">Outstanding obligations, payment schedules and expected payouts.</p></div>
             <div className="flex flex-wrap items-center gap-3"><span className="text-[10px] text-muted-foreground">Last updated · {breakdown.data?.as_at?.slice(0, 10) ?? '—'} · EAT</span><Button variant="outline" size="sm" className="rounded-md text-primary hover:text-primary" disabled={refreshing} onClick={refresh}><RefreshCw className={refreshing ? 'animate-spin' : ''} />Refresh</Button></div>
           </header>
           <div className="flex flex-col gap-3 min-w-0">
             {validation && <p className={`flex items-center gap-1.5 text-[10px] ${validation.ties_out ? 'text-success' : 'text-destructive'}`}>{validation.ties_out ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0" /> : <AlertTriangle className="h-3.5 w-3.5 shrink-0" />}{validation.ties_out ? 'Categories tie out exactly to the authoritative total.' : `Category total differs by ${formatUGX(validation.difference)}. No figure has been adjusted to force a match.`}</p>}
-            {catKey === 'forecast' ? <PredictivePayablesForecast /> : catKey === 'accuracy' ? <PayablesAccuracyPanel /> : breakdown.isLoading ? <Panel><p className="text-xs text-muted-foreground">Loading live payables…</p></Panel> : breakdown.isError || total.isError ? <Panel><p className="text-xs text-destructive">Could not load payables. Please refresh.</p></Panel> : cat ? <>
+            {catKey === 'daily' ? <DailyForecast /> : breakdown.isLoading ? <Panel><p className="text-xs text-muted-foreground">Loading live payables…</p></Panel> : breakdown.isError || total.isError ? <Panel><p className="text-xs text-destructive">Could not load payables. Please refresh.</p></Panel> : cat ? <>
               {cat.products.length ? <><div role="tablist" aria-label="Payable products" className="inline-flex flex-wrap gap-1 rounded-lg border border-border/70 bg-card p-1">{cat.products.map((p) => <Button key={p.key} variant="ghost" size="sm" role="tab" aria-selected={product?.key === p.key} onClick={() => go(cat.key, p.key)} className={`rounded-md whitespace-normal text-xs ${product?.key === p.key ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-primary hover:bg-primary/10'}`}>{p.label}</Button>)}</div>{product && <ProductDetail product={product} />}</> : <Panel><p className="text-xs text-muted-foreground">No open payables in this category.</p></Panel>}
             </> : <>
               <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
@@ -88,7 +85,7 @@ export default function PayablesOverview() {
                 </Panel>
                 <div className="grid content-start gap-3">
                   <Panel title="Payables by Category"><Distribution data={cats.map((c) => ({ label: c.label, amount: c.outstanding }))} total={breakdown.data?.total ?? 0} /></Panel>
-                  <Panel title="7-Day Payables Forecast"><div className="mb-2 flex flex-wrap gap-3 text-[10px] text-muted-foreground"><span>Expected payouts (estimated)</span><span>Scheduled portion</span></div><ForecastChart rows={chart} />{forecast.isError && <p className="mt-2 text-[10px] text-destructive">Forecast unavailable. Please refresh.</p>}{periods?.some((p) => p.quality === 'low' || p.quality === 'insufficient') && <p className="mt-2 text-[10px] text-muted-foreground">Limited history; estimates include low-confidence periods.</p>}<Button variant="link" size="sm" className="h-auto min-h-0 px-0 pt-2 text-[10px]" onClick={() => go('forecast')}>View detailed forecast <ChevronRight /></Button></Panel>
+                  <Panel title="7-Day Payables Forecast"><div className="mb-2 flex flex-wrap gap-3 text-[10px] text-muted-foreground"><span>Expected payouts (estimated)</span><span>Scheduled portion</span></div><ForecastChart rows={chart} />{forecast.isError && <p className="mt-2 text-[10px] text-destructive">Forecast unavailable. Please refresh.</p>}{periods?.some((p) => p.quality === 'low' || p.quality === 'insufficient') && <p className="mt-2 text-[10px] text-muted-foreground">Limited history; estimates include low-confidence periods.</p>}<Button variant="link" size="sm" className="h-auto min-h-0 px-0 pt-2 text-[10px]" onClick={() => go('daily')}>Open forecast <ChevronRight /></Button></Panel>
                 </div>
                 <div className="grid content-start gap-3">
                   <Panel title="Payment Outlook (Next 7 Days)"><Outlook label="Expected Payouts (est.)" value={money(expected)} /><Outlook label="Scheduled Portion" value={money(scheduled)} /><Outlook label="Unscheduled Obligations" value={money(forecast.data?.unscheduled?.amount)} />{forecast.data?.unscheduled && <p className="mt-2 text-[10px] text-muted-foreground">Included in total payables; excluded from the dated forecast.</p>}</Panel>
@@ -120,6 +117,47 @@ function ProductDetail({ product }: { product: PayableProduct }) {
       <Panel title="Key Metrics"><Outlook label="Outstanding" value={formatUGX(product.outstanding)} /><Outlook label="Scheduled" value={formatUGX(product.scheduled_amount)} /><Outlook label="Projected" value={formatUGX(product.projected_amount)} /><Outlook label="Open Obligations" value={product.item_count.toLocaleString()} /></Panel>
     </div>
     <Panel title="Upcoming Due Dates"><ItemTable items={[...product.items].filter((i) => i.due_date).sort((a, b) => (a.due_date ?? '').localeCompare(b.due_date ?? '')).slice(0, 8)} /></Panel>
+  </>;
+}
+
+const FORECAST_PERIODS = [
+  { id: '7d', label: 'Next 7 days', gran: 'day' as const, n: 7 },
+  { id: '14d', label: 'Next 14 days', gran: 'day' as const, n: 14 },
+  { id: '30d', label: 'Next 30 days', gran: 'day' as const, n: 30 },
+  { id: '60d', label: 'Next 60 days', gran: 'day' as const, n: 60 },
+  { id: '90d', label: 'Next 90 days', gran: 'day' as const, n: 90 },
+  { id: '1y', label: 'Next 1 year', gran: 'month' as const, n: 12 },
+  { id: '2y', label: 'Next 2 years', gran: 'month' as const, n: 24 },
+  { id: '3y', label: 'Next 3 years', gran: 'month' as const, n: 36 },
+  { id: '4y', label: 'Next 4 years', gran: 'month' as const, n: 48 },
+  { id: '5y', label: 'Next 5 years', gran: 'month' as const, n: 60 },
+];
+
+function DailyForecast() {
+  const [pid, setPid] = useState('7d');
+  const period = FORECAST_PERIODS.find((p) => p.id === pid) ?? FORECAST_PERIODS[0];
+  const daily = period.gran === 'day';
+  const q = usePayablesPredictiveForecast(period.gran, period.n);
+  const contractQ = usePayablesContractSchedule(period.gran, period.n);
+  const history = q.data?.history ?? [];
+  const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
+  const overall = avg(history.map((x) => x.actual_amount));
+  const contractMap = new Map((contractQ.data ?? []).map((c) => [c.index, Number(c.contract_amount ?? 0)]));
+  const rows = (q.data?.periods ?? []).map((p) => {
+    const dow = new Date(p.period_start).getUTCDay();
+    const same = daily ? history.filter((x) => new Date(x.period_start).getUTCDay() === dow).map((x) => x.actual_amount) : [];
+    return { key: p.period_start, date: daily ? p.period_start.slice(0, 10) : p.label, label: p.label, behavior: Math.round(same.length ? avg(same) : overall), contract: contractMap.get(p.index) ?? 0 };
+  });
+  const sum = rows.reduce((a, r) => a + r.behavior, 0);
+  const sched = rows.reduce((a, r) => a + r.contract, 0);
+  const unit = daily ? 'day' : 'month';
+  return <>
+    <div role="tablist" aria-label="Forecast period" className="inline-flex flex-wrap gap-1 rounded-lg border border-border/70 bg-card p-1">{FORECAST_PERIODS.map((p) => <Button key={p.id} variant="ghost" size="sm" role="tab" aria-selected={pid === p.id} onClick={() => setPid(p.id)} className={`rounded-md text-xs ${pid === p.id ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-primary hover:bg-primary/10'}`}>{p.label}</Button>)}</div>
+    {q.isLoading || contractQ.isLoading ? <Panel><p className="text-xs text-muted-foreground">Loading forecast…</p></Panel> : q.isError ? <Panel><p className="text-xs text-destructive">Forecast unavailable. Please refresh.</p></Panel> : <>
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-3"><Metric label="Behavior projection" value={formatUGX(sum)} note="Based on past payables" icon={Wallet} tone="primary" /><Metric label="Ideal (contract)" value={contractQ.isError ? 'Unavailable' : formatUGX(sched)} note="Scheduled by contract" icon={CalendarDays} tone="success" /><Metric label={daily ? "Daily Average" : "Monthly Average"} value={formatUGX(rows.length ? sum / rows.length : 0)} note={`Behavior projection per ${unit}`} icon={TrendingDown} tone="warning" /></div>
+      <Panel title={`Payables Projection — ${period.label.replace("Next ", "Next ")}`}><ForecastChart rows={rows.map((r) => ({ label: r.label, amount: r.behavior, scheduled: r.contract }))} /></Panel>
+      <Panel title={daily ? "Day by Day" : "Month by Month"}><div className="overflow-x-auto"><table className="w-full text-[10px]"><thead className="bg-muted/50 text-muted-foreground"><tr><th className="p-2 text-left font-medium">{daily ? "Date" : "Month"}</th><th className="p-2 text-right font-medium">Behavior projection (UGX)</th><th className="p-2 text-right font-medium">Ideal — contract (UGX)</th></tr></thead><tbody className="divide-y divide-border">{rows.map((r) => <tr key={r.key}><td className="p-2">{r.date}</td><td className="p-2 text-right tabular-nums">{formatUGX(r.behavior)}</td><td className="p-2 text-right tabular-nums">{formatUGX(r.contract)}</td></tr>)}</tbody><tfoot><tr className="border-t border-border font-semibold"><td className="p-2">Total</td><td className="p-2 text-right tabular-nums">{formatUGX(sum)}</td><td className="p-2 text-right tabular-nums">{formatUGX(sched)}</td></tr></tfoot></table></div></Panel>
+    </>}
   </>;
 }
 

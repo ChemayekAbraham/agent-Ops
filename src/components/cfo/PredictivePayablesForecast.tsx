@@ -1,7 +1,6 @@
 import { Fragment, useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import {
-  AlertTriangle,
   ChevronDown,
   ChevronRight,
   Download,
@@ -10,11 +9,11 @@ import {
   TrendingDown,
 } from 'lucide-react';
 import {
-  Area,
   Bar,
   CartesianGrid,
   ComposedChart,
   Legend,
+  Line,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -24,71 +23,26 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { formatUGX } from '@/lib/rentCalculations';
 import {
   usePayablesPredictiveForecast,
+  usePayablesContractSchedule,
+  type PayablesContractPeriod,
   type PayablesGranularity,
   type PayablesPredictivePeriod,
 } from '@/hooks/usePayables';
 
-const GRANULARITIES: { key: PayablesGranularity; label: string; defaultPeriods: number }[] = [
-  { key: 'day', label: 'Daily', defaultPeriods: 30 },
-  { key: 'week', label: 'Weekly', defaultPeriods: 26 },
-  { key: 'month', label: 'Monthly', defaultPeriods: 12 },
-  { key: 'quarter', label: 'Quarterly', defaultPeriods: 12 },
-  { key: 'year', label: 'Yearly', defaultPeriods: 5 },
+const PERIOD_PRESETS: { label: string; granularity: PayablesGranularity; periods: number }[] = [
+  { label: 'Next 7 days', granularity: 'day', periods: 7 },
+  { label: 'Next 14 days', granularity: 'day', periods: 14 },
+  { label: 'Next 30 days', granularity: 'day', periods: 30 },
+  { label: 'Next 90 days', granularity: 'week', periods: 13 },
+  { label: '1 year', granularity: 'month', periods: 12 },
+  { label: '2 years', granularity: 'month', periods: 24 },
+  { label: '3 years', granularity: 'month', periods: 36 },
+  { label: '5 years', granularity: 'year', periods: 5 },
 ];
 
-const HORIZONS: Record<PayablesGranularity, { value: number; label: string }[]> = {
-  day: [
-    { value: 1, label: 'Today' },
-    { value: 2, label: 'Today + tomorrow' },
-    { value: 7, label: 'Next 7 days' },
-    { value: 14, label: 'Next 14 days' },
-    { value: 30, label: 'Next 30 days' },
-    { value: 60, label: 'Next 60 days' },
-  ],
-  week: [
-    { value: 4, label: 'Next 4 weeks' },
-    { value: 13, label: 'Next 13 weeks' },
-    { value: 26, label: 'Next 26 weeks' },
-    { value: 52, label: 'Next 52 weeks' },
-  ],
-  month: [
-    { value: 1, label: 'This month' },
-    { value: 3, label: 'Next 3 months' },
-    { value: 6, label: 'Next 6 months' },
-    { value: 12, label: 'Next 12 months' },
-    { value: 24, label: 'Next 24 months' },
-    { value: 36, label: 'Next 36 months' },
-  ],
-  quarter: [
-    { value: 4, label: 'Next 4 quarters' },
-    { value: 8, label: 'Next 8 quarters' },
-    { value: 12, label: 'Next 12 quarters' },
-    { value: 16, label: 'Next 16 quarters' },
-  ],
-  year: [
-    { value: 2, label: 'Year 1 – 2' },
-    { value: 3, label: 'Year 1 – 3' },
-    { value: 4, label: 'Year 1 – 4' },
-    { value: 5, label: 'Year 1 – 5' },
-  ],
-};
-
-const QUALITY_STYLE: Record<string, string> = {
-  high: 'bg-emerald-500/15 text-emerald-700',
-  medium: 'bg-amber-500/15 text-amber-700',
-  low: 'bg-orange-500/15 text-orange-700',
-  insufficient: 'bg-muted text-muted-foreground',
-};
 
 const compact = (n: number) =>
   n >= 1_000_000_000
@@ -119,13 +73,38 @@ function downloadCsv(name: string, rows: (string | number)[][]) {
 }
 
 export default function PredictivePayablesForecast() {
-  const [granularity, setGranularity] = useState<PayablesGranularity>('month');
-  const [periods, setPeriods] = useState(12);
+  const [granularity, setGranularity] = useState<PayablesGranularity>('day');
+  const [periods, setPeriods] = useState(7);
+  const [activePreset, setActivePreset] = useState('Next 7 days');
   const [openPeriod, setOpenPeriod] = useState<number | null>(null);
-  const [showStreams, setShowStreams] = useState(false);
 
   const q = usePayablesPredictiveForecast(granularity, periods);
   const data = q.data;
+  const contractQ = usePayablesContractSchedule(granularity, periods);
+  const contractByIndex = useMemo(() => {
+    const m = new Map<number, PayablesContractPeriod>();
+    (contractQ.data ?? []).forEach((c) => m.set(c.index, c));
+    return m;
+  }, [contractQ.data]);
+  const idealOf = (i: number) => Number(contractByIndex.get(i)?.contract_amount ?? 0);
+
+  // Behavior projection = average actually paid in past periods (same weekday for daily view)
+  const historyProjection = useMemo(() => {
+    const h = data?.history ?? [];
+    const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
+    const overall = avg(h.map((x) => x.actual_amount));
+    const map = new Map<number, number>();
+    (data?.periods ?? []).forEach((p) => {
+      if (granularity === 'day') {
+        const dow = new Date(p.period_start).getUTCDay();
+        const same = h.filter((x) => new Date(x.period_start).getUTCDay() === dow).map((x) => x.actual_amount);
+        map.set(p.index, Math.round(same.length ? avg(same) : overall));
+      } else {
+        map.set(p.index, Math.round(overall));
+      }
+    });
+    return map;
+  }, [data, granularity]);
 
   const chartData = useMemo(() => {
     if (!data) return [];
@@ -133,25 +112,31 @@ export default function PredictivePayablesForecast() {
       label: h.label,
       actual: h.actual_amount,
       forecast: null as number | null,
-      band: null as [number, number] | null,
+      ideal: null as number | null,
     }));
     const fc = data.periods.map((p) => ({
       label: p.label,
       actual: null as number | null,
-      forecast: p.forecast_amount,
-      band: [p.low, p.high] as [number, number],
+      forecast: historyProjection.get(p.index) ?? 0,
+      ideal: idealOf(p.index),
     }));
     return [...hist, ...fc];
-  }, [data, periods]);
+  }, [data, periods, historyProjection, contractByIndex]);
 
   const horizonTotal = useMemo(
-    () => (data?.periods ?? []).reduce((s, p) => s + p.forecast_amount, 0),
-    [data]
+    () => (data?.periods ?? []).reduce((s, p) => s + (historyProjection.get(p.index) ?? 0), 0),
+    [data, historyProjection]
   );
 
-  const changeGranularity = (g: PayablesGranularity) => {
-    setGranularity(g);
-    setPeriods(GRANULARITIES.find((x) => x.key === g)?.defaultPeriods ?? 12);
+  const idealTotal = useMemo(
+    () => (data?.periods ?? []).reduce((s, p) => s + idealOf(p.index), 0),
+    [data, contractByIndex]
+  );
+
+  const selectPreset = (preset: (typeof PERIOD_PRESETS)[number]) => {
+    setGranularity(preset.granularity);
+    setPeriods(preset.periods);
+    setActivePreset(preset.label);
     setOpenPeriod(null);
   };
 
@@ -220,34 +205,15 @@ export default function PredictivePayablesForecast() {
               Modelled from real payment history · all forward amounts are estimates
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-1.5 sm:flex sm:items-center">
-            <Select
-              value={granularity}
-              onValueChange={(v) => changeGranularity(v as PayablesGranularity)}
-            >
-              <SelectTrigger className="h-9 sm:h-8 w-full sm:w-[112px] text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {GRANULARITIES.map((g) => (
-                  <SelectItem key={g.key} value={g.key} className="text-xs">
-                    {g.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={String(periods)} onValueChange={(v) => setPeriods(Number(v))}>
-              <SelectTrigger className="h-9 sm:h-8 w-full sm:w-[156px] text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {HORIZONS[granularity].map((h) => (
-                  <SelectItem key={h.value} value={String(h.value)} className="text-xs">
-                    {h.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="flex flex-col gap-2 sm:items-end">
+            <div className="inline-flex flex-wrap gap-1 rounded-lg bg-muted p-1" role="tablist" aria-label="Forecast period">
+              {PERIOD_PRESETS.map((preset) => (
+                <button key={preset.label} type="button" onClick={() => selectPreset(preset)}
+                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${activePreset === preset.label ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-primary/10 hover:text-primary'}`}>
+                  {preset.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -264,41 +230,41 @@ export default function PredictivePayablesForecast() {
         ) : data ? (
           <>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-              <div className="rounded-xl bg-muted/50 px-2.5 py-2">
-                <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground">
-                  Actual recorded
-                </p>
-                <p className="text-xs sm:text-base font-bold font-mono tabular-nums truncate">
-                  {formatUGX(data.actual.total)}
-                </p>
-                <p className="text-[9px] sm:text-[10px] text-muted-foreground">
-                  {data.actual.item_count} open obligations
-                </p>
-              </div>
-              <div className="rounded-xl bg-destructive/10 px-2.5 py-2">
-                <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-destructive">
-                  Overdue
-                </p>
-                <p className="text-xs sm:text-base font-bold font-mono tabular-nums truncate">
-                  {formatUGX(data.actual.overdue)}
-                </p>
-                <p className="text-[9px] sm:text-[10px] text-muted-foreground">Past due date</p>
-              </div>
-              <div className="rounded-xl bg-emerald-500/10 px-2.5 py-2">
-                <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-emerald-700">
-                  Not yet due
-                </p>
-                <p className="text-xs sm:text-base font-bold font-mono tabular-nums truncate">
-                  {formatUGX(data.actual.not_yet_due)}
-                </p>
-                <p className="text-[9px] sm:text-[10px] text-muted-foreground">On the books</p>
-              </div>
               <div className="rounded-xl bg-primary/10 px-2.5 py-2">
                 <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-primary flex items-center gap-1">
-                  <TrendingDown className="h-2.5 w-2.5" /> Forecast (est.)
+                  <TrendingDown className="h-2.5 w-2.5" /> Behavior projection
                 </p>
                 <p className="text-xs sm:text-base font-bold font-mono tabular-nums truncate">
                   {formatUGX(horizonTotal)}
+                </p>
+                <p className="text-[9px] sm:text-[10px] text-muted-foreground">
+                  Based on past payment history
+                </p>
+              </div>
+              <div className="rounded-xl bg-muted/50 px-2.5 py-2">
+                <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground">
+                  Ideal (contract)
+                </p>
+                <p className="text-xs sm:text-base font-bold font-mono tabular-nums truncate">
+                  {formatUGX(idealTotal)}
+                </p>
+                <p className="text-[9px] sm:text-[10px] text-muted-foreground">Scheduled by contract</p>
+              </div>
+              <div className="rounded-xl bg-muted/50 px-2.5 py-2">
+                <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground">
+                  Difference
+                </p>
+                <p className="text-xs sm:text-base font-bold font-mono tabular-nums truncate">
+                  {formatUGX(horizonTotal - idealTotal)}
+                </p>
+                <p className="text-[9px] sm:text-[10px] text-muted-foreground">Behavior minus ideal</p>
+              </div>
+              <div className="rounded-xl bg-muted/50 px-2.5 py-2">
+                <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground">
+                  Average per {granularity}
+                </p>
+                <p className="text-xs sm:text-base font-bold font-mono tabular-nums truncate">
+                  {formatUGX(data.periods.length ? Math.round(horizonTotal / data.periods.length) : 0)}
                 </p>
                 <p className="text-[9px] sm:text-[10px] text-muted-foreground">
                   {data.periods.length} {granularity} period(s)
@@ -318,25 +284,23 @@ export default function PredictivePayablesForecast() {
                   />
                   <YAxis tick={{ fontSize: 9 }} tickFormatter={(v) => compact(Number(v))} width={44} />
                   <Tooltip
-                    formatter={(value: unknown, name) => {
-                      if (Array.isArray(value)) {
-                        return [`${compact(Number(value[0]))} – ${compact(Number(value[1]))}`, 'Range'];
-                      }
-                      return [formatUGX(Number(value ?? 0)), name === 'actual' ? 'Actual' : 'Forecast'];
-                    }}
+                    formatter={(value: unknown, name) =>
+                      [formatUGX(Number(value ?? 0)), name === 'actual' ? 'Actual' : name === 'ideal' ? 'Ideal (contract)' : 'Behavior projection']
+                    }
                     contentStyle={{ fontSize: 11 }}
                   />
                   <Legend wrapperStyle={{ fontSize: 10 }} />
-                  <Area
-                    type="monotone"
-                    dataKey="band"
-                    name="Forecast range"
-                    stroke="none"
-                    fill="hsl(var(--primary))"
-                    fillOpacity={0.12}
-                  />
                   <Bar dataKey="actual" name="Actual paid" fill="hsl(var(--muted-foreground))" />
-                  <Bar dataKey="forecast" name="Forecast (est.)" fill="hsl(var(--primary))" />
+                  <Bar dataKey="forecast" name="Behavior projection" fill="hsl(var(--primary))" />
+                  <Line
+                    type="monotone"
+                    dataKey="ideal"
+                    name="Ideal (contract)"
+                    stroke="hsl(var(--muted-foreground))"
+                    strokeDasharray="4 3"
+                    strokeWidth={1.5}
+                    dot={false}
+                  />
                 </ComposedChart>
               </ResponsiveContainer>
             </div>
@@ -346,11 +310,10 @@ export default function PredictivePayablesForecast() {
                 <thead className="bg-muted/50 sticky top-0 z-10">
                   <tr>
                     <th className="text-left px-2.5 py-1.5 font-medium">Period</th>
-                    <th className="text-right px-2.5 py-1.5 font-medium">Forecast (est.)</th>
+                    <th className="text-right px-2.5 py-1.5 font-medium">Behavior projection</th>
                     <th className="text-right px-2.5 py-1.5 font-medium hidden sm:table-cell">
-                      Range
+                      Ideal (contract)
                     </th>
-                    <th className="text-right px-2.5 py-1.5 font-medium">Quality</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -381,22 +344,15 @@ export default function PredictivePayablesForecast() {
                             </span>
                           </td>
                           <td className="px-2.5 py-1.5 text-right font-mono tabular-nums font-semibold whitespace-nowrap">
-                            {formatUGX(p.forecast_amount)}
+                            {formatUGX(historyProjection.get(p.index) ?? 0)}
                           </td>
                           <td className="px-2.5 py-1.5 text-right font-mono tabular-nums hidden sm:table-cell text-muted-foreground whitespace-nowrap">
-                            {compact(p.low)} – {compact(p.high)}
-                          </td>
-                          <td className="px-2.5 py-1.5 text-right">
-                            <Badge
-                              className={`text-[8px] sm:text-[9px] px-1 py-0 border-0 whitespace-nowrap ${QUALITY_STYLE[p.quality] ?? ''}`}
-                            >
-                              {p.quality} · {Math.round(p.confidence * 100)}%
-                            </Badge>
+                            {formatUGX(idealOf(p.index))}
                           </td>
                         </tr>
                         {open && (
                           <tr className="bg-muted/20">
-                            <td colSpan={4} className="px-2.5 py-2">
+                            <td colSpan={3} className="px-2.5 py-2">
                               <div className="flex flex-wrap gap-1.5 mb-1.5">
                                 <Badge variant="outline" className="text-[9px] px-1.5 py-0">
                                   Existing obligations {formatUGX(p.runoff_amount)}
@@ -405,15 +361,9 @@ export default function PredictivePayablesForecast() {
                                   New obligations {formatUGX(p.new_origination_amount)}
                                 </Badge>
                                 <Badge variant="outline" className="text-[9px] px-1.5 py-0">
-                                  Scheduled {formatUGX(p.scheduled_amount)}
+                                  Contract {formatUGX(idealOf(p.index))}
                                 </Badge>
                               </div>
-                              {p.quality_reason && (
-                                <p className="text-[9px] sm:text-[10px] text-muted-foreground flex items-start gap-1 mb-1.5">
-                                  <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
-                                  Why {p.quality} confidence: {p.quality_reason}
-                                </p>
-                              )}
                               {p.sources.length === 0 ? (
                                 <p className="text-[9px] sm:text-[10px] text-muted-foreground">
                                   No modelled outflow in this period.
@@ -469,146 +419,6 @@ export default function PredictivePayablesForecast() {
                 </tbody>
               </table>
             </div>
-
-            <button
-              type="button"
-              onClick={() => setShowStreams((s) => !s)}
-              aria-expanded={showStreams}
-              className="flex items-center gap-1.5 text-[10px] sm:text-xs text-muted-foreground hover:text-foreground"
-            >
-              {showStreams ? (
-                <ChevronDown className="h-3.5 w-3.5" />
-              ) : (
-                <ChevronRight className="h-3.5 w-3.5" />
-              )}
-              Forecast quality by payable type ({data.streams.length} modelled)
-            </button>
-
-            {showStreams && (
-              <div className="space-y-2">
-                <div className="max-h-64 overflow-y-auto overflow-x-auto rounded-xl border border-border/60">
-                  <table className="w-full min-w-[320px] text-[10px] sm:text-xs">
-                    <thead className="bg-muted/50 sticky top-0 z-10">
-                      <tr>
-                        <th className="text-left px-2.5 py-1.5 font-medium">Payable type</th>
-                        <th className="text-right px-2.5 py-1.5 font-medium">Typical / day</th>
-                        <th className="text-right px-2.5 py-1.5 font-medium hidden sm:table-cell">
-                          Trend / week
-                        </th>
-                        <th className="text-right px-2.5 py-1.5 font-medium hidden lg:table-cell">
-                          New / day
-                        </th>
-                        <th className="text-right px-2.5 py-1.5 font-medium hidden lg:table-cell">
-                          Paid
-                        </th>
-                        <th className="text-right px-2.5 py-1.5 font-medium">History</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {data.streams.map((s) => (
-                        <tr
-                          key={`${s.category_key}:${s.product_key}`}
-                          className="border-t border-border/40"
-                        >
-                          <td className="px-2.5 py-1.5">
-                            <span className="block truncate">{s.product_label}</span>
-                            <span className="block text-[9px] text-muted-foreground truncate">
-                              {s.category_label} ·{' '}
-                              {s.insufficient_data
-                                ? 'too little history'
-                                : s.method.replace(/_/g, ' ')}
-                            </span>
-                          </td>
-                          <td className="px-2.5 py-1.5 text-right font-mono tabular-nums whitespace-nowrap">
-                            {s.insufficient_data ? '—' : formatUGX(s.median_daily)}
-                          </td>
-                          <td className="px-2.5 py-1.5 text-right font-mono tabular-nums hidden sm:table-cell whitespace-nowrap">
-                            {s.insufficient_data ? '—' : formatUGX(s.trend_per_week)}
-                          </td>
-                          <td className="px-2.5 py-1.5 text-right font-mono tabular-nums hidden lg:table-cell whitespace-nowrap">
-                            {s.origination ? formatUGX(s.origination.daily_new_payables) : '—'}
-                          </td>
-                          <td className="px-2.5 py-1.5 text-right hidden lg:table-cell text-muted-foreground whitespace-nowrap">
-                            {s.origination
-                              ? `${Math.round(s.origination.payment_rate * 100)}% / ${Math.round(
-                                  s.origination.term_days
-                                )}d`
-                              : '—'}
-                          </td>
-                          <td className="px-2.5 py-1.5 text-right text-muted-foreground whitespace-nowrap">
-                            {s.sample_days}d of {s.lookback_days}d
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-
-                {data.scheduled_only_streams.length > 0 && (
-                  <p className="text-[9px] sm:text-[10px] text-muted-foreground flex items-start gap-1">
-                    <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
-                    <span>
-                      Not enough payment history to model:{' '}
-                      {data.scheduled_only_streams
-                        .map((s) => `${s.product_label} (${formatUGX(s.outstanding)})`)
-                        .join(', ')}
-                      . These are shown from their contractual due dates only.
-                    </span>
-                  </p>
-                )}
-
-                {(data.origination_only_streams ?? []).length > 0 && (
-                  <p className="text-[9px] sm:text-[10px] text-muted-foreground flex items-start gap-1">
-                    <AlertTriangle className="h-3 w-3 mt-0.5 shrink-0" />
-                    <span>
-                      No record of new obligations being created for:{' '}
-                      {data.origination_only_streams
-                        .map((s) => `${s.product_label} (${formatUGX(s.outstanding)})`)
-                        .join(', ')}
-                      . These forecast settlement of the existing book only.
-                    </span>
-                  </p>
-                )}
-
-                {/* Obligations with no due date and no daily amount — wallet
-                    balances are payable on demand, so there is nothing to place
-                    on a timeline. Disclosed rather than silently dropped. */}
-                {!!data.unscheduled && data.unscheduled.items > 0 && (
-                  <div className="rounded-lg border border-amber-500/40 bg-amber-50/60 dark:bg-amber-950/20 p-2.5">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-[11px] font-semibold text-amber-800 dark:text-amber-300">
-                          Payable on Demand / Not Scheduled
-                        </p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5">
-                          {data.unscheduled.items} item{data.unscheduled.items === 1 ? '' : 's'} with no
-                          contractual due date. Included in Total Payables, excluded from the timeline
-                          above — these are settled on request, not on a schedule.
-                        </p>
-                        {Object.keys(data.unscheduled.by_product ?? {}).length > 0 && (
-                          <p className="text-[10px] text-muted-foreground mt-1">
-                            {Object.entries(data.unscheduled.by_product)
-                              .sort((a, b) => b[1] - a[1])
-                              .map(([k, v]) => `${k.replace(/_/g, ' ')} ${formatUGX(v)}`)
-                              .join(' · ')}
-                          </p>
-                        )}
-                      </div>
-                      <span className="font-mono text-xs font-bold shrink-0 text-amber-800 dark:text-amber-300">
-                        {formatUGX(data.unscheduled.amount)}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                <p className="text-[9px] sm:text-[10px] text-muted-foreground">
-                  {data.meta.method_note} History available: {data.meta.history_span_days ?? 0} days.
-                  Any period ending beyond that span is extrapolation: it can never be shown as high
-                  confidence, and periods more than twice the span away — including every future
-                  year — are always flagged low and should be read as directional only.
-                </p>
-              </div>
-            )}
 
             <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
               <Button

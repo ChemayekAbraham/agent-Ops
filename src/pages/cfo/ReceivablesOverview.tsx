@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, HandCoins, LayoutGrid, Users, Handshake, Home, Building2, Package, FlaskConical, Search, RefreshCw, ChevronRight, CalendarDays, AlertTriangle, CheckCircle2, TrendingUp, Wallet, MapPin } from 'lucide-react';
+import { ArrowLeft, LayoutGrid, Users, Handshake, Home, Building2, Package, FlaskConical, Search, RefreshCw, ChevronRight, CalendarDays, AlertTriangle, CheckCircle2, TrendingUp, Wallet, MapPin } from 'lucide-react';
 import {
   ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, PieChart, Pie, Cell, ComposedChart, Bar,
 } from 'recharts';
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import TenantReceivablesDetail from '@/components/executive/TenantReceivablesDetail';
 import AgentReceivablesDetail from '@/components/executive/AgentReceivablesDetail';
+import ReceivablesProjection from '@/components/cfo/ReceivablesProjection';
 import { usePayablesPredictiveForecast } from '@/hooks/usePayables';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -71,7 +72,8 @@ const compact = (n: number) => {
 export default function ReceivablesOverview() {
   const [search, setSearch] = useState('');
   const [params, setParams] = useSearchParams();
-  const catKey = params.get('cat') ?? 'overview';
+  const requestedCat = params.get('cat') ?? 'overview';
+  const catKey = requestedCat === 'agent_lending' ? 'forecast' : requestedCat;
   const isDetailCat = ['tenant', 'agent', 'landlord', 'partner', 'other', 'rnd'].includes(catKey);
   const subParam = params.get('sub');
   const go = (cat: string, sub?: string) => {
@@ -111,17 +113,16 @@ export default function ReceivablesOverview() {
             <SideItem active={catKey === 'overview'} icon={LayoutGrid} label="Overview" onClick={() => go('overview')} />
             {cats.map((c) => <SideItem key={c.key} active={catKey === c.key} icon={c.icon} label={c.label} onClick={() => go(c.key)} />)}
             <div className="my-3 border-t border-border/60" />
-            <p className="px-3 pb-1 text-[10px] text-muted-foreground">Not company money</p>
-            <SideItem active={catKey === 'agent_lending'} icon={HandCoins} label="Agent-to-borrower lending" onClick={() => go('agent_lending')} />
+            <SideItem active={catKey === 'forecast'} icon={TrendingUp} label="Forecast" onClick={() => go('forecast')} />
           </nav>
           <div className="min-w-0 px-4 py-5 lg:col-start-2">
             {(isDetailCat) && cat && <div className="mb-2 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground"><Button variant="link" className="h-auto min-h-0 p-0 text-[10px] text-primary" onClick={() => go('overview')}>Receivables</Button><ChevronRight className="h-3 w-3" /><span>{cat.label}</span><ChevronRight className="h-3 w-3" /><span>{sub?.label}</span></div>}
             <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
-              <div><h1 className="text-xl font-semibold">{isDetailCat ? cat?.label : 'Receivables Overview'}</h1><p className="mt-1 text-xs text-muted-foreground">{isDetailCat ? `Track outstanding receivables, collection performance and forecast for ${CAT_SUBTITLES[catKey] ?? 'these'} products and services.` : 'Outstanding receivables, collection risk and expected collections.'}</p></div>
+              <div><h1 className="text-xl font-semibold">{isDetailCat ? cat?.label : catKey === 'forecast' ? 'Forecast' : 'Receivables Overview'}</h1><p className="mt-1 text-xs text-muted-foreground">{isDetailCat ? `Track outstanding receivables, collection performance and forecast for ${CAT_SUBTITLES[catKey] ?? 'these'} products and services.` : 'Outstanding receivables, collection risk and expected collections.'}</p></div>
               <div className="flex items-center gap-3"><span className="text-[10px] text-muted-foreground">Last updated · {breakdown.data?.as_at?.slice(0,10) ?? '—'} · EAT</span><Button variant="outline" size="sm" className="rounded-md text-primary hover:text-primary" disabled={breakdown.isFetching} onClick={() => void breakdown.refetch()}><RefreshCw className={breakdown.isFetching ? 'animate-spin' : ''} />Refresh</Button></div>
             </header>
           <div className="min-w-0 flex flex-col gap-3">
-            {catKey === 'agent_lending' ? <AgentLendingSection /> : breakdown.isLoading ? (
+            {catKey === 'forecast' ? <ReceivablesProjection /> : breakdown.isLoading ? (
               <Card><p className="text-sm text-muted-foreground">Loading live receivables…</p></Card>
             ) : breakdown.isError ? (<Card><p className="text-sm text-destructive">Could not load receivables. Please refresh.</p></Card>) : !cat ? (
               <Overview cats={cats} products={(k) => liveCat(k)?.products ?? []} onOpen={go} total={breakdown.data?.total ?? 0} search={search} />
@@ -407,50 +408,5 @@ function SubDetail({ catKey, label, productKey, product }: {
         </div>
       </Card>
     </div>
-  );
-}
-
-function AgentLendingSection() {
-  const q = useQuery({
-    queryKey: ['cfo-agent-lending-summary'],
-    queryFn: async () => {
-      const { data, error } = await supabase.rpc('cfo_agent_lending_summary' as any);
-      if (error) throw error;
-      return data as any;
-    },
-  });
-  const d = q.data;
-  return (
-    <>
-      <div>
-        <h2 className="text-lg font-semibold">Agent-to-borrower lending</h2>
-        <p className="text-xs text-muted-foreground">Agents lend from their own wallets and repayments go back to them. Not included in company receivables totals.</p>
-      </div>
-      {q.isLoading ? <Card><p className="text-sm text-muted-foreground">Loading…</p></Card>
-        : q.error ? <Card><p className="text-sm text-destructive">Could not load agent lending figures.</p></Card>
-        : (
-        <>
-          <div className="grid grid-cols-2 xl:grid-cols-4 gap-4">
-            <Stat label="Borrowers owe agents" value={formatUGX(d.outstanding)} sub={`${d.loans} open · ${d.borrowers} borrowers · ${d.agents} agents`} />
-            <Stat label="Past last day" value={formatUGX(d.overdue)} sub={`${d.overdue_loans} open past end date`} />
-            <Stat label="Repaid · last 30 days" value={formatUGX(d.repaid_30d)} sub={`${d.payments_30d} payments`} />
-            <Stat label="Current" value={formatUGX(Math.max(0, d.outstanding - d.overdue))} sub="Not yet past end date" />
-          </div>
-          <Card title="Borrower repayments · last 30 days" className="flex-1 flex flex-col">
-            <div className="flex-1 min-h-64">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={d.daily} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                  <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(v: string) => v.slice(5)} />
-                  <YAxis tick={{ fontSize: 11 }} tickFormatter={compact} width={48} />
-                  <Tooltip formatter={(v: number) => formatUGX(v)} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-                  <Line type="monotone" dataKey="amount" name="Repaid" stroke="hsl(var(--primary))" strokeWidth={2} dot={false} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </Card>
-        </>
-      )}
-    </>
   );
 }
