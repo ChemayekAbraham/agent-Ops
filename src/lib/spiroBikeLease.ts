@@ -9,7 +9,6 @@
  *     real number of days in that repayment month, so it also falls every month.
  * Must stay identical to public._spiro_lease_month / _spiro_month_days on the server.
  */
-export const SPIRO_BIKE_BASE_PRICE = 120_000;
 
 /** Monthly reducing-balance fee rate applied to the outstanding principal. */
 export const SPIRO_MONTHLY_RATE = 0.28;
@@ -87,7 +86,7 @@ function daysBetween(a: Date, b: Date): number {
 
 export function spiroLeaseSchedule(
   months: number,
-  basePrice: number = SPIRO_BIKE_BASE_PRICE,
+  basePrice: number = 0,
   startDate: Date = new Date(),
 ): SpiroLeaseSchedule {
   const n = clampMonths(months);
@@ -156,7 +155,7 @@ export function spiroLeaseSchedule(
 
 /** Full 1–24 month grid for a base price. */
 export function spiroLeaseGrid(
-  basePrice: number = SPIRO_BIKE_BASE_PRICE,
+  basePrice: number = 0,
   startDate: Date = new Date(),
 ): SpiroLeaseSchedule[] {
   return SPIRO_LEASE_PERIODS.map((p) => spiroLeaseSchedule(p.months, basePrice, startDate));
