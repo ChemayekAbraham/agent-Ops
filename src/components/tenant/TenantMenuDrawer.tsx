@@ -295,6 +295,13 @@ export function TenantMenuDrawer({
           color: 'text-green-500'
         },
         { 
+          icon: Wallet, 
+          label: 'My Loan', 
+          description: 'Your loan balance & payments',
+          path: '/repay',
+          color: 'text-amber-600'
+        },
+        { 
           icon: History, 
           label: 'Transaction History', 
           description: 'All past transactions',
