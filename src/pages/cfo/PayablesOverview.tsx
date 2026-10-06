@@ -4,7 +4,6 @@ import { ArrowLeft, LayoutGrid, Search, RefreshCw, ChevronRight, TrendingDown, W
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, ComposedChart, CartesianGrid, XAxis, YAxis, Bar, Line } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import PayablesAccuracyPanel from '@/components/cfo/PayablesAccuracyPanel';
 import { usePayablesTotal, usePayablesBreakdown, usePayablesPredictiveForecast, usePayablesContractSchedule, type PayableProduct, type PayableItem } from '@/hooks/usePayables';
 import { formatUGX } from '@/lib/rentCalculations';
 
@@ -57,17 +56,16 @@ export default function PayablesOverview() {
           {cats.map((c, i) => <SideItem key={c.key} active={catKey === c.key} icon={ICONS[i % ICONS.length]} label={c.label} onClick={() => go(c.key)} />)}
           <div className="my-3 border-t border-border/60" />
           <SideItem active={catKey === 'daily'} icon={TrendingDown} label="Forecast" onClick={() => go('daily')} />
-          <SideItem active={catKey === 'accuracy'} icon={CheckCircle2} label="Forecast Accuracy" onClick={() => go('accuracy')} />
         </nav>
         <div className="min-w-0 px-4 py-5 lg:col-start-2">
           {cat && <div className="mb-2 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground"><Button variant="link" className="h-auto min-h-0 p-0 text-[10px]" onClick={() => go('overview')}>Payables</Button><ChevronRight className="h-3 w-3" /><span>{cat.label}</span>{product && <><ChevronRight className="h-3 w-3" /><span>{product.label}</span></>}</div>}
           <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
-            <div><h1 className="text-xl font-semibold">{cat?.label ?? (catKey === 'daily' ? 'Forecast' : catKey === 'accuracy' ? 'Forecast Accuracy' : 'Payables Overview')}</h1><p className="mt-1 text-xs text-muted-foreground">Outstanding obligations, payment schedules and expected payouts.</p></div>
+            <div><h1 className="text-xl font-semibold">{cat?.label ?? (catKey === 'daily' ? 'Forecast' : 'Payables Overview')}</h1><p className="mt-1 text-xs text-muted-foreground">Outstanding obligations, payment schedules and expected payouts.</p></div>
             <div className="flex flex-wrap items-center gap-3"><span className="text-[10px] text-muted-foreground">Last updated · {breakdown.data?.as_at?.slice(0, 10) ?? '—'} · EAT</span><Button variant="outline" size="sm" className="rounded-md text-primary hover:text-primary" disabled={refreshing} onClick={refresh}><RefreshCw className={refreshing ? 'animate-spin' : ''} />Refresh</Button></div>
           </header>
           <div className="flex flex-col gap-3 min-w-0">
             {validation && <p className={`flex items-center gap-1.5 text-[10px] ${validation.ties_out ? 'text-success' : 'text-destructive'}`}>{validation.ties_out ? <CheckCircle2 className="h-3.5 w-3.5 shrink-0" /> : <AlertTriangle className="h-3.5 w-3.5 shrink-0" />}{validation.ties_out ? 'Categories tie out exactly to the authoritative total.' : `Category total differs by ${formatUGX(validation.difference)}. No figure has been adjusted to force a match.`}</p>}
-            {catKey === 'daily' ? <DailyForecast /> : catKey === 'accuracy' ? <PayablesAccuracyPanel /> : breakdown.isLoading ? <Panel><p className="text-xs text-muted-foreground">Loading live payables…</p></Panel> : breakdown.isError || total.isError ? <Panel><p className="text-xs text-destructive">Could not load payables. Please refresh.</p></Panel> : cat ? <>
+            {catKey === 'daily' ? <DailyForecast /> : breakdown.isLoading ? <Panel><p className="text-xs text-muted-foreground">Loading live payables…</p></Panel> : breakdown.isError || total.isError ? <Panel><p className="text-xs text-destructive">Could not load payables. Please refresh.</p></Panel> : cat ? <>
               {cat.products.length ? <><div role="tablist" aria-label="Payable products" className="inline-flex flex-wrap gap-1 rounded-lg border border-border/70 bg-card p-1">{cat.products.map((p) => <Button key={p.key} variant="ghost" size="sm" role="tab" aria-selected={product?.key === p.key} onClick={() => go(cat.key, p.key)} className={`rounded-md whitespace-normal text-xs ${product?.key === p.key ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-primary hover:bg-primary/10'}`}>{p.label}</Button>)}</div>{product && <ProductDetail product={product} />}</> : <Panel><p className="text-xs text-muted-foreground">No open payables in this category.</p></Panel>}
             </> : <>
               <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
