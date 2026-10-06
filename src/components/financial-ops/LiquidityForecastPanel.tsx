@@ -2,13 +2,8 @@ import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
-import { CalendarClock, Wallet, TrendingDown, ChevronDown, ChevronRight, Loader2, CalendarIcon, Home, X } from 'lucide-react';
+import { CalendarClock, Wallet, TrendingDown, ChevronDown, ChevronRight, Loader2, Home } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { format } from 'date-fns';
-import type { DateRange } from 'react-day-picker';
 
 /**
  * Liquidity Forecast — a FinOps-only view showing:
@@ -33,97 +28,80 @@ type Horizon = (typeof HORIZONS)[number];
 export function LiquidityForecastPanel({ onOpenTool }: LiquidityForecastPanelProps) {
   const [horizon, setHorizon] = useState<Horizon>(14);
   const [expandedDate, setExpandedDate] = useState<string | null>(null);
-  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [lpExpandedDate, setLpExpandedDate] = useState<string | null>(null);
+  const windowLabel = `next ${horizon}d`;
 
-  // Effective window: custom range overrides horizon.
-  const window = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    if (dateRange?.from) {
-      const from = new Date(dateRange.from);
-      from.setHours(0, 0, 0, 0);
-      const to = new Date(dateRange.to ?? dateRange.from);
-      to.setHours(23, 59, 59, 999);
-      return { from, to, custom: true as const };
-    }
-    const to = new Date(today);
-    to.setDate(to.getDate() + horizon);
-    to.setHours(23, 59, 59, 999);
-    return { from: today, to, custom: false as const };
-  }, [dateRange, horizon]);
-
-  const fromDateStr = window.from.toISOString().slice(0, 10);
-  const toDateStr = window.to.toISOString().slice(0, 10);
-  const windowLabel = window.custom
-    ? `${format(window.from, 'MMM d')} → ${format(window.to, 'MMM d')}`
-    : `next ${horizon}d`;
-
-  // Total withdrawable currently parked across all wallets.
-  const { data: withdrawableTotals } = useQuery({
-    queryKey: ['finops-liquidity-withdrawable'],
-    staleTime: 60_000,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('wallets')
-        .select('withdrawable_balance')
-        .gt('withdrawable_balance', 0);
-      if (error) throw error;
-      const total = (data || []).reduce((s: number, r: any) => s + Number(r.withdrawable_balance || 0), 0);
-      return { total, wallets: (data || []).length };
-    },
-  });
-
-  // Pending withdrawal drain in the queue (already requested, not settled).
-  const { data: pendingDrain } = useQuery({
-    queryKey: ['finops-liquidity-pending-drain'],
+  // ONE source of truth: every number below comes from the database function get_liquidity_forecast, which the mobile
+  // app calls too, so the two can never disagree. Rules it applies: Kampala days; Saturday and Sunday ROI is paid with
+  // Monday's (we do not pay partner rewards over the weekend); withdrawable = the wallets table; overdue payouts are
+  // split into recent and stale (older than 30 days).
+  const { data: forecast, isLoading } = useQuery({
+    queryKey: ['finops-liquidity-forecast', horizon],
     staleTime: 30_000,
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('withdrawal_requests')
-        .select('amount, status')
-        .in('status', ['pending', 'requested', 'manager_approved', 'cfo_approved', 'fin_ops_approved']);
+      const { data, error } = await supabase.rpc('get_liquidity_forecast' as any, { p_days: horizon });
       if (error) throw error;
-      const total = (data || []).reduce((s: number, r: any) => s + Number(r.amount || 0), 0);
-      return { total, count: (data || []).length };
+      return data as any;
     },
   });
 
-  // Upcoming ROI by date (active portfolios with a next_roi_date within horizon).
-  const { data: roiRows, isLoading: roiLoading } = useQuery({
-    queryKey: ['finops-liquidity-roi', fromDateStr, toDateStr],
+  const withdrawableTotals = forecast?.withdrawable as { total: number; wallets: number; ledger_total: number; gap_vs_ledger: number } | undefined;
+  const pendingDrain = forecast?.pending_withdrawals as { total: number; count: number } | undefined;
+  const overdue = forecast?.overdue_payouts as
+    | { recent_total: number; recent_count: number; stale_total: number; stale_count: number; total: number; count: number }
+    | undefined;
+  const today: string = forecast?.today ?? '';
+
+  // The list of portfolios behind a day is fetched only when that day is opened. Saturday and Sunday ROI belongs to
+  // the Monday it is paid on, so a Monday also loads the two days before it.
+  const { data: roiDetail } = useQuery({
+    queryKey: ['finops-liquidity-roi-rows', expandedDate],
+    enabled: !!expandedDate,
     staleTime: 60_000,
     queryFn: async () => {
+      const payDate = expandedDate as string;
+      const start = new Date(`${payDate}T00:00:00Z`);
+      start.setUTCDate(start.getUTCDate() - 2);
       const { data, error } = await supabase
         .from('investor_portfolios')
-        .select('id, portfolio_code, account_name, investor_id, investment_amount, roi_percentage, roi_mode, next_roi_date, auto_reinvest, payment_method, mobile_money_number')
+        .select('id, portfolio_code, account_name, investment_amount, roi_percentage, roi_mode, next_roi_date, auto_reinvest')
         .eq('status', 'active')
-        .not('next_roi_date', 'is', null)
-        .gte('next_roi_date', fromDateStr)
-        .lte('next_roi_date', toDateStr)
+        .gte('next_roi_date', start.toISOString().slice(0, 10))
+        .lte('next_roi_date', payDate)
         .order('next_roi_date', { ascending: true })
         .limit(2000);
       if (error) throw error;
-      return (data || []).map((r: any) => {
-        const gross = Math.round(Number(r.investment_amount || 0) * Number(r.roi_percentage || 0) / 100);
-        return { ...r, roi_amount: gross };
-      });
+      const payDateOf = (d: string) => {
+        const dow = new Date(`${d}T00:00:00Z`).getUTCDay(); // 6 = Saturday, 0 = Sunday
+        const add = dow === 6 ? 2 : dow === 0 ? 1 : 0;
+        const x = new Date(`${d}T00:00:00Z`);
+        x.setUTCDate(x.getUTCDate() + add);
+        return x.toISOString().slice(0, 10);
+      };
+      return (data || [])
+        .filter((r: any) => payDateOf(String(r.next_roi_date)) === payDate)
+        .map((r: any) => ({
+          ...r,
+          roi_amount: Math.round((Number(r.investment_amount || 0) * Number(r.roi_percentage || 0)) / 100),
+        }));
     },
   });
 
-  // Agent → Landlord payout float obligations (rent already collected, payout still owed).
-  // We use `sla_deadline` as the expected outflow date and include statuses that still
-  // represent money the pool must ship out.
-  const PENDING_LP_STATUSES = ['pending_merchant_payout', 'awaiting_agent_receipt', 'failed', 'pending', 'queued'];
-  const { data: lpRows, isLoading: lpLoading } = useQuery({
-    queryKey: ['finops-liquidity-landlord-payouts', fromDateStr, toDateStr],
+  const { data: lpDetail } = useQuery({
+    queryKey: ['finops-liquidity-lp-rows', lpExpandedDate],
+    enabled: !!lpExpandedDate,
     staleTime: 60_000,
     queryFn: async () => {
+      const day = lpExpandedDate as string;
+      // A Kampala day runs from 00:00 to 24:00 at UTC+3.
+      const start = new Date(`${day}T00:00:00+03:00`);
+      const end = new Date(start.getTime() + 86_400_000);
       const { data, error } = await supabase
         .from('landlord_payouts')
-        .select('id, landlord_name, landlord_phone, amount, status, sla_deadline, mobile_money_provider, created_at')
-        .in('status', PENDING_LP_STATUSES)
-        .gte('sla_deadline', new Date(fromDateStr).toISOString())
-        .lte('sla_deadline', new Date(new Date(toDateStr).getTime() + 86_400_000).toISOString())
+        .select('id, landlord_name, landlord_phone, amount, status, sla_deadline, mobile_money_provider')
+        .in('status', ['pending_merchant_payout', 'awaiting_agent_receipt', 'failed', 'pending', 'queued'])
+        .gte('sla_deadline', start.toISOString())
+        .lt('sla_deadline', end.toISOString())
         .order('sla_deadline', { ascending: true })
         .limit(2000);
       if (error) throw error;
@@ -131,63 +109,45 @@ export function LiquidityForecastPanel({ onOpenTool }: LiquidityForecastPanelPro
     },
   });
 
-  // Overdue pool of landlord payouts already past SLA — always shown so it can't be hidden by the filter.
-  const { data: lpOverdue } = useQuery({
-    queryKey: ['finops-liquidity-landlord-payouts-overdue'],
-    staleTime: 60_000,
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('landlord_payouts')
-        .select('amount, status')
-        .in('status', PENDING_LP_STATUSES)
-        .lt('sla_deadline', new Date().toISOString());
-      if (error) throw error;
-      const total = (data || []).reduce((s, r: any) => s + Number(r.amount || 0), 0);
-      return { total, count: (data || []).length };
-    },
-  });
+  const byDate = useMemo(
+    () =>
+      ((forecast?.roi_days as any[]) || []).map((d) => ({
+        date: String(d.date),
+        total: Number(d.total),
+        cashout: Number(d.cashout),
+        reinvest: Number(d.reinvest),
+        weekend: Number(d.rolled_from_weekend || 0),
+        count: Number(d.portfolios),
+        rows: expandedDate === String(d.date) ? roiDetail || [] : [],
+      })),
+    [forecast, expandedDate, roiDetail],
+  );
 
-  const byDate = useMemo(() => {
-    const map = new Map<string, { date: string; total: number; cashout: number; reinvest: number; rows: any[] }>();
-    (roiRows || []).forEach((r: any) => {
-      const d = String(r.next_roi_date);
-      if (!map.has(d)) map.set(d, { date: d, total: 0, cashout: 0, reinvest: 0, rows: [] });
-      const b = map.get(d)!;
-      b.total += r.roi_amount;
-      // auto_reinvest OR compounding roi_mode means no cash leaves — group separately.
-      const isReinvest = r.auto_reinvest === true || r.roi_mode === 'compounding';
-      if (isReinvest) b.reinvest += r.roi_amount;
-      else b.cashout += r.roi_amount;
-      b.rows.push(r);
-    });
-    return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
-  }, [roiRows]);
-
-  const totals = useMemo(() => {
-    return byDate.reduce(
-      (acc, b) => ({ total: acc.total + b.total, cashout: acc.cashout + b.cashout, reinvest: acc.reinvest + b.reinvest }),
-      { total: 0, cashout: 0, reinvest: 0 },
-    );
-  }, [byDate]);
-
+  const totals = useMemo(
+    () =>
+      byDate.reduce(
+        (acc, b) => ({ total: acc.total + b.total, cashout: acc.cashout + b.cashout, reinvest: acc.reinvest + b.reinvest }),
+        { total: 0, cashout: 0, reinvest: 0 },
+      ),
+    [byDate],
+  );
   const maxDay = Math.max(1, ...byDate.map((b) => b.total));
 
-  // Landlord payout float grouped by day (using sla_deadline date).
-  const lpByDate = useMemo(() => {
-    const map = new Map<string, { date: string; total: number; count: number; rows: any[] }>();
-    (lpRows || []).forEach((r: any) => {
-      const d = String(r.sla_deadline).slice(0, 10);
-      if (!map.has(d)) map.set(d, { date: d, total: 0, count: 0, rows: [] });
-      const b = map.get(d)!;
-      b.total += Number(r.amount || 0);
-      b.count += 1;
-      b.rows.push(r);
-    });
-    return Array.from(map.values()).sort((a, b) => a.date.localeCompare(b.date));
-  }, [lpRows]);
+  const lpByDate = useMemo(
+    () =>
+      ((forecast?.landlord_payout_days as any[]) || []).map((d) => ({
+        date: String(d.date),
+        total: Number(d.total),
+        count: Number(d.payouts),
+        rows: lpExpandedDate === String(d.date) ? lpDetail || [] : [],
+      })),
+    [forecast, lpExpandedDate, lpDetail],
+  );
   const lpTotal = useMemo(() => lpByDate.reduce((s, b) => s + b.total, 0), [lpByDate]);
+  const lpCount = useMemo(() => lpByDate.reduce((s, b) => s + b.count, 0), [lpByDate]);
   const lpMaxDay = Math.max(1, ...lpByDate.map((b) => b.total));
-  const [lpExpandedDate, setLpExpandedDate] = useState<string | null>(null);
+  const roiLoading = isLoading;
+  const lpLoading = isLoading;
 
   return (
     <div className="space-y-6">
@@ -212,6 +172,11 @@ export function LiquidityForecastPanel({ onOpenTool }: LiquidityForecastPanelPro
           <p className="text-[11px] text-muted-foreground">
             across {withdrawableTotals?.wallets ?? 0} wallets
           </p>
+          {withdrawableTotals && Math.abs(withdrawableTotals.gap_vs_ledger) >= 1 && (
+            <p className="text-[10px] text-muted-foreground mt-1">
+              Ledger view says {formatUGX(withdrawableTotals.ledger_total)}; the difference is balances with no wallet row.
+            </p>
+          )}
         </div>
         <div className="rounded-2xl border border-border bg-card p-4">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -237,15 +202,20 @@ export function LiquidityForecastPanel({ onOpenTool }: LiquidityForecastPanelPro
           </div>
           <p className="mt-2 text-xl font-bold">{formatUGX(lpTotal)}</p>
           <p className="text-[11px] text-muted-foreground">
-            {(lpRows || []).length} payouts due
-            {lpOverdue && lpOverdue.count > 0 && (
-              <> · <span className="text-red-600 font-semibold">{formatUGX(lpOverdue.total)} overdue</span></>
+            {lpCount} payouts due
+            {overdue && overdue.count > 0 && (
+              <>
+                {' '}· <span className="text-red-600 font-semibold">{formatUGX(overdue.recent_total)} overdue</span>
+                {overdue.stale_count > 0 && (
+                  <span className="text-muted-foreground"> + {formatUGX(overdue.stale_total)} older than 30 days</span>
+                )}
+              </>
             )}
           </p>
         </div>
       </div>
 
-      {/* Horizon + calendar date-range filter */}
+      {/* Horizon */}
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Horizon</span>
         <div className="flex gap-1">
@@ -254,59 +224,18 @@ export function LiquidityForecastPanel({ onOpenTool }: LiquidityForecastPanelPro
               key={h}
               onClick={() => {
                 setHorizon(h);
-                setDateRange(undefined);
+                setExpandedDate(null);
+                setLpExpandedDate(null);
               }}
               className={cn(
                 'rounded-lg px-3 py-1.5 text-xs font-semibold transition',
-                !dateRange && horizon === h
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-foreground hover:bg-muted/70',
+                horizon === h ? 'bg-primary text-primary-foreground' : 'bg-muted text-foreground hover:bg-muted/70',
               )}
             >
               {h}d
             </button>
           ))}
         </div>
-        <span className="text-xs text-muted-foreground">or</span>
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button
-              variant="outline"
-              size="sm"
-              className={cn(
-                'h-8 text-xs font-semibold',
-                dateRange && 'border-primary text-primary',
-              )}
-            >
-              <CalendarIcon className="mr-2 h-3.5 w-3.5" />
-              {dateRange?.from
-                ? dateRange.to
-                  ? `${format(dateRange.from, 'MMM d')} → ${format(dateRange.to, 'MMM d')}`
-                  : format(dateRange.from, 'MMM d, yyyy')
-                : 'Pick date range'}
-            </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-0" align="start">
-            <Calendar
-              mode="range"
-              selected={dateRange}
-              onSelect={setDateRange}
-              numberOfMonths={2}
-              initialFocus
-              className={cn('p-3 pointer-events-auto')}
-            />
-          </PopoverContent>
-        </Popover>
-        {dateRange && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 text-xs"
-            onClick={() => setDateRange(undefined)}
-          >
-            <X className="mr-1 h-3 w-3" /> Clear
-          </Button>
-        )}
       </div>
 
       {/* Per-day list with bar */}
@@ -349,7 +278,7 @@ export function LiquidityForecastPanel({ onOpenTool }: LiquidityForecastPanelPro
                         )}
                         <span className="text-sm font-semibold">{dayLabel}</span>
                         <span className="text-[11px] text-muted-foreground">
-                          {b.rows.length} portfolio{b.rows.length === 1 ? '' : 's'}
+                          {b.count} portfolio{b.count === 1 ? '' : 's'}
                         </span>
                       </div>
                       <div className="text-right">
@@ -367,6 +296,11 @@ export function LiquidityForecastPanel({ onOpenTool }: LiquidityForecastPanelPro
                         style={{ width: `${pct}%` }}
                       />
                     </div>
+                    {b.weekend > 0 && (
+                      <p className="mt-1.5 text-[10px] text-muted-foreground">
+                        Includes {formatUGX(b.weekend)} due Saturday and Sunday: partner ROI is not paid over the weekend.
+                      </p>
+                    )}
                   </button>
                   {isOpen && (
                     <div className="bg-muted/30 px-4 py-3">
@@ -437,7 +371,8 @@ export function LiquidityForecastPanel({ onOpenTool }: LiquidityForecastPanelPro
                 month: 'short',
                 day: 'numeric',
               });
-              const isOverdue = new Date(b.date) < new Date(new Date().toISOString().slice(0, 10));
+              // Compared against today in Kampala, as worked out by the database.
+              const isOverdue = !!today && b.date < today;
               return (
                 <li key={b.date}>
                   <button

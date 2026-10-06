@@ -219,8 +219,8 @@ export function CEORevenueGrowth() {
                   </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                <XAxis dataKey="month" className="text-xs" />
-                <YAxis className="text-xs" tickFormatter={compact} width={44} />
+                <XAxis dataKey="month" className="text-xs" tick={{ fontSize: 10 }} interval="preserveStartEnd" minTickGap={12} />
+                <YAxis className="text-xs" tickFormatter={compact} width={40} tick={{ fontSize: 10 }} />
                 <Tooltip formatter={(v: number) => formatUGX(v)} />
                 <Area type="monotone" dataKey="total" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#revGrad)" />
               </AreaChart>
@@ -231,10 +231,10 @@ export function CEORevenueGrowth() {
             <ResponsiveContainer width="100%" height={220}>
               <BarChart data={monthly || []}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-                <XAxis dataKey="month" className="text-xs" />
-                <YAxis className="text-xs" tickFormatter={compact} width={44} />
+                <XAxis dataKey="month" className="text-xs" tick={{ fontSize: 10 }} interval="preserveStartEnd" minTickGap={12} />
+                <YAxis className="text-xs" tickFormatter={compact} width={40} tick={{ fontSize: 10 }} />
                 <Tooltip formatter={(v: number) => formatUGX(v)} />
-                <Legend wrapperStyle={{ fontSize: 11 }} />
+                <Legend iconSize={8} wrapperStyle={{ fontSize: 11 }} />
                 <Bar dataKey="access" name="Access fee" stackId="a" fill="hsl(var(--primary))" radius={[0, 0, 0, 0]} />
                 <Bar dataKey="platform" name="Platform fee" stackId="a" fill="hsl(var(--primary)/0.45)" radius={[4, 4, 0, 0]} />
               </BarChart>

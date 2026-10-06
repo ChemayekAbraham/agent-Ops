@@ -1,4 +1,6 @@
 import { useState, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { CashPositionInsights } from '@/components/cfo/CashPositionInsights';
 import { useCFOOverviewData } from '@/hooks/useCFOOverviewData';
 import { useCFO7DayCashFlow } from '@/hooks/useCFO7DayCashFlow';
 import { useActualMoneyHeld } from '@/hooks/useActualMoneyHeld';
@@ -13,7 +15,7 @@ import {
   Loader2, ArrowDownRight, ArrowUpRight, Scale, Wallet,
   ChevronRight, CalendarDays, Download,
   PiggyBank, BarChart3, Package, ChevronDown,
-  Landmark, Vault, CheckCircle2, AlertTriangle,
+  Landmark, Vault, CheckCircle2, AlertTriangle, RefreshCw,
 } from 'lucide-react';
 import {
   ResponsiveContainer, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
@@ -31,7 +33,6 @@ import airtelLogoAsset from '@/assets/airtel-logo.png.asset.json';
 
 import { ReceivablesCardDrilldown } from '@/components/cfo/ReceivablesCardDrilldown';
 import { PayablesCardDrilldown } from '@/components/cfo/PayablesCardDrilldown';
-import { GeneralPayoutActivities } from '@/components/cfo/GeneralPayoutActivities';
 import { CFOReceivablesPayablesHome } from '@/components/cfo/CFOReceivablesPayablesHome';
 import { WithdrawableCreditsLivePanel } from '@/components/cfo/WithdrawableCreditsLivePanel';
 import { MoneyPaidOutCard } from '@/components/cfo/MoneyPaidOutCard';
@@ -84,6 +85,23 @@ export function CFOOverviewDashboard({
   const [merchantOwedOpen, setMerchantOwedOpen] = useState(false);
   const [actualMoneyLine, setActualMoneyLine] = useState<PhoneMoneyLine | null>(null);
   const [moneyWeHaveOpen, setMoneyWeHaveOpen] = useState(false);
+  const queryClient = useQueryClient();
+  const [refreshingCashPosition, setRefreshingCashPosition] = useState(false);
+
+  const refreshCashPosition = useCallback(async () => {
+    setRefreshingCashPosition(true);
+    try {
+      await queryClient.invalidateQueries({
+        predicate: ({ queryKey }) => {
+          const key = String(queryKey[0] ?? '');
+          return key.startsWith('cfo-') || key.includes('actual-money') || key.includes('merchant');
+        },
+      });
+      toast.success('Cash position refreshed');
+    } finally {
+      setRefreshingCashPosition(false);
+    }
+  }, [queryClient]);
 
 
   const handleExportCommissions = useCallback(async () => {
@@ -240,15 +258,21 @@ export function CFOOverviewDashboard({
       </div>}
 
       {cashPositionOnly && (
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex flex-col gap-4 border-b border-border/70 pb-5 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-normal">{greeting}, CFO</h1>
-            <p className="mt-1 text-sm text-muted-foreground">Here&apos;s what&apos;s happening with your finances today.</p>
+            <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-primary">Finance command centre</p>
+            <h1 className="font-serif text-3xl font-semibold tracking-normal sm:text-4xl">Cash Position</h1>
+            <p className="mt-1 text-sm text-muted-foreground">{greeting}, CFO. Live liquidity, obligations and cash movement.</p>
           </div>
-          <div className="flex h-10 items-center gap-2 rounded-lg border border-border bg-card px-4 text-xs font-medium shadow-sm">
-            <CalendarDays className="h-4 w-4 text-info" />
-            {monthRangeLabel}
-            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex h-10 items-center gap-2 rounded-md border border-border bg-card px-3 text-xs font-medium shadow-sm">
+              <CalendarDays className="h-4 w-4 text-primary" />
+              {monthRangeLabel}
+            </div>
+            <Button variant="outline" size="sm" className="h-10 rounded-md" onClick={refreshCashPosition} disabled={refreshingCashPosition}>
+              <RefreshCw className={refreshingCashPosition ? 'animate-spin' : ''} />
+              Refresh
+            </Button>
           </div>
         </div>
       )}
@@ -522,109 +546,20 @@ export function CFOOverviewDashboard({
 
         </Band>}
 
-        {/* Cash Movement lives only on the Cash Position page — removed from
-            Home at the CFO's request. */}
-        {cashPositionOnly && <Band
-          title="Cash Movement"
-          subtitle="Money in and out — today, the last 7 days, and daily / weekly / monthly totals"
-          open={isOpen('movement')}
-          onToggle={() => toggleSection('movement')}
-        >
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
-            {/* Today — moved up beside the 7-day chart so both flow views sit
-                together instead of being separated by the rest of the page. */}
-            <Card className="rounded-2xl shadow-sm h-full flex flex-col">
-              <CardContent className="p-4 sm:p-5 flex-1 flex flex-col">
-                <div className="flex items-center justify-between gap-2 mb-4 min-h-[24px]">
-                  <p className="flex items-center gap-2.5 text-sm font-semibold tracking-tight">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                      <Scale className="h-4 w-4 text-primary" />
-                    </span>
-                    Today&apos;s Money Flow
-                  </p>
-                  <span className="text-[11px] text-muted-foreground">{todayLabel}</span>
-                </div>
-                <div className="rounded-lg border border-border overflow-hidden divide-y divide-border">
-                  <FlowRow
-                    label="Came In"
-                    value={fmtShort(todayCashFlow?.cashInToday ?? 0)}
-                    color="text-emerald-600"
-                    iconBg="bg-emerald-50 dark:bg-emerald-950/40"
-                    icon={<ArrowDownRight className="h-5 w-5" />}
-                    onClick={() => setActiveBreakdown('cashIn')}
-                  />
-                  <FlowRow
-                    label="Went Out"
-                    value={fmtShort(todayCashFlow?.cashOutToday ?? 0)}
-                    color="text-destructive"
-                    iconBg="bg-destructive/10"
-                    icon={<ArrowUpRight className="h-5 w-5" />}
-                    onClick={() => setActiveBreakdown('cashOut')}
-                  />
-                  <FlowRow
-                    label="Net Change"
-                    value={`${netToday >= 0 ? '+' : ''}${fmtShort(netToday)}`}
-                    color={netToday >= 0 ? 'text-primary' : 'text-destructive'}
-                    iconBg="bg-primary/10"
-                    icon={<Scale className="h-5 w-5" />}
-                    onClick={() => setActiveBreakdown('netCash')}
-                  />
-                </div>
-              </CardContent>
-            </Card>
+        {/* Cash Movement replaced by the trend / receivables / payables /
+            transactions / insights layout (Cash Position page only). */}
+        {cashPositionOnly && (
+          <CashPositionInsights
+            totalReceivables={receivables?.totalReceivables ?? 0}
+            receivablesCategories={receivables?.receivablesCategories ?? []}
+            moneyWeHave={actualMoneyTotal}
+            moneyWeCanUse={moneyWeCanUse}
+            moneyWeOwe={moneyWeOweTotal}
+            bankReconciled={actualMoney?.bankedInSync}
+            onNavigate={onTabChange}
+          />
+        )}
 
-            {/* Last 7 days */}
-            <Card className="rounded-2xl shadow-sm h-full flex flex-col">
-              <CardContent className="p-4 sm:p-5 flex-1 flex flex-col">
-                <div className="flex items-center justify-between gap-2 mb-4 min-h-[24px]">
-                  <p className="flex items-center gap-2.5 text-sm font-semibold tracking-tight">
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-blue-50 dark:bg-blue-950/40">
-                      <BarChart3 className="h-4 w-4 text-blue-600" />
-                    </span>
-                    <span className="min-w-0">Cash Inflows &amp; Outflows — Last 7 Days</span>
-                  </p>
-                  <span className="text-[11px] text-muted-foreground shrink-0">UGX</span>
-                </div>
-                {cashFlowDays.length > 0 && (sevenDayCashFlow?.totalInflow || sevenDayCashFlow?.totalOutflow) ? (
-                  <>
-                    <div className="h-64">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <ComposedChart data={cashFlowDays} margin={{ top: 4, right: 8, left: 0, bottom: 0 }} barCategoryGap="18%" barGap={2}>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                          <XAxis dataKey="label" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
-                          <YAxis tickFormatter={(v: number) => fmtShort(v)} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" width={52} />
-                          <Tooltip formatter={(v: number) => fmt(v)} contentStyle={{ borderRadius: 12, fontSize: 12 }} />
-                          <Legend wrapperStyle={{ fontSize: 11 }} />
-                          <Bar name="Cash In" dataKey="inflow" fill="hsl(var(--success))" radius={[4, 4, 0, 0]} barSize={24} />
-                          <Bar name="Cash Out" dataKey="outflow" fill="hsl(var(--warning))" radius={[4, 4, 0, 0]} barSize={24} />
-                        </ComposedChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <div className="mt-3 flex items-center justify-between gap-3 rounded-lg border border-border bg-muted/30 px-3 py-2">
-                      <span className="text-[11px] font-medium text-muted-foreground">Net Cash Flow (7 days)</span>
-                      <span
-                        className={`text-sm font-semibold tabular-nums ${
-                          netSevenDayCashFlow >= 0 ? 'text-emerald-600' : 'text-destructive'
-                        }`}
-                      >
-                        {netSevenDayCashFlow >= 0 ? '+' : '-'}UGX {fmtShort(Math.abs(netSevenDayCashFlow))}
-                      </span>
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex-1 flex flex-col items-center justify-center gap-2 min-h-[16rem] text-center">
-                    <BarChart3 className="h-5 w-5 text-muted-foreground/50" />
-                    <p className="text-xs text-muted-foreground">No cash movement recorded in the last 7 days.</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </Band>}
-
-        {/* General Payouts activity lives only on the Cash Position page —
-            removed from Home at the CFO's request. */}
-        {cashPositionOnly && <GeneralPayoutActivities />}
 
         {!cashPositionOnly && <>
         {/* ─────────── 2 · RECEIVABLES & PAYABLES ─────────── */}

@@ -8,7 +8,9 @@
 import { useMemo, useState } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { format, parseISO } from "date-fns";
-import { ChevronDown, Loader2 } from "lucide-react";
+import { ChevronDown, Loader2, Undo2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -84,6 +86,16 @@ function FilterPill({
   );
 }
 
+/** Reversal-state filter for person-to-person wallet transfers. */
+type TxReversalFilter = "all" | "reversible" | "reversed" | "ineligible";
+
+const TX_REVERSAL_OPTIONS: { value: TxReversalFilter; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "reversible", label: "Reversible" },
+  { value: "reversed", label: "Reversed" },
+  { value: "ineligible", label: "No longer eligible" },
+];
+
 export interface TransactionsFeedProps {
   userId: string | null | undefined;
   /** Hide the date / service / method filter row. */
@@ -109,6 +121,7 @@ export function TransactionsFeed({
   const [service, setService] = useState<TxServiceFilter>("all");
   const [method, setMethod] = useState<TxMethodFilter>("all");
   const [item, setItem] = useState<TxItemFilter>("all");
+  const [reversal, setReversal] = useState<TxReversalFilter>("all");
   const [selected, setSelected] = useState<TxFeedRow | null>(null);
 
   const filters = useMemo(
@@ -130,7 +143,50 @@ export function TransactionsFeed({
     () => (query.data?.pages ?? []).flatMap((p) => p.rows),
     [query.data],
   );
-  const groups = useMemo(() => groupTxByDay(rows), [rows]);
+
+  // Reversal filter: resolve the reversal state of every loaded wallet transfer
+  // in ONE batched round trip. The server function reuses the exact per-transfer
+  // logic the badges and Reverse button use, so a filter match can never
+  // disagree with the badge on the same row.
+  const transferRefs = useMemo(
+    () =>
+      [...new Set(rows.map((r) => transferRefOf(r)).filter((r): r is string => r !== null))],
+    [rows],
+  );
+  const states = useQuery({
+    queryKey: ["wallet-transfer-reversal-states", userId ?? "", transferRefs] as const,
+    enabled: reversal !== "all" && transferRefs.length > 0,
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("wallet_transfer_reversal_states", {
+        p_references: transferRefs,
+      });
+      if (error) throw error;
+      const byRef: Record<string, string> = {};
+      for (const s of (data ?? []) as { reference_id: string; state: string }[]) {
+        byRef[s.reference_id] = s.state;
+      }
+      return byRef;
+    },
+  });
+  const reversalLoading = reversal !== "all" && states.isLoading;
+
+  const visibleRows = useMemo(() => {
+    if (reversal === "all") return rows;
+    const byRef = states.data;
+    if (!byRef) return [];
+    return rows.filter((row) => {
+      const ref = transferRefOf(row);
+      if (!ref) return false;
+      const state = byRef[ref];
+      if (reversal === "reversible") return state === "reversible";
+      if (reversal === "reversed") return state === "reversed";
+      return state === "withdrawn" || state === "nothing_left";
+    });
+  }, [rows, reversal, states.data]);
+
+  const groups = useMemo(() => groupTxByDay(visibleRows), [visibleRows]);
 
   return (
     <div className={cn("space-y-6", className)}>
@@ -159,6 +215,12 @@ export function TransactionsFeed({
             value={item}
             options={TX_ITEM_OPTIONS}
             onChange={(v) => setItem(v as TxItemFilter)}
+          />
+          <FilterPill
+            label="Reversal"
+            value={reversal}
+            options={TX_REVERSAL_OPTIONS}
+            onChange={(v) => setReversal(v as TxReversalFilter)}
           />
         </div>
       )}
@@ -189,6 +251,26 @@ export function TransactionsFeed({
         </div>
       )}
 
+      {reversalLoading && rows.length > 0 && (
+        <div className="flex items-center justify-center gap-2 rounded-2xl bg-background p-6 text-sm font-medium text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          Checking transfers…
+        </div>
+      )}
+
+      {!query.isLoading &&
+        !reversalLoading &&
+        rows.length > 0 &&
+        visibleRows.length === 0 && (
+          <div className="rounded-2xl bg-background p-10 text-center">
+            <p className="font-semibold">No matching transfers</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              None of the loaded transactions are{" "}
+              {TX_REVERSAL_OPTIONS.find((o) => o.value === reversal)?.label.toLowerCase()}.
+            </p>
+          </div>
+        )}
+
       {groups.map((group) => (
         <section key={group.day} className="space-y-3">
           <h2 className="text-base font-bold sm:text-lg">
@@ -208,8 +290,8 @@ export function TransactionsFeed({
                 : null;
             const itemPhoto = welileItemImage(row.description);
             return (
+              <div key={row.id} className="space-y-1.5">
               <button
-                key={row.id}
                 type="button"
                 onClick={() => setSelected({ ...row, balanceAfter })}
                 className="flex w-full items-center gap-3 sm:gap-4 rounded-2xl bg-background p-3 sm:p-4 text-left shadow-sm transition-transform active:scale-[0.98]"
@@ -264,6 +346,7 @@ export function TransactionsFeed({
                     >
                       {isIn ? "Money In" : "Money Out"}
                     </Badge>
+                    <TransferReversalBadge row={row} />
                   </span>
                   {peer ? (
                     <span className="block truncate text-xs sm:text-sm font-bold text-foreground">
@@ -296,10 +379,19 @@ export function TransactionsFeed({
                   <span className="text-xs font-medium text-muted-foreground">UGX</span>
                 </span>
               </button>
+              <ReverseTransferRowButton row={row} onOpen={() => setSelected({ ...row, balanceAfter })} />
+              <TransferReversalReason row={row} />
+              </div>
             );
           })}
         </section>
       ))}
+
+      {reversal !== "all" && query.hasNextPage && (
+        <p className="text-center text-xs text-muted-foreground">
+          Only the transactions already loaded are searched — tap Load more to look further back.
+        </p>
+      )}
 
       {query.hasNextPage && (
         <Button
@@ -319,6 +411,207 @@ export function TransactionsFeed({
         onOpenChange={(open) => !open && setSelected(null)}
       />
     </div>
+  );
+}
+
+/** Reference of an original (non-reversal) wallet transfer row, else null. */
+function transferRefOf(row: TxFeedRow): string | null {
+  return row.category === "wallet_transfer" &&
+    row.reference_id &&
+    !String(row.reference_id).endsWith("-REV")
+    ? String(row.reference_id)
+    : null;
+}
+
+/**
+ * Reversal status for a person-to-person wallet transfer. Shared React Query
+ * key with ReverseTransferRowButton, so the two components fetch once.
+ */
+function useTransferReversalStatus(ref: string | null) {
+  return useQuery({
+    queryKey: ["wallet-transfer-reversal-status", ref],
+    enabled: !!ref,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("wallet_transfer_reversal_status", { p_reference: ref as string });
+      if (error) throw error;
+      return data as {
+        state?: "reversible" | "reversed" | "withdrawn" | "nothing_left" | "received" | "not_involved" | "not_found" | "sign_in";
+        can_reverse: boolean;
+        reason?: string;
+        sent?: number;
+        reversible?: number;
+        /** ISO 8601 — when the transfer was reversed ('reversed' state only). */
+        reversed_at?: string;
+      };
+    },
+  });
+}
+
+/** Clear status chip on every wallet transfer: Reversible / Reversed / No longer eligible. */
+function TransferReversalBadge({ row }: { row: TxFeedRow }) {
+  const ref = transferRefOf(row);
+  const status = useTransferReversalStatus(ref);
+  if (!ref || !status.data) return null;
+  const { state } = status.data;
+  if (state === "reversible") {
+    return (
+      <Badge variant="secondary" className="shrink-0 bg-success/10 text-[9px] font-bold uppercase tracking-wide text-success">
+        Reversible
+      </Badge>
+    );
+  }
+  if (state === "reversed") {
+    return (
+      <Badge variant="secondary" className="shrink-0 bg-muted text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
+        Reversed
+      </Badge>
+    );
+  }
+  if (state === "withdrawn" || state === "nothing_left") {
+    return (
+      <Badge variant="secondary" className="shrink-0 bg-muted text-[9px] font-bold uppercase tracking-wide text-muted-foreground">
+        No longer eligible
+      </Badge>
+    );
+  }
+  // 'received' (incoming, not reversed), 'not_involved', 'not_found', 'sign_in'
+  return null;
+}
+
+/**
+ * Reversal detail under a transfer row. For a reversed transfer (sender OR
+ * recipient): when it was reversed. For an outgoing transfer that can no
+ * longer be reversed: why (withdrawn / fully-spent cases — "Reversed"
+ * already explains itself, so it gets the timestamp instead).
+ */
+function TransferReversalReason({ row }: { row: TxFeedRow }) {
+  const ref = transferRefOf(row);
+  const status = useTransferReversalStatus(ref);
+  if (!ref || !status.data) return null;
+  const { state, reversed_at } = status.data;
+  if (state === "reversed") {
+    if (!reversed_at) return null;
+    return <TransferReversalDetails row={row} reference={ref} reversedAt={reversed_at} />;
+  }
+  if (row.direction !== "cash_out") return null;
+  let reason: string | null = null;
+  if (state === "withdrawn") {
+    reason = "Can't reverse — the recipient has already withdrawn these funds.";
+  } else if (state === "nothing_left") {
+    reason = "Can't reverse — the recipient's wallet has nothing left to return.";
+  }
+  if (!reason) return null;
+  return (
+    <p className="px-1 text-xs font-medium leading-snug text-muted-foreground">
+      {reason}
+    </p>
+  );
+}
+
+const fmtWhen = (iso: string) => format(parseISO(iso), "MMM d, yyyy 'at' h:mm a");
+
+/**
+ * Compact side-by-side view of a reversed transfer: the original transfer and
+ * its reversal. Read-only — reads this user's own reversal leg (reference
+ * `<original>-REV`) to show the exact amount moved back.
+ */
+function TransferReversalDetails({
+  row,
+  reference,
+  reversedAt,
+}: {
+  row: TxFeedRow;
+  reference: string;
+  reversedAt: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const leg = useQuery({
+    queryKey: ["wallet-transfer-reversal-leg", reference],
+    enabled: open,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data: auth } = await supabase.auth.getUser();
+      if (!auth.user) return null;
+      const { data, error } = await supabase
+        .from("general_ledger")
+        .select("amount, created_at")
+        .eq("reference_id", `${reference}-REV`)
+        .eq("user_id", auth.user.id)
+        .eq("ledger_scope", "wallet")
+        .order("created_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data as { amount: number; created_at: string } | null;
+    },
+  });
+  const sent = Number(row.amount);
+  const isSender = row.direction === "cash_out";
+  const returned = leg.data ? Number(leg.data.amount) : null;
+
+  return (
+    <div className="px-1 text-xs leading-snug">
+      <button
+        type="button"
+        className="flex w-full items-center justify-between font-medium text-muted-foreground"
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+      >
+        <span>Reversed on {fmtWhen(reversedAt)}.</span>
+        <span className="flex items-center gap-0.5 font-bold text-foreground">
+          {open ? "Hide details" : "View details"}
+          <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", open && "rotate-180")} />
+        </span>
+      </button>
+      {open && (
+        <div className="mt-2 grid grid-cols-2 gap-2 rounded-xl border bg-muted/40 p-3">
+          <div className="space-y-0.5">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Original transfer</p>
+            <p className="font-bold tabular-nums text-foreground">{formatUGX(sent)}</p>
+            <p className="text-muted-foreground">
+              {isSender ? "Sent to" : "Received from"} {row.peer_name ?? "—"}
+            </p>
+            <p className="text-muted-foreground">{fmtWhen(row.transaction_date)}</p>
+          </div>
+          <div className="space-y-0.5">
+            <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground">Reversal</p>
+            {leg.isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            ) : (
+              <p className="font-bold tabular-nums text-foreground">
+                {returned != null ? formatUGX(returned) : "—"}
+              </p>
+            )}
+            <p className="text-muted-foreground">
+              {isSender ? "Returned to your wallet" : "Taken back from your wallet"}
+            </p>
+            <p className="text-muted-foreground">{fmtWhen(reversedAt)}</p>
+            {returned != null && returned < sent && (
+              <p className="text-muted-foreground">Partial — of {formatUGX(sent)} sent</p>
+            )}
+          </div>
+          <p className="col-span-2 truncate text-[10px] text-muted-foreground">Ref: {reference}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Shows "Reverse transfer" under an outgoing transfer while the server says it can still be reversed. */
+function ReverseTransferRowButton({ row, onOpen }: { row: TxFeedRow; onOpen: () => void }) {
+  const ref = transferRefOf(row);
+  const status = useTransferReversalStatus(ref);
+  if (!ref || !status.data?.can_reverse) return null;
+  return (
+    <Button
+      variant="outline"
+      className="h-10 w-full rounded-xl text-sm font-bold text-destructive"
+      onClick={onOpen}
+    >
+      <Undo2 className="mr-1.5 h-4 w-4" />
+      Reverse transfer
+    </Button>
   );
 }
 

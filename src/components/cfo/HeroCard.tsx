@@ -66,7 +66,7 @@ export function HeroCard({ icon, iconBg, tone, title, value, percentageLabel, pe
   onClick?: () => void;
   /** Sizing hooks for the caller's layout (e.g. "flex-1" inside a column). */
   className?: string;
-  /** Optional control rendered inside the card, below the tappable summary. */
+  /** Optional control rendered inside the card's drill-down, above its source rows. */
   action?: React.ReactNode;
 }) {
 
@@ -118,7 +118,6 @@ export function HeroCard({ icon, iconBg, tone, title, value, percentageLabel, pe
           )}
           {footer ? <p className="mt-2.5 text-[11px] text-muted-foreground line-clamp-2">{footer}</p> : null}
         </button>
-        {action ? <div className="px-5 pb-5">{action}</div> : null}
       </div>
 
 
@@ -141,6 +140,7 @@ export function HeroCard({ icon, iconBg, tone, title, value, percentageLabel, pe
           </div>
 
           <div className="space-y-1">
+            {action ? <div className="pb-2">{action}</div> : null}
             <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Where it comes from</p>
             {items.map((it) =>
               it.onSelect ? (
@@ -148,15 +148,18 @@ export function HeroCard({ icon, iconBg, tone, title, value, percentageLabel, pe
                   key={it.label}
                   type="button"
                   onClick={() => { setOpen(false); it.onSelect?.(); }}
-                  className="w-full flex items-center justify-between gap-3 py-2 border-b border-border/60 text-xs text-left rounded-md px-1 hover:bg-muted/50 transition-colors"
+                  className="w-full min-h-14 flex items-center justify-between gap-3 py-2 border-b border-border/60 text-xs text-left rounded-md px-1 hover:bg-muted/50 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  aria-label={`View breakdown for ${it.label}, ${it.value}`}
                 >
                   <span className="flex items-center gap-2 min-w-0 text-muted-foreground">
                     <span className={`h-1.5 w-1.5 rounded-full shrink-0 ${it.dot}`} />
                     <span className="truncate">{it.label}</span>
                   </span>
                   <span className="flex items-center gap-1.5 shrink-0">
-                    <span className="tabular-nums font-medium text-right text-foreground">{it.value}</span>
-                    <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+                    <span className="flex flex-col items-end gap-0.5">
+                      <span className="tabular-nums font-medium text-right text-foreground">{it.value}</span>
+                    </span>
+                    <ChevronRight className="h-4 w-4 text-primary" aria-hidden="true" />
                   </span>
                 </button>
               ) : (

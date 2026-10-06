@@ -12,18 +12,41 @@ type Row = {
   month_paid: number; month_count: number; pending_amount: number; pending_count: number;
 };
 
+const PAYOUT_SOURCES = ['Wallet withdrawal', 'Supporter returns', 'Commission', 'Landlord', 'Salary'] as const;
+type SourceTotal = { label: string; amount: number; count: number };
+
 /** Actual external payouts (completed/paid withdrawals). Read-only. */
 export function MoneyPaidOutCard({ moneyWeHaveTotal }: { moneyWeHaveTotal: number }) {
   const q = useQuery({
     queryKey: ['cfo-money-paid-out'],
     queryFn: async () => {
-      const { data, error } = await (supabase.rpc as any)('get_cfo_money_paid_out');
-      if (error) throw error;
-      return ((data ?? [])[0] ?? null) as Row | null;
+      const range = allTime();
+      const end = new Date(`${range.to}T00:00:00Z`);
+      end.setUTCDate(end.getUTCDate() + 1);
+      const p_from = new Date(`${range.from}T00:00:00+03:00`).toISOString();
+      const p_to = new Date(`${end.toISOString().slice(0, 10)}T00:00:00+03:00`).toISOString();
+      const [summaryResult, ...sourceResults] = await Promise.all([
+        (supabase.rpc as any)('get_cfo_money_paid_out'),
+        ...PAYOUT_SOURCES.map(p_type => (supabase.rpc as any)('get_cfo_money_drilldown_totals', {
+          p_kind: 'paid_out', p_from, p_to, p_status: 'confirmed', p_method: null, p_type, p_person: null,
+        })),
+      ]);
+      if (summaryResult.error) throw summaryResult.error;
+      const sources = sourceResults.map((result, index): SourceTotal => {
+        if (result.error) throw result.error;
+        const row = (result.data ?? [])[0] ?? {};
+        return {
+          label: PAYOUT_SOURCES[index],
+          amount: Number(row.confirmed_amount ?? 0),
+          count: Number(row.confirmed_count ?? 0),
+        };
+      });
+      return { summary: ((summaryResult.data ?? [])[0] ?? null) as Row | null, sources };
     },
     refetchInterval: 60000,
   });
-  const d = q.data;
+  const d = q.data?.summary;
+  const sources = q.data?.sources ?? [];
   const [report, setReport] = useState(false);
   const [preset, setPreset] = useState<DrilldownPreset | null>(null);
   const conf = 'confirmed';
@@ -45,14 +68,21 @@ export function MoneyPaidOutCard({ moneyWeHaveTotal }: { moneyWeHaveTotal: numbe
       percentageDirection="down"
       percentageValue={!q.isLoading && !q.error && d ? n(d.total_paid) : undefined}
       percentageTotal={moneyWeHaveTotal}
-      items={d ? [
-        { dot: 'bg-rose-500', label: `Paid out today (${n(d.today_count).toLocaleString()})`, value: formatUGX(n(d.today_paid)) },
-        { dot: 'bg-rose-500', label: `Paid out yesterday (${n(d.yesterday_count).toLocaleString()})`, value: formatUGX(n(d.yesterday_paid)) },
-        { dot: 'bg-rose-400', label: `Paid out last 7 days (${n(d.last7_count).toLocaleString()})`, value: formatUGX(n(d.last7_paid)) },
-        { dot: 'bg-rose-300', label: `Paid out this month (${n(d.month_count).toLocaleString()})`, value: formatUGX(n(d.month_paid)) },
-        { dot: 'bg-slate-400', label: 'Number of payouts', value: n(d.total_count).toLocaleString() },
-        { dot: 'bg-amber-500', label: `Pending payouts (${n(d.pending_count).toLocaleString()})`, value: formatUGX(n(d.pending_amount)) },
-      ] : []}
+      items={d ? sources.filter(source => source.count > 0).map((source, index) => ({
+        dot: ['bg-rose-500', 'bg-amber-500', 'bg-success', 'bg-info', 'bg-primary'][index],
+        label: `${source.label} (${source.count.toLocaleString()})`,
+        value: formatUGX(source.amount),
+        onSelect: () => {
+          const range = allTime();
+          drill({
+            label: source.label,
+            ...range,
+            status: conf,
+            type: source.label,
+            expected: { amount: source.amount, count: source.count, basis: 'confirmed' },
+          });
+        },
+      })) : []}
       onClick={() => drill(null)}
       footer={q.error ? 'Could not load payouts' : 'Completed payouts to mobile money, bank & cash'}
     />

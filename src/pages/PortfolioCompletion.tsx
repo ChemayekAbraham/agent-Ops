@@ -596,7 +596,7 @@ export default function PortfolioCompletion() {
         </div>
 
         <p className="text-[11px] text-muted-foreground leading-relaxed">
-          By submitting, you confirm the details above are accurate and consent to the Welile Portfolio Addendum for reference {portfolio!.portfolio_code}. No wallet is charged yet — Partner Operations will contact you to fund the portfolio after approval.
+          By submitting, you confirm the details above are accurate and consent to the Welile Portfolio Addendum for reference {portfolio!.portfolio_code}. {portfolio!.portfolio_code?.startsWith('WSR') ? 'This portfolio is funded from your salary reinvestment. Nothing will be charged to your wallet.' : 'No wallet is charged yet — Partner Operations will contact you to fund the portfolio after approval.'}
         </p>
       </div>
 

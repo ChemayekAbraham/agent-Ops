@@ -58,12 +58,18 @@ function FitBounds({
     }
     const bounds = L.latLngBounds(points);
     map.fitBounds(bounds, { padding: [24, 24], maxZoom: 15 });
+    return () => {
+      map.stop();
+    };
   }, [map, sellers, userCoords]);
 
   useEffect(() => {
     if (!selectedId) return;
     const sel = sellers.find((s) => s.id === selectedId);
     if (sel) map.flyTo([sel.latitude, sel.longitude], Math.max(map.getZoom(), 14), { duration: 0.5 });
+    return () => {
+      map.stop();
+    };
   }, [map, selectedId, sellers]);
 
   return null;

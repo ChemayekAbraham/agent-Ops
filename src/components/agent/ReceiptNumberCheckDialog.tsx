@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -154,15 +154,6 @@ export function ReceiptNumberCheckDialog({
   const { query, setQuery, loading, result, errorMessage, search, reset } = useReceiptLookup();
   const { pending, pendingCount, loading: pendingLoading, refetch } = usePendingLandlordReceipts(open);
   const [rows, setRows] = useState<Record<string, RowState>>({});
-  /** Grace period before the "not yet" escape appears, so the prompt is read. */
-  const [canDismiss, setCanDismiss] = useState(false);
-
-  useEffect(() => {
-    if (!open) { setCanDismiss(false); return; }
-    const id = setTimeout(() => setCanDismiss(true), 15000);
-    return () => clearTimeout(id);
-  }, [open]);
-
   const state = (id: string): RowState =>
     rows[id] ?? { value: '', loading: false, error: null, confirmed: false };
 
@@ -172,9 +163,12 @@ export function ReceiptNumberCheckDialog({
     [pending, rows],
   );
 
-  const lookupConfirmed = Boolean(result?.ok && result.found);
-  /** Locked while a real payment still needs its receipt. */
-  const locked = pendingCount > 0 ? outstanding.length > 0 && !canDismiss : !lookupConfirmed;
+  /**
+   * Hard lock: no timer, no escape. The agent cannot close this until every
+   * landlord payment on the list has its receipt confirmed. The on-demand
+   * receipt check (nothing pending) is never locked.
+   */
+  const locked = pendingCount > 0 && outstanding.length > 0;
 
   const handleOpenChange = (next: boolean) => {
     if (!next && locked) return;
@@ -201,7 +195,7 @@ export function ReceiptNumberCheckDialog({
           </DialogTitle>
           <DialogDescription>
             {hasPending
-              ? 'Enter the receipt number each landlord received by SMS after being paid. This reminder comes back every few minutes until every payment has its receipt.'
+              ? 'Enter the receipt number each landlord received by SMS after being paid. You cannot continue until every payment below has its receipt.'
               : 'Enter a receipt number to confirm it exists in Welile.'}
           </DialogDescription>
         </DialogHeader>
@@ -309,8 +303,8 @@ export function ReceiptNumberCheckDialog({
                 Close
               </Button>
             ) : (
-              <p className="text-[11px] text-muted-foreground">
-                Waiting for the landlord's SMS? You can close this shortly and it will come back.
+              <p className="text-[11px] font-medium text-destructive">
+                This screen stays until every receipt above is confirmed.
               </p>
             )}
           </DialogFooter>

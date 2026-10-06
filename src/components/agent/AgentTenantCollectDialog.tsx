@@ -1,13 +1,14 @@
 "use client";
-import { useState, useEffect } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect, useRef } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Loader2, Banknote, AlertCircle, CheckCircle2, Wallet, TrendingUp, WifiOff, ShieldAlert, Unlock, MessageSquare, RefreshCw, XCircle } from 'lucide-react';
+import { Loader2, Banknote, AlertCircle, CheckCircle2, Wallet, TrendingUp, WifiOff, ShieldAlert, Unlock, MessageSquare, RefreshCw, XCircle, Info } from 'lucide-react';
 import { toast } from 'sonner';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useAgentBalances } from '@/hooks/useAgentBalances';
@@ -39,6 +40,10 @@ import {
  *    constraint 'wallets_balance_check'") that bubbles up from the wallet
  *    sole-writer trigger when the cached balance is stale.
  */
+function tidMessage(balance: number, requested: number): string {
+  return `You can collect up to ${formatUGX(balance)}. Deposit ${formatUGX(Math.max(0, requested - balance))} more to continue.`;
+}
+
 function humanizeAllocationError(
   message: string,
   code?: string,
@@ -111,6 +116,19 @@ export function AgentTenantCollectDialog({
   const queryClient = useQueryClient();
   const { isOnline } = useOffline();
   const [amount, setAmount] = useState<number>(0);
+  // One idempotency key per (plan, amount) ATTEMPT rather than per click. A
+  // fresh uuid on every Confirm is what let a double tap through: tap two
+  // carried a different ref, so the server's replay check could not see it.
+  // Keying on the amount too means changing the amount starts a new attempt,
+  // so a genuine follow-up collection is never swallowed as a replay.
+  const clientRefRef = useRef<{ key: string; value: string } | null>(null);
+  const clientRefFor = (planId: string, amt: number) => {
+    const key = `${planId}:${amt}`;
+    if (clientRefRef.current?.key !== key) {
+      clientRefRef.current = { key, value: crypto.randomUUID() };
+    }
+    return clientRefRef.current.value;
+  };
   const [notes, setNotes] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
@@ -119,6 +137,7 @@ export function AgentTenantCollectDialog({
   const [celebrationData, setCelebrationData] = useState<{ commission: number; amount: number } | null>(null);
   const [draftSaved, setDraftSaved] = useState<{ provisional_receipt_no: string; amount: number } | null>(null);
   const [rpcError, setRpcError] = useState<string | null>(null);
+  const [tidBlock, setTidBlock] = useState<{ requested: number; balance: number } | null>(null);
   // When the agent taps "Do it later" on the location gate, we let them
   // proceed to the allocation form instead of closing the whole flow.
   const [locationSkipped, setLocationSkipped] = useState(false);
@@ -137,12 +156,14 @@ export function AgentTenantCollectDialog({
 
   useEffect(() => {
     if (open) {
+      clientRefRef.current = null;
       setAmount(0);
       setNotes('');
       setResult(null);
       setConfirming(false);
       setDraftSaved(null);
       setRpcError(null);
+      setTidBlock(null);
       setSmsStatus('idle');
       setSmsResending(false);
       setPartialReason('');
@@ -160,6 +181,29 @@ export function AgentTenantCollectDialog({
   }, [open]);
 
   const maxAllowable = Math.max(0, Math.min(outstandingBalance, floatBalance));
+  // Read-only: float backed by verified deposits (what the server actually checks).
+  const { data: tidData, refetch: refetchTid } = useQuery({
+    queryKey: ['agent-tid-backed-float', user?.id],
+    enabled: !!user?.id && open,
+    staleTime: 15_000,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('agent_tid_backed_float')
+        .select('balance')
+        .eq('agent_id', user!.id)
+        .maybeSingle();
+      if (error) throw error;
+      return Number(data?.balance ?? 0);
+    },
+  });
+  const tidBalance: number | null = tidData ?? null;
+  // The server's own figure wins right after a rejection.
+  const effectiveTid = tidBlock ? tidBlock.balance : tidBalance;
+  const tidLocked = !!tidBlock && tidBlock.requested === amount && (tidBalance === null || tidBalance === tidBlock.balance);
+  const tidWarning =
+    effectiveTid !== null && amount > effectiveTid && amount > 0
+      ? tidMessage(effectiveTid, amount)
+      : null;
   // Final-settlement rule: normally UGX 100 minimum, but when the tenant owes
   // less than 100 the agent must still be able to clear the last shillings.
   const minAllowed = outstandingBalance > 0 ? Math.min(100, outstandingBalance) : 100;
@@ -232,11 +276,12 @@ export function AgentTenantCollectDialog({
       // server instead of retrying, so a committed allocation is reported as
       // success and never allocated twice.
       //
-      // client_ref: a fresh id per Confirm click, so if this exact network
-      // call is ever resent (browser/service-worker replay, a double-fired
-      // handler) the server returns the original receipt instead of a second
-      // collection + a second commission payout.
-      const clientRef = crypto.randomUUID();
+      // client_ref: one id per (plan, amount) attempt — see clientRefFor. Every
+      // tap of the same attempt, and any resend of this call (service-worker
+      // replay, a double-fired handler), carries the same ref, so the server
+      // returns the original receipt instead of a second collection and a
+      // second commission payout.
+      const clientRef = clientRefFor(rentRequestId, amount);
       const rpcPromise = supabase.rpc('agent_allocate_tenant_payment', {
           p_agent_id: user.id,
           p_tenant_id: tenant.id,
@@ -333,6 +378,12 @@ export function AgentTenantCollectDialog({
             })
           : humanizeAllocationError(rawMsg);
         console.error('[AgentTenantCollectDialog] allocation rejected:', res);
+        if (res?.error_code === 'INSUFFICIENT_TID_BACKED_FLOAT') {
+          const bal = Math.max(0, Number(res?.tid_backed_balance ?? 0));
+          const req = Number(res?.requested ?? amount);
+          setTidBlock({ requested: req, balance: bal });
+          throw new Error(tidMessage(bal, req));
+        }
         logCollectionError({
           phase: 'allocate_rejected',
           // A rejection the engine understood is a warning; the agent can act on
@@ -834,7 +885,7 @@ export function AgentTenantCollectDialog({
                 type="button"
                 className="flex-1 h-12 font-bold"
                 onClick={handleAllocate}
-                disabled={loading}
+                disabled={loading || tidLocked}
                 style={{ touchAction: 'manipulation' }}
               >
                 {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
@@ -1068,6 +1119,26 @@ export function AgentTenantCollectDialog({
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Your Wallet Float</p>
                 <p className="text-lg font-bold font-mono text-primary">{formatUGX(floatBalance)}</p>
               </div>
+              {tidBalance !== null && (
+                <div className="text-right">
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center justify-end gap-1">
+                    Available to collect
+                    <TooltipProvider delayDuration={150}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button type="button" aria-label="What is Available to collect?" className="inline-flex">
+                            <Info className="h-3 w-3" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-[240px] text-xs">
+                          Only float from verified MoMo/Airtel deposits can fund collections.
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </p>
+                  <p className="text-lg font-bold font-mono">{formatUGX(tidBalance)}</p>
+                </div>
+              )}
             </div>
 
             {/* Outstanding balance */}
@@ -1154,6 +1225,32 @@ export function AgentTenantCollectDialog({
                   <p className="text-[10px] text-destructive">Exceeds your wallet float balance</p>
                 </div>
               )}
+              {tidWarning && (
+                <div className="flex items-start gap-1.5 mt-1">
+                  <AlertCircle className="h-3 w-3 text-warning shrink-0 mt-0.5" />
+                  <p className="text-[10px] text-warning">
+                    {tidWarning}{' '}
+                    <button
+                      type="button"
+                      className="underline font-semibold"
+                      onClick={() => {
+                        onOpenChange(false);
+                        window.dispatchEvent(new CustomEvent('open-deposit'));
+                      }}
+                    >
+                      Deposit float
+                    </button>
+                    {tidLocked && (
+                      <>
+                        {' · '}
+                        <button type="button" className="underline font-semibold" onClick={() => { void refetchTid(); }}>
+                          Refresh balance
+                        </button>
+                      </>
+                    )}
+                  </p>
+                </div>
+              )}
               {amount > 0 && amount <= maxAllowable && (
                 <div className="mt-1 space-y-0.5">
                   <p className="text-[10px] text-muted-foreground">
@@ -1238,7 +1335,7 @@ export function AgentTenantCollectDialog({
             <Button
               className="w-full h-12 text-base font-bold"
               onClick={() => setConfirming(true)}
-              disabled={!isValid || loading}
+              disabled={!isValid || loading || tidLocked}
             >
               <Banknote className="h-4 w-4 mr-2" />
               Review {formatUGX(amount || 0)}

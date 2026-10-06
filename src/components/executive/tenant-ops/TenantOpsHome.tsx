@@ -27,6 +27,7 @@ import { RepaymentTrendChart } from '@/components/executive/RepaymentTrendChart'
 import { TenantRepaymentForecastPanel } from './TenantRepaymentForecastPanel';
 import { TenantOpsPipelineTrendChart } from './TenantOpsPipelineTrendChart';
 import { TenantOpsRepaymentWatchlistCards } from './TenantOpsRepaymentWatchlistCards';
+import { TenantPaymentBehaviorCard } from './TenantPaymentBehaviorCard';
 import { useTenantOpsToolCounts } from '@/hooks/useTenantOpsToolCounts';
 import { useTenantRepaymentReliability } from '@/hooks/useTenantRepaymentReliability';
 import { useTenantOpsAcquisition } from '@/hooks/useTenantOpsAcquisition';
@@ -47,7 +48,7 @@ import type { TenantOpsActionKey, TenantOpsViewKey } from './tenantOpsNav';
  * reuses `get_tenant_repayment_reliability`. Every number on this page is a link
  * into an existing Classic view — no client-side business rules are re-derived.
  */
-export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsViewKey | TenantOpsActionKey) => void }) {
+export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsViewKey | TenantOpsActionKey, params?: Record<string, string>) => void }) {
   const [preset, setPreset] = useState<PresetKey>('today');
   const [custom, setCustom] = useState<DateRange | undefined>();
   const { start, end } = useMemo(() => resolveRange(preset, custom), [preset, custom]);
@@ -266,9 +267,20 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
             <Progress value={coverage} className="mt-3 h-2" />
             <div className="mt-2 flex items-center justify-between text-[11px]">
               <span className="font-semibold text-foreground">{coverage}% covered</span>
-              <span className={cn(shortfall > 0 ? 'text-destructive' : 'text-success', 'font-semibold')}>
-                {shortfall > 0 ? `${formatUGX(shortfall)} short` : 'Target met'}
-              </span>
+              {shortfall > 0 ? (
+                <button
+                  type="button"
+                  title="See which Rent Plans are short"
+                  onClick={() => onNavigate('collection-shortfall', preset === 'custom'
+                    ? { sf_range: 'custom', sf_from: format(start, 'yyyy-MM-dd'), sf_to: format(end, 'yyyy-MM-dd') }
+                    : { sf_range: preset })}
+                  className="font-semibold text-destructive hover:underline"
+                >
+                  {formatUGX(shortfall)} short
+                </button>
+              ) : (
+                <span className={cn('text-success', 'font-semibold')}>Target met</span>
+              )}
             </div>
             <button
               type="button"
@@ -307,6 +319,17 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
                 <p className="mt-1 text-[11px] leading-snug text-muted-foreground break-words line-clamp-2">{s.hint}</p>
               </button>
             ))}
+            <TenantPaymentBehaviorCard
+              startIso={startIso}
+              endIso={endIso}
+              phrase={phrase}
+              onOpen={() => onNavigate('tenant-operations-workspace', {
+                wtab: 'payment-behavior',
+                ...(preset === 'custom'
+                  ? { pb_range: 'custom', pb_from: format(start, 'yyyy-MM-dd'), pb_to: format(end, 'yyyy-MM-dd') }
+                  : { pb_range: preset }),
+              })}
+            />
           </div>
         </div>
       </div>

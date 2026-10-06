@@ -18,7 +18,11 @@ exports[`PersonNameFields > matches the mobile-width render snapshot 1`] = `
           for="m-first-name"
         >
           First name
-           *
+          <span
+            aria-hidden="true"
+          >
+             *
+          </span>
         </label>
         <input
           aria-required="true"
@@ -42,7 +46,11 @@ exports[`PersonNameFields > matches the mobile-width render snapshot 1`] = `
           for="m-last-name"
         >
           Last name
-           *
+          <span
+            aria-hidden="true"
+          >
+             *
+          </span>
         </label>
         <input
           aria-required="true"

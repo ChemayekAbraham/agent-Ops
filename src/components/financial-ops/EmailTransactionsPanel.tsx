@@ -40,6 +40,7 @@ import { ProxyDebitBreakdownDialog } from './ProxyDebitBreakdownDialog';
 import { EmailPeriodComparison } from './EmailPeriodComparison';
 import { DepositNumberConflictsPanel } from './DepositNumberConflictsPanel';
 import { SwipeableEmailRow, type SwipeAction } from './SwipeableEmailRow';
+import { DialableNumber } from './DialableNumber';
 import { GmailStyleEmailList } from './GmailStyleEmailList';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -1255,7 +1256,7 @@ export function EmailTransactionsPanel() {
                   </div>
                   <div className="min-w-0 flex-1 basis-[calc(100%-2.25rem)] sm:basis-auto">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium text-sm truncate">{r.from_name || r.from_email || 'Unknown'}</span>
+                      <span className="font-medium text-sm truncate"><DialableNumber text={r.from_name || r.from_email || 'Unknown'} /></span>
                       {r.parsed ? (
                         <BadgeTip plain="We understood this email and found the money amount inside it.">
                           <Badge variant="secondary" className="text-[10px] bg-emerald-500/10 text-emerald-700 border-emerald-500/20">read OK</Badge>
@@ -1806,12 +1807,12 @@ export function EmailTransactionsPanel() {
                     )}
                     {(r.counterparty || r.fee || r.balance !== null) && (
                       <p className="text-[11px] text-muted-foreground/80 mt-0.5 flex flex-wrap gap-x-3">
-                        {r.counterparty && <span>↔ <strong className="text-foreground/80">{r.counterparty}</strong></span>}
+                        {r.counterparty && <span>↔ <strong className="text-foreground/80"><DialableNumber text={r.counterparty} /></strong></span>}
                         {r.fee ? <span>fee {fmtUgx(r.fee)}</span> : null}
                         {r.balance !== null && r.balance !== undefined ? <span>bal {fmtUgx(r.balance)}</span> : null}
                       </p>
                     )}
-                    <p className="text-xs text-muted-foreground/80 line-clamp-2 mt-1">{r.snippet}</p>
+                    <p className="text-xs text-muted-foreground/80 line-clamp-2 mt-1"><DialableNumber text={r.snippet} /></p>
                     {/* ── Click-to-expand drilldown ──────────────────────────
                         Surfaces the three things Financial Ops most often needs
                         when auditing an auto-debited email: the linked proxy
@@ -1884,7 +1885,7 @@ export function EmailTransactionsPanel() {
                             {r.balance !== null && r.balance !== undefined && (
                               <p><span className="text-muted-foreground">Balance on receipt: </span><span className="tabular-nums">{fmtUgx(r.balance)}</span></p>
                             )}
-                            <p className="break-words"><span className="text-muted-foreground">Counterparty: </span><span className="font-semibold">{r.counterparty || '—'}</span></p>
+                            <p className="break-words"><span className="text-muted-foreground">Counterparty: </span><span className="font-semibold">{r.counterparty ? <DialableNumber text={r.counterparty} /> : '—'}</span></p>
                             <p><span className="text-muted-foreground">Channel: </span>{r.channel || '—'}</p>
                             <p className="break-words sm:col-span-2"><span className="text-muted-foreground">Sender: </span>{r.from_name || '—'}{r.from_email ? ` · ${r.from_email}` : ''}</p>
                             <p className="sm:col-span-2"><span className="text-muted-foreground">Received: </span>{r.internal_date ? new Date(r.internal_date).toLocaleString('en-GB', { timeZone: tz }) : '—'}</p>

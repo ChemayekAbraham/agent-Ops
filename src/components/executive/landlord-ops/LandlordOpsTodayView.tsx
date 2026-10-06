@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   Home,
   User,
@@ -19,6 +21,8 @@ import {
   Wrench,
   AlertCircle,
   ExternalLink,
+  ChevronDown,
+  Loader2,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -68,7 +72,17 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
   } = useLandlordOpsBadgeCounts();
   const { data: floatOverview } = useLandlordFloatOverview();
   const floatWithAgents = floatOverview?.with_agents?.summary?.amount ?? null;
+  const { data: principalRecovered = null } = useQuery({
+    queryKey: ['landlord-ops-principal-recovered'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('landlord_ops_principal_recovered');
+      if (error) throw error;
+      return Number(data ?? 0);
+    },
+    staleTime: 60_000,
+  });
 
+  const navigate = useNavigate();
   // 'Today' | 'Last 7 days' | 'Last 30 days' — drives the activity chart and the
   // decision mix beside it, so the two always describe the same window.
   const [timeFilter, setTimeFilter] = useState<'Today' | 'Last 7 days' | 'Last 30 days'>('Last 7 days');
@@ -233,6 +247,41 @@ export function LandlordOpsTodayView({ onNavigate, onOpenDecision }: TodayViewPr
             >
               Open register <ArrowRight className="h-3.5 w-3.5 ml-1" />
             </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Landlord Principal Recovered — hard KPI; click opens the period drill-down */}
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => navigate('/landlord-ops/principal-recovered')}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            navigate('/landlord-ops/principal-recovered');
+          }
+        }}
+        className="p-4 rounded-lg border border-border bg-card hover:border-primary/60 hover:shadow-sm transition-all cursor-pointer group"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary text-primary-foreground">
+              <Banknote className="h-5 w-5" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-foreground">Landlord Principal Recovered</h2>
+              <p className="text-xs text-muted-foreground">Net principal from tenant repayments</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span
+              className="text-xl font-black tabular-nums text-primary"
+              title={principalRecovered != null ? formatUGX(principalRecovered) : undefined}
+            >
+              {principalRecovered == null ? '—' : `UGX ${(principalRecovered / 1_000_000).toFixed(2)}M`}
+            </span>
+            <ChevronDown className="h-4 w-4 text-muted-foreground group-hover:text-foreground transition-all" />
           </div>
         </div>
       </div>

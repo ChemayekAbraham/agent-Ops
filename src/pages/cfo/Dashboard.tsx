@@ -207,7 +207,7 @@ export default function CFODashboardPage() {
       case 'redemption-approvals':
         return <RedemptionApprovalsPanel />;
       case 'cash-position':
-        return <CFOOverviewDashboard cashPositionOnly />;
+        return <CFOOverviewDashboard cashPositionOnly onTabChange={setActiveTab} />;
       case 'requisitions':
         return <RequisitionsWorkspace manualStage="cfo" />;
 

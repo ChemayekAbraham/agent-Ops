@@ -4,13 +4,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
-  Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
+  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, MessageSquare, ShieldCheck, Smartphone } from 'lucide-react';
-import { Checkbox } from '@/components/ui/checkbox';
+import {
+  ArrowLeft, ArrowRight, Banknote, Check, ClipboardCheck, Loader2, Lock, Mail, MessageSquare,
+  ShieldCheck, Smartphone, User,
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
+import FieldError from '@/components/shared/FieldError';
 import PersonNameFields from '@/components/shared/PersonNameFields';
 import { joinPersonName, validatePersonNameParts, type PersonNameParts } from '@/lib/authValidation';
 
@@ -26,7 +29,17 @@ interface StartCashDepositDialogProps {
  * depositor's phone number and the cash received, and the one-time code is
  * sent by SMS straight to that phone. Crediting still only happens when the
  * depositor enters the code in the app — this dialog never moves money.
+ *
+ * Presentation (2026-10): phone-first — grouped "Depositor" / "Cash" sections,
+ * one-line hints instead of paragraphs, a locked Purpose row, and the send
+ * action pinned below a scrollable body so it is reachable without scrolling
+ * the whole form on a phone.
  */
+const nameNorm = (v?: string) => (v || '').trim();
+
+// Larger, bolder error text with a bigger warning icon for easy reading on phones.
+const ERR_TEXT = 'mt-1.5 gap-1.5 text-sm font-semibold [&>svg]:h-4 [&>svg]:w-4 [&>svg]:mt-0.5';
+
 export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCashDepositDialogProps) {
   const { toast } = useToast();
   const [phone, setPhone] = useState('');
@@ -34,15 +47,22 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
   const [nameParts, setNameParts] = useState<PersonNameParts>({ firstName: '', otherNames: '', lastName: '' });
   const ownerName = joinPersonName(nameParts);
   const [amount, setAmount] = useState('');
-  const [purpose, setPurpose] = useState('personal_deposit');
+  // Fixed to operational_float — this dialog starts a cash deposit received at
+  // the counter, which is always operational float money. The dropdown was
+  // removed on request; the payload still sends a valid enum value.
+  const purpose = 'operational_float';
   const [cashLocation, setCashLocation] = useState<'bank' | 'cash_at_hand'>('cash_at_hand');
   const [reason, setReason] = useState('');
-  // Email is an extra delivery channel for the same code — useful when SMS is
-  // unavailable. Crediting still only happens when the depositor enters it.
-  const [alsoEmail, setAlsoEmail] = useState(false);
+  // The depositor's email is optional — the code always goes out by SMS, and
+  // also by email when one is given. Crediting still only happens when the
+  // depositor enters it.
   const [email, setEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [step, setStep] = useState(0);
+  // Field errors appear once a field was left (blur) or Continue was pressed.
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const touch = (k: string) => setTouched((t) => ({ ...t, [k]: true }));
 
   const digits = phone.replace(/\D/g, '');
   const amountNum = Number(amount.replace(/[^0-9]/g, ''));
@@ -51,6 +71,7 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
   // Tell the operator exactly what is still blocking the send instead of leaving
   // the button greyed out with no explanation.
   const emailClean = email.trim();
+  // Blank is fine; a typed email must still be well-formed.
   const emailValid = emailClean === '' || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailClean);
   const blockedReason = !nameCheck.valid
     ? nameCheck.error || 'Enter the depositor\u2019s first and last name'
@@ -61,26 +82,78 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
         : !Number.isFinite(amountNum) || amountNum < 500
           ? 'Enter a cash amount of at least UGX 500'
           : !emailValid
-            ? 'Enter a valid email address, or leave it blank to use the depositor\u2019s account email'
+            ? 'Enter a valid email address, or leave it blank'
             : null;
+  const fieldErrors = {
+    firstName: !nameNorm(nameParts.firstName) ? 'Please type the first name.' : null,
+    lastName: !nameNorm(nameParts.lastName) ? 'Please type the last name.' : null,
+    phone: digits.length === 0 ? 'Please type the phone number.'
+      : digits.length < 9 ? 'This phone number is too short. It needs at least 9 digits, e.g. 0704 000 000.' : null,
+    amount: amount.trim() === '' ? 'Please type the cash amount.'
+      : !Number.isFinite(amountNum) || amountNum < 500 ? 'The smallest amount is UGX 500. Please type a bigger number.' : null,
+    email: !emailValid ? 'This email does not look right. Check it has @ and a dot, e.g. name@example.com.' : null,
+  };
+  const show = (k: keyof typeof fieldErrors) => (touched[k] ? fieldErrors[k] : null);
+  const nameOtherError = nameParts.firstName && nameParts.lastName && !nameCheck.valid ? nameCheck.error || null : null;
   const canSubmit = !blockedReason && !submitting;
+
+  // One-step-at-a-time flow: each step only checks its own fields.
+  const stepBlocked = [
+    !nameCheck.valid
+      ? nameCheck.error || 'Enter the depositor\u2019s first and last name'
+      : ownerNameClean.length < 3
+        ? 'Enter the depositor\u2019s full name'
+        : digits.length < 9 ? 'Enter a valid phone number (at least 9 digits)' : null,
+    !Number.isFinite(amountNum) || amountNum < 500 ? 'Enter a cash amount of at least UGX 500' : null,
+    !emailValid ? 'Enter a valid email address, or leave it blank' : null,
+    blockedReason,
+  ];
+  const STEPS = [
+    { title: 'Who is depositing?', short: 'Person', icon: User },
+    { title: 'How much cash?', short: 'Cash', icon: Banknote },
+    { title: 'Where should the code go?', short: 'Email', icon: Mail },
+    { title: 'Check and send', short: 'Send', icon: ClipboardCheck },
+  ];
+  const stepFields: (keyof typeof fieldErrors)[][] = [['firstName', 'lastName', 'phone'], ['amount'], ['email'], []];
+  const tryContinue = () => {
+    if (stepBlocked[step]) {
+      setTouched((t) => ({ ...t, ...Object.fromEntries(stepFields[step].map((k) => [k, true])) }));
+      // Bring the first problem field into view (the pinned buttons can cover it on phones).
+      setTimeout(() => {
+        if (typeof document === 'undefined') return;
+        const el = document.querySelector<HTMLElement>('[role="dialog"] [aria-invalid="true"]');
+        el?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        el?.focus({ preventScroll: true });
+      }, 50);
+      return;
+    }
+    setStep(step + 1);
+  };
+  const isLast = step === STEPS.length - 1;
+  const current = STEPS[step];
+  const StepIcon = current.icon;
 
   const reset = () => {
     setPhone('');
     setNameParts({ firstName: '', otherNames: '', lastName: '' });
     setAmount('');
-    setPurpose('personal_deposit');
     setCashLocation('cash_at_hand');
     setReason('');
-    setAlsoEmail(false);
     setEmail('');
     setError(null);
+    setStep(0);
+    setTouched({});
   };
 
   const submit = async () => {
+    // One send at a time — a second press while the request is in flight is ignored.
+    if (submitting) return;
     setSubmitting(true);
     setError(null);
-    const { data, error: fnErr } = await supabase.functions.invoke('finops-cash-deposit-initiate', {
+    let data: any = null;
+    let fnErr: { message?: string } | null = null;
+    try {
+      const res = await supabase.functions.invoke('finops-cash-deposit-initiate', {
       body: {
         phone: digits,
         cash_owner_name: ownerNameClean,
@@ -88,15 +161,20 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
         deposit_purpose: purpose,
         cash_location: cashLocation,
         reason: reason.trim() || undefined,
-        send_email: alsoEmail,
-        email: alsoEmail && emailClean ? emailClean : undefined,
+        ...(emailClean ? { send_email: true, email: emailClean } : {}),
       },
     });
+      data = res.data;
+      fnErr = res.error;
+    } catch (e) {
+      fnErr = { message: e instanceof Error ? e.message : 'Network problem' };
+    }
     setSubmitting(false);
 
     const payloadError = (data as any)?.error ? ((data as any)?.message || (data as any)?.error) : null;
     if (fnErr || payloadError) {
       const msg = payloadError || fnErr?.message || 'Could not start the cash deposit';
+      setStep(3);
       setError(msg);
       toast({ title: 'Could not start the cash deposit', description: msg, variant: 'destructive' });
       return;
@@ -124,168 +202,207 @@ export function StartCashDepositDialog({ open, onOpenChange, onIssued }: StartCa
     <Dialog
       open={open}
       onOpenChange={(o) => {
+        if (!o && submitting) return; // never abandon a send that is already in flight
         if (!o) reset();
         onOpenChange(o);
       }}
     >
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Smartphone className="h-5 w-5 text-primary" />
-            Start cash deposit code
-          </DialogTitle>
-          <DialogDescription>
-            Enter the depositor's phone number and the cash you received. The one-time code is sent
-            straight to their phone, and to their email as well if you tick the option below. Their
-            wallet is only credited once they enter that code.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="sm:max-w-md p-0 gap-0 overflow-hidden flex flex-col max-h-[92dvh]">
+        <div className="overflow-y-auto overscroll-contain">
+          <DialogHeader className="px-4 pt-5 pb-3 text-left sm:px-6 sm:pt-6">
+            <DialogTitle className="flex items-center gap-2">
+              <Smartphone className="h-5 w-5 text-primary" />
+              Start cash deposit code
+            </DialogTitle>
+            <DialogDescription aria-live="polite">
+              Step {step + 1} of {STEPS.length}
+              <span className="sr-only">{`: ${current.title}`}</span>
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <Label>
-              Depositor's full name <span className="text-destructive">*</span>
-            </Label>
-            <PersonNameFields idPrefix="fin-cash-owner" value={nameParts} onChange={setNameParts} />
-            <p className="text-[11px] text-muted-foreground">
-              The person whose cash this actually is — even when the money lands in the operator's
-              wallet for later transfer. This is the name that appears in the cash deposits list.
-            </p>
-          </div>
+          {/* Progress */}
+          <ol className="flex items-center gap-1 px-4 pb-4 sm:px-6" aria-label="Progress">
+            {STEPS.map((s, i) => {
+              const Icon = s.icon;
+              const done = i < step;
+              const active = i === step;
+              return (
+                <li key={s.short} aria-current={active ? 'step' : undefined} className="flex flex-1 flex-col items-center gap-1">
+                  <span
+                    aria-hidden="true"
+                    className={cn(
+                      'flex h-9 w-9 items-center justify-center rounded-full border-2 transition-colors',
+                      done && 'border-primary bg-primary text-primary-foreground',
+                      active && 'border-primary bg-primary/10 text-primary',
+                      !done && !active && 'border-border text-muted-foreground',
+                    )}
+                  >
+                    {done ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
+                  </span>
+                  <span className={cn('text-[11px]', active ? 'font-semibold text-foreground' : 'text-muted-foreground')}>
+                    {s.short}
+                    <span className="sr-only">{done ? ', done' : active ? ', current step' : ', not started'}</span>
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="fin-cash-phone">Depositor phone number</Label>
-            <Input
-              id="fin-cash-phone"
-              inputMode="tel"
-              placeholder="0704 000 000"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-            />
-            <p className="text-[11px] text-muted-foreground">
-              The phone of the Welile account whose wallet will be credited (the operator's own
-              number is fine when they will transfer the money on).
-            </p>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="fin-cash-amount">Cash amount (UGX)</Label>
-            <Input
-              id="fin-cash-amount"
-              inputMode="numeric"
-              placeholder="50000"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-            />
-            {amountNum > 0 && (
-              <p className="text-[11px] text-muted-foreground">
-                UGX {amountNum.toLocaleString()}
-              </p>
-            )}
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Where is the cash?</Label>
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                type="button"
-                variant={cashLocation === 'cash_at_hand' ? 'default' : 'outline'}
-                onClick={() => setCashLocation('cash_at_hand')}
-                className="justify-center"
-              >
-                Cash at hand
-              </Button>
-              <Button
-                type="button"
-                variant={cashLocation === 'bank' ? 'default' : 'outline'}
-                onClick={() => setCashLocation('bank')}
-                className="justify-center"
-              >
-                Deposited on bank
-              </Button>
+          <div className="px-4 pb-5 space-y-4 sm:px-6">
+            <div className="flex items-center gap-3">
+              <span aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                <StepIcon className="h-6 w-6" />
+              </span>
+              <h3 className="text-lg font-semibold">{current.title}</h3>
             </div>
-          </div>
 
-          <div className="space-y-1.5">
-            <Label>Purpose</Label>
-            <Select value={purpose} onValueChange={setPurpose}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="personal_deposit">Personal Deposit</SelectItem>
-                <SelectItem value="operational_float">Operational Float</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="fin-cash-reason">Note (optional)</Label>
-            <Textarea
-              id="fin-cash-reason"
-              rows={2}
-              placeholder="Cash received at the office counter"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2 rounded-lg border border-border/60 p-3">
-            <div className="flex items-start gap-2">
-              <Checkbox
-                id="fin-cash-also-email"
-                checked={alsoEmail}
-                onCheckedChange={(v) => setAlsoEmail(v === true)}
-                className="mt-0.5"
-              />
-              <div className="space-y-1">
-                <Label htmlFor="fin-cash-also-email" className="cursor-pointer text-sm">
-                  Also send the code by email
-                </Label>
-                <p className="text-[11px] text-muted-foreground">
-                  Useful when SMS is not getting through. If the depositor has an account email,
-                  leave the box below blank.
-                </p>
+            {step === 0 && (
+              <div className="space-y-3">
+                <div onBlur={(e) => {
+                  const id = (e.target as HTMLElement).id || '';
+                  if (id.endsWith('first-name')) touch('firstName');
+                  if (id.endsWith('last-name')) touch('lastName');
+                }}>
+                  <PersonNameFields idPrefix="fin-cash-owner" value={nameParts} onChange={setNameParts} errorClassName={ERR_TEXT}
+                    errors={{ firstName: show('firstName'), lastName: show('lastName'), otherNames: touched.lastName ? nameOtherError : null }} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="fin-cash-phone">Depositor phone number</Label>
+                  <Input id="fin-cash-phone" inputMode="tel" placeholder="0704 000 000"
+                    value={phone} onChange={(e) => setPhone(e.target.value)} onBlur={() => touch('phone')}
+                    aria-required="true" aria-invalid={!!show('phone')} aria-describedby={show('phone') ? 'fin-cash-phone-error' : undefined}
+                    className={cn('h-12 text-base', show('phone') && 'border-destructive focus-visible:ring-destructive')} />
+                  <FieldError id="fin-cash-phone-error" message={show('phone')} className={ERR_TEXT} />
+                </div>
               </div>
-            </div>
-            {alsoEmail && (
-              <Input
-                id="fin-cash-email"
-                type="email"
-                inputMode="email"
-                placeholder="depositor@example.com (optional)"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
             )}
-          </div>
 
-          <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-[11px] text-amber-700 dark:text-amber-400">
-            <ShieldCheck className="h-4 w-4 shrink-0 mt-0.5" />
-            <span>
-              Only start this after you have physically received the cash. The code expires in
-              10 minutes and can be reissued from the list.
-            </span>
-          </div>
+            {step === 1 && (
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="fin-cash-amount">Cash amount</Label>
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm font-medium text-muted-foreground">UGX</span>
+                    <Input id="fin-cash-amount" inputMode="numeric" placeholder="50000"
+                      className={cn('h-14 pl-12 text-xl font-semibold', show('amount') && 'border-destructive focus-visible:ring-destructive')}
+                      aria-required="true" aria-invalid={!!show('amount')} aria-describedby={show('amount') ? 'fin-cash-amount-error' : undefined} value={amount}
+                      onBlur={() => touch('amount')}
+                      onChange={(e) => setAmount(e.target.value)} />
+                  </div>
+                  <FieldError id="fin-cash-amount-error" message={show('amount')} className={ERR_TEXT} />
+                  {amountNum > 0 && !show('amount') && <p className="text-xs text-muted-foreground">UGX {amountNum.toLocaleString()}</p>}
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Where is the cash?</Label>
+                  <div role="radiogroup" aria-label="Where is the cash?"
+                    className="grid grid-cols-2 gap-1 rounded-lg border border-input bg-muted/50 p-1">
+                    {([['cash_at_hand', 'Cash at hand'], ['bank', 'Deposited on bank']] as const).map(([value, label]) => (
+                      <button key={value} type="button" role="radio" aria-checked={cashLocation === value}
+                        onClick={() => setCashLocation(value)}
+                        className={cn('min-h-[44px] rounded-md px-2 text-sm font-medium transition-all',
+                          cashLocation === value ? 'bg-background text-primary shadow-sm' : 'text-muted-foreground')}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="flex items-center justify-between gap-2 rounded-lg border border-input bg-muted/40 px-3 py-2.5">
+                  <div>
+                    <p className="text-[11px] font-medium text-muted-foreground">Purpose</p>
+                    <p className="text-sm font-medium">Operational Float</p>
+                  </div>
+                  <Lock className="h-4 w-4 shrink-0 text-muted-foreground" aria-label="Locked" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label htmlFor="fin-cash-reason">Note <span className="font-normal text-muted-foreground">(optional)</span></Label>
+                  <Textarea id="fin-cash-reason" rows={2} placeholder="Cash received at the office counter"
+                    value={reason} onChange={(e) => setReason(e.target.value)} />
+                </div>
+              </div>
+            )}
 
-          {error && (
-            <p className="text-xs text-destructive">{error}</p>
-          )}
-          {!error && blockedReason && (
-            <p className="text-xs text-muted-foreground">{blockedReason}</p>
-          )}
+            {step === 2 && (
+              <div className="space-y-1.5">
+                <Label htmlFor="fin-cash-email">Depositor email address <span className="text-xs font-normal text-muted-foreground">(optional)</span></Label>
+                <Input id="fin-cash-email" type="email" inputMode="email" placeholder="depositor@example.com"
+                  className={cn('h-12 text-base', show('email') && 'border-destructive focus-visible:ring-destructive')}
+                  aria-invalid={!!show('email')} aria-describedby={show('email') ? 'fin-cash-email-error' : undefined} value={email} onBlur={() => touch('email')}
+                  onChange={(e) => setEmail(e.target.value)} />
+                <FieldError id="fin-cash-email-error" message={show('email')} className={ERR_TEXT} />
+                {!show('email') && <p className="text-xs text-muted-foreground">The code always goes to their phone, and to this email if you add one.</p>}
+              </div>
+            )}
+
+            {step === 3 && (
+              <div className="space-y-3">
+                <dl className="divide-y divide-border rounded-lg border border-border">
+                  {([
+                    [User, 'Depositor', ownerNameClean, 0],
+                    [Smartphone, 'Phone', phone, 0],
+                    [Banknote, 'Amount', `UGX ${amountNum.toLocaleString()}`, 1],
+                    [Lock, 'Purpose', 'Operational Float', 1],
+                    [Mail, 'Email', emailClean || 'Not provided', 2],
+                  ] as const).map(([Icon, label, value, target]) => (
+                    <div key={label} className="flex items-center gap-3 px-3 py-2.5">
+                      <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <div className="min-w-0 flex-1">
+                        <dt className="text-[11px] text-muted-foreground">{label}</dt>
+                        <dd className="truncate text-sm font-medium">{value}</dd>
+                      </div>
+                      {label !== 'Purpose' && (
+                        <button type="button" onClick={() => setStep(target)} disabled={submitting}
+                          className={cn('min-h-[44px] px-2 text-xs font-medium text-primary',
+                            submitting && 'opacity-50')}>Edit</button>
+                      )}
+                    </div>
+                  ))}
+                </dl>
+                <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400">
+                  <ShieldCheck className="h-4 w-4 shrink-0 mt-0.5" />
+                  <span>Only send after you have the cash in hand. The code expires in 10 minutes.</span>
+                </div>
+                {submitting && (
+                  <p className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
+                    <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden="true" />
+                    Sending the code… keep this screen open until it finishes.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {error && (
+              <div role="alert" className="rounded-lg border-2 border-destructive bg-destructive/10 p-3 space-y-1">
+                <p className="text-base font-bold text-destructive">The code was not sent.</p>
+                <p className="text-sm font-medium text-destructive">{error}</p>
+                <p className="text-sm text-muted-foreground">Nothing you typed was lost. Check the internet, then press Try again.</p>
+              </div>
+            )}
+            {!error && step === 3 && blockedReason && <FieldError message={blockedReason} className={ERR_TEXT} />}
+          </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
-            Cancel
+        {/* Screen-reader notice for the in-flight send (the button label change alone is not announced). */}
+        <p className="sr-only" aria-live="polite">{submitting ? 'Sending the code. Please wait.' : ''}</p>
+
+        {/* Pinned actions */}
+        <div className="flex gap-2 border-t border-border/60 bg-muted/40 p-4 sm:px-6">
+          <Button variant="outline" className="h-12 flex-1 gap-1"
+            disabled={submitting}
+            onClick={() => (step === 0 ? onOpenChange(false) : setStep(step - 1))}>
+            {step === 0 ? 'Cancel' : (<><ArrowLeft className="h-4 w-4" />Back</>)}
           </Button>
-          <Button onClick={submit} disabled={!canSubmit} className="gap-2">
-            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <MessageSquare className="h-4 w-4" />}
-            {alsoEmail ? 'Send code by SMS + email' : 'Send code by SMS'}
-          </Button>
-        </DialogFooter>
+          {isLast ? (
+            <Button onClick={submit} disabled={!canSubmit} aria-busy={submitting}
+              className="h-12 flex-[2] gap-2 text-base">
+              {submitting ? <Loader2 className="h-5 w-5 animate-spin" /> : <MessageSquare className="h-5 w-5" />}
+              {submitting ? 'Sending…' : error ? 'Try again' : 'Send code by SMS + email'}
+            </Button>
+          ) : (
+            <Button onClick={tryContinue} className="h-12 flex-[2] gap-1 text-base">
+              Continue<ArrowRight className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
       </DialogContent>
     </Dialog>
   );

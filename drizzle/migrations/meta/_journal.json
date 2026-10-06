@@ -2955,6 +2955,349 @@
       "when": 1790943923316,
       "tag": "0421_user_behaviour_telemetry_v2",
       "breakpoints": true
+    },
+    {
+      "idx": 422,
+      "version": "7",
+      "when": 1790946638731,
+      "tag": "0422_stage12_collection_evidence_resolution",
+      "breakpoints": true
+    },
+    {
+      "idx": 423,
+      "version": "7",
+      "when": 1790947431578,
+      "tag": "0423_stage12_evidence_file_ownership",
+      "breakpoints": true
+    },
+    {
+      "idx": 424,
+      "version": "7",
+      "when": 1790947786495,
+      "tag": "0424_close_float_funded_bank_payout_claims",
+      "breakpoints": true
+    },
+    {
+      "idx": 425,
+      "version": "7",
+      "when": 1790947793757,
+      "tag": "0425_close_bayo_mercy_unevidenced_claims",
+      "breakpoints": true
+    },
+    {
+      "idx": 426,
+      "version": "7",
+      "when": 1790966647154,
+      "tag": "0426_fundin_hotfix_1",
+      "breakpoints": true
+    },
+    {
+      "idx": 427,
+      "version": "7",
+      "when": 1790967630971,
+      "tag": "0427_fundin_p4_recompute_v4",
+      "breakpoints": true
+    },
+    {
+      "idx": 428,
+      "version": "7",
+      "when": 1790970810295,
+      "tag": "0428_fundin_p5_settle_v2",
+      "breakpoints": true
+    },
+    {
+      "idx": 429,
+      "version": "7",
+      "when": 1791010763919,
+      "tag": "0429_cfo_withdrawable_credits_range",
+      "breakpoints": true
+    },
+    {
+      "idx": 430,
+      "version": "7",
+      "when": 1791013587778,
+      "tag": "0430_cfo_withdrawable_credits_report_page",
+      "breakpoints": true
+    },
+    {
+      "idx": 431,
+      "version": "7",
+      "when": 1791016361803,
+      "tag": "0431_stage12a_evidence_resolution_rules",
+      "breakpoints": true
+    },
+    {
+      "idx": 432,
+      "version": "7",
+      "when": 1791016865066,
+      "tag": "0432_stage12b_evidence_checklist",
+      "breakpoints": true
+    },
+    {
+      "idx": 433,
+      "version": "7",
+      "when": 1791017213683,
+      "tag": "0433_stage12b_zero_impact_guards",
+      "breakpoints": true
+    },
+    {
+      "idx": 434,
+      "version": "7",
+      "when": 1791017689082,
+      "tag": "0434_stage12b_case_evidence_read",
+      "breakpoints": true
+    },
+    {
+      "idx": 435,
+      "version": "7",
+      "when": 1791018222111,
+      "tag": "0435_stage12c_duplicate_review_rules",
+      "breakpoints": true
+    },
+    {
+      "idx": 436,
+      "version": "7",
+      "when": 1791018989962,
+      "tag": "0436_stage13_correction_review_read",
+      "breakpoints": true
+    },
+    {
+      "idx": 437,
+      "version": "7",
+      "when": 1791019746380,
+      "tag": "0437_stage14_evidence_recovery",
+      "breakpoints": true
+    },
+    {
+      "idx": 438,
+      "version": "7",
+      "when": 1791020328913,
+      "tag": "0438_stage14_batch1",
+      "breakpoints": true
+    },
+    {
+      "idx": 439,
+      "version": "7",
+      "when": 1791054014191,
+      "tag": "0439_stage14d_batch1_controls_s14b1_v3",
+      "breakpoints": true
+    },
+    {
+      "idx": 440,
+      "version": "7",
+      "when": 1791055833229,
+      "tag": "0440_lc1_landlord_bonus_review_transition_only",
+      "breakpoints": true
+    },
+    {
+      "idx": 441,
+      "version": "7",
+      "when": 1791059199419,
+      "tag": "0441_stage14_batch1_restoration_controls_v1",
+      "breakpoints": true
+    },
+    {
+      "idx": 442,
+      "version": "7",
+      "when": 1791059458511,
+      "tag": "0442_stage14_batch1_restoration_delta_plans",
+      "breakpoints": true
+    },
+    {
+      "idx": 443,
+      "version": "7",
+      "when": 1791061797502,
+      "tag": "0443_batch1_restore_wallet_rule_exception",
+      "breakpoints": true
+    },
+    {
+      "idx": 444,
+      "version": "7",
+      "when": 1791064478309,
+      "tag": "0444_s14b1w_three_agent_wallet_refresh_approval_controls",
+      "breakpoints": true
+    },
+    {
+      "idx": 445,
+      "version": "7",
+      "when": 1791064616413,
+      "tag": "0445_s14b1w_validate_skip_slow_view_in_session_path",
+      "breakpoints": true
+    },
+    {
+      "idx": 446,
+      "version": "7",
+      "when": 1791107903046,
+      "tag": "0446_landlord_ops_principal_recovered_kpi",
+      "breakpoints": true
+    },
+    {
+      "idx": 447,
+      "version": "7",
+      "when": 1791108600816,
+      "tag": "0447_landlord_ops_principal_periods",
+      "breakpoints": true
+    },
+    {
+      "idx": 448,
+      "version": "7",
+      "when": 1791109856472,
+      "tag": "0448_landlord_ops_principal_recovered_rows",
+      "breakpoints": true
+    },
+    {
+      "idx": 449,
+      "version": "7",
+      "when": 1791110473148,
+      "tag": "0449_landlord_ops_principal_rows_plan_context",
+      "breakpoints": true
+    },
+    {
+      "idx": 450,
+      "version": "7",
+      "when": 1791121188375,
+      "tag": "0450_wallet_transfer_sender_reversal",
+      "breakpoints": true
+    },
+    {
+      "idx": 451,
+      "version": "7",
+      "when": 1791121623277,
+      "tag": "0451_wallet_transfer_reversal_atomic_and_notify",
+      "breakpoints": true
+    },
+    {
+      "idx": 452,
+      "version": "7",
+      "when": 1791122539994,
+      "tag": "0452_wallet_transfer_reversal_status_states",
+      "breakpoints": true
+    },
+    {
+      "idx": 453,
+      "version": "7",
+      "when": 1791122863459,
+      "tag": "0453_wallet_transfer_reversal_status_reversed_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 454,
+      "version": "7",
+      "when": 1791123143481,
+      "tag": "0454_wallet_transfer_reversal_states",
+      "breakpoints": true
+    },
+    {
+      "idx": 455,
+      "version": "7",
+      "when": 1791125986584,
+      "tag": "0455_ceo_valuation_baseline",
+      "breakpoints": true
+    },
+    {
+      "idx": 456,
+      "version": "7",
+      "when": 1791140131362,
+      "tag": "0456_migration",
+      "breakpoints": true
+    },
+    {
+      "idx": 457,
+      "version": "7",
+      "when": 1791140308237,
+      "tag": "0457_payables_by_source_include_overdue",
+      "breakpoints": true
+    },
+    {
+      "idx": 458,
+      "version": "7",
+      "when": 1791186290926,
+      "tag": "0458_staff_requisition_assert_signer_office_holder",
+      "breakpoints": true
+    },
+    {
+      "idx": 459,
+      "version": "7",
+      "when": 1791186370212,
+      "tag": "0459_staff_requisition_route_all_coo",
+      "breakpoints": true
+    },
+    {
+      "idx": 460,
+      "version": "7",
+      "when": 1791188280866,
+      "tag": "0460_landlord_ops_pool_position",
+      "breakpoints": true
+    },
+    {
+      "idx": 461,
+      "version": "7",
+      "when": 1791191604001,
+      "tag": "0461_cfo_tax_01_consent_list_current_cycle",
+      "breakpoints": true
+    },
+    {
+      "idx": 462,
+      "version": "7",
+      "when": 1791200932511,
+      "tag": "0462_cfo_tax_02_staff_tax_register",
+      "breakpoints": true
+    },
+    {
+      "idx": 463,
+      "version": "7",
+      "when": 1791202070372,
+      "tag": "0463_spiro_bike_lease_v2_pricing",
+      "breakpoints": true
+    },
+    {
+      "idx": 464,
+      "version": "7",
+      "when": 1791202717063,
+      "tag": "0464_spiro_bike_lease_v3_real_days",
+      "breakpoints": true
+    },
+    {
+      "idx": 465,
+      "version": "7",
+      "when": 1791206352734,
+      "tag": "0465_bike_daily_rate_zero_and_coo_price_lock",
+      "breakpoints": true
+    },
+    {
+      "idx": 466,
+      "version": "7",
+      "when": 1791208494200,
+      "tag": "0466_0471_bike_plan_only_at_release_grace_2d",
+      "breakpoints": true
+    },
+    {
+      "idx": 467,
+      "version": "7",
+      "when": 1791208566555,
+      "tag": "0467_0471b_bike_plan_only_at_release_grace_2d",
+      "breakpoints": true
+    },
+    {
+      "idx": 468,
+      "version": "7",
+      "when": 1791209106545,
+      "tag": "0468_0472_bike_month1_from_unhold",
+      "breakpoints": true
+    },
+    {
+      "idx": 469,
+      "version": "7",
+      "when": 1791220825847,
+      "tag": "0469_0473_smartphone_release_instalments",
+      "breakpoints": true
+    },
+    {
+      "idx": 470,
+      "version": "7",
+      "when": 1791221934528,
+      "tag": "0470_0474_smartphone_collection_joel_only",
+      "breakpoints": true
     }
   ]
 }

@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   TrendingUp, TrendingDown, ArrowLeftRight, CalendarClock, ChevronRight,
   Lightbulb, AlertTriangle, Info, Building2, Users, Home, Handshake, Package,
@@ -7,15 +8,12 @@ import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   PieChart, Pie, Cell,
 } from 'recharts';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { formatUGX } from '@/lib/rentCalculations';
 import {
   useReceivablesTotal, useReceivablesForecast, useReceivablesPredictiveForecast,
 } from '@/hooks/useReceivables';
 import { usePayablesTotal, usePayablesPredictiveForecast } from '@/hooks/usePayables';
-import { ReceivablesBreakdownForecast } from '@/components/cfo/ReceivablesBreakdownForecast';
 import { SevenDayFlowSection } from '@/components/cfo/SevenDayFlowSection';
-import { PayablesBreakdownForecast } from '@/components/cfo/PayablesBreakdownForecast';
 
 /**
  * CFO Home — Receivables & Payables. Presentation only: every figure comes
@@ -41,7 +39,7 @@ const isoDay = (d: Date) => d.toISOString().slice(0, 10);
 type Cat = { key: string; label: string; outstanding: number; item_count: number };
 
 export function CFOReceivablesPayablesHome() {
-  const [sheet, setSheet] = useState<'rec' | 'pay' | null>(null);
+  const navigate = useNavigate();
   const rec = useReceivablesTotal();
   const pay = usePayablesTotal();
   const today = new Date();
@@ -82,7 +80,8 @@ export function CFOReceivablesPayablesHome() {
           foot={r ? `${r.item_count} open items` : 'Loading…'}
           percent={r ? pct(r.total, exposure) : undefined}
           percentLabel="of total money owed (receivables + payables)"
-          spark={spark.map((s) => s.rec)} onClick={() => setSheet('rec')}
+          spark={spark.map((s) => s.rec)}
+          onClick={() => navigate('/cfo/receivables')} chevron
         />
         <Kpi
           icon={<TrendingDown className="h-4 w-4" />} tone="destructive" label="Total Payables"
@@ -90,7 +89,7 @@ export function CFOReceivablesPayablesHome() {
           foot={p ? `${p.item_count} open obligations · overdue ${formatUGX(p.overdue)}` : 'Loading…'}
           percent={p ? pct(p.total, exposure) : undefined}
           percentLabel="of total money owed (receivables + payables)"
-          spark={spark.map((s) => s.pay)} onClick={() => setSheet('pay')}
+          spark={spark.map((s) => s.pay)}
         />
         <Kpi
           icon={<ArrowLeftRight className="h-4 w-4" />} tone="info" label="Net Position (Receivables − Payables)"
@@ -102,7 +101,7 @@ export function CFOReceivablesPayablesHome() {
         <Kpi
           icon={<CalendarClock className="h-4 w-4" />} tone="primary" label="Expected Cash Inflow (Next 30 Days)"
           value={inflow30 === undefined ? '—' : formatUGX(inflow30)}
-          foot="Scheduled + projected collections" onClick={() => setSheet('rec')} chevron
+          foot="Scheduled + projected collections"
           percent={inflow30 !== undefined && r ? pct(inflow30, r.total) : undefined}
           percentLabel="of receivables expected to come in within 30 days"
         />
@@ -146,8 +145,8 @@ export function CFOReceivablesPayablesHome() {
 
       {/* ── Tables row ── */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <CatTable title="Top Receivables" cats={recCats} total={r?.total ?? 0} count={r?.item_count ?? 0} totalLabel="Total Receivables" onViewAll={() => setSheet('rec')} />
-        <CatTable title="Top Payables" cats={payCats} total={p?.total ?? 0} count={p?.item_count ?? 0} totalLabel="Total Payables" onViewAll={() => setSheet('pay')} />
+        <CatTable title="Top Receivables" cats={recCats} total={r?.total ?? 0} count={r?.item_count ?? 0} totalLabel="Total Receivables" />
+        <CatTable title="Top Payables" cats={payCats} total={p?.total ?? 0} count={p?.item_count ?? 0} totalLabel="Total Payables" />
       </div>
 
       <SevenDayFlowSection />
@@ -164,19 +163,6 @@ export function CFOReceivablesPayablesHome() {
         <Insight icon={<CalendarClock className="h-4 w-4" />} tone="primary"
           title="Next 30 days" sub={inflow30 === undefined ? '' : `${formatUGX(inflow30)} expected inflow`} />
       </div>
-
-      <Sheet open={sheet !== null} onOpenChange={(o) => !o && setSheet(null)}>
-        <SheetContent side="center" className="overflow-y-auto overflow-x-hidden p-4 sm:p-6">
-          <SheetHeader className="text-left">
-            <SheetTitle className="text-base sm:text-lg">
-              {sheet === 'pay' ? 'Payables Breakdown & Forecast' : 'Receivables Breakdown & Forecast'}
-            </SheetTitle>
-          </SheetHeader>
-          <div className="mt-3">
-            {sheet === 'pay' ? <PayablesBreakdownForecast hideHeadline /> : sheet === 'rec' ? <ReceivablesBreakdownForecast hideHeadline /> : null}
-          </div>
-        </SheetContent>
-      </Sheet>
     </div>
   );
 }
@@ -283,15 +269,11 @@ function Donut({ title, total, cats, centerLabel }: { title: string; total: numb
   );
 }
 
-function CatTable({ title, cats, total, count, totalLabel, onViewAll }: {
-  title: string; cats: Cat[]; total: number; count: number; totalLabel: string; onViewAll: () => void;
+function CatTable({ title, cats, total, count, totalLabel }: {
+  title: string; cats: Cat[]; total: number; count: number; totalLabel: string;
 }) {
   return (
-    <Panel title={title} right={
-      <button type="button" onClick={onViewAll} className="text-xs font-medium text-primary inline-flex items-center gap-1">
-        View all <ChevronRight className="h-3 w-3" />
-      </button>
-    }>
+    <Panel title={title}>
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead>

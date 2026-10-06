@@ -3489,10 +3489,18 @@ Deno.serve(async (req) => {
     // once the merchant confirms it, or Finance confirms on their behalf, via
     // `review_merchant_out_of_pocket`. Nothing is hidden: the amount, the float
     // position and the payment proof are all captured on the row.
+    //
+    // Bank-transfer payouts are NEVER filed (2026-10-02, doc 191). Merchant float
+    // funds bank payouts as well as MoMo, so an uncovered bank payout is a gap in
+    // the float funding record (float credited late or outside the ledger, tracked
+    // by get_merchant_desk_funding_tracker), not merchant own cash.
+    // Doc 134 only patched `classify_merchant_payout_funding`; this live writer
+    // kept filing them, which put UGX 28.9M of "needs_review" on desk BAITA.
     let merchantOutOfPocketRecorded = false;
     if (
       actingAsMerchant &&
       !poolFunded &&
+      wrPayoutMethod !== "bank_transfer" &&
       (merchantPrincipalShortfall > 0 || merchantTelecomShortfall > 0)
     ) {
       const shortfallProofPath =
@@ -3785,6 +3793,7 @@ Deno.serve(async (req) => {
     if (
       actingAsMerchant &&
       !poolFunded &&
+      wrPayoutMethod !== "bank_transfer" &&
       merchantFloatConsumed === 0 &&
       !merchantOutOfPocketRecorded
     ) {

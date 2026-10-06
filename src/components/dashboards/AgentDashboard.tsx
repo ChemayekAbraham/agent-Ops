@@ -282,7 +282,16 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   const { floatBalance: walletFloatBalance } = useAgentBalances();
   // CFO-allocated pool used only by Pay Landlord. Wallet cards must keep
   // showing wallet/rent-collection float, not this separate payout pool.
-  const { floatBalance: landlordPayoutFloat, isLoading: floatLoading } = useAgentLandlordFloat();
+  // The card shows SPENDABLE landlord float, not the gross balance. The gross
+  // figure still counts money ring-fenced by a verified payout and money already
+  // on its way back to the pool after a 24-hour recall — measured 2026-10-05,
+  // two agents were being shown 250,000 and 200,000 they could not spend a
+  // shilling of, because every allocation behind it was `return_pending`.
+  const {
+    availableBalance: landlordPayoutFloat,
+    reservedBalance: landlordFloatReserved,
+    isLoading: floatLoading,
+  } = useAgentLandlordFloat();
   const { isOnline } = useOffline();
 
   // Instant mobile dashboard refresh: one debounced channel listens for any
@@ -513,14 +522,12 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   // Money tab (not only right after a payout dialog).
   const [receiptCheckOpen, setReceiptCheckOpen] = useState(false);
   // Landlord payments already paid out but still missing the landlord's receipt
-  // number. We nudge the agent on page load and again every 5 minutes until
-  // every fresh payout has its receipt filed.
+  // number. The dialog is a hard lock: it opens on load and stays open (the
+  // dialog itself refuses to close) until every payout has its receipt filed.
   const { pendingCount: pendingReceiptCount } = usePendingLandlordReceipts();
   useEffect(() => {
     if (pendingReceiptCount < 1) return;
     setReceiptCheckOpen(true);
-    const iv = window.setInterval(() => setReceiptCheckOpen(true), 5 * 60 * 1000);
-    return () => window.clearInterval(iv);
   }, [pendingReceiptCount]);
   const [floatHistoryOpen, setFloatHistoryOpen] = useState(false);
   const [requisitionOpen, setRequisitionOpen] = useState(false);
@@ -1550,7 +1557,9 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
                   {
                     key: 'landlord',
                     label: 'Landlord Float',
-                    sub: 'CFO funds for landlord payouts',
+                    sub: landlordFloatReserved > 0
+                      ? `${formatUGX(landlordFloatReserved)} reserved or being returned`
+                      : 'CFO funds for landlord payouts',
                     amount: landlordPayoutFloat,
                     icon: Landmark,
                     tone: 'text-[#9234EA]',

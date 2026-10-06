@@ -15,6 +15,7 @@ const PortfolioPerformanceReport = lazy(() => import('@/pages/tenant-ops/Portfol
 const TenantNotificationAnalyticsPage = lazy(() => import('@/pages/tenant-ops/TenantNotificationAnalyticsPage'));
 const TenantOperationsWorkspace = lazy(() => import('@/pages/tenant-ops/TenantOperationsWorkspace'));
 const TenantOpsWeeklyPerformancePage = lazy(() => import('@/pages/tenant-ops/TenantOpsWeeklyPerformancePage'));
+const ShortfallDrilldownPage = lazy(() => import('@/components/executive/tenant-ops/workspace/ShortfallDrilldownPage'));
 import {
   isTenantOpsAction,
   tenantOpsLabelFor,
@@ -54,8 +55,13 @@ export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGe
     'registration-review': counts?.service_center_review ?? 0,
   }), [counts]);
 
-  const goTo = useCallback((key: TenantOpsViewKey | TenantOpsActionKey) => {
+  // `extraParams` ride along in the SAME navigation as `?view=`: a caller that
+  // set its own search params and then called goTo would have them overwritten,
+  // because goTo builds the next URL from the params it rendered with.
+  const goTo = useCallback((key: TenantOpsViewKey | TenantOpsActionKey, extraParams?: Record<string, string>) => {
     const next = new URLSearchParams(params);
+    // The shortfall page's and the Payment Behavior tab's range live in the URL only while they are open.
+    ['sf_range', 'sf_from', 'sf_to', 'pb_range', 'pb_from', 'pb_to', 'wtab'].forEach((k) => next.delete(k));
     if (key === 'action.portfolio-performance' || key === 'action.notifications-analytics') {
       // Kept inside the shell so the sidebar and top bar stay in place.
       next.set('view', key);
@@ -68,6 +74,7 @@ export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGe
       next.delete('view');
     } else {
       next.set('view', key);
+      if (extraParams) Object.entries(extraParams).forEach(([k, v]) => next.set(k, v));
     }
     setParams(next);
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -109,6 +116,13 @@ export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGe
         </Suspense>
       );
     }
+    if (active === 'collection-shortfall') {
+      return (
+        <Suspense fallback={<div className="flex min-h-64 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>}>
+          <ShortfallDrilldownPage />
+        </Suspense>
+      );
+    }
     if (active === 'calling-hub') return <CallingHub subjectType="tenant" />;
     if (active === 'calling-center') return <TenantCallingCenter />;
     if (active === 'phone-duplicates') return <TenantPhoneDuplicatePanel variant="full" />;
@@ -126,7 +140,8 @@ export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGe
   const selfTitled = active === 'action.portfolio-performance'
     || active === 'action.notifications-analytics'
     || active === 'tenant-operations-workspace'
-    || active === 'tenant-ops-weekly-performance';
+    || active === 'tenant-ops-weekly-performance'
+    || active === 'collection-shortfall';
   const label = active === 'home' || selfTitled ? '' : tenantOpsLabelFor(active);
 
   return (

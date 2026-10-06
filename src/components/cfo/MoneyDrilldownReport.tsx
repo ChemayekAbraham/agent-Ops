@@ -11,13 +11,15 @@ import { CheckCircle2, AlertTriangle, Download, Loader2 } from 'lucide-react';
 /** A preset opened from a card metric. `expected` is the figure shown on the card. */
 export type DrilldownPreset = {
   label: string; from: string; to: string; status: string;
+  /** Preselected type filter (source group for the credits report). */
+  type?: string;
   expected?: { amount: number; count: number; basis: 'confirmed' | 'pending' };
 };
 
 export type DrillColumn = { head: string; cell: (r: any) => React.ReactNode; csv: (r: any) => unknown; className?: string };
 
 export type DrillConfig = {
-  title: string; description: string; rpc: string; kind: 'paid_out' | 'received'; payerParam: string; filename: string;
+  title: string; description: string; rpc: string; kind: 'paid_out' | 'received' | 'credits'; payerParam: string; filename: string;
   personLabel: string; confirmedLabel: string;
   types: string[];
   statuses: { value: string; label: string }[];
@@ -57,9 +59,9 @@ export function MoneyDrilldownReport({ open, onOpenChange, preset, config }: {
   useEffect(() => {
     if (!open) return;
     if (preset) {
-      setFrom(preset.from); setTo(preset.to); setStatus(preset.status); setMethod(''); setType(''); setPerson('');
+      setFrom(preset.from); setTo(preset.to); setStatus(preset.status); setMethod(''); setType(preset.type ?? ''); setPerson('');
       setActive(preset);
-      setParams({ from: preset.from, to: preset.to, status: preset.status, method: '', type: '', person: '' });
+      setParams({ from: preset.from, to: preset.to, status: preset.status, method: '', type: preset.type ?? '', person: '' });
     } else {
       const t = kampalaDate();
       setFrom(t); setTo(t); setActive(null);
@@ -72,9 +74,16 @@ export function MoneyDrilldownReport({ open, onOpenChange, preset, config }: {
   const filterArgs = () => {
     const p = params!;
     const end = new Date(p.to + 'T00:00:00Z'); end.setUTCDate(end.getUTCDate() + 1);
-    return {
+    const range = {
       p_from: new Date(p.from + 'T00:00:00+03:00').toISOString(),
       p_to: new Date(end.toISOString().slice(0, 10) + 'T00:00:00+03:00').toISOString(),
+    };
+    if (config.kind === 'credits') {
+      // Credits report: type is the friendly source group; no status or method filters.
+      return { ...range, p_type: p.type || null, person: p.person.trim() || null };
+    }
+    return {
+      ...range,
       p_status: p.status || null, p_method: p.method || null, p_type: p.type || null,
       person: p.person.trim() || null,
     };
@@ -179,6 +188,7 @@ export function MoneyDrilldownReport({ open, onOpenChange, preset, config }: {
             <select className={sel} value={type} onChange={e => setType(e.target.value)}>
               <option value="">All</option>{config.types.map(t => <option key={t}>{t}</option>)}
             </select></label>
+          {config.kind !== 'credits' && (<>
           <label className="text-xs flex flex-col">Method
             <select className={sel} value={method} onChange={e => setMethod(e.target.value)}>
               <option value="">All</option><option value="mobile_money">Mobile money</option>
@@ -188,6 +198,7 @@ export function MoneyDrilldownReport({ open, onOpenChange, preset, config }: {
             <select className={sel} value={status} onChange={e => setStatus(e.target.value)}>
               <option value="">All</option>{config.statuses.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
             </select></label>
+          </>)}
           <label className="text-xs">{config.personLabel}<Input placeholder="Name or phone" value={person} onChange={e => setPerson(e.target.value)} /></label>
           <Button onClick={generate} disabled={loading}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Generate'}

@@ -73,8 +73,9 @@ export function RepaymentTrendChart({ dailyExpected }: RepaymentTrendChartProps)
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={chartData} barGap={2} barCategoryGap="20%">
               <CartesianGrid strokeDasharray="3 3" className="stroke-border/50" />
-              <XAxis dataKey="date" tick={{ fontSize: 11 }} className="fill-muted-foreground" />
+              <XAxis dataKey="date" interval="preserveStartEnd" minTickGap={12} tick={{ fontSize: 10 }} className="fill-muted-foreground" />
               <YAxis
+                width={40}
                 tick={{ fontSize: 10 }}
                 className="fill-muted-foreground"
                 tickFormatter={(v) => v >= 1000000 ? `${(v / 1000000).toFixed(1)}M` : v >= 1000 ? `${(v / 1000).toFixed(0)}K` : String(v)}
@@ -94,7 +95,7 @@ export function RepaymentTrendChart({ dailyExpected }: RepaymentTrendChartProps)
               />
               <Legend
                 formatter={(value) => value === 'collected' ? 'Collected' : 'Expected'}
-                wrapperStyle={{ fontSize: '11px' }}
+                iconSize={8} wrapperStyle={{ fontSize: '11px' }}
               />
               <Bar dataKey="expected" radius={[4, 4, 0, 0]} opacity={0.3} fill="hsl(var(--muted-foreground))" />
               <Bar dataKey="collected" radius={[4, 4, 0, 0]}>

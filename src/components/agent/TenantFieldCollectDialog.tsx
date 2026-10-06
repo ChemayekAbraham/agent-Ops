@@ -116,8 +116,12 @@ export function TenantFieldCollectDialog({
   };
 
   const handleDelete = async (id: string) => {
-    await deleteEntry(id);
-    await refresh();
+    try {
+      await deleteEntry(id);
+      await refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Failed to delete entry');
+    }
   };
 
   return (

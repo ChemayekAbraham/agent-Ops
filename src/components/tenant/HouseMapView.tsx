@@ -209,6 +209,9 @@ function FitBounds({
       return;
     }
     map.fitBounds(L.latLngBounds(pts), { padding: [40, 40], maxZoom: 15 });
+    return () => {
+      map.stop();
+    };
   }, [map, points, userCoords]);
 
   // Pan to the card the user picked in the list.
@@ -218,6 +221,9 @@ function FitBounds({
     if (sel) {
       map.flyTo([sel._lat, sel._lng], Math.max(map.getZoom(), 14), { duration: 0.5 });
     }
+    return () => {
+      map.stop();
+    };
   }, [map, selectedId, listings]);
 
   return null;

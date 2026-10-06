@@ -301,13 +301,38 @@ const EXEC_APPROVER_ROLES = new Set(["ceo", "cto", "cfo", "coo"]);
 async function notifyApprovers(admin: any, approverRole: string, row: any, requesterName: string) {
   if (!EXEC_APPROVER_ROLES.has(approverRole)) return;
   try {
-    const { data: holders } = await admin
-      .from("user_roles")
-      .select("user_id")
-      .eq("role", approverRole)
-      .eq("enabled", true)
-      .limit(20);
-    const ids = (holders || []).map((r: { user_id: string }) => r.user_id);
+    let ids: string[] = [];
+    const officeKey = String(approverRole);
+    if (row.request_kind === "requisition" && ["coo", "ceo", "cfo"].includes(officeKey)) {
+      // Office-holder routing: only the current holder of this office is notified.
+      const { data: office, error: officeErr } = await admin
+        .from("staff_requisition_offices")
+        .select("holder_id")
+        .eq("office_key", officeKey)
+        .maybeSingle();
+      if (officeErr) {
+        console.error("notifyApprovers: office lookup failed", officeErr);
+        return;
+      }
+      const holderId: string | null = office?.holder_id ?? null;
+      const priorSigners = new Set(
+        [row.supervisor_decided_by, row.coo_decided_by, row.ceo_decided_by, row.cfo_decided_by]
+          .filter(Boolean),
+      );
+      if (!holderId || holderId === row.requester_id || priorSigners.has(holderId)) {
+        console.log(`notifyApprovers: no eligible ${officeKey} office holder for ${row.requisition_code}`);
+        return;
+      }
+      ids = [holderId];
+    } else {
+      const { data: holders } = await admin
+        .from("user_roles")
+        .select("user_id")
+        .eq("role", approverRole)
+        .eq("enabled", true)
+        .limit(20);
+      ids = (holders || []).map((r: { user_id: string }) => r.user_id);
+    }
     if (ids.length === 0) return;
 
     const message = `${requesterName} • ${fmtUGX(Number(row.amount))} — ${row.title}`;

@@ -4,6 +4,7 @@
 - [x] Verify calculations, safeguards, and desktop/mobile presentation.
 
 ## Pending
+- [ ] Redesign Receivables Analysis consistently with existing CFO pages; unify category/location scopes and read-only behaviour-versus-ideal forecast presentation, then verify signed-in flows.
 - [x] Make Agent Ops open on 14 business-area panels; preserve existing sections in a collapsible side menu and mobile sections menu.
 - [x] Show the unique number of users who have sent wallet-to-wallet transfers on the Agent Ops Shopping Advance page, including historical transfers.
 - [x] CI: map load-test budgets run in build workflow and block deploy on regression (done 2026-09-21)
@@ -52,3 +53,10 @@
 - [x] Add drill-down breakdown to CFO "Withdrawable credits today" window.
 - [ ] Credit Lillian Nabwire UGX 9,818,988 to withdrawable wallet — blocked: needs CFO to post via CFO Direct Credit (no approved principal-return ledger path).
 - [x] Redesign /rd page from reference image (Namatovu Gloria)
+- [x] CFO Cash Position: replace Cash Movement with screenshot layout
+- [x] CFO Cash Position: add a decision-focused liquidity brief, refresh control, reconciliation status, and professional page hierarchy.
+- [x] R&D page: apply format from user's screenshot (Namatovu Gloria)
+
+- [x] Spiro bike lease v3: daily = month due / real days in that repayment month (Kampala), exact principal (price / months); 100,000 x 12 = fees 182,000, total 282,000; released leases unchanged; rollback updated; self-test
+
+- [ ] Restart merchandise/phone/older bike collection (fix the broken collection record, once per Kampala day for all plans, one day max). BLOCKED: user wants the old plan amounts reviewed first (e.g. Annet Nabutsale "Company Ids" UGX 3.16B). Preview: /mnt/documents/merchandise-collection-restart-preview-2026-10-05.csv

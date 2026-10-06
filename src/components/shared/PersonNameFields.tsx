@@ -4,6 +4,8 @@ import { Label } from '@/components/ui/label';
 import FieldError from '@/components/shared/FieldError';
 import type { PersonNameParts } from '@/lib/authValidation';
 
+const ERR_INPUT = 'border-destructive focus-visible:ring-destructive';
+
 export interface PersonNameFieldsErrors {
   firstName?: string | null;
   otherNames?: string | null;
@@ -18,6 +20,8 @@ export interface PersonNameFieldsProps {
   idPrefix: string;
   className?: string;
   errors?: PersonNameFieldsErrors;
+  /** Optional override for the error message styling (e.g. larger text). */
+  errorClassName?: string;
 }
 
 /**
@@ -32,6 +36,7 @@ export default function PersonNameFields({
   idPrefix,
   className,
   errors,
+  errorClassName,
 }: PersonNameFieldsProps) {
   const firstId = `${idPrefix}-first-name`;
   const lastId = `${idPrefix}-last-name`;
@@ -45,7 +50,7 @@ export default function PersonNameFields({
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label htmlFor={firstId}>
-            First name{required ? ' *' : ''}
+            First name{required && <span aria-hidden="true"> *</span>}
           </Label>
           <Input
             id={firstId}
@@ -59,13 +64,15 @@ export default function PersonNameFields({
             required={required}
             aria-required={required || undefined}
             aria-invalid={errors?.firstName ? true : undefined}
+            aria-describedby={errors?.firstName ? `${firstId}-error` : undefined}
+            className={errors?.firstName ? ERR_INPUT : undefined}
           />
-          <FieldError message={errors?.firstName} />
+          <FieldError id={`${firstId}-error`} message={errors?.firstName} className={errorClassName} />
         </div>
 
         <div className="space-y-1.5">
           <Label htmlFor={lastId}>
-            Last name{required ? ' *' : ''}
+            Last name{required && <span aria-hidden="true"> *</span>}
           </Label>
           <Input
             id={lastId}
@@ -79,8 +86,10 @@ export default function PersonNameFields({
             required={required}
             aria-required={required || undefined}
             aria-invalid={errors?.lastName ? true : undefined}
+            aria-describedby={errors?.lastName ? `${lastId}-error` : undefined}
+            className={errors?.lastName ? ERR_INPUT : undefined}
           />
-          <FieldError message={errors?.lastName} />
+          <FieldError id={`${lastId}-error`} message={errors?.lastName} className={errorClassName} />
         </div>
       </div>
 
@@ -96,8 +105,10 @@ export default function PersonNameFields({
           onChange={(e) => set('otherNames')(e.target.value)}
           disabled={disabled}
           aria-invalid={errors?.otherNames ? true : undefined}
+            aria-describedby={errors?.otherNames ? `${otherId}-error` : undefined}
+          className={errors?.otherNames ? ERR_INPUT : undefined}
         />
-        <FieldError message={errors?.otherNames} />
+        <FieldError id={`${otherId}-error`} message={errors?.otherNames} className={errorClassName} />
       </div>
     </div>
   );

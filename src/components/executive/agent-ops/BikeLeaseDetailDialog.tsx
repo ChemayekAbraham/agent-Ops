@@ -40,7 +40,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { formatUGX } from '@/lib/rentCalculations';
-import { spiroEffectiveFeePct, spiroLeaseSchedule } from '@/lib/spiroBikeLease';
+import { spiroLeaseSchedule } from '@/lib/spiroBikeLease';
 import { useBikeCatalogCosts, bikeProfit } from '@/hooks/useBikeCatalogCosts';
 import { kampalaTodayYmd, kampalaOffsetYmd } from '@/lib/kampalaDays';
 import {
@@ -333,21 +333,21 @@ export function BikeLeaseDetailDialog({
 
   const valuationNum = Number(order.valuation_amount || 0);
   const termNum = Number(order.lease_term_months || 12);
-  const feePct = spiroEffectiveFeePct(termNum);
-  const monthly = termNum > 0 && valuationNum > 0 ? Math.round(valuationNum / termNum) : 0;
+  // Full reducing-balance schedule, derived from the valuation and term. Every
+  // pay figure below comes from it so the cards include the access fee and
+  // agree with the "First → last" rows.
+  const schedule = spiroLeaseSchedule(termNum, valuationNum);
+  const feePct = schedule.feePct;
+  const monthly = schedule.monthly;
   const outstanding = Number(order.amount_outstanding ?? valuationNum);
   const paid = Number(order.amount_paid || 0);
   const costPrice = supplierCostFor(order.model_type);
-  const days = termNum * 30;
-  const dailyPay = days > 0 ? Math.ceil(valuationNum / days) : 0;
+  const dailyPay = schedule.daily;
   const profit = bikeProfit(valuationNum, costPrice);
 
   const isSettled =
     (order.order_status === 'approved' || order.order_status === 'completed') &&
     (outstanding <= 0 || (paid > 0 && paid >= valuationNum));
-
-  // Full reducing-balance schedule, derived from the valuation and term.
-  const schedule = spiroLeaseSchedule(termNum, valuationNum);
 
   const handleDownloadCertificate = async () => {
     setGeneratingCert(true);
@@ -683,7 +683,7 @@ export function BikeLeaseDetailDialog({
 
               {isOps && (
                 <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
-                  <p className="text-[11px] font-medium text-muted-foreground truncate">Estimated Daily Pay</p>
+                  <p className="text-[11px] font-medium text-muted-foreground truncate">Avg. Daily Pay</p>
                   <p className="text-xs sm:text-sm font-bold text-foreground truncate">
                     {formatUGX(dailyPay)}/day
                   </p>
@@ -696,12 +696,12 @@ export function BikeLeaseDetailDialog({
               </div>
 
               <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
-                <p className="text-[11px] font-medium text-muted-foreground truncate">Monthly Estimate</p>
+                <p className="text-[11px] font-medium text-muted-foreground truncate">Avg. Monthly Pay</p>
                 <p className="text-xs sm:text-sm font-bold text-foreground truncate">{formatUGX(monthly)}/mo</p>
               </div>
 
               <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1 min-w-0 overflow-hidden">
-                <p className="text-[11px] font-medium text-muted-foreground truncate">Interest Rate</p>
+                <p className="text-[11px] font-medium text-muted-foreground truncate">Total Access Fee</p>
                 <p className="text-xs sm:text-sm font-bold text-primary truncate">{feePct}%</p>
               </div>
 
