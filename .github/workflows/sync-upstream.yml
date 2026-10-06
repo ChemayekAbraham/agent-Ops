@@ -45,7 +45,7 @@ jobs:
             echo "Merge succeeded without conflicts."
           else
             echo "Resolving conflicts by preserving standalone iOS files..."
-            git checkout HEAD -- src/App.tsx capacitor.config.ts package.json .github/ ios/ 2>/dev/null || true
+            git checkout HEAD -- src/App.tsx capacitor.config.ts package.json vite.config.ts .github/ ios/ 2>/dev/null || true
             git add .
             git commit -m "chore(sync): resolve conflicts preserving iOS standalone configuration" || true
           fi

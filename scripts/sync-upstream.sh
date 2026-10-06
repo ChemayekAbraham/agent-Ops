@@ -16,7 +16,7 @@ if git merge upstream/lovable -m "chore(sync): auto-merge updates from lovable" 
 else
   echo "⚠️ Merging produced conflicts. Automatically preserving iOS standalone configurations..."
   # Always preserve standalone iOS files
-  git checkout HEAD -- src/App.tsx capacitor.config.ts package.json .github/ ios/ 2>/dev/null || true
+  git checkout HEAD -- src/App.tsx capacitor.config.ts package.json vite.config.ts .github/ ios/ 2>/dev/null || true
   git add .
   git commit -m "chore(sync): merge updates from lovable, preserving iOS standalone configs" || true
 fi
