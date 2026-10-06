@@ -79,8 +79,8 @@ function downloadCsv(name: string, rows: (string | number)[][]) {
 
 export default function PredictivePayablesForecast() {
   const [granularity, setGranularity] = useState<PayablesGranularity>('day');
-  const [periods, setPeriods] = useState(30);
-  const [activePreset, setActivePreset] = useState('Next 30 days');
+  const [periods, setPeriods] = useState(7);
+  const [activePreset, setActivePreset] = useState('Next 7 days');
   const [openPeriod, setOpenPeriod] = useState<number | null>(null);
   const [showStreams, setShowStreams] = useState(false);
 
