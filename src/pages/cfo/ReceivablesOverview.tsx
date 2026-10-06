@@ -63,6 +63,7 @@ export default function ReceivablesOverview() {
   const [search, setSearch] = useState('');
   const [params, setParams] = useSearchParams();
   const catKey = params.get('cat') ?? 'overview';
+  const isDetailCat = ['tenant', 'agent', 'landlord'].includes(catKey);
   const subParam = params.get('sub');
   const go = (cat: string, sub?: string) => {
     const n = new URLSearchParams();
@@ -105,9 +106,9 @@ export default function ReceivablesOverview() {
             <SideItem active={catKey === 'agent_lending'} icon={HandCoins} label="Agent-to-borrower lending" onClick={() => go('agent_lending')} />
           </nav>
           <div className="min-w-0 px-4 py-5 lg:col-start-2">
-            {(catKey === 'tenant' || catKey === 'agent') && cat && <div className="mb-2 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground"><Button variant="link" className="h-auto min-h-0 p-0 text-[10px] text-primary" onClick={() => go('overview')}>Receivables</Button><ChevronRight className="h-3 w-3" /><span>{cat.label}</span><ChevronRight className="h-3 w-3" /><span>{sub?.label}</span></div>}
+            {(isDetailCat) && cat && <div className="mb-2 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground"><Button variant="link" className="h-auto min-h-0 p-0 text-[10px] text-primary" onClick={() => go('overview')}>Receivables</Button><ChevronRight className="h-3 w-3" /><span>{cat.label}</span><ChevronRight className="h-3 w-3" /><span>{sub?.label}</span></div>}
             <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
-              <div><h1 className="text-xl font-semibold">{catKey === 'tenant' || catKey === 'agent' ? cat?.label : 'Receivables Overview'}</h1><p className="mt-1 text-xs text-muted-foreground">{catKey === 'tenant' ? 'Track outstanding receivables, collection performance and forecast for tenant products and services.' : catKey === 'agent' ? 'Track outstanding receivables, collection performance and forecast for agent products and services.' : 'Outstanding receivables, collection risk and expected collections.'}</p></div>
+              <div><h1 className="text-xl font-semibold">{isDetailCat ? cat?.label : 'Receivables Overview'}</h1><p className="mt-1 text-xs text-muted-foreground">{catKey === 'tenant' ? 'Track outstanding receivables, collection performance and forecast for tenant products and services.' : catKey === 'landlord' ? 'Track outstanding receivables, collection performance and forecast for landlord products and services.' : catKey === 'agent' ? 'Track outstanding receivables, collection performance and forecast for agent products and services.' : 'Outstanding receivables, collection risk and expected collections.'}</p></div>
               <div className="flex items-center gap-3"><span className="text-[10px] text-muted-foreground">Last updated · {breakdown.data?.as_at?.slice(0,10) ?? '—'} · EAT</span><Button variant="outline" size="sm" className="rounded-md text-primary hover:text-primary" disabled={breakdown.isFetching} onClick={() => void breakdown.refetch()}><RefreshCw className={breakdown.isFetching ? 'animate-spin' : ''} />Refresh</Button></div>
             </header>
           <div className="min-w-0 flex flex-col gap-3">
@@ -117,7 +118,7 @@ export default function ReceivablesOverview() {
               <Overview cats={cats} products={(k) => liveCat(k)?.products ?? []} onOpen={go} total={breakdown.data?.total ?? 0} search={search} />
             ) : (
               <>
-                {catKey !== 'tenant' && catKey !== 'agent' && <div>
+                {!isDetailCat && <div>
                   <h2 className="text-lg font-semibold">{cat.label}</h2>
                   <p className="text-xs text-muted-foreground">{formatUGX(cat.outstanding)} · {cat.count.toLocaleString()} items</p>
                 </div>}
@@ -125,7 +126,7 @@ export default function ReceivablesOverview() {
                   <Card><p className="text-sm text-muted-foreground">No receivable products are recorded under this category yet.</p></Card>
                 ) : (
                   <>
-                    <div role="tablist" className={`inline-flex flex-wrap gap-1 border border-border/70 bg-card p-1 ${catKey === 'tenant' || catKey === 'agent' ? 'rounded-lg' : 'rounded-xl'}`}>
+                    <div role="tablist" className={`inline-flex flex-wrap gap-1 border border-border/70 bg-card p-1 ${isDetailCat ? 'rounded-lg' : 'rounded-xl'}`}>
                       {cat.subs.map((s) => (
                         <Button variant="ghost" size="sm" key={s.key} role="tab" aria-selected={s.key === subKey} onClick={() => go(cat.key, s.key)}
                           className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${s.key === subKey
@@ -327,7 +328,7 @@ function SubDetail({ catKey, label, productKey, product }: {
     return <TenantReceivablesDetail product={product} current={current} overdue={overdue} complete={complete} today={t} locations={loc.data} locationLoading={loc.isLoading} locationError={loc.isError} forecast={proj} behaviourTotal={bTotal} idealTotal={iTotal} />;
   }
 
-  if (catKey === 'agent') {
+  if (catKey === 'agent' || catKey === 'landlord') {
     return <AgentReceivablesDetail product={product} current={current} overdue={overdue} complete={complete} today={t} forecast={proj} behaviourTotal={bTotal} idealTotal={iTotal} />;
   }
 
