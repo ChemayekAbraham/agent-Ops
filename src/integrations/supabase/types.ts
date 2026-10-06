@@ -27649,6 +27649,50 @@ export type Database = {
           },
         ]
       }
+      lending_payment_reminders: {
+        Row: {
+          amount_ugx: number | null
+          created_at: string
+          due_date: string
+          id: string
+          kind: string
+          loan_id: string
+          phone: string | null
+          provider_reason: string | null
+          sent: boolean
+        }
+        Insert: {
+          amount_ugx?: number | null
+          created_at?: string
+          due_date: string
+          id?: string
+          kind: string
+          loan_id: string
+          phone?: string | null
+          provider_reason?: string | null
+          sent?: boolean
+        }
+        Update: {
+          amount_ugx?: number | null
+          created_at?: string
+          due_date?: string
+          id?: string
+          kind?: string
+          loan_id?: string
+          phone?: string | null
+          provider_reason?: string | null
+          sent?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lending_payment_reminders_loan_id_fkey"
+            columns: ["loan_id"]
+            isOneToOne: false
+            referencedRelation: "lending_agent_loans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       liquidity_alerts: {
         Row: {
           agent_id: string
