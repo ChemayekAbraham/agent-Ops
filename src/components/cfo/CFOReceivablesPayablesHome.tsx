@@ -13,7 +13,6 @@ import {
   useReceivablesTotal, useReceivablesForecast, useReceivablesPredictiveForecast,
 } from '@/hooks/useReceivables';
 import { usePayablesTotal, usePayablesPredictiveForecast } from '@/hooks/usePayables';
-import { SevenDayFlowSection } from '@/components/cfo/SevenDayFlowSection';
 
 /**
  * CFO Home — Receivables & Payables. Presentation only: every figure comes
