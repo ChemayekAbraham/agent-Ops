@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import type { DateRange } from 'react-day-picker';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -23,6 +24,8 @@ import {
   AlertTriangle,
   ShieldAlert,
   SearchX,
+  Info,
+  CalendarRange,
   FileDown,
   FileSpreadsheet,
 } from 'lucide-react';
@@ -37,6 +40,9 @@ import {
   AgentQuickActions,
 } from '@/components/executive/tenant-ops/workspace/TenantOpsQuickActions';
 import { KPICard } from '@/components/executive/KPICard';
+import { OpsDateRangeFilter, resolveRange, type PresetKey } from '@/components/executive/shared/OpsDateRangeFilter';
+import { FigureLabel } from '@/components/executive/tenant-ops/workspace/FigureLabel';
+import { FIGURE_LABELS } from '@/lib/tenantOpsFigureLabels';
 import { WorkspaceEmptyState } from '@/components/executive/tenant-ops/workspace/WorkspaceEmptyState';
 import { WorkspaceMobileRow } from '@/components/executive/tenant-ops/workspace/WorkspaceMobileRow';
 import {
@@ -79,6 +85,12 @@ export default function ManagementOverviewTab() {
   const [shownTenants, setShownTenants] = useState(150);
   const [generatingPdf, setGeneratingPdf] = useState(false);
   const [generatingXlsx, setGeneratingXlsx] = useState(false);
+  // The dates for the period columns and the period summary (the Home rule); the all-time figures never use them.
+  const [preset, setPreset] = useState<PresetKey>('month');
+  const [custom, setCustom] = useState<DateRange | undefined>();
+  const { start, end } = useMemo(() => resolveRange(preset, custom), [preset, custom]);
+  const periodStartIso = start.toISOString();
+  const periodEndIso = end.toISOString();
 
   const {
     tenants,
@@ -87,13 +99,21 @@ export default function ManagementOverviewTab() {
     registrationRules,
     asOf,
     totalTenants,
+    loadedTenants,
+    periodTotals,
+    periodLoading,
+    periodError,
     isLoading,
     error,
   } = useTenantOpsManagementOverview({
     search,
     agentId: agentId === 'all' ? null : agentId,
     tier: tier === 'all' ? null : tier,
+    periodStartIso,
+    periodEndIso,
   });
+  // The report's own server-side total is compared with the rows actually read, so a cut-off can never pass silently.
+  const incomplete = !isLoading && totalTenants > loadedTenants;
 
   const agentOptions = useMemo(
     () =>
@@ -193,7 +213,7 @@ export default function ManagementOverviewTab() {
     if (arrears !== 'all') {
       list.push({
         key: 'arrears',
-        label: 'Arrears',
+        label: 'Arrears to date',
         value: arrears === 'with' ? 'In arrears' : 'No arrears',
         onClear: () => setArrears('all'),
       });
@@ -201,7 +221,7 @@ export default function ManagementOverviewTab() {
     if (perf !== 'all') {
       list.push({
         key: 'perf',
-        label: 'Paid',
+        label: 'Paid (all time)',
         value: perf === 'above80' ? '80% and above' : perf === 'below80' ? 'Below 80%' : 'Below 50%',
         onClear: () => setPerf('all'),
       });
@@ -272,7 +292,8 @@ export default function ManagementOverviewTab() {
               <CardTitle className="text-base">Management overview</CardTitle>
               <CardDescription className="break-words">
                 One view of tenants and agents, using the same figures as the top-up eligibility and
-                registration control reports.
+                registration control reports. The tenant and portfolio money figures are all-time for each
+                Rent Plan; only the "This period" figures follow the dates.
                 {rules
                   ? ` Qualifying level ${rules.qualifying_pct}% paid, same-amount level ${rules.same_amount_pct}%.`
                   : ''}
@@ -306,35 +327,100 @@ export default function ManagementOverviewTab() {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          <KPICard
-            title="Tenants in view"
-            value={isLoading ? '—' : `${visibleTenants.length} of ${totalTenants}`}
-            icon={Users}
-            color="bg-primary/10 text-primary"
-            loading={isLoading}
-          />
-          <KPICard
-            title="Agents in view"
-            value={isLoading ? '—' : visibleAgents.length}
-            icon={UserCog}
-            color="bg-primary/10 text-primary"
-            loading={isLoading}
-          />
-          <KPICard
-            title="Outstanding in view"
-            value={isLoading ? '—' : formatUGX(visibleTenants.reduce((s, t) => s + Number(t.outstanding ?? 0), 0))}
-            icon={Wallet}
-            color="bg-warning/10 text-warning"
-            loading={isLoading}
-          />
-          <KPICard
-            title="Arrears in view"
-            value={isLoading ? '—' : formatUGX(visibleTenants.reduce((s, t) => s + t.arrears, 0))}
-            icon={AlertTriangle}
-            color="bg-destructive/10 text-destructive"
-            loading={isLoading}
-          />
+        <CardContent className="space-y-4">
+          {incomplete && (
+            <div role="alert" className="flex items-start gap-2 rounded-lg border border-warning/40 bg-warning/10 p-3 text-xs leading-relaxed">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+              <p>
+                Only {loadedTenants.toLocaleString()} of {totalTenants.toLocaleString()} tenants could be loaded, so the all-time
+                figures below do not cover everyone. Narrow the agent or eligibility filter, or reload, to see the rest.
+              </p>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="flex items-center gap-1.5 text-sm font-semibold"><CalendarRange className="h-4 w-4 text-primary" />This period</p>
+                <p className="text-[11px] leading-snug text-muted-foreground">
+                  For the dates chosen, all agents, worked out the same way as Tenant Ops Home. The filters below do not change these three.
+                </p>
+              </div>
+              <OpsDateRangeFilter preset={preset} custom={custom} onPresetChange={setPreset} onCustomChange={setCustom} />
+            </div>
+            {periodError ? (
+              <p className="flex items-start gap-2 text-xs text-muted-foreground"><Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />Period figures could not be loaded right now. The all-time figures below are unaffected.</p>
+            ) : (
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4" data-testid="period-summary">
+                <KPICard
+                  title={FIGURE_LABELS.periodExpected.label}
+                  value={periodLoading || !periodTotals ? '—' : formatUGX(periodTotals.expected_ugx)}
+                  icon={Wallet}
+                  color="bg-primary/10 text-primary"
+                  loading={periodLoading}
+                />
+                <KPICard
+                  title={FIGURE_LABELS.periodCollected.label}
+                  value={periodLoading || !periodTotals ? '—' : formatUGX(periodTotals.collected_ugx)}
+                  icon={Wallet}
+                  color="bg-success/10 text-success"
+                  loading={periodLoading}
+                  subtitle={periodTotals ? `${periodTotals.coverage_pct ?? 0}% of expected` : undefined}
+                />
+                <KPICard
+                  title={FIGURE_LABELS.periodShort.label}
+                  value={periodLoading || !periodTotals ? '—' : formatUGX(periodTotals.short_ugx)}
+                  icon={AlertTriangle}
+                  color="bg-warning/10 text-warning"
+                  loading={periodLoading}
+                />
+                <KPICard
+                  title={FIGURE_LABELS.periodPaidAhead.label}
+                  value={periodLoading || !periodTotals ? '—' : formatUGX(periodTotals.paid_ahead_ugx)}
+                  icon={Wallet}
+                  color="bg-muted text-muted-foreground"
+                  loading={periodLoading}
+                  subtitle="Not counted as collected, same as Home"
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-2">
+            <p className="text-sm font-semibold">All time, for the tenants in view</p>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              <KPICard
+                title="Tenants in view"
+                value={isLoading ? '—' : `${visibleTenants.length} of ${totalTenants}`}
+                icon={Users}
+                color="bg-primary/10 text-primary"
+                loading={isLoading}
+              />
+              <KPICard
+                title="Agents in view"
+                value={isLoading ? '—' : visibleAgents.length}
+                icon={UserCog}
+                color="bg-primary/10 text-primary"
+                loading={isLoading}
+              />
+              <KPICard
+                title={`${FIGURE_LABELS.outstanding.label} in view`}
+                value={isLoading ? '—' : formatUGX(visibleTenants.reduce((s, t) => s + Number(t.outstanding ?? 0), 0))}
+                icon={Wallet}
+                color="bg-warning/10 text-warning"
+                loading={isLoading}
+                subtitle="Total expected minus total collected, including days not yet due"
+              />
+              <KPICard
+                title={`${FIGURE_LABELS.arrears.label} in view`}
+                value={isLoading ? '—' : formatUGX(visibleTenants.reduce((s, t) => s + t.arrears, 0))}
+                icon={AlertTriangle}
+                color="bg-destructive/10 text-destructive"
+                loading={isLoading}
+                subtitle="Counted from each plan's start, not from the dates above"
+              />
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -389,7 +475,7 @@ export default function ManagementOverviewTab() {
             <CardHeader>
               <CardTitle className="text-base">Tenant position</CardTitle>
               <CardDescription>
-                Rent, dues, payments, arrears, cycle position and what each tenant can access now.
+                Rent, full-cycle totals, all-time payments, arrears to date, cycle position and what each tenant can access now.
               </CardDescription>
               <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
                 <Input
@@ -426,7 +512,7 @@ export default function ManagementOverviewTab() {
                 </Select>
                 <div className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:col-span-2 md:col-span-1">
                   <Select value={arrears} onValueChange={(v) => setArrears(v as ArrearsFilter)}>
-                    <SelectTrigger><SelectValue placeholder="Arrears" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Arrears to date" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">Any arrears</SelectItem>
                       <SelectItem value="with">In arrears</SelectItem>
@@ -434,9 +520,9 @@ export default function ManagementOverviewTab() {
                     </SelectContent>
                   </Select>
                   <Select value={perf} onValueChange={(v) => setPerf(v as PerfFilter)}>
-                    <SelectTrigger><SelectValue placeholder="Paid" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder="Paid (all time)" /></SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">Any level paid</SelectItem>
+                      <SelectItem value="all">Any level paid (all time)</SelectItem>
                       <SelectItem value="above80">80% and above</SelectItem>
                       <SelectItem value="below80">Below 80%</SelectItem>
                       <SelectItem value="below50">Below 50%</SelectItem>
@@ -491,12 +577,12 @@ export default function ManagementOverviewTab() {
                           <TableHead>Agent</TableHead>
                           <TableHead className="text-right">Initial rent</TableHead>
                           <TableHead className="text-right">Current rent</TableHead>
-                          <TableHead className="text-right">Expected</TableHead>
-                          <TableHead className="text-right">Paid</TableHead>
-                          <TableHead className="text-right">Remaining</TableHead>
-                          <TableHead className="text-right">Paid %</TableHead>
-                          <TableHead className="text-right">Left %</TableHead>
-                          <TableHead className="text-right">Arrears</TableHead>
+                          <TableHead className="text-right"><FigureLabel figure="totalExpected" /></TableHead>
+                          <TableHead className="text-right"><FigureLabel figure="totalCollected" /></TableHead>
+                          <TableHead className="text-right"><FigureLabel figure="outstanding" /></TableHead>
+                          <TableHead className="text-right"><FigureLabel figure="paidPct" /></TableHead>
+                          <TableHead className="text-right"><FigureLabel figure="leftPct" /></TableHead>
+                          <TableHead className="text-right"><FigureLabel figure="arrears" /></TableHead>
                           <TableHead>Cycle</TableHead>
                           <TableHead>Eligibility</TableHead>
                           <TableHead className="text-right">Can access</TableHead>
@@ -586,9 +672,9 @@ export default function ManagementOverviewTab() {
                         fields={[
                           { label: 'Agent', value: t.agent_name ?? '—' },
                           { label: 'Current rent', value: formatUGX(Number(t.rent_amount)) },
-                          { label: 'Paid %', value: `${Math.round(t.pct_covered ?? 0)}%` },
+                          { label: FIGURE_LABELS.paidPct.label, value: `${Math.round(t.pct_covered ?? 0)}%` },
                           {
-                            label: 'Arrears',
+                            label: FIGURE_LABELS.arrears.label,
                             value: t.arrears > 0 ? (
                               <span className="font-medium text-destructive">{formatUGX(t.arrears)}</span>
                             ) : '—',
@@ -629,7 +715,7 @@ export default function ManagementOverviewTab() {
             <CardHeader>
               <CardTitle className="text-base">Agents by performance band</CardTitle>
               <CardDescription>
-                Every agent currently in view, grouped by portfolio % — the same headline figure shown in
+                Every agent currently in view, grouped by portfolio % (all time) — the same headline figure shown in
                 the table below.
               </CardDescription>
             </CardHeader>
@@ -669,8 +755,8 @@ export default function ManagementOverviewTab() {
             <CardHeader>
               <CardTitle className="text-base">Agent portfolios</CardTitle>
               <CardDescription>
-                Totals built from each agent's own tenants above, with last month's performance and
-                registration standing.
+                Period columns follow the dates chosen at the top, with the same rule as Tenant Ops Home. Total expected, total
+                collected, portfolio, average tenant and arrears are all-time totals built from each agent's own tenants above.
               </CardDescription>
               <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-3">
                 <Input
@@ -687,9 +773,9 @@ export default function ManagementOverviewTab() {
                   </SelectContent>
                 </Select>
                 <Select value={perf} onValueChange={(v) => setPerf(v as PerfFilter)}>
-                  <SelectTrigger><SelectValue placeholder="Performance" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Performance (all time)" /></SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Any performance</SelectItem>
+                    <SelectItem value="all">Any performance (all time)</SelectItem>
                     <SelectItem value="above80">80% and above</SelectItem>
                     <SelectItem value="below80">Below 80%</SelectItem>
                     <SelectItem value="below50">Below 50%</SelectItem>
@@ -710,11 +796,14 @@ export default function ManagementOverviewTab() {
                         <TableRow>
                           <TableHead>Agent</TableHead>
                           <TableHead className="text-right">Active tenants</TableHead>
-                          <TableHead className="text-right">Total expected</TableHead>
-                          <TableHead className="text-right">Total collected</TableHead>
-                          <TableHead className="text-right">Portfolio</TableHead>
-                          <TableHead className="text-right">Average tenant</TableHead>
-                          <TableHead className="text-right">Arrears</TableHead>
+                          <TableHead className="text-right"><FigureLabel figure="periodExpected" /></TableHead>
+                          <TableHead className="text-right"><FigureLabel figure="periodCollected" /></TableHead>
+                          <TableHead className="text-right"><FigureLabel figure="periodShort" /></TableHead>
+                          <TableHead className="text-right"><FigureLabel figure="totalExpected" /></TableHead>
+                          <TableHead className="text-right"><FigureLabel figure="totalCollected" /></TableHead>
+                          <TableHead className="text-right"><FigureLabel figure="portfolioPct" /></TableHead>
+                          <TableHead className="text-right"><FigureLabel figure="averageTenant" /></TableHead>
+                          <TableHead className="text-right"><FigureLabel figure="arrears" /></TableHead>
                           <TableHead className="text-right">Last month</TableHead>
                           <TableHead>New registrations</TableHead>
                           <TableHead className="text-right">Actions</TableHead>
@@ -725,6 +814,19 @@ export default function ManagementOverviewTab() {
                           <TableRow key={a.agent_id}>
                             <TableCell className="font-medium">{a.agent_name ?? a.agent_id}</TableCell>
                             <TableCell className="text-right">{a.active_tenants}</TableCell>
+                            <TableCell className="text-right">{a.period_expected == null ? '—' : formatUGX(a.period_expected)}</TableCell>
+                            <TableCell className="text-right">
+                              {a.period_collected == null ? '—' : formatUGX(a.period_collected)}
+                              {a.period_coverage_pct != null && (
+                                <div className="text-xs text-muted-foreground">{a.period_coverage_pct}% of expected</div>
+                              )}
+                              {(a.period_paid_ahead ?? 0) > 0 && (
+                                <div className="text-xs text-muted-foreground">+ {formatUGX(a.period_paid_ahead ?? 0)} paid ahead</div>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              {a.period_short == null ? '—' : a.period_short > 0 ? formatUGX(a.period_short) : '—'}
+                            </TableCell>
                             <TableCell className="text-right">{formatUGX(a.total_expected)}</TableCell>
                             <TableCell className="text-right">{formatUGX(a.total_collected)}</TableCell>
                             <TableCell className="text-right">{a.portfolio_pct}%</TableCell>
@@ -758,7 +860,7 @@ export default function ManagementOverviewTab() {
                         ))}
                         {visibleAgents.length === 0 && (
                           <TableRow>
-                            <TableCell colSpan={10} className="py-8 text-center text-sm text-muted-foreground">
+                            <TableCell colSpan={13} className="py-8 text-center text-sm text-muted-foreground">
                               No agents match these filters.
                             </TableCell>
                           </TableRow>
@@ -785,9 +887,18 @@ export default function ManagementOverviewTab() {
                         }
                         fields={[
                           { label: 'Active tenants', value: a.active_tenants },
-                          { label: 'Portfolio %', value: `${a.portfolio_pct}%` },
+                          { label: FIGURE_LABELS.periodExpected.label, value: a.period_expected == null ? '—' : formatUGX(a.period_expected) },
                           {
-                            label: 'Arrears',
+                            label: FIGURE_LABELS.periodCollected.label,
+                            value: a.period_collected == null ? '—' : formatUGX(a.period_collected),
+                          },
+                          {
+                            label: FIGURE_LABELS.periodShort.label,
+                            value: a.period_short == null ? '—' : a.period_short > 0 ? formatUGX(a.period_short) : '—',
+                          },
+                          { label: FIGURE_LABELS.portfolioPct.label, value: `${a.portfolio_pct}%` },
+                          {
+                            label: FIGURE_LABELS.arrears.label,
                             value: a.total_arrears > 0 ? formatUGX(a.total_arrears) : '—',
                           },
                           {
