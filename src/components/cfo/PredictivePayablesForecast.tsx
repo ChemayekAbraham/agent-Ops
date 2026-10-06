@@ -31,50 +31,16 @@ import {
   type PayablesPredictivePeriod,
 } from '@/hooks/usePayables';
 
-const GRANULARITIES: { key: PayablesGranularity; label: string; defaultPeriods: number }[] = [
-  { key: 'day', label: 'Daily', defaultPeriods: 30 },
-  { key: 'week', label: 'Weekly', defaultPeriods: 26 },
-  { key: 'month', label: 'Monthly', defaultPeriods: 12 },
-  { key: 'quarter', label: 'Quarterly', defaultPeriods: 12 },
-  { key: 'year', label: 'Yearly', defaultPeriods: 5 },
+const PERIOD_PRESETS: { label: string; granularity: PayablesGranularity; periods: number }[] = [
+  { label: 'Next 7 days', granularity: 'day', periods: 7 },
+  { label: 'Next 14 days', granularity: 'day', periods: 14 },
+  { label: 'Next 30 days', granularity: 'day', periods: 30 },
+  { label: 'Next 90 days', granularity: 'week', periods: 13 },
+  { label: '1 year', granularity: 'month', periods: 12 },
+  { label: '2 years', granularity: 'month', periods: 24 },
+  { label: '3 years', granularity: 'month', periods: 36 },
+  { label: '5 years', granularity: 'year', periods: 5 },
 ];
-
-const HORIZONS: Record<PayablesGranularity, { value: number; label: string }[]> = {
-  day: [
-    { value: 1, label: 'Today' },
-    { value: 2, label: 'Today + tomorrow' },
-    { value: 7, label: 'Next 7 days' },
-    { value: 14, label: 'Next 14 days' },
-    { value: 30, label: 'Next 30 days' },
-    { value: 60, label: 'Next 60 days' },
-  ],
-  week: [
-    { value: 4, label: 'Next 4 weeks' },
-    { value: 13, label: 'Next 13 weeks' },
-    { value: 26, label: 'Next 26 weeks' },
-    { value: 52, label: 'Next 52 weeks' },
-  ],
-  month: [
-    { value: 1, label: 'This month' },
-    { value: 3, label: 'Next 3 months' },
-    { value: 6, label: 'Next 6 months' },
-    { value: 12, label: 'Next 12 months' },
-    { value: 24, label: 'Next 24 months' },
-    { value: 36, label: 'Next 36 months' },
-  ],
-  quarter: [
-    { value: 4, label: 'Next 4 quarters' },
-    { value: 8, label: 'Next 8 quarters' },
-    { value: 12, label: 'Next 12 quarters' },
-    { value: 16, label: 'Next 16 quarters' },
-  ],
-  year: [
-    { value: 2, label: 'Year 1 – 2' },
-    { value: 3, label: 'Year 1 – 3' },
-    { value: 4, label: 'Year 1 – 4' },
-    { value: 5, label: 'Year 1 – 5' },
-  ],
-};
 
 const QUALITY_STYLE: Record<string, string> = {
   high: 'bg-emerald-500/15 text-emerald-700',
@@ -112,8 +78,9 @@ function downloadCsv(name: string, rows: (string | number)[][]) {
 }
 
 export default function PredictivePayablesForecast() {
-  const [granularity, setGranularity] = useState<PayablesGranularity>('month');
-  const [periods, setPeriods] = useState(12);
+  const [granularity, setGranularity] = useState<PayablesGranularity>('day');
+  const [periods, setPeriods] = useState(30);
+  const [activePreset, setActivePreset] = useState('Next 30 days');
   const [openPeriod, setOpenPeriod] = useState<number | null>(null);
   const [showStreams, setShowStreams] = useState(false);
 
@@ -142,9 +109,10 @@ export default function PredictivePayablesForecast() {
     [data]
   );
 
-  const changeGranularity = (g: PayablesGranularity) => {
-    setGranularity(g);
-    setPeriods(GRANULARITIES.find((x) => x.key === g)?.defaultPeriods ?? 12);
+  const selectPreset = (preset: (typeof PERIOD_PRESETS)[number]) => {
+    setGranularity(preset.granularity);
+    setPeriods(preset.periods);
+    setActivePreset(preset.label);
     setOpenPeriod(null);
   };
 
@@ -214,19 +182,11 @@ export default function PredictivePayablesForecast() {
             </p>
           </div>
           <div className="flex flex-col gap-2 sm:items-end">
-            <div className="inline-flex flex-wrap gap-1 rounded-lg bg-muted p-1" role="tablist" aria-label="Forecast interval">
-              {GRANULARITIES.map((g) => (
-                <button key={g.key} type="button" onClick={() => changeGranularity(g.key)}
-                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${granularity === g.key ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-primary/10 hover:text-primary'}`}>
-                  {g.label}
-                </button>
-              ))}
-            </div>
             <div className="inline-flex flex-wrap gap-1 rounded-lg bg-muted p-1" role="tablist" aria-label="Forecast period">
-              {HORIZONS[granularity].map((h) => (
-                <button key={h.value} type="button" onClick={() => setPeriods(h.value)}
-                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${periods === h.value ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-primary/10 hover:text-primary'}`}>
-                  {h.label}
+              {PERIOD_PRESETS.map((preset) => (
+                <button key={preset.label} type="button" onClick={() => selectPreset(preset)}
+                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${activePreset === preset.label ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-primary/10 hover:text-primary'}`}>
+                  {preset.label}
                 </button>
               ))}
             </div>
