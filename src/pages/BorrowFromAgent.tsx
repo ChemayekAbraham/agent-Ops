@@ -108,6 +108,11 @@ export default function BorrowFromAgent() {
       >
         Request a loan <ArrowRight className="ml-1.5 h-4 w-4" />
       </Button>
+      {user && (
+        <Button variant="outline" className="mt-3 h-12 w-full rounded-2xl text-sm font-semibold" onClick={() => navigate('/my-loans')}>
+          <Wallet className="mr-1.5 h-4 w-4" /> Pay my loan
+        </Button>
+      )}
       {!user && (
         <p className="mt-2 text-center text-[11px] text-muted-foreground">
           You will sign in or create a free Welile account first.
