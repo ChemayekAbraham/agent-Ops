@@ -57,6 +57,11 @@ export const OPTION_FROM_ROI_MODE: Record<string, 'A' | 'B'> = {
   monthly_compounding: 'B',
 };
 
+/** Narrow the stored `partner_agreements.return_option` text to 'A' | 'B'. */
+export function storedOption(v: unknown): 'A' | 'B' | undefined {
+  return v === 'A' || v === 'B' ? v : undefined;
+}
+
 // Plain bordered box (not a ☐/☒ glyph) so html2canvas renders it the same on
 // every device regardless of installed fonts.
 function checkboxHtml(checked: boolean): string {
@@ -105,21 +110,15 @@ export function buildAgreementHtml(data: AgreementFillData): string {
   const amountNum = Math.max(0, Math.floor(data.partnershipAmount || 0));
   const amountStr = amountNum.toLocaleString('en-US');
 
+  // Mobile money doubles as the payout account, so a momo partner fills the bank
+  // lines too (provider as the "bank", account name, number) and the Mobile Money line.
   const isBank = data.payoutMode !== 'momo';
-  const bankName = isBank ? esc(data.bankName?.trim() || '') : '';
-  const accName = isBank ? esc(data.bankAccountName?.trim() || '') : '';
-  const accNo = isBank ? esc(data.bankAccountNumber?.trim() || '') : '';
-  const momoDetail = !isBank
-    ? esc(
-        [
-          data.momoNumber?.trim(),
-          [data.momoProvider?.trim(), data.momoName?.trim()].filter(Boolean).join(' – '),
-        ]
-          .filter(Boolean)
-          .map((v, i) => (i === 1 ? `(${v})` : v))
-          .join(' '),
-      )
-    : '';
+  const bankName = isBank
+    ? esc(data.bankName?.trim() || '')
+    : esc(`${data.momoProvider?.trim() || 'Mobile Money'} (Mobile Money)`);
+  const accName = isBank ? esc(data.bankAccountName?.trim() || '') : esc(data.momoName?.trim() || '');
+  const accNo = isBank ? esc(data.bankAccountNumber?.trim() || '') : esc(data.momoNumber?.trim() || '');
+  const momoDetail = isBank ? '' : esc(data.momoNumber?.trim() || '');
 
   // Signature renderers: image when supplied, otherwise blank (Welile) or an
   // italic typed name (partner) — mirroring the prior behaviour.
@@ -147,7 +146,7 @@ export function buildAgreementHtml(data: AgreementFillData): string {
   const tokens: Record<string, string> = {
     LogoUrl: welileLogo,
     CompanyName: 'WELILE TECHNOLOGIES LIMITED',
-    CompanyInitials: 'WTL',
+    CompanyInitials: 'Welile Technologies Limited',
     AgreementRefNo: esc(data.reference?.trim() || ''),
     PartnerName: name,
     // Page-footer "initials" are the partner's full name in lowercase.

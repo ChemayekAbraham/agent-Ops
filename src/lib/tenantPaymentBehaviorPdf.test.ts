@@ -22,6 +22,7 @@ vi.mock('jspdf', async (importOriginal) => {
 });
 
 import { generatePaymentBehaviorPdf } from './tenantPaymentBehaviorPdf';
+import { compareWithHome } from '@/lib/paymentBehaviorHomeCheck';
 import { reportDataFixture, overviewFixture } from '@/components/executive/tenant-ops/workspace/payment-behavior/paymentBehavior.fixtures';
 
 const META = { periodLabel: '07 Sep 2026 to 06 Oct 2026', phrase: 'this period', filters: { agent: null, region: null, district: null, cadence: null } };
@@ -60,5 +61,43 @@ describe('generatePaymentBehaviorPdf', () => {
     expect(all).toContain('Region: Central');
     expect(all).toContain('Fewer than four complete weeks.');
     expect(all).toContain('Not enough days with payments');
+  });
+});
+
+describe('generatePaymentBehaviorPdf: check against Tenant Ops Home', () => {
+  beforeEach(() => { rec.saved.length = 0; rec.texts.length = 0; });
+  const summary = reportDataFixture.overview.summary;
+  const text = () => rec.texts.join('\n').replace(/\s+/g, ' ');
+
+  it('prints the figures and "Matches Home" when they agree', async () => {
+    const check = compareWithHome({ expected: 227715911, collected: 88191948 }, summary);
+    await generatePaymentBehaviorPdf(reportDataFixture, { ...META, homeCheck: { filtered: false, check } });
+    expect(text()).toContain('Check against Tenant Ops Home');
+    expect(text()).toContain('Tenant Ops Home');
+    expect(text()).toContain('UGX 227,715,911');
+    expect(text()).toContain('Matches Home');
+  });
+
+  it('prints the warning when they differ', async () => {
+    const check = compareWithHome({ expected: 227715911, collected: 87191948 }, summary);
+    await generatePaymentBehaviorPdf(reportDataFixture, { ...META, homeCheck: { filtered: false, check } });
+    expect(text()).toContain('These figures differ from Tenant Ops Home by UGX 1,000,000. Home is the reference.');
+    expect(text()).not.toContain('Matches Home');
+  });
+
+  it('says the view is filtered, and why places drop tenants, when a filter is on', async () => {
+    await generatePaymentBehaviorPdf(reportDataFixture, {
+      ...META, filters: { agent: null, region: 'Central', district: null, cadence: null }, homeCheck: { filtered: true, check: null },
+    });
+    expect(text()).toContain("Filtered view: Home figures cover all tenants and can't be compared.");
+    expect(text()).toContain('no recorded location');
+  });
+
+  it('says so when Home could not be read, and prints nothing extra when no check is given', async () => {
+    await generatePaymentBehaviorPdf(reportDataFixture, { ...META, homeCheck: { filtered: false, check: null } });
+    expect(text()).toContain('Could not read Tenant Ops Home');
+    rec.texts.length = 0;
+    await generatePaymentBehaviorPdf(reportDataFixture, META);
+    expect(text()).not.toContain('Check against Tenant Ops Home');
   });
 });

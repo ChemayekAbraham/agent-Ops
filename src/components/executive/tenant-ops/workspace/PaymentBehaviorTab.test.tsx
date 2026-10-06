@@ -23,10 +23,15 @@ import {
 
 type Args = Record<string, unknown>;
 
+// What Tenant Ops Home would report for the same dates. Defaults agree with the fixture's billed and counted money.
+const HOME_MATCHING = { expected: 227715911, collected: 88191948 };
+let homeFigures = { ...HOME_MATCHING };
+
 function install() {
   rpcMock.mockImplementation((fn: string, args: Args) => {
     const ok = (data: unknown) => Promise.resolve({ data, error: null });
     switch (fn) {
+      case 'ops_tenant_ops_home_range': return ok({ ...homeFigures });
       case 'tops_payment_behaviour_options':
         return ok({ agents: [{ id: 'agent-1', name: 'SHAFEEQ SSENABULYA' }], regions: ['Central', 'Western'], districts: [{ region: 'Central', district: 'Wakiso' }], cadences: ['daily', 'weekly'] });
       case 'tops_payment_behaviour_overview_v2': return ok(overviewFixture);
@@ -54,7 +59,7 @@ const wrapper = wrapperAt('/executive-hub?tab=tenant-ops&view=tenant-operations-
 const callsTo = (fn: string) => rpcMock.mock.calls.filter((c) => c[0] === fn).map((c) => c[1] as Args);
 
 describe('PaymentBehaviorTab', () => {
-  beforeEach(() => { vi.clearAllMocks(); install(); });
+  beforeEach(() => { vi.clearAllMocks(); homeFigures = { ...HOME_MATCHING }; install(); });
 
   it('leads with the share of paying tenants who paid themselves, straight from the server', async () => {
     render(<PaymentBehaviorTab />, { wrapper });
@@ -148,6 +153,7 @@ describe('PaymentBehaviorTab', () => {
     expect(data.overview).toBeTruthy();
     expect(Object.keys(data.byDimension).sort()).toEqual(['agent', 'cadence', 'cohort', 'district', 'region', 'rent_band']);
     expect(meta.filters).toEqual({ agent: null, region: null, district: null, cadence: null });
+    expect((meta as unknown as { homeCheck: { filtered: boolean; check: { status: string } } }).homeCheck).toMatchObject({ filtered: false, check: { status: 'match' } });
     expect(meta.periodLabel).toMatch(/ to /);
     await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith('Report ready', expect.anything()));
   });
@@ -169,5 +175,92 @@ describe('PaymentBehaviorTab', () => {
       await waitFor(() => expect(within(container).getAllByRole('tabpanel').length).toBeGreaterThan(0));
     }
     expect(container.textContent).not.toMatch(/\b(loan|lender|ROI|interest)\b/i);
+  });
+});
+
+describe('PaymentBehaviorTab: check against Tenant Ops Home', () => {
+  beforeEach(() => { vi.clearAllMocks(); homeFigures = { ...HOME_MATCHING }; install(); });
+
+  it('reads Home for the same dates as the tab and says "Matches Home" when the figures agree', async () => {
+    render(<PaymentBehaviorTab />, { wrapper });
+    expect(await screen.findByText('Matches Home')).toBeInTheDocument();
+    const strip = screen.getByTestId('home-check');
+    expect(strip).toHaveAttribute('data-state', 'match');
+    expect(within(strip).getAllByText('UGX 227,715,911')).toHaveLength(2);   // Expected on Home, billed on the tab
+    expect(within(strip).getAllByText('UGX 88,191,948')).toHaveLength(2);    // Collected on Home, counted on the tab
+    expect(within(strip).getAllByText('UGX 139,523,963')).toHaveLength(2);   // Short on both
+    expect(within(strip).getByText('39%')).toBeInTheDocument();              // Home shows a whole number
+    expect(within(strip).getByText('38.7%')).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+
+    const home = callsTo('ops_tenant_ops_home_range')[0];
+    const tab = callsTo('tops_payment_behaviour_overview_v2')[0];
+    expect(home).toEqual({ p_start: tab.p_start, p_end: tab.p_end });
+  });
+
+  it('warns, and logs both sets of figures, when the tab differs from Home by more than UGX 1', async () => {
+    homeFigures = { expected: 227715911, collected: 87191948 };   // Home shows UGX 1,000,000 less collected
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    render(<PaymentBehaviorTab />, { wrapper });
+
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('These figures differ from Tenant Ops Home by UGX 1,000,000. Home is the reference.');
+    expect(screen.getByTestId('home-check')).toHaveAttribute('data-state', 'differ');
+    expect(screen.queryByText('Matches Home')).not.toBeInTheDocument();
+    // Both sides were read again once before the warning was trusted.
+    expect(callsTo('ops_tenant_ops_home_range').length).toBeGreaterThanOrEqual(2);
+    expect(callsTo('tops_payment_behaviour_overview_v2').length).toBeGreaterThanOrEqual(2);
+
+    await waitFor(() => expect(warn).toHaveBeenCalled());
+    const [label, detail] = warn.mock.calls.find((c) => String(c[0]).includes('differ from Tenant Ops Home'))! as [string, { home: { collected: number }; tab: { collected: number } }];
+    expect(label).toContain('Home is the reference');
+    expect(detail.home.collected).toBe(87191948);
+    expect(detail.tab.collected).toBe(88191948);
+    warn.mockRestore();
+  });
+
+  it('puts the check in the PDF with its status', async () => {
+    homeFigures = { expected: 227715911, collected: 87191948 };
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    pdfMock.mockResolvedValue(undefined);
+    const user = userEvent.setup();
+    render(<PaymentBehaviorTab />, { wrapper });
+    await screen.findByRole('alert');
+    await user.click(screen.getByRole('button', { name: /download pdf report/i }));
+    await waitFor(() => expect(pdfMock).toHaveBeenCalledTimes(1));
+    const meta = pdfMock.mock.calls[0][1] as { homeCheck: { filtered: boolean; check: { status: string; maxUgxDiff: number } } };
+    expect(meta.homeCheck.filtered).toBe(false);
+    expect(meta.homeCheck.check).toMatchObject({ status: 'differ', maxUgxDiff: 1000000 });
+  });
+
+  it('replaces the strip with a plain explanation when a filter is on, and stops asking Home', async () => {
+    const user = userEvent.setup();
+    render(<PaymentBehaviorTab />, { wrapper });
+    await screen.findByText('Matches Home');
+    await user.click(screen.getByRole('tab', { name: 'Breakdowns' }));
+    await user.click((await screen.findAllByRole('button', { name: /Focus on SHAFEEQ SSENABULYA/ }))[0]);
+    await user.click(screen.getByRole('tab', { name: 'Overview' }));
+
+    const strip = await screen.findByTestId('home-check');
+    await waitFor(() => expect(strip).toHaveAttribute('data-state', 'filtered'));
+    expect(strip).toHaveTextContent("Filtered view: Home figures cover all tenants and can't be compared.");
+    expect(strip).not.toHaveTextContent('no recorded location');   // an agent filter alone does not drop tenants
+    expect(screen.queryByText('Matches Home')).not.toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+  });
+
+  it('explains that region and district filters leave out tenants with no recorded location', async () => {
+    const user = userEvent.setup();
+    render(<PaymentBehaviorTab />, { wrapper });
+    await screen.findByText('Matches Home');
+    await user.click(screen.getByRole('tab', { name: 'Breakdowns' }));
+    await user.click(screen.getByRole('tab', { name: 'Region' }));
+    await user.click((await screen.findAllByRole('button', { name: /Focus on Central/ }))[0]);
+    await user.click(screen.getByRole('tab', { name: 'Overview' }));
+
+    const strip = await screen.findByTestId('home-check');
+    await waitFor(() => expect(strip).toHaveAttribute('data-state', 'filtered'));
+    expect(strip).toHaveTextContent("Filtered view: Home figures cover all tenants and can't be compared.");
+    expect(strip).toHaveTextContent('Region and district filters leave out tenants with no recorded location');
   });
 });

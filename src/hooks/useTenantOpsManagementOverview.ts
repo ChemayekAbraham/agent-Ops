@@ -9,6 +9,7 @@ import {
   useAgentRegistrationControl,
   type RegistrationControlRow,
 } from '@/hooks/useAgentRegistrationControl';
+import { useAgentPeriodCollection } from '@/hooks/useAgentPeriodCollection';
 
 /**
  * Management Overview is a read-only roll-up. Every tenant figure comes straight
@@ -16,6 +17,10 @@ import {
  * report) and every agent restriction figure from `get_agent_registration_control`.
  * Agent portfolio totals are sums of that same tenant data — no separate
  * calculation of rent, dues, payments or eligibility is performed here.
+ *
+ * Those tenant and portfolio money figures are ALL-TIME (the whole Rent Plan). The PERIOD figures for the chosen
+ * dates (expected, collected, short, paid ahead) come from tops_agent_period_collection, which applies the same
+ * rule as Tenant Ops Home, and are merged onto each agent row as the period_* fields.
  */
 
 export interface ManagementTenantRow extends TopupEligibilityRow {
@@ -45,6 +50,12 @@ export interface ManagementAgentRow {
   override_active: boolean;
   period_start: string | null;
   period_end: string | null;
+  /** The chosen dates (tops_agent_period_collection, Home rule). Null while loading or if the report is unavailable. */
+  period_expected: number | null;
+  period_collected: number | null;
+  period_short: number | null;
+  period_coverage_pct: number | null;
+  period_paid_ahead: number | null;
 }
 
 function cycleStatus(row: TopupEligibilityRow): ManagementTenantRow['cycle_status'] {
@@ -83,36 +94,45 @@ function useInitialRents(tenantIds: string[]) {
   });
 }
 
+/** Page size of get_tenant_topup_eligibility (its own maximum). */
+const ELIGIBILITY_PAGE = 500;
+/** Safety ceiling only (50,000 tenants); never reached in practice, and if it ever is, the tab says so. */
+const ELIGIBILITY_MAX_PAGES = 100;
+
 /**
- * The eligibility report pages at 500 rows. Agent portfolio totals must cover
- * the agent's whole portfolio, so every page of the SAME authoritative report is
- * read — no separate aggregation query, no second definition of the figures.
+ * The eligibility report pages at 500 rows. Agent portfolio totals must cover the agent's whole portfolio, so every
+ * page of the SAME authoritative report is read, however many there are (there is no fixed row cap). The server's own
+ * `total` is kept next to the number of rows actually loaded so the tab can warn if the two ever differ.
+ * Rows are de-duplicated by Rent Plan because the report orders by % covered, which can tie between pages.
  */
 function useAllEligibilityRows(params: { search: string; agentId: string | null; tier: string | null }) {
   const { search, agentId, tier } = params;
   return useQuery({
     queryKey: ['tenant-topup-eligibility', 'all-pages', search, agentId, tier],
     staleTime: 60_000,
-    queryFn: async (): Promise<TopupEligibilityResult> => {
+    queryFn: async (): Promise<TopupEligibilityResult & { loaded: number }> => {
       const page = async (offset: number) => {
         const { data, error } = await supabase.rpc('get_tenant_topup_eligibility', {
           p_search: search || null,
           p_agent_id: agentId,
           p_tier: tier,
-          p_limit: 500,
+          p_limit: ELIGIBILITY_PAGE,
           p_offset: offset,
         });
         if (error) throw error;
         return data as unknown as TopupEligibilityResult;
       };
       const first = await page(0);
-      const rows = [...(first.rows ?? [])];
-      const total = Number(first.total ?? rows.length);
-      for (let offset = 500; offset < total && offset < 5000; offset += 500) {
-        const next = await page(offset);
-        rows.push(...(next.rows ?? []));
+      const byPlan = new Map<string, TopupEligibilityRow>();
+      for (const r of first.rows ?? []) byPlan.set(r.rent_request_id, r);
+      let total = Number(first.total ?? byPlan.size);
+      for (let n = 1; n < ELIGIBILITY_MAX_PAGES && n * ELIGIBILITY_PAGE < total; n += 1) {
+        const next = await page(n * ELIGIBILITY_PAGE);
+        if (!(next.rows ?? []).length) break;
+        for (const r of next.rows) byPlan.set(r.rent_request_id, r);
+        total = Math.max(total, Number(next.total ?? 0));
       }
-      return { ...first, rows };
+      return { ...first, total, rows: [...byPlan.values()], loaded: byPlan.size };
     },
   });
 }
@@ -121,11 +141,16 @@ export function useTenantOpsManagementOverview(params: {
   search?: string;
   agentId?: string | null;
   tier?: string | null;
+  /** The dates for the period columns (ISO). Left out, the period figures are not requested. */
+  periodStartIso?: string;
+  periodEndIso?: string;
 } = {}) {
-  const { search = '', agentId = null, tier = null } = params;
+  const { search = '', agentId = null, tier = null, periodStartIso, periodEndIso } = params;
 
   const eligibility = useAllEligibilityRows({ search, agentId, tier });
   const registration = useAgentRegistrationControl({ status: 'all', limit: 500 });
+  const hasPeriod = Boolean(periodStartIso && periodEndIso);
+  const period = useAgentPeriodCollection(periodStartIso ?? '', periodEndIso ?? '', null, hasPeriod);
 
   const tenantIds = useMemo(
     () => (eligibility.data?.rows ?? []).map((r) => r.tenant_id).filter(Boolean),
@@ -160,11 +185,18 @@ export function useTenantOpsManagementOverview(params: {
       grouped.set(t.agent_id, list);
     }
 
-    const ids = new Set<string>([...grouped.keys(), ...regByAgent.keys()]);
+    const periodByAgent = new Map<string, NonNullable<typeof period.data>['rows'][number]>();
+    if (hasPeriod) for (const r of period.data?.rows ?? []) if (r.agent_id) periodByAgent.set(r.agent_id, r);
+
+    // An agent who has Rent Plans billed in the period but no tenant in the eligibility report still gets a row,
+    // so the period columns can be added up to Home's figures.
+    const ids = new Set<string>([...grouped.keys(), ...regByAgent.keys(), ...periodByAgent.keys()]);
     const rows: ManagementAgentRow[] = [];
     for (const id of ids) {
       const list = grouped.get(id) ?? [];
       const reg = regByAgent.get(id);
+      const per = periodByAgent.get(id);
+      const periodReady = hasPeriod && Boolean(period.data);
       const totalExpected = list.reduce((s, t) => s + Number(t.total_amount ?? 0), 0);
       const totalCollected = list.reduce((s, t) => s + Number(t.amount_repaid ?? 0), 0);
       const totalOutstanding = list.reduce((s, t) => s + Number(t.outstanding ?? 0), 0);
@@ -174,7 +206,7 @@ export function useTenantOpsManagementOverview(params: {
         : 0;
       rows.push({
         agent_id: id,
-        agent_name: reg?.full_name ?? list[0]?.agent_name ?? null,
+        agent_name: reg?.full_name ?? list[0]?.agent_name ?? per?.agent_name ?? null,
         active_tenants: reg?.active_tenants ?? list.filter((t) => t.is_live).length,
         tenants_tracked: list.length,
         total_expected: totalExpected,
@@ -194,10 +226,15 @@ export function useTenantOpsManagementOverview(params: {
         override_active: Boolean(reg?.override_id),
         period_start: reg?.period_start ?? null,
         period_end: reg?.period_end ?? null,
+        period_expected: periodReady ? Number(per?.expected_ugx ?? 0) : null,
+        period_collected: periodReady ? Number(per?.collected_ugx ?? 0) : null,
+        period_short: periodReady ? Number(per?.short_ugx ?? 0) : null,
+        period_coverage_pct: periodReady ? (per?.coverage_pct ?? null) : null,
+        period_paid_ahead: periodReady ? Number(per?.paid_ahead_ugx ?? 0) : null,
       });
     }
     return rows.sort((a, b) => b.total_outstanding - a.total_outstanding);
-  }, [tenants, registration.data]);
+  }, [tenants, registration.data, period.data, hasPeriod]);
 
   return {
     tenants,
@@ -206,7 +243,14 @@ export function useTenantOpsManagementOverview(params: {
     registrationRules: registration.data?.rules,
     asOf: eligibility.data?.as_of,
     totalTenants: eligibility.data?.total ?? 0,
+    /** How many tenants were actually read; below totalTenants only if the report grew past the safety ceiling. */
+    loadedTenants: eligibility.data?.loaded ?? 0,
     summary: eligibility.data?.summary,
+    /** Period totals for ALL agents (the Home rule); null until read or if unavailable. */
+    periodTotals: hasPeriod ? period.data?.totals ?? null : null,
+    periodWindow: hasPeriod ? period.data?.window ?? null : null,
+    periodLoading: hasPeriod && period.isLoading,
+    periodError: hasPeriod && period.isError,
     isLoading: eligibility.isLoading || registration.isLoading,
     error: eligibility.error ?? registration.error,
   };

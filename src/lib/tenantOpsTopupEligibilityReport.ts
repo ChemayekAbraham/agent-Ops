@@ -87,8 +87,8 @@ function detailRow(r: TopupEligibilityRow): (string | number)[] {
 }
 
 const DETAIL_HEADERS = [
-  'Tenant', 'Phone', 'Agent', 'Current rent', 'Cycle', 'Expected',
-  'Paid', 'Outstanding', '% covered', 'Eligibility', 'Max accessible', 'To next level',
+  'Tenant', 'Phone', 'Agent', 'Current rent', 'Cycle', 'Total expected (full cycle)',
+  'Total collected (all time)', 'Outstanding (whole plan)', '% covered (all time)', 'Eligibility', 'Max accessible', 'To next level',
 ];
 
 /**
@@ -150,7 +150,7 @@ export async function generateTopupEligibilityPdf(
   const summaryLines = doc.splitTextToSize(
     [
       `${eligible.toLocaleString()} of ${total.toLocaleString()} tenants (${eligiblePct}%) are currently eligible for a top-up, worth ${fmtUGX(totalAccessible)} in total accessible headroom.`,
-      `Outstanding balances across these tenants total ${fmtUGX(totalOutstanding)}.`,
+      `Outstanding balances across these tenants (whole Rent Plan, all time) total ${fmtUGX(totalOutstanding)}.`,
     ].join(' '),
     pw - margin * 2,
   );

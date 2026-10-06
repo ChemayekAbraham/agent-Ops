@@ -23,6 +23,7 @@ import {
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import {
   buildEligibilityPreview,
+  describePreviewAmounts,
   useSaveSupportContact,
   useTenantCommunications,
   useTenantPaymentMessageFigures,
@@ -164,6 +165,8 @@ export default function TenantCommunicationsTab() {
       ),
     [figures.data, data],
   );
+
+  const amountNotes = useMemo(() => describePreviewAmounts(figures.data), [figures.data]);
 
   const sentCounts = useMemo(() => {
     const out = new Map<string, number>();
@@ -374,7 +377,26 @@ export default function TenantCommunicationsTab() {
             {figures.isLoading ? (
               <Skeleton className="h-12 w-full" />
             ) : previewTail ? (
-              <p className="whitespace-pre-wrap">{previewTail}</p>
+              <div className="space-y-3">
+                <p className="whitespace-pre-wrap">{previewTail}</p>
+                {amountNotes.length > 0 && (
+                  <div className="space-y-1.5 border-t pt-2.5" data-testid="amount-notes">
+                    <p className="text-xs font-semibold">What these amounts mean</p>
+                    <p className="text-[11px] leading-relaxed text-muted-foreground">
+                      The message above is exactly what is sent. Every amount in it is an all-time figure for the whole Rent Plan; none
+                      is the amount due now or for a period.
+                    </p>
+                    <ul className="space-y-1 text-xs">
+                      {amountNotes.map((n, i) => (
+                        <li key={`${n.amount}-${i}`} className="flex flex-wrap gap-x-2">
+                          <span className="font-semibold tabular-nums">{n.amount}</span>
+                          <span className="text-muted-foreground">{n.meaning}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
             ) : (
               <p className="text-muted-foreground">
                 This tenant has no active Rent Plan figures to quote yet.
