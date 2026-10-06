@@ -184,27 +184,19 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
 
   const handleRecordRepayment = async (loan: LendingLoan, amount: number) => {
     if (!user) return;
-    const newRepaid = (Number(loan.amount_repaid_ugx) || 0) + amount;
-    const totalDue = loan.principal_ugx + (loan.principal_ugx * (Number(loan.interest_rate_pct) || 0)) / 100;
-    const fullyRepaid = newRepaid >= Math.floor(totalDue);
-    const newStatus = fullyRepaid ? 'repaid' : 'partially_repaid';
-    const { error } = await (supabase.from('lending_agent_loans' as any)
-      .update({
-        amount_repaid_ugx: newRepaid,
-        last_repayment_at: new Date().toISOString(),
-        status: newStatus,
-        closed_at: fullyRepaid ? new Date().toISOString() : null,
-      })
-      .eq('id', loan.id) as any);
-    if (error) { toast.error('Could not record repayment: ' + error.message); return; }
-    toast.success(fullyRepaid
-      ? `${loan.borrower_display_name ?? loan.borrower_ai_id} fully repaid 🎉`
-      : `Recorded ${formatUGX(amount)} from ${loan.borrower_display_name ?? loan.borrower_ai_id}`);
-    await logLendingAudit({
-      actorId: user.id, actorDisplayName: myName, actionType: 'repayment_recorded',
-      entityType: 'loan', entityId: loan.id,
-      lenderAgentId: user.id, amountUgx: amount,
-      newStatus, details: { total_repaid_ugx: newRepaid },
+    const name = loan.borrower_display_name ?? loan.borrower_ai_id;
+    if (!(loan as any).borrower_user_id) { toast.error(`${name} has no Welile wallet yet`); return; }
+    const { data, error } = await supabase.functions.invoke('lending-borrower-pay', {
+      body: { action: 'pay', loan_id: loan.id, amount, request_id: crypto.randomUUID() },
+    });
+    const errMsg = (data as any)?.error || (error ? await (error as any)?.context?.json?.().then((j: any) => j?.error).catch(() => null) : null);
+    if (error || !(data as any)?.ok) { toast.error(errMsg || 'Payment failed. No money was taken.'); return; }
+    const d = data as any;
+    toast.success(d.fully_repaid
+      ? `${name} fully repaid 🎉 · ${formatUGX(amount)} is in your wallet`
+      : `${formatUGX(amount)} moved from ${name}'s wallet to yours`, {
+      description: `Still owes ${formatUGX(d.remaining_ugx)} · their wallet now ${formatUGX(d.borrower_wallet_after_ugx)}`,
+      duration: 8000,
     });
     await reloadLoans();
     await reloadRequests();
