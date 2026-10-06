@@ -9,7 +9,7 @@ import {
   CheckCircle2, Clock, AlertTriangle, CalendarClock, Repeat, PlusCircle, CalendarPlus, Check,
 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
-import { LendingLoan, outstandingOf, dueStateOf, normalizePhone } from './lendingHelpers';
+import { LendingLoan, outstandingOf, dueStateOf, normalizePhone, repaymentPlanOf } from './lendingHelpers';
 import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 
