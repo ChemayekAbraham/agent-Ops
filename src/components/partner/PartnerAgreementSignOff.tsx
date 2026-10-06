@@ -3,7 +3,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { buildPartnerReference } from '@/lib/partnerReference';
 import AgreementHtmlPreview, { type AgreementPreviewData } from './AgreementHtmlPreview';
-import { buildAgreementHtml } from './agreementTemplate';
+import { buildAgreementHtml, OPTION_FROM_ROI_MODE } from './agreementTemplate';
+import { buildPartnerReference } from '@/lib/partnerReference';
 import { renderAgreementPdfBase64 } from './renderAgreementPdf';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
@@ -60,6 +61,8 @@ export default function PartnerAgreementSignOff({
   // agreement row, falling back to the partner's portfolio total when the
   // stored snapshot is empty/zero (legacy rows captured before the amount).
   const [amountInput, setAmountInput] = useState<string>('');
+  // Earliest portfolio's roi_mode decides the Return Option (A/B) printed in the contract.
+  const [roiMode, setRoiMode] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open || !partner) return;
@@ -81,10 +84,11 @@ export default function PartnerAgreementSignOff({
             .select('*')
             .limit(1)
             .maybeSingle(),
-          supabase.from('investor_portfolios').select('investment_amount').eq('investor_id', partner.id),
+          supabase.from('investor_portfolios').select('investment_amount, roi_mode').eq('investor_id', partner.id).order('created_at', { ascending: true }),
         ]);
         if (cancelled) return;
         if (agErr) throw agErr;
+        setRoiMode((pfAll || [])[0]?.roi_mode ?? null);
         const portfolioTotal = (pfAll || []).reduce((s: number, r: any) => s + (Number(r.investment_amount) || 0), 0);
         if (!ag) {
           // Build a draft agreement from the profile + saved payout method so the
@@ -167,6 +171,8 @@ export default function PartnerAgreementSignOff({
       partnerPhone: agreement.phone || partner?.phone || '',
       partnerEmail: agreement.email || partner?.email || '',
       partnershipAmount: Number(amountInput) || Number(agreement.partnership_amount) || 0,
+      returnOption: roiMode ? OPTION_FROM_ROI_MODE[roiMode] : undefined,
+      reference: agreement.reference || buildPartnerReference(partner?.id ?? '', partner?.created_at),
       payoutMode: agreement.payout_mode === 'momo' ? 'momo' : 'bank',
       bankName: agreement.bank_name || '',
       bankAccountName: agreement.bank_account_name || '',
@@ -193,7 +199,7 @@ export default function PartnerAgreementSignOff({
       partnerSignatureDataUrl: agreement.partner_signature_data_url || undefined,
       includeStamp: true,
     };
-  }, [agreement, partner, repSigUrl, repName, repPosition, repContact, sigDataUrl, stampDate, amountInput]);
+  }, [agreement, partner, repSigUrl, repName, repPosition, repContact, sigDataUrl, stampDate, amountInput, roiMode]);
 
   const onSignatureFile = (file?: File) => {
     if (!file) return;

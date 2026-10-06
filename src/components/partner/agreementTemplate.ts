@@ -12,8 +12,17 @@ export interface AgreementFillData {
   partnerPhone?: string;
   partnerEmail?: string;
   partnershipAmount: number;
-  /** Monthly return percentage printed in the returns clause (default 15). */
-  returnPercentage?: number;
+  /**
+   * Return Option elected under clause 4.2: 'A' = Monthly Payout, 'B' = Compounding.
+   * Both carry the flat 15% monthly return. Derived from the signup mode
+   * (Support a Tenant / Grow Your Contribution) or the portfolio `roi_mode`.
+   * Omitted => neither box ticked and the cover reads "To be elected".
+   */
+  returnOption?: 'A' | 'B';
+  /** Agreement reference printed on the cover (e.g. WLP-2026-AB12CD). */
+  reference?: string;
+  /** Overrides the commencement date (defaults to agreementDate). */
+  commencementDate?: Date;
   payoutMode?: 'bank' | 'momo';
   bankName?: string;
   bankAccountName?: string;
@@ -41,6 +50,17 @@ function ordinal(day: number): string {
   const s = ['th', 'st', 'nd', 'rd'];
   const v = day % 100;
   return day + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+export const OPTION_FROM_ROI_MODE: Record<string, 'A' | 'B'> = {
+  monthly_payout: 'A',
+  monthly_compounding: 'B',
+};
+
+// Plain bordered box (not a ☐/☒ glyph) so html2canvas renders it the same on
+// every device regardless of installed fonts.
+function checkboxHtml(checked: boolean): string {
+  return `<span style="display:inline-block; width:13px; height:13px; border:1.3px solid #000; line-height:11px; text-align:center; font-size:12px; font-weight:700; vertical-align:middle;">${checked ? '&#10005;' : '&nbsp;'}</span>`;
 }
 
 function esc(v: unknown): string {
@@ -84,14 +104,22 @@ export function buildAgreementHtml(data: AgreementFillData): string {
   const name = esc(data.partnerName?.trim() || '');
   const amountNum = Math.max(0, Math.floor(data.partnershipAmount || 0));
   const amountStr = amountNum.toLocaleString('en-US');
-  const amountWords = `${numberToWords(amountNum)} Shillings`;
 
   const isBank = data.payoutMode !== 'momo';
-  const bankName = isBank
-    ? esc(data.bankName?.trim() || '')
-    : esc(`${data.momoProvider?.trim() || 'Mobile Money'} (Mobile Money)`);
-  const accName = isBank ? esc(data.bankAccountName?.trim() || '') : esc(data.momoName?.trim() || '');
-  const accNo = isBank ? esc(data.bankAccountNumber?.trim() || '') : esc(data.momoNumber?.trim() || '');
+  const bankName = isBank ? esc(data.bankName?.trim() || '') : '';
+  const accName = isBank ? esc(data.bankAccountName?.trim() || '') : '';
+  const accNo = isBank ? esc(data.bankAccountNumber?.trim() || '') : '';
+  const momoDetail = !isBank
+    ? esc(
+        [
+          data.momoNumber?.trim(),
+          [data.momoProvider?.trim(), data.momoName?.trim()].filter(Boolean).join(' – '),
+        ]
+          .filter(Boolean)
+          .map((v, i) => (i === 1 ? `(${v})` : v))
+          .join(' '),
+      )
+    : '';
 
   // Signature renderers: image when supplied, otherwise blank (Welile) or an
   // italic typed name (partner) — mirroring the prior behaviour.
@@ -109,22 +137,34 @@ export function buildAgreementHtml(data: AgreementFillData): string {
   const stamp = data.includeStamp ? stampHtml(date) : '';
 
 
+  const commencement = data.commencementDate ?? date;
+  const commencementStr = `${ordinal(commencement.getDate())} ${commencement.toLocaleString('en-GB', { month: 'long' })} ${commencement.getFullYear()}`;
+  const optionLabel =
+    data.returnOption === 'A' ? 'Option A (Monthly Payout)'
+      : data.returnOption === 'B' ? 'Option B (Compounding)'
+      : 'To be elected';
+
   const tokens: Record<string, string> = {
     LogoUrl: welileLogo,
+    CompanyName: 'WELILE TECHNOLOGIES LIMITED',
+    CompanyInitials: 'WTL',
+    AgreementRefNo: esc(data.reference?.trim() || ''),
     PartnerName: name,
+    // Page-footer "initials" are the partner's full name in lowercase.
+    PartnerInitials: esc((data.partnerName?.trim() || '').toLowerCase()),
     PartnerID: esc(data.partnerId?.trim() || ''),
     PartnerAddress: esc(data.partnerAddress?.trim() || ''),
     PartnerPhone: esc(data.partnerPhone?.trim() || ''),
     PartnerEmail: esc(data.partnerEmail?.trim() || ''),
-    PartnershipAmount: esc(amountStr),
-    PartnershipAmountWords: esc(amountWords),
-    ReturnPercentage: esc(
-      Number.isFinite(Number(data.returnPercentage)) && Number(data.returnPercentage) > 0
-        ? String(Number(Number(data.returnPercentage).toFixed(2)))
-        : '15',
-    ),
+    ContributionUGX: esc(amountStr),
+    ContributionWords: esc(numberToWords(amountNum)),
+    ReturnOption: esc(optionLabel),
+    ReturnOptionA_Checked: checkboxHtml(data.returnOption === 'A'),
+    ReturnOptionB_Checked: checkboxHtml(data.returnOption === 'B'),
     AgreementDay: esc(ordinal(day)),
     AgreementMonth: esc(month),
+    AgreementYear: esc(String(date.getFullYear())),
+    CommencementDate: esc(commencementStr),
     WelileRepName: esc(data.welileRepName?.trim() || ''),
     WelileRepPosition: esc(data.welileRepPosition?.trim() || ''),
     WelileRepContact: esc(data.welileRepContact?.trim() || ''),
@@ -133,14 +173,13 @@ export function buildAgreementHtml(data: AgreementFillData): string {
     BankName: bankName,
     BankAccountName: accName,
     BankAccountNumber: accNo,
+    MobileMoneyNumber: momoDetail,
     KinName: esc(data.kinName?.trim() || ''),
     KinContact: esc(data.kinContact?.trim() || ''),
     KinSignature: kinSig,
 
-    // Stamp appears only on executed/counter-signed agreements, centered on the
-    // right side of every page with enough inner margin to prevent rotation clipping.
-    CoverStamp: stamp,
-    StampOverlay: stamp,
+    // Stamp appears only on executed/counter-signed agreements; the template
+    // places it on every page (empty string for drafts).
     StampPage: stamp,
   };
 
