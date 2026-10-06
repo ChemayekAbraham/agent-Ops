@@ -119,6 +119,11 @@ export default function PredictivePayablesForecast() {
     [data, historyProjection]
   );
 
+  const idealTotal = useMemo(
+    () => (data?.periods ?? []).reduce((s, p) => s + p.scheduled_amount, 0),
+    [data]
+  );
+
   const selectPreset = (preset: (typeof PERIOD_PRESETS)[number]) => {
     setGranularity(preset.granularity);
     setPeriods(preset.periods);
@@ -216,41 +221,41 @@ export default function PredictivePayablesForecast() {
         ) : data ? (
           <>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
-              <div className="rounded-xl bg-muted/50 px-2.5 py-2">
-                <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground">
-                  Actual recorded
-                </p>
-                <p className="text-xs sm:text-base font-bold font-mono tabular-nums truncate">
-                  {formatUGX(data.actual.total)}
-                </p>
-                <p className="text-[9px] sm:text-[10px] text-muted-foreground">
-                  {data.actual.item_count} open obligations
-                </p>
-              </div>
-              <div className="rounded-xl bg-destructive/10 px-2.5 py-2">
-                <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-destructive">
-                  Overdue
-                </p>
-                <p className="text-xs sm:text-base font-bold font-mono tabular-nums truncate">
-                  {formatUGX(data.actual.overdue)}
-                </p>
-                <p className="text-[9px] sm:text-[10px] text-muted-foreground">Past due date</p>
-              </div>
-              <div className="rounded-xl bg-emerald-500/10 px-2.5 py-2">
-                <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-emerald-700">
-                  Not yet due
-                </p>
-                <p className="text-xs sm:text-base font-bold font-mono tabular-nums truncate">
-                  {formatUGX(data.actual.not_yet_due)}
-                </p>
-                <p className="text-[9px] sm:text-[10px] text-muted-foreground">On the books</p>
-              </div>
               <div className="rounded-xl bg-primary/10 px-2.5 py-2">
                 <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-primary flex items-center gap-1">
-                  <TrendingDown className="h-2.5 w-2.5" /> Forecast (est.)
+                  <TrendingDown className="h-2.5 w-2.5" /> Behavior projection
                 </p>
                 <p className="text-xs sm:text-base font-bold font-mono tabular-nums truncate">
                   {formatUGX(horizonTotal)}
+                </p>
+                <p className="text-[9px] sm:text-[10px] text-muted-foreground">
+                  Based on past payment history
+                </p>
+              </div>
+              <div className="rounded-xl bg-muted/50 px-2.5 py-2">
+                <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground">
+                  Ideal (contract)
+                </p>
+                <p className="text-xs sm:text-base font-bold font-mono tabular-nums truncate">
+                  {formatUGX(idealTotal)}
+                </p>
+                <p className="text-[9px] sm:text-[10px] text-muted-foreground">Scheduled by contract</p>
+              </div>
+              <div className="rounded-xl bg-muted/50 px-2.5 py-2">
+                <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground">
+                  Difference
+                </p>
+                <p className="text-xs sm:text-base font-bold font-mono tabular-nums truncate">
+                  {formatUGX(horizonTotal - idealTotal)}
+                </p>
+                <p className="text-[9px] sm:text-[10px] text-muted-foreground">Behavior minus ideal</p>
+              </div>
+              <div className="rounded-xl bg-muted/50 px-2.5 py-2">
+                <p className="text-[9px] sm:text-[10px] uppercase tracking-wider text-muted-foreground">
+                  Average per {granularity}
+                </p>
+                <p className="text-xs sm:text-base font-bold font-mono tabular-nums truncate">
+                  {formatUGX(data.periods.length ? Math.round(horizonTotal / data.periods.length) : 0)}
                 </p>
                 <p className="text-[9px] sm:text-[10px] text-muted-foreground">
                   {data.periods.length} {granularity} period(s)
