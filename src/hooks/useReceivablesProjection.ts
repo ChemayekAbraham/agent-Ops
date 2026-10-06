@@ -96,7 +96,9 @@ export function useReceivablesProjection(id: string) {
     const weekday = new Date(`${window.start}T00:00:00Z`).getUTCDay();
     const sameDay = daily ? history.filter((h) => new Date(h.period_start).getUTCDay() === weekday).map((h) => h.actual_amount) : [];
     const behavior = average(sameDay) ?? overall;
-    const contract = contractQ.data ? contractQ.data.filter((d) => d.date.slice(0, 10) >= window.from && d.date.slice(0, 10) <= window.end).reduce((sum, d) => sum + d.scheduled, 0) : null;
+    // Both fields come from recorded obligations: fixed due dates and agreed
+    // daily repayment/deduction amounts. Neither uses collection-history averages.
+    const contract = contractQ.data ? contractQ.data.filter((d) => d.date.slice(0, 10) >= window.from && d.date.slice(0, 10) <= window.end).reduce((sum, d) => sum + d.scheduled + d.projected, 0) : null;
     return { key: window.start, date: daily ? window.start : window.label, label: window.label, behavior: behavior == null ? null : Math.round(behavior), contract };
   });
   return { period, daily, rows, historyQ, contractQ };
