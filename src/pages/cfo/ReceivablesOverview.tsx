@@ -185,7 +185,7 @@ function Overview({ cats, products, onOpen, total }: {
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         <Stat label="Total receivables" value={formatUGX(total)} sub={`${cats.reduce((s, c) => s + c.count, 0).toLocaleString()} open items`} />
       </div>
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 flex-1 auto-rows-fr">
         {cats.map((c) => (
           <Card key={c.key} title={c.label} right={
             <button onClick={() => onOpen(c.key)} className="text-xs font-medium text-primary hover:underline">{formatUGX(c.outstanding)}</button>
