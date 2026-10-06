@@ -155,8 +155,11 @@ export function SmsDeliveryLogViewer() {
   const [previewRow, setPreviewRow] = useState<SmsRow | null>(null);
   const [generating, setGenerating] = useState(false);
   const [sendingTest, setSendingTest] = useState(false);
-  // 'current' = this month; otherwise a 'yyyy-MM' key for a past month.
+  // 'current' = this month; 'custom' = a user-picked date range; otherwise a
+  // 'yyyy-MM' key for a past month.
   const [monthFilter, setMonthFilter] = useState('current');
+  const [customFrom, setCustomFrom] = useState<Date | undefined>();
+  const [customTo, setCustomTo] = useState<Date | undefined>();
 
   // Test SMS that sends with the WELILE sender id on BOTH providers. All
   // production SMS channels now set WELILE explicitly. Fires one message per
@@ -205,6 +208,7 @@ export function SmsDeliveryLogViewer() {
   const monthOptions = (() => {
     const opts: { value: string; label: string }[] = [
       { value: 'current', label: 'This Month' },
+      { value: 'custom', label: 'Custom range' },
     ];
     for (let i = 1; i < 12; i++) {
       const d = subMonths(new Date(), i);
@@ -213,15 +217,29 @@ export function SmsDeliveryLogViewer() {
     return opts;
   })();
 
-  const isPastMonth = monthFilter !== 'current';
+  const isPastMonth = monthFilter !== 'current' && monthFilter !== 'custom';
+  const isCustom = monthFilter === 'custom';
+  const customActive = isCustom && !!customFrom && !!customTo && customFrom.getTime() <= customTo.getTime();
+  // "scoped" covers every non-default window uniformly: a past month or a
+  // valid custom range. Everything downstream filters by rangeStart/rangeEnd.
+  const scoped = isPastMonth || customActive;
   const selectedMonthDate = isPastMonth ? new Date(`${monthFilter}-01T00:00:00`) : new Date();
   const selectedMonthStart = startOfMonth(selectedMonthDate);
   const selectedMonthEnd = endOfMonth(selectedMonthDate);
-  // How far back the daily rollup must reach to cover the chosen month.
-  const rollupDays = Math.max(90, differenceInCalendarDays(new Date(), selectedMonthStart) + 40);
+  const rangeStart = customActive ? startOfDay(customFrom) : selectedMonthStart;
+  const rangeEnd = customActive ? endOfDay(customTo) : selectedMonthEnd;
+  const scopeLabel = customActive
+    ? `${format(customFrom, 'dd MMM')} – ${format(customTo, 'dd MMM yyyy')}`
+    : isPastMonth
+    ? format(selectedMonthDate, 'MMMM yyyy')
+    : 'This month';
+  const customFromKey = customFrom ? format(customFrom, 'yyyy-MM-dd') : '';
+  const customToKey = customTo ? format(customTo, 'yyyy-MM-dd') : '';
+  // How far back the daily rollup must reach to cover the chosen scope.
+  const rollupDays = Math.max(90, differenceInCalendarDays(new Date(), rangeStart) + 40);
 
   const { data: logs = [], isLoading } = useQuery({
-    queryKey: ['cto-sms-delivery-log', monthFilter, debouncedSearch],
+    queryKey: ['cto-sms-delivery-log', monthFilter, customFromKey, customToKey, debouncedSearch],
     queryFn: async () => {
       const q = debouncedSearch;
       let query = supabase
@@ -229,10 +247,10 @@ export function SmsDeliveryLogViewer() {
         .select('id, created_at, recipient_phone, recipient_name, message, status, provider, provider_response, reference_id, source, error, provider_message_id, cost')
         .order('created_at', { ascending: false })
         .limit(q ? 1000 : 500);
-      if (isPastMonth) {
+      if (scoped) {
         query = query
-          .gte('created_at', selectedMonthStart.toISOString())
-          .lte('created_at', selectedMonthEnd.toISOString());
+          .gte('created_at', rangeStart.toISOString())
+          .lte('created_at', rangeEnd.toISOString());
       }
       if (q) {
         // Search server-side so a phone/name outside the latest 300 rows is
