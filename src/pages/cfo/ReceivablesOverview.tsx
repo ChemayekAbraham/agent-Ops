@@ -50,6 +50,15 @@ const CATS: CatDef[] = [
   { key: 'rnd', label: 'R&D', icon: FlaskConical, subs: [] },
 ];
 
+const CAT_SUBTITLES: Record<string, string> = {
+  tenant: 'tenant',
+  agent: 'agent',
+  landlord: 'landlord',
+  partner: 'partner',
+  other: 'unclassified and other',
+  rnd: 'research and development',
+};
+
 const money = (v: number | null | undefined) => (v == null ? '—' : formatUGX(v));
 const compact = (n: number) => {
   const a = Math.abs(n);
@@ -328,8 +337,8 @@ function SubDetail({ catKey, label, productKey, product }: {
     return <TenantReceivablesDetail product={product} current={current} overdue={overdue} complete={complete} today={t} locations={loc.data} locationLoading={loc.isLoading} locationError={loc.isError} forecast={proj} behaviourTotal={bTotal} idealTotal={iTotal} />;
   }
 
-  if (catKey === 'agent' || catKey === 'landlord' || catKey === 'partner') {
-    // Shared detail layout across Agent / Landlord / Partner product pages.
+  if (catKey !== 'tenant') {
+    // Shared detail layout across Agent / Landlord / Partner / Other / R&D product pages.
     return <AgentReceivablesDetail product={product} current={current} overdue={overdue} complete={complete} today={t} forecast={proj} behaviourTotal={bTotal} idealTotal={iTotal} />;
   }
 
