@@ -83,30 +83,9 @@ export default function IdeaCanvasBoard() {
     toast({ title: 'Idea saved' });
   };
 
-  return (
-    <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <p className="flex items-center gap-2 text-base font-semibold text-foreground"><Lightbulb className="h-4 w-4 text-primary" />New Ideas &amp; Business Model Canvas</p>
-          <p className="mt-0.5 pl-6 text-xs text-muted-foreground">Record a new idea and its canvas here. Once saved, it moves to the Recorded ideas section below.</p>
-        </div>
-        <Button size="sm" variant="outline" className="gap-1.5" onClick={add}><Plus className="h-4 w-4" />Record idea</Button>
-      </div>
-
-      {drafts.length === 0 && <p className="mt-3 text-xs text-muted-foreground">Tap Record idea to start a new one.</p>}
-      <div className="mt-3 space-y-3">{drafts.map(renderIdea)}</div>
-    </div>
-
-    <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
-      <p className="flex items-center gap-2 text-base font-semibold text-foreground"><Lightbulb className="h-4 w-4 text-primary" />Recorded Ideas</p>
-      <p className="mt-0.5 pl-6 text-xs text-muted-foreground">Each saved idea with its Business Model Canvas. Tap Edit to change the idea or its canvas.</p>
-      {saved.length === 0 && <p className="mt-3 text-xs text-muted-foreground">No ideas saved yet.</p>}
-      <div className="mt-3 space-y-3">{saved.map(renderIdea)}</div>
-    </div>
-    </div>
-  );
-}
-
+  const drafts = ideas.filter((x) => !x.saved);
+  const saved = ideas.filter((x) => x.saved);
+  const renderIdea = (i: Row) => {
           const isOpen = !closed.has(i.id);
           const editing = i.mode === 'edit';
           const filled = BLOCKS.filter((b) => i.canvas[b.key]?.trim()).length;
@@ -168,9 +147,29 @@ export default function IdeaCanvasBoard() {
                 </div>
               )}
             </div>
-          );
-        })}
+  };
+
+  return (
+    <div className="space-y-4">
+    <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <p className="flex items-center gap-2 text-base font-semibold text-foreground"><Lightbulb className="h-4 w-4 text-primary" />New Ideas &amp; Business Model Canvas</p>
+          <p className="mt-0.5 pl-6 text-xs text-muted-foreground">Record a new idea and its canvas here. Once saved, it moves to the Recorded ideas section below.</p>
+        </div>
+        <Button size="sm" variant="outline" className="gap-1.5" onClick={add}><Plus className="h-4 w-4" />Record idea</Button>
       </div>
+
+      {drafts.length === 0 && <p className="mt-3 text-xs text-muted-foreground">Tap Record idea to start a new one.</p>}
+      <div className="mt-3 space-y-3">{drafts.map(renderIdea)}</div>
+    </div>
+
+    <div className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+      <p className="flex items-center gap-2 text-base font-semibold text-foreground"><Lightbulb className="h-4 w-4 text-primary" />Recorded Ideas</p>
+      <p className="mt-0.5 pl-6 text-xs text-muted-foreground">Each saved idea with its Business Model Canvas. Tap Edit to change the idea or its canvas.</p>
+      {saved.length === 0 && <p className="mt-3 text-xs text-muted-foreground">No ideas saved yet.</p>}
+      <div className="mt-3 space-y-3">{saved.map(renderIdea)}</div>
+    </div>
     </div>
   );
 }
