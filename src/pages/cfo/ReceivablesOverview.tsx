@@ -271,11 +271,11 @@ function Overview({ cats, products, onOpen, total, search }: {
 }
 
 function OverviewMetric({ label, value, note, icon: Icon, tone }: { label: string; value: string; note: string; icon: typeof Users; tone: string }) {
-  const tones: Record<string, string> = { info: 'bg-info/5 text-info', success: 'bg-success/5 text-success', destructive: 'bg-destructive/5 text-destructive', primary: 'bg-primary/5 text-primary', warning: 'bg-warning/5 text-warning' };
+  const tones: Record<string, string> = { info: 'bg-primary/5 text-primary', success: 'bg-success/5 text-success', destructive: 'bg-destructive/5 text-destructive', primary: 'bg-primary/5 text-primary', warning: 'bg-warning/5 text-warning' };
   return <div className={`min-w-0 rounded-lg border border-border p-2.5 ${tones[tone] ?? 'bg-muted text-foreground'}`}><div className="mb-2 flex items-center gap-2"><Icon className="h-4 w-4 shrink-0" /><span className="text-[10px] font-medium">{label}</span></div><p className="whitespace-nowrap text-xs leading-5 font-semibold tabular-nums text-foreground">{value}</p><p className="mt-1 text-[10px] text-muted-foreground">{note}</p></div>;
 }
 function OutlookRow({ label, value, tone }: { label: string; value: string; tone: string }) {
-  return <div className="flex flex-wrap items-center justify-between gap-2 py-3"><span className="flex items-center gap-2 text-[11px] text-muted-foreground"><Wallet className={`h-4 w-4 ${tone === 'success' ? 'text-success' : tone === 'destructive' ? 'text-destructive' : 'text-info'}`} />{label}</span><span className="text-xs font-semibold tabular-nums">{value}</span></div>;
+  return <div className="flex flex-wrap items-center justify-between gap-2 py-3"><span className="flex items-center gap-2 text-[11px] text-muted-foreground"><Wallet className={`h-4 w-4 ${tone === 'success' ? 'text-success' : tone === 'destructive' ? 'text-destructive' : 'text-primary'}`} />{label}</span><span className="text-xs font-semibold tabular-nums">{value}</span></div>;
 }
 
 function SubDetail({ catKey, label, productKey, product }: {
