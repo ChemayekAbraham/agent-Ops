@@ -184,23 +184,29 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder, filterStatu
     }
   }, [filteredOrders, selectedId]);
 
+  const supplierCostFor = useBikeCatalogCosts();
+
   const selected = useMemo(
     () => filteredOrders.find((o) => o.id === selectedId) ?? filteredOrders[0] ?? null,
     [filteredOrders, selectedId],
   );
 
-  if (!userId || !selected || filteredOrders.length === 0) return null;
-
-  const supplierCostFor = useBikeCatalogCosts();
-  const status = selected.order_status || 'submitted';
+  const status = selected?.order_status || 'submitted';
   const rejected = status === 'rejected' || status === 'failed';
   const current = stageIndex(status);
-  const catalogCost = supplierCostFor(selected.model_type);
-  const valuation = resolveBikeBasePrice(selected.valuation_amount || selected.total_amount, selected.lease_term_months, selected.model_type, catalogCost);
-  const outstanding = Number(selected.amount_outstanding || 0);
+  const catalogCost = supplierCostFor(selected?.model_type);
+  const valuation = resolveBikeBasePrice(
+    selected?.valuation_amount || selected?.total_amount,
+    selected?.lease_term_months,
+    selected?.model_type,
+    catalogCost,
+  );
+  const outstanding = Number(selected?.amount_outstanding || 0);
   const rate = 0.28;
-  const termMonths = selected.lease_term_months || 12;
+  const termMonths = selected?.lease_term_months || 12;
   const leaseSchedule = useMemo(() => spiroLeaseSchedule(termMonths, valuation), [termMonths, valuation]);
+
+  if (!userId || !selected || filteredOrders.length === 0) return null;
 
   const stageDates = [selected.created_at, selected.coo_approved_at, selected.lease_activated_at ?? selected.cfo_disbursed_at];
 
