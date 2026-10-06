@@ -103,6 +103,8 @@ export default function LendingRepayments() {
             const next = loan.schedule.find((s) => s.status !== 'paid');
             const nextLeft = next ? next.amount_ugx - next.paid_ugx : 0;
             const late = loan.schedule.filter((s) => s.status === 'overdue').reduce((a, s) => a + s.amount_ugx - s.paid_ugx, 0);
+            const daysToNext = next ? Math.round((new Date(next.due_date + 'T00:00:00').getTime() - new Date(new Date().toDateString()).getTime()) / 86400000) : 99;
+            const soon = late === 0 && daysToNext <= 2;
             return (
               <Card key={loan.id} className="rounded-2xl overflow-hidden">
                 <CardContent className="p-4 space-y-3">
@@ -115,8 +117,8 @@ export default function LendingRepayments() {
                   </div>
 
                   {open && next && (
-                    <div className={`rounded-xl p-3 ${late > 0 ? 'bg-destructive/10' : 'bg-primary/10'}`}>
-                      <p className="text-xs font-semibold">{late > 0 ? 'You are late' : 'Next payment'}</p>
+                    <div role={late > 0 || soon ? 'alert' : undefined} className={`rounded-xl p-3 ${late > 0 ? 'bg-destructive/10' : soon ? 'bg-accent/30 border border-accent' : 'bg-primary/10'}`}>
+                      <p className="text-xs font-semibold">{late > 0 ? 'You are late' : daysToNext <= 0 ? '⏰ Pay today to stay on time' : soon ? `⏰ Due in ${daysToNext} day${daysToNext === 1 ? '' : 's'}` : 'Next payment'}</p>
                       <p className="text-lg font-bold">{formatUGX(late > 0 ? late : nextLeft)}</p>
                       {late === 0 && <p className="text-xs text-muted-foreground">by {day(next.due_date)}</p>}
                     </div>
