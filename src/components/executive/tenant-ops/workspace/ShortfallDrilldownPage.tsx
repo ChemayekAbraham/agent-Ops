@@ -42,8 +42,14 @@ import {
   useShortfallBreakdown, type ShortfallBreakdownRow, type ShortfallGroup,
 } from '@/hooks/tenantOpsWorkspace/useShortfallBreakdown';
 import {
-  fetchAllShortfallDetail, useShortfallDetail, type ShortfallSortKey,
+  fetchAllShortfallDetail, useShortfallDetail, type ShortfallDetailRow, type ShortfallSortKey,
 } from '@/hooks/tenantOpsWorkspace/useShortfallDetail';
+import {
+  fetchShortfallFollowupsLatest, useShortfallFollowupsLatest, type ShortfallFollowupFilter,
+} from '@/hooks/tenantOpsWorkspace/useShortfallFollowups';
+import { FOLLOWUP_FILTERS, outcomeLabel } from '@/hooks/tenantOpsWorkspace/shortfallFollowupLabels';
+import { SHORTFALL_USE_FOLLOWUPS } from '@/hooks/tenantOpsWorkspace/shortfallRpcNames';
+import { MarkFollowedUpDialog, ShortfallRowActions } from '@/components/executive/tenant-ops/workspace/ShortfallFollowupControls';
 
 const TAB_TRIGGER_CLASS =
   'h-9 shrink-0 whitespace-nowrap rounded-lg px-2.5 text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm';
@@ -82,6 +88,7 @@ const CSV_HEADERS = [
   'Plan code', 'Tenant', 'Tenant phone', 'Agent', 'Agent phone', 'Service centre', 'District',
   'Expected (UGX)', 'Collected (UGX)', 'Short (UGX)', 'Behind', 'Days behind', 'Cadence',
   'Oldest unpaid due', 'Last paid', 'Rent Plan ID',
+  'Last follow-up', 'Follow-up outcome', 'Follow-up note', 'Promised date', 'Followed up by', 'Follow-ups logged',
 ];
 
 const fmtDate = (iso: string | null) => (iso ? format(parseISO(iso), 'dd MMM yyyy') : '—');
@@ -253,6 +260,8 @@ function ShortfallDetailBody({
   const [dir, setDir] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(0);
   const [exporting, setExporting] = useState(false);
+  const [followup, setFollowup] = useState<ShortfallFollowupFilter>('all');
+  const [markRow, setMarkRow] = useState<ShortfallDetailRow | null>(null);
 
   const filters = {
     startIso,
@@ -263,12 +272,16 @@ function ShortfallDetailBody({
     search: debouncedSearch,
     sort,
     dir,
+    followup,
   };
   const { data, isLoading, isError, isFetching } = useShortfallDetail({
     ...filters,
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
   });
+
+  const pageRows = data?.rows;
+  const { data: latestByPlan } = useShortfallFollowupsLatest((pageRows ?? []).map((r) => r.rent_request_id));
 
   const totalCount = data?.totalCount ?? 0;
   const pageCount = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
@@ -281,16 +294,22 @@ function ShortfallDetailBody({
         toast.error('Nothing to export for this selection');
         return;
       }
+      const latest = await fetchShortfallFollowupsLatest(all.rows.map((r) => r.rent_request_id));
       const slug = selected.name.replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'group';
       const stamp = `${format(parseISO(startIso), 'yyyyMMdd')}-${format(parseISO(endIso), 'yyyyMMdd')}`;
       downloadCsv(
         `Welile_Shortfall_${GROUP_LABEL[selected.group].replace(/\s+/g, '-')}_${slug}_${stamp}.csv`,
         CSV_HEADERS,
-        all.rows.map((r) => [
-          r.plan_code, r.tenant_name, r.tenant_phone, r.agent_name, r.agent_phone, r.service_centre,
-          r.district, r.expected_ugx, r.collected_ugx, r.short_ugx, r.cadence_label, r.days_behind,
-          r.cadence, r.oldest_unpaid_due, r.last_paid_at, r.rent_request_id,
-        ]),
+        all.rows.map((r) => {
+          const f = latest[r.rent_request_id];
+          return [
+            r.plan_code, r.tenant_name, r.tenant_phone, r.agent_name, r.agent_phone, r.service_centre,
+            r.district, r.expected_ugx, r.collected_ugx, r.short_ugx, r.cadence_label, r.days_behind,
+            r.cadence, r.oldest_unpaid_due, r.last_paid_at, r.rent_request_id,
+            f ? f.created_at : '', f ? outcomeLabel(f.outcome) : 'Not followed up', f ? f.note : '',
+            f?.promised_date ?? '', f?.actor_name ?? '', f ? f.followup_count : 0,
+          ];
+        }),
       );
       toast.success(
         `Exported ${all.rows.length.toLocaleString('en-US')} Rent Plans${all.truncated ? ' (the first 10,000 only)' : ''}`,
@@ -361,6 +380,27 @@ function ShortfallDetailBody({
         </Button>
       </div>
 
+      {SHORTFALL_USE_FOLLOWUPS && (
+        <div role="group" aria-label="Follow-up filter" className="flex flex-wrap gap-1.5">
+          {FOLLOWUP_FILTERS.map((f) => (
+            <Button
+              key={f.value}
+              type="button"
+              size="sm"
+              variant={followup === f.value ? 'default' : 'outline'}
+              aria-pressed={followup === f.value}
+              className="h-9 shrink-0 text-xs"
+              onClick={() => {
+                setFollowup(f.value);
+                setPage(0);
+              }}
+            >
+              {f.label}
+            </Button>
+          ))}
+        </div>
+      )}
+
       {isLoading ? (
         <div className="space-y-2">
           <Skeleton className="h-28 w-full" />
@@ -377,7 +417,13 @@ function ShortfallDetailBody({
         <WorkspaceEmptyState
           icon={Search}
           title="No Rent Plans match"
-          hint={debouncedSearch ? 'Try a different name or phone number.' : 'Nothing is short for this selection.'}
+          hint={
+            debouncedSearch
+              ? 'Try a different name or phone number.'
+              : followup !== 'all'
+                ? 'No Rent Plans in this selection match the follow-up filter.'
+                : 'Nothing is short for this selection.'
+          }
         />
       ) : (
         <div className={`space-y-2 ${isFetching ? 'opacity-70' : ''}`}>
@@ -402,6 +448,7 @@ function ShortfallDetailBody({
                 { label: 'Oldest unpaid due', value: fmtDate(r.oldest_unpaid_due) },
                 { label: 'Last paid', value: fmtDateTime(r.last_paid_at) },
               ]}
+              actions={<ShortfallRowActions row={r} latest={latestByPlan?.[r.rent_request_id]} onMark={setMarkRow} />}
             />
           ))}
         </div>
@@ -434,6 +481,8 @@ function ShortfallDetailBody({
           </Button>
         </div>
       )}
+
+      <MarkFollowedUpDialog row={markRow} open={markRow !== null} onOpenChange={(o) => { if (!o) setMarkRow(null); }} />
     </div>
   );
 }

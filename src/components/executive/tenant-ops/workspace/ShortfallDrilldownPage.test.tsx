@@ -335,3 +335,146 @@ describe('ShortfallDrilldownPage — range carried in the URL', () => {
     await waitFor(() => expect(callsTo('ops_tenant_ops_home_range').some((a) => a.p_start === yesterday.start.toISOString())).toBe(true));
   });
 });
+
+describe('ShortfallDrilldownPage — follow-ups', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  const latestRow = (id: string, extra: Record<string, unknown> = {}) => ({
+    rent_request_id: id, followup_id: `f-${id}`, outcome: 'reached_will_pay',
+    note: 'Says he will pay on Friday', promised_date: '2099-01-02',
+    created_at: new Date(Date.now() - 2 * 3600 * 1000).toISOString(),
+    actor_id: 'u-1', actor_name: 'Grace Namono', followup_count: 1, ...extra,
+  });
+
+  /** Opens Agent One's sheet with an extra RPC layer on top of the standard mock. */
+  async function openAgentWith(
+    user: ReturnType<typeof userEvent.setup>,
+    extra: (fn: string, args: RpcArgs) => { data: unknown; error: unknown } | undefined,
+  ) {
+    install({ home: { expected: 1000, collected: 400 }, totalCount: 1, totalShort: 600 });
+    const base = rpcMock.getMockImplementation()!;
+    rpcMock.mockImplementation((fn: string, args: RpcArgs) => {
+      const hit = extra(fn, args);
+      return hit ? Promise.resolve(hit) : base(fn, args);
+    });
+    render(<ShortfallDrilldownPage />, { wrapper });
+    await screen.findAllByText('Atimango Joyce');
+    await user.click(screen.getByRole('tab', { name: 'Agents' }));
+    await user.click(await screen.findByLabelText('Open Rent Plans for Agent One'));
+    const dialog = await screen.findByRole('dialog');
+    await within(dialog).findByText('Tenant 0');
+    return dialog;
+  }
+
+  it('gives every row a Call and a WhatsApp link for the tenant and for the agent', async () => {
+    const user = userEvent.setup();
+    const dialog = await openAgentWith(user, () => undefined);
+
+    const tels = Array.from(dialog.querySelectorAll<HTMLAnchorElement>('a[href^="tel:"]')).map((a) => a.getAttribute('href'));
+    expect(tels.slice(0, 2)).toEqual(['tel:+256772236357', 'tel:+256757229748']);   // tenant, then agent
+    expect(dialog.querySelectorAll('a[href^="https://wa.me/256772236357"]').length).toBeGreaterThan(0);
+    expect(dialog.querySelectorAll('a[href^="https://wa.me/256757229748"]').length).toBeGreaterThan(0);
+  });
+
+  it('shows the latest follow-up on its row and "Not followed up yet" on the others', async () => {
+    const user = userEvent.setup();
+    const dialog = await openAgentWith(user, (fn) =>
+      fn === 'tops_shortfall_followups_latest' ? { data: [latestRow('rr-0')], error: null } : undefined);
+
+    const line = await within(dialog).findByTestId('latest-followup');
+    expect(line).toHaveTextContent('Followed up 2h ago: will pay Fri 2 Jan');
+    expect(line).toHaveTextContent('Says he will pay on Friday');
+    expect(line).toHaveTextContent('Grace Namono');
+    expect(within(dialog).getAllByText('Not followed up yet').length).toBeGreaterThan(0);
+  });
+
+  it('flags a promise whose date has passed', async () => {
+    const user = userEvent.setup();
+    const dialog = await openAgentWith(user, (fn) =>
+      fn === 'tops_shortfall_followups_latest' ? { data: [latestRow('rr-0', { promised_date: '2020-01-02' })], error: null } : undefined);
+    expect(await within(dialog).findByText(/promise date passed/)).toBeInTheDocument();
+  });
+
+  it('records a follow-up: the note needs 10 characters, the date only shows for "will pay"', async () => {
+    const user = userEvent.setup();
+    const dialog = await openAgentWith(user, (fn) =>
+      fn === 'tops_record_shortfall_followup' ? { data: { id: 'new' }, error: null } : undefined);
+
+    await user.click(within(dialog).getAllByRole('button', { name: /mark followed up/i })[0]);
+    const form = await screen.findByRole('dialog', { name: /mark followed up/i });
+    const save = within(form).getByRole('button', { name: /save follow-up/i });
+    expect(save).toBeDisabled();
+
+    await user.click(within(form).getByLabelText(/no answer/i));
+    expect(within(form).queryByLabelText(/promised payment date/i)).not.toBeInTheDocument();
+    await user.type(within(form).getByLabelText('Note'), 'too short');
+    expect(save).toBeDisabled();
+
+    await user.click(within(form).getByLabelText(/reached, will pay/i));
+    const date = within(form).getByLabelText(/promised payment date/i);
+    await user.type(date, '2099-01-02');
+    await user.clear(within(form).getByLabelText('Note'));
+    await user.type(within(form).getByLabelText('Note'), 'Will pay on Friday morning');
+    expect(save).toBeEnabled();
+    await user.click(save);
+
+    await waitFor(() => expect(callsTo('tops_record_shortfall_followup')).toHaveLength(1));
+    expect(callsTo('tops_record_shortfall_followup')[0]).toEqual({
+      p_rent_request_id: 'rr-0', p_outcome: 'reached_will_pay', p_note: 'Will pay on Friday morning', p_promised_date: '2099-01-02',
+    });
+    expect(toastSuccess).toHaveBeenCalledWith('Follow-up saved');
+  });
+
+  it('keeps the form open and shows the server message when saving fails', async () => {
+    const user = userEvent.setup();
+    const dialog = await openAgentWith(user, (fn) =>
+      fn === 'tops_record_shortfall_followup' ? { data: null, error: { message: 'not authorized' } } : undefined);
+
+    await user.click(within(dialog).getAllByRole('button', { name: /mark followed up/i })[0]);
+    const form = await screen.findByRole('dialog', { name: /mark followed up/i });
+    await user.click(within(form).getByLabelText(/no answer/i));
+    await user.type(within(form).getByLabelText('Note'), 'Phone rang out twice');
+    await user.click(within(form).getByRole('button', { name: /save follow-up/i }));
+
+    expect(await within(form).findByRole('alert')).toHaveTextContent('not authorized');
+    expect(screen.getByRole('dialog', { name: /mark followed up/i })).toBeInTheDocument();
+  });
+
+  it('filters on the server: nothing extra is sent for All, p_followup for the rest, and paging resets', async () => {
+    const user = userEvent.setup();
+    const dialog = await openAgentWith(user, () => undefined);
+    expect(callsTo(SHORTFALL_DETAIL_RPC).filter((a) => a.p_group === 'agent').every((a) => !('p_followup' in a))).toBe(true);
+
+    await user.click(within(dialog).getByRole('button', { name: /next/i }));
+    await within(dialog).findByText(/Page 2 of/);
+    await user.click(within(dialog).getByRole('button', { name: 'Promised to pay' }));
+    await waitFor(() => expect(callsTo(SHORTFALL_DETAIL_RPC).some((a) => a.p_followup === 'promised' && a.p_offset === 0)).toBe(true));
+
+    await user.click(within(dialog).getByRole('button', { name: 'Not followed up' }));
+    await waitFor(() => expect(callsTo(SHORTFALL_DETAIL_RPC).some((a) => a.p_followup === 'not_followed_up')).toBe(true));
+    await user.click(within(dialog).getByRole('button', { name: 'Promise date passed' }));
+    await waitFor(() => expect(callsTo(SHORTFALL_DETAIL_RPC).some((a) => a.p_followup === 'promise_passed')).toBe(true));
+    await user.click(within(dialog).getByRole('button', { name: 'All' }));
+    expect(within(dialog).getByRole('button', { name: 'All' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('adds the follow-up columns to the CSV export', async () => {
+    const user = userEvent.setup();
+    const dialog = await openAgentWith(user, (fn, args) => {
+      if (fn !== 'tops_shortfall_followups_latest') return undefined;
+      const ids = args.p_rent_request_ids as string[];
+      return { data: ids.includes('rr-0') ? [latestRow('rr-0')] : [], error: null };
+    });
+
+    await user.click(within(dialog).getByRole('button', { name: /export csv/i }));
+    await waitFor(() => expect(downloadCsvMock).toHaveBeenCalledTimes(1));
+    const [, headers, rows] = downloadCsvMock.mock.calls[0] as [string, string[], unknown[][]];
+    expect(headers.slice(-6)).toEqual([
+      'Last follow-up', 'Follow-up outcome', 'Follow-up note', 'Promised date', 'Followed up by', 'Follow-ups logged',
+    ]);
+    const first = rows.find((r) => r[headers.indexOf('Rent Plan ID')] === 'rr-0')!;
+    expect(first.slice(-5)).toEqual(['Reached, will pay', 'Says he will pay on Friday', '2099-01-02', 'Grace Namono', 1]);
+    const other = rows.find((r) => r[headers.indexOf('Rent Plan ID')] === 'rr-5')!;
+    expect(other.slice(-5)).toEqual(['Not followed up', '', '', '', 0]);
+  });
+});

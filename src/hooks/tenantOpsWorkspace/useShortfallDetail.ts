@@ -3,7 +3,8 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { AreaLevel } from './useAreaBook';
 import type { ShortfallGroup } from './useShortfallBreakdown';
-import { SHORTFALL_DETAIL_RPC } from './shortfallRpcNames';
+import { SHORTFALL_DETAIL_RPC, SHORTFALL_USE_FOLLOWUPS } from './shortfallRpcNames';
+import type { ShortfallFollowupFilter } from './useShortfallFollowups';
 
 const anyDb = supabase as any;
 
@@ -57,6 +58,8 @@ export interface ShortfallDetailParams {
   dir?: 'asc' | 'desc';
   limit?: number;
   offset?: number;
+  /** Follow-up state filter (needs tops_shortfall_detail_v3). Omit or 'all' for every short Rent Plan. */
+  followup?: ShortfallFollowupFilter;
 }
 
 export interface ShortfallDetailResult {
@@ -83,6 +86,8 @@ export async function fetchShortfallDetail(p: ShortfallDetailParams): Promise<Sh
     p_dir: p.dir ?? 'desc',
     p_limit: p.limit ?? 50,
     p_offset: p.offset ?? 0,
+    // Only sent when filtering, so an unfiltered call is byte-for-byte what v2 received.
+    ...(SHORTFALL_USE_FOLLOWUPS && p.followup && p.followup !== 'all' ? { p_followup: p.followup } : {}),
   });
   if (error) throw error;
   const raw = (data ?? {}) as Record<string, any>;
@@ -130,6 +135,7 @@ export function useShortfallDetail(params: ShortfallDetailParams, enabled = true
       params.dir ?? 'desc',
       params.limit ?? 50,
       params.offset ?? 0,
+      params.followup ?? 'all',
     ],
     queryFn: () => fetchShortfallDetail(params),
     enabled,
