@@ -264,25 +264,27 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
             <p className="mt-1.5 text-xs text-muted-foreground">
               of <span className="font-semibold text-foreground">{formatUGX(expected)}</span> expected {phrase}
             </p>
-            <Progress value={coverage} className="mt-4 h-2" />
-            <div className="mt-2.5 flex items-center justify-between gap-2 text-[11px]">
-              <span className="font-semibold text-foreground">{coverage}% covered</span>
-              {shortfall > 0 ? (
-                <button
-                  type="button"
-                  title="See which Rent Plans are short"
-                  onClick={() => onNavigate('collection-shortfall', preset === 'custom'
-                    ? { sf_range: 'custom', sf_from: format(start, 'yyyy-MM-dd'), sf_to: format(end, 'yyyy-MM-dd') }
-                    : { sf_range: preset })}
-                  className="font-semibold text-destructive hover:underline"
-                >
-                  {formatUGX(shortfall)} short
-                </button>
-              ) : (
-                <span className="font-semibold text-success">Target met</span>
-              )}
+            <div className="mt-auto pt-5">
+              <Progress value={coverage} className="h-2" />
+              <div className="mt-2.5 flex items-center justify-between gap-2 text-[11px]">
+                <span className="font-semibold text-foreground">{coverage}% covered</span>
+                {shortfall > 0 ? (
+                  <button
+                    type="button"
+                    title="See which Rent Plans are short"
+                    onClick={() => onNavigate('collection-shortfall', preset === 'custom'
+                      ? { sf_range: 'custom', sf_from: format(start, 'yyyy-MM-dd'), sf_to: format(end, 'yyyy-MM-dd') }
+                      : { sf_range: preset })}
+                    className="font-semibold text-destructive hover:underline"
+                  >
+                    {formatUGX(shortfall)} short
+                  </button>
+                ) : (
+                  <span className="font-semibold text-success">Target met</span>
+                )}
+              </div>
             </div>
-            <div className="mt-auto pt-4">
+            <div className="pt-4">
               <button
                 type="button"
                 onClick={() => onNavigate('daily-collections')}
