@@ -21,6 +21,7 @@ import {
   generateSpiroBikeSettlementCertificatePdf,
   downloadSpiroSettlementCertificate,
 } from '@/lib/spiroBikeSettlementCertificatePdf';
+import { useBikeCatalogCosts, resolveBikeBasePrice } from '@/hooks/useBikeCatalogCosts';
 
 const db = supabase as any;
 
@@ -188,10 +189,12 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder, filterStatu
 
   if (!userId || !selected || filteredOrders.length === 0) return null;
 
+  const supplierCostFor = useBikeCatalogCosts();
   const status = selected.order_status || 'submitted';
   const rejected = status === 'rejected' || status === 'failed';
   const current = stageIndex(status);
-  const valuation = Number(selected.valuation_amount || selected.total_amount || 0);
+  const catalogCost = supplierCostFor(selected.model_type);
+  const valuation = resolveBikeBasePrice(selected.valuation_amount || selected.total_amount, selected.lease_term_months, selected.model_type, catalogCost);
   const outstanding = Number(selected.amount_outstanding || 0);
   const rate = 0.28;
 

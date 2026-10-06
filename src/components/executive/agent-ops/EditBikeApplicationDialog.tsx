@@ -26,7 +26,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
 import { SPIRO_LEASE_PERIODS, spiroLeaseSchedule, spiroEffectiveFeePct } from '@/lib/spiroBikeLease';
-import { useBikeCatalogCosts, bikeProfit } from '@/hooks/useBikeCatalogCosts';
+import { useBikeCatalogCosts, bikeProfit, resolveBikeBasePrice } from '@/hooks/useBikeCatalogCosts';
 import { useMotorBikeCatalog } from './MotorBikeCatalogDialog';
 
 const db = supabase as any;
@@ -73,7 +73,8 @@ export function EditBikeApplicationDialog({ order, open, onOpenChange, onSuccess
   useEffect(() => {
     if (order) {
       setModel(order.model_type || 'Spiro Ekoride');
-      setValuation(String(Math.round(Number(order.valuation_amount || 0))));
+      const baseVal = resolveBikeBasePrice(order.valuation_amount, order.lease_term_months, order.model_type, supplierCostFor(order.model_type));
+      setValuation(String(Math.round(baseVal)));
       setTerm(String(order.lease_term_months || 12));
       setNote('');
     }

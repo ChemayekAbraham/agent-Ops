@@ -123,7 +123,7 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
     setSubmitting(true);
     const { error } = await db.rpc('agent_order_spiro_bike_lease', {
       p_model: model,
-      p_valuation: schedule.total,
+      p_valuation: schedule.base,
       p_lease_term_months: schedule.months,
       p_note: `Spiro bike lease — base ${formatUGX(schedule.base)}, ${schedule.monthlyRatePct}% monthly on the reducing balance, fees ${formatUGX(schedule.accessFee)}, total ${formatUGX(schedule.total)} over ${schedule.months} months; month 1 ${formatUGX(schedule.firstMonthly)} down to ${formatUGX(schedule.lastMonthly)}`,
     });

@@ -71,7 +71,48 @@ export function useBikeCatalogCosts() {
   };
 }
 
+import { spiroLeaseSchedule } from '@/lib/spiroBikeLease';
+
 /** Profit = valuation − catalog price; null when the cost is unknown. */
 export function bikeProfit(valuation: number, cost: number | null): number | null {
   return cost == null ? null : valuation - cost;
+}
+
+/**
+ * Resolves the genuine base valuation of a bike lease application.
+ * If an application stored schedule.total (e.g. 632,200) instead of schedule.base (e.g. 145,000),
+ * this detects the reducing-balance total multiplier against the catalog base price and extracts
+ * the real base price, preventing double-fee calculation.
+ */
+export function resolveBikeBasePrice(
+  storedValuation: number | null | undefined,
+  termMonths: number | null | undefined,
+  modelType: string | null | undefined,
+  catalogBasePrice: number | null | undefined,
+): number {
+  const val = Number(storedValuation || 0);
+  const term = Math.max(1, Number(termMonths || 12));
+  const catPrice = Number(catalogBasePrice || 0);
+
+  if (catPrice > 0) {
+    const catSchedule = spiroLeaseSchedule(term, catPrice);
+    // If stored valuation equals or closely matches the total repayable of the catalog price,
+    // it was saved as total instead of base price.
+    if (val > 0 && Math.abs(val - catSchedule.total) <= Math.max(100, catSchedule.total * 0.02)) {
+      return catPrice;
+    }
+  }
+
+  // If val is suspiciously higher than catalog price by more than 25% for this term,
+  // check if val was derived from a total schedule
+  if (val > 0 && catPrice > 0 && val >= catPrice * 1.25) {
+    const catSchedule = spiroLeaseSchedule(term, catPrice);
+    if (val === catSchedule.total || Math.abs(val - catSchedule.total) <= 1000) {
+      return catPrice;
+    }
+  }
+
+  if (val > 0) return val;
+  if (catPrice > 0) return catPrice;
+  return 145_000;
 }

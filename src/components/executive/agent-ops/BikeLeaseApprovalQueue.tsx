@@ -30,7 +30,7 @@ import {
 import { formatUGX } from '@/lib/rentCalculations';
 import { LEASE_TERMS } from '@/components/merchandise/SpiroBikeOrderDialog';
 import { SPIRO_LEASE_PERIODS, spiroLeaseSchedule } from '@/lib/spiroBikeLease';
-import { useBikeCatalogCosts, bikeProfit } from '@/hooks/useBikeCatalogCosts';
+import { useBikeCatalogCosts, bikeProfit, resolveBikeBasePrice } from '@/hooks/useBikeCatalogCosts';
 import { BikeLeaseDetailDialog } from './BikeLeaseDetailDialog';
 import { EditBikeApplicationDialog } from './EditBikeApplicationDialog';
 import { MotorBikeCatalogDialog } from './MotorBikeCatalogDialog';
@@ -101,14 +101,14 @@ const isApproved = (s: string) => s === 'approved' || s === 'completed';
  * (valuation + 28% monthly fee on the opening principal), not valuation alone.
  */
 const getRowPricing = (row: BikeLeaseRow, supplierCost: number | null) => {
-  const val = Number(row.valuation_amount || 0);
   const term = Number(row.lease_term_months || 12);
+  const val = resolveBikeBasePrice(row.valuation_amount, term, row.model_type, supplierCost);
   const schedule = spiroLeaseSchedule(term, val);
   const feePct = schedule.feePct;
-  const costPrice = supplierCost;
+  const costPrice = supplierCost ?? val;
   const dailyPay = schedule.daily;
   const perCredit = schedule.accessFee;
-  const profit = bikeProfit(val, costPrice);
+  const profit = schedule.accessFee;
   const dailyRange = `${formatUGX(schedule.firstDaily)} → ${formatUGX(schedule.lastDaily)} per day`;
   return { val, term, feePct, costPrice, dailyPay, perCredit, profit, dailyRange };
 };
@@ -196,7 +196,8 @@ export function BikeLeaseApprovalQueue({
   const openApprove = (o: BikeLeaseRow) => {
     if (!canActOnRow(o.order_status)) return;
     setApproveTarget(o);
-    setApprovedValuation(String(Math.round(Number(o.valuation_amount || 0))));
+    const baseVal = resolveBikeBasePrice(o.valuation_amount, o.lease_term_months, o.model_type, supplierCostFor(o.model_type));
+    setApprovedValuation(String(Math.round(baseVal)));
     setApprovedTerm(String(o.lease_term_months || 12));
   };
 

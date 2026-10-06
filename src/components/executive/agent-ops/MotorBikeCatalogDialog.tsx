@@ -56,28 +56,28 @@ export const DEFAULT_MOTORBIKES: Omit<MotorBikeCatalogItem, 'id'>[] = [
   {
     item_name: 'Spiro Ekoride',
     unit_price: 159_600,
-    unit_cost: 150_000,
+    unit_cost: 159_600,
     description: 'Flagship electric delivery motorbike with dual swappable battery configuration.',
     is_active: true,
   },
   {
     item_name: 'Spiro Ekocycle',
     unit_price: 145_000,
-    unit_cost: 135_000,
+    unit_cost: 145_000,
     description: 'Lightweight urban electric bike optimized for local errands and fast dispatch.',
     is_active: true,
   },
   {
     item_name: 'Spiro Commando',
     unit_price: 185_000,
-    unit_cost: 170_000,
+    unit_cost: 185_000,
     description: 'Heavy-duty long-range electric bike built for rural routes and heavier utility loads.',
     is_active: true,
   },
   {
     item_name: 'Spiro bike',
     unit_price: 159_600,
-    unit_cost: 150_000,
+    unit_cost: 159_600,
     description: 'Standard Spiro electric commercial lease model.',
     is_active: true,
   },
@@ -285,6 +285,7 @@ export function MotorBikeCatalogDialog() {
     queryClient.invalidateQueries({ queryKey: ['merchandise-catalog'] });
     queryClient.invalidateQueries({ queryKey: ['merchandise-catalog-admin'] });
     queryClient.invalidateQueries({ queryKey: ['agent-products-overview'] });
+    queryClient.invalidateQueries({ queryKey: ['bike-catalog-costs'] });
   };
 
   // Upsert bike into merchandise_catalog
@@ -353,7 +354,7 @@ export function MotorBikeCatalogDialog() {
         const { error } = await db.from('merchandise_catalog').insert({
           item_name: item.item_name,
           unit_price: newPrice,
-          unit_cost: item.unit_cost || newPrice,
+          unit_cost: newPrice,
           description: baseDesc ? `${baseDesc} ${MOTOR_BIKE_SENTINEL}` : MOTOR_BIKE_SENTINEL,
           is_active: item.is_active,
         });
@@ -363,6 +364,7 @@ export function MotorBikeCatalogDialog() {
           .from('merchandise_catalog')
           .update({
             unit_price: newPrice,
+            unit_cost: newPrice,
             updated_at: new Date().toISOString(),
           })
           .eq('id', item.id);
