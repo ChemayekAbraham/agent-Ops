@@ -99,7 +99,7 @@ export default function ReceivablesOverview() {
           </div>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[210px_minmax(0,1fr)] gap-5 lg:min-h-[calc(100vh-9rem)] flex-1">
+        <div className="grid grid-cols-1 lg:grid-cols-[180px_minmax(0,1fr)] gap-5 lg:min-h-[calc(100vh-9rem)] flex-1">
           <nav aria-label="Receivable categories" className="border-r border-border bg-background p-1 flex flex-col lg:sticky lg:top-5 lg:min-h-[calc(100vh-3rem)] lg:self-start">
             <SideItem active={catKey === 'overview'} icon={LayoutGrid} label="Overview"
               value={breakdown.data?.total} onClick={() => go('overview')} />
@@ -220,7 +220,7 @@ function Overview({ cats, products, onOpen, total, search }: {
   const longest = complete && overdueItems.length ? Math.max(...overdueItems.map((i) => Math.floor((Date.parse(today) - Date.parse(i.due_date?.slice(0, 10) ?? today)) / 86400000))) : undefined;
   return (
     <>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 2xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         <OverviewMetric label="Total Receivables" value={money(total)} note={`${counts.toLocaleString()} open items`} icon={Wallet} tone="info" />
         <OverviewMetric label="Current" value={money(actual?.not_yet_due)} note="Not yet due" icon={CheckCircle2} tone="success" />
         <OverviewMetric label="Overdue" value={money(actual?.overdue)} note="Past due date" icon={AlertTriangle} tone="destructive" />
@@ -228,10 +228,10 @@ function Overview({ cats, products, onOpen, total, search }: {
         <OverviewMetric label="Collection Rate" value="Unavailable" note="No consolidated rate" icon={TrendingUp} tone="success" />
         <OverviewMetric label="Accounts Receivable" value={counts.toLocaleString()} note="Open receivable items" icon={Users} tone="info" />
       </div>
-      <div className="grid gap-4 xl:grid-cols-[1.2fr_1fr_1fr] [&>*]:min-w-0">
+      <div className="grid gap-4 xl:grid-cols-[1.65fr_1fr_1fr] [&>*]:min-w-0">
         <Card title="Receivables by Category" className="h-full">
           <div className="overflow-x-auto">
-            <table className="w-full text-xs"><thead className="bg-muted/50 text-muted-foreground"><tr><th className="p-2 text-left font-medium">Category</th><th className="p-2 text-right font-medium">Items</th><th className="p-2 text-right font-medium">Outstanding (UGX)</th><th className="p-2 text-right font-medium">Overdue (UGX)</th><th className="p-2 text-right font-medium">Share</th></tr></thead>
+            <table className="w-full text-[10px]"><thead className="bg-muted/50 text-muted-foreground"><tr><th className="p-1 text-left font-medium">Category</th><th className="p-1 text-right font-medium">Items</th><th className="p-1 text-right font-medium">Outstanding (UGX)</th><th className="p-1 text-right font-medium">Overdue (UGX)</th><th className="p-1 text-right font-medium">Share</th></tr></thead>
               <tbody className="divide-y divide-border">{cats.filter((c) => c.label.toLowerCase().includes(search.toLowerCase())).map((c, index) => <tr key={c.key} className="hover:bg-muted/40"><td className="py-3 pr-2"><Button variant="ghost" className="h-auto min-h-0 justify-start whitespace-normal px-0 py-1 text-left text-xs font-medium" onClick={() => onOpen(c.key)}><c.icon className="h-4 w-4 shrink-0 text-muted-foreground" />{c.label}<ChevronRight className="h-3 w-3" /></Button></td><td className="p-2 text-right tabular-nums">{c.count.toLocaleString()}</td><td className="p-2 text-right tabular-nums whitespace-nowrap">{formatUGX(c.outstanding)}</td><td className="p-2 text-right tabular-nums whitespace-nowrap">{money(overdueFor(c.key))}</td><td className="p-2 text-right tabular-nums">{total > 0 ? (c.outstanding / total * 100).toFixed(1) : '0'}%</td></tr>)}</tbody>
             </table>
           </div>
@@ -255,7 +255,7 @@ function Overview({ cats, products, onOpen, total, search }: {
           <Card title="Top Locations by Receivables" right={<Button variant="link" size="sm" className="h-auto min-h-0 p-0" onClick={() => onOpen('tenant')}>View all <ChevronRight /></Button>}>
             <p className="mb-3 text-[11px] text-muted-foreground">Tenant products & services</p>
             <div className="overflow-x-auto"><table className="w-full text-[11px]"><thead className="bg-muted/50 text-muted-foreground"><tr><th className="p-2 text-left font-medium">Location</th><th className="p-2 text-right font-medium">Accounts</th><th className="p-2 text-right font-medium">Outstanding</th></tr></thead><tbody className="divide-y divide-border">{topLocations.map((r) => <tr key={r.label}><td className="py-3"><span className="flex items-center gap-1"><MapPin className="h-3 w-3 shrink-0 text-info" />{r.label}</span></td><td className="p-2 text-right tabular-nums">{r.tenant_count.toLocaleString()}</td><td className="p-2 text-right tabular-nums whitespace-nowrap">{formatUGX(r.outstanding)}</td></tr>)}</tbody></table></div>
-            {!topLocations.length && <p className="py-5 text-xs text-muted-foreground">{locations.isLoading ? 'Loading locations…' : 'No location data available.'}</p>}
+            {!topLocations.length && <p className="py-5 text-xs text-muted-foreground">{locations.isLoading ? 'Loading locations…' : locations.isError ? 'Location report unavailable.' : 'No location data available.'}</p>}
           </Card>
         </div>
       </div>
