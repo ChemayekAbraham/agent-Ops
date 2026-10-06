@@ -31,6 +31,14 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { SupplierPicker, type SupplierChoice } from './SmartphoneCatalogDialog';
 import { downPaymentCopy } from '@/lib/moBanjaIphone';
 import { SmartphoneRepaymentBreakdown } from './SmartphoneRepaymentBreakdown';
+import { smartphoneReducingSchedule } from '@/lib/smartphoneAdvance';
+
+/** Charge under the current 28% monthly reducing-balance rule; null when no period is recorded. */
+const reducingCharge = (amount: number, months: number | null | undefined) => {
+  const n = Math.round(Number(months || 0));
+  if (amount <= 0 || n < 1) return null;
+  return smartphoneReducingSchedule(amount, n).totalCharge;
+};
 import { format } from 'date-fns';
 
 const KAMPALA_TZ = 'Africa/Kampala';
@@ -205,7 +213,7 @@ export function SmartphoneOrderApprovalQueue({
   };
 
   const officialAmountNumber = Math.max(0, Math.round(Number(officialAmount || 0) || 0));
-  const officialProjection = Math.round(officialAmountNumber * 0.33);
+  const officialProjection = reducingCharge(officialAmountNumber, approveTarget?.advance_period_months) ?? 0;
 
   // Repayment maths shown to both the executive and (once saved) the agent:
   // Access Amount = the down payment Welile releases. The agent repays that
@@ -621,7 +629,7 @@ export function SmartphoneOrderApprovalQueue({
         ) : (
           filtered.map((o) => {
             const total = Number(o.total_amount || 0);
-            const projection = Number(o.payment_projection || Math.round(total * 0.33));
+            const projection = reducingCharge(total, o.advance_period_months);
             return (
               <div
                 key={o.id}
@@ -679,8 +687,10 @@ export function SmartphoneOrderApprovalQueue({
                     <p className="text-xs font-semibold">{formatUGX(total)}</p>
                   </div>
                   <div className="rounded-md bg-muted/50 px-2 py-1.5">
-                    <p className="text-[10px] text-muted-foreground">Projection (33%)</p>
-                    <p className="text-xs font-semibold">{formatUGX(projection)}</p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {projection === null ? 'Charge' : `Charge (28%/mo, ${o.advance_period_months} mo)`}
+                    </p>
+                    <p className="text-xs font-semibold">{projection === null ? 'Full payment' : formatUGX(projection)}</p>
                   </div>
                 </div>
 
@@ -748,9 +758,9 @@ export function SmartphoneOrderApprovalQueue({
           {detailsTarget && (() => {
             const total = Number(detailsTarget.total_amount || 0);
             const totalRepayable = Number(detailsTarget.total_repayable || 0);
-            const projection = Number(
-              detailsTarget.payment_projection || Math.max(0, totalRepayable - total),
-            );
+            const projection =
+              reducingCharge(total, detailsTarget.advance_period_months) ??
+              Number(detailsTarget.payment_projection || Math.max(0, totalRepayable - total));
             const rows: Array<[string, string]> = [
               ['Agent', detailsTarget.client_name || 'Agent'],
               ['Phone number', detailsTarget.client_phone || '—'],
@@ -1247,7 +1257,7 @@ export function SmartphoneOrderApprovalQueue({
                     </p>
                     <div className="grid grid-cols-3 gap-2 text-center">
                       <div className="rounded-md bg-background/70 px-2 py-1.5">
-                        <p className="text-[10px] text-muted-foreground">Interest (33%)</p>
+                        <p className="text-[10px] text-muted-foreground">Charge (28%/mo, reducing)</p>
                         <p className="text-xs font-semibold">{formatUGX(accessInterest)}</p>
                       </div>
                       <div className="rounded-md bg-background/70 px-2 py-1.5">
@@ -1262,8 +1272,8 @@ export function SmartphoneOrderApprovalQueue({
                     <p className="text-[11px] text-muted-foreground">
                       {formatUGX(dailyDeduction)} is deducted from the agent&apos;s wallet each day for{' '}
                       {repaymentDaysNumber || 0} days — {formatUGX(totalPayable)} in total. That is{' '}
-                      {formatUGX(officialAmountNumber)} down payment + {formatUGX(accessInterest)} interest
-                      (33%).
+                      {formatUGX(officialAmountNumber)} down payment + {formatUGX(accessInterest)} charge
+                      (28% monthly, reducing balance).
                     </p>
 
                   </div>
@@ -1271,13 +1281,13 @@ export function SmartphoneOrderApprovalQueue({
               )}
 
               <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 space-y-1">
-                <p className="text-[11px] text-muted-foreground">Monthly Recovery Projection (33%)</p>
+                <p className="text-[11px] text-muted-foreground">Total charge (28% monthly, reducing balance)</p>
                 <p className="text-lg font-bold text-primary">{formatUGX(officialProjection)}</p>
                 <p className="text-[11px] text-muted-foreground">
                   {approveStage === 'cfo' ? (
                     <>
                       {formatUGX(officialAmountNumber)} is paid straight to the assigned supplier&apos;s
-                      account, the application becomes active and the 33% wallet repayments start on the
+                      account, the application becomes active and the daily wallet repayments start on the
                       applying agent.
                     </>
                   ) : (
