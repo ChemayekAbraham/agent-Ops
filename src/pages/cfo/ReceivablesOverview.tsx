@@ -183,7 +183,15 @@ function Stat({ label, value, sub }: { label: string; value: string; sub?: strin
   );
 }
 
-const CATEGORY_TONES = ['info', 'primary', 'success', 'warning', 'muted-foreground', 'chart-2'];
+const CATEGORY_ICON_STYLES: Record<string, string> = {
+  tenant: 'bg-success/10 text-success',
+  agent: 'bg-info/10 text-info',
+  landlord: 'bg-warning/10 text-warning',
+  partner: 'bg-primary/10 text-primary',
+  other: 'bg-muted text-muted-foreground',
+  rnd: 'receivable-category-rnd',
+};
+const CATEGORY_TONES = ['success', 'info', 'warning', 'primary', 'muted-foreground', 'receivable-rnd'];
 const SLICE_COLORS = CATEGORY_TONES.map((tone) => `hsl(var(--${tone}))`);
 
 function Overview({ cats, products, onOpen, total, search }: {
@@ -227,7 +235,7 @@ function Overview({ cats, products, onOpen, total, search }: {
         <Card title="Receivables by Category" className="h-full category-table">
           <div className="overflow-x-auto">
             <table className="w-full text-[10px]"><thead className="bg-muted/50 text-muted-foreground"><tr><th className="p-1 text-left font-medium">Category</th><th className="p-1 text-right font-medium">Items</th><th className="p-1 text-right font-medium">Outstanding (UGX)</th><th className="p-1 text-right font-medium">Overdue (UGX)</th><th className="p-1 text-right font-medium">Share</th></tr></thead>
-              <tbody className="divide-y divide-border">{cats.filter((c) => c.label.toLowerCase().includes(search.toLowerCase())).map((c, index) => <tr key={c.key} className="hover:bg-muted/40"><td className="py-2 pr-1"><Button variant="ghost" className="h-auto min-h-0 justify-start whitespace-normal gap-1 px-0 py-1 text-left text-[9px] font-medium" onClick={() => onOpen(c.key)}><c.icon className="h-4 w-4 shrink-0 text-muted-foreground" />{c.label}<ChevronRight className="h-3 w-3" /></Button></td><td className="p-1 text-right tabular-nums">{c.count.toLocaleString()}</td><td className="p-1 text-right tabular-nums whitespace-nowrap">{formatUGX(c.outstanding).replace(/^UGX\s*/, '')}</td><td className="p-1 text-right tabular-nums whitespace-nowrap">{money(overdueFor(c.key)).replace(/^UGX\s*/, '')}</td><td className="p-1 text-right tabular-nums">{total > 0 ? (c.outstanding / total * 100).toFixed(1) : '0'}%</td></tr>)}</tbody>
+              <tbody className="divide-y divide-border">{cats.filter((c) => c.label.toLowerCase().includes(search.toLowerCase())).map((c) => <tr key={c.key} className="hover:bg-muted/40"><td className="py-2 pr-1"><Button variant="ghost" className="h-auto min-h-0 justify-start whitespace-normal gap-1 px-0 py-1 text-left text-[9px] font-medium" onClick={() => onOpen(c.key)}><span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full ${CATEGORY_ICON_STYLES[c.key] ?? 'bg-muted text-muted-foreground'}`}><c.icon className="h-3.5 w-3.5" /></span>{c.label}<ChevronRight className="h-3 w-3" /></Button></td><td className="p-1 text-right tabular-nums">{c.count.toLocaleString()}</td><td className="p-1 text-right tabular-nums whitespace-nowrap">{formatUGX(c.outstanding).replace(/^UGX\s*/, '')}</td><td className="p-1 text-right tabular-nums whitespace-nowrap">{money(overdueFor(c.key)).replace(/^UGX\s*/, '')}</td><td className="p-1 text-right tabular-nums">{total > 0 ? (c.outstanding / total * 100).toFixed(1) : '0'}%</td></tr>)}</tbody>
             </table>
           </div>
         </Card>
