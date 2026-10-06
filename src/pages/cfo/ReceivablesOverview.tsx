@@ -91,17 +91,18 @@ export default function ReceivablesOverview() {
           <p className="text-xs text-muted-foreground">Read-only · as at {breakdown.data?.as_at?.slice(0, 10) ?? '—'} · UGX</p>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-6">
-          <nav aria-label="Receivable categories" className="rounded-2xl border border-border/70 bg-card p-2 h-fit lg:sticky lg:top-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-6 lg:min-h-[calc(100vh-9rem)] flex-1">
+          <nav aria-label="Receivable categories" className="rounded-2xl border border-border/70 bg-card p-2 flex flex-col lg:sticky lg:top-6 lg:max-h-[calc(100vh-3rem)] lg:overflow-y-auto">
             <SideItem active={catKey === 'overview'} icon={LayoutGrid} label="Overview"
               value={breakdown.data?.total} onClick={() => go('overview')} />
             {cats.map((c) => (
               <SideItem key={c.key} active={catKey === c.key} icon={c.icon} label={c.label}
                 value={c.outstanding} onClick={() => go(c.key)} />
             ))}
+            <div className="flex-1 min-h-2" />
           </nav>
 
-          <div className="min-w-0 space-y-6">
+          <div className="min-w-0 flex flex-col gap-6">
             {breakdown.isLoading ? (
               <Card><p className="text-sm text-muted-foreground">Loading live receivables…</p></Card>
             ) : !cat ? (
