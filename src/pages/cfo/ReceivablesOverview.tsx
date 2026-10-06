@@ -6,6 +6,7 @@ import {
 } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import TenantReceivablesDetail from '@/components/executive/TenantReceivablesDetail';
 import { usePayablesPredictiveForecast } from '@/hooks/usePayables';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -104,8 +105,9 @@ export default function ReceivablesOverview() {
             <SideItem active={catKey === 'agent_lending'} icon={HandCoins} label="Agent-to-borrower lending" onClick={() => go('agent_lending')} />
           </nav>
           <div className="min-w-0 px-4 py-5 lg:col-start-2">
+            {catKey === 'tenant' && <div className="mb-2 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground"><Button variant="link" className="h-auto min-h-0 p-0 text-[10px] text-info" onClick={() => go('overview')}>Receivables</Button><ChevronRight className="h-3 w-3" /><span>Tenant Products & Services</span><ChevronRight className="h-3 w-3" /><span>{sub?.label}</span></div>}
             <header className="mb-5 flex flex-wrap items-center justify-between gap-3">
-              <div><h1 className="text-xl font-semibold">Receivables Overview</h1><p className="mt-1 text-xs text-muted-foreground">Outstanding receivables, collection risk and expected collections.</p></div>
+              <div><h1 className="text-xl font-semibold">{catKey === 'tenant' ? 'Tenant Products & Services' : 'Receivables Overview'}</h1><p className="mt-1 text-xs text-muted-foreground">{catKey === 'tenant' ? 'Track outstanding receivables, collection performance and forecast for tenant products and services.' : 'Outstanding receivables, collection risk and expected collections.'}</p></div>
               <div className="flex items-center gap-3"><span className="text-[10px] text-muted-foreground">Last updated · {breakdown.data?.as_at?.slice(0,10) ?? '—'} · EAT</span><Button variant="outline" size="sm" className="rounded-md text-info" disabled={breakdown.isFetching} onClick={() => void breakdown.refetch()}><RefreshCw className={breakdown.isFetching ? 'animate-spin' : ''} />Refresh</Button></div>
             </header>
           <div className="min-w-0 flex flex-col gap-3">
@@ -115,19 +117,19 @@ export default function ReceivablesOverview() {
               <Overview cats={cats} products={(k) => liveCat(k)?.products ?? []} onOpen={go} total={breakdown.data?.total ?? 0} search={search} />
             ) : (
               <>
-                <div>
+                {catKey !== 'tenant' && <div>
                   <h2 className="text-lg font-semibold">{cat.label}</h2>
                   <p className="text-xs text-muted-foreground">{formatUGX(cat.outstanding)} · {cat.count.toLocaleString()} items</p>
-                </div>
+                </div>}
                 {cat.subs.length === 0 ? (
                   <Card><p className="text-sm text-muted-foreground">No receivable products are recorded under this category yet.</p></Card>
                 ) : (
                   <>
-                    <div role="tablist" className="inline-flex flex-wrap gap-1 rounded-xl border border-border/70 bg-card p-1">
+                    <div role="tablist" className={`inline-flex flex-wrap gap-1 border border-border/70 bg-card p-1 ${catKey === 'tenant' ? 'rounded-lg' : 'rounded-xl'}`}>
                       {cat.subs.map((s) => (
                         <Button variant="ghost" size="sm" key={s.key} role="tab" aria-selected={s.key === subKey} onClick={() => go(cat.key, s.key)}
-                          className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${s.key === subKey
-                            ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}>
+                          className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${s.key === subKey
+                            ? catKey === 'tenant' ? 'bg-info text-info-foreground shadow-sm' : 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}>
                           {s.label}
                         </Button>
                       ))}
@@ -319,6 +321,10 @@ function SubDetail({ catKey, label, productKey, product }: {
 
   if (!product) {
     return <Card title={label}><p className="text-sm text-muted-foreground">No live outstanding balance is recorded for {label} yet.</p></Card>;
+  }
+
+  if (isTenant) {
+    return <TenantReceivablesDetail product={product} current={current} overdue={overdue} complete={complete} today={t} locations={loc.data} locationLoading={loc.isLoading} locationError={loc.isError} forecast={proj} behaviourTotal={bTotal} idealTotal={iTotal} />;
   }
 
   return (
