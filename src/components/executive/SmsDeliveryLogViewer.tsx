@@ -321,8 +321,8 @@ export function SmsDeliveryLogViewer() {
   const now = new Date();
   const dayStart = startOfDay(now).getTime();
   const weekStart = startOfWeek(now, { weekStartsOn: 1 }).getTime();
-  const monthStart = selectedMonthStart.getTime();
-  const monthEnd = selectedMonthEnd.getTime();
+  const monthStart = rangeStart.getTime();
+  const monthEnd = rangeEnd.getTime();
 
   const costOf = (predicate: (t: number) => boolean) => {
     let cost = 0, foreign = 0;
@@ -336,7 +336,7 @@ export function SmsDeliveryLogViewer() {
   };
   const inRange = (start: number, end: number) => (t: number) => t >= startOfDay(new Date(start)).getTime() && t <= startOfDay(new Date(end)).getTime();
   const todaySpend = costOf((t) => t >= dayStart);
-  const thisMonthSpend = isPastMonth ? costOf(inRange(monthStart, monthEnd)) : costOf((t) => t >= monthStart);
+  const thisMonthSpend = scoped ? costOf(inRange(monthStart, monthEnd)) : costOf((t) => t >= monthStart);
 
   const countSince = (cutoff: number) => {
     let sent = 0, fail = 0;
@@ -360,15 +360,15 @@ export function SmsDeliveryLogViewer() {
   };
   const today = countSince(dayStart);
   const thisWeek = countSince(weekStart);
-  const thisMonth = isPastMonth ? countBetween(monthStart, monthEnd) : countSince(monthStart);
+  const thisMonth = scoped ? countBetween(monthStart, monthEnd) : countSince(monthStart);
 
-  // Daily traffic chart — last 30 days, or the full selected past month.
+  // Daily traffic chart — last 30 days, or the full selected window.
   const dailyTraffic = (() => {
     const byDay: Record<string, { delivered: number; failed: number }> = {};
-    if (isPastMonth) {
-      const days = differenceInCalendarDays(selectedMonthEnd, selectedMonthStart);
+    if (scoped) {
+      const days = differenceInCalendarDays(rangeEnd, rangeStart);
       for (let i = 0; i <= days; i++) {
-        byDay[format(subDays(selectedMonthEnd, days - i), 'yyyy-MM-dd')] = { delivered: 0, failed: 0 };
+        byDay[format(subDays(rangeEnd, days - i), 'yyyy-MM-dd')] = { delivered: 0, failed: 0 };
       }
     } else {
       for (let i = 29; i >= 0; i--) {
@@ -404,10 +404,10 @@ export function SmsDeliveryLogViewer() {
         at: Number(r.africastalking) || 0,
         other: Number(r.other) || 0,
       }));
-      // Scope the report to the selected month when a past month is chosen.
-      if (isPastMonth) {
-        const startKey = format(selectedMonthStart, 'yyyy-MM-dd');
-        const endKey = format(selectedMonthEnd, 'yyyy-MM-dd');
+      // Scope the report to the selected window (past month or custom range).
+      if (scoped) {
+        const startKey = format(rangeStart, 'yyyy-MM-dd');
+        const endKey = format(rangeEnd, 'yyyy-MM-dd');
         report = report.filter((r) => r.day >= startKey && r.day <= endKey);
       }
       if (report.length === 0) {
@@ -425,14 +425,16 @@ export function SmsDeliveryLogViewer() {
           at: a.at,
           other: a.other,
         }));
-      const windowLabel = isPastMonth
+      const windowLabel = customActive
+        ? `${format(customFrom, 'dd MMM yyyy')} to ${format(customTo, 'dd MMM yyyy')}`
+        : isPastMonth
         ? format(selectedMonthDate, 'MMMM yyyy')
         : `Last ${rollupDays} days`;
-      const rangeLabel = isPastMonth
-        ? `${format(selectedMonthStart, 'dd MMM yyyy')} to ${format(selectedMonthEnd, 'dd MMM yyyy')}`
+      const rangeLabel = scoped
+        ? `${format(rangeStart, 'dd MMM yyyy')} to ${format(rangeEnd, 'dd MMM yyyy')}`
         : `${format(subDays(startOfDay(new Date()), rollupDays - 1), 'dd MMM yyyy')} to ${format(new Date(), 'dd MMM yyyy')}`;
-      const contextLabel = `Today: ${today.total.toLocaleString()}  ·  This week: ${thisWeek.total.toLocaleString()}  ·  ${isPastMonth ? windowLabel : 'This month'}: ${thisMonth.total.toLocaleString()}`;
-      const fileTag = isPastMonth ? format(selectedMonthDate, 'yyyy-MM') : format(new Date(), 'yyyy-MM-dd');
+      const contextLabel = `Today: ${today.total.toLocaleString()}  ·  This week: ${thisWeek.total.toLocaleString()}  ·  ${scoped ? windowLabel : 'This month'}: ${thisMonth.total.toLocaleString()}`;
+      const fileTag = scoped ? format(rangeStart, 'yyyyMMdd') : format(new Date(), 'yyyy-MM-dd');
       await downloadSmsTrafficPdf(
         `sms-otp-traffic-report-${fileTag}.pdf`,
         reportRows,
