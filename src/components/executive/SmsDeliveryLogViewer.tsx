@@ -300,6 +300,12 @@ export function SmsDeliveryLogViewer() {
   });
 
   const rows = metrics || [];
+  const now = new Date();
+  const dayStart = startOfDay(now).getTime();
+  const weekStart = startOfWeek(now, { weekStartsOn: 1 }).getTime();
+  const monthStart = selectedMonthStart.getTime();
+  const monthEnd = selectedMonthEnd.getTime();
+
   const costOf = (predicate: (t: number) => boolean) => {
     let cost = 0, foreign = 0;
     for (const r of costRows) {
@@ -311,13 +317,8 @@ export function SmsDeliveryLogViewer() {
     return { cost, foreign };
   };
   const inRange = (start: number, end: number) => (t: number) => t >= startOfDay(new Date(start)).getTime() && t <= startOfDay(new Date(end)).getTime();
-  const todaySpend = costOf((t) => t >= startOfDay(new Date(dayStart)).getTime());
-  const thisMonthSpend = isPastMonth ? costOf(inRange(monthStart, monthEnd)) : costOf((t) => t >= startOfDay(new Date(monthStart)).getTime());
-  const now = new Date();
-  const dayStart = startOfDay(now).getTime();
-  const weekStart = startOfWeek(now, { weekStartsOn: 1 }).getTime();
-  const monthStart = selectedMonthStart.getTime();
-  const monthEnd = selectedMonthEnd.getTime();
+  const todaySpend = costOf((t) => t >= dayStart);
+  const thisMonthSpend = isPastMonth ? costOf(inRange(monthStart, monthEnd)) : costOf((t) => t >= monthStart);
 
   const countSince = (cutoff: number) => {
     let sent = 0, fail = 0;
