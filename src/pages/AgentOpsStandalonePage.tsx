@@ -1,11 +1,29 @@
-import React from 'react';
+import React, { useRef, useState, useCallback } from 'react';
 import { AgentOpsDashboard } from '@/components/executive/AgentOpsDashboard';
 import { useAuth } from '@/hooks/useAuth';
 import { LogOut, RefreshCw, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { PullToRefresh } from '@/components/PullToRefresh';
+import { useQueryClient } from '@tanstack/react-query';
+import { cn } from '@/lib/utils';
 
 export default function AgentOpsStandalonePage() {
   const { user, signOut } = useAuth();
+  const queryClient = useQueryClient();
+  const mainRef = useRef<HTMLElement>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    try {
+      await Promise.all([
+        queryClient.invalidateQueries(),
+        new Promise((resolve) => setTimeout(resolve, 650)),
+      ]);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [queryClient]);
 
   return (
     <div className="flex flex-col h-[100dvh] w-full bg-background overflow-hidden select-none">
@@ -32,10 +50,11 @@ export default function AgentOpsStandalonePage() {
               variant="ghost"
               size="icon"
               className="h-8 w-8 text-muted-foreground hover:text-foreground"
-              onClick={() => window.location.reload()}
+              onClick={handleRefresh}
+              disabled={isRefreshing}
               title="Refresh"
             >
-              <RefreshCw className="h-4 w-4" />
+              <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin text-primary")} />
             </Button>
             <Button
               variant="ghost"
@@ -50,9 +69,19 @@ export default function AgentOpsStandalonePage() {
         </div>
       </header>
 
-      {/* Main Agent Ops Workspace */}
-      <main className="flex-1 overflow-y-auto relative w-full pb-[env(safe-area-inset-bottom)]">
-        <AgentOpsDashboard />
+      {/* Main Agent Ops Workspace with Pull-to-Refresh */}
+      <main
+        ref={mainRef}
+        className="flex-1 overflow-y-auto relative w-full pb-[env(safe-area-inset-bottom)] overscroll-y-contain"
+      >
+        <PullToRefresh
+          onRefresh={handleRefresh}
+          scrollContainerRef={mainRef}
+          threshold={70}
+          maxPull={120}
+        >
+          <AgentOpsDashboard />
+        </PullToRefresh>
       </main>
     </div>
   );

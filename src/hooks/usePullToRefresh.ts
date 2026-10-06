@@ -5,6 +5,7 @@ interface UsePullToRefreshOptions {
   onRefresh: () => Promise<void>;
   threshold?: number;
   maxPull?: number;
+  scrollContainerRef?: React.RefObject<HTMLElement | null>;
 }
 
 interface PullToRefreshState {
@@ -15,7 +16,7 @@ interface PullToRefreshState {
 }
 
 const INTERACTIVE_SELECTORS = 'button, a, input, select, textarea, [role="tab"], [role="tablist"], [role="button"], [role="link"], [role="menuitem"], [data-radix-collection-item]';
-const DRAG_START_THRESHOLD = 10; // px of vertical movement before entering pull mode
+const DRAG_START_THRESHOLD = 8; // px of vertical movement before entering pull mode
 
 function isInteractiveElement(el: EventTarget | null): boolean {
   if (!el || !(el instanceof HTMLElement)) return false;
@@ -25,8 +26,9 @@ function isInteractiveElement(el: EventTarget | null): boolean {
 
 export function usePullToRefresh({
   onRefresh,
-  threshold = 80,
+  threshold = 70,
   maxPull = 120,
+  scrollContainerRef,
 }: UsePullToRefreshOptions) {
   const [state, setState] = useState<PullToRefreshState>({
     isPulling: false,
@@ -42,6 +44,18 @@ export function usePullToRefresh({
   const touchOnInteractive = useRef<boolean>(false);
   const dragConfirmed = useRef<boolean>(false);
 
+  const getScrollTop = useCallback(() => {
+    if (scrollContainerRef?.current) {
+      return scrollContainerRef.current.scrollTop;
+    }
+    return (
+      window.scrollY ??
+      document.scrollingElement?.scrollTop ??
+      document.documentElement.scrollTop ??
+      0
+    );
+  }, [scrollContainerRef]);
+
   const handleTouchStart = useCallback((e: TouchEvent) => {
     // If touch starts on an interactive element, skip pull-to-refresh entirely
     if (isInteractiveElement(e.target)) {
@@ -51,27 +65,26 @@ export function usePullToRefresh({
     touchOnInteractive.current = false;
     dragConfirmed.current = false;
 
-    // Determine "at top" from the actual page scroll position, not the wrapper's
-    // scrollTop. The PullToRefresh wrapper grows with content and never scrolls
-    // internally, so its scrollTop is always 0 — which made every downward drag
-    // (anywhere on the page) hijack native scrolling. Read the real document
-    // scroll offset instead.
-    const scrollTop =
-      window.scrollY ??
-      document.scrollingElement?.scrollTop ??
-      document.documentElement.scrollTop ??
-      0;
+    const scrollTop = getScrollTop();
     isAtTop.current = scrollTop <= 0;
 
     if (isAtTop.current && !state.isRefreshing) {
       startY.current = e.touches[0].clientY;
       hasTriggeredThresholdHaptic.current = false;
-      // Don't set isPulling yet — wait for drag confirmation
     }
-  }, [state.isRefreshing]);
+  }, [state.isRefreshing, getScrollTop]);
 
   const handleTouchMove = useCallback((e: TouchEvent) => {
     if (touchOnInteractive.current || state.isRefreshing || !isAtTop.current) return;
+
+    // Check again during move to ensure we didn't scroll away from top
+    if (getScrollTop() > 0) {
+      if (state.isPulling) {
+        setState(prev => ({ ...prev, pullDistance: 0, canRefresh: false, isPulling: false }));
+      }
+      isAtTop.current = false;
+      return;
+    }
 
     currentY.current = e.touches[0].clientY;
     const diff = currentY.current - startY.current;
@@ -96,7 +109,7 @@ export function usePullToRefresh({
       setState(prev => ({ ...prev, isPulling: true }));
     }
 
-    const resistance = 0.5;
+    const resistance = 0.45;
     const pullDistance = Math.min((currentY.current - startY.current) * resistance, maxPull);
     const canRefresh = pullDistance >= threshold;
 
@@ -112,7 +125,7 @@ export function usePullToRefresh({
       pullDistance,
       canRefresh,
     }));
-  }, [state.isPulling, state.isRefreshing, threshold, maxPull]);
+  }, [state.isPulling, state.isRefreshing, threshold, maxPull, getScrollTop]);
 
   const handleTouchEnd = useCallback(async () => {
     if (touchOnInteractive.current) {

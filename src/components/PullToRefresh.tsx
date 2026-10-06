@@ -8,6 +8,9 @@ interface PullToRefreshProps {
   onRefresh: () => Promise<void>;
   className?: string;
   disabled?: boolean;
+  threshold?: number;
+  maxPull?: number;
+  scrollContainerRef?: React.RefObject<HTMLElement | null>;
 }
 
 export function PullToRefresh({
@@ -15,6 +18,9 @@ export function PullToRefresh({
   onRefresh,
   className,
   disabled = false,
+  threshold = 70,
+  maxPull = 120,
+  scrollContainerRef,
 }: PullToRefreshProps) {
   const {
     pullDistance,
@@ -24,8 +30,9 @@ export function PullToRefresh({
     progress,
   } = usePullToRefresh({
     onRefresh,
-    threshold: 300,
-    maxPull: 360,
+    threshold,
+    maxPull,
+    scrollContainerRef,
   });
 
   if (disabled) {
