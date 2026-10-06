@@ -5,26 +5,15 @@
 // (`<phone>@welile.user`, `<phone>@noapp.welile.user`, `<phone>@welile.app`)
 // which can never receive a code, so those are rejected up front.
 
-const SYNTHETIC_DOMAINS = [
-  "welile.user",
-  "noapp.welile.user",
-  "welile.app",
-  "welile.local",
-  "app.local",
-  "no-email.local",
-];
+import { isPlaceholderRecipient } from "./recipientMailbox.ts";
 
-/** True when the address cannot receive real mail (synthetic / missing). */
+/**
+ * True when the address cannot receive real mail (synthetic / missing).
+ * Delegates to the mail transport's own guard so 2MFA can never accept an
+ * address (e.g. `<phone>@welile.agent`) that the sender will then suppress.
+ */
 export function isUnusableEmail(email?: string | null): boolean {
-  if (!email) return true;
-  const e = email.trim().toLowerCase();
-  if (!e || !e.includes("@")) return true;
-  const domain = e.split("@").pop() ?? "";
-  if (SYNTHETIC_DOMAINS.some((d) => domain === d || domain.endsWith("." + d))) return true;
-  // Phone-derived placeholders on any welile domain (e.g. 256751424629@welile.com)
-  const local = e.split("@")[0] ?? "";
-  if (/^\+?\d{7,15}$/.test(local) && domain.endsWith("welile.com")) return true;
-  return false;
+  return isPlaceholderRecipient(email);
 }
 
 /** j***@gmail.com — safe to show in the UI. */
