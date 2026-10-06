@@ -73365,6 +73365,121 @@ export type Database = {
         }[]
       }
       tops_overnight_changes: { Args: { p_as_at?: string }; Returns: Json }
+      tops_pay_behaviour_payments: {
+        Args: {
+          p_agent_id?: string
+          p_cadence?: string
+          p_district?: string
+          p_end: string
+          p_region?: string
+          p_start: string
+        }
+        Returns: {
+          pay_agent: string
+          pay_amount: number
+          pay_at: string
+          pay_channel: string
+          pay_day: string
+          pay_dow: number
+          pay_hour: number
+          pay_id: string
+          pay_rr: string
+          pay_tenant: string
+        }[]
+      }
+      tops_pay_behaviour_plans: {
+        Args: {
+          p_agent_id?: string
+          p_cadence?: string
+          p_district?: string
+          p_end: string
+          p_region?: string
+          p_start: string
+        }
+        Returns: {
+          pl_agent: string
+          pl_agent_n: number
+          pl_agent_ugx: number
+          pl_billed_days: number
+          pl_billed_ugx: number
+          pl_cadence: string
+          pl_covered_ugx: number
+          pl_first_paid: string
+          pl_last_paid: string
+          pl_other_n: number
+          pl_other_ugx: number
+          pl_paid_days: number
+          pl_paid_ugx: number
+          pl_rent: number
+          pl_rr: string
+          pl_segment: string
+          pl_self_n: number
+          pl_self_ugx: number
+          pl_start: string
+          pl_tenant: string
+        }[]
+      }
+      tops_pay_behaviour_scope: {
+        Args: {
+          p_agent_id?: string
+          p_cadence?: string
+          p_district?: string
+          p_region?: string
+        }
+        Returns: {
+          sc_agent: string
+          sc_cadence: string
+          sc_rent: number
+          sc_rr: string
+          sc_start: string
+          sc_status: string
+          sc_tenant: string
+        }[]
+      }
+      tops_payment_behaviour_overview: {
+        Args: {
+          p_agent_id?: string
+          p_cadence?: string
+          p_district?: string
+          p_end: string
+          p_region?: string
+          p_start: string
+        }
+        Returns: Json
+      }
+      tops_payment_behaviour_summary: {
+        Args: {
+          p_agent_id?: string
+          p_cadence?: string
+          p_district?: string
+          p_end: string
+          p_region?: string
+          p_start: string
+        }
+        Returns: Json
+      }
+      tops_payment_behaviour_timing: {
+        Args: {
+          p_agent_id?: string
+          p_cadence?: string
+          p_district?: string
+          p_end: string
+          p_region?: string
+          p_start: string
+        }
+        Returns: Json
+      }
+      tops_payment_behaviour_trend: {
+        Args: {
+          p_agent_id?: string
+          p_cadence?: string
+          p_district?: string
+          p_end: string
+          p_region?: string
+          p_start: string
+        }
+        Returns: Json
+      }
       tops_pipeline_queue: {
         Args: { p_gap_label?: string; p_owner_id?: string }
         Returns: {
@@ -73561,6 +73676,17 @@ export type Database = {
           short_pct: number
           short_ugx: number
           tenant_count: number
+        }[]
+      }
+      tops_shortfall_daily_trend: {
+        Args: { p_days?: number }
+        Returns: {
+          collected_ugx: number
+          covered_pct: number
+          day: string
+          expected_ugx: number
+          short_plans: number
+          short_ugx: number
         }[]
       }
       tops_shortfall_detail: {
