@@ -28,3 +28,14 @@ This project is being built by two agents in parallel. Stay in your lane so work
 
 - Confirm the target remote before pushing — don't assume `origin`.
 - Prefer new commits over amending; never force-push without explicit confirmation.
+
+### Lovable sync: don't push to `lovable` directly
+
+Lovable follows the `lovable` branch both ways. A push there while its agent is mid-edit makes Lovable replace its sandbox and park the agent's work on a `lovable-sync-<unix-time>` branch ("A push to your repository replaced your Lovable work"). Lovable has no setting to pause sync or to pull before it commits, so the protection is workflow:
+
+- **Work on a feature branch**, e.g. `dev/<topic>`, cut from the latest `origin/lovable`. Commit there freely. Branches other than `lovable` are invisible to Lovable.
+- **Merge into `lovable` only when Lovable's agent is idle.** Check `get_project` → `agentFinished` (and recent `lovable-sync-*` branches) first. If the agent is running, wait; don't merge "just this once".
+- **Before merging:** `git fetch origin`, merge `origin/lovable` into your branch (no rebase), resolve conflicts there, run `npm run guard:all`, then fast-forward `lovable` to it. Confirm the target remote and get Josh's go-ahead before the push to `lovable`.
+- **Never rebase, amend, or force-push `lovable`.** Rebases flatten merge commits and rewrite the base Lovable started from. Use merge commits or fast-forwards only.
+- **After the push**, message Lovable (see the notify-after-push rule) so it re-syncs on purpose.
+- **Sweeping side branches:** when a `lovable-sync-*` branch appears, diff it with `git diff origin/lovable...origin/lovable-sync-<ts>`, merge only what `lovable` lacks, and delete it once merged or knowingly dropped. Don't delete without Josh's say-so.
