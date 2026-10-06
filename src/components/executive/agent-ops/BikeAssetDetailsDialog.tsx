@@ -9,6 +9,7 @@ import {
   Battery,
   FileText,
   Save,
+  Sparkles,
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -46,6 +47,27 @@ interface Props {
 const LOGBOOK_OPTIONS = Object.entries(LOGBOOK_STATUS_LABEL) as [string, string][];
 
 /**
+ * Auto-generates a unique GPS Tracker ID bound to this bike lease if none has been recorded yet.
+ * Uses standard format: GPS-SP-XXXXX based on tracking reference or unique seed.
+ */
+export function generateDefaultGpsTrackerId(lease: BikeLeaseRecord | null): string {
+  if (!lease) return '';
+  if (lease.gps_tracker_id && lease.gps_tracker_id.trim()) {
+    return lease.gps_tracker_id.trim().toUpperCase();
+  }
+  if (lease.tracking_reference) {
+    const cleanRef = lease.tracking_reference.trim().toUpperCase();
+    const suffix = cleanRef.replace(/^SPB-?/i, '');
+    if (suffix) {
+      return `GPS-SP-${suffix}`;
+    }
+    return `GPS-${cleanRef}`;
+  }
+  const idSeed = (lease.lease_id || lease.id || '').replace(/-/g, '').slice(0, 8).toUpperCase();
+  return idSeed ? `GPS-SP-${idSeed}` : `GPS-SP-${Math.floor(100000 + Math.random() * 900000)}`;
+}
+
+/**
  * Dialog for Agent Ops / staff to record a bike's physical asset details
  * after handover: plate number, chassis number, battery serial, GPS tracker
  * ID, and logbook custody status. All edits go through the audited
@@ -60,14 +82,14 @@ export function BikeAssetDetailsDialog({ lease, open, onOpenChange, onSuccess }:
   const [gpsTrackerId, setGpsTrackerId] = useState('');
   const [logbookStatus, setLogbookStatus] = useState('');
 
-  // Sync local state when a new lease is opened
+  // Sync local state when a new lease is opened (auto-fill GPS tracker ID if empty)
   const [lastLeaseId, setLastLeaseId] = useState<string | null>(null);
   if (lease && lease.lease_id !== lastLeaseId) {
     setLastLeaseId(lease.lease_id);
     setPlateNumber(lease.plate_number || '');
     setChassisNumber(lease.chassis_number || '');
     setBatterySerial(lease.battery_serial || '');
-    setGpsTrackerId(lease.gps_tracker_id || '');
+    setGpsTrackerId(lease.gps_tracker_id?.trim() ? lease.gps_tracker_id.trim() : generateDefaultGpsTrackerId(lease));
     setLogbookStatus(lease.logbook_status || 'held_by_welile');
   }
 
@@ -169,15 +191,30 @@ export function BikeAssetDetailsDialog({ lease, open, onOpenChange, onSuccess }:
 
           {/* GPS Tracker ID */}
           <div className="space-y-1">
-            <Label className="text-xs flex items-center gap-1.5">
-              <MapPin className="h-3 w-3 text-muted-foreground" /> GPS Tracker ID
-            </Label>
+            <div className="flex items-center justify-between">
+              <Label className="text-xs flex items-center gap-1.5">
+                <MapPin className="h-3 w-3 text-muted-foreground" /> GPS Tracker ID
+              </Label>
+              <button
+                type="button"
+                onClick={() => {
+                  const autoId = generateDefaultGpsTrackerId({ ...lease, gps_tracker_id: null });
+                  setGpsTrackerId(autoId);
+                }}
+                className="text-[10px] text-primary hover:underline flex items-center gap-1 font-medium"
+              >
+                <Sparkles className="h-2.5 w-2.5" /> Auto-fill ID
+              </button>
+            </div>
             <Input
               placeholder="e.g. GPS-SP-00456"
               value={gpsTrackerId}
               onChange={(e) => setGpsTrackerId(e.target.value.toUpperCase())}
               className="h-9 text-sm font-mono"
             />
+            <p className="text-[10px] text-muted-foreground">
+              Auto-filled device identifier bound to this bike for tracking &amp; recovery.
+            </p>
           </div>
 
           {/* Logbook Custody Status */}
