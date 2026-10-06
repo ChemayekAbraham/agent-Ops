@@ -42,12 +42,6 @@ const PERIOD_PRESETS: { label: string; granularity: PayablesGranularity; periods
   { label: '5 years', granularity: 'year', periods: 5 },
 ];
 
-const QUALITY_STYLE: Record<string, string> = {
-  high: 'bg-emerald-500/15 text-emerald-700',
-  medium: 'bg-amber-500/15 text-amber-700',
-  low: 'bg-orange-500/15 text-orange-700',
-  insufficient: 'bg-muted text-muted-foreground',
-};
 
 const compact = (n: number) =>
   n >= 1_000_000_000
@@ -93,13 +87,13 @@ export default function PredictivePayablesForecast() {
       label: h.label,
       actual: h.actual_amount,
       forecast: null as number | null,
-      band: null as [number, number] | null,
+      ideal: null as number | null,
     }));
     const fc = data.periods.map((p) => ({
       label: p.label,
       actual: null as number | null,
       forecast: p.forecast_amount,
-      band: [p.low, p.high] as [number, number],
+      ideal: p.scheduled_amount,
     }));
     return [...hist, ...fc];
   }, [data, periods]);
