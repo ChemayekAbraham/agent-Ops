@@ -216,15 +216,31 @@ export async function sendSMS(phone: string, message: string, logCtx?: SmsLogCtx
       let error = r.error;
       let response: any = (r as any).response;
 
-      // Yoola only: hold the send open until the delivery report confirms the
-      // handset received it, then fall through to Africa's Talking if it does not.
+      // Yoola only: check the delivery report, and fail over to Africa's Talking
+      // when Yoola says the message FAILED.
+      //
+      // This used to fail over on anything that was not "delivered", which
+      // included "unconfirmed". Yoola's terminal state for these sends is
+      // "sent" — accepted by the carrier, no handset receipt returned — and the
+      // poller ends on "unconfirmed" for it. Measured over 7 days, Yoola
+      // returned "delivered" ZERO times out of 722 confirmations, so the
+      // condition was always true and the failover unconditional: every message
+      // on this path went to BOTH providers and was billed twice (Yoola ~UGX 90
+      // + AT ~UGX 50-75). Two identical messages from the same sender ID seconds
+      // apart is also a textbook trigger for carrier anti-spam suppression,
+      // which can drop both copies — the opposite of what the failover was for.
+      //
+      // "unconfirmed" now stays with Yoola: it accepted the message and charged
+      // for it, and no handset receipt is the normal case, not evidence of
+      // failure. Only an explicit failed/rejected/undelivered/expired/blocked
+      // report moves the send to the next provider.
       if (ok && providerName === "yoola" && logCtx?.requireDeliveryConfirmation) {
         const messageId = extractYoolaMessageId(response);
         const confirmation = await confirmYoolaDelivery(messageId, logCtx.deliveryConfirmation ?? {});
         response = { send_response: response, delivery_confirmation: confirmation };
-        if (confirmation.outcome !== "delivered") {
+        if (confirmation.outcome === "failed") {
           ok = false;
-          error = `Yoola accepted but did not confirm delivery (${confirmation.detail ?? confirmation.outcome}) — failing over to Africa's Talking`;
+          error = `Yoola reported the message failed (${confirmation.detail ?? confirmation.outcome}) — failing over to Africa's Talking`;
         }
       }
 

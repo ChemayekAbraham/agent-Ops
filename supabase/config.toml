@@ -10,6 +10,14 @@ project_id = "wirntoujqoyjobfhyelc"
   # must keep the default verify_jwt = true plus its own role gate.
   [functions.crm-voice-callback]
     verify_jwt = false
+  # Same reason: Africa's Talking POSTs its SMS Delivery Report with no JWT, so
+  # with the default verify_jwt every callback was rejected 401 before the
+  # function body ran. That is why sms_delivery_log has never held a single
+  # `delivered` row — 16,109 messages in 7 days, all stuck at `sent`. It carries
+  # no authority of its own: it matches on the provider_message_id we stored
+  # ourselves and only moves a row between delivered/failed.
+  [functions.sms-delivery-report]
+    verify_jwt = false
   [functions.og-merchandise]
     verify_jwt = false
   [functions.og-house]
