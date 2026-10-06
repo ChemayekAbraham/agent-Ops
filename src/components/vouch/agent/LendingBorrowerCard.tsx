@@ -58,6 +58,7 @@ export default function LendingBorrowerCard({ loan, onRecordRepayment, onTopUpOr
   const name = loan.borrower_display_name ?? loan.borrower_ai_id;
   const phone = normalizePhone(loan.borrower_phone);
   const outstanding = outstandingOf(loan);
+  const plan = repaymentPlanOf(loan);
   const totalDue = loan.principal_ugx + (loan.principal_ugx * (Number(loan.interest_rate_pct) || 0)) / 100;
   const repaidPct = totalDue > 0 ? Math.min(100, Math.round((Number(loan.amount_repaid_ugx) / totalDue) * 100)) : 0;
   const isOpen = loan.status === 'active' || loan.status === 'partially_repaid';
