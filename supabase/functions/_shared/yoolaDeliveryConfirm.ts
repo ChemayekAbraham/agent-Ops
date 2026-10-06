@@ -34,8 +34,13 @@ export type YoolaConfirmation = "delivered" | "failed" | "unconfirmed";
 
 /**
  * Poll Yoola until the message is reported delivered/failed, or the window
- * runs out. `unconfirmed` (still queued/pending, no message id, lookup error)
- * is treated by callers exactly like a failure: fail over to the next provider.
+ * runs out.
+ *
+ * `unconfirmed` (still queued/pending/sent, no message id, lookup error) is NOT
+ * a failure. Yoola's terminal state for most sends is "sent" — accepted by the
+ * carrier, no handset receipt returned — so treating unconfirmed as failure
+ * made the Africa's Talking failover fire on every single message. Callers fail
+ * over on `failed` only.
  */
 export async function confirmYoolaDelivery(
   messageId: string | null,

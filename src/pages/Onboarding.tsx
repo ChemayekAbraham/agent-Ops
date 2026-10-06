@@ -1379,6 +1379,7 @@ export default function FunderOnboarding() {
                   kin_name: cleanKinName || null,
                   kin_contact: cleanKinContact || null,
                   reference: partnerReference,
+                  return_option: form.investPath === 'pool' ? 'B' : 'A',
                   status: 'pending',
                   // Persist the partner's handwritten signature so the executed /
                   // countersigned agreement (rebuilt from this row by the admin)
@@ -1404,6 +1405,9 @@ export default function FunderOnboarding() {
                   partnerPhone: cleanPhone,
                   partnerEmail: cleanEmail,
                   partnershipAmount: supportAmountNum,
+                  // 'tenant' = monthly payout (Option A), 'pool' = compounding (Option B); both 15%.
+                  returnOption: form.investPath === 'pool' ? 'B' : 'A',
+                  reference: partnerReference,
                   payoutMode: form.payoutMode === 'momo' ? 'momo' : 'bank',
                   bankName: cleanBankName || undefined,
                   bankAccountName: cleanBankAccountName || undefined,

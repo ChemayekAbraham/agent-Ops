@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -17,8 +17,10 @@ import { Label } from '@/components/ui/label';
 import { SkeletonProductCard } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import {
-  ArrowLeft, ShoppingBag, Package, Wallet, CheckCircle2, Repeat, Smartphone, Bike, AlertCircle, Share2, Trash2,
+  ArrowLeft, ShoppingBag, Package, Wallet, CheckCircle2, Repeat, Smartphone, Bike, AlertCircle, Share2, Trash2, Clock, XCircle,
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { fetchMyBikeLeases, type BikeLeaseRecord } from '@/hooks/useBikeLeases';
 import { formatUGX } from '@/lib/rentCalculations';
 import { merchandiseInstallmentSchedule } from '@/lib/merchandiseInstallments';
 import { format } from 'date-fns';
@@ -102,6 +104,56 @@ export default function MerchandiseStore() {
   const { repaying: smartphoneRepaying } = useMerchandiseOrderLock(user?.id);
   const deleteApplication = useDeleteMerchandiseApplication(user?.id);
 
+  const [activeMainTab, setActiveMainTab] = useState<'store' | 'orders'>(() => {
+    return searchParams.get('tab') === 'orders' ? 'orders' : 'store';
+  });
+  const [orderFilter, setOrderFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
+
+  const { data: bikeOrders = [] } = useQuery<BikeLeaseRecord[]>({
+    queryKey: ['my-bike-lease-orders', user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      return (await fetchMyBikeLeases(user!.id)) as BikeLeaseRecord[];
+    },
+  });
+
+  const [dismissedBikeIds, setDismissedBikeIds] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem(`welile_dismissed_bike_leases_${user?.id}`);
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(`welile_dismissed_bike_leases_${user?.id}`);
+      if (stored) {
+        setDismissedBikeIds(new Set(JSON.parse(stored)));
+      }
+    } catch {}
+  }, [user?.id, bikeOrders]);
+
+  const visibleBikeOrders = useMemo(
+    () => bikeOrders.filter((b) => !dismissedBikeIds.has(b.id)),
+    [bikeOrders, dismissedBikeIds],
+  );
+
+  const { data: phoneOrders = [] } = useQuery<any[]>({
+    queryKey: ['my-smartphone-orders', user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const { data, error } = await db
+        .from('merchandise_sales')
+        .select('id, item_name, unit_price, order_status, created_at, tracking_reference, rejection_reason, rejected_at')
+        .eq('customer_id', user!.id)
+        .ilike('item_name', '%smartphone%')
+        .order('created_at', { ascending: false });
+      if (error) return [];
+      return data || [];
+    },
+  });
 
   const [bikeOpen, setBikeOpen] = useState(false);
   const [catalogPage, setCatalogPage] = useState(1);
@@ -213,6 +265,68 @@ export default function MerchandiseStore() {
     .filter((p) => p.status === 'active')
     .reduce((s, p) => s + Number(p.outstanding_balance), 0);
   const totalRecovered = plans.reduce((s, p) => s + Number(p.amount_recovered), 0);
+
+  // Calculate order counts per category and status
+  const safeBikeOrders = visibleBikeOrders || [];
+  const safePhoneOrders = phoneOrders || [];
+  const safePlans = plans || [];
+
+  const pendingBikeCount = safeBikeOrders.filter((b) =>
+    ['submitted', 'pending_approval', 'ops_approved', 'coo_approved'].includes(b?.order_status || ''),
+  ).length;
+  const approvedBikeCount = safeBikeOrders.filter((b) =>
+    ['approved', 'completed'].includes(b?.order_status || ''),
+  ).length;
+  const rejectedBikeCount = safeBikeOrders.filter((b) =>
+    ['rejected', 'failed'].includes(b?.order_status || ''),
+  ).length;
+
+  const pendingPhoneCount = safePhoneOrders.filter((p) =>
+    ['submitted', 'pending_approval', 'coo_approved'].includes(p?.order_status || ''),
+  ).length;
+  const approvedPhoneCount = safePhoneOrders.filter((p) =>
+    ['approved', 'processing', 'completed'].includes(p?.order_status || ''),
+  ).length;
+  const rejectedPhoneCount = safePhoneOrders.filter((p) =>
+    ['rejected', 'failed'].includes(p?.order_status || ''),
+  ).length;
+
+  const pendingPlanCount = safePlans.filter((p) => p?.status === 'active' && p?.order_status === 'pending_approval').length;
+  const approvedPlanCount = safePlans.filter((p) => p?.status === 'active' && p?.order_status !== 'rejected').length;
+  const rejectedPlanCount = safePlans.filter((p) => p?.order_status === 'rejected').length;
+
+  const totalPending = pendingBikeCount + pendingPhoneCount + pendingPlanCount;
+  const totalApproved = approvedBikeCount + approvedPhoneCount + approvedPlanCount;
+  const totalRejected = rejectedBikeCount + rejectedPhoneCount + rejectedPlanCount;
+  const totalOrdersCount = safeBikeOrders.length + safePhoneOrders.length + safePlans.length;
+  const hasOrders = totalOrdersCount > 0;
+
+  useEffect(() => {
+    if (!hasOrders && activeMainTab === 'orders') {
+      setActiveMainTab('store');
+    }
+  }, [hasOrders, activeMainTab]);
+
+  const currentFilterCount = useMemo(() => {
+    if (orderFilter === 'pending') return totalPending;
+    if (orderFilter === 'approved') return totalApproved;
+    if (orderFilter === 'rejected') return totalRejected;
+    return totalOrdersCount;
+  }, [orderFilter, totalPending, totalApproved, totalRejected, totalOrdersCount]);
+
+  const filteredPlans = useMemo(() => {
+    if (orderFilter === 'all') return safePlans;
+    if (orderFilter === 'pending') {
+      return safePlans.filter((p) => p?.status === 'active' && p?.order_status === 'pending_approval');
+    }
+    if (orderFilter === 'approved') {
+      return safePlans.filter((p) => p?.status === 'active' && p?.order_status !== 'rejected');
+    }
+    if (orderFilter === 'rejected') {
+      return safePlans.filter((p) => p?.order_status === 'rejected');
+    }
+    return safePlans;
+  }, [safePlans, orderFilter]);
 
   const qty = Math.max(1, parseInt(quantity || '1', 10) || 1);
   // Sizes on the catalog row are exactly what the company has in stock for the
@@ -447,278 +561,459 @@ export default function MerchandiseStore() {
       </div>
 
       <div className="max-w-lg mx-auto px-4 pt-4 space-y-5">
-        {/* My payments summary */}
-        {plans.length > 0 && (
-          <div className="grid grid-cols-2 gap-2">
-            <Card>
-              <CardContent className="p-3">
-                <p className="text-[11px] text-muted-foreground flex items-center gap-1">
-                  <Wallet className="h-3 w-3" /> Still to repay
-                </p>
-                <p className="text-lg font-bold text-amber-600">{formatUGX(totalOwing)}</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="p-3">
-                <p className="text-[11px] text-muted-foreground flex items-center gap-1">
-                  <CheckCircle2 className="h-3 w-3" /> Repaid so far
-                </p>
-                <p className="text-lg font-bold text-emerald-600">{formatUGX(totalRecovered)}</p>
-              </CardContent>
-            </Card>
+        {/* Main Tab Switcher (Store vs My Orders) — only appears when agent has at least one order */}
+        {hasOrders && (
+          <div className="flex p-1 bg-muted/70 rounded-xl border border-border/60">
+            <button
+              type="button"
+              onClick={() => setActiveMainTab('store')}
+              className={cn(
+                'flex-1 flex items-center justify-center gap-2 py-2 text-xs font-semibold rounded-lg transition-all',
+                activeMainTab === 'store'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <ShoppingBag className="h-4 w-4" />
+              <span>Store</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveMainTab('orders')}
+              className={cn(
+                'flex-1 flex items-center justify-center gap-2 py-2 text-xs font-semibold rounded-lg transition-all',
+                activeMainTab === 'orders'
+                  ? 'bg-background text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground',
+              )}
+            >
+              <Package className="h-4 w-4" />
+              <span>My Orders</span>
+              <span
+                className={cn(
+                  'px-1.5 py-0.5 text-[10px] rounded-full font-bold',
+                  activeMainTab === 'orders'
+                    ? 'bg-primary/15 text-primary'
+                    : 'bg-muted-foreground/20 text-muted-foreground',
+                )}
+              >
+                {totalOrdersCount}
+              </span>
+            </button>
           </div>
         )}
 
-
-        {/* Order a Welile Smartphone */}
-        <Card className="border-primary/30 bg-primary/5">
-          <CardContent className="p-4 flex items-center gap-3">
-            <img
-              src={smartphonePromoAsset.url}
-              alt="Welile Smartphone"
-              loading="lazy"
-              className="h-11 w-11 rounded-xl object-cover shrink-0 border border-primary/20"
-            />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold leading-tight">Order a Welile Smartphone</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                Get a company smartphone on credit. Choose how much can be deducted from your wallet — final price is set by marketing.
-              </p>
-            </div>
-            <Button
-              size="sm"
-              className="h-8 text-xs gap-1 shrink-0"
-              disabled={smartphoneRepaying}
-              title={smartphoneRepaying ? 'You have a smartphone still being repaid' : undefined}
-              onClick={() => setPhoneOpen(true)}
-            >
-              {smartphoneRepaying ? 'In repayment' : 'Order'}
-            </Button>
-
-          </CardContent>
-        </Card>
-
-        {/* Products being repaid — plan + pay button per product */}
-        <MerchandiseRepaymentPortfolio userId={user?.id} />
-
-        {/* Smartphone order status */}
-        <SmartphoneOrderStatus userId={user?.id} onRequestNewOrder={() => setPhoneOpen(true)} />
-
-        {/* Apply for an electric bike (Spiro, Mocoo, etc.) */}
-        <Card className="border-primary/30 bg-primary/5">
-          <CardContent className="p-4 flex items-center gap-3">
-            <img
-              src={spiroBikeAsset.url}
-              alt="Welile electric bike"
-              loading="lazy"
-              className="h-11 w-11 rounded-xl object-cover shrink-0 border border-primary/20"
-            />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold leading-tight">Apply for an electric bike</p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">
-                Pick a model and lease term. Marketing confirms the price, then the bike is released and your lease is activated.
-              </p>
-            </div>
-            <Button size="sm" className="h-8 text-xs gap-1 shrink-0" onClick={() => setBikeOpen(true)}>
-              Apply
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Spiro bike lease status */}
-        <BikeLeaseStatus userId={user?.id} onRequestNewOrder={() => setBikeOpen(true)} />
-
-        {/* Catalog */}
-        <div>
-          <h2 className="text-sm font-bold mb-2 flex items-center gap-2">
-            <Package className="h-4 w-4 text-primary" /> Available items
-          </h2>
-          {catalogError ? (
-            <div className="rounded-xl border border-border bg-card p-6 text-center space-y-3">
-              <p className="text-sm text-muted-foreground">
-                We couldn't load the catalog. Please check your connection and try again.
-              </p>
-              <Button size="sm" variant="outline" onClick={() => refetchCatalog()}>
-                Retry
-              </Button>
-            </div>
-          ) : loadingCatalog ? (
-            <div className="grid grid-cols-2 gap-3">
-              {[...Array(4)].map((_, i) => (
-                <SkeletonProductCard key={i} />
-              ))}
-            </div>
-          ) : filteredCatalog.length === 0 ? (
-            <p className="text-xs text-muted-foreground py-6 text-center">No merchandise available right now.</p>
-          ) : (
-            <>
-            <div className="grid grid-cols-2 gap-3">
-              {catalogSlice.map((item) => {
-                const img = pickImage(item);
-                return (
-                <Card
-                  key={item.id}
-                  className="overflow-hidden cursor-pointer transition hover:shadow-md hover:border-primary/40 focus-within:ring-2 focus-within:ring-primary/40"
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => { setSelected(item); setQuantity('1'); setSelectedSize(null); }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      setSelected(item);
-                      setQuantity('1');
-                      setSelectedSize(null);
-                    }
-                  }}
-                  aria-label={`Buy ${item.item_name}`}
+        {activeMainTab === 'store' ? (
+          <>
+            {/* Order a Welile Smartphone */}
+            <Card className="border-primary/30 bg-primary/5">
+              <CardContent className="p-4 flex items-center gap-3">
+                <img
+                  src={smartphonePromoAsset.url}
+                  alt="Welile Smartphone"
+                  loading="lazy"
+                  className="h-11 w-11 rounded-xl object-cover shrink-0 border border-primary/20"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold leading-tight">Order a Welile Smartphone</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Get a company smartphone on credit. Choose how much can be deducted from your wallet — final price is set by marketing.
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  className="h-8 text-xs gap-1 shrink-0"
+                  disabled={smartphoneRepaying}
+                  title={smartphoneRepaying ? 'You have a smartphone still being repaid' : undefined}
+                  onClick={() => setPhoneOpen(true)}
                 >
-                  {img ? (
-                    <StorageImage src={img} alt={item.item_name} className="w-full h-28 object-cover" loading="lazy" />
-                  ) : (
-                    <div className="w-full h-28 bg-muted flex items-center justify-center">
-                      <Package className="h-8 w-8 text-muted-foreground/40" />
+                  {smartphoneRepaying ? 'In repayment' : 'Order'}
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Apply for an electric bike (Spiro, Mocoo, etc.) */}
+            <Card className="border-primary/30 bg-primary/5">
+              <CardContent className="p-4 flex items-center gap-3">
+                <img
+                  src={spiroBikeAsset.url}
+                  alt="Welile electric bike"
+                  loading="lazy"
+                  className="h-11 w-11 rounded-xl object-cover shrink-0 border border-primary/20"
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold leading-tight">Apply for an electric bike</p>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Pick a model and lease term. Marketing confirms the price, then the bike is released and your lease is activated.
+                  </p>
+                </div>
+                <Button size="sm" className="h-8 text-xs gap-1 shrink-0" onClick={() => setBikeOpen(true)}>
+                  Apply
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Catalog */}
+            <div>
+              <h2 className="text-sm font-bold mb-2 flex items-center gap-2">
+                <Package className="h-4 w-4 text-primary" /> Available items
+              </h2>
+              {catalogError ? (
+                <div className="rounded-xl border border-border bg-card p-6 text-center space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    We couldn't load the catalog. Please check your connection and try again.
+                  </p>
+                  <Button size="sm" variant="outline" onClick={() => refetchCatalog()}>
+                    Retry
+                  </Button>
+                </div>
+              ) : loadingCatalog ? (
+                <div className="grid grid-cols-2 gap-3">
+                  {[...Array(4)].map((_, i) => (
+                    <SkeletonProductCard key={i} />
+                  ))}
+                </div>
+              ) : filteredCatalog.length === 0 ? (
+                <p className="text-xs text-muted-foreground py-6 text-center">No merchandise available right now.</p>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-3">
+                    {catalogSlice.map((item) => {
+                      const img = pickImage(item);
+                      return (
+                        <Card
+                          key={item.id}
+                          className="overflow-hidden cursor-pointer transition hover:shadow-md hover:border-primary/40 focus-within:ring-2 focus-within:ring-primary/40"
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => { setSelected(item); setQuantity('1'); setSelectedSize(null); }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              setSelected(item);
+                              setQuantity('1');
+                              setSelectedSize(null);
+                            }
+                          }}
+                          aria-label={`Buy ${item.item_name}`}
+                        >
+                          {img ? (
+                            <StorageImage src={img} alt={item.item_name} className="w-full h-28 object-cover" loading="lazy" />
+                          ) : (
+                            <div className="w-full h-28 bg-muted flex items-center justify-center">
+                              <Package className="h-8 w-8 text-muted-foreground/40" />
+                            </div>
+                          )}
+                          <CardContent className="p-3 space-y-1.5">
+                            <p className="text-sm font-semibold leading-tight line-clamp-1">{item.item_name}</p>
+                            {item.description && (
+                              <p className="text-[11px] text-muted-foreground line-clamp-2">{item.description}</p>
+                            )}
+                            <div>
+                              <p className="text-sm font-bold text-emerald-600">
+                                From {formatUGX(merchandiseInstallmentSchedule(Number(item.unit_price) || 0, 12).firstDaily)}/day
+                              </p>
+                              <p className="text-[11px] text-muted-foreground">
+                                over up to 12 months · {formatUGX(Number(item.unit_price))} full price
+                              </p>
+                            </div>
+                            {Array.isArray(item.sizes) && item.sizes.length > 0 && (
+                              <p className="text-[10px] text-muted-foreground">
+                                Sizes in stock: {item.sizes.join(', ')}
+                              </p>
+                            )}
+                            <div className="flex gap-1.5">
+                              <Button
+                                size="sm"
+                                className="flex-1 h-8 text-xs gap-1"
+                                onClick={(e) => { e.stopPropagation(); setSelected(item); setQuantity('1'); setSelectedSize(null); }}
+                              >
+                                <ShoppingBag className="h-3.5 w-3.5" /> Buy
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 w-8 p-0 shrink-0"
+                                aria-label={`Share ${item.item_name}`}
+                                onClick={(e) => { e.stopPropagation(); handleShare(item); }}
+                              >
+                                <Share2 className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      );
+                    })}
+                  </div>
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between mt-3 text-xs">
+                      <Button variant="outline" size="sm" className="h-7" disabled={safePage <= 1} onClick={() => setCatalogPage(safePage - 1)}>Previous</Button>
+                      <span className="text-muted-foreground">Page {safePage} of {totalPages}</span>
+                      <Button variant="outline" size="sm" className="h-7" disabled={safePage >= totalPages} onClick={() => setCatalogPage(safePage + 1)}>Next</Button>
                     </div>
                   )}
-                  <CardContent className="p-3 space-y-1.5">
-                    <p className="text-sm font-semibold leading-tight line-clamp-1">{item.item_name}</p>
-                    {item.description && (
-                      <p className="text-[11px] text-muted-foreground line-clamp-2">{item.description}</p>
-                    )}
-                    <div>
-                      <p className="text-sm font-bold text-emerald-600">
-                        From {formatUGX(merchandiseInstallmentSchedule(Number(item.unit_price) || 0, 12).firstDaily)}/day
-                      </p>
-                      <p className="text-[11px] text-muted-foreground">
-                        over up to 12 months · {formatUGX(Number(item.unit_price))} full price
-                      </p>
-                    </div>
-                    {Array.isArray(item.sizes) && item.sizes.length > 0 && (
-                      <p className="text-[10px] text-muted-foreground">
-                        Sizes in stock: {item.sizes.join(', ')}
-                      </p>
-                    )}
-                    <div className="flex gap-1.5">
-                      <Button
-                        size="sm"
-                        className="flex-1 h-8 text-xs gap-1"
-                        onClick={(e) => { e.stopPropagation(); setSelected(item); setQuantity('1'); setSelectedSize(null); }}
-                      >
-                        <ShoppingBag className="h-3.5 w-3.5" /> Buy
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="h-8 w-8 p-0 shrink-0"
-                        aria-label={`Share ${item.item_name}`}
-                        onClick={(e) => { e.stopPropagation(); handleShare(item); }}
-                      >
-                        <Share2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
+                </>
+              )}
+            </div>
+          </>
+        ) : (
+          /* ORDERS TAB */
+          <div className="space-y-4">
+            {/* Status Filter Buttons */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+              <button
+                type="button"
+                onClick={() => setOrderFilter('all')}
+                className={cn(
+                  'px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap flex items-center gap-1.5 border',
+                  orderFilter === 'all'
+                    ? 'bg-foreground text-background border-foreground shadow-sm'
+                    : 'bg-muted/50 text-muted-foreground border-border/60 hover:text-foreground',
+                )}
+              >
+                <span>All</span>
+                <span
+                  className={cn(
+                    'px-1.5 py-0.2 text-[10px] rounded-full font-semibold',
+                    orderFilter === 'all' ? 'bg-background/20 text-background' : 'bg-background text-foreground',
+                  )}
+                >
+                  {totalOrdersCount}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setOrderFilter('pending')}
+                className={cn(
+                  'px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap flex items-center gap-1.5 border',
+                  orderFilter === 'pending'
+                    ? 'bg-amber-500 text-white border-amber-600 shadow-sm'
+                    : 'bg-muted/50 text-muted-foreground border-border/60 hover:text-foreground',
+                )}
+              >
+                <Clock className="h-3 w-3" />
+                <span>Pending</span>
+                <span
+                  className={cn(
+                    'px-1.5 py-0.2 text-[10px] rounded-full font-semibold',
+                    orderFilter === 'pending' ? 'bg-black/20 text-white' : 'bg-amber-500/15 text-amber-600',
+                  )}
+                >
+                  {totalPending}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setOrderFilter('approved')}
+                className={cn(
+                  'px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap flex items-center gap-1.5 border',
+                  orderFilter === 'approved'
+                    ? 'bg-emerald-600 text-white border-emerald-700 shadow-sm'
+                    : 'bg-muted/50 text-muted-foreground border-border/60 hover:text-foreground',
+                )}
+              >
+                <CheckCircle2 className="h-3 w-3" />
+                <span>Approved</span>
+                <span
+                  className={cn(
+                    'px-1.5 py-0.2 text-[10px] rounded-full font-semibold',
+                    orderFilter === 'approved' ? 'bg-black/20 text-white' : 'bg-emerald-500/15 text-emerald-600',
+                  )}
+                >
+                  {totalApproved}
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setOrderFilter('rejected')}
+                className={cn(
+                  'px-3 py-1.5 rounded-full text-xs font-medium transition-all whitespace-nowrap flex items-center gap-1.5 border',
+                  orderFilter === 'rejected'
+                    ? 'bg-destructive text-destructive-foreground border-destructive shadow-sm'
+                    : 'bg-muted/50 text-muted-foreground border-border/60 hover:text-foreground',
+                )}
+              >
+                <XCircle className="h-3 w-3" />
+                <span>Rejected</span>
+                <span
+                  className={cn(
+                    'px-1.5 py-0.2 text-[10px] rounded-full font-semibold',
+                    orderFilter === 'rejected' ? 'bg-black/20 text-destructive-foreground' : 'bg-destructive/15 text-destructive',
+                  )}
+                >
+                  {totalRejected}
+                </span>
+              </button>
+            </div>
+
+            {/* My payments summary when viewing all or approved */}
+            {(orderFilter === 'all' || orderFilter === 'approved') && plans.length > 0 && totalOwing > 0 && (
+              <div className="grid grid-cols-2 gap-2">
+                <Card>
+                  <CardContent className="p-3">
+                    <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                      <Wallet className="h-3 w-3" /> Still to repay
+                    </p>
+                    <p className="text-lg font-bold text-amber-600">{formatUGX(totalOwing)}</p>
                   </CardContent>
                 </Card>
-                );
-              })}
-            </div>
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between mt-3 text-xs">
-                <Button variant="outline" size="sm" className="h-7" disabled={safePage <= 1} onClick={() => setCatalogPage(safePage - 1)}>Previous</Button>
-                <span className="text-muted-foreground">Page {safePage} of {totalPages}</span>
-                <Button variant="outline" size="sm" className="h-7" disabled={safePage >= totalPages} onClick={() => setCatalogPage(safePage + 1)}>Next</Button>
+                <Card>
+                  <CardContent className="p-3">
+                    <p className="text-[11px] text-muted-foreground flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3" /> Repaid so far
+                    </p>
+                    <p className="text-lg font-bold text-emerald-600">{formatUGX(totalRecovered)}</p>
+                  </CardContent>
+                </Card>
               </div>
             )}
-            </>
-          )}
-        </div>
 
-        {/* Recent deductions */}
-        {deductions.length > 0 && (
-          <div>
-            <h2 className="text-sm font-bold mb-2 flex items-center gap-2">
-              <Repeat className="h-4 w-4 text-primary" /> Wallet deductions for merchandise
-            </h2>
-            <Card>
-              <CardContent className="p-0 divide-y divide-border/60">
-                {deductions.map((d) => (
-                  <div key={d.id} className="flex items-center justify-between px-3 py-2.5">
-                    <div className="min-w-0">
-                      <p className="text-xs font-medium line-clamp-1">{d.item_name || 'Merchandise'}</p>
-                      <p className="text-[10px] text-muted-foreground">
-                        {d.created_at ? format(new Date(d.created_at), 'dd MMM yyyy, HH:mm') : ''}
-                      </p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-xs font-semibold text-destructive">- {formatUGX(Number(d.amount))}</p>
-                      <p className="text-[10px] text-muted-foreground">Left: {formatUGX(Number(d.outstanding_after))}</p>
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </div>
-        )}
+            {/* Spiro bike lease status */}
+            <BikeLeaseStatus
+              userId={user?.id}
+              onRequestNewOrder={() => { setActiveMainTab('store'); setBikeOpen(true); }}
+              filterStatus={orderFilter}
+            />
 
-        {/* My orders (plans) */}
-        {plans.length > 0 && (
-          <div>
-            <h2 className="text-sm font-bold mb-2">My merchandise orders</h2>
-            <Card>
-              <CardContent className="p-0 divide-y divide-border/60">
-                {plans.map((p) => {
-                  const isRejected = p.order_status === 'rejected';
-                  return (
-                    <div key={p.id} className="px-3 py-2.5">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-xs font-medium">{p.item_name}</p>
-                        {isRejected ? (
-                          <Badge variant="destructive" className="text-[10px]">Application Rejected</Badge>
-                        ) : (
-                          <Badge variant={p.status === 'completed' ? 'default' : 'secondary'} className="text-[10px]">
-                            {p.status === 'completed' ? 'Paid off' : 'Repaying'}
-                          </Badge>
-                        )}
-                      </div>
-                      {isRejected ? (
-                        <div className="mt-1.5 space-y-1.5">
-                          <p className="text-[11px] text-destructive">
-                            {p.rejection_reason || 'No reason was recorded. Please contact support.'}
-                          </p>
-                          {p.rejected_at && (
-                            <p className="text-[10px] text-muted-foreground">
-                              Rejected {format(new Date(p.rejected_at), 'dd MMM yyyy')}
-                            </p>
+            {/* Smartphone order status */}
+            <SmartphoneOrderStatus
+              userId={user?.id}
+              onRequestNewOrder={() => { setActiveMainTab('store'); setPhoneOpen(true); }}
+              filterStatus={orderFilter}
+            />
+
+            {/* Products being repaid — plan + pay button per product */}
+            {(orderFilter === 'all' || orderFilter === 'approved') && (
+              <MerchandiseRepaymentPortfolio userId={user?.id} />
+            )}
+
+            {/* Filtered Merchandise item orders */}
+            {filteredPlans.length > 0 && (
+              <div>
+                <h2 className="text-sm font-bold mb-2">Merchandise item orders</h2>
+                <Card>
+                  <CardContent className="p-0 divide-y divide-border/60">
+                    {filteredPlans.map((p) => {
+                      const isRejected = p.order_status === 'rejected';
+                      return (
+                        <div key={p.id} className="px-3 py-2.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-xs font-medium">{p.item_name}</p>
+                            {isRejected ? (
+                              <Badge variant="destructive" className="text-[10px]">Application Rejected</Badge>
+                            ) : (
+                              <Badge variant={p.status === 'completed' ? 'default' : 'secondary'} className="text-[10px]">
+                                {p.status === 'completed' ? 'Paid off' : 'Repaying'}
+                              </Badge>
+                            )}
+                          </div>
+                          {isRejected ? (
+                            <div className="mt-1.5 space-y-1.5">
+                              <p className="text-[11px] text-destructive">
+                                {p.rejection_reason || 'No reason was recorded. Please contact support.'}
+                              </p>
+                              {p.rejected_at && (
+                                <p className="text-[10px] text-muted-foreground">
+                                  Rejected {format(new Date(p.rejected_at), 'dd MMM yyyy')}
+                                </p>
+                              )}
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="sm"
+                                className="h-7 text-[11px] text-destructive border-destructive/40 hover:bg-destructive/10"
+                                disabled={deleteApplication.isPending}
+                                onClick={() =>
+                                  deleteApplication.mutate(p as any, {
+                                    onSuccess: () => toast.success('Application removed.'),
+                                    onError: (e) => toast.error(e.message || 'Could not remove the application.'),
+                                  })
+                                }
+                              >
+                                <Trash2 className="h-3 w-3 mr-1" />
+                                Delete application
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center justify-between mt-1 text-[11px] text-muted-foreground">
+                              <span>Cost {formatUGX(Number(p.original_amount))}</span>
+                              <span className="text-emerald-600">Repaid {formatUGX(Number(p.amount_recovered))}</span>
+                              <span className="text-amber-600">Left {formatUGX(Number(p.outstanding_balance))}</span>
+                            </div>
                           )}
-                          {/* Only rejected applications can be dismissed — approved
-                              orders (active/completed plans) are never deletable. */}
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            className="h-7 text-[11px] text-destructive border-destructive/40 hover:bg-destructive/10"
-                            disabled={deleteApplication.isPending}
-                            onClick={() =>
-                              deleteApplication.mutate(p as any, {
-                                onSuccess: () => toast.success('Application removed.'),
-                                onError: (e) => toast.error(e.message || 'Could not remove the application.'),
-                              })
-                            }
-                          >
-                            <Trash2 className="h-3 w-3 mr-1" />
-                            Delete application
-                          </Button>
                         </div>
-                      ) : (
-                        <div className="flex items-center justify-between mt-1 text-[11px] text-muted-foreground">
-                          <span>Cost {formatUGX(Number(p.original_amount))}</span>
-                          <span className="text-emerald-600">Repaid {formatUGX(Number(p.amount_recovered))}</span>
-                          <span className="text-amber-600">Left {formatUGX(Number(p.outstanding_balance))}</span>
+                      );
+                    })}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+
+            {/* Empty state when the selected filter has 0 items */}
+            {currentFilterCount === 0 && (
+              <Card className="border-dashed border-border/70 p-8 text-center bg-muted/20">
+                <div className="flex flex-col items-center justify-center space-y-2">
+                  <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
+                    {orderFilter === 'pending' && <Clock className="h-5 w-5 text-amber-500" />}
+                    {orderFilter === 'approved' && <CheckCircle2 className="h-5 w-5 text-emerald-500" />}
+                    {orderFilter === 'rejected' && <XCircle className="h-5 w-5 text-rose-500" />}
+                    {orderFilter === 'all' && <Package className="h-5 w-5 text-muted-foreground" />}
+                  </div>
+                  <p className="text-sm font-semibold capitalize">
+                    No {orderFilter === 'all' ? '' : orderFilter} orders
+                  </p>
+                  <p className="text-xs text-muted-foreground max-w-xs">
+                    {orderFilter === 'rejected'
+                      ? 'You have no rejected merchandise or bike applications.'
+                      : orderFilter === 'pending'
+                      ? 'You have no orders currently pending review or approval.'
+                      : orderFilter === 'approved'
+                      ? 'You have no approved or active orders.'
+                      : 'You have not placed any merchandise orders yet.'}
+                  </p>
+                  {orderFilter !== 'all' && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-2 text-xs h-7"
+                      onClick={() => setOrderFilter('all')}
+                    >
+                      View all orders ({totalOrdersCount})
+                    </Button>
+                  )}
+                </div>
+              </Card>
+            )}
+
+            {/* Recent deductions for merchandise (when on all or approved) */}
+            {(orderFilter === 'all' || orderFilter === 'approved') && deductions.length > 0 && (
+              <div>
+                <h2 className="text-sm font-bold mb-2 flex items-center gap-2">
+                  <Repeat className="h-4 w-4 text-primary" /> Wallet deductions for merchandise
+                </h2>
+                <Card>
+                  <CardContent className="p-0 divide-y divide-border/60">
+                    {deductions.map((d) => (
+                      <div key={d.id} className="flex items-center justify-between px-3 py-2.5">
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium line-clamp-1">{d.item_name || 'Merchandise'}</p>
+                          <p className="text-[10px] text-muted-foreground">
+                            {d.created_at ? format(new Date(d.created_at), 'dd MMM yyyy, HH:mm') : ''}
+                          </p>
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </CardContent>
-            </Card>
+                        <div className="text-right shrink-0">
+                          <p className="text-xs font-semibold text-destructive">- {formatUGX(Number(d.amount))}</p>
+                          <p className="text-[10px] text-muted-foreground">Left: {formatUGX(Number(d.outstanding_after))}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </CardContent>
+                </Card>
+              </div>
+            )}
           </div>
         )}
       </div>

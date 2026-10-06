@@ -17598,6 +17598,13 @@ export type Database = {
             referencedRelation: "v_landlord_pool_unreserved"
             referencedColumns: ["portfolio_id"]
           },
+          {
+            foreignKeyName: "funder_pending_portfolios_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: true
+            referencedRelation: "v_portfolio_pool_category"
+            referencedColumns: ["portfolio_id"]
+          },
         ]
       }
       general_ledger: {
@@ -20874,6 +20881,13 @@ export type Database = {
             columns: ["portfolio_id"]
             isOneToOne: false
             referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "hr_pay_staff_reinvestments_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
             referencedColumns: ["portfolio_id"]
           },
           {
@@ -25268,6 +25282,13 @@ export type Database = {
             referencedRelation: "v_landlord_pool_unreserved"
             referencedColumns: ["portfolio_id"]
           },
+          {
+            foreignKeyName: "landlord_pool_entries_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
+            referencedColumns: ["portfolio_id"]
+          },
         ]
       }
       landlord_pool_exceptions: {
@@ -25317,6 +25338,254 @@ export type Database = {
             columns: ["portfolio_id"]
             isOneToOne: false
             referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "landlord_pool_exceptions_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
+            referencedColumns: ["portfolio_id"]
+          },
+        ]
+      }
+      landlord_pool_legacy_category_log: {
+        Row: {
+          created_at: string
+          origin: string
+          portfolio_code: string | null
+          portfolio_id: string
+          principal: number | null
+          run_id: string
+          status: string | null
+        }
+        Insert: {
+          created_at?: string
+          origin: string
+          portfolio_code?: string | null
+          portfolio_id: string
+          principal?: number | null
+          run_id: string
+          status?: string | null
+        }
+        Update: {
+          created_at?: string
+          origin?: string
+          portfolio_code?: string | null
+          portfolio_id?: string
+          principal?: number | null
+          run_id?: string
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landlord_pool_legacy_category_log_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_pool_legacy_category_log_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "landlord_pool_legacy_category_log_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "landlord_pool_legacy_category_log_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "landlord_pool_legacy_category_runs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      landlord_pool_legacy_category_runs: {
+        Row: {
+          after_snapshot: Json | null
+          before_snapshot: Json | null
+          error: string | null
+          finished_at: string | null
+          id: string
+          mode: string
+          rows_updated: number | null
+          started_at: string
+          status: string
+        }
+        Insert: {
+          after_snapshot?: Json | null
+          before_snapshot?: Json | null
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          mode: string
+          rows_updated?: number | null
+          started_at?: string
+          status: string
+        }
+        Update: {
+          after_snapshot?: Json | null
+          before_snapshot?: Json | null
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          mode?: string
+          rows_updated?: number | null
+          started_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      landlord_pool_legacy_join_runs: {
+        Row: {
+          after_snapshot: Json | null
+          before_snapshot: Json | null
+          error: string | null
+          finished_at: string | null
+          id: string
+          members_added: number | null
+          mode: string
+          started_at: string
+          status: string
+        }
+        Insert: {
+          after_snapshot?: Json | null
+          before_snapshot?: Json | null
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          members_added?: number | null
+          mode: string
+          started_at?: string
+          status: string
+        }
+        Update: {
+          after_snapshot?: Json | null
+          before_snapshot?: Json | null
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          members_added?: number | null
+          mode?: string
+          started_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      landlord_pool_legacy_members: {
+        Row: {
+          created_at: string
+          joined_at: string
+          origin: string
+          portfolio_id: string
+          principal_at_join: number | null
+          run_id: string | null
+          status_at_join: string | null
+        }
+        Insert: {
+          created_at?: string
+          joined_at: string
+          origin: string
+          portfolio_id: string
+          principal_at_join?: number | null
+          run_id?: string | null
+          status_at_join?: string | null
+        }
+        Update: {
+          created_at?: string
+          joined_at?: string
+          origin?: string
+          portfolio_id?: string
+          principal_at_join?: number | null
+          run_id?: string | null
+          status_at_join?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landlord_pool_legacy_members_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: true
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_pool_legacy_members_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: true
+            referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "landlord_pool_legacy_members_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: true
+            referencedRelation: "v_portfolio_pool_category"
+            referencedColumns: ["portfolio_id"]
+          },
+        ]
+      }
+      landlord_pool_legacy_skips: {
+        Row: {
+          created_at: string
+          event_amount: number
+          id: string
+          kind: string
+          portfolio_id: string
+          reason: string
+          skipped_amount: number
+          source_id: string
+          source_table: string
+        }
+        Insert: {
+          created_at?: string
+          event_amount: number
+          id?: string
+          kind: string
+          portfolio_id: string
+          reason: string
+          skipped_amount: number
+          source_id: string
+          source_table: string
+        }
+        Update: {
+          created_at?: string
+          event_amount?: number
+          id?: string
+          kind?: string
+          portfolio_id?: string
+          reason?: string
+          skipped_amount?: number
+          source_id?: string
+          source_table?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landlord_pool_legacy_skips_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_pool_legacy_skips_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "landlord_pool_legacy_skips_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
             referencedColumns: ["portfolio_id"]
           },
         ]
@@ -26521,6 +26790,13 @@ export type Database = {
             referencedRelation: "v_general_ledger_operational"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "ledger_anomaly_isolations_ledger_entry_id_fkey"
+            columns: ["ledger_entry_id"]
+            isOneToOne: true
+            referencedRelation: "v_landlord_pool_legacy_missed"
+            referencedColumns: ["ledger_leg_id"]
+          },
         ]
       }
       ledger_backfill_corrections: {
@@ -26934,6 +27210,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "v_general_ledger_operational"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ledger_scope_reclassifications_ledger_entry_id_fkey"
+            columns: ["ledger_entry_id"]
+            isOneToOne: true
+            referencedRelation: "v_landlord_pool_legacy_missed"
+            referencedColumns: ["ledger_leg_id"]
           },
         ]
       }
@@ -31393,6 +31676,7 @@ export type Database = {
           payout_mode: string
           phone: string | null
           reference: string | null
+          return_option: string | null
           status: string
           updated_at: string
         }
@@ -31422,6 +31706,7 @@ export type Database = {
           payout_mode?: string
           phone?: string | null
           reference?: string | null
+          return_option?: string | null
           status?: string
           updated_at?: string
         }
@@ -31451,6 +31736,7 @@ export type Database = {
           payout_mode?: string
           phone?: string | null
           reference?: string | null
+          return_option?: string | null
           status?: string
           updated_at?: string
         }
@@ -31541,6 +31827,13 @@ export type Database = {
             columns: ["portfolio_id"]
             isOneToOne: false
             referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "partner_escalations_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
             referencedColumns: ["portfolio_id"]
           },
         ]
@@ -32443,6 +32736,13 @@ export type Database = {
             columns: ["portfolio_id"]
             isOneToOne: false
             referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "partner_supported_houses_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
             referencedColumns: ["portfolio_id"]
           },
         ]
@@ -34568,6 +34868,13 @@ export type Database = {
             referencedRelation: "v_landlord_pool_unreserved"
             referencedColumns: ["portfolio_id"]
           },
+          {
+            foreignKeyName: "portfolio_action_requests_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
+            referencedColumns: ["portfolio_id"]
+          },
         ]
       }
       portfolio_allocations: {
@@ -34653,6 +34960,13 @@ export type Database = {
             columns: ["portfolio_id"]
             isOneToOne: false
             referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "portfolio_allocations_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
             referencedColumns: ["portfolio_id"]
           },
           {
@@ -34834,6 +35148,13 @@ export type Database = {
             referencedRelation: "v_landlord_pool_unreserved"
             referencedColumns: ["portfolio_id"]
           },
+          {
+            foreignKeyName: "portfolio_completion_tokens_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: true
+            referencedRelation: "v_portfolio_pool_category"
+            referencedColumns: ["portfolio_id"]
+          },
         ]
       }
       portfolio_redemptions: {
@@ -34916,6 +35237,13 @@ export type Database = {
             columns: ["portfolio_id"]
             isOneToOne: false
             referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "portfolio_redemptions_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
             referencedColumns: ["portfolio_id"]
           },
           {
@@ -35016,6 +35344,13 @@ export type Database = {
             columns: ["portfolio_id"]
             isOneToOne: false
             referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "portfolio_renewals_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
             referencedColumns: ["portfolio_id"]
           },
         ]
@@ -38365,6 +38700,45 @@ export type Database = {
           },
         ]
       }
+      rd_ideas: {
+        Row: {
+          canvas: Json
+          created_at: string
+          created_by: string
+          id: string
+          idea_date: string
+          owner: string
+          summary: string
+          title: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          canvas?: Json
+          created_at?: string
+          created_by?: string
+          id?: string
+          idea_date?: string
+          owner?: string
+          summary?: string
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          canvas?: Json
+          created_at?: string
+          created_by?: string
+          id?: string
+          idea_date?: string
+          owner?: string
+          summary?: string
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       rd_missions: {
         Row: {
           bet: string | null
@@ -41535,6 +41909,13 @@ export type Database = {
             columns: ["portfolio_id"]
             isOneToOne: false
             referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "roi_payout_schedules_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
             referencedColumns: ["portfolio_id"]
           },
         ]
@@ -56224,6 +56605,40 @@ export type Database = {
         }
         Relationships: []
       }
+      v_landlord_pool_legacy_missed: {
+        Row: {
+          amount: number | null
+          category: string | null
+          created_at: string | null
+          ledger_leg_id: string | null
+          portfolio_code: string | null
+          portfolio_id: string | null
+          status: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landlord_pool_legacy_members_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: true
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_pool_legacy_members_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: true
+            referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "landlord_pool_legacy_members_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: true
+            referencedRelation: "v_portfolio_pool_category"
+            referencedColumns: ["portfolio_id"]
+          },
+        ]
+      }
       v_landlord_pool_position: {
         Row: {
           attached_to: string | null
@@ -56255,6 +56670,13 @@ export type Database = {
             columns: ["portfolio_id"]
             isOneToOne: false
             referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "landlord_pool_entries_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
             referencedColumns: ["portfolio_id"]
           },
         ]
@@ -57137,6 +57559,13 @@ export type Database = {
             referencedRelation: "v_landlord_pool_unreserved"
             referencedColumns: ["portfolio_id"]
           },
+          {
+            foreignKeyName: "partner_supported_houses_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
+            referencedColumns: ["portfolio_id"]
+          },
         ]
       }
       v_payables_lines: {
@@ -57182,6 +57611,81 @@ export type Database = {
           withdrawable_delta: number | null
         }
         Relationships: []
+      }
+      v_portfolio_pool_category: {
+        Row: {
+          cash_in_pool: boolean | null
+          category: string | null
+          legacy_joined_at: string | null
+          live_principal: number | null
+          partner_id: string | null
+          pool_eligible: boolean | null
+          pool_in_pool: number | null
+          pool_out_with_tenants: number | null
+          pool_released: number | null
+          pool_reserved: number | null
+          portfolio_code: string | null
+          portfolio_id: string | null
+          status: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "investor_portfolios_investor_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "investor_portfolios_investor_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "investor_portfolios_investor_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "investor_portfolios_investor_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "investor_portfolios_investor_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "investor_portfolios_investor_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "investor_portfolios_investor_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "investor_portfolios_investor_id_fkey"
+            columns: ["partner_id"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
+          },
+        ]
       }
       v_promissory_agent_commissions: {
         Row: {
@@ -57248,6 +57752,13 @@ export type Database = {
             columns: ["portfolio_id"]
             isOneToOne: true
             referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "funder_pending_portfolios_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: true
+            referencedRelation: "v_portfolio_pool_category"
             referencedColumns: ["portfolio_id"]
           },
         ]
@@ -58482,6 +58993,7 @@ export type Database = {
         Args: { p_roles: string[]; p_user: string }
         Returns: boolean
       }
+      _landlord_pool_legacy_snapshot: { Args: never; Returns: Json }
       _landlord_pool_post: {
         Args: {
           p_allocation_id?: string
@@ -66163,9 +66675,10 @@ export type Database = {
         Returns: Json
       }
       get_sms_traffic_daily: {
-        Args: { p_days?: number }
+        Args: { p_days: number }
         Returns: {
           africastalking: number
+          confirmed: number
           day: string
           delivered: number
           failed: number
@@ -67957,6 +68470,10 @@ export type Database = {
         Args: { p_amount: number; p_caller?: string; p_rent_request_id: string }
         Returns: Json
       }
+      landlord_pool_categorise_legacy_portfolios: {
+        Args: { p_dry_run?: boolean }
+        Returns: Json
+      }
       landlord_pool_cutover: { Args: never; Returns: string }
       landlord_pool_deploy: {
         Args: {
@@ -67967,6 +68484,19 @@ export type Database = {
           p_pool_entry_id?: string
           p_rent_request_id: string
         }
+        Returns: Json
+      }
+      landlord_pool_is_member: {
+        Args: { p_portfolio_id: string }
+        Returns: boolean
+      }
+      landlord_pool_join_legacy_portfolios: {
+        Args: { p_dry_run?: boolean }
+        Returns: Json
+      }
+      landlord_pool_legacy_from: { Args: never; Returns: string }
+      landlord_pool_legacy_release: {
+        Args: { p_amount: number; p_caller?: string; p_portfolio_id: string }
         Returns: Json
       }
       landlord_pool_rebalance: {
@@ -73216,6 +73746,10 @@ export type Database = {
           transfer_churn_count: number
         }[]
       }
+      tops_agent_period_collection: {
+        Args: { p_agent_id?: string; p_end: string; p_start: string }
+        Returns: Json
+      }
       tops_allocate_collection: {
         Args: { p_collection_id: string }
         Returns: number
@@ -73429,6 +73963,30 @@ export type Database = {
           pay_tenant: string
         }[]
       }
+      tops_pay_behaviour_payments_capped: {
+        Args: {
+          p_agent_id?: string
+          p_cadence?: string
+          p_district?: string
+          p_end: string
+          p_region?: string
+          p_start: string
+        }
+        Returns: {
+          pay_agent: string
+          pay_amount: number
+          pay_at: string
+          pay_channel: string
+          pay_counted_ugx: number
+          pay_day: string
+          pay_dow: number
+          pay_excess_ugx: number
+          pay_hour: number
+          pay_id: string
+          pay_rr: string
+          pay_tenant: string
+        }[]
+      }
       tops_pay_behaviour_plans: {
         Args: {
           p_agent_id?: string
@@ -73442,6 +74000,46 @@ export type Database = {
           pl_agent: string
           pl_agent_n: number
           pl_agent_ugx: number
+          pl_billed_days: number
+          pl_billed_ugx: number
+          pl_cadence: string
+          pl_covered_ugx: number
+          pl_first_paid: string
+          pl_last_paid: string
+          pl_other_n: number
+          pl_other_ugx: number
+          pl_paid_days: number
+          pl_paid_ugx: number
+          pl_rent: number
+          pl_rr: string
+          pl_segment: string
+          pl_self_n: number
+          pl_self_ugx: number
+          pl_start: string
+          pl_tenant: string
+        }[]
+      }
+      tops_pay_behaviour_plans_capped: {
+        Args: {
+          p_agent_id?: string
+          p_cadence?: string
+          p_district?: string
+          p_end: string
+          p_region?: string
+          p_start: string
+        }
+        Returns: {
+          pl_agent: string
+          pl_agent_n: number
+          pl_agent_ugx: number
+          pl_ahead_agent_n: number
+          pl_ahead_agent_ugx: number
+          pl_ahead_n: number
+          pl_ahead_other_n: number
+          pl_ahead_other_ugx: number
+          pl_ahead_self_n: number
+          pl_ahead_self_ugx: number
+          pl_ahead_ugx: number
           pl_billed_days: number
           pl_billed_ugx: number
           pl_cadence: string
@@ -73491,8 +74089,32 @@ export type Database = {
         }
         Returns: Json
       }
+      tops_payment_behaviour_by_v2: {
+        Args: {
+          p_agent_id?: string
+          p_cadence?: string
+          p_dimension: string
+          p_district?: string
+          p_end: string
+          p_limit?: number
+          p_region?: string
+          p_start: string
+        }
+        Returns: Json
+      }
       tops_payment_behaviour_options: { Args: never; Returns: Json }
       tops_payment_behaviour_overview: {
+        Args: {
+          p_agent_id?: string
+          p_cadence?: string
+          p_district?: string
+          p_end: string
+          p_region?: string
+          p_start: string
+        }
+        Returns: Json
+      }
+      tops_payment_behaviour_overview_v2: {
         Args: {
           p_agent_id?: string
           p_cadence?: string
@@ -73514,7 +74136,29 @@ export type Database = {
         }
         Returns: Json
       }
+      tops_payment_behaviour_summary_v2: {
+        Args: {
+          p_agent_id?: string
+          p_cadence?: string
+          p_district?: string
+          p_end: string
+          p_region?: string
+          p_start: string
+        }
+        Returns: Json
+      }
       tops_payment_behaviour_timing: {
+        Args: {
+          p_agent_id?: string
+          p_cadence?: string
+          p_district?: string
+          p_end: string
+          p_region?: string
+          p_start: string
+        }
+        Returns: Json
+      }
+      tops_payment_behaviour_timing_v2: {
         Args: {
           p_agent_id?: string
           p_cadence?: string
@@ -73536,7 +74180,32 @@ export type Database = {
         }
         Returns: Json
       }
+      tops_payment_behaviour_trend_v2: {
+        Args: {
+          p_agent_id?: string
+          p_cadence?: string
+          p_district?: string
+          p_end: string
+          p_region?: string
+          p_start: string
+        }
+        Returns: Json
+      }
       tops_payment_behaviour_watchlist: {
+        Args: {
+          p_agent_id?: string
+          p_cadence?: string
+          p_district?: string
+          p_end: string
+          p_limit?: number
+          p_min_score?: number
+          p_offset?: number
+          p_region?: string
+          p_start: string
+        }
+        Returns: Json
+      }
+      tops_payment_behaviour_watchlist_v2: {
         Args: {
           p_agent_id?: string
           p_cadence?: string

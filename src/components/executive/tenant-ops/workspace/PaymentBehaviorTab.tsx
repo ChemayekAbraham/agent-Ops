@@ -24,8 +24,10 @@ import {
   fetchPaymentBehaviorReportData, usePaymentBehaviorOptions, usePaymentBehaviorOverview, usePaymentBehaviorTiming,
   usePaymentBehaviorTrend, type PaymentBehaviorDimension, type PaymentBehaviorFilters,
 } from '@/hooks/tenantOpsWorkspace/usePaymentBehavior';
+import { usePaymentBehaviorHomeCheck } from '@/hooks/tenantOpsWorkspace/usePaymentBehaviorHomeCheck';
 import { WorkspaceEmptyState } from '@/components/executive/tenant-ops/workspace/WorkspaceEmptyState';
 import { AlertTriangle } from 'lucide-react';
+import { HomeCheckStrip } from './payment-behavior/HomeCheckStrip';
 import { OverviewSection } from './payment-behavior/OverviewSection';
 import { TrendsSection } from './payment-behavior/TrendsSection';
 import { TimelinessSection } from './payment-behavior/TimelinessSection';
@@ -80,6 +82,8 @@ export default function PaymentBehaviorTab() {
   const overview = usePaymentBehaviorOverview(filters);
   const trend = usePaymentBehaviorTrend(filters);
   const timing = usePaymentBehaviorTiming(filters);
+  // Tenant Ops Home is the reference for Expected, Collected, Short and % covered: same dates as this tab.
+  const homeCheck = usePaymentBehaviorHomeCheck(startIso, endIso, filtered, overview);
 
   const districtOptions = useMemo(
     () => (options?.districts ?? []).filter((d) => !region || d.region === region),
@@ -112,10 +116,12 @@ export default function PaymentBehaviorTab() {
         fetchPaymentBehaviorReportData(filters),
         import('@/lib/tenantPaymentBehaviorPdf'),
       ]);
+      const reportCheck = filtered ? null : await homeCheck.checkAgainst(data.overview.summary).catch(() => null);
       await generatePaymentBehaviorPdf(data, {
         periodLabel: `${format(start, 'dd MMM yyyy')} to ${format(end, 'dd MMM yyyy')}`,
         phrase,
         filters: selectedLabels(),
+        homeCheck: { filtered, check: reportCheck },
       });
       toast.success('Report ready', { id: toastId });
     } catch (e) {
@@ -193,7 +199,10 @@ export default function PaymentBehaviorTab() {
             <TabsTrigger value="warning" className={SECTION_TRIGGER}>Early warning</TabsTrigger>
             <TabsTrigger value="method" className={SECTION_TRIGGER}>Method</TabsTrigger>
           </TabsList>
-          <TabsContent value="overview" className="mt-3"><OverviewSection data={overview.data} timing={timing.data} loading={overview.isLoading} /></TabsContent>
+          <TabsContent value="overview" className="mt-3 space-y-3">
+            <HomeCheckStrip state={homeCheck.state} check={homeCheck.check} message={homeCheck.message} placeFilterOn={!!(region || district)} />
+            <OverviewSection data={overview.data} timing={timing.data} loading={overview.isLoading} />
+          </TabsContent>
           <TabsContent value="trends" className="mt-3"><TrendsSection data={trend.data} loading={trend.isLoading} /></TabsContent>
           <TabsContent value="timeliness" className="mt-3"><TimelinessSection data={timing.data} loading={timing.isLoading} /></TabsContent>
           <TabsContent value="segments" className="mt-3"><SegmentsSection data={overview.data} loading={overview.isLoading} /></TabsContent>

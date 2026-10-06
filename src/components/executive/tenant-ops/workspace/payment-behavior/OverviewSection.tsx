@@ -106,6 +106,12 @@ export function OverviewSection({
         />
       </div>
 
+      {s?.paid_ahead && (
+        <p className="px-1 text-[11px] leading-relaxed text-muted-foreground" data-testid="paid-ahead-note">
+          Paid ahead / above the bill: {ugx(s.paid_ahead.paid_ahead_ugx)} ({plural(s.paid_ahead.paid_ahead_n, 'payment')}). Not counted as collected, same as Home.
+        </p>
+      )}
+
       <div className="grid gap-3 xl:grid-cols-2">
         <SectionCard title="How tenants paid" description="Tenants billed or paying in the period, by who made their payments." badge={<ObservedBadge />}>
           {loading ? (

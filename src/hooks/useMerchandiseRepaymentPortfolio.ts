@@ -152,6 +152,7 @@ export function useDeleteMerchandiseApplication(userId?: string) {
       qc.invalidateQueries({ queryKey: ['my-merchandise-plans', userId] });
       qc.invalidateQueries({ queryKey: ['merchandise-order-lock', userId] });
       qc.invalidateQueries({ queryKey: ['my-smartphone-orders', userId] });
+      qc.invalidateQueries({ queryKey: ['my-bike-lease-orders', userId] });
     },
   });
 }

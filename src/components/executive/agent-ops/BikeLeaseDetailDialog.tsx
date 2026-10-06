@@ -41,7 +41,7 @@ import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { formatUGX } from '@/lib/rentCalculations';
 import { spiroLeaseSchedule } from '@/lib/spiroBikeLease';
-import { useBikeCatalogCosts, bikeProfit } from '@/hooks/useBikeCatalogCosts';
+import { useBikeCatalogCosts, bikeProfit, resolveBikeBasePrice } from '@/hooks/useBikeCatalogCosts';
 import { kampalaTodayYmd, kampalaOffsetYmd } from '@/lib/kampalaDays';
 import {
   generateSpiroBikeSettlementCertificatePdf,
@@ -331,19 +331,21 @@ export function BikeLeaseDetailDialog({
 
   const isOps = !stage || stage === 'ops';
 
-  const valuationNum = Number(order.valuation_amount || 0);
   const termNum = Number(order.lease_term_months || 12);
-  // Full reducing-balance schedule, derived from the valuation and term. Every
+  const catalogCost = supplierCostFor(order.model_type);
+  const valuationNum = resolveBikeBasePrice(order.valuation_amount, termNum, order.model_type, catalogCost);
+  // Full reducing-balance schedule, derived from the base valuation and term. Every
   // pay figure below comes from it so the cards include the access fee and
   // agree with the "First → last" rows.
   const schedule = spiroLeaseSchedule(termNum, valuationNum);
   const feePct = schedule.feePct;
   const monthly = schedule.monthly;
-  const outstanding = Number(order.amount_outstanding ?? valuationNum);
+  const totalRepayable = schedule.total;
+  const outstanding = Number(order.amount_outstanding && order.amount_outstanding <= totalRepayable ? order.amount_outstanding : totalRepayable);
   const paid = Number(order.amount_paid || 0);
-  const costPrice = supplierCostFor(order.model_type);
+  const costPrice = catalogCost ?? valuationNum;
   const dailyPay = schedule.daily;
-  const profit = bikeProfit(valuationNum, costPrice);
+  const profit = schedule.accessFee;
 
   const isSettled =
     (order.order_status === 'approved' || order.order_status === 'completed') &&
@@ -677,7 +679,7 @@ export function BikeLeaseDetailDialog({
                   {isOps ? 'Bike Cost Price' : 'Valuation Amount'}
                 </p>
                 <p className="text-xs sm:text-sm font-bold text-primary truncate">
-                  {isOps ? (costPrice == null ? 'Not in catalog' : formatUGX(costPrice)) : formatUGX(valuationNum)}
+                  {formatUGX(valuationNum)}
                 </p>
               </div>
 

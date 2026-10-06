@@ -9,10 +9,19 @@ export const overviewFixture: PaymentBehaviorOverview = {
     data_since: { first_self_payment_day: '2026-09-04', first_billed_day: '2026-09-10' },
     basis: 'Self = tenant_deposit_auto. Agent = agent_float.',
     payments: {
-      self: { n: 135, ugx: 1742931, avg_ugx: 12911, median_ugx: 11000, tenants: 38 },
-      agent: { n: 4821, ugx: 140649187, avg_ugx: 29174, median_ugx: 10000, tenants: 737 },
-      other: { n: 1, ugx: 100000, avg_ugx: 100000, median_ugx: 100000, tenants: 1 },
-      total_n: 4957, total_ugx: 142492118, self_share_pct: 1.2, agent_share_pct: 98.7, self_count_share_pct: 2.7,
+      self: { n: 137, counted_n: 129, ugx: 1757731, avg_ugx: 13626, median_ugx: 11000, tenants: 39, paid_ahead_ugx: 131200, paid_ahead_n: 8 },
+      agent: { n: 4918, counted_n: 3733, ugx: 86389448, avg_ugx: 23142, median_ugx: 10000, tenants: 742, paid_ahead_ugx: 56169647, paid_ahead_n: 1324 },
+      other: { n: 1, counted_n: 1, ugx: 44769, avg_ugx: 44769, median_ugx: 44769, tenants: 1, paid_ahead_ugx: 55231, paid_ahead_n: 1 },
+      total_n: 5056, total_ugx: 88191948, raw_total_ugx: 144548026, self_share_pct: 2.0, agent_share_pct: 98.0, self_count_share_pct: 2.7,
+    },
+    paid_ahead: {
+      definition: 'Money paid on a Rent Plan above what that plan was billed for the period, plus payments on plans with no bill in the period. Not counted as collected, the same as Tenant Ops Home.',
+      paid_ahead_ugx: 56356078, paid_ahead_n: 1333,
+      self: { paid_ahead_ugx: 131200, paid_ahead_n: 8 },
+      agent: { paid_ahead_ugx: 56169647, paid_ahead_n: 1324 },
+      other: { paid_ahead_ugx: 55231, paid_ahead_n: 1 },
+      no_bill: { plans: 177, paid_ahead_ugx: 34210746, paid_ahead_n: 828 },
+      above_bill: { plans: 142, paid_ahead_ugx: 22145332, paid_ahead_n: 505 },
     },
     tenants: {
       billed: 719, paying: 748, self_payers: 38, agent_paid: 737, self_only: 11, agent_only: 710, mixed: 27, billed_not_paying: 131,
@@ -20,11 +29,11 @@ export const overviewFixture: PaymentBehaviorOverview = {
       previous: { paying: 566, self_payers: 2, self_payers_pct: 0.4 }, self_payers_pct_change_pp: 4.7,
     },
     coverage: {
-      billed_ugx: 227715911, covered_ugx: 86853389, short_ugx: 140862522, coverage_pct: 38.1,
+      billed_ugx: 227715911, covered_ugx: 88191948, short_ugx: 139523963, coverage_pct: 38.7,
       by_segment: [
         { segment: 'self_only', tenants: 11, billed_ugx: 1287820, covered_ugx: 824500, short_ugx: 463320, coverage_pct: 64.0 },
         { segment: 'mixed', tenants: 27, billed_ugx: 6133359, covered_ugx: 3169932, short_ugx: 2963427, coverage_pct: 51.7 },
-        { segment: 'agent_only', tenants: 710, billed_ugx: 189359040, covered_ugx: 82858957, short_ugx: 106500083, coverage_pct: 43.8 },
+        { segment: 'agent_only', tenants: 710, billed_ugx: 189359040, covered_ugx: 84197516, short_ugx: 105161524, coverage_pct: 44.5 },
         { segment: 'no_payment', tenants: 131, billed_ugx: 30935692, covered_ugx: 0, short_ugx: 30935692, coverage_pct: 0 },
       ],
     },
@@ -34,7 +43,7 @@ export const overviewFixture: PaymentBehaviorOverview = {
     rows: [
       { segment: 'self_reliant', tenants: 12, billed_ugx: 1441457, covered_ugx: 860500, short_ugx: 580957, coverage_pct: 59.7, self_ugx: 859500, agent_ugx: 1000, avg_paid_day_pct: 62.8 },
       { segment: 'hybrid', tenants: 13, billed_ugx: 2835009, covered_ugx: 1387604, short_ugx: 1447405, coverage_pct: 48.9, self_ugx: 665997, agent_ugx: 848638, avg_paid_day_pct: 55.2 },
-      { segment: 'agent_dependent', tenants: 710, billed_ugx: 189359040, covered_ugx: 82858957, short_ugx: 106500083, coverage_pct: 43.8, self_ugx: 0, agent_ugx: 137980735, avg_paid_day_pct: 46.9 },
+      { segment: 'agent_dependent', tenants: 710, billed_ugx: 189359040, covered_ugx: 84197516, short_ugx: 105161524, coverage_pct: 44.5, self_ugx: 0, agent_ugx: 137980735, avg_paid_day_pct: 46.9 },
     ],
   },
   shift: {

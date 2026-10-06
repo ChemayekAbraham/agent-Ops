@@ -84,8 +84,8 @@ const KNOWN_STATUSES: OrderStatus[] = ['submitted', 'pending_approval', 'coo_app
 /** Access amount is only revealed once an executive approves the order. */
 const APPROVED_STATUSES: OrderStatus[] = ['approved', 'processing', 'completed'];
 
-/** Agents may remove their own application while pending, or once rejected/failed. */
-const CANCELLABLE_STATUSES: OrderStatus[] = ['submitted', 'pending_approval', 'rejected', 'failed'];
+/** Only rejected or failed applications can be removed by the agent; pending orders cannot be deleted. */
+const CANCELLABLE_STATUSES: OrderStatus[] = ['rejected', 'failed'];
 
 
 function normalizeStatus(value: unknown): OrderStatus {
@@ -111,6 +111,7 @@ interface Props {
   title?: string;
   /** Called when the user chooses to place a new order from inside the status card. */
   onRequestNewOrder?: () => void;
+  filterStatus?: 'all' | 'pending' | 'approved' | 'rejected';
 }
 
 export default function SmartphoneOrderStatus({
@@ -118,6 +119,7 @@ export default function SmartphoneOrderStatus({
   itemName = 'Welile Smartphone',
   title = 'Smartphone order status',
   onRequestNewOrder,
+  filterStatus = 'all',
 }: Props) {
   const queryClient = useQueryClient();
   const [emailingId, setEmailingId] = useState<string | null>(null);
@@ -166,6 +168,26 @@ export default function SmartphoneOrderStatus({
     },
   });
 
+  const filteredOrders = useMemo(() => {
+    if (!filterStatus || filterStatus === 'all') return orders;
+    if (filterStatus === 'pending') {
+      return orders.filter((o) =>
+        ['submitted', 'pending_approval', 'coo_approved'].includes(o.order_status),
+      );
+    }
+    if (filterStatus === 'approved') {
+      return orders.filter((o) =>
+        ['approved', 'processing', 'completed'].includes(o.order_status),
+      );
+    }
+    if (filterStatus === 'rejected') {
+      return orders.filter((o) =>
+        ['rejected', 'failed'].includes(o.order_status),
+      );
+    }
+    return orders;
+  }, [orders, filterStatus]);
+
   const { data: profile } = useQuery<{ email: string | null; full_name: string | null } | null>({
     queryKey: ['my-profile-email', userId],
     enabled: !!userId,
@@ -206,18 +228,18 @@ export default function SmartphoneOrderStatus({
 
   /** Keep the dropdown pointed at a still-existing order (newest by default). */
   useEffect(() => {
-    if (orders.length === 0) {
+    if (filteredOrders.length === 0) {
       setSelectedId(null);
       return;
     }
-    if (!selectedId || !orders.some((o) => o.id === selectedId)) {
-      setSelectedId(orders[0].id);
+    if (!selectedId || !filteredOrders.some((o) => o.id === selectedId)) {
+      setSelectedId(filteredOrders[0].id);
     }
-  }, [orders, selectedId]);
+  }, [filteredOrders, selectedId]);
 
   const selected = useMemo(
-    () => orders.find((o) => o.id === selectedId) ?? orders[0] ?? null,
-    [orders, selectedId],
+    () => filteredOrders.find((o) => o.id === selectedId) ?? filteredOrders[0] ?? null,
+    [filteredOrders, selectedId],
   );
 
   // Reducing-balance repayment schedule for the order on screen.
@@ -258,8 +280,11 @@ export default function SmartphoneOrderStatus({
       toast.success('Order deleted — you can place a new one');
       setCancelTarget(null);
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['my-smartphone-orders', userId, itemName] }),
-        queryClient.invalidateQueries({ queryKey: ['merchandise-order-lock', userId, itemName] }),
+        queryClient.invalidateQueries({ queryKey: ['my-smartphone-orders'] }),
+        queryClient.invalidateQueries({ queryKey: ['my-bike-lease-orders'] }),
+        queryClient.invalidateQueries({ queryKey: ['merchandise-order-lock'] }),
+        queryClient.invalidateQueries({ queryKey: ['merchandise-recovery-plan'] }),
+        queryClient.invalidateQueries({ queryKey: ['my-merchandise-plans'] }),
       ]);
     } catch (e: any) {
       console.error('[SmartphoneOrderStatus] cancel error', e);
@@ -269,7 +294,7 @@ export default function SmartphoneOrderStatus({
     }
   };
 
-  if (!userId || orders.length === 0 || !selected) return null;
+  if (!userId || filteredOrders.length === 0 || !selected) return null;
 
 
   const isRealEmail = (email?: string | null) =>
@@ -383,13 +408,13 @@ export default function SmartphoneOrderStatus({
             </Button>
           </div>
         </div>
-        {expanded && orders.length > 1 && (
+        {expanded && filteredOrders.length > 1 && (
           <Select value={selected.id} onValueChange={setSelectedId}>
             <SelectTrigger className="h-8 text-xs">
               <SelectValue placeholder="Select an order" />
             </SelectTrigger>
             <SelectContent>
-              {orders.map((o) => (
+              {filteredOrders.map((o) => (
                 <SelectItem key={o.id} value={o.id} className="text-xs">
                   {format(new Date(o.created_at), 'd MMM yyyy, HH:mm')} · {formatUGX(accessFee(o))} ·{' '}
                   {STATUS_META[normalizeStatus(o.order_status)].label}

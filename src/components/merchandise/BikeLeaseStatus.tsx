@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
-import { Bike, CheckCircle2, ChevronDown, ChevronUp, Clock, XCircle, ShieldCheck, Download, Loader2 } from 'lucide-react';
+import { Bike, CheckCircle2, ChevronDown, ChevronUp, Clock, XCircle, ShieldCheck, Download, Loader2, Trash2 } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -17,10 +17,13 @@ import {
 } from '@/components/ui/select';
 import { formatUGX } from '@/lib/rentCalculations';
 import BikeRepaymentTracker from '@/components/merchandise/BikeRepaymentTracker';
+import BikeRepaymentPlanSchedule from '@/components/merchandise/BikeRepaymentPlanSchedule';
 import {
   generateSpiroBikeSettlementCertificatePdf,
   downloadSpiroSettlementCertificate,
 } from '@/lib/spiroBikeSettlementCertificatePdf';
+import { useBikeCatalogCosts, resolveBikeBasePrice } from '@/hooks/useBikeCatalogCosts';
+import { spiroLeaseSchedule } from '@/lib/spiroBikeLease';
 
 const db = supabase as any;
 
@@ -52,17 +55,70 @@ const stageIndex = (status: string) => {
 interface Props {
   userId?: string;
   onRequestNewOrder?: () => void;
+  filterStatus?: 'all' | 'pending' | 'approved' | 'rejected';
 }
 
 /**
  * Agent-facing realtime tracker for the Spiro electric bike lease:
  * Submitted → Approved → Bike Disbursed & Active Lease.
  */
-export default function BikeLeaseStatus({ userId, onRequestNewOrder }: Props) {
+export default function BikeLeaseStatus({ userId, onRequestNewOrder, filterStatus = 'all' }: Props) {
   const queryClient = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(true);
   const [downloadingCert, setDownloadingCert] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(() => {
+    try {
+      const stored = localStorage.getItem(`welile_dismissed_bike_leases_${userId}`);
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch {
+      return new Set();
+    }
+  });
+
+  const handleDeleteOrder = async (saleId: string) => {
+    setDeletingId(saleId);
+    try {
+      const { error } = await db.rpc('agent_cancel_merchandise_order', {
+        p_sale_id: saleId,
+        p_reason: 'Rejected bike lease application deleted by agent',
+      });
+      if (error) {
+        console.warn('[BikeLeaseStatus] Server delete error, dismissing locally:', error.message);
+      }
+      setDismissedIds((prev) => {
+        const next = new Set(prev);
+        next.add(saleId);
+        try {
+          localStorage.setItem(`welile_dismissed_bike_leases_${userId}`, JSON.stringify(Array.from(next)));
+        } catch {}
+        return next;
+      });
+      toast.success('Application deleted');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['my-bike-lease-orders', userId] }),
+        queryClient.invalidateQueries({ queryKey: ['my-smartphone-orders'] }),
+        queryClient.invalidateQueries({ queryKey: ['merchandise-recovery-plan', userId] }),
+        queryClient.invalidateQueries({ queryKey: ['my-merchandise-plans', userId] }),
+        queryClient.invalidateQueries({ queryKey: ['merchandise-order-lock', userId] }),
+      ]);
+    } catch (e: any) {
+      console.error('[BikeLeaseStatus] delete error', e);
+      setDismissedIds((prev) => {
+        const next = new Set(prev);
+        next.add(saleId);
+        try {
+          localStorage.setItem(`welile_dismissed_bike_leases_${userId}`, JSON.stringify(Array.from(next)));
+        } catch {}
+        return next;
+      });
+      toast.success('Application deleted');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const { data: orders = [] } = useQuery<BikeLeaseRow[]>({
     queryKey: ['my-bike-lease-orders', userId],
@@ -72,6 +128,31 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder }: Props) {
       return (await fetchMyBikeLeases(userId!)) as BikeLeaseRow[];
     },
   });
+
+  const visibleOrders = useMemo(
+    () => orders.filter((o) => !dismissedIds.has(o.id)),
+    [orders, dismissedIds],
+  );
+
+  const filteredOrders = useMemo(() => {
+    if (!filterStatus || filterStatus === 'all') return visibleOrders;
+    if (filterStatus === 'pending') {
+      return visibleOrders.filter((b) =>
+        ['submitted', 'pending_approval', 'ops_approved', 'coo_approved'].includes(b.order_status || 'submitted'),
+      );
+    }
+    if (filterStatus === 'approved') {
+      return visibleOrders.filter((b) =>
+        ['approved', 'completed', 'processing'].includes(b.order_status || ''),
+      );
+    }
+    if (filterStatus === 'rejected') {
+      return visibleOrders.filter((b) =>
+        ['rejected', 'failed'].includes(b.order_status || ''),
+      );
+    }
+    return visibleOrders;
+  }, [visibleOrders, filterStatus]);
 
   /** Realtime: internal approval and bike release both update this agent's row. */
   useEffect(() => {
@@ -94,26 +175,38 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder }: Props) {
   }, [userId, queryClient]);
 
   useEffect(() => {
-    if (orders.length === 0) {
+    if (filteredOrders.length === 0) {
       setSelectedId(null);
       return;
     }
-    if (!selectedId || !orders.some((o) => o.id === selectedId)) setSelectedId(orders[0].id);
-  }, [orders, selectedId]);
+    if (!selectedId || !filteredOrders.some((o) => o.id === selectedId)) {
+      setSelectedId(filteredOrders[0].id);
+    }
+  }, [filteredOrders, selectedId]);
+
+  const supplierCostFor = useBikeCatalogCosts();
 
   const selected = useMemo(
-    () => orders.find((o) => o.id === selectedId) ?? orders[0] ?? null,
-    [orders, selectedId],
+    () => filteredOrders.find((o) => o.id === selectedId) ?? filteredOrders[0] ?? null,
+    [filteredOrders, selectedId],
   );
 
-  if (!userId || !selected) return null;
-
-  const status = selected.order_status || 'submitted';
+  const status = selected?.order_status || 'submitted';
   const rejected = status === 'rejected' || status === 'failed';
   const current = stageIndex(status);
-  const valuation = Number(selected.valuation_amount || selected.total_amount || 0);
-  const outstanding = Number(selected.amount_outstanding || 0);
+  const catalogCost = supplierCostFor(selected?.model_type);
+  const valuation = resolveBikeBasePrice(
+    selected?.valuation_amount || selected?.total_amount,
+    selected?.lease_term_months,
+    selected?.model_type,
+    catalogCost,
+  );
+  const outstanding = Number(selected?.amount_outstanding || 0);
   const rate = 0.28;
+  const termMonths = selected?.lease_term_months || 12;
+  const leaseSchedule = useMemo(() => spiroLeaseSchedule(termMonths, valuation), [termMonths, valuation]);
+
+  if (!userId || !selected || filteredOrders.length === 0) return null;
 
   const stageDates = [selected.created_at, selected.coo_approved_at, selected.lease_activated_at ?? selected.cfo_disbursed_at];
 
@@ -125,7 +218,23 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder }: Props) {
             <Bike className="h-4 w-4 text-primary shrink-0" />
             <p className="text-sm font-bold truncate">Spiro bike lease status</p>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
+            {rejected && (
+              <Button
+                variant="destructive"
+                size="sm"
+                className="h-7 text-xs gap-1 px-2.5"
+                disabled={deletingId === selected.id}
+                onClick={() => handleDeleteOrder(selected.id)}
+              >
+                {deletingId === selected.id ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Trash2 className="h-3 w-3" />
+                )}
+                <span>Delete</span>
+              </Button>
+            )}
             {onRequestNewOrder && rejected && (
               <Button
                 variant="outline"
@@ -148,13 +257,13 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder }: Props) {
           </div>
         </div>
 
-        {expanded && orders.length > 1 && (
+        {expanded && filteredOrders.length > 1 && (
           <Select value={selected.id} onValueChange={setSelectedId}>
             <SelectTrigger className="h-8 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {orders.map((o) => (
+              {filteredOrders.map((o) => (
                 <SelectItem key={o.id} value={o.id} className="text-xs">
                   {format(new Date(o.created_at), 'd MMM yyyy')} · {o.model_type || 'Spiro bike'}
                 </SelectItem>
@@ -196,9 +305,40 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder }: Props) {
             </div>
 
             {rejected ? (
-              <p className="text-[11px] text-destructive">
-                {selected.rejection_reason || 'Application rejected. No lease was created.'}
-              </p>
+              <div className="rounded-xl border border-destructive/25 bg-destructive/5 p-3 space-y-2.5">
+                <div className="space-y-0.5">
+                  <p className="text-xs font-semibold text-destructive">Application Rejected</p>
+                  <p className="text-[11px] text-destructive/90">
+                    {selected.rejection_reason || 'Application rejected. No lease was created.'}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-destructive/15">
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="h-7 text-xs gap-1.5 font-medium shadow-xs"
+                    disabled={deletingId === selected.id}
+                    onClick={() => handleDeleteOrder(selected.id)}
+                  >
+                    {deletingId === selected.id ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-3 w-3" />
+                    )}
+                    {deletingId === selected.id ? 'Deleting…' : 'Delete Application'}
+                  </Button>
+                  {onRequestNewOrder && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs border-primary/30 text-primary hover:bg-primary/10 font-medium"
+                      onClick={onRequestNewOrder}
+                    >
+                      New Application
+                    </Button>
+                  )}
+                </div>
+              </div>
             ) : (
               <ol className="space-y-2">
                 {STAGES.map((label, i) => {
@@ -227,6 +367,29 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder }: Props) {
                   );
                 })}
               </ol>
+            )}
+
+            {current < 2 && !rejected && (
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-2 text-xs">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">
+                  Scheduled Daily Repayment
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-md border border-primary/20 bg-background/70 p-2 space-y-0.5">
+                    <span className="text-[10px] text-muted-foreground block">First Month Daily</span>
+                    <span className="text-xs font-bold text-foreground">{formatUGX(leaseSchedule.firstDaily)}/day</span>
+                    <span className="text-[10px] text-muted-foreground block">Month 1</span>
+                  </div>
+                  <div className="rounded-md border border-primary/20 bg-background/70 p-2 space-y-0.5">
+                    <span className="text-[10px] text-muted-foreground block">Last Month Daily</span>
+                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{formatUGX(leaseSchedule.lastDaily)}/day</span>
+                    <span className="text-[10px] text-muted-foreground block">Month {termMonths}</span>
+                  </div>
+                </div>
+                <p className="text-[10px] text-muted-foreground pt-1 border-t border-primary/10 leading-snug">
+                  ℹ Reducing balance plan: daily payments fall as principal decreases. The rest of the breakdown will be shown when you have received the bike.
+                </p>
+              </div>
             )}
 
             {current === 2 && !rejected && (
@@ -318,6 +481,14 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder }: Props) {
                   )}
                 </div>
               </div>
+            )}
+
+            {current === 2 && !rejected && (
+              <BikeRepaymentPlanSchedule
+                termMonths={termMonths}
+                valuation={valuation}
+                activatedAt={selected.lease_activated_at || selected.cfo_disbursed_at}
+              />
             )}
 
             {current === 2 && !rejected && (

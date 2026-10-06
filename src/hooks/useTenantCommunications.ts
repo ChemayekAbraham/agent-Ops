@@ -194,3 +194,42 @@ export function buildEligibilityPreview(
 
   return parts.join(' ');
 }
+
+export interface PreviewAmountNote { amount: string; meaning: string }
+
+/**
+ * Plain-language notes for the amounts quoted in the preview above, in the order they appear. This changes nothing
+ * about the message that is sent; it only tells the reader what each amount is. Every amount the payment message
+ * quotes is an ALL-TIME figure for the whole Rent Plan (get_tenant_payment_message_vars reads the plan's lifetime
+ * total and repaid), never the amount due now or for a period.
+ */
+export function describePreviewAmounts(figures: TenantPaymentMessageFigures | null | undefined): PreviewAmountNote[] {
+  if (!figures) return [];
+  const notes: PreviewAmountNote[] = [];
+
+  if (Number(figures.total_expected) > 0) {
+    notes.push({ amount: ugx(figures.paid_to_date), meaning: 'Paid so far on this Rent Plan, all time. Not just today or this period.' });
+    notes.push({ amount: ugx(figures.total_expected), meaning: 'Plan total for the full cycle, including days that are not yet due.' });
+    if (Number(figures.remaining) > 0) {
+      notes.push({ amount: ugx(figures.remaining), meaning: 'Lifetime balance left on the whole Rent Plan. It is not the amount due now.' });
+    }
+  }
+
+  if (Number(figures.current_access ?? 0) > 0) {
+    notes.push({ amount: ugx(figures.current_access), meaning: 'The rent the tenant can access next time, from how much of the plan they have paid.' });
+    if (Number(figures.current_topup ?? 0) > 0) {
+      notes.push({ amount: ugx(figures.current_topup), meaning: 'How much more than their current rent that is.' });
+      notes.push({ amount: ugx(figures.rent_amount), meaning: 'Their current rent on this Rent Plan.' });
+    }
+  }
+
+  if (Number(figures.next_level_required ?? 0) > 0 && Number(figures.next_level_access ?? 0) > 0) {
+    notes.push({
+      amount: ugx(figures.next_level_required),
+      meaning: 'Still to pay to reach the next level, counted on the whole Rent Plan (all time). It is not the amount due now.',
+    });
+    notes.push({ amount: ugx(figures.next_level_access), meaning: 'The rent they could then access.' });
+  }
+  return notes;
+}
+

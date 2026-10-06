@@ -38,6 +38,7 @@ import { WithdrawableCreditsLivePanel } from '@/components/cfo/WithdrawableCredi
 import { MoneyPaidOutCard } from '@/components/cfo/MoneyPaidOutCard';
 import { MoneyReceivedCard } from '@/components/cfo/MoneyReceivedCard';
 import { HeroCard, PercentageCurve } from '@/components/cfo/HeroCard';
+import { computeCashPosition } from '@/lib/cashPosition';
 
 
 
@@ -194,10 +195,18 @@ export function CFOOverviewDashboard({
   // Money We Owe is deliberately only the money sitting with other people:
   // merchant agents and the Bayo Mercy account. Wallets and recorded
   // liabilities keep their own cards elsewhere on this page.
-  const moneyWeOweTotal = merchantHeld + bayoMercyHeld;
-  // Money We Can Use = Money We Have − Money We Owe (money sitting with
-  // merchant agents and the Bayo Mercy account).
-  const moneyWeCanUse = Math.max(0, actualMoneyTotal - moneyWeOweTotal);
+  // All Owe / Can Use arithmetic lives in src/lib/cashPosition.ts (tested). A
+  // negative Bayo balance is Mercy fronting money ahead of a top-up, not a
+  // negative debt; the raw figure stays visible in the Money We Owe sheet.
+  const {
+    moneyWeOwe: moneyWeOweTotal,
+    moneyWeCanUse,
+    bayoMercyOwed,
+  } = computeCashPosition({
+    moneyWeHave: actualMoneyTotal,
+    merchantFloat: merchantHeld,
+    bayoMercyBalance: bayoMercyHeld,
+  });
   const netToday = todayCashFlow?.netToday ?? 0;
 
   
@@ -457,7 +466,7 @@ export function CFOOverviewDashboard({
               percentageTotal={actualMoneyTotal}
               items={[
                 { dot: 'bg-orange-500', label: 'Merchant Float Bucket (held by merchant agents)', value: fmt(merchantHeld), onSelect: () => setMerchantOwedOpen(true) },
-              { dot: 'bg-orange-500', label: 'Bayo Mercy Bank Account', value: fmt(bayoMercyHeld), onSelect: () => setMerchantOwedOpen(true) },
+              { dot: 'bg-orange-500', label: 'Bayo Mercy Bank Account', value: fmt(bayoMercyOwed), onSelect: () => setMerchantOwedOpen(true) },
               ]}
               onClick={() => setMerchantOwedOpen(true)}
             />

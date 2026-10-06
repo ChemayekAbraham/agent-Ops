@@ -11,6 +11,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { ExecutiveDataTable, type Column } from '@/components/executive/ExecutiveDataTable';
 import { KPICard } from '@/components/executive/KPICard';
+import { FigureLabel } from '@/components/executive/tenant-ops/workspace/FigureLabel';
+import { FIGURE_LABELS, type FigureKey } from '@/lib/tenantOpsFigureLabels';
 import TenantCommunicationsTab from '@/components/executive/tenant-ops/workspace/TenantCommunicationsTab';
 import AgentRegistrationControlTab from '@/components/executive/tenant-ops/workspace/AgentRegistrationControlTab';
 import ManagementOverviewTab from '@/components/executive/tenant-ops/workspace/ManagementOverviewTab';
@@ -75,10 +77,12 @@ const tierChartColor = (tier: string) => {
   }
 };
 
-function StatTile({ label, value, hint }: { label: string; value: string; hint?: string }) {
+function StatTile({ label, value, hint, figure }: { label?: string; value: string; hint?: string; figure?: FigureKey }) {
   return (
     <div className="rounded-lg border bg-card p-3">
-      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        {figure ? <FigureLabel figure={figure} /> : label}
+      </p>
       <p className="mt-1 break-words text-base font-bold text-foreground">{value}</p>
       {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
     </div>
@@ -178,16 +182,16 @@ function TenantDetail({ row, onClose }: { row: TopupEligibilityRow | null; onClo
         <div className="space-y-3">
           <div className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 sm:grid-cols-4">
             <StatTile label="Current rent" value={fmt(row.rent_amount)} />
-            <StatTile label="Expected (cycle)" value={fmt(row.total_amount)} />
-            <StatTile label="Paid" value={fmt(row.amount_repaid)} />
-            <StatTile label="Outstanding" value={fmt(row.outstanding)} />
+            <StatTile figure="totalExpected" value={fmt(row.total_amount)} />
+            <StatTile figure="totalCollected" value={fmt(row.amount_repaid)} />
+            <StatTile figure="outstanding" value={fmt(row.outstanding)} />
           </div>
           <div className="rounded-lg border p-3">
             <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:justify-between">
               <Badge variant="outline" className={tierTone(row.tier_key)}>
                 {TOPUP_TIER_LABELS[row.tier_key] || row.tier_key}
               </Badge>
-              <span className="text-sm font-bold">{Number(row.pct_covered).toFixed(1)}% covered</span>
+              <span className="text-sm font-bold">{Number(row.pct_covered).toFixed(1)}% covered (all time)</span>
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
               Cycle {row.term_start} → {row.term_end} ({row.term_days} days, {row.repayment_frequency}).{' '}
@@ -317,10 +321,10 @@ function TopUpEligibilityTab() {
     { key: 'term_end', label: 'Cycle', className: 'hidden xl:table-cell', render: (_v, r) => (
       <span className="text-xs">{r.term_start} → {r.term_end}</span>
     ) },
-    { key: 'total_amount', label: 'Expected', className: 'hidden md:table-cell', sortable: true, render: (_v, r) => fmt(r.total_amount) },
-    { key: 'amount_repaid', label: 'Paid', className: 'hidden md:table-cell', sortable: true, render: (_v, r) => fmt(r.amount_repaid) },
-    { key: 'outstanding', label: 'Outstanding', className: 'hidden lg:table-cell', sortable: true, render: (_v, r) => fmt(r.outstanding) },
-    { key: 'pct_covered', label: '% covered', sortable: true, render: (_v, r) => (
+    { key: 'total_amount', label: FIGURE_LABELS.totalExpected.label, className: 'hidden md:table-cell', sortable: true, render: (_v, r) => fmt(r.total_amount) },
+    { key: 'amount_repaid', label: FIGURE_LABELS.totalCollected.label, className: 'hidden md:table-cell', sortable: true, render: (_v, r) => fmt(r.amount_repaid) },
+    { key: 'outstanding', label: FIGURE_LABELS.outstanding.label, className: 'hidden lg:table-cell', sortable: true, render: (_v, r) => fmt(r.outstanding) },
+    { key: 'pct_covered', label: '% covered (all time)', sortable: true, render: (_v, r) => (
       <span className="font-semibold">{Number(r.pct_covered).toFixed(1)}%</span>
     ) },
     { key: 'tier_key', label: 'Eligibility', render: (_v, r) => (
@@ -450,6 +454,12 @@ function TopUpEligibilityTab() {
           </Button>
         </div>
       </div>
+
+      <p className="px-1 text-[11px] leading-relaxed text-muted-foreground" data-testid="all-time-note">
+        Total expected, total collected, outstanding and % covered here are all-time figures for each tenant's latest Rent Plan
+        (the full cycle, not a date range), so they will not match the period figures on Tenant Ops Home. For a chosen
+        period see Management Overview, "This period".
+      </p>
 
       <ExecutiveDataTable
         data={rows}

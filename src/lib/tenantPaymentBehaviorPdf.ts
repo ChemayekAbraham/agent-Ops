@@ -11,6 +11,9 @@ import { format, parseISO } from 'date-fns';
 import type {
   ChannelOnTime, DimensionRow, PaymentBehaviorReportData, PaymentBehaviorTrend, WarningFlag,
 } from '@/hooks/tenantOpsWorkspace/usePaymentBehavior';
+import {
+  HOME_CHECK_FILTERED_TEXT, HOME_CHECK_MATCH_TEXT, HOME_CHECK_PLACE_FILTER_TEXT, homeDifferenceMessage, type HomeCheck,
+} from '@/lib/paymentBehaviorHomeCheck';
 
 type RGB = [number, number, number];
 const INK: RGB = [15, 23, 42];
@@ -56,6 +59,11 @@ export interface PaymentBehaviorPdfMeta {
   periodLabel: string;
   phrase: string;
   filters: { agent: string | null; region: string | null; district: string | null; cadence: string | null };
+  /**
+   * The "matches Home" check. `filtered` = a filter is on so Home cannot be compared; otherwise `check` is
+   * the comparison with Tenant Ops Home made when the report was built (null if Home could not be read).
+   */
+  homeCheck?: { filtered: boolean; check: HomeCheck | null };
 }
 
 interface Card { label: string; value: string; sub?: string; color: RGB }
@@ -329,6 +337,8 @@ export async function generatePaymentBehaviorPdf(data: PaymentBehaviorReportData
     `Generated ${format(new Date(), 'dd MMM yyyy, HH:mm')}   |   Figures marked OBSERVED are read from recorded payments; ESTIMATE marks projections, comparisons and risk scoring.`,
   ]);
 
+  let aheadNote: string | null = null;
+
   // ─── Headline ───
   r.heading('Headline', 'OBSERVED');
   r.cards([
@@ -344,6 +354,36 @@ export async function generatePaymentBehaviorPdf(data: PaymentBehaviorReportData
     { label: 'Bill covered', value: pct(s.coverage.coverage_pct), sub: `${ugx(s.coverage.short_ugx)} short of ${ugx(s.coverage.billed_ugx)}`, color: AMBER },
   ]);
 
+  // ─── Check against Tenant Ops Home ───
+  const hc = meta.homeCheck;
+  if (hc) {
+    r.heading('Check against Tenant Ops Home');
+    if (hc.filtered) {
+      r.note(HOME_CHECK_FILTERED_TEXT, MUTED, 8.6);
+      if (meta.filters.region || meta.filters.district) r.note(HOME_CHECK_PLACE_FILTER_TEXT, MUTED, 8.6);
+    } else if (!hc.check) {
+      r.note('Could not read Tenant Ops Home to compare when this report was built.', MUTED, 8.6);
+    } else {
+      const c = hc.check;
+      r.table(
+        ['Figure', 'Tenant Ops Home', 'This report'],
+        [
+          ['Expected / billed', ugx(c.home.expected), ugx(c.tab.expected)],
+          ['Collected / counted', ugx(c.home.collected), ugx(c.tab.collected)],
+          ['Short', ugx(c.home.short), ugx(c.tab.short)],
+          ['% covered', `${c.home.coveragePct}%`, pct(c.tab.coveragePct)],
+        ],
+        { align: ['left', 'right', 'right'], widths: [70, 60, 60] },
+      );
+      if (c.status === 'match') r.note(HOME_CHECK_MATCH_TEXT, GREEN, 9);
+      else r.note(homeDifferenceMessage(c, ugx), RED, 9);
+    }
+  }
+
+  if (s.paid_ahead) {
+    aheadNote = `Paid ahead / above the bill: ${ugx(s.paid_ahead.paid_ahead_ugx)} (${num(s.paid_ahead.paid_ahead_n)} payment${s.paid_ahead.paid_ahead_n === 1 ? '' : 's'}). Not counted as collected, same as Home. Money figures in this report count each Rent Plan's payments only up to its bill for the period.`;
+  }
+
   const findings: string[] = [
     `${pct(t.self_payers_pct)} of paying tenants (${num(t.self_payers)} of ${num(t.paying)}) paid at least once from their own phone; ${num(t.self_only)} pay only themselves and ${num(t.mixed)} use both methods. Compared with the previous ${s.window.days} day${s.window.days === 1 ? '' : 's'} (${pct(t.previous.self_payers_pct)}), that is ${pp(t.self_payers_pct_change_pp)}.`,
     `Self-pay carried ${pct(p.self_share_pct)} of the money collected and ${pct(p.self_count_share_pct)} of payments. The typical self-payment is ${ugx(p.self.median_ugx)}, against ${ugx(p.agent.median_ugx)} when an agent pays.`,
@@ -356,6 +396,7 @@ export async function generatePaymentBehaviorPdf(data: PaymentBehaviorReportData
   if (cmp.self_payers && cmp.agent_only) {
     findings.push(`Tenants who paid themselves covered ${pct(cmp.self_payers.coverage_pct)} of their bill on average (${num(cmp.self_payers.tenants)} tenants) versus ${pct(cmp.agent_only.coverage_pct)} for agent-only tenants (${num(cmp.agent_only.tenants)}): a difference of ${pp(cmp.difference_pp)} with a margin of error of about ${cmp.margin_pp_95 ?? '-'} points${cmp.enough_data ? '' : ' (small groups, rough indication only)'}.`);
   }
+  if (aheadNote) findings.push(aheadNote);
   r.heading('Key readings');
   r.bullets(findings);
 
