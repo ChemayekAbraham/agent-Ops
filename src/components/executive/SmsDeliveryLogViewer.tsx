@@ -139,6 +139,16 @@ type DailyTrafficRow = {
   other: number;
 };
 
+// Daily provider-reported spend (get_sms_cost_daily). cost_ugx sums only
+// UGX-denominated / bare-numeric cost strings; foreign-currency rows are
+// counted, never converted (no invented exchange rates).
+type DailyCostRow = {
+  day: string;
+  cost: number;
+  foreign: number;
+  uncosted: number;
+};
+
 export function SmsDeliveryLogViewer() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
