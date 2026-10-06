@@ -79,13 +79,6 @@ export default function PredictivePayablesForecast() {
   const q = usePayablesPredictiveForecast(granularity, periods);
   const data = q.data;
 
-  // Ideal = average actually paid per period over the available payment history
-  const idealFromHistory = useMemo(() => {
-    const h = data?.history ?? [];
-    if (!h.length) return 0;
-    return Math.round(h.reduce((s, x) => s + x.actual_amount, 0) / h.length);
-  }, [data]);
-
   const chartData = useMemo(() => {
     if (!data) return [];
     const hist = [...data.history].slice(-Math.min(periods, 12)).map((h) => ({
@@ -98,10 +91,10 @@ export default function PredictivePayablesForecast() {
       label: p.label,
       actual: null as number | null,
       forecast: p.forecast_amount,
-      ideal: idealFromHistory,
+      ideal: p.scheduled_amount,
     }));
     return [...hist, ...fc];
-  }, [data, periods, idealFromHistory]);
+  }, [data, periods]);
 
   const horizonTotal = useMemo(
     () => (data?.periods ?? []).reduce((s, p) => s + p.forecast_amount, 0),
@@ -260,7 +253,7 @@ export default function PredictivePayablesForecast() {
                   <YAxis tick={{ fontSize: 9 }} tickFormatter={(v) => compact(Number(v))} width={44} />
                   <Tooltip
                     formatter={(value: unknown, name) =>
-                      [formatUGX(Number(value ?? 0)), name === 'actual' ? 'Actual' : name === 'ideal' ? 'Ideal (historical average)' : 'Behavior projection']
+                      [formatUGX(Number(value ?? 0)), name === 'actual' ? 'Actual' : name === 'ideal' ? 'Ideal (contract)' : 'Behavior projection']
                     }
                     contentStyle={{ fontSize: 11 }}
                   />
@@ -270,7 +263,7 @@ export default function PredictivePayablesForecast() {
                   <Line
                     type="monotone"
                     dataKey="ideal"
-                    name="Ideal (historical average)"
+                    name="Ideal (contract)"
                     stroke="hsl(var(--muted-foreground))"
                     strokeDasharray="4 3"
                     strokeWidth={1.5}
@@ -287,7 +280,7 @@ export default function PredictivePayablesForecast() {
                     <th className="text-left px-2.5 py-1.5 font-medium">Period</th>
                     <th className="text-right px-2.5 py-1.5 font-medium">Behavior projection</th>
                     <th className="text-right px-2.5 py-1.5 font-medium hidden sm:table-cell">
-                      Ideal (historical average)
+                      Ideal (contract)
                     </th>
                   </tr>
                 </thead>
@@ -322,7 +315,7 @@ export default function PredictivePayablesForecast() {
                             {formatUGX(p.forecast_amount)}
                           </td>
                           <td className="px-2.5 py-1.5 text-right font-mono tabular-nums hidden sm:table-cell text-muted-foreground whitespace-nowrap">
-                            {formatUGX(idealFromHistory)}
+                            {formatUGX(p.scheduled_amount)}
                           </td>
                         </tr>
                         {open && (
