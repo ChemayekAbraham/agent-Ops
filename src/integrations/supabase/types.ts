@@ -31676,6 +31676,7 @@ export type Database = {
           payout_mode: string
           phone: string | null
           reference: string | null
+          return_option: string | null
           status: string
           updated_at: string
         }
@@ -31705,6 +31706,7 @@ export type Database = {
           payout_mode?: string
           phone?: string | null
           reference?: string | null
+          return_option?: string | null
           status?: string
           updated_at?: string
         }
@@ -31734,6 +31736,7 @@ export type Database = {
           payout_mode?: string
           phone?: string | null
           reference?: string | null
+          return_option?: string | null
           status?: string
           updated_at?: string
         }
@@ -73742,6 +73745,10 @@ export type Database = {
           reversed_collections_ugx: number
           transfer_churn_count: number
         }[]
+      }
+      tops_agent_period_collection: {
+        Args: { p_agent_id?: string; p_end: string; p_start: string }
+        Returns: Json
       }
       tops_allocate_collection: {
         Args: { p_collection_id: string }
