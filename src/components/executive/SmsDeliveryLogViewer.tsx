@@ -132,7 +132,15 @@ type SmsRow = SmsLog & { category: string; message_preview: string };
 type DailyTrafficRow = {
   day: string;
   total: number;
+  /**
+   * A provider ACCEPTED the message — status sent/success/accepted/delivered.
+   * Africa's Talking statusCode 100 is "Processed"; Yoola's own note on a
+   * "sent" report reads "accepted by the carrier, no handset receipt returned".
+   * None of that is proof the handset got it, so this is not delivery.
+   */
   delivered: number;
+  /** Handset receipt confirmed by a provider delivery report. Nothing else. */
+  confirmed: number;
   failed: number;
   yoola: number;
   africastalking: number;
@@ -291,6 +299,7 @@ export function SmsDeliveryLogViewer() {
         day: String(r.day),
         total: Number(r.total) || 0,
         delivered: Number(r.delivered) || 0,
+        confirmed: Number(r.confirmed) || 0,
         failed: Number(r.failed) || 0,
         yoola: Number(r.yoola) || 0,
         africastalking: Number(r.africastalking) || 0,
@@ -339,24 +348,26 @@ export function SmsDeliveryLogViewer() {
   const thisMonthSpend = scoped ? costOf(inRange(monthStart, monthEnd)) : costOf((t) => t >= monthStart);
 
   const countSince = (cutoff: number) => {
-    let sent = 0, fail = 0;
+    let sent = 0, fail = 0, confirmed = 0;
     for (const r of rows) {
       // r.day is a yyyy-MM-dd date string; compare at day granularity.
       if (startOfDay(new Date(`${r.day}T00:00:00`)).getTime() < startOfDay(new Date(cutoff)).getTime()) continue;
       sent += r.delivered;
+      confirmed += r.confirmed;
       fail += r.failed;
     }
-    return { total: sent + fail, sent, fail };
+    return { total: sent + fail, sent, fail, confirmed };
   };
   const countBetween = (start: number, end: number) => {
-    let sent = 0, fail = 0;
+    let sent = 0, fail = 0, confirmed = 0;
     for (const r of rows) {
       const t = startOfDay(new Date(`${r.day}T00:00:00`)).getTime();
       if (t < startOfDay(new Date(start)).getTime() || t > startOfDay(new Date(end)).getTime()) continue;
       sent += r.delivered;
+      confirmed += r.confirmed;
       fail += r.failed;
     }
-    return { total: sent + fail, sent, fail };
+    return { total: sent + fail, sent, fail, confirmed };
   };
   const today = countSince(dayStart);
   const thisWeek = countSince(weekStart);
@@ -619,7 +630,7 @@ export function SmsDeliveryLogViewer() {
           icon={CalendarDays}
           color="bg-primary/10 text-primary"
           loading={metricsLoading}
-          subtitle={`${today.sent} delivered · ${today.fail} failed`}
+          subtitle={`${today.confirmed} confirmed · ${today.sent} accepted · ${today.fail} failed`}
         />
         <KPICard
           title="This Week"
@@ -627,7 +638,7 @@ export function SmsDeliveryLogViewer() {
           icon={CalendarRange}
           color="bg-blue-500/10 text-blue-600"
           loading={metricsLoading}
-          subtitle={`${thisWeek.sent} delivered · ${thisWeek.fail} failed`}
+          subtitle={`${thisWeek.confirmed} confirmed · ${thisWeek.sent} accepted · ${thisWeek.fail} failed`}
         />
         <KPICard
           title={scoped ? scopeLabel : 'This Month'}
@@ -635,7 +646,7 @@ export function SmsDeliveryLogViewer() {
           icon={Calendar}
           color="bg-teal-500/10 text-teal-600"
           loading={metricsLoading}
-          subtitle={`${thisMonth.sent} delivered · ${thisMonth.fail} failed`}
+          subtitle={`${thisMonth.confirmed} confirmed · ${thisMonth.sent} accepted · ${thisMonth.fail} failed`}
         />
         <KPICard
           title={scoped ? `Spend — ${scopeLabel}` : 'Spend This Month'}
