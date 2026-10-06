@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
-import { Bike, CheckCircle2, ChevronDown, ChevronUp, Clock, XCircle, ShieldCheck, Download, Loader2 } from 'lucide-react';
+import { Bike, CheckCircle2, ChevronDown, ChevronUp, Clock, XCircle, ShieldCheck, Download, Loader2, Trash2 } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -63,6 +63,30 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(true);
   const [downloadingCert, setDownloadingCert] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  const handleDeleteOrder = async (saleId: string) => {
+    setDeletingId(saleId);
+    try {
+      const { error } = await db.rpc('agent_cancel_merchandise_order', {
+        p_sale_id: saleId,
+        p_reason: 'Rejected bike lease application deleted by agent',
+      });
+      if (error) throw error;
+      toast.success('Application deleted');
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['my-bike-lease-orders', userId] }),
+        queryClient.invalidateQueries({ queryKey: ['merchandise-recovery-plan', userId] }),
+        queryClient.invalidateQueries({ queryKey: ['my-merchandise-plans', userId] }),
+        queryClient.invalidateQueries({ queryKey: ['merchandise-order-lock', userId] }),
+      ]);
+    } catch (e: any) {
+      console.error('[BikeLeaseStatus] delete error', e);
+      toast.error(e?.message || 'Could not delete this application');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   const { data: orders = [] } = useQuery<BikeLeaseRow[]>({
     queryKey: ['my-bike-lease-orders', userId],
@@ -125,7 +149,23 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder }: Props) {
             <Bike className="h-4 w-4 text-primary shrink-0" />
             <p className="text-sm font-bold truncate">Spiro bike lease status</p>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
+            {rejected && (
+              <Button
+                variant="destructive"
+                size="sm"
+                className="h-7 text-xs gap-1 px-2.5"
+                disabled={deletingId === selected.id}
+                onClick={() => handleDeleteOrder(selected.id)}
+              >
+                {deletingId === selected.id ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <Trash2 className="h-3 w-3" />
+                )}
+                <span>Delete</span>
+              </Button>
+            )}
             {onRequestNewOrder && rejected && (
               <Button
                 variant="outline"
@@ -196,9 +236,40 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder }: Props) {
             </div>
 
             {rejected ? (
-              <p className="text-[11px] text-destructive">
-                {selected.rejection_reason || 'Application rejected. No lease was created.'}
-              </p>
+              <div className="rounded-xl border border-destructive/25 bg-destructive/5 p-3 space-y-2.5">
+                <div className="space-y-0.5">
+                  <p className="text-xs font-semibold text-destructive">Application Rejected</p>
+                  <p className="text-[11px] text-destructive/90">
+                    {selected.rejection_reason || 'Application rejected. No lease was created.'}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-destructive/15">
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="h-7 text-xs gap-1.5 font-medium shadow-xs"
+                    disabled={deletingId === selected.id}
+                    onClick={() => handleDeleteOrder(selected.id)}
+                  >
+                    {deletingId === selected.id ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-3 w-3" />
+                    )}
+                    {deletingId === selected.id ? 'Deleting…' : 'Delete Application'}
+                  </Button>
+                  {onRequestNewOrder && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs border-primary/30 text-primary hover:bg-primary/10 font-medium"
+                      onClick={onRequestNewOrder}
+                    >
+                      New Application
+                    </Button>
+                  )}
+                </div>
+              </div>
             ) : (
               <ol className="space-y-2">
                 {STAGES.map((label, i) => {
