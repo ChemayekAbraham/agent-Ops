@@ -34,6 +34,7 @@ jobs:
           # Configure authenticated origin and ensure branch is at latest origin/main
           git remote set-url origin "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git"
           git fetch origin main
+          git reset --hard HEAD
           git checkout -B main origin/main
 
           if [ -z "$UPSTREAM_TOKEN" ]; then
@@ -53,9 +54,11 @@ jobs:
           else
             echo "Resolving conflicts by preserving standalone iOS files..."
             git checkout HEAD -- src/App.tsx capacitor.config.ts package.json vite.config.ts index.html .github/ ios/ 2>/dev/null || true
-            if git diff --name-only --diff-filter=U | grep -q .; then
-              echo "Resolving remaining conflicts by keeping local version..."
-              git checkout HEAD -- $(git diff --name-only --diff-filter=U)
+            UNMERGED=$(git diff --name-only --diff-filter=U 2>/dev/null || true)
+            if [ -n "$UNMERGED" ]; then
+              echo "Resolving remaining conflicts by keeping local version:"
+              echo "$UNMERGED"
+              echo "$UNMERGED" | xargs git checkout HEAD -- 2>/dev/null || true
             fi
             git add .
             git commit -m "chore(sync): resolve conflicts preserving iOS standalone configuration" || true
@@ -74,7 +77,10 @@ jobs:
             RETRY=$((RETRY + 1))
             git fetch origin main
             git merge origin/main -m "chore(sync): merge latest origin/main" --no-edit || {
-              git checkout HEAD -- $(git diff --name-only --diff-filter=U 2>/dev/null) 2>/dev/null || true
+              RETRY_UNMERGED=$(git diff --name-only --diff-filter=U 2>/dev/null || true)
+              if [ -n "$RETRY_UNMERGED" ]; then
+                echo "$RETRY_UNMERGED" | xargs git checkout HEAD -- 2>/dev/null || true
+              fi
               git add .
               git commit -m "chore(sync): resolve conflicts with origin/main" || true
             }
