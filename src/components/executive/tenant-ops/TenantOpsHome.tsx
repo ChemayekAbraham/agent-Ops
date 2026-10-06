@@ -247,7 +247,7 @@ export function TenantOpsHome({ onNavigate }: { onNavigate: (view: TenantOpsView
       </div>
 
        {/* Selected-period collection hero + KPI strip */}
-       <div className="grid gap-3 lg:grid-cols-3">
+        <div className="space-y-3">
         <Card className="border-primary/30 bg-gradient-to-r from-primary/10 via-card to-card shadow-sm">
           <CardContent className="flex flex-col gap-3 p-4 sm:p-5 lg:flex-row lg:items-center lg:gap-8">
             <div className="flex items-center gap-3 lg:shrink-0">
