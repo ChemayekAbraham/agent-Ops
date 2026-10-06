@@ -27,10 +27,14 @@ import { formatUGX } from '@/lib/rentCalculations';
 import spiroBikeAsset from '@/assets/spiro-bike.jpg.asset.json';
 import {
   SPIRO_LEASE_PERIODS,
-  SPIRO_BIKE_BASE_PRICE,
   spiroLeaseSchedule,
 } from '@/lib/spiroBikeLease';
-import { useMotorBikeCatalog } from '@/components/executive/agent-ops/MotorBikeCatalogDialog';
+import {
+  useMotorBikeCatalog,
+  parseDisabledTerms,
+  cleanDescription,
+  DEFAULT_MOTORBIKES,
+} from '@/components/executive/agent-ops/MotorBikeCatalogDialog';
 
 const db = supabase as any;
 
@@ -66,14 +70,16 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
     if (activeCatalog.length > 0) {
       return activeCatalog.map((c) => ({
         model: c.item_name,
-        note: c.description || 'Welile electric bike',
+        note: cleanDescription(c.description) || 'Welile electric bike',
         price: c.unit_price,
+        disabledTerms: parseDisabledTerms(c.description),
       }));
     }
-    return SPIRO_MODELS.map((m) => ({
-      model: m.model,
-      note: m.note,
-      price: SPIRO_BIKE_BASE_PRICE,
+    return DEFAULT_MOTORBIKES.map((m) => ({
+      model: m.item_name,
+      note: cleanDescription(m.description) || 'Welile electric bike',
+      price: m.unit_price,
+      disabledTerms: parseDisabledTerms(m.description),
     }));
   }, [catalog]);
 
@@ -91,12 +97,27 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
   const termValid = Number.isFinite(parsedTerm) && parsedTerm >= 1 && parsedTerm <= 24;
   const termNum = Math.min(24, Math.max(1, parsedTerm || 3));
 
-  const basePrice = selectedModel?.price ?? SPIRO_BIKE_BASE_PRICE;
+  const basePrice = selectedModel?.price ?? 0;
   const schedule = useMemo(() => spiroLeaseSchedule(termNum, basePrice), [termNum, basePrice]);
+  const isTermDisabled = Boolean(selectedModel?.disabledTerms?.has(termNum));
+
+  // If the current term is disabled for this model, select the first allowed period
+  useEffect(() => {
+    if (selectedModel?.disabledTerms?.has(termNum)) {
+      const firstAllowed = SPIRO_LEASE_PERIODS.find((p) => !selectedModel.disabledTerms.has(p.months));
+      if (firstAllowed) {
+        setTerm(String(firstAllowed.months));
+      }
+    }
+  }, [selectedModel]);
 
   const submit = async () => {
     if (!acceptedTerms) {
       toast.error('Please accept the Lease Terms & Conditions to submit your order.');
+      return;
+    }
+    if (isTermDisabled) {
+      toast.error(`The ${termNum}-month lease period is not available for this bike model.`);
       return;
     }
     setSubmitting(true);
@@ -156,8 +177,40 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
             <p className="text-[11px] text-muted-foreground">{selectedModel.note}</p>
           </div>
 
-          <div className="space-y-1">
-            <Label className="text-xs">Repayment period (months)</Label>
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Repayment period (months)</Label>
+              {isTermDisabled && (
+                <span className="text-[11px] font-semibold text-destructive">Period disabled by manager</span>
+              )}
+            </div>
+
+            {/* Quick selection chips for standard periods */}
+            <div className="flex flex-wrap gap-1.5 pt-0.5">
+              {SPIRO_LEASE_PERIODS.map((p) => {
+                const isDisabled = selectedModel?.disabledTerms?.has(p.months);
+                const isSelected = termNum === p.months;
+                return (
+                  <button
+                    key={p.months}
+                    type="button"
+                    disabled={isDisabled}
+                    onClick={() => setTerm(String(p.months))}
+                    className={`h-7 px-2.5 rounded-md text-xs font-medium border transition-colors ${
+                      isDisabled
+                        ? 'opacity-40 cursor-not-allowed bg-muted text-muted-foreground line-through border-transparent'
+                        : isSelected
+                        ? 'bg-primary text-primary-foreground border-primary shadow-xs'
+                        : 'bg-card text-foreground border-border hover:bg-muted/70'
+                    }`}
+                    title={isDisabled ? `${p.months} months disabled by manager` : `${p.months} months`}
+                  >
+                    {p.months}m
+                  </button>
+                );
+              })}
+            </div>
+
             <Input
               type="number"
               min={1}
@@ -173,11 +226,17 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
                 if (Number.isNaN(n)) return;
                 setTerm(String(Math.min(24, Math.max(1, n))));
               }}
-              className="h-9 text-sm"
+              className={`h-9 text-sm ${isTermDisabled ? 'border-destructive focus-visible:ring-destructive' : ''}`}
             />
-            <p className="text-[11px] text-muted-foreground">
-              Type any period from 1 to 24 months.
-            </p>
+            {isTermDisabled ? (
+              <p className="text-[11px] text-destructive font-medium">
+                ⚠ The {termNum}-month lease period is not available for this bike model. Please select an allowed period.
+              </p>
+            ) : (
+              <p className="text-[11px] text-muted-foreground">
+                Pick a standard period above or type any period from 1 to 24 months.
+              </p>
+            )}
           </div>
 
           <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2.5 space-y-2">
@@ -274,9 +333,9 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={submitting || !termValid || !acceptedTerms}>
+          <Button onClick={submit} disabled={submitting || !termValid || !acceptedTerms || isTermDisabled}>
             {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
-            {submitting ? 'Submitting…' : 'Submit Order for Review'}
+            {submitting ? 'Submitting…' : isTermDisabled ? 'Period Unavailable' : 'Submit Order for Review'}
           </Button>
         </DialogFooter>
       </DialogContent>
