@@ -26,7 +26,7 @@ describe('TenantPaymentBehaviorCard', () => {
     expect(screen.getByText(/38 of 748 tenants/)).toBeInTheDocument();
     expect(screen.getByText(/of paying tenants paid themselves today/)).toBeInTheDocument();
     expect(screen.getByText('+4.7 pts vs before')).toBeInTheDocument();
-    expect(rpcMock).toHaveBeenCalledWith('tops_payment_behaviour_summary', expect.objectContaining({ p_start: '2026-10-05T00:00:00Z', p_end: '2026-10-05T23:59:59Z' }));
+    expect(rpcMock).toHaveBeenCalledWith('tops_payment_behaviour_summary_v2', expect.objectContaining({ p_start: '2026-10-05T00:00:00Z', p_end: '2026-10-05T23:59:59Z' }));
 
     await userEvent.setup().click(screen.getByRole('button', { name: 'Open Tenant Payment Behavior' }));
     expect(onOpen).toHaveBeenCalledTimes(1);

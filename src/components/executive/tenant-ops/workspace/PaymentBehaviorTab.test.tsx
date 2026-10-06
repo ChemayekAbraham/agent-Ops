@@ -29,12 +29,12 @@ function install() {
     switch (fn) {
       case 'tops_payment_behaviour_options':
         return ok({ agents: [{ id: 'agent-1', name: 'SHAFEEQ SSENABULYA' }], regions: ['Central', 'Western'], districts: [{ region: 'Central', district: 'Wakiso' }], cadences: ['daily', 'weekly'] });
-      case 'tops_payment_behaviour_overview': return ok(overviewFixture);
-      case 'tops_payment_behaviour_summary': return ok(overviewFixture.summary);
-      case 'tops_payment_behaviour_trend': return ok(trendFixture);
-      case 'tops_payment_behaviour_timing': return ok(timingFixture);
-      case 'tops_payment_behaviour_by': return ok({ dimension: args.p_dimension, rows: byDimensionFixture[args.p_dimension as keyof typeof byDimensionFixture] });
-      case 'tops_payment_behaviour_watchlist': return ok(watchlistFixture);
+      case 'tops_payment_behaviour_overview_v2': return ok(overviewFixture);
+      case 'tops_payment_behaviour_summary_v2': return ok(overviewFixture.summary);
+      case 'tops_payment_behaviour_trend_v2': return ok(trendFixture);
+      case 'tops_payment_behaviour_timing_v2': return ok(timingFixture);
+      case 'tops_payment_behaviour_by_v2': return ok({ dimension: args.p_dimension, rows: byDimensionFixture[args.p_dimension as keyof typeof byDimensionFixture] });
+      case 'tops_payment_behaviour_watchlist_v2': return ok(watchlistFixture);
       default: return ok(null);
     }
   });
@@ -65,21 +65,31 @@ describe('PaymentBehaviorTab', () => {
     expect(screen.getAllByText('Observed').length).toBeGreaterThan(0);
   });
 
+  it('shows the counted money like Home, with paid ahead as a quiet line underneath', async () => {
+    render(<PaymentBehaviorTab />, { wrapper });
+    await screen.findByText('5.1%');
+    expect(screen.getByTestId('paid-ahead-note')).toHaveTextContent(
+      'Paid ahead / above the bill: UGX 56,356,078 (1,333 payments). Not counted as collected, same as Home.',
+    );
+    expect(screen.getAllByText('UGX 1,757,731').length).toBeGreaterThan(0);   // self, counted
+    expect(screen.getAllByText('UGX 86,389,448').length).toBeGreaterThan(0);  // agents, counted
+  });
+
   it('opens on this month by default and sends one date range and no filters to every read', async () => {
     render(<PaymentBehaviorTab />, { wrapper });
     await screen.findByText('5.1%');
-    for (const fn of ['tops_payment_behaviour_overview', 'tops_payment_behaviour_trend', 'tops_payment_behaviour_timing']) {
+    for (const fn of ['tops_payment_behaviour_overview_v2', 'tops_payment_behaviour_trend_v2', 'tops_payment_behaviour_timing_v2']) {
       const a = callsTo(fn)[0];
       expect(a).toMatchObject({ p_agent_id: null, p_region: null, p_district: null, p_cadence: null });
       expect(typeof a.p_start).toBe('string');
     }
-    expect(callsTo('tops_payment_behaviour_overview')[0].p_start).toBe(callsTo('tops_payment_behaviour_trend')[0].p_start);
+    expect(callsTo('tops_payment_behaviour_overview_v2')[0].p_start).toBe(callsTo('tops_payment_behaviour_trend_v2')[0].p_start);
   });
 
   it('opens on the range named in the URL (pb_range / pb_from / pb_to)', async () => {
     render(<PaymentBehaviorTab />, { wrapper: wrapperAt('/executive-hub?pb_range=custom&pb_from=2026-09-29&pb_to=2026-10-05') });
     await screen.findByText('5.1%');
-    const a = callsTo('tops_payment_behaviour_overview')[0];
+    const a = callsTo('tops_payment_behaviour_overview_v2')[0];
     expect(new Date(a.p_start as string).getDate()).toBe(29);
     expect(new Date(a.p_end as string).getDate()).toBe(5);
   });
@@ -107,7 +117,7 @@ describe('PaymentBehaviorTab', () => {
     await user.click(screen.getByRole('tab', { name: 'Early warning' }));
     expect(await screen.findByText('Ntege Dorothy')).toBeInTheDocument();
     expect(screen.getAllByText('Gone quiet').length).toBeGreaterThan(1);   // the sign's tile and this row's chip
-    expect(callsTo('tops_payment_behaviour_watchlist')[0]).toMatchObject({ p_min_score: 2, p_limit: 20, p_offset: 0 });
+    expect(callsTo('tops_payment_behaviour_watchlist_v2')[0]).toMatchObject({ p_min_score: 2, p_limit: 20, p_offset: 0 });
   });
 
   it('narrows every section when a breakdown row is focused', async () => {
@@ -115,12 +125,12 @@ describe('PaymentBehaviorTab', () => {
     render(<PaymentBehaviorTab />, { wrapper });
     await screen.findByText('5.1%');
     await user.click(screen.getByRole('tab', { name: 'Breakdowns' }));
-    expect(callsTo('tops_payment_behaviour_by').some((a) => a.p_dimension === 'agent')).toBe(true);
+    expect(callsTo('tops_payment_behaviour_by_v2').some((a) => a.p_dimension === 'agent')).toBe(true);
 
     const focus = (await screen.findAllByRole('button', { name: /Focus on SHAFEEQ SSENABULYA/ }))[0];
     await user.click(focus);
-    await waitFor(() => expect(callsTo('tops_payment_behaviour_overview').some((a) => a.p_agent_id === 'agent-1')).toBe(true));
-    expect(callsTo('tops_payment_behaviour_trend').some((a) => a.p_agent_id === 'agent-1')).toBe(true);
+    await waitFor(() => expect(callsTo('tops_payment_behaviour_overview_v2').some((a) => a.p_agent_id === 'agent-1')).toBe(true));
+    expect(callsTo('tops_payment_behaviour_trend_v2').some((a) => a.p_agent_id === 'agent-1')).toBe(true);
     expect(screen.getByRole('button', { name: /clear filters/i })).toBeEnabled();
 
     await user.click(screen.getByRole('button', { name: /clear filters/i }));
@@ -143,7 +153,7 @@ describe('PaymentBehaviorTab', () => {
   });
 
   it('shows a readable message when the data cannot load', async () => {
-    rpcMock.mockImplementation((fn: string) => Promise.resolve(fn === 'tops_payment_behaviour_overview'
+    rpcMock.mockImplementation((fn: string) => Promise.resolve(fn === 'tops_payment_behaviour_overview_v2'
       ? { data: null, error: { message: 'not authorized' } } : { data: null, error: null }));
     render(<PaymentBehaviorTab />, { wrapper });
     expect(await screen.findByText('Could not load Tenant Payment Behavior')).toBeInTheDocument();

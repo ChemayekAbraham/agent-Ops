@@ -33,12 +33,33 @@ const ROOT = ['tenantOpsWorkspace', 'paymentBehavior'] as const;
 
 // ─── Summary / overview ──────────────────────────────────────────────────────
 
+/** Money here is what counts as collected (payments up to the Rent Plan's bill), the same as Home. */
 export interface PaymentChannelStats {
   n: number;
+  /** Payments that contributed counted money; averages and medians are over these. */
+  counted_n?: number;
   ugx: number;
   avg_ugx: number | null;
   median_ugx: number | null;
   tenants: number;
+  paid_ahead_ugx?: number;
+  paid_ahead_n?: number;
+}
+
+/** Money paid above the bill (or on plans with no bill in the period). Not counted as collected, same as Home. */
+export interface PaidAheadAmount {
+  paid_ahead_ugx: number;
+  paid_ahead_n?: number;
+}
+
+export interface PaidAheadBlock extends PaidAheadAmount {
+  paid_ahead_n: number;
+  definition?: string;
+  self?: PaidAheadAmount;
+  agent?: PaidAheadAmount;
+  other?: PaidAheadAmount;
+  no_bill?: { plans: number } & PaidAheadAmount;
+  above_bill?: { plans: number } & PaidAheadAmount;
 }
 
 export interface SegmentCoverage {
@@ -60,10 +81,13 @@ export interface PaymentBehaviorSummary {
     other: PaymentChannelStats;
     total_n: number;
     total_ugx: number;
+    /** Everything paid in the window before the bill cap: total_ugx plus paid ahead. */
+    raw_total_ugx?: number;
     self_share_pct: number | null;
     agent_share_pct: number | null;
     self_count_share_pct: number | null;
   };
+  paid_ahead?: PaidAheadBlock;
   tenants: {
     billed: number;
     paying: number;
@@ -146,7 +170,7 @@ export function usePaymentBehaviorOverview(f: PaymentBehaviorFilters) {
   return useQuery({
     queryKey: [...ROOT, 'overview', ...filterKey(f)],
     queryFn: async () => {
-      const { data, error } = await anyDb.rpc('tops_payment_behaviour_overview', filterArgs(f));
+      const { data, error } = await anyDb.rpc('tops_payment_behaviour_overview_v2', filterArgs(f));
       if (error) throw error;
       return data as PaymentBehaviorOverview;
     },
@@ -160,7 +184,7 @@ export function usePaymentBehaviorSummary(f: PaymentBehaviorFilters, enabled = t
   return useQuery({
     queryKey: [...ROOT, 'summary', ...filterKey(f)],
     queryFn: async () => {
-      const { data, error } = await anyDb.rpc('tops_payment_behaviour_summary', filterArgs(f));
+      const { data, error } = await anyDb.rpc('tops_payment_behaviour_summary_v2', filterArgs(f));
       if (error) throw error;
       return data as PaymentBehaviorSummary;
     },
@@ -179,6 +203,8 @@ export interface TrendPoint {
   self_ugx: number;
   agent_ugx: number;
   other_ugx: number;
+  paid_ahead_ugx?: number;
+  paid_ahead_n?: number;
   self_n: number;
   agent_n: number;
   self_tenants: number;
@@ -207,6 +233,7 @@ export interface PaymentBehaviorTrend {
   bucket: 'day' | 'week' | 'month';
   window: { start_day: string; end_day: string; asof: string };
   points: TrendPoint[];
+  paid_ahead?: PaidAheadBlock;
   projection: PaymentBehaviorProjection;
 }
 
@@ -214,7 +241,7 @@ export function usePaymentBehaviorTrend(f: PaymentBehaviorFilters) {
   return useQuery({
     queryKey: [...ROOT, 'trend', ...filterKey(f)],
     queryFn: async () => {
-      const { data, error } = await anyDb.rpc('tops_payment_behaviour_trend', filterArgs(f));
+      const { data, error } = await anyDb.rpc('tops_payment_behaviour_trend_v2', filterArgs(f));
       if (error) throw error;
       return data as PaymentBehaviorTrend;
     },
@@ -250,7 +277,11 @@ export interface ChannelFrequency {
 }
 
 export interface ChannelAmounts {
+  /** Payments that contributed counted money; the statistics below are over these. */
   n: number;
+  all_n?: number;
+  paid_ahead_ugx?: number;
+  paid_ahead_n?: number;
   avg_ugx: number | null;
   p10: number | null;
   p25: number | null;
@@ -275,6 +306,7 @@ export interface PaymentBehaviorTiming {
     by_channel: { self: ChannelFrequency; agent: ChannelFrequency };
   };
   amounts: { self?: ChannelAmounts; agent?: ChannelAmounts };
+  paid_ahead?: PaidAheadBlock;
   clock: {
     median_hour: { self?: number | null; agent?: number | null } | null;
     hours: { self: number[]; agent: number[] };
@@ -286,7 +318,7 @@ export function usePaymentBehaviorTiming(f: PaymentBehaviorFilters) {
   return useQuery({
     queryKey: [...ROOT, 'timing', ...filterKey(f)],
     queryFn: async () => {
-      const { data, error } = await anyDb.rpc('tops_payment_behaviour_timing', filterArgs(f));
+      const { data, error } = await anyDb.rpc('tops_payment_behaviour_timing_v2', filterArgs(f));
       if (error) throw error;
       return data as PaymentBehaviorTiming;
     },
@@ -312,6 +344,10 @@ export interface DimensionRow {
   mixed: number;
   self_ugx: number;
   agent_ugx: number;
+  paid_ahead_ugx?: number;
+  paid_ahead_n?: number;
+  paid_ahead_self_ugx?: number;
+  paid_ahead_agent_ugx?: number;
   self_share_pct: number | null;
   billed_ugx: number;
   covered_ugx: number;
@@ -322,7 +358,7 @@ export interface DimensionRow {
 }
 
 export async function fetchPaymentBehaviorBy(f: PaymentBehaviorFilters, dimension: PaymentBehaviorDimension, limit = 300): Promise<DimensionRow[]> {
-  const { data, error } = await anyDb.rpc('tops_payment_behaviour_by', { ...filterArgs(f), p_dimension: dimension, p_limit: limit });
+  const { data, error } = await anyDb.rpc('tops_payment_behaviour_by_v2', { ...filterArgs(f), p_dimension: dimension, p_limit: limit });
   if (error) throw error;
   return ((data?.rows ?? []) as DimensionRow[]);
 }
@@ -366,6 +402,8 @@ export interface WatchlistRow {
   paid_prev_7d_ugx: number;
   self_paid_28d_ugx: number;
   agent_paid_28d_ugx: number;
+  paid_ahead_28d_ugx?: number;
+  paid_ahead_28d_n?: number;
 }
 
 export interface WatchlistBacktest {
@@ -395,6 +433,7 @@ export interface PaymentBehaviorWatchlist {
     score_2: number;
     score_3_plus: number;
     by_flag: Record<WarningFlag, number>;
+    paid_ahead_28d?: PaidAheadAmount & { self?: PaidAheadAmount; agent?: PaidAheadAmount };
   };
   total: number;
   rows: WatchlistRow[];
@@ -408,7 +447,7 @@ export interface WatchlistPaging {
 }
 
 export async function fetchPaymentBehaviorWatchlist(f: PaymentBehaviorFilters, paging: WatchlistPaging): Promise<PaymentBehaviorWatchlist> {
-  const { data, error } = await anyDb.rpc('tops_payment_behaviour_watchlist', {
+  const { data, error } = await anyDb.rpc('tops_payment_behaviour_watchlist_v2', {
     ...filterArgs(f),
     p_min_score: paging.minScore,
     p_limit: paging.limit,
@@ -457,9 +496,9 @@ export async function fetchPaymentBehaviorReportData(f: PaymentBehaviorFilters) 
     return data as T;
   };
   const [overview, trend, timing, agents, regions, districts, rentBands, cadences, cohorts, watchlist] = await Promise.all([
-    rpc<PaymentBehaviorOverview>('tops_payment_behaviour_overview'),
-    rpc<PaymentBehaviorTrend>('tops_payment_behaviour_trend'),
-    rpc<PaymentBehaviorTiming>('tops_payment_behaviour_timing'),
+    rpc<PaymentBehaviorOverview>('tops_payment_behaviour_overview_v2'),
+    rpc<PaymentBehaviorTrend>('tops_payment_behaviour_trend_v2'),
+    rpc<PaymentBehaviorTiming>('tops_payment_behaviour_timing_v2'),
     fetchPaymentBehaviorBy(f, 'agent'),
     fetchPaymentBehaviorBy(f, 'region'),
     fetchPaymentBehaviorBy(f, 'district'),

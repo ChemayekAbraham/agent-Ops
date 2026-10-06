@@ -329,6 +329,8 @@ export async function generatePaymentBehaviorPdf(data: PaymentBehaviorReportData
     `Generated ${format(new Date(), 'dd MMM yyyy, HH:mm')}   |   Figures marked OBSERVED are read from recorded payments; ESTIMATE marks projections, comparisons and risk scoring.`,
   ]);
 
+  let aheadNote: string | null = null;
+
   // ─── Headline ───
   r.heading('Headline', 'OBSERVED');
   r.cards([
@@ -344,6 +346,10 @@ export async function generatePaymentBehaviorPdf(data: PaymentBehaviorReportData
     { label: 'Bill covered', value: pct(s.coverage.coverage_pct), sub: `${ugx(s.coverage.short_ugx)} short of ${ugx(s.coverage.billed_ugx)}`, color: AMBER },
   ]);
 
+  if (s.paid_ahead) {
+    aheadNote = `Paid ahead / above the bill: ${ugx(s.paid_ahead.paid_ahead_ugx)} (${num(s.paid_ahead.paid_ahead_n)} payment${s.paid_ahead.paid_ahead_n === 1 ? '' : 's'}). Not counted as collected, same as Home. Money figures in this report count each Rent Plan's payments only up to its bill for the period.`;
+  }
+
   const findings: string[] = [
     `${pct(t.self_payers_pct)} of paying tenants (${num(t.self_payers)} of ${num(t.paying)}) paid at least once from their own phone; ${num(t.self_only)} pay only themselves and ${num(t.mixed)} use both methods. Compared with the previous ${s.window.days} day${s.window.days === 1 ? '' : 's'} (${pct(t.previous.self_payers_pct)}), that is ${pp(t.self_payers_pct_change_pp)}.`,
     `Self-pay carried ${pct(p.self_share_pct)} of the money collected and ${pct(p.self_count_share_pct)} of payments. The typical self-payment is ${ugx(p.self.median_ugx)}, against ${ugx(p.agent.median_ugx)} when an agent pays.`,
@@ -356,6 +362,7 @@ export async function generatePaymentBehaviorPdf(data: PaymentBehaviorReportData
   if (cmp.self_payers && cmp.agent_only) {
     findings.push(`Tenants who paid themselves covered ${pct(cmp.self_payers.coverage_pct)} of their bill on average (${num(cmp.self_payers.tenants)} tenants) versus ${pct(cmp.agent_only.coverage_pct)} for agent-only tenants (${num(cmp.agent_only.tenants)}): a difference of ${pp(cmp.difference_pp)} with a margin of error of about ${cmp.margin_pp_95 ?? '-'} points${cmp.enough_data ? '' : ' (small groups, rough indication only)'}.`);
   }
+  if (aheadNote) findings.push(aheadNote);
   r.heading('Key readings');
   r.bullets(findings);
 

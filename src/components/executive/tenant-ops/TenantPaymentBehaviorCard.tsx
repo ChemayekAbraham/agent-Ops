@@ -6,7 +6,7 @@ import { usePaymentBehaviorSummary } from '@/hooks/tenantOpsWorkspace/usePayment
 /**
  * Tenant Ops Home -> Executive summary card: how many paying tenants paid themselves rather than
  * through an agent, for the range Home is showing. Read-only; every figure comes from
- * tops_payment_behaviour_summary and the card opens the Payment Behavior tab of the Tenant
+ * tops_payment_behaviour_summary_v2 and the card opens the Payment Behavior tab of the Tenant
  * Operations Workspace on the same range.
  */
 export function TenantPaymentBehaviorCard({

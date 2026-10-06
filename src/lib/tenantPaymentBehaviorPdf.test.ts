@@ -38,7 +38,8 @@ describe('generatePaymentBehaviorPdf', () => {
     expect(all).toContain('OBSERVED');
     expect(all).toContain('ESTIMATE');
     expect(all).toContain('5.1%');                                   // headline, straight from the server
-    expect(all).toContain('UGX 1,742,931');                          // self-paid total
+    expect(all).toContain('UGX 1,757,731');                          // self-paid total (counted, as on Home)
+    expect(all.replace(/\s+/g, ' ')).toContain('Paid ahead / above the bill: UGX 56,356,078 (1,333 payments). Not counted as collected, same as Home.');
     expect(all).toContain('SHAFEEQ SSENABULYA');                     // by-agent table
     expect(all).toContain('Ntege Dorothy');                          // follow-up list
     expect(all).toMatch(/Page \d+ of \d+/);
