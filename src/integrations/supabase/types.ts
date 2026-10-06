@@ -25444,6 +25444,152 @@ export type Database = {
         }
         Relationships: []
       }
+      landlord_pool_legacy_join_runs: {
+        Row: {
+          after_snapshot: Json | null
+          before_snapshot: Json | null
+          error: string | null
+          finished_at: string | null
+          id: string
+          members_added: number | null
+          mode: string
+          started_at: string
+          status: string
+        }
+        Insert: {
+          after_snapshot?: Json | null
+          before_snapshot?: Json | null
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          members_added?: number | null
+          mode: string
+          started_at?: string
+          status: string
+        }
+        Update: {
+          after_snapshot?: Json | null
+          before_snapshot?: Json | null
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          members_added?: number | null
+          mode?: string
+          started_at?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      landlord_pool_legacy_members: {
+        Row: {
+          created_at: string
+          joined_at: string
+          origin: string
+          portfolio_id: string
+          principal_at_join: number | null
+          run_id: string | null
+          status_at_join: string | null
+        }
+        Insert: {
+          created_at?: string
+          joined_at: string
+          origin: string
+          portfolio_id: string
+          principal_at_join?: number | null
+          run_id?: string | null
+          status_at_join?: string | null
+        }
+        Update: {
+          created_at?: string
+          joined_at?: string
+          origin?: string
+          portfolio_id?: string
+          principal_at_join?: number | null
+          run_id?: string | null
+          status_at_join?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landlord_pool_legacy_members_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: true
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_pool_legacy_members_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: true
+            referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "landlord_pool_legacy_members_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: true
+            referencedRelation: "v_portfolio_pool_category"
+            referencedColumns: ["portfolio_id"]
+          },
+        ]
+      }
+      landlord_pool_legacy_skips: {
+        Row: {
+          created_at: string
+          event_amount: number
+          id: string
+          kind: string
+          portfolio_id: string
+          reason: string
+          skipped_amount: number
+          source_id: string
+          source_table: string
+        }
+        Insert: {
+          created_at?: string
+          event_amount: number
+          id?: string
+          kind: string
+          portfolio_id: string
+          reason: string
+          skipped_amount: number
+          source_id: string
+          source_table: string
+        }
+        Update: {
+          created_at?: string
+          event_amount?: number
+          id?: string
+          kind?: string
+          portfolio_id?: string
+          reason?: string
+          skipped_amount?: number
+          source_id?: string
+          source_table?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landlord_pool_legacy_skips_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_pool_legacy_skips_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "landlord_pool_legacy_skips_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
+            referencedColumns: ["portfolio_id"]
+          },
+        ]
+      }
       landlord_pool_movements: {
         Row: {
           allocation_id: string | null
@@ -26644,6 +26790,13 @@ export type Database = {
             referencedRelation: "v_general_ledger_operational"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "ledger_anomaly_isolations_ledger_entry_id_fkey"
+            columns: ["ledger_entry_id"]
+            isOneToOne: true
+            referencedRelation: "v_landlord_pool_legacy_missed"
+            referencedColumns: ["ledger_leg_id"]
+          },
         ]
       }
       ledger_backfill_corrections: {
@@ -27057,6 +27210,13 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "v_general_ledger_operational"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ledger_scope_reclassifications_ledger_entry_id_fkey"
+            columns: ["ledger_entry_id"]
+            isOneToOne: true
+            referencedRelation: "v_landlord_pool_legacy_missed"
+            referencedColumns: ["ledger_leg_id"]
           },
         ]
       }
@@ -54980,14 +55140,14 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "engrep_file_touches_engineer_id_fkey"
-            columns: ["engineer_id"]
+            columns: ["reverted_by_engineer"]
             isOneToOne: false
             referencedRelation: "engrep_engineers"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "engrep_file_touches_engineer_id_fkey"
-            columns: ["reverted_by_engineer"]
+            columns: ["engineer_id"]
             isOneToOne: false
             referencedRelation: "engrep_engineers"
             referencedColumns: ["id"]
@@ -56403,6 +56563,40 @@ export type Database = {
         }
         Relationships: []
       }
+      v_landlord_pool_legacy_missed: {
+        Row: {
+          amount: number | null
+          category: string | null
+          created_at: string | null
+          ledger_leg_id: string | null
+          portfolio_code: string | null
+          portfolio_id: string | null
+          status: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "landlord_pool_legacy_members_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: true
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "landlord_pool_legacy_members_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: true
+            referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "landlord_pool_legacy_members_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: true
+            referencedRelation: "v_portfolio_pool_category"
+            referencedColumns: ["portfolio_id"]
+          },
+        ]
+      }
       v_landlord_pool_position: {
         Row: {
           attached_to: string | null
@@ -57380,6 +57574,7 @@ export type Database = {
         Row: {
           cash_in_pool: boolean | null
           category: string | null
+          legacy_joined_at: string | null
           live_principal: number | null
           partner_id: string | null
           pool_eligible: boolean | null
@@ -68246,6 +68441,19 @@ export type Database = {
           p_pool_entry_id?: string
           p_rent_request_id: string
         }
+        Returns: Json
+      }
+      landlord_pool_is_member: {
+        Args: { p_portfolio_id: string }
+        Returns: boolean
+      }
+      landlord_pool_join_legacy_portfolios: {
+        Args: { p_dry_run?: boolean }
+        Returns: Json
+      }
+      landlord_pool_legacy_from: { Args: never; Returns: string }
+      landlord_pool_legacy_release: {
+        Args: { p_amount: number; p_caller?: string; p_portfolio_id: string }
         Returns: Json
       }
       landlord_pool_rebalance: {
