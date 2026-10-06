@@ -140,17 +140,22 @@ Deno.serve(async (req) => {
       if (amount < 500) return json({ error: "Minimum payment is UGX 500" }, 400);
 
       const { data: loan } = await admin.from("lending_agent_loans").select("*").eq("id", loanId).maybeSingle();
-      if (!loan || loan.borrower_user_id !== userId) return json({ error: "Not found" }, 404);
+      if (!loan) return json({ error: "Not found" }, 404);
+      // Borrower pays themselves, or the loan's own lending agent collects from the borrower's wallet.
+      const byAgent = loan.lender_agent_id === userId && loan.borrower_user_id !== userId;
+      if (loan.borrower_user_id !== userId && !byAgent) return json({ error: "Not found" }, 404);
+      if (!loan.borrower_user_id) return json({ error: "This borrower has no Welile wallet" }, 400);
+      const payerId: string = loan.borrower_user_id;
       if (!["active", "partially_repaid"].includes(loan.status)) return json({ error: "Nothing left to pay" }, 400);
 
       const outstanding = outstandingOf(loan);
-      if (amount > outstanding) return json({ error: `You only owe UGX ${outstanding.toLocaleString("en-US")}` }, 400);
+      if (amount > outstanding) return json({ error: `${byAgent ? "They" : "You"} only owe UGX ${outstanding.toLocaleString("en-US")}` }, 400);
 
-      const { data: availRaw, error: availError } = await admin.rpc("get_user_available_balance", { p_user_id: userId });
+      const { data: availRaw, error: availError } = await admin.rpc("get_user_available_balance", { p_user_id: payerId });
       if (availError) throw availError;
       const available = Math.max(0, Math.floor(Number(availRaw ?? 0)));
       if (amount > available) {
-        return json({ error: `Not enough money in your wallet. You have UGX ${available.toLocaleString("en-US")}` }, 400);
+        return json({ error: `Not enough money in ${byAgent ? "the borrower's" : "your"} wallet. ${byAgent ? "They have" : "You have"} UGX ${available.toLocaleString("en-US")}` }, 400);
       }
 
       await admin.from("wallets").upsert(
@@ -164,7 +169,7 @@ Deno.serve(async (req) => {
       const { error: ledgerError } = await admin.rpc("create_ledger_transaction", {
         entries: [
           {
-            user_id: userId, amount, direction: "cash_out", category: "wallet_transfer",
+            user_id: payerId, amount, direction: "cash_out", category: "wallet_transfer",
             ledger_scope: "wallet", source_table: "lending_agent_loans", source_id: loan.id,
             description: "Repayment to lending agent", currency: "UGX", transaction_date: now,
             reference_id: ref, linked_party: "Lending agent", recipient_type: "user",
@@ -203,20 +208,21 @@ Deno.serve(async (req) => {
       }).eq("id", loan.id);
 
       await admin.from("lending_audit_log").insert({
-        actor_id: userId, actor_display_name: borrowerLabel, action_type: "repayment_recorded",
-        entity_type: "loan", entity_id: loan.id, borrower_user_id: userId,
+        actor_id: userId, actor_display_name: byAgent ? "Lending agent" : borrowerLabel, action_type: "repayment_recorded",
+        entity_type: "loan", entity_id: loan.id, borrower_user_id: payerId,
         lender_agent_id: loan.lender_agent_id, amount_ugx: amount,
         new_status: fully ? "repaid" : "partially_repaid",
-        details: { borrower_paid: true, reference: ref, total_repaid_ugx: newRepaid },
+        details: { borrower_paid: !byAgent, agent_collected: byAgent, reference: ref, total_repaid_ugx: newRepaid },
       }).then(() => {}, () => {});
 
       await admin.from("system_events").insert({
-        event_type: "payment_made", user_id: userId, related_entity_type: "lending_agent_loan",
-        related_entity_id: loan.id, metadata: { amount, reference: ref, by: "borrower" },
+        event_type: "payment_made", user_id: payerId, related_entity_type: "lending_agent_loan",
+        related_entity_id: loan.id, metadata: { amount, reference: ref, by: byAgent ? "lending_agent" : "borrower" },
       }).then(() => {}, () => {});
-      try { await admin.rpc("recompute_trust_score", { p_user_id: userId }); } catch (_) { /* best effort */ }
+      try { await admin.rpc("recompute_trust_score", { p_user_id: payerId }); } catch (_) { /* best effort */ }
 
-      return json({ ok: true, paid_ugx: amount, remaining_ugx: Math.max(0, outstanding - amount), fully_repaid: fully });
+      const { data: after } = await admin.rpc("get_user_available_balance", { p_user_id: payerId });
+      return json({ ok: true, reference: ref, borrower_wallet_after_ugx: Math.max(0, Math.floor(Number(after ?? 0))), paid_ugx: amount, remaining_ugx: Math.max(0, outstanding - amount), fully_repaid: fully });
     }
 
     return json({ error: "Unknown action" }, 400);
