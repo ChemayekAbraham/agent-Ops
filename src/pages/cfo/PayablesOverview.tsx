@@ -120,27 +120,43 @@ function ProductDetail({ product }: { product: PayableProduct }) {
   </>;
 }
 
+const FORECAST_PERIODS = [
+  { id: '7d', label: 'Next 7 days', gran: 'day' as const, n: 7 },
+  { id: '14d', label: 'Next 14 days', gran: 'day' as const, n: 14 },
+  { id: '30d', label: 'Next 30 days', gran: 'day' as const, n: 30 },
+  { id: '60d', label: 'Next 60 days', gran: 'day' as const, n: 60 },
+  { id: '90d', label: 'Next 90 days', gran: 'day' as const, n: 90 },
+  { id: '1y', label: 'Next 1 year', gran: 'month' as const, n: 12 },
+  { id: '2y', label: 'Next 2 years', gran: 'month' as const, n: 24 },
+  { id: '3y', label: 'Next 3 years', gran: 'month' as const, n: 36 },
+  { id: '4y', label: 'Next 4 years', gran: 'month' as const, n: 48 },
+  { id: '5y', label: 'Next 5 years', gran: 'month' as const, n: 60 },
+];
+
 function DailyForecast() {
-  const [days, setDays] = useState(7);
-  const q = usePayablesPredictiveForecast('day', days);
-  const contractQ = usePayablesContractSchedule('day', days);
+  const [pid, setPid] = useState('7d');
+  const period = FORECAST_PERIODS.find((p) => p.id === pid) ?? FORECAST_PERIODS[0];
+  const daily = period.gran === 'day';
+  const q = usePayablesPredictiveForecast(period.gran, period.n);
+  const contractQ = usePayablesContractSchedule(period.gran, period.n);
   const history = q.data?.history ?? [];
   const avg = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : 0);
   const overall = avg(history.map((x) => x.actual_amount));
   const contractMap = new Map((contractQ.data ?? []).map((c) => [c.index, Number(c.contract_amount ?? 0)]));
   const rows = (q.data?.periods ?? []).map((p) => {
     const dow = new Date(p.period_start).getUTCDay();
-    const same = history.filter((x) => new Date(x.period_start).getUTCDay() === dow).map((x) => x.actual_amount);
-    return { key: p.period_start, date: p.period_start.slice(0, 10), label: p.label, behavior: Math.round(same.length ? avg(same) : overall), contract: contractMap.get(p.index) ?? 0 };
+    const same = daily ? history.filter((x) => new Date(x.period_start).getUTCDay() === dow).map((x) => x.actual_amount) : [];
+    return { key: p.period_start, date: daily ? p.period_start.slice(0, 10) : p.label, label: p.label, behavior: Math.round(same.length ? avg(same) : overall), contract: contractMap.get(p.index) ?? 0 };
   });
   const sum = rows.reduce((a, r) => a + r.behavior, 0);
   const sched = rows.reduce((a, r) => a + r.contract, 0);
+  const unit = daily ? 'day' : 'month';
   return <>
-    <div role="tablist" aria-label="Forecast period" className="inline-flex gap-1 rounded-lg border border-border/70 bg-card p-1">{[7, 14, 30].map((d) => <Button key={d} variant="ghost" size="sm" role="tab" aria-selected={days === d} onClick={() => setDays(d)} className={`rounded-md text-xs ${days === d ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-primary hover:bg-primary/10'}`}>Next {d} days</Button>)}</div>
+    <div role="tablist" aria-label="Forecast period" className="inline-flex flex-wrap gap-1 rounded-lg border border-border/70 bg-card p-1">{FORECAST_PERIODS.map((p) => <Button key={p.id} variant="ghost" size="sm" role="tab" aria-selected={pid === p.id} onClick={() => setPid(p.id)} className={`rounded-md text-xs ${pid === p.id ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-primary hover:bg-primary/10'}`}>{p.label}</Button>)}</div>
     {q.isLoading || contractQ.isLoading ? <Panel><p className="text-xs text-muted-foreground">Loading forecast…</p></Panel> : q.isError ? <Panel><p className="text-xs text-destructive">Forecast unavailable. Please refresh.</p></Panel> : <>
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-3"><Metric label="Behavior projection" value={formatUGX(sum)} note="Based on past payables" icon={Wallet} tone="primary" /><Metric label="Ideal (contract)" value={contractQ.isError ? 'Unavailable' : formatUGX(sched)} note="Scheduled by contract" icon={CalendarDays} tone="success" /><Metric label="Daily Average" value={formatUGX(rows.length ? sum / rows.length : 0)} note="Behavior projection per day" icon={TrendingDown} tone="warning" /></div>
-      <Panel title={`Payables Projection — Next ${days} Days`}><ForecastChart rows={rows.map((r) => ({ label: r.label, amount: r.behavior, scheduled: r.contract }))} /></Panel>
-      <Panel title="Day by Day"><div className="overflow-x-auto"><table className="w-full text-[10px]"><thead className="bg-muted/50 text-muted-foreground"><tr><th className="p-2 text-left font-medium">Date</th><th className="p-2 text-right font-medium">Behavior projection (UGX)</th><th className="p-2 text-right font-medium">Ideal — contract (UGX)</th></tr></thead><tbody className="divide-y divide-border">{rows.map((r) => <tr key={r.key}><td className="p-2">{r.date}</td><td className="p-2 text-right tabular-nums">{formatUGX(r.behavior)}</td><td className="p-2 text-right tabular-nums">{formatUGX(r.contract)}</td></tr>)}</tbody><tfoot><tr className="border-t border-border font-semibold"><td className="p-2">Total</td><td className="p-2 text-right tabular-nums">{formatUGX(sum)}</td><td className="p-2 text-right tabular-nums">{formatUGX(sched)}</td></tr></tfoot></table></div></Panel>
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-3"><Metric label="Behavior projection" value={formatUGX(sum)} note="Based on past payables" icon={Wallet} tone="primary" /><Metric label="Ideal (contract)" value={contractQ.isError ? 'Unavailable' : formatUGX(sched)} note="Scheduled by contract" icon={CalendarDays} tone="success" /><Metric label={daily ? "Daily Average" : "Monthly Average"} value={formatUGX(rows.length ? sum / rows.length : 0)} note={`Behavior projection per ${unit}`} icon={TrendingDown} tone="warning" /></div>
+      <Panel title={`Payables Projection — ${period.label.replace("Next ", "Next ")}`}><ForecastChart rows={rows.map((r) => ({ label: r.label, amount: r.behavior, scheduled: r.contract }))} /></Panel>
+      <Panel title={daily ? "Day by Day" : "Month by Month"}><div className="overflow-x-auto"><table className="w-full text-[10px]"><thead className="bg-muted/50 text-muted-foreground"><tr><th className="p-2 text-left font-medium">{daily ? "Date" : "Month"}</th><th className="p-2 text-right font-medium">Behavior projection (UGX)</th><th className="p-2 text-right font-medium">Ideal — contract (UGX)</th></tr></thead><tbody className="divide-y divide-border">{rows.map((r) => <tr key={r.key}><td className="p-2">{r.date}</td><td className="p-2 text-right tabular-nums">{formatUGX(r.behavior)}</td><td className="p-2 text-right tabular-nums">{formatUGX(r.contract)}</td></tr>)}</tbody><tfoot><tr className="border-t border-border font-semibold"><td className="p-2">Total</td><td className="p-2 text-right tabular-nums">{formatUGX(sum)}</td><td className="p-2 text-right tabular-nums">{formatUGX(sched)}</td></tr></tfoot></table></div></Panel>
     </>}
   </>;
 }
