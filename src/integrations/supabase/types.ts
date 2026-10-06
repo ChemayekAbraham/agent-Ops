@@ -66148,6 +66148,16 @@ export type Database = {
           updated_at: string
         }[]
       }
+      get_sms_cost_daily: {
+        Args: { p_days?: number }
+        Returns: {
+          cost_ugx: number
+          day: string
+          msgs_costed: number
+          msgs_foreign: number
+          msgs_uncosted: number
+        }[]
+      }
       get_sms_cost_report: {
         Args: { p_end?: string; p_provider?: string; p_start?: string }
         Returns: Json

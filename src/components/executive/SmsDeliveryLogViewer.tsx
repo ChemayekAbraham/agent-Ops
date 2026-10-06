@@ -12,10 +12,11 @@ import {
 } from 'recharts';
 import { KPICard } from './KPICard';
 import { SmsFailoverAlerts } from './SmsFailoverAlerts';
-import { MessageSquare, Loader2, CheckCircle2, XCircle, Radio, CalendarDays, CalendarRange, Calendar, FileDown } from 'lucide-react';
+import { MessageSquare, Loader2, CheckCircle2, XCircle, Radio, CalendarDays, CalendarRange, Calendar, FileDown, Wallet } from 'lucide-react';
 import { Send } from 'lucide-react';
 import { format, formatDistanceToNow, subDays, startOfWeek, startOfMonth, endOfMonth, startOfDay, subMonths, differenceInCalendarDays } from 'date-fns';
 import { downloadSmsTrafficPdf } from '@/lib/smsTrafficReportPdf';
+import { formatUGX } from '@/lib/rentCalculations';
 import { toast } from 'sonner';
 
 type SmsLog = {
@@ -136,6 +137,16 @@ type DailyTrafficRow = {
   yoola: number;
   africastalking: number;
   other: number;
+};
+
+// Daily provider-reported spend (get_sms_cost_daily). cost_ugx sums only
+// UGX-denominated / bare-numeric cost strings; foreign-currency rows are
+// counted, never converted (no invented exchange rates).
+type DailyCostRow = {
+  day: string;
+  cost: number;
+  foreign: number;
+  uncosted: number;
 };
 
 export function SmsDeliveryLogViewer() {
@@ -271,12 +282,43 @@ export function SmsDeliveryLogViewer() {
     staleTime: 60_000,
   });
 
+  // Spend metrics: server-side daily rollup of provider-reported cost strings.
+  const { data: costRows = [], isLoading: costLoading } = useQuery({
+    queryKey: ['cto-sms-cost', rollupDays],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_sms_cost_daily', { p_days: rollupDays });
+      if (error) throw error;
+      return ((data || []) as any[]).map((r) => ({
+        day: String(r.day),
+        cost: Number(r.cost_ugx) || 0,
+        foreign: Number(r.msgs_foreign) || 0,
+        uncosted: Number(r.msgs_uncosted) || 0,
+      })) as DailyCostRow[];
+    },
+    staleTime: 60_000,
+    refetchInterval: 60_000,
+  });
+
   const rows = metrics || [];
   const now = new Date();
   const dayStart = startOfDay(now).getTime();
   const weekStart = startOfWeek(now, { weekStartsOn: 1 }).getTime();
   const monthStart = selectedMonthStart.getTime();
   const monthEnd = selectedMonthEnd.getTime();
+
+  const costOf = (predicate: (t: number) => boolean) => {
+    let cost = 0, foreign = 0;
+    for (const r of costRows) {
+      const t = startOfDay(new Date(`${r.day}T00:00:00`)).getTime();
+      if (!predicate(t)) continue;
+      cost += r.cost;
+      foreign += r.foreign;
+    }
+    return { cost, foreign };
+  };
+  const inRange = (start: number, end: number) => (t: number) => t >= startOfDay(new Date(start)).getTime() && t <= startOfDay(new Date(end)).getTime();
+  const todaySpend = costOf((t) => t >= dayStart);
+  const thisMonthSpend = isPastMonth ? costOf(inRange(monthStart, monthEnd)) : costOf((t) => t >= monthStart);
 
   const countSince = (cutoff: number) => {
     let sent = 0, fail = 0;
@@ -526,8 +568,8 @@ export function SmsDeliveryLogViewer() {
         </Button>
       </div>
 
-      {/* Traffic metrics — daily / weekly / monthly */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
+      {/* Traffic metrics — daily / weekly / monthly / spend */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
         <KPICard
           title="Sent Today"
           value={today.total.toLocaleString()}
@@ -551,6 +593,14 @@ export function SmsDeliveryLogViewer() {
           color="bg-teal-500/10 text-teal-600"
           loading={metricsLoading}
           subtitle={`${thisMonth.sent} delivered · ${thisMonth.fail} failed`}
+        />
+        <KPICard
+          title={isPastMonth ? `Spend — ${format(selectedMonthDate, 'MMM yyyy')}` : 'Spend This Month'}
+          value={formatUGX(thisMonthSpend.cost)}
+          icon={Wallet}
+          color="bg-amber-500/10 text-amber-600"
+          loading={costLoading}
+          subtitle={`Today: ${formatUGX(todaySpend.cost)} · provider charges for SMS sent${thisMonthSpend.foreign > 0 ? ` · ${thisMonthSpend.foreign} foreign-currency rows excluded` : ''}`}
         />
       </div>
 
