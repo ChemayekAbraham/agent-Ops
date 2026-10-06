@@ -21,6 +21,4 @@
 - The Batch 1 three-agent stored-balance refresh runs only via `cfo_s14b1w_execute`, gated by a single-use CFO approval bound to a sha256 manifest fingerprint and the live rule definitions, so it can never touch the ledger, other buckets or other users.
 - Phone wallet collection runs only for plans with `phone_collection_enabled` (daily `recover_smartphone_from_wallets`), apart from the bike job, so phones start one plan at a time; it may draw advance-locked funds (withdrawals stay locked); the phone late charge runs only when `smartphone_surcharge_enabled` is on.
 - Agent lending remains excluded from company Receivables totals and forecasts because it is agents' own money; the Receivables sidebar now exposes the company Forecast instead of the separate lending section.
-- The Payables workspace mirrors Receivables presentation using the existing read-only payable hooks and retains detailed forecast and accuracy views, so layout changes cannot alter obligations or payment rules.
-
-- Receivables Forecast uses a read-only projection hook for history averages and scheduled RPC amounts, with date windows generated independently of the predictive RPC cap and contract reads split at the live 400-day limit, so long horizons are not silently truncated.
+- Payables mirrors Receivables with read-only payable hooks; its single Forecast view preserves obligations and payment rules.
