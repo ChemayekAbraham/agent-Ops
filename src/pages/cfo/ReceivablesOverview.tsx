@@ -129,7 +129,7 @@ export default function ReceivablesOverview() {
                       {cat.subs.map((s) => (
                         <Button variant="ghost" size="sm" key={s.key} role="tab" aria-selected={s.key === subKey} onClick={() => go(cat.key, s.key)}
                           className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${s.key === subKey
-                            ? catKey === 'tenant' ? 'bg-info text-info-foreground shadow-sm' : 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-muted'}`}>
+                            ? catKey === 'tenant' ? 'bg-info text-info-foreground shadow-sm' : 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-primary hover:bg-primary/10'}`}>
                           {s.label}
                         </Button>
                       ))}
