@@ -163,6 +163,27 @@ export default function LendingBorrowerCard({ loan, onRecordRepayment, onTopUpOr
             <span className="text-[9px] text-muted-foreground font-semibold tabular-nums">{repaidPct}%</span>
             <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${expanded ? 'rotate-180' : ''}`} />
           </div>
+
+          {/* Repayment plan — visible at a glance without expanding */}
+          {plan && (
+            <div className="mt-2 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 rounded-lg bg-muted/50 px-2.5 py-1.5 text-[10px] font-semibold text-muted-foreground">
+              <span className="inline-flex items-center gap-1 text-primary">
+                <Repeat className="h-3 w-3" /> {plan.frequencyLabel}
+              </span>
+              {plan.frequency !== 'once' && (
+                <span>· {formatUGX(plan.installment)} each</span>
+              )}
+              <span>
+                · {plan.remainingCount} {plan.remainingCount === 1 ? 'payment' : 'payments'} left
+              </span>
+              {plan.nextDueDate && (
+                <span className={plan.nextDueInPast ? 'text-destructive' : ''}>
+                  · Next {new Date(plan.nextDueDate).toLocaleDateString()}
+                </span>
+              )}
+            </div>
+          )}
+
           {!expanded && (
             <p className="mt-2 text-center text-xs font-semibold text-primary">Tap to pay, add money or give more time</p>
           )}
