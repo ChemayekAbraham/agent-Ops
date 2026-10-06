@@ -26,6 +26,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { formatUGX } from '@/lib/rentCalculations';
 import {
   usePayablesPredictiveForecast,
+  usePayablesContractSchedule,
+  type PayablesContractPeriod,
   type PayablesGranularity,
   type PayablesPredictivePeriod,
 } from '@/hooks/usePayables';
@@ -359,7 +361,7 @@ export default function PredictivePayablesForecast() {
                                   New obligations {formatUGX(p.new_origination_amount)}
                                 </Badge>
                                 <Badge variant="outline" className="text-[9px] px-1.5 py-0">
-                                  Scheduled {formatUGX(idealOf(p.index))}
+                                  Contract {formatUGX(idealOf(p.index))}
                                 </Badge>
                               </div>
                               {p.sources.length === 0 ? (
