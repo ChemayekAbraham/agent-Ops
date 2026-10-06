@@ -567,8 +567,8 @@ export function SmsDeliveryLogViewer() {
         </Button>
       </div>
 
-      {/* Traffic metrics — daily / weekly / monthly */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3">
+      {/* Traffic metrics — daily / weekly / monthly / spend */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
         <KPICard
           title="Sent Today"
           value={today.total.toLocaleString()}
