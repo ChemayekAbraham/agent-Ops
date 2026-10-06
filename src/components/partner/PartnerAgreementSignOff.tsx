@@ -4,7 +4,6 @@ import { useToast } from '@/hooks/use-toast';
 import { buildPartnerReference } from '@/lib/partnerReference';
 import AgreementHtmlPreview, { type AgreementPreviewData } from './AgreementHtmlPreview';
 import { buildAgreementHtml, OPTION_FROM_ROI_MODE } from './agreementTemplate';
-import { buildPartnerReference } from '@/lib/partnerReference';
 import { renderAgreementPdfBase64 } from './renderAgreementPdf';
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
