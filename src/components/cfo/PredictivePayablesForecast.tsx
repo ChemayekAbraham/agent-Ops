@@ -220,34 +220,23 @@ export default function PredictivePayablesForecast() {
               Modelled from real payment history · all forward amounts are estimates
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-1.5 sm:flex sm:items-center">
-            <Select
-              value={granularity}
-              onValueChange={(v) => changeGranularity(v as PayablesGranularity)}
-            >
-              <SelectTrigger className="h-9 sm:h-8 w-full sm:w-[112px] text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {GRANULARITIES.map((g) => (
-                  <SelectItem key={g.key} value={g.key} className="text-xs">
-                    {g.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Select value={String(periods)} onValueChange={(v) => setPeriods(Number(v))}>
-              <SelectTrigger className="h-9 sm:h-8 w-full sm:w-[156px] text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {HORIZONS[granularity].map((h) => (
-                  <SelectItem key={h.value} value={String(h.value)} className="text-xs">
-                    {h.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="flex flex-col gap-2 sm:items-end">
+            <div className="inline-flex flex-wrap gap-1 rounded-lg bg-muted p-1" role="tablist" aria-label="Forecast interval">
+              {GRANULARITIES.map((g) => (
+                <button key={g.key} type="button" onClick={() => changeGranularity(g.key)}
+                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${granularity === g.key ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-primary/10 hover:text-primary'}`}>
+                  {g.label}
+                </button>
+              ))}
+            </div>
+            <div className="inline-flex flex-wrap gap-1 rounded-lg bg-muted p-1" role="tablist" aria-label="Forecast period">
+              {HORIZONS[granularity].map((h) => (
+                <button key={h.value} type="button" onClick={() => setPeriods(h.value)}
+                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${periods === h.value ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:bg-primary/10 hover:text-primary'}`}>
+                  {h.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
