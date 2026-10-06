@@ -280,11 +280,10 @@ export default function PredictivePayablesForecast() {
                 <thead className="bg-muted/50 sticky top-0 z-10">
                   <tr>
                     <th className="text-left px-2.5 py-1.5 font-medium">Period</th>
-                    <th className="text-right px-2.5 py-1.5 font-medium">Forecast (est.)</th>
+                    <th className="text-right px-2.5 py-1.5 font-medium">Behavior projection</th>
                     <th className="text-right px-2.5 py-1.5 font-medium hidden sm:table-cell">
-                      Range
+                      Ideal (scheduled)
                     </th>
-                    <th className="text-right px-2.5 py-1.5 font-medium">Quality</th>
                   </tr>
                 </thead>
                 <tbody>
