@@ -194,10 +194,16 @@ export function CFOOverviewDashboard({
   // Money We Owe is deliberately only the money sitting with other people:
   // merchant agents and the Bayo Mercy account. Wallets and recorded
   // liabilities keep their own cards elsewhere on this page.
-  const moneyWeOweTotal = merchantHeld + bayoMercyHeld;
+  // The Bayo Mercy balance is the email extractor's running credits-less-debits
+  // figure and can dip below zero (more extracted outflow than inflow). A debt
+  // cannot be negative, so the headline floors it at 0; the raw figure stays
+  // visible in the Money We Owe detail sheet.
+  const bayoMercyOwed = Math.max(0, bayoMercyHeld);
+  const moneyWeOweTotal = merchantHeld + bayoMercyOwed;
   // Money We Can Use = Money We Have − Money We Owe (money sitting with
-  // merchant agents and the Bayo Mercy account).
-  const moneyWeCanUse = Math.max(0, actualMoneyTotal - moneyWeOweTotal);
+  // merchant agents and the Bayo Mercy account), kept within 0..Money We Have
+  // so it can never exceed the cash we actually hold.
+  const moneyWeCanUse = Math.min(actualMoneyTotal, Math.max(0, actualMoneyTotal - moneyWeOweTotal));
   const netToday = todayCashFlow?.netToday ?? 0;
 
   
@@ -457,7 +463,7 @@ export function CFOOverviewDashboard({
               percentageTotal={actualMoneyTotal}
               items={[
                 { dot: 'bg-orange-500', label: 'Merchant Float Bucket (held by merchant agents)', value: fmt(merchantHeld), onSelect: () => setMerchantOwedOpen(true) },
-              { dot: 'bg-orange-500', label: 'Bayo Mercy Bank Account', value: fmt(bayoMercyHeld), onSelect: () => setMerchantOwedOpen(true) },
+              { dot: 'bg-orange-500', label: 'Bayo Mercy Bank Account', value: fmt(bayoMercyOwed), onSelect: () => setMerchantOwedOpen(true) },
               ]}
               onClick={() => setMerchantOwedOpen(true)}
             />
