@@ -593,6 +593,14 @@ export function SmsDeliveryLogViewer() {
           loading={metricsLoading}
           subtitle={`${thisMonth.sent} delivered · ${thisMonth.fail} failed`}
         />
+        <KPICard
+          title={isPastMonth ? `Spend — ${format(selectedMonthDate, 'MMM yyyy')}` : 'Spend This Month'}
+          value={formatUGX(thisMonthSpend.cost)}
+          icon={Wallet}
+          color="bg-amber-500/10 text-amber-600"
+          loading={costLoading}
+          subtitle={`Today: ${formatUGX(todaySpend.cost)} · provider charges for SMS sent${thisMonthSpend.foreign > 0 ? ` · ${thisMonthSpend.foreign} foreign-currency rows excluded` : ''}`}
+        />
       </div>
 
       {/* Daily traffic chart */}
