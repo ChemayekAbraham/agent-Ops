@@ -92,6 +92,6 @@ export default function TenantReceivablesDetail({ product, current, overdue, com
 }
 
 function Insight({ icon: Icon, tone, title, detail }: { icon: typeof Users; tone: 'destructive' | 'warning' | 'info' | 'success'; title: string; detail: string }) {
-  const colors = { destructive: 'bg-destructive/10 text-destructive', warning: 'bg-warning/10 text-warning', info: 'bg-info/10 text-info', success: 'bg-success/10 text-success' };
+  const colors = { destructive: 'bg-destructive/10 text-destructive', warning: 'bg-warning/10 text-warning', info: 'bg-primary/10 text-primary', success: 'bg-success/10 text-success' };
   return <div className="flex items-start gap-2 py-3"><span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full ${colors[tone]}`}><Icon className="h-3.5 w-3.5" /></span><div className="min-w-0"><p className="text-[10px] font-medium">{title}</p><p className="mt-1 text-[9px] text-muted-foreground">{detail}</p></div></div>;
 }
