@@ -36,6 +36,12 @@ export default function PayablesOverview() {
   const periods = forecast.data?.periods;
   const expected = periods?.reduce((sum, p) => sum + p.forecast_amount, 0);
   const scheduled = periods?.reduce((sum, p) => sum + p.scheduled_amount, 0);
+  // Net Payables mirrors Net Receivables on the Receivables page: total payables
+  // less the expected receivable collections of the same next-7-days window.
+  const receivableExpected = receivablesForecast.data
+    && receivablesForecast.data.periods.every((p) => p.quality !== 'insufficient' && p.quality !== 'low')
+    ? receivablesForecast.data.periods.reduce((sum, p) => sum + Number(p.runoff_amount), 0)
+    : undefined;
   const chart = periods?.map((p) => ({ label: p.label, amount: p.forecast_amount, scheduled: p.scheduled_amount })) ?? [];
   const allItems = cats.flatMap((c) => c.products.flatMap((p) => p.items));
   const complete = !!breakdown.data && cats.every((c) => c.products.every((p) => p.items.length === p.item_count));
