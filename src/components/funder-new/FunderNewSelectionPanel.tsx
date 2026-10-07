@@ -137,7 +137,7 @@ export function FunderNewReviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100vw-1rem)] sm:w-full max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden p-3.5 sm:p-6 rounded-2xl sm:rounded-3xl gap-3 sm:gap-4 border border-border/80 bg-background shadow-2xl">
+      <DialogContent className="flex flex-col w-screen max-w-none h-[100dvh] max-h-none rounded-none border-0 p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] gap-3 overflow-y-auto overflow-x-hidden bg-background sm:grid sm:w-full sm:max-w-lg sm:h-auto sm:max-h-[90vh] sm:rounded-3xl sm:border sm:border-border/80 sm:p-6 sm:gap-4 sm:shadow-2xl">
         <DialogHeader className="pr-6 text-left">
           <DialogTitle className="text-base sm:text-xl font-bold tracking-tight">Your support plan</DialogTitle>
           <DialogDescription className="text-xs sm:text-sm text-muted-foreground mt-0.5 leading-relaxed">
@@ -200,7 +200,7 @@ export function FunderNewReviewDialog({
           <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-0.5">
             Selected Homes ({items.length})
           </p>
-          <ul className="space-y-2 max-h-52 overflow-y-auto pr-0.5">
+          <ul className="space-y-2 sm:max-h-52 sm:overflow-y-auto pr-0.5">
             {items.map((item) => (
               <li
                 key={`${item.category}:${item.id}`}
@@ -219,7 +219,7 @@ export function FunderNewReviewDialog({
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <p className="truncate text-xs sm:text-sm font-semibold text-foreground max-w-[130px] sm:max-w-none">
+                    <p className="min-w-0 truncate text-xs sm:text-sm font-semibold text-foreground">
                       {item.title}
                     </p>
                     <Badge variant="outline" className="text-[9px] sm:text-[10px] px-1.5 py-0 h-4 rounded-full font-medium shrink-0">
