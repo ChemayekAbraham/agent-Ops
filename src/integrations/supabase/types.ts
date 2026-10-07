@@ -28582,6 +28582,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           description: string | null
+          fulfilment_type: string | null
           id: string
           image_url: string | null
           image_urls: string[]
@@ -28596,6 +28597,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          fulfilment_type?: string | null
           id?: string
           image_url?: string | null
           image_urls?: string[]
@@ -28610,6 +28612,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          fulfilment_type?: string | null
           id?: string
           image_url?: string | null
           image_urls?: string[]
@@ -28873,7 +28876,11 @@ export type Database = {
           customer_id: string | null
           disbursed_amount: number | null
           disbursement_group_id: string | null
+          fulfilment_type: string | null
           grace_days: number | null
+          handed_over_at: string | null
+          handed_over_by: string | null
+          handover_note: string | null
           id: string
           issued_channel: string | null
           item_name: string
@@ -28932,7 +28939,11 @@ export type Database = {
           customer_id?: string | null
           disbursed_amount?: number | null
           disbursement_group_id?: string | null
+          fulfilment_type?: string | null
           grace_days?: number | null
+          handed_over_at?: string | null
+          handed_over_by?: string | null
+          handover_note?: string | null
           id?: string
           issued_channel?: string | null
           item_name: string
@@ -28991,7 +29002,11 @@ export type Database = {
           customer_id?: string | null
           disbursed_amount?: number | null
           disbursement_group_id?: string | null
+          fulfilment_type?: string | null
           grace_days?: number | null
+          handed_over_at?: string | null
+          handed_over_by?: string | null
+          handover_note?: string | null
           id?: string
           issued_channel?: string | null
           item_name?: string
@@ -59256,6 +59271,10 @@ export type Database = {
           term_end: string
         }[]
       }
+      _merch_create_plan_for_sale: {
+        Args: { p_sale_id: string }
+        Returns: string
+      }
       _post_four_part_fee_split: {
         Args: {
           p_amount: number
@@ -62412,6 +62431,10 @@ export type Database = {
           p_tenant_id?: string
         }
         Returns: Json
+      }
+      confirm_merchandise_handover: {
+        Args: { p_note: string; p_sale_id: string }
+        Returns: string
       }
       confirm_payout_number_ownership: {
         Args: { p_number: string }
@@ -69096,6 +69119,19 @@ export type Database = {
           p_limit?: number
         }
         Returns: Json
+      }
+      list_merchandise_handover_queue: {
+        Args: never
+        Returns: {
+          agent_name: string
+          agent_phone: string
+          created_at: string
+          item_name: string
+          quantity: number
+          sale_id: string
+          selected_size: string
+          total_revenue: number
+        }[]
       }
       list_proxy_agent_partners: {
         Args: {

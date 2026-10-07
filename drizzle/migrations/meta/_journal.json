@@ -3473,6 +3473,13 @@
       "when": 1791375756617,
       "tag": "0495_widen_list_assignable_agents",
       "breakpoints": true
+    },
+    {
+      "idx": 496,
+      "version": "7",
+      "when": 1791375964871,
+      "tag": "0496_merchandise_fulfilment_types",
+      "breakpoints": true
     }
   ]
 }
