@@ -7,6 +7,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 import { PDFDocument, StandardFonts, rgb } from 'https://esm.sh/pdf-lib@1.17.1';
+import { composeBoard, buildBoardMemoPdf, boardPlainText } from './boardMemo.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -190,6 +191,63 @@ Deno.serve(async (req) => {
         : reportType === 'board' ? BOARD_RECIPIENTS : TECH_RECIPIENTS;
 
     const supabase = createClient(supabaseUrl, serviceKey);
+
+    // Board memo: rebuilt (doc 201) on its own RPC, get_board_tech_memo, which
+    // computes the 7 days ending dateStr straight from the source tables. It no
+    // longer sums seven get_cto_daily_report payloads, so the rest of this
+    // handler (which still carries the old board assembly) is tech-report only.
+    if (reportType === 'board') {
+      const { data: bd, error: bdErr } = await supabase.rpc('get_board_tech_memo', { p_date: dateStr });
+      if (bdErr || !bd) {
+        console.error('[daily-cto-report] board rpc failed', bdErr);
+        return new Response(JSON.stringify({ error: 'board_metrics_failed', details: bdErr?.message ?? 'empty payload' }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const memo = composeBoard(bd);
+      const memoPdf = await buildBoardMemoPdf(memo);
+      const memoName = `Welile_Board_Technology_Report_Week_Ending_${dateStr}.pdf`;
+      if (body?.preview === true) {
+        return new Response(memoPdf as unknown as BodyInit, {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${memoName}"` },
+        });
+      }
+      const memoHtml = `
+      <div style="font-family:Helvetica,Arial,sans-serif;color:${C.ink};max-width:680px;">
+        <h2 style="margin:0 0 6px;font-size:19px;">Board Report: Technology &amp; Customer Reach</h2>
+        <div style="font-size:12px;color:${C.muted};margin-bottom:14px;">${esc(memo.periodLabel)} (EAT)</div>
+        <p style="font-size:13.5px;line-height:1.65;margin:0 0 12px;">${esc(memo.summary)}</p>
+        ${memo.decide.length ? `<h4 style="font-size:13px;margin:12px 0 6px;">Decide</h4><ul style="font-size:13px;line-height:1.7;padding-left:18px;margin:0;">${memo.decide.map((b) => `<li>${esc(b)}</li>`).join('')}</ul>` : ''}
+        <h4 style="font-size:13px;margin:12px 0 6px;">Note</h4>
+        <ul style="font-size:13px;line-height:1.7;padding-left:18px;margin:0;">${memo.notes.map((b) => `<li>${esc(b)}</li>`).join('')}</ul>
+        <p style="font-size:12px;color:${C.muted};margin:14px 0 0;">The full report is attached as a PDF.</p>
+      </div>`;
+      const mform = new FormData();
+      mform.append('from', FROM);
+      for (const r of recipients) mform.append('to', r);
+      mform.append('h:Reply-To', REPLY_TO);
+      mform.append('subject', `Welile Board Report: Technology & Customer Reach, week ending ${dateStr}`);
+      mform.append('text', boardPlainText(memo));
+      mform.append('html', memoHtml);
+      mform.append('attachment', new Blob([memoPdf as unknown as BlobPart], { type: 'application/pdf' }), memoName);
+      const mRes = await fetch(`${mgBase}/v3/${mgDomain}/messages`, {
+        method: 'POST',
+        headers: { Authorization: `Basic ${btoa(`api:${mgKey}`)}` },
+        body: mform,
+      });
+      if (!mRes.ok) {
+        const errBody = await mRes.text();
+        console.error(`[daily-cto-report] Mailgun ${mRes.status}: ${errBody}`);
+        return new Response(JSON.stringify({ error: 'mailgun_failed', status: mRes.status, details: errBody }), {
+          status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      return new Response(JSON.stringify({ ok: true, date: dateStr, period: memo.periodLabel, report_type: 'board', recipients, attachment: memoName, pdf_bytes: memoPdf.length }), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const { data, error } = await supabase.rpc('get_cto_daily_report', { p_date: dateStr });
     if (error) {
       console.error('[daily-cto-report] rpc failed', error);
