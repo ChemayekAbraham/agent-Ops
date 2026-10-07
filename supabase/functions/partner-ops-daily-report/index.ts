@@ -170,6 +170,25 @@ async function loadReport(admin: Admin, start: string, end: string): Promise<Rep
   r.mix = r.mix || { by_mode: [], by_band: [] };
   const { data: ol, error: olErr } = await admin.rpc("get_partner_ops_compound_topup_outlook", { p_end: end });
   r.outlook = olErr ? null : ol;
+  // Promissory-note money that came in: notes activated (approved) inside the EAT window.
+  try {
+    const from = new Date(`${start}T00:00:00+03:00`).toISOString();
+    const to = new Date(new Date(`${end}T00:00:00+03:00`).getTime() + 86400000).toISOString();
+    const { data: pnRows } = await admin
+      .from("promissory_notes")
+      .select("amount")
+      .eq("status", "activated")
+      .not("approved_at", "is", null)
+      .gte("approved_at", from)
+      .lt("approved_at", to)
+      .limit(10000);
+    const rows = (pnRows || []) as { amount: number }[];
+    r.promissory.capital_in_amount = rows.reduce((a, x) => a + (Number(x.amount) || 0), 0);
+    r.promissory.capital_in_count = rows.length;
+  } catch (_e) {
+    r.promissory.capital_in_amount = 0;
+    r.promissory.capital_in_count = 0;
+  }
   return r;
 }
 
@@ -380,6 +399,7 @@ function buildPdf(r: Report, win: { title: string; pretty: string }, logo: Uint8
       { label: "New portfolio capital", value: fmtUGX(k.new_capital), sub: `${num(k.new_portfolios)} portfolios`, kind: "good" },
       { label: "Top-ups applied", value: fmtUGX(t.applied_amount), sub: `${num(t.applied_count)} top-ups`, kind: "good" },
       { label: "Compounded into principal", value: fmtUGX(k.compounded_amount), sub: `${num(k.compounded_count)} portfolios` },
+      { label: "Promissory notes", value: fmtUGX(pn.capital_in_amount), sub: `${num(pn.capital_in_count)} notes activated`, kind: "good" },
     ], cur);
 
     // Daily bar chart — capital in vs returns settled
@@ -745,6 +765,7 @@ function buildHtml(r: Report, win: { title: string; pretty: string }): string {
       tile("New portfolio capital", fmtUGX(k.new_capital), `${num(k.new_portfolios)} portfolios`, "good"),
       tile("Top-ups applied", fmtUGX(t.applied_amount), `${num(t.applied_count)} top-ups`, "good"),
       tile("Compounded into principal", fmtUGX(k.compounded_amount), `${num(k.compounded_count)} portfolios`),
+      tile("Promissory notes", fmtUGX(pn.capital_in_amount), `${num(pn.capital_in_count)} notes activated`, "good"),
     ]) + `<div style="font-size:12px;font-weight:700;color:#1e1b2e;margin-top:16px">Daily capital in vs returns settled</div>
       <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="border-collapse:collapse;margin-top:8px"><tr>${bars}</tr></table>
       <div style="font-size:11px;color:#787484;margin-top:8px">
