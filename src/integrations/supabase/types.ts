@@ -70752,6 +70752,10 @@ export type Database = {
         }
         Returns: Json
       }
+      preview_promissory_note_approvals: {
+        Args: { p_note_ids: string[] }
+        Returns: Json
+      }
       preview_welile_home_enrollment_edit: {
         Args: {
           p_agent_id: string
