@@ -95,6 +95,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Browser Compatibility', icon: MonitorSmartphone, id: 'browser-compat' },
         { label: 'Signup Log', icon: ShieldCheck, id: 'signup-log' },
         { label: 'Deposit Bridge', icon: Activity, id: 'bridge-health' },
+        { label: 'Scheduled Jobs', icon: History, id: 'cron-jobs' },
         { label: 'Platform Users', icon: Users, id: 'platform-users', route: '/platform-users' },
         { label: 'Deleted Accounts', icon: Trash2, id: 'deleted-accounts' },
 
