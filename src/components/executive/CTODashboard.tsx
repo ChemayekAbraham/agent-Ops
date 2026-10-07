@@ -41,6 +41,7 @@ import { DeletedAccountsPanel } from '@/components/cto/DeletedAccountsPanel';
 import { CTOUserDossier } from '@/components/cto/dossier/CTOUserDossier';
 import { FakeAccountRadarPanel } from '@/components/cto/FakeAccountRadarPanel';
 import GitCommitsPanel from '@/components/cto/GitCommitsPanel';
+import CronJobsMonitorPanel from '@/components/cto/CronJobsMonitorPanel';
 
 
 
@@ -107,6 +108,9 @@ export function CTODashboard({ activeTab }: { activeTab?: string }) {
   }
   if (activeTab === 'git-commits') {
     return <GitCommitsPanel />;
+  }
+  if (activeTab === 'cron-jobs') {
+    return <CronJobsMonitorPanel />;
   }
 
 
