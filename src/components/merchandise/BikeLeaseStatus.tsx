@@ -104,16 +104,22 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder, filterStatu
     }
   });
 
-  const handleDeleteOrder = async (saleId: string) => {
+  const handleDeleteOrder = async (saleId: string, pending = false) => {
+    const ok = window.confirm(
+      pending
+        ? 'Cancel this bike lease application? It will be removed and you can submit a new one straight away.'
+        : 'Delete this rejected application?',
+    );
+    if (!ok) return;
     setDeletingId(saleId);
     try {
       const { error } = await db.rpc('agent_cancel_merchandise_order', {
         p_sale_id: saleId,
-        p_reason: 'Rejected bike lease application deleted by agent',
+        p_reason: pending
+          ? 'Pending bike lease application cancelled by agent'
+          : 'Rejected bike lease application deleted by agent',
       });
-      if (error) {
-        console.warn('[BikeLeaseStatus] Server delete error, dismissing locally:', error.message);
-      }
+      if (error) throw error;
       setDismissedIds((prev) => {
         const next = new Set(prev);
         next.add(saleId);
@@ -122,7 +128,7 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder, filterStatu
         } catch {}
         return next;
       });
-      toast.success('Application deleted');
+      toast.success(pending ? 'Application cancelled. You can apply again now.' : 'Application deleted');
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['my-bike-lease-orders', userId] }),
         queryClient.invalidateQueries({ queryKey: ['my-smartphone-orders'] }),
@@ -131,16 +137,8 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder, filterStatu
         queryClient.invalidateQueries({ queryKey: ['merchandise-order-lock', userId] }),
       ]);
     } catch (e: any) {
-      console.error('[BikeLeaseStatus] delete error', e);
-      setDismissedIds((prev) => {
-        const next = new Set(prev);
-        next.add(saleId);
-        try {
-          localStorage.setItem(`welile_dismissed_bike_leases_${userId}`, JSON.stringify(Array.from(next)));
-        } catch {}
-        return next;
-      });
-      toast.success('Application deleted');
+      console.error('[BikeLeaseStatus] cancel error', e);
+      toast.error(e?.message || 'Could not cancel the application. Please try again.');
     } finally {
       setDeletingId(null);
     }
@@ -219,6 +217,8 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder, filterStatu
 
   const status = selected?.order_status || 'submitted';
   const rejected = status === 'rejected' || status === 'failed';
+  // Matches the server rule: only applications nobody has approved yet can be cancelled.
+  const cancellable = status === 'submitted' || status === 'pending_approval';
   const current = stageIndex(status);
   const catalogCost = supplierCostFor(selected?.model_type);
   const valuation = resolveBikeBasePrice(
@@ -251,6 +251,22 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder, filterStatu
             <p className="text-sm font-bold text-foreground">Spiro Bike Lease Status</p>
           </div>
           <div className="flex items-center gap-1.5 shrink-0">
+            {cancellable && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs gap-1 px-2.5 border-destructive/40 text-destructive hover:bg-destructive/10"
+                disabled={deletingId === selected.id}
+                onClick={() => handleDeleteOrder(selected.id, true)}
+              >
+                {deletingId === selected.id ? (
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                ) : (
+                  <XCircle className="h-3 w-3" />
+                )}
+                <span>{deletingId === selected.id ? 'Cancelling…' : 'Cancel application'}</span>
+              </Button>
+            )}
             {rejected && (
               <Button
                 variant="destructive"
