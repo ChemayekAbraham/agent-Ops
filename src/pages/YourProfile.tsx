@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { FlipCard, FlipCardFront, FlipCardBack } from '@/components/ui/flip-card';
 import { UserAvatar } from '@/components/UserAvatar';
+import { useMyEliteRank } from '@/components/agent/AgentRankCelebrationDialog';
 import { BusinessAdvanceStatusHero } from '@/components/tenant/BusinessAdvanceStatusHero';
 import { format } from 'date-fns';
 
@@ -26,6 +27,7 @@ import { format } from 'date-fns';
 export default function YourProfile() {
   const navigate = useNavigate();
   const { user, role, roles } = useAuth();
+  const { data: myEliteRank } = useMyEliteRank();
 
   const { data: profile, isLoading } = useQuery({
     queryKey: ['your-profile', user?.id],
@@ -121,6 +123,7 @@ export default function YourProfile() {
                         avatarUrl={profile?.avatar_url || undefined}
                         size="lg"
                         className="h-20 w-20 text-2xl"
+                        eliteTier={myEliteRank?.tier_name}
                       />
                       {profile?.verified && (
                         <div className="absolute -bottom-1 -right-1 bg-primary rounded-full p-1">
