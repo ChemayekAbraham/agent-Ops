@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { Bike, Check, Edit3, Loader2, X, Download, Award, ShieldCheck, Wrench, TrendingUp, ChevronDown, ChevronUp, FileText } from 'lucide-react';
+import { Bike, Check, Edit3, Loader2, X, Download, Award, ShieldCheck, Wrench, TrendingUp, ChevronDown, ChevronUp, FileText, AlertCircle } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
@@ -175,6 +175,36 @@ export function BikeLeaseApprovalQueue({
     queryKey: ['bike-lease-queue'],
     queryFn: async () => {
       return (await fetchBikeLeaseQueue(null)) as BikeLeaseRow[];
+    },
+  });
+
+  // Query running advances for all applicants in the queue to flag deduction collision risk for Ops
+  const applicantIds = useMemo(
+    () => Array.from(new Set(orders.map((o) => o.customer_id).filter(Boolean))) as string[],
+    [orders],
+  );
+
+  const { data: activeAdvancesMap = {} } = useQuery({
+    queryKey: ['bike-queue-active-advances', applicantIds],
+    enabled: applicantIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('agent_advances')
+        .select('agent_id, outstanding_balance, status')
+        .in('agent_id', applicantIds)
+        .in('status', ['active', 'overdue'])
+        .gt('outstanding_balance', 0);
+      if (error) {
+        console.warn('Could not load applicant advances:', error);
+        return {};
+      }
+      const map: Record<string, number> = {};
+      (data || []).forEach((row) => {
+        if (row.agent_id) {
+          map[row.agent_id] = (map[row.agent_id] || 0) + Number(row.outstanding_balance || 0);
+        }
+      });
+      return map;
     },
   });
 
@@ -373,6 +403,7 @@ export function BikeLeaseApprovalQueue({
               {filtered.map((o) => {
                 const pricing = rowPricing(o);
                 const isExpanded = expandedIds.has(o.id);
+                const runningAdvance = o.customer_id ? (activeAdvancesMap[o.customer_id] || 0) : 0;
                 return (
                   <div
                     key={o.id}
@@ -392,6 +423,23 @@ export function BikeLeaseApprovalQueue({
                           <Badge variant="outline" className={cn("shrink-0 text-[10px] px-1.5 py-0 font-medium", STATUS_TONE[o.order_status] || '')}>
                             {statusLabel(o.order_status)}
                           </Badge>
+                          {runningAdvance > 0 ? (
+                            <Badge
+                              variant="outline"
+                              className="shrink-0 text-[10px] px-1.5 py-0 font-semibold bg-destructive/15 text-destructive border-destructive/30"
+                              title="Agent currently has a running advance which can collide with bike deductions"
+                            >
+                              <AlertCircle className="h-2.5 w-2.5 mr-0.5 inline shrink-0" />
+                              Adv: {formatUGX(runningAdvance)}
+                            </Badge>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className="shrink-0 text-[10px] px-1.5 py-0 bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                            >
+                              No advance
+                            </Badge>
+                          )}
                         </div>
                         <p className="text-[11px] text-muted-foreground truncate mt-0.5">
                           {o.model_type || 'Spiro bike'} · {o.client_phone || '—'}
@@ -452,6 +500,10 @@ export function BikeLeaseApprovalQueue({
                           <span className="text-right font-semibold tabular-nums">{formatUGX(pricing.perCredit)} ({pricing.feePct}%)</span>
                           <span className="text-muted-foreground">Outstanding</span>
                           <span className="text-right font-semibold text-destructive tabular-nums">{formatUGX(Number(o.amount_outstanding || 0))}</span>
+                          <span className="text-muted-foreground">Running advance</span>
+                          <span className={cn("text-right font-semibold tabular-nums", runningAdvance > 0 ? "text-destructive" : "text-emerald-600 dark:text-emerald-400")}>
+                            {runningAdvance > 0 ? `${formatUGX(runningAdvance)} active` : 'None (Clear)'}
+                          </span>
                         </div>
 
                         {/* Action buttons with no collision */}
@@ -540,6 +592,7 @@ export function BikeLeaseApprovalQueue({
                 <tbody>
                   {filtered.map((o) => {
                     const pricing = rowPricing(o);
+                    const runningAdvance = o.customer_id ? (activeAdvancesMap[o.customer_id] || 0) : 0;
                     return (
                       <tr
                         key={o.id}
@@ -549,6 +602,23 @@ export function BikeLeaseApprovalQueue({
                         <td className="py-2 pr-3">
                           <p className="font-medium group-hover:text-primary transition-colors">{o.client_name || 'Agent'}</p>
                           <p className="text-[11px] text-muted-foreground">{o.client_phone || '—'}</p>
+                          {runningAdvance > 0 ? (
+                            <Badge
+                              variant="outline"
+                              className="mt-0.5 text-[9px] px-1 py-0 font-semibold bg-destructive/15 text-destructive border-destructive/30"
+                              title="Agent has a running advance — may collide with bike lease recoveries"
+                            >
+                              <AlertCircle className="h-2.5 w-2.5 mr-0.5 inline shrink-0" />
+                              Adv: {formatUGX(runningAdvance)}
+                            </Badge>
+                          ) : (
+                            <Badge
+                              variant="outline"
+                              className="mt-0.5 text-[9px] px-1 py-0 bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
+                            >
+                              No advance
+                            </Badge>
+                          )}
                         </td>
                         <td className="py-2 pr-3">{o.model_type || 'Spiro bike'}</td>
                         {isOpsDashboard ? (

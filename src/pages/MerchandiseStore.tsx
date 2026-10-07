@@ -271,6 +271,20 @@ export default function MerchandiseStore() {
   const safePhoneOrders = phoneOrders || [];
   const safePlans = plans || [];
 
+  // Exclude bike leases and smartphones from generic merchandise plans to avoid double-counting
+  const bikeSaleIds = useMemo(() => new Set(safeBikeOrders.map((b) => b.id).filter(Boolean)), [safeBikeOrders]);
+  const phoneSaleIds = useMemo(() => new Set(safePhoneOrders.map((p) => p.id).filter(Boolean)), [safePhoneOrders]);
+
+  const generalMerchandisePlans = useMemo(() => {
+    return safePlans.filter((p) => {
+      if (p.sale_id && (bikeSaleIds.has(p.sale_id) || phoneSaleIds.has(p.sale_id))) return false;
+      const name = (p.item_name || '').toLowerCase();
+      if (name.includes('bike') || name.includes('spiro') || p.pricing_basis === 'spiro_28pct_v2') return false;
+      if (name.includes('smartphone') || name.includes('phone')) return false;
+      return true;
+    });
+  }, [safePlans, bikeSaleIds, phoneSaleIds]);
+
   const pendingBikeCount = safeBikeOrders.filter((b) =>
     ['submitted', 'pending_approval', 'ops_approved', 'coo_approved'].includes(b?.order_status || ''),
   ).length;
@@ -291,14 +305,14 @@ export default function MerchandiseStore() {
     ['rejected', 'failed'].includes(p?.order_status || ''),
   ).length;
 
-  const pendingPlanCount = safePlans.filter((p) => p?.status === 'active' && p?.order_status === 'pending_approval').length;
-  const approvedPlanCount = safePlans.filter((p) => p?.status === 'active' && p?.order_status !== 'rejected').length;
-  const rejectedPlanCount = safePlans.filter((p) => p?.order_status === 'rejected').length;
+  const pendingPlanCount = generalMerchandisePlans.filter((p) => p?.status === 'active' && p?.order_status === 'pending_approval').length;
+  const approvedPlanCount = generalMerchandisePlans.filter((p) => p?.status === 'active' && p?.order_status !== 'rejected').length;
+  const rejectedPlanCount = generalMerchandisePlans.filter((p) => p?.order_status === 'rejected').length;
 
   const totalPending = pendingBikeCount + pendingPhoneCount + pendingPlanCount;
   const totalApproved = approvedBikeCount + approvedPhoneCount + approvedPlanCount;
   const totalRejected = rejectedBikeCount + rejectedPhoneCount + rejectedPlanCount;
-  const totalOrdersCount = safeBikeOrders.length + safePhoneOrders.length + safePlans.length;
+  const totalOrdersCount = safeBikeOrders.length + safePhoneOrders.length + generalMerchandisePlans.length;
   const hasOrders = totalOrdersCount > 0;
 
   useEffect(() => {
@@ -315,18 +329,18 @@ export default function MerchandiseStore() {
   }, [orderFilter, totalPending, totalApproved, totalRejected, totalOrdersCount]);
 
   const filteredPlans = useMemo(() => {
-    if (orderFilter === 'all') return safePlans;
+    if (orderFilter === 'all') return generalMerchandisePlans;
     if (orderFilter === 'pending') {
-      return safePlans.filter((p) => p?.status === 'active' && p?.order_status === 'pending_approval');
+      return generalMerchandisePlans.filter((p) => p?.status === 'active' && p?.order_status === 'pending_approval');
     }
     if (orderFilter === 'approved') {
-      return safePlans.filter((p) => p?.status === 'active' && p?.order_status !== 'rejected');
+      return generalMerchandisePlans.filter((p) => p?.status === 'active' && p?.order_status !== 'rejected');
     }
     if (orderFilter === 'rejected') {
-      return safePlans.filter((p) => p?.order_status === 'rejected');
+      return generalMerchandisePlans.filter((p) => p?.order_status === 'rejected');
     }
-    return safePlans;
-  }, [safePlans, orderFilter]);
+    return generalMerchandisePlans;
+  }, [generalMerchandisePlans, orderFilter]);
 
   const qty = Math.max(1, parseInt(quantity || '1', 10) || 1);
   // Sizes on the catalog row are exactly what the company has in stock for the
@@ -533,34 +547,52 @@ export default function MerchandiseStore() {
   return (
     <div className="min-h-[100dvh] bg-background pb-24">
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border">
-        <div className="max-w-lg mx-auto flex items-center gap-3 px-4 py-3">
+        <div className="max-w-lg mx-auto flex items-center gap-3 px-4 py-2.5">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => navigate(-1)}
             aria-label="Back"
-            className="shrink-0"
+            className="shrink-0 h-9 w-9"
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
-          <div>
-            <h1 className="text-base font-bold flex items-center gap-2">
-              <ShoppingBag className="h-4 w-4 text-primary" /> What do you want to buy?
+          <div className="min-w-0 flex-1">
+            <h1 className="text-base font-bold flex items-center gap-2 truncate">
+              {activeMainTab === 'orders' ? (
+                <>
+                  <Package className="h-4 w-4 text-primary shrink-0" /> My Orders & Repayments
+                </>
+              ) : (
+                <>
+                  <ShoppingBag className="h-4 w-4 text-primary shrink-0" /> What do you want to buy?
+                </>
+              )}
             </h1>
-            <p className="text-[11px] text-muted-foreground">Buy branded gear — paid off from your wallet</p>
+            <p className="text-[11px] text-muted-foreground truncate">
+              {activeMainTab === 'orders'
+                ? 'Track your active leases, advances & repayments'
+                : 'Buy branded gear — paid off from your wallet'}
+            </p>
           </div>
         </div>
       </div>
-      <div className="max-w-lg mx-auto px-4 pt-4">
-        <img
-          src={shoppingBagIllustration.url}
-          alt="Welile merchandise shopping bag"
-          className="w-full max-h-40 object-contain"
-          loading="eager"
-        />
-      </div>
 
-      <div className="max-w-lg mx-auto px-4 pt-4 space-y-5">
+      {activeMainTab === 'store' && (
+        <div className="max-w-lg mx-auto px-4 pt-3">
+          <img
+            src={shoppingBagIllustration.url}
+            alt="Welile merchandise shopping bag"
+            className="w-full max-h-36 object-contain"
+            loading="eager"
+            onError={(e) => {
+              (e.currentTarget as HTMLElement).style.display = 'none';
+            }}
+          />
+        </div>
+      )}
+
+      <div className="max-w-lg mx-auto px-4 pt-3 space-y-4">
         {/* Main Tab Switcher (Store vs My Orders) — only appears when agent has at least one order */}
         {hasOrders && (
           <div className="flex p-1 bg-muted/70 rounded-xl border border-border/60">
@@ -849,25 +881,27 @@ export default function MerchandiseStore() {
               </button>
             </div>
 
-            {/* My payments summary when viewing all or approved */}
+            {/* My payments summary when viewing all or approved — unified mobile card */}
             {(orderFilter === 'all' || orderFilter === 'approved') && plans.length > 0 && totalOwing > 0 && (
-              <div className="grid grid-cols-2 gap-2">
-                <Card>
-                  <CardContent className="p-3">
-                    <p className="text-[11px] text-muted-foreground flex items-center gap-1">
-                      <Wallet className="h-3 w-3" /> Still to repay
+              <div className="rounded-xl border border-border/80 bg-card p-3 shadow-xs">
+                <div className="grid grid-cols-2 divide-x divide-border/60">
+                  <div className="pr-3 space-y-0.5">
+                    <span className="text-[10px] uppercase font-semibold tracking-wider text-muted-foreground flex items-center gap-1">
+                      <Wallet className="h-3 w-3 text-amber-500" /> Still to Repay
+                    </span>
+                    <p className="text-base sm:text-lg font-extrabold text-amber-600 dark:text-amber-400 tabular-nums">
+                      {formatUGX(totalOwing)}
                     </p>
-                    <p className="text-lg font-bold text-amber-600">{formatUGX(totalOwing)}</p>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardContent className="p-3">
-                    <p className="text-[11px] text-muted-foreground flex items-center gap-1">
-                      <CheckCircle2 className="h-3 w-3" /> Repaid so far
+                  </div>
+                  <div className="pl-3 space-y-0.5">
+                    <span className="text-[10px] uppercase font-semibold tracking-wider text-muted-foreground flex items-center gap-1">
+                      <CheckCircle2 className="h-3 w-3 text-emerald-500" /> Repaid So Far
+                    </span>
+                    <p className="text-base sm:text-lg font-extrabold text-emerald-600 dark:text-emerald-400 tabular-nums">
+                      {formatUGX(totalRecovered)}
                     </p>
-                    <p className="text-lg font-bold text-emerald-600">{formatUGX(totalRecovered)}</p>
-                  </CardContent>
-                </Card>
+                  </div>
+                </div>
               </div>
             )}
 

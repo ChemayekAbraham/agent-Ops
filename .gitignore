@@ -37,3 +37,6 @@ build-logs
 
 # Supabase CLI temp
 supabase/.temp
+
+# Office temp lock files
+~$*
