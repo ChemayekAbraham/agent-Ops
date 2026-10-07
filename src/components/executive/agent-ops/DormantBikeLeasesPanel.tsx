@@ -103,8 +103,8 @@ export function DormantBikeLeasesPanel() {
                   <Button asChild size="sm" variant="outline" className="flex-1" disabled={!r.agent_phone}>
                     <a href={r.agent_phone ? `tel:${r.agent_phone}` : undefined}><Phone className="h-4 w-4 mr-1" />Call</a>
                   </Button>
-                  <Button size="sm" className="flex-1" onClick={() => remind(r)} disabled={!r.agent_phone || sending === r.lease_id}>
-                    {sending === r.lease_id ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <MessageSquare className="h-4 w-4 mr-1" />}
+                  <Button size="sm" className="flex-1" onClick={() => openDialog(r)} disabled={!r.agent_phone}>
+                    <MessageSquare className="h-4 w-4 mr-1" />
                     Send SMS
                   </Button>
                 </div>
@@ -113,6 +113,41 @@ export function DormantBikeLeasesPanel() {
           </div>
         )}
       </CardContent>
+
+      <Dialog open={!!editing} onOpenChange={(open) => { if (!open) setEditing(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reminder to {editing?.agent_name || 'agent'}</DialogTitle>
+            <DialogDescription>
+              The message below was generated from this lease's details. Edit it before sending, or send it as is.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={message}
+            onChange={(e) => setMessage(e.target.value.slice(0, MAX_MSG))}
+            rows={6}
+            className="text-sm"
+            placeholder="Reminder message"
+          />
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 hover:text-foreground"
+              onClick={() => editing && setMessage(autoMessage(editing))}
+            >
+              <RotateCcw className="h-3 w-3" /> Reset to auto-generated
+            </button>
+            <span>{message.length}/{MAX_MSG}</span>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditing(null)} disabled={sending !== null}>Cancel</Button>
+            <Button onClick={send} disabled={sending !== null || !message.trim()}>
+              {sending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <MessageSquare className="h-4 w-4 mr-1" />}
+              Send SMS
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
