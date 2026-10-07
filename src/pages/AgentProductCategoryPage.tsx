@@ -256,6 +256,7 @@ function MotorBikeTabs({ category }: { category?: AgentProductCategory }) {
 
   const bikeTabs = [
     { value: 'overview', label: 'Overview', icon: LayoutDashboard, count: 0 },
+    { value: 'dormant', label: 'Dormant Leases', mobileLabel: 'Dormant', icon: AlarmClockOff, count: 0 },
     { value: 'applications', label: 'Applications', icon: ClipboardList, count: counts.pendingOps, badgeColor: 'bg-amber-500' },
     { value: 'awaiting-exec', label: 'Awaiting Exec', mobileLabel: 'Awaiting', icon: Clock, count: counts.awaitingExec, badgeColor: 'bg-sky-500' },
     { value: 'approved', label: 'Approved', icon: CheckCircle2, count: counts.approved, badgeColor: 'bg-emerald-600' },
