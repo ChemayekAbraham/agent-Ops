@@ -32,7 +32,7 @@ const COMPANY_LOCATION = "Welile Technologies Ltd - Kabaale Palm Lane, Uganda";
 
 type Admin = ReturnType<typeof createClient>;
 type RGB = [number, number, number];
-type Period = "daily" | "weekly" | "monthly" | "weekend";
+type Period = "daily" | "weekly" | "biweekly" | "monthly" | "weekend";
 
 const BRAND: RGB = [105, 0, 204];
 const BRAND_DARK: RGB = [66, 0, 128];
@@ -99,6 +99,10 @@ function resolveWindow(period: Period, date: string): { start: string; end: stri
   if (period === "weekly") {
     const start = addDays(date, -6);
     return { start, end: date, title: "Weekly Report", pretty: `${shortDate(start)} - ${shortDate(date)}` };
+  }
+  if (period === "biweekly") {
+    const start = addDays(date, -13);
+    return { start, end: date, title: "Two-Week Report", pretty: `${shortDate(start)} - ${shortDate(date)}` };
   }
   if (period === "monthly") {
     const start = `${date.slice(0, 7)}-01`;
@@ -968,7 +972,7 @@ Deno.serve(async (req) => {
     try { body = await req.json(); } catch (_) { body = {}; }
 
     const dateStr = typeof body?.date === "string" && body.date ? body.date.slice(0, 10) : eatToday();
-    const period: Period = ["daily", "weekly", "monthly", "weekend"].includes(body?.period)
+    const period: Period = ["daily", "weekly", "biweekly", "monthly", "weekend"].includes(body?.period)
       ? body.period as Period
       : "daily";
     const win = resolveWindow(period, dateStr);

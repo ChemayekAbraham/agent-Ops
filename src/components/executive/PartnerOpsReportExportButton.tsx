@@ -5,12 +5,13 @@ import { FileDown, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
-type Period = 'daily' | 'yesterday' | 'weekly' | 'monthly' | 'last_month' | 'weekend';
+type Period = 'daily' | 'yesterday' | 'weekly' | 'biweekly' | 'monthly' | 'last_month' | 'weekend';
 
 const OPTIONS: { key: Period; label: string; hint: string }[] = [
   { key: 'daily', label: 'Daily report', hint: 'Today only (EAT)' },
   { key: 'yesterday', label: "Yesterday's report", hint: 'Previous day only (EAT)' },
   { key: 'weekly', label: 'Weekly report', hint: 'Last 7 days' },
+  { key: 'biweekly', label: 'Two-week report', hint: 'Last 14 days' },
   { key: 'monthly', label: 'Monthly report', hint: 'Month to date' },
   { key: 'last_month', label: 'Last month report', hint: 'Previous full calendar month' },
   { key: 'weekend', label: 'Weekend report', hint: 'Latest Sat - Sun' },
