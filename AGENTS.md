@@ -21,3 +21,4 @@
 - Agent lending remains excluded from company Receivables totals and forecasts because it is agents' own money; the Receivables sidebar now exposes the company Forecast instead of the separate lending section.
 - Payables mirrors Receivables with read-only payable hooks; its single Forecast view preserves obligations and payment rules.
 - Merchandise/phone/bike plans count as owed or recoverable only if `merchandise_plan_recovery_eligible` passes, because pending orders created phantom receivables.
+- Business-line cost attribution of already-posted payments lives in append-only `cfo_reporting_cost_tags` (one tag per ledger group per line), never in correcting journals, so reports can re-attribute costs without new ledger entries or double counting.
