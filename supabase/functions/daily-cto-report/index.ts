@@ -184,7 +184,8 @@ Deno.serve(async (req) => {
     const dateStr: string =
       typeof body?.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.date) ? body.date : yesterdayIsoEAT();
     // One data pass, two renderers: 'board' = condensed memo, 'tech' = full diagnostics.
-    const reportType: 'board' | 'tech' = body?.report_type === 'board' ? 'board' : 'tech';
+    const boardMode: boolean = body?.report_type === 'board';
+    const reportType: 'board' | 'tech' = boardMode ? 'board' : 'tech';
     const recipients: string[] =
       Array.isArray(body?.recipients) && body.recipients.length
         ? body.recipients.filter((r: unknown) => typeof r === 'string' && (r as string).includes('@'))
@@ -1635,7 +1636,7 @@ Deno.serve(async (req) => {
       rollbackOk: boolean;
     };
     const weekDays: DayRoll[] = [];
-    if (reportType === 'board') {
+    if (boardMode) {
       const results = await Promise.all(
         weekDates.map(async (dy) => {
           if (dy === dateStr) return { dy, payload: d };
@@ -1678,7 +1679,7 @@ Deno.serve(async (req) => {
       weekDays.sort((a2, b2) => (a2.d < b2.d ? -1 : 1));
     }
     const sum = (k: keyof DayRoll) => weekDays.reduce((s, r) => s + Number(r[k] || 0), 0);
-    const weeklyMode = reportType === 'board' && weekDays.length > 1;
+    const weeklyMode = boardMode && weekDays.length > 1;
     const wHealth = weeklyMode ? Math.round(sum('health') / weekDays.length) : health;
     const wHealthLabel = wHealth >= 85 ? 'Healthy' : wHealth >= 70 ? 'Watch' : 'At risk';
     const wHealthFirst = weekDays.length ? weekDays[0].health : health;
@@ -1916,7 +1917,7 @@ Deno.serve(async (req) => {
     ];
 
 
-    const pdfBytes = reportType === 'board'
+    const pdfBytes = boardMode
       ? await buildBoardPdf({
           dateStr: weeklyMode ? boardPeriodLabel : dateStr,
           health: wHealth,
@@ -1931,7 +1932,7 @@ Deno.serve(async (req) => {
           kpis: boardKpis,
         })
       : await buildTechPdf(techArgs);
-    const pdfName = reportType === 'board'
+    const pdfName = boardMode
       ? `Welile_Board_Technology_Memo_Week_Ending_${dateStr}.pdf`
       : `Welile_Daily_CTO_Report_${dateStr}.pdf`;
 
@@ -2010,12 +2011,12 @@ Deno.serve(async (req) => {
     form.append('h:Reply-To', REPLY_TO);
     form.append(
       'subject',
-      reportType === 'board'
+      boardMode
         ? `Welile Weekly Board Technology Update — week ending ${dateStr} — Health ${wHealth}/100 (${wHealthLabel})`
         : `Welile Daily Tech Diagnostic Report — ${dateStr} — Health ${health}/100 (${healthLabel})`,
     );
-    form.append('text', reportType === 'board' ? boardText : text);
-    form.append('html', reportType === 'board' ? boardHtml : html);
+    form.append('text', boardMode ? boardText : text);
+    form.append('html', boardMode ? boardHtml : html);
     form.append('attachment', new Blob([pdfBytes as unknown as BlobPart], { type: 'application/pdf' }), pdfName);
 
     const mgRes = await fetch(`${mgBase}/v3/${mgDomain}/messages`, {
@@ -2031,7 +2032,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ ok: true, date: dateStr, period: reportType === 'board' ? boardPeriodLabel : dateStr, weekly: weeklyMode, report_type: reportType, recipients, health: reportType === 'board' ? wHealth : health, risks: risks.length, attachment: pdfName, pdf_bytes: pdfBytes.length }), {
+    return new Response(JSON.stringify({ ok: true, date: dateStr, period: boardMode ? boardPeriodLabel : dateStr, weekly: weeklyMode, report_type: reportType, recipients, health: boardMode ? wHealth : health, risks: risks.length, attachment: pdfName, pdf_bytes: pdfBytes.length }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (e) {
