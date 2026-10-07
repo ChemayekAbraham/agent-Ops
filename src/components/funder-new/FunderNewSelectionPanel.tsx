@@ -432,10 +432,10 @@ function HomeContacts({ item }: { item: FunderNewSelectionItem }) {
       <ContactRow label={item.category === 'empty' ? 'Listing agent' : 'Proxy agent'} name={item.agentName} phone={item.agentPhone} />
       <ContactRow label="Tenant" name={item.tenantName} phone={item.tenantPhone} />
       <div className="pt-2 pb-0.5">
-        <Button asChild variant="outline" size="sm" className="h-10 w-full rounded-lg text-sm text-info hover:text-info">
-          <a href={mapUrl} target="_blank" rel="noopener noreferrer">
-            <MapPin className="mr-1.5 h-4 w-4 text-destructive" />
-            {item.lat != null && item.lng != null ? 'Show house on map' : 'Show area on map'}
+        <Button asChild variant="outline" size="sm" className="h-9 w-full gap-1.5 rounded-lg px-2 text-xs text-info hover:text-info">
+          <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="w-full justify-center whitespace-nowrap">
+            <MapPin className="h-3.5 w-3.5 shrink-0 text-destructive" />
+            <span className="truncate">{item.lat != null && item.lng != null ? 'Show house on map' : 'Show area on map'}</span>
           </a>
         </Button>
       </div>
