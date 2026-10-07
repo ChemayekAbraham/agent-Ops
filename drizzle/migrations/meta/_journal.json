@@ -3389,6 +3389,13 @@
       "when": 1791357805110,
       "tag": "0483_split_portfolio_principal",
       "breakpoints": true
+    },
+    {
+      "idx": 484,
+      "version": "7",
+      "when": 1791358321138,
+      "tag": "0484_split_portfolio_keep_audit_email",
+      "breakpoints": true
     }
   ]
 }
