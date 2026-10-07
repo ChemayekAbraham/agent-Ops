@@ -7,6 +7,7 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.45.4';
 import { PDFDocument, StandardFonts, rgb } from 'https://esm.sh/pdf-lib@1.17.1';
+import { composeBoard, buildBoardMemoPdf, boardPlainText } from './boardMemo.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -183,13 +184,71 @@ Deno.serve(async (req) => {
     const dateStr: string =
       typeof body?.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.date) ? body.date : yesterdayIsoEAT();
     // One data pass, two renderers: 'board' = condensed memo, 'tech' = full diagnostics.
-    const reportType: 'board' | 'tech' = body?.report_type === 'board' ? 'board' : 'tech';
+    const boardMode: boolean = body?.report_type === 'board';
+    const reportType: 'board' | 'tech' = boardMode ? 'board' : 'tech';
     const recipients: string[] =
       Array.isArray(body?.recipients) && body.recipients.length
         ? body.recipients.filter((r: unknown) => typeof r === 'string' && (r as string).includes('@'))
         : reportType === 'board' ? BOARD_RECIPIENTS : TECH_RECIPIENTS;
 
     const supabase = createClient(supabaseUrl, serviceKey);
+
+    // Board memo: rebuilt (doc 201) on its own RPC, get_board_tech_memo, which
+    // computes the 7 days ending dateStr straight from the source tables. It no
+    // longer sums seven get_cto_daily_report payloads, so the rest of this
+    // handler (which still carries the old board assembly) is tech-report only.
+    if (reportType === 'board') {
+      const { data: bd, error: bdErr } = await supabase.rpc('get_board_tech_memo', { p_date: dateStr });
+      if (bdErr || !bd) {
+        console.error('[daily-cto-report] board rpc failed', bdErr);
+        return new Response(JSON.stringify({ error: 'board_metrics_failed', details: bdErr?.message ?? 'empty payload' }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      const memo = composeBoard(bd);
+      const memoPdf = await buildBoardMemoPdf(memo);
+      const memoName = `Welile_Board_Technology_Report_Week_Ending_${dateStr}.pdf`;
+      if (body?.preview === true) {
+        return new Response(memoPdf as unknown as BodyInit, {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="${memoName}"` },
+        });
+      }
+      const memoHtml = `
+      <div style="font-family:Helvetica,Arial,sans-serif;color:${C.ink};max-width:680px;">
+        <h2 style="margin:0 0 6px;font-size:19px;">Board Report: Technology &amp; Customer Reach</h2>
+        <div style="font-size:12px;color:${C.muted};margin-bottom:14px;">${esc(memo.periodLabel)} (EAT)</div>
+        <p style="font-size:13.5px;line-height:1.65;margin:0 0 12px;">${esc(memo.summary)}</p>
+        ${memo.decide.length ? `<h4 style="font-size:13px;margin:12px 0 6px;">Decide</h4><ul style="font-size:13px;line-height:1.7;padding-left:18px;margin:0;">${memo.decide.map((b) => `<li>${esc(b)}</li>`).join('')}</ul>` : ''}
+        <h4 style="font-size:13px;margin:12px 0 6px;">Note</h4>
+        <ul style="font-size:13px;line-height:1.7;padding-left:18px;margin:0;">${memo.notes.map((b) => `<li>${esc(b)}</li>`).join('')}</ul>
+        <p style="font-size:12px;color:${C.muted};margin:14px 0 0;">The full report is attached as a PDF.</p>
+      </div>`;
+      const mform = new FormData();
+      mform.append('from', FROM);
+      for (const r of recipients) mform.append('to', r);
+      mform.append('h:Reply-To', REPLY_TO);
+      mform.append('subject', `Welile Board Report: Technology & Customer Reach, week ending ${dateStr}`);
+      mform.append('text', boardPlainText(memo));
+      mform.append('html', memoHtml);
+      mform.append('attachment', new Blob([memoPdf as unknown as BlobPart], { type: 'application/pdf' }), memoName);
+      const mRes = await fetch(`${mgBase}/v3/${mgDomain}/messages`, {
+        method: 'POST',
+        headers: { Authorization: `Basic ${btoa(`api:${mgKey}`)}` },
+        body: mform,
+      });
+      if (!mRes.ok) {
+        const errBody = await mRes.text();
+        console.error(`[daily-cto-report] Mailgun ${mRes.status}: ${errBody}`);
+        return new Response(JSON.stringify({ error: 'mailgun_failed', status: mRes.status, details: errBody }), {
+          status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      return new Response(JSON.stringify({ ok: true, date: dateStr, period: memo.periodLabel, report_type: 'board', recipients, attachment: memoName, pdf_bytes: memoPdf.length }), {
+        status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     const { data, error } = await supabase.rpc('get_cto_daily_report', { p_date: dateStr });
     if (error) {
       console.error('[daily-cto-report] rpc failed', error);
@@ -1577,7 +1636,7 @@ Deno.serve(async (req) => {
       rollbackOk: boolean;
     };
     const weekDays: DayRoll[] = [];
-    if (reportType === 'board') {
+    if (boardMode) {
       const results = await Promise.all(
         weekDates.map(async (dy) => {
           if (dy === dateStr) return { dy, payload: d };
@@ -1620,7 +1679,7 @@ Deno.serve(async (req) => {
       weekDays.sort((a2, b2) => (a2.d < b2.d ? -1 : 1));
     }
     const sum = (k: keyof DayRoll) => weekDays.reduce((s, r) => s + Number(r[k] || 0), 0);
-    const weeklyMode = reportType === 'board' && weekDays.length > 1;
+    const weeklyMode = boardMode && weekDays.length > 1;
     const wHealth = weeklyMode ? Math.round(sum('health') / weekDays.length) : health;
     const wHealthLabel = wHealth >= 85 ? 'Healthy' : wHealth >= 70 ? 'Watch' : 'At risk';
     const wHealthFirst = weekDays.length ? weekDays[0].health : health;
@@ -1858,7 +1917,7 @@ Deno.serve(async (req) => {
     ];
 
 
-    const pdfBytes = reportType === 'board'
+    const pdfBytes = boardMode
       ? await buildBoardPdf({
           dateStr: weeklyMode ? boardPeriodLabel : dateStr,
           health: wHealth,
@@ -1873,7 +1932,7 @@ Deno.serve(async (req) => {
           kpis: boardKpis,
         })
       : await buildTechPdf(techArgs);
-    const pdfName = reportType === 'board'
+    const pdfName = boardMode
       ? `Welile_Board_Technology_Memo_Week_Ending_${dateStr}.pdf`
       : `Welile_Daily_CTO_Report_${dateStr}.pdf`;
 
@@ -1952,12 +2011,12 @@ Deno.serve(async (req) => {
     form.append('h:Reply-To', REPLY_TO);
     form.append(
       'subject',
-      reportType === 'board'
+      boardMode
         ? `Welile Weekly Board Technology Update — week ending ${dateStr} — Health ${wHealth}/100 (${wHealthLabel})`
         : `Welile Daily Tech Diagnostic Report — ${dateStr} — Health ${health}/100 (${healthLabel})`,
     );
-    form.append('text', reportType === 'board' ? boardText : text);
-    form.append('html', reportType === 'board' ? boardHtml : html);
+    form.append('text', boardMode ? boardText : text);
+    form.append('html', boardMode ? boardHtml : html);
     form.append('attachment', new Blob([pdfBytes as unknown as BlobPart], { type: 'application/pdf' }), pdfName);
 
     const mgRes = await fetch(`${mgBase}/v3/${mgDomain}/messages`, {
@@ -1973,7 +2032,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ ok: true, date: dateStr, period: reportType === 'board' ? boardPeriodLabel : dateStr, weekly: weeklyMode, report_type: reportType, recipients, health: reportType === 'board' ? wHealth : health, risks: risks.length, attachment: pdfName, pdf_bytes: pdfBytes.length }), {
+    return new Response(JSON.stringify({ ok: true, date: dateStr, period: boardMode ? boardPeriodLabel : dateStr, weekly: weeklyMode, report_type: reportType, recipients, health: boardMode ? wHealth : health, risks: risks.length, attachment: pdfName, pdf_bytes: pdfBytes.length }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (e) {

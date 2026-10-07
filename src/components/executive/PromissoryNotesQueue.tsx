@@ -41,6 +41,7 @@ import { PromissoryKpiDetailSheet, type PromissoryKpiMetric } from './partner-op
 import { PromissoryFulfilmentTracker } from './partner-ops/PromissoryFulfilmentTracker';
 import { PromissoryConversionQueue } from './partner-ops/PromissoryConversionQueue';
 import { PromissoryOpsAnalytics } from './partner-ops/PromissoryOpsAnalytics';
+import { PromissoryApprovePay } from './partner-ops/PromissoryApprovePay';
 
 
 
@@ -1067,10 +1068,11 @@ export function PromissoryNotesQueue({
                     <Button variant="ghost" size="sm" className="h-7 px-2 text-[11px]" onClick={() => setSelectedIds([])}>
                       Clear
                     </Button>
+                    <PromissoryApprovePay ids={selectedIds} onCompleted={completed => setSelectedIds(ids => ids.filter(id => !completed.includes(id)))} />
                     <Button
                       variant="destructive"
                       size="sm"
-                      className="h-7 px-2 text-[11px] ml-auto"
+                      className="h-7 px-2 text-[11px]"
                       onClick={() => { setBulkReason(''); setBulkOpen(true); }}
                     >
                       <Trash2 className="h-3.5 w-3.5 mr-1" />

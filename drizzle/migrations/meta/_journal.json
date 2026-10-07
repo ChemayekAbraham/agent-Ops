@@ -3361,6 +3361,90 @@
       "when": 1791318792495,
       "tag": "0479_payables_contract_schedule",
       "breakpoints": true
+    },
+    {
+      "idx": 480,
+      "version": "7",
+      "when": 1791355631191,
+      "tag": "0480_promissory_approval_payment_preview",
+      "breakpoints": true
+    },
+    {
+      "idx": 481,
+      "version": "7",
+      "when": 1791356226410,
+      "tag": "0481_engrep_register_tk_noreply_email",
+      "breakpoints": true
+    },
+    {
+      "idx": 482,
+      "version": "7",
+      "when": 1791356777795,
+      "tag": "0482_spiro_flat_30_day_month",
+      "breakpoints": true
+    },
+    {
+      "idx": 483,
+      "version": "7",
+      "when": 1791357805110,
+      "tag": "0483_split_portfolio_principal",
+      "breakpoints": true
+    },
+    {
+      "idx": 484,
+      "version": "7",
+      "when": 1791358321138,
+      "tag": "0484_split_portfolio_keep_audit_email",
+      "breakpoints": true
+    },
+    {
+      "idx": 485,
+      "version": "7",
+      "when": 1791358989902,
+      "tag": "0485_fix_promissory_preview_found_ambiguity",
+      "breakpoints": true
+    },
+    {
+      "idx": 486,
+      "version": "7",
+      "when": 1791359277504,
+      "tag": "0486_portfolio_maturity_notices",
+      "breakpoints": true
+    },
+    {
+      "idx": 487,
+      "version": "7",
+      "when": 1791360167146,
+      "tag": "0487_maturity_notice_30d_reminder",
+      "breakpoints": true
+    },
+    {
+      "idx": 488,
+      "version": "7",
+      "when": 1791361747234,
+      "tag": "0488_cto_cron_jobs_overview",
+      "breakpoints": true
+    },
+    {
+      "idx": 489,
+      "version": "7",
+      "when": 1791364348390,
+      "tag": "0489_bike_daily_exact_30day_month",
+      "breakpoints": true
+    },
+    {
+      "idx": 490,
+      "version": "7",
+      "when": 1791365094136,
+      "tag": "0490_split_portfolio_moves_reservations",
+      "breakpoints": true
+    },
+    {
+      "idx": 491,
+      "version": "7",
+      "when": 1791365356342,
+      "tag": "0491_receivables_location_hierarchy",
+      "breakpoints": true
     }
   ]
 }

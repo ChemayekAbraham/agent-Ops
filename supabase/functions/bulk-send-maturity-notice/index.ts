@@ -283,7 +283,14 @@ Deno.serve(async (req) => {
           redeem_url: `https://welileapp.com/portfolios/${p.id}/redeem`,
         }),
       });
-      if (outcome === "sent") counts.sent++;
+      if (outcome === "sent") {
+        counts.sent++;
+        // Record it so the daily automatic notice doesn't send the same notice again.
+        await adminClient.from("portfolio_maturity_notices").upsert(
+          { portfolio_id: p.id, maturity_date: fmtIsoDay(p.maturity_date), recipient_email: email, source: "manual", outcome: "sent" },
+          { onConflict: "portfolio_id,maturity_date", ignoreDuplicates: true },
+        );
+      }
       else if (outcome === "suppressed") counts.suppressed++;
       else if (outcome === "rate_limited") counts.rateLimited++;
       else counts.failed++;

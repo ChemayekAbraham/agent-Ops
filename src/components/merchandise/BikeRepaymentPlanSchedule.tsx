@@ -53,17 +53,39 @@ export default function BikeRepaymentPlanSchedule({
 
   return (
     <div className="rounded-xl border border-border bg-card p-3.5 space-y-3 shadow-xs">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-1.5 min-w-0">
+      <div className="flex flex-wrap items-center justify-between gap-1.5">
+        <div className="flex items-center gap-1.5">
           <Calendar className="h-4 w-4 text-primary shrink-0" />
-          <p className="text-xs font-bold text-foreground truncate">Repayment Plan Schedule</p>
+          <p className="text-xs font-bold text-foreground whitespace-nowrap">Repayment Plan Schedule</p>
         </div>
         <Badge
           variant="outline"
           className="text-[10px] font-semibold bg-primary/10 text-primary border-primary/20 shrink-0"
         >
-          {term} Months · 28% Reducing
+          {term} Months · 28%/mo reducing · {schedule.feePct}% total fee
         </Badge>
+      </div>
+
+      {/* Overall Lease Term Summary Strip */}
+      <div className="grid grid-cols-3 gap-1.5 rounded-lg border border-border/70 bg-muted/30 p-2 text-center text-xs">
+        <div>
+          <span className="text-[10px] text-muted-foreground block">Principal</span>
+          <span className="font-bold text-foreground text-xs tabular-nums">
+            {formatUGX(schedule.base)}
+          </span>
+        </div>
+        <div>
+          <span className="text-[10px] text-muted-foreground block">Total Fee ({schedule.feePct}%)</span>
+          <span className="font-bold text-foreground text-xs tabular-nums">
+            {formatUGX(schedule.accessFee)}
+          </span>
+        </div>
+        <div>
+          <span className="text-[10px] text-muted-foreground block">Total Payable</span>
+          <span className="font-bold text-primary text-xs tabular-nums">
+            {formatUGX(schedule.total)}
+          </span>
+        </div>
       </div>
 
       {/* Month Dropdown Selector (One month at a time) */}
@@ -85,8 +107,8 @@ export default function BikeRepaymentPlanSchedule({
             {schedule.rows.map((row) => (
               <SelectItem key={row.month} value={String(row.month)} className="text-xs">
                 Month {row.month}
-                {row.month === 1 ? ' (First Month)' : row.month === term ? ' (Final Settlement)' : ''}
-                {row.month === activeMonth && ' · Current'} — {formatUGX(row.daily)}/day
+                {row.month === 1 ? ' (First)' : row.month === term ? ' (Final)' : ''}
+                {row.month === activeMonth && ' · Current'} — {formatUGX(row.daily)}/d
               </SelectItem>
             ))}
           </SelectContent>
@@ -100,40 +122,37 @@ export default function BikeRepaymentPlanSchedule({
             <span className="text-[10px] uppercase font-bold tracking-wide text-primary">
               Month {safeMonth} Daily Repayment
             </span>
-            <p className="text-base font-extrabold text-foreground">
+            <p className="text-base font-extrabold text-foreground tabular-nums">
               {formatUGX(currentRow.daily)}
               <span className="text-xs font-normal text-muted-foreground"> / day</span>
             </p>
           </div>
           <div className="text-right">
-            <span className="text-[10px] uppercase font-medium text-muted-foreground block">
-              Total Due This Month
+            <span className="text-[10px] text-muted-foreground block">
+              {currentRow.days} calendar days
             </span>
-            <p className="text-sm font-bold text-foreground">
-              {formatUGX(Math.round(currentRow.totalDue))}
-            </p>
           </div>
         </div>
 
-        {/* Breakdown for the selected month */}
-        <div className="grid grid-cols-3 gap-1.5 sm:gap-2 pt-2 border-t border-primary/15 text-[11px]">
-          <div className="rounded-md border border-border/80 bg-background/80 p-2 space-y-0.5">
-            <span className="text-[10px] text-muted-foreground block truncate">Opening Balance</span>
-            <span className="font-semibold text-foreground text-xs truncate block">
+        {/* Three cards: Due that month, Opening, Closing */}
+        <div className="grid grid-cols-3 gap-1.5 sm:gap-2 pt-2 border-t border-primary/15">
+          <div className="rounded-md border border-border/80 bg-background/80 p-2 text-center">
+            <span className="text-[10px] text-muted-foreground block leading-tight">Due that month</span>
+            <span className="font-bold text-foreground text-xs sm:text-sm tabular-nums block mt-0.5 whitespace-nowrap">
+              {formatUGX(Math.round(currentRow.totalDue))}
+            </span>
+          </div>
+
+          <div className="rounded-md border border-border/80 bg-background/80 p-2 text-center">
+            <span className="text-[10px] text-muted-foreground block leading-tight">Opening</span>
+            <span className="font-bold text-foreground text-xs sm:text-sm tabular-nums block mt-0.5 whitespace-nowrap">
               {formatUGX(Math.round(currentRow.openingPrincipal))}
             </span>
           </div>
 
-          <div className="rounded-md border border-border/80 bg-background/80 p-2 space-y-0.5">
-            <span className="text-[10px] text-muted-foreground block truncate">Monthly Fee (28%)</span>
-            <span className="font-semibold text-foreground text-xs truncate block">
-              {formatUGX(Math.round(currentRow.feeDue))}
-            </span>
-          </div>
-
-          <div className="rounded-md border border-border/80 bg-background/80 p-2 space-y-0.5">
-            <span className="text-[10px] text-muted-foreground block truncate">Closing Balance</span>
-            <span className="font-semibold text-emerald-600 dark:text-emerald-400 text-xs truncate block">
+          <div className="rounded-md border border-border/80 bg-background/80 p-2 text-center">
+            <span className="text-[10px] text-muted-foreground block leading-tight">Closing</span>
+            <span className="font-bold text-emerald-600 dark:text-emerald-400 text-xs sm:text-sm tabular-nums block mt-0.5 whitespace-nowrap">
               {formatUGX(Math.round(currentRow.closingPrincipal))}
             </span>
           </div>
@@ -154,7 +173,7 @@ export default function BikeRepaymentPlanSchedule({
 
           <span className="text-[10px] text-muted-foreground flex items-center gap-1">
             <TrendingDown className="h-3 w-3 text-emerald-600" />
-            Reducing balance
+            28%/mo reducing balance
           </span>
 
           <Button

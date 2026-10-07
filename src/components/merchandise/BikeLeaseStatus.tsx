@@ -38,18 +38,44 @@ interface BikeLeaseRow {
   order_status: string | null;
   rejection_reason: string | null;
   created_at: string;
+  ops_approved_at?: string | null;
   coo_approved_at: string | null;
   cfo_disbursed_at: string | null;
   lease_activated_at: string | null;
   tracking_reference: string | null;
 }
 
-const STAGES = ['Submitted', 'Approved', 'Bike Disbursed & Active Lease'] as const;
+const STAGES = [
+  'Submitted',
+  'Ops Verified',
+  'COO Approved',
+  'Disbursed & Active Lease',
+] as const;
 
 const stageIndex = (status: string) => {
-  if (status === 'approved' || status === 'completed' || status === 'processing') return 2;
-  if (status === 'coo_approved') return 1;
+  if (status === 'approved' || status === 'completed' || status === 'processing') return 3;
+  if (status === 'coo_approved') return 2;
+  if (status === 'ops_approved') return 1;
   return 0;
+};
+
+const getDetailedStatus = (status: string, outstanding: number) => {
+  if (status === 'completed' || (status === 'approved' && outstanding <= 0)) {
+    return { label: '100% Repaid & Settled', tone: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30' };
+  }
+  if (status === 'approved' || status === 'processing') {
+    return { label: 'Active Lease · In Repayment', tone: 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30' };
+  }
+  if (status === 'coo_approved') {
+    return { label: 'COO Approved · Awaiting CFO', tone: 'bg-sky-500/15 text-sky-600 border-sky-500/30' };
+  }
+  if (status === 'ops_approved') {
+    return { label: 'Ops Verified · Awaiting COO', tone: 'bg-indigo-500/15 text-indigo-600 border-indigo-500/30' };
+  }
+  if (status === 'rejected' || status === 'failed') {
+    return { label: 'Application Rejected', tone: 'bg-destructive/15 text-destructive border-destructive/30' };
+  }
+  return { label: 'Submitted · Awaiting Ops', tone: 'bg-amber-500/15 text-amber-600 border-amber-500/30' };
 };
 
 interface Props {
@@ -208,17 +234,23 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder, filterStatu
 
   if (!userId || !selected || filteredOrders.length === 0) return null;
 
-  const stageDates = [selected.created_at, selected.coo_approved_at, selected.lease_activated_at ?? selected.cfo_disbursed_at];
+  const statusInfo = getDetailedStatus(status, outstanding);
+  const stageDates = [
+    selected.created_at,
+    selected.ops_approved_at,
+    selected.coo_approved_at,
+    selected.lease_activated_at ?? selected.cfo_disbursed_at,
+  ];
 
   return (
     <Card className="border-border">
-      <CardContent className="p-4 space-y-3">
+      <CardContent className="p-3.5 sm:p-4 space-y-3">
         <div className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <Bike className="h-4 w-4 text-primary shrink-0" />
-            <p className="text-sm font-bold truncate">Spiro bike lease status</p>
+            <p className="text-sm font-bold text-foreground">Spiro Bike Lease Status</p>
           </div>
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 shrink-0">
             {rejected && (
               <Button
                 variant="destructive"
@@ -274,35 +306,67 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder, filterStatu
 
         {expanded && (
           <div className="space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
+            {/* Top Bike Model & Status Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-2 bg-muted/30 p-2.5 rounded-lg border border-border/60">
               <div className="min-w-0">
-                <p className="text-sm font-semibold truncate">{selected.model_type || 'Spiro bike'}</p>
+                <p className="text-sm font-semibold text-foreground">{selected.model_type || 'Spiro electric bike'}</p>
                 <p className="text-[11px] text-muted-foreground">
                   Valuation {formatUGX(valuation)} · {selected.lease_term_months || 12} month lease
                 </p>
                 {selected.tracking_reference && (
                   <p className="text-[11px] font-mono text-muted-foreground mt-0.5">
-                    Tracking:{' '}
-                    <span className="text-foreground font-semibold">{selected.tracking_reference}</span>
+                    Tracking: <span className="text-foreground font-semibold">{selected.tracking_reference}</span>
                   </p>
                 )}
               </div>
               <Badge
                 variant="outline"
-                className={`gap-1 shrink-0 ${
-                  rejected
-                    ? 'bg-destructive/15 text-destructive border-destructive/30'
-                    : current === 2
-                      ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30'
-                      : current === 1
-                        ? 'bg-sky-500/15 text-sky-600 border-sky-500/30'
-                        : 'bg-amber-500/15 text-amber-600 border-amber-500/30'
-                }`}
+                className={`gap-1 shrink-0 py-0.5 px-2 text-[10px] font-semibold ${statusInfo.tone}`}
               >
-                {rejected ? <XCircle className="h-3 w-3" /> : current === 2 ? <CheckCircle2 className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
-                {rejected ? 'Rejected' : STAGES[current]}
+                {rejected ? (
+                  <XCircle className="h-3 w-3" />
+                ) : current === 3 ? (
+                  <CheckCircle2 className="h-3 w-3" />
+                ) : (
+                  <Clock className="h-3 w-3" />
+                )}
+                <span>{statusInfo.label}</span>
               </Badge>
             </div>
+
+            {/* Quick Status KPI Strip for Active Lease — optimized for mobile */}
+            {current === 3 && !rejected && (
+              <div className="rounded-xl border border-primary/20 bg-primary/5 p-2.5 sm:p-3 space-y-2 text-xs">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-lg bg-background/90 border border-border/70 p-2 sm:p-2.5">
+                    <span className="text-[10px] text-muted-foreground block uppercase font-bold tracking-wider">
+                      Balance Left
+                    </span>
+                    <span className="text-sm sm:text-base font-extrabold text-foreground tabular-nums block mt-0.5 whitespace-nowrap">
+                      {formatUGX(outstanding)}
+                    </span>
+                  </div>
+                  <div className="rounded-lg bg-background/90 border border-border/70 p-2 sm:p-2.5 text-right sm:text-left">
+                    <span className="text-[10px] text-muted-foreground block uppercase font-bold tracking-wider">
+                      Daily Repayment
+                    </span>
+                    <span className="text-sm sm:text-base font-extrabold text-primary tabular-nums block mt-0.5 whitespace-nowrap">
+                      {formatUGX(leaseSchedule.rows[0]?.daily || 0)}/d
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-background/80 border border-border/60">
+                  <span className="text-[10px] sm:text-[11px] text-muted-foreground font-medium flex items-center gap-1.5">
+                    <ShieldCheck className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+                    Logbook Title Custody
+                  </span>
+                  <span className="text-xs font-semibold tabular-nums text-indigo-600 dark:text-indigo-400">
+                    {outstanding === 0 ? '✓ Ready for Transfer' : '🔒 Welile Custody'}
+                  </span>
+                </div>
+              </div>
+            )}
 
             {rejected ? (
               <div className="rounded-xl border border-destructive/25 bg-destructive/5 p-3 space-y-2.5">
@@ -340,7 +404,7 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder, filterStatu
                 </div>
               </div>
             ) : (
-              <ol className="space-y-2">
+              <ol className="space-y-2 pt-0.5">
                 {STAGES.map((label, i) => {
                   const done = i <= current;
                   const at = stageDates[i];
@@ -369,7 +433,7 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder, filterStatu
               </ol>
             )}
 
-            {current < 2 && !rejected && (
+            {current < 3 && !rejected && (
               <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 space-y-2 text-xs">
                 <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">
                   Scheduled Daily Repayment
@@ -377,14 +441,20 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder, filterStatu
                 <div className="grid grid-cols-2 gap-2">
                   <div className="rounded-md border border-primary/20 bg-background/70 p-2 space-y-0.5">
                     <span className="text-[10px] text-muted-foreground block">First Month Daily</span>
-                    <span className="text-xs font-bold text-foreground">{formatUGX(leaseSchedule.firstDaily)}/day</span>
+                    <span className="text-xs font-bold text-foreground tabular-nums">{formatUGX(leaseSchedule.firstDaily)}/day</span>
                     <span className="text-[10px] text-muted-foreground block">Month 1</span>
                   </div>
                   <div className="rounded-md border border-primary/20 bg-background/70 p-2 space-y-0.5">
                     <span className="text-[10px] text-muted-foreground block">Last Month Daily</span>
-                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400">{formatUGX(leaseSchedule.lastDaily)}/day</span>
+                    <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 tabular-nums">{formatUGX(leaseSchedule.lastDaily)}/day</span>
                     <span className="text-[10px] text-muted-foreground block">Month {termMonths}</span>
                   </div>
+                </div>
+                <div className="flex items-center justify-between text-[11px] pt-1 border-t border-primary/10">
+                  <span className="text-muted-foreground">Total Fee ({termMonths}m):</span>
+                  <span className="font-semibold text-foreground">
+                    {formatUGX(leaseSchedule.accessFee)} ({leaseSchedule.feePct}%) · 28%/mo reducing
+                  </span>
                 </div>
                 <p className="text-[10px] text-muted-foreground pt-1 border-t border-primary/10 leading-snug">
                   ℹ Reducing balance plan: daily payments fall as principal decreases. The rest of the breakdown will be shown when you have received the bike.
@@ -392,19 +462,8 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder, filterStatu
               </div>
             )}
 
-            {current === 2 && !rejected && (
+            {current === 3 && !rejected && (
               <div className="space-y-2">
-                <div className="rounded-lg border border-border bg-muted/40 px-3 py-2 space-y-1">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">Outstanding lease balance</span>
-                    <span className="font-semibold">{formatUGX(outstanding)}</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">Monthly charge (reducing balance)</span>
-                    <span className="font-semibold">{Math.round(rate * 100)}% per month</span>
-                  </div>
-                </div>
-
                 {/* Logbook Custody & Settlement Card */}
                 <div
                   className={`rounded-lg border p-3 space-y-2 ${
@@ -416,13 +475,13 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder, filterStatu
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 min-w-0">
                       <ShieldCheck className={`h-4 w-4 ${outstanding === 0 ? 'text-emerald-600' : 'text-primary'}`} />
-                      <p className="text-xs font-semibold text-foreground truncate">
+                      <p className="text-xs font-semibold text-foreground whitespace-nowrap">
                         {outstanding === 0 ? 'Logbook Transfer Authorized' : 'Logbook Title Custody'}
                       </p>
                     </div>
                     <Badge
                       variant="outline"
-                      className={`text-[10px] ${
+                      className={`text-[10px] shrink-0 ${
                         outstanding === 0
                           ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30'
                           : 'bg-indigo-500/15 text-indigo-600 border-indigo-500/30'
@@ -483,7 +542,7 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder, filterStatu
               </div>
             )}
 
-            {current === 2 && !rejected && (
+            {current === 3 && !rejected && (
               <BikeRepaymentPlanSchedule
                 termMonths={termMonths}
                 valuation={valuation}
@@ -491,7 +550,7 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder, filterStatu
               />
             )}
 
-            {current === 2 && !rejected && (
+            {current === 3 && !rejected && (
               <BikeRepaymentTracker userId={userId} saleId={selected.id} />
             )}
 

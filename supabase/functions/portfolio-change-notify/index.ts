@@ -45,6 +45,7 @@ const ACTION_LABELS: Record<string, string> = {
   portfolio_renewed: "Portfolio renewed",
   portfolio_suspended: "Portfolio suspended",
   portfolio_updated: "Portfolio updated",
+  portfolio_split: "Portfolio split",
   partner_suspended: "Partner suspended",
   partner_reinstated: "Partner reinstated",
 };

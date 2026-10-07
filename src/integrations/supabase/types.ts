@@ -35201,6 +35201,64 @@ export type Database = {
           },
         ]
       }
+      portfolio_maturity_notices: {
+        Row: {
+          final_outcome: string | null
+          final_sent_at: string | null
+          id: string
+          maturity_date: string
+          outcome: string
+          portfolio_id: string
+          recipient_email: string | null
+          sent_at: string
+          source: string
+        }
+        Insert: {
+          final_outcome?: string | null
+          final_sent_at?: string | null
+          id?: string
+          maturity_date: string
+          outcome: string
+          portfolio_id: string
+          recipient_email?: string | null
+          sent_at?: string
+          source?: string
+        }
+        Update: {
+          final_outcome?: string | null
+          final_sent_at?: string | null
+          id?: string
+          maturity_date?: string
+          outcome?: string
+          portfolio_id?: string
+          recipient_email?: string | null
+          sent_at?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_maturity_notices_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portfolio_maturity_notices_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "portfolio_maturity_notices_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
+            referencedColumns: ["portfolio_id"]
+          },
+        ]
+      }
       portfolio_redemptions: {
         Row: {
           created_at: string
@@ -62608,6 +62666,7 @@ export type Database = {
         }[]
       }
       cto_classify_error: { Args: { p_msg: string }; Returns: Json }
+      cto_cron_jobs_overview: { Args: never; Returns: Json }
       cto_fake_account_base: {
         Args: never
         Returns: {
@@ -64672,6 +64731,7 @@ export type Database = {
       }
       get_approximate_user_count: { Args: never; Returns: number }
       get_authoritative_wallet: { Args: { p_user_id: string }; Returns: Json }
+      get_board_tech_memo: { Args: { p_date?: string }; Returns: Json }
       get_budget_consolidation: { Args: { p_call_id: string }; Returns: Json }
       get_budget_department_notifications: {
         Args: { _department_keys?: string[] }
@@ -66529,6 +66589,10 @@ export type Database = {
       }
       get_receivables_forecast_snapshot_accuracy: {
         Args: { p_granularity?: string; p_limit?: number }
+        Returns: Json
+      }
+      get_receivables_location_hierarchy: {
+        Args: { p_category?: string }
         Returns: Json
       }
       get_receivables_predictive_forecast: {
@@ -70751,6 +70815,10 @@ export type Database = {
         }
         Returns: Json
       }
+      preview_promissory_note_approvals: {
+        Args: { p_note_ids: string[] }
+        Returns: Json
+      }
       preview_welile_home_enrollment_edit: {
         Args: {
           p_agent_id: string
@@ -72998,6 +73066,14 @@ export type Database = {
           transaction_date: string
           transaction_group_id: string
         }[]
+      }
+      split_portfolio_principal: {
+        Args: {
+          p_portfolio_id: string
+          p_reason: string
+          p_split_amount: number
+        }
+        Returns: Json
       }
       staff_loan_accrue_interest: {
         Args: never

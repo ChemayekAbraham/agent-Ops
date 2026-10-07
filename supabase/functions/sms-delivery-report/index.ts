@@ -8,7 +8,7 @@
 // Configure this URL as the "Delivery Reports" callback in the Africa's Talking
 // dashboard (Settings -> SMS -> Delivery Reports):
 //   https://<project-ref>.supabase.co/functions/v1/sms-delivery-report
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

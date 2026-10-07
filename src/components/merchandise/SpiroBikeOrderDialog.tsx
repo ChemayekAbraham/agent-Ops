@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
-import { Bike, Loader2, ShieldCheck, FileText, ChevronDown, ChevronUp } from 'lucide-react';
+import { Bike, Loader2, ShieldCheck, FileText, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -63,7 +64,32 @@ interface Props {
  */
 export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Props) {
   const queryClient = useQueryClient();
+  const { user: authUser } = useAuth();
+  const effectiveUserId = userId || authUser?.id;
   const { data: catalog = [] } = useMotorBikeCatalog();
+
+  // Qualification Check: Verify whether the agent has a running advance
+  const { data: activeAdvance, isLoading: checkingAdvance } = useQuery({
+    queryKey: ['bike-applicant-active-advance', effectiveUserId],
+    enabled: !!effectiveUserId && open,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('agent_advances')
+        .select('id, principal, outstanding_balance, status')
+        .eq('agent_id', effectiveUserId!)
+        .in('status', ['active', 'overdue'])
+        .gt('outstanding_balance', 0)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) {
+        console.warn('Could not verify running advance status:', error);
+        return null;
+      }
+      return data;
+    },
+  });
+  const hasActiveAdvance = !!activeAdvance && Number(activeAdvance.outstanding_balance || 0) > 0;
 
   const availableModels = useMemo(() => {
     const activeCatalog = catalog.filter((c) => c.is_active);
@@ -134,9 +160,9 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
     }
     toast.success('Order submitted for review. Agent Ops will confirm your eligibility.');
     onOpenChange(false);
-    queryClient.invalidateQueries({ queryKey: ['my-bike-lease-orders', userId] });
-    queryClient.invalidateQueries({ queryKey: ['my-merchandise-plans', userId] });
-    queryClient.invalidateQueries({ queryKey: ['my-merchandise-deductions', userId] });
+    queryClient.invalidateQueries({ queryKey: ['my-bike-lease-orders', effectiveUserId] });
+    queryClient.invalidateQueries({ queryKey: ['my-merchandise-plans', effectiveUserId] });
+    queryClient.invalidateQueries({ queryKey: ['my-merchandise-deductions', effectiveUserId] });
   };
 
   return (
@@ -152,6 +178,19 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
         </DialogHeader>
 
         <div className="space-y-3">
+          {/* Active advance status notice */}
+          {hasActiveAdvance && (
+            <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 space-y-1 text-xs">
+              <div className="flex items-center gap-1.5 font-semibold text-amber-600 dark:text-amber-400">
+                <AlertTriangle className="h-4 w-4 shrink-0" />
+                <span>Active Advance Running ({formatUGX(Number(activeAdvance.outstanding_balance))} outstanding)</span>
+              </div>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                You currently have an active running advance. Running advances are not allowed with a bike lease; please finish clearing your active advance before your bike lease can be approved.
+              </p>
+            </div>
+          )}
+
           <img
             src={spiroBikeAsset.url}
             alt="Welile Spiro electric bike"
@@ -270,7 +309,7 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
                 </p>
                 <p className="text-[11px] text-muted-foreground">
                   {termValid
-                    ? `Over ${schedule.months} month${schedule.months === 1 ? '' : 's'} (${schedule.monthlyRatePct}% monthly reducing balance)`
+                    ? `Base ${formatUGX(schedule.base)} + ${formatUGX(schedule.accessFee)} fee (${schedule.feePct}%) · 28%/mo reducing`
                     : 'Enter a period from 1 to 24 months.'}
                 </p>
               </div>
@@ -312,6 +351,12 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
                 <div className="flex items-start gap-2">
                   <FileText className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
                   <p>
+                    <strong className="text-foreground">Zero Running Advances Allowed:</strong> Having an active running advance is not allowed. If you have any active or outstanding advance, you must first finish clearing it before you can qualify for a bike lease.
+                  </p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <FileText className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+                  <p>
                     <strong className="text-foreground">Daily Commission Sweeps:</strong> Once your bike lease is approved and activated, daily repayments are recovered from your agent wallet commission earnings on a reducing-balance schedule without overdrafting.
                   </p>
                 </div>
@@ -335,7 +380,7 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
                 htmlFor="spiro-terms"
                 className="text-[11px] leading-tight text-foreground/90 cursor-pointer select-none"
               >
-                I agree to the Spiro Motorbike Lease Terms, including daily commission sweeps upon lease approval and Welile's custody of the logbook until final settlement.
+                I agree to the Spiro Motorbike Lease Terms, acknowledging that running advances are not allowed and any active advance must be fully cleared first.
               </label>
             </div>
           </div>
@@ -346,7 +391,10 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
             Cancel
           </Button>
-          <Button onClick={submit} disabled={submitting || !termValid || !acceptedTerms || isTermDisabled}>
+          <Button
+            onClick={submit}
+            disabled={submitting || !termValid || !acceptedTerms || isTermDisabled}
+          >
             {submitting ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
             {submitting ? 'Submitting…' : isTermDisabled ? 'Period Unavailable' : 'Submit Order for Review'}
           </Button>

@@ -1,4 +1,7 @@
 # Tasks
+- [x] Add selected-note Approve & Pay with live proxy-agent payout preview and explicit confirmation.
+- [x] Run logic guards and confirm error-free compilation.
+- [ ] Verify signed-in preview and cancellation without sending real payouts — blocked because the requester has no matching sign-in account; preview sign-in required.
 - [x] Match Tenant Products & Services to the supplied reference without changing financial logic.
 - [x] Verify tenant product tabs, live figures and layout in the signed-in preview.
 - [x] Match Payables to the Receivables workspace layout without changing financial logic.
