@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useParams, Navigate } from 'react-router-dom';
-import { ArrowLeft, Bike, Smartphone, ShoppingBag, Signpost, HandCoins, LayoutDashboard, ClipboardList, Clock, CheckCircle2, XCircle } from 'lucide-react';
+import { ArrowLeft, Bike, Smartphone, ShoppingBag, Signpost, HandCoins, LayoutDashboard, ClipboardList, Clock, CheckCircle2, XCircle, AlarmClockOff } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 
 import { supabase as db } from '@/integrations/supabase/client';
@@ -267,6 +267,7 @@ function MotorBikeTabs({ category }: { category?: AgentProductCategory }) {
       <div className="hidden sm:block w-full overflow-x-auto no-scrollbar scrollbar-none pb-1">
         <TabsList className="inline-flex w-max min-w-full sm:min-w-0 justify-start h-10 p-1 gap-1 bg-muted/60 rounded-xl">
           <TabsTrigger value="overview" className="shrink-0 text-xs sm:text-sm">Overview</TabsTrigger>
+          <TabsTrigger value="dormant" className="shrink-0 text-xs sm:text-sm">Dormant Leases</TabsTrigger>
           <TabsTrigger value="applications" className="shrink-0 text-xs sm:text-sm gap-1.5">
             Applications
             {counts.pendingOps > 0 && (
@@ -299,7 +300,7 @@ function MotorBikeTabs({ category }: { category?: AgentProductCategory }) {
         aria-label="Motor bike tabs navigation"
         className="sm:hidden fixed bottom-0 inset-x-0 z-50 bg-background/95 backdrop-blur-md border-t border-border shadow-[0_-4px_20px_rgba(0,0,0,0.08)] pb-[calc(env(safe-area-inset-bottom,0px)+6px)] pt-1 px-2"
       >
-        <div className="grid grid-cols-4 gap-1">
+        <div className="grid grid-cols-5 gap-1">
           {bikeTabs.map((t) => {
             const Icon = t.icon;
             const isActive = tab === t.value;
@@ -339,8 +340,11 @@ function MotorBikeTabs({ category }: { category?: AgentProductCategory }) {
       </nav>
 
       <TabsContent value="overview" className="space-y-6 max-w-full">
-        <DormantBikeLeasesPanel />
         <AgentProductsPanel category={category} />
+      </TabsContent>
+
+      <TabsContent value="dormant" className="space-y-6 max-w-full">
+        <DormantBikeLeasesPanel />
       </TabsContent>
 
       <TabsContent value="applications" className="space-y-6 max-w-full">
