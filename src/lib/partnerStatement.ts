@@ -1,7 +1,14 @@
 import { supabase } from '@/integrations/supabase/client';
-import welileLogoUrl from '@/assets/welile-logo.png';
 import { DASH, esc, n, num, printReportHtml, ugx } from './welileReportDocument';
-import { PARTNER_STATEMENT_CSS } from './partnerStatementStyles';
+import {
+  WELILE_OFFICE,
+  WELILE_PARTNER_EMAIL,
+  day,
+  reportDocumentHtml,
+  reportFooterHtml,
+  reportHeaderHtml,
+  runningHeaderHtml,
+} from './partnerReportParts';
 
 export interface StatementCompound { date: string; amount: number; reference: string | null }
 export interface StatementPayout { date: string; amount: number; reference: string | null }
@@ -57,16 +64,6 @@ export async function fetchPartnerStatement(portfolioId?: string): Promise<State
 // Layout follows the approved statement template (see partnerStatementStyles.ts):
 // page 1 = account header + balance summary + master schedule of every
 // portfolio; the following pages = one ledger block per portfolio.
-
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-const day = (v: string | null | undefined): string => {
-  const s = String(v ?? '').slice(0, 10);
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
-  if (!m) return DASH;
-  return `${m[3]} ${MONTHS[Number(m[2]) - 1] ?? '?'} ${m[1]}`;
-};
 
 const STATUS: Record<string, { label: string; tag: string }> = {
   active: { label: 'Active', tag: 'tag-active' },
@@ -288,56 +285,36 @@ export function buildPartnerStatementHtml(d: StatementData): string {
   }
   const countsText = Array.from(counts, ([label, c]) => `${c} ${label}`).join(', ');
 
-  const footer = (i: number, total: number) => `<footer class="report-footer">
-    <span class="footer-left">WELILE TECHNOLOGIES LIMITED &bull; CONFIDENTIAL FINANCIAL STATEMENT</span>
-    <span class="footer-center">PARTNER PORTFOLIO STATEMENT &bull; REF: ${esc(ref)}</span>
-    <span class="footer-right">PAGE ${i} OF ${total} &bull; welileapp.com</span>
-  </footer>`;
+  const footer = (i: number, total: number) =>
+    reportFooterHtml({ docName: 'PARTNER PORTFOLIO STATEMENT', ref, page: i, total });
 
-  const header = `<header class="bank-statement-header">
-  <div class="header-top-container">
-    <div class="header-right-block">
-      <div class="header-bank-identity">
-        <img src="${welileLogoUrl}" alt="Welile" class="bank-logo" />
-        <div class="bank-address-block">
-          <div class="bank-company-name">Welile Technologies Limited</div>
-          <div>Palm Lane Kabaale, Entebbe Uganda</div>
-          <div>partnership@welile.com &bull; welileapp.com</div>
-        </div>
-      </div>
-      <div class="account-meta-block">
-        <div class="meta-line"><span class="meta-lbl">Account Number:</span> <span class="meta-val font-mono">${esc(accountNo)}</span></div>
-        <div class="meta-line"><span class="meta-lbl">Statement Date:</span> <span class="meta-val date">${day(stamp)}</span></div>
-        <div class="meta-line"><span class="meta-lbl">Period Covered:</span> <span class="meta-val">${esc(period)}</span></div>
-        <div class="meta-line"><span class="meta-lbl">Statement Ref:</span> <span class="meta-val font-mono">${esc(ref)}</span></div>
-      </div>
-    </div>
-  </div>
-  <div class="header-summary-row">
-    <div class="customer-info-col">
-      <div class="customer-name">${esc(whoUp)}</div>
-      ${d.partner?.mobile_money ? `<div class="customer-detail">Mobile Money: ${esc(d.partner.mobile_money)}</div>` : ''}
-      <div class="customer-detail">Account Status: ${active > 0
+  const header = reportHeaderHtml({
+    meta: [
+      { label: 'Account Number', value: accountNo, mono: true },
+      { label: 'Statement Date', value: day(stamp), date: true },
+      { label: 'Period Covered', value: period },
+      { label: 'Statement Ref', value: ref, mono: true },
+    ],
+    customerName: whoUp,
+    customerLines: [
+      ...(d.partner?.mobile_money ? [`Mobile Money: ${esc(d.partner.mobile_money)}`] : []),
+      `Account Status: ${active > 0
         ? '<span class="status-tag tag-active">Active Partner</span>'
-        : '<span class="status-tag tag-closed">No active portfolios</span>'}</div>
-      <div class="customer-detail">Reporting Currency: UGX (Uganda Shilling)</div>
-      <div class="customer-branch">&lt;Welile Partner Portfolio Division&gt;</div>
-    </div>
-    <div class="balance-summary-col">
-      <table class="balance-summary-table">
-        <tr><td class="bal-lbl">Opening / Capital Supported:</td><td class="bal-val num">${esc(ugx(totalPrincipal))}</td></tr>
-        <tr><td class="bal-lbl">Total Credit (Compounded Returns):</td><td class="bal-val num">${esc(ugx(totalCompounded))}</td></tr>
-        <tr><td class="bal-lbl">Total Debit (Payouts to Date):</td><td class="bal-val num">${esc(ugx(d.payouts_total.amount))}</td></tr>
-        <tr class="closing-balance-row">
-          <td class="bal-lbl font-bold" style="color:var(--text-main);">Closing / Total Portfolio Value:</td>
-          <td class="bal-val num font-bold" style="font-size:9.5px; color:var(--text-main);">${esc(ugx(totalValue))}</td>
-        </tr>
-        <tr><td class="bal-lbl">Number of Portfolios:</td>
-          <td class="bal-val num font-bold">${ps.length} <span class="text-muted" style="font-size:6.8px; font-weight:normal;">(${esc(countsText)})</span></td></tr>
-      </table>
-    </div>
-  </div>
-</header>`;
+        : '<span class="status-tag tag-closed">No active portfolios</span>'}`,
+      'Reporting Currency: UGX (Uganda Shilling)',
+    ],
+    branch: '<Welile Partner Portfolio Division>',
+    summary: [
+      { label: 'Opening / Capital Supported:', valueHtml: esc(ugx(totalPrincipal)) },
+      { label: 'Total Credit (Compounded Returns):', valueHtml: esc(ugx(totalCompounded)) },
+      { label: 'Total Debit (Payouts to Date):', valueHtml: esc(ugx(d.payouts_total.amount)) },
+      { label: 'Closing / Total Portfolio Value:', valueHtml: esc(ugx(totalValue)), closing: true },
+      {
+        label: 'Number of Portfolios:',
+        valueHtml: `<strong>${ps.length}</strong> <span class="text-muted" style="font-size:6.8px; font-weight:normal;">(${esc(countsText)})</span>`,
+      },
+    ],
+  });
 
   const note = `<div class="statement-disclosure-block">
   <div class="disclosure-title">Statement Note &amp; Payout Accounting Disclosure</div>
@@ -397,24 +374,10 @@ export function buildPartnerStatementHtml(d: StatementData): string {
   const panelOnOwnPage = lastUsed + COMPLETION_PX > SHEET_PX - CONT_CHROME_PX;
   const total = scheduleChunks.length + entryChunks.length + (panelOnOwnPage ? 1 : 0);
 
-  const running = (title: string, pageNo: number) => `<header class="detail-running-header">
-  <div class="running-header-left">
-    <img src="${welileLogoUrl}" alt="Welile" class="running-logo" />
-    <div class="running-company-info">
-      <span class="running-company-name">Welile Technologies Limited</span>
-      <span class="running-contact">Palm Lane Kabaale, Entebbe Uganda &bull; partnership@welile.com</span>
-    </div>
-  </div>
-  <div class="running-header-right">
-    <div class="running-doc-title">${title}</div>
-    <div class="running-meta-line">
-      <span><strong>Account:</strong> ${esc(accountNo)}</span><span>&bull;</span>
-      <span><strong>Partner:</strong> ${esc(whoUp)}</span><span>&bull;</span>
-      <span><strong>Date:</strong> ${day(stamp)}</span><span>&bull;</span>
-      <span><strong>Page ${pageNo} of ${total}</strong></span>
-    </div>
-  </div>
-</header>`;
+  const running = (title: string, pageNo: number) => runningHeaderHtml({
+    title, accountLabel: 'Account', accountValue: accountNo,
+    holderLabel: 'Partner', holder: whoUp, date: day(stamp), page: pageNo, total,
+  });
 
   const completion = `<div class="statement-completion-panel">
   <div class="completion-panel-header">
@@ -424,9 +387,9 @@ export function buildPartnerStatementHtml(d: StatementData): string {
   <div class="completion-body">
     <p>This document constitutes the complete Partner Portfolio Statement for <strong>${esc(whoUp)}</strong> covering all ${ps.length} registered portfolio${ps.length === 1 ? '' : 's'} as of <strong>${day(stamp)}</strong>. All recorded capital contributions, contractual return rates, compounded additions, and holding balances are maintained under the financial administration of Welile Technologies Limited.</p>
     <div class="completion-contact-row">
-      <span><strong>Partner Office:</strong> partnership@welile.com</span><span>&bull;</span>
+      <span><strong>Partner Office:</strong> ${WELILE_PARTNER_EMAIL}</span><span>&bull;</span>
       <span><strong>Partner Portal:</strong> welileapp.com</span><span>&bull;</span>
-      <span><strong>Head Office:</strong> Palm Lane Kabaale, Entebbe Uganda</span>
+      <span><strong>Head Office:</strong> ${WELILE_OFFICE}</span>
     </div>
   </div>
 </div>`;
@@ -482,22 +445,10 @@ export function buildPartnerStatementHtml(d: StatementData): string {
 </article>`]
     : [];
 
-  const baseTag = typeof window !== 'undefined' && window.location?.origin
-    ? `<base href="${window.location.origin}/">`
-    : '';
-  return `<!DOCTYPE html>
-<html lang="en"><head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0">
-${baseTag}
-<title>${esc(`Welile — Partner Portfolio Statement — ${who}`)}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>${PARTNER_STATEMENT_CSS}</style>
-</head><body>
-<main class="document-wrapper">${[...schedulePages, ...entryPages, ...panelPage].join('\n')}</main>
-<script>window.__WELILE_READY__ = true;</script>
-</body></html>`;
+  return reportDocumentHtml(
+    `Welile — Partner Portfolio Statement — ${who}`,
+    [...schedulePages, ...entryPages, ...panelPage],
+  );
 }
 
 /**
