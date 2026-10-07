@@ -3438,6 +3438,13 @@
       "when": 1791365094136,
       "tag": "0490_split_portfolio_moves_reservations",
       "breakpoints": true
+    },
+    {
+      "idx": 491,
+      "version": "7",
+      "when": 1791365356342,
+      "tag": "0491_receivables_location_hierarchy",
+      "breakpoints": true
     }
   ]
 }
