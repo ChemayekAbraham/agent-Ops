@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { FulfilmentBadge } from '@/components/merchandise/fulfilmentType';
 import { formatUGX } from '@/lib/businessAdvanceCalculations';
 
 type Stage = 'coo' | 'cfo';
@@ -19,7 +20,7 @@ interface Row {
 const STATUS_LABEL: Record<string, string> = {
   pending_approval: 'Awaiting Agent Ops', submitted: 'Awaiting Agent Ops', processing: 'Awaiting Agent Ops',
   ops_approved: 'Awaiting COO', coo_approved: 'COO approved — awaiting CFO',
-  issued: 'Issued', completed: 'Issued · fully paid',
+  awaiting_handover: 'Awaiting handover', issued: 'Issued', completed: 'Issued · fully paid',
 };
 
 export function BoutiqueOrderApprovalQueue({ stage }: { stage: Stage }) {
@@ -37,6 +38,18 @@ export function BoutiqueOrderApprovalQueue({ stage }: { stage: Stage }) {
     },
   });
 
+  // Category per catalog item: company issued (handover) vs out-sourced (money to wallet).
+  const { data: typeByItem = {} } = useQuery({
+    queryKey: ['merchandise-fulfilment-types'],
+    queryFn: async () => {
+      const { data } = await (supabase as any).from('merchandise_catalog').select('item_name, fulfilment_type');
+      const m: Record<string, string> = {};
+      (data || []).forEach((c: any) => { if (c.fulfilment_type) m[c.item_name.trim().toLowerCase()] = c.fulfilment_type; });
+      return m;
+    },
+  });
+  const typeOf = (r: Row) => typeByItem[(r.item_name || '').trim().toLowerCase()];
+
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ['boutique-approval-queue'] });
     qc.invalidateQueries({ queryKey: ['agent-products-overview'], exact: false });
@@ -48,7 +61,7 @@ export function BoutiqueOrderApprovalQueue({ stage }: { stage: Stage }) {
       const { error } = await supabase.rpc(fn as any, { p_sale_id: id });
       if (error) throw error;
     },
-    onSuccess: () => { toast.success(stage === 'coo' ? 'Approved — sent to CFO' : 'Approved and issued'); refresh(); },
+    onSuccess: () => { toast.success(stage === 'coo' ? 'Approved — sent to CFO' : 'Approved'); refresh(); },
     onError: (e: any) => toast.error(e?.message || 'Could not approve'),
   });
 
@@ -78,6 +91,7 @@ export function BoutiqueOrderApprovalQueue({ stage }: { stage: Stage }) {
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-semibold">{r.agent_name || 'Unknown agent'}</span>
               <Badge variant="secondary" className="text-[10px]">{STATUS_LABEL[r.order_status] ?? r.order_status}</Badge>
+              <FulfilmentBadge type={typeOf(r)} />
             </div>
             <p className="text-sm text-muted-foreground">
               {r.item_name}{r.quantity > 1 ? ` × ${r.quantity}` : ''}{r.selected_size ? ` · ${r.selected_size}` : ''} · {formatUGX(Number(r.total_revenue || 0))}
@@ -87,7 +101,7 @@ export function BoutiqueOrderApprovalQueue({ stage }: { stage: Stage }) {
           {actionable(r) && (
             <div className="flex gap-2">
               <Button size="sm" disabled={approve.isPending} onClick={() => approve.mutate(r.sale_id)}>
-                {stage === 'coo' ? 'Approve' : 'Approve & issue'}
+                {stage === 'coo' ? 'Approve' : typeOf(r) === 'outsourced' ? 'Approve & send to wallet' : typeOf(r) === 'company_issued' ? 'Approve for handover' : 'Approve & issue'}
               </Button>
               <Button size="sm" variant="outline" onClick={() => setRejectRow(r)}>Reject</Button>
             </div>
