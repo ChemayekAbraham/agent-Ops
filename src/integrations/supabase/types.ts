@@ -28898,6 +28898,8 @@ export type Database = {
           sale_date: string
           selected_size: string | null
           service_centre_id: string | null
+          settlement_certificate_issued_at: string | null
+          settlement_completed_at: string | null
           smartphone_catalog_id: string | null
           supplier_id: string | null
           total_amount: number
@@ -28955,6 +28957,8 @@ export type Database = {
           sale_date?: string
           selected_size?: string | null
           service_centre_id?: string | null
+          settlement_certificate_issued_at?: string | null
+          settlement_completed_at?: string | null
           smartphone_catalog_id?: string | null
           supplier_id?: string | null
           total_amount?: number
@@ -29012,6 +29016,8 @@ export type Database = {
           sale_date?: string
           selected_size?: string | null
           service_centre_id?: string | null
+          settlement_certificate_issued_at?: string | null
+          settlement_completed_at?: string | null
           smartphone_catalog_id?: string | null
           supplier_id?: string | null
           total_amount?: number
@@ -40450,6 +40456,138 @@ export type Database = {
           verified_by?: string | null
         }
         Relationships: []
+      }
+      rent_pipeline_awareness_calls: {
+        Row: {
+          aware_30m: string | null
+          aware_merchant_codes: string | null
+          call_result: string
+          caller_id: string
+          caller_team: string
+          dial_started_at: string
+          explained: string | null
+          id: string
+          note: string | null
+          pipeline_stage: string
+          recorded_at: string
+          rent_request_id: string
+          subject_phone: string
+          subject_type: string
+          subject_user_id: string | null
+        }
+        Insert: {
+          aware_30m?: string | null
+          aware_merchant_codes?: string | null
+          call_result: string
+          caller_id: string
+          caller_team: string
+          dial_started_at: string
+          explained?: string | null
+          id?: string
+          note?: string | null
+          pipeline_stage: string
+          recorded_at?: string
+          rent_request_id: string
+          subject_phone: string
+          subject_type: string
+          subject_user_id?: string | null
+        }
+        Update: {
+          aware_30m?: string | null
+          aware_merchant_codes?: string | null
+          call_result?: string
+          caller_id?: string
+          caller_team?: string
+          dial_started_at?: string
+          explained?: string | null
+          id?: string
+          note?: string | null
+          pipeline_stage?: string
+          recorded_at?: string
+          rent_request_id?: string
+          subject_phone?: string
+          subject_type?: string
+          subject_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rent_pipeline_awareness_calls_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_request_formula_drift"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rent_pipeline_awareness_calls_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rent_pipeline_awareness_calls_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_pipeline_awareness_calls_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_partner_self_fundable_plans"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_pipeline_awareness_calls_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_expired_owing"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_pipeline_awareness_calls_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_pipeline_awareness_calls_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_pipeline_awareness_calls_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_daily_eligibility"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_pipeline_awareness_calls_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_pipeline_awareness_calls_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_pipeline_awareness_calls_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
+          },
+        ]
       }
       rent_repaid_reconciliation_snapshot: {
         Row: {
