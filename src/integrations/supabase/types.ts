@@ -60657,6 +60657,17 @@ export type Database = {
         Args: { p_agent_id: string }
         Returns: Json
       }
+      awareness_call_status_for_requests: {
+        Args: { p_request_ids: string[] }
+        Returns: {
+          answered_at_current_stage: number
+          answered_person_types: string[]
+          calls_at_current_stage: number
+          calls_total: number
+          last_call_at: string
+          rent_request_id: string
+        }[]
+      }
       awareness_calls_by_caller: {
         Args: {
           p_answer?: string
@@ -60747,6 +60758,7 @@ export type Database = {
         Args: {
           p_answer?: string
           p_answer_field?: string
+          p_bucket?: string
           p_caller?: string
           p_district?: string
           p_from?: string
@@ -60765,6 +60777,7 @@ export type Database = {
           p_from?: string
           p_limit?: number
           p_offset?: number
+          p_outcome?: string
           p_region?: string
           p_status?: string
           p_team?: string
@@ -69650,6 +69663,19 @@ export type Database = {
           source_queue: string
         }
         Returns: number
+      }
+      my_awareness_calls_log: {
+        Args: {
+          p_from?: string
+          p_limit?: number
+          p_offset?: number
+          p_to?: string
+        }
+        Returns: Json
+      }
+      my_awareness_calls_summary: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
       }
       my_bank_account_lock: { Args: never; Returns: Json }
       my_location_correction_status: { Args: never; Returns: Json }
