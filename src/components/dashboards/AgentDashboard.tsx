@@ -250,6 +250,7 @@ interface AgentDashboardProps {
 export default function AgentDashboard({ user, signOut, currentRole, availableRoles, onRoleChange, addRoleComponent }: AgentDashboardProps) {
   // Behaviour telemetry tracking
   useTrackSection('agent-overview', 'agent');
+  const { data: myEliteRank } = useMyEliteRank();
 
   // Proxy Agent shortcut is only surfaced to database-approved proxy agents.
   const { data: proxyStatus } = useMyProxyAgentStatus(user?.id);
