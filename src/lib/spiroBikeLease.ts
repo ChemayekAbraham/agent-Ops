@@ -6,7 +6,7 @@
  *   • each month's fee is 28% of the principal still outstanding at the START
  *     of that month (so it falls every month),
  *   • the daily wallet deduction is that month's due amount divided by the
- *     real number of days in that repayment month, so it also falls every month.
+ *     flat 30-day lease month, so it also falls every month.
  * Must stay identical to public._spiro_lease_month / _spiro_month_days on the server.
  */
 
@@ -36,7 +36,7 @@ export interface SpiroLeaseMonth {
   totalDue: number;
   /** Principal outstanding after this month's payment. */
   closingPrincipal: number;
-  /** Real calendar days in this month of the lease. */
+  /** Days in this lease month (always 30). */
   days: number;
   /** Daily wallet deduction during this month. */
   daily: number;
