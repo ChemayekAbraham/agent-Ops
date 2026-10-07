@@ -56,6 +56,7 @@ interface CatalogItem {
 interface RecoveryPlan {
   id: string;
   sale_id: string | null;
+  pricing_basis?: string | null;
   item_name: string;
   original_amount: number;
   outstanding_balance: number;
