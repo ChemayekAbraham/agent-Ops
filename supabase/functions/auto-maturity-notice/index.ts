@@ -1,6 +1,6 @@
 // Daily: emails the partner the "partnership maturity notice" once their active
 // portfolio is within 3 months of its maturity date. Each portfolio + maturity
-// date is notified only once (portfolio_maturity_notices), so renewals get a
+// date is notified once at 3 months and once more under 30 days; each only once (portfolio_maturity_notices), so renewals get a
 // fresh notice for their new maturity date and manual sends are not repeated.
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -55,7 +55,25 @@ Deno.serve(async (req) => {
         .select("portfolio_id, maturity_date").in("portfolio_id", ids.slice(i, i + 200));
       for (const n of data ?? []) done.add(`${n.portfolio_id}|${n.maturity_date}`);
     }
-    const due = rows.filter((p) => !done.has(`${p.id}|${p.maturity_date}`));
+    // Second notice: once a portfolio is under 30 days from maturity, remind the partner again.
+    const d30 = new Date(`${today}T00:00:00Z`);
+    d30.setUTCDate(d30.getUTCDate() + 30);
+    const day30 = d30.toISOString().slice(0, 10);
+    const finalDone = new Set<string>();
+    for (let i = 0; i < ids.length; i += 200) {
+      const { data } = await admin.from("portfolio_maturity_notices")
+        .select("portfolio_id, maturity_date").in("portfolio_id", ids.slice(i, i + 200)).not("final_outcome", "is", null);
+      for (const n of data ?? []) finalDone.add(`${n.portfolio_id}|${n.maturity_date}`);
+    }
+    type Stage = "initial" | "final";
+    const stageOf = new Map<string, Stage>();
+    const due = rows.filter((p) => {
+      const k = `${p.id}|${p.maturity_date}`;
+      const within30 = String(p.maturity_date) < day30;
+      if (!done.has(k)) { stageOf.set(p.id, "initial"); return true; }
+      if (within30 && !finalDone.has(k)) { stageOf.set(p.id, "final"); return true; }
+      return false;
+    });
 
     const recipientIds = [...new Set(due.map((p) => p.investor_id || p.agent_id).filter(Boolean))] as string[];
     const profiles = new Map<string, { email: string | null; full_name: string | null }>();
@@ -70,10 +88,20 @@ Deno.serve(async (req) => {
     for (const p of due) {
       const prof = profiles.get((p.investor_id || p.agent_id) as string);
       const email = prof?.email?.trim();
-      const record = (outcome: string) => admin.from("portfolio_maturity_notices").upsert(
-        { portfolio_id: p.id, maturity_date: p.maturity_date, recipient_email: email ?? null, source: "auto", outcome },
-        { onConflict: "portfolio_id,maturity_date", ignoreDuplicates: true },
-      );
+      const stage = stageOf.get(p.id) as Stage;
+      const within30 = String(p.maturity_date) < day30;
+      const record = async (outcome: string) => {
+        if (stage === "initial") {
+          const extra = within30 ? { final_outcome: outcome, final_sent_at: new Date().toISOString() } : {};
+          return admin.from("portfolio_maturity_notices").upsert(
+            { portfolio_id: p.id, maturity_date: p.maturity_date, recipient_email: email ?? null, source: "auto", outcome, ...extra },
+            { onConflict: "portfolio_id,maturity_date", ignoreDuplicates: true },
+          );
+        }
+        return admin.from("portfolio_maturity_notices")
+          .update({ final_outcome: outcome, final_sent_at: new Date().toISOString() })
+          .eq("portfolio_id", p.id).eq("maturity_date", p.maturity_date);
+      };
       if (!email) { summary.no_email++; await record("no_email"); continue; }
 
       const ref = p.portfolio_code || `PF-${String(p.id).replace(/-/g, "").slice(0, 8).toUpperCase()}`;
@@ -83,7 +111,7 @@ Deno.serve(async (req) => {
         body: JSON.stringify({
           templateName: "partnership-maturity-notice",
           recipientEmail: email,
-          idempotencyKey: `partnership-maturity-notice-${p.id}-${p.maturity_date}`,
+          idempotencyKey: stage === "final" ? `partnership-maturity-notice-30d-${p.id}-${p.maturity_date}` : `partnership-maturity-notice-${p.id}-${p.maturity_date}`,
           templateData: {
             partner_name: prof?.full_name || "Partner",
             partnership_reference: ref,

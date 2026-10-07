@@ -3410,6 +3410,13 @@
       "when": 1791359277504,
       "tag": "0486_portfolio_maturity_notices",
       "breakpoints": true
+    },
+    {
+      "idx": 487,
+      "version": "7",
+      "when": 1791360167146,
+      "tag": "0487_maturity_notice_30d_reminder",
+      "breakpoints": true
     }
   ]
 }
