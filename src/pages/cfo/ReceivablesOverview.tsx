@@ -325,13 +325,20 @@ function SubDetail({ catKey, label, productKey, product }: {
   });
   const stream = fc?.streams.find((s) => s.category_key === catKey && s.product_key === productKey);
   const hasBehaviour = !!stream && !stream.insufficient_data;
-  const proj = (fc?.periods ?? []).map((p, i) => ({
-    label: p.label,
-    behaviour: hasBehaviour ? p.sources.filter((s) => s.product_key === productKey && s.basis === 'modelled').reduce((a, s) => a + s.runoff, 0) : null,
-    ideal: ideal.data?.[i]?.products.filter((s) => s.product_key === productKey).reduce((a, s) => a + s.scheduled, 0) ?? null,
-  }));
+  // get_receivables_forecast rolls already-overdue scheduled balances into the
+  // first window that starts on/before today. Those are arrears, not upcoming
+  // collections, so take them out of the Ideal schedule and report separately.
+  const arrearsIdx = (fc?.periods ?? []).findIndex((p) => p.forecast_from <= t);
+  const proj = (fc?.periods ?? []).map((p, i) => {
+    const raw = ideal.data?.[i]?.products.filter((s) => s.product_key === productKey).reduce((a, s) => a + s.scheduled, 0);
+    return {
+      label: p.label,
+      behaviour: hasBehaviour ? p.sources.filter((s) => s.product_key === productKey && s.basis === 'modelled').reduce((a, s) => a + s.runoff, 0) : null,
+      ideal: raw == null ? null : i === arrearsIdx && overdue !== undefined ? Math.max(0, raw - overdue) : raw,
+    };
+  });
   const bTotal = hasBehaviour ? proj.reduce((a, p) => a + (p.behaviour ?? 0), 0) : null;
-  const iTotal = ideal.data ? proj.reduce((a, p) => a + (p.ideal ?? 0), 0) : null;
+  const iTotal = ideal.data && (arrearsIdx < 0 || overdue !== undefined) ? proj.reduce((a, p) => a + (p.ideal ?? 0), 0) : null;
 
   if (!product) {
     return <Card title={label}><p className="text-sm text-muted-foreground">No live outstanding balance is recorded for {label} yet.</p></Card>;
