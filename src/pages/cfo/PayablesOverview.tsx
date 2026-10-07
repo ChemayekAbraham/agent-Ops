@@ -76,8 +76,9 @@ export default function PayablesOverview() {
             {catKey === 'daily' ? <DailyForecast /> : breakdown.isLoading ? <Panel><p className="text-xs text-muted-foreground">Loading live payables…</p></Panel> : breakdown.isError || total.isError ? <Panel><p className="text-xs text-destructive">Could not load payables. Please refresh.</p></Panel> : cat ? <>
               {cat.products.length ? <><div role="tablist" aria-label="Payable products" className="inline-flex flex-wrap gap-1 rounded-lg border border-border/70 bg-card p-1">{cat.products.map((p) => <Button key={p.key} variant="ghost" size="sm" role="tab" aria-selected={product?.key === p.key} onClick={() => go(cat.key, p.key)} className={`rounded-md whitespace-normal text-xs ${product?.key === p.key ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-primary hover:bg-primary/10'}`}>{p.label}</Button>)}</div>{product && <ProductDetail product={product} />}</> : <Panel><p className="text-xs text-muted-foreground">No open payables in this category.</p></Panel>}
             </> : <>
-              <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-7">
                 <Metric label="Total Payables" value={money(total.data?.total)} note="Outstanding obligations" icon={Wallet} tone="primary" />
+                <Metric label="Net Payables" value={money(receivableExpected === undefined ? undefined : (total.data?.total ?? 0) - receivableExpected)} note="After next 7 days expected collections" icon={Wallet} tone="primary" />
                 <Metric label="Current" value={money(forecast.data?.actual.not_yet_due)} note="Not yet due" icon={CheckCircle2} tone="success" />
                 <Metric label="Overdue" value={money(total.data?.overdue)} note="Past due date" icon={AlertTriangle} tone="destructive" />
                 <Metric label="Due in 7 Days" value={money(scheduled)} note="Scheduled portion of forecast" icon={CalendarDays} tone="primary" />
