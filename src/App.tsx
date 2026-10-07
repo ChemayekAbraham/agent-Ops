@@ -227,6 +227,7 @@ const CRMDashboardPage = lazy(() => import('./pages/crm/Dashboard'));
 const CFODashboardPage = lazy(() => import('./pages/cfo/Dashboard'));
 const CFOReceivablesAnalysisPage = lazy(() => import('./pages/cfo/ReceivablesOverview'));
 const CFOPayablesOverviewPage = lazy(() => import('./pages/cfo/PayablesOverview'));
+const CFOWelileHomesDayReportPage = lazy(() => import('./pages/cfo/WelileHomesDayReport'));
 const InvestorReportPage = lazy(() => import('./pages/cfo/InvestorReportPage'));
 const MoneyFlowTracePage = lazy(() => import('./pages/cfo/MoneyFlowTrace'));
 const LedgerEntryDetailPage = lazy(() => import('./pages/cfo/LedgerEntryDetail'));
@@ -713,6 +714,7 @@ function AppRoutes() {
           <Route path="/cfo/dashboard" element={<RoleGuard allowedRoles={['cfo', 'super_admin', 'cto']} requiredPermission="cfo"><CFODashboardPage /></RoleGuard>} />
           <Route path="/cfo/receivables" element={<RoleGuard allowedRoles={['cfo', 'super_admin', 'cto']} requiredPermission="cfo"><CFOReceivablesAnalysisPage /></RoleGuard>} />
           <Route path="/cfo/payables" element={<RoleGuard allowedRoles={['cfo', 'super_admin', 'cto']} requiredPermission="cfo"><CFOPayablesOverviewPage /></RoleGuard>} />
+          <Route path="/cfo/welile-homes" element={<RoleGuard allowedRoles={['cfo', 'super_admin', 'cto']} requiredPermission="cfo"><CFOWelileHomesDayReportPage /></RoleGuard>} />
           <Route path="/cfo" element={<Navigate to="/cfo/dashboard" replace />} />
           <Route path="/dashboard/cfo" element={<Navigate to="/cfo/dashboard" replace />} />
           <Route path="/admin/cfo" element={<Navigate to="/cfo/dashboard" replace />} />

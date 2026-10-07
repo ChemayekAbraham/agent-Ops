@@ -62205,6 +62205,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      cfo_welile_homes_day_report: { Args: { p_day: string }; Returns: Json }
       change_wallet_transfer_schedule_recipient: {
         Args: { p_recipient_id: string; p_schedule_id: string }
         Returns: {
