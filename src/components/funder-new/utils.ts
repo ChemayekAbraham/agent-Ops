@@ -174,6 +174,7 @@ export function toSelectionItem(
     monthlyReturn: itemMonthlyReturn(category, item),
     termLabel: category === 'empty' ? '1 month house support' : readyPlanTerm(item as FunderNewReadyPlan),
     imageUrl: firstPhoto(category, item),
+    ...contactFields(category, item),
   };
 }
 
@@ -209,3 +210,35 @@ export function itemCoordinates(
 
 /** Kept for compatibility with the earlier route-local helper name. */
 export const hasCoordinates = itemCoordinates;
+
+function toNum(v: unknown): number | null {
+  const n = typeof v === 'string' ? Number(v) : (v as number | null | undefined);
+  return typeof n === 'number' && Number.isFinite(n) ? n : null;
+}
+
+function contactFields(category: FunderNewCategory, item: FunderNewEmptyHouse | FunderNewReadyPlan) {
+  const any = item as unknown as Record<string, unknown>;
+  const str = (k: string) => (typeof any[k] === 'string' && (any[k] as string).trim() ? (any[k] as string) : null);
+  if (category === 'empty') {
+    return {
+      landlordName: str('landlord_name'),
+      landlordPhone: str('landlord_phone'),
+      agentName: str('listing_agent_name'),
+      agentPhone: str('listing_agent_phone') ?? str('agent_phone'),
+      tenantName: null,
+      tenantPhone: null,
+      lat: toNum(any.latitude),
+      lng: toNum(any.longitude),
+    };
+  }
+  return {
+    landlordName: str('landlord_name'),
+    landlordPhone: str('landlord_phone'),
+    agentName: str('proxy_agent_name'),
+    agentPhone: str('proxy_agent_phone'),
+    tenantName: str('tenant_full_name') ?? str('tenant_first_name'),
+    tenantPhone: str('tenant_phone'),
+    lat: toNum(any.request_latitude),
+    lng: toNum(any.request_longitude),
+  };
+}
