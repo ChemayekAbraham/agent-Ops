@@ -10729,6 +10729,57 @@ export type Database = {
         }
         Relationships: []
       }
+      cfo_reporting_cost_tags: {
+        Row: {
+          amount: number
+          applied_at: string
+          applied_by: string
+          business_line: string
+          expense_ledger_entry_id: string
+          id: string
+          original_recipient_id: string
+          original_recipient_name: string
+          payment_reference: string
+          purpose: string
+          reason: string
+          requisition_ref: string | null
+          review_flag: string | null
+          transaction_group_id: string
+        }
+        Insert: {
+          amount: number
+          applied_at?: string
+          applied_by: string
+          business_line: string
+          expense_ledger_entry_id: string
+          id?: string
+          original_recipient_id: string
+          original_recipient_name: string
+          payment_reference: string
+          purpose: string
+          reason: string
+          requisition_ref?: string | null
+          review_flag?: string | null
+          transaction_group_id: string
+        }
+        Update: {
+          amount?: number
+          applied_at?: string
+          applied_by?: string
+          business_line?: string
+          expense_ledger_entry_id?: string
+          id?: string
+          original_recipient_id?: string
+          original_recipient_name?: string
+          payment_reference?: string
+          purpose?: string
+          reason?: string
+          requisition_ref?: string | null
+          review_flag?: string | null
+          transaction_group_id?: string
+        }
+        Relationships: []
+      }
       cfo_statutory_consent_notices: {
         Row: {
           created_at: string

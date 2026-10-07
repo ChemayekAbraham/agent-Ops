@@ -3508,6 +3508,13 @@
       "when": 1791402121716,
       "tag": "0500_merchandise_recovery_eligibility_gate",
       "breakpoints": true
+    },
+    {
+      "idx": 501,
+      "version": "7",
+      "when": 1791407767064,
+      "tag": "0501_cfo_reporting_cost_tags",
+      "breakpoints": true
     }
   ]
 }
