@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input';
 import TenantReceivablesDetail from '@/components/executive/TenantReceivablesDetail';
 import AgentReceivablesDetail from '@/components/executive/AgentReceivablesDetail';
 import ReceivablesProjection from '@/components/cfo/ReceivablesProjection';
+import ReceivablesByLocation from '@/components/cfo/ReceivablesByLocation';
 import { usePayablesPredictiveForecast } from '@/hooks/usePayables';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -244,6 +245,7 @@ function Overview({ cats, products, onOpen, total, search }: {
         <OverviewMetric label="Collection Rate" value="Unavailable" note="No consolidated rate" icon={TrendingUp} tone="success" />
         <OverviewMetric label="Accounts Receivable" value={counts.toLocaleString()} note="Open receivable items" icon={Users} tone="info" />
       </div>
+      <ReceivablesByLocation />
       <div className="grid gap-3 xl:grid-cols-[1.4fr_1.2fr_1fr] [&>*]:min-w-0">
         <Card title="Receivables by Category" className="h-full category-table">
           <div className="overflow-x-auto">
