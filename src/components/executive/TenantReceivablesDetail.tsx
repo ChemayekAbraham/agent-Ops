@@ -18,6 +18,7 @@ type Props = {
   forecast: ForecastRow[];
   behaviourTotal: number | null;
   idealTotal: number | null;
+  arrears?: number;
 };
 
 const amount = (value: number | null | undefined) => value == null ? 'Unavailable' : formatUGX(value);
@@ -32,7 +33,12 @@ function Metric({ label, value, note, icon: Icon, tone }: { label: string; value
   return <div className="min-w-0 rounded-lg border border-border bg-card p-4"><div className="mb-3 flex items-center gap-2"><span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${colors[tone]}`}><Icon className="h-4 w-4" /></span><h2 className="text-[10px] font-medium">{label}</h2></div><p className="break-words text-base font-semibold tabular-nums">{value}</p><p className="mt-2 text-[10px] text-muted-foreground">{note}</p></div>;
 }
 
-export default function TenantReceivablesDetail({ product, current, overdue, complete, today, locations, locationLoading, locationError, forecast, behaviourTotal, idealTotal }: Props) {
+export default function TenantReceivablesDetail({ product, current, overdue, complete, today, locations, locationLoading, locationError, forecast, behaviourTotal, idealTotal, arrears }: Props) {
+  // Due in 7 Days = today <= due_date <= today + 7 (Kampala). Overdue never counts.
+  const in7End = new Date(`${today}T00:00:00Z`); in7End.setUTCDate(in7End.getUTCDate() + 7);
+  const in7EndYmd = in7End.toISOString().slice(0, 10);
+  const due7 = complete ? product.items.filter((i) => { const d = i.due_date?.slice(0, 10); return !!d && d >= today && d <= in7EndYmd; }).reduce((a, i) => a + i.amount, 0) : null;
+  const arrearsNote = arrears ? `Overdue arrears / catch-up ${formatUGX(arrears)} is excluded from the Ideal schedule` : null;
   const [allAccounts, setAllAccounts] = useState(false);
   const [allLocations, setAllLocations] = useState(false);
   const [allInsights, setAllInsights] = useState(false);
@@ -52,7 +58,7 @@ export default function TenantReceivablesDetail({ product, current, overdue, com
       <Metric label="Total Accounts" value={product.item_count.toLocaleString()} note="Open receivable items" icon={Users} tone="info" />
       <Metric label="Outstanding Amount" value={formatUGX(product.outstanding)} note="Selected product outstanding" icon={Coins} tone="success" />
       <Metric label="Overdue Amount" value={amount(overdue)} note={overdue === undefined ? 'Complete account data unavailable' : `${share(overdue)} of outstanding`} icon={Clock3} tone="destructive" />
-      <Metric label="Due in 7 Days" value={amount(idealTotal)} note="Scheduled collections" icon={CalendarDays} tone="info" />
+      <Metric label="Due in 7 Days" value={amount(due7)} note="Scheduled collections" icon={CalendarDays} tone="info" />
       <Metric label="Collection Rate" value="Unavailable" note="No consolidated collection rate" icon={Target} tone="success" />
     </div>
     <div className="grid items-start gap-3 xl:grid-cols-[1.3fr_1fr]">
@@ -60,7 +66,7 @@ export default function TenantReceivablesDetail({ product, current, overdue, com
         <Panel title="7-Day Collection Forecast">
           <p className="mb-3 text-[10px] text-muted-foreground">Expected collections vs. scheduled collections</p>
           <div className="h-64 rounded-lg bg-primary/10 p-1"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={forecast} margin={{ top: 10, right: 8, left: 0, bottom: 0 }}><CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border))" /><XAxis dataKey="label" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} stroke="hsl(var(--muted-foreground))" /><YAxis width={64} tick={{ fontSize: 10 }} tickFormatter={(v: number) => `UGX ${short(v)}`} tickLine={false} axisLine={false} stroke="hsl(var(--muted-foreground))" /><Tooltip formatter={(v: number) => formatUGX(v)} /><Legend wrapperStyle={{ fontSize: 10 }} /><Bar dataKey="behaviour" name="Expected Collections (UGX)" fill="hsl(var(--primary))" maxBarSize={38} radius={[3, 3, 0, 0]} /><Line dataKey="ideal" name="Ideal (scheduled UGX)" stroke="hsl(var(--success))" strokeWidth={2} dot={{ r: 3 }} /></ComposedChart></ResponsiveContainer></div>
-          <div className="mt-2 flex flex-wrap justify-between gap-2 text-[10px] text-muted-foreground"><span>Behaviour {amount(behaviourTotal)}</span><span>Ideal {amount(idealTotal)}</span></div>
+          <div className="mt-2 flex flex-wrap justify-between gap-2 text-[10px] text-muted-foreground"><span>Behaviour {amount(behaviourTotal)}</span><span>Ideal (scheduled) {amount(idealTotal)}</span></div>{arrearsNote && <p className="mt-1 text-[10px] text-warning">{arrearsNote}.</p>}
         </Panel>
         <Panel title="Top Accounts by Outstanding Balance" action={action(allAccounts, () => setAllAccounts(!allAccounts))}>
           {!complete && <p className="mb-2 text-[10px] text-muted-foreground">Available account sample · {product.items.length} of {product.item_count.toLocaleString()} items</p>}
@@ -75,7 +81,7 @@ export default function TenantReceivablesDetail({ product, current, overdue, com
               <ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={distribution.length ? distribution : [{ amount: 1 }]} dataKey="amount" nameKey="label" innerRadius="74%" outerRadius="96%" startAngle={90} endAngle={-270} stroke="none">{distribution.length ? distribution.map((row) => <Cell key={row.label} fill={row.color} />) : <Cell fill="hsl(var(--muted))" />}</Pie>{distribution.length > 0 && <Tooltip formatter={(v: number) => formatUGX(v)} />}</PieChart></ResponsiveContainer>
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1"><span className="text-[10px] text-muted-foreground">UGX</span><span className="text-xl font-semibold tabular-nums">{short(product.outstanding)}</span><span className="text-[10px] text-muted-foreground">Outstanding</span></div>
             </div>
-            <div className="space-y-6 text-[10px]">{[{ label: 'Current', value: current, dot: 'bg-success' }, { label: 'Overdue', value: overdue, dot: 'bg-warning' }, { label: 'Due in 7 Days', value: idealTotal, dot: 'bg-primary' }].map((row) => <div key={row.label} className="grid grid-cols-[minmax(0,1fr)_auto_34px] items-center gap-2"><span className="flex items-center gap-2"><span className={`h-2 w-2 shrink-0 rounded-full ${row.dot}`} /><span>{row.label}</span></span><span className="whitespace-nowrap text-right tabular-nums text-muted-foreground">{amount(row.value)}</span><span className="text-right tabular-nums text-muted-foreground">{row.value == null ? '—' : share(row.value)}</span></div>)}</div>
+            <div className="space-y-6 text-[10px]">{[{ label: 'Current', value: current, dot: 'bg-success' }, { label: 'Overdue', value: overdue, dot: 'bg-warning' }, { label: 'Due in 7 Days', value: due7, dot: 'bg-primary' }].map((row) => <div key={row.label} className="grid grid-cols-[minmax(0,1fr)_auto_34px] items-center gap-2"><span className="flex items-center gap-2"><span className={`h-2 w-2 shrink-0 rounded-full ${row.dot}`} /><span>{row.label}</span></span><span className="whitespace-nowrap text-right tabular-nums text-muted-foreground">{amount(row.value)}</span><span className="text-right tabular-nums text-muted-foreground">{row.value == null ? '—' : share(row.value)}</span></div>)}</div>
           </div>
           {!distribution.length && <p className="mt-2 text-[10px] text-muted-foreground">Current and overdue totals are unavailable in this account sample.</p>}
         </Panel>
@@ -84,7 +90,7 @@ export default function TenantReceivablesDetail({ product, current, overdue, com
           {!rows.length && <p className="py-5 text-xs text-muted-foreground">{locationLoading ? 'Loading locations…' : locationError ? 'Location report unavailable.' : 'No location data available.'}</p>}
         </Panel>
         <Panel title="Key Insights & Alerts" action={action(allInsights, () => setAllInsights(!allInsights))}>
-          <div className="divide-y divide-border"><Insight icon={AlertTriangle} tone="destructive" title="Top 5 overdue accounts" detail={complete ? `${formatUGX([...overdueItems].sort((a, b) => b.amount - a.amount).slice(0, 5).reduce((sum, item) => sum + item.amount, 0))} · ${overdueItems.length} overdue items` : 'Complete dated account data unavailable'} /><Insight icon={Target} tone="warning" title="Collection rate" detail="No consolidated collection rate available" /><Insight icon={MapPin} tone="info" title="Highest location concentration" detail={largestLocation ? `${largestLocation.label} · ${share(largestLocation.outstanding)} of outstanding` : 'Location breakdown unavailable'} />{allInsights && <Insight icon={CheckCircle2} tone="success" title="Scheduled collections" detail={`${amount(idealTotal)} due in the next 7 days`} />}</div>
+          <div className="divide-y divide-border"><Insight icon={AlertTriangle} tone="destructive" title="Top 5 overdue accounts" detail={complete ? `${formatUGX([...overdueItems].sort((a, b) => b.amount - a.amount).slice(0, 5).reduce((sum, item) => sum + item.amount, 0))} · ${overdueItems.length} overdue items` : 'Complete dated account data unavailable'} /><Insight icon={Target} tone="warning" title="Collection rate" detail="No consolidated collection rate available" /><Insight icon={MapPin} tone="info" title="Highest location concentration" detail={largestLocation ? `${largestLocation.label} · ${share(largestLocation.outstanding)} of outstanding` : 'Location breakdown unavailable'} />{allInsights && <Insight icon={CheckCircle2} tone="success" title="Scheduled collections" detail={`${amount(due7)} due in the next 7 days`} />}</div>
         </Panel>
       </div>
     </div>
