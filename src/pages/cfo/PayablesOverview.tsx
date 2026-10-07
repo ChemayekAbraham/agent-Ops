@@ -19,6 +19,7 @@ export default function PayablesOverview() {
   const [search, setSearch] = useState('');
   const [params, setParams] = useSearchParams();
   const total = usePayablesTotal();
+  const receivablesForecast = useReceivablesPredictiveForecast('day', 7);
   const breakdown = usePayablesBreakdown();
   const forecast = usePayablesPredictiveForecast('day', 7);
   const cats = breakdown.data?.categories ?? [];
