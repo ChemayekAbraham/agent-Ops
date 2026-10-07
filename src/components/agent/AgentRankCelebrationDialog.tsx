@@ -12,9 +12,9 @@ type Tier = 'diamond' | 'platinum' | 'gold' | 'silver';
 
 export const TIER_META: Record<Tier, { label: string; from: string; to: string }> = {
   diamond: { label: 'Diamond', from: '#22D3EE', to: '#8B5CF6' },
-  platinum: { label: 'Platinum', from: '#E2E8F0', to: '#64748B' },
+  platinum: { label: 'Platinum', from: '#DCE6FF', to: '#4F6198' },
   gold: { label: 'Gold', from: '#FDE047', to: '#D97706' },
-  silver: { label: 'Silver', from: '#F1F5F9', to: '#94A3B8' },
+  silver: { label: 'Silver', from: '#F4F4F5', to: '#A1A1AA' },
 };
 
 type Perk = { icon: typeof Zap; text: string };
@@ -102,7 +102,7 @@ export function CelebrationBody({ tier, position, score, name, onClose }: { tier
           style={{ background: `radial-gradient(circle at 50% 30%, ${meta.from}55, transparent 70%)` }}>
           {!reduce && [...Array(10)].map((_, i) => (
             <motion.span key={i} className="absolute h-1.5 w-1.5 rounded-full"
-              style={{ background: meta.from, left: `${10 + i * 8}%`, top: '55%' }}
+              style={{ background: i % 2 ? '#8B5CF6' : '#A78BFA', boxShadow: '0 0 6px rgba(139,92,246,0.6)', left: `${10 + i * 8}%`, top: '55%' }}
               initial={{ opacity: 0, y: 0 }}
               animate={{ opacity: [0, 1, 0], y: -90 - (i % 3) * 20 }}
               transition={{ duration: 1.8, delay: i * 0.12, repeat: Infinity, repeatDelay: 1 }} />

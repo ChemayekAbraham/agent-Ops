@@ -4,9 +4,9 @@ import type { EliteTier } from '@/hooks/useEliteRanks';
 
 export const ELITE_TIER_COLORS: Record<EliteTier, { label: string; from: string; to: string; ring: string; glow: string }> = {
   diamond: { label: 'Diamond', from: '#22D3EE', to: '#8B5CF6', ring: 'conic-gradient(from 0deg, #22D3EE, #8B5CF6, #22D3EE)', glow: 'rgba(139,92,246,0.45)' },
-  platinum: { label: 'Platinum', from: '#E2E8F0', to: '#64748B', ring: 'conic-gradient(from 0deg, #CBD5E1, #64748B, #93A3C0, #CBD5E1)', glow: 'rgba(100,116,139,0.45)' },
+  platinum: { label: 'Platinum', from: '#DCE6FF', to: '#4F6198', ring: 'conic-gradient(from 0deg, #DCE6FF, #4F6198, #93A6D6, #DCE6FF)', glow: 'rgba(79,97,152,0.5)' },
   gold: { label: 'Gold', from: '#FDE047', to: '#D97706', ring: 'conic-gradient(from 0deg, #FDE047, #D97706, #FBBF24, #FDE047)', glow: 'rgba(217,119,6,0.45)' },
-  silver: { label: 'Silver', from: '#F1F5F9', to: '#94A3B8', ring: 'conic-gradient(from 0deg, #F1F5F9, #94A3B8, #E2E8F0, #F1F5F9)', glow: 'rgba(148,163,184,0.45)' },
+  silver: { label: 'Silver', from: '#F4F4F5', to: '#A1A1AA', ring: 'conic-gradient(from 0deg, #F4F4F5, #A1A1AA, #D4D4D8, #F4F4F5)', glow: 'rgba(161,161,170,0.45)' },
 };
 
 const GEM_PX = { xs: 10, sm: 14, md: 18, lg: 26 } as const;
