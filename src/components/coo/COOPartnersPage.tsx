@@ -97,6 +97,7 @@ import { FundInvestmentAccountDialog } from '@/components/manager/FundInvestment
 import { CreateInvestmentAccountDialog } from '@/components/manager/CreateInvestmentAccountDialog';
 import { InvitePartnerPortfolioDialog } from '@/components/partner/InvitePartnerPortfolioDialog';
 import { LockPortfolioDialog, type LockablePortfolio } from '@/components/partner/LockPortfolioDialog';
+import { SplitPortfolioDialog, type SplittablePortfolio } from '@/components/partner/SplitPortfolioDialog';
 import { UnlockPortfolioDialog } from '@/components/partner/UnlockPortfolioDialog';
 import { LockOpen } from 'lucide-react';
 
@@ -484,6 +485,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
   const [renewOpen, setRenewOpen] = useState(false);
   // Lock portfolio dialog (full principal or split)
   const [lockPortfolio, setLockPortfolio] = useState<LockablePortfolio | null>(null);
+  const [splitPortfolio, setSplitPortfolio] = useState<SplittablePortfolio | null>(null);
   const [lockOpen, setLockOpen] = useState(false);
   const [unlockPortfolio, setUnlockPortfolio] = useState<LockablePortfolio | null>(null);
   const [renewalCounts, setRenewalCounts] = useState<Record<string, number>>({});
@@ -2769,7 +2771,7 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
                                   ? detailPartner.portfolios.find(x => x.id === p.locked_from_portfolio_id) || null
                                   : null;
                                 const lockedChildren = detailPartner.portfolios.filter(
-                                  x => x.locked_from_portfolio_id === p.id,
+                                  x => x.locked_from_portfolio_id === p.id && x.status === 'locked',
                                 );
                                 const lockedChildTotal = lockedChildren.reduce((sum, x) => sum + (x.investment_amount || 0), 0);
                                 const isPartiallyLocked = !isLocked && lockedChildren.length > 0;
@@ -3179,6 +3181,22 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
                                         ×{renewalCounts[p.id]}
                                       </Badge>
                                     )}
+                                  </Button>
+                                )}
+                                {!readOnly && p.status === 'active' && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-9 px-3 text-xs text-primary hover:text-primary hover:bg-primary/10 gap-1.5 min-h-[44px]"
+                                    onClick={() => setSplitPortfolio({
+                                      id: p.id,
+                                      portfolio_code: p.portfolio_code,
+                                      investment_amount: Number(p.investment_amount) || 0,
+                                      created_at: p.created_at,
+                                    })}
+                                    title="Split part of the principal into a new portfolio"
+                                  >
+                                    <Scissors className="h-3.5 w-3.5" /> Split
                                   </Button>
                                 )}
                                 {!readOnly && (
@@ -3914,6 +3932,15 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
         open={!!unlockPortfolio}
         onOpenChange={(o) => { if (!o) setUnlockPortfolio(null); }}
         portfolio={unlockPortfolio}
+        onSuccess={() => {
+          if (detailPartner?.profile?.id) openPartnerDetail(detailPartner.profile.id);
+        }}
+      />
+
+      <SplitPortfolioDialog
+        open={!!splitPortfolio}
+        onOpenChange={(o) => { if (!o) setSplitPortfolio(null); }}
+        portfolio={splitPortfolio}
         onSuccess={() => {
           if (detailPartner?.profile?.id) openPartnerDetail(detailPartner.profile.id);
         }}
