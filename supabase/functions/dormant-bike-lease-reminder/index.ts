@@ -70,7 +70,7 @@ Deno.serve(async (req) => {
     await admin.from("audit_logs").insert({
       user_id: u.user.id, action_type: "dormant_bike_lease_reminder_sms", table_name: "agent_bike_leases",
       record_id: lease.id, reason: "Dormant bike lease reminder SMS sent to agent",
-      metadata: { agent_id: lease.agent_id, outstanding: lease.amount_outstanding },
+      metadata: { agent_id: lease.agent_id, outstanding: lease.amount_outstanding, customized: Boolean(customMessage) },
     }).then(() => {}, () => {});
     return json({ ok: true });
   } catch (e) {

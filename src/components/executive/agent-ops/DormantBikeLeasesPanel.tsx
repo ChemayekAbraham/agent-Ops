@@ -1,12 +1,28 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, Phone, MessageSquare, Loader2, RefreshCw, MapPin } from 'lucide-react';
+import { AlertTriangle, Phone, MessageSquare, Loader2, RefreshCw, MapPin, RotateCcw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { formatUGX } from '@/lib/agentAdvanceCalculations';
+
+type Row = {
+  lease_id: string; agent_id: string; agent_name: string | null; agent_phone: string | null;
+  bike_model: string | null; last_repayment_at: string | null; days_since_last_repayment: number;
+  amount_outstanding: number; wallet_zero: boolean; service_centre: string | null;
+};
+
+const MAX_MSG = 480;
+
+function autoMessage(r: Row): string {
+  const name = (r.agent_name || 'Agent').split(' ')[0];
+  const bal = formatUGX(Number(r.amount_outstanding || 0));
+  return `Hello ${name}, your Welile electric bike lease has had no repayment for 7+ days. Outstanding: ${bal}. Please top up your Welile wallet today so your daily repayment can be collected. Thank you.`;
+}
 
 type Row = {
   lease_id: string; agent_id: string; agent_name: string | null; agent_phone: string | null;
