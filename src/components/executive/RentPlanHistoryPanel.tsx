@@ -100,6 +100,7 @@ const KIND_COLOR: Record<EventKind, string> = {
 };
 
 const SOURCE_BADGE: Partial<Record<EventKind, { label: string; className: string }>> = {
+  disbursed:     { label: 'Disbursement', className: 'bg-muted text-muted-foreground border-border' },
   agent_payment: { label: 'Agent Payment', className: 'bg-amber-100 text-amber-800 border-amber-200' },
   self_payment:  { label: 'Self Payment',  className: 'bg-emerald-100 text-emerald-800 border-emerald-200' },
 };
@@ -130,6 +131,36 @@ function categoryToKind(category: string, userId: string, tenantId: string): Eve
   if (category === 'tenant_repayment' && userId === tenantId) return 'self_payment';
   if (category === 'agent_commission_earned') return 'commission';
   return 'other_ledger';
+}
+
+// Labels describe the recorded movement, not a new payment confirmation.
+// In particular, landlord float is held by the agent; it is not landlord receipt.
+function disbursementLabel(leg: {
+  category: string;
+  direction: string;
+  description: string | null;
+}, agentId: string | null, userId: string): string {
+  if (/float (?:recalled|returned)|reversal.*tenant cancelled/i.test(leg.description || '')) {
+    return 'Rent funds returned to platform';
+  }
+  if (/Rent float funded for agent to pay landlord/i.test(leg.description || '')) {
+    return 'CFO → agent wallet (landlord payment funds)';
+  }
+  if (leg.category === 'rent_receivable_created') {
+    return 'Agent landlord-payment float credited';
+  }
+  if (leg.category === 'rent_float_funding') {
+    return 'Landlord-payment float funded';
+  }
+  if (leg.category === 'agent_landlord_payout') {
+    return leg.direction === 'cash_in' && userId !== agentId
+      ? 'Landlord received money'
+      : 'Agent sent money to landlord';
+  }
+  if (leg.category === 'advance_disbursement') {
+    return 'Advance funds disbursed';
+  }
+  return 'Rent funds disbursed';
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -226,7 +257,9 @@ export function RentPlanHistoryPanel({
             : kind === 'self_payment'
             ? 'Tenant (wallet)'
             : null,
-        actionLabel: KIND_LABEL[kind],
+        actionLabel: kind === 'disbursed'
+          ? disbursementLabel(leg, agentId, leg.user_id)
+          : KIND_LABEL[kind],
         paymentMethod: leg.ledger_scope || 'wallet',
         reference: leg.id.slice(0, 8),
         status: leg.category,
