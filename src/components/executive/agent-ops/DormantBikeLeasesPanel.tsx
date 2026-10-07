@@ -37,16 +37,25 @@ export function DormantBikeLeasesPanel() {
     },
   });
 
-  const remind = async (r: Row) => {
-    setSending(r.lease_id);
+  const openDialog = (r: Row) => {
+    setEditing(r);
+    setMessage(autoMessage(r));
+  };
+
+  const send = async () => {
+    if (!editing) return;
+    setSending(editing.lease_id);
     try {
-      const { data, error } = await supabase.functions.invoke('dormant-bike-lease-reminder', { body: { lease_id: r.lease_id } });
+      const { data, error } = await supabase.functions.invoke('dormant-bike-lease-reminder', {
+        body: { lease_id: editing.lease_id, custom_message: message.trim() },
+      });
       if (error || (data as any)?.error) {
         let msg = (data as any)?.error || error?.message;
         try { msg = (await (error as any)?.context?.json())?.error || msg; } catch { /* ignore */ }
         throw new Error(msg);
       }
-      toast.success(`Reminder sent to ${r.agent_name ?? 'agent'}`);
+      toast.success(`Reminder sent to ${editing.agent_name ?? 'agent'}`);
+      setEditing(null);
     } catch (e: any) {
       toast.error(e.message || 'Could not send reminder');
     } finally { setSending(null); }
