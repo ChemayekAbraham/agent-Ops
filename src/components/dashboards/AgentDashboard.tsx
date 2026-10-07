@@ -695,7 +695,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         home: 'Home',
         money: 'Money',
         tenants: 'Tenants',
-        grow: 'Grow',
+        grow: 'More',
         subagents: 'Sub Agents',
       };
       setTabAnnounce(`Switched to ${labelMap[activeTab]} section`);
@@ -1361,7 +1361,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
               <>
                 <EarningsSummaryCard />
                 <RankEarningsCard />
-                <EliteDialogPreviewButton />
 
                 {/* Products being repaid — plan + pay button per product */}
                 <MerchandiseRepaymentPortfolio userId={user.id} />
@@ -1786,6 +1785,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         {/* === GROW TAB === Share, recruit, partners */}
         {activeTab === 'grow' && (
           <div className={cn("space-y-5", tabAnimClass)}>
+            <EliteDialogPreviewButton />
             {/* Leaderboard CTA — draws agents into the recruitment competition */}
             <button
               onClick={() => { hapticTap(); navigate('/dashboard/agents/leaderboard'); }}
