@@ -3501,6 +3501,13 @@
       "when": 1791396702990,
       "tag": "0499_elite_rank_incentives",
       "breakpoints": true
+    },
+    {
+      "idx": 500,
+      "version": "7",
+      "when": 1791402121716,
+      "tag": "0500_merchandise_recovery_eligibility_gate",
+      "breakpoints": true
     }
   ]
 }
