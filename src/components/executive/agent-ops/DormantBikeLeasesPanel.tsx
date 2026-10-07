@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
-import { formatUGX } from '@/lib/rentCalculations';
+import { formatUGX } from '@/lib/agentAdvanceCalculations';
 
 type Row = {
   lease_id: string; agent_id: string; agent_name: string | null; agent_phone: string | null;

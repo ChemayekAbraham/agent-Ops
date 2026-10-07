@@ -15,6 +15,7 @@ import { BusinessAdvanceQueue } from '@/components/ops/BusinessAdvanceQueue';
 
 import { SmartphoneCatalogDialog } from '@/components/executive/agent-ops/SmartphoneCatalogDialog';
 import { MotorBikeCatalogDialog } from '@/components/executive/agent-ops/MotorBikeCatalogDialog';
+import { DormantBikeLeasesPanel } from '@/components/executive/agent-ops/DormantBikeLeasesPanel';
 import { SmartphoneOrderApprovalQueue } from '@/components/executive/agent-ops/SmartphoneOrderApprovalQueue';
 import { BikeLeaseApprovalQueue } from '@/components/executive/agent-ops/BikeLeaseApprovalQueue';
 import { LendingAgentsPanel } from '@/components/executive/LendingAgentsPanel';
@@ -338,6 +339,7 @@ function MotorBikeTabs({ category }: { category?: AgentProductCategory }) {
       </nav>
 
       <TabsContent value="overview" className="space-y-6 max-w-full">
+        <DormantBikeLeasesPanel />
         <AgentProductsPanel category={category} />
       </TabsContent>
 
