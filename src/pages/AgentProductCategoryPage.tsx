@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useParams, Navigate } from 'react-router-dom';
-import { ArrowLeft, Bike, Smartphone, ShoppingBag, Signpost, HandCoins, LayoutDashboard, ClipboardList, Clock, CheckCircle2, XCircle } from 'lucide-react';
+import { ArrowLeft, Bike, Smartphone, ShoppingBag, Signpost, HandCoins, LayoutDashboard, ClipboardList, Clock, CheckCircle2, XCircle, AlarmClockOff } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 
 import { supabase as db } from '@/integrations/supabase/client';
@@ -256,6 +256,7 @@ function MotorBikeTabs({ category }: { category?: AgentProductCategory }) {
 
   const bikeTabs = [
     { value: 'overview', label: 'Overview', icon: LayoutDashboard, count: 0 },
+    { value: 'dormant', label: 'Dormant Leases', mobileLabel: 'Dormant', icon: AlarmClockOff, count: 0 },
     { value: 'applications', label: 'Applications', icon: ClipboardList, count: counts.pendingOps, badgeColor: 'bg-amber-500' },
     { value: 'awaiting-exec', label: 'Awaiting Exec', mobileLabel: 'Awaiting', icon: Clock, count: counts.awaitingExec, badgeColor: 'bg-sky-500' },
     { value: 'approved', label: 'Approved', icon: CheckCircle2, count: counts.approved, badgeColor: 'bg-emerald-600' },
