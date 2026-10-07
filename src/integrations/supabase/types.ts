@@ -60638,6 +60638,23 @@ export type Database = {
         Args: { p_agent_id: string }
         Returns: Json
       }
+      awareness_calls_by_caller: {
+        Args: {
+          p_answer?: string
+          p_answer_field?: string
+          p_caller?: string
+          p_district?: string
+          p_from?: string
+          p_limit?: number
+          p_region?: string
+          p_result?: string
+          p_status?: string
+          p_subject_type?: string
+          p_team?: string
+          p_to?: string
+        }
+        Returns: Json
+      }
       awareness_calls_by_team: {
         Args: {
           p_answer?: string
@@ -60654,6 +60671,25 @@ export type Database = {
         }
         Returns: Json
       }
+      awareness_calls_log: {
+        Args: {
+          p_answer?: string
+          p_answer_field?: string
+          p_caller?: string
+          p_district?: string
+          p_from?: string
+          p_limit?: number
+          p_offset?: number
+          p_region?: string
+          p_result?: string
+          p_status?: string
+          p_subject_type?: string
+          p_team?: string
+          p_to?: string
+        }
+        Returns: Json
+      }
+      awareness_calls_options: { Args: never; Returns: Json }
       awareness_calls_scoped: {
         Args: {
           p_answer?: string
@@ -60699,6 +60735,19 @@ export type Database = {
           p_result?: string
           p_status?: string
           p_subject_type?: string
+          p_team?: string
+          p_to?: string
+        }
+        Returns: Json
+      }
+      awareness_coverage_gaps: {
+        Args: {
+          p_district?: string
+          p_from?: string
+          p_limit?: number
+          p_offset?: number
+          p_region?: string
+          p_status?: string
           p_team?: string
           p_to?: string
         }

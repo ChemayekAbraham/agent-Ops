@@ -3466,6 +3466,13 @@
       "when": 1791371622120,
       "tag": "0494_agent_ops_dormant_bike_leases",
       "breakpoints": true
+    },
+    {
+      "idx": 495,
+      "version": "7",
+      "when": 1791375756617,
+      "tag": "0495_widen_list_assignable_agents",
+      "breakpoints": true
     }
   ]
 }
