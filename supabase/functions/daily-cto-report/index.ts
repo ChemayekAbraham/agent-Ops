@@ -2011,12 +2011,12 @@ Deno.serve(async (req) => {
     form.append('h:Reply-To', REPLY_TO);
     form.append(
       'subject',
-      reportType === 'board'
+      boardMode
         ? `Welile Weekly Board Technology Update — week ending ${dateStr} — Health ${wHealth}/100 (${wHealthLabel})`
         : `Welile Daily Tech Diagnostic Report — ${dateStr} — Health ${health}/100 (${healthLabel})`,
     );
-    form.append('text', reportType === 'board' ? boardText : text);
-    form.append('html', reportType === 'board' ? boardHtml : html);
+    form.append('text', boardMode ? boardText : text);
+    form.append('html', boardMode ? boardHtml : html);
     form.append('attachment', new Blob([pdfBytes as unknown as BlobPart], { type: 'application/pdf' }), pdfName);
 
     const mgRes = await fetch(`${mgBase}/v3/${mgDomain}/messages`, {
@@ -2032,7 +2032,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ ok: true, date: dateStr, period: reportType === 'board' ? boardPeriodLabel : dateStr, weekly: weeklyMode, report_type: reportType, recipients, health: reportType === 'board' ? wHealth : health, risks: risks.length, attachment: pdfName, pdf_bytes: pdfBytes.length }), {
+    return new Response(JSON.stringify({ ok: true, date: dateStr, period: boardMode ? boardPeriodLabel : dateStr, weekly: weeklyMode, report_type: reportType, recipients, health: boardMode ? wHealth : health, risks: risks.length, attachment: pdfName, pdf_bytes: pdfBytes.length }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (e) {
