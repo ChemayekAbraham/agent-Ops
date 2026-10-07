@@ -24,6 +24,7 @@
 // Read-only over promissory notes. No wallet, ledger or note state is changed.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { sendSMS } from "../_shared/sendSmsMultiProvider.ts";
+import { dropFulfilledNotes } from "../_shared/promissoryFulfilled.ts";
 import { suppressSignupPrompt } from "../_shared/smsSignupPrompt.ts";
 
 // Marketing copy has no place on an operational reminder to a working agent.
@@ -43,6 +44,7 @@ const CONCURRENCY = 5;
 interface Note {
   id: string;
   agent_id: string;
+  partner_user_id: string | null;
   partner_name: string | null;
   amount: number | null;
   created_at: string;
@@ -102,7 +104,7 @@ Deno.serve(async (req) => {
   const summary = {
     date: runDate, dry_run: dryRun,
     agents_with_pending: 0, agents_texted: 0,
-    skipped_recent_follow_up: 0, skipped_no_phone: 0,
+    skipped_recent_follow_up: 0, skipped_partner_came_in: 0, skipped_no_phone: 0,
     notes_considered: 0, errors: [] as string[],
     preview: [] as { agent: string; notes: number; message: string }[],
   };
@@ -112,12 +114,13 @@ Deno.serve(async (req) => {
 
     const { data: rawNotes, error: notesErr } = await admin
       .from("promissory_notes")
-      .select("id, agent_id, partner_name, amount, created_at, last_followed_up_on")
+      .select("id, agent_id, partner_user_id, partner_name, amount, created_at, last_followed_up_on")
       .eq("status", "pending")
       .lt("created_at", cutoff);
     if (notesErr) throw new Error(notesErr.message);
 
-    const notes = (rawNotes ?? []) as Note[];
+    const { open: notes, fulfilled } = await dropFulfilledNotes(admin, (rawNotes ?? []) as Note[]);
+    summary.skipped_partner_came_in = fulfilled;
     summary.notes_considered = notes.length;
 
     const byAgent = new Map<string, Note[]>();

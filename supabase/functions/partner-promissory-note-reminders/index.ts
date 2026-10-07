@@ -18,6 +18,7 @@
 //
 // Read-only over promissory notes. No wallet, ledger or note state is changed.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { dropFulfilledNotes } from "../_shared/promissoryFulfilled.ts";
 import { sendSMS } from "../_shared/sendSmsMultiProvider.ts";
 import { suppressSignupPrompt } from "../_shared/smsSignupPrompt.ts";
 
@@ -105,7 +106,7 @@ Deno.serve(async (req) => {
       .lt("created_at", cutoff);
     if (notesErr) throw new Error(notesErr.message);
 
-    const notes = (rawNotes ?? []) as Note[];
+    const { open: notes } = await dropFulfilledNotes(admin, (rawNotes ?? []) as Note[]);
     summary.notes_considered = notes.length;
 
     // Group by the partner's user id when known, else by their note phone, so
