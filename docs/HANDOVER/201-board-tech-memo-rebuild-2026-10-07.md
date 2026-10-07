@@ -1,6 +1,6 @@
 # 201. Board Technology memo rebuilt on its own RPC (2026-10-07)
 
-**Status: BUILT 2026-10-07. Migration `20261007100000` not applied; edge function `daily-cto-report` not deployed. Nothing sent to the Board.**
+**Status: LIVE-DEPLOYED 2026-10-07, preview not yet read. Migration `20261007100000` applied by Josh and verified live; `daily-cto-report` deployed by Lovable from `lovable` (19c4787d9b). Nothing sent to the Board.**
 
 ## Why
 
@@ -60,3 +60,7 @@ Correction to an earlier note: the 10-05 CTO PDF's 36.22% **does** reconcile wit
 * Cause of the 30 Sep and 5 Oct rollback spikes (~1.3M rollbacks/day) and of the 1 Oct restart.
 * `/crm/dashboard` access-denied loop (one account, 27,784 events/week).
 * Source `get_cto_daily_report` still reports the old sign-in/delivery/rollback figures to the tech report.
+
+## Deploy note
+
+Lovable deployed from `lovable` and, unasked, made two behaviour-preserving edits: `daily-cto-report/index.ts` now uses a `boardMode` boolean in the unreachable old board code (TypeScript rejected the `reportType === 'board'` comparisons after the early return), and `sms-delivery-report/index.ts` imports supabase-js via `npm:` instead of esm.sh. Reviewed; no logic change. Both were redeployed. Next step: run `{"report_type":"board","preview":true}` and read the PDF before any real send.
