@@ -3445,6 +3445,13 @@
       "when": 1791365356342,
       "tag": "0491_receivables_location_hierarchy",
       "breakpoints": true
+    },
+    {
+      "idx": 492,
+      "version": "7",
+      "when": 1791367521073,
+      "tag": "0492_agent_cancel_merchandise_order_cleanup",
+      "breakpoints": true
     }
   ]
 }
