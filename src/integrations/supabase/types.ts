@@ -59743,6 +59743,23 @@ export type Database = {
         Args: { p_as_of?: string; p_mode?: string; p_silent_days?: number }
         Returns: Json
       }
+      agent_ops_dormant_bike_leases: {
+        Args: never
+        Returns: {
+          agent_id: string
+          agent_name: string
+          agent_phone: string
+          amount_outstanding: number
+          bike_model: string
+          days_since_last_repayment: number
+          float_balance: number
+          last_repayment_at: string
+          lease_id: string
+          service_centre: string
+          wallet_zero: boolean
+          withdrawable: number
+        }[]
+      }
       agent_ops_issue_agent_product: {
         Args: {
           p_agent_id: string
