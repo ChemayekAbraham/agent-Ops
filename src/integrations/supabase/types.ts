@@ -35201,6 +35201,58 @@ export type Database = {
           },
         ]
       }
+      portfolio_maturity_notices: {
+        Row: {
+          id: string
+          maturity_date: string
+          outcome: string
+          portfolio_id: string
+          recipient_email: string | null
+          sent_at: string
+          source: string
+        }
+        Insert: {
+          id?: string
+          maturity_date: string
+          outcome: string
+          portfolio_id: string
+          recipient_email?: string | null
+          sent_at?: string
+          source?: string
+        }
+        Update: {
+          id?: string
+          maturity_date?: string
+          outcome?: string
+          portfolio_id?: string
+          recipient_email?: string | null
+          sent_at?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_maturity_notices_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portfolio_maturity_notices_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "portfolio_maturity_notices_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
+            referencedColumns: ["portfolio_id"]
+          },
+        ]
+      }
       portfolio_redemptions: {
         Row: {
           created_at: string
