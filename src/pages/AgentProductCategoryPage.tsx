@@ -268,6 +268,7 @@ function MotorBikeTabs({ category }: { category?: AgentProductCategory }) {
       <div className="hidden sm:block w-full overflow-x-auto no-scrollbar scrollbar-none pb-1">
         <TabsList className="inline-flex w-max min-w-full sm:min-w-0 justify-start h-10 p-1 gap-1 bg-muted/60 rounded-xl">
           <TabsTrigger value="overview" className="shrink-0 text-xs sm:text-sm">Overview</TabsTrigger>
+          <TabsTrigger value="dormant" className="shrink-0 text-xs sm:text-sm">Dormant Leases</TabsTrigger>
           <TabsTrigger value="applications" className="shrink-0 text-xs sm:text-sm gap-1.5">
             Applications
             {counts.pendingOps > 0 && (
