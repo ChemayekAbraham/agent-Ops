@@ -26,6 +26,8 @@ function autoMessage(r: Row): string {
 
 export function DormantBikeLeasesPanel() {
   const [sending, setSending] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Row | null>(null);
+  const [message, setMessage] = useState('');
   const { data = [], isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['dormant-bike-leases'],
     queryFn: async () => {
