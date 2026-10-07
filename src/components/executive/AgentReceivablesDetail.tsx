@@ -115,6 +115,8 @@ export default function AgentReceivablesDetail({ product, current, overdue, comp
       </Panel>
     </div>
 
+    <RegisteredAccounts items={sorted} complete={complete} total={product.item_count} />
+
     <div className="grid items-start gap-3 xl:grid-cols-[1.4fr_1fr]">
       <Panel title="Receivables Risk">
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -133,4 +135,35 @@ export default function AgentReceivablesDetail({ product, current, overdue, comp
 
 function KeyRow({ icon: Icon, label, value, note }: { icon: typeof Users; label: string; value: string; note: string }) {
   return <div className="flex items-start gap-3 py-3"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"><Icon className="h-4 w-4" /></span><div className="min-w-0"><p className="text-[10px] text-muted-foreground">{label}</p><p className="break-words text-xs font-semibold tabular-nums">{value}</p>{note && <p className="text-[9px] text-muted-foreground">{note}</p>}</div></div>;
+}
+
+function RegisteredAccounts({ items, complete, total }: { items: ReceivableProduct['items']; complete: boolean; total: number }) {
+  const [all, setAll] = useState(false);
+  const [q, setQ] = useState('');
+  const today = new Date(Date.now() + 3 * 3600000).toISOString().slice(0, 10);
+  const rows = (() => {
+    const m = new Map<string, { name: string; n: number; amount: number; overdue: number; next: string | null }>();
+    for (const i of items) {
+      const name = i.counterparty ?? 'Unknown account';
+      const e = m.get(name) ?? { name, n: 0, amount: 0, overdue: 0, next: null };
+      e.n++; e.amount += i.amount;
+      const d = i.due_date?.slice(0, 10) ?? null;
+      if (d && d < today) e.overdue += i.amount;
+      else if (d && (!e.next || d < e.next)) e.next = d;
+      m.set(name, e);
+    }
+    return [...m.values()].sort((a, b) => b.amount - a.amount);
+  })();
+  const shown = rows.filter((r) => r.name.toLowerCase().includes(q.trim().toLowerCase()));
+  const sum = shown.reduce((s, r) => s + r.amount, 0);
+  return (
+    <Panel title={`Registered Accounts (${rows.length.toLocaleString()})`} action={<Button variant="link" size="sm" className="h-auto min-h-0 p-0 text-[10px]" onClick={() => setAll(!all)}>{all ? 'Show less' : 'View all'}</Button>}>
+      {!complete && <p className="mb-2 text-[10px] text-muted-foreground">Available account sample · {items.length} of {total.toLocaleString()} items</p>}
+      <input aria-label="Search registered accounts" placeholder="Search account name…" value={q} onChange={(e) => setQ(e.target.value)} className="mb-2 h-8 w-full max-w-xs rounded-md border border-border bg-background px-3 text-[11px]" />
+      <div className="overflow-x-auto"><table className="w-full text-[10px]"><thead className="bg-muted/50 text-muted-foreground"><tr><th className="p-2 text-left font-medium">#</th><th className="p-2 text-left font-medium">Account</th><th className="p-2 text-right font-medium">Items</th><th className="p-2 text-right font-medium">Outstanding (UGX)</th><th className="p-2 text-right font-medium">Overdue (UGX)</th><th className="p-2 text-left font-medium">Next Due</th></tr></thead>
+        <tbody className="divide-y divide-border">{shown.slice(0, all ? undefined : 10).map((r, n) => <tr key={r.name}><td className="p-2 text-muted-foreground">{n + 1}</td><td className="p-2 font-medium">{r.name}</td><td className="p-2 text-right tabular-nums">{r.n}</td><td className="p-2 text-right tabular-nums whitespace-nowrap">{formatUGX(r.amount)}</td><td className="p-2 text-right tabular-nums whitespace-nowrap">{r.overdue ? formatUGX(r.overdue) : '—'}</td><td className="p-2 whitespace-nowrap text-muted-foreground">{r.next ?? '—'}</td></tr>)}</tbody>
+        <tfoot><tr className="border-t border-border font-semibold"><td className="p-2" colSpan={3}>Total ({shown.length.toLocaleString()} accounts)</td><td className="p-2 text-right tabular-nums whitespace-nowrap">{formatUGX(sum)}</td><td colSpan={2} /></tr></tfoot></table></div>
+      {!rows.length && <p className="py-5 text-xs text-muted-foreground">No registered accounts available.</p>}
+    </Panel>
+  );
 }
