@@ -1,12 +1,13 @@
 import { Bar, CartesianGrid, ComposedChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { PhoneOff } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import {
   CHART_GRID, CHART_TICK, ChartSkeleton, ChartTooltipBox, Legend, PctBar, SectionCard, StatTile,
 } from '@/components/executive/tenant-ops/workspace/payment-behavior/shared';
 import { WorkspaceEmptyState } from '@/components/executive/tenant-ops/workspace/WorkspaceEmptyState';
 import { LABEL_30M_ACCESS, LABEL_SELF_PAYMENT } from '@/lib/awarenessCallLabels';
 import { count, kampalaDate, percent } from '@/lib/awarenessMonitoringLabels';
-import type { AwarenessGaps, AwarenessSummary } from '@/hooks/useAwarenessMonitoring';
+import type { AwarenessBucket, AwarenessGaps, AwarenessSummary } from '@/hooks/useAwarenessMonitoring';
 
 const CALLS_COLOR = 'hsl(var(--primary))';
 const ANSWERED_COLOR = 'hsl(var(--success))';
@@ -46,10 +47,16 @@ function AnswerBlock({
 
 /** The headline cards, the daily trend and the answer breakdown. */
 export function OverviewTab({
-  summary, gaps, loading,
-}: { summary: AwarenessSummary | undefined; gaps: AwarenessGaps | undefined; loading: boolean }) {
+  summary, gaps, loading, bucket = 'day', onBucketChange,
+}: {
+  summary: AwarenessSummary | undefined; gaps: AwarenessGaps | undefined; loading: boolean;
+  bucket?: AwarenessBucket; onBucketChange?: (b: AwarenessBucket) => void;
+}) {
   const t = summary?.totals;
   const empty = !loading && (t?.calls ?? 0) === 0;
+  const weekly = bucket === 'week';
+  // while the other grouping is still being read, the held answer is for the previous one: show the placeholder, not the wrong chart
+  const trendStale = Boolean(summary?.bucket) && summary?.bucket !== bucket;
   const trend = (summary?.trend ?? []).map((d) => ({ ...d, label: dayTick(d.day) }));
 
   return (
@@ -84,14 +91,34 @@ export function OverviewTab({
       ) : (
         <>
           <SectionCard
-            title="Calls per day"
-            description={summary ? `Kampala days, ${kampalaDate(summary.window.start_day)} to ${kampalaDate(summary.window.end_day)}. A call counts on the day it was dialled.` : undefined}
+            title={weekly ? 'Calls per week' : 'Calls per day'}
+            description={summary
+              ? `Kampala days, ${kampalaDate(summary.window.start_day)} to ${kampalaDate(summary.window.end_day)}. A call counts on the day it was dialled${weekly ? '; weeks run Monday to Sunday, and the first and last may be part weeks' : ''}.`
+              : undefined}
+            actions={onBucketChange ? (
+              <div role="group" aria-label="Group the trend by" className="inline-flex rounded-lg border border-border p-0.5">
+                {(['day', 'week'] as const).map((b) => (
+                  <button
+                    key={b}
+                    type="button"
+                    aria-pressed={bucket === b}
+                    onClick={() => onBucketChange(b)}
+                    className={cn(
+                      'h-8 min-w-[3.5rem] rounded-md px-3 text-xs font-medium transition-colors touch-manipulation',
+                      bucket === b ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted',
+                    )}
+                  >
+                    {b === 'day' ? 'Day' : 'Week'}
+                  </button>
+                ))}
+              </div>
+            ) : undefined}
           >
-            {loading ? (
+            {loading || trendStale ? (
               <ChartSkeleton h={220} />
             ) : (
               <>
-                <div className="h-[230px]" role="img" aria-label="Calls and answered calls per day">
+                <div className="h-[230px]" role="img" aria-label={weekly ? 'Calls and answered calls per week' : 'Calls and answered calls per day'}>
                   <ResponsiveContainer width="100%" height="100%">
                     <ComposedChart data={trend} margin={{ top: 6, right: 8, left: -10, bottom: 0 }}>
                       <CartesianGrid stroke={CHART_GRID} vertical={false} />
@@ -104,7 +131,9 @@ export function OverviewTab({
                           const p = payload[0].payload as (typeof trend)[number];
                           return (
                             <ChartTooltipBox>
-                              <p className="font-semibold">{kampalaDate(p.day)}</p>
+                              <p className="font-semibold">
+                                {weekly && p.period_end && p.period_end !== p.day ? `${kampalaDate(p.day)} to ${kampalaDate(p.period_end)}` : kampalaDate(p.day)}
+                              </p>
                               <p className="tabular-nums">{count(p.calls)} calls, {count(p.answered)} answered ({percent(p.answered_pct)})</p>
                               <p className="tabular-nums">{count(p.people_reached)} people reached</p>
                             </ChartTooltipBox>

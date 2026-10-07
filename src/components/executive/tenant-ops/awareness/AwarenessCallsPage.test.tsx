@@ -36,18 +36,27 @@ const teamRows = [
 ];
 const gaps = {
   window: WINDOW, tracking_started: '2026-10-06', basis: 'x',
-  totals: { passed: 120, with_call: 30, without_call: 90, covered_pct: 25 },
+  totals: { passed: 120, with_call: 30, without_call: 90, covered_pct: 25, rejected: 14 },
   by_stage: [
     { stage: 'service_center_review', label: 'Service centre review', team: 'service_centre', passed: 20, with_call: 8, without_call: 12, covered_pct: 40 },
     { stage: 'pending', label: 'Agent Ops review', team: 'agent_ops', passed: 60, with_call: 22, without_call: 38, covered_pct: 36.7 },
   ],
   total: 90, limit: 25, offset: 0,
   rows: [{
-    rent_request_id: 'rr-1', plan_code: 'aa5ee2e0', stage: 'pending', stage_label: 'Agent Ops review', team: 'agent_ops', passed_at: '2026-10-06T15:11:28Z', passed_day: '2026-10-06',
+    rent_request_id: 'rr-1', plan_code: 'aa5ee2e0', stage: 'pending', stage_label: 'Agent Ops review', team: 'agent_ops', outcome: 'approved', passed_at: '2026-10-06T15:11:28Z', passed_day: '2026-10-06',
     passed_by: 'u-9', passed_by_name: 'Lawrence Nsubuga', current_status: 'agent_ops_approved', tenant_id: 't-1', tenant_name: 'Ajusi Grace', tenant_phone: '+256755727640',
     landlord_name: 'Nabitogo Margret', landlord_phone: '0700111222', agent_id: 'a-1', agent_name: 'Sub Agent One', calls_at_other_stages: 1,
   }],
 };
+const rejectedRow = {
+  rent_request_id: 'rr-2', plan_code: 'bb6ff3f1', stage: 'pending', stage_label: 'Agent Ops review', team: 'agent_ops', outcome: 'rejected', passed_at: '2026-10-05T10:00:00Z', passed_day: '2026-10-05',
+  passed_by: null, passed_by_name: null, current_status: 'rejected', tenant_id: 't-2', tenant_name: 'Kato Peter', tenant_phone: '+256700555111',
+  landlord_name: 'Mr Okello', landlord_phone: '0700333444', agent_id: 'a-1', agent_name: 'Sub Agent One', calls_at_other_stages: 0,
+};
+const weekTrend = [
+  { day: '2026-10-01', period_end: '2026-10-04', calls: 0, answered: 0, people_called: 0, people_reached: 0, answered_pct: null },
+  { day: '2026-10-05', period_end: '2026-10-07', calls: 42, answered: 27, people_called: 38, people_reached: 24, answered_pct: 64.3 },
+];
 const callerRows = [
   { caller_id: 'u-1', caller_name: 'Grace Namukasa', team: 'agent_ops', calls: 20, answered: 15, answered_pct: 75, people_called: 18, people_reached: 14, rent_plans_called: 17,
     aware_30m: { knew: 3, heard: 5, did_not_know: 7 }, aware_merchant_codes: { knew: 2, heard: 4, did_not_know: 9 }, explained: { yes: 11, partly: 3, no: 1 }, last_call_at: '2026-10-07T07:00:00Z' },
@@ -72,10 +81,16 @@ function install() {
     const ok = (data: unknown) => Promise.resolve({ data, error: null });
     switch (fn) {
       case 'awareness_calls_options': return ok(options);
-      case 'awareness_calls_summary': return summaryError ? Promise.resolve({ data: null, error: { message: summaryError } }) : ok(summaryData);
+      case 'awareness_calls_summary':
+        if (summaryError) return Promise.resolve({ data: null, error: { message: summaryError } });
+        return ok(a.p_bucket === 'week' ? { ...(summaryData as object), bucket: 'week', trend: weekTrend } : summaryData);
       case 'awareness_calls_by_team': return ok({ window: WINDOW, rows: teamRows });
       case 'awareness_calls_by_caller': return ok({ window: WINDOW, total_callers: 1, rows: callerRows });
-      case 'awareness_coverage_gaps': return ok(gaps);
+      case 'awareness_coverage_gaps': {
+        const all = [...gaps.rows, rejectedRow];
+        const rows = a.p_outcome ? all.filter((r) => r.outcome === a.p_outcome) : all;
+        return ok({ ...gaps, total: rows.length, rows });
+      }
       case 'awareness_calls_log': {
         const offset = Number(a.p_offset ?? 0); const limit = Number(a.p_limit ?? 25);
         const n = Math.max(0, Math.min(limit, logTotal - offset));
@@ -215,6 +230,58 @@ describe('AwarenessCallsPage', () => {
     expect(screen.getAllByText('Lawrence Nsubuga').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Agent Ops review').length).toBeGreaterThan(0);
     expect(calls('awareness_coverage_gaps').at(-1)).toMatchObject({ p_limit: 25, p_offset: 0 });
+  });
+
+  it('Overview trend: Day / Week toggle asks the report for the other grouping', async () => {
+    const user = userEvent.setup();
+    render(<AwarenessCallsPage />, { wrapper });
+    await screen.findByTestId('awareness-cards');
+    expect(lastSummary()).toMatchObject({ p_bucket: 'day' });
+    const group = screen.getByRole('group', { name: 'Group the trend by' });
+    expect(within(group).getByRole('button', { name: 'Day' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText('Calls per day')).toBeInTheDocument();
+
+    await user.click(within(group).getByRole('button', { name: 'Week' }));
+    await waitFor(() => expect(lastSummary()).toMatchObject({ p_bucket: 'week' }));
+    expect(await screen.findByText('Calls per week')).toBeInTheDocument();
+    expect(screen.getByText(/weeks run Monday to Sunday/)).toBeInTheDocument();
+    expect(within(group).getByRole('button', { name: 'Week' })).toHaveAttribute('aria-pressed', 'true');
+    // the cards do not change with the grouping
+    expect(within(screen.getByTestId('awareness-cards')).getByText('42')).toBeInTheDocument();
+
+    // back to days: the earlier answer is still held, so the screen switches without a new request
+    await user.click(within(group).getByRole('button', { name: 'Day' }));
+    expect(await screen.findByText('Calls per day')).toBeInTheDocument();
+    expect(within(group).getByRole('button', { name: 'Day' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('Requests without a call: each row shows its outcome and the Outcome filter reaches the report', async () => {
+    const user = userEvent.setup();
+    render(<AwarenessCallsPage />, { wrapper });
+    await screen.findByTestId('awareness-cards');
+    await user.click(screen.getByRole('tab', { name: 'Requests without a call' }));
+    expect((await screen.findAllByText('Kato Peter')).length).toBeGreaterThan(0);
+    const badges = screen.getAllByTestId('gap-outcome').map((b) => b.textContent);
+    expect(badges).toContain('Approved');
+    expect(badges).toContain('Rejected');
+    expect(calls('awareness_coverage_gaps').at(-1)).toMatchObject({ p_outcome: null });
+    expect(screen.getByText(/\(14 rejected\)/)).toBeInTheDocument();
+
+    await pick(user, 'Outcome', 'Rejected');
+    await waitFor(() => expect(calls('awareness_coverage_gaps').at(-1)).toMatchObject({ p_outcome: 'rejected', p_offset: 0 }));
+    await waitFor(() => expect(screen.queryByText('Ajusi Grace')).not.toBeInTheDocument());
+    expect(screen.getAllByText('Kato Peter').length).toBeGreaterThan(0);
+
+    await pick(user, 'Outcome', 'Approved');
+    await waitFor(() => expect(calls('awareness_coverage_gaps').at(-1)).toMatchObject({ p_outcome: 'approved' }));
+    await waitFor(() => expect(screen.queryByText('Kato Peter')).not.toBeInTheDocument());
+    expect(screen.getAllByText('Ajusi Grace').length).toBeGreaterThan(0);
+  });
+
+  it('the other tabs and the overview stage card never send an outcome', async () => {
+    render(<AwarenessCallsPage />, { wrapper });
+    await screen.findByTestId('awareness-cards');
+    for (const c of calls('awareness_coverage_gaps')) expect(c.p_outcome ?? null).toBeNull();
   });
 
   it('Call log pages through the calls and exports every matching call to CSV and Excel', async () => {

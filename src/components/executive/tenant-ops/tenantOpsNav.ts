@@ -61,7 +61,12 @@ export interface TenantOpsNavChild {
   label: string;
   icon: LucideIcon;
   keywords?: string[];
+  /** When set, only people holding one of these roles see the entry in the menu and the search. The view itself stays reachable by link. */
+  roles?: readonly string[];
 }
+
+/** Who can open Awareness Calls: the same people the reports let in (Tenant Ops, COO, CEO, super admin). */
+export const AWARENESS_CALLS_ROLES = ['tenant_ops', 'coo', 'ceo', 'super_admin'] as const;
 
 export interface TenantOpsNavItem {
   key: string;
@@ -95,7 +100,7 @@ export const TENANT_OPS_NAV: TenantOpsNavItem[] = [
       { key: 'daily', label: 'Daily Payments', icon: CalendarCheck, keywords: ['today', 'paid', 'unpaid'] },
       { key: 'calling-hub', label: 'Calling Hub', icon: PhoneCall, keywords: ['call', 'calls', 'phone', 'follow up', 'pending', 'closed', 'missed calls'] },
       { key: 'calling-center', label: 'Calling Center', icon: Headphones, keywords: ['call centre', 'call center', 'dial', 'auto call', 'sequential', 'live call', 'voice'] },
-      { key: 'awareness-calls', label: 'Awareness Calls', icon: PhoneIncoming, keywords: ['awareness', '30m', '30m access', 'merchant codes', 'self-payment', 'explained', 'calls', 'coverage', 'without a call', 'call log', 'monitoring'] },
+      { key: 'awareness-calls', label: 'Awareness Calls', icon: PhoneIncoming, roles: AWARENESS_CALLS_ROLES, keywords: ['awareness', '30m', '30m access', 'merchant codes', 'self-payment', 'explained', 'calls', 'coverage', 'without a call', 'call log', 'monitoring'] },
       { key: 'missed', label: 'Missed Days', icon: CalendarX2, keywords: ['behind', 'arrears', 'late'] },
       { key: 'backlog-analysis', label: 'Backlog Analysis', icon: AlertTriangle, keywords: ['overdue', 'backlog', 'arrears', 'recovery', 'ageing', 'aging'] },
       { key: 'behavior', label: 'Tenant Behavior', icon: Activity, keywords: ['risk', 'score', 'patterns'] },
@@ -143,6 +148,21 @@ export const TENANT_OPS_NAV: TenantOpsNavItem[] = [
   },
 ];
 
+/** True when an entry has no role restriction, or the person holds one of the roles it lists. */
+export function canSeeTenantOpsNavEntry(entry: { roles?: readonly string[] }, userRoles: readonly string[] | null | undefined): boolean {
+  if (!entry.roles?.length) return true;
+  return (userRoles ?? []).some((r) => entry.roles!.includes(r));
+}
+
+/** The menu for one person: entries restricted to other roles are left out, and so is a group left with no entries. */
+export function visibleTenantOpsNav(userRoles: readonly string[] | null | undefined): TenantOpsNavItem[] {
+  return TENANT_OPS_NAV.flatMap((item): TenantOpsNavItem[] => {
+    if (!item.children?.length) return [item];
+    const children = item.children.filter((c) => canSeeTenantOpsNavEntry(c, userRoles));
+    return children.length ? [{ ...item, children }] : [];
+  });
+}
+
 export function isTenantOpsAction(key: string): key is TenantOpsActionKey {
   return key.startsWith('action.');
 }
@@ -155,11 +175,12 @@ export interface TenantOpsSearchResult {
 }
 
 /** Flat, searchable index of every navigable destination (parents + children). */
-export const TENANT_OPS_SEARCH_INDEX: (TenantOpsSearchResult & { haystack: string })[] =
-  TENANT_OPS_NAV.flatMap((item): (TenantOpsSearchResult & { haystack: string })[] => {
+export const TENANT_OPS_SEARCH_INDEX: (TenantOpsSearchResult & { haystack: string; roles?: readonly string[] })[] =
+  TENANT_OPS_NAV.flatMap((item): (TenantOpsSearchResult & { haystack: string; roles?: readonly string[] })[] => {
     if (item.children?.length) {
       return item.children.map((child) => ({
         view: child.key,
+        roles: child.roles,
         label: child.label,
         parentLabel: item.label,
         icon: child.icon,
@@ -176,14 +197,19 @@ export const TENANT_OPS_SEARCH_INDEX: (TenantOpsSearchResult & { haystack: strin
     }];
   });
 
-export function searchTenantOpsNav(query: string): TenantOpsSearchResult[] {
+/**
+ * Search the menu. Pass the person's roles to leave out entries restricted to other roles; without them every entry is searched
+ * (kept so callers that do not know the roles behave as before).
+ */
+export function searchTenantOpsNav(query: string, userRoles?: readonly string[] | null): TenantOpsSearchResult[] {
   const q = query.trim().toLowerCase();
   if (!q) return [];
   const terms = q.split(/\s+/);
   return TENANT_OPS_SEARCH_INDEX
+    .filter((entry) => userRoles === undefined || canSeeTenantOpsNavEntry(entry, userRoles))
     .filter((entry) => terms.every((t) => entry.haystack.includes(t)))
     .slice(0, 12)
-    .map(({ haystack, ...rest }) => rest);
+    .map(({ haystack, roles: _roles, ...rest }) => rest);
 }
 
 /** Label for a destination key — used by the shell's in-view heading. */

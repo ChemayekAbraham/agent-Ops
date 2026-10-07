@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { CheckCircle2, Phone } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Callout, SectionCard } from '@/components/executive/tenant-ops/workspace/payment-behavior/shared';
@@ -8,7 +9,7 @@ import { WorkspaceEmptyState } from '@/components/executive/tenant-ops/workspace
 import { WorkspaceMobileRow } from '@/components/executive/tenant-ops/workspace/WorkspaceMobileRow';
 import { TEAM_LABEL, telHref } from '@/lib/awarenessCallLabels';
 import { count, kampalaDate, percent, statusLabel } from '@/lib/awarenessMonitoringLabels';
-import { useAwarenessGaps, type AwarenessFilters, type AwarenessGapRow } from '@/hooks/useAwarenessMonitoring';
+import { useAwarenessGaps, type AwarenessFilters, type AwarenessGapRow, type AwarenessOutcome } from '@/hooks/useAwarenessMonitoring';
 import { PAGE_SIZE, Pager } from './shared';
 
 function PhoneLink({ phone }: { phone: string | null | undefined }) {
@@ -19,6 +20,19 @@ function PhoneLink({ phone }: { phone: string | null | undefined }) {
       <Phone className="h-3 w-3" />{phone}
     </a>
   ) : <span>{phone}</span>;
+}
+
+const ALL = '__all__';
+
+const OUTCOME_LABEL: Record<AwarenessOutcome, string> = { approved: 'Approved', rejected: 'Rejected' };
+
+function OutcomeBadge({ outcome }: { outcome: AwarenessOutcome | undefined }) {
+  if (!outcome) return <span className="text-muted-foreground">—</span>;
+  return (
+    <Badge variant={outcome === 'rejected' ? 'destructive' : 'secondary'} className="text-[10px]" data-testid="gap-outcome">
+      {OUTCOME_LABEL[outcome]}
+    </Badge>
+  );
 }
 
 const who = (name: string | null | undefined, phone: string | null | undefined) => (
@@ -35,10 +49,11 @@ const who = (name: string | null | undefined, phone: string | null | undefined) 
  */
 export function GapsTab({ filters, enabled }: { filters: AwarenessFilters; enabled: boolean }) {
   const [page, setPage] = useState(0);
-  const sig = [filters.startIso, filters.endIso, filters.team, filters.region, filters.district, filters.status].join('|');
+  const [outcome, setOutcome] = useState<AwarenessOutcome | null>(null);
+  const sig = [filters.startIso, filters.endIso, filters.team, filters.region, filters.district, filters.status, outcome].join('|');
   useEffect(() => setPage(0), [sig]);
 
-  const q = useAwarenessGaps(filters, { limit: PAGE_SIZE, offset: page * PAGE_SIZE }, enabled);
+  const q = useAwarenessGaps(filters, { limit: PAGE_SIZE, offset: page * PAGE_SIZE }, enabled, outcome);
   const data = q.data;
   const rows = data?.rows ?? [];
   const ignored = [filters.caller && 'caller', filters.subjectType && 'person type', filters.result && 'call result', filters.answer && 'answer choice']
@@ -54,14 +69,24 @@ export function GapsTab({ filters, enabled }: { filters: AwarenessFilters; enabl
       {data && (
         <Callout tone={data.tracking_started ? 'info' : 'warning'} title="How to read this">
           {data.tracking_started
-            ? `A Rent Plan appears once for each stage it moved past with no awareness call recorded at that stage. Calls have only been recorded since ${kampalaDate(data.tracking_started)}, so stages passed before then appear here too.`
+            ? `A Rent Plan appears once for each stage it moved past with no awareness call recorded at that stage, whether it was approved or rejected there. Calls have only been recorded since ${kampalaDate(data.tracking_started)}, so stages passed before then appear here too.`
             : 'No awareness call has been recorded yet, so every stage a Rent Plan moved past appears here.'}
         </Callout>
       )}
 
       <SectionCard
         title={<>Requests without a call {data && <Badge variant="outline" className="text-[10px]">{count(data.total)}</Badge>}</>}
-        description={data ? `${count(data.totals.passed)} stage moves between ${kampalaDate(data.window.start_day)} and ${kampalaDate(data.window.end_day)}; ${count(data.totals.with_call)} had a call (${percent(data.totals.covered_pct)}).` : undefined}
+        description={data ? `${count(data.totals.passed)} stage moves between ${kampalaDate(data.window.start_day)} and ${kampalaDate(data.window.end_day)}${data.totals.rejected ? ` (${count(data.totals.rejected)} rejected)` : ''}; ${count(data.totals.with_call)} had a call (${percent(data.totals.covered_pct)}).` : undefined}
+        actions={(
+          <Select value={outcome ?? ALL} onValueChange={(v) => setOutcome(v === ALL ? null : (v as AwarenessOutcome))}>
+            <SelectTrigger className="h-10 w-full text-xs sm:w-44" aria-label="Outcome"><SelectValue placeholder="All outcomes" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value={ALL} className="text-xs">All outcomes</SelectItem>
+              <SelectItem value="approved" className="text-xs">Approved</SelectItem>
+              <SelectItem value="rejected" className="text-xs">Rejected</SelectItem>
+            </SelectContent>
+          </Select>
+        )}
       >
         {q.isLoading ? (
           <Skeleton className="h-48 w-full" />
@@ -76,7 +101,7 @@ export function GapsTab({ filters, enabled }: { filters: AwarenessFilters; enabl
                     <TableHead>Tenant</TableHead>
                     <TableHead>Landlord</TableHead>
                     <TableHead>Agent</TableHead>
-                    <TableHead>Moved past</TableHead>
+                    <TableHead>Moved past (outcome)</TableHead>
                     <TableHead>On</TableHead>
                     <TableHead>By</TableHead>
                     <TableHead>Status now</TableHead>
@@ -90,7 +115,7 @@ export function GapsTab({ filters, enabled }: { filters: AwarenessFilters; enabl
                       <TableCell>{who(r.landlord_name, r.landlord_phone)}</TableCell>
                       <TableCell className="text-sm">{r.agent_name || '—'}</TableCell>
                       <TableCell>
-                        <p className="text-sm font-medium">{r.stage_label}</p>
+                        <p className="flex flex-wrap items-center gap-1.5 text-sm font-medium">{r.stage_label} <OutcomeBadge outcome={r.outcome} /></p>
                         <p className="text-xs text-muted-foreground">{TEAM_LABEL[r.team]} · {r.plan_code}</p>
                       </TableCell>
                       <TableCell className="whitespace-nowrap text-xs">{kampalaDate(r.passed_day)}</TableCell>
@@ -113,6 +138,7 @@ export function GapsTab({ filters, enabled }: { filters: AwarenessFilters; enabl
                     { label: 'Landlord', value: r.landlord_name || '—' },
                     { label: 'Landlord phone', value: <PhoneLink phone={r.landlord_phone} /> },
                     { label: 'Agent', value: r.agent_name || '—' },
+                    { label: 'Outcome', value: <OutcomeBadge outcome={r.outcome} /> },
                     { label: 'Moved past on', value: kampalaDate(r.passed_day) },
                     { label: 'By', value: r.passed_by_name || '—' },
                     { label: 'Status now', value: statusLabel(r.current_status) },

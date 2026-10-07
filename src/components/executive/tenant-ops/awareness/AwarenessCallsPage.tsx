@@ -15,7 +15,7 @@ import { resolveRange, type PresetKey } from '@/components/executive/shared/OpsD
 import { WorkspaceEmptyState } from '@/components/executive/tenant-ops/workspace/WorkspaceEmptyState';
 import {
   EMPTY_AWARENESS_FILTERS, useAwarenessByCaller, useAwarenessByTeam, useAwarenessGaps, useAwarenessOptions, useAwarenessSummary,
-  type AwarenessFilters,
+  type AwarenessBucket, type AwarenessFilters,
 } from '@/hooks/useAwarenessMonitoring';
 import { AwarenessFilterBar } from './AwarenessFilterBar';
 import { OverviewTab } from './OverviewTab';
@@ -34,6 +34,7 @@ export default function AwarenessCallsPage() {
   const [preset, setPreset] = useState<PresetKey>('custom');
   const [custom, setCustom] = useState<DateRange | undefined>(lastSevenDays);
   const [tab, setTab] = useState('overview');
+  const [bucket, setBucket] = useState<AwarenessBucket>('day');
   const [rest, setRest] = useState<Omit<AwarenessFilters, 'startIso' | 'endIso'>>({ ...EMPTY_AWARENESS_FILTERS });
 
   const { start, end } = useMemo(() => resolveRange(preset, custom), [preset, custom]);
@@ -48,7 +49,7 @@ export default function AwarenessCallsPage() {
   const onClear = useCallback(() => setRest({ ...EMPTY_AWARENESS_FILTERS }), []);
 
   const options = useAwarenessOptions();
-  const summary = useAwarenessSummary(filters);
+  const summary = useAwarenessSummary(filters, bucket);
   const byTeam = useAwarenessByTeam(filters);
   const byCaller = useAwarenessByCaller(filters, tab === 'caller');
   // The by-stage table and the "stages without a call" card only need the totals, not a page of rows.
@@ -102,7 +103,7 @@ export default function AwarenessCallsPage() {
         </TabsList>
 
         <TabsContent value="overview" className="mt-3">
-          <OverviewTab summary={summary.data} gaps={stages.data} loading={summary.isLoading} />
+          <OverviewTab summary={summary.data} gaps={stages.data} loading={summary.isLoading} bucket={bucket} onBucketChange={setBucket} />
         </TabsContent>
         <TabsContent value="stage-team" className="mt-3">
           <StageTeamTab byTeam={byTeam.data} gaps={stages.data} loadingTeam={byTeam.isLoading} loadingStage={stages.isLoading} />

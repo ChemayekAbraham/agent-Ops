@@ -21,7 +21,7 @@ interface Props {
 /** Tenant Ops top bar — mirror of the Partner Ops one (hamburger sheet nav on
  *  mobile, section search, user chip, and an `actions` slot). */
 export function TenantOpsTopBar({ active, onSelect, badges, actions }: Props) {
-  const { user } = useAuth();
+  const { user, roles } = useAuth();
   const [query, setQuery] = useState('');
   const [focused, setFocused] = useState(false);
   const [now, setNow] = useState(() => new Date());
@@ -43,7 +43,7 @@ export function TenantOpsTopBar({ active, onSelect, badges, actions }: Props) {
     },
   });
 
-  const results = useMemo(() => searchTenantOpsNav(query), [query]);
+  const results = useMemo(() => searchTenantOpsNav(query, roles), [query, roles]);
   const showResults = focused && query.trim().length > 0;
 
   const pick = (key: TenantOpsViewKey | TenantOpsActionKey) => {
