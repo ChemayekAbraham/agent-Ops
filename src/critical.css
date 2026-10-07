@@ -30,6 +30,7 @@
     --radius: 0.75rem;
     --chart-1: 271 81% 56%;
     --chart-2: 142 71% 45%;
+    --receivable-rnd: 174 80% 36%;
     --chart-3: 262 83% 58%;
     --chart-4: 38 92% 50%;
     --chart-5: 0 72% 51%;
@@ -77,6 +78,7 @@
     --ring: 271 81% 65%;
     --chart-1: 271 81% 65%;
     --chart-2: 142 71% 50%;
+    --receivable-rnd: 174 70% 52%;
     --chart-3: 262 83% 68%;
     --chart-4: 38 92% 60%;
     --chart-5: 0 72% 60%;
@@ -136,4 +138,9 @@
   ::-webkit-scrollbar-track { @apply bg-transparent; }
   ::-webkit-scrollbar-thumb { @apply bg-muted-foreground/20 rounded-full; }
   ::-webkit-scrollbar-thumb:hover { @apply bg-muted-foreground/30; }
+}
+
+.receivable-category-rnd {
+  color: hsl(var(--receivable-rnd));
+  background-color: hsl(var(--receivable-rnd) / 0.1);
 }

@@ -27649,6 +27649,50 @@ export type Database = {
           },
         ]
       }
+      lending_payment_reminders: {
+        Row: {
+          amount_ugx: number | null
+          created_at: string
+          due_date: string
+          id: string
+          kind: string
+          loan_id: string
+          phone: string | null
+          provider_reason: string | null
+          sent: boolean
+        }
+        Insert: {
+          amount_ugx?: number | null
+          created_at?: string
+          due_date: string
+          id?: string
+          kind: string
+          loan_id: string
+          phone?: string | null
+          provider_reason?: string | null
+          sent?: boolean
+        }
+        Update: {
+          amount_ugx?: number | null
+          created_at?: string
+          due_date?: string
+          id?: string
+          kind?: string
+          loan_id?: string
+          phone?: string | null
+          provider_reason?: string | null
+          sent?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lending_payment_reminders_loan_id_fkey"
+            columns: ["loan_id"]
+            isOneToOne: false
+            referencedRelation: "lending_agent_loans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       liquidity_alerts: {
         Row: {
           agent_id: string
@@ -61299,6 +61343,7 @@ export type Database = {
         }[]
       }
       ceo_valuation_baseline: { Args: never; Returns: Json }
+      cfo_agent_lending_summary: { Args: never; Returns: Json }
       cfo_approve_float_request: {
         Args: { p_amount: number; p_reason: string; p_request_id: string }
         Returns: Json
@@ -64627,6 +64672,7 @@ export type Database = {
       }
       get_approximate_user_count: { Args: never; Returns: number }
       get_authoritative_wallet: { Args: { p_user_id: string }; Returns: Json }
+      get_board_tech_memo: { Args: { p_date?: string }; Returns: Json }
       get_budget_consolidation: { Args: { p_call_id: string }; Returns: Json }
       get_budget_department_notifications: {
         Args: { _department_keys?: string[] }
@@ -66193,6 +66239,10 @@ export type Database = {
       get_payables_breakdown: { Args: never; Returns: Json }
       get_payables_by_source: {
         Args: { p_from: string; p_to: string }
+        Returns: Json
+      }
+      get_payables_contract_schedule: {
+        Args: { p_as_at?: string; p_granularity?: string; p_periods?: number }
         Returns: Json
       }
       get_payables_due_range: {

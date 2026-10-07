@@ -192,3 +192,52 @@ export function buildSchedule(
   const installment = Math.max(1, Math.ceil(totalOwed / periods));
   return { installment, periods, firstDate: firstDeductionDate(freq, startDate, due) };
 }
+
+// ===== Current repayment plan (shown on borrower cards) =====
+
+export interface RepaymentPlan {
+  frequency: RepaymentFrequency;
+  frequencyLabel: string;
+  /** Amount of each installment (the last one may be smaller). */
+  installment: number;
+  remainingCount: number;
+  nextDueDate: string | null;
+  nextDueInPast: boolean;
+}
+
+/**
+ * The borrower's live repayment plan: how many installments remain, the amount
+ * of each, and the next due date. `next_deduction_date` is advanced by the
+ * auto-deduct cron and the borrower pay function, so it is the source of truth
+ * for "next due"; the stored installment splits the outstanding balance.
+ */
+export function repaymentPlanOf(loan: LendingLoan): RepaymentPlan | null {
+  const isOpen = loan.status === 'active' || loan.status === 'partially_repaid';
+  if (!isOpen) return null;
+  const outstanding = outstandingOf(loan);
+  if (outstanding <= 0) return null;
+
+  const freq = (loan.repayment_frequency as RepaymentFrequency) || 'monthly';
+  const frequencyLabel =
+    REPAYMENT_FREQUENCIES.find((f) => f.value === freq)?.label ?? freq;
+
+  let installment = Number(loan.installment_ugx) || 0;
+  let remainingCount: number;
+  if (freq === 'once') {
+    installment = outstanding;
+    remainingCount = 1;
+  } else if (installment > 0) {
+    remainingCount = Math.max(1, Math.ceil(outstanding / installment));
+  } else {
+    // Older loans without a stored installment: rebuild from the loan window.
+    const sched = buildSchedule(outstanding, freq, new Date(loan.created_at), loan.expected_repayment_date);
+    installment = sched.installment;
+    remainingCount = sched.periods;
+  }
+
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const nextDueDate = loan.next_deduction_date || loan.expected_repayment_date || null;
+  const nextDueInPast = !!nextDueDate && new Date(nextDueDate) < today;
+
+  return { frequency: freq, frequencyLabel, installment, remainingCount, nextDueDate, nextDueInPast };
+}

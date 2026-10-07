@@ -317,6 +317,30 @@ export function usePayablesPredictiveForecast(
   });
 }
 
+export interface PayablesContractPeriod {
+  index: number;
+  period_start: string;
+  contract_amount: number;
+  overdue_included: number;
+}
+
+/** Contractual (ideal) schedule from due dates of every open obligation; overdue lands in period 0. */
+export function usePayablesContractSchedule(granularity: PayablesGranularity, periods: number, enabled = true) {
+  return useQuery({
+    queryKey: ['payables-contract-schedule', granularity, periods],
+    enabled,
+    queryFn: async (): Promise<PayablesContractPeriod[]> => {
+      const { data, error } = await rpc('get_payables_contract_schedule', {
+        p_granularity: granularity,
+        p_periods: periods,
+      });
+      if (error) throw error;
+      return (data ?? []) as PayablesContractPeriod[];
+    },
+    staleTime: STALE_TIME,
+  });
+}
+
 /**
  * Walk-forward back-test: replays the live payables model at past origin dates
  * and grades it against what was actually paid.

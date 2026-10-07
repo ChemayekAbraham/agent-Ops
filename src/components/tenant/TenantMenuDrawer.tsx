@@ -8,6 +8,7 @@ import {
   Calendar,
   Receipt,
   Banknote,
+  Wallet,
   ShoppingBag,
   History,
   Users,
@@ -293,6 +294,13 @@ export function TenantMenuDrawer({
           description: 'View & manage loans',
           path: '/my-loans',
           color: 'text-green-500'
+        },
+        { 
+          icon: Wallet, 
+          label: 'My Loan', 
+          description: 'Your loan balance & payments',
+          path: '/repay',
+          color: 'text-amber-600'
         },
         { 
           icon: History, 

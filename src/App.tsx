@@ -140,6 +140,7 @@ const Onboarding = lazy(() => import("./pages/Onboarding"));
 const MyReceipts = lazy(() => import('./pages/MyReceipts'));
 const VendorPortal = lazy(() => import('./pages/VendorPortal'));
 const MyLoans = lazy(() => import('./pages/MyLoans'));
+const LoanDashboard = lazy(() => import('./pages/LoanDashboard'));
 const PaymentSchedule = lazy(() => import('./pages/PaymentSchedule'));
 const PayLandlord = lazy(() => import('./pages/PayLandlord'));
 const RentDiscountHistory = lazy(() => import('./pages/RentDiscountHistory'));
@@ -225,6 +226,7 @@ const MerchandiseSharePreviewCheckPage = lazy(() => import('./pages/admin/Mercha
 const CRMDashboardPage = lazy(() => import('./pages/crm/Dashboard'));
 const CFODashboardPage = lazy(() => import('./pages/cfo/Dashboard'));
 const CFOReceivablesAnalysisPage = lazy(() => import('./pages/cfo/ReceivablesOverview'));
+const CFOPayablesOverviewPage = lazy(() => import('./pages/cfo/PayablesOverview'));
 const InvestorReportPage = lazy(() => import('./pages/cfo/InvestorReportPage'));
 const MoneyFlowTracePage = lazy(() => import('./pages/cfo/MoneyFlowTrace'));
 const LedgerEntryDetailPage = lazy(() => import('./pages/cfo/LedgerEntryDetail'));
@@ -333,6 +335,7 @@ const Internship = lazy(() => import('./pages/Internship'));
 const Careers = lazy(() => import('./pages/Careers'));
 const HolisticProfile = lazy(() => import('./pages/HolisticProfile'));
 const BorrowFromAgent = lazy(() => import('./pages/BorrowFromAgent'));
+const LendingRepayments = lazy(() => import('./pages/LendingRepayments'));
 // Public funder signup (multi-step) — lives in pages/Onboarding.tsx and is exported as FunderOnboarding.
 const FunderOnboarding = lazy(() => import('./pages/Onboarding'));
 const PortfolioCompletion = lazy(() => import('./pages/PortfolioCompletion'));
@@ -516,6 +519,7 @@ function AppRoutes() {
           <Route path="/merchant-agent/onboarding" element={<MerchantAgentOnboarding />} />
           <Route path="/merchant-agent-referrals" element={<MerchantAgentReferrals />} />
           <Route path="/borrow/:aiId" element={<BorrowFromAgent />} />
+          <Route path="/repay" element={<LendingRepayments />} />
           <Route path="/profile/:aiId" element={<HolisticProfile />} />
           <Route path="/id/:aiId" element={<HolisticProfile publicMode />} />
           {/* Persona-specific dashboards. URL is the source of truth for which
@@ -633,6 +637,7 @@ function AppRoutes() {
           <Route path="/bread/:code" element={<SharedBreadClaim />} />
           <Route path="/my-receipts" element={<MyReceipts />} />
           <Route path="/my-loans" element={<MyLoans />} />
+          <Route path="/loan-dashboard" element={<LoanDashboard />} />
           <Route path="/payment-schedule" element={<PaymentSchedule />} />
           <Route path="/pay-landlord" element={<PayLandlord />} />
           <Route path="/rent-discount-history" element={<RentDiscountHistory />} />
@@ -707,6 +712,7 @@ function AppRoutes() {
           <Route path="/ceo/dashboard" element={<RoleGuard allowedRoles={['ceo', 'super_admin', 'cto']} requiredPermission="ceo"><CEODashboardPage /></RoleGuard>} />
           <Route path="/cfo/dashboard" element={<RoleGuard allowedRoles={['cfo', 'super_admin', 'cto']} requiredPermission="cfo"><CFODashboardPage /></RoleGuard>} />
           <Route path="/cfo/receivables" element={<RoleGuard allowedRoles={['cfo', 'super_admin', 'cto']} requiredPermission="cfo"><CFOReceivablesAnalysisPage /></RoleGuard>} />
+          <Route path="/cfo/payables" element={<RoleGuard allowedRoles={['cfo', 'super_admin', 'cto']} requiredPermission="cfo"><CFOPayablesOverviewPage /></RoleGuard>} />
           <Route path="/cfo" element={<Navigate to="/cfo/dashboard" replace />} />
           <Route path="/dashboard/cfo" element={<Navigate to="/cfo/dashboard" replace />} />
           <Route path="/admin/cfo" element={<Navigate to="/cfo/dashboard" replace />} />
