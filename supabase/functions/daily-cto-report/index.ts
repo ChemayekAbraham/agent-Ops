@@ -1636,7 +1636,7 @@ Deno.serve(async (req) => {
       rollbackOk: boolean;
     };
     const weekDays: DayRoll[] = [];
-    if (reportType === 'board') {
+    if (boardMode) {
       const results = await Promise.all(
         weekDates.map(async (dy) => {
           if (dy === dateStr) return { dy, payload: d };
@@ -1679,7 +1679,7 @@ Deno.serve(async (req) => {
       weekDays.sort((a2, b2) => (a2.d < b2.d ? -1 : 1));
     }
     const sum = (k: keyof DayRoll) => weekDays.reduce((s, r) => s + Number(r[k] || 0), 0);
-    const weeklyMode = reportType === 'board' && weekDays.length > 1;
+    const weeklyMode = boardMode && weekDays.length > 1;
     const wHealth = weeklyMode ? Math.round(sum('health') / weekDays.length) : health;
     const wHealthLabel = wHealth >= 85 ? 'Healthy' : wHealth >= 70 ? 'Watch' : 'At risk';
     const wHealthFirst = weekDays.length ? weekDays[0].health : health;
@@ -1917,7 +1917,7 @@ Deno.serve(async (req) => {
     ];
 
 
-    const pdfBytes = reportType === 'board'
+    const pdfBytes = boardMode
       ? await buildBoardPdf({
           dateStr: weeklyMode ? boardPeriodLabel : dateStr,
           health: wHealth,
@@ -1932,7 +1932,7 @@ Deno.serve(async (req) => {
           kpis: boardKpis,
         })
       : await buildTechPdf(techArgs);
-    const pdfName = reportType === 'board'
+    const pdfName = boardMode
       ? `Welile_Board_Technology_Memo_Week_Ending_${dateStr}.pdf`
       : `Welile_Daily_CTO_Report_${dateStr}.pdf`;
 
