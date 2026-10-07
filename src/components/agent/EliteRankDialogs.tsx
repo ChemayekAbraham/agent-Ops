@@ -58,33 +58,32 @@ export function EliteHowItWorksDialog() {
   );
 }
 
-const PREVIEW_EMAILS = ['pexpert46@gmail.com'];
-
 /** Preview-only: shows what the rank popups look like. Nothing is saved or paid. */
 export function EliteDialogPreviewButton() {
   const { user } = useAuth();
+  const [open, setOpen] = useState(false);
   const [tier, setTier] = useState<EliteTier | null>(null);
-  if (!user?.email || !PREVIEW_EMAILS.includes(user.email.toLowerCase())) return null;
+  if (!user) return null;
   const t = TIERS.find((x) => x.tier === tier);
   const name = (user.user_metadata?.full_name as string | undefined)?.split(' ')[0] ?? 'Agent';
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-dashed p-3">
-      <Eye className="h-4 w-4 text-muted-foreground" />
-      <span className="text-xs font-semibold">Preview rank popups:</span>
-      {TIERS.map((x) => (
-        <Button key={x.tier} size="sm" variant="outline" className="h-7 rounded-full text-xs capitalize" onClick={() => setTier(x.tier)}>
-          {x.tier}
+    <Dialog open={open} onOpenChange={(value) => { setOpen(value); if (!value) setTier(null); }}>
+      <DialogTrigger asChild>
+        <Button variant="outline" className="h-auto min-h-[64px] justify-start gap-3 whitespace-normal rounded-2xl border-border/60 bg-card p-3.5 text-left">
+          <span className="shrink-0 rounded-xl bg-accent p-2 text-accent-foreground"><Eye className="h-5 w-5" /></span>
+          <span className="text-[13px] font-semibold">Preview rank popups</span>
         </Button>
-      ))}
-      <Button size="sm" variant="ghost" className="h-7 rounded-full text-xs"
-        onClick={() => toast('You are no longer in the Top 4. You are back to a normal agent rate until the next refresh.')}>
-        Drop-out message
-      </Button>
-      <Dialog open={!!t} onOpenChange={(o) => !o && setTier(null)}>
-        <DialogContent className="max-w-sm rounded-3xl border-0 p-0 overflow-hidden gap-0 max-h-[90vh] overflow-y-auto">
-          {t && <CelebrationBody key={t.tier} tier={t.tier} position={t.pos} score={t.score} name={name} onClose={() => setTier(null)} />}
+      </DialogTrigger>
+        <DialogContent className={t ? "max-w-sm rounded-3xl border-0 p-0 overflow-hidden gap-0 max-h-[90vh] overflow-y-auto" : "max-w-sm max-h-[90vh] overflow-y-auto"}>
+          {t ? <CelebrationBody key={t.tier} tier={t.tier} position={t.pos} score={t.score} name={name} onClose={() => setTier(null)} /> : <>
+            <DialogTitle>Preview rank popups</DialogTitle>
+            <DialogDescription>Sample ranks only — your rank, benefits and wallet stay unchanged.</DialogDescription>
+            <div className="grid grid-cols-2 gap-3">
+              {TIERS.map((x) => <Button key={x.tier} variant="outline" className="h-12 capitalize" onClick={() => setTier(x.tier)}>{x.tier}</Button>)}
+            </div>
+            <Button variant="ghost" onClick={() => toast('You are no longer in the Top 4. You are back to a normal agent rate until the next refresh.')}>Drop-out message</Button>
+          </>}
         </DialogContent>
-      </Dialog>
-    </div>
+    </Dialog>
   );
 }

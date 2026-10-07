@@ -1785,7 +1785,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         {/* === GROW TAB === Share, recruit, partners */}
         {activeTab === 'grow' && (
           <div className={cn("space-y-5", tabAnimClass)}>
-            <EliteDialogPreviewButton />
             {/* Leaderboard CTA — draws agents into the recruitment competition */}
             <button
               onClick={() => { hapticTap(); navigate('/dashboard/agents/leaderboard'); }}
@@ -1826,6 +1825,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
                   <span className="font-semibold text-[13px] text-foreground truncate">{a.label}</span>
                 </button>
               ))}
+              <EliteDialogPreviewButton />
             </div>
             <ShareRentRecorderCard />
           </div>
