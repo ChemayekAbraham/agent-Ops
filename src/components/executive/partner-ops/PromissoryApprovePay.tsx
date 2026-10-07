@@ -27,7 +27,7 @@ export function PromissoryApprovePay({ ids, onCompleted }: { ids: string[]; onCo
     busyRef.current = true;
     setOpen(true); setBusy(true); setRows([]); setReason(''); setError('');
     try { setRows(await fetchPromissoryApprovalPreview(ids)); }
-    catch (err) { setError(err instanceof Error ? err.message : 'Could not load payout preview'); }
+    catch (err) { setError((err as { message?: string })?.message || 'Could not load payout preview'); }
     finally { busyRef.current = false; setBusy(false); }
   }
 
