@@ -69490,6 +69490,18 @@ export type Database = {
         Args: { p_invitee_id: string }
         Returns: number
       }
+      merchandise_plan_ineligible_reason: {
+        Args: { p_plan_id: string }
+        Returns: string
+      }
+      merchandise_plan_recovery_eligible: {
+        Args: { p_plan_id: string }
+        Returns: boolean
+      }
+      merchandise_sale_recognition_eligible: {
+        Args: { p_sale_id: string }
+        Returns: boolean
+      }
       merchant_agent_allows_withdrawal: {
         Args: {
           p_agent_id: string
