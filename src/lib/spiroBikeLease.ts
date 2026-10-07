@@ -80,9 +80,8 @@ function clampMonths(months: number): number {
   return Math.min(SPIRO_MAX_MONTHS, Math.max(SPIRO_MIN_MONTHS, n));
 }
 
-function daysBetween(a: Date, b: Date): number {
-  return Math.max(1, Math.round((b.getTime() - a.getTime()) / 86_400_000));
-}
+/** Every lease month is a flat 30 days. */
+export const SPIRO_MONTH_DAYS = 30;
 
 export function spiroLeaseSchedule(
   months: number,
@@ -109,9 +108,9 @@ export function spiroLeaseSchedule(
     const totalDue = principalDue + feeDue;
     const closingPrincipal = Math.max(0, openingPrincipal - principalDue);
 
-    const next = new Date(start);
-    next.setMonth(next.getMonth() + m);
-    const days = daysBetween(cursor, next);
+    // Flat 30-day lease month (matches public._spiro_month_days).
+    const next = new Date(start.getTime() + m * SPIRO_MONTH_DAYS * 86_400_000);
+    const days = SPIRO_MONTH_DAYS;
 
     rows.push({
       month: m,
