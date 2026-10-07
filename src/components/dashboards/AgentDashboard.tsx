@@ -76,6 +76,9 @@ import { useMyProxyAgentStatus } from '@/hooks/useProxyAgentApproval';
 
 import { UserAvatar } from '@/components/UserAvatar';
 import { ProfileSummaryPopover } from '@/components/profile/ProfileSummaryPopover';
+import { useMyEliteRank } from '@/components/agent/AgentRankCelebrationDialog';
+import { RankEarningsCard } from '@/components/agent/RankEarningsCard';
+import { EliteDialogPreviewButton } from '@/components/agent/EliteRankDialogs';
 import { SubAgentsPanel } from '@/components/agent/SubAgentsPanel';
 import { MyParentAgentCard } from '@/components/agent/MyParentAgentCard';
 import NationalIdGroupCard from '@/components/agent/NationalIdGroupCard';
@@ -248,6 +251,7 @@ interface AgentDashboardProps {
 export default function AgentDashboard({ user, signOut, currentRole, availableRoles, onRoleChange, addRoleComponent }: AgentDashboardProps) {
   // Behaviour telemetry tracking
   useTrackSection('agent-overview', 'agent');
+  const { data: myEliteRank } = useMyEliteRank();
 
   // Proxy Agent shortcut is only surfaced to database-approved proxy agents.
   const { data: proxyStatus } = useMyProxyAgentStatus(user?.id);
@@ -691,7 +695,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         home: 'Home',
         money: 'Money',
         tenants: 'Tenants',
-        grow: 'Grow',
+        grow: 'More',
         subagents: 'Sub Agents',
       };
       setTabAnnounce(`Switched to ${labelMap[activeTab]} section`);
@@ -1026,6 +1030,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
                 verified={profile?.verified}
                 roleLabel="Welile Agent"
                 triggerSize="lg"
+                eliteTier={myEliteRank?.tier_name}
               />
               <div className="flex-1 min-w-0">
                 <h1 className="font-bold text-xl leading-tight flex items-center gap-1.5 flex-wrap">
@@ -1355,6 +1360,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
             {!isMerchant && (
               <>
                 <EarningsSummaryCard />
+                <RankEarningsCard />
 
                 {/* Products being repaid — plan + pay button per product */}
                 <MerchandiseRepaymentPortfolio userId={user.id} />
@@ -1819,6 +1825,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
                   <span className="font-semibold text-[13px] text-foreground truncate">{a.label}</span>
                 </button>
               ))}
+              <EliteDialogPreviewButton />
             </div>
             <ShareRentRecorderCard />
           </div>

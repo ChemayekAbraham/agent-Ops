@@ -2918,6 +2918,48 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_elite_ranks: {
+        Row: {
+          active_days: number
+          active_subagents: number
+          activity_score: number
+          agent_id: string
+          collection_score: number
+          composite_score: number
+          gross_collected: number
+          network_score: number
+          rank_position: number
+          tier_name: string
+          updated_at: string
+        }
+        Insert: {
+          active_days?: number
+          active_subagents?: number
+          activity_score: number
+          agent_id: string
+          collection_score: number
+          composite_score: number
+          gross_collected?: number
+          network_score: number
+          rank_position: number
+          tier_name: string
+          updated_at?: string
+        }
+        Update: {
+          active_days?: number
+          active_subagents?: number
+          activity_score?: number
+          agent_id?: string
+          collection_score?: number
+          composite_score?: number
+          gross_collected?: number
+          network_score?: number
+          rank_position?: number
+          tier_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       agent_escalations: {
         Row: {
           agent_id: string
@@ -10684,6 +10726,57 @@ export type Database = {
           updated_at?: string
           user_id?: string
           wallet_bucket?: string
+        }
+        Relationships: []
+      }
+      cfo_reporting_cost_tags: {
+        Row: {
+          amount: number
+          applied_at: string
+          applied_by: string
+          business_line: string
+          expense_ledger_entry_id: string
+          id: string
+          original_recipient_id: string
+          original_recipient_name: string
+          payment_reference: string
+          purpose: string
+          reason: string
+          requisition_ref: string | null
+          review_flag: string | null
+          transaction_group_id: string
+        }
+        Insert: {
+          amount: number
+          applied_at?: string
+          applied_by: string
+          business_line: string
+          expense_ledger_entry_id: string
+          id?: string
+          original_recipient_id: string
+          original_recipient_name: string
+          payment_reference: string
+          purpose: string
+          reason: string
+          requisition_ref?: string | null
+          review_flag?: string | null
+          transaction_group_id: string
+        }
+        Update: {
+          amount?: number
+          applied_at?: string
+          applied_by?: string
+          business_line?: string
+          expense_ledger_entry_id?: string
+          id?: string
+          original_recipient_id?: string
+          original_recipient_name?: string
+          payment_reference?: string
+          purpose?: string
+          reason?: string
+          requisition_ref?: string | null
+          review_flag?: string | null
+          transaction_group_id?: string
         }
         Relationships: []
       }
@@ -62112,6 +62205,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      cfo_welile_homes_day_report: { Args: { p_day: string }; Returns: Json }
       change_wallet_transfer_schedule_recipient: {
         Args: { p_recipient_id: string; p_schedule_id: string }
         Returns: {
@@ -63286,6 +63380,7 @@ export type Database = {
         }
         Returns: Json
       }
+      elite_incentive_max_rank: { Args: never; Returns: number }
       email_queue_dispatch: { Args: never; Returns: undefined }
       empty_house_opportunity_summary: { Args: never; Returns: Json }
       end_ledger_maintenance: {
@@ -66368,6 +66463,18 @@ export type Database = {
           lease_id: string
         }[]
       }
+      get_my_elite_rank: {
+        Args: never
+        Returns: {
+          activity_score: number
+          collection_score: number
+          composite_score: number
+          network_score: number
+          rank_position: number
+          tier_name: string
+          updated_at: string
+        }[]
+      }
       get_my_landlord_properties: { Args: never; Returns: Json }
       get_my_listing_block: { Args: never; Returns: Json }
       get_my_parent_agent: {
@@ -69435,6 +69542,18 @@ export type Database = {
         Args: { p_invitee_id: string }
         Returns: number
       }
+      merchandise_plan_ineligible_reason: {
+        Args: { p_plan_id: string }
+        Returns: string
+      }
+      merchandise_plan_recovery_eligible: {
+        Args: { p_plan_id: string }
+        Returns: boolean
+      }
+      merchandise_sale_recognition_eligible: {
+        Args: { p_sale_id: string }
+        Returns: boolean
+      }
       merchant_agent_allows_withdrawal: {
         Args: {
           p_agent_id: string
@@ -72243,6 +72362,7 @@ export type Database = {
       }
       recover_smartphone_from_wallets: { Args: never; Returns: Json }
       redeem_staff_access_code: { Args: { p_code: string }; Returns: Json }
+      refresh_agent_elite_ranks: { Args: never; Returns: number }
       refresh_financial_summaries: { Args: never; Returns: undefined }
       refresh_house_location_rollup: { Args: never; Returns: undefined }
       refresh_mv_identity_double_users: { Args: never; Returns: undefined }

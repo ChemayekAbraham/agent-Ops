@@ -15,6 +15,7 @@ type Props = {
   forecast: ForecastRow[];
   behaviourTotal: number | null;
   idealTotal: number | null;
+  arrears?: number;
 };
 
 const amount = (v: number | null | undefined) => (v == null ? 'Unavailable' : formatUGX(v));
@@ -33,14 +34,19 @@ const TONES = {
 };
 
 function Metric({ label, value, note, icon: Icon, tone }: { label: string; value: string; note: string; icon: typeof Users; tone: keyof typeof TONES }) {
-  return <div className="min-w-0 rounded-xl border border-border bg-card p-4 shadow-sm"><div className="mb-3 flex items-center gap-2"><span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${TONES[tone]}`}><Icon className="h-4 w-4" /></span><h2 className="text-[10px] font-medium">{label}</h2></div><p className="break-words text-base font-semibold tabular-nums">{value}</p><p className="mt-2 text-[10px] text-muted-foreground">{note}</p></div>;
+  return <div className="min-w-0 rounded-xl border border-border bg-card p-3.5 shadow-sm"><div className="mb-3 flex items-center gap-2"><span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${TONES[tone]}`}><Icon className="h-4 w-4" /></span><h2 className="text-[10px] font-medium">{label}</h2></div><p className="whitespace-nowrap text-[15px] leading-snug font-semibold tabular-nums tracking-tight" title={value}>{value}</p><p className="mt-2 text-[10px] text-muted-foreground">{note}</p></div>;
 }
 
 function RiskCard({ label, value, note, tone, icon: Icon }: { label: string; value: string; note: string; tone: keyof typeof TONES; icon: typeof Users }) {
   return <div className={`min-w-0 rounded-lg border border-border p-3 ${TONES[tone].split(' ')[0]}`}><div className="mb-2 flex items-center gap-2"><Icon className={`h-4 w-4 ${TONES[tone].split(' ')[1]}`} /><span className={`text-[10px] font-medium ${TONES[tone].split(' ')[1]}`}>{label}</span></div><p className="break-words text-xs font-semibold tabular-nums text-foreground">{value}</p><p className="mt-1 text-[10px] text-muted-foreground">{note}</p></div>;
 }
 
-export default function AgentReceivablesDetail({ product, current, overdue, complete, today, forecast, behaviourTotal, idealTotal }: Props) {
+export default function AgentReceivablesDetail({ product, current, overdue, complete, today, forecast, behaviourTotal, idealTotal, arrears }: Props) {
+  // Due in 7 Days = today <= due_date <= today + 7 (Kampala). Overdue never counts.
+  const in7End = new Date(`${today}T00:00:00Z`); in7End.setUTCDate(in7End.getUTCDate() + 7);
+  const in7EndYmd = in7End.toISOString().slice(0, 10);
+  const due7 = complete ? product.items.filter((i) => { const d = i.due_date?.slice(0, 10); return !!d && d >= today && d <= in7EndYmd; }).reduce((a, i) => a + i.amount, 0) : null;
+  const arrearsNote = arrears ? `Overdue arrears / catch-up ${formatUGX(arrears)} is excluded from the Ideal schedule` : null;
   const [allAccounts, setAllAccounts] = useState(false);
   const [allSources, setAllSources] = useState(false);
   const items = product.items;
@@ -67,15 +73,15 @@ export default function AgentReceivablesDetail({ product, current, overdue, comp
       <Metric label="Accounts" value={product.item_count.toLocaleString()} note="Active accounts" icon={Users} tone="success" />
       <Metric label="Current" value={amount(current)} note={current === undefined ? 'Complete account data unavailable' : `${share(current)} of outstanding`} icon={CheckCircle2} tone="success" />
       <Metric label="Overdue" value={amount(overdue)} note={overdue === undefined ? 'Complete account data unavailable' : `${share(overdue)} of outstanding`} icon={Clock3} tone="destructive" />
-      <Metric label="Due in 7 Days" value={amount(idealTotal)} note="Scheduled collections" icon={CalendarDays} tone="primary" />
+      <Metric label="Due in 7 Days" value={amount(due7)} note="Scheduled collections" icon={CalendarDays} tone="primary" />
       <Metric label="Collection Rate" value="Unavailable" note="No consolidated rate" icon={Target} tone="success" />
     </div>
 
     <div className="grid items-stretch gap-3 xl:grid-cols-[1.4fr_1fr_0.8fr]">
       <Panel title="7-Day Forecast (Behaviour-based vs Ideal)">
-        <div className="h-56 rounded-lg bg-primary/10 p-1"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={forecast} margin={{ top: 10, right: 8, left: 0, bottom: 0 }}><CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border))" /><XAxis dataKey="label" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} /><YAxis width={64} tick={{ fontSize: 10 }} tickFormatter={(v: number) => `UGX ${short(v)}`} tickLine={false} axisLine={false} /><Tooltip formatter={(v: number) => formatUGX(v)} /><Legend wrapperStyle={{ fontSize: 10 }} /><Bar dataKey="behaviour" name="Behaviour-based (UGX)" fill="hsl(var(--primary))" maxBarSize={34} radius={[3, 3, 0, 0]} /><Line dataKey="ideal" name="Ideal (UGX)" stroke="hsl(var(--success))" strokeWidth={2} dot={{ r: 3 }} /></ComposedChart></ResponsiveContainer></div>
-        <div className="mt-2 flex flex-wrap justify-between gap-2 text-[10px] text-muted-foreground"><span>Behaviour {amount(behaviourTotal)}</span><span>Ideal {amount(idealTotal)}</span></div>
-        {behaviourTotal === null && <p className="mt-1 text-[10px] text-muted-foreground">Not enough collection history for a behaviour-based forecast; ideal schedule shown.</p>}
+        <div className="h-56 rounded-lg bg-primary/10 p-1"><ResponsiveContainer width="100%" height="100%"><ComposedChart data={forecast} margin={{ top: 10, right: 8, left: 0, bottom: 0 }}><CartesianGrid vertical={false} strokeDasharray="3 3" stroke="hsl(var(--border))" /><XAxis dataKey="label" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} /><YAxis width={64} tick={{ fontSize: 10 }} tickFormatter={(v: number) => `UGX ${short(v)}`} tickLine={false} axisLine={false} /><Tooltip formatter={(v: number) => formatUGX(v)} /><Legend wrapperStyle={{ fontSize: 10 }} /><Bar dataKey="behaviour" name="Behaviour-based (UGX)" fill="hsl(var(--primary))" maxBarSize={34} radius={[3, 3, 0, 0]} /><Line dataKey="ideal" name="Ideal scheduled (UGX)" stroke="hsl(var(--success))" strokeWidth={2} dot={{ r: 3 }} /></ComposedChart></ResponsiveContainer></div>
+        <div className="mt-2 flex flex-wrap justify-between gap-2 text-[10px] text-muted-foreground"><span>Behaviour {amount(behaviourTotal)}</span><span>Ideal (scheduled) {amount(idealTotal)}</span></div>{arrearsNote && <p className="mt-1 text-[10px] text-warning">{arrearsNote}.</p>}
+        {behaviourTotal === null && <p className="mt-1 text-[10px] text-muted-foreground">Not enough collection history for a behaviour-based forecast; behaviour forecast unavailable.</p>}
       </Panel>
 
       <Panel title="Collection Performance">
@@ -83,7 +89,7 @@ export default function AgentReceivablesDetail({ product, current, overdue, comp
           <ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={distribution.length ? distribution : [{ amount: 1 }]} dataKey="amount" nameKey="label" innerRadius="74%" outerRadius="96%" startAngle={90} endAngle={-270} stroke="none">{distribution.length ? distribution.map((r) => <Cell key={r.label} fill={r.color} />) : <Cell fill="hsl(var(--muted))" />}</Pie>{distribution.length > 0 && <Tooltip formatter={(v: number) => formatUGX(v)} />}</PieChart></ResponsiveContainer>
           <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-1"><span className="text-[10px] text-muted-foreground">UGX</span><span className="text-xl font-semibold tabular-nums">{short(product.outstanding)}</span><span className="text-[10px] text-muted-foreground">Outstanding</span></div>
         </div>
-        <div className="mt-3 space-y-2 text-[10px]">{[{ label: 'Current', v: current, dot: 'bg-success' }, { label: 'Overdue', v: overdue, dot: 'bg-warning' }, { label: 'Due in 7 Days', v: idealTotal, dot: 'bg-primary' }].map((r) => <div key={r.label} className="grid grid-cols-[minmax(0,1fr)_auto_40px] items-center gap-2"><span className="flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${r.dot}`} />{r.label}</span><span className="whitespace-nowrap tabular-nums text-muted-foreground">{amount(r.v)}</span><span className="text-right tabular-nums text-muted-foreground">{r.v == null ? '—' : share(r.v)}</span></div>)}</div>
+        <div className="mt-3 space-y-2 text-[10px]">{[{ label: 'Current', v: current, dot: 'bg-success' }, { label: 'Overdue', v: overdue, dot: 'bg-warning' }, { label: 'Due in 7 Days', v: due7, dot: 'bg-primary' }].map((r) => <div key={r.label} className="grid grid-cols-[minmax(0,1fr)_auto_40px] items-center gap-2"><span className="flex items-center gap-2"><span className={`h-2 w-2 rounded-full ${r.dot}`} />{r.label}</span><span className="whitespace-nowrap tabular-nums text-muted-foreground">{amount(r.v)}</span><span className="text-right tabular-nums text-muted-foreground">{r.v == null ? '—' : share(r.v)}</span></div>)}</div>
         {!distribution.length && <p className="mt-2 text-[10px] text-muted-foreground">Current and overdue totals are unavailable in this account sample.</p>}
       </Panel>
 

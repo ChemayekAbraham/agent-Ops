@@ -13,7 +13,9 @@ import {
   Info, Sparkles, Loader2,
 } from 'lucide-react';
 import bannerImg from '@/assets/leaderboard-banner.jpg';
-import { LeaderboardHowItWorksDialog } from '@/components/agent/LeaderboardHowItWorksDialog';
+import { AgentRankCelebrationDialog } from '@/components/agent/AgentRankCelebrationDialog';
+import { EliteTop4Strip } from '@/components/agent/EliteTop4Strip';
+import { useEliteRanks } from '@/hooks/useEliteRanks';
 
 type Period = 'weekly' | 'monthly';
 const PER_PAGE = 20;
@@ -50,13 +52,7 @@ export default function AgentLeaderboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [period, setPeriod] = useState<Period>('weekly');
-  const [howOpen, setHowOpen] = useState(false);
-
-  // Explain how the leaderboard works when the page first opens.
-  useEffect(() => {
-    const t = setTimeout(() => setHowOpen(true), 350);
-    return () => clearTimeout(t);
-  }, []);
+  const { tierOf } = useEliteRanks();
 
   const { data: rows = [], isFetching } = useQuery({
     queryKey: ['subagent-leaderboard', period],
@@ -106,7 +102,7 @@ export default function AgentLeaderboard() {
 
   return (
     <div className="min-h-screen" style={{ background: '#F8FAFC' }}>
-      <LeaderboardHowItWorksDialog open={howOpen} onOpenChange={setHowOpen} />
+      <AgentRankCelebrationDialog />
       {/* Hero banner */}
       <div className="relative overflow-hidden">
         <img
@@ -164,6 +160,7 @@ export default function AgentLeaderboard() {
       </div>
 
       <div className="mx-auto w-full max-w-3xl px-4 pb-24">
+        <div className="pt-6"><EliteTop4Strip /></div>
         {/* Period toggle */}
         <div className="-mt-5 relative z-20 mb-6 flex justify-center">
           <div className="inline-flex rounded-full bg-card p-1 shadow-lg" style={{ boxShadow: '0 10px 30px -12px rgba(109,40,217,0.4)' }}>
@@ -217,7 +214,7 @@ export default function AgentLeaderboard() {
                           className="rounded-full p-[3px]"
                           style={{ background: meta.color }}
                         >
-                          <UserAvatar avatarUrl={agent.avatar_url} fullName={agent.agent_name} size={agent.rank === 1 ? 'lg' : 'md'} />
+                          <UserAvatar avatarUrl={agent.avatar_url} fullName={agent.agent_name} size={agent.rank === 1 ? 'lg' : 'md'} eliteTier={tierOf(agent.agent_id)} />
                         </div>
                         <div
                           className="absolute -bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full text-white shadow"
@@ -265,7 +262,7 @@ export default function AgentLeaderboard() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="rounded-full bg-white/20 p-[2px]">
-                      <UserAvatar avatarUrl={myRank.avatar_url} fullName={myRank.agent_name} size="md" />
+                      <UserAvatar avatarUrl={myRank.avatar_url} fullName={myRank.agent_name} size="md" eliteTier={tierOf(myRank.agent_id)} />
                     </div>
                     <div>
                       <p className="text-xs font-medium text-white/80">Your Position</p>
@@ -301,7 +298,7 @@ export default function AgentLeaderboard() {
                     >
                       <span className="text-sm font-bold" style={{ color: isMe ? '#6D28D9' : '#64748b' }}>#{r.rank}</span>
                       <div className="flex min-w-0 items-center gap-2.5">
-                        <UserAvatar avatarUrl={r.avatar_url} fullName={r.agent_name} size="sm" />
+                        <UserAvatar avatarUrl={r.avatar_url} fullName={r.agent_name} size="sm" eliteTier={tierOf(r.agent_id)} />
                         <span className="truncate text-sm font-semibold text-foreground">
                           {isMe
                             ? <><span style={{ color: '#6D28D9' }}>You</span> ({r.agent_name})</>
@@ -329,7 +326,7 @@ export default function AgentLeaderboard() {
                     >
                       <span className="text-sm font-bold" style={{ color: '#6D28D9' }}>#{myRank.rank}</span>
                       <div className="flex min-w-0 items-center gap-2.5">
-                        <UserAvatar avatarUrl={myRank.avatar_url} fullName={myRank.agent_name} size="sm" />
+                        <UserAvatar avatarUrl={myRank.avatar_url} fullName={myRank.agent_name} size="sm" eliteTier={tierOf(myRank.agent_id)} />
                         <span className="truncate text-sm font-semibold text-foreground">
                           <span style={{ color: '#6D28D9' }}>You</span> ({myRank.agent_name})
                         </span>
