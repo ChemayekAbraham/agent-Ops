@@ -5,6 +5,7 @@ import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, ComposedChart, Carte
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { usePayablesTotal, usePayablesBreakdown, usePayablesPredictiveForecast, usePayablesContractSchedule, type PayableProduct, type PayableItem } from '@/hooks/usePayables';
+import { useReceivablesPredictiveForecast } from '@/hooks/useReceivables';
 import { formatUGX } from '@/lib/rentCalculations';
 
 const COLORS = ['success', 'primary', 'warning', 'destructive', 'muted-foreground', 'receivable-rnd'].map((tone) => `hsl(var(--${tone}))`);
