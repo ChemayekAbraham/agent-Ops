@@ -64672,6 +64672,7 @@ export type Database = {
       }
       get_approximate_user_count: { Args: never; Returns: number }
       get_authoritative_wallet: { Args: { p_user_id: string }; Returns: Json }
+      get_board_tech_memo: { Args: { p_date?: string }; Returns: Json }
       get_budget_consolidation: { Args: { p_call_id: string }; Returns: Json }
       get_budget_department_notifications: {
         Args: { _department_keys?: string[] }
