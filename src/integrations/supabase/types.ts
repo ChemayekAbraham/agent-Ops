@@ -35201,6 +35201,64 @@ export type Database = {
           },
         ]
       }
+      portfolio_maturity_notices: {
+        Row: {
+          final_outcome: string | null
+          final_sent_at: string | null
+          id: string
+          maturity_date: string
+          outcome: string
+          portfolio_id: string
+          recipient_email: string | null
+          sent_at: string
+          source: string
+        }
+        Insert: {
+          final_outcome?: string | null
+          final_sent_at?: string | null
+          id?: string
+          maturity_date: string
+          outcome: string
+          portfolio_id: string
+          recipient_email?: string | null
+          sent_at?: string
+          source?: string
+        }
+        Update: {
+          final_outcome?: string | null
+          final_sent_at?: string | null
+          id?: string
+          maturity_date?: string
+          outcome?: string
+          portfolio_id?: string
+          recipient_email?: string | null
+          sent_at?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "portfolio_maturity_notices_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "investor_portfolios"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "portfolio_maturity_notices_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_landlord_pool_unreserved"
+            referencedColumns: ["portfolio_id"]
+          },
+          {
+            foreignKeyName: "portfolio_maturity_notices_portfolio_id_fkey"
+            columns: ["portfolio_id"]
+            isOneToOne: false
+            referencedRelation: "v_portfolio_pool_category"
+            referencedColumns: ["portfolio_id"]
+          },
+        ]
+      }
       portfolio_redemptions: {
         Row: {
           created_at: string
@@ -73003,6 +73061,14 @@ export type Database = {
           transaction_date: string
           transaction_group_id: string
         }[]
+      }
+      split_portfolio_principal: {
+        Args: {
+          p_portfolio_id: string
+          p_reason: string
+          p_split_amount: number
+        }
+        Returns: Json
       }
       staff_loan_accrue_interest: {
         Args: never

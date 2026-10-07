@@ -15,12 +15,13 @@ describe('Bike Repayment Plan Schedule calculation', () => {
     expect(m1.month).toBe(1);
     expect(m1.openingPrincipal).toBe(145000);
     expect(Math.round(m1.feeDue)).toBe(40600); // 28% of 145,000
-    expect(m1.daily).toBe(1513);
+    expect(m1.days).toBe(30);
+    expect(m1.daily).toBe(1563);
 
     // Month 23 (Final month)
     const m23 = schedule.rows[22];
     expect(m23.month).toBe(23);
-    expect(m23.daily).toBe(260);
+    expect(m23.daily).toBe(269);
     expect(Math.round(m23.closingPrincipal)).toBe(0);
   });
 
