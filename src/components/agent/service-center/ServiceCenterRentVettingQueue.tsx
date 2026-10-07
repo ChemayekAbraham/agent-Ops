@@ -14,6 +14,7 @@ import {
   useServiceCenterReviewRentRequest,
 } from '@/hooks/useServiceCenterRentQueue';
 import { matchesVettingQuery } from '@/components/agent/service-center/matchesVettingQuery';
+import { AwarenessCallPanel } from '@/components/pipeline/AwarenessCallPanel';
 
 /**
  * Service Center vetting queue — the first gate a sub-agent rent request passes
@@ -150,6 +151,9 @@ export function ServiceCenterRentVettingQueue({ searchQuery = '' }: { searchQuer
                   {req.house_image_urls?.length ? ` (${req.house_image_urls.length})` : ''}
                 </span>
               </button>
+
+              {/* Awareness call: phone the tenant and record what they heard. Storage only; vetting below is unchanged. */}
+              <AwarenessCallPanel request={req} defaultSubject="tenant" />
 
               <div className="space-y-2">
                 <Textarea

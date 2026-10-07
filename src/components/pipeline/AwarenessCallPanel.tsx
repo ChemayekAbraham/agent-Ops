@@ -17,9 +17,14 @@ import {
 } from '@/lib/awarenessCallLabels';
 
 /**
- * "Awareness call" section of the Review Rent Request sheet. Staff phone the tenant or landlord, then record what
+ * "Awareness call" panel, shared by the Review Rent Request sheet (RentPipelineQueue) and the Service Centre vetting
+ * queue (ServiceCenterRentVettingQueue). Staff phone the tenant or landlord, then record what
  * they heard. It sits beside the approve and reject controls and never changes them: nothing here moves a Rent Plan
  * through the pipeline, and a Rent Plan can be approved or rejected whether or not a call has been saved.
+ * The caller's team (service centre, Agent Ops, Tenant Ops, Landlord Ops, other) is worked out by the database from who
+ * the caller is, never sent from here, so a service centre manager's calls are always recorded as 'service_centre'.
+ * `defaultSubject` is who the stage usually phones first: the suggested button comes first and is highlighted, and
+ * "Record feedback" starts with that person selected.
  */
 
 export interface AwarenessCallRequest {
@@ -91,7 +96,9 @@ function CallLine({ call }: { call: AwarenessCall }) {
   );
 }
 
-export function AwarenessCallSection({ request }: { request: AwarenessCallRequest }) {
+export function AwarenessCallPanel({
+  request, defaultSubject = 'tenant',
+}: { request: AwarenessCallRequest; defaultSubject?: 'tenant' | 'landlord' }) {
   const requestId = request.id;
   const calls = useAwarenessCalls(requestId);
   const record = useRecordAwarenessCall();
@@ -113,6 +120,9 @@ export function AwarenessCallSection({ request }: { request: AwarenessCallReques
     tenant: { phone: request.tenant_phone ?? '', name: request.tenant_name || 'tenant' },
     landlord: { phone: request.landlord_phone ?? '', name: request.landlord_name || 'landlord' },
   };
+
+  // The person this stage usually phones comes first.
+  const callOrder: ('tenant' | 'landlord')[] = defaultSubject === 'landlord' ? ['landlord', 'tenant'] : ['tenant', 'landlord'];
 
   const startDial = (who: 'tenant' | 'landlord') => {
     const next: DialSession = { subject: who, phone: phones[who].phone, dialStartedAt: new Date().toISOString() };
@@ -141,7 +151,8 @@ export function AwarenessCallSection({ request }: { request: AwarenessCallReques
     resetForm();
   };
 
-  const subject: AwarenessSubject | null = session?.subject ?? manualSubject;
+  // With no call button tapped, the stage's usual person is selected until the caller picks the other.
+  const subject: AwarenessSubject | null = session?.subject ?? manualSubject ?? (formOpen ? defaultSubject : null);
   const phone = session?.phone ?? (subject === 'tenant' || subject === 'landlord' ? phones[subject].phone : '');
   const dialStartedAt = session?.dialStartedAt ?? openedAt;
 
@@ -204,15 +215,24 @@ export function AwarenessCallSection({ request }: { request: AwarenessCallReques
       )}
 
       <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2">
-        {(['tenant', 'landlord'] as const).map((who) => {
+        {callOrder.map((who) => {
           const href = telHref(phones[who].phone);
           const label = who === 'tenant' ? 'Call tenant' : 'Call landlord';
+          const suggested = who === defaultSubject;
           return href ? (
-            <Button key={who} asChild variant="outline" className="h-11 w-full justify-start gap-2">
+            <Button
+              key={who}
+              asChild
+              variant={suggested ? 'default' : 'outline'}
+              className="h-11 w-full justify-start gap-2"
+              data-suggested={suggested ? 'true' : undefined}
+            >
               <a href={href} onClick={() => startDial(who)} aria-label={`${label} ${phones[who].phone}`}>
                 <PhoneCall className="h-4 w-4" />
                 <span className="min-w-0 truncate">{label}</span>
-                <span className="ml-auto text-xs font-normal text-muted-foreground">{phones[who].phone}</span>
+                <span className={cn('ml-auto text-xs font-normal', suggested ? 'text-primary-foreground/80' : 'text-muted-foreground')}>
+                  {phones[who].phone}
+                </span>
               </a>
             </Button>
           ) : (
@@ -253,7 +273,7 @@ export function AwarenessCallSection({ request }: { request: AwarenessCallReques
             <ChoiceChips
               name="awareness-subject"
               label="Who did you call?"
-              value={manualSubject === 'tenant' || manualSubject === 'landlord' ? manualSubject : null}
+              value={manualSubject === 'tenant' || manualSubject === 'landlord' ? manualSubject : defaultSubject}
               options={[{ value: 'tenant', label: 'Tenant' }, { value: 'landlord', label: 'Landlord' }]}
               onChange={(v) => setManualSubject(v)}
             />

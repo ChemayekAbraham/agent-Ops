@@ -32,7 +32,8 @@ import { PipelineAgentTransferDialog } from './PipelineAgentTransferDialog';
 import { TenantPaymentHistoryCard } from './TenantPaymentHistoryCard';
 import { RentApprovalConfirmDialog, type FunderVisibilityDecision } from './RentApprovalConfirmDialog';
 import { TenantPhotoChecksPanel } from './TenantPhotoChecksPanel';
-import { AwarenessCallSection } from './AwarenessCallSection';
+import { AwarenessCallPanel } from '@/components/pipeline/AwarenessCallPanel';
+import { defaultAwarenessSubjectForStage } from '@/lib/awarenessCallLabels';
 
 
 
@@ -2167,7 +2168,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
               )}
 
               {/* Awareness call: phone the tenant / landlord and record what they heard. Storage only; approve and reject below are unchanged. */}
-              <AwarenessCallSection key={selectedRequest.id} request={selectedRequest} />
+              <AwarenessCallPanel key={selectedRequest.id} request={selectedRequest} defaultSubject={defaultAwarenessSubjectForStage(stage)} />
 
 
 

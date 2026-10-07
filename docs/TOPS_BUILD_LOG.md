@@ -922,3 +922,13 @@ No code change. User reported the "Workspace" tab wasn't visible in the Tenant O
 - A soft reminder shows while no call is saved ("You can still approve or reject as usual"). A person who may not read the log (the function says not authorized) sees nothing from this section.
 
 **Answer values** are the ones already stored by the 30M record (`knew`, `heard`, `did_not_know`; `yes`, `partly`, `no`); "Heard but unsure" is the label for `heard`.
+
+## 2026-10-07 — Awareness call panel shared with the Service Centre vetting queue
+
+**What:** the awareness-call section built for the Review Rent Request sheet is now a shared component, `src/components/pipeline/AwarenessCallPanel.tsx` (moved from `src/components/executive/AwarenessCallSection.tsx`, renamed), and also appears on every pending request in `ServiceCenterRentVettingQueue.tsx`, between the house-photos link and the comment box. Four inserted lines in the service centre queue; nothing in its verify, decline, comment rule or toasts changed (a test pins that a 10-character comment is still required, that a saved call is not, and that saving a call never calls the review mutation). `RentPipelineQueue.tsx` only changed its import and passes the new `defaultSubject`.
+
+**Team:** `caller_team` is not sent by the screen. `record_awareness_call` works it out from who is calling, and the service centre queue only lists requests whose `service_center_manager_id` is the signed-in manager, so those calls are always recorded as `service_centre` (checked by the earlier dry run). A staff member who opens the same request elsewhere is recorded under their own team.
+
+**Who is phoned first (`defaultAwarenessSubjectForStage`, `awarenessCallLabels.ts`):** the pipeline queue is named by the status of the requests in it. Landlord Ops is the `tenant_ops_approved` queue and starts with "Call landlord"; Agent Ops (`pending`) and Tenant Ops (`agent_ops_approved`) start with "Call tenant", as do the service centre, Partner Ops, COO and CFO stages (nothing was specified for those). The suggested person's button comes first and is highlighted, and "Record feedback" starts with that person selected; the other person is one tap away. Tests cover all six stages, the button order and the preselection.
+
+**Note:** each pending request in the service centre queue reads its own awareness calls when it appears, one light query per card.

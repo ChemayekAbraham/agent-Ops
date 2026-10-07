@@ -66,3 +66,12 @@ export function telHref(phone: string | null | undefined): string | null {
   const cleaned = (phone ?? '').replace(/[^\d+]/g, '');
   return cleaned.replace(/\D/g, '').length >= 7 ? `tel:${cleaned}` : null;
 }
+
+/**
+ * Who a review stage usually phones first. The rent pipeline queue is named by the status of the requests in it:
+ * 'tenant_ops_approved' is the Landlord Ops review, so Landlord Ops starts with the landlord. Agent Ops ('pending'),
+ * Tenant Ops ('agent_ops_approved'), the service centre and every other stage start with the tenant.
+ */
+export function defaultAwarenessSubjectForStage(stage: string | null | undefined): 'tenant' | 'landlord' {
+  return stage === 'tenant_ops_approved' ? 'landlord' : 'tenant';
+}

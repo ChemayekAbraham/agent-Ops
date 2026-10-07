@@ -10,7 +10,7 @@ const toastSuccess = vi.fn();
 const toastError = vi.fn();
 vi.mock('sonner', () => ({ toast: { success: (...a: unknown[]) => toastSuccess(...a), error: (...a: unknown[]) => toastError(...a) } }));
 
-import { AwarenessCallSection } from './AwarenessCallSection';
+import { AwarenessCallPanel } from './AwarenessCallPanel';
 
 type Args = Record<string, unknown>;
 
@@ -55,7 +55,7 @@ const wrapper = ({ children }: { children: ReactNode }) => {
 const calls = (fn: string) => rpcMock.mock.calls.filter((c) => c[0] === fn).map((c) => c[1] as Args);
 const comeBack = () => act(() => { window.dispatchEvent(new Event('blur')); window.dispatchEvent(new Event('focus')); });
 
-describe('AwarenessCallSection', () => {
+describe('AwarenessCallPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     stored = []; readError = null; saveError = null;
@@ -66,7 +66,7 @@ describe('AwarenessCallSection', () => {
   afterEach(() => vi.restoreAllMocks());
 
   it('reminds softly when no call has been saved, and offers call links with the phones already shown', async () => {
-    render(<AwarenessCallSection request={request} />, { wrapper });
+    render(<AwarenessCallPanel request={request} />, { wrapper });
     expect(await screen.findByTestId('awareness-reminder')).toHaveTextContent('No awareness call has been saved for this Rent Plan yet');
     expect(screen.getByTestId('awareness-reminder')).toHaveTextContent('You can still approve or reject as usual');
     expect(screen.getByRole('link', { name: /Call tenant 0700111222/ })).toHaveAttribute('href', 'tel:0700111222');
@@ -75,7 +75,7 @@ describe('AwarenessCallSection', () => {
   });
 
   it('disables a call button when the person has no phone on file', async () => {
-    render(<AwarenessCallSection request={{ ...request, landlord_phone: '' }} />, { wrapper });
+    render(<AwarenessCallPanel request={{ ...request, landlord_phone: '' }} />, { wrapper });
     await screen.findByTestId('awareness-reminder');
     expect(screen.queryByRole('link', { name: /Call landlord/ })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Call landlord/ })).toBeDisabled();
@@ -83,7 +83,7 @@ describe('AwarenessCallSection', () => {
 
   it('remembers the dial time, opens the form on return, and saves the call then reads fresh data', async () => {
     const user = userEvent.setup();
-    render(<AwarenessCallSection request={request} />, { wrapper });
+    render(<AwarenessCallPanel request={request} />, { wrapper });
     await screen.findByTestId('awareness-reminder');
 
     fireEvent.click(screen.getByRole('link', { name: /Call tenant/ }));
@@ -129,14 +129,14 @@ describe('AwarenessCallSection', () => {
 
   it('keeps the form open after leaving the app and reloading (the dial is kept in sessionStorage)', async () => {
     window.sessionStorage.setItem('awareness-dial:rr-1', JSON.stringify({ subject: 'landlord', phone: '+256700333444', dialStartedAt: new Date(Date.now() - 5 * 60_000).toISOString() }));
-    render(<AwarenessCallSection request={request} />, { wrapper });
+    render(<AwarenessCallPanel request={request} />, { wrapper });
     const form = await screen.findByRole('form', { name: /Record awareness call feedback/ });
     expect(within(form).getByText(/Call to the landlord/)).toBeInTheDocument();
   });
 
   it('forgets a dial older than a day', async () => {
     window.sessionStorage.setItem('awareness-dial:rr-1', JSON.stringify({ subject: 'tenant', phone: '0700111222', dialStartedAt: new Date(Date.now() - 30 * 3_600_000).toISOString() }));
-    render(<AwarenessCallSection request={request} />, { wrapper });
+    render(<AwarenessCallPanel request={request} />, { wrapper });
     await screen.findByTestId('awareness-reminder');
     expect(screen.queryByRole('form', { name: /Record awareness call feedback/ })).not.toBeInTheDocument();
     expect(window.sessionStorage.getItem('awareness-dial:rr-1')).toBeNull();
@@ -144,7 +144,7 @@ describe('AwarenessCallSection', () => {
 
   it('records an unanswered call without the questions', async () => {
     const user = userEvent.setup();
-    render(<AwarenessCallSection request={request} />, { wrapper });
+    render(<AwarenessCallPanel request={request} />, { wrapper });
     await screen.findByTestId('awareness-reminder');
     await user.click(screen.getByRole('button', { name: /Record feedback/ }));
     const form = await screen.findByRole('form', { name: /Record awareness call feedback/ });
@@ -167,7 +167,7 @@ describe('AwarenessCallSection', () => {
   it('shows the server message and keeps the form when saving fails', async () => {
     saveError = 'a call can be recorded up to 7 days after it was dialled';
     const user = userEvent.setup();
-    render(<AwarenessCallSection request={request} />, { wrapper });
+    render(<AwarenessCallPanel request={request} />, { wrapper });
     await screen.findByTestId('awareness-reminder');
     await user.click(screen.getByRole('button', { name: /Record feedback/ }));
     const form = await screen.findByRole('form', { name: /Record awareness call feedback/ });
@@ -185,7 +185,7 @@ describe('AwarenessCallSection', () => {
       call({ id: 'c-2', caller_team: 'agent_ops' }),
       call({ id: 'c-1', caller_team: 'service_centre', caller_name: 'Sarah Nakato', subject_type: 'landlord', pipeline_stage: 'service_center_review', explained: 'yes', aware_30m: 'knew', aware_merchant_codes: 'knew', note: null }),
     ];
-    render(<AwarenessCallSection request={request} />, { wrapper });
+    render(<AwarenessCallPanel request={request} />, { wrapper });
     const earlier = await screen.findByTestId('awareness-earlier');
     expect(within(earlier).getByText('Earlier stages said…')).toBeInTheDocument();
     // grouped in pipeline order: service centre, agent ops, tenant ops
@@ -204,15 +204,47 @@ describe('AwarenessCallSection', () => {
 
   it('shows nothing at all to someone who may not read the log', async () => {
     readError = 'not authorized';
-    const { container } = render(<AwarenessCallSection request={request} />, { wrapper });
+    const { container } = render(<AwarenessCallPanel request={request} />, { wrapper });
     await waitFor(() => expect(calls('get_awareness_calls_for_request')).toHaveLength(1));
     await waitFor(() => expect(container.querySelector('[data-testid="awareness-call-section"]')).toBeNull());
   });
 
   it('never uses the words loan, lender, ROI or interest', async () => {
     stored = [call({})];
-    const { container } = render(<AwarenessCallSection request={request} />, { wrapper });
+    const { container } = render(<AwarenessCallPanel request={request} />, { wrapper });
     await screen.findByTestId('awareness-earlier');
     expect(container.textContent).not.toMatch(/\b(loan|lender|ROI|interest)\b/i);
+  });
+
+  it('puts the suggested person first and highlights that button (tenant by default)', async () => {
+    render(<AwarenessCallPanel request={request} />, { wrapper });
+    await screen.findByTestId('awareness-reminder');
+    const links = screen.getAllByRole('link').filter((l) => /^Call (tenant|landlord)/.test(l.getAttribute('aria-label') ?? ''));
+    expect(links.map((l) => l.getAttribute('aria-label')?.split(' ')[1])).toEqual(['tenant', 'landlord']);
+    expect(links[0]).toHaveAttribute('data-suggested', 'true');
+    expect(links[1]).not.toHaveAttribute('data-suggested');
+  });
+
+  it('starts with "Call landlord" when the stage is Landlord Ops', async () => {
+    render(<AwarenessCallPanel request={request} defaultSubject="landlord" />, { wrapper });
+    await screen.findByTestId('awareness-reminder');
+    const links = screen.getAllByRole('link').filter((l) => /^Call (tenant|landlord)/.test(l.getAttribute('aria-label') ?? ''));
+    expect(links.map((l) => l.getAttribute('aria-label')?.split(' ')[1])).toEqual(['landlord', 'tenant']);
+    expect(links[0]).toHaveAttribute('data-suggested', 'true');
+  });
+
+  it('"Record feedback" starts with the stage\'s usual person already selected', async () => {
+    const user = userEvent.setup();
+    render(<AwarenessCallPanel request={request} defaultSubject="landlord" />, { wrapper });
+    await screen.findByTestId('awareness-reminder');
+    await user.click(screen.getByRole('button', { name: /Record feedback/ }));
+    const form = await screen.findByRole('form', { name: /Record awareness call feedback/ });
+    expect(within(form).getByRole('radio', { name: 'Landlord' })).toHaveAttribute('aria-checked', 'true');
+    expect(within(form).getByText(/Call to the landlord/)).toBeInTheDocument();
+    // saving without touching the chooser records the landlord call
+    await user.click(within(form).getByRole('radio', { name: 'No answer' }));
+    await user.click(within(form).getByRole('button', { name: 'Save call' }));
+    await waitFor(() => expect(calls('record_awareness_call')).toHaveLength(1));
+    expect(calls('record_awareness_call')[0]).toMatchObject({ p_subject_type: 'landlord', p_subject_phone: '+256700333444' });
   });
 });
