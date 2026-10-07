@@ -64869,6 +64869,10 @@ export type Database = {
       }
       get_approximate_user_count: { Args: never; Returns: number }
       get_authoritative_wallet: { Args: { p_user_id: string }; Returns: Json }
+      get_awareness_calls_for_request: {
+        Args: { p_rent_request_id: string }
+        Returns: Json
+      }
       get_board_tech_memo: { Args: { p_date?: string }; Returns: Json }
       get_budget_consolidation: { Args: { p_call_id: string }; Returns: Json }
       get_budget_department_notifications: {
@@ -71830,6 +71834,21 @@ export type Database = {
           p_screen?: string
           p_target_role?: string
           p_user_agent?: string
+        }
+        Returns: Json
+      }
+      record_awareness_call: {
+        Args: {
+          p_aware_30m?: string
+          p_aware_merchant_codes?: string
+          p_call_result: string
+          p_dial_started_at: string
+          p_explained?: string
+          p_note?: string
+          p_rent_request_id: string
+          p_subject_phone: string
+          p_subject_type: string
+          p_subject_user_id?: string
         }
         Returns: Json
       }
