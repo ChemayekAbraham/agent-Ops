@@ -960,3 +960,23 @@ No code change. User reported the "Workspace" tab wasn't visible in the Tenant O
 **Verified:** SQL, as the ops test account in rolled-back blocks: every new filter equals an independent count; the gaps report filtered by status equals an independent recount for four statuses (752 / 41 / 30 / 69 stage moves); options list the three test callers; bad values and a non-staff caller are refused; anon has no execute grant. Page tests (12) cover the default 7-day window, what each card shows, the empty state, every tab, every filter reaching the reports, district following region, the export paging, and the not-available state.
 
 **What the default window shows today (1 to 7 Oct, nothing recorded yet):** 0 calls, 0 people, no answers; all five teams at 0; 861 stage moves, all 861 without a call (service centre 81, Agent Ops 202, Tenant Ops 124, Landlord Ops 107, Partner Ops 111, COO 111, CFO 125). Calls only began to be recorded on 7 Oct.
+
+## 2026-10-07 — Awareness call panel: exact questions, agent call, read-only COO/CFO, live merchant codes (front-end only)
+
+**What:** changes to the shared awareness call panel and its labels; no database change, no approve / reject / verify / decline / return-for-correction handler touched, stored answer values (`knew | heard | did_not_know`, `yes | partly | no`) and the table unchanged.
+
+**Wording:** the three questions are now exactly "Does this person know that a tenant who pays well can grow their access up to UGX 30,000,000?", "Does this person know they can pay by themselves using the Welile merchant codes (self-payment)?" and "Did you explain it to them on this call?". The 30M figure is written out as fixed text (`formatUGX` follows the viewer's currency and could print it converted). The matching labels are "Knew about 30M access" and "Knew about merchant-code self-payment", in the panel's earlier-calls list, the monitoring page (cards, answer blocks, stage / team and caller tables, call log, answer filter) and the CSV / Excel headers. Constants live in `src/lib/awarenessCallLabels.ts`.
+
+**Call agent:** a smaller third button, always last. Landlord Ops orders landlord, tenant, agent; every other stage tenant, landlord, agent. `subject_user_id` is sent for tenant (`tenant_id`) and agent (`agent_id`) only; never for a landlord (a landlord record is not a user). On the Review Rent Request sheet the agent id is withheld when the plan has been transferred to another agent, because the phone shown is then the new agent's and the database only accepts the original agent id.
+
+**Load failures:** the panel hides only when the log answers "not authorized". Any other failure keeps the call buttons and the form and shows "Could not load earlier calls" with a Retry button.
+
+**Read-only mode:** new `readOnly` prop, used for `partner_ops_approved` (COO) and `coo_approved` (CFO) in `RentPipelineQueue`: only "Earlier stages said…" (or "No awareness calls were recorded at earlier stages."), no buttons, reminder or form. Agent Ops, Tenant Ops, Landlord Ops and the Service Centre queue are unchanged.
+
+**Landlord Ops:** one line under the heading, "This is separate from the landlord verification call checklist below."; the checklist itself is untouched.
+
+**Merchant codes:** the panel reads the active rows of `payment_channels` (new `useMerchantCodes`), falling back to MTN 090777 and Airtel 4380664 if the read fails or is empty. It reads the table directly rather than through the Communications hook because that hook's report is limited to a wider staff group that leaves out Tenant Ops, Agent Ops, Landlord Ops and service centre managers. `MerchantCodePills` takes an optional `channels` prop; other pages keep the built-in pair.
+
+**Placement:** on the Review Rent Request sheet the panel now sits straight after the tenant / landlord / agent block (inside the details grid); in the Service Centre card it stays where it was.
+
+**Tests:** panel, labels, export and monitoring page tests updated and extended; `npm run guard:all` passes.

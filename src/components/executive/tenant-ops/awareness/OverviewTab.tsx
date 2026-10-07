@@ -4,6 +4,7 @@ import {
   CHART_GRID, CHART_TICK, ChartSkeleton, ChartTooltipBox, Legend, PctBar, SectionCard, StatTile,
 } from '@/components/executive/tenant-ops/workspace/payment-behavior/shared';
 import { WorkspaceEmptyState } from '@/components/executive/tenant-ops/workspace/WorkspaceEmptyState';
+import { LABEL_30M_ACCESS, LABEL_SELF_PAYMENT } from '@/lib/awarenessCallLabels';
 import { count, kampalaDate, percent } from '@/lib/awarenessMonitoringLabels';
 import type { AwarenessGaps, AwarenessSummary } from '@/hooks/useAwarenessMonitoring';
 
@@ -62,9 +63,9 @@ export function OverviewTab({
           sub={`${count(t?.no_answer)} no answer, ${count(t?.phone_off)} phone off, ${count(t?.wrong_number)} wrong number`} />
         <StatTile label="Rent Plans called" tone="default" loading={loading} value={count(t?.rent_plans_called)}
           sub={`by ${count(t?.callers)} ${t?.callers === 1 ? 'caller' : 'callers'}`} />
-        <StatTile label="Knew about 30M" tone="success" loading={loading} value={count(summary?.aware_30m.knew)}
+        <StatTile label={LABEL_30M_ACCESS} tone="success" loading={loading} value={count(summary?.aware_30m.knew)}
           sub={`${percent(summary?.aware_30m.knew_pct)} of answered calls`} />
-        <StatTile label="Knew merchant codes" tone="success" loading={loading} value={count(summary?.aware_merchant_codes.knew)}
+        <StatTile label={LABEL_SELF_PAYMENT} tone="success" loading={loading} value={count(summary?.aware_merchant_codes.knew)}
           sub={`${percent(summary?.aware_merchant_codes.knew_pct)} of answered calls`} />
         <StatTile label="Fully explained" tone="primary" loading={loading} value={count(summary?.explained.yes)}
           sub={`${count(summary?.explained.partly)} partly, ${count(summary?.explained.no)} not explained`} />
@@ -126,13 +127,13 @@ export function OverviewTab({
             ) : (
               <div className="grid gap-4 md:grid-cols-3">
                 <AnswerBlock
-                  title="Knew about the 30M Rent Plan before the call"
+                  title={LABEL_30M_ACCESS}
                   counts={[summary.aware_30m.knew, summary.aware_30m.heard, summary.aware_30m.did_not_know]}
                   pcts={[summary.aware_30m.knew_pct, summary.aware_30m.heard_pct, summary.aware_30m.did_not_know_pct]}
                   labels={['Knew about it', 'Heard but unsure', 'Did not know']}
                 />
                 <AnswerBlock
-                  title="Knew the Welile merchant codes"
+                  title={LABEL_SELF_PAYMENT}
                   counts={[summary.aware_merchant_codes.knew, summary.aware_merchant_codes.heard, summary.aware_merchant_codes.did_not_know]}
                   pcts={[summary.aware_merchant_codes.knew_pct, summary.aware_merchant_codes.heard_pct, summary.aware_merchant_codes.did_not_know_pct]}
                   labels={['Knew about it', 'Heard but unsure', 'Did not know']}

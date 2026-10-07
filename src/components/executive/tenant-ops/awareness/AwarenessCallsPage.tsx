@@ -2,7 +2,7 @@
  * Tenant Ops -> Classic -> Awareness Calls.
  *
  * Monitors the awareness calls staff record at each stage of the rent pipeline (what tenants, landlords and agents knew about the
- * 30M Rent Plan and the merchant codes, and whether it was explained). Every figure comes from the awareness_calls_* reports,
+ * 30M access and merchant-code self-payment, and whether it was explained). Every figure comes from the awareness_calls_* reports,
  * worked out in SQL on Kampala days; this page only filters, lays out and exports. The date picker is the one Tenant Ops Home uses.
  */
 import { useCallback, useMemo, useState } from 'react';
@@ -76,7 +76,7 @@ export default function AwarenessCallsPage() {
       <div className="min-w-0">
         <h3 className="text-base font-bold tracking-tight">Awareness Calls</h3>
         <p className="text-xs text-muted-foreground">
-          Do tenants, landlords and agents know about the 30M Rent Plan and the merchant codes? Calls staff record at each stage of the rent pipeline,
+          Do tenants, landlords and agents know about 30M access and merchant-code self-payment? Calls staff record at each stage of the rent pipeline,
           and the Rent Plans that moved on without one.
         </p>
       </div>

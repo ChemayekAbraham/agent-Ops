@@ -2,7 +2,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { PctBar, SectionCard } from '@/components/executive/tenant-ops/workspace/payment-behavior/shared';
 import { WorkspaceMobileRow } from '@/components/executive/tenant-ops/workspace/WorkspaceMobileRow';
 import { Skeleton } from '@/components/ui/skeleton';
-import { TEAM_LABEL } from '@/lib/awarenessCallLabels';
+import { LABEL_30M_ACCESS, LABEL_SELF_PAYMENT, TEAM_LABEL } from '@/lib/awarenessCallLabels';
 import { count, kampalaDate, percent } from '@/lib/awarenessMonitoringLabels';
 import type { AwarenessByTeam, AwarenessGaps } from '@/hooks/useAwarenessMonitoring';
 import { triple } from './shared';
@@ -35,8 +35,8 @@ export function StageTeamTab({
                     <TableHead className="text-right">Answered</TableHead>
                     <TableHead className="text-right">People reached</TableHead>
                     <TableHead className="text-right">Callers</TableHead>
-                    <TableHead className="text-right">30M</TableHead>
-                    <TableHead className="text-right">Merchant codes</TableHead>
+                    <TableHead className="text-right">{LABEL_30M_ACCESS}</TableHead>
+                    <TableHead className="text-right">{LABEL_SELF_PAYMENT}</TableHead>
                     <TableHead className="text-right">Explained (yes / partly / no)</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -66,8 +66,8 @@ export function StageTeamTab({
                     { label: 'Answered', value: `${count(r.answered)} (${percent(r.answered_pct)})` },
                     { label: 'People reached', value: count(r.people_reached) },
                     { label: 'Callers', value: count(r.callers) },
-                    { label: '30M (knew / heard / did not)', value: triple(r.aware_30m.knew, r.aware_30m.heard, r.aware_30m.did_not_know), full: true },
-                    { label: 'Merchant codes', value: triple(r.aware_merchant_codes.knew, r.aware_merchant_codes.heard, r.aware_merchant_codes.did_not_know), full: true },
+                    { label: `${LABEL_30M_ACCESS} (knew / heard / did not)`, value: triple(r.aware_30m.knew, r.aware_30m.heard, r.aware_30m.did_not_know), full: true },
+                    { label: `${LABEL_SELF_PAYMENT} (knew / heard / did not)`, value: triple(r.aware_merchant_codes.knew, r.aware_merchant_codes.heard, r.aware_merchant_codes.did_not_know), full: true },
                     { label: 'Explained (yes / partly / no)', value: triple(r.explained.yes, r.explained.partly, r.explained.no), full: true },
                   ]}
                 />

@@ -2,7 +2,7 @@ import { downloadCsv } from '@/lib/csvExport';
 import { kampalaYmd } from '@/lib/kampalaDays';
 import { downloadXlsxWorkbook, type XlsxSheet } from '@/lib/xlsxExport';
 import {
-  SUBJECT_LABEL, TEAM_LABEL, awarenessLabel, callResultLabel, explainedLabel, stageLabel,
+  LABEL_30M_ACCESS, LABEL_EXPLAINED, LABEL_SELF_PAYMENT, SUBJECT_LABEL, TEAM_LABEL, awarenessLabel, callResultLabel, explainedLabel, stageLabel,
 } from '@/lib/awarenessCallLabels';
 import { ANSWER_FILTER_OPTIONS, kampalaDate, kampalaDateTime, statusLabel } from '@/lib/awarenessMonitoringLabels';
 import type { AwarenessFilters, AwarenessLogRow } from '@/hooks/useAwarenessMonitoring';
@@ -12,7 +12,7 @@ import type { AwarenessFilters, AwarenessLogRow } from '@/hooks/useAwarenessMoni
 export const AWARENESS_LOG_HEADERS = [
   'Day (Kampala)', 'Dialled (Kampala)', 'Recorded (Kampala)', 'Rent Plan', 'Person type', 'Person', 'Phone',
   'Caller', 'Caller team', 'Stage at the call', 'Rent Plan status now', 'Region', 'Call result',
-  'Knew about 30M', 'Knew merchant codes', 'Explained', 'Note',
+  LABEL_30M_ACCESS, LABEL_SELF_PAYMENT, LABEL_EXPLAINED, 'Note',
 ];
 
 export function awarenessLogRows(rows: AwarenessLogRow[]): (string | number)[][] {

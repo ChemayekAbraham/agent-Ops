@@ -5,7 +5,26 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
 
 const rpcMock = vi.fn();
-vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc: (...a: unknown[]) => rpcMock(...a) } }));
+// payment_channels: the live merchant codes the panel shows (null error + rows, or a failure to test the fallback)
+let channelsResult: { data: unknown; error: unknown } = {
+  data: [
+    { provider: 'MTN', merchant_code: '090999', merchant_name: null, active: true, sort_order: 1 },
+    { provider: 'Airtel', merchant_code: '4380111', merchant_name: null, active: true, sort_order: 2 },
+  ],
+  error: null,
+};
+vi.mock('@/integrations/supabase/client', () => ({
+  supabase: {
+    rpc: (...a: unknown[]) => rpcMock(...a),
+    from: () => {
+      const chain: Record<string, unknown> = {};
+      chain.select = () => chain;
+      chain.eq = () => chain;
+      chain.order = () => Promise.resolve(channelsResult);
+      return chain;
+    },
+  },
+}));
 const toastSuccess = vi.fn();
 const toastError = vi.fn();
 vi.mock('sonner', () => ({ toast: { success: (...a: unknown[]) => toastSuccess(...a), error: (...a: unknown[]) => toastError(...a) } }));
@@ -16,7 +35,7 @@ type Args = Record<string, unknown>;
 
 const request = {
   id: 'rr-1', status: 'service_center_review', tenant_id: 'tenant-1', tenant_name: 'Adam Mariam', tenant_phone: '0700111222',
-  landlord_name: 'Mr Okello', landlord_phone: '+256700333444',
+  landlord_name: 'Mr Okello', landlord_phone: '+256700333444', agent_id: 'agent-1', agent_name: 'Joan Agent', agent_phone: '0700555666',
 };
 
 const call = (over: Record<string, unknown>) => ({
@@ -59,6 +78,13 @@ describe('AwarenessCallPanel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     stored = []; readError = null; saveError = null;
+    channelsResult = {
+      data: [
+        { provider: 'MTN', merchant_code: '090999', merchant_name: null, active: true, sort_order: 1 },
+        { provider: 'Airtel', merchant_code: '4380111', merchant_name: null, active: true, sort_order: 2 },
+      ],
+      error: null,
+    };
     window.sessionStorage.clear();
     install();
     vi.spyOn(console, 'error').mockImplementation(() => {});   // jsdom cannot follow a tel: link
@@ -98,12 +124,12 @@ describe('AwarenessCallPanel', () => {
     expect(within(form).getByRole('button', { name: 'Save call' })).toBeDisabled();
 
     await user.click(within(form).getByRole('radio', { name: 'Answered' }));
-    // the merchant codes are shown beside the question about them
-    expect(within(form).getByText('090777')).toBeInTheDocument();
-    expect(within(form).getByText('4380664')).toBeInTheDocument();
+    // the live merchant codes (payment_channels) are shown beside the question about them
+    expect(await within(form).findByText('090999')).toBeInTheDocument();
+    expect(within(form).getByText('4380111')).toBeInTheDocument();
     expect(within(form).getByRole('button', { name: 'Save call' })).toBeDisabled();
 
-    const q30 = within(form).getByRole('radiogroup', { name: /30M Rent Plan/ });
+    const q30 = within(form).getByRole('radiogroup', { name: /UGX 30,000,000/ });
     await user.click(within(q30).getByRole('radio', { name: 'Heard but unsure' }));
     const codes = within(form).getByRole('radiogroup', { name: /merchant codes/ });
     await user.click(within(codes).getByRole('radio', { name: 'Did not know' }));
@@ -152,8 +178,8 @@ describe('AwarenessCallPanel', () => {
     // no call button was tapped, so it asks who was called
     await user.click(within(form).getByRole('radio', { name: 'Landlord' }));
     await user.click(within(form).getByRole('radio', { name: 'Phone off' }));
-    expect(within(form).queryByRole('radiogroup', { name: /30M Rent Plan/ })).not.toBeInTheDocument();
-    expect(within(form).queryByText('090777')).not.toBeInTheDocument();
+    expect(within(form).queryByRole('radiogroup', { name: /UGX 30,000,000/ })).not.toBeInTheDocument();
+    expect(within(form).queryByText('090999')).not.toBeInTheDocument();
     await user.click(within(form).getByRole('button', { name: 'Save call' }));
 
     await waitFor(() => expect(calls('record_awareness_call')).toHaveLength(1));
@@ -246,5 +272,134 @@ describe('AwarenessCallPanel', () => {
     await user.click(within(form).getByRole('button', { name: 'Save call' }));
     await waitFor(() => expect(calls('record_awareness_call')).toHaveLength(1));
     expect(calls('record_awareness_call')[0]).toMatchObject({ p_subject_type: 'landlord', p_subject_phone: '+256700333444' });
+  });
+
+  it('asks the three questions in the exact words of the plan', async () => {
+    const user = userEvent.setup();
+    render(<AwarenessCallPanel request={request} />, { wrapper });
+    await screen.findByTestId('awareness-reminder');
+    await user.click(screen.getByRole('button', { name: /Record feedback/ }));
+    const form = await screen.findByRole('form', { name: /Record awareness call feedback/ });
+    await user.click(within(form).getByRole('radio', { name: 'Tenant' }));
+    await user.click(within(form).getByRole('radio', { name: 'Answered' }));
+    expect(within(form).getByText('Does this person know that a tenant who pays well can grow their access up to UGX 30,000,000?')).toBeInTheDocument();
+    expect(within(form).getByText('Does this person know they can pay by themselves using the Welile merchant codes (self-payment)?')).toBeInTheDocument();
+    expect(within(form).getByText('Did you explain it to them on this call?')).toBeInTheDocument();
+  });
+
+  it('earlier answers use the renamed labels', async () => {
+    stored = [call({})];
+    render(<AwarenessCallPanel request={request} />, { wrapper });
+    const earlier = await screen.findByTestId('awareness-earlier');
+    expect(within(earlier).getByText('Knew about 30M access')).toBeInTheDocument();
+    expect(within(earlier).getByText('Knew about merchant-code self-payment')).toBeInTheDocument();
+  });
+
+  it('has a smaller "Call agent" button last, after tenant and landlord', async () => {
+    render(<AwarenessCallPanel request={request} />, { wrapper });
+    await screen.findByTestId('awareness-reminder');
+    const names = screen.getAllByRole('link').map((l) => l.getAttribute('aria-label') ?? '').filter((n) => /^Call (tenant|landlord|agent)/.test(n));
+    expect(names.map((n) => n.split(' ')[1])).toEqual(['tenant', 'landlord', 'agent']);
+    expect(screen.getByRole('link', { name: /Call agent 0700555666/ })).toHaveAttribute('href', 'tel:0700555666');
+    expect(screen.getByRole('link', { name: /Call agent/ })).toHaveClass('h-9');
+  });
+
+  it('Landlord Ops order is landlord, tenant, agent', async () => {
+    render(<AwarenessCallPanel request={request} defaultSubject="landlord" />, { wrapper });
+    await screen.findByTestId('awareness-reminder');
+    const names = screen.getAllByRole('link').map((l) => l.getAttribute('aria-label') ?? '').filter((n) => /^Call (tenant|landlord|agent)/.test(n));
+    expect(names.map((n) => n.split(' ')[1])).toEqual(['landlord', 'tenant', 'agent']);
+  });
+
+  it('disables "Call agent" when the request has no agent phone', async () => {
+    render(<AwarenessCallPanel request={{ ...request, agent_phone: '' }} />, { wrapper });
+    await screen.findByTestId('awareness-reminder');
+    expect(screen.getByRole('button', { name: /Call agent/ })).toBeDisabled();
+  });
+
+  it('records an agent call with the agent id, and a landlord call without a user id', async () => {
+    const user = userEvent.setup();
+    render(<AwarenessCallPanel request={request} />, { wrapper });
+    await screen.findByTestId('awareness-reminder');
+    fireEvent.click(screen.getByRole('link', { name: /Call agent/ }));
+    expect(JSON.parse(window.sessionStorage.getItem('awareness-dial:rr-1')!)).toMatchObject({ subject: 'agent', phone: '0700555666' });
+    comeBack();
+    const form = await screen.findByRole('form', { name: /Record awareness call feedback/ });
+    expect(within(form).getByText(/Call to the agent/)).toBeInTheDocument();
+    await user.click(within(form).getByRole('radio', { name: 'No answer' }));
+    await user.click(within(form).getByRole('button', { name: 'Save call' }));
+    await waitFor(() => expect(calls('record_awareness_call')).toHaveLength(1));
+    expect(calls('record_awareness_call')[0]).toMatchObject({ p_subject_type: 'agent', p_subject_phone: '0700555666', p_subject_user_id: 'agent-1' });
+  });
+
+  it('passes no user id for an agent when the request has none', async () => {
+    const user = userEvent.setup();
+    render(<AwarenessCallPanel request={{ ...request, agent_id: null }} />, { wrapper });
+    await screen.findByTestId('awareness-reminder');
+    await user.click(screen.getByRole('button', { name: /Record feedback/ }));
+    const form = await screen.findByRole('form', { name: /Record awareness call feedback/ });
+    await user.click(within(form).getByRole('radio', { name: 'Agent' }));
+    await user.click(within(form).getByRole('radio', { name: 'Wrong number' }));
+    await user.click(within(form).getByRole('button', { name: 'Save call' }));
+    await waitFor(() => expect(calls('record_awareness_call')).toHaveLength(1));
+    expect(calls('record_awareness_call')[0]).toMatchObject({ p_subject_type: 'agent', p_subject_user_id: null });
+  });
+
+  it('keeps the buttons and form when the earlier calls fail to load, and offers Retry', async () => {
+    readError = 'connection reset';
+    const user = userEvent.setup();
+    render(<AwarenessCallPanel request={request} />, { wrapper });
+    expect(await screen.findByTestId('awareness-load-error')).toHaveTextContent('Could not load earlier calls');
+    expect(screen.getByRole('link', { name: /Call tenant/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Record feedback/ })).toBeInTheDocument();
+    expect(screen.queryByTestId('awareness-reminder')).not.toBeInTheDocument();
+
+    readError = null;
+    stored = [call({})];
+    await user.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByTestId('awareness-earlier')).toBeInTheDocument();
+    expect(screen.queryByTestId('awareness-load-error')).not.toBeInTheDocument();
+  });
+
+  it('read-only: only the earlier stages, with no call buttons, reminder or form', async () => {
+    stored = [call({})];
+    render(<AwarenessCallPanel request={request} readOnly />, { wrapper });
+    expect(await screen.findByTestId('awareness-earlier')).toBeInTheDocument();
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Record feedback/ })).not.toBeInTheDocument();
+    expect(screen.queryByTestId('awareness-reminder')).not.toBeInTheDocument();
+    expect(screen.queryByRole('form')).not.toBeInTheDocument();
+  });
+
+  it('read-only with no calls says so quietly, and still hides for someone not authorized', async () => {
+    const { unmount } = render(<AwarenessCallPanel request={request} readOnly />, { wrapper });
+    expect(await screen.findByTestId('awareness-readonly-empty')).toHaveTextContent('No awareness calls were recorded at earlier stages.');
+    expect(screen.queryByTestId('awareness-reminder')).not.toBeInTheDocument();
+    unmount();
+    readError = 'not authorized';
+    const { container } = render(<AwarenessCallPanel request={request} readOnly />, { wrapper });
+    await waitFor(() => expect(container.querySelector('[data-testid="awareness-call-section"]')).toBeNull());
+  });
+
+  it('adds the landlord checklist line only when asked', async () => {
+    const { unmount } = render(<AwarenessCallPanel request={request} landlordChecklistNote />, { wrapper });
+    expect(await screen.findByTestId('awareness-landlord-note')).toHaveTextContent('This is separate from the landlord verification call checklist below.');
+    unmount();
+    render(<AwarenessCallPanel request={request} />, { wrapper });
+    await screen.findByTestId('awareness-reminder');
+    expect(screen.queryByTestId('awareness-landlord-note')).not.toBeInTheDocument();
+  });
+
+  it('falls back to the two long-standing merchant codes when the live read fails', async () => {
+    channelsResult = { data: null, error: { message: 'boom' } };
+    const user = userEvent.setup();
+    render(<AwarenessCallPanel request={request} />, { wrapper });
+    await screen.findByTestId('awareness-reminder');
+    await user.click(screen.getByRole('button', { name: /Record feedback/ }));
+    const form = await screen.findByRole('form', { name: /Record awareness call feedback/ });
+    await user.click(within(form).getByRole('radio', { name: 'Tenant' }));
+    await user.click(within(form).getByRole('radio', { name: 'Answered' }));
+    expect(within(form).getByText('090777')).toBeInTheDocument();
+    expect(within(form).getByText('4380664')).toBeInTheDocument();
   });
 });

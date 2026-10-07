@@ -5,7 +5,7 @@ import { Users } from 'lucide-react';
 import { SectionCard } from '@/components/executive/tenant-ops/workspace/payment-behavior/shared';
 import { WorkspaceEmptyState } from '@/components/executive/tenant-ops/workspace/WorkspaceEmptyState';
 import { WorkspaceMobileRow } from '@/components/executive/tenant-ops/workspace/WorkspaceMobileRow';
-import { TEAM_LABEL } from '@/lib/awarenessCallLabels';
+import { LABEL_30M_ACCESS, LABEL_SELF_PAYMENT, TEAM_LABEL } from '@/lib/awarenessCallLabels';
 import { count, kampalaDateTime, percent } from '@/lib/awarenessMonitoringLabels';
 import type { AwarenessByCaller } from '@/hooks/useAwarenessMonitoring';
 import { triple } from './shared';
@@ -36,8 +36,8 @@ export function CallerTab({ data, loading }: { data: AwarenessByCaller | undefin
                   <TableHead className="text-right">Answered</TableHead>
                   <TableHead className="text-right">People reached</TableHead>
                   <TableHead className="text-right">Rent Plans</TableHead>
-                  <TableHead className="text-right">30M</TableHead>
-                  <TableHead className="text-right">Merchant codes</TableHead>
+                  <TableHead className="text-right">{LABEL_30M_ACCESS}</TableHead>
+                  <TableHead className="text-right">{LABEL_SELF_PAYMENT}</TableHead>
                   <TableHead className="text-right">Explained</TableHead>
                   <TableHead>Last call</TableHead>
                 </TableRow>
@@ -71,8 +71,8 @@ export function CallerTab({ data, loading }: { data: AwarenessByCaller | undefin
                   { label: 'Answered', value: `${count(r.answered)} (${percent(r.answered_pct)})` },
                   { label: 'People reached', value: count(r.people_reached) },
                   { label: 'Rent Plans', value: count(r.rent_plans_called) },
-                  { label: '30M (knew / heard / did not)', value: triple(r.aware_30m.knew, r.aware_30m.heard, r.aware_30m.did_not_know), full: true },
-                  { label: 'Merchant codes', value: triple(r.aware_merchant_codes.knew, r.aware_merchant_codes.heard, r.aware_merchant_codes.did_not_know), full: true },
+                  { label: `${LABEL_30M_ACCESS} (knew / heard / did not)`, value: triple(r.aware_30m.knew, r.aware_30m.heard, r.aware_30m.did_not_know), full: true },
+                  { label: `${LABEL_SELF_PAYMENT} (knew / heard / did not)`, value: triple(r.aware_merchant_codes.knew, r.aware_merchant_codes.heard, r.aware_merchant_codes.did_not_know), full: true },
                   { label: 'Explained (yes / partly / no)', value: triple(r.explained.yes, r.explained.partly, r.explained.no), full: true },
                   { label: 'Last call', value: kampalaDateTime(r.last_call_at), full: true },
                 ]}

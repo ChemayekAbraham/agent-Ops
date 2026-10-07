@@ -41,7 +41,7 @@ describe('exports', () => {
 
   it('describes the filters in words', () => {
     const d = Object.fromEntries(describeAwarenessFilters({ ...filters, team: 'agent_ops', result: 'answered', answer: 'explained:no', status: 'service_center_review' }));
-    expect(d).toMatchObject({ From: '06 Oct 2026', To: '07 Oct 2026', Team: 'Agent Ops', 'Call result': 'Answered', 'Answer choice': 'Explained: Not explained', 'Rent Plan status now': 'Service centre review', Region: 'All' });
+    expect(d).toMatchObject({ From: '06 Oct 2026', To: '07 Oct 2026', Team: 'Agent Ops', 'Call result': 'Answered', 'Answer choice': 'Explained on the call: Not explained', 'Rent Plan status now': 'Service centre review', Region: 'All' });
   });
 
   it('CSV: one file per Kampala date range, headers then a row per call', () => {

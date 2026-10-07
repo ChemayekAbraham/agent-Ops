@@ -127,8 +127,8 @@ describe('AwarenessCallsPage', () => {
     expect(within(cards).getByText('Answered').closest('div')).toHaveTextContent('64.3%');
     expect(within(cards).getByText('Answered').closest('div')).toHaveTextContent('9 no answer, 4 phone off, 2 wrong number');
     expect(within(cards).getByText('Rent Plans called').closest('div')).toHaveTextContent('by 5 callers');
-    expect(within(cards).getByText('Knew about 30M').closest('div')).toHaveTextContent('22.2% of answered calls');
-    expect(within(cards).getByText('Knew merchant codes').closest('div')).toHaveTextContent('14.8% of answered calls');
+    expect(within(cards).getByText('Knew about 30M access').closest('div')).toHaveTextContent('22.2% of answered calls');
+    expect(within(cards).getByText('Knew about merchant-code self-payment').closest('div')).toHaveTextContent('14.8% of answered calls');
     expect(within(cards).getByText('Fully explained').closest('div')).toHaveTextContent('6 partly, 3 not explained');
     await waitFor(() => expect(within(cards).getByText('Stages without a call').closest('div')).toHaveTextContent('90'));
     expect(within(cards).getByText('Stages without a call').closest('div')).toHaveTextContent('25.0% of 120 stage moves had a call');
@@ -171,7 +171,7 @@ describe('AwarenessCallsPage', () => {
     await pick(user, 'Caller', 'Grace Namukasa');
     await pick(user, 'Person type', 'Landlord');
     await pick(user, 'Call result', 'Answered');
-    await pick(user, 'Answer choice', 'Knew merchant codes: Did not know');
+    await pick(user, 'Answer choice', 'Knew about merchant-code self-payment: Did not know');
     await pick(user, 'Region', 'Central');
     await pick(user, 'District', 'Wakiso');
     await pick(user, 'Request status', 'Funded');

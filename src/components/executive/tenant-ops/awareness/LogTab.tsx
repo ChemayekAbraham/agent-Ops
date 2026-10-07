@@ -9,7 +9,7 @@ import { SectionCard } from '@/components/executive/tenant-ops/workspace/payment
 import { WorkspaceEmptyState } from '@/components/executive/tenant-ops/workspace/WorkspaceEmptyState';
 import { WorkspaceMobileRow } from '@/components/executive/tenant-ops/workspace/WorkspaceMobileRow';
 import {
-  SUBJECT_LABEL, TEAM_LABEL, awarenessLabel, callResultLabel, explainedLabel, stageLabel, telHref,
+  LABEL_30M_ACCESS, LABEL_EXPLAINED, LABEL_SELF_PAYMENT, SUBJECT_LABEL, TEAM_LABEL, awarenessLabel, callResultLabel, explainedLabel, stageLabel, telHref,
 } from '@/lib/awarenessCallLabels';
 import { count, kampalaDateTime, statusLabel } from '@/lib/awarenessMonitoringLabels';
 import { exportAwarenessLogCsv, exportAwarenessLogXlsx } from '@/lib/awarenessCallsExport';
@@ -17,6 +17,8 @@ import {
   fetchAllAwarenessLog, useAwarenessLog, type AwarenessFilters, type AwarenessLogRow, type AwarenessOptions,
 } from '@/hooks/useAwarenessMonitoring';
 import { PAGE_SIZE, Pager } from './shared';
+
+const ANSWERS_HEADING = `${LABEL_30M_ACCESS} · ${LABEL_SELF_PAYMENT} · ${LABEL_EXPLAINED}`;
 
 const answers = (r: AwarenessLogRow) => (r.call_result === 'answered'
   ? `${awarenessLabel(r.aware_30m)} · ${awarenessLabel(r.aware_merchant_codes)} · ${explainedLabel(r.explained)}`
@@ -85,7 +87,7 @@ export function LogTab({
                   <TableHead>Caller</TableHead>
                   <TableHead>Stage</TableHead>
                   <TableHead>Result</TableHead>
-                  <TableHead>30M · codes · explained</TableHead>
+                  <TableHead>{ANSWERS_HEADING}</TableHead>
                   <TableHead>Rent Plan</TableHead>
                   <TableHead>Note</TableHead>
                 </TableRow>
@@ -132,7 +134,7 @@ export function LogTab({
                   { label: 'Stage', value: stageLabel(r.pipeline_stage) },
                   { label: 'Rent Plan', value: `${r.plan_code} · ${statusLabel(r.current_status)}` },
                   { label: 'Region', value: r.region || '—' },
-                  { label: '30M · codes · explained', value: answers(r), full: true },
+                  { label: ANSWERS_HEADING, value: answers(r), full: true },
                   ...(r.note ? [{ label: 'Note', value: r.note, full: true }] : []),
                 ]}
               />

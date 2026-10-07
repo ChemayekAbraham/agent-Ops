@@ -3,7 +3,7 @@
  * call log stores (and the 30M awareness record already uses): knew / heard / did_not_know and yes / partly / no.
  */
 import {
-  AWARENESS_OPTIONS, EXPLAINED_OPTIONS, stageLabel,
+  AWARENESS_OPTIONS, EXPLAINED_OPTIONS, LABEL_30M_ACCESS, LABEL_EXPLAINED, LABEL_SELF_PAYMENT, stageLabel,
   type AwarenessCallResult, type AwarenessChoice, type ExplainedChoice,
 } from '@/lib/awarenessCallLabels';
 
@@ -21,9 +21,9 @@ const optionsFor = (field: AnswerField, prefix: string, options: { value: string
   }));
 
 export const ANSWER_FILTER_OPTIONS: AnswerFilterOption[] = [
-  ...optionsFor('aware_30m', 'Knew about 30M', AWARENESS_OPTIONS),
-  ...optionsFor('aware_merchant_codes', 'Knew merchant codes', AWARENESS_OPTIONS),
-  ...optionsFor('explained', 'Explained', EXPLAINED_OPTIONS),
+  ...optionsFor('aware_30m', LABEL_30M_ACCESS, AWARENESS_OPTIONS),
+  ...optionsFor('aware_merchant_codes', LABEL_SELF_PAYMENT, AWARENESS_OPTIONS),
+  ...optionsFor('explained', LABEL_EXPLAINED, EXPLAINED_OPTIONS),
 ];
 
 export function splitAnswerFilter(value: string | null | undefined): { field: AnswerField; answer: string } | null {

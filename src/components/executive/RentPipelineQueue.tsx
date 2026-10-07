@@ -33,7 +33,7 @@ import { TenantPaymentHistoryCard } from './TenantPaymentHistoryCard';
 import { RentApprovalConfirmDialog, type FunderVisibilityDecision } from './RentApprovalConfirmDialog';
 import { TenantPhotoChecksPanel } from './TenantPhotoChecksPanel';
 import { AwarenessCallPanel } from '@/components/pipeline/AwarenessCallPanel';
-import { defaultAwarenessSubjectForStage } from '@/lib/awarenessCallLabels';
+import { defaultAwarenessSubjectForStage, isAwarenessReadOnlyStage } from '@/lib/awarenessCallLabels';
 
 
 
@@ -2112,6 +2112,20 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                     <p className="text-xs text-muted-foreground mt-0.5">✉️ {selectedRequest.agent_email}</p>
                   )}
                 </div>
+                {/* Awareness call: phone the tenant / landlord / agent and record what they heard. Storage only; approve and reject below are unchanged.
+                    The COO and CFO stages see it read-only. The agent id is passed only when the phone shown is that agent's (no transfer to another agent). */}
+                <div className="col-span-2">
+                  <AwarenessCallPanel
+                    key={selectedRequest.id}
+                    request={{
+                      ...selectedRequest,
+                      agent_id: selectedRequest.assigned_agent_id && selectedRequest.assigned_agent_id !== selectedRequest.agent_id ? null : selectedRequest.agent_id,
+                    }}
+                    defaultSubject={defaultAwarenessSubjectForStage(stage)}
+                    readOnly={isAwarenessReadOnlyStage(stage)}
+                    landlordChecklistNote={stage === 'tenant_ops_approved'}
+                  />
+                </div>
                 <InlineEditableField field="rent_amount" label="Rent Amount" value={selectedRequest.rent_amount} prefix="UGX " className="font-bold text-base" />
                 <InlineEditableField field="duration_days" label="Duration" value={selectedRequest.duration_days} suffix=" days" />
                 <div className="flex items-center justify-between gap-2 py-1">
@@ -2166,9 +2180,6 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                   canAdd={false}
                 />
               )}
-
-              {/* Awareness call: phone the tenant / landlord and record what they heard. Storage only; approve and reject below are unchanged. */}
-              <AwarenessCallPanel key={selectedRequest.id} request={selectedRequest} defaultSubject={defaultAwarenessSubjectForStage(stage)} />
 
 
 
