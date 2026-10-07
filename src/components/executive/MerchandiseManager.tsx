@@ -26,6 +26,8 @@ import {
 import { StorageImage } from '@/components/ui/StorageImage';
 import { optimizeImage } from '@/lib/imageOptimizer';
 import { MerchandiseLiveOrders } from './MerchandiseLiveOrders';
+import { FulfilmentBadge, FulfilmentTypeSelect } from '@/components/merchandise/fulfilmentType';
+import { MerchandiseHandoverQueue } from '@/components/merchandise/MerchandiseHandoverQueue';
 
 // The merchandise tables are new; the generated Supabase types don't include
 // them yet, so we reach them through an untyped client alias.
@@ -94,6 +96,7 @@ interface CatalogItem {
   image_url: string | null;
   image_urls: string[] | null;
   is_active: boolean;
+  fulfilment_type?: string | null;
   created_at: string;
 }
 
@@ -486,6 +489,8 @@ export function MerchandiseManager() {
         )}
       </Section>
 
+      <MerchandiseHandoverQueue />
+
       {/* Storefront catalog (items agents can buy) */}
       <div className="flex justify-end gap-2">
         <Button asChild size="sm" variant="outline" className="gap-1.5">
@@ -513,6 +518,7 @@ export function MerchandiseManager() {
                   <th className="py-2 pr-3">Item</th>
                   <th className="py-2 px-3 text-right">Price</th>
                   <th className="py-2 px-3 text-right">Cost</th>
+                  <th className="py-2 px-3">Category</th>
                   <th className="py-2 px-3">Status</th>
                   <th className="py-2 pl-3" />
                 </tr>
@@ -541,6 +547,7 @@ export function MerchandiseManager() {
                     </td>
                     <td className="py-2 px-3 text-right font-semibold">{formatUGX(Number(c.unit_price))}</td>
                     <td className="py-2 px-3 text-right text-muted-foreground">{formatUGX(Number(c.unit_cost))}</td>
+                    <td className="py-2 px-3"><FulfilmentBadge type={c.fulfilment_type} /></td>
                     <td className="py-2 px-3">
                       <span className={c.is_active ? 'text-emerald-600 text-xs font-medium' : 'text-muted-foreground text-xs'}>
                         {c.is_active ? 'Active' : 'Hidden'}
@@ -895,6 +902,7 @@ function EditCatalogItemButton({ item, userId, onSaved }: { item: any; userId?: 
   const [price, setPrice] = useState(String(item.unit_price ?? ''));
   const [cost, setCost] = useState(String(item.unit_cost ?? ''));
   const [sizes, setSizes] = useState<string[]>(Array.isArray(item.sizes) ? item.sizes : []);
+  const [fulfilment, setFulfilment] = useState<string>(item.fulfilment_type ?? '');
   const [sizeInput, setSizeInput] = useState('');
   const initialImages = (): string[] => {
     if (Array.isArray(item.image_urls) && item.image_urls.length > 0) return item.image_urls.slice(0, 2);
@@ -963,6 +971,7 @@ function EditCatalogItemButton({ item, userId, onSaved }: { item: any; userId?: 
         unit_price: p,
         unit_cost: c,
         sizes,
+        fulfilment_type: fulfilment || null,
         image_url: finalUrls[0] ?? null,
         image_urls: finalUrls,
       }).eq('id', item.id);
@@ -988,6 +997,7 @@ function EditCatalogItemButton({ item, userId, onSaved }: { item: any; userId?: 
         setPrice(String(item.unit_price ?? ''));
         setCost(String(item.unit_cost ?? ''));
         setSizes(Array.isArray(item.sizes) ? item.sizes : []);
+        setFulfilment(item.fulfilment_type ?? '');
         setSizeInput('');
         setExistingUrls(initialImages());
         newImages.forEach(i => URL.revokeObjectURL(i.previewUrl));
@@ -1054,7 +1064,8 @@ function EditCatalogItemButton({ item, userId, onSaved }: { item: any; userId?: 
               )}
             </div>
             <p className="text-[11px] text-muted-foreground">Auto-optimized to 1200px WebP. Max 10MB per file.</p>
-          </div>
+        </div>
+          <FulfilmentTypeSelect value={fulfilment} onChange={setFulfilment} />
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => setOpen(false)} disabled={saving || uploading}>Cancel</Button>
@@ -1377,6 +1388,7 @@ function AddCatalogItemDialog({ userId, onSaved }: { userId?: string; onSaved: (
   const [uploading, setUploading] = useState(false);
   const [sizes, setSizes] = useState<string[]>([]);
   const [sizeInput, setSizeInput] = useState('');
+  const [fulfilment, setFulfilment] = useState('');
 
   const reset = () => {
     setItemName(''); setDescription(''); setUnitPrice(''); setUnitCost('');
@@ -1438,6 +1450,7 @@ function AddCatalogItemDialog({ userId, onSaved }: { userId?: string; onSaved: (
         unit_price: num(unitPrice),
         unit_cost: num(unitCost),
         sizes,
+        fulfilment_type: fulfilment || null,
         image_url: uploaded[0] ?? null,
         image_urls: uploaded,
         is_active: true,
@@ -1509,9 +1522,7 @@ function AddCatalogItemDialog({ userId, onSaved }: { userId?: string; onSaved: (
             )}
             <p className="text-[10px] text-muted-foreground">Images are resized to 1200px WebP and stored securely.</p>
           </div>
-          <div className="rounded-lg bg-primary/5 border border-primary/15 px-3 py-2 text-[11px] text-muted-foreground">
-            Agents can order this from their dashboard. On purchase the item price is debited from the agent's withdrawable wallet immediately.
-          </div>
+          <FulfilmentTypeSelect value={fulfilment} onChange={setFulfilment} />
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => setOpen(false)} disabled={saving}>Cancel</Button>
