@@ -12,6 +12,8 @@ describe('FunderNewReviewDialog', () => {
       place: 'Wakiso Town Council, KKONA',
       amount: 450000,
       imageUrl: null,
+      monthlyReturn: null,
+      termLabel: '',
     },
   ];
 
