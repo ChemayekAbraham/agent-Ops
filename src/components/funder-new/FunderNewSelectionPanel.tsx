@@ -3,6 +3,7 @@ import { CheckCircle2, Home, Loader2, Info, ShieldCheck, Trash2, Wallet, X } fro
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { cn } from '@/lib/utils';
 import { formatDynamic } from '@/lib/currencyFormat';
 import type { FunderNewCategory, FunderNewSelectionItem } from './types';
 import { categoryLabel } from './utils';
@@ -136,79 +137,123 @@ export function FunderNewReviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92vh] max-w-2xl overflow-y-auto rounded-2xl">
-        <DialogHeader>
-          <DialogTitle>Your support plan</DialogTitle>
-          <DialogDescription>
+      <DialogContent className="w-[calc(100vw-1rem)] sm:w-full max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden p-3.5 sm:p-6 rounded-2xl sm:rounded-3xl gap-3 sm:gap-4 border border-border/80 bg-background shadow-2xl">
+        <DialogHeader className="pr-6 text-left">
+          <DialogTitle className="text-base sm:text-xl font-bold tracking-tight">Your support plan</DialogTitle>
+          <DialogDescription className="text-xs sm:text-sm text-muted-foreground mt-0.5 leading-relaxed">
             Check the homes you picked. Nothing is submitted from this screen.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-3 sm:grid-cols-3">
-          <div className="rounded-2xl bg-primary p-4 text-primary-foreground">
-            <p className="text-xs font-medium uppercase tracking-wide text-primary-foreground/75">Total support</p>
-            <p className="mt-1 break-words text-2xl font-semibold">{formatDynamic(total)}</p>
-          </div>
-          <div className="rounded-2xl bg-primary/5 p-4">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Monthly at 15%</p>
-            <p className="mt-1 break-words text-2xl font-semibold">{formatDynamic(monthlyAt15(total))}</p>
-          </div>
-          <div className="rounded-2xl bg-primary/5 p-4">
-            <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Available balance</p>
-            <p className="mt-1 break-words text-2xl font-semibold">
-              {walletError || available === null ? 'Unavailable' : walletLoading ? 'Loading…' : formatDynamic(available)}
+        {/* Financial Overview: Re-structured 2-column + full-width coverage layout */}
+        <div className="grid grid-cols-2 gap-2 sm:gap-2.5">
+          {/* Card 1: Total Support */}
+          <div className="flex flex-col justify-between rounded-2xl bg-primary p-3 sm:p-4 text-primary-foreground shadow-xs">
+            <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-primary-foreground/75">
+              Total Support
             </p>
-            {shortfall !== null ? (
-              <p className="mt-1 text-xs text-muted-foreground">
-                {shortfall > 0 ? `${formatDynamic(shortfall)} short` : 'Fully covered'}
+            <p className="mt-1 text-base sm:text-xl font-bold tracking-tight truncate">
+              {formatDynamic(total)}
+            </p>
+          </div>
+
+          {/* Card 2: Monthly Returns */}
+          <div className="flex flex-col justify-between rounded-2xl border border-border/70 bg-primary/5 p-3 sm:p-4 shadow-2xs">
+            <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Monthly at 15%
+            </p>
+            <p className="mt-1 text-base sm:text-xl font-bold tracking-tight text-emerald-600 dark:text-emerald-400 truncate">
+              {formatDynamic(monthlyAt15(total))}
+            </p>
+          </div>
+
+          {/* Card 3: Wallet Balance & Coverage Status */}
+          <div className="col-span-2 flex items-center justify-between gap-2 rounded-2xl border border-border/70 bg-muted/30 px-3.5 py-2.5 sm:py-3 shadow-2xs">
+            <div className="min-w-0 flex-1">
+              <p className="text-[10px] sm:text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Available Balance
               </p>
-            ) : null}
+              <p className="mt-0.5 text-sm sm:text-base font-bold tracking-tight text-foreground truncate">
+                {walletError || available === null ? 'Unavailable' : walletLoading ? 'Loading…' : formatDynamic(available)}
+              </p>
+            </div>
+            {shortfall !== null && (
+              <div className="shrink-0">
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "text-[11px] sm:text-xs font-semibold px-2 sm:px-2.5 py-0.5 rounded-full border shadow-2xs",
+                    shortfall > 0
+                      ? "bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30"
+                      : "bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30"
+                  )}
+                >
+                  {shortfall > 0 ? `${formatDynamic(shortfall)} short` : 'Fully covered'}
+                </Badge>
+              </div>
+            )}
           </div>
         </div>
 
-        <ul className="space-y-2">
-          {items.map((item) => (
-            <li
-              key={`${item.category}:${item.id}`}
-              className="flex flex-wrap items-center gap-3 rounded-2xl border bg-card p-3"
-            >
-              {item.imageUrl ? (
-                <img src={item.imageUrl} alt={item.title} className="h-14 w-14 flex-none rounded-xl object-cover" />
-              ) : (
-                <span className="flex h-14 w-14 flex-none items-center justify-center rounded-xl bg-primary/10 text-primary">
-                  <Home className="h-6 w-6" />
-                </span>
-              )}
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-semibold">{item.title}</p>
-                <p className="truncate text-xs text-muted-foreground">{item.place}</p>
-                <p className="mt-1 text-sm font-semibold">{formatDynamic(item.amount)}</p>
-              </div>
-              <Badge variant="outline" className="rounded-full">
-                {categoryLabel(item.category)}
-              </Badge>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-10 w-10 rounded-xl"
-                aria-label={`Remove ${item.title}`}
-                onClick={() => onRemove(item)}
+        {/* Selected Homes List */}
+        <div className="space-y-1.5">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-0.5">
+            Selected Homes ({items.length})
+          </p>
+          <ul className="space-y-2 max-h-52 overflow-y-auto pr-0.5">
+            {items.map((item) => (
+              <li
+                key={`${item.category}:${item.id}`}
+                className="flex items-center gap-2.5 sm:gap-3 rounded-2xl border border-border/70 bg-card p-2.5 sm:p-3 shadow-2xs"
               >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </li>
-          ))}
-        </ul>
+                {item.imageUrl ? (
+                  <img
+                    src={item.imageUrl}
+                    alt={item.title}
+                    className="h-11 w-11 sm:h-12 sm:w-12 shrink-0 rounded-xl object-cover"
+                  />
+                ) : (
+                  <span className="flex h-11 w-11 sm:h-12 sm:w-12 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <Home className="h-5 w-5" />
+                  </span>
+                )}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <p className="truncate text-xs sm:text-sm font-semibold text-foreground max-w-[130px] sm:max-w-none">
+                      {item.title}
+                    </p>
+                    <Badge variant="outline" className="text-[9px] sm:text-[10px] px-1.5 py-0 h-4 rounded-full font-medium shrink-0">
+                      {categoryLabel(item.category)}
+                    </Badge>
+                  </div>
+                  <p className="truncate text-[11px] sm:text-xs text-muted-foreground mt-0.5">{item.place}</p>
+                  <p className="mt-0.5 text-xs sm:text-sm font-bold text-foreground">{formatDynamic(item.amount)}</p>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl"
+                  aria-label={`Remove ${item.title}`}
+                  onClick={() => onRemove(item)}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </div>
 
-        <p className="flex items-start gap-2 rounded-2xl border bg-muted/40 p-4 text-sm text-muted-foreground">
-          <Info className="mt-0.5 h-4 w-4 flex-none" />
-          Selecting and reviewing homes is planning only. Support starts after you confirm and the usual approval step is
-          completed. Returns shown are estimates at the current 15% rate.
-        </p>
+        {/* Regulatory & Information Notice */}
+        <div className="flex items-start gap-2.5 rounded-xl border border-border/60 bg-muted/30 p-2.5 sm:p-3 text-xs text-muted-foreground leading-relaxed">
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <p className="min-w-0 flex-1 text-[11px] sm:text-xs">
+            Selecting and reviewing homes is planning only. Support starts after you confirm and the usual approval step is completed. Returns shown are estimates at the current 15% rate.
+          </p>
+        </div>
 
         {items.length > 0 ? (
           <Button
-            className="h-12 w-full gap-2 bg-emerald-600 text-base font-bold text-white hover:bg-emerald-700"
+            className="h-11 sm:h-12 w-full gap-2 bg-emerald-600 text-sm sm:text-base font-bold text-white hover:bg-emerald-700 rounded-xl shadow-md active:scale-[0.99] transition-all"
             disabled={walletLoading || available === null}
             onClick={() => {
               if (shortfall !== null && shortfall > 0) {
@@ -235,7 +280,7 @@ export function FunderNewReviewDialog({
           if (!o) setReceipt(null);
         }}
       >
-        <DialogContent className="max-h-[92vh] max-w-md overflow-y-auto rounded-2xl">
+        <DialogContent className="w-[calc(100vw-1rem)] sm:w-full max-w-md max-h-[90vh] overflow-y-auto overflow-x-hidden p-3.5 sm:p-6 rounded-2xl sm:rounded-3xl border border-border/80 bg-background shadow-2xl">
           {receipt ? (
             <>
               <DialogHeader>
