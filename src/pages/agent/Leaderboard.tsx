@@ -13,7 +13,7 @@ import {
   Info, Sparkles, Loader2,
 } from 'lucide-react';
 import bannerImg from '@/assets/leaderboard-banner.jpg';
-import { LeaderboardHowItWorksDialog } from '@/components/agent/LeaderboardHowItWorksDialog';
+import { AgentRankCelebrationDialog } from '@/components/agent/AgentRankCelebrationDialog';
 
 type Period = 'weekly' | 'monthly';
 const PER_PAGE = 20;
@@ -50,13 +50,6 @@ export default function AgentLeaderboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [period, setPeriod] = useState<Period>('weekly');
-  const [howOpen, setHowOpen] = useState(false);
-
-  // Explain how the leaderboard works when the page first opens.
-  useEffect(() => {
-    const t = setTimeout(() => setHowOpen(true), 350);
-    return () => clearTimeout(t);
-  }, []);
 
   const { data: rows = [], isFetching } = useQuery({
     queryKey: ['subagent-leaderboard', period],
@@ -106,7 +99,7 @@ export default function AgentLeaderboard() {
 
   return (
     <div className="min-h-screen" style={{ background: '#F8FAFC' }}>
-      <LeaderboardHowItWorksDialog open={howOpen} onOpenChange={setHowOpen} />
+      <AgentRankCelebrationDialog />
       {/* Hero banner */}
       <div className="relative overflow-hidden">
         <img
