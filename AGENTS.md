@@ -22,3 +22,4 @@
 - Phone wallet collection runs only for plans with `phone_collection_enabled` (daily `recover_smartphone_from_wallets`), apart from the bike job, so phones start one plan at a time; it may draw advance-locked funds (withdrawals stay locked); the phone late charge runs only when `smartphone_surcharge_enabled` is on.
 - Agent lending remains excluded from company Receivables totals and forecasts because it is agents' own money; the Receivables sidebar now exposes the company Forecast instead of the separate lending section.
 - Payables mirrors Receivables with read-only payable hooks; its single Forecast view preserves obligations and payment rules.
+- Merchandise, smartphone and bike-lease repayment plans count as owed, and can be recovered or paid against, only when `merchandise_plan_recovery_eligible` passes (order approved/issued/processing/completed plus handover or CFO payout), because pending orders were creating billion-shilling phantom receivables.
