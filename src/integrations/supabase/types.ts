@@ -66591,6 +66591,10 @@ export type Database = {
         Args: { p_granularity?: string; p_limit?: number }
         Returns: Json
       }
+      get_receivables_location_hierarchy: {
+        Args: { p_category?: string }
+        Returns: Json
+      }
       get_receivables_predictive_forecast: {
         Args: { p_as_at?: string; p_granularity?: string; p_periods?: number }
         Returns: Json
