@@ -63328,6 +63328,7 @@ export type Database = {
         }
         Returns: Json
       }
+      elite_incentive_max_rank: { Args: never; Returns: number }
       email_queue_dispatch: { Args: never; Returns: undefined }
       empty_house_opportunity_summary: { Args: never; Returns: Json }
       end_ledger_maintenance: {
