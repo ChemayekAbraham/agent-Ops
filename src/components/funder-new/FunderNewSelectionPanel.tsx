@@ -244,7 +244,7 @@ export function FunderNewReviewDialog({
         </div>
 
         {/* Regulatory & Information Notice */}
-        <div className="flex items-start gap-2.5 rounded-xl border border-border/60 bg-muted/30 p-2.5 sm:p-3 text-xs text-muted-foreground leading-relaxed">
+        <div className="mt-auto sm:mt-0 flex items-start gap-2.5 rounded-xl border border-border/60 bg-muted/30 p-2.5 sm:p-3 text-xs text-muted-foreground leading-relaxed">
           <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           <p className="min-w-0 flex-1 text-[11px] sm:text-xs">
             Selecting and reviewing homes is planning only. Support starts after you confirm and the usual approval step is completed. Returns shown are estimates at the current 15% rate.
