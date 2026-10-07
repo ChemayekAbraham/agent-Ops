@@ -1,0 +1,1 @@
+ALTER TABLE public.portfolio_maturity_notices ADD COLUMN IF NOT EXISTS final_outcome text, ADD COLUMN IF NOT EXISTS final_sent_at timestamptz;

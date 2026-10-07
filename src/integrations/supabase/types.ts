@@ -35203,6 +35203,8 @@ export type Database = {
       }
       portfolio_maturity_notices: {
         Row: {
+          final_outcome: string | null
+          final_sent_at: string | null
           id: string
           maturity_date: string
           outcome: string
@@ -35212,6 +35214,8 @@ export type Database = {
           source: string
         }
         Insert: {
+          final_outcome?: string | null
+          final_sent_at?: string | null
           id?: string
           maturity_date: string
           outcome: string
@@ -35221,6 +35225,8 @@ export type Database = {
           source?: string
         }
         Update: {
+          final_outcome?: string | null
+          final_sent_at?: string | null
           id?: string
           maturity_date?: string
           outcome?: string
