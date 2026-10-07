@@ -69,6 +69,14 @@ export interface FunderNewSelectionItem {
   monthlyReturn: number | null;
   termLabel: string;
   imageUrl: string | null;
+  landlordName?: string | null;
+  landlordPhone?: string | null;
+  agentName?: string | null;
+  agentPhone?: string | null;
+  tenantName?: string | null;
+  tenantPhone?: string | null;
+  lat?: number | null;
+  lng?: number | null;
 }
 
 /** An honest travel estimate. `roadRouting` is false for straight-line maths. */
