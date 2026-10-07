@@ -345,12 +345,12 @@ function SubDetail({ catKey, label, productKey, product }: {
   }
 
   if (isTenant) {
-    return <TenantReceivablesDetail product={product} current={current} overdue={overdue} complete={complete} today={t} locations={loc.data} locationLoading={loc.isLoading} locationError={loc.isError} forecast={proj} behaviourTotal={bTotal} idealTotal={iTotal} />;
+    return <TenantReceivablesDetail product={product} current={current} overdue={overdue} complete={complete} today={t} locations={loc.data} locationLoading={loc.isLoading} locationError={loc.isError} forecast={proj} behaviourTotal={bTotal} idealTotal={iTotal} arrears={overdue} />;
   }
 
   if (catKey !== 'tenant') {
     // Shared detail layout across Agent / Landlord / Partner / Other / R&D product pages.
-    return <AgentReceivablesDetail product={product} current={current} overdue={overdue} complete={complete} today={t} forecast={proj} behaviourTotal={bTotal} idealTotal={iTotal} />;
+    return <AgentReceivablesDetail product={product} current={current} overdue={overdue} complete={complete} today={t} forecast={proj} behaviourTotal={bTotal} idealTotal={iTotal} arrears={overdue} />;
   }
 
   return (
