@@ -73004,6 +73004,14 @@ export type Database = {
           transaction_group_id: string
         }[]
       }
+      split_portfolio_principal: {
+        Args: {
+          p_portfolio_id: string
+          p_reason: string
+          p_split_amount: number
+        }
+        Returns: Json
+      }
       staff_loan_accrue_interest: {
         Args: never
         Returns: {

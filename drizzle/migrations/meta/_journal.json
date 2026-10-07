@@ -3382,6 +3382,13 @@
       "when": 1791356777795,
       "tag": "0482_spiro_flat_30_day_month",
       "breakpoints": true
+    },
+    {
+      "idx": 483,
+      "version": "7",
+      "when": 1791357805110,
+      "tag": "0483_split_portfolio_principal",
+      "breakpoints": true
     }
   ]
 }
