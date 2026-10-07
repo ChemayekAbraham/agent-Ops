@@ -2,6 +2,7 @@ import { motion, useReducedMotion } from 'framer-motion';
 import { UserAvatar } from '@/components/UserAvatar';
 import { EliteRankBadge, ELITE_TIER_COLORS } from '@/components/agent/EliteRankBadge';
 import { useEliteRanks } from '@/hooks/useEliteRanks';
+import { EliteHowItWorksDialog } from '@/components/agent/EliteRankDialogs';
 
 function Bar({ label, value, max, color, delay }: { label: string; value: number; max: number; color: string; delay: number }) {
   const reduce = useReducedMotion();
@@ -26,9 +27,12 @@ export function EliteTop4Strip() {
   if (!ranks.length) return null;
   return (
     <section className="mb-6" aria-label="Elite Top 4">
-      <div className="mb-2 flex items-baseline justify-between">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-bold text-foreground">Elite Top 4</h2>
-        <span className="text-[11px] text-muted-foreground">Updated nightly at 1:00 AM Kampala time</span>
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] text-muted-foreground">Updated nightly at 1:00 AM Kampala time</span>
+          <EliteHowItWorksDialog />
+        </div>
       </div>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {ranks.map((r, i) => {

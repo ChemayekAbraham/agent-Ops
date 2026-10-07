@@ -84,11 +84,20 @@ export function AgentRankCelebrationDialog() {
   }, [rank, isSuccess]);
 
   if (!rank) return null;
-  const meta = TIER_META[rank.tier_name];
-
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogContent className="max-w-sm rounded-3xl border-0 p-0 overflow-hidden gap-0 max-h-[90vh] overflow-y-auto">
+        <CelebrationBody tier={rank.tier_name} position={rank.rank_position} score={Number(rank.composite_score)} name={name} onClose={() => setOpen(false)} />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export function CelebrationBody({ tier, position, score, name, onClose }: { tier: Tier; position: number; score: number; name: string; onClose: () => void }) {
+  const reduce = useReducedMotion();
+  const meta = TIER_META[tier];
+  return (
+    <>
         <div className="relative flex flex-col items-center px-6 pt-10 pb-6 text-center"
           style={{ background: `radial-gradient(circle at 50% 30%, ${meta.from}55, transparent 70%)` }}>
           {!reduce && [...Array(10)].map((_, i) => (
@@ -112,14 +121,14 @@ export function AgentRankCelebrationDialog() {
             Hi {name}, you have unlocked {meta.label}
           </DialogTitle>
           <DialogDescription className="mt-1 flex items-center gap-1.5 text-sm">
-            <Trophy className="h-4 w-4" /> You are #{rank.rank_position} on the leaderboard
+            <Trophy className="h-4 w-4" /> You are #{position} on the leaderboard
           </DialogDescription>
           <p className="mt-2 text-3xl font-black tabular-nums">
-            <CountUp to={Number(rank.composite_score)} /><span className="text-sm font-semibold text-muted-foreground"> / 100</span>
+            <CountUp to={score} /><span className="text-sm font-semibold text-muted-foreground"> / 100</span>
           </p>
         </div>
         <div className="space-y-2 px-5 pb-5">
-          {RANK_PERKS[rank.tier_name].map((p, i) => (
+          {RANK_PERKS[tier].map((p, i) => (
             <motion.div key={p.text} initial={reduce ? false : { opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.4 + i * 0.1 }}
               className="flex items-center gap-3 rounded-2xl border bg-muted/40 p-3 text-sm">
@@ -130,9 +139,8 @@ export function AgentRankCelebrationDialog() {
           <p className="pt-1 text-center text-xs text-muted-foreground">
             Ranks refresh every night. Stay active to keep your rank.
           </p>
-          <Button className="w-full rounded-2xl" onClick={() => setOpen(false)}>View leaderboard</Button>
+          <Button className="w-full rounded-2xl" onClick={onClose}>View leaderboard</Button>
         </div>
-      </DialogContent>
-    </Dialog>
+    </>
   );
 }
