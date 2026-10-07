@@ -534,7 +534,7 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder, filterStatu
                             valuationAmount: valuation,
                             totalRepaid: valuation,
                             leaseTermMonths: selected.lease_term_months || 12,
-                            completedAt: selected.lease_activated_at || selected.cfo_disbursed_at || selected.created_at,
+                            completedAt: (selected as any).settlement_completed_at || selected.lease_activated_at || selected.cfo_disbursed_at || selected.created_at,
                             saleId: selected.id,
                           });
                           downloadSpiroSettlementCertificate(blob, profile?.full_name || 'Agent', selected.tracking_reference);
