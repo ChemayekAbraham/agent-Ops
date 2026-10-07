@@ -34,7 +34,7 @@ const TONES = {
 };
 
 function Metric({ label, value, note, icon: Icon, tone }: { label: string; value: string; note: string; icon: typeof Users; tone: keyof typeof TONES }) {
-  return <div className="min-w-0 rounded-xl border border-border bg-card p-4 shadow-sm"><div className="mb-3 flex items-center gap-2"><span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${TONES[tone]}`}><Icon className="h-4 w-4" /></span><h2 className="text-[10px] font-medium">{label}</h2></div><p className="break-words text-base font-semibold tabular-nums">{value}</p><p className="mt-2 text-[10px] text-muted-foreground">{note}</p></div>;
+  return <div className="min-w-0 rounded-xl border border-border bg-card p-3.5 shadow-sm"><div className="mb-3 flex items-center gap-2"><span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${TONES[tone]}`}><Icon className="h-4 w-4" /></span><h2 className="text-[10px] font-medium">{label}</h2></div><p className="whitespace-nowrap text-[15px] leading-snug font-semibold tabular-nums tracking-tight" title={value}>{value}</p><p className="mt-2 text-[10px] text-muted-foreground">{note}</p></div>;
 }
 
 function RiskCard({ label, value, note, tone, icon: Icon }: { label: string; value: string; note: string; tone: keyof typeof TONES; icon: typeof Users }) {
