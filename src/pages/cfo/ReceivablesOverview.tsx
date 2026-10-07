@@ -237,9 +237,8 @@ function Overview({ cats, products, onOpen, total, search }: {
   const longest = complete && overdueItems.length ? Math.max(...overdueItems.map((i) => Math.floor((Date.parse(today) - Date.parse(i.due_date?.slice(0, 10) ?? today)) / 86400000))) : undefined;
   return (
     <>
-      <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-7">
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-3 xl:grid-cols-6">
         <OverviewMetric label="Total Receivables" value={money(total)} note={`${counts.toLocaleString()} open items`} icon={Wallet} tone="info" />
-        <OverviewMetric label="Net Receivables" value={money(payable === undefined ? undefined : total - payable)} note="After next 7 days expected payables" icon={Wallet} tone="primary" />
         <OverviewMetric label="Current" value={money(actual?.not_yet_due)} note="Not yet due" icon={CheckCircle2} tone="success" />
         <OverviewMetric label="Overdue" value={money(actual?.overdue)} note="Past due date" icon={AlertTriangle} tone="destructive" />
         <OverviewMetric label="Due in 7 Days" value={money(scheduled.data?.scheduled_total)} note="Scheduled collections" icon={CalendarDays} tone="primary" />
