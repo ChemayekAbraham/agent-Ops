@@ -184,7 +184,8 @@ Deno.serve(async (req) => {
     const dateStr: string =
       typeof body?.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(body.date) ? body.date : yesterdayIsoEAT();
     // One data pass, two renderers: 'board' = condensed memo, 'tech' = full diagnostics.
-    const reportType: 'board' | 'tech' = body?.report_type === 'board' ? 'board' : 'tech';
+    const boardMode: boolean = body?.report_type === 'board';
+    const reportType: 'board' | 'tech' = boardMode ? 'board' : 'tech';
     const recipients: string[] =
       Array.isArray(body?.recipients) && body.recipients.length
         ? body.recipients.filter((r: unknown) => typeof r === 'string' && (r as string).includes('@'))
