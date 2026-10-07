@@ -60638,6 +60638,46 @@ export type Database = {
         Args: { p_agent_id: string }
         Returns: Json
       }
+      awareness_calls_scoped: {
+        Args: {
+          p_caller?: string
+          p_from?: string
+          p_region?: string
+          p_subject_type?: string
+          p_team?: string
+          p_to?: string
+        }
+        Returns: {
+          ac_30m: string
+          ac_caller: string
+          ac_codes: string
+          ac_day: string
+          ac_dial: string
+          ac_explained: string
+          ac_id: string
+          ac_note: string
+          ac_person: string
+          ac_phone: string
+          ac_recorded: string
+          ac_result: string
+          ac_rr: string
+          ac_stage: string
+          ac_subject_type: string
+          ac_subject_user: string
+          ac_team: string
+        }[]
+      }
+      awareness_calls_summary: {
+        Args: {
+          p_caller?: string
+          p_from?: string
+          p_region?: string
+          p_subject_type?: string
+          p_team?: string
+          p_to?: string
+        }
+        Returns: Json
+      }
       backfill_missing_profile_by_email: {
         Args: { _email: string }
         Returns: Json
@@ -64890,6 +64930,7 @@ export type Database = {
         Args: { p_rent_request_id: string }
         Returns: Json
       }
+      get_board_ledger_check: { Args: { p_date?: string }; Returns: Json }
       get_board_tech_memo: { Args: { p_date?: string }; Returns: Json }
       get_budget_consolidation: { Args: { p_call_id: string }; Returns: Json }
       get_budget_department_notifications: {
