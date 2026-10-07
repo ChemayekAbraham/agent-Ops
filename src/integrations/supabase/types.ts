@@ -62666,6 +62666,7 @@ export type Database = {
         }[]
       }
       cto_classify_error: { Args: { p_msg: string }; Returns: Json }
+      cto_cron_jobs_overview: { Args: never; Returns: Json }
       cto_fake_account_base: {
         Args: never
         Returns: {
