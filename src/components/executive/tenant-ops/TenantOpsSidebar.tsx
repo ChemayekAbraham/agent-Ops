@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useAuth } from '@/hooks/useAuth';
 import {
-  TENANT_OPS_NAV,
+  visibleTenantOpsNav,
   tenantOpsGroupForView,
   type TenantOpsActionKey,
   type TenantOpsViewKey,
@@ -21,6 +22,9 @@ interface Props {
  * Partner Ops sidebar, with expandable groups (Tenant Ops Tools, Workspaces…).
  */
 export function TenantOpsSidebar({ active, onSelect, badges = {}, className }: Props) {
+  const { roles } = useAuth();
+  // Entries restricted to other roles (Awareness Calls: Tenant Ops, COO, CEO, super admin) are not shown to people who cannot open them.
+  const nav = useMemo(() => visibleTenantOpsNav(roles), [roles]);
   const [open, setOpen] = useState<Record<string, boolean>>(() => ({
     verification: true,
     tools: true,
@@ -45,10 +49,10 @@ export function TenantOpsSidebar({ active, onSelect, badges = {}, className }: P
     <nav className={cn('flex h-full flex-col', className)} aria-label="Tenant Ops sections">
       <ScrollArea className="flex-1">
         <ul className="space-y-1 p-2">
-          {TENANT_OPS_NAV.map((item, index) => {
+          {nav.map((item, index) => {
             const Icon = item.icon;
             const key = String(item.key);
-            const isLast = index === TENANT_OPS_NAV.length - 1;
+            const isLast = index === nav.length - 1;
             const expanded = !!open[key];
 
             return (

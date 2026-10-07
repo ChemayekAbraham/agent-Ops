@@ -38,14 +38,31 @@ function MerchantPill({ label, code, dotColor, borderColor }: MerchantPillProps)
 
 interface MerchantCodePillsProps {
   onDeposit?: () => void;
+  /** Live codes to show instead of the built-in MTN and Airtel pair (the awareness call panel passes the payment_channels ones). */
+  channels?: { provider: string; merchant_code: string }[];
 }
 
-export function MerchantCodePills({ onDeposit }: MerchantCodePillsProps) {
+const providerStyle = (provider: string) => {
+  const p = provider.toLowerCase();
+  if (p.includes('mtn')) return { dotColor: 'bg-yellow-500', borderColor: 'border-yellow-500/30' };
+  if (p.includes('airtel')) return { dotColor: 'bg-red-500', borderColor: 'border-red-500/30' };
+  return { dotColor: 'bg-primary', borderColor: 'border-primary/30' };
+};
+
+export function MerchantCodePills({ onDeposit, channels }: MerchantCodePillsProps) {
   return (
     <div className="flex flex-col items-center gap-1.5 my-2">
       <div className="flex flex-wrap justify-center gap-1.5">
-        <MerchantPill label="MTN" code="090777" dotColor="bg-yellow-500" borderColor="border-yellow-500/30" />
-        <MerchantPill label="Airtel" code="4380664" dotColor="bg-red-500" borderColor="border-red-500/30" />
+        {channels ? (
+          channels.map((c) => (
+            <MerchantPill key={`${c.provider}-${c.merchant_code}`} label={c.provider} code={c.merchant_code} {...providerStyle(c.provider)} />
+          ))
+        ) : (
+          <>
+            <MerchantPill label="MTN" code="090777" dotColor="bg-yellow-500" borderColor="border-yellow-500/30" />
+            <MerchantPill label="Airtel" code="4380664" dotColor="bg-red-500" borderColor="border-red-500/30" />
+          </>
+        )}
       </div>
       {onDeposit && (
         <button

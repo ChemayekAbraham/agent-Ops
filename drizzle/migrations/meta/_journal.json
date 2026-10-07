@@ -3445,6 +3445,48 @@
       "when": 1791365356342,
       "tag": "0491_receivables_location_hierarchy",
       "breakpoints": true
+    },
+    {
+      "idx": 492,
+      "version": "7",
+      "when": 1791367521073,
+      "tag": "0492_agent_cancel_merchandise_order_cleanup",
+      "breakpoints": true
+    },
+    {
+      "idx": 493,
+      "version": "7",
+      "when": 1791370455715,
+      "tag": "0493_bike_lease_auto_complete_at_zero",
+      "breakpoints": true
+    },
+    {
+      "idx": 494,
+      "version": "7",
+      "when": 1791371622120,
+      "tag": "0494_agent_ops_dormant_bike_leases",
+      "breakpoints": true
+    },
+    {
+      "idx": 495,
+      "version": "7",
+      "when": 1791375756617,
+      "tag": "0495_widen_list_assignable_agents",
+      "breakpoints": true
+    },
+    {
+      "idx": 496,
+      "version": "7",
+      "when": 1791375964871,
+      "tag": "0496_merchandise_fulfilment_types",
+      "breakpoints": true
+    },
+    {
+      "idx": 497,
+      "version": "7",
+      "when": 1791376053522,
+      "tag": "0497_merchandise_handover_audit_reason",
+      "breakpoints": true
     }
   ]
 }

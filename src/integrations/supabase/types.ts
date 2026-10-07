@@ -28582,6 +28582,7 @@ export type Database = {
           created_at: string
           created_by: string | null
           description: string | null
+          fulfilment_type: string | null
           id: string
           image_url: string | null
           image_urls: string[]
@@ -28596,6 +28597,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          fulfilment_type?: string | null
           id?: string
           image_url?: string | null
           image_urls?: string[]
@@ -28610,6 +28612,7 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           description?: string | null
+          fulfilment_type?: string | null
           id?: string
           image_url?: string | null
           image_urls?: string[]
@@ -28873,7 +28876,11 @@ export type Database = {
           customer_id: string | null
           disbursed_amount: number | null
           disbursement_group_id: string | null
+          fulfilment_type: string | null
           grace_days: number | null
+          handed_over_at: string | null
+          handed_over_by: string | null
+          handover_note: string | null
           id: string
           issued_channel: string | null
           item_name: string
@@ -28898,6 +28905,8 @@ export type Database = {
           sale_date: string
           selected_size: string | null
           service_centre_id: string | null
+          settlement_certificate_issued_at: string | null
+          settlement_completed_at: string | null
           smartphone_catalog_id: string | null
           supplier_id: string | null
           total_amount: number
@@ -28930,7 +28939,11 @@ export type Database = {
           customer_id?: string | null
           disbursed_amount?: number | null
           disbursement_group_id?: string | null
+          fulfilment_type?: string | null
           grace_days?: number | null
+          handed_over_at?: string | null
+          handed_over_by?: string | null
+          handover_note?: string | null
           id?: string
           issued_channel?: string | null
           item_name: string
@@ -28955,6 +28968,8 @@ export type Database = {
           sale_date?: string
           selected_size?: string | null
           service_centre_id?: string | null
+          settlement_certificate_issued_at?: string | null
+          settlement_completed_at?: string | null
           smartphone_catalog_id?: string | null
           supplier_id?: string | null
           total_amount?: number
@@ -28987,7 +29002,11 @@ export type Database = {
           customer_id?: string | null
           disbursed_amount?: number | null
           disbursement_group_id?: string | null
+          fulfilment_type?: string | null
           grace_days?: number | null
+          handed_over_at?: string | null
+          handed_over_by?: string | null
+          handover_note?: string | null
           id?: string
           issued_channel?: string | null
           item_name?: string
@@ -29012,6 +29031,8 @@ export type Database = {
           sale_date?: string
           selected_size?: string | null
           service_centre_id?: string | null
+          settlement_certificate_issued_at?: string | null
+          settlement_completed_at?: string | null
           smartphone_catalog_id?: string | null
           supplier_id?: string | null
           total_amount?: number
@@ -40450,6 +40471,138 @@ export type Database = {
           verified_by?: string | null
         }
         Relationships: []
+      }
+      rent_pipeline_awareness_calls: {
+        Row: {
+          aware_30m: string | null
+          aware_merchant_codes: string | null
+          call_result: string
+          caller_id: string
+          caller_team: string
+          dial_started_at: string
+          explained: string | null
+          id: string
+          note: string | null
+          pipeline_stage: string
+          recorded_at: string
+          rent_request_id: string
+          subject_phone: string
+          subject_type: string
+          subject_user_id: string | null
+        }
+        Insert: {
+          aware_30m?: string | null
+          aware_merchant_codes?: string | null
+          call_result: string
+          caller_id: string
+          caller_team: string
+          dial_started_at: string
+          explained?: string | null
+          id?: string
+          note?: string | null
+          pipeline_stage: string
+          recorded_at?: string
+          rent_request_id: string
+          subject_phone: string
+          subject_type: string
+          subject_user_id?: string | null
+        }
+        Update: {
+          aware_30m?: string | null
+          aware_merchant_codes?: string | null
+          call_result?: string
+          caller_id?: string
+          caller_team?: string
+          dial_started_at?: string
+          explained?: string | null
+          id?: string
+          note?: string | null
+          pipeline_stage?: string
+          recorded_at?: string
+          rent_request_id?: string
+          subject_phone?: string
+          subject_type?: string
+          subject_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rent_pipeline_awareness_calls_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_request_formula_drift"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rent_pipeline_awareness_calls_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "rent_requests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rent_pipeline_awareness_calls_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_cc_tenant_calling_population"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_pipeline_awareness_calls_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_partner_self_fundable_plans"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_pipeline_awareness_calls_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_expired_owing"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_pipeline_awareness_calls_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_plan_schedule"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_pipeline_awareness_calls_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_rent_repaid_reconciliation"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_pipeline_awareness_calls_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_daily_eligibility"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_pipeline_awareness_calls_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_pipeline_awareness_calls_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["rent_request_id"]
+          },
+          {
+            foreignKeyName: "rent_pipeline_awareness_calls_rent_request_id_fkey"
+            columns: ["rent_request_id"]
+            isOneToOne: false
+            referencedRelation: "v_tpsp_projection_base"
+            referencedColumns: ["plan_id"]
+          },
+        ]
       }
       rent_repaid_reconciliation_snapshot: {
         Row: {
@@ -59118,6 +59271,10 @@ export type Database = {
           term_end: string
         }[]
       }
+      _merch_create_plan_for_sale: {
+        Args: { p_sale_id: string }
+        Returns: string
+      }
       _post_four_part_fee_split: {
         Args: {
           p_amount: number
@@ -59604,6 +59761,23 @@ export type Database = {
       agent_ops_dormant_agents_arrears: {
         Args: { p_as_of?: string; p_mode?: string; p_silent_days?: number }
         Returns: Json
+      }
+      agent_ops_dormant_bike_leases: {
+        Args: never
+        Returns: {
+          agent_id: string
+          agent_name: string
+          agent_phone: string
+          amount_outstanding: number
+          bike_model: string
+          days_since_last_repayment: number
+          float_balance: number
+          last_repayment_at: string
+          lease_id: string
+          service_centre: string
+          wallet_zero: boolean
+          withdrawable: number
+        }[]
       }
       agent_ops_issue_agent_product: {
         Args: {
@@ -60481,6 +60655,134 @@ export type Database = {
       }
       award_agent_listing_campaign_bonus: {
         Args: { p_agent_id: string }
+        Returns: Json
+      }
+      awareness_call_status_for_requests: {
+        Args: { p_request_ids: string[] }
+        Returns: {
+          answered_at_current_stage: number
+          answered_person_types: string[]
+          calls_at_current_stage: number
+          calls_total: number
+          last_call_at: string
+          rent_request_id: string
+        }[]
+      }
+      awareness_calls_by_caller: {
+        Args: {
+          p_answer?: string
+          p_answer_field?: string
+          p_caller?: string
+          p_district?: string
+          p_from?: string
+          p_limit?: number
+          p_region?: string
+          p_result?: string
+          p_status?: string
+          p_subject_type?: string
+          p_team?: string
+          p_to?: string
+        }
+        Returns: Json
+      }
+      awareness_calls_by_team: {
+        Args: {
+          p_answer?: string
+          p_answer_field?: string
+          p_caller?: string
+          p_district?: string
+          p_from?: string
+          p_region?: string
+          p_result?: string
+          p_status?: string
+          p_subject_type?: string
+          p_team?: string
+          p_to?: string
+        }
+        Returns: Json
+      }
+      awareness_calls_log: {
+        Args: {
+          p_answer?: string
+          p_answer_field?: string
+          p_caller?: string
+          p_district?: string
+          p_from?: string
+          p_limit?: number
+          p_offset?: number
+          p_region?: string
+          p_result?: string
+          p_status?: string
+          p_subject_type?: string
+          p_team?: string
+          p_to?: string
+        }
+        Returns: Json
+      }
+      awareness_calls_options: { Args: never; Returns: Json }
+      awareness_calls_scoped: {
+        Args: {
+          p_answer?: string
+          p_answer_field?: string
+          p_caller?: string
+          p_district?: string
+          p_from?: string
+          p_region?: string
+          p_result?: string
+          p_status?: string
+          p_subject_type?: string
+          p_team?: string
+          p_to?: string
+        }
+        Returns: {
+          ac_30m: string
+          ac_caller: string
+          ac_codes: string
+          ac_day: string
+          ac_dial: string
+          ac_explained: string
+          ac_id: string
+          ac_note: string
+          ac_person: string
+          ac_phone: string
+          ac_recorded: string
+          ac_result: string
+          ac_rr: string
+          ac_stage: string
+          ac_subject_type: string
+          ac_subject_user: string
+          ac_team: string
+        }[]
+      }
+      awareness_calls_summary: {
+        Args: {
+          p_answer?: string
+          p_answer_field?: string
+          p_bucket?: string
+          p_caller?: string
+          p_district?: string
+          p_from?: string
+          p_region?: string
+          p_result?: string
+          p_status?: string
+          p_subject_type?: string
+          p_team?: string
+          p_to?: string
+        }
+        Returns: Json
+      }
+      awareness_coverage_gaps: {
+        Args: {
+          p_district?: string
+          p_from?: string
+          p_limit?: number
+          p_offset?: number
+          p_outcome?: string
+          p_region?: string
+          p_status?: string
+          p_team?: string
+          p_to?: string
+        }
         Returns: Json
       }
       backfill_missing_profile_by_email: {
@@ -62142,6 +62444,10 @@ export type Database = {
           p_tenant_id?: string
         }
         Returns: Json
+      }
+      confirm_merchandise_handover: {
+        Args: { p_note: string; p_sale_id: string }
+        Returns: string
       }
       confirm_payout_number_ownership: {
         Args: { p_number: string }
@@ -64731,6 +65037,11 @@ export type Database = {
       }
       get_approximate_user_count: { Args: never; Returns: number }
       get_authoritative_wallet: { Args: { p_user_id: string }; Returns: Json }
+      get_awareness_calls_for_request: {
+        Args: { p_rent_request_id: string }
+        Returns: Json
+      }
+      get_board_ledger_check: { Args: { p_date?: string }; Returns: Json }
       get_board_tech_memo: { Args: { p_date?: string }; Returns: Json }
       get_budget_consolidation: { Args: { p_call_id: string }; Returns: Json }
       get_budget_department_notifications: {
@@ -68822,6 +69133,19 @@ export type Database = {
         }
         Returns: Json
       }
+      list_merchandise_handover_queue: {
+        Args: never
+        Returns: {
+          agent_name: string
+          agent_phone: string
+          created_at: string
+          item_name: string
+          quantity: number
+          sale_id: string
+          selected_size: string
+          total_revenue: number
+        }[]
+      }
       list_proxy_agent_partners: {
         Args: {
           p_agent_id?: string
@@ -69339,6 +69663,19 @@ export type Database = {
           source_queue: string
         }
         Returns: number
+      }
+      my_awareness_calls_log: {
+        Args: {
+          p_from?: string
+          p_limit?: number
+          p_offset?: number
+          p_to?: string
+        }
+        Returns: Json
+      }
+      my_awareness_calls_summary: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
       }
       my_bank_account_lock: { Args: never; Returns: Json }
       my_location_correction_status: { Args: never; Returns: Json }
@@ -71692,6 +72029,21 @@ export type Database = {
           p_screen?: string
           p_target_role?: string
           p_user_agent?: string
+        }
+        Returns: Json
+      }
+      record_awareness_call: {
+        Args: {
+          p_aware_30m?: string
+          p_aware_merchant_codes?: string
+          p_call_result: string
+          p_dial_started_at: string
+          p_explained?: string
+          p_note?: string
+          p_rent_request_id: string
+          p_subject_phone: string
+          p_subject_type: string
+          p_subject_user_id?: string
         }
         Returns: Json
       }

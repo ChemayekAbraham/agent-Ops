@@ -31,11 +31,48 @@ function splitAgreementHtml(html: string): { styles: string; body: string } {
   };
 }
 
-/** Returns the rendered contract as a base64 (no data: prefix) PDF string. */
-export async function renderAgreementPdfBase64(
+/** Remove every `@media ... { ... }` block (balanced braces). */
+function stripMediaBlocks(css: string): string {
+  let out = '';
+  let i = 0;
+  while (i < css.length) {
+    const at = css.indexOf('@media', i);
+    if (at === -1) { out += css.slice(i); break; }
+    out += css.slice(i, at);
+    const open = css.indexOf('{', at);
+    if (open === -1) break;
+    let depth = 1;
+    let j = open + 1;
+    while (j < css.length && depth > 0) {
+      if (css[j] === '{') depth++;
+      else if (css[j] === '}') depth--;
+      j++;
+    }
+    i = j;
+  }
+  return out;
+}
+
+/**
+ * Confine a full-page stylesheet (html/body/:root/* rules) to the off-screen
+ * print root, so mounting it does not restyle the running app, and drop media
+ * queries so the phone viewport cannot trigger the responsive rules.
+ */
+export function scopeStylesToRoot(styles: string): string {
+  const ROOT = '.agreement-print-root';
+  return stripMediaBlocks(styles)
+    .replace(/:root\s*\{/g, `${ROOT} {`)
+    .replace(/(^|[}\s])html\s*,\s*body\s*\{/g, `$1${ROOT} {`)
+    .replace(
+      /\*\s*,\s*\*::before\s*,\s*\*::after\s*\{/g,
+      `${ROOT} *, ${ROOT} *::before, ${ROOT} *::after {`,
+    );
+}
+
+async function renderToPdf(
   html: string,
-  opts?: { format?: 'a4' | 'letter' },
-): Promise<string> {
+  opts?: { format?: 'a4' | 'letter'; scopeStyles?: boolean },
+) {
   const format = opts?.format ?? 'a4';
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
     import('html2canvas'),
@@ -44,7 +81,9 @@ export async function renderAgreementPdfBase64(
   // Mount the contract inside the parent document (off-screen but in-layout)
   // so html2canvas can walk real computed styles. Rendering into an off-screen
   // <iframe> produced blank pages on Chromium/WebKit.
-  const { styles, body } = splitAgreementHtml(html);
+  const split = splitAgreementHtml(html);
+  const styles = opts?.scopeStyles ? scopeStylesToRoot(split.styles) : split.styles;
+  const body = split.body;
 
   const host = document.createElement('div');
   host.setAttribute('aria-hidden', 'true');
@@ -68,7 +107,7 @@ export async function renderAgreementPdfBase64(
       try { await (document as any).fonts.ready; } catch { /* ignore */ }
     }
 
-    const sections = Array.from(host.querySelectorAll<HTMLElement>('.page-section'));
+    const sections = Array.from(host.querySelectorAll<HTMLElement>('.page-section, .report-page'));
     const targets = sections.length
       ? sections
       : [host.querySelector<HTMLElement>('.document-wrapper') || (host.firstElementChild as HTMLElement) || host];
@@ -102,10 +141,29 @@ export async function renderAgreementPdfBase64(
       pdf.addImage(imgData, 'JPEG', x, y, w, h, undefined, 'FAST');
     }
 
-    const dataUri = pdf.output('datauristring');
-    const comma = dataUri.indexOf(',');
-    return comma >= 0 ? dataUri.slice(comma + 1) : dataUri;
+    return pdf;
   } finally {
     document.body.removeChild(host);
   }
+}
+
+/** Returns the rendered contract as a base64 (no data: prefix) PDF string. */
+export async function renderAgreementPdfBase64(
+  html: string,
+  opts?: { format?: 'a4' | 'letter' },
+): Promise<string> {
+  const pdf = await renderToPdf(html, opts);
+  const dataUri = pdf.output('datauristring');
+  const comma = dataUri.indexOf(',');
+  return comma >= 0 ? dataUri.slice(comma + 1) : dataUri;
+}
+
+/**
+ * Rasterise a report built from `.report-page` articles into a PDF blob, one
+ * A4 page per article. The report's own stylesheet is confined to the
+ * off-screen root while it renders.
+ */
+export async function renderReportPdfBlob(html: string): Promise<Blob> {
+  const pdf = await renderToPdf(html, { scopeStyles: true });
+  return pdf.output('blob');
 }

@@ -16,6 +16,7 @@ const TenantNotificationAnalyticsPage = lazy(() => import('@/pages/tenant-ops/Te
 const TenantOperationsWorkspace = lazy(() => import('@/pages/tenant-ops/TenantOperationsWorkspace'));
 const TenantOpsWeeklyPerformancePage = lazy(() => import('@/pages/tenant-ops/TenantOpsWeeklyPerformancePage'));
 const ShortfallDrilldownPage = lazy(() => import('@/components/executive/tenant-ops/workspace/ShortfallDrilldownPage'));
+const AwarenessCallsPage = lazy(() => import('@/components/executive/tenant-ops/awareness/AwarenessCallsPage'));
 import {
   isTenantOpsAction,
   tenantOpsLabelFor,
@@ -123,6 +124,13 @@ export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGe
         </Suspense>
       );
     }
+    if (active === 'awareness-calls') {
+      return (
+        <Suspense fallback={<div className="flex min-h-64 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>}>
+          <AwarenessCallsPage />
+        </Suspense>
+      );
+    }
     if (active === 'calling-hub') return <CallingHub subjectType="tenant" />;
     if (active === 'calling-center') return <TenantCallingCenter />;
     if (active === 'phone-duplicates') return <TenantPhoneDuplicatePanel variant="full" />;
@@ -141,7 +149,8 @@ export function TenantOpsClassicShell({ onOpenLocations, onOpenWelileHomes, onGe
     || active === 'action.notifications-analytics'
     || active === 'tenant-operations-workspace'
     || active === 'tenant-ops-weekly-performance'
-    || active === 'collection-shortfall';
+    || active === 'collection-shortfall'
+    || active === 'awareness-calls';
   const label = active === 'home' || selfTitled ? '' : tenantOpsLabelFor(active);
 
   return (

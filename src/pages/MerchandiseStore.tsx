@@ -38,6 +38,7 @@ import { useRestoreBodyPointerEvents } from '@/hooks/useRestoreBodyPointerEvents
 import shoppingBagIllustration from '@/assets/Shopping_bag-amico.svg.asset.json';
 import spiroBikeAsset from '@/assets/spiro-bike.jpg.asset.json';
 import smartphonePromoAsset from '@/assets/smartphone-promo.jpg.asset.json';
+import { MyCategorisedOrdersNotice } from '@/components/merchandise/MyCategorisedOrdersNotice';
 
 // Merchandise tables aren't in generated types yet.
 const db = supabase as any;
@@ -594,6 +595,7 @@ export default function MerchandiseStore() {
       )}
 
       <div className="max-w-lg mx-auto px-4 pt-3 space-y-4">
+        <MyCategorisedOrdersNotice userId={user?.id} />
         {/* Main Tab Switcher (Store vs My Orders) — only appears when agent has at least one order */}
         {hasOrders && (
           <div className="flex p-1 bg-muted/70 rounded-xl border border-border/60">

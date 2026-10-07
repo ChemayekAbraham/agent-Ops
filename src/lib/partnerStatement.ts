@@ -1,14 +1,14 @@
 import { supabase } from '@/integrations/supabase/client';
-import welileLogoUrl from '@/assets/welile-logo.png';
+import { DASH, esc, n, num, printReportHtml, ugx } from './welileReportDocument';
 import {
-  DASH,
-  esc,
-  n,
-  num,
-  printReportHtml,
-  shell,
-  ugx,
-} from './welileReportDocument';
+  WELILE_OFFICE,
+  WELILE_PARTNER_EMAIL,
+  day,
+  reportDocumentHtml,
+  reportFooterHtml,
+  reportHeaderHtml,
+  runningHeaderHtml,
+} from './partnerReportParts';
 
 export interface StatementCompound { date: string; amount: number; reference: string | null }
 export interface StatementPayout { date: string; amount: number; reference: string | null }
@@ -61,38 +61,45 @@ export async function fetchPartnerStatement(portfolioId?: string): Promise<State
 }
 
 /* ───────────────────────────── presentation ────────────────────────────── */
+// Layout follows the approved statement template (see partnerStatementStyles.ts):
+// page 1 = account header + balance summary + master schedule of every
+// portfolio; the following pages = one ledger block per portfolio.
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-const day = (v: string | null | undefined): string => {
-  const s = String(v ?? '').slice(0, 10);
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
-  if (!m) return DASH;
-  return `${m[3]} ${MONTHS[Number(m[2]) - 1] ?? '?'} ${m[1]}`;
+const STATUS: Record<string, { label: string; tag: string }> = {
+  active: { label: 'Active', tag: 'tag-active' },
+  cancelled: { label: 'Closed', tag: 'tag-closed' },
+  awaiting_partner_details: { label: 'Awaiting Details', tag: 'tag-awaiting' },
+  locked: { label: 'Locked', tag: 'tag-awaiting' },
+  pending_ops_approval: { label: 'Processing', tag: 'tag-awaiting' },
+};
+const statusOf = (s: string) => STATUS[s] ?? {
+  label: s.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
+  tag: 'tag-awaiting',
+};
+const statusTag = (s: string) => {
+  const st = statusOf(s);
+  return `<span class="status-tag ${st.tag}">${esc(st.label)}</span>`;
 };
 
-const STATUS: Record<string, string> = {
-  active: 'ACTIVE',
-  cancelled: 'CLOSED',
-  awaiting_partner_details: 'PENDING DETAILS',
-  locked: 'LOCKED',
-  pending_ops_approval: 'PROCESSING',
+const isSelfSupport = (p: StatementPortfolio) => {
+  const code = p.code ?? '';
+  return code.startsWith('WSP') || code.startsWith('WSH');
 };
-const statusOf = (s: string) => STATUS[s] ?? s.replace(/_/g, ' ').toUpperCase();
+const isCompound = (p: StatementPortfolio) => (p.roi_mode ?? '').includes('compound');
 
 /** Compound, Payout or Self support, in the supporter's own words. */
 export function typeOf(p: StatementPortfolio): string {
-  const code = p.code ?? '';
-  if (code.startsWith('WSP') || code.startsWith('WSH')) return 'Self Support';
-  return (p.roi_mode ?? '').includes('compound') ? 'Compound' : 'Payout';
+  if (isSelfSupport(p)) return 'Self Support';
+  return isCompound(p) ? 'Compound' : 'Payout';
 }
+const typeLabel = (p: StatementPortfolio) => {
+  const t = typeOf(p);
+  return t === 'Payout' ? 'Monthly Payout' : t;
+};
 
 function modeWords(p: StatementPortfolio): string {
-  if (typeOf(p) === 'Self Support') return 'Self support';
-  return (p.roi_mode ?? '').includes('compound')
-    ? 'Return added to balance'
-    : 'Return paid monthly';
+  if (isSelfSupport(p)) return 'Self support';
+  return isCompound(p) ? 'Return added to your balance each month' : 'Return paid to you each month';
 }
 
 const compoundedOf = (p: StatementPortfolio) =>
@@ -101,499 +108,154 @@ const principalOf = (p: StatementPortfolio) =>
   Math.max(0, n(p.current_value) - compoundedOf(p));
 const monthlyOf = (p: StatementPortfolio) =>
   Math.round(principalOf(p) * n(p.rate) / 100);
+const payoutsOf = (p: StatementPortfolio) =>
+  (p.payouts ?? []).reduce((s, w) => s + n(w.amount), 0);
 
-const td = (v: string, cls = '') => `<td${cls ? ` class="${cls}"` : ''}>${esc(v)}</td>`;
-const th = (v: string, cls = '') => `<th${cls ? ` class="${cls}"` : ''}>${esc(v)}</th>`;
+const codeOf = (p: StatementPortfolio) => p.code ?? p.id.slice(0, 8);
 
-/* ─────────────────────────── HSBC-style CSS ──────────────────────────── */
+/* ─────────────────────────── per-portfolio ledger ────────────────────────── */
 
-const BANK_STATEMENT_CSS = `
-body {
-  background-color: #E2E8F0;
-  font-family: Arial, Helvetica, 'Inter', sans-serif;
-  color: #0F172A;
-  font-size: 8.5pt;
-  line-height: 1.35;
-  -webkit-font-smoothing: antialiased;
-}
-.report-page {
-  width: 210mm;
-  min-height: 297mm;
-  background-color: #FFFFFF;
-  padding: 14mm 16mm 14mm 16mm;
-  margin-bottom: 24px;
-  box-shadow: 0 4px 15px rgba(108,33,196,.08);
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  overflow: hidden;
-  page-break-after: always;
-  break-after: page;
-}
-.page-content { flex: 1; }
-
-/* Bank Header */
-.bank-header-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 12px;
-}
-.bank-logo-wrap {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.bank-logo-img {
-  height: 40px;
-  width: auto;
-  border-radius: 6px;
-  object-fit: contain;
-}
-.bank-name-block {
-  display: flex;
-  flex-direction: column;
-}
-.bank-main-title {
-  font-size: 14pt;
-  font-weight: 900;
-  letter-spacing: 1px;
-  color: #1E1B4B;
-}
-.bank-sub-title {
-  font-size: 7.5pt;
-  font-weight: 700;
-  letter-spacing: 1.5px;
-  color: #7B19D4;
-  text-transform: uppercase;
-}
-.bank-header-right {
-  text-align: right;
-  font-size: 8pt;
-  line-height: 1.3;
-}
-.bank-statement-red-title {
-  font-size: 15pt;
-  font-weight: 900;
-  color: #7B19D4;
-  margin-bottom: 3px;
-  letter-spacing: -0.3px;
-}
-.bank-contact-details {
-  color: #334155;
-  font-size: 7.5pt;
+interface LedgerRow {
+  date: string;
+  ref: string | null;
+  what: string; // already-escaped HTML
+  type: string;
+  amount: string | null;
+  accent: boolean;
 }
 
-/* Dual Summary Boxes */
-.bank-dual-grid {
-  display: grid;
-  grid-template-columns: 1.15fr 0.85fr;
-  gap: 20px;
-  margin-bottom: 12px;
-}
-.bank-account-box {
-  border-top: 2px solid #7B19D4;
-  border-bottom: 2px solid #7B19D4;
-  padding: 4px 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-}
-.bank-account-box-title {
-  font-weight: 800;
-  font-size: 9.5pt;
-  color: #581C87;
-  border-bottom: 1.5px solid #7B19D4;
-  padding-bottom: 3px;
-  margin-bottom: 3px;
-}
-.bank-account-row {
-  display: flex;
-  justify-content: space-between;
-  border-bottom: 1px solid #E2E8F0;
-  padding: 2.5px 0;
-  font-size: 8pt;
-}
-.bank-account-row:last-child {
-  border-bottom: none;
-}
-.bank-account-lbl {
-  font-style: italic;
-  font-weight: 600;
-  color: #475569;
-}
-.bank-account-val {
-  font-weight: 700;
-  color: #0F172A;
-}
-
-/* Balance Table */
-.bank-balance-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 7.8pt;
-  border: 1.5px solid #7B19D4;
-}
-.bank-balance-table td {
-  border: 1px solid #E2E8F0;
-  padding: 2.5px 6px;
-  color: #0F172A;
-}
-.bank-balance-table td.b-val {
-  text-align: right;
-  font-weight: 700;
-}
-.bank-balance-table tr.b-closing {
-  background-color: #F5F3FF;
-  font-weight: 800;
-  color: #581C87;
-}
-.bank-balance-table tr.b-closing td {
-  border-top: 1.5px solid #7B19D4;
-  border-bottom: 1.5px solid #7B19D4;
-  color: #581C87;
-}
-
-/* Meta Address Row */
-.bank-meta-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  font-size: 8pt;
-  margin-top: 8px;
-  margin-bottom: 14px;
-}
-.bank-meta-date {
-  font-weight: 700;
-  color: #581C87;
-  margin-bottom: 6px;
-}
-.bank-recipient-block {
-  line-height: 1.35;
-  font-weight: 600;
-  color: #0F172A;
-}
-.bank-meta-right {
-  text-align: right;
-  line-height: 1.35;
-  color: #334155;
-}
-
-/* Section Bar */
-.bank-section-bar {
-  border-top: 2.5px solid #7B19D4;
-  padding-top: 3px;
-  margin-top: 10px;
-  margin-bottom: 4px;
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-}
-.bank-section-bar h2 {
-  font-size: 11pt;
-  font-weight: 900;
-  margin: 0;
-  color: #581C87;
-}
-.bank-section-sub {
-  font-size: 7.5pt;
-  font-style: italic;
-  color: #64748B;
-}
-
-/* Bank Transactions Table */
-.bank-trans-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 7.8pt;
-  margin-bottom: 10px;
-}
-.bank-trans-table th {
-  border-bottom: 1.5px solid #7B19D4;
-  padding: 3px 4px;
-  text-align: left;
-  font-style: italic;
-  font-weight: 700;
-  color: #581C87;
-}
-.bank-trans-table th.right, .bank-trans-table td.right {
-  text-align: right;
-}
-.bank-trans-table td {
-  padding: 3.5px 4px;
-  border-bottom: 1px solid #E2E8F0;
-  vertical-align: middle;
-  color: #1E293B;
-}
-.bank-trans-table tr:nth-child(even) td {
-  background-color: #F8FAFC;
-}
-.bank-trans-table tfoot td {
-  border-top: 1.5px solid #7B19D4;
-  border-bottom: 2px solid #581C87;
-  font-weight: 800;
-  background-color: #F5F3FF;
-  color: #4C1D95;
-  padding: 4px;
-}
-
-/* Callout */
-.bank-callout {
-  border-top: 1px solid #7B19D4;
-  border-bottom: 1px solid #7B19D4;
-  background-color: #FAF5FF;
-  color: #3B0764;
-  padding: 5px 8px;
-  font-size: 7.5pt;
-  margin-top: 8px;
-  margin-bottom: 10px;
-  line-height: 1.35;
-  border-radius: 2px;
-}
-
-/* Detail Card Ledger */
-.bank-ledger-card {
-  border: 1px solid #DDD6FE;
-  border-top: none;
-  margin-bottom: 10px;
-  background-color: #FFF;
-  page-break-inside: avoid;
-  break-inside: avoid;
-  border-radius: 4px;
-  overflow: hidden;
-}
-.bank-ledger-header {
-  background: linear-gradient(135deg, #7B19D4 0%, #581C87 100%);
-  color: #FFF;
-  padding: 4px 8px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 8.5pt;
-  font-weight: 800;
-}
-.bank-ledger-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  border-bottom: 1px solid #E2E8F0;
-  font-size: 7.5pt;
-}
-.bank-ledger-cell {
-  padding: 3px 6px;
-  border-right: 1px solid #E2E8F0;
-}
-.bank-ledger-cell:last-child { border-right: none; }
-.bank-ledger-lbl { font-style: italic; color: #64748B; font-size: 7pt; }
-.bank-ledger-val { font-weight: 700; color: #0F172A; }
-.bank-subtable-title {
-  font-size: 7.5pt;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-  color: #581C87;
-  margin-top: 4px;
-  margin-bottom: 2px;
-  padding: 0 6px;
-}
-
-/* Maturity Projection Banner */
-.bank-maturity-banner {
-  background: linear-gradient(135deg, #FAF5FF 0%, #F3E8FF 100%);
-  border: 1.5px solid #C084FC;
-  border-radius: 6px;
-  padding: 6px 10px;
-  margin: 4px 6px 8px 6px;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  align-items: center;
-}
-.bank-maturity-kpi-lbl {
-  font-size: 6.8pt;
-  color: #6B21A8;
-  font-weight: 700;
-  text-transform: uppercase;
-  margin-bottom: 2px;
-}
-.bank-maturity-kpi-val {
-  font-size: 8.8pt;
-  font-weight: 700;
-  color: #0F172A;
-}
-.bank-maturity-payout-box {
-  background: #FFFFFF;
-  border: 1.5px solid #7B19D4;
-  border-radius: 5px;
-  padding: 4px 8px;
-  text-align: right;
-}
-.bank-maturity-payout-lbl {
-  font-size: 6.5pt;
-  color: #581C87;
-  font-weight: 800;
-  text-transform: uppercase;
-  margin-bottom: 1px;
-}
-.bank-maturity-payout-val {
-  font-size: 10.5pt;
-  font-weight: 900;
-  color: #581C87;
-  line-height: 1.1;
-}
-
-/* Bank Footer */
-.bank-footer-container {
-  margin-top: auto;
-  padding-top: 8px;
-}
-.bank-footer-bar {
-  border-top: 2px solid #7B19D4;
-  padding-top: 3px;
-  font-size: 7.5pt;
-  display: flex;
-  justify-content: space-between;
-  color: #581C87;
-  font-weight: 600;
-}
-
-@media print {
-  @page { size: A4 portrait; margin: 10mm 12mm 12mm 12mm; }
-  html, body { background-color: #FFF !important; font-size: 8.5pt !important; }
-  .report-page { box-shadow: none !important; padding: 0 !important; margin: 0 !important; min-height: auto !important; }
-  .bank-ledger-header, .bank-balance-table, .bank-trans-table th, .bank-maturity-banner { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-}
-`;
-
-/* ─────────────────────────── the detail cards ──────────────────────────── */
-
-function portfolioCardBank(p: StatementPortfolio): string {
-  const principal = principalOf(p);
-  const compounded = compoundedOf(p);
-  const isCompound = typeOf(p) === 'Compound' || (p.roi_mode ?? '').includes('compound');
-  const durationMonths = p.duration_months && p.duration_months > 0 ? p.duration_months : 12;
-  const ratePct = n(p.rate);
-
-  let projectedMaturityValue = principal;
-  for (let m = 0; m < durationMonths; m++) {
-    projectedMaturityValue += Math.round(projectedMaturityValue * (ratePct / 100));
+function ledgerRows(p: StatementPortfolio): LedgerRow[] {
+  const opening: LedgerRow = {
+    date: p.start_date, ref: null,
+    what: '<strong>Portfolio Opened</strong> &mdash; Initial Capital Contribution',
+    type: 'Capital Inflow', amount: ugx(principalOf(p)), accent: false,
+  };
+  const rest: LedgerRow[] = [];
+  for (const c of p.compounds ?? []) {
+    rest.push({ date: c.date, ref: c.reference, what: 'Compounded Return Added to Portfolio',
+      type: 'Compounded Return', amount: ugx(c.amount), accent: true });
   }
-  const projectedReturns = Math.max(0, projectedMaturityValue - principal);
-  const growthMultiple = principal > 0 ? (projectedMaturityValue / principal).toFixed(1) : '1';
+  for (const w of p.payouts ?? []) {
+    rest.push({ date: w.date, ref: w.reference, what: 'Payout to Partner',
+      type: 'Payout (Money Out)', amount: ugx(w.amount), accent: false });
+  }
+  for (const r of p.renewals ?? []) {
+    rest.push({ date: r.date, ref: null, what: 'Term Renewed', type: 'Update', amount: null, accent: false });
+  }
+  for (const c of p.changes ?? []) {
+    rest.push({ date: c.date, ref: null, what: esc(c.what), type: 'Update', amount: null, accent: false });
+  }
+  // The opening row stays first; everything else in date order.
+  rest.sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  return [opening, ...rest];
+}
 
-  const maturitySection = isCompound ? `
-    <div class="bank-subtable-title" style="display: flex; justify-content: space-between; align-items: baseline; margin-top: 6px;">
-      <span>Contract Maturity Projection (${durationMonths} Months)</span>
-      <span style="font-size: 7pt; font-weight: 600; text-transform: none; color: #7B19D4;">
-        Maturity: ${day(p.maturity_date)} (${growthMultiple}x initial capital)
-      </span>
+function portfolioEntry(p: StatementPortfolio, hasAccountPayouts: boolean): string {
+  const rows = ledgerRows(p);
+  const returnsAdded = compoundedOf(p);
+  const paidOut = payoutsOf(p);
+  const term = p.duration_months == null ? DASH : `${p.duration_months} months`;
+
+  const body = rows.map((r) => `<tr>
+        <td class="date">${day(r.date)}</td>
+        <td class="font-mono text-muted">${r.ref ? esc(r.ref) : '&mdash;'}</td>
+        <td>${r.what}</td>
+        <td class="text-muted">${esc(r.type)}</td>
+        <td class="text-right num font-semibold${r.accent ? ' text-primary' : ''}">${r.amount ?? '&mdash;'}</td>
+      </tr>`).join('');
+
+  const foot = [
+    returnsAdded > 0
+      ? `<tr><td colspan="4" class="text-right font-bold" style="text-transform: uppercase;">Total Compounded Returns:</td><td class="text-right num font-bold text-primary">${ugx(returnsAdded)}</td></tr>`
+      : '',
+    paidOut > 0
+      ? `<tr><td colspan="4" class="text-right font-bold" style="text-transform: uppercase;">Total Payouts:</td><td class="text-right num font-bold">${ugx(paidOut)}</td></tr>`
+      : '',
+  ].join('');
+
+  const notes = [
+    hasAccountPayouts ? '* Payouts not linked to a portfolio are shown at account level (see Statement Note on Page 1)' : '',
+    returnsAdded <= 0 && paidOut <= 0 ? 'No Return has been added to this portfolio yet.' : '',
+  ].filter(Boolean).join('&nbsp;&bull;&nbsp; ');
+
+  return `<div class="portfolio-statement-entry">
+  <div class="portfolio-banner">
+    <div class="portfolio-banner-left">
+      <span class="entry-code">${esc(codeOf(p))}</span>
+      ${statusTag(p.status)}
+      <span class="type-tag">${esc(typeLabel(p))}</span>
+      <span class="text-muted font-mono" style="font-size:6.8px;">Ref: ${esc(p.id.slice(0, 8))}</span>
     </div>
-    <div class="bank-maturity-banner">
-      <div>
-        <div class="bank-maturity-kpi-lbl">Initial Principal</div>
-        <div class="bank-maturity-kpi-val num">${ugx(principal)}</div>
-      </div>
-      <div>
-        <div class="bank-maturity-kpi-lbl">Monthly Return Rate</div>
-        <div class="bank-maturity-kpi-val font-mono">${ratePct}% / mo</div>
-      </div>
-      <div>
-        <div class="bank-maturity-kpi-lbl">Projected Returns (${durationMonths} Mo)</div>
-        <div class="bank-maturity-kpi-val num" style="color: #7B19D4;">+${ugx(projectedReturns)}</div>
-      </div>
-      <div class="bank-maturity-payout-box">
-        <div class="bank-maturity-payout-lbl">Total Payout at Maturity</div>
-        <div class="bank-maturity-payout-val num">${ugx(projectedMaturityValue)}</div>
-      </div>
-    </div>` : '';
-
-  const payoutsRows = (p.payouts ?? []).map(
-    (w) => `<tr>${td(day(w.date), 'nowrap')}${td(w.reference ?? DASH)}${td(num(w.amount), 'right num')}</tr>`,
-  ).join('');
-
-  const compoundsRows = (p.compounds ?? []).map(
-    (c) => `<tr>${td(day(c.date), 'nowrap')}${td(c.reference ?? DASH)}${td(num(c.amount), 'right num')}</tr>`,
-  ).join('');
-
-  const changesEvents = [
-    ...(p.renewals ?? []).map((r) => ({ date: r.date, what: 'Term Renewed' })),
-    ...(p.changes ?? []),
-  ].sort((a, b) => String(a.date).localeCompare(String(b.date)));
-
-  const changesRows = changesEvents.map(
-    (c) => `<tr>${td(day(c.date), 'nowrap')}${td(c.what)}</tr>`,
-  ).join('');
-
-  return `<div class="bank-ledger-card">
-  <div class="bank-ledger-header">
-    <span>Portfolio: ${esc(p.code ?? p.id.slice(0, 8))} (${esc(statusOf(p.status))})</span>
-    <span style="font-size: 8pt; font-weight: normal;">${esc(`${n(p.rate)}% · ${modeWords(p)}`)}</span>
+    <div class="portfolio-banner-right">
+      <span><span class="banner-metric-label">Principal:</span> <strong class="num">${ugx(principalOf(p))}</strong></span>
+      <span class="banner-sep">&bull;</span>
+      <span><span class="banner-metric-label">Rate:</span> <strong class="num">${n(p.rate)}%</strong></span>
+      <span class="banner-sep">&bull;</span>
+      <span><span class="banner-metric-label">Current Value:</span> <strong class="num text-primary" style="font-size:8px;">${ugx(p.current_value)}</strong></span>
+    </div>
   </div>
-  <div class="bank-ledger-grid">
-    <div class="bank-ledger-cell"><div class="bank-ledger-lbl">Start Date</div><div class="bank-ledger-val">${day(p.start_date)}</div></div>
-    <div class="bank-ledger-cell"><div class="bank-ledger-lbl">Maturity Date</div><div class="bank-ledger-val">${day(p.maturity_date)}</div></div>
-    <div class="bank-ledger-cell"><div class="bank-ledger-lbl">Term</div><div class="bank-ledger-val">${p.duration_months == null ? DASH : `${p.duration_months} Months`}</div></div>
-    <div class="bank-ledger-cell"><div class="bank-ledger-lbl">Type</div><div class="bank-ledger-val">${typeOf(p)}</div></div>
-  </div>
-  <div class="bank-ledger-grid" style="background-color: #F8FAFC;">
-    <div class="bank-ledger-cell"><div class="bank-ledger-lbl">Principal</div><div class="bank-ledger-val num">${ugx(principal)}</div></div>
-    <div class="bank-ledger-cell"><div class="bank-ledger-lbl">Return Added</div><div class="bank-ledger-val num">${ugx(compounded)}</div></div>
-    <div class="bank-ledger-cell"><div class="bank-ledger-lbl">Monthly Return</div><div class="bank-ledger-val num">${ugx(monthlyOf(p))}</div></div>
-    <div class="bank-ledger-cell"><div class="bank-ledger-lbl">Current Worth</div><div class="bank-ledger-val num" style="color:#1E1B4B; font-weight:800;">${ugx(p.current_value)}</div></div>
-  </div>
-  <div style="padding: 4px 6px;">
-    ${maturitySection}
-    ${payoutsRows ? `
-      <div class="bank-subtable-title">Payouts (Money Out)</div>
-      <table class="bank-trans-table" style="margin-bottom: 4px;">
-        <thead><tr><th>Date</th><th>Reference</th><th class="right">Amount (UGX)</th></tr></thead>
-        <tbody>${payoutsRows}</tbody>
-      </table>` : ''}
-    ${compoundsRows ? `
-      <div class="bank-subtable-title">Compounded Returns</div>
-      <table class="bank-trans-table" style="margin-bottom: 4px;">
-        <thead><tr><th>Date</th><th>Reference</th><th class="right">Amount (UGX)</th></tr></thead>
-        <tbody>${compoundsRows}</tbody>
-      </table>` : ''}
-    ${changesRows ? `
-      <div class="bank-subtable-title">Renewals & Changes</div>
-      <table class="bank-trans-table" style="margin-bottom: 4px;">
-        <thead><tr><th>Date</th><th>Description</th></tr></thead>
-        <tbody>${changesRows}</tbody>
-      </table>` : ''}
+  <table class="portfolio-terms-table">
+    <thead><tr>
+      <th style="width:14%;">Start Date</th><th style="width:11%;">Term</th><th style="width:14%;">Maturity Date</th>
+      <th style="width:10%;">Days Left</th><th style="width:13%;">Monthly Return Rate</th><th>Return Method</th>
+    </tr></thead>
+    <tbody><tr>
+      <td class="date">${day(p.start_date)}</td>
+      <td>${esc(term)}</td>
+      <td class="date">${day(p.maturity_date)}</td>
+      <td class="num">${p.days_left == null ? DASH : num(p.days_left)}</td>
+      <td class="num font-bold">${n(p.rate)}%</td>
+      <td>${esc(modeWords(p))}</td>
+    </tr></tbody>
+  </table>
+  <table class="entry-ledger-table">
+    <thead><tr>
+      <th style="width:14%;">Date</th><th style="width:20%;">Reference</th><th>Activity &amp; Description</th>
+      <th style="width:16%;">Type</th><th class="text-right" style="width:16%;">Amount</th>
+    </tr></thead>
+    <tbody>${body}</tbody>
+    ${foot ? `<tfoot>${foot}</tfoot>` : ''}
+  </table>
+  <div class="entry-footnote-row">
+    <span>${notes}</span>
+    <span class="font-mono text-muted">Portfolio ID: ${esc(codeOf(p))}</span>
   </div>
 </div>`;
 }
 
 /* ───────────────────────────── Pagination ────────────────────────────── */
+// Heights are estimates in CSS px (a page holds ~1000px of content). They are
+// deliberately a little generous so a block is never cut at a page edge.
 
-const CARD_BASE_PX = 320;
-const CARD_ROW_PX = 18;
-const SHEET_PX = 990;
-const SECTION_TITLE_PX = 28;
-const PAGE1_CHROME_PX = 460;
-const SUMMARY_ROW_PX = 19;
+const SHEET_PX = 1000;
+const PAGE1_CHROME_PX = 330;   // header, balance summary, note, schedule head/foot
+const SCHEDULE_ROW_PX = 17;
+const CONT_CHROME_PX = 60;     // running header on continuation pages
+const ENTRY_BASE_PX = 100;     // banner + terms + ledger head + footnote + gap
+const ENTRY_ROW_PX = 15;
+const COMPLETION_PX = 95;
 
-function paginate(ps: StatementPortfolio[]): StatementPortfolio[][] {
-  const out: StatementPortfolio[][] = [];
+const entryCost = (p: StatementPortfolio) =>
+  ENTRY_BASE_PX
+  + (ledgerRows(p).length + (compoundedOf(p) > 0 ? 1 : 0) + (payoutsOf(p) > 0 ? 1 : 0)) * ENTRY_ROW_PX;
+
+function paginateEntries(ps: StatementPortfolio[]): { pages: StatementPortfolio[][]; lastUsed: number } {
+  const pages: StatementPortfolio[][] = [];
   let current: StatementPortfolio[] = [];
   let used = 0;
+  const budget = SHEET_PX - CONT_CHROME_PX;
   for (const p of ps) {
-    const isCompound = typeOf(p) === 'Compound' || (p.roi_mode ?? '').includes('compound');
-    const rows = (p.payouts?.length ?? 0) + (p.compounds?.length ?? 0)
-      + (p.renewals?.length ?? 0) + (p.changes?.length ?? 0) + 1;
-    const cost = CARD_BASE_PX + (isCompound ? 55 : 0) + rows * CARD_ROW_PX;
-    const budget = SHEET_PX - (out.length === 0 ? SECTION_TITLE_PX : 0);
+    const cost = entryCost(p);
     if (current.length && used + cost > budget) {
-      out.push(current);
+      pages.push(current);
       current = [];
       used = 0;
     }
     current.push(p);
     used += cost;
   }
-  if (current.length) out.push(current);
-  return out;
+  if (current.length) pages.push(current);
+  return { pages, lastUsed: used };
 }
 
 /* ───────────────────────────── the document ────────────────────────────── */
@@ -605,211 +267,188 @@ export function buildPartnerStatementHtml(d: StatementData): string {
   const totalValue = ps.reduce((s, p) => s + n(p.current_value), 0);
   const totalMonthly = ps.reduce((s, p) => s + monthlyOf(p), 0);
   const active = ps.filter((p) => p.status === 'active').length;
+  const hasAccountPayouts = d.payouts_total.count > 0;
 
   const stamp = String(d.generated_at).slice(0, 10);
-  const who = d.partner?.name ?? 'Supporter';
-  const ref = `W-SPS-${stamp.replace(/-/g, '')}`;
+  const who = (d.partner?.name ?? '').trim() || 'Partner';
+  const whoUp = who.toUpperCase();
+  const accountNo = d.partner?.phone ?? d.partner?.mobile_money ?? DASH;
+  const ref = `W-PPS-${stamp.slice(0, 4)}-${stamp.slice(5, 7)}${stamp.slice(8, 10)}`;
+  const starts = ps.map((p) => String(p.start_date ?? '').slice(0, 10)).filter(Boolean).sort();
+  const period = starts.length ? `${day(starts[0])} to ${day(stamp)}` : day(stamp);
 
-  // Top Bank Header
-  const header = `<div class="bank-header-row">
-  <div class="bank-logo-wrap">
-    <img src="${welileLogoUrl}" alt="Welile" class="bank-logo-img" />
-    <div class="bank-name-block">
-      <span class="bank-main-title">WELILE</span>
-      <span class="bank-sub-title">TECHNOLOGIES</span>
-    </div>
-  </div>
-  <div class="bank-header-right">
-    <div class="bank-statement-red-title">Your Statement</div>
-    <div class="bank-contact-details">
-      <div><strong>Contact Tel:</strong> +256 700 000 000 / +256 775 077 741</div>
-      <div><strong>Support:</strong> support@welileapp.com</div>
-      <div><strong>Portal:</strong> www.welileapp.com</div>
-    </div>
-  </div>
-</div>`;
+  // "19 Active, 1 Awaiting Details, 7 Closed"
+  const counts = new Map<string, number>();
+  for (const p of ps) {
+    const label = statusOf(p.status).label;
+    counts.set(label, (counts.get(label) ?? 0) + 1);
+  }
+  const countsText = Array.from(counts, ([label, c]) => `${c} ${label}`).join(', ');
 
-  // Dual Summary Grid
-  const dualSummary = `<div class="bank-dual-grid">
-  <div class="bank-account-box">
-    <div class="bank-account-box-title">Supporter Portfolio Statement</div>
-    <div class="bank-account-row">
-      <span class="bank-account-lbl">Account Name</span>
-      <span class="bank-account-val">${esc(who.toUpperCase())}</span>
-    </div>
-    <div class="bank-account-row">
-      <span class="bank-account-lbl">Account number</span>
-      <span class="bank-account-val font-mono">${esc(d.partner?.phone ?? d.partner?.mobile_money ?? '00990275')}</span>
-    </div>
-    <div class="bank-account-row">
-      <span class="bank-account-lbl">Statement Ref</span>
-      <span class="bank-account-val font-mono">${esc(ref)}</span>
-    </div>
-    <div class="bank-account-row">
-      <span class="bank-account-lbl">Sort Code</span>
-      <span class="bank-account-val font-mono">40-06-15</span>
-    </div>
-  </div>
-  <div class="bank-summary-right">
-    <table class="bank-balance-table">
-      <tbody>
-        <tr>
-          <td>Opening Balance / Principal</td>
-          <td class="b-val num">${esc(ugx(totalPrincipal))}</td>
-        </tr>
-        <tr>
-          <td>Payments In (Returns Added)</td>
-          <td class="b-val num">${esc(ugx(totalCompounded))}</td>
-        </tr>
-        <tr>
-          <td>Payments Out (Payouts)</td>
-          <td class="b-val num">${esc(ugx(d.payouts_total.amount))}</td>
-        </tr>
-        <tr class="b-closing">
-          <td><strong>Closing Balance / Valuation</strong></td>
-          <td class="b-val num"><strong>${esc(ugx(totalValue))}</strong></td>
-        </tr>
-        <tr>
-          <td>Account Type</td>
-          <td class="b-val" style="font-size: 7pt;">SUPPORTER CAPITAL / UGX</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-</div>`;
+  const footer = (i: number, total: number) =>
+    reportFooterHtml({ docName: 'PARTNER PORTFOLIO STATEMENT', ref, page: i, total });
 
-  // Address & Meta Row
-  const metaRow = `<div class="bank-meta-row">
-  <div class="bank-meta-left">
-    <div class="bank-meta-date">${day(stamp)}</div>
-    <div class="bank-recipient-block">
-      <div>${esc(who.toUpperCase())}</div>
-      <div>${esc(d.partner?.phone ? `MOBILE: ${d.partner.phone}` : '')}</div>
-      <div>UGANDA</div>
-    </div>
-  </div>
-</div>`;
-
-  // Transactions Summary Head
-  const SUMMARY_HEAD = `<tr>
-    <th style="width:25px">#</th>
-    <th>Portfolio Ref</th>
-    <th>Status</th>
-    <th class="right">Rate</th>
-    <th class="right">Principal (UGX)</th>
-    <th class="right">Return / Month</th>
-    <th class="right">Closing Balance (UGX)</th>
-    <th>Start</th>
-    <th>Matures</th>
-    <th class="right">Days Left</th>
-    <th>Type</th>
-  </tr>`;
-
-  const summaryRows = ps.map((p, i) => {
-    const principal = principalOf(p);
-    return `<tr>
-      <td>${String(i + 1)}</td>
-      <td class="cell-strong font-mono">${esc(p.code ?? p.id.slice(0, 8))}</td>
-      <td><strong>${esc(statusOf(p.status))}</strong></td>
-      <td class="right font-mono">${n(p.rate)}%</td>
-      <td class="right num">${num(principal)}</td>
-      <td class="right num">${num(monthlyOf(p))}</td>
-      <td class="right num cell-strong">${num(p.current_value)}</td>
-      <td class="nowrap">${day(p.start_date)}</td>
-      <td class="nowrap">${day(p.maturity_date)}</td>
-      <td class="right font-mono">${p.days_left == null ? DASH : num(p.days_left)}</td>
-      <td class="nowrap">${typeOf(p)}</td>
-    </tr>`;
+  const header = reportHeaderHtml({
+    meta: [
+      { label: 'Account Number', value: accountNo, mono: true },
+      { label: 'Statement Date', value: day(stamp), date: true },
+      { label: 'Period Covered', value: period },
+      { label: 'Statement Ref', value: ref, mono: true },
+    ],
+    customerName: whoUp,
+    customerLines: [
+      ...(d.partner?.mobile_money ? [`Mobile Money: ${esc(d.partner.mobile_money)}`] : []),
+      `Account Status: ${active > 0
+        ? '<span class="status-tag tag-active">Active Partner</span>'
+        : '<span class="status-tag tag-closed">No active portfolios</span>'}`,
+      'Reporting Currency: UGX (Uganda Shilling)',
+    ],
+    branch: '<Welile Partner Portfolio Division>',
+    summary: [
+      { label: 'Opening / Capital Supported:', valueHtml: esc(ugx(totalPrincipal)) },
+      { label: 'Total Credit (Compounded Returns):', valueHtml: esc(ugx(totalCompounded)) },
+      { label: 'Total Debit (Payouts to Date):', valueHtml: esc(ugx(d.payouts_total.amount)) },
+      { label: 'Closing / Total Portfolio Value:', valueHtml: esc(ugx(totalValue)), closing: true },
+      {
+        label: 'Number of Portfolios:',
+        valueHtml: `<strong>${ps.length}</strong> <span class="text-muted" style="font-size:6.8px; font-weight:normal;">(${esc(countsText)})</span>`,
+      },
+    ],
   });
 
-  const summaryFoot = `<tr class="bank-trans-foot">
-    <td colspan="4"><strong>CLOSING TOTALS</strong></td>
-    <td class="right num"><strong>${num(totalPrincipal)}</strong></td>
-    <td class="right num"><strong>${num(totalMonthly)}</strong></td>
-    <td class="right num"><strong>${num(totalValue)}</strong></td>
-    <td colspan="4"></td>
+  const note = `<div class="statement-disclosure-block">
+  <div class="disclosure-title">Statement Note &amp; Payout Accounting Disclosure</div>
+  <div class="disclosure-body">
+    ${hasAccountPayouts
+      ? `${num(d.payouts_total.count)} payout${d.payouts_total.count === 1 ? '' : 's'} totalling <strong>${esc(ugx(d.payouts_total.amount))}</strong> ${d.payouts_total.count === 1 ? 'is' : 'are'} recorded on this account. A payout appears against an individual portfolio only when it is linked to that disbursement; the rest are recorded at account level. Individual portfolio values reflect recorded principal and compounded return activity, and should not be read as balances after unallocated withdrawals.`
+      : 'No payouts have been recorded on this account. Individual portfolio values reflect recorded principal and compounded return activity.'}
+  </div>
+</div>`;
+
+  const scheduleRows = ps.map((p, i) => `<tr>
+    <td class="text-center text-muted font-mono">${i + 1}</td>
+    <td class="font-mono font-bold">${esc(codeOf(p))}</td>
+    <td class="text-center">${statusTag(p.status)}</td>
+    <td class="text-center"><span class="type-tag">${esc(typeLabel(p))}</span></td>
+    <td class="text-right num">${n(p.rate)}%</td>
+    <td class="text-right num">${esc(ugx(principalOf(p)))}</td>
+    <td class="text-right num text-body">${esc(ugx(monthlyOf(p)))}</td>
+    <td class="text-right num font-bold text-primary">${esc(ugx(p.current_value))}</td>
+    <td class="text-center date">${day(p.start_date)}</td>
+    <td class="text-center date">${day(p.maturity_date)}</td>
+    <td class="text-center num">${p.days_left == null ? DASH : num(p.days_left)}</td>
+  </tr>`);
+
+  const SCHEDULE_HEAD = `<tr>
+    <th style="width:20px;" class="text-center">#</th>
+    <th style="width:85px;">Portfolio Code</th>
+    <th style="width:75px;" class="text-center">Status</th>
+    <th style="width:75px;" class="text-center">Type</th>
+    <th class="text-right" style="width:40px;">Rate</th>
+    <th class="text-right">Principal</th>
+    <th class="text-right">Monthly Return</th>
+    <th class="text-right">Current Value</th>
+    <th class="text-center">Start Date</th>
+    <th class="text-center">Maturity</th>
+    <th class="text-center" style="width:45px;">Days Left</th>
+  </tr>`;
+  const scheduleFoot = `<tr>
+    <td colspan="4" class="text-right font-bold" style="text-transform:uppercase;">Totals (${ps.length} Portfolio${ps.length === 1 ? '' : 's'}):</td>
+    <td class="text-right num font-bold">&mdash;</td>
+    <td class="text-right num font-bold">${esc(ugx(totalPrincipal))}</td>
+    <td class="text-right num font-bold">${esc(ugx(totalMonthly))}</td>
+    <td class="text-right num font-bold text-primary">${esc(ugx(totalValue))}</td>
+    <td colspan="3" class="text-center text-muted" style="font-size:7px;">${esc(countsText.replace(/, /g, ' • '))}</td>
   </tr>`;
 
-  const caveat = `<div class="bank-callout">
-    <strong>Important Payout & Activity Information:</strong> ${num(d.payouts_total.count)} payout${d.payouts_total.count === 1 ? '' : 's'} totalling ${ugx(d.payouts_total.amount)} are recorded on this account. A payout appears against an individual portfolio when linked to that disbursement. Closing Balance represents active portfolio capital.
-  </div>`;
-
-  const FIRST_PAGE_ROWS = Math.floor((SHEET_PX - PAGE1_CHROME_PX) / SUMMARY_ROW_PX);
-  const CONT_PAGE_ROWS = Math.floor((SHEET_PX - SECTION_TITLE_PX) / SUMMARY_ROW_PX);
-  const summaryChunks: string[][] = [];
-  for (let i = 0; i < summaryRows.length || i === 0;) {
-    const size = summaryChunks.length === 0 ? FIRST_PAGE_ROWS : CONT_PAGE_ROWS;
-    summaryChunks.push(summaryRows.slice(i, i + size));
-    i += size;
-    if (i >= summaryRows.length) break;
+  // Schedule rows that do not fit on page 1 continue on pages of their own.
+  const firstCap = Math.max(8, Math.floor((SHEET_PX - PAGE1_CHROME_PX) / SCHEDULE_ROW_PX));
+  const contCap = Math.floor((SHEET_PX - CONT_CHROME_PX - 60) / SCHEDULE_ROW_PX);
+  const scheduleChunks: string[][] = [scheduleRows.slice(0, firstCap)];
+  for (let i = firstCap; i < scheduleRows.length; i += contCap) {
+    scheduleChunks.push(scheduleRows.slice(i, i + contCap));
   }
 
-  const detailChunks = paginate(ps);
-  const total = summaryChunks.length + detailChunks.length;
+  // The completion panel closes the last page; if it will not fit there, it gets one.
+  const { pages: entryChunks, lastUsed } = paginateEntries(ps);
+  const panelOnOwnPage = lastUsed + COMPLETION_PX > SHEET_PX - CONT_CHROME_PX;
+  const total = scheduleChunks.length + entryChunks.length + (panelOnOwnPage ? 1 : 0);
 
-  const renderFooter = (pageIndex: number) => `
-  <footer class="bank-footer-container">
-    <div class="bank-footer-bar">
-      <span><strong>Correspondence:</strong> Welile Technologies Limited • Kampala, Uganda</span>
-      <span><strong>Sort Code:</strong> 40-06-15</span>
-      <span><strong>Statement page ${pageIndex} of ${total}</strong></span>
+  const running = (title: string, pageNo: number) => runningHeaderHtml({
+    title, accountLabel: 'Account', accountValue: accountNo,
+    holderLabel: 'Partner', holder: whoUp, date: day(stamp), page: pageNo, total,
+  });
+
+  const completion = `<div class="statement-completion-panel">
+  <div class="completion-panel-header">
+    <span class="completion-title">Official Statement Completion Verification</span>
+    <span class="font-mono text-muted" style="font-size:7px;">REF: ${esc(ref)}</span>
+  </div>
+  <div class="completion-body">
+    <p>This document constitutes the complete Partner Portfolio Statement for <strong>${esc(whoUp)}</strong> covering all ${ps.length} registered portfolio${ps.length === 1 ? '' : 's'} as of <strong>${day(stamp)}</strong>. All recorded capital contributions, contractual return rates, compounded additions, and holding balances are maintained under the financial administration of Welile Technologies Limited.</p>
+    <div class="completion-contact-row">
+      <span><strong>Partner Office:</strong> ${WELILE_PARTNER_EMAIL}</span><span>&bull;</span>
+      <span><strong>Partner Portal:</strong> welileapp.com</span><span>&bull;</span>
+      <span><strong>Head Office:</strong> ${WELILE_OFFICE}</span>
     </div>
-  </footer>`;
+  </div>
+</div>`;
 
-  const summaryPages = summaryChunks.map((rows, i) => {
-    const last = i === summaryChunks.length - 1;
-    const body = `<table class="bank-trans-table">
-      <thead>${SUMMARY_HEAD}</thead>
-      <tbody>${rows.join('')}</tbody>
-      ${last ? `<tfoot>${summaryFoot}</tfoot>` : ''}
-    </table>`;
-
-    const sectionHeading = `<div class="bank-section-bar">
-      <h2>Portfolios & Transactions</h2>
-      <span class="bank-section-sub">${ps.length} Portfolios · ${active} Active</span>
-    </div>`;
-
-    return `<article class="report-page">
-      <div class="page-content">
-        ${i === 0 ? `${header}${dualSummary}${metaRow}` : ''}
-        ${sectionHeading}
-        ${body}
-        ${last ? caveat : ''}
+  const schedulePages = scheduleChunks.map((rows, i) => {
+    const lastChunk = i === scheduleChunks.length - 1;
+    const section = `<section>
+      <div class="section-header-bar">
+        <span class="section-title">${i === 0
+          ? `Master Portfolio Schedule (All ${ps.length} Registered Portfolio${ps.length === 1 ? '' : 's'})`
+          : 'Master Portfolio Schedule (continued)'}</span>
+        <span class="section-subtitle">Principal, return rates, monthly earnings and maturities</span>
       </div>
-      ${renderFooter(i + 1)}
-    </article>`;
-  });
-
-  const detailPages = detailChunks.map((chunk, i) => {
-    const sectionHeading = `<div class="bank-section-bar">
-      <h2>Portfolio Activity Breakdown</h2>
-      <span class="bank-section-sub">Detailed Ledger Entries</span>
-    </div>`;
-
-    return `<article class="report-page">
-      <div class="page-content">
-        <div class="bank-header-row" style="margin-bottom: 8px;">
-          <div class="bank-logo-wrap">
-            <img src="${welileLogoUrl}" alt="Welile" class="bank-logo-img" style="height:28px;" />
-            <span class="bank-main-title" style="font-size:11pt;">WELILE TECHNOLOGIES</span>
-          </div>
-          <div class="bank-header-right">
-            <span class="bank-statement-red-title" style="font-size:11pt;">Your Statement (Continued)</span>
-          </div>
-        </div>
-        ${sectionHeading}
-        ${chunk.map(portfolioCardBank).join('')}
+      <div class="master-table-wrapper">
+        <table class="master-schedule-table">
+          <thead>${SCHEDULE_HEAD}</thead>
+          <tbody>${rows.join('')}</tbody>
+          ${lastChunk ? `<tfoot>${scheduleFoot}</tfoot>` : ''}
+        </table>
       </div>
-      ${renderFooter(summaryChunks.length + i + 1)}
-    </article>`;
+    </section>`;
+    return `<article class="report-page">
+  <div class="page-content">
+    ${i === 0 ? `${header}${note}` : running('STATEMENT OF ACCOUNT &mdash; MASTER SCHEDULE', i + 1)}
+    ${section}
+  </div>
+  ${footer(i + 1, total)}
+</article>`;
   });
 
-  return shell({
-    title: `Welile — Supporter Portfolio Statement — ${who}`,
-    pages: [...summaryPages, ...detailPages],
-    noCharts: true,
-    extraCss: BANK_STATEMENT_CSS,
+  const entryPages = entryChunks.map((chunk, i) => {
+    const pageNo = scheduleChunks.length + i + 1;
+    const isLast = i === entryChunks.length - 1;
+    return `<article class="report-page">
+  <div class="page-content">
+    ${running('STATEMENT OF ACCOUNT &mdash; PORTFOLIO SCHEDULES', pageNo)}
+    <div class="portfolio-schedule-list">
+      ${chunk.map((p) => portfolioEntry(p, hasAccountPayouts)).join('\n')}
+      ${isLast && !panelOnOwnPage ? completion : ''}
+    </div>
+  </div>
+  ${footer(pageNo, total)}
+</article>`;
   });
+
+  const panelPage = panelOnOwnPage
+    ? [`<article class="report-page">
+  <div class="page-content">
+    ${running('STATEMENT OF ACCOUNT &mdash; COMPLETION', total)}
+    <div class="portfolio-schedule-list">${completion}</div>
+  </div>
+  ${footer(total, total)}
+</article>`]
+    : [];
+
+  return reportDocumentHtml(
+    `Welile — Partner Portfolio Statement — ${who}`,
+    [...schedulePages, ...entryPages, ...panelPage],
+  );
 }
 
 /**

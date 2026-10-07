@@ -14,6 +14,11 @@ import {
   useServiceCenterReviewRentRequest,
 } from '@/hooks/useServiceCenterRentQueue';
 import { matchesVettingQuery } from '@/components/agent/service-center/matchesVettingQuery';
+import { AwarenessCallPanel } from '@/components/pipeline/AwarenessCallPanel';
+import { AwarenessCallBadge } from '@/components/pipeline/AwarenessCallBadge';
+import { MyAwarenessCallsCard } from '@/components/pipeline/MyAwarenessCallsCard';
+import { useAwarenessCallStatus } from '@/hooks/useAwarenessCallStatus';
+import { hasNoCallAtStage } from '@/lib/awarenessCallStatus';
 
 /**
  * Service Center vetting queue — the first gate a sub-agent rent request passes
@@ -28,6 +33,11 @@ export function ServiceCenterRentVettingQueue({ searchQuery = '' }: { searchQuer
   const [busyId, setBusyId] = useState<string | null>(null);
   const [comments, setComments] = useState<Record<string, string>>({});
   const [detailsReq, setDetailsReq] = useState<ServiceCenterQueueRequest | null>(null);
+  const [noCallOnly, setNoCallOnly] = useState(false);
+
+  // One batched read for the whole queue tells every card whether it has been called; the cards no longer read their own history
+  // unless the batch says there is something to show.
+  const callStatus = useAwarenessCallStatus((data?.pending ?? []).map((r) => r.id));
 
   /** Ops reads this comment during final verification, so it is never optional. */
   const MIN_COMMENT = 10;
@@ -78,19 +88,36 @@ export function ServiceCenterRentVettingQueue({ searchQuery = '' }: { searchQuer
     );
   }
 
-  const pending = (data.pending ?? []).filter((req) =>
-    matchesVettingQuery(searchQuery, req.agent_name, req.agent_phone, req.tenant_name, req.tenant_phone, req.landlord_name, req.request_city),
-  );
+  const noCallCount = (data.pending ?? []).filter((req) => hasNoCallAtStage(callStatus.byId.get(req.id))).length;
+  const pending = (data.pending ?? [])
+    .filter((req) =>
+      matchesVettingQuery(searchQuery, req.agent_name, req.agent_phone, req.tenant_name, req.tenant_phone, req.landlord_name, req.request_city),
+    )
+    .filter((req) => !(noCallOnly && callStatus.loaded) || hasNoCallAtStage(callStatus.byId.get(req.id)));
   const recentReviewed = (data.recent_reviewed ?? []).filter((r) =>
     matchesVettingQuery(searchQuery, r.agent_name, r.tenant_name),
   );
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2">
+      <MyAwarenessCallsCard />
+
+      <div className="flex flex-wrap items-center gap-2">
         <ClipboardCheck className="h-4 w-4 text-primary" />
         <span className="text-sm font-semibold text-foreground">Awaiting your verification</span>
         <Badge variant="outline" className="text-[10px]">{pending.length}</Badge>
+        {callStatus.loaded && (
+          <Button
+            type="button"
+            variant={noCallOnly ? 'secondary' : 'outline'}
+            size="sm"
+            aria-pressed={noCallOnly}
+            onClick={() => setNoCallOnly((v) => !v)}
+            className="ml-auto h-7 gap-1 px-2 text-[11px]"
+          >
+            No call yet ({noCallCount})
+          </Button>
+        )}
       </div>
 
       {pending.length === 0 ? (
@@ -111,7 +138,10 @@ export function ServiceCenterRentVettingQueue({ searchQuery = '' }: { searchQuer
                     Submitted by {req.agent_name ?? 'sub-agent'}
                   </p>
                 </div>
-                <Badge variant="outline" className="w-fit shrink-0 text-[10px]">Service Center review</Badge>
+                <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
+                  <AwarenessCallBadge status={callStatus.byId.get(req.id)} />
+                  <Badge variant="outline" className="w-fit shrink-0 text-[10px]">Service Center review</Badge>
+                </div>
               </div>
 
 
@@ -150,6 +180,13 @@ export function ServiceCenterRentVettingQueue({ searchQuery = '' }: { searchQuer
                   {req.house_image_urls?.length ? ` (${req.house_image_urls.length})` : ''}
                 </span>
               </button>
+
+              {/* Awareness call: phone the tenant and record what they heard. Storage only; vetting below is unchanged. */}
+              <AwarenessCallPanel
+                request={req}
+                defaultSubject="tenant"
+                knownCalls={callStatus.loaded ? callStatus.byId.get(req.id) : callStatus.isError ? undefined : null}
+              />
 
               <div className="space-y-2">
                 <Textarea

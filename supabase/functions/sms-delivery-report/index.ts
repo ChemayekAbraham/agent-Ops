@@ -93,7 +93,8 @@ async function sendTwilioSms(phone: string, message: string): Promise<TwilioResu
 // working code. Idempotent: skips if the challenge is no longer pending/expired
 // or if a Twilio reissue already succeeded for this challenge.
 async function reissueOtpViaTwilio(
-  admin: ReturnType<typeof createClient>,
+  // deno-lint-ignore no-explicit-any
+  admin: any,
   challengeId: string,
 ): Promise<void> {
   try {
