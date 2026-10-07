@@ -24,12 +24,6 @@ function autoMessage(r: Row): string {
   return `Hello ${name}, your Welile electric bike lease has had no repayment for 7+ days. Outstanding: ${bal}. Please top up your Welile wallet today so your daily repayment can be collected. Thank you.`;
 }
 
-type Row = {
-  lease_id: string; agent_id: string; agent_name: string | null; agent_phone: string | null;
-  bike_model: string | null; last_repayment_at: string | null; days_since_last_repayment: number;
-  amount_outstanding: number; wallet_zero: boolean; service_centre: string | null;
-};
-
 export function DormantBikeLeasesPanel() {
   const [sending, setSending] = useState<string | null>(null);
   const { data = [], isLoading, error, refetch, isFetching } = useQuery({
