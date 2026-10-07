@@ -34,6 +34,10 @@ import { RentApprovalConfirmDialog, type FunderVisibilityDecision } from './Rent
 import { TenantPhotoChecksPanel } from './TenantPhotoChecksPanel';
 import { AwarenessCallPanel } from '@/components/pipeline/AwarenessCallPanel';
 import { defaultAwarenessSubjectForStage, isAwarenessReadOnlyStage } from '@/lib/awarenessCallLabels';
+import { AwarenessCallBadge } from '@/components/pipeline/AwarenessCallBadge';
+import { MyAwarenessCallsCard } from '@/components/pipeline/MyAwarenessCallsCard';
+import { useAwarenessCallStatus } from '@/hooks/useAwarenessCallStatus';
+import { hasNoCallAtStage } from '@/lib/awarenessCallStatus';
 
 
 
@@ -242,6 +246,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
   const [agentSearch, setAgentSearch] = useState('');
   const [landlordSearch, setLandlordSearch] = useState('');
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+  const [noCallOnly, setNoCallOnly] = useState(false);
   const [hideExpired, setHideExpired] = useState(true);
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
@@ -829,6 +834,11 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
 
   const rows = requests || [];
 
+  // Read-only: one batched read tells every card whether it has an awareness call at its stage. It never blocks or confirms anything;
+  // if it fails the badges are simply not shown.
+  const callStatus = useAwarenessCallStatus(rows.map((r: any) => r.id));
+  const noCallCount = rows.filter((r: any) => hasNoCallAtStage(callStatus.byId.get(r.id))).length;
+
   // How many rent plans each tenant in this queue has already had approved.
   // Presentation only — drives the "Cycle N" and New/Renewal badges.
   const queueTenantIds = Array.from(new Set(rows.map(r => r.tenant_id).filter(Boolean))) as string[];
@@ -919,6 +929,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
   const filtered = rows
     .filter(r => {
       if (selectedTenantId !== 'all' && r.tenant_id !== selectedTenantId) return false;
+      if (noCallOnly && callStatus.loaded && !hasNoCallAtStage(callStatus.byId.get(r.id))) return false;
       if (stage === 'pending' && hideExpired && isRequestExpired(r.created_at, r.status, r.agent_verified, r.pending_window_reset_at)) {
         return false;
       }
@@ -1591,6 +1602,19 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                         <span>{sortOrder === 'desc' ? 'Newest' : 'Oldest'}</span>
                       </Button>
 
+                      {callStatus.loaded && (
+                        <Button
+                          type="button"
+                          variant={noCallOnly ? 'secondary' : 'outline'}
+                          size="sm"
+                          aria-pressed={noCallOnly}
+                          onClick={() => setNoCallOnly(prev => !prev)}
+                          className="flex-1 h-8 gap-1.5 text-xs bg-background"
+                        >
+                          <span>No call yet ({noCallCount})</span>
+                        </Button>
+                      )}
+
                       {stage === 'pending' && expiredCount > 0 && (
                         <Button
                           type="button"
@@ -1612,6 +1636,11 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
         </div>
       </CardHeader>
       <CardContent className="p-0">
+        {(stage === 'pending' || stage === 'agent_ops_approved' || stage === 'tenant_ops_approved') && (
+          <div className="px-3 pb-3">
+            <MyAwarenessCallsCard />
+          </div>
+        )}
         <div className="px-3 pb-3">
           <TenantOpsReportToolbar
             tool="review_requests"
@@ -1729,6 +1758,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                             Resubmitted
                           </span>
                         )}
+                        <AwarenessCallBadge status={callStatus.byId.get(req.id)} />
                         {req.funder_visible === false && (
                           <Tooltip>
                             <TooltipTrigger asChild>

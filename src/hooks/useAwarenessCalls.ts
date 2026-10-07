@@ -56,10 +56,10 @@ const anyDb = supabase as any;
 export const awarenessCallsKey = (rentRequestId: string | null | undefined) => ['awareness-calls', rentRequestId ?? null] as const;
 
 /** Every awareness call on one Rent Plan. A caller without access gets an error, which the section treats as "hide". */
-export function useAwarenessCalls(rentRequestId: string | null | undefined) {
+export function useAwarenessCalls(rentRequestId: string | null | undefined, options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: awarenessCallsKey(rentRequestId),
-    enabled: Boolean(rentRequestId),
+    enabled: Boolean(rentRequestId) && options.enabled !== false,
     staleTime: 15_000,
     retry: false,
     queryFn: async (): Promise<AwarenessCallsResult> => {
@@ -93,6 +93,9 @@ export function useRecordAwarenessCall() {
     },
     onSuccess: async (_data, input) => {
       await qc.invalidateQueries({ queryKey: awarenessCallsKey(input.rentRequestId) });
+      // the list badges and "Your awareness calls" read the same log
+      void qc.invalidateQueries({ queryKey: ['awareness-call-status'] });
+      void qc.invalidateQueries({ queryKey: ['my-awareness-calls'] });
     },
   });
 }

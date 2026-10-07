@@ -980,3 +980,16 @@ No code change. User reported the "Workspace" tab wasn't visible in the Tenant O
 **Placement:** on the Review Rent Request sheet the panel now sits straight after the tenant / landlord / agent block (inside the details grid); in the Service Centre card it stays where it was.
 
 **Tests:** panel, labels, export and monitoring page tests updated and extended; `npm run guard:all` passes.
+
+## 2026-10-07 — `20261007130000`: awareness call badges on the lists, and "Your awareness calls" (add-only, read-only)
+
+**What:** three new read-only functions (applied live, with rollback `supabase/rollbacks/20261007130000_awareness_call_status_and_my_calls.rollback.sql` and a rolled-back test `supabase/tests/awareness_call_status_and_my_calls.sql`). No approve, reject, quick approve, bulk approve, verify or decline behaviour, status, trigger or function was touched, and nothing is blocked or confirmed by a call. Same role check as `record_awareness_call`; `SECURITY DEFINER`, `search_path = public`, no anon grant.
+
+- `awareness_call_status_for_requests(p_request_ids uuid[])`: one row per Rent Plan (at most 200 ids per call): `calls_total`, `calls_at_current_stage` (the call's stage equals the plan's status now), `answered_at_current_stage`, `last_call_at`, `answered_person_types` (tenant / landlord / agent with an answered call). Staff get every plan asked for; a service centre manager gets only the plans routed to them.
+- `my_awareness_calls_summary(p_from, p_to)` and `my_awareness_calls_log(p_from, p_to, p_limit, p_offset)`: only the signed-in caller's own calls (`auth.uid()`), Kampala day buckets, the same totals and answer counts as the monitoring page.
+
+**Lists:** a small read-only badge on every card of the Review Rent Request lists (`RentPipelineQueue`) and the Service Centre vetting cards: "No call yet at this stage" (with a note in the tooltip when only earlier stages were called) or "Called N times", plus a "No call yet (N)" filter chip. One batched read per list (`useAwarenessCallStatus`, chunks of 200 inside one query), not one per card. If the read fails, no badges or chip are shown and the lists work as before. In the Service Centre queue the cards no longer read their own call history unless the batch says the plan has calls (if the batch fails, they read it as before).
+
+**Your awareness calls:** a small card (this week = Monday to today, Kampala days: calls, answered %, people reached, last five calls) at the top of the Service Centre queue and of the Agent Ops, Tenant Ops and Landlord Ops pipeline screens. Hidden for anyone not allowed to use the log; any other failure shows "Could not load your calls" with Retry. Saving a call refreshes the badges and the card.
+
+**Verified live (rolled-back block, as the ops test account, controlled calls):** status counts 3 / 2 / 1 for a plan with three calls (two at its current stage, one answered), 1 / 1 / 1 for another, 0 / 0 / 0 / no last call for an uncalled plan; a repeated id gives one row; an empty list gives none; 201 ids are refused; "my" summary and log counted only the caller's own calls (matching an independent count); a plain user and a signed-out call are refused; a service centre manager got only their own plan.

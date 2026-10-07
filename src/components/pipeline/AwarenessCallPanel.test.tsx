@@ -402,4 +402,23 @@ describe('AwarenessCallPanel', () => {
     expect(within(form).getByText('090777')).toBeInTheDocument();
     expect(within(form).getByText('4380664')).toBeInTheDocument();
   });
+
+  it('with a batched status of zero calls it reads no history and shows the reminder; with calls it reads and lists them', async () => {
+    const { unmount } = render(<AwarenessCallPanel request={request} knownCalls={{ calls_total: 0 }} />, { wrapper });
+    expect(await screen.findByTestId('awareness-reminder')).toBeInTheDocument();
+    expect(calls('get_awareness_calls_for_request')).toHaveLength(0);
+    unmount();
+
+    stored = [call({})];
+    render(<AwarenessCallPanel request={request} knownCalls={{ calls_total: 1 }} />, { wrapper });
+    expect(await screen.findByTestId('awareness-earlier')).toBeInTheDocument();
+    expect(calls('get_awareness_calls_for_request')).toHaveLength(1);
+  });
+
+  it('while the batch is still loading it reads nothing and shows no reminder yet', async () => {
+    render(<AwarenessCallPanel request={request} knownCalls={null} />, { wrapper });
+    await screen.findByTestId('awareness-call-section');
+    expect(calls('get_awareness_calls_for_request')).toHaveLength(0);
+    expect(screen.queryByTestId('awareness-reminder')).not.toBeInTheDocument();
+  });
 });

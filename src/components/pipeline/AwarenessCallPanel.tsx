@@ -104,15 +104,22 @@ function CallLine({ call }: { call: AwarenessCall }) {
 }
 
 export function AwarenessCallPanel({
-  request, defaultSubject = 'tenant', readOnly = false, landlordChecklistNote = false,
+  request, defaultSubject = 'tenant', readOnly = false, landlordChecklistNote = false, knownCalls,
 }: {
   request: AwarenessCallRequest;
   defaultSubject?: 'tenant' | 'landlord';
   readOnly?: boolean;
   landlordChecklistNote?: boolean;
+  /**
+   * What the list's batched status already says about this Rent Plan, so the card does not read the history itself:
+   * `undefined` (default) = unknown, read the history here; `null` = the batch is still loading, wait; an object = the batch's
+   * answer, and the history is only read when `calls_total` is above 0 (nothing to show otherwise).
+   */
+  knownCalls?: { calls_total: number } | null;
 }) {
   const requestId = request.id;
-  const calls = useAwarenessCalls(requestId);
+  const readHistory = knownCalls === undefined || (knownCalls !== null && knownCalls.calls_total > 0);
+  const calls = useAwarenessCalls(requestId, { enabled: readHistory });
   const record = useRecordAwarenessCall();
   const merchantCodes = useMerchantCodes();
 
@@ -240,7 +247,7 @@ export function AwarenessCallPanel({
   };
 
   const total = calls.data?.total ?? 0;
-  const noCallYet = !calls.isLoading && !loadFailed && total === 0;
+  const noCallYet = !calls.isLoading && !loadFailed && total === 0 && knownCalls !== null;
 
   return (
     <section className="space-y-3 rounded-xl border border-border bg-card p-3" aria-label="Awareness call" data-testid="awareness-call-section">
