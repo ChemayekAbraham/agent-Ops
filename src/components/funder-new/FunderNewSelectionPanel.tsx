@@ -434,7 +434,7 @@ function HomeContacts({ item }: { item: FunderNewSelectionItem }) {
       <div className="pt-2 pb-0.5">
         <Button asChild variant="outline" size="sm" className="h-10 w-full rounded-lg text-sm text-info hover:text-info">
           <a href={mapUrl} target="_blank" rel="noopener noreferrer">
-            <MapPin className="mr-1.5 h-4 w-4" />
+            <MapPin className="mr-1.5 h-4 w-4 text-destructive" />
             {item.lat != null && item.lng != null ? 'Show house on map' : 'Show area on map'}
           </a>
         </Button>
