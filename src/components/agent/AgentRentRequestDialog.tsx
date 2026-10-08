@@ -1,3 +1,4 @@
+import { safeUUID } from '@/lib/safeUUID';
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { addDays, format } from 'date-fns';
 import { getPublicOrigin } from '@/lib/getPublicOrigin';
@@ -2273,18 +2274,38 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
   /** Store the LC letter in the private `lc-letters` bucket for this request. */
   const uploadLcLetter = async (requestId: string): Promise<{ path: string; bucket: string } | null> => {
     if (!user || !lcLetter) return null;
+    let letterFile = lcLetter.file;
     try {
-      const ext = (lcLetter.file.name.split('.').pop() || 'jpg').toLowerCase();
-      const path = `${user.id}/${requestId}/lc_letter.${ext}`;
-      const { error } = await supabase.storage
-        .from('lc-letters')
-        .upload(path, lcLetter.file, { cacheControl: '86400', upsert: true, contentType: lcLetter.file.type });
-      if (error) throw error;
-      return { path, bucket: 'lc-letters' };
-    } catch (err) {
-      console.warn('LC letter upload failed:', err);
-      return null;
+      const optimized = await optimizeImage(lcLetter.file, {
+        maxWidth: 2000,
+        maxHeight: 2000,
+        quality: 0.85,
+        format: 'image/jpeg',
+      });
+      letterFile = optimized.file;
+    } catch {
+      letterFile = lcLetter.file;
     }
+    const ext = (letterFile.name.split('.').pop() || 'jpg').toLowerCase();
+    const path = `${user.id}/${requestId}/lc_letter.${ext}`;
+    let lastErr: unknown = null;
+    // One retry: weak mobile data often drops the first attempt.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const { error } = await supabase.storage
+          .from('lc-letters')
+          .upload(path, letterFile, { cacheControl: '86400', upsert: true, contentType: letterFile.type });
+        if (error) throw error;
+        return { path, bucket: 'lc-letters' };
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+    console.warn('LC letter upload failed:', lastErr);
+    // The Rent Plan request already exists at this point, so we cannot block it;
+    // the agent must be told the letter was not saved.
+    toast.error('LC letter could not be uploaded. Check your connection and try again.', { duration: 10000 });
+    return null;
   };
 
   const resetForm = () => {
@@ -2968,7 +2989,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
       let preInsertTenantPhotoUrl: string | null = null;
       if (tenantPhoto) {
         const tempId = (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
-          ? crypto.randomUUID()
+          ? safeUUID()
           : `pre_${Date.now()}_${Math.random().toString(36).slice(2)}`;
         preInsertTenantPhotoUrl = await uploadTenantPhoto(tempId, tenantId);
         if (!preInsertTenantPhotoUrl) {
@@ -5591,11 +5612,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                   landlord and the LC1 chairperson happens later in the approval
                   pipeline — it never blocks posting. Only a landlord that is not
                   registered at all stops the post. */}
-              {detailStep === DETAIL_STEPS.length - 1 && (
-                landlordCheck === 'missing' ||
-                landlordCheck === 'unverified' ||
-                lc1Check !== 'verified'
-              ) && (
+              {detailStep === DETAIL_STEPS.length - 1 && landlordCheck === 'missing' && (
                 <div className="rounded-xl border-2 border-amber-500/40 bg-amber-500/10 p-4 space-y-2.5">
                   <p className="text-sm font-extrabold text-amber-700 flex items-center gap-2">
                     <AlertTriangle className="h-5 w-5 flex-shrink-0" />
@@ -5604,7 +5621,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                       : 'You can post now — verification happens in the pipeline'}
                   </p>
                   <ul className="space-y-1.5">
-                    {landlordCheck !== 'registered' && (
+                    {true && (
                       <li>
                         <button
                           type="button"

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
 import { AlertTriangle, CheckCircle2, ChevronDown, ChevronUp, Package, Trash2, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
+import { useQuery } from '@tanstack/react-query';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +26,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import { formatUGX } from '@/lib/rentCalculations';
 import { useAgentBalances } from '@/hooks/useAgentBalances';
 import {
@@ -52,6 +55,9 @@ const safeDate = (value: string | null) => {
  * component never touches wallet or ledger rows itself.
  */
 export default function MerchandiseRepaymentPortfolio({ userId }: Props) {
+  const { user } = useAuth();
+  const effectiveUserId = userId || user?.id;
+
   const { activePlans, plans, deductions, totalOutstanding, totalPaid } =
     useMerchandiseRepaymentPortfolio(userId);
   const { withdrawableBalance } = useAgentBalances(userId);
@@ -64,6 +70,28 @@ export default function MerchandiseRepaymentPortfolio({ userId }: Props) {
   const [deleteTarget, setDeleteTarget] = useState<MerchandiseRepaymentPlan | null>(null);
 
   const available = Math.max(0, Number(withdrawableBalance || 0));
+
+  const { data: strictAvailableBalance } = useQuery({
+    queryKey: ['user-strict-available-balance', effectiveUserId],
+    enabled: !!effectiveUserId,
+    staleTime: 10_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('get_user_available_balance', {
+        p_user_id: effectiveUserId as string,
+      });
+      if (error) {
+        console.warn('Could not fetch get_user_available_balance:', error);
+        return null;
+      }
+      return Number(data) || 0;
+    },
+  });
+
+  const spendable = strictAvailableBalance !== null && strictAvailableBalance !== undefined
+    ? Math.max(0, strictAvailableBalance)
+    : available;
+  const lockedByAdvance = Math.max(0, available - spendable);
+
   const rejected = useMemo(
     () => plans.filter((p) => ['rejected', 'cancelled', 'failed'].includes(p.order_status || '')),
     [plans],
@@ -83,11 +111,12 @@ export default function MerchandiseRepaymentPortfolio({ userId }: Props) {
   if (activePlans.length === 0 && completed.length === 0 && rejected.length === 0) return null;
 
   const openPay = (plan: MerchandiseRepaymentPlan) => {
+    const outstanding = Number(plan.outstanding_balance || 0);
+    const maxPayable = spendable > 0 ? Math.min(outstanding, spendable) : outstanding;
+    const daily = Number(plan.daily_deduction_amount || 0);
     const suggested = Math.min(
-      Number(plan.outstanding_balance || 0),
-      Number(plan.daily_deduction_amount || 0) > 0
-        ? Number(plan.daily_deduction_amount)
-        : Number(plan.outstanding_balance || 0),
+      maxPayable,
+      daily > 0 ? daily : maxPayable,
     );
     setPayAmount(String(Math.max(1, Math.floor(suggested))));
     setPayTarget(plan);
@@ -100,13 +129,25 @@ export default function MerchandiseRepaymentPortfolio({ userId }: Props) {
       toast.error('Enter how much you want to pay.');
       return;
     }
+    if (spendable > 0 && amount > spendable) {
+      toast.error(`You can only pay up to ${formatUGX(spendable)} from your available wallet balance.`);
+      return;
+    }
     try {
       const res = await pay.mutateAsync({ planId: payTarget.id, amount });
-      toast.success(
-        res.completed
-          ? `${payTarget.item_name || 'Product'} is now fully paid.`
-          : `${formatUGX(Number(res.amount_paid || 0))} paid — ${formatUGX(Number(res.outstanding_after || 0))} left.`,
-      );
+      const paid = Number(res.amount_paid || 0);
+      if (paid < amount) {
+        toast.warning(
+          `Only ${formatUGX(paid)} was deducted because your available spendable wallet balance was capped. The remaining ${formatUGX(amount - paid)} was not deducted from your wallet.`,
+          { duration: 8000 },
+        );
+      } else {
+        toast.success(
+          res.completed
+            ? `${payTarget.item_name || 'Product'} is now fully paid.`
+            : `${formatUGX(paid)} paid — ${formatUGX(Number(res.outstanding_after || 0))} left.`,
+        );
+      }
       setPayTarget(null);
     } catch (e: any) {
       toast.error(e?.message || 'Payment could not be completed.');
@@ -156,7 +197,12 @@ export default function MerchandiseRepaymentPortfolio({ userId }: Props) {
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
               Wallet available
             </p>
-            <p className="text-sm font-bold tabular-nums">{formatUGX(available)}</p>
+            <p className="text-sm font-bold tabular-nums">{formatUGX(spendable)}</p>
+            {lockedByAdvance > 0 && (
+              <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium">
+                {formatUGX(lockedByAdvance)} locked by advance
+              </p>
+            )}
           </div>
         </div>
 
@@ -336,7 +382,12 @@ export default function MerchandiseRepaymentPortfolio({ userId }: Props) {
               </div>
               <div className="rounded-lg border border-border p-2.5">
                 <p className="text-muted-foreground">Wallet available</p>
-                <p className="font-bold tabular-nums">{formatUGX(available)}</p>
+                <p className="font-bold tabular-nums">{formatUGX(spendable)}</p>
+                {lockedByAdvance > 0 && (
+                  <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-0.5 font-medium">
+                    ({formatUGX(lockedByAdvance)} locked by advance)
+                  </p>
+                )}
               </div>
             </div>
 
@@ -346,9 +397,20 @@ export default function MerchandiseRepaymentPortfolio({ userId }: Props) {
                 type="number"
                 inputMode="numeric"
                 min={1}
+                max={spendable > 0 ? spendable : undefined}
                 value={payAmount}
                 onChange={(e) => setPayAmount(e.target.value)}
               />
+              {Number(payAmount || 0) > spendable && spendable > 0 && (
+                <p className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
+                  ⚠️ Your spendable balance is {formatUGX(spendable)}. {lockedByAdvance > 0 ? `${formatUGX(lockedByAdvance)} is locked by an active advance.` : ''}
+                </p>
+              )}
+              {spendable <= 0 && (
+                <p className="text-[11px] text-destructive font-medium">
+                  ⚠️ No spendable balance available right now. {lockedByAdvance > 0 ? `Your ${formatUGX(lockedByAdvance)} wallet balance is locked by an active advance.` : ''}
+                </p>
+              )}
               <div className="flex gap-2 pt-1">
                 {Number(payTarget?.daily_deduction_amount || 0) > 0 && (
                   <Button
@@ -370,9 +432,11 @@ export default function MerchandiseRepaymentPortfolio({ userId }: Props) {
                   size="sm"
                   variant="outline"
                   className="h-7 text-[11px]"
-                  onClick={() =>
-                    setPayAmount(String(Math.floor(Number(payTarget?.outstanding_balance || 0))))
-                  }
+                  onClick={() => {
+                    const full = Number(payTarget?.outstanding_balance || 0);
+                    const payable = spendable > 0 ? Math.min(full, spendable) : full;
+                    setPayAmount(String(Math.floor(payable)));
+                  }}
                 >
                   Clear it all
                 </Button>
@@ -384,7 +448,14 @@ export default function MerchandiseRepaymentPortfolio({ userId }: Props) {
             <Button variant="ghost" onClick={() => setPayTarget(null)} disabled={pay.isPending}>
               Cancel
             </Button>
-            <Button onClick={submitPay} disabled={pay.isPending}>
+            <Button
+              onClick={submitPay}
+              disabled={
+                pay.isPending ||
+                spendable <= 0 ||
+                (Number(payAmount || 0) > spendable && spendable > 0)
+              }
+            >
               {pay.isPending ? 'Paying…' : 'Pay now'}
             </Button>
           </DialogFooter>

@@ -10675,6 +10675,84 @@ export type Database = {
         }
         Relationships: []
       }
+      cfo_bucket_a_events: {
+        Row: {
+          actor: string | null
+          created_at: string
+          details: Json
+          event_type: string
+          id: string
+          package_hash: string | null
+          preflight_id: string | null
+          record_count: number | null
+          total_amount: number | null
+        }
+        Insert: {
+          actor?: string | null
+          created_at?: string
+          details?: Json
+          event_type: string
+          id?: string
+          package_hash?: string | null
+          preflight_id?: string | null
+          record_count?: number | null
+          total_amount?: number | null
+        }
+        Update: {
+          actor?: string | null
+          created_at?: string
+          details?: Json
+          event_type?: string
+          id?: string
+          package_hash?: string | null
+          preflight_id?: string | null
+          record_count?: number | null
+          total_amount?: number | null
+        }
+        Relationships: []
+      }
+      cfo_bucket_a_package_lines: {
+        Row: {
+          account: string
+          agent_label: string | null
+          approved_amount: number
+          approved_status: string
+          expected_after: number
+          idempotency_key: string
+          line_no: number
+          reason: string
+          receivable_category: string
+          source_id: string
+          source_table: string
+        }
+        Insert: {
+          account: string
+          agent_label?: string | null
+          approved_amount: number
+          approved_status: string
+          expected_after: number
+          idempotency_key: string
+          line_no: number
+          reason: string
+          receivable_category: string
+          source_id: string
+          source_table: string
+        }
+        Update: {
+          account?: string
+          agent_label?: string | null
+          approved_amount?: number
+          approved_status?: string
+          expected_after?: number
+          idempotency_key?: string
+          line_no?: number
+          reason?: string
+          receivable_category?: string
+          source_id?: string
+          source_table?: string
+        }
+        Relationships: []
+      }
       cfo_debit_obligations: {
         Row: {
           amount: number
@@ -10726,6 +10804,57 @@ export type Database = {
           updated_at?: string
           user_id?: string
           wallet_bucket?: string
+        }
+        Relationships: []
+      }
+      cfo_reporting_cost_tags: {
+        Row: {
+          amount: number
+          applied_at: string
+          applied_by: string
+          business_line: string
+          expense_ledger_entry_id: string
+          id: string
+          original_recipient_id: string
+          original_recipient_name: string
+          payment_reference: string
+          purpose: string
+          reason: string
+          requisition_ref: string | null
+          review_flag: string | null
+          transaction_group_id: string
+        }
+        Insert: {
+          amount: number
+          applied_at?: string
+          applied_by: string
+          business_line: string
+          expense_ledger_entry_id: string
+          id?: string
+          original_recipient_id: string
+          original_recipient_name: string
+          payment_reference: string
+          purpose: string
+          reason: string
+          requisition_ref?: string | null
+          review_flag?: string | null
+          transaction_group_id: string
+        }
+        Update: {
+          amount?: number
+          applied_at?: string
+          applied_by?: string
+          business_line?: string
+          expense_ledger_entry_id?: string
+          id?: string
+          original_recipient_id?: string
+          original_recipient_name?: string
+          payment_reference?: string
+          purpose?: string
+          reason?: string
+          requisition_ref?: string | null
+          review_flag?: string | null
+          transaction_group_id?: string
         }
         Relationships: []
       }
@@ -12329,6 +12458,39 @@ export type Database = {
         }
         Relationships: []
       }
+      db_stat_hourly: {
+        Row: {
+          backends: number | null
+          captured_at: string
+          delta_commit: number | null
+          delta_rollback: number | null
+          rollback_pct: number | null
+          top_statements: Json | null
+          xact_commit: number
+          xact_rollback: number
+        }
+        Insert: {
+          backends?: number | null
+          captured_at: string
+          delta_commit?: number | null
+          delta_rollback?: number | null
+          rollback_pct?: number | null
+          top_statements?: Json | null
+          xact_commit: number
+          xact_rollback: number
+        }
+        Update: {
+          backends?: number | null
+          captured_at?: string
+          delta_commit?: number | null
+          delta_rollback?: number | null
+          rollback_pct?: number | null
+          top_statements?: Json | null
+          xact_commit?: number
+          xact_rollback?: number
+        }
+        Relationships: []
+      }
       db_stat_snapshots: {
         Row: {
           captured_at: string
@@ -12350,6 +12512,27 @@ export type Database = {
           deadlocks?: number | null
           xact_commit?: number
           xact_rollback?: number
+        }
+        Relationships: []
+      }
+      db_stmt_last_sample: {
+        Row: {
+          calls: number
+          query: string | null
+          queryid: number
+          userid: unknown
+        }
+        Insert: {
+          calls: number
+          query?: string | null
+          queryid: number
+          userid: unknown
+        }
+        Update: {
+          calls?: number
+          query?: string | null
+          queryid?: number
+          userid?: unknown
         }
         Relationships: []
       }
@@ -31760,6 +31943,7 @@ export type Database = {
         Row: {
           address: string | null
           agreement_date: string
+          auto_portfolio_id: string | null
           bank_account_name: string | null
           bank_account_number: string | null
           bank_name: string | null
@@ -31784,12 +31968,18 @@ export type Database = {
           phone: string | null
           reference: string | null
           return_option: string | null
+          self_support_allowance: number | null
+          self_support_reminded_at: string | null
           status: string
+          support_mode: string | null
+          support_mode_set_at: string | null
+          support_mode_set_by: string | null
           updated_at: string
         }
         Insert: {
           address?: string | null
           agreement_date?: string
+          auto_portfolio_id?: string | null
           bank_account_name?: string | null
           bank_account_number?: string | null
           bank_name?: string | null
@@ -31814,12 +32004,18 @@ export type Database = {
           phone?: string | null
           reference?: string | null
           return_option?: string | null
+          self_support_allowance?: number | null
+          self_support_reminded_at?: string | null
           status?: string
+          support_mode?: string | null
+          support_mode_set_at?: string | null
+          support_mode_set_by?: string | null
           updated_at?: string
         }
         Update: {
           address?: string | null
           agreement_date?: string
+          auto_portfolio_id?: string | null
           bank_account_name?: string | null
           bank_account_number?: string | null
           bank_name?: string | null
@@ -31844,7 +32040,12 @@ export type Database = {
           phone?: string | null
           reference?: string | null
           return_option?: string | null
+          self_support_allowance?: number | null
+          self_support_reminded_at?: string | null
           status?: string
+          support_mode?: string | null
+          support_mode_set_at?: string | null
+          support_mode_set_by?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -40518,12 +40719,14 @@ export type Database = {
         Row: {
           aware_30m: string | null
           aware_merchant_codes: string | null
+          aware_payout_otp: string | null
           call_result: string
           caller_id: string
           caller_team: string
           dial_started_at: string
           explained: string | null
           id: string
+          landlord_consent: string | null
           note: string | null
           pipeline_stage: string
           recorded_at: string
@@ -40535,12 +40738,14 @@ export type Database = {
         Insert: {
           aware_30m?: string | null
           aware_merchant_codes?: string | null
+          aware_payout_otp?: string | null
           call_result: string
           caller_id: string
           caller_team: string
           dial_started_at: string
           explained?: string | null
           id?: string
+          landlord_consent?: string | null
           note?: string | null
           pipeline_stage: string
           recorded_at?: string
@@ -40552,12 +40757,14 @@ export type Database = {
         Update: {
           aware_30m?: string | null
           aware_merchant_codes?: string | null
+          aware_payout_otp?: string | null
           call_result?: string
           caller_id?: string
           caller_team?: string
           dial_started_at?: string
           explained?: string | null
           id?: string
+          landlord_consent?: string | null
           note?: string | null
           pipeline_stage?: string
           recorded_at?: string
@@ -47195,6 +47402,226 @@ export type Database = {
           rent_request_id?: string | null
           status?: string | null
           tenant_id?: string
+        }
+        Relationships: []
+      }
+      tenant_campaign_clicks: {
+        Row: {
+          browser: string | null
+          campaign_id: string
+          city: string | null
+          clicked_at: string
+          country: string | null
+          device_class: string | null
+          gps_accuracy: number | null
+          gps_lat: number | null
+          gps_lng: number | null
+          gps_status: string | null
+          id: string
+          ip_address: string | null
+          is_bot: boolean
+          os: string | null
+          referrer: string | null
+          user_agent: string | null
+          visitor_hash: string | null
+        }
+        Insert: {
+          browser?: string | null
+          campaign_id: string
+          city?: string | null
+          clicked_at?: string
+          country?: string | null
+          device_class?: string | null
+          gps_accuracy?: number | null
+          gps_lat?: number | null
+          gps_lng?: number | null
+          gps_status?: string | null
+          id?: string
+          ip_address?: string | null
+          is_bot?: boolean
+          os?: string | null
+          referrer?: string | null
+          user_agent?: string | null
+          visitor_hash?: string | null
+        }
+        Update: {
+          browser?: string | null
+          campaign_id?: string
+          city?: string | null
+          clicked_at?: string
+          country?: string | null
+          device_class?: string | null
+          gps_accuracy?: number | null
+          gps_lat?: number | null
+          gps_lng?: number | null
+          gps_status?: string | null
+          id?: string
+          ip_address?: string | null
+          is_bot?: boolean
+          os?: string | null
+          referrer?: string | null
+          user_agent?: string | null
+          visitor_hash?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_campaign_clicks_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_campaign_sends: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          dedupe_key: string | null
+          error: string | null
+          id: string
+          is_test: boolean
+          message: string
+          phone: string
+          recipient_name: string | null
+          rent_amount: number | null
+          segment: string | null
+          sent_at: string | null
+          status: string
+          tenant_id: string | null
+          wave_id: string | null
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          dedupe_key?: string | null
+          error?: string | null
+          id?: string
+          is_test?: boolean
+          message: string
+          phone: string
+          recipient_name?: string | null
+          rent_amount?: number | null
+          segment?: string | null
+          sent_at?: string | null
+          status?: string
+          tenant_id?: string | null
+          wave_id?: string | null
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          dedupe_key?: string | null
+          error?: string | null
+          id?: string
+          is_test?: boolean
+          message?: string
+          phone?: string
+          recipient_name?: string | null
+          rent_amount?: number | null
+          segment?: string | null
+          sent_at?: string | null
+          status?: string
+          tenant_id?: string | null
+          wave_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_campaign_sends_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_campaign_sends_wave_id_fkey"
+            columns: ["wave_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_campaign_waves"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_campaign_waves: {
+        Row: {
+          campaign_id: string
+          finished_at: string | null
+          id: string
+          note: string | null
+          scheduled_at: string
+          segment: string
+          started_at: string | null
+          status: string
+          wave_no: number
+        }
+        Insert: {
+          campaign_id: string
+          finished_at?: string | null
+          id?: string
+          note?: string | null
+          scheduled_at: string
+          segment: string
+          started_at?: string | null
+          status?: string
+          wave_no: number
+        }
+        Update: {
+          campaign_id?: string
+          finished_at?: string | null
+          id?: string
+          note?: string | null
+          scheduled_at?: string
+          segment?: string
+          started_at?: string | null
+          status?: string
+          wave_no?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_campaign_waves_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_campaigns: {
+        Row: {
+          created_at: string
+          destination_url: string
+          fallback_template: string
+          id: string
+          message_template: string
+          name: string
+          short_code: string
+          slug: string
+          status: string
+          test_phones: string[]
+        }
+        Insert: {
+          created_at?: string
+          destination_url: string
+          fallback_template: string
+          id?: string
+          message_template: string
+          name: string
+          short_code: string
+          slug: string
+          status?: string
+          test_phones?: string[]
+        }
+        Update: {
+          created_at?: string
+          destination_url?: string
+          fallback_template?: string
+          id?: string
+          message_template?: string
+          name?: string
+          short_code?: string
+          slug?: string
+          status?: string
+          test_phones?: string[]
         }
         Relationships: []
       }
@@ -55479,14 +55906,14 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "engrep_file_touches_engineer_id_fkey"
-            columns: ["reverted_by_engineer"]
+            columns: ["engineer_id"]
             isOneToOne: false
             referencedRelation: "engrep_engineers"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "engrep_file_touches_engineer_id_fkey"
-            columns: ["engineer_id"]
+            columns: ["reverted_by_engineer"]
             isOneToOne: false
             referencedRelation: "engrep_engineers"
             referencedColumns: ["id"]
@@ -57780,6 +58207,7 @@ export type Database = {
           tenant_full_name: string | null
           tenant_has_photo: boolean | null
           tenant_location: string | null
+          tenant_phone: string | null
           total_repayment: number | null
         }
         Relationships: []
@@ -59194,6 +59622,11 @@ export type Database = {
           roi_percentage: number
         }[]
       }
+      _cfo_bucket_a_evaluate: { Args: never; Returns: Json }
+      _cfo_bucket_a_live_balance: {
+        Args: { p_account: string; p_source_id: string }
+        Returns: number
+      }
       _cfo_credit_type: { Args: { p_category: string }; Returns: string }
       _cfo_paid_out_base: {
         Args: {
@@ -59316,6 +59749,13 @@ export type Database = {
       _merch_create_plan_for_sale: {
         Args: { p_sale_id: string }
         Returns: string
+      }
+      _partner_contract_coverage: {
+        Args: { p_partner_id: string }
+        Returns: {
+          existing_count: number
+          existing_total: number
+        }[]
       }
       _post_four_part_fee_split: {
         Args: {
@@ -60575,6 +61015,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      assign_bike_lease_supplier: {
+        Args: { p_sale_id: string; p_supplier_id?: string }
+        Returns: Json
+      }
       assign_smartphone_order_supplier: {
         Args: { p_sale_id: string; p_supplier_id?: string }
         Returns: Json
@@ -60780,11 +61224,13 @@ export type Database = {
           ac_30m: string
           ac_caller: string
           ac_codes: string
+          ac_consent: string
           ac_day: string
           ac_dial: string
           ac_explained: string
           ac_id: string
           ac_note: string
+          ac_otp: string
           ac_person: string
           ac_phone: string
           ac_recorded: string
@@ -61318,6 +61764,7 @@ export type Database = {
         Args: { p_reason: string; p_rent_request_id: string }
         Returns: Json
       }
+      capture_db_stat_hourly: { Args: never; Returns: Json }
       capture_location_by_token: {
         Args: {
           p_accuracy?: number
@@ -61754,6 +62201,19 @@ export type Database = {
         Args: { p_id: string; p_reason: string }
         Returns: Json
       }
+      cfo_bucket_a_post: {
+        Args: {
+          p_confirmation: string
+          p_package_hash: string
+          p_preflight_id: string
+        }
+        Returns: Json
+      }
+      cfo_bucket_a_preflight: { Args: never; Returns: Json }
+      cfo_cancel_bike_lease: {
+        Args: { p_reason: string; p_sale_id: string }
+        Returns: Json
+      }
       cfo_collection_reconciliation_s11: {
         Args: never
         Returns: {
@@ -62154,6 +62614,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      cfo_welile_homes_day_report: { Args: { p_day: string }; Returns: Json }
       change_wallet_transfer_schedule_recipient: {
         Args: { p_recipient_id: string; p_schedule_id: string }
         Returns: {
@@ -62301,6 +62762,18 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      claim_due_self_support_reminders: {
+        Args: { p_limit?: number }
+        Returns: {
+          agreement_id: string
+          contract_amount: number
+          email: string
+          full_name: string
+          partner_id: string
+          phone: string
+          remaining: number
+        }[]
       }
       claim_float_request_for_email: {
         Args: {
@@ -62543,6 +63016,17 @@ export type Database = {
       }
       correct_tenant_location: {
         Args: { p_reason?: string; p_tenant_id: string; p_village_id: number }
+        Returns: Json
+      }
+      countersign_prepare_support: {
+        Args: {
+          p_actor: string
+          p_amount: number
+          p_countersign_only?: boolean
+          p_partner_id: string
+          p_return_option: string
+          p_support_mode: string
+        }
         Returns: Json
       }
       country_to_continent: { Args: { p_country: string }; Returns: string }
@@ -63002,6 +63486,11 @@ export type Database = {
         }
         Returns: Json
       }
+      crm_tenant_campaign_overview: { Args: { p_slug: string }; Returns: Json }
+      crm_tenant_campaign_set_wave: {
+        Args: { p_status: string; p_wave_id: string }
+        Returns: undefined
+      }
       cron_jobs_health: {
         Args: never
         Returns: {
@@ -63164,6 +63653,10 @@ export type Database = {
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
+      }
+      delete_portfolio_and_refund: {
+        Args: { p_portfolio_id: string; p_reason?: string }
+        Returns: Json
       }
       delete_welile_home_subscription: {
         Args: { p_subscription_id: string }
@@ -63328,6 +63821,7 @@ export type Database = {
         }
         Returns: Json
       }
+      elite_incentive_max_rank: { Args: never; Returns: number }
       email_queue_dispatch: { Args: never; Returns: undefined }
       empty_house_opportunity_summary: { Args: never; Returns: Json }
       end_ledger_maintenance: {
@@ -65083,6 +65577,15 @@ export type Database = {
         Args: { p_rent_request_id: string }
         Returns: Json
       }
+      get_bike_lease_suppliers: {
+        Args: { p_sale_ids: string[] }
+        Returns: {
+          sale_id: string
+          supplier_id: string
+          supplier_name: string
+          supplier_phone: string
+        }[]
+      }
       get_board_ledger_check: { Args: { p_date?: string }; Returns: Json }
       get_board_tech_memo: { Args: { p_date?: string }; Returns: Json }
       get_budget_consolidation: { Args: { p_call_id: string }; Returns: Json }
@@ -65611,6 +66114,10 @@ export type Database = {
       get_coo_rent_coverage_statement: { Args: never; Returns: Json }
       get_coo_system_overview: { Args: never; Returns: Json }
       get_coo_transaction_kpis: { Args: never; Returns: Json }
+      get_countersign_summary: {
+        Args: { p_amount?: number; p_partner_id: string }
+        Returns: Json
+      }
       get_crm_directory: {
         Args: {
           _limit?: number
@@ -65916,6 +66423,10 @@ export type Database = {
           poll_stale: boolean
           silence_minutes: number
         }[]
+      }
+      get_growth_metrics_live: {
+        Args: { p_end: string; p_start: string }
+        Returns: Json
       }
       get_house_activity_timeline: {
         Args: { p_house_id: string }
@@ -66424,6 +66935,20 @@ export type Database = {
       }
       get_my_landlord_properties: { Args: never; Returns: Json }
       get_my_listing_block: { Args: never; Returns: Json }
+      get_my_overdue_bike_asset_details: {
+        Args: never
+        Returns: {
+          agent_name: string
+          battery_serial: string
+          brand: string
+          cfo_disbursed_at: string
+          chassis_number: string
+          lease_id: string
+          model: string
+          plate_number: string
+          tracking_reference: string
+        }[]
+      }
       get_my_parent_agent: {
         Args: never
         Returns: {
@@ -66965,6 +67490,10 @@ export type Database = {
         Returns: Json
       }
       get_receivables_total: { Args: never; Returns: Json }
+      get_referral_performance_rows: {
+        Args: { p_end: string; p_start: string }
+        Returns: Json
+      }
       get_referral_progress: { Args: { p_referred_id: string }; Returns: Json }
       get_rent_access_promo_stats: {
         Args: { p_from?: string; p_to?: string }
@@ -68088,6 +68617,7 @@ export type Database = {
         Args: { _dashboard: string; _user_id: string }
         Returns: boolean
       }
+      has_internal_staff_role: { Args: { p_user_id: string }; Returns: boolean }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -68609,6 +69139,7 @@ export type Database = {
         Args: { p_user_id?: string }
         Returns: boolean
       }
+      is_bucket_a_approver: { Args: { _user_id: string }; Returns: boolean }
       is_budget_coo_reviewer: { Args: { _user_id: string }; Returns: boolean }
       is_budget_reviewer: { Args: { _user_id: string }; Returns: boolean }
       is_business_advance_ops: { Args: { _uid: string }; Returns: boolean }
@@ -69051,6 +69582,21 @@ export type Database = {
         Args: { p_sub_agent_id: string }
         Returns: boolean
       }
+      list_agent_products_in_progress: {
+        Args: { p_category: string }
+        Returns: {
+          client_name: string
+          client_phone: string
+          coo_approved_at: string
+          created_at: string
+          id: string
+          item_name: string
+          ops_approved_at: string
+          order_status: string
+          quantity: number
+          total_revenue: number
+        }[]
+      }
       list_assignable_agents:
         | {
             Args: never
@@ -69488,6 +70034,18 @@ export type Database = {
       mature_referral_bonuses_for_invitee: {
         Args: { p_invitee_id: string }
         Returns: number
+      }
+      merchandise_plan_ineligible_reason: {
+        Args: { p_plan_id: string }
+        Returns: string
+      }
+      merchandise_plan_recovery_eligible: {
+        Args: { p_plan_id: string }
+        Returns: boolean
+      }
+      merchandise_sale_recognition_eligible: {
+        Args: { p_sale_id: string }
+        Returns: boolean
       }
       merchant_agent_allows_withdrawal: {
         Args: {
@@ -72090,9 +72648,11 @@ export type Database = {
         Args: {
           p_aware_30m?: string
           p_aware_merchant_codes?: string
+          p_aware_payout_otp?: string
           p_call_result: string
           p_dial_started_at: string
           p_explained?: string
+          p_landlord_consent?: string
           p_note?: string
           p_rent_request_id: string
           p_subject_phone: string
@@ -72991,6 +73551,15 @@ export type Database = {
           id: string
           phone: string
           role: string
+        }[]
+      }
+      search_bike_supplier_candidates: {
+        Args: { p_search?: string }
+        Returns: {
+          full_name: string
+          phone: string
+          roles: string[]
+          user_id: string
         }[]
       }
       search_invitable_subagents: {
@@ -73984,6 +74553,20 @@ export type Database = {
       }
       telecom_sending_charge: { Args: { p_amount: number }; Returns: number }
       tenant_balance_edits_pending: { Args: never; Returns: Json }
+      tenant_campaign_audience: {
+        Args: never
+        Returns: {
+          full_name: string
+          phone: string
+          rent_amount: number
+          segment: string
+          tenant_id: string
+        }[]
+      }
+      tenant_campaign_unschedule: {
+        Args: { p_job_names: string[] }
+        Returns: undefined
+      }
       tenant_location_correction_active_metrics: {
         Args: { p_agent_id?: string }
         Returns: Json

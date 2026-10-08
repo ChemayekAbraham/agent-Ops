@@ -54,7 +54,8 @@ import { Wallet, Landmark, LayoutDashboard, ChevronRight } from 'lucide-react';
 import { HandCoins, Receipt } from 'lucide-react';
 import { ShieldCheck } from 'lucide-react';
 import { Trophy } from 'lucide-react';
-import { ShoppingBag, Smartphone, Bike, Store } from 'lucide-react';
+import { ShoppingBag, Smartphone, Bike, Store, Package } from 'lucide-react';
+import { useMyOrdersCount } from '@/hooks/useMyOrdersCount';
 import SmartphoneOrderStatus from '@/components/merchandise/SmartphoneOrderStatus';
 import MerchandiseRepaymentPortfolio from '@/components/merchandise/MerchandiseRepaymentPortfolio';
 import { useMerchandiseOrderLock } from '@/hooks/useMerchandiseOrderLock';
@@ -76,6 +77,9 @@ import { useMyProxyAgentStatus } from '@/hooks/useProxyAgentApproval';
 
 import { UserAvatar } from '@/components/UserAvatar';
 import { ProfileSummaryPopover } from '@/components/profile/ProfileSummaryPopover';
+import { useMyEliteRank } from '@/components/agent/AgentRankCelebrationDialog';
+import { RankEarningsCard } from '@/components/agent/RankEarningsCard';
+import { EliteDialogPreviewButton } from '@/components/agent/EliteRankDialogs';
 import { SubAgentsPanel } from '@/components/agent/SubAgentsPanel';
 import { MyParentAgentCard } from '@/components/agent/MyParentAgentCard';
 import NationalIdGroupCard from '@/components/agent/NationalIdGroupCard';
@@ -248,6 +252,7 @@ interface AgentDashboardProps {
 export default function AgentDashboard({ user, signOut, currentRole, availableRoles, onRoleChange, addRoleComponent }: AgentDashboardProps) {
   // Behaviour telemetry tracking
   useTrackSection('agent-overview', 'agent');
+  const { data: myEliteRank } = useMyEliteRank();
 
   // Proxy Agent shortcut is only surfaced to database-approved proxy agents.
   const { data: proxyStatus } = useMyProxyAgentStatus(user?.id);
@@ -691,7 +696,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         home: 'Home',
         money: 'Money',
         tenants: 'Tenants',
-        grow: 'Grow',
+        grow: 'More',
         subagents: 'Sub Agents',
       };
       setTabAnnounce(`Switched to ${labelMap[activeTab]} section`);
@@ -944,9 +949,17 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   // plus a period-based access fee) and is reviewed by Agent Ops.
 
 
+  const { data: myOrdersCount = 0 } = useMyOrdersCount(user?.id);
+
   const menuItems = [
     { icon: Store, label: 'Service Center', onClick: () => { hapticTap(); navigate('/agent/service-center'); } },
     { icon: ShoppingBag, label: 'Buy Merchandise', onClick: () => { hapticTap(); navigate('/merchandise'); } },
+    {
+      icon: Package,
+      label: 'My Orders',
+      badge: myOrdersCount > 0 ? myOrdersCount : null,
+      onClick: () => { hapticTap(); navigate('/merchandise?tab=orders'); },
+    },
   ];
 
   const quickActions = [] as any[];
@@ -1026,6 +1039,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
                 verified={profile?.verified}
                 roleLabel="Welile Agent"
                 triggerSize="lg"
+                eliteTier={myEliteRank?.tier_name}
               />
               <div className="flex-1 min-w-0">
                 <h1 className="font-bold text-xl leading-tight flex items-center gap-1.5 flex-wrap">
@@ -1355,29 +1369,51 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
             {!isMerchant && (
               <>
                 <EarningsSummaryCard />
+                <RankEarningsCard />
 
                 {/* Products being repaid — plan + pay button per product */}
                 <MerchandiseRepaymentPortfolio userId={user.id} />
 
 
-                {/* Merchandise store shortcut */}
-                <button
-                  type="button"
-                  onClick={() => { hapticTap(); navigate('/merchandise'); }}
-                  className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border border-primary/25 bg-primary/5 hover:bg-primary/10 transition-colors text-left touch-manipulation min-h-[56px]"
-                  style={{ WebkitTapHighlightColor: 'transparent' }}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <ShoppingBag className="h-5 w-5 text-primary shrink-0" />
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold text-foreground">Buy Merchandise</div>
-                      <div className="text-[11px] text-muted-foreground truncate">
-                        Order branded gear — paid off from your wallet
+                {/* Merchandise store shortcuts */}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { hapticTap(); navigate('/merchandise'); }}
+                    className="flex items-center justify-between gap-2.5 p-3 rounded-2xl border border-primary/25 bg-primary/5 hover:bg-primary/10 transition-colors text-left touch-manipulation min-h-[56px]"
+                    style={{ WebkitTapHighlightColor: 'transparent' }}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <ShoppingBag className="h-5 w-5 text-primary shrink-0" />
+                      <div className="min-w-0">
+                        <div className="text-xs sm:text-sm font-semibold text-foreground truncate">Buy Merchandise</div>
+                        <div className="text-[10px] text-muted-foreground truncate">Shop gear</div>
                       </div>
                     </div>
-                  </div>
-                  <span className="text-xs font-medium text-primary shrink-0">Shop →</span>
-                </button>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { hapticTap(); navigate('/merchandise?tab=orders'); }}
+                    className="flex items-center justify-between gap-2 p-3 rounded-2xl border border-border/80 bg-card hover:bg-muted/40 transition-colors text-left touch-manipulation min-h-[56px]"
+                    style={{ WebkitTapHighlightColor: 'transparent' }}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Package className="h-5 w-5 text-foreground shrink-0" />
+                      <div className="min-w-0">
+                        <div className="text-xs sm:text-sm font-semibold text-foreground truncate">My Orders</div>
+                        <div className="text-[10px] text-muted-foreground truncate">
+                          {myOrdersCount > 0 ? `${myOrdersCount} recorded` : 'View orders'}
+                        </div>
+                      </div>
+                    </div>
+                    {myOrdersCount > 0 && (
+                      <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-primary/15 text-primary shrink-0">
+                        {myOrdersCount}
+                      </span>
+                    )}
+                  </button>
+                </div>
 
                 {/* Order a Welile Smartphone */}
                 <Card className="border-primary/30 bg-primary/5">
@@ -1819,6 +1855,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
                   <span className="font-semibold text-[13px] text-foreground truncate">{a.label}</span>
                 </button>
               ))}
+              <EliteDialogPreviewButton />
             </div>
             <ShareRentRecorderCard />
           </div>

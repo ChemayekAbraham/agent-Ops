@@ -27,7 +27,6 @@ import OperationalFloatTenantAllocator, {
   type TenantAllocation,
 } from './OperationalFloatTenantAllocator';
 import DepositReferenceMatcher, { type MatchResult } from './DepositReferenceMatcher';
-import AgentCashPinDeposit from './AgentCashPinDeposit';
 import CashWithFinancialOpsDeposit from './CashWithFinancialOpsDeposit';
 import AllocationEditDiffPanel from './AllocationEditDiffPanel';
 import {
@@ -305,8 +304,6 @@ export default function DepositFlow({ open, onOpenChange, defaultPurpose, allowe
    * the agent uploaded them late.
    */
   const [duplicateTidStatus, setDuplicateTidStatus] = useState<string | null>(null);
-  // Cash-with-agent live PIN deposit (separate self-contained dialog).
-  const [showAgentPinDeposit, setShowAgentPinDeposit] = useState(false);
   // Cash-with-Financial-Ops code deposit (separate self-contained dialog).
   const [showFinOpsCashDeposit, setShowFinOpsCashDeposit] = useState(false);
 
@@ -1645,7 +1642,6 @@ export default function DepositFlow({ open, onOpenChange, defaultPurpose, allowe
             )}
             <div className="grid gap-2.5">
               {[
-                { id: 'agent_cash' as DepositChannel, provider: null, icon: Banknote, label: 'Cash with agent', desc: 'Hand cash to an agent — instant via 4-digit code', tone: 'border-emerald-500/40 bg-emerald-500/5 hover:border-emerald-500' },
                 { id: 'cash' as DepositChannel, provider: null, icon: Building2, label: 'Cash with Financial Ops', desc: 'Hand cash to the company desk — instant via receipt code', tone: 'border-blue-500/40 bg-blue-500/5 hover:border-blue-500' },
                 { id: 'momo' as DepositChannel, provider: 'mtn' as const, icon: Phone, label: 'MTN MoMo', desc: 'Pay via MTN Mobile Money', tone: 'border-[hsl(var(--warning))]/40 bg-[hsl(var(--warning))]/5 hover:border-[hsl(var(--warning))]' },
                 { id: 'momo' as DepositChannel, provider: 'airtel' as const, icon: Phone, label: 'Airtel Money', desc: 'Pay via Airtel Money', tone: 'border-destructive/40 bg-destructive/5 hover:border-destructive' },
@@ -1654,10 +1650,6 @@ export default function DepositFlow({ open, onOpenChange, defaultPurpose, allowe
                 <button
                   key={idx}
                   onClick={() => {
-                    if (ch.id === 'agent_cash') {
-                      setShowAgentPinDeposit(true);
-                      return;
-                    }
                     if (ch.id === 'cash') {
                       setShowFinOpsCashDeposit(true);
                       return;
@@ -2764,11 +2756,6 @@ export default function DepositFlow({ open, onOpenChange, defaultPurpose, allowe
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
-    <AgentCashPinDeposit
-      open={showAgentPinDeposit}
-      onOpenChange={setShowAgentPinDeposit}
-      onSuccess={() => { setShowAgentPinDeposit(false); onOpenChange(false); }}
-    />
     <CashWithFinancialOpsDeposit
       open={showFinOpsCashDeposit}
       onOpenChange={setShowFinOpsCashDeposit}

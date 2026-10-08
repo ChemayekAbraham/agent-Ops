@@ -1,3 +1,4 @@
+import { safeUUID } from '@/lib/safeUUID';
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -138,7 +139,7 @@ export default function RaiseTicket({ staffId }: RaiseTicketProps) {
 
       for (const file of files) {
         const ext = (file.name.split('.').pop() || 'bin').toLowerCase();
-        const path = `tickets/${ticketId}/${crypto.randomUUID()}.${ext}`;
+        const path = `tickets/${ticketId}/${safeUUID()}.${ext}`;
         const { error: uploadError } = await supabase.storage
           .from('task-evidence')
           .upload(path, file, { upsert: false, contentType: file.type });

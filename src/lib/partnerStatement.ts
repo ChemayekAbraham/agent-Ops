@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { DASH, esc, n, num, printReportHtml, ugx } from './welileReportDocument';
+import { DASH, esc, n, num, ugx } from './welileReportDocument';
 import {
   WELILE_OFFICE,
   WELILE_PARTNER_EMAIL,
@@ -452,7 +452,9 @@ export function buildPartnerStatementHtml(d: StatementData): string {
 }
 
 /**
- * Build the statement and print it.
+ * Build the statement and save it as a PDF. The same HTML the template defines
+ * is rasterised page by page (as the partnership contract is), so the file is
+ * what the template looks like on screen, with no print dialog in between.
  */
 export async function downloadPartnerStatement(portfolioId?: string): Promise<void> {
   const data = await fetchPartnerStatement(portfolioId);
@@ -464,5 +466,12 @@ export async function downloadPartnerStatement(portfolioId?: string): Promise<vo
   const scope = portfolioId
     ? (data.portfolios[0].code ?? portfolioId.slice(0, 8))
     : 'all-portfolios';
-  printReportHtml(html, `welile-statement-${who}-${scope}-${String(data.generated_at).slice(0, 10)}`);
+  const { renderReportPdfBlob } = await import('@/components/partner/renderAgreementPdf');
+  const blob = await renderReportPdfBlob(html);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `welile-statement-${who}-${scope}-${String(data.generated_at).slice(0, 10)}.pdf`;
+  a.click();
+  URL.revokeObjectURL(url);
 }

@@ -200,6 +200,8 @@ export function usePayMerchandisePlan(userId?: string) {
       qc.invalidateQueries({ queryKey: ['my-merchandise-plans', userId] });
       qc.invalidateQueries({ queryKey: ['agent-commission-net', userId] });
       qc.invalidateQueries({ queryKey: ['wallet'] });
+      qc.invalidateQueries({ queryKey: ['wallet-view'] });
+      qc.invalidateQueries({ queryKey: ['user-strict-available-balance'] });
     },
   });
 }

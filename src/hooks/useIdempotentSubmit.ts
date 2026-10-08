@@ -1,3 +1,4 @@
+import { safeUUID } from '@/lib/safeUUID';
 import { useCallback, useRef, useState } from "react";
 
 /**
@@ -23,7 +24,7 @@ import { useCallback, useRef, useState } from "react";
 
 const newKey = (): string => {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return crypto.randomUUID();
+    return safeUUID();
   }
   // Fallback for very old browsers
   return `idem-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;

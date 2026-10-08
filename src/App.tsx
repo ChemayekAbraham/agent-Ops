@@ -88,6 +88,7 @@ const OfflineProvider = lazyWithRetry(() => import("@/contexts/OfflineContext").
 const FeatureFlagsProvider = lazyWithRetry(() => import("@/contexts/FeatureFlagsContext").then(m => ({ default: m.FeatureFlagsProvider })));
 
 // Lazy load optional UI components
+const SupplierBikeAssetReminder = optionalLazyWithRetry(() => import("@/components/merchandise/SupplierBikeAssetReminder").then(m => ({ default: m.SupplierBikeAssetReminder })), "SupplierBikeAssetReminder");
 const Toaster = optionalLazyWithRetry(() => import("@/components/ui/toaster").then(m => ({ default: m.Toaster })), "Toaster");
 const SonnerToaster = optionalLazyWithRetry(() => import("@/components/ui/sonner").then(m => ({ default: m.Toaster })), "SonnerToaster");
 const NationalIdUnlinkNoticeDialog = optionalLazyWithRetry(() => import("@/components/national-id/NationalIdUnlinkNoticeDialog"), "NationalIdUnlinkNoticeDialog");
@@ -202,6 +203,7 @@ const ActivatePartner = lazy(() => import('./pages/ActivatePartner'));
 const BusinessAdvanceTrack = lazy(() => import('./pages/BusinessAdvanceTrack'));
 const ResolveRLink = lazy(() => import('./pages/ResolveRLink'));
 const TrackedRedirect = lazy(() => import('./pages/TrackedRedirect'));
+const CampaignLinkRedirect = lazy(() => import('./pages/CampaignLinkRedirect'));
 const MerchandiseShareRedirect = lazy(() => import('./pages/MerchandiseShareRedirect'));
 const SupportHouse = lazy(() => import('./pages/SupportHouse'));
 const RentAccessLimitPublic = lazy(() => import('./pages/RentAccessLimitPublic'));
@@ -227,6 +229,8 @@ const CRMDashboardPage = lazy(() => import('./pages/crm/Dashboard'));
 const CFODashboardPage = lazy(() => import('./pages/cfo/Dashboard'));
 const CFOReceivablesAnalysisPage = lazy(() => import('./pages/cfo/ReceivablesOverview'));
 const CFOPayablesOverviewPage = lazy(() => import('./pages/cfo/PayablesOverview'));
+const CFOWelileHomesDayReportPage = lazy(() => import('./pages/cfo/WelileHomesDayReport'));
+const CFOBucketAPostingPage = lazy(() => import('./pages/cfo/BucketAPostingGate'));
 const InvestorReportPage = lazy(() => import('./pages/cfo/InvestorReportPage'));
 const MoneyFlowTracePage = lazy(() => import('./pages/cfo/MoneyFlowTrace'));
 const LedgerEntryDetailPage = lazy(() => import('./pages/cfo/LedgerEntryDetail'));
@@ -505,6 +509,7 @@ function AppRoutes() {
           <Route path="/cash-deposit/resend" element={<ResendCashDepositCode />} />
           <Route path="/r/:code" element={<ResolveRLink />} />
           <Route path="/s/:code" element={<TrackedRedirect />} />
+          <Route path="/n/:code" element={<CampaignLinkRedirect />} />
           <Route path="/m/:code" element={<MerchandiseShareRedirect />} />
           <Route path="/support-house" element={<SupportHouse />} />
           <Route path="/t/:token" element={<TenantDashboardLandingPage />} />
@@ -713,6 +718,8 @@ function AppRoutes() {
           <Route path="/cfo/dashboard" element={<RoleGuard allowedRoles={['cfo', 'super_admin', 'cto']} requiredPermission="cfo"><CFODashboardPage /></RoleGuard>} />
           <Route path="/cfo/receivables" element={<RoleGuard allowedRoles={['cfo', 'super_admin', 'cto']} requiredPermission="cfo"><CFOReceivablesAnalysisPage /></RoleGuard>} />
           <Route path="/cfo/payables" element={<RoleGuard allowedRoles={['cfo', 'super_admin', 'cto']} requiredPermission="cfo"><CFOPayablesOverviewPage /></RoleGuard>} />
+          <Route path="/cfo/welile-homes" element={<RoleGuard allowedRoles={['cfo', 'super_admin', 'cto']} requiredPermission="cfo"><CFOWelileHomesDayReportPage /></RoleGuard>} />
+          <Route path="/cfo/bucket-a-posting" element={<RoleGuard allowedRoles={['cfo', 'super_admin']} requiredPermission="cfo"><CFOBucketAPostingPage /></RoleGuard>} />
           <Route path="/cfo" element={<Navigate to="/cfo/dashboard" replace />} />
           <Route path="/dashboard/cfo" element={<Navigate to="/cfo/dashboard" replace />} />
           <Route path="/admin/cfo" element={<Navigate to="/cfo/dashboard" replace />} />
@@ -947,6 +954,7 @@ function DeferredProviders({ children }: { children: ReactNode }) {
                 <CartProvider>
                   <ComparisonProvider>
                     {children}
+                    <SupplierBikeAssetReminder />
                   </ComparisonProvider>
                 </CartProvider>
               </FeatureFlagsProvider>

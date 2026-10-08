@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Calendar, ChevronLeft, ChevronRight, TrendingDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,13 +31,14 @@ export default function BikeRepaymentPlanSchedule({
   const term = Math.max(1, termMonths || 12);
   const schedule = useMemo(() => spiroLeaseSchedule(term, valuation), [term, valuation]);
 
-  // Determine current active month based on lease activation date (if available)
+  // Determine current active month based on lease activation date using strict 30-day elapsed windows
   const activeMonth = useMemo(() => {
     if (!activatedAt) return 1;
     try {
-      const act = new Date(activatedAt);
-      const now = new Date();
-      const diff = (now.getFullYear() - act.getFullYear()) * 12 + (now.getMonth() - act.getMonth()) + 1;
+      const act = new Date(activatedAt).getTime();
+      const now = Date.now();
+      const elapsedDays = Math.max(0, Math.floor((now - act) / (1000 * 60 * 60 * 24)));
+      const diff = Math.floor(elapsedDays / 30) + 1;
       return Math.min(term, Math.max(1, diff));
     } catch {
       return 1;
@@ -45,6 +46,10 @@ export default function BikeRepaymentPlanSchedule({
   }, [activatedAt, term]);
 
   const [selectedMonth, setSelectedMonth] = useState<number>(activeMonth);
+
+  useEffect(() => {
+    setSelectedMonth(activeMonth);
+  }, [activeMonth]);
 
   const safeMonth = Math.min(term, Math.max(1, selectedMonth));
   const currentRow = schedule.rows[safeMonth - 1] ?? schedule.rows[0];

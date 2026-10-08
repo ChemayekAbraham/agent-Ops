@@ -24,7 +24,7 @@ const tabs: { id: AgentHubTab; icon: typeof Home; label: string }[] = [
   { id: 'home', icon: Home, label: 'Home' },
   { id: 'money', icon: Wallet, label: 'Money' },
   { id: 'tenants', icon: Users, label: 'Tenants' },
-  { id: 'grow', icon: TrendingUp, label: 'Grow' },
+  { id: 'grow', icon: TrendingUp, label: 'More' },
   { id: 'subagents', icon: Store, label: 'Service Center' },
 ];
 

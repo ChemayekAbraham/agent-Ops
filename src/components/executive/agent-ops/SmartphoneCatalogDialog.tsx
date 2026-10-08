@@ -199,23 +199,63 @@ export interface SupplierChoice {
   id: string;
   name: string;
   phone: string | null;
+  /** Set when the picker is restricted to internal staff (bike suppliers). */
+  roleLabel?: string | null;
 }
 
-/** Searchable picker over registered platform users acting as phone suppliers. */
+const STAFF_ROLE_LABELS: Record<string, string> = {
+  admin: 'Admin',
+  ceo: 'CEO',
+  coo: 'COO',
+  cfo: 'CFO',
+  cto: 'CTO',
+  cmo: 'CMO',
+  crm: 'CRM',
+  manager: 'Manager',
+  super_admin: 'Super Admin',
+  employee: 'Staff',
+  operations: 'Operations',
+  hr: 'HR',
+  access_admin: 'Access Admin',
+  rd: 'R&D',
+  tenant_ops: 'Tenant Ops',
+  landlord_ops: 'Landlord Ops',
+  agent_ops: 'Agent Ops',
+  financial_ops: 'Financial Ops',
+  partner_ops: 'Partner Ops',
+};
+
+/** Searchable picker over registered platform users acting as phone suppliers.
+ *  With staffOnly, the search runs through the server-side candidates RPC so
+ *  only internal company staff and operations team members are selectable. */
 export function SupplierPicker({
   value,
   onChange,
+  staffOnly = false,
 }: {
   value: SupplierChoice | null;
   onChange: (s: SupplierChoice | null) => void;
+  staffOnly?: boolean;
 }) {
   const [term, setTerm] = useState('');
   const q = term.trim();
 
   const { data: results = [], isFetching } = useQuery({
-    queryKey: ['smartphone-supplier-search', q],
+    queryKey: staffOnly ? ['bike-supplier-search', q] : ['smartphone-supplier-search', q],
     enabled: q.length >= 2 && !value,
     queryFn: async (): Promise<SupplierChoice[]> => {
+      if (staffOnly) {
+        const { data, error } = await db.rpc('search_bike_supplier_candidates', { p_search: q });
+        if (error) throw error;
+        return (data || []).map((r: any) => ({
+          id: r.user_id,
+          name: r.full_name || 'Unnamed staff',
+          phone: r.phone || null,
+          roleLabel: Array.isArray(r.roles) && r.roles.length
+            ? r.roles.map((x: string) => STAFF_ROLE_LABELS[x] || x).join(', ')
+            : null,
+        }));
+      }
       // Match every typed word in any order ("Kalyango Timothy" finds
       // "TIMOTHY KALYANGO"); a phone typed as 07... also matches +2567...
       const words = q.replace(/[,()%*]/g, ' ').split(/\s+/).filter(Boolean);
@@ -264,14 +304,18 @@ export function SupplierPicker({
       <Input
         value={term}
         onChange={(e) => setTerm(e.target.value)}
-        placeholder="Search supplier by name or phone"
+        placeholder={staffOnly ? 'Search internal staff or ops member by name or phone' : 'Search supplier by name or phone'}
       />
       {q.length >= 2 && (
         <div className="max-h-36 space-y-1 overflow-y-auto rounded-md border p-1">
           {isFetching ? (
             <p className="px-1.5 py-1 text-xs text-muted-foreground">Searching…</p>
           ) : results.length === 0 ? (
-            <p className="px-1.5 py-1 text-xs text-muted-foreground">No registered user matches that search.</p>
+            <p className="px-1.5 py-1 text-xs text-muted-foreground">
+              {staffOnly
+                ? 'No internal staff or operations member matches that search.'
+                : 'No registered user matches that search.'}
+            </p>
           ) : (
             results.map((r) => (
               <button
@@ -280,7 +324,12 @@ export function SupplierPicker({
                 onClick={() => onChange(r)}
                 className="flex w-full items-center justify-between gap-2 rounded px-1.5 py-1 text-left text-xs hover:bg-muted"
               >
-                <span className="truncate font-medium">{r.name}</span>
+                <span className="min-w-0">
+                  <span className="block truncate font-medium">{r.name}</span>
+                  {r.roleLabel && (
+                    <span className="block truncate text-[10px] text-muted-foreground">{r.roleLabel}</span>
+                  )}
+                </span>
                 <span className="shrink-0 text-muted-foreground">{r.phone || '—'}</span>
               </button>
             ))

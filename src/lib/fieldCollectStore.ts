@@ -1,3 +1,4 @@
+import { safeUUID } from '@/lib/safeUUID';
 /**
  * Offline-first store for Field Collections.
  * Uses IndexedDB to:

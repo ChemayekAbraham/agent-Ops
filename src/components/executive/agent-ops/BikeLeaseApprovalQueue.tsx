@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { Bike, Check, Edit3, Loader2, X, Download, Award, ShieldCheck, Wrench, TrendingUp, ChevronDown, ChevronUp, FileText, AlertCircle } from 'lucide-react';
+import { Bike, Check, Loader2, X, Download, Award, ShieldCheck, Wrench, TrendingUp, ChevronDown, ChevronUp, FileText, AlertCircle } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
@@ -32,7 +32,7 @@ import { LEASE_TERMS } from '@/components/merchandise/SpiroBikeOrderDialog';
 import { SPIRO_LEASE_PERIODS, spiroLeaseSchedule } from '@/lib/spiroBikeLease';
 import { useBikeCatalogCosts, bikeProfit, resolveBikeBasePrice } from '@/hooks/useBikeCatalogCosts';
 import { BikeLeaseDetailDialog } from './BikeLeaseDetailDialog';
-import { EditBikeApplicationDialog } from './EditBikeApplicationDialog';
+import { BikeLeaseSupplierAssign, useBikeLeaseSupplier } from './BikeLeaseSupplierAssign';
 import { MotorBikeCatalogDialog } from './MotorBikeCatalogDialog';
 import { BikeAssetDetailsDialog } from './BikeAssetDetailsDialog';
 import {
@@ -157,7 +157,6 @@ export function BikeLeaseApprovalQueue({
   const [rejectTarget, setRejectTarget] = useState<BikeLeaseRow | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [detailTarget, setDetailTarget] = useState<BikeLeaseRow | null>(null);
-  const [editTarget, setEditTarget] = useState<BikeLeaseRow | null>(null);
   const [assetTarget, setAssetTarget] = useState<BikeLeaseRow | null>(null);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
@@ -178,10 +177,24 @@ export function BikeLeaseApprovalQueue({
     },
   });
 
+  // Deduplicate orders so that duplicate entity keys (e.g. sale_id vs lease_id or duplicate submissions)
+  // never render as duplicate cards in the approval queue.
+  const deduplicatedOrders = useMemo(() => {
+    const seen = new Set<string>();
+    const result: BikeLeaseRow[] = [];
+    for (const order of orders) {
+      const key = order.id || (order as any).lease_id || (order as any).sale_id;
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      result.push(order);
+    }
+    return result;
+  }, [orders]);
+
   // Query running advances for all applicants in the queue to flag deduction collision risk for Ops
   const applicantIds = useMemo(
-    () => Array.from(new Set(orders.map((o) => o.customer_id).filter(Boolean))) as string[],
-    [orders],
+    () => Array.from(new Set(deduplicatedOrders.map((o) => o.customer_id).filter(Boolean))) as string[],
+    [deduplicatedOrders],
   );
 
   const { data: activeAdvancesMap = {} } = useQuery({
@@ -210,6 +223,7 @@ export function BikeLeaseApprovalQueue({
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['bike-lease-queue'] });
+    queryClient.invalidateQueries({ queryKey: ['bike-lease-category-counts'] });
     queryClient.invalidateQueries({ queryKey: ['agent-products'] });
   };
 
@@ -242,6 +256,8 @@ export function BikeLeaseApprovalQueue({
   const approveDailyPay = approveSchedule.daily;
   const approveDailyRange = `${formatUGX(approveSchedule.firstDaily)} → ${formatUGX(approveSchedule.lastDaily)}`;
 
+  const { data: approveSupplier } = useBikeLeaseSupplier(approveTarget?.id);
+
   const approve = useMutation({
     mutationFn: async ({ id, stage }: { id: string; stage: Stage }) => {
       const fn =
@@ -265,7 +281,7 @@ export function BikeLeaseApprovalQueue({
     onSuccess: (data: any) => {
       toast.success(
         data?.stage === 'cfo'
-          ? `Disbursed ${formatUGX(Number(data?.valuation || 0))} to the agent wallet. Lease active — 28% monthly reducing-balance recovery started.`
+          ? `Paid ${formatUGX(Number(data?.valuation || 0))} to supplier ${data?.supplier_name || ''}. Agent lease active — 28% monthly reducing-balance recovery started.`
           : data?.stage === 'coo'
             ? `Approved at ${formatUGX(Number(data?.valuation || 0))} and forwarded to the CFO for disbursement.`
             : 'Verified by Agent Ops and forwarded to the COO for approval.',
@@ -291,7 +307,7 @@ export function BikeLeaseApprovalQueue({
   });
 
   const scoped = useMemo(() => {
-    let rows = orders;
+    let rows = deduplicatedOrders;
     // A dashboard scoped to one step only ever sees the rows waiting on it,
     // plus the rows it has already handled so officers can follow them through.
     if (stageFilter === 'coo') {
@@ -312,7 +328,7 @@ export function BikeLeaseApprovalQueue({
       return rows.filter((o) => isOpen(o.order_status));
     }
     return rows;
-  }, [orders, pendingOnly, awaitingExecOnly, approvedOnly, stageFilter]);
+  }, [deduplicatedOrders, pendingOnly, awaitingExecOnly, approvedOnly, stageFilter]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -324,11 +340,11 @@ export function BikeLeaseApprovalQueue({
     );
   }, [scoped, search]);
 
-  const pendingCount = useMemo(() => orders.filter((o) => isPending(o.order_status)).length, [orders]);
-  const cooCount = useMemo(() => orders.filter((o) => isAwaitingCoo(o.order_status)).length, [orders]);
-  const cfoCount = useMemo(() => orders.filter((o) => isAwaitingCfo(o.order_status)).length, [orders]);
+  const pendingCount = useMemo(() => deduplicatedOrders.filter((o) => isPending(o.order_status)).length, [deduplicatedOrders]);
+  const cooCount = useMemo(() => deduplicatedOrders.filter((o) => isAwaitingCoo(o.order_status)).length, [deduplicatedOrders]);
+  const cfoCount = useMemo(() => deduplicatedOrders.filter((o) => isAwaitingCfo(o.order_status)).length, [deduplicatedOrders]);
   const execCount = useMemo(() => cooCount + cfoCount, [cooCount, cfoCount]);
-  const approvedCount = useMemo(() => orders.filter((o) => isApproved(o.order_status)).length, [orders]);
+  const approvedCount = useMemo(() => deduplicatedOrders.filter((o) => isApproved(o.order_status)).length, [deduplicatedOrders]);
 
   const rowBusy = (id: string) =>
     (approve.isPending && approve.variables?.id === id) ||
@@ -517,24 +533,14 @@ export function BikeLeaseApprovalQueue({
                             <FileText className="h-3.5 w-3.5" /> View Full Application Dossier
                           </Button>
 
-                          <div className="grid grid-cols-2 gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-8 text-xs gap-1 border-border text-foreground hover:text-primary hover:bg-primary/10 font-medium"
-                              onClick={() => setEditTarget(o)}
-                            >
-                              <Edit3 className="h-3.5 w-3.5" /> Edit Price
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-8 text-xs gap-1 text-muted-foreground hover:text-primary hover:bg-primary/10 font-medium"
-                              onClick={() => setAssetTarget(o)}
-                            >
-                              <Wrench className="h-3.5 w-3.5" /> Asset Info
-                            </Button>
-                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 w-full text-xs gap-1 text-muted-foreground hover:text-primary hover:bg-primary/10 font-medium"
+                            onClick={() => setAssetTarget(o)}
+                          >
+                            <Wrench className="h-3.5 w-3.5" /> Bike Asset Info &amp; Logbook
+                          </Button>
 
                           {canActOnRow(o.order_status) && (
                             <div className="flex items-center gap-2">
@@ -655,19 +661,6 @@ export function BikeLeaseApprovalQueue({
                             size="sm"
                             variant="ghost"
                             className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-primary hover:bg-primary/10"
-                            title="Edit application price & details"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditTarget(o);
-                            }}
-                          >
-                            <Edit3 className="h-3.5 w-3.5" />
-                            <span className="hidden lg:inline">Edit</span>
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-primary hover:bg-primary/10"
                             title="Record bike asset details"
                             onClick={(e) => {
                               e.stopPropagation();
@@ -772,14 +765,14 @@ export function BikeLeaseApprovalQueue({
           <DialogHeader>
             <DialogTitle>
               {approveStage === 'cfo'
-                ? 'Disburse to the agent wallet & activate lease'
+                ? 'Pay the supplier & activate the agent lease'
                 : approveStage === 'coo'
                   ? 'COO approval — valuation & lease terms'
                   : 'Agent Ops verification'}
             </DialogTitle>
             <DialogDescription className="text-xs">
               {approveStage === 'cfo'
-                ? 'The money goes into the ordering agent’s own wallet and daily wallet recovery starts immediately.'
+                ? 'The bike money goes to the assigned company supplier, never the agent. The lease stays in the agent’s name and daily recovery starts immediately.'
                 : approveStage === 'coo'
                   ? 'COO approval moves no money — the file is forwarded to the CFO for disbursement.'
                   : 'Verification moves no money — the file is forwarded to the COO for approval.'}
@@ -798,6 +791,8 @@ export function BikeLeaseApprovalQueue({
                   <span className="font-semibold">{approveTarget.model_type || 'Spiro bike'}</span>
                 </div>
               </div>
+
+              <BikeLeaseSupplierAssign saleId={approveTarget.id} />
 
               {approveStage === 'ops' ? (
                 <div className="space-y-1.5">
@@ -891,7 +886,7 @@ export function BikeLeaseApprovalQueue({
               Cancel
             </Button>
             <Button
-              disabled={approve.isPending || valuationNum < 100000}
+              disabled={approve.isPending || valuationNum < 100000 || (approveStage === 'cfo' && !approveSupplier)}
               onClick={() => approveTarget && approve.mutate({ id: approveTarget.id, stage: approveStage })}
             >
               {approve.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
@@ -940,19 +935,6 @@ export function BikeLeaseApprovalQueue({
         onOpenChange={(v) => { if (!v) setDetailTarget(null); }}
         onApprove={(ord) => openApprove(ord)}
         onReject={(ord) => setRejectTarget(ord)}
-        onEditPrice={(ord) => setEditTarget(ord)}
-      />
-
-      {/* Edit Application Price & Terms Dialog */}
-      <EditBikeApplicationDialog
-        order={editTarget}
-        open={!!editTarget}
-        onOpenChange={(v) => { if (!v) setEditTarget(null); }}
-        onSuccess={() => {
-          if (detailTarget && editTarget && detailTarget.id === editTarget.id) {
-            setDetailTarget(null);
-          }
-        }}
       />
 
       {/* Bike Asset Details Dialog */}

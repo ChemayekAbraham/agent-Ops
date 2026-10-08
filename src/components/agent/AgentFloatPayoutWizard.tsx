@@ -339,10 +339,10 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
     selectedRequest?.landlord?.phone ||
     ''
   ).trim();
-  const payoutNumberMatchesOnFile =
-    !!landlordPhone &&
-    !!landlordPhoneOnFile &&
-    normalizeLandlordPhone(landlordPhone) === normalizeLandlordPhone(landlordPhoneOnFile);
+  // The Landlord-Ops-approved number is locked once the Rent Plan reaches CFO
+  // (database trigger), so it is the payout number; a different stored contact
+  // number no longer blocks the OTP.
+  const payoutNumberMatchesOnFile = !!landlordPhone;
 
   const parsedAmount = Number((amountInput || '').toString().replace(/[^\d.]/g, ''));
   const effectiveAmount =
@@ -1069,7 +1069,7 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
                       Pay {req.landlord?.name || 'Landlord'}
                     </h3>
                     <p className="text-xs text-muted-foreground font-mono mt-0.5">
-                      {maskLandlordPhone(landlordPhoneOnFile)} · MTN Mobile Money
+                      {maskLandlordPhone(landlordPhone || landlordPhoneOnFile)} · MTN Mobile Money
                     </p>
                   </div>
                   <Badge variant="outline" className="text-[10px] font-mono shrink-0">
@@ -1126,7 +1126,7 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
                     id="payout-phone"
                     inputMode="tel"
                     readOnly
-                    value={landlordPhoneOnFile}
+                    value={landlordPhone || landlordPhoneOnFile}
                     placeholder="No landlord number on file"
                     className="h-9 font-mono bg-muted/60 cursor-not-allowed text-muted-foreground"
                   />

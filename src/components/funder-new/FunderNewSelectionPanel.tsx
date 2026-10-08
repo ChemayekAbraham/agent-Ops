@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { CheckCircle2, Home, Loader2, Info, ShieldCheck, Trash2, Wallet, X } from 'lucide-react';
+import { CheckCircle2, Home, MapPin, Phone, Loader2, Info, ShieldCheck, Trash2, Wallet, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -137,7 +137,7 @@ export function FunderNewReviewDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[calc(100vw-1rem)] sm:w-full max-w-lg max-h-[90vh] overflow-y-auto overflow-x-hidden p-3.5 sm:p-6 rounded-2xl sm:rounded-3xl gap-3 sm:gap-4 border border-border/80 bg-background shadow-2xl">
+      <DialogContent className="flex flex-col w-screen max-w-none h-[100dvh] max-h-none rounded-none border-0 p-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] gap-3 overflow-y-auto overflow-x-hidden bg-background sm:grid sm:w-full sm:max-w-lg sm:h-auto sm:max-h-[90vh] sm:rounded-3xl sm:border sm:border-border/80 sm:p-6 sm:gap-4 sm:shadow-2xl">
         <DialogHeader className="pr-6 text-left">
           <DialogTitle className="text-base sm:text-xl font-bold tracking-tight">Your support plan</DialogTitle>
           <DialogDescription className="text-xs sm:text-sm text-muted-foreground mt-0.5 leading-relaxed">
@@ -200,11 +200,11 @@ export function FunderNewReviewDialog({
           <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground px-0.5">
             Selected Homes ({items.length})
           </p>
-          <ul className="space-y-2 max-h-52 overflow-y-auto pr-0.5">
+          <ul className="space-y-2 sm:max-h-52 sm:overflow-y-auto pr-0.5">
             {items.map((item) => (
               <li
                 key={`${item.category}:${item.id}`}
-                className="flex items-center gap-2.5 sm:gap-3 rounded-2xl border border-border/70 bg-card p-2.5 sm:p-3 shadow-2xs"
+                className="flex items-start gap-2.5 sm:gap-3 rounded-2xl border border-border/70 bg-card p-2.5 sm:p-3 shadow-2xs"
               >
                 {item.imageUrl ? (
                   <img
@@ -219,7 +219,7 @@ export function FunderNewReviewDialog({
                 )}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <p className="truncate text-xs sm:text-sm font-semibold text-foreground max-w-[130px] sm:max-w-none">
+                    <p className="min-w-0 truncate text-xs sm:text-sm font-semibold text-foreground">
                       {item.title}
                     </p>
                     <Badge variant="outline" className="text-[9px] sm:text-[10px] px-1.5 py-0 h-4 rounded-full font-medium shrink-0">
@@ -228,6 +228,7 @@ export function FunderNewReviewDialog({
                   </div>
                   <p className="truncate text-[11px] sm:text-xs text-muted-foreground mt-0.5">{item.place}</p>
                   <p className="mt-0.5 text-xs sm:text-sm font-bold text-foreground">{formatDynamic(item.amount)}</p>
+                  <HomeContacts item={item} />
                 </div>
                 <Button
                   variant="ghost"
@@ -244,7 +245,7 @@ export function FunderNewReviewDialog({
         </div>
 
         {/* Regulatory & Information Notice */}
-        <div className="flex items-start gap-2.5 rounded-xl border border-border/60 bg-muted/30 p-2.5 sm:p-3 text-xs text-muted-foreground leading-relaxed">
+        <div className="mt-auto sm:mt-0 flex items-start gap-2.5 rounded-xl border border-border/60 bg-muted/30 p-2.5 sm:p-3 text-xs text-muted-foreground leading-relaxed">
           <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground" />
           <p className="min-w-0 flex-1 text-[11px] sm:text-xs">
             Selecting and reviewing homes is planning only. Support starts after you confirm and the usual approval step is completed. Returns shown are estimates at the current 15% rate.
@@ -396,3 +397,48 @@ export function FunderNewReviewDialog({
 }
 
 export default FunderNewSelectionBar;
+
+function ContactRow({ label, name, phone }: { label: string; name?: string | null; phone?: string | null }) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-2">
+      <div className="min-w-0">
+        <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{label}</p>
+        <p className="break-words text-xs sm:text-sm leading-snug text-foreground">
+          {name ? `${name} · ` : ''}
+          {phone ?? 'Number not shared'}
+        </p>
+      </div>
+      {phone && (
+        <a
+          href={`tel:${phone.replace(/\s/g, '')}`}
+          aria-label={`Call ${label}`}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"
+        >
+          <Phone className="h-4 w-4" />
+        </a>
+      )}
+    </div>
+  );
+}
+
+function HomeContacts({ item }: { item: FunderNewSelectionItem }) {
+  const mapUrl =
+    item.lat != null && item.lng != null
+      ? `https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lng}`
+      : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(item.place)}`;
+  return (
+    <div className="mt-2.5 rounded-xl border border-border/60 bg-muted/30 px-3 py-2 divide-y divide-border/50">
+      <ContactRow label="Landlord" name={item.landlordName} phone={item.landlordPhone} />
+      <ContactRow label={item.category === 'empty' ? 'Listing agent' : 'Proxy agent'} name={item.agentName} phone={item.agentPhone} />
+      <ContactRow label="Tenant" name={item.tenantName} phone={item.tenantPhone} />
+      <div className="pt-2 pb-0.5">
+        <Button asChild variant="outline" size="sm" className="h-9 w-full gap-1.5 rounded-lg px-2 text-xs text-info hover:text-info">
+          <a href={mapUrl} target="_blank" rel="noopener noreferrer" className="w-full justify-center whitespace-nowrap">
+            <MapPin className="h-3.5 w-3.5 shrink-0 text-destructive" />
+            <span className="truncate">{item.lat != null && item.lng != null ? 'Show house on map' : 'Show area on map'}</span>
+          </a>
+        </Button>
+      </div>
+    </div>
+  );
+}

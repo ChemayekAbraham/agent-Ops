@@ -77,7 +77,7 @@ export default function AwarenessCallsPage() {
       <div className="min-w-0">
         <h3 className="text-base font-bold tracking-tight">Awareness Calls</h3>
         <p className="text-xs text-muted-foreground">
-          Do tenants, landlords and agents know about 30M access and merchant-code self-payment? Calls staff record at each stage of the rent pipeline,
+          Do tenants, landlords and agents know about 30M access? Tenants and agents are also asked about merchant-code self-payment; landlords about consent and the payment code (OTP). Calls staff record at each stage of the rent pipeline,
           and the Rent Plans that moved on without one.
         </p>
       </div>
