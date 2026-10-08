@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { MapContainer, Marker, Rectangle, TileLayer, useMap, useMapEvents } from 'react-leaflet';
+import { MapSafeUnmount } from '@/components/map/MapSafeUnmount';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -650,6 +651,7 @@ export function EmptyHouseMapBrowser({
         className="h-full w-full [&_.leaflet-tile-pane]:saturate-[0.25] [&_.leaflet-tile-pane]:brightness-[1.06] [&_.leaflet-control-zoom]:!rounded-xl [&_.leaflet-control-zoom]:!border-0 [&_.leaflet-control-zoom]:!shadow-[0_2px_8px_rgba(0,0,0,0.12)]"
         ref={setMapInstance}
       >
+<MapSafeUnmount />
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
         {heatTiles.map((tile) => (
           <Rectangle
