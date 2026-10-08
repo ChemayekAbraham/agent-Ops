@@ -204,6 +204,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       items: [
         { label: 'Corrections & Approvals', icon: ShieldCheck, id: 'corrections-approvals', access: CFO_ACCESS },
         { label: 'Bucket A Posting', icon: ShieldCheck, id: 'bucket-a-posting', route: '/cfo/bucket-a-posting', access: CFO_ACCESS },
+        { label: 'Correction 5.3M Posting', icon: ShieldCheck, id: 'correction-5300000-posting', route: '/cfo/correction-5300000-posting', access: CFO_ACCESS },
         { label: 'Redemptions', icon: ShieldCheck, id: 'redemption-approvals', access: CFO_ACCESS },
       ],
     },
