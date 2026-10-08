@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { formatUGX } from "@/lib/utils";
+import { formatUGX } from "@/lib/agentAdvanceCalculations";
 
 const CONFIRM = "AUTHORIZE BUCKET A POSTING";
 type Check = { check: string; pass: boolean; value: unknown };
