@@ -107,6 +107,27 @@ export function AgentProductDetailDialog({ agentId, category, onClose }: Props) 
     },
   });
 
+  const { data: partnership } = useQuery({
+    queryKey: ['agent-product-partnership', agentId],
+    enabled: !!agentId,
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('investor_portfolios')
+        .select('investment_amount, roi_percentage, total_roi_earned, status')
+        .eq('investor_id', agentId!);
+      if (error) throw error;
+      const active = (data || []).filter((p: any) => p.status === 'active');
+      const amount = active.reduce((s: number, p: any) => s + Number(p.investment_amount || 0), 0);
+      const earned = active.reduce((s: number, p: any) => s + Number(p.total_roi_earned || 0), 0);
+      const monthly = active.reduce(
+        (s: number, p: any) => s + (Number(p.investment_amount || 0) * Number(p.roi_percentage || 0)) / 100,
+        0,
+      );
+      const rate = amount > 0 ? (monthly / amount) * 100 : 0;
+      return { count: active.length, amount, earned, monthly, rate };
+    },
+  });
+
   // Company-owned bikes attached to the agent for operations (no recovery, no sale).
   const { data: fleetRows } = useQuery({
     queryKey: ['agent-fleet-assignments', agentId],
@@ -231,6 +252,35 @@ export function AgentProductDetailDialog({ agentId, category, onClose }: Props) 
                     {formatUGX(Number(totals?.outstanding || 0))}
                   </p>
                 </div>
+              </div>
+
+              {/* Partnership status */}
+              <div className="rounded-xl border border-border p-2.5 space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Partnership status</p>
+                  <Badge variant={partnership && partnership.count > 0 ? 'default' : 'outline'} className="text-[10px]">
+                    {partnership && partnership.count > 0
+                      ? `Active portfolio${partnership.count > 1 ? 's' : ''} (${partnership.count})`
+                      : 'No active portfolio'}
+                  </Badge>
+                </div>
+                {partnership && partnership.count > 0 && (
+                  <div className="grid grid-cols-3 gap-2 text-center">
+                    <div className="rounded-md bg-muted/50 px-2 py-1.5">
+                      <p className="text-[10px] text-muted-foreground">Invested</p>
+                      <p className="text-xs font-semibold tabular-nums">{formatUGX(partnership.amount)}</p>
+                    </div>
+                    <div className="rounded-md bg-muted/50 px-2 py-1.5">
+                      <p className="text-[10px] text-muted-foreground">Monthly returns</p>
+                      <p className="text-xs font-semibold">{partnership.rate.toFixed(1)}%</p>
+                      <p className="text-[10px] text-muted-foreground tabular-nums">{formatUGX(Math.round(partnership.monthly))}</p>
+                    </div>
+                    <div className="rounded-md bg-muted/50 px-2 py-1.5">
+                      <p className="text-[10px] text-muted-foreground">Returns earned</p>
+                      <p className="text-xs font-semibold tabular-nums">{formatUGX(partnership.earned)}</p>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <Separator />
