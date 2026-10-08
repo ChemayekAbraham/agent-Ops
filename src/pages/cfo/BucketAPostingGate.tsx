@@ -31,11 +31,18 @@ export default function BucketAPostingGate() {
   const authorize = async () => {
     if (!pf) return;
     setBusy(true); setErr(null);
-    const { data, error } = await (supabase.rpc as any)("cfo_bucket_a_post", {
-      p_preflight_id: pf.preflight_id, p_package_hash: pf.package_hash, p_confirmation: typed,
+    // Routed through a server step only to lift the 8s timeout; it calls the same
+    // cfo_bucket_a_post as the signed-in user, so every server safeguard still applies.
+    const { data: resp, error: fnErr } = await supabase.functions.invoke("cfo-bucket-a-post", {
+      body: { p_preflight_id: pf.preflight_id, p_package_hash: pf.package_hash, p_confirmation: typed },
     });
     setBusy(false);
-    if (error) return setErr(error.message);
+    let errMsg: string | null = fnErr ? fnErr.message : null;
+    if (fnErr && (fnErr as any).context?.json) {
+      try { errMsg = (await (fnErr as any).context.json())?.error ?? errMsg; } catch { /* keep */ }
+    }
+    if (errMsg) return setErr(errMsg);
+    const data = (resp as any)?.data;
     setResult(data); setPf(null);
   };
 
