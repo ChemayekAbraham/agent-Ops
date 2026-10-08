@@ -3529,6 +3529,13 @@
       "when": 1791412141260,
       "tag": "0503_fundable_plans_tenant_phone",
       "breakpoints": true
+    },
+    {
+      "idx": 504,
+      "version": "7",
+      "when": 1791437684329,
+      "tag": "0504_cfo_bucket_a_posting_gate",
+      "breakpoints": true
     }
   ]
 }

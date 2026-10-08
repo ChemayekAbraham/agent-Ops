@@ -10675,6 +10675,84 @@ export type Database = {
         }
         Relationships: []
       }
+      cfo_bucket_a_events: {
+        Row: {
+          actor: string | null
+          created_at: string
+          details: Json
+          event_type: string
+          id: string
+          package_hash: string | null
+          preflight_id: string | null
+          record_count: number | null
+          total_amount: number | null
+        }
+        Insert: {
+          actor?: string | null
+          created_at?: string
+          details?: Json
+          event_type: string
+          id?: string
+          package_hash?: string | null
+          preflight_id?: string | null
+          record_count?: number | null
+          total_amount?: number | null
+        }
+        Update: {
+          actor?: string | null
+          created_at?: string
+          details?: Json
+          event_type?: string
+          id?: string
+          package_hash?: string | null
+          preflight_id?: string | null
+          record_count?: number | null
+          total_amount?: number | null
+        }
+        Relationships: []
+      }
+      cfo_bucket_a_package_lines: {
+        Row: {
+          account: string
+          agent_label: string | null
+          approved_amount: number
+          approved_status: string
+          expected_after: number
+          idempotency_key: string
+          line_no: number
+          reason: string
+          receivable_category: string
+          source_id: string
+          source_table: string
+        }
+        Insert: {
+          account: string
+          agent_label?: string | null
+          approved_amount: number
+          approved_status: string
+          expected_after: number
+          idempotency_key: string
+          line_no: number
+          reason: string
+          receivable_category: string
+          source_id: string
+          source_table: string
+        }
+        Update: {
+          account?: string
+          agent_label?: string | null
+          approved_amount?: number
+          approved_status?: string
+          expected_after?: number
+          idempotency_key?: string
+          line_no?: number
+          reason?: string
+          receivable_category?: string
+          source_id?: string
+          source_table?: string
+        }
+        Relationships: []
+      }
       cfo_debit_obligations: {
         Row: {
           amount: number
@@ -59246,6 +59324,11 @@ export type Database = {
           roi_percentage: number
         }[]
       }
+      _cfo_bucket_a_evaluate: { Args: never; Returns: Json }
+      _cfo_bucket_a_live_balance: {
+        Args: { p_account: string; p_source_id: string }
+        Returns: number
+      }
       _cfo_credit_type: { Args: { p_category: string }; Returns: string }
       _cfo_paid_out_base: {
         Args: {
@@ -61806,6 +61889,15 @@ export type Database = {
         Args: { p_id: string; p_reason: string }
         Returns: Json
       }
+      cfo_bucket_a_post: {
+        Args: {
+          p_confirmation: string
+          p_package_hash: string
+          p_preflight_id: string
+        }
+        Returns: Json
+      }
+      cfo_bucket_a_preflight: { Args: never; Returns: Json }
       cfo_collection_reconciliation_s11: {
         Args: never
         Returns: {

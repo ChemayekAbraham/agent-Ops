@@ -22,3 +22,4 @@
 - Payables mirrors Receivables with read-only payable hooks; its single Forecast view preserves obligations and payment rules.
 - Merchandise/phone/bike plans count as owed or recoverable only if `merchandise_plan_recovery_eligible` passes, because pending orders created phantom receivables.
 - Business-line cost attribution of already-posted payments lives in append-only `cfo_reporting_cost_tags` (one tag per ledger group per line), never in correcting journals, so reports can re-attribute costs without new ledger entries or double counting.
+- Rule: Bucket A agent-receivables correction posts only via `cfo_bucket_a_post` after a fresh passed `cfo_bucket_a_preflight` by the same CFO approver, against the frozen fingerprinted `cfo_bucket_a_package_lines`; all lines post atomically or none, so the approved set can't be partially or double posted.
