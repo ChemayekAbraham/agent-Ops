@@ -31889,6 +31889,7 @@ export type Database = {
         Row: {
           address: string | null
           agreement_date: string
+          auto_portfolio_id: string | null
           bank_account_name: string | null
           bank_account_number: string | null
           bank_name: string | null
@@ -31913,18 +31914,18 @@ export type Database = {
           phone: string | null
           reference: string | null
           return_option: string | null
-          auto_portfolio_id: string | null
           self_support_allowance: number | null
           self_support_reminded_at: string | null
+          status: string
           support_mode: string | null
           support_mode_set_at: string | null
           support_mode_set_by: string | null
-          status: string
           updated_at: string
         }
         Insert: {
           address?: string | null
           agreement_date?: string
+          auto_portfolio_id?: string | null
           bank_account_name?: string | null
           bank_account_number?: string | null
           bank_name?: string | null
@@ -31949,18 +31950,18 @@ export type Database = {
           phone?: string | null
           reference?: string | null
           return_option?: string | null
-          auto_portfolio_id?: string | null
           self_support_allowance?: number | null
           self_support_reminded_at?: string | null
+          status?: string
           support_mode?: string | null
           support_mode_set_at?: string | null
           support_mode_set_by?: string | null
-          status?: string
           updated_at?: string
         }
         Update: {
           address?: string | null
           agreement_date?: string
+          auto_portfolio_id?: string | null
           bank_account_name?: string | null
           bank_account_number?: string | null
           bank_name?: string | null
@@ -31985,13 +31986,12 @@ export type Database = {
           phone?: string | null
           reference?: string | null
           return_option?: string | null
-          auto_portfolio_id?: string | null
           self_support_allowance?: number | null
           self_support_reminded_at?: string | null
+          status?: string
           support_mode?: string | null
           support_mode_set_at?: string | null
           support_mode_set_by?: string | null
-          status?: string
           updated_at?: string
         }
         Relationships: []
@@ -40665,12 +40665,14 @@ export type Database = {
         Row: {
           aware_30m: string | null
           aware_merchant_codes: string | null
+          aware_payout_otp: string | null
           call_result: string
           caller_id: string
           caller_team: string
           dial_started_at: string
           explained: string | null
           id: string
+          landlord_consent: string | null
           note: string | null
           pipeline_stage: string
           recorded_at: string
@@ -40682,12 +40684,14 @@ export type Database = {
         Insert: {
           aware_30m?: string | null
           aware_merchant_codes?: string | null
+          aware_payout_otp?: string | null
           call_result: string
           caller_id: string
           caller_team: string
           dial_started_at: string
           explained?: string | null
           id?: string
+          landlord_consent?: string | null
           note?: string | null
           pipeline_stage: string
           recorded_at?: string
@@ -40699,12 +40703,14 @@ export type Database = {
         Update: {
           aware_30m?: string | null
           aware_merchant_codes?: string | null
+          aware_payout_otp?: string | null
           call_result?: string
           caller_id?: string
           caller_team?: string
           dial_started_at?: string
           explained?: string | null
           id?: string
+          landlord_consent?: string | null
           note?: string | null
           pipeline_stage?: string
           recorded_at?: string
@@ -59470,6 +59476,13 @@ export type Database = {
         Args: { p_sale_id: string }
         Returns: string
       }
+      _partner_contract_coverage: {
+        Args: { p_partner_id: string }
+        Returns: {
+          existing_count: number
+          existing_total: number
+        }[]
+      }
       _post_four_part_fee_split: {
         Args: {
           p_amount: number
@@ -60728,6 +60741,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      assign_bike_lease_supplier: {
+        Args: { p_sale_id: string; p_supplier_id?: string }
+        Returns: Json
+      }
       assign_smartphone_order_supplier: {
         Args: { p_sale_id: string; p_supplier_id?: string }
         Returns: Json
@@ -60933,11 +60950,13 @@ export type Database = {
           ac_30m: string
           ac_caller: string
           ac_codes: string
+          ac_consent: string
           ac_day: string
           ac_dial: string
           ac_explained: string
           ac_id: string
           ac_note: string
+          ac_otp: string
           ac_person: string
           ac_phone: string
           ac_recorded: string
@@ -62465,6 +62484,18 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      claim_due_self_support_reminders: {
+        Args: { p_limit?: number }
+        Returns: {
+          agreement_id: string
+          contract_amount: number
+          email: string
+          full_name: string
+          partner_id: string
+          phone: string
+          remaining: number
+        }[]
+      }
       claim_float_request_for_email: {
         Args: {
           p_agent_id: string
@@ -62706,6 +62737,17 @@ export type Database = {
       }
       correct_tenant_location: {
         Args: { p_reason?: string; p_tenant_id: string; p_village_id: number }
+        Returns: Json
+      }
+      countersign_prepare_support: {
+        Args: {
+          p_actor: string
+          p_amount: number
+          p_countersign_only?: boolean
+          p_partner_id: string
+          p_return_option: string
+          p_support_mode: string
+        }
         Returns: Json
       }
       country_to_continent: { Args: { p_country: string }; Returns: string }
@@ -65247,6 +65289,15 @@ export type Database = {
         Args: { p_rent_request_id: string }
         Returns: Json
       }
+      get_bike_lease_suppliers: {
+        Args: { p_sale_ids: string[] }
+        Returns: {
+          sale_id: string
+          supplier_id: string
+          supplier_name: string
+          supplier_phone: string
+        }[]
+      }
       get_board_ledger_check: { Args: { p_date?: string }; Returns: Json }
       get_board_tech_memo: { Args: { p_date?: string }; Returns: Json }
       get_budget_consolidation: { Args: { p_call_id: string }; Returns: Json }
@@ -65775,6 +65826,10 @@ export type Database = {
       get_coo_rent_coverage_statement: { Args: never; Returns: Json }
       get_coo_system_overview: { Args: never; Returns: Json }
       get_coo_transaction_kpis: { Args: never; Returns: Json }
+      get_countersign_summary: {
+        Args: { p_amount?: number; p_partner_id: string }
+        Returns: Json
+      }
       get_crm_directory: {
         Args: {
           _limit?: number
@@ -66080,6 +66135,10 @@ export type Database = {
           poll_stale: boolean
           silence_minutes: number
         }[]
+      }
+      get_growth_metrics_live: {
+        Args: { p_end: string; p_start: string }
+        Returns: Json
       }
       get_house_activity_timeline: {
         Args: { p_house_id: string }
@@ -67129,6 +67188,10 @@ export type Database = {
         Returns: Json
       }
       get_receivables_total: { Args: never; Returns: Json }
+      get_referral_performance_rows: {
+        Args: { p_end: string; p_start: string }
+        Returns: Json
+      }
       get_referral_progress: { Args: { p_referred_id: string }; Returns: Json }
       get_rent_access_promo_stats: {
         Args: { p_from?: string; p_to?: string }
@@ -68252,6 +68315,7 @@ export type Database = {
         Args: { _dashboard: string; _user_id: string }
         Returns: boolean
       }
+      has_internal_staff_role: { Args: { p_user_id: string }; Returns: boolean }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -68773,6 +68837,7 @@ export type Database = {
         Args: { p_user_id?: string }
         Returns: boolean
       }
+      is_bucket_a_approver: { Args: { _user_id: string }; Returns: boolean }
       is_budget_coo_reviewer: { Args: { _user_id: string }; Returns: boolean }
       is_budget_reviewer: { Args: { _user_id: string }; Returns: boolean }
       is_business_advance_ops: { Args: { _uid: string }; Returns: boolean }
@@ -72266,9 +72331,11 @@ export type Database = {
         Args: {
           p_aware_30m?: string
           p_aware_merchant_codes?: string
+          p_aware_payout_otp?: string
           p_call_result: string
           p_dial_started_at: string
           p_explained?: string
+          p_landlord_consent?: string
           p_note?: string
           p_rent_request_id: string
           p_subject_phone: string
@@ -73167,6 +73234,15 @@ export type Database = {
           id: string
           phone: string
           role: string
+        }[]
+      }
+      search_bike_supplier_candidates: {
+        Args: { p_search?: string }
+        Returns: {
+          full_name: string
+          phone: string
+          roles: string[]
+          user_id: string
         }[]
       }
       search_invitable_subagents: {
