@@ -905,6 +905,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   // We only fall back to the full-page skeleton if the user is OFFLINE with
   // no cache (nothing else can render anyway).
   const showFullSkeleton = loading && !isOnline && !hasLoadedOnce;
+  const { data: myOrdersCount = 0 } = useMyOrdersCount(user?.id);
   if (showFullSkeleton) {
     return <AgentDashboardSkeleton />;
   }
@@ -949,7 +950,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   // plus a period-based access fee) and is reviewed by Agent Ops.
 
 
-  const { data: myOrdersCount = 0 } = useMyOrdersCount(user?.id);
 
   const menuItems = [
     { icon: Store, label: 'Service Center', onClick: () => { hapticTap(); navigate('/agent/service-center'); } },
