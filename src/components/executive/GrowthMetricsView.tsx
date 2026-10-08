@@ -381,7 +381,7 @@ export function GrowthMetricsView() {
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-sm font-semibold">Users by role (current)</h3>
           <span className="text-xs text-muted-foreground">
-            Snapshot {latest?.stat_date ? format(new Date(latest.stat_date), 'dd MMM yyyy') : '—'}
+            Live {live?.computed_at ? format(new Date(live.computed_at), 'dd MMM yyyy, HH:mm') : '—'}
           </span>
         </div>
         {roleData.length === 0 ? (
