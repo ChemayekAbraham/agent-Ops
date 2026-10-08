@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
-import { formatUGX } from '@/lib/utils';
+import { formatUGX } from '@/lib/businessAdvanceCalculations';
 
 const STAGE: Record<string, { label: string; cls: string }> = {
   pending_approval: { label: 'Agent Ops', cls: 'bg-amber-500/15 text-amber-700 border-amber-500/30' },
