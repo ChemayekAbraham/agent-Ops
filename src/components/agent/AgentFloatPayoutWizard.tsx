@@ -1069,7 +1069,7 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
                       Pay {req.landlord?.name || 'Landlord'}
                     </h3>
                     <p className="text-xs text-muted-foreground font-mono mt-0.5">
-                      {maskLandlordPhone(landlordPhoneOnFile)} · MTN Mobile Money
+                      {maskLandlordPhone(landlordPhone || landlordPhoneOnFile)} · MTN Mobile Money
                     </p>
                   </div>
                   <Badge variant="outline" className="text-[10px] font-mono shrink-0">
