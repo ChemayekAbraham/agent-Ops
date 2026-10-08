@@ -10,3 +10,7 @@
 - [x] Verify Receivables Forecast periods, projections and navigation in the signed-in preview.
 - [x] Base Receivables behavior projections on completed past weeks and months and verify live figures.- [x] Merchandise categories: company issued (handover) vs out-sourced (CFO to wallet).
 - [x] Widen tenant transfer agent search to all enabled agents.
+
+## Open (8 Oct 2026)
+- [ ] Flagged agent wallets: lift only after ID + fraud checks — waiting for which agents, and who approved
+- [ ] Agent dashboard: move direct table writes to secure server procedures — waiting for the user to choose where to start
