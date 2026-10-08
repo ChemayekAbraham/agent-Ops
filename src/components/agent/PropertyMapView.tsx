@@ -1,6 +1,7 @@
 /// <reference types="google.maps" />
 import { useEffect, useMemo, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import { MapSafeUnmount } from '@/components/map/MapSafeUnmount';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { MapPin, Building2, Navigation, Route, Loader2, X, ExternalLink, Zap } from 'lucide-react';
@@ -283,6 +284,7 @@ export function PropertyMapView({
       </div>
       <div className="relative flex-1 rounded-2xl overflow-hidden border border-border/60">
         <MapContainer center={defaultCenter} zoom={12} style={{ height: '100%', width: '100%' }} scrollWheelZoom>
+<MapSafeUnmount />
           <TileLayer
             attribution='&copy; OpenStreetMap'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
