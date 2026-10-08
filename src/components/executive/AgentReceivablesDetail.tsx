@@ -115,6 +115,7 @@ export default function AgentReceivablesDetail({ product, current, overdue, comp
       </Panel>
     </div>
 
+
     <div className="grid items-start gap-3 xl:grid-cols-[1.4fr_1fr]">
       <Panel title="Receivables Risk">
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
