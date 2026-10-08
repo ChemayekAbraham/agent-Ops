@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { AlertTriangle, Clock, FileText, Home, UserCheck, X } from 'lucide-react';
-import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { AlertTriangle, Clock, FileText, Home, UserCheck } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useOverdueVettingAlert } from '@/hooks/useOverdueVettingAlert';
@@ -59,13 +59,11 @@ export function OverdueVettingDialog({ suppressed }: { suppressed?: boolean }) {
   };
 
   return (
-    <AlertDialog open={open} onOpenChange={(o) => { if (!o) remindLater(); }}>
-      <AlertDialogContent
+    <Dialog open={open} onOpenChange={(o) => { if (!o) remindLater(); }}>
+      <DialogContent
         role="alertdialog"
         aria-labelledby="overdue-vetting-title"
         className={cn('overflow-hidden p-0 gap-0 sm:max-w-md', !reduce && 'ovd-enter')}
-        onEscapeKeyDown={(e) => { e.preventDefault(); remindLater(); }}
-        onPointerDownOutside={() => remindLater()}
         onOpenAutoFocus={(e) => { e.preventDefault(); primaryRef.current?.focus(); }}
       >
         <style>{`
@@ -78,26 +76,18 @@ export function OverdueVettingDialog({ suppressed }: { suppressed?: boolean }) {
 
         <div
           className={cn(
-            'flex items-center gap-2 px-5 py-3 border-b',
+            'flex items-center gap-2 px-5 py-3 pr-12 border-b',
             escalated ? 'bg-destructive/10 border-destructive/30 text-destructive' : 'bg-warning/15 border-warning/40 text-foreground',
           )}
         >
           <ToneIcon className="h-5 w-5 shrink-0" aria-hidden />
-          <AlertDialogTitle id="overdue-vetting-title" className="flex-1 text-base font-semibold">
+          <DialogTitle id="overdue-vetting-title" className="flex-1 text-base font-semibold">
             {copy.title}
-          </AlertDialogTitle>
-          <button
-            type="button"
-            onClick={remindLater}
-            aria-label={copy.secondaryLabel}
-            className="rounded-md p-1 opacity-80 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            <X className="h-4 w-4" aria-hidden />
-          </button>
+          </DialogTitle>
         </div>
 
         <div className="space-y-4 px-5 py-4">
-          <AlertDialogDescription className="text-sm text-foreground">{copy.body}</AlertDialogDescription>
+          <DialogDescription className="text-sm text-foreground">{copy.body}</DialogDescription>
 
           {rows.length > 0 && (
             <ul className="divide-y divide-border rounded-lg border border-border">
@@ -138,7 +128,7 @@ export function OverdueVettingDialog({ suppressed }: { suppressed?: boolean }) {
             </Button>
           </div>
         </div>
-      </AlertDialogContent>
-    </AlertDialog>
+      </DialogContent>
+    </Dialog>
   );
 }
