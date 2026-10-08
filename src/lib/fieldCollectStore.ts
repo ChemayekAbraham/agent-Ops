@@ -208,6 +208,7 @@ async function withDb<T>(fn: (db: IDBDatabase) => Promise<T>): Promise<T> {
   } catch (e) {
     if (isQuotaError(e)) throw new Error(STORAGE_FULL_MESSAGE);
     if (!isRetryableStorageError(e)) throw e;
+    if (db) closedDbs.add(db);
     if (dbPromise) {
       const current = await dbPromise.catch(() => null);
       if (!current || current === db) dbPromise = null;
