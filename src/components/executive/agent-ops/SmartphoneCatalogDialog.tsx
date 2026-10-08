@@ -199,23 +199,63 @@ export interface SupplierChoice {
   id: string;
   name: string;
   phone: string | null;
+  /** Set when the picker is restricted to internal staff (bike suppliers). */
+  roleLabel?: string | null;
 }
 
-/** Searchable picker over registered platform users acting as phone suppliers. */
+const STAFF_ROLE_LABELS: Record<string, string> = {
+  admin: 'Admin',
+  ceo: 'CEO',
+  coo: 'COO',
+  cfo: 'CFO',
+  cto: 'CTO',
+  cmo: 'CMO',
+  crm: 'CRM',
+  manager: 'Manager',
+  super_admin: 'Super Admin',
+  employee: 'Staff',
+  operations: 'Operations',
+  hr: 'HR',
+  access_admin: 'Access Admin',
+  rd: 'R&D',
+  tenant_ops: 'Tenant Ops',
+  landlord_ops: 'Landlord Ops',
+  agent_ops: 'Agent Ops',
+  financial_ops: 'Financial Ops',
+  partner_ops: 'Partner Ops',
+};
+
+/** Searchable picker over registered platform users acting as phone suppliers.
+ *  With staffOnly, the search runs through the server-side candidates RPC so
+ *  only internal company staff and operations team members are selectable. */
 export function SupplierPicker({
   value,
   onChange,
+  staffOnly = false,
 }: {
   value: SupplierChoice | null;
   onChange: (s: SupplierChoice | null) => void;
+  staffOnly?: boolean;
 }) {
   const [term, setTerm] = useState('');
   const q = term.trim();
 
   const { data: results = [], isFetching } = useQuery({
-    queryKey: ['smartphone-supplier-search', q],
+    queryKey: staffOnly ? ['bike-supplier-search', q] : ['smartphone-supplier-search', q],
     enabled: q.length >= 2 && !value,
     queryFn: async (): Promise<SupplierChoice[]> => {
+      if (staffOnly) {
+        const { data, error } = await db.rpc('search_bike_supplier_candidates', { p_search: q });
+        if (error) throw error;
+        return (data || []).map((r: any) => ({
+          id: r.user_id,
+          name: r.full_name || 'Unnamed staff',
+          phone: r.phone || null,
+          roleLabel: Array.isArray(r.roles) && r.roles.length
+            ? r.roles.map((x: string) => STAFF_ROLE_LABELS[x] || x).join(', ')
+            : null,
+        }));
+      }
       // Match every typed word in any order ("Kalyango Timothy" finds
       // "TIMOTHY KALYANGO"); a phone typed as 07... also matches +2567...
       const words = q.replace(/[,()%*]/g, ' ').split(/\s+/).filter(Boolean);
