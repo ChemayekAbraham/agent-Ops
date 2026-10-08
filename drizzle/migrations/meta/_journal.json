@@ -3536,6 +3536,13 @@
       "when": 1791437684329,
       "tag": "0504_cfo_bucket_a_posting_gate",
       "breakpoints": true
+    },
+    {
+      "idx": 505,
+      "version": "7",
+      "when": 1791442532896,
+      "tag": "0505_bike_lease_supplier_payout",
+      "breakpoints": true
     }
   ]
 }
