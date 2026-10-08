@@ -5601,7 +5601,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                       : 'You can post now — verification happens in the pipeline'}
                   </p>
                   <ul className="space-y-1.5">
-                    {landlordCheck !== 'registered' && (
+                    {true && (
                       <li>
                         <button
                           type="button"
