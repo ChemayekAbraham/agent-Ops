@@ -1,3 +1,4 @@
+import { safeUUID } from '@/lib/safeUUID';
 "use client";
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -125,7 +126,7 @@ export function AgentTenantCollectDialog({
   const clientRefFor = (planId: string, amt: number) => {
     const key = `${planId}:${amt}`;
     if (clientRefRef.current?.key !== key) {
-      clientRefRef.current = { key, value: crypto.randomUUID() };
+      clientRefRef.current = { key, value: safeUUID() };
     }
     return clientRefRef.current.value;
   };

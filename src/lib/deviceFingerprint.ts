@@ -1,3 +1,4 @@
+import { safeUUID } from '@/lib/safeUUID';
 /**
  * Lightweight, stable-per-browser device fingerprint used ONLY for anti-fraud
  * gating at signup. Not a security boundary — a sophisticated attacker can
@@ -26,7 +27,7 @@ function getSeed(): string {
   try {
     let s = localStorage.getItem(SEED_KEY);
     if (!s) {
-      s = crypto.randomUUID();
+      s = safeUUID();
       localStorage.setItem(SEED_KEY, s);
     }
     return s;

@@ -1,3 +1,4 @@
+import { safeUUID } from '@/lib/safeUUID';
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import * as AlertDialogPrimitive from '@radix-ui/react-alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
@@ -5393,7 +5394,7 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
       const operationType = mode === 'wallet' ? 'roi_wallet_credit' : 'roi_already_paid';
       const modeLabel = mode === 'wallet' ? 'Wallet' : 'Cash';
       const managed = managedInfo[p.portfolioId];
-      const txnGroupId = crypto.randomUUID();
+      const txnGroupId = safeUUID();
       const hasProxy = !!managed;
       const isManagedProxy = !!managed?.isManaged;
 
@@ -5608,7 +5609,7 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
       const isManagedProxy = !!managed?.isManaged;
       const modeLabel = payMode === 'wallet' ? 'Partner Wallet' : payMode === 'agent_wallet' ? 'Partner Wallet (via Proxy)'
         : payMode === 'different_wallet' ? `${altRecipient?.full_name || 'Recipient'}'s Wallet` : 'Cash';
-      const txnGroupId = crypto.randomUUID();
+      const txnGroupId = safeUUID();
 
       // Date stays unchanged — only advances when CFO approves the payout
 

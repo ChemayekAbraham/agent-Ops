@@ -1,3 +1,4 @@
+import { safeUUID } from '@/lib/safeUUID';
 /**
  * Login phase telemetry.
  *
@@ -39,7 +40,7 @@ const MAX_PENDING = 40;
 function genTraceId() {
   try {
     if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-      return (crypto as Crypto).randomUUID();
+      return safeUUID();
     }
   } catch { /* ignore */ }
   return `t_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;

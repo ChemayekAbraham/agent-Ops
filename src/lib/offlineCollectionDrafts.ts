@@ -1,3 +1,4 @@
+import { safeUUID } from '@/lib/safeUUID';
 // Agent-local offline collection drafts (system of record until proof + sync).
 // Per CFO mandate: drafts are NEVER sent to the server until the agent
 // attaches proof and explicitly submits. Financial Ops cannot see these.
@@ -157,7 +158,7 @@ export async function captureOfflineDraft(input: CaptureDraftInput): Promise<Off
   const gps = await tryGeolocation();
   const provisional_receipt_no = await nextProvisionalReceipt(input.agent_id);
   const draft: OfflineCollectionDraft = {
-    draft_id: crypto.randomUUID(),
+    draft_id: safeUUID(),
     agent_id: input.agent_id,
     tenant_id: input.tenant_id,
     tenant_name: input.tenant_name,

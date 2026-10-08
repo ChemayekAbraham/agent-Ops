@@ -1,3 +1,4 @@
+import { safeUUID } from '@/lib/safeUUID';
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -65,7 +66,7 @@ export default function IdeaCanvasBoard() {
     setOpen(id);
   };
   const add = () => {
-    const id = crypto.randomUUID();
+    const id = safeUUID();
     setIdeas((l) => [{ id, title: '', owner: '', date: new Date().toISOString().slice(0, 10), summary: '', canvas: emptyCanvas(), saved: false, dirty: true, mode: 'edit' }, ...l]);
     setOpen(id);
   };
