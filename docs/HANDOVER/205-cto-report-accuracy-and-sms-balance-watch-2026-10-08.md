@@ -19,3 +19,6 @@ Triggered by the week-ending 2026-10-07 Board report and the 2026-10-07 daily CT
 
 ## Not done
 Backup provider key (21 failures), missed advance-deduction reminder stream (13.4% failing), access-denied redirect loop (UI/guard, Gemini), randomUUID guard (Gemini). 100% sign-in is not reachable as "attempts": wrong passwords and unknown numbers are customer outcomes.
+
+## Addendum: SMS failure alert counts final outcomes only (migration `20261008100000`, not applied)
+`detect_sms_failure_alerts` counted every `sms_delivery_log` row, including attempts later rescued by another provider (Yoola accepted-but-unconfirmed, delivered by Africa's Talking: `final_accepted=true`). Over 7 days to 2026-10-08: 953 raw failed rows vs 622 final outcomes (+53%). It now drops rows whose `attempt_sequence < total_attempts`, the same rule `get_board_tech_memo` and `get_cto_daily_report` already use. The Board memo and daily CTO report were already correct; `get_messaging_usage_weekly_bundle` intentionally still counts raw rows (cost). Not in `critical_function_baselines`, so no re-baseline. Verify live after apply: `select detect_sms_failure_alerts()` should report `failed` close to the final-outcome count.
