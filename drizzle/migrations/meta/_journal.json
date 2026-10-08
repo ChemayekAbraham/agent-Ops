@@ -3564,6 +3564,13 @@
       "when": 1791445102174,
       "tag": "0508_signup_metrics_exclude_fake",
       "breakpoints": true
+    },
+    {
+      "idx": 509,
+      "version": "7",
+      "when": 1791445374125,
+      "tag": "0509_referral_performance_real",
+      "breakpoints": true
     }
   ]
 }
