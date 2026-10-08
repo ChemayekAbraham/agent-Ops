@@ -3557,6 +3557,13 @@
       "when": 1791444585290,
       "tag": "0507_growth_metrics_live",
       "breakpoints": true
+    },
+    {
+      "idx": 508,
+      "version": "7",
+      "when": 1791445102174,
+      "tag": "0508_signup_metrics_exclude_fake",
+      "breakpoints": true
     }
   ]
 }
