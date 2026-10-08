@@ -17,8 +17,9 @@ A FinOps operator tried to give agent Okwakol Micheal (`75891dff-d684-49e9-83ea-
 The reversal migration was withdrawn (below); the only shipped change is the dialog query fix above. Claude drafted migration `20261008100000` to reverse `FXW-069F70B2E4`, then removed it: the operator did the reversal in Wallet Move at 11:11 UTC (`FXW-24B78D86C1`, Micheal Float -> Nankambo Withdrawable, 10,000), and the draft refused to run ("Micheal float 0 is below 10000"). Kept out on purpose: once the TID is routed Micheal has 10,000 float again, which the draft's guard would have accepted and wrongly clawed back. Never run a reversal keyed only on float balance.
 
 ## Still to do (not done by Claude)
-0. Deploy the dialog fix (merge to `lovable`, Josh's go-ahead, Lovable agent idle). Until then routing this email stays blocked.
-1. FinOps: Email Transactions → row TID158315386626 → **Send to wallet / Route** → Micheal → Operational Float → exactly 10,000. Then verify `agent_tid_backed_float.balance` = 10,000 (if 0, fix his row by exact amount as in doc 113; no platform recompute).
+0. **Josh chose SQL (2026-10-08): migration `20261008140000_route_tid158315386626_to_micheal_float.sql`** posts the TID-backed float credit directly (mirrors his 5 Oct routed credit: `agent_float_deposit`/`cfo_direct_credit`/`sub_category`=TID, platform offset, `email_credit_idempotency` row) and rolls back unless `agent_tid_backed_float` rises by exactly 10,000. **Not applied.** After it lands the operator must NOT press Credit in the dialog again (idempotency row blocks a duplicate, but don't try).
+0b. Deploy the dialog fix (merge to `lovable`, Josh's go-ahead, Lovable agent idle). Until then routing this email stays blocked.
+1. (Only if the SQL route is not used) FinOps: Email Transactions → row TID158315386626 → **Send to wallet / Route** → Micheal → Operational Float → exactly 10,000. Then verify `agent_tid_backed_float.balance` = 10,000 (if 0, fix his row by exact amount as in doc 113; no platform recompute).
 2. Unlink or reject Pauline's pending request `100d839e-…`. With the fix it no longer blocks routing, but the amount-only link is still wrong (3 other pending-linked inbound emails in the last 14 days).
 3. Micheal's float is 0 and TID-backed is 0 until step 1 is done.
 
