@@ -1,3 +1,4 @@
+import { safeUUID } from '@/lib/safeUUID';
 import { useState, useEffect, useRef } from 'react';
 import StepperModal, { Step } from './StepperModal';
 import ConfirmSummaryCard from './ConfirmSummaryCard';
@@ -349,7 +350,7 @@ export default function WithdrawFlow({
     if (!clientRequestIdRef.current) {
       clientRequestIdRef.current =
         (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
-          ? crypto.randomUUID()
+          ? safeUUID()
           : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     }
     return clientRequestIdRef.current;

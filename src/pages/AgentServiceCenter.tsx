@@ -1,6 +1,10 @@
 import { cn } from '@/lib/utils';
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { OverdueVettingBanner } from '@/components/service-center/OverdueVettingBanner';
+import { useOverdueVettingAlert } from '@/hooks/useOverdueVettingAlert';
+import { KIND_TAB, VET_FOCUS_EVENT, scrollAndHighlight, type VetFocus } from '@/components/service-center/vettingNav';
+import type { OverdueKind } from '@/lib/vettingOverdueCopy';
 import { ArrowLeft, ClipboardCheck, Package, Route, Search, ShoppingBag, Store, UserPlus, Users } from 'lucide-react';
 import officeIllustration from '@/assets/At_the_office-bro-2.svg.asset.json';
 import { Button } from '@/components/ui/button';
@@ -58,6 +62,37 @@ export default function AgentServiceCenter() {
   const [unlinkTarget, setUnlinkTarget] = useState<ServiceCenterSubAgent | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [mainTab, setMainTab] = useState('team');
+  const [vetTab, setVetTab] = useState('rent');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { data: overdueData } = useOverdueVettingAlert({ suppressed: true });
+
+  const focusItem = (t: VetFocus) => {
+    setMainTab('vetting');
+    setVetTab(KIND_TAB[t.kind]);
+    setVettingQuery('');
+    scrollAndHighlight(t.kind, t.id);
+  };
+  useEffect(() => {
+    const kind = searchParams.get('vet') as OverdueKind | null;
+    const id = searchParams.get('item');
+    if (kind && id && KIND_TAB[kind]) {
+      focusItem({ kind, id });
+      const next = new URLSearchParams(searchParams); next.delete('vet'); next.delete('item');
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+  useEffect(() => {
+    const on = (e: Event) => focusItem((e as CustomEvent<VetFocus>).detail);
+    window.addEventListener(VET_FOCUS_EVENT, on);
+    return () => window.removeEventListener(VET_FOCUS_EVENT, on);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const jumpToOldest = () => {
+    const first = overdueData?.oldest?.[0];
+    if (first) focusItem({ kind: first.kind, id: first.id });
+  };
 
   const subAgents = data?.sub_agents ?? [];
   // Derived so the open sheet re-renders with fresh data after suspend/restore/transfer,
@@ -178,7 +213,8 @@ export default function AgentServiceCenter() {
           ))}
         </div>
 
-        <Tabs defaultValue="team">
+        <div className="sticky top-0 z-20"><OverdueVettingBanner onJumpToOldest={jumpToOldest} /></div>
+        <Tabs value={mainTab} onValueChange={setMainTab}>
           <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="team" className="text-xs sm:text-sm">
               <Users className="mr-1.5 h-4 w-4" /> Team
@@ -215,7 +251,7 @@ export default function AgentServiceCenter() {
                 className="pl-9 text-xs sm:text-sm h-9 sm:h-10"
               />
             </div>
-            <Tabs defaultValue="rent">
+            <Tabs value={vetTab} onValueChange={setVetTab}>
               <TabsList className="grid w-full grid-cols-3 sm:grid-cols-5 h-auto gap-1 p-1">
                 <TabsTrigger value="rent" className="text-[10px] sm:text-[11px] px-1 py-1.5 whitespace-normal leading-tight text-center">
                   Rent{vetting?.pending_count ? ` (${vetting.pending_count})` : ''}

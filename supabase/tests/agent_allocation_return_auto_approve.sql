@@ -1,4 +1,4 @@
--- Rolled-back verification for 20261008110000_agent_allocation_return_auto_approve.sql
+-- Rolled-back verification for 20261008170000_agent_allocation_return_auto_approve.sql
 --
 -- Run against the live database. Everything happens inside one transaction that ends in
 -- RAISE EXCEPTION, so nothing is kept (no ledger rows, no float movement). The error text

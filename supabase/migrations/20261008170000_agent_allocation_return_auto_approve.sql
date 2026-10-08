@@ -21,7 +21,7 @@
 --
 -- Additive only: one new column + index on agent_allocation_return_requests, three new
 -- functions, one new trigger. The two existing functions are replaced in place
--- (same signatures, same grants). Rollback: supabase/rollbacks/20261008110000_*.
+-- (same signatures, same grants). Rollback: supabase/rollbacks/20261008170000_*.
 
 -- ───────────────────────────────────────────────────────────────────────────
 -- 1. Mark automatic send-backs (read-only history on the CFO screen keys on this)

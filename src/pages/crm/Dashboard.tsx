@@ -42,6 +42,10 @@ const UserBehaviourAnalyticsPanel = lazy(() =>
   })),
 );
 
+const TenantCampaignPanel = lazy(() =>
+  import('@/components/executive/crm/TenantCampaignPanel').then((m) => ({ default: m.TenantCampaignPanel })),
+);
+
 const PanelFallback = () => (
   <div className="space-y-3">
     <Skeleton className="h-10 w-full rounded-lg" />
@@ -124,6 +128,12 @@ export default function CRMDashboardPage() {
         );
       case 'communications':
         return <CTOCommunicationOverview />;
+      case 'sms-campaigns':
+        return (
+          <Suspense fallback={<PanelFallback />}>
+            <TenantCampaignPanel />
+          </Suspense>
+        );
       case 'user-behaviour':
         return (
           <Suspense fallback={<PanelFallback />}>

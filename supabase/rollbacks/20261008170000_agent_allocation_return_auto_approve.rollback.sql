@@ -1,4 +1,4 @@
--- Rollback for 20261008110000_agent_allocation_return_auto_approve.sql
+-- Rollback for 20261008170000_agent_allocation_return_auto_approve.sql
 -- Restores the two original functions (every send-back waits for the CFO again) and
 -- removes everything the migration added.
 --

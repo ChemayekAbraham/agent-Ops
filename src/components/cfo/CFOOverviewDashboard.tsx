@@ -36,6 +36,7 @@ import { PayablesCardDrilldown } from '@/components/cfo/PayablesCardDrilldown';
 import { CFOReceivablesPayablesHome } from '@/components/cfo/CFOReceivablesPayablesHome';
 import { WithdrawableCreditsLivePanel } from '@/components/cfo/WithdrawableCreditsLivePanel';
 import { MoneyPaidOutCard } from '@/components/cfo/MoneyPaidOutCard';
+import { SmsProvidersPaidCard } from '@/components/cfo/SmsProvidersPaidCard';
 import { MoneyReceivedCard } from '@/components/cfo/MoneyReceivedCard';
 import { HeroCard, PercentageCurve } from '@/components/cfo/HeroCard';
 import { computeCashPosition } from '@/lib/cashPosition';
@@ -547,6 +548,7 @@ export function CFOOverviewDashboard({
 
             <WithdrawableCreditsLivePanel moneyWeHaveTotal={actualMoneyTotal} />
             <MoneyPaidOutCard moneyWeHaveTotal={actualMoneyTotal} />
+            <SmsProvidersPaidCard onOpenReport={onTabChange ? () => onTabChange('sms-otp-costs') : undefined} />
             <MoneyReceivedCard moneyWeHaveTotal={actualMoneyTotal} />
           </div>
 

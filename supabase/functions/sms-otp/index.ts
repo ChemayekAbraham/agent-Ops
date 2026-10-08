@@ -194,7 +194,7 @@ function formatPhoneLana(rawPhone: string): string {
 
 /**
  * Single LANA SMS send attempt with a hard timeout. LANA's REST API accepts a
- * JSON body { phone, message } at https://api.lanasms.com/v1/send with a
+ * form-encoded body (phone, message; NOT JSON, per docs.lanasms.com) at https://api.lanasms.com/v1/send with a
  * Bearer token and returns { status: true|"success", message_id, ... } on
  * acceptance ({ status: false, message } on rejection — still HTTP 200).
  */
@@ -210,14 +210,10 @@ async function sendLanaAttempt(
       method: "POST",
       headers: {
         "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
         "Accept": "application/json",
       },
-      body: JSON.stringify({
-        phone: formatPhoneLana(phone),
-        sender_id: "WELILE",
-        message,
-      }),
+      body: new URLSearchParams({ phone: String(formatPhoneLana(phone)), sender_id: "WELILE", message }).toString(),
       signal: controller.signal,
     });
 

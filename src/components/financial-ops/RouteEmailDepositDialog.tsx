@@ -1094,8 +1094,10 @@ export function RouteEmailDepositDialog({ open, onOpenChange, row, suggestedUser
         .eq('id', depId)
         .maybeSingle();
       if (!dep) return null;
-      const terminalReversed = ['rejected', 'cancelled', 'failed', 'reversed'];
-      if (terminalReversed.includes(dep.status)) return null;
+      // Only an APPROVED request has actually credited a wallet. A pending one
+      // (e.g. an amount-only auto-match to someone else's request) credited
+      // nothing, so there is nothing to reverse and the debit leg must not run.
+      if (dep.status !== 'approved') return null;
 
       // Pull the original user's identity for display + SMS.
       const { data: prof } = await (supabase.from('profiles') as any)

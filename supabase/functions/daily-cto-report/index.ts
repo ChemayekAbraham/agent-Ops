@@ -329,7 +329,22 @@ Deno.serve(async (req) => {
     // Unbounded volume indicator kept separately (never presented as a percentage).
     const errorsPer1kEvents = n(P.events_today) > 0 ? (n(E.today) / n(P.events_today)) * 1000 : 0;
     const loginFailRate = pct(n(A.login_failures_today), Math.max(1, n(A.login_events_today)));
-    const jobFailRate = pct(n(J.failed_24h), Math.max(1, n(J.runs_24h)));
+    // Failed runs must include ad-hoc (unscheduled) jobs listed in J.failing, otherwise
+    // the headline says "0.0% failure rate" directly above a table naming a failing job.
+    const failingListEarly: any[] = Array.isArray(J.failing) ? J.failing : [];
+    const failedRuns24h = Math.max(n(J.failed_24h), failingListEarly.reduce((s, j) => s + n(j.n), 0));
+    const jobFailRate = pct(failedRuns24h, Math.max(1, n(J.runs_24h)));
+    // Rollback rate counts toward Reliability only when the snapshot pair is trustworthy.
+    const dayRollbackRate: number | null = I.rollback_trustworthy === true
+      ? pct(n(I.rollbacks), Math.max(1, n(I.commits) + n(I.rollbacks))) : null;
+    const rollbackBreached = dayRollbackRate !== null && dayRollbackRate >= 5;
+    // Sign-in is judged on people (7-day eventual success), not raw attempts: a wrong
+    // password is a retry, not a platform failure. Falls back to attempts when absent.
+    const siTriedEarly = n(SI.signin_sessions_tried_7d ?? SI.users_tried_7d);
+    const siInEarly = n(SI.signin_sessions_succeeded_7d ?? SI.users_eventually_signed_in_7d);
+    const peopleSignInRate: number | null = siTriedEarly > 0 ? pct(siInEarly, siTriedEarly) : null;
+    // SMS failure share over 30 days (failed / total), so messaging problems reach the score.
+    const smsFailRateEarly = n(SMS.total_30d) > 0 ? pct(n(SMS.failed), n(SMS.total_30d)) : 0;
     const emailFailRate = pct(n(M.failed_today), Math.max(1, n(M.sent_today)));
     const connSat = pct(n(I.connections), Math.max(1, n(I.max_connections)));
     const rlsCoverage = pct(n(S.rls_tables), Math.max(1, n(S.public_tables)));
@@ -364,14 +379,16 @@ Deno.serve(async (req) => {
 
     // Weighted technology health score (0-100)
     const scoreParts = [
-      { label: 'Reliability', w: 25, v: Math.max(0, 100 - errRate * 12) },
-      { label: 'Authentication', w: 15, v: Math.max(0, 100 - loginFailRate * 1.6) },
+      { label: 'Reliability', w: 25, v: Math.max(0, Math.min(100 - errRate * 12, dayRollbackRate === null ? 100 : 100 - Math.max(0, dayRollbackRate - 5) * 4)) },
+      { label: 'Authentication', w: 15, v: Math.max(0, 100 - (peopleSignInRate === null ? loginFailRate : 100 - peopleSignInRate) * 1.6) },
       { label: 'Automation', w: 15, v: Math.max(0, 100 - jobFailRate * 4) },
       { label: 'Infrastructure', w: 20, v: Math.min(100, cacheHit * 0.7 + Math.max(0, 100 - connSat) * 0.3) },
       { label: 'Security', w: 15, v: rlsCoverage },
       { label: 'Continuity', w: 10, v: backupOk ? 100 : 45 },
     ];
-    const health = Math.round(scoreParts.reduce((s, p) => s + (p.v * p.w) / 100, 0));
+    // A breached rollback rate or heavy SMS failure can never read as "Healthy".
+    const healthCap = rollbackBreached ? 84 : 100;
+    const health = Math.min(healthCap, Math.round(scoreParts.reduce((s, p) => s + (p.v * p.w) / 100, 0)));
     const healthTone: Tone = health >= 85 ? 'good' : health >= 70 ? 'warn' : 'bad';
     const healthLabel = health >= 85 ? 'Healthy' : health >= 70 ? 'Watch' : 'At risk';
 
@@ -379,8 +396,9 @@ Deno.serve(async (req) => {
     const summaryPoints: string[] = [];
     summaryPoints.push(`Platform served ${fmt(P.active_24h)} active users in the last 24 hours across ${fmt(P.events_today)} recorded system events and ${fmt(P.txn_today)} ledger postings.`);
     summaryPoints.push(`Client-side errors ${n(E.today) <= n(E.prev_day) ? 'improved' : 'increased'} to ${fmt(E.today)} (${delta(n(E.today), n(E.prev_day))} vs prior day), affecting ${fmt(E.affected_users_today)} users.`);
-    summaryPoints.push(`Authentication success rate stands at ${(100 - loginFailRate).toFixed(1)}% with median sign-in latency of ${fmt(A.median_login_ms_today)} ms (average ${fmt(A.avg_login_ms_today)} ms${n(A.login_attempts_over_60s_today) > 0 ? `, skewed by ${fmt(A.login_attempts_over_60s_today)} attempts over 60s affecting ${fmt(A.login_users_over_60s_today)} users` : ''}).`);
-    summaryPoints.push(`${fmt(J.total_scheduled)} scheduled automations executed ${fmt(J.runs_24h)} runs with a ${jobFailRate.toFixed(1)}% failure rate.`);
+    summaryPoints.push(`${peopleSignInRate !== null ? `${peopleSignInRate.toFixed(1)}% of people who tried to sign in over 7 days got in; ` : ''}${(100 - loginFailRate).toFixed(1)}% of today's sign-in attempts succeeded (wrong passwords count as failures), with median sign-in latency of ${n(A.median_login_ms_today) > 0 ? `${fmt(A.median_login_ms_today)} ms` : 'not measurable'} (average ${fmt(A.avg_login_ms_today)} ms${n(A.login_attempts_over_60s_today) > 0 ? `, skewed by ${fmt(A.login_attempts_over_60s_today)} attempts over 60s affecting ${fmt(A.login_users_over_60s_today)} users` : ''}).`);
+    if (rollbackBreached) summaryPoints.push(`Database rollback rate is ${dayRollbackRate!.toFixed(1)}% against a target below 5% — the health score is capped below Healthy until it recovers.`);
+    summaryPoints.push(`${fmt(J.total_scheduled)} scheduled automations executed ${fmt(J.runs_24h)} runs with a ${jobFailRate.toFixed(1)}% failure rate${failingListEarly.length ? ` (${failingListEarly.map((j) => j.jobname).join(', ')} failing)` : ''}.`);
     summaryPoints.push(`Database is ${bytes(I.db_size_bytes)} with ${cacheHit.toFixed(2)}% cache hit ratio and ${connSat.toFixed(0)}% connection saturation.`);
 
     const execSummary = `
@@ -483,15 +501,16 @@ Deno.serve(async (req) => {
       kpi('Events 7d', fmt(P.events_7d), 'feature usage signal'),
       kpi('New users 24h', fmt(P.new_users_today), 'acquisition into product'),
       kpi('Weekly actives', fmt(P.active_7d), `${pct(n(P.active_7d), Math.max(1, n(P.total_users))).toFixed(1)}% of base`),
-      kpi('Monthly actives', fmt(P.active_30d), `${pct(n(P.active_30d), Math.max(1, n(P.total_users))).toFixed(1)}% of base`),
+      kpi('Monthly actives', 'Unreliable', 'last_active_at was bulk-stamped; use weekly actives'),
     ]);
 
     // ---- Section 7: Customer Technology Experience --------------------------
     const cxCards = kpiRows([
-      kpi('Sign-in latency', `${fmt(A.median_login_ms_today)} ms median (avg ${fmt(A.avg_login_ms_today)} ms)`, n(A.login_attempts_over_60s_today) > 0 ? `${fmt(A.login_attempts_over_60s_today)} attempts over 60s (${fmt(A.login_users_over_60s_today)} users) skew the average` : 'average today', n(A.median_login_ms_today) < 1500 ? 'good' : n(A.median_login_ms_today) < 3000 ? 'warn' : 'bad'),
+      kpi('Sign-in latency', n(A.median_login_ms_today) > 0 ? `${fmt(A.median_login_ms_today)} ms median (avg ${fmt(A.avg_login_ms_today)} ms)` : `Not measurable (avg ${fmt(A.avg_login_ms_today)} ms)`, n(A.login_attempts_over_60s_today) > 0 ? `${fmt(A.login_attempts_over_60s_today)} attempts over 60s (${fmt(A.login_users_over_60s_today)} users) skew the average` : 'average today', n(A.median_login_ms_today) < 1500 ? 'good' : n(A.median_login_ms_today) < 3000 ? 'warn' : 'bad'),
       kpi('Auth success', `${(100 - loginFailRate).toFixed(1)}%`, `${fmt(A.login_events_today)} attempts`, loginFailRate < 20 ? 'good' : 'warn'),
       kpi('Users hitting errors', fmt(E.affected_users_today), `${pct(n(E.affected_users_today), Math.max(1, n(P.active_24h))).toFixed(2)}% of actives`),
-      kpi('Notification delivery', `${(100 - emailFailRate).toFixed(1)}%`, `${fmt(M.sent_today)} emails sent today`, emailFailRate < 5 ? 'good' : 'warn'),
+      kpi('E-mail delivery', `${(100 - emailFailRate).toFixed(1)}%`, `${fmt(M.sent_today)} emails sent today (e-mail only)`, emailFailRate < 5 ? 'good' : 'warn'),
+      kpi('SMS rejected (30 days)', `${smsFailRateEarly.toFixed(1)}%`, `${fmt(SMS.failed)} of ${fmt(SMS.total_30d)} SMS refused by a provider`, smsFailRateEarly < 2 ? 'good' : smsFailRateEarly < 5 ? 'warn' : 'bad'),
     ]);
 
     // ---- Section 8: System Monitoring ---------------------------------------
@@ -542,16 +561,20 @@ Deno.serve(async (req) => {
       ['Automation success', `${(100 - jobFailRate).toFixed(1)}%`, '99%+', jobFailRate < 1 ? `<b style="color:${C.good}">On target</b>` : `<b style="color:${C.warn}">Below target</b>`],
       ['Database cache hit', `${cacheHit.toFixed(2)}%`, '99%+', cacheHit >= 99 ? `<b style="color:${C.good}">On target</b>` : `<b style="color:${C.warn}">Below target</b>`],
       ['Connection headroom', `${(100 - connSat).toFixed(0)}%`, '40%+', connSat <= 60 ? `<b style="color:${C.good}">On target</b>` : `<b style="color:${C.warn}">Tight</b>`],
-      ['Notification delivery', `${(100 - emailFailRate).toFixed(1)}%`, '95%+', emailFailRate < 5 ? `<b style="color:${C.good}">On target</b>` : `<b style="color:${C.warn}">Below target</b>`],
+      ['E-mail delivery (excludes SMS)', `${(100 - emailFailRate).toFixed(1)}%`, '95%+', emailFailRate < 5 ? `<b style="color:${C.good}">On target</b>` : `<b style="color:${C.warn}">Below target</b>`],
+      ['SMS not rejected by provider (30 days)', `${(100 - smsFailRateEarly).toFixed(1)}%`, '98%+', smsFailRateEarly < 2 ? `<b style="color:${C.good}">On target</b>` : `<b style="color:${C.warn}">Below target</b>`],
     ]);
 
     // ---- Section 14: Recommendations -------------------------------------------
     const recs: string[] = [];
+    if (rollbackBreached) recs.push(`Establish the cause of the ${dayRollbackRate!.toFixed(1)}% database rollback rate (target below 5%).`);
+    if (peopleSignInRate !== null && peopleSignInRate < 95) recs.push(`Raise people-based sign-in success from ${peopleSignInRate.toFixed(1)}% to 95%+ (7 days).`);
+    if (smsFailRateEarly >= 2) recs.push(`Reduce SMS provider rejections (${smsFailRateEarly.toFixed(1)}% over 30 days): top up credit and fix the backup provider key.`);
     if (failingJobs.length) recs.push(`Restore ${failingJobs.length} failing automation${failingJobs.length > 1 ? 's' : ''}, starting with ${esc(failingJobs[0].jobname)} (${fmt(failingJobs[0].n)} failures in 24h).`);
     if (topRoutes.length) recs.push(`Prioritise a defect fix on ${esc(topRoutes[0].route)}, which produced ${fmt(topRoutes[0].n)} client errors this week.`);
     if (loginFailRate >= 20) recs.push(`Run an authentication reliability review: ${loginFailRate.toFixed(1)}% of sign-in attempts failed today.`);
     if (rlsCoverage < 98) recs.push(`Close the security gap on ${fmt(n(S.public_tables) - n(S.rls_tables))} tables that do not yet enforce row level security.`);
-    if (slow.length && n(slow[0]?.mean_ms) > 500) recs.push(`Index or refactor the slowest query path (${fmt(slow[0].mean_ms)} ms mean over ${fmt(slow[0].calls)} calls).`);
+    if (slow.length && n(slow[0]?.mean_ms) > 500 && !/recompute_trust_scores_batch/.test(String(slow[0]?.query || slow[0]?.statement || ''))) recs.push(`Index or refactor the slowest query path (${fmt(slow[0].mean_ms)} ms mean over ${fmt(slow[0].calls)} calls).`);
     if (!backupOk) recs.push('Re-establish verified daily backups and complete a restore drill this week.');
     if (connSat >= 70) recs.push(`Plan a compute upgrade: connection saturation is at ${connSat.toFixed(0)}%.`);
     if (emailFailRate >= 5) recs.push(`Investigate notification delivery: ${fmt(M.failed_today)} of ${fmt(M.sent_today)} emails failed today.`);
@@ -1339,12 +1362,12 @@ Deno.serve(async (req) => {
         ['OTP attempts today', fmt(A.otp_attempts_today)], ['Audit writes today', fmt(S.audit_writes_today)],
       ],
       experience: [
-        ['Median sign-in latency', `${fmt(A.median_login_ms_today)} ms`], ['Average sign-in latency', `${fmt(A.avg_login_ms_today)} ms`],
+        ['Median sign-in latency', n(A.median_login_ms_today) > 0 ? `${fmt(A.median_login_ms_today)} ms` : 'Not measurable'], ['Average sign-in latency', `${fmt(A.avg_login_ms_today)} ms`],
         ['Authentication success', `${(100 - loginFailRate).toFixed(1)}%`],
         ['Weekly active share', `${pct(n(P.active_7d), Math.max(1, n(P.total_users))).toFixed(1)}%`],
-        ['Monthly active share', `${pct(n(P.active_30d), Math.max(1, n(P.total_users))).toFixed(1)}%`],
+        ['Monthly active share', 'Unreliable (bulk-stamped last_active_at)'],
         ['Emails sent today', fmt(M.sent_today)], ['Emails failed today', fmt(M.failed_today)],
-        ['Notification delivery', `${(100 - emailFailRate).toFixed(1)}%`], ['Emails sent 7d', fmt(M.sent_7d)],
+        ['E-mail delivery (excludes SMS)', `${(100 - emailFailRate).toFixed(1)}%`], ['SMS rejected 30d', `${smsFailRateEarly.toFixed(1)}%`], ['Emails sent 7d', fmt(M.sent_7d)],
         ['Backup runs 7d', fmt(B.runs_7d)], ['Backup failures 7d', fmt(B.failures_7d)],
         ['Latest backup status', B.latest?.status ? String(B.latest.status) : 'none'],
         ['Latest backup at', B.latest?.created_at ? String(B.latest.created_at).slice(0, 16).replace('T', ' ') : 'no run recorded'],
@@ -1365,7 +1388,8 @@ Deno.serve(async (req) => {
         ['Automation success', `${(100 - jobFailRate).toFixed(1)}%`, '99%+'],
         ['Database cache hit', `${cacheHit.toFixed(2)}%`, '99%+'],
         ['Connection headroom', `${(100 - connSat).toFixed(0)}%`, '40%+'],
-        ['Notification delivery', `${(100 - emailFailRate).toFixed(1)}%`, '95%+'],
+        ['E-mail delivery (excludes SMS)', `${(100 - emailFailRate).toFixed(1)}%`, '95%+'],
+        ['SMS not rejected (30 days)', `${(100 - smsFailRateEarly).toFixed(1)}%`, '98%+'],
       ],
       recommendations: recs.map((r) => r.replace(/<[^>]+>/g, '')),
       diagSections: [
@@ -2315,6 +2339,7 @@ async function buildTechPdf(a: PdfArgs): Promise<Uint8Array> {
 
   ensure(24);
   page.drawText(`Generated from live production telemetry at ${a.generatedAt} UTC.`, { x: margin, y: y - 10, size: 7.5, font, color: muted });
+  y -= 24; // advance past the footer line so the next section title does not overprint it
 
   // 11+. Deep technical diagnostics
   let dn = 10;
