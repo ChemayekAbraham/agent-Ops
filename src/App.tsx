@@ -4,6 +4,7 @@
 import { Suspense, memo, useEffect, useState, Component, type ReactNode } from "react";
 import { HelmetProvider } from "react-helmet-async";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { GlobalOverdueVettingDialog } from "@/components/service-center/GlobalOverdueVettingDialog";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { LANDLORD_OPS_ROUTES } from "./pages/landlord-ops/routes";
 import { ThemeProvider } from "next-themes";
@@ -860,6 +861,7 @@ function AppRoutes() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
+      <Suspense fallback={null}><GlobalOverdueVettingDialog /></Suspense>
       </div>
     </div>
   );

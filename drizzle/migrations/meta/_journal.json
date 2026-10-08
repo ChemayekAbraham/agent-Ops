@@ -3641,6 +3641,13 @@
       "when": 1791460358468,
       "tag": "0519_arrears_overview_exclude_weekly",
       "breakpoints": true
+    },
+    {
+      "idx": 520,
+      "version": "7",
+      "when": 1791461419295,
+      "tag": "0520_service_center_overdue_vetting_alerts",
+      "breakpoints": true
     }
   ]
 }
