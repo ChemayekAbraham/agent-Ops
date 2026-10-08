@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import { VettingAgeChip } from '@/components/service-center/VettingAgeChip';
+import { useOverdueVettingAlert } from '@/hooks/useOverdueVettingAlert';
+import { vetRowId } from '@/components/service-center/vettingNav';
 import { CheckCircle2, ClipboardCheck, Eye, Loader2, MapPin, Phone, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -28,6 +31,7 @@ import { hasNoCallAtStage } from '@/lib/awarenessCallStatus';
  */
 export function ServiceCenterRentVettingQueue({ searchQuery = '' }: { searchQuery?: string } = {}) {
   const { data, isLoading, error } = useServiceCenterRentQueue();
+  const { data: vetPolicy } = useOverdueVettingAlert({ suppressed: true });
   const review = useServiceCenterReviewRentRequest();
   const { toast } = useToast();
 
@@ -132,7 +136,7 @@ export function ServiceCenterRentVettingQueue({ searchQuery = '' }: { searchQuer
         </CardContent></Card>
       ) : (
         pending.map((req) => (
-          <Card key={req.id}>
+          <Card key={req.id} id={vetRowId('rent_plan', req.id)}>
             <CardContent className="space-y-3 p-3">
 
               <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -143,6 +147,7 @@ export function ServiceCenterRentVettingQueue({ searchQuery = '' }: { searchQuer
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
+                  <VettingAgeChip createdAt={req.created_at} warnHours={vetPolicy?.warn_hours} overdueHours={vetPolicy?.overdue_hours} />
                   <AwarenessCallBadge status={callStatus.byId.get(req.id)} />
                   <Badge variant="outline" className="w-fit shrink-0 text-[10px]">Service Center review</Badge>
                 </div>

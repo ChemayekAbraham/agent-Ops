@@ -42986,6 +42986,30 @@ export type Database = {
         }
         Relationships: []
       }
+      service_center_overdue_alert_log: {
+        Row: {
+          id: string
+          manager_id: string
+          oldest_age_hours: number
+          overdue_count: number
+          shown_at: string
+        }
+        Insert: {
+          id?: string
+          manager_id: string
+          oldest_age_hours: number
+          overdue_count: number
+          shown_at?: string
+        }
+        Update: {
+          id?: string
+          manager_id?: string
+          oldest_age_hours?: number
+          overdue_count?: number
+          shown_at?: string
+        }
+        Relationships: []
+      }
       service_center_qualification_config: {
         Row: {
           activity_window_days: number
@@ -43205,6 +43229,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      service_center_vetting_policy: {
+        Row: {
+          effective_from: string
+          enabled: boolean
+          id: boolean
+          overdue_hours: number
+          updated_at: string
+          updated_by: string | null
+          warn_hours: number
+        }
+        Insert: {
+          effective_from?: string
+          enabled?: boolean
+          id?: boolean
+          overdue_hours?: number
+          updated_at?: string
+          updated_by?: string | null
+          warn_hours?: number
+        }
+        Update: {
+          effective_from?: string
+          enabled?: boolean
+          id?: boolean
+          overdue_hours?: number
+          updated_at?: string
+          updated_by?: string | null
+          warn_hours?: number
+        }
+        Relationships: []
       }
       service_centre_advances: {
         Row: {
@@ -66949,6 +67003,7 @@ export type Database = {
           tracking_reference: string
         }[]
       }
+      get_my_overdue_vetting: { Args: never; Returns: Json }
       get_my_parent_agent: {
         Args: never
         Returns: {
@@ -67090,6 +67145,20 @@ export type Database = {
           outstanding: number
           total_assigned: number
           total_settled: number
+        }[]
+      }
+      get_overdue_vetting_overview: {
+        Args: never
+        Returns: {
+          escalated_count: number
+          landlords: number
+          last_alert_at: string
+          lc1: number
+          manager_id: string
+          manager_name: string
+          oldest_age_hours: number
+          overdue_count: number
+          rent_plans: number
         }[]
       }
       get_paginated_transactions: {
@@ -69888,6 +69957,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      log_overdue_vetting_alert_shown: { Args: never; Returns: boolean }
       log_proxy_partner_invite: {
         Args: {
           p_channel?: string
@@ -73726,6 +73796,16 @@ export type Database = {
         }
         Returns: Json
       }
+      service_center_vetting_items: {
+        Args: never
+        Returns: {
+          clock_at: string
+          item_id: string
+          kind: string
+          label: string
+          manager_id: string
+        }[]
+      }
       service_centre_assign_agents: {
         Args: {
           p_agent_ids: string[]
@@ -73833,6 +73913,14 @@ export type Database = {
       }
       set_proxy_target_mode: {
         Args: { p_accept: boolean; p_agent_id?: string }
+        Returns: Json
+      }
+      set_service_center_vetting_policy: {
+        Args: {
+          p_effective_from?: string
+          p_enabled: boolean
+          p_overdue_hours?: number
+        }
         Returns: Json
       }
       set_staff_access_password: {
