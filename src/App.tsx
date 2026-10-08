@@ -88,6 +88,7 @@ const OfflineProvider = lazyWithRetry(() => import("@/contexts/OfflineContext").
 const FeatureFlagsProvider = lazyWithRetry(() => import("@/contexts/FeatureFlagsContext").then(m => ({ default: m.FeatureFlagsProvider })));
 
 // Lazy load optional UI components
+const SupplierBikeAssetReminder = optionalLazyWithRetry(() => import("@/components/merchandise/SupplierBikeAssetReminder").then(m => ({ default: m.SupplierBikeAssetReminder })), "SupplierBikeAssetReminder");
 const Toaster = optionalLazyWithRetry(() => import("@/components/ui/toaster").then(m => ({ default: m.Toaster })), "Toaster");
 const SonnerToaster = optionalLazyWithRetry(() => import("@/components/ui/sonner").then(m => ({ default: m.Toaster })), "SonnerToaster");
 const NationalIdUnlinkNoticeDialog = optionalLazyWithRetry(() => import("@/components/national-id/NationalIdUnlinkNoticeDialog"), "NationalIdUnlinkNoticeDialog");
@@ -951,6 +952,7 @@ function DeferredProviders({ children }: { children: ReactNode }) {
                 <CartProvider>
                   <ComparisonProvider>
                     {children}
+                    <SupplierBikeAssetReminder />
                   </ComparisonProvider>
                 </CartProvider>
               </FeatureFlagsProvider>
