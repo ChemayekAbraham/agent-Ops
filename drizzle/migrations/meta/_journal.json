@@ -3669,6 +3669,13 @@
       "when": 1791465390851,
       "tag": "0523_cfo_corr_5300000_posting_gate",
       "breakpoints": true
+    },
+    {
+      "idx": 524,
+      "version": "7",
+      "when": 1791465547381,
+      "tag": "0524_cfo_corr_5300000_readonly_eval_grant",
+      "breakpoints": true
     }
   ]
 }

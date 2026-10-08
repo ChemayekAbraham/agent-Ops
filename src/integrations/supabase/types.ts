@@ -60290,6 +60290,14 @@ export type Database = {
         }
         Returns: Json
       }
+      agent_edit_sent_back_rent_plan: {
+        Args: {
+          p_new_rent_amount: number
+          p_note: string
+          p_request_id: string
+        }
+        Returns: Json
+      }
       agent_expected_collection: {
         Args: { p_rent_request_id: string }
         Returns: number
