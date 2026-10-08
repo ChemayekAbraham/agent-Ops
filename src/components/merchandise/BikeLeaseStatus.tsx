@@ -44,6 +44,11 @@ interface BikeLeaseRow {
   lease_activated_at: string | null;
   tracking_reference: string | null;
   settlement_completed_at?: string | null;
+  plate_number?: string | null;
+  chassis_number?: string | null;
+  battery_serial?: string | null;
+  gps_tracker_id?: string | null;
+  logbook_status?: string | null;
 }
 
 const STAGES = [
@@ -515,7 +520,7 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder, filterStatu
                     </Badge>
                   </div>
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    Congratulations! Your Spiro bike lease is 100% settled with zero balance remaining. Your official Certificate of Full Settlement is available below.
+                    Congratulations! Your Spiro bike lease is 100% settled with zero balance remaining. Welile's legal custody hold over the registration logbook is discharged and authorized for title handover. Your official Certificate of Full Settlement is available below.
                   </p>
 
                   {(outstanding <= 0 || status === 'completed') && (
@@ -560,6 +565,50 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder, filterStatu
                       Download Settlement Certificate
                     </Button>
                   )}
+                </div>
+              </div>
+            )}
+
+            {current === 3 && !rejected && outstanding > 0 && (
+              <div className="rounded-lg border border-border/80 bg-muted/30 p-3 space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4 text-primary shrink-0" />
+                    <div>
+                      <p className="font-semibold text-foreground text-xs">Logbook Custody: Held by Welile</p>
+                      <p className="text-[10px] text-muted-foreground">The official Spiro logbook, title, and registration records remain in Welile's legal custody as collateral until 100% full settlement.</p>
+                    </div>
+                  </div>
+                  <Badge variant="outline" className="text-[10px] shrink-0 font-medium bg-primary/10 text-primary border-primary/20">
+                    Collateral
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 pt-1 border-t border-border/50 text-[11px]">
+                  <div className="rounded bg-background/60 p-1.5 border border-border/40">
+                    <span className="text-[9px] uppercase tracking-wider text-muted-foreground block">Plate No</span>
+                    <span className="font-mono font-semibold text-foreground">
+                      {selected?.plate_number || 'Pending handover'}
+                    </span>
+                  </div>
+                  <div className="rounded bg-background/60 p-1.5 border border-border/40">
+                    <span className="text-[9px] uppercase tracking-wider text-muted-foreground block">Chassis No</span>
+                    <span className="font-mono font-semibold text-foreground truncate block" title={selected?.chassis_number || 'Pending handover'}>
+                      {selected?.chassis_number || 'Pending handover'}
+                    </span>
+                  </div>
+                  <div className="rounded bg-background/60 p-1.5 border border-border/40">
+                    <span className="text-[9px] uppercase tracking-wider text-muted-foreground block">Battery Serial</span>
+                    <span className="font-mono font-semibold text-foreground truncate block" title={selected?.battery_serial || 'Pending handover'}>
+                      {selected?.battery_serial || 'Pending handover'}
+                    </span>
+                  </div>
+                  <div className="rounded bg-background/60 p-1.5 border border-border/40">
+                    <span className="text-[9px] uppercase tracking-wider text-muted-foreground block">GPS Tracker ID</span>
+                    <span className="font-mono font-semibold text-foreground truncate block" title={selected?.gps_tracker_id || 'Active'}>
+                      {selected?.gps_tracker_id || 'Active'}
+                    </span>
+                  </div>
                 </div>
               </div>
             )}
