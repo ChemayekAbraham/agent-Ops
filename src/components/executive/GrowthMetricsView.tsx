@@ -127,79 +127,44 @@ export function GrowthMetricsView() {
     staleTime: 300000,
   });
 
-  // ── 2. Snapshot KPIs from daily_platform_stats ──
-  const { data: snapshot, isLoading: loadingSnap } = useQuery({
-    queryKey: ['growth-snapshot'],
+  // ── 2+3+4. Live KPIs, source mix and roles from one role-gated server function ──
+  // (daily_platform_stats stopped updating in April 2026 and is not readable by CMO.)
+  const { data: live, isLoading: loadingLive } = useQuery({
+    queryKey: ['growth-live', range],
     queryFn: async () => {
-      const today = new Date().toISOString().split('T')[0];
-      const { data: latest } = await supabase
-        .from('daily_platform_stats')
-        .select('*')
-        .lte('stat_date', today)
-        .order('stat_date', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      // Prior comparison: 30 days back
-      const prior = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
-      const { data: priorRow } = await supabase
-        .from('daily_platform_stats')
-        .select('total_users, active_users_30d, new_users_today, retention_pct, referral_pct')
-        .lte('stat_date', prior)
-        .order('stat_date', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      return { latest, prior: priorRow };
-    },
-    staleTime: 300000,
-  });
-
-  // ── 3. Signup source breakdown (from profiles.signup_source over range) ──
-  const { data: sourceBreakdown, isLoading: loadingSources } = useQuery({
-    queryKey: ['growth-source-breakdown', range],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('signup_source')
-        .gte('created_at', start.toISOString())
-        .lte('created_at', end.toISOString())
-        .limit(10000);
-      if (error) throw error;
-      const counts: Record<string, number> = {};
-      (data || []).forEach((r: any) => {
-        const src = (r.signup_source || 'organic').toString();
-        counts[src] = (counts[src] || 0) + 1;
+      const { data, error } = await (supabase.rpc as any)('get_growth_metrics_live', {
+        p_start: start.toISOString(),
+        p_end: end.toISOString(),
       });
-      return Object.entries(counts)
-        .map(([name, value]) => ({ name, value }))
-        .sort((a, b) => b.value - a.value);
+      if (error) throw error;
+      return data as any;
     },
     staleTime: 300000,
   });
+  const loadingSnap = loadingLive;
+  const loadingSources = loadingLive;
+  const sourceBreakdown = (live?.sources ?? []) as { name: string; value: number }[];
 
-  // ── 4. Users by role (latest snapshot) ──
   const roleData = useMemo(() => {
-    const raw = (snapshot?.latest as any)?.users_by_role;
+    const raw = live?.users_by_role;
     if (!raw || typeof raw !== 'object') return [];
     return Object.entries(raw as Record<string, number>)
       .map(([name, value]) => ({ name, value: Number(value) || 0 }))
       .filter((r) => r.value > 0)
       .sort((a, b) => b.value - a.value);
-  }, [snapshot]);
+  }, [live]);
 
   // ── Derived deltas ──
-  const latest = snapshot?.latest as any;
-  const prior = snapshot?.prior as any;
-  const totalUsers = Number(latest?.total_users ?? 0);
-  const totalUsersPrev = Number(prior?.total_users ?? 0);
-  const active30 = Number(latest?.active_users_30d ?? 0);
-  const active30Prev = Number(prior?.active_users_30d ?? 0);
-  const retention = Number(latest?.retention_pct ?? 0);
-  const retentionPrev = Number(prior?.retention_pct ?? 0);
-  const referralPct = Number(latest?.referral_pct ?? 0);
-  const referralPctPrev = Number(prior?.referral_pct ?? 0);
-  const newToday = Number(latest?.new_users_today ?? 0);
+  const totalUsers = Number(live?.total_users ?? 0);
+  const totalUsersPrev = Number(live?.total_users_prev ?? 0);
+  const active30 = Number(live?.active_users_30d ?? 0);
+  // Sign-in history keeps only the latest sign-in, so a 30-days-ago active figure cannot be rebuilt.
+  const active30Prev = active30;
+  const retention = Number(live?.retention_pct ?? 0);
+  const retentionPrev = retention;
+  const referralPct = Number(live?.referral_pct ?? 0);
+  const referralPctPrev = Number(live?.referral_pct_prev ?? 0);
+  const newToday = Number(live?.new_users_today ?? 0);
 
   const pct = (curr: number, prev: number) =>
     prev <= 0 ? (curr > 0 ? 100 : 0) : Math.round(((curr - prev) / prev) * 100);
