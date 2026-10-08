@@ -32,7 +32,6 @@ export default function CampaignLinkRedirect() {
     if (!CODE_RE.test(code)) { setMissing(true); return; }
     if (started.has(code)) return;
     started.add(code);
-    let cancelled = false;
     (async () => {
       const { data, error } = await supabase.functions.invoke('tenant-campaign-click', {
         body: { code, referrer: document.referrer || null },
