@@ -29,6 +29,7 @@ import RentDisbursementReportPanel from '@/components/cfo/RentDisbursementReport
 import MerchantFloatRequisitionReportPanel from '@/components/cfo/MerchantFloatRequisitionReportPanel';
 import EmployeeRequisitionReportPanel from '@/components/cfo/EmployeeRequisitionReportPanel';
 import ExpenseReportPanel from '@/components/cfo/ExpenseReportPanel';
+import SmsOtpCostsPanel from '@/components/cfo/SmsOtpCostsPanel';
 import CFOWeeklyReportPanel from '@/components/cfo/CFOWeeklyReportPanel';
 import { CashflowForecastGraphs } from '@/components/cfo/CashflowForecastGraphs';
 import { RequisitionsWorkspace } from '@/components/requisitions/RequisitionsWorkspace';
@@ -618,6 +619,8 @@ export default function CFODashboardPage() {
         return <EmployeeRequisitionReportPanel />;
       case 'expense-report':
         return <ExpenseReportPanel />;
+      case 'sms-otp-costs':
+        return <SmsOtpCostsPanel />;
       case 'payout-reports':
         return (
           <div className="space-y-6">
