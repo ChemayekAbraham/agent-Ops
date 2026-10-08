@@ -197,6 +197,10 @@ export function lazyWithRetry<T extends ComponentType<any>>(
         return coerced;
       } catch (e) {
         lastErr = e;
+        // A mapper like `.then(m => ({ default: m.X }))` over a stale chunk
+        // throws "Cannot read properties of undefined". Retrying re-reads the
+        // same cached module, so go straight to the clean reload.
+        if (e instanceof TypeError && /undefined|null/.test(e.message)) break;
         // Linear backoff: 400ms, 800ms
         await new Promise((r) => setTimeout(r, 400 * (i + 1)));
       }
@@ -291,6 +295,9 @@ export function lazyNamed<M extends Record<string, any>, K extends keyof M & str
       console.warn(`[lazyNamed] reloading for stale chunk (${name}):`, lastErr);
       return untilReload<{ default: C }>();
     }
-    throw staleError(lastErr);
+    // Reload already spent in the last 30s: show the explicit reload card
+    // rather than crashing the dashboard to its error boundary.
+    console.warn(`[lazyNamed] stale chunk, reload already used (${name}):`, staleError(lastErr));
+    return { default: StaleChunkFallback as unknown as C };
   });
 }

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
+import { lazyNamed } from '@/lib/lazyWithRetry';
 import { Helmet } from 'react-helmet-async';
 import { ImageLightbox } from '@/components/marketplace/ImageLightbox';
 import houseSearchingIllustration from '@/assets/House_searching-bro-3.svg.asset.json';
@@ -36,9 +37,7 @@ import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 
 // Leaflet + tiles are heavy; only load the map bundle when the user opens it.
-const HouseMapView = lazy(() =>
-  import('@/components/tenant/HouseMapView').then((m) => ({ default: m.HouseMapView }))
-);
+const HouseMapView = lazyNamed(() => import('@/components/tenant/HouseMapView'), 'HouseMapView');
 
 // Region control is dataset-backed: Uganda's four official regions only.
 // District/sub-county come from the ug_* reference tables. Legacy region values

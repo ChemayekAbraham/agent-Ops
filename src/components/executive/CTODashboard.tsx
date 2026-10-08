@@ -114,6 +114,10 @@ export function CTODashboard({ activeTab }: { activeTab?: string }) {
   }
 
 
+  return <CTODashboardOverview activeTab={activeTab} />;
+}
+
+function CTODashboardOverview({ activeTab }: { activeTab?: string }) {
   // Real: active users in last 7 days
   const { data: activeUsers, isLoading } = useQuery({
     queryKey: ['cto-active-users'],

@@ -76604,6 +76604,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      withdrawal_payout_number_check: {
+        Args: { p_withdrawal_id: string }
+        Returns: Json
+      }
       withdrawal_settlement_status: {
         Args: { p_withdrawal_id: string }
         Returns: Json

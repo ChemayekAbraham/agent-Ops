@@ -23,11 +23,11 @@ import { useCallback, useRef, useState } from "react";
  */
 
 const newKey = (): string => {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+  try {
     return safeUUID();
+  } catch {
+    return `idem-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
   }
-  // Fallback for very old browsers
-  return `idem-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 };
 
 export interface UseIdempotentSubmitOptions {

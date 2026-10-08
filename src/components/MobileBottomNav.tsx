@@ -64,22 +64,6 @@ export default function MobileBottomNav({ currentRole, onManagerHubChange, activ
     }
   };
 
-  // Manager bottom nav: hub switching when on the manager dashboard
-  if (currentRole === 'manager' && currentPath === '/dashboard/manager' && onManagerHubChange) {
-    return (
-      <>
-        <ManagerHubNav
-          activeManagerHub={activeManagerHub}
-          onManagerHubChange={onManagerHubChange}
-          onTap={handleTap}
-          onOpenAi={() => setAiOpen(true)}
-          onOpenMenu={() => setMenuOpen(true)}
-        />
-        <WelileAIChatDrawer open={aiOpen} onOpenChange={setAiOpen} />
-        {menuOpen && <MobileManagerMenu onScrollToProductivity={onScrollToProductivity} isOpen={menuOpen} onClose={() => setMenuOpen(false)} />}
-      </>
-    );
-  }
 
   // Standard nav for all roles
   const getNavItems = () => {
@@ -122,6 +106,23 @@ export default function MobileBottomNav({ currentRole, onManagerHubChange, activ
     showDepositFab,
     Boolean(onOpenMenu),
   ]);
+
+  // Manager bottom nav: hub switching when on the manager dashboard
+  if (currentRole === 'manager' && currentPath === '/dashboard/manager' && onManagerHubChange) {
+    return (
+      <>
+        <ManagerHubNav
+          activeManagerHub={activeManagerHub}
+          onManagerHubChange={onManagerHubChange}
+          onTap={handleTap}
+          onOpenAi={() => setAiOpen(true)}
+          onOpenMenu={() => setMenuOpen(true)}
+        />
+        <WelileAIChatDrawer open={aiOpen} onOpenChange={setAiOpen} />
+        {menuOpen && <MobileManagerMenu onScrollToProductivity={onScrollToProductivity} isOpen={menuOpen} onClose={() => setMenuOpen(false)} />}
+      </>
+    );
+  }
 
   return (
     <>

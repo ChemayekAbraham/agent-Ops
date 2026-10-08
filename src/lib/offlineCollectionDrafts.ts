@@ -57,12 +57,24 @@ export interface OfflineCollectionDraft {
 }
 
 let dbPromise: Promise<IDBDatabase> | null = null;
+/** Connections known to be closed/closing (device sleep, version change). */
+const closedDbs = new WeakSet<IDBDatabase>();
 
 function resetDb(): void {
   dbPromise = null;
 }
 
-function openDB(): Promise<IDBDatabase> {
+/** Resolve a live connection, discarding a cached one that has been closed. */
+async function openDB(): Promise<IDBDatabase> {
+  if (dbPromise) {
+    const cached = await dbPromise.catch(() => null);
+    if (cached && !closedDbs.has(cached)) return cached;
+    resetDb();
+  }
+  return openDBFresh();
+}
+
+function openDBFresh(): Promise<IDBDatabase> {
   if (dbPromise) return dbPromise;
   const p = new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -71,10 +83,11 @@ function openDB(): Promise<IDBDatabase> {
     request.onsuccess = () => {
       const db = request.result;
       db.onversionchange = () => {
+        closedDbs.add(db);
         try { db.close(); } catch { /* ignore */ }
-        resetDb();
+        if (dbPromise === p) resetDb();
       };
-      db.onclose = () => resetDb();
+      db.onclose = () => { closedDbs.add(db); if (dbPromise === p) resetDb(); };
       resolve(db);
     };
     request.onupgradeneeded = (event) => {
@@ -97,16 +110,36 @@ function openDB(): Promise<IDBDatabase> {
 
 function isStaleConnectionError(err: unknown): boolean {
   const e = err as { name?: string; message?: string } | null;
-  return /closing|InvalidState|in-progress/i.test(`${e?.name ?? ''} ${e?.message ?? ''}`);
+  const name = e?.name ?? '';
+  if (name === 'QuotaExceededError' || name === 'ConstraintError') return false;
+  if (name === 'InvalidStateError' || name === 'UnknownError' || name === 'AbortError') return true;
+  return /closing|closed|InvalidState|in-progress|indexed database server/i.test(`${name} ${e?.message ?? ''}`);
 }
 
+/**
+ * Run `fn` on a live connection. If the connection was closed under us
+ * (mobile sleep), drop it, wait briefly, reopen and retry once. Writes are
+ * keyed put/delete, and failed transactions commit nothing, so retry is safe.
+ */
 async function withDb<T>(fn: (db: IDBDatabase) => Promise<T> | T): Promise<T> {
+  let db: IDBDatabase | null = null;
   try {
-    return await fn(await openDB());
+    db = await openDB();
+    return await fn(db);
   } catch (err) {
     if (!isStaleConnectionError(err)) throw err;
+    if (db) closedDbs.add(db);
     resetDb();
-    return await fn(await openDB());
+    await new Promise((r) => setTimeout(r, 150));
+    try {
+      return await fn(await openDB());
+    } catch (err2) {
+      if (isStaleConnectionError(err2)) {
+        resetDb();
+        throw new Error('Offline storage was interrupted. Please reload the app and try again.');
+      }
+      throw err2;
+    }
   }
 }
 

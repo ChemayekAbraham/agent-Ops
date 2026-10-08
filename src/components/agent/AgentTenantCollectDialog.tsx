@@ -42,7 +42,7 @@ import {
  *    sole-writer trigger when the cached balance is stale.
  */
 function tidMessage(balance: number, requested: number): string {
-  return `You can collect up to ${formatUGX(balance)}. Deposit ${formatUGX(Math.max(0, requested - balance))} more to continue.`;
+  return `You can collect up to ${formatUGX(balance)}. Rent collection needs real Mobile Money float. Deposit ${formatUGX(Math.max(0, requested - balance))} more via Mobile Money to replenish your verified float balance, then collect the rent.`;
 }
 
 function humanizeAllocationError(
@@ -283,7 +283,7 @@ export function AgentTenantCollectDialog({
       // returns the original receipt instead of a second collection and a
       // second commission payout.
       const clientRef = clientRefFor(rentRequestId, amount);
-      const rpcPromise = supabase.rpc('agent_allocate_tenant_payment', {
+      const callAllocate = () => supabase.rpc('agent_allocate_tenant_payment', {
           p_agent_id: user.id,
           p_tenant_id: tenant.id,
           p_rent_request_id: rentRequestId,
@@ -295,6 +295,17 @@ export function AgentTenantCollectDialog({
           p_client_ref: clientRef,
 
         });
+      // Lock wait / statement timeout / deadlock roll the whole transaction
+      // back (nothing committed), and the server dedupes on client_ref, so
+      // one delayed retry with the SAME ref cannot double-allocate.
+      const CONTENTION_CODES = new Set(['55P03', '57014', '40P01']);
+      const rpcPromise = (async () => {
+        const first = await callAllocate();
+        const code = (first.error as { code?: string } | null)?.code;
+        if (!code || !CONTENTION_CODES.has(code)) return first;
+        await new Promise((r) => setTimeout(r, 1500 + Math.random() * 1000));
+        return callAllocate();
+      })();
       const STALL_MS = 45000;
       const raced = await Promise.race([
         rpcPromise,

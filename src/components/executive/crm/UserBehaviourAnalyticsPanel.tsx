@@ -112,19 +112,6 @@ export function UserBehaviourAnalyticsPanel() {
     refetchOnWindowFocus: false,
   });
 
-  if (!isAuthorized) {
-    return (
-      <div className="p-8 max-w-2xl mx-auto text-center space-y-4">
-        <div className="h-14 w-14 rounded-2xl bg-destructive/10 text-destructive flex items-center justify-center mx-auto">
-          <ShieldAlert className="h-8 w-8" />
-        </div>
-        <h2 className="text-xl font-bold tracking-tight">Access Restricted</h2>
-        <p className="text-sm text-muted-foreground">
-          User Behaviour Telemetry is reserved exclusively for CRM, CTO, and Super Admin team members.
-        </p>
-      </div>
-    );
-  }
 
   const kpis = data?.kpis || {};
   const totalEvents = kpis.total_events || 0;
@@ -267,6 +254,19 @@ export function UserBehaviourAnalyticsPanel() {
     );
   });
 
+  if (!isAuthorized) {
+    return (
+      <div className="p-8 max-w-2xl mx-auto text-center space-y-4">
+        <div className="h-14 w-14 rounded-2xl bg-destructive/10 text-destructive flex items-center justify-center mx-auto">
+          <ShieldAlert className="h-8 w-8" />
+        </div>
+        <h2 className="text-xl font-bold tracking-tight">Access Restricted</h2>
+        <p className="text-sm text-muted-foreground">
+          User Behaviour Telemetry is reserved exclusively for CRM, CTO, and Super Admin team members.
+        </p>
+      </div>
+    );
+  }
   return (
     <div className="space-y-6 pb-12 animate-fade-in">
       {/* Header with Title and Global Filters */}

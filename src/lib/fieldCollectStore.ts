@@ -84,8 +84,20 @@ export interface FieldEntry {
  * top live /dashboard/agent client error in the 2026-09-27 CTO report.
  */
 let dbPromise: Promise<IDBDatabase> | null = null;
+/** Connections known to be closed/closing (device sleep, version change). */
+const closedDbs = new WeakSet<IDBDatabase>();
 
-function openDb(): Promise<IDBDatabase> {
+/** Resolve a live connection, discarding a cached one that has been closed. */
+async function openDb(): Promise<IDBDatabase> {
+  if (dbPromise) {
+    const cached = await dbPromise.catch(() => null);
+    if (cached && !closedDbs.has(cached)) return cached;
+    dbPromise = null;
+  }
+  return openDbFresh();
+}
+
+function openDbFresh(): Promise<IDBDatabase> {
   if (dbPromise) return dbPromise;
   const p = new Promise<IDBDatabase>((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
@@ -113,8 +125,8 @@ function openDb(): Promise<IDBDatabase> {
       const db = req.result;
       // Another tab upgrading the schema, or the browser closing the
       // connection abnormally: drop it so the next call reopens cleanly.
-      db.onversionchange = () => { db.close(); if (dbPromise === p) dbPromise = null; };
-      db.onclose = () => { if (dbPromise === p) dbPromise = null; };
+      db.onversionchange = () => { closedDbs.add(db); try { db.close(); } catch { /* ignore */ } if (dbPromise === p) dbPromise = null; };
+      db.onclose = () => { closedDbs.add(db); if (dbPromise === p) dbPromise = null; };
       resolve(db);
     };
     req.onerror = () => reject(req.error ?? namedError('UnknownError', 'Offline storage could not be opened'));
@@ -196,6 +208,7 @@ async function withDb<T>(fn: (db: IDBDatabase) => Promise<T>): Promise<T> {
   } catch (e) {
     if (isQuotaError(e)) throw new Error(STORAGE_FULL_MESSAGE);
     if (!isRetryableStorageError(e)) throw e;
+    if (db) closedDbs.add(db);
     if (dbPromise) {
       const current = await dbPromise.catch(() => null);
       if (!current || current === db) dbPromise = null;
@@ -430,16 +443,7 @@ export async function getDuplicateEntries(agentId: string): Promise<FieldEntry[]
 
 /** UUID v4 — works without crypto.randomUUID on older mobile WebViews */
 export function newClientUuid(): string {
-  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
-    try { return (crypto as any).randomUUID(); } catch { /* fall through */ }
-  }
-  // Fallback
-  const bytes = new Uint8Array(16);
-  (crypto as any).getRandomValues(bytes);
-  bytes[6] = (bytes[6] & 0x0f) | 0x40;
-  bytes[8] = (bytes[8] & 0x3f) | 0x80;
-  const hex = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
-  return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+  return safeUUID();
 }
 
 /* ----------------- Tenant pick log -----------------
