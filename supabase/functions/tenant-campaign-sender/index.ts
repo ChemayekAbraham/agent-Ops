@@ -108,14 +108,14 @@ Deno.serve(async (req) => {
         const phone = formatPhoneInternational(a.phone ?? "");
         const okPhone = isUgandanPhone(phone);
         return {
-          campaign_id: c.id, wave_id: w.id, tenant_id: a.tenant_id, recipient_name: a.full_name, phone: phone || "unknown",
+          campaign_id: c.id, wave_id: w.id, tenant_id: a.tenant_id, dedupe_key: a.tenant_id, recipient_name: a.full_name, phone: phone || "unknown",
           segment: a.segment, rent_amount: a.rent_amount, message: render(c, a.full_name, a.rent_amount ? Number(a.rent_amount) : null),
           status: okPhone ? "queued" : "skipped", error: okPhone ? null : "Not a valid Ugandan phone",
         };
       });
       for (let i = 0; i < rows.length; i += 500) {
         await admin.from("tenant_campaign_sends").upsert(rows.slice(i, i + 500), {
-          onConflict: "campaign_id,tenant_id", ignoreDuplicates: true,
+          onConflict: "campaign_id,dedupe_key", ignoreDuplicates: true,
         });
       }
       await admin.from("tenant_campaign_waves").update({ status: "sending", started_at: now }).eq("id", w.id).eq("status", "scheduled");
