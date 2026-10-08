@@ -304,14 +304,18 @@ export function SupplierPicker({
       <Input
         value={term}
         onChange={(e) => setTerm(e.target.value)}
-        placeholder="Search supplier by name or phone"
+        placeholder={staffOnly ? 'Search internal staff or ops member by name or phone' : 'Search supplier by name or phone'}
       />
       {q.length >= 2 && (
         <div className="max-h-36 space-y-1 overflow-y-auto rounded-md border p-1">
           {isFetching ? (
             <p className="px-1.5 py-1 text-xs text-muted-foreground">Searching…</p>
           ) : results.length === 0 ? (
-            <p className="px-1.5 py-1 text-xs text-muted-foreground">No registered user matches that search.</p>
+            <p className="px-1.5 py-1 text-xs text-muted-foreground">
+              {staffOnly
+                ? 'No internal staff or operations member matches that search.'
+                : 'No registered user matches that search.'}
+            </p>
           ) : (
             results.map((r) => (
               <button
@@ -320,7 +324,12 @@ export function SupplierPicker({
                 onClick={() => onChange(r)}
                 className="flex w-full items-center justify-between gap-2 rounded px-1.5 py-1 text-left text-xs hover:bg-muted"
               >
-                <span className="truncate font-medium">{r.name}</span>
+                <span className="min-w-0">
+                  <span className="block truncate font-medium">{r.name}</span>
+                  {r.roleLabel && (
+                    <span className="block truncate text-[10px] text-muted-foreground">{r.roleLabel}</span>
+                  )}
+                </span>
                 <span className="shrink-0 text-muted-foreground">{r.phone || '—'}</span>
               </button>
             ))
