@@ -585,13 +585,12 @@ export function useAgentCapacityMap(agentIds: string[]) {
           elig?.coverage_today ?? 0,
           elig?.coverage_yesterday ?? 0,
         );
-        const daily_good_floor =
-          exp.count > 0 && daily_pct_for_floor >= DAILY_ELIGIBILITY_THRESHOLD
-            ? NEW_AGENT_RENT_CAP_UGX
-            : 0;
-        const per_tenant_max = unlimited_posting
+        // An agent collecting at or above 50% (today, yesterday or blended)
+        // is never held back by the 7-day tier cap.
+        const above_daily_threshold = daily_pct_for_floor >= DAILY_ELIGIBILITY_THRESHOLD;
+        const per_tenant_max = unlimited_posting || above_daily_threshold
           ? UNLIMITED_PER_TENANT_MAX
-          : Math.max(base_per_tenant_max, daily_good_floor);
+          : base_per_tenant_max;
         const headroom = Math.max(AGENT_RENT_CAP_UGX - exp.used, 0);
         const pct = Math.min(100, Math.round((exp.used / AGENT_RENT_CAP_UGX) * 100));
         // Server-side eligibility values (Africa/Kampala TZ, from
