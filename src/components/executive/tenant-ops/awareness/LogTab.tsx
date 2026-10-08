@@ -9,7 +9,7 @@ import { SectionCard } from '@/components/executive/tenant-ops/workspace/payment
 import { WorkspaceEmptyState } from '@/components/executive/tenant-ops/workspace/WorkspaceEmptyState';
 import { WorkspaceMobileRow } from '@/components/executive/tenant-ops/workspace/WorkspaceMobileRow';
 import {
-  LABEL_30M_ACCESS, LABEL_EXPLAINED, LABEL_SELF_PAYMENT, SUBJECT_LABEL, TEAM_LABEL, awarenessLabel, callResultLabel, explainedLabel, stageLabel, telHref,
+  SUBJECT_LABEL, TEAM_LABEL, answersLine, callResultLabel, stageLabel, telHref,
 } from '@/lib/awarenessCallLabels';
 import { count, kampalaDateTime, statusLabel } from '@/lib/awarenessMonitoringLabels';
 import { exportAwarenessLogCsv, exportAwarenessLogXlsx } from '@/lib/awarenessCallsExport';
@@ -18,11 +18,10 @@ import {
 } from '@/hooks/useAwarenessMonitoring';
 import { PAGE_SIZE, Pager } from './shared';
 
-const ANSWERS_HEADING = `${LABEL_30M_ACCESS} · ${LABEL_SELF_PAYMENT} · ${LABEL_EXPLAINED}`;
+const ANSWERS_HEADING = 'Answers';
 
-const answers = (r: AwarenessLogRow) => (r.call_result === 'answered'
-  ? `${awarenessLabel(r.aware_30m)} · ${awarenessLabel(r.aware_merchant_codes)} · ${explainedLabel(r.explained)}`
-  : '—');
+/** The answers a call was asked (a landlord is asked about consent and the payment code; older landlord calls read "Old question"). */
+const answers = (r: AwarenessLogRow) => answersLine(r);
 
 /** Every call in the filters, newest first, with who was phoned and by whom. Exports the whole filtered log, not just this page. */
 export function LogTab({

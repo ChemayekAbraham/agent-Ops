@@ -40665,12 +40665,14 @@ export type Database = {
         Row: {
           aware_30m: string | null
           aware_merchant_codes: string | null
+          aware_payout_otp: string | null
           call_result: string
           caller_id: string
           caller_team: string
           dial_started_at: string
           explained: string | null
           id: string
+          landlord_consent: string | null
           note: string | null
           pipeline_stage: string
           recorded_at: string
@@ -40682,12 +40684,14 @@ export type Database = {
         Insert: {
           aware_30m?: string | null
           aware_merchant_codes?: string | null
+          aware_payout_otp?: string | null
           call_result: string
           caller_id: string
           caller_team: string
           dial_started_at: string
           explained?: string | null
           id?: string
+          landlord_consent?: string | null
           note?: string | null
           pipeline_stage: string
           recorded_at?: string
@@ -40699,12 +40703,14 @@ export type Database = {
         Update: {
           aware_30m?: string | null
           aware_merchant_codes?: string | null
+          aware_payout_otp?: string | null
           call_result?: string
           caller_id?: string
           caller_team?: string
           dial_started_at?: string
           explained?: string | null
           id?: string
+          landlord_consent?: string | null
           note?: string | null
           pipeline_stage?: string
           recorded_at?: string
@@ -72322,9 +72328,11 @@ export type Database = {
         Args: {
           p_aware_30m?: string
           p_aware_merchant_codes?: string
+          p_aware_payout_otp?: string
           p_call_result: string
           p_dial_started_at: string
           p_explained?: string
+          p_landlord_consent?: string
           p_note?: string
           p_rent_request_id: string
           p_subject_phone: string
