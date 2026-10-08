@@ -3634,6 +3634,13 @@
       "when": 1791459502941,
       "tag": "0518_lock_landlord_number_at_cfo_stage",
       "breakpoints": true
+    },
+    {
+      "idx": 519,
+      "version": "7",
+      "when": 1791460358468,
+      "tag": "0519_arrears_overview_exclude_weekly",
+      "breakpoints": true
     }
   ]
 }
