@@ -60762,10 +60762,6 @@ export type Database = {
         Args: { p_listing_id: string }
         Returns: Json
       }
-      agent_edit_sent_back_rent_plan: {
-        Args: { p_new_rent_amount: number; p_note: string; p_request_id: string }
-        Returns: Json
-      }
       agent_resubmit_rent_request: {
         Args: { p_agent_note: string; p_patch: Json; p_request_id: string }
         Returns: string
