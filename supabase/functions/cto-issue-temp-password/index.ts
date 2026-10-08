@@ -91,8 +91,8 @@ async function sendViaLana(phone: string, message: string): Promise<{ ok: boolea
     const phoneLana = formatPhoneInternational(phone).replace(/^\+/, "");
     const response = await fetch("https://api.lanasms.com/v1/send", {
       method: "POST",
-      headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json", "Accept": "application/json" },
-      body: JSON.stringify({ phone: phoneLana, sender_id: "WELILE", message}),
+      headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json" },
+      body: new URLSearchParams({ phone: String(phoneLana), sender_id: "WELILE", message }).toString(),
     });
     const text = await response.text();
     let data: Record<string, unknown> = {};

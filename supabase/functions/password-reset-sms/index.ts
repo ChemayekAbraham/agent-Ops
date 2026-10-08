@@ -218,10 +218,10 @@ async function sendViaLana(phone: string, message: string): Promise<SmsResult> {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
         "Accept": "application/json",
       },
-      body: JSON.stringify({ phone: phoneLana, sender_id: "WELILE", message}),
+      body: new URLSearchParams({ phone: String(phoneLana), sender_id: "WELILE", message }).toString(),
     });
     const text = await response.text();
     console.log(`[password-reset-sms] LANA response (${response.status}):`, text);
