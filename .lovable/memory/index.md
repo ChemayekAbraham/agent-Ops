@@ -4,3 +4,4 @@
 - [Service Centre receivables](mem://features/agent/service-centre-receivables) — per-centre funding charge (mark-up % or flat) → daily receivable split across attached agents; COO/CFO read-only panel
 - [Self-support Phase 3 hardening](mem://features/partner/self-support-phase3-hardening) — locked rent-plan self-support behaviour: no self-approval, float-only debit, cancelled-line release + trigger, cancelled-idempotency retirement on resubmit, single-approval float SMS aggregation; lists the `self_managed_house_topup` gap for Phase 4
 - [Promissory note commission base](mem://constraints/promissory-note-commission-base) — commission = individual note amount × 2%, never the partner's aggregate portfolio amount
+- [Landlord payout number](mem://features/landlord-payout-number) — landlords have a mobile money number; payouts and OTP always use it
