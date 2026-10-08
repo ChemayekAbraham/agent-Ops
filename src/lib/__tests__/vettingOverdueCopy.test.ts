@@ -47,3 +47,13 @@ describe('vettingOverdueCopy', () => {
     expect(buildDueSoonBanner({ ...base, due_soon_count: 4 })).toContain('4 items will pass the 48-hour limit');
   });
 });
+
+describe('vettingClockAt', () => {
+  it('uses the later of creation and go-live', async () => {
+    const { vettingClockAt } = await import('@/lib/vettingOverdueCopy');
+    expect(vettingClockAt('2026-09-01T00:00:00Z', '2026-10-08T00:00:00Z')).toBe('2026-10-08T00:00:00.000Z');
+    expect(vettingClockAt('2026-10-09T00:00:00Z', '2026-10-08T00:00:00Z')).toBe('2026-10-09T00:00:00.000Z');
+    expect(vettingClockAt('2026-09-01T00:00:00Z', null)).toBe('2026-09-01T00:00:00Z');
+    expect(vettingClockAt(null, '2026-10-08T00:00:00Z')).toBeNull();
+  });
+});

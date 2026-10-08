@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { VettingAgeChip } from '@/components/service-center/VettingAgeChip';
+import { vettingClockAt } from '@/lib/vettingOverdueCopy';
 import { useOverdueVettingAlert } from '@/hooks/useOverdueVettingAlert';
 import { vetRowId } from '@/components/service-center/vettingNav';
 import { CheckCircle2, ClipboardCheck, Eye, Loader2, MapPin, Phone, XCircle } from 'lucide-react';
@@ -147,7 +148,7 @@ export function ServiceCenterRentVettingQueue({ searchQuery = '' }: { searchQuer
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
-                  <VettingAgeChip createdAt={req.created_at} warnHours={vetPolicy?.warn_hours} overdueHours={vetPolicy?.overdue_hours} />
+                  <VettingAgeChip createdAt={vettingClockAt(req.created_at, vetPolicy?.effective_from)} warnHours={vetPolicy?.warn_hours} overdueHours={vetPolicy?.overdue_hours} />
                   <AwarenessCallBadge status={callStatus.byId.get(req.id)} />
                   <Badge variant="outline" className="w-fit shrink-0 text-[10px]">Service Center review</Badge>
                 </div>

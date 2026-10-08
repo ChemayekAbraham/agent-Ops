@@ -4,6 +4,8 @@ export interface OverdueVetting {
   enabled: boolean;
   overdue_hours: number;
   warn_hours: number;
+  /** Items created before this are aged from it, so the backlog clock restarts at go-live. */
+  effective_from?: string | null;
   remind_after_seconds: number;
   overdue_count: number;
   due_soon_count: number;
@@ -82,4 +84,15 @@ export function buildDueSoonBanner(v: OverdueVetting): string | null {
   if (v.due_soon_count <= 0) return null;
   const left = Math.max(1, v.overdue_hours - v.warn_hours);
   return `${v.due_soon_count} ${v.due_soon_count === 1 ? 'item' : 'items'} will pass the ${v.overdue_hours}-hour limit within ${left} hours.`;
+}
+
+/** The moment an item's waiting clock starts: the later of its creation and the policy's go-live. Mirrors the server so chips and the dialog agree. */
+export function vettingClockAt(createdAt?: string | null, effectiveFrom?: string | null): string | null {
+  if (!createdAt) return null;
+  if (!effectiveFrom) return createdAt;
+  const c = new Date(createdAt).getTime();
+  const e = new Date(effectiveFrom).getTime();
+  if (!Number.isFinite(c)) return null;
+  if (!Number.isFinite(e)) return createdAt;
+  return new Date(Math.max(c, e)).toISOString();
 }

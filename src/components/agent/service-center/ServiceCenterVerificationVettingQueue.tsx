@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { VettingAgeChip } from '@/components/service-center/VettingAgeChip';
+import { vettingClockAt } from '@/lib/vettingOverdueCopy';
 import { useOverdueVettingAlert } from '@/hooks/useOverdueVettingAlert';
 import { vetRowId } from '@/components/service-center/vettingNav';
 import { CheckCircle2, Loader2, MapPin, Phone, ShieldQuestion, UserCircle, XCircle } from 'lucide-react';
@@ -160,7 +161,7 @@ export function ServiceCenterVerificationVettingQueue({ only, searchQuery = '' }
                       {row.latitude && row.longitude ? ' · GPS captured' : ' · no GPS'}
                     </p>
                   </div>
-                  <div className="flex shrink-0 items-center gap-1.5"><VettingAgeChip createdAt={row.created_at} warnHours={vetPolicy?.warn_hours} overdueHours={vetPolicy?.overdue_hours} /><Badge variant="outline" className="shrink-0 text-[10px]">Landlord</Badge></div>
+                  <div className="flex shrink-0 items-center gap-1.5"><VettingAgeChip createdAt={vettingClockAt(row.created_at, vetPolicy?.effective_from)} warnHours={vetPolicy?.warn_hours} overdueHours={vetPolicy?.overdue_hours} /><Badge variant="outline" className="shrink-0 text-[10px]">Landlord</Badge></div>
                 </div>
 
                 <div className="grid gap-1 rounded-lg bg-muted/50 p-2 text-xs text-muted-foreground sm:grid-cols-2">
@@ -185,7 +186,7 @@ export function ServiceCenterVerificationVettingQueue({ only, searchQuery = '' }
                       {[row.village, row.parish, row.sub_county, row.district].filter(Boolean).join(', ') || 'No location captured'}
                     </p>
                   </div>
-                  <div className="flex shrink-0 items-center gap-1.5"><VettingAgeChip createdAt={row.created_at} warnHours={vetPolicy?.warn_hours} overdueHours={vetPolicy?.overdue_hours} /><Badge variant="outline" className="shrink-0 text-[10px]">LC1 chairperson</Badge></div>
+                  <div className="flex shrink-0 items-center gap-1.5"><VettingAgeChip createdAt={vettingClockAt(row.created_at, vetPolicy?.effective_from)} warnHours={vetPolicy?.warn_hours} overdueHours={vetPolicy?.overdue_hours} /><Badge variant="outline" className="shrink-0 text-[10px]">LC1 chairperson</Badge></div>
                 </div>
 
                 <div className="grid gap-1 rounded-lg bg-muted/50 p-2 text-xs text-muted-foreground sm:grid-cols-2">

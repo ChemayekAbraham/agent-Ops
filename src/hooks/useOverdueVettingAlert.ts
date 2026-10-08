@@ -14,14 +14,16 @@ export const OVERDUE_VETTING_QUERY_KEY = ['overdue-vetting'] as const;
  *  - Deciding an item invalidates this query (see the Service Centre queue hooks), so the dialog ends the moment the queue is clear.
  */
 export function useOverdueVettingAlert(opts: { suppressed?: boolean } = {}) {
-  const { user } = useAuth();
+  const { user, roles } = useAuth();
+  // Only agents can be Service Centre managers, so nobody else polls.
+  const isAgent = (roles as string[]).some((r) => r === 'agent' || r === 'senior_agent' || r === 'sub_agent');
   const [snoozedUntil, setSnoozedUntil] = useState(0);
   const [, setTick] = useState(0);
   const loggedForCountRef = useRef<number | null>(null);
 
   const query = useQuery({
     queryKey: [...OVERDUE_VETTING_QUERY_KEY, user?.id],
-    enabled: !!user?.id,
+    enabled: !!user?.id && isAgent,
     staleTime: 0,
     refetchInterval: 60_000,
     refetchOnWindowFocus: true,
