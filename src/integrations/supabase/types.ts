@@ -31889,6 +31889,7 @@ export type Database = {
         Row: {
           address: string | null
           agreement_date: string
+          auto_portfolio_id: string | null
           bank_account_name: string | null
           bank_account_number: string | null
           bank_name: string | null
@@ -31913,12 +31914,18 @@ export type Database = {
           phone: string | null
           reference: string | null
           return_option: string | null
+          self_support_allowance: number | null
+          self_support_reminded_at: string | null
           status: string
+          support_mode: string | null
+          support_mode_set_at: string | null
+          support_mode_set_by: string | null
           updated_at: string
         }
         Insert: {
           address?: string | null
           agreement_date?: string
+          auto_portfolio_id?: string | null
           bank_account_name?: string | null
           bank_account_number?: string | null
           bank_name?: string | null
@@ -31943,12 +31950,18 @@ export type Database = {
           phone?: string | null
           reference?: string | null
           return_option?: string | null
+          self_support_allowance?: number | null
+          self_support_reminded_at?: string | null
           status?: string
+          support_mode?: string | null
+          support_mode_set_at?: string | null
+          support_mode_set_by?: string | null
           updated_at?: string
         }
         Update: {
           address?: string | null
           agreement_date?: string
+          auto_portfolio_id?: string | null
           bank_account_name?: string | null
           bank_account_number?: string | null
           bank_name?: string | null
@@ -31973,7 +31986,12 @@ export type Database = {
           phone?: string | null
           reference?: string | null
           return_option?: string | null
+          self_support_allowance?: number | null
+          self_support_reminded_at?: string | null
           status?: string
+          support_mode?: string | null
+          support_mode_set_at?: string | null
+          support_mode_set_by?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -59452,6 +59470,13 @@ export type Database = {
         Args: { p_sale_id: string }
         Returns: string
       }
+      _partner_contract_coverage: {
+        Args: { p_partner_id: string }
+        Returns: {
+          existing_count: number
+          existing_total: number
+        }[]
+      }
       _post_four_part_fee_split: {
         Args: {
           p_amount: number
@@ -62447,6 +62472,18 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      claim_due_self_support_reminders: {
+        Args: { p_limit?: number }
+        Returns: {
+          agreement_id: string
+          contract_amount: number
+          email: string
+          full_name: string
+          partner_id: string
+          phone: string
+          remaining: number
+        }[]
+      }
       claim_float_request_for_email: {
         Args: {
           p_agent_id: string
@@ -62688,6 +62725,17 @@ export type Database = {
       }
       correct_tenant_location: {
         Args: { p_reason?: string; p_tenant_id: string; p_village_id: number }
+        Returns: Json
+      }
+      countersign_prepare_support: {
+        Args: {
+          p_actor: string
+          p_amount: number
+          p_countersign_only?: boolean
+          p_partner_id: string
+          p_return_option: string
+          p_support_mode: string
+        }
         Returns: Json
       }
       country_to_continent: { Args: { p_country: string }; Returns: string }
@@ -65757,6 +65805,10 @@ export type Database = {
       get_coo_rent_coverage_statement: { Args: never; Returns: Json }
       get_coo_system_overview: { Args: never; Returns: Json }
       get_coo_transaction_kpis: { Args: never; Returns: Json }
+      get_countersign_summary: {
+        Args: { p_amount?: number; p_partner_id: string }
+        Returns: Json
+      }
       get_crm_directory: {
         Args: {
           _limit?: number
