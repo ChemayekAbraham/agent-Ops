@@ -84,8 +84,20 @@ export interface FieldEntry {
  * top live /dashboard/agent client error in the 2026-09-27 CTO report.
  */
 let dbPromise: Promise<IDBDatabase> | null = null;
+/** Connections known to be closed/closing (device sleep, version change). */
+const closedDbs = new WeakSet<IDBDatabase>();
 
-function openDb(): Promise<IDBDatabase> {
+/** Resolve a live connection, discarding a cached one that has been closed. */
+async function openDb(): Promise<IDBDatabase> {
+  if (dbPromise) {
+    const cached = await dbPromise.catch(() => null);
+    if (cached && !closedDbs.has(cached)) return cached;
+    dbPromise = null;
+  }
+  return openDbFresh();
+}
+
+function openDbFresh(): Promise<IDBDatabase> {
   if (dbPromise) return dbPromise;
   const p = new Promise<IDBDatabase>((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
@@ -113,8 +125,8 @@ function openDb(): Promise<IDBDatabase> {
       const db = req.result;
       // Another tab upgrading the schema, or the browser closing the
       // connection abnormally: drop it so the next call reopens cleanly.
-      db.onversionchange = () => { db.close(); if (dbPromise === p) dbPromise = null; };
-      db.onclose = () => { if (dbPromise === p) dbPromise = null; };
+      db.onversionchange = () => { closedDbs.add(db); try { db.close(); } catch { /* ignore */ } if (dbPromise === p) dbPromise = null; };
+      db.onclose = () => { closedDbs.add(db); if (dbPromise === p) dbPromise = null; };
       resolve(db);
     };
     req.onerror = () => reject(req.error ?? namedError('UnknownError', 'Offline storage could not be opened'));
