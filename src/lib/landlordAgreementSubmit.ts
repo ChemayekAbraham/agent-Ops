@@ -1,3 +1,4 @@
+import { safeUUID } from '@/lib/safeUUID';
 import { supabase } from '@/integrations/supabase/client';
 
 /**
@@ -37,7 +38,7 @@ export async function submitLandlordAgreementFile({
     throw new Error('The agreement must be 20 MB or smaller.');
   }
 
-  const path = `${landlordId}/${crypto.randomUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+  const path = `${landlordId}/${safeUUID()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
   const upload = await supabase.storage.from('landlord-agreements').upload(path, file, {
     upsert: false,
     contentType: file.type,

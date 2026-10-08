@@ -45,8 +45,11 @@ Deno.serve(async (req) => {
     });
     if (!ok) return json({ error: "Not authorised" }, 403);
 
-    const { lease_id } = await req.json();
+    const body = await req.json().catch(() => ({}));
+    const lease_id = body?.lease_id;
     if (!lease_id) return json({ error: "lease_id required" }, 400);
+    const customMessage = typeof body?.custom_message === "string" ? body.custom_message.trim() : "";
+    if (customMessage.length > 480) return json({ error: "Message is too long (max 480 characters)" }, 400);
     const { data: lease } = await admin.from("agent_bike_leases")
       .select("id, agent_id, agent_name, agent_phone, amount_outstanding").eq("id", lease_id).maybeSingle();
     if (!lease) return json({ error: "Lease not found" }, 404);
@@ -57,7 +60,8 @@ Deno.serve(async (req) => {
 
     const name = (prof?.full_name || lease.agent_name || "Agent").split(" ")[0];
     const bal = `UGX ${Math.round(Number(lease.amount_outstanding || 0)).toLocaleString("en-US")}`;
-    const message = `Hello ${name}, your Welile electric bike lease has had no repayment for 7+ days. Outstanding: ${bal}. Please top up your Welile wallet today so your daily repayment can be collected. Thank you.`;
+    const autoMessage = `Hello ${name}, your Welile electric bike lease has had no repayment for 7+ days. Outstanding: ${bal}. Please top up your Welile wallet today so your daily repayment can be collected. Thank you.`;
+    const message = customMessage || autoMessage;
 
     let sent = await attemptYoolaPrimary(phone, message, { source: "dormant-bike-lease-reminder" });
     if (!sent) sent = await sendAT(phone, message);
@@ -66,7 +70,7 @@ Deno.serve(async (req) => {
     await admin.from("audit_logs").insert({
       user_id: u.user.id, action_type: "dormant_bike_lease_reminder_sms", table_name: "agent_bike_leases",
       record_id: lease.id, reason: "Dormant bike lease reminder SMS sent to agent",
-      metadata: { agent_id: lease.agent_id, outstanding: lease.amount_outstanding },
+      metadata: { agent_id: lease.agent_id, outstanding: lease.amount_outstanding, customized: Boolean(customMessage) },
     }).then(() => {}, () => {});
     return json({ ok: true });
   } catch (e) {

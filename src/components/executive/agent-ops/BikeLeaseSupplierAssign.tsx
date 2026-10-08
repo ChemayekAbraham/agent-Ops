@@ -55,7 +55,7 @@ export function BikeLeaseSupplierAssign({ saleId, locked }: { saleId: string; lo
           <Truck className="h-4 w-4 text-primary mt-0.5 shrink-0" />
           <div className="min-w-0">
             <p className="text-xs font-semibold">Company supplier (receives bike funds)</p>
-            <p className="text-[10px] text-muted-foreground">The lease stays in the agent's name; the supplier buys the bike.</p>
+            <p className="text-[10px] text-muted-foreground">Only internal company staff and operations team members can be the supplier. The lease stays in the agent's name.</p>
           </div>
         </div>
         {!editing && !locked && (
@@ -71,7 +71,7 @@ export function BikeLeaseSupplierAssign({ saleId, locked }: { saleId: string; lo
 
       {editing ? (
         <div className="space-y-2">
-          <SupplierPicker value={draft} onChange={setDraft} />
+          <SupplierPicker value={draft} onChange={setDraft} staffOnly />
           <div className="flex gap-2">
             <Button type="button" size="sm" className="h-7 text-xs" disabled={!draft || save.isPending}
               onClick={() => draft && save.mutate(draft)}>

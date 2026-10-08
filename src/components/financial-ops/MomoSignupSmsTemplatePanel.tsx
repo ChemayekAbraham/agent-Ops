@@ -1,3 +1,4 @@
+import { safeUUID } from '@/lib/safeUUID';
 import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -150,7 +151,7 @@ export function MomoSignupSmsTemplatePanel() {
         (ok ? 'Accepted by gateway' : 'Rejected by gateway');
       setHistory((prev) => [
         {
-          id: crypto.randomUUID(),
+          id: safeUUID(),
           phone,
           formattedPhone: data?.formattedPhone,
           message: messageSent,
@@ -170,7 +171,7 @@ export function MomoSignupSmsTemplatePanel() {
     } catch (e) {
       setHistory((prev) => [
         {
-          id: crypto.randomUUID(),
+          id: safeUUID(),
           phone,
           message: messageSent,
           at: new Date().toISOString(),

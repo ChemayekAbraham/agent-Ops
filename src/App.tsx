@@ -4,6 +4,7 @@
 import { Suspense, memo, useEffect, useState, Component, type ReactNode } from "react";
 import { HelmetProvider } from "react-helmet-async";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { GlobalOverdueVettingDialog } from "@/components/service-center/GlobalOverdueVettingDialog";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { LANDLORD_OPS_ROUTES } from "./pages/landlord-ops/routes";
 import { ThemeProvider } from "next-themes";
@@ -88,6 +89,7 @@ const OfflineProvider = lazyWithRetry(() => import("@/contexts/OfflineContext").
 const FeatureFlagsProvider = lazyWithRetry(() => import("@/contexts/FeatureFlagsContext").then(m => ({ default: m.FeatureFlagsProvider })));
 
 // Lazy load optional UI components
+const SupplierBikeAssetReminder = optionalLazyWithRetry(() => import("@/components/merchandise/SupplierBikeAssetReminder").then(m => ({ default: m.SupplierBikeAssetReminder })), "SupplierBikeAssetReminder");
 const Toaster = optionalLazyWithRetry(() => import("@/components/ui/toaster").then(m => ({ default: m.Toaster })), "Toaster");
 const SonnerToaster = optionalLazyWithRetry(() => import("@/components/ui/sonner").then(m => ({ default: m.Toaster })), "SonnerToaster");
 const NationalIdUnlinkNoticeDialog = optionalLazyWithRetry(() => import("@/components/national-id/NationalIdUnlinkNoticeDialog"), "NationalIdUnlinkNoticeDialog");
@@ -202,6 +204,7 @@ const ActivatePartner = lazy(() => import('./pages/ActivatePartner'));
 const BusinessAdvanceTrack = lazy(() => import('./pages/BusinessAdvanceTrack'));
 const ResolveRLink = lazy(() => import('./pages/ResolveRLink'));
 const TrackedRedirect = lazy(() => import('./pages/TrackedRedirect'));
+const CampaignLinkRedirect = lazy(() => import('./pages/CampaignLinkRedirect'));
 const MerchandiseShareRedirect = lazy(() => import('./pages/MerchandiseShareRedirect'));
 const SupportHouse = lazy(() => import('./pages/SupportHouse'));
 const RentAccessLimitPublic = lazy(() => import('./pages/RentAccessLimitPublic'));
@@ -229,6 +232,7 @@ const CFOReceivablesAnalysisPage = lazy(() => import('./pages/cfo/ReceivablesOve
 const CFOPayablesOverviewPage = lazy(() => import('./pages/cfo/PayablesOverview'));
 const CFOWelileHomesDayReportPage = lazy(() => import('./pages/cfo/WelileHomesDayReport'));
 const CFOBucketAPostingPage = lazy(() => import('./pages/cfo/BucketAPostingGate'));
+const CFOCorrection5300000Page = lazy(() => import('./pages/cfo/CorrectionPackage5300000Gate'));
 const InvestorReportPage = lazy(() => import('./pages/cfo/InvestorReportPage'));
 const MoneyFlowTracePage = lazy(() => import('./pages/cfo/MoneyFlowTrace'));
 const LedgerEntryDetailPage = lazy(() => import('./pages/cfo/LedgerEntryDetail'));
@@ -507,6 +511,7 @@ function AppRoutes() {
           <Route path="/cash-deposit/resend" element={<ResendCashDepositCode />} />
           <Route path="/r/:code" element={<ResolveRLink />} />
           <Route path="/s/:code" element={<TrackedRedirect />} />
+          <Route path="/n/:code" element={<CampaignLinkRedirect />} />
           <Route path="/m/:code" element={<MerchandiseShareRedirect />} />
           <Route path="/support-house" element={<SupportHouse />} />
           <Route path="/t/:token" element={<TenantDashboardLandingPage />} />
@@ -717,6 +722,7 @@ function AppRoutes() {
           <Route path="/cfo/payables" element={<RoleGuard allowedRoles={['cfo', 'super_admin', 'cto']} requiredPermission="cfo"><CFOPayablesOverviewPage /></RoleGuard>} />
           <Route path="/cfo/welile-homes" element={<RoleGuard allowedRoles={['cfo', 'super_admin', 'cto']} requiredPermission="cfo"><CFOWelileHomesDayReportPage /></RoleGuard>} />
           <Route path="/cfo/bucket-a-posting" element={<RoleGuard allowedRoles={['cfo', 'super_admin']} requiredPermission="cfo"><CFOBucketAPostingPage /></RoleGuard>} />
+          <Route path="/cfo/correction-5300000-posting" element={<RoleGuard allowedRoles={['cfo', 'super_admin']} requiredPermission="cfo"><CFOCorrection5300000Page /></RoleGuard>} />
           <Route path="/cfo" element={<Navigate to="/cfo/dashboard" replace />} />
           <Route path="/dashboard/cfo" element={<Navigate to="/cfo/dashboard" replace />} />
           <Route path="/admin/cfo" element={<Navigate to="/cfo/dashboard" replace />} />
@@ -857,6 +863,7 @@ function AppRoutes() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
+      <Suspense fallback={null}><GlobalOverdueVettingDialog /></Suspense>
       </div>
     </div>
   );
@@ -951,6 +958,7 @@ function DeferredProviders({ children }: { children: ReactNode }) {
                 <CartProvider>
                   <ComparisonProvider>
                     {children}
+                    <SupplierBikeAssetReminder />
                   </ComparisonProvider>
                 </CartProvider>
               </FeatureFlagsProvider>

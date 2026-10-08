@@ -21,6 +21,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useInvalidateCallViews } from '@/hooks/useCrmCallCentre';
+import { useCriticalFlow, useLeavePageWarning } from '@/hooks/useCriticalFlow';
+import { reportClientError } from '@/lib/errorReporting';
 import {
   getVoiceClient,
   isVoiceClientReady,
@@ -607,11 +609,33 @@ export function useCrmVoiceCall(): UseCrmVoiceCall {
     setMuted(false);
   }, []);
 
+  /* --- A call that is connecting, ringing or connected is live work. ---
+   * While it is, nothing may interrupt the screen it is on (the "new version" prompt, the install nag), and the
+   * browser asks "leave this page?" before a reload, a tab close or a pull-down refresh. */
+  const live = state !== 'idle' && !isTerminalCallState(state);
+  useCriticalFlow('voice-call', live);
+  useLeavePageWarning(live);
+
   /* --- Never leave a live call running when the screen goes away. --- */
   useEffect(
     () => () => {
       if (callIdRef.current && !settledRef.current) {
         const id = callIdRef.current;
+        const seconds =
+          connectedAtRef.current != null ? Math.floor((Date.now() - connectedAtRef.current) / 1000) : 0;
+        // Record WHY it ended, so the cases where a screen being removed hung a call up can be counted. The call
+        // record's own rules are untouched: this is a separate note, never part of the outcome.
+        void reportClientError({
+          source: 'manual',
+          label: 'call-screen-removed',
+          message: 'A live call was hung up because its screen was removed (reason: screen_removed)',
+          extra: {
+            reason: 'screen_removed',
+            call_session_id: id,
+            answered: answeredRef.current,
+            talk_seconds: seconds,
+          },
+        });
         hangupVoiceCall();
         void supabase.rpc('crm_finalize_call_from_client', {
           p_session_id: id,
