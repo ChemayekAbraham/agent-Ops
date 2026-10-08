@@ -46,6 +46,17 @@ export function OverdueVettingDialog({ suppressed }: { suppressed?: boolean }) {
   const reduce = usePrefersReducedMotion();
   const primaryRef = useRef<HTMLButtonElement>(null);
 
+  // The window cannot be dismissed for the first 20 seconds after it opens.
+  const LOCK_SECONDS = 20;
+  const [lockLeft, setLockLeft] = useState(LOCK_SECONDS);
+  useEffect(() => {
+    if (!open) return;
+    setLockLeft(LOCK_SECONDS);
+    const t = setInterval(() => setLockLeft((n) => (n <= 1 ? (clearInterval(t), 0) : n - 1)), 1000);
+    return () => clearInterval(t);
+  }, [open]);
+  const locked = lockLeft > 0;
+
   if (!copy || !data) return null;
   const escalated = copy.tone === 'escalated';
   const ToneIcon = escalated ? AlertTriangle : Clock;
@@ -59,11 +70,14 @@ export function OverdueVettingDialog({ suppressed }: { suppressed?: boolean }) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) remindLater(); }}>
+    <Dialog open={open} onOpenChange={(o) => { if (!o && !locked) remindLater(); }}>
       <DialogContent
         role="alertdialog"
         aria-labelledby="overdue-vetting-title"
-        className={cn('overflow-hidden p-0 gap-0 sm:max-w-md', !reduce && 'ovd-enter')}
+        className={cn('overflow-hidden p-0 gap-0 sm:max-w-md', !reduce && 'ovd-enter', locked && '[&>button]:hidden')}
+        onEscapeKeyDown={(e) => { if (locked) e.preventDefault(); }}
+        onPointerDownOutside={(e) => { if (locked) e.preventDefault(); }}
+        onInteractOutside={(e) => { if (locked) e.preventDefault(); }}
         onOpenAutoFocus={(e) => { e.preventDefault(); primaryRef.current?.focus(); }}
       >
         <style>{`
@@ -119,9 +133,9 @@ export function OverdueVettingDialog({ suppressed }: { suppressed?: boolean }) {
           )}
 
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button variant="outline" onClick={remindLater} className="gap-2">
-              {!reduce && <CountdownRing seconds={seconds} />}
-              {copy.secondaryLabel}
+            <Button variant="outline" onClick={remindLater} disabled={locked} className="gap-2">
+              {!locked && !reduce && <CountdownRing seconds={seconds} />}
+              {locked ? `You can close this in ${lockLeft}s` : copy.secondaryLabel}
             </Button>
             <Button ref={primaryRef} onClick={review} variant={escalated ? 'destructive' : 'default'}>
               {copy.primaryLabel}
