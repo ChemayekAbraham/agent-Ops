@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { formatUGX } from "@/lib/agentAdvanceCalculations";
 
 const CONFIRM = "AUTHORIZE BUCKET A POSTING";
-type Check = { check: string; pass: boolean; value: unknown };
+type Check = { check: string; pass: boolean | null; status?: string; value: unknown };
 type Preflight = {
   pass: boolean; package_hash: string; record_count: number; total: number; preflight_id: string;
   checks: Check[]; amount_mismatches: any[]; status_changes: any[]; already_posted: boolean;
@@ -60,7 +60,7 @@ export default function BucketAPostingGate() {
           </CardTitle></CardHeader>
           <CardContent className="space-y-1">
             {pf.checks.map((c) => (
-              <div key={c.check} className="flex justify-between text-sm"><span>{c.check}</span><span className={c.pass ? "text-primary" : "text-destructive"}>{c.pass ? "PASS" : "FAIL"}</span></div>
+              <div key={c.check} className="flex justify-between text-sm"><span>{c.check}</span><span className={c.status ? "text-muted-foreground" : c.pass ? "text-primary" : "text-destructive"}>{c.status ?? (c.pass ? "PASS" : "FAIL")}</span></div>
             ))}
             {[...pf.amount_mismatches, ...pf.status_changes].length > 0 && (
               <pre className="mt-2 max-h-64 overflow-auto rounded bg-muted p-2 text-xs">{JSON.stringify([...pf.amount_mismatches, ...pf.status_changes], null, 2)}</pre>
@@ -75,8 +75,8 @@ export default function BucketAPostingGate() {
           <CardContent>
             {row("Records", "322")}
             {row("Correction", formatUGX(pf!.total))}
-            {row("Debits", formatUGX(pf!.total))}
-            {row("Credits", formatUGX(pf!.total))}
+            {row("Debits (verified at posting)", formatUGX(pf!.total))}
+            {row("Credits (verified at posting)", formatUGX(pf!.total))}
             {row("Wallet / cash / repayment / agent float impact", formatUGX(0))}
             {row("Existing matching correction", "None")}
             {row("Atomic transaction", "Yes")}
@@ -97,7 +97,7 @@ export default function BucketAPostingGate() {
 
       {result && (
         <Card><CardHeader><CardTitle className={result.status === "committed" ? "" : "text-destructive"}>
-          {result.status === "committed" ? "BUCKET A POSTED SUCCESSFULLY — 322/322 — UGX 10,133,013.74" : "POSTING BLOCKED — FINAL VALIDATION FAILED — NOTHING POSTED"}
+          {result.status === "committed" ? "BUCKET A POSTED SUCCESSFULLY — 322/322 — UGX 10,133,013.74" : (result.status === "blocked" ? "POSTING BLOCKED — FINAL VALIDATION FAILED — NO POSTING ATTEMPTED" : "POSTING FAILED — ROLLED BACK — NOTHING POSTED")}
           {result.status !== "committed" && result.message && <p className="mt-1 text-sm font-normal">{result.message}</p>}
         </CardTitle></CardHeader>
         <CardContent>{result.status === "committed" && <>
