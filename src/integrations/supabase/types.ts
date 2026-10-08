@@ -60735,6 +60735,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      assign_bike_lease_supplier: {
+        Args: { p_sale_id: string; p_supplier_id?: string }
+        Returns: Json
+      }
       assign_smartphone_order_supplier: {
         Args: { p_sale_id: string; p_supplier_id?: string }
         Returns: Json
@@ -65276,6 +65280,15 @@ export type Database = {
       get_awareness_calls_for_request: {
         Args: { p_rent_request_id: string }
         Returns: Json
+      }
+      get_bike_lease_suppliers: {
+        Args: { p_sale_ids: string[] }
+        Returns: {
+          sale_id: string
+          supplier_id: string
+          supplier_name: string
+          supplier_phone: string
+        }[]
       }
       get_board_ledger_check: { Args: { p_date?: string }; Returns: Json }
       get_board_tech_memo: { Args: { p_date?: string }; Returns: Json }
