@@ -66647,6 +66647,20 @@ export type Database = {
       }
       get_my_landlord_properties: { Args: never; Returns: Json }
       get_my_listing_block: { Args: never; Returns: Json }
+      get_my_overdue_bike_asset_details: {
+        Args: never
+        Returns: {
+          agent_name: string
+          battery_serial: string
+          brand: string
+          cfo_disbursed_at: string
+          chassis_number: string
+          lease_id: string
+          model: string
+          plate_number: string
+          tracking_reference: string
+        }[]
+      }
       get_my_parent_agent: {
         Args: never
         Returns: {
