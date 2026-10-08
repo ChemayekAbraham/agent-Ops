@@ -71,7 +71,7 @@ export function BikeLeaseSupplierAssign({ saleId, locked }: { saleId: string; lo
 
       {editing ? (
         <div className="space-y-2">
-          <SupplierPicker value={draft} onChange={setDraft} />
+          <SupplierPicker value={draft} onChange={setDraft} staffOnly />
           <div className="flex gap-2">
             <Button type="button" size="sm" className="h-7 text-xs" disabled={!draft || save.isPending}
               onClick={() => draft && save.mutate(draft)}>
