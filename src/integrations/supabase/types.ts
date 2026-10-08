@@ -69294,6 +69294,21 @@ export type Database = {
         Args: { p_sub_agent_id: string }
         Returns: boolean
       }
+      list_agent_products_in_progress: {
+        Args: { p_category: string }
+        Returns: {
+          client_name: string
+          client_phone: string
+          coo_approved_at: string
+          created_at: string
+          id: string
+          item_name: string
+          ops_approved_at: string
+          order_status: string
+          quantity: number
+          total_revenue: number
+        }[]
+      }
       list_assignable_agents:
         | {
             Args: never
