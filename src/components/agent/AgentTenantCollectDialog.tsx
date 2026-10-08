@@ -42,7 +42,7 @@ import {
  *    sole-writer trigger when the cached balance is stale.
  */
 function tidMessage(balance: number, requested: number): string {
-  return `You can collect up to ${formatUGX(balance)}. Deposit ${formatUGX(Math.max(0, requested - balance))} more to continue.`;
+  return `You can collect up to ${formatUGX(balance)}. Rent collection needs real Mobile Money float. Deposit ${formatUGX(Math.max(0, requested - balance))} more via Mobile Money to replenish your verified float balance, then collect the rent.`;
 }
 
 function humanizeAllocationError(
