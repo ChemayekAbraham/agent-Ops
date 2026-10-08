@@ -125,7 +125,6 @@ Deno.serve(async (req) => {
     const { data: batch } = await admin.from("tenant_campaign_sends").select("id, tenant_id, phone, message, recipient_name")
       .eq("wave_id", w.id).eq("status", "queued").limit(CHUNK);
     await runPool(batch ?? [], async (s: any) => {
-      // Respect a pause pressed mid-wave.
       const ok = await sendSMS(s.phone, s.message, {
         admin, source: "tenant_campaign", reference_id: w.id,
         recipient_user_id: s.tenant_id, recipient_name: s.recipient_name,
