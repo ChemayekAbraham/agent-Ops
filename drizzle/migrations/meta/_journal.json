@@ -3543,6 +3543,13 @@
       "when": 1791442532896,
       "tag": "0505_bike_lease_supplier_payout",
       "breakpoints": true
+    },
+    {
+      "idx": 506,
+      "version": "7",
+      "when": 1791443923397,
+      "tag": "0506_bike_supplier_staff_only",
+      "breakpoints": true
     }
   ]
 }

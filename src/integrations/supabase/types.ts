@@ -68299,6 +68299,7 @@ export type Database = {
         Args: { _dashboard: string; _user_id: string }
         Returns: boolean
       }
+      has_internal_staff_role: { Args: { p_user_id: string }; Returns: boolean }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -73214,6 +73215,15 @@ export type Database = {
           id: string
           phone: string
           role: string
+        }[]
+      }
+      search_bike_supplier_candidates: {
+        Args: { p_search?: string }
+        Returns: {
+          full_name: string
+          phone: string
+          roles: string[]
+          user_id: string
         }[]
       }
       search_invitable_subagents: {
