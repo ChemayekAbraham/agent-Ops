@@ -1,0 +1,3 @@
+-- Rollback for 20261008160000_overdue_vetting_effective_from.sql
+-- Re-apply the get_my_overdue_vetting() definition from 20261008130000_service_center_overdue_vetting_alerts.sql (the version without effective_from).
+-- The frontend treats effective_from as optional, so leaving the newer function in place is also safe.

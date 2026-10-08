@@ -204,6 +204,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       items: [
         { label: 'Corrections & Approvals', icon: ShieldCheck, id: 'corrections-approvals', access: CFO_ACCESS },
         { label: 'Bucket A Posting', icon: ShieldCheck, id: 'bucket-a-posting', route: '/cfo/bucket-a-posting', access: CFO_ACCESS },
+        { label: 'Correction 5.3M Posting', icon: ShieldCheck, id: 'correction-5300000-posting', route: '/cfo/correction-5300000-posting', access: CFO_ACCESS },
         { label: 'Redemptions', icon: ShieldCheck, id: 'redemption-approvals', access: CFO_ACCESS },
       ],
     },
@@ -219,6 +220,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Merchant Requisition Report', icon: FileText, id: 'merchant-requisition-report' },
         { label: 'Employee Requisition Report', icon: FileText, id: 'employee-requisition-report' },
         { label: 'Expense Report', icon: FileText, id: 'expense-report' },
+        { label: 'SMS & OTP Costs', icon: MessageSquare, id: 'sms-otp-costs' },
         { label: 'Payout Reports', icon: Banknote, id: 'payout-reports' },
         { label: 'All Advances Report', icon: HandCoins, id: 'advances-report' },
         { label: 'House Listing Commission', icon: Home, id: 'house-listing-commission' },
@@ -325,6 +327,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Customer Issues', icon: MessageSquare, id: 'customer-issues' },
         { label: 'Tenant Support', icon: Handshake, id: 'tenant-support' },
         { label: 'Communications', icon: MessageSquare, id: 'communications' },
+        { label: 'SMS Campaigns', icon: Megaphone, id: 'sms-campaigns', access: { roles: ['crm', 'cto', 'super_admin'] } },
         {
           label: 'User Behaviour',
           icon: Activity,

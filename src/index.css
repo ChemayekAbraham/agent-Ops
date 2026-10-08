@@ -1711,3 +1711,7 @@ html.reduce-motion *::after {
   transition-duration: 0.001ms !important;
   scroll-behavior: auto !important;
 }
+
+/* Service Centre: row focused from the overdue vetting alert (2s). */
+[data-vet-highlight="true"] { outline: 2px solid hsl(var(--destructive)); outline-offset: 2px; border-radius: 0.75rem; transition: outline-color 200ms; }
+@media (prefers-reduced-motion: reduce) { [data-vet-highlight="true"] { transition: none; } }
