@@ -67180,6 +67180,10 @@ export type Database = {
         Returns: Json
       }
       get_receivables_total: { Args: never; Returns: Json }
+      get_referral_performance_rows: {
+        Args: { p_end: string; p_start: string }
+        Returns: Json
+      }
       get_referral_progress: { Args: { p_referred_id: string }; Returns: Json }
       get_rent_access_promo_stats: {
         Args: { p_from?: string; p_to?: string }
