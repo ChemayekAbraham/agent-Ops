@@ -20,8 +20,8 @@ interface SubAgentBottomNavProps {
 }
 
 export function SubAgentBottomNav({ active, onNavigate, onInvite }: SubAgentBottomNavProps) {
-  if (typeof document === 'undefined') return null;
   const { prefersReducedMotion } = useReducedMotion();
+  if (typeof document === 'undefined') return null;
 
   return createPortal(
     <nav
