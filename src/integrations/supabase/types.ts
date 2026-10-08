@@ -1358,6 +1358,7 @@ export type Database = {
           agent_id: string
           allocation_id: string
           amount: number
+          auto_approved: boolean
           cfo_decision_at: string | null
           cfo_id: string | null
           cfo_note: string | null
@@ -1375,6 +1376,7 @@ export type Database = {
           agent_id: string
           allocation_id: string
           amount: number
+          auto_approved?: boolean
           cfo_decision_at?: string | null
           cfo_id?: string | null
           cfo_note?: string | null
@@ -1392,6 +1394,7 @@ export type Database = {
           agent_id?: string
           allocation_id?: string
           amount?: number
+          auto_approved?: boolean
           cfo_decision_at?: string | null
           cfo_id?: string | null
           cfo_note?: string | null
@@ -60324,6 +60327,10 @@ export type Database = {
       }
       agent_resubmit_listing_to_service_center: {
         Args: { p_listing_id: string }
+        Returns: Json
+      }
+      agent_edit_sent_back_rent_plan: {
+        Args: { p_new_rent_amount: number; p_note: string; p_request_id: string }
         Returns: Json
       }
       agent_resubmit_rent_request: {
