@@ -5592,11 +5592,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
                   landlord and the LC1 chairperson happens later in the approval
                   pipeline — it never blocks posting. Only a landlord that is not
                   registered at all stops the post. */}
-              {detailStep === DETAIL_STEPS.length - 1 && (
-                landlordCheck === 'missing' ||
-                landlordCheck === 'unverified' ||
-                lc1Check !== 'verified'
-              ) && (
+              {detailStep === DETAIL_STEPS.length - 1 && landlordCheck === 'missing' && (
                 <div className="rounded-xl border-2 border-amber-500/40 bg-amber-500/10 p-4 space-y-2.5">
                   <p className="text-sm font-extrabold text-amber-700 flex items-center gap-2">
                     <AlertTriangle className="h-5 w-5 flex-shrink-0" />
