@@ -63370,6 +63370,10 @@ export type Database = {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
       }
+      delete_portfolio_and_refund: {
+        Args: { p_portfolio_id: string; p_reason?: string }
+        Returns: Json
+      }
       delete_welile_home_subscription: {
         Args: { p_subscription_id: string }
         Returns: boolean
