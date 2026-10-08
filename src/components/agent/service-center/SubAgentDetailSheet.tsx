@@ -5,7 +5,7 @@ import { Sheet, SheetClose, SheetContent } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  ArrowLeftRight, Building2, Home, KeyRound, Mail, Phone, ShieldCheck, ShieldOff, Unlink, Users, Wallet, X,
+  ArrowLeft, ArrowLeftRight, Building2, Home, KeyRound, Mail, Phone, ShieldCheck, ShieldOff, Unlink, Users, Wallet, X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -46,12 +46,12 @@ function Metric({
     accent: 'bg-accent text-accent-foreground border-border',
   } as const;
   return (
-    <div className={`rounded-xl border p-3 ${tones[tone]}`}>
+    <div className={`min-w-0 rounded-xl border p-3 ${tones[tone]}`}>
       <div className="flex items-center gap-1.5 text-[11px] font-medium opacity-80">
         <Icon className="h-3.5 w-3.5" />
         {label}
       </div>
-      <div className="mt-1 break-words text-sm font-bold">{value}</div>
+      <div className="mt-1 break-words text-sm font-bold [overflow-wrap:anywhere]">{value}</div>
     </div>
   );
 }
@@ -181,12 +181,11 @@ export function SubAgentDetailSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="h-[92dvh] rounded-t-3xl p-0">
-        <ScrollArea className="h-full">
-          <div className={`${tint.header} relative px-5 pb-6 pt-8`}>
-            <SheetClose className="absolute right-3 top-3 z-10 rounded-full bg-background/70 p-2 text-muted-foreground shadow-sm backdrop-blur transition-colors hover:bg-background hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring">
-              <X className="h-4 w-4" />
-              <span className="sr-only">Close</span>
+      <SheetContent side="bottom" className="h-[100dvh] w-full max-w-full rounded-none border-0 p-0 [&>button]:hidden">
+        <div className="h-full w-full overflow-y-auto overflow-x-hidden pb-[env(safe-area-inset-bottom)]">
+          <div className={`${tint.header} relative px-4 pb-5 pt-[max(1rem,env(safe-area-inset-top))]`}>
+            <SheetClose className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-background/70 px-3 py-1.5 text-xs font-semibold text-foreground shadow-sm backdrop-blur">
+              <ArrowLeft className="h-4 w-4" /> Back
             </SheetClose>
             <div className="flex items-start gap-3">
               <Avatar className="h-14 w-14 shrink-0 ring-2 ring-background">
@@ -230,10 +229,10 @@ export function SubAgentDetailSheet({
             </div>
           </div>
 
-          <div className="space-y-5 p-5">
+          <div className="min-w-0 space-y-5 p-4">
             <section className="space-y-2">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Earnings</h3>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2 [&>*]:min-w-0">
                 <Metric label="Commissions" value={formatUGX(subAgent.commission_total)} tone="success" icon={Wallet} />
                 <Metric label="Referral bonus" value={formatUGX(subAgent.referral_bonus)} tone="primary" icon={Users} />
               </div>
@@ -241,7 +240,7 @@ export function SubAgentDetailSheet({
 
             <section className="space-y-2">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Portfolio</h3>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2 [&>*]:min-w-0">
                 <Metric label="Tenants" value={String(subAgent.active_tenants)} tone="primary" icon={Users} />
                 <Metric
                   label="Landlords"
@@ -261,7 +260,7 @@ export function SubAgentDetailSheet({
 
             <section className="space-y-2">
               <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Wallet</h3>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 gap-2 min-[400px]:grid-cols-3">
                 <Metric label="Withdrawable" value={formatUGX(subAgent.wallet?.withdrawable ?? 0)} tone="success" icon={Wallet} />
                 <Metric label="Float" value={formatUGX(subAgent.wallet?.float ?? 0)} tone="primary" icon={Wallet} />
                 <Metric label="Advance" value={formatUGX(subAgent.wallet?.advance ?? 0)} tone="warning" icon={Wallet} />
@@ -378,7 +377,7 @@ export function SubAgentDetailSheet({
               </Button>
             </div>
           </div>
-        </ScrollArea>
+        </div>
       </SheetContent>
     </Sheet>
   );
