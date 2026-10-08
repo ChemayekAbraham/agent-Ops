@@ -404,11 +404,12 @@ export default function AgentServiceCenter() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-sm font-semibold text-foreground">{item.item_name}</div>
-                        <div className="text-xs text-muted-foreground">{formatUGX(item.unit_price)}</div>
-                        <div className="mt-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-                          Or pay in instalments — from{' '}
-                          {formatUGX(merchandiseInstallmentSchedule(Number(item.unit_price) || 0, 12).firstDaily)}/day
-                          {' '}over up to 12 months
+                        <div className="mt-0.5 text-base font-bold leading-tight text-primary">
+                          {formatUGX(merchandiseInstallmentSchedule(Number(item.unit_price) || 0, 12).firstDaily)}
+                          <span className="text-xs font-medium">/day</span>
+                        </div>
+                        <div className="text-[11px] text-muted-foreground">
+                          Instalments over up to 12 months · or {formatUGX(item.unit_price)} cash
                         </div>
                       </div>
                       <Button size="sm" onClick={() => navigate(`/merchandise?item=${item.id}`)}>
