@@ -2988,9 +2988,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
       // the insert as we used to.
       let preInsertTenantPhotoUrl: string | null = null;
       if (tenantPhoto) {
-        const tempId = (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
-          ? safeUUID()
-          : `pre_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+        const tempId = safeUUID();
         preInsertTenantPhotoUrl = await uploadTenantPhoto(tempId, tenantId);
         if (!preInsertTenantPhotoUrl) {
           const msg = "Couldn't upload the tenant's passport photo. Check your connection and try again.";
