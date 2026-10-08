@@ -39,6 +39,8 @@ export default function BucketAPostingGate() {
     setResult(data); setPf(null);
   };
 
+  // Pre-flight older than 30 minutes cannot authorise (the server enforces the same rule).
+  const pfFresh = !!pf?.evaluated_at && Date.now() - new Date(pf.evaluated_at).getTime() < 30 * 60 * 1000;
   const ready = pf && pf.pass && !pf.already_posted;
   const row = (k: string, v: string) => (
     <div className="flex justify-between border-b border-border py-1.5 text-sm"><span className="text-muted-foreground">{k}</span><span className="font-medium">{v}</span></div>
@@ -80,7 +82,9 @@ export default function BucketAPostingGate() {
             {row("Atomic transaction", "Yes")}
             {row("All 322 records unchanged", "Yes")}
             {row("Agent receivables in the books now", formatUGX(pf!.mapped_receivable_balance_now))}
-            {pf!.can_authorize ? (
+            {pf!.can_authorize && !pfFresh ? (
+              <p className="mt-4 text-sm text-destructive">This pre-flight is older than 30 minutes. Run a fresh pre-flight before authorising.</p>
+            ) : pf!.can_authorize ? (
               <div className="mt-4 space-y-2">
                 <p className="text-sm">Type <b>{CONFIRM}</b> to post. Viewing this page does not authorise anything.</p>
                 <Input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={CONFIRM} />

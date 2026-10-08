@@ -3571,6 +3571,13 @@
       "when": 1791445374125,
       "tag": "0509_referral_performance_real",
       "breakpoints": true
+    },
+    {
+      "idx": 510,
+      "version": "7",
+      "when": 1791445835705,
+      "tag": "0510_bucket_a_approver_allowlist",
+      "breakpoints": true
     }
   ]
 }

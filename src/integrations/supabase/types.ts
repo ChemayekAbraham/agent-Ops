@@ -68829,6 +68829,7 @@ export type Database = {
         Args: { p_user_id?: string }
         Returns: boolean
       }
+      is_bucket_a_approver: { Args: { _user_id: string }; Returns: boolean }
       is_budget_coo_reviewer: { Args: { _user_id: string }; Returns: boolean }
       is_budget_reviewer: { Args: { _user_id: string }; Returns: boolean }
       is_business_advance_ops: { Args: { _uid: string }; Returns: boolean }
