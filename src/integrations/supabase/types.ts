@@ -47423,6 +47423,7 @@ export type Database = {
         Row: {
           campaign_id: string
           created_at: string
+          dedupe_key: string | null
           error: string | null
           id: string
           is_test: boolean
@@ -47439,6 +47440,7 @@ export type Database = {
         Insert: {
           campaign_id: string
           created_at?: string
+          dedupe_key?: string | null
           error?: string | null
           id?: string
           is_test?: boolean
@@ -47455,6 +47457,7 @@ export type Database = {
         Update: {
           campaign_id?: string
           created_at?: string
+          dedupe_key?: string | null
           error?: string | null
           id?: string
           is_test?: boolean

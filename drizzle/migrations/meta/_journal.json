@@ -3606,6 +3606,13 @@
       "when": 1791452134916,
       "tag": "0514_tenant_sms_campaigns",
       "breakpoints": true
+    },
+    {
+      "idx": 515,
+      "version": "7",
+      "when": 1791452307557,
+      "tag": "0515_tenant_campaign_sends_dedupe",
+      "breakpoints": true
     }
   ]
 }
