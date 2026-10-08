@@ -161,12 +161,12 @@ async function sendViaLana(
   try {
     const res = await fetch("https://api.lanasms.com/v1/send", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({ phone: toMsisdn(phone), sender_id: "WELILE", message}),
+      headers: { "Content-Type": "application/x-www-form-urlencoded", Authorization: `Bearer ${apiKey}` },
+      body: new URLSearchParams({ phone: String(toMsisdn(phone)), sender_id: "WELILE", message }).toString(),
     });
     const raw = await res.text();
     let data: any; try { data = JSON.parse(raw); } catch { data = null; }
-    const ok = res.ok && data?.status === true;
+    const ok = res.ok && (data?.status === true || String(data?.status).toLowerCase() === "success");
     if (!ok) console.warn(`[approve-withdrawal] LANA rejected: ${data?.message ?? res.status}`);
     return {
       ok,

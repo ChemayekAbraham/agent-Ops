@@ -13,12 +13,15 @@
  */
 import { savePdfWithVault } from '@/lib/pdfVault';
 import type { SmsCostReport } from '@/hooks/useSmsCostReport';
+import { SMS_PROVIDERS, countPayments, sumPayments, type ProviderPayment } from '@/hooks/useProviderPayments';
 
 export interface SmsCostReportMeta {
   /** Human window label, e.g. "Last 30 days" or "June 2026". */
   windowLabel: string;
   /** Range subline, e.g. "04 Apr 2026 → 02 Jul 2026". */
   rangeLabel?: string;
+  /** Approved requisitions paid to the providers inside the window. Omit to leave the section out. */
+  payments?: ProviderPayment[];
 }
 
 const BRAND = {
@@ -215,6 +218,69 @@ export async function downloadSmsCostReportPdf(
       doc.text(`Page ${pageNum}`, pageW - M, pageH - 14, { align: 'right' });
     },
   });
+
+  // ---- Paid to the providers (requisitions) --------------------------------
+  if (meta.payments) {
+    const pay = meta.payments;
+    const usageFor = (name: string) =>
+      report.by_provider
+        .filter((r) => {
+          const p = (r.provider ?? '').toLowerCase();
+          return name === 'Yoola' ? p.includes('yoola') : p.includes('africa');
+        })
+        .reduce((sum, r) => sum + Number(r.cost_ugx || 0), 0);
+    doc.addPage();
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.setTextColor(...BRAND.ink);
+    doc.text('Paid to the providers — what finance recorded', M, 40);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(...BRAND.slate);
+    doc.text(
+      "Approved, credited requisitions naming Yoola or Africa's Talking, against the estimated usage for the same days. Africa's Talking requisitions can also cover its voice API and sender ID.",
+      M, 56, { maxWidth: pageW - M * 2 },
+    );
+    autoTable(doc, {
+      startY: 78,
+      head: [['Provider', 'Requisitions', 'Paid', 'Usage estimate']],
+      body: [
+        ...SMS_PROVIDERS.map((n) => [n, fmt(countPayments(pay, n)), ugx(sumPayments(pay, n)), ugx(usageFor(n))]),
+        ['Total', fmt(pay.length), ugx(sumPayments(pay)), ugx(SMS_PROVIDERS.reduce((sum, n) => sum + usageFor(n), 0))],
+      ],
+      theme: 'grid',
+      styles: { fontSize: 8, cellPadding: { top: 5, bottom: 5, left: 7, right: 7 }, lineColor: BRAND.line, lineWidth: 0.5, textColor: BRAND.ink, valign: 'middle' },
+      headStyles: { fillColor: BRAND.purple, textColor: 255, fontStyle: 'bold', fontSize: 8, halign: 'left' },
+      alternateRowStyles: { fillColor: BRAND.zebra },
+      columnStyles: { 0: { fontStyle: 'bold' }, 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' } },
+      didParseCell: (d: { section: string; row: { index: number }; cell: { styles: { fontStyle?: string } } }) => { if (d.section === 'body' && d.row.index === SMS_PROVIDERS.length) d.cell.styles.fontStyle = 'bold'; },
+      margin: { left: M, right: M, bottom: 40 },
+    });
+    if (pay.length > 0) {
+      autoTable(doc, {
+        startY: ((doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 120) + 14,
+        head: [['Requisition', 'Paid on', 'Provider', 'Title', 'Amount']],
+        body: pay.map((p) => [p.code, p.day, p.provider, p.title, ugx(p.amount)]),
+        theme: 'grid',
+        styles: { fontSize: 8, cellPadding: { top: 4, bottom: 4, left: 7, right: 7 }, lineColor: BRAND.line, lineWidth: 0.5, textColor: BRAND.ink, valign: 'middle' },
+        headStyles: { fillColor: BRAND.purpleDark, textColor: 255, fontStyle: 'bold', fontSize: 8, halign: 'left' },
+        alternateRowStyles: { fillColor: BRAND.zebra },
+        columnStyles: { 0: { fontStyle: 'bold', cellWidth: 90 }, 4: { halign: 'right', fontStyle: 'bold' } },
+        margin: { left: M, right: M, bottom: 40 },
+        didDrawPage: () => {
+          const pageNum = (doc as unknown as { internal: { getNumberOfPages: () => number } }).internal.getNumberOfPages();
+          doc.setDrawColor(...BRAND.line);
+          doc.setLineWidth(0.5);
+          doc.line(M, pageH - 26, pageW - M, pageH - 26);
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8);
+          doc.setTextColor(...BRAND.slate);
+          doc.text('Welile SMS Cost Report  ·  Confidential', M, pageH - 14);
+          doc.text(`Page ${pageNum}`, pageW - M, pageH - 14, { align: 'right' });
+        },
+      });
+    }
+  }
 
   savePdfWithVault(doc as any, filename, {
     label: 'SMS Cost / Yoola Credit Usage Report',
