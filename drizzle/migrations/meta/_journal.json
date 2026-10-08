@@ -3578,6 +3578,13 @@
       "when": 1791445835705,
       "tag": "0510_bucket_a_approver_allowlist",
       "breakpoints": true
+    },
+    {
+      "idx": 511,
+      "version": "7",
+      "when": 1791447503351,
+      "tag": "0511_dormant_bike_leases_projection_join",
+      "breakpoints": true
     }
   ]
 }
