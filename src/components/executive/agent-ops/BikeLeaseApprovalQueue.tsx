@@ -32,6 +32,7 @@ import { LEASE_TERMS } from '@/components/merchandise/SpiroBikeOrderDialog';
 import { SPIRO_LEASE_PERIODS, spiroLeaseSchedule } from '@/lib/spiroBikeLease';
 import { useBikeCatalogCosts, bikeProfit, resolveBikeBasePrice } from '@/hooks/useBikeCatalogCosts';
 import { BikeLeaseDetailDialog } from './BikeLeaseDetailDialog';
+import { BikeLeaseSupplierAssign, useBikeLeaseSupplier } from './BikeLeaseSupplierAssign';
 import { EditBikeApplicationDialog } from './EditBikeApplicationDialog';
 import { MotorBikeCatalogDialog } from './MotorBikeCatalogDialog';
 import { BikeAssetDetailsDialog } from './BikeAssetDetailsDialog';
@@ -257,6 +258,8 @@ export function BikeLeaseApprovalQueue({
   const approveDailyPay = approveSchedule.daily;
   const approveDailyRange = `${formatUGX(approveSchedule.firstDaily)} → ${formatUGX(approveSchedule.lastDaily)}`;
 
+  const { data: approveSupplier } = useBikeLeaseSupplier(approveTarget?.id);
+
   const approve = useMutation({
     mutationFn: async ({ id, stage }: { id: string; stage: Stage }) => {
       const fn =
@@ -280,7 +283,7 @@ export function BikeLeaseApprovalQueue({
     onSuccess: (data: any) => {
       toast.success(
         data?.stage === 'cfo'
-          ? `Disbursed ${formatUGX(Number(data?.valuation || 0))} to the agent wallet. Lease active — 28% monthly reducing-balance recovery started.`
+          ? `Paid ${formatUGX(Number(data?.valuation || 0))} to supplier ${data?.supplier_name || ''}. Agent lease active — 28% monthly reducing-balance recovery started.`
           : data?.stage === 'coo'
             ? `Approved at ${formatUGX(Number(data?.valuation || 0))} and forwarded to the CFO for disbursement.`
             : 'Verified by Agent Ops and forwarded to the COO for approval.',
@@ -787,14 +790,14 @@ export function BikeLeaseApprovalQueue({
           <DialogHeader>
             <DialogTitle>
               {approveStage === 'cfo'
-                ? 'Disburse to the agent wallet & activate lease'
+                ? 'Pay the supplier & activate the agent lease'
                 : approveStage === 'coo'
                   ? 'COO approval — valuation & lease terms'
                   : 'Agent Ops verification'}
             </DialogTitle>
             <DialogDescription className="text-xs">
               {approveStage === 'cfo'
-                ? 'The money goes into the ordering agent’s own wallet and daily wallet recovery starts immediately.'
+                ? 'The bike money goes to the assigned company supplier, never the agent. The lease stays in the agent’s name and daily recovery starts immediately.'
                 : approveStage === 'coo'
                   ? 'COO approval moves no money — the file is forwarded to the CFO for disbursement.'
                   : 'Verification moves no money — the file is forwarded to the COO for approval.'}
@@ -813,6 +816,8 @@ export function BikeLeaseApprovalQueue({
                   <span className="font-semibold">{approveTarget.model_type || 'Spiro bike'}</span>
                 </div>
               </div>
+
+              <BikeLeaseSupplierAssign saleId={approveTarget.id} />
 
               {approveStage === 'ops' ? (
                 <div className="space-y-1.5">
@@ -906,7 +911,7 @@ export function BikeLeaseApprovalQueue({
               Cancel
             </Button>
             <Button
-              disabled={approve.isPending || valuationNum < 100000}
+              disabled={approve.isPending || valuationNum < 100000 || (approveStage === 'cfo' && !approveSupplier)}
               onClick={() => approveTarget && approve.mutate({ id: approveTarget.id, stage: approveStage })}
             >
               {approve.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-1.5" /> : null}
