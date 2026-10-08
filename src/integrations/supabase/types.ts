@@ -61935,6 +61935,10 @@ export type Database = {
         Returns: Json
       }
       cfo_bucket_a_preflight: { Args: never; Returns: Json }
+      cfo_cancel_bike_lease: {
+        Args: { p_reason: string; p_sale_id: string }
+        Returns: Json
+      }
       cfo_collection_reconciliation_s11: {
         Args: never
         Returns: {
