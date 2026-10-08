@@ -281,7 +281,7 @@ function PortfolioDetailSheet({ portfolio, open, onOpenChange, onRenamed, onTopU
     try {
       await downloadPartnerStatement(portfolio.id);
       toast.success('Statement ready', {
-        description: 'Choose "Save as PDF" in the print window to keep a copy.',
+        description: 'Your statement PDF has been saved to your device.',
       });
       setReportChoiceOpen(false);
     } catch (e) {
@@ -666,7 +666,7 @@ export function InvestmentAccountsDrawer({ open, onOpenChange, defaultTab = 'acc
     try {
       await downloadPartnerStatement();
       toast.success('Statement ready', {
-        description: 'Every portfolio in one document — choose "Save as PDF" to keep a copy.',
+        description: 'Every portfolio in one PDF, saved to your device.',
       });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Could not create the statement');

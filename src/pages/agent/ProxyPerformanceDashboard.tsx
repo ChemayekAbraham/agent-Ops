@@ -1,7 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { FilePlus2 } from 'lucide-react';
+import { FilePlus2, Share2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { getPublicOrigin } from '@/lib/getPublicOrigin';
+import { createShortLink } from '@/lib/createShortLink';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useProxyPerformanceDashboard, type ProxyRange } from '@/hooks/useProxyPerformanceDashboard';
@@ -45,6 +49,39 @@ export default function ProxyPerformanceDashboard() {
   const name = (meta.full_name || user?.email?.split('@')[0] || 'Agent').split(' ')[0];
   const go = (s: ProxySection) => navigate(sectionPath(s));
   const startNote = () => setSupportModeOpen(true);
+
+  // Funder-onboarding invite link (same attributed flow as the Invite tab).
+  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
+  const inviteStarted = useRef(false);
+  const buildInvite = async () => {
+    if (!user?.id) return;
+    try {
+      const { data, error } = await supabase.rpc('log_proxy_partner_invite', { p_channel: 'link', p_invitee_name: null, p_invitee_phone: null });
+      if (error) throw error;
+      const payload = data as unknown as { path: string };
+      const long = `${getPublicOrigin()}${payload.path}`;
+      try {
+        const parsed = new URL(long);
+        const params: Record<string, string> = {};
+        parsed.searchParams.forEach((v, k) => { params[k] = v; });
+        setInviteUrl(await createShortLink(user.id, parsed.pathname, params));
+      } catch { setInviteUrl(long); }
+    } catch {
+      toast.error('Could not create your invite link');
+    }
+  };
+  useEffect(() => {
+    if (user?.id && !inviteStarted.current) { inviteStarted.current = true; void buildInvite(); }
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const shareInvite = async () => {
+    if (!inviteUrl) { void buildInvite(); return; }
+    const message = `Join me in supporting tenants on Welile and earn monthly returns: ${inviteUrl}`;
+    try {
+      if (navigator.share) await navigator.share({ title: 'Join Welile', text: message, url: inviteUrl });
+      else { await navigator.clipboard.writeText(inviteUrl); toast.success('Invite link copied'); }
+    } catch { /* share cancelled */ }
+  };
   const startHouseNote = (house: HouseOpportunity) => {
     setSupportMode('self');
     setNoteHouse(house);
@@ -63,9 +100,12 @@ export default function ProxyPerformanceDashboard() {
           <h1 className="break-words text-lg font-bold tracking-tight md:text-2xl">{greet}, {name}</h1>
           <p className="text-xs text-muted-foreground">{todayLabel}</p>
         </div>
-        <div className="flex w-full flex-col gap-2 sm:w-auto sm:shrink-0 sm:flex-row sm:items-center">
+        <div className="flex w-full flex-row items-center gap-2 sm:w-auto sm:shrink-0 sm:flex-row sm:items-center">
           <Button variant="outline" size="sm" className="hidden h-9 md:inline-flex" onClick={() => setHowOpen(true)}>How it works</Button>
-          <Button size="sm" className="h-9 w-full sm:w-auto" onClick={startNote}><FilePlus2 className="mr-1 h-4 w-4" /><span className="md:hidden">Create Note</span><span className="hidden md:inline">Create Promissory Note</span></Button>
+          <Button variant="outline" size="sm" className="h-9 w-[20%] shrink-0 px-0 sm:w-auto" onClick={shareInvite} aria-label="Share invite link">
+            <Share2 className="h-4 w-4" />
+          </Button>
+          <Button size="sm" className="h-9 w-[80%] sm:w-auto" onClick={startNote}><FilePlus2 className="mr-1 h-4 w-4" /><span className="md:hidden">Create Note</span><span className="hidden md:inline">Create Promissory Note</span></Button>
         </div>
       </div>
 

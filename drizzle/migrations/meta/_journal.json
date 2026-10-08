@@ -3529,6 +3529,76 @@
       "when": 1791412141260,
       "tag": "0503_fundable_plans_tenant_phone",
       "breakpoints": true
+    },
+    {
+      "idx": 504,
+      "version": "7",
+      "when": 1791437684329,
+      "tag": "0504_cfo_bucket_a_posting_gate",
+      "breakpoints": true
+    },
+    {
+      "idx": 505,
+      "version": "7",
+      "when": 1791442532896,
+      "tag": "0505_bike_lease_supplier_payout",
+      "breakpoints": true
+    },
+    {
+      "idx": 506,
+      "version": "7",
+      "when": 1791443923397,
+      "tag": "0506_bike_supplier_staff_only",
+      "breakpoints": true
+    },
+    {
+      "idx": 507,
+      "version": "7",
+      "when": 1791444585290,
+      "tag": "0507_growth_metrics_live",
+      "breakpoints": true
+    },
+    {
+      "idx": 508,
+      "version": "7",
+      "when": 1791445102174,
+      "tag": "0508_signup_metrics_exclude_fake",
+      "breakpoints": true
+    },
+    {
+      "idx": 509,
+      "version": "7",
+      "when": 1791445374125,
+      "tag": "0509_referral_performance_real",
+      "breakpoints": true
+    },
+    {
+      "idx": 510,
+      "version": "7",
+      "when": 1791445835705,
+      "tag": "0510_bucket_a_approver_allowlist",
+      "breakpoints": true
+    },
+    {
+      "idx": 511,
+      "version": "7",
+      "when": 1791447503351,
+      "tag": "0511_dormant_bike_leases_projection_join",
+      "breakpoints": true
+    },
+    {
+      "idx": 512,
+      "version": "7",
+      "when": 1791448742020,
+      "tag": "0512_bike_asset_details_after_disbursement",
+      "breakpoints": true
+    },
+    {
+      "idx": 513,
+      "version": "7",
+      "when": 1791449003578,
+      "tag": "0513_agent_products_in_progress",
+      "breakpoints": true
     }
   ]
 }

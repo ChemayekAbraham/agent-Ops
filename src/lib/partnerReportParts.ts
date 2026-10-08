@@ -1,4 +1,5 @@
-import welileLogoUrl from '@/assets/welile-logo.png';
+// Same wordmark the partnership contract carries, so every Welile document matches.
+import welileLogoUrl from '@/assets/welile-contract-logo.png';
 import { DASH, esc } from './welileReportDocument';
 import { PARTNER_STATEMENT_CSS } from './partnerStatementStyles';
 

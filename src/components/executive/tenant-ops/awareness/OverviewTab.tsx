@@ -5,7 +5,7 @@ import {
   CHART_GRID, CHART_TICK, ChartSkeleton, ChartTooltipBox, Legend, PctBar, SectionCard, StatTile,
 } from '@/components/executive/tenant-ops/workspace/payment-behavior/shared';
 import { WorkspaceEmptyState } from '@/components/executive/tenant-ops/workspace/WorkspaceEmptyState';
-import { LABEL_30M_ACCESS, LABEL_SELF_PAYMENT } from '@/lib/awarenessCallLabels';
+import { LABEL_30M_ACCESS, LABEL_LANDLORD_CONSENT, LABEL_PAYOUT_OTP, LABEL_SELF_PAYMENT } from '@/lib/awarenessCallLabels';
 import { count, kampalaDate, percent } from '@/lib/awarenessMonitoringLabels';
 import type { AwarenessBucket, AwarenessGaps, AwarenessSummary } from '@/hooks/useAwarenessMonitoring';
 
@@ -73,7 +73,11 @@ export function OverviewTab({
         <StatTile label={LABEL_30M_ACCESS} tone="success" loading={loading} value={count(summary?.aware_30m.knew)}
           sub={`${percent(summary?.aware_30m.knew_pct)} of answered calls`} />
         <StatTile label={LABEL_SELF_PAYMENT} tone="success" loading={loading} value={count(summary?.aware_merchant_codes.knew)}
-          sub={`${percent(summary?.aware_merchant_codes.knew_pct)} of answered calls`} />
+          sub={`${percent(summary?.aware_merchant_codes.knew_pct)} of answered tenant and agent calls`} />
+        <StatTile label="Landlords who consent" tone="success" loading={loading} value={count(summary?.landlord_consent?.consents)}
+          sub={`${percent(summary?.landlord_consent?.consents_pct)} of ${count(t?.answered_landlord)} answered landlord calls`} />
+        <StatTile label={LABEL_PAYOUT_OTP} tone="success" loading={loading} value={count(summary?.aware_payout_otp?.knew)}
+          sub={`${percent(summary?.aware_payout_otp?.knew_pct)} of answered landlord calls`} />
         <StatTile label="Fully explained" tone="primary" loading={loading} value={count(summary?.explained.yes)}
           sub={`${count(summary?.explained.partly)} partly, ${count(summary?.explained.no)} not explained`} />
         <StatTile label="Stages without a call" tone="warning" loading={!gaps} value={count(gaps?.totals.without_call)}
@@ -162,11 +166,27 @@ export function OverviewTab({
                   labels={['Knew about it', 'Heard but unsure', 'Did not know']}
                 />
                 <AnswerBlock
-                  title={LABEL_SELF_PAYMENT}
+                  title={`${LABEL_SELF_PAYMENT} (tenants and agents)`}
                   counts={[summary.aware_merchant_codes.knew, summary.aware_merchant_codes.heard, summary.aware_merchant_codes.did_not_know]}
                   pcts={[summary.aware_merchant_codes.knew_pct, summary.aware_merchant_codes.heard_pct, summary.aware_merchant_codes.did_not_know_pct]}
                   labels={['Knew about it', 'Heard but unsure', 'Did not know']}
                 />
+                {summary.landlord_consent && (
+                  <AnswerBlock
+                    title={`${LABEL_LANDLORD_CONSENT} (landlords)`}
+                    counts={[summary.landlord_consent.consents, summary.landlord_consent.unsure, summary.landlord_consent.refuses]}
+                    pcts={[summary.landlord_consent.consents_pct, summary.landlord_consent.unsure_pct, summary.landlord_consent.refuses_pct]}
+                    labels={['Consents', 'Not sure, wants to think', 'Does not consent']}
+                  />
+                )}
+                {summary.aware_payout_otp && (
+                  <AnswerBlock
+                    title={`${LABEL_PAYOUT_OTP} (landlords)`}
+                    counts={[summary.aware_payout_otp.knew, summary.aware_payout_otp.heard, summary.aware_payout_otp.did_not_know]}
+                    pcts={[summary.aware_payout_otp.knew_pct, summary.aware_payout_otp.heard_pct, summary.aware_payout_otp.did_not_know_pct]}
+                    labels={['Knew about it', 'Heard but unsure', 'Did not know']}
+                  />
+                )}
                 <AnswerBlock
                   title="Was it explained to them"
                   counts={[summary.explained.yes, summary.explained.partly, summary.explained.no]}

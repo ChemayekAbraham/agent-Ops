@@ -1,3 +1,4 @@
+import { safeUUID } from '@/lib/safeUUID';
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { addDays, format } from 'date-fns';
 import { getPublicOrigin } from '@/lib/getPublicOrigin';
@@ -2968,7 +2969,7 @@ export default function AgentRentRequestDialog({ open, onOpenChange, onSuccess, 
       let preInsertTenantPhotoUrl: string | null = null;
       if (tenantPhoto) {
         const tempId = (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
-          ? crypto.randomUUID()
+          ? safeUUID()
           : `pre_${Date.now()}_${Math.random().toString(36).slice(2)}`;
         preInsertTenantPhotoUrl = await uploadTenantPhoto(tempId, tenantId);
         if (!preInsertTenantPhotoUrl) {

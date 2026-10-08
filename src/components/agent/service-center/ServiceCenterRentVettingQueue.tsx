@@ -18,6 +18,7 @@ import { AwarenessCallPanel } from '@/components/pipeline/AwarenessCallPanel';
 import { AwarenessCallBadge } from '@/components/pipeline/AwarenessCallBadge';
 import { MyAwarenessCallsCard } from '@/components/pipeline/MyAwarenessCallsCard';
 import { useAwarenessCallStatus } from '@/hooks/useAwarenessCallStatus';
+import { useCriticalFlow } from '@/hooks/useCriticalFlow';
 import { hasNoCallAtStage } from '@/lib/awarenessCallStatus';
 
 /**
@@ -38,6 +39,9 @@ export function ServiceCenterRentVettingQueue({ searchQuery = '' }: { searchQuer
   // One batched read for the whole queue tells every card whether it has been called; the cards no longer read their own history
   // unless the batch says there is something to show.
   const callStatus = useAwarenessCallStatus((data?.pending ?? []).map((r) => r.id));
+
+  // A comment typed for a decision that has not been sent is unsent work: nothing may interrupt it.
+  useCriticalFlow('service-centre-comment', Object.values(comments).some((c) => c.trim().length > 0));
 
   /** Ops reads this comment during final verification, so it is never optional. */
   const MIN_COMMENT = 10;

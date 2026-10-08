@@ -69,6 +69,47 @@ export function scopeStylesToRoot(styles: string): string {
     );
 }
 
+const REPORT_FONTS_HREF =
+  'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap';
+
+/**
+ * The report templates are set in Inter / JetBrains Mono. The print window loads
+ * them itself, but the off-screen render lives in the app page, so load them
+ * here too (best effort, bounded) or the PDF falls back to a system font and
+ * stops matching the template.
+ */
+async function ensureReportFonts(): Promise<void> {
+  try {
+    if (!document.querySelector('link[data-welile-report-fonts]')) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = REPORT_FONTS_HREF;
+      link.setAttribute('data-welile-report-fonts', '');
+      document.head.appendChild(link);
+    }
+    const fonts = (document as any).fonts;
+    if (!fonts?.load) return;
+    const wanted = [
+      '400 10px Inter', '500 10px Inter', '600 10px Inter', '700 10px Inter', '800 10px Inter', '900 10px Inter',
+      '400 10px "JetBrains Mono"', '600 10px "JetBrains Mono"', '700 10px "JetBrains Mono"',
+    ];
+    await Promise.race([
+      Promise.all(wanted.map((f) => fonts.load(f).catch(() => null))),
+      new Promise((r) => setTimeout(r, 4000)),
+    ]);
+  } catch { /* fall back to system fonts */ }
+}
+
+/**
+ * Pin each report page to exactly A4 on screen (the template centres a fluid
+ * page inside a padded wrapper), so the raster is the page itself, edge to
+ * edge, with no wrapper padding or shadow around it.
+ */
+const REPORT_PAGE_OVERRIDES = `<style>
+.agreement-print-root .document-wrapper { width: 210mm; max-width: 210mm; margin: 0; padding: 0; }
+.agreement-print-root .report-page { width: 210mm; max-width: 210mm; margin: 0; box-shadow: none; }
+</style>`;
+
 async function renderToPdf(
   html: string,
   opts?: { format?: 'a4' | 'letter'; scopeStyles?: boolean },
@@ -84,6 +125,8 @@ async function renderToPdf(
   const split = splitAgreementHtml(html);
   const styles = opts?.scopeStyles ? scopeStylesToRoot(split.styles) : split.styles;
   const body = split.body;
+  const overrides = opts?.scopeStyles ? REPORT_PAGE_OVERRIDES : '';
+  if (opts?.scopeStyles) await ensureReportFonts();
 
   const host = document.createElement('div');
   host.setAttribute('aria-hidden', 'true');
@@ -96,7 +139,7 @@ async function renderToPdf(
     'z-index:-1',
     'pointer-events:none',
   ].join(';');
-  host.innerHTML = `${styles}<div class="agreement-print-root" style="width:900px;background:#ffffff;">${body}</div>`;
+  host.innerHTML = `${styles}${overrides}<div class="agreement-print-root" style="width:900px;background:#ffffff;">${body}</div>`;
   document.body.appendChild(host);
 
   try {
@@ -115,7 +158,9 @@ async function renderToPdf(
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format });
     const pageW = pdf.internal.pageSize.getWidth();
     const pageH = pdf.internal.pageSize.getHeight();
-    const margin = 8;
+    // Reports are already laid out as full A4 pages (with their own padding), so
+    // they go on edge to edge; the contract keeps its 8mm page margin.
+    const margin = opts?.scopeStyles ? 0 : 8;
     const maxW = pageW - margin * 2;
     const maxH = pageH - margin * 2;
 

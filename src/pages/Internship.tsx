@@ -1,3 +1,4 @@
+import { safeUUID } from '@/lib/safeUUID';
 import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
 import { Button } from '@/components/ui/button';
@@ -77,7 +78,7 @@ export default function Internship() {
 
     setIsSubmitting(true);
     try {
-      const submitReference = crypto.randomUUID().slice(0, 8);
+      const submitReference = safeUUID().slice(0, 8);
       const { error } = await supabase.from('internship_applications').insert({
         full_name: form.fullName.trim(),
         phone: form.phone.trim(),

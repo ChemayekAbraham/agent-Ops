@@ -318,10 +318,13 @@ export default function MerchandiseStore() {
   const hasOrders = totalOrdersCount > 0;
 
   useEffect(() => {
-    if (!hasOrders && activeMainTab === 'orders') {
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'orders') {
+      setActiveMainTab('orders');
+    } else if (tabParam === 'store') {
       setActiveMainTab('store');
     }
-  }, [hasOrders, activeMainTab]);
+  }, [searchParams]);
 
   const currentFilterCount = useMemo(() => {
     if (orderFilter === 'pending') return totalPending;
@@ -597,33 +600,40 @@ export default function MerchandiseStore() {
       <div className="max-w-lg mx-auto px-4 pt-3 space-y-4">
         <MyCategorisedOrdersNotice userId={user?.id} />
         {/* Main Tab Switcher (Store vs My Orders) — only appears when agent has at least one order */}
-        {hasOrders && (
-          <div className="flex p-1 bg-muted/70 rounded-xl border border-border/60">
-            <button
-              type="button"
-              onClick={() => setActiveMainTab('store')}
-              className={cn(
-                'flex-1 flex items-center justify-center gap-2 py-2 text-xs font-semibold rounded-lg transition-all',
-                activeMainTab === 'store'
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              <ShoppingBag className="h-4 w-4" />
-              <span>Store</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveMainTab('orders')}
-              className={cn(
-                'flex-1 flex items-center justify-center gap-2 py-2 text-xs font-semibold rounded-lg transition-all',
-                activeMainTab === 'orders'
-                  ? 'bg-background text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              <Package className="h-4 w-4" />
-              <span>My Orders</span>
+        {/* Main Store vs Orders tabs */}
+        <div className="flex p-1 bg-muted/70 rounded-xl border border-border/60">
+          <button
+            type="button"
+            onClick={() => {
+              setActiveMainTab('store');
+              setSearchParams({});
+            }}
+            className={cn(
+              'flex-1 flex items-center justify-center gap-2 py-2 text-xs font-semibold rounded-lg transition-all',
+              activeMainTab === 'store'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            <ShoppingBag className="h-4 w-4" />
+            <span>Store</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setActiveMainTab('orders');
+              setSearchParams({ tab: 'orders' });
+            }}
+            className={cn(
+              'flex-1 flex items-center justify-center gap-2 py-2 text-xs font-semibold rounded-lg transition-all',
+              activeMainTab === 'orders'
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground',
+            )}
+          >
+            <Package className="h-4 w-4" />
+            <span>My Orders</span>
+            {totalOrdersCount > 0 && (
               <span
                 className={cn(
                   'px-1.5 py-0.5 text-[10px] rounded-full font-bold',
@@ -634,9 +644,9 @@ export default function MerchandiseStore() {
               >
                 {totalOrdersCount}
               </span>
-            </button>
-          </div>
-        )}
+            )}
+          </button>
+        </div>
 
         {activeMainTab === 'store' ? (
           <>
