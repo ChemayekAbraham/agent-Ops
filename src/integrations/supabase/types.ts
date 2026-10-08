@@ -66128,6 +66128,10 @@ export type Database = {
           silence_minutes: number
         }[]
       }
+      get_growth_metrics_live: {
+        Args: { p_end: string; p_start: string }
+        Returns: Json
+      }
       get_house_activity_timeline: {
         Args: { p_house_id: string }
         Returns: {
