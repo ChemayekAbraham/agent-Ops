@@ -334,6 +334,27 @@ export function SmartphoneOrderApprovalQueue({
   });
 
 
+  const { data: partnership } = useQuery({
+    queryKey: ['smartphone-applicant-partnership', detailsTarget?.customer_id],
+    enabled: !!detailsTarget?.customer_id,
+    queryFn: async () => {
+      const { data, error } = await db
+        .from('investor_portfolios')
+        .select('investment_amount, roi_percentage, total_roi_earned, status')
+        .eq('investor_id', detailsTarget!.customer_id);
+      if (error) throw error;
+      const active = (data || []).filter((p: any) => p.status === 'active');
+      const amount = active.reduce((s: number, p: any) => s + Number(p.investment_amount || 0), 0);
+      const earned = active.reduce((s: number, p: any) => s + Number(p.total_roi_earned || 0), 0);
+      const monthly = active.reduce(
+        (s: number, p: any) => s + (Number(p.investment_amount || 0) * Number(p.roi_percentage || 0)) / 100,
+        0,
+      );
+      const rate = amount > 0 ? (monthly / amount) * 100 : 0;
+      return { count: active.length, amount, earned, monthly, rate };
+    },
+  });
+
   const { data: orders = [], isLoading } = useQuery<SmartphoneOrderRow[]>({
     queryKey: ['smartphone-order-queue'],
     queryFn: async () => {
@@ -1003,6 +1024,40 @@ export function SmartphoneOrderApprovalQueue({
                         >
                           {applicant.meets_tenant_guideline ? 'Meets tenant guideline' : 'Below tenant guideline'}
                         </Badge>
+                      </div>
+                      <div className="rounded-md border border-border/60 p-2 space-y-1.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                            Partnership status
+                          </p>
+                          <Badge
+                            variant="outline"
+                            className={partnership && partnership.count > 0
+                              ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30'
+                              : 'bg-muted text-muted-foreground'}
+                          >
+                            {partnership && partnership.count > 0
+                              ? `Active portfolio${partnership.count > 1 ? 's' : ''} (${partnership.count})`
+                              : 'No active portfolio'}
+                          </Badge>
+                        </div>
+                        {partnership && partnership.count > 0 && (
+                          <div className="grid grid-cols-3 gap-2 text-center">
+                            <div className="rounded-md bg-muted/50 px-2 py-1.5">
+                              <p className="text-[10px] text-muted-foreground">Invested</p>
+                              <p className="text-xs font-semibold">{formatUGX(partnership.amount)}</p>
+                            </div>
+                            <div className="rounded-md bg-muted/50 px-2 py-1.5">
+                              <p className="text-[10px] text-muted-foreground">Monthly returns</p>
+                              <p className="text-xs font-semibold">{partnership.rate.toFixed(1)}%</p>
+                              <p className="text-[10px] text-muted-foreground">{formatUGX(Math.round(partnership.monthly))}</p>
+                            </div>
+                            <div className="rounded-md bg-muted/50 px-2 py-1.5">
+                              <p className="text-[10px] text-muted-foreground">Returns earned</p>
+                              <p className="text-xs font-semibold">{formatUGX(partnership.earned)}</p>
+                            </div>
+                          </div>
+                        )}
                       </div>
                       <div className="rounded-md border border-border/60 p-2 space-y-1.5">
                         <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
