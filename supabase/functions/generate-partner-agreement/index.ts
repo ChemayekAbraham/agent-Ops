@@ -116,6 +116,35 @@ Deno.serve(async (req) => {
       if (!row) return json({ error: 'No agreement data found for this partner.' }, 404);
     }
 
+    // ── Countersign = support type + (company-managed) automatic portfolio ──
+    // Runs BEFORE anything is stored, signed or emailed. One DB transaction
+    // saves the contract amount and support type and, for company-managed,
+    // creates, funds (operational float) and activates the portfolio for any
+    // part of the contract not already covered by the partner's portfolios.
+    // If it refuses (no support type, float short, …) nothing else happens.
+    // Self-support creates nothing: the partner picks tenants or houses later.
+    let prepared: Record<string, unknown> | null = null;
+    if (countersign) {
+      const supportMode = typeof body?.supportMode === 'string' ? body.supportMode : null;
+      const returnOption = body?.returnOption === 'A' || body?.returnOption === 'B' ? body.returnOption : null;
+      const amount = Number(body?.amount);
+      const { data: prep, error: prepErr } = await admin.rpc('countersign_prepare_support', {
+        p_partner_id: partnerId,
+        p_amount: Number.isFinite(amount) && amount > 0 ? amount : null,
+        p_support_mode: supportMode,
+        p_return_option: returnOption,
+        p_actor: callerId,
+        p_countersign_only: body?.countersignOnly === true,
+      });
+      if (prepErr) return json({ error: `Could not prepare the countersign: ${prepErr.message}` }, 500);
+      if (!(prep as any)?.ok) {
+        return json({ error: (prep as any)?.message || 'Countersign refused.', code: (prep as any)?.code, details: prep }, 409);
+      }
+      prepared = prep as Record<string, unknown>;
+      const { data: fresh } = await admin.from('partner_agreements').select('*').eq('id', row.id).maybeSingle();
+      if (fresh) row = fresh;
+    }
+
     // ── Decode + store the client-rendered PDF privately (only when supplied) ──
     const reference = row.reference || `PA-${partnerId.slice(0, 8).toUpperCase()}`;
     let objectPath: string | null = null;
@@ -284,6 +313,7 @@ Deno.serve(async (req) => {
       signedUrl,
       hasPdf: !!objectPath,
       status: countersign ? 'countersigned' : 'pending',
+      prepared,
     });
   } catch (e) {
     console.error('generate-partner-agreement error:', e);

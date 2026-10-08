@@ -12,7 +12,30 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, Mail, Phone, FileSignature, CheckCircle2, ShieldCheck, Upload } from 'lucide-react';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { extractFromErrorObject } from '@/lib/extractEdgeFunctionError';
+import { Loader2, Mail, Phone, FileSignature, CheckCircle2, ShieldCheck, Upload, Building2, UserCheck, AlertTriangle } from 'lucide-react';
+
+type SupportMode = 'company_managed' | 'self_support';
+
+/** Server summary for the countersign confirmation (get_countersign_summary). */
+interface CountersignSummary {
+  contract_amount: number;
+  existing_total: number;
+  existing_count: number;
+  needed: number;
+  float_available: number;
+  shortfall: number;
+  covered: boolean;
+  return_option: 'A' | 'B' | null;
+  roi_percentage: number;
+  duration_months: number;
+}
+
+const ugx = (n: number | null | undefined) => `UGX ${Math.round(Number(n) || 0).toLocaleString('en-US')}`;
 
 export interface SignOffPartner {
   id: string;
@@ -62,6 +85,15 @@ export default function PartnerAgreementSignOff({
   const [amountInput, setAmountInput] = useState<string>('');
   // Earliest portfolio's roi_mode decides the Return Option (A/B) printed in the contract.
   const [roiMode, setRoiMode] = useState<string | null>(null);
+  // How the partner supports — REQUIRED before countersigning.
+  //   company_managed: the portfolio is auto-created from the contract amount
+  //                    and the partner's operational float.
+  //   self_support:    nothing is created; the partner picks tenants/houses.
+  const [supportMode, setSupportMode] = useState<SupportMode | null>(null);
+  const [returnOptionSel, setReturnOptionSel] = useState<'A' | 'B' | null>(null);
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [summary, setSummary] = useState<CountersignSummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
 
   useEffect(() => {
     if (!open || !partner) return;
@@ -88,6 +120,9 @@ export default function PartnerAgreementSignOff({
         if (cancelled) return;
         if (agErr) throw agErr;
         setRoiMode((pfAll || [])[0]?.roi_mode ?? null);
+        setSupportMode(ag?.support_mode === 'company_managed' || ag?.support_mode === 'self_support' ? ag.support_mode : null);
+        setReturnOptionSel(storedOption(ag?.return_option) ?? OPTION_FROM_ROI_MODE[(pfAll || [])[0]?.roi_mode ?? ''] ?? null);
+        setSummary(null);
         const portfolioTotal = (pfAll || []).reduce((s: number, r: any) => s + (Number(r.investment_amount) || 0), 0);
         if (!ag) {
           // Build a draft agreement from the profile + saved payout method so the
@@ -170,7 +205,8 @@ export default function PartnerAgreementSignOff({
       partnerPhone: agreement.phone || partner?.phone || '',
       partnerEmail: agreement.email || partner?.email || '',
       partnershipAmount: Number(amountInput) || Number(agreement.partnership_amount) || 0,
-      returnOption: storedOption(agreement.return_option) ?? (roiMode ? OPTION_FROM_ROI_MODE[roiMode] : undefined),
+      returnOption: returnOptionSel ?? storedOption(agreement.return_option) ?? (roiMode ? OPTION_FROM_ROI_MODE[roiMode] : undefined),
+      supportMode: supportMode ?? undefined,
       reference: agreement.reference || buildPartnerReference(partner?.id ?? '', partner?.created_at),
       payoutMode: agreement.payout_mode === 'momo' ? 'momo' : 'bank',
       bankName: agreement.bank_name || '',
@@ -198,7 +234,7 @@ export default function PartnerAgreementSignOff({
       partnerSignatureDataUrl: agreement.partner_signature_data_url || undefined,
       includeStamp: true,
     };
-  }, [agreement, partner, repSigUrl, repName, repPosition, repContact, sigDataUrl, stampDate, amountInput, roiMode]);
+  }, [agreement, partner, repSigUrl, repName, repPosition, repContact, sigDataUrl, stampDate, amountInput, roiMode, returnOptionSel, supportMode]);
 
   const onSignatureFile = (file?: File) => {
     if (!file) return;
@@ -209,6 +245,59 @@ export default function PartnerAgreementSignOff({
     const reader = new FileReader();
     reader.onload = () => setSigDataUrl(typeof reader.result === 'string' ? reader.result : undefined);
     reader.readAsDataURL(file);
+  };
+
+  // A plain re-send (already signed, nothing changed) never touches money and
+  // needs no confirmation. Anything else countersigns and goes through the
+  // support-type summary first.
+  const storedStampFor = (ag: any) => (ag?.countersigned_at ? new Date(ag.countersigned_at).toISOString().slice(0, 10) : '');
+  const isPlainResend = () => {
+    const signed = !!agreement?.countersigned_at || agreement?.status === 'countersigned';
+    const stampChanged = !!stampDate && stampDate !== storedStampFor(agreement);
+    const amountChanged = (Number(amountInput) || 0) !== (Number(agreement?.partnership_amount) || 0);
+    const modeChanged = !!supportMode && supportMode !== agreement?.support_mode;
+    return signed && !stampChanged && !amountChanged && !modeChanged;
+  };
+
+  const openConfirm = async () => {
+    if (!partner) return;
+    const hasSignature = !!sigDataUrl || !!defaults?.signature_path;
+    if (!repName.trim() || !hasSignature) {
+      toast({
+        title: 'Complete the sign-off details',
+        description: 'Enter the representative name and add a signature image before counter-signing.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    if (isPlainResend()) {
+      await handleCountersign();
+      return;
+    }
+    if (!supportMode) {
+      toast({
+        title: 'Choose the support type',
+        description: 'Select company-managed or self-support before counter-signing.',
+        variant: 'destructive',
+      });
+      return;
+    }
+    setSummaryLoading(true);
+    setSummary(null);
+    setConfirmOpen(true);
+    try {
+      const { data, error } = await (supabase.rpc as any)('get_countersign_summary', {
+        p_partner_id: partner.id,
+        p_amount: Number(amountInput) || null,
+      });
+      if (error) throw error;
+      setSummary(data as CountersignSummary);
+    } catch (e: any) {
+      setConfirmOpen(false);
+      toast({ title: 'Could not load the summary', description: e?.message || 'Try again.', variant: 'destructive' });
+    } finally {
+      setSummaryLoading(false);
+    }
   };
 
   const handleCountersign = async () => {
@@ -230,16 +319,9 @@ export default function PartnerAgreementSignOff({
     try {
       // Render the executed PDF from the EXACT same HTML shown in the preview so
       // the stored/emailed document is pixel-identical to what the admin saw.
-      const storedStamp = agreement?.countersigned_at
-        ? new Date(agreement.countersigned_at).toISOString().slice(0, 10)
-        : '';
-      // A changed stamp date must land in the stored/emailed PDF, so re-render
-      // instead of resending the previously stored file.
-      const stampChanged = !!stampDate && stampDate !== storedStamp;
-      // Same for an edited partnership amount — the stored PDF is stale.
-      const amountChanged =
-        (Number(amountInput) || 0) !== (Number(agreement?.partnership_amount) || 0);
-      if (alreadySigned && !stampChanged && !amountChanged) {
+      // A changed stamp date, amount or support type must land in the
+      // stored/emailed PDF, so only an unchanged signed agreement is re-sent as-is.
+      if (isPlainResend()) {
         const { data, error } = await supabase.functions.invoke('resend-partner-agreement-email', {
           body: { partnerId: partner.id },
         });
@@ -257,11 +339,17 @@ export default function PartnerAgreementSignOff({
         }
       } else {
         const pdfBase64 = await renderAgreementPdfBase64(buildAgreementHtml(previewData));
-        const { error } = await supabase.functions.invoke('generate-partner-agreement', {
+        // The server runs the money step first (support type, float check and,
+        // for company-managed, the automatic portfolio). If it refuses, nothing
+        // is stored, signed or emailed.
+        const { data: res, error } = await supabase.functions.invoke('generate-partner-agreement', {
           body: {
             partnerId: partner.id,
             countersign: true,
             pdfBase64,
+            amount: Number(amountInput) || undefined,
+            supportMode,
+            returnOption: previewData.returnOption ?? undefined,
             countersignAt: stampDate || undefined,
             rep: {
               name: repName.trim(),
@@ -271,12 +359,19 @@ export default function PartnerAgreementSignOff({
             },
           },
         });
-        if (error) throw error;
+        if (error) throw new Error(await extractFromErrorObject(error, 'Could not counter-sign.'));
+        const prep = (res as any)?.prepared;
+        const created = prep?.portfolio_code
+          ? ` Portfolio ${prep.portfolio_code} (${ugx(prep.needed)}) created and activated.`
+          : prep?.support_mode === 'self_support'
+            ? ' Self-support: no portfolio created — the partner chooses tenants or houses.'
+            : '';
         toast({
           title: 'Agreement counter-signed & sent',
-          description: partner.email ? `Executed PDF emailed to ${partner.email}.` : 'Executed PDF stored.',
+          description: (partner.email ? `Executed PDF emailed to ${partner.email}.` : 'Executed PDF stored.') + created,
         });
       }
+      setConfirmOpen(false);
       onOpenChange(false);
     } catch (e: any) {
       toast({ title: 'Could not counter-sign', description: e?.message || 'Try again.', variant: 'destructive' });
@@ -349,6 +444,51 @@ export default function PartnerAgreementSignOff({
                       : [agreement.bank_name, agreement.bank_account_number].filter(Boolean).join(' ') || 'Bank'}
                   />
                   <ReadRow label="Next of kin" value={[agreement.kin_name, agreement.kin_contact].filter(Boolean).join(' · ') || '—'} />
+                </section>
+
+                <Separator />
+
+                <section className="space-y-2">
+                  <p className="text-xs font-semibold text-primary">
+                    How will this partner support? <span className="text-destructive">*</span>
+                  </p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSupportMode('company_managed')}
+                      className={`rounded-lg border p-2.5 text-left transition-colors ${supportMode === 'company_managed' ? 'border-primary bg-primary/10 ring-1 ring-primary' : 'bg-background hover:bg-muted'}`}
+                    >
+                      <span className="flex items-center gap-1.5 text-xs font-semibold"><Building2 className="h-3.5 w-3.5" /> Company-managed</span>
+                      <span className="mt-1 block text-[10px] text-muted-foreground">Welile chooses. The portfolio is created automatically.</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSupportMode('self_support')}
+                      className={`rounded-lg border p-2.5 text-left transition-colors ${supportMode === 'self_support' ? 'border-primary bg-primary/10 ring-1 ring-primary' : 'bg-background hover:bg-muted'}`}
+                    >
+                      <span className="flex items-center gap-1.5 text-xs font-semibold"><UserCheck className="h-3.5 w-3.5" /> Self-support</span>
+                      <span className="mt-1 block text-[10px] text-muted-foreground">The partner chooses tenants or houses. No portfolio now.</span>
+                    </button>
+                  </div>
+                  {supportMode === 'company_managed' && (
+                    <div className="space-y-1">
+                      <Label className="text-[11px]">Return option <span className="text-destructive">*</span></Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        {(['A', 'B'] as const).map((opt) => (
+                          <Button
+                            key={opt}
+                            type="button"
+                            size="sm"
+                            variant={returnOptionSel === opt ? 'default' : 'outline'}
+                            className="h-8 text-xs"
+                            onClick={() => setReturnOptionSel(opt)}
+                          >
+                            {opt === 'A' ? 'A · Monthly payout' : 'B · Compounding'}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </section>
 
                 <Separator />
@@ -427,7 +567,7 @@ export default function PartnerAgreementSignOff({
                       </div>
                       <Button
                         variant="outline"
-                        onClick={handleCountersign}
+                        onClick={openConfirm}
                         disabled={busy || !repName.trim() || !(sigDataUrl || defaults?.signature_path)}
                         className="gap-1.5"
                       >
@@ -439,7 +579,7 @@ export default function PartnerAgreementSignOff({
                       </p>
                     </>
                   ) : (
-                    <Button onClick={handleCountersign} disabled={busy || !repName.trim() || !(sigDataUrl || defaults?.signature_path)} className="gap-1.5">
+                    <Button onClick={openConfirm} disabled={busy || !supportMode || (supportMode === 'company_managed' && !returnOptionSel) || !repName.trim() || !(sigDataUrl || defaults?.signature_path)} className="gap-1.5">
                       {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
                       Counter-sign &amp; send
                     </Button>
@@ -463,6 +603,78 @@ export default function PartnerAgreementSignOff({
             </div>
           </div>
         </div>
+
+        <AlertDialog open={confirmOpen} onOpenChange={(o) => { if (!busy) setConfirmOpen(o); }}>
+          <AlertDialogContent className="max-w-md">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2 text-base">
+                <ShieldCheck className="h-4 w-4 text-primary" /> Confirm counter-sign
+              </AlertDialogTitle>
+              <AlertDialogDescription className="text-xs">
+                {supportMode === 'company_managed'
+                  ? 'Company-managed: the portfolio will be created automatically from the contract amount and the partner\'s operational float, then the contract is sent.'
+                  : 'Self-support: no portfolio is created. The contract is sent and the partner chooses the tenants or houses to support.'}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+
+            {summaryLoading || !summary ? (
+              <p className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                <Loader2 className="h-3 w-3 animate-spin" /> Checking the partner's operational float…
+              </p>
+            ) : (
+              <div className="space-y-2">
+                <div className="rounded-lg border bg-muted/30 p-3 space-y-1.5">
+                  <ReadRow label="Operational float available" value={ugx(summary.float_available)} />
+                  <ReadRow label="Contract amount" value={ugx(summary.contract_amount)} />
+                  {summary.existing_total > 0 && (
+                    <ReadRow
+                      label={`Already in portfolios (${summary.existing_count})`}
+                      value={ugx(summary.existing_total)}
+                    />
+                  )}
+                  <Separator />
+                  {supportMode === 'company_managed' ? (
+                    <ReadRow
+                      label="Portfolio to create"
+                      value={summary.needed > 0
+                        ? `${ugx(summary.needed)} · ${summary.roi_percentage}% · ${summary.duration_months} months · Option ${returnOptionSel ?? '—'}`
+                        : 'None — already covered'}
+                    />
+                  ) : (
+                    <ReadRow label="Left for the partner to choose" value={ugx(summary.needed)} />
+                  )}
+                </div>
+                {supportMode === 'company_managed' && summary.needed > 0 && summary.covered && (
+                  <p className="text-[11px] text-muted-foreground">
+                    {ugx(summary.needed)} will be taken from the partner's operational float. The portfolio goes into the
+                    Landlord Float Pool and empty houses are attached to it automatically.
+                  </p>
+                )}
+                {!summary.covered && (
+                  <div className="rounded-lg border border-destructive/30 bg-destructive/10 p-2.5 text-[11px] text-destructive flex gap-1.5">
+                    <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-px" />
+                    <span>
+                      Operational float is short by <strong>{ugx(summary.shortfall)}</strong>. Nothing will be counter-signed
+                      or sent until the partner's float covers {ugx(summary.needed)}.
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={busy || summaryLoading || !summary || !summary.covered}
+                onClick={(e) => { e.preventDefault(); void handleCountersign(); }}
+                className="gap-1.5"
+              >
+                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                Counter-sign &amp; send
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
   );
