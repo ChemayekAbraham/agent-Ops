@@ -1,4 +1,4 @@
--- Rollback for 20261008100000_service_center_overdue_vetting_alerts.sql
+-- Rollback for 20261008130000_service_center_overdue_vetting_alerts.sql
 -- Only new objects were added; no existing table, row or function was changed. The alert log is dropped with its data (audit of dialog shows only).
 DROP FUNCTION IF EXISTS public.set_service_center_vetting_policy(boolean, integer, timestamptz);
 DROP FUNCTION IF EXISTS public.get_overdue_vetting_overview();

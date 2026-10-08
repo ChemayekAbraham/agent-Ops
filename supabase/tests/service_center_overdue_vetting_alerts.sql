@@ -1,4 +1,4 @@
--- Service Centre overdue vetting alerts (20261008100000_service_center_overdue_vetting_alerts.sql). One DO block that ends in an exception,
+-- Service Centre overdue vetting alerts (20261008130000_service_center_overdue_vetting_alerts.sql). One DO block that ends in an exception,
 -- so NOTHING is kept; the report is the exception message. Run it AFTER the migration is applied.
 -- It switches the policy on inside the block (rolled back), picks a real manager with pending Rent Plans, and compares the RPC with an independent count.
 DO $$
