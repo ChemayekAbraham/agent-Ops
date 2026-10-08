@@ -538,9 +538,7 @@ export function WithdrawRequestDialog({ open, onOpenChange, walletBalance = 0, o
     // collapses any duplicate inserts into a single row.
     if (!clientRequestIdRef.current) {
       clientRequestIdRef.current =
-        (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
-          ? safeUUID()
-          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        safeUUID();
     }
     const clientRequestId = clientRequestIdRef.current;
     // Persist BEFORE the insert attempt so an unmount (network hang, dialog
