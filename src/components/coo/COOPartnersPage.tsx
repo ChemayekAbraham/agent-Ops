@@ -1541,33 +1541,28 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
         return;
       }
 
-      // Log to audit_logs before deletion
-      const { error: auditErr } = await supabase.from('audit_logs').insert({
-        user_id: user.id,
-        action_type: 'delete_investment_portfolio',
-        table_name: 'investor_portfolios',
-        record_id: deletePortfolio.id,
-        metadata: {
-          portfolio_code: deletePortfolio.portfolio_code,
-          investment_amount: deletePortfolio.investment_amount,
-          roi_percentage: deletePortfolio.roi_percentage,
-          status: deletePortfolio.status,
-          created_at: deletePortfolio.created_at,
-          reason: deleteReason.trim(),
-          partner_id: detailPartner?.profile.id,
-          partner_name: detailPartner?.profile.full_name,
-        },
+      // One server step (delete_portfolio_and_refund): cancels the portfolio
+      // (releases its Landlord Float Pool money and its house claims back to the
+      // queue), refunds the principal taken to the partner's operational float,
+      // writes the audit record, then deletes. It refuses — changing nothing —
+      // when Returns/commission/top-ups were paid, money is out with tenants,
+      // or the portfolio is self-support or split.
+      const { data: res, error: delErr } = await (supabase.rpc as any)('delete_portfolio_and_refund', {
+        p_portfolio_id: deletePortfolio.id,
+        p_reason: deleteReason.trim(),
       });
-      if (auditErr) throw auditErr;
-
-      // Delete the portfolio
-      const { error: delErr } = await supabase
-        .from('investor_portfolios')
-        .delete()
-        .eq('id', deletePortfolio.id);
       if (delErr) throw delErr;
+      if (!res?.ok) throw new Error(res?.message || 'Portfolio could not be deleted.');
 
-      toast.success(`Portfolio ${deletePortfolio.portfolio_code} deleted`, { description: 'Action logged for audit.' });
+      const refunded = Number(res.refunded_to_operational_float) || 0;
+      const houses = Number(res.houses_released) || 0;
+      toast.success(`Portfolio ${deletePortfolio.portfolio_code} deleted`, {
+        description: [
+          refunded > 0 ? `${formatUGX(refunded)} returned to the partner's operational float.` : 'No wallet charge on record, so nothing was refunded.',
+          houses > 0 ? `${houses} house${houses === 1 ? '' : 's'} released back to the queue.` : null,
+          'Action logged for audit.',
+        ].filter(Boolean).join(' '),
+      });
 
       // Update local state
       if (detailPartner) {
@@ -3792,6 +3787,8 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
             </DialogTitle>
             <DialogDescription>
               This will permanently delete portfolio <strong>{deletePortfolio?.portfolio_code}</strong> ({formatUGX(deletePortfolio?.investment_amount || 0)}).
+              The money taken for it is returned to the partner's operational float and any houses it claimed go back to the queue.
+              Portfolios that have paid Returns, have top-ups or have money out with tenants cannot be deleted — redeem those instead.
               This action cannot be undone.
             </DialogDescription>
           </DialogHeader>

@@ -14,10 +14,28 @@
 --   * top-ups were applied to it;
 --   * any of its pool money is out with tenants;
 --   * it is a self-support portfolio (tenant / house picks), a split child or a
---     split parent, an older (pre-pool) portfolio, or redeemed / matured / locked.
+--     split parent, or redeemed / matured / locked.
+-- Older (pre-pool) portfolios are handled too: their pool category log,
+-- membership and ceiling-skip rows are removed with them (those rows have no
+-- cascade and would otherwise block the delete).
 -- Those need redemption or a reviewed correction instead.
 --
 -- Callers: Partner Operations (is_partner_ops), service_role, or postgres.
+-- The COO / Partner Ops portfolio sheet "Delete" button calls this RPC.
+
+-- Membership rows stay immutable except inside this delete.
+CREATE OR REPLACE FUNCTION public.trg_landlord_pool_legacy_members_immutable()
+RETURNS trigger
+LANGUAGE plpgsql
+SET search_path TO 'public'
+AS $$
+BEGIN
+  IF TG_OP = 'DELETE' AND coalesce(current_setting('app.portfolio_delete', true), '') = 'on' THEN
+    RETURN OLD;
+  END IF;
+  RAISE EXCEPTION 'LANDLORD_POOL_LEGACY_MEMBERSHIP_IMMUTABLE';
+END;
+$$;
 
 CREATE OR REPLACE FUNCTION public.delete_portfolio_and_refund(p_portfolio_id uuid, p_reason text DEFAULT NULL)
 RETURNS jsonb
@@ -52,10 +70,6 @@ BEGIN
   END IF;
 
   -- ── Refusals: anything a plain refund cannot undo correctly ──
-  IF NOT p.pool_eligible THEN
-    RETURN jsonb_build_object('ok', false, 'code', 'OLDER_PORTFOLIO',
-      'message', 'Portfolios created before the Landlord Float Pool switch-on cannot be deleted here. Redeem or cancel them instead.');
-  END IF;
   IF p.status NOT IN ('active', 'pending_ops_approval', 'awaiting_partner_details', 'cancelled', 'rejected') THEN
     RETURN jsonb_build_object('ok', false, 'code', 'INVALID_STATUS', 'status', p.status,
       'message', format('A %s portfolio cannot be deleted. Redeem it instead.', p.status));
@@ -99,7 +113,10 @@ BEGIN
     INTO v_taken
     FROM public.general_ledger g
    WHERE g.ledger_scope = 'wallet' AND g.category = 'partner_funding'
-     AND g.source_table = 'investor_portfolios' AND g.source_id::text = p.id::text;
+     AND ((g.source_table = 'investor_portfolios' AND g.source_id::text = p.id::text)
+          OR g.idempotency_key LIKE 'portfolio-funding-' || p.id::text || '%'
+          OR g.idempotency_key LIKE '%delete-refund-' || p.id::text
+          OR (p.portfolio_code IS NOT NULL AND g.reference_id = p.portfolio_code));
 
   SELECT array_agg(house_id) INTO v_houses FROM public.portfolio_allocations WHERE portfolio_id = p.id;
   v_snap := to_jsonb(p);
@@ -147,6 +164,11 @@ BEGIN
    WHERE pool_entry_id IN (SELECT id FROM public.landlord_pool_entries WHERE portfolio_id = p.id);
   DELETE FROM public.landlord_pool_entries WHERE portfolio_id = p.id;
   DELETE FROM public.landlord_pool_exceptions WHERE portfolio_id = p.id;
+  DELETE FROM public.landlord_pool_legacy_skips WHERE portfolio_id = p.id;
+  DELETE FROM public.landlord_pool_legacy_category_log WHERE portfolio_id = p.id;
+  PERFORM set_config('app.portfolio_delete', 'on', true);
+  DELETE FROM public.landlord_pool_legacy_members WHERE portfolio_id = p.id;
+  PERFORM set_config('app.portfolio_delete', '', true);
   DELETE FROM public.investor_portfolios WHERE id = p.id;
 
   RETURN jsonb_build_object('ok', true, 'portfolio_code', p.portfolio_code, 'partner_id', p.investor_id,
