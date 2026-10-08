@@ -56,7 +56,7 @@ export default function BucketAPostingGate() {
       {pf && (
         <Card>
           <CardHeader><CardTitle className={pf.pass ? "" : "text-destructive"}>
-            {pf.already_posted ? "Bucket A has already been posted" : pf.pass ? "PRE-FLIGHT PASSED — NOTHING POSTED" : "POSTING BLOCKED — NEW CFO VALIDATION REQUIRED"}
+            {pf.already_posted ? "Bucket A has already been posted" : !pf.pass || !pfFresh ? "POSTING BLOCKED — NEW CFO VALIDATION REQUIRED" : "PRE-FLIGHT PASSED — READY FOR CFO REVIEW — NOT AUTHORIZED — NOT POSTED"}
           </CardTitle></CardHeader>
           <CardContent className="space-y-1">
             {pf.checks.map((c) => (
@@ -97,7 +97,8 @@ export default function BucketAPostingGate() {
 
       {result && (
         <Card><CardHeader><CardTitle className={result.status === "committed" ? "" : "text-destructive"}>
-          {result.status === "committed" ? "BUCKET A POSTED SUCCESSFULLY — UGX 10,133,013.74 ACROSS 322 RECORDS" : result.message}
+          {result.status === "committed" ? "BUCKET A POSTED SUCCESSFULLY — 322/322 — UGX 10,133,013.74" : "POSTING BLOCKED — FINAL VALIDATION FAILED — NOTHING POSTED"}
+          {result.status !== "committed" && result.message && <p className="mt-1 text-sm font-normal">{result.message}</p>}
         </CardTitle></CardHeader>
         <CardContent>{result.status === "committed" && <>
           {row("Books before", formatUGX(result.receivable_balance_before))}
