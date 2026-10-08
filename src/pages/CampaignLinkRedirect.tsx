@@ -6,6 +6,8 @@ import ScreenLoader from '@/components/common/ScreenLoader';
 
 const CODE_RE = /^[A-Za-z0-9_-]{3,32}$/;
 const GPS_WAIT_MS = 8000;
+// One logged click per page load, even if the effect runs twice.
+const started = new Set<string>();
 
 type GpsResult = { status: 'granted' | 'denied' | 'unavailable' | 'timeout' | 'unsupported'; gps?: { lat: number; lng: number; accuracy: number } };
 
@@ -28,12 +30,13 @@ export default function CampaignLinkRedirect() {
 
   useEffect(() => {
     if (!CODE_RE.test(code)) { setMissing(true); return; }
+    if (started.has(code)) return;
+    started.add(code);
     let cancelled = false;
     (async () => {
       const { data, error } = await supabase.functions.invoke('tenant-campaign-click', {
         body: { code, referrer: document.referrer || null },
       });
-      if (cancelled) return;
       if (error || !data?.destination) { setMissing(true); return; }
       const gps = await askGps();
       if (data.click_id) {
@@ -41,9 +44,8 @@ export default function CampaignLinkRedirect() {
           body: { code, phase: 'gps', click_id: data.click_id, gps_status: gps.status, gps: gps.gps ?? null },
         }).catch(() => null);
       }
-      if (!cancelled) window.location.replace(data.destination);
+      window.location.replace(data.destination);
     })();
-    return () => { cancelled = true; };
   }, [code]);
 
   if (missing) return <NotFound />;
