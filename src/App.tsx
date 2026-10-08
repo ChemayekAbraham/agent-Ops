@@ -13,7 +13,7 @@ import AvatarSyncBridge from "@/components/system/AvatarSyncBridge";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import ChunkErrorBoundary from "@/components/ChunkErrorBoundary";
 import { PullToRefresh } from "@/components/PullToRefresh";
-import { lazyWithRetry, optionalLazyWithRetry } from "@/lib/lazyWithRetry";
+import { lazyWithRetry, optionalLazyWithRetry, lazyNamed } from "@/lib/lazyWithRetry";
 import { BuildUpdateWatcher } from "@/components/BuildUpdateWatcher";
 // Route every page chunk through the concurrency-limited queue so slow
 // networks never see more than N parallel chunk requests at once.
@@ -56,8 +56,8 @@ const ProxyPartnerWithdrawalHarness = lazyWithRetry(
 import { LanguageProvider } from "@/hooks/useLanguage";
 
 // Auth providers — deferred since they're not needed for first paint
-const PinAuthProvider = lazyWithRetry(() => import("@/hooks/usePinAuth").then(m => ({ default: m.PinAuthProvider })));
-const BiometricAuthProvider = lazyWithRetry(() => import("@/hooks/useBiometricAuth").then(m => ({ default: m.BiometricAuthProvider })));
+const PinAuthProvider = lazyNamed(() => import("@/hooks/usePinAuth"), 'PinAuthProvider');
+const BiometricAuthProvider = lazyNamed(() => import("@/hooks/useBiometricAuth"), 'BiometricAuthProvider');
 const PushNotificationGate = optionalLazyWithRetry(() => import("@/components/notifications/PushNotificationGate"), "PushNotificationGate");
 const TwoFactorGate = optionalLazyWithRetry(() => import("@/components/account/TwoFactorGate"), "TwoFactorGate");
 const PhoneCollectionGate = optionalLazyWithRetry(() => import("@/components/notifications/PhoneCollectionGate"), "PhoneCollectionGate");
@@ -83,10 +83,10 @@ const CampaignRedirect = lazyWithRetry(() => import("@/pages/CampaignRedirect"))
 const AgentCampaignsPage = lazyWithRetry(() => import("@/pages/AgentCampaignsPage"));
 
 // Deferred providers - loaded after first paint
-const CartProvider = lazyWithRetry(() => import("@/hooks/useCart").then(m => ({ default: m.CartProvider })));
-const ComparisonProvider = lazyWithRetry(() => import("@/hooks/useProductComparison").then(m => ({ default: m.ComparisonProvider })));
-const OfflineProvider = lazyWithRetry(() => import("@/contexts/OfflineContext").then(m => ({ default: m.OfflineProvider })));
-const FeatureFlagsProvider = lazyWithRetry(() => import("@/contexts/FeatureFlagsContext").then(m => ({ default: m.FeatureFlagsProvider })));
+const CartProvider = lazyNamed(() => import("@/hooks/useCart"), 'CartProvider');
+const ComparisonProvider = lazyNamed(() => import("@/hooks/useProductComparison"), 'ComparisonProvider');
+const OfflineProvider = lazyNamed(() => import("@/contexts/OfflineContext"), 'OfflineProvider');
+const FeatureFlagsProvider = lazyNamed(() => import("@/contexts/FeatureFlagsContext"), 'FeatureFlagsProvider');
 
 // Lazy load optional UI components
 const SupplierBikeAssetReminder = optionalLazyWithRetry(() => import("@/components/merchandise/SupplierBikeAssetReminder").then(m => ({ default: m.SupplierBikeAssetReminder })), "SupplierBikeAssetReminder");
@@ -248,7 +248,7 @@ const CalculatorSelfCheck = lazy(() => import('./hr/pay/calculator/CalculatorSel
 const PayrollConfigPage = lazy(() => import('./hr/pay/PayrollConfig'));
 const PayRunsPage = lazy(() => import('./hr/pay/PayRuns'));
 const PayrollEnrollmentPage = lazy(() => import('./hr/pay/PayrollEnrollment'));
-const PayRunDetailPage = lazy(() => import('./hr/pay/PayRuns').then((m) => ({ default: m.PayRunDetailPlaceholder })));
+const PayRunDetailPage = lazyNamed(() => import('./hr/pay/PayRuns'), 'PayRunDetailPlaceholder');
 const PayslipPage = lazy(() => import('./hr/pay/Payslip'));
 const MyPayslipsPage = lazy(() => import('./hr/pay/MyPayslips'));
 const ApprovalsPage = lazy(() => import('./hr/pay/Approvals'));
@@ -320,7 +320,7 @@ const TppoPortfolioPerformanceReport = lazy(() => import('./pages/tenant-ops/Por
 const COOFinancialOpsReport = lazy(() => import('./pages/coo/reports/FinancialOpsReport'));
 const COOSystemOverviewReport = lazy(() => import('./pages/coo/reports/SystemOverviewReport'));
 const COOFunderRentPlanVisibility = lazy(() => import('./pages/coo/FunderRentPlanVisibility'));
-const WelileAIPage = lazy(() => import('./components/ai-chat/WelileAIChatButton').then(m => ({ default: m.WelileAIPage })));
+const WelileAIPage = lazyNamed(() => import('./components/ai-chat/WelileAIChatButton'), 'WelileAIPage');
 const Terms = lazy(() => import('./pages/Terms'));
 const SeoResults = lazy(() => import('./pages/SeoResults'));
 const PartnersTerms = lazy(() => import('./pages/PartnersTerms'));

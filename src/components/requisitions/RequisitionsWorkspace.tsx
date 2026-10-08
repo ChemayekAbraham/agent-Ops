@@ -1,4 +1,5 @@
 import { useState, lazy, Suspense } from 'react';
+import { lazyNamed } from '@/lib/lazyWithRetry';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { ChevronDown, ChevronUp, Archive, Plus } from 'lucide-react';
@@ -7,8 +8,8 @@ import { StaffRequisitionQueue } from './StaffRequisitionQueue';
 import { DirectorRequisitionsPanel } from './DirectorRequisitionsPanel';
 import { RequisitionOfficesCard } from './RequisitionOfficesCard';
 
-const ManualRequisitionQueuePanel = lazy(() => import('@/components/financial-ops/ManualRequisitionQueuePanel').then((module) => ({ default: module.ManualRequisitionQueuePanel })));
-const RequisitionUsageReportsReview = lazy(() => import('./RequisitionUsageReportsReview').then((module) => ({ default: module.RequisitionUsageReportsReview })));
+const ManualRequisitionQueuePanel = lazyNamed(() => import('@/components/financial-ops/ManualRequisitionQueuePanel'), 'ManualRequisitionQueuePanel');
+const RequisitionUsageReportsReview = lazyNamed(() => import('./RequisitionUsageReportsReview'), 'RequisitionUsageReportsReview');
 
 /**
  * The single requisitions surface for every reviewing dashboard.
