@@ -5,7 +5,7 @@ import { Users } from 'lucide-react';
 import { SectionCard } from '@/components/executive/tenant-ops/workspace/payment-behavior/shared';
 import { WorkspaceEmptyState } from '@/components/executive/tenant-ops/workspace/WorkspaceEmptyState';
 import { WorkspaceMobileRow } from '@/components/executive/tenant-ops/workspace/WorkspaceMobileRow';
-import { LABEL_30M_ACCESS, LABEL_SELF_PAYMENT, TEAM_LABEL } from '@/lib/awarenessCallLabels';
+import { LABEL_30M_ACCESS, LABEL_LANDLORD_CONSENT, LABEL_PAYOUT_OTP, LABEL_SELF_PAYMENT, TEAM_LABEL } from '@/lib/awarenessCallLabels';
 import { count, kampalaDateTime, percent } from '@/lib/awarenessMonitoringLabels';
 import type { AwarenessByCaller } from '@/hooks/useAwarenessMonitoring';
 import { triple } from './shared';
@@ -38,6 +38,8 @@ export function CallerTab({ data, loading }: { data: AwarenessByCaller | undefin
                   <TableHead className="text-right">Rent Plans</TableHead>
                   <TableHead className="text-right">{LABEL_30M_ACCESS}</TableHead>
                   <TableHead className="text-right">{LABEL_SELF_PAYMENT}</TableHead>
+                  <TableHead className="text-right">{LABEL_LANDLORD_CONSENT}</TableHead>
+                  <TableHead className="text-right">{LABEL_PAYOUT_OTP}</TableHead>
                   <TableHead className="text-right">Explained</TableHead>
                   <TableHead>Last call</TableHead>
                 </TableRow>
@@ -53,6 +55,8 @@ export function CallerTab({ data, loading }: { data: AwarenessByCaller | undefin
                     <TableCell className="text-right tabular-nums">{count(r.rent_plans_called)}</TableCell>
                     <TableCell className="text-right tabular-nums">{triple(r.aware_30m.knew, r.aware_30m.heard, r.aware_30m.did_not_know)}</TableCell>
                     <TableCell className="text-right tabular-nums">{triple(r.aware_merchant_codes.knew, r.aware_merchant_codes.heard, r.aware_merchant_codes.did_not_know)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{triple(r.landlord_consent?.consents, r.landlord_consent?.unsure, r.landlord_consent?.refuses)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{triple(r.aware_payout_otp?.knew, r.aware_payout_otp?.heard, r.aware_payout_otp?.did_not_know)}</TableCell>
                     <TableCell className="text-right tabular-nums">{triple(r.explained.yes, r.explained.partly, r.explained.no)}</TableCell>
                     <TableCell className="whitespace-nowrap text-xs">{kampalaDateTime(r.last_call_at)}</TableCell>
                   </TableRow>
@@ -73,6 +77,8 @@ export function CallerTab({ data, loading }: { data: AwarenessByCaller | undefin
                   { label: 'Rent Plans', value: count(r.rent_plans_called) },
                   { label: `${LABEL_30M_ACCESS} (knew / heard / did not)`, value: triple(r.aware_30m.knew, r.aware_30m.heard, r.aware_30m.did_not_know), full: true },
                   { label: `${LABEL_SELF_PAYMENT} (knew / heard / did not)`, value: triple(r.aware_merchant_codes.knew, r.aware_merchant_codes.heard, r.aware_merchant_codes.did_not_know), full: true },
+                  { label: `${LABEL_LANDLORD_CONSENT} (consents / unsure / refuses)`, value: triple(r.landlord_consent?.consents, r.landlord_consent?.unsure, r.landlord_consent?.refuses), full: true },
+                  { label: `${LABEL_PAYOUT_OTP} (knew / heard / did not)`, value: triple(r.aware_payout_otp?.knew, r.aware_payout_otp?.heard, r.aware_payout_otp?.did_not_know), full: true },
                   { label: 'Explained (yes / partly / no)', value: triple(r.explained.yes, r.explained.partly, r.explained.no), full: true },
                   { label: 'Last call', value: kampalaDateTime(r.last_call_at), full: true },
                 ]}

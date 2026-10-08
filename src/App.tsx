@@ -4,6 +4,7 @@
 import { Suspense, memo, useEffect, useState, Component, type ReactNode } from "react";
 import { HelmetProvider } from "react-helmet-async";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { GlobalOverdueVettingDialog } from "@/components/service-center/GlobalOverdueVettingDialog";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { LANDLORD_OPS_ROUTES } from "./pages/landlord-ops/routes";
 import { ThemeProvider } from "next-themes";
@@ -88,6 +89,7 @@ const OfflineProvider = lazyWithRetry(() => import("@/contexts/OfflineContext").
 const FeatureFlagsProvider = lazyWithRetry(() => import("@/contexts/FeatureFlagsContext").then(m => ({ default: m.FeatureFlagsProvider })));
 
 // Lazy load optional UI components
+const SupplierBikeAssetReminder = optionalLazyWithRetry(() => import("@/components/merchandise/SupplierBikeAssetReminder").then(m => ({ default: m.SupplierBikeAssetReminder })), "SupplierBikeAssetReminder");
 const Toaster = optionalLazyWithRetry(() => import("@/components/ui/toaster").then(m => ({ default: m.Toaster })), "Toaster");
 const SonnerToaster = optionalLazyWithRetry(() => import("@/components/ui/sonner").then(m => ({ default: m.Toaster })), "SonnerToaster");
 const NationalIdUnlinkNoticeDialog = optionalLazyWithRetry(() => import("@/components/national-id/NationalIdUnlinkNoticeDialog"), "NationalIdUnlinkNoticeDialog");
@@ -202,6 +204,7 @@ const ActivatePartner = lazy(() => import('./pages/ActivatePartner'));
 const BusinessAdvanceTrack = lazy(() => import('./pages/BusinessAdvanceTrack'));
 const ResolveRLink = lazy(() => import('./pages/ResolveRLink'));
 const TrackedRedirect = lazy(() => import('./pages/TrackedRedirect'));
+const CampaignLinkRedirect = lazy(() => import('./pages/CampaignLinkRedirect'));
 const MerchandiseShareRedirect = lazy(() => import('./pages/MerchandiseShareRedirect'));
 const SupportHouse = lazy(() => import('./pages/SupportHouse'));
 const RentAccessLimitPublic = lazy(() => import('./pages/RentAccessLimitPublic'));
@@ -507,6 +510,7 @@ function AppRoutes() {
           <Route path="/cash-deposit/resend" element={<ResendCashDepositCode />} />
           <Route path="/r/:code" element={<ResolveRLink />} />
           <Route path="/s/:code" element={<TrackedRedirect />} />
+          <Route path="/n/:code" element={<CampaignLinkRedirect />} />
           <Route path="/m/:code" element={<MerchandiseShareRedirect />} />
           <Route path="/support-house" element={<SupportHouse />} />
           <Route path="/t/:token" element={<TenantDashboardLandingPage />} />
@@ -857,6 +861,7 @@ function AppRoutes() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
+      <Suspense fallback={null}><GlobalOverdueVettingDialog /></Suspense>
       </div>
     </div>
   );
@@ -951,6 +956,7 @@ function DeferredProviders({ children }: { children: ReactNode }) {
                 <CartProvider>
                   <ComparisonProvider>
                     {children}
+                    <SupplierBikeAssetReminder />
                   </ComparisonProvider>
                 </CartProvider>
               </FeatureFlagsProvider>

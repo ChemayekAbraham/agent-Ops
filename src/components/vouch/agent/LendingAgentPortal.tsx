@@ -1,3 +1,4 @@
+import { safeUUID } from '@/lib/safeUUID';
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import LenderInviteShare from './LenderInviteShare';
@@ -187,7 +188,7 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
     const name = loan.borrower_display_name ?? loan.borrower_ai_id;
     if (!(loan as any).borrower_user_id) { toast.error(`${name} has no Welile wallet yet`); return; }
     const { data, error } = await supabase.functions.invoke('lending-borrower-pay', {
-      body: { action: 'pay', loan_id: loan.id, amount, request_id: crypto.randomUUID() },
+      body: { action: 'pay', loan_id: loan.id, amount, request_id: safeUUID() },
     });
     const errMsg = (data as any)?.error || (error ? await (error as any)?.context?.json?.().then((j: any) => j?.error).catch(() => null) : null);
     if (error || !(data as any)?.ok) { toast.error(errMsg || 'Payment failed. No money was taken.'); return; }

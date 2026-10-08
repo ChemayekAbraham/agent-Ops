@@ -1,3 +1,4 @@
+import { safeUUID } from '@/lib/safeUUID';
 "use client";
 import { useState, useEffect, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -125,7 +126,7 @@ export function AgentTenantCollectDialog({
   const clientRefFor = (planId: string, amt: number) => {
     const key = `${planId}:${amt}`;
     if (clientRefRef.current?.key !== key) {
-      clientRefRef.current = { key, value: crypto.randomUUID() };
+      clientRefRef.current = { key, value: safeUUID() };
     }
     return clientRefRef.current.value;
   };
@@ -659,8 +660,8 @@ export function AgentTenantCollectDialog({
           const boost = Math.min(Math.round(amount * 2), headroom);
           const next = current + boost;
           return (
-            <div className="rounded-2xl p-3.5 bg-gradient-to-br from-purple-600 via-purple-700 to-fuchsia-700 text-white shadow-lg shadow-purple-900/20 border border-purple-400/30">
-              <div className="text-[10px] uppercase tracking-wider font-bold text-purple-100/90">
+            <div style={{ backgroundImage: "linear-gradient(135deg, hsl(271 81% 40%), hsl(273 76% 30%), hsl(295 70% 30%))", color: "#fff" }} className="rounded-2xl p-3.5 text-white shadow-lg shadow-purple-900/20 border border-purple-400/30">
+              <div className="text-[10px] uppercase tracking-wider font-bold text-white">
                 Money you can borrow
               </div>
               <div className="mt-1 flex items-baseline gap-2">
@@ -671,27 +672,27 @@ export function AgentTenantCollectDialog({
               </div>
               <div className="mt-2 grid grid-cols-2 gap-1.5 text-center">
                 <div className="rounded-lg bg-white/10 px-2 py-1.5">
-                  <div className="text-[9px] text-purple-100/80 font-medium uppercase tracking-wider">This allocation adds</div>
+                  <div className="text-[9px] text-white/90 font-medium uppercase tracking-wider">This allocation adds</div>
                   <div className="text-[12px] font-extrabold">+ {formatCreditAmount(boost).trim()}</div>
                 </div>
                 <div className="rounded-lg bg-white/15 px-2 py-1.5 ring-1 ring-white/25">
-                  <div className="text-[9px] text-purple-100/80 font-medium uppercase tracking-wider">New borrow limit</div>
+                  <div className="text-[9px] text-white/90 font-medium uppercase tracking-wider">New borrow limit</div>
                   <div className="text-[12px] font-extrabold">{formatCreditAmount(next).trim()}</div>
                 </div>
               </div>
               {boost === 0 && headroom === 0 && (
-                <p className="text-[10px] text-purple-100/80 mt-1.5">You're already at the UGX 30M cap.</p>
+                <p className="text-[10px] text-white/90 mt-1.5">You're already at the UGX 30M cap.</p>
               )}
             </div>
           );
         })() : (
-        <div className="rounded-2xl p-3.5 bg-gradient-to-br from-purple-600 via-purple-700 to-fuchsia-700 text-white shadow-lg shadow-purple-900/20 border border-purple-400/30">
+        <div style={{ backgroundImage: "linear-gradient(135deg, hsl(271 81% 40%), hsl(273 76% 30%), hsl(295 70% 30%))", color: "#fff" }} className="rounded-2xl p-3.5 text-white shadow-lg shadow-purple-900/20 border border-purple-400/30">
           <div className="flex items-start gap-3">
             <div className="h-9 w-9 rounded-xl bg-white/15 backdrop-blur flex items-center justify-center shrink-0 ring-1 ring-white/20">
               <TrendingUp className="h-5 w-5" />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-[10px] uppercase tracking-wider font-bold text-purple-100/90">
+              <div className="text-[10px] uppercase tracking-wider font-bold text-white">
                 How your Agent Advance grows
               </div>
               <div className="text-[13px] font-semibold leading-snug mt-0.5">
@@ -700,15 +701,15 @@ export function AgentTenantCollectDialog({
               </div>
               <div className="mt-2 grid grid-cols-3 gap-1.5 text-center">
                 <div className="rounded-lg bg-white/10 px-1.5 py-1">
-                  <div className="text-[9px] text-purple-100/80 font-medium">You allocate</div>
+                  <div className="text-[9px] text-white/90 font-medium">You allocate</div>
                   <div className="text-[11px] font-bold">UGX 100K</div>
                 </div>
                 <div className="rounded-lg bg-white/10 px-1.5 py-1">
-                  <div className="text-[9px] text-purple-100/80 font-medium">Limit grows by</div>
+                  <div className="text-[9px] text-white/90 font-medium">Limit grows by</div>
                   <div className="text-[11px] font-bold">+ UGX 200K</div>
                 </div>
                 <div className="rounded-lg bg-white/15 px-1.5 py-1 ring-1 ring-white/25">
-                  <div className="text-[9px] text-purple-100/80 font-medium">Max cap</div>
+                  <div className="text-[9px] text-white/90 font-medium">Max cap</div>
                   <div className="text-[11px] font-bold">UGX 30M</div>
                 </div>
               </div>
@@ -965,14 +966,14 @@ export function AgentTenantCollectDialog({
               const boost = Math.min(Math.round(result.amount * 2), headroom);
               const newLimit = previousLimit + boost;
               return (
-                <div className="rounded-2xl p-4 bg-gradient-to-br from-purple-600 via-purple-700 to-fuchsia-700 text-white shadow-lg shadow-purple-900/20 border border-purple-400/30 space-y-3">
+                <div style={{ backgroundImage: "linear-gradient(135deg, hsl(271 81% 40%), hsl(273 76% 30%), hsl(295 70% 30%))", color: "#fff" }} className="rounded-2xl p-4 text-white shadow-lg shadow-purple-900/20 border border-purple-400/30 space-y-3">
                   <div className="flex items-center gap-2">
                     <div className="h-8 w-8 rounded-lg bg-white/15 backdrop-blur flex items-center justify-center shrink-0 ring-1 ring-white/20">
                       <Unlock className="h-4 w-4" />
                     </div>
                     <div>
-                      <p className="text-[10px] uppercase tracking-wider font-bold text-purple-100/90">New Advance Limit Unlocked</p>
-                      <p className="text-xs text-purple-100/80">You can now borrow more</p>
+                      <p className="text-[10px] uppercase tracking-wider font-bold text-white">New Advance Limit Unlocked</p>
+                      <p className="text-xs text-white/90">You can now borrow more</p>
                     </div>
                   </div>
                   <div className="text-center py-1">
@@ -980,16 +981,16 @@ export function AgentTenantCollectDialog({
                     {boost > 0 ? (
                       <p className="text-sm font-bold text-emerald-300 mt-1">+{formatCreditAmount(boost).trim()} from this allocation</p>
                     ) : (
-                      <p className="text-sm font-bold text-purple-200 mt-1">At UGX 30M cap</p>
+                      <p className="text-sm font-bold text-white mt-1">At UGX 30M cap</p>
                     )}
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <div className="rounded-lg bg-white/10 px-2 py-1.5 text-center">
-                      <p className="text-[9px] text-purple-100/70 uppercase tracking-wider">Before</p>
+                      <p className="text-[9px] text-white/80 uppercase tracking-wider">Before</p>
                       <p className="text-xs font-bold">{formatCreditAmount(previousLimit).trim()}</p>
                     </div>
                     <div className="rounded-lg bg-white/15 px-2 py-1.5 text-center ring-1 ring-white/25">
-                      <p className="text-[9px] text-purple-100/70 uppercase tracking-wider">After</p>
+                      <p className="text-[9px] text-white/80 uppercase tracking-wider">After</p>
                       <p className="text-xs font-bold">{formatCreditAmount(newLimit).trim()}</p>
                     </div>
                   </div>

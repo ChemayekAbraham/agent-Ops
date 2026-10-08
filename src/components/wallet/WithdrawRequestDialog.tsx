@@ -1,3 +1,4 @@
+import { safeUUID } from '@/lib/safeUUID';
 import { useState, useEffect, useRef } from 'react';
 import { WithdrawalStepTracker } from './WithdrawalStepTracker';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -538,7 +539,7 @@ export function WithdrawRequestDialog({ open, onOpenChange, walletBalance = 0, o
     if (!clientRequestIdRef.current) {
       clientRequestIdRef.current =
         (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
-          ? crypto.randomUUID()
+          ? safeUUID()
           : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     }
     const clientRequestId = clientRequestIdRef.current;

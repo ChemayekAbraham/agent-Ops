@@ -1,3 +1,4 @@
+import { safeUUID } from '@/lib/safeUUID';
 import { supabase } from "@/integrations/supabase/client";
 
 const LEGACY_STORAGE_KEY = "wr_campaign_ref";
@@ -25,12 +26,12 @@ export function getVisitorId(): string {
   try {
     let v = localStorage.getItem(VISITOR_KEY);
     if (!v) {
-      v = crypto.randomUUID();
+      v = safeUUID();
       localStorage.setItem(VISITOR_KEY, v);
     }
     return v;
   } catch {
-    return crypto.randomUUID();
+    return safeUUID();
   }
 }
 

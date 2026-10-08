@@ -1,4 +1,7 @@
 import { useState } from 'react';
+import { VettingAgeChip } from '@/components/service-center/VettingAgeChip';
+import { useOverdueVettingAlert } from '@/hooks/useOverdueVettingAlert';
+import { vetRowId } from '@/components/service-center/vettingNav';
 import { CheckCircle2, Loader2, MapPin, Phone, ShieldQuestion, UserCircle, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -24,6 +27,7 @@ type Kind = 'landlord' | 'lc1';
  */
 export function ServiceCenterVerificationVettingQueue({ only, searchQuery = '' }: { only?: Kind; searchQuery?: string } = {}) {
   const { data, isLoading, error } = useServiceCenterVerificationQueue();
+  const { data: vetPolicy } = useOverdueVettingAlert({ suppressed: true });
   const review = useServiceCenterReviewVerification();
   const { toast } = useToast();
 
@@ -141,7 +145,7 @@ export function ServiceCenterVerificationVettingQueue({ only, searchQuery = '' }
       ) : (
         <>
           {landlords.map((row: ServiceCenterLandlordRow) => (
-            <Card key={row.id}>
+            <Card key={row.id} id={vetRowId('landlord', row.id)}>
               <CardContent className="space-y-2.5 p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
@@ -156,7 +160,7 @@ export function ServiceCenterVerificationVettingQueue({ only, searchQuery = '' }
                       {row.latitude && row.longitude ? ' · GPS captured' : ' · no GPS'}
                     </p>
                   </div>
-                  <Badge variant="outline" className="shrink-0 text-[10px]">Landlord</Badge>
+                  <div className="flex shrink-0 items-center gap-1.5"><VettingAgeChip createdAt={row.created_at} warnHours={vetPolicy?.warn_hours} overdueHours={vetPolicy?.overdue_hours} /><Badge variant="outline" className="shrink-0 text-[10px]">Landlord</Badge></div>
                 </div>
 
                 <div className="grid gap-1 rounded-lg bg-muted/50 p-2 text-xs text-muted-foreground sm:grid-cols-2">
@@ -171,7 +175,7 @@ export function ServiceCenterVerificationVettingQueue({ only, searchQuery = '' }
           ))}
 
           {lc1.map((row: ServiceCenterLc1Row) => (
-            <Card key={row.id}>
+            <Card key={row.id} id={vetRowId('lc1', row.id)}>
               <CardContent className="space-y-2.5 p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
@@ -181,7 +185,7 @@ export function ServiceCenterVerificationVettingQueue({ only, searchQuery = '' }
                       {[row.village, row.parish, row.sub_county, row.district].filter(Boolean).join(', ') || 'No location captured'}
                     </p>
                   </div>
-                  <Badge variant="outline" className="shrink-0 text-[10px]">LC1 chairperson</Badge>
+                  <div className="flex shrink-0 items-center gap-1.5"><VettingAgeChip createdAt={row.created_at} warnHours={vetPolicy?.warn_hours} overdueHours={vetPolicy?.overdue_hours} /><Badge variant="outline" className="shrink-0 text-[10px]">LC1 chairperson</Badge></div>
                 </div>
 
                 <div className="grid gap-1 rounded-lg bg-muted/50 p-2 text-xs text-muted-foreground sm:grid-cols-2">
