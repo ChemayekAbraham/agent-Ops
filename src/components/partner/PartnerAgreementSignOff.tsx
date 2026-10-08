@@ -90,7 +90,6 @@ export default function PartnerAgreementSignOff({
   //                    and the partner's operational float.
   //   self_support:    nothing is created; the partner picks tenants/houses.
   const [supportMode, setSupportMode] = useState<SupportMode | null>(null);
-  const [returnOptionSel, setReturnOptionSel] = useState<'A' | 'B' | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [summary, setSummary] = useState<CountersignSummary | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
@@ -121,7 +120,6 @@ export default function PartnerAgreementSignOff({
         if (agErr) throw agErr;
         setRoiMode((pfAll || [])[0]?.roi_mode ?? null);
         setSupportMode(ag?.support_mode === 'company_managed' || ag?.support_mode === 'self_support' ? ag.support_mode : null);
-        setReturnOptionSel(storedOption(ag?.return_option) ?? OPTION_FROM_ROI_MODE[(pfAll || [])[0]?.roi_mode ?? ''] ?? null);
         setSummary(null);
         const portfolioTotal = (pfAll || []).reduce((s: number, r: any) => s + (Number(r.investment_amount) || 0), 0);
         if (!ag) {
@@ -205,7 +203,7 @@ export default function PartnerAgreementSignOff({
       partnerPhone: agreement.phone || partner?.phone || '',
       partnerEmail: agreement.email || partner?.email || '',
       partnershipAmount: Number(amountInput) || Number(agreement.partnership_amount) || 0,
-      returnOption: returnOptionSel ?? storedOption(agreement.return_option) ?? (roiMode ? OPTION_FROM_ROI_MODE[roiMode] : undefined),
+      returnOption: storedOption(agreement.return_option) ?? (roiMode ? OPTION_FROM_ROI_MODE[roiMode] : undefined),
       supportMode: supportMode ?? undefined,
       reference: agreement.reference || buildPartnerReference(partner?.id ?? '', partner?.created_at),
       payoutMode: agreement.payout_mode === 'momo' ? 'momo' : 'bank',
@@ -234,7 +232,7 @@ export default function PartnerAgreementSignOff({
       partnerSignatureDataUrl: agreement.partner_signature_data_url || undefined,
       includeStamp: true,
     };
-  }, [agreement, partner, repSigUrl, repName, repPosition, repContact, sigDataUrl, stampDate, amountInput, roiMode, returnOptionSel, supportMode]);
+  }, [agreement, partner, repSigUrl, repName, repPosition, repContact, sigDataUrl, stampDate, amountInput, roiMode, supportMode]);
 
   const onSignatureFile = (file?: File) => {
     if (!file) return;
@@ -349,7 +347,6 @@ export default function PartnerAgreementSignOff({
             pdfBase64,
             amount: Number(amountInput) || undefined,
             supportMode,
-            returnOption: previewData.returnOption ?? undefined,
             countersignAt: stampDate || undefined,
             rep: {
               name: repName.trim(),
@@ -470,25 +467,6 @@ export default function PartnerAgreementSignOff({
                       <span className="mt-1 block text-[10px] text-muted-foreground">The partner chooses tenants or houses. No portfolio now.</span>
                     </button>
                   </div>
-                  {supportMode === 'company_managed' && (
-                    <div className="space-y-1">
-                      <Label className="text-[11px]">Return option <span className="text-destructive">*</span></Label>
-                      <div className="grid grid-cols-2 gap-2">
-                        {(['A', 'B'] as const).map((opt) => (
-                          <Button
-                            key={opt}
-                            type="button"
-                            size="sm"
-                            variant={returnOptionSel === opt ? 'default' : 'outline'}
-                            className="h-8 text-xs"
-                            onClick={() => setReturnOptionSel(opt)}
-                          >
-                            {opt === 'A' ? 'A · Monthly payout' : 'B · Compounding'}
-                          </Button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </section>
 
                 <Separator />
@@ -579,7 +557,7 @@ export default function PartnerAgreementSignOff({
                       </p>
                     </>
                   ) : (
-                    <Button onClick={openConfirm} disabled={busy || !supportMode || (supportMode === 'company_managed' && !returnOptionSel) || !repName.trim() || !(sigDataUrl || defaults?.signature_path)} className="gap-1.5">
+                    <Button onClick={openConfirm} disabled={busy || !supportMode || !repName.trim() || !(sigDataUrl || defaults?.signature_path)} className="gap-1.5">
                       {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
                       Counter-sign &amp; send
                     </Button>
@@ -637,7 +615,7 @@ export default function PartnerAgreementSignOff({
                     <ReadRow
                       label="Portfolio to create"
                       value={summary.needed > 0
-                        ? `${ugx(summary.needed)} · ${summary.roi_percentage}% · ${summary.duration_months} months · Option ${returnOptionSel ?? '—'}`
+                        ? `${ugx(summary.needed)} · ${summary.roi_percentage}% · ${summary.duration_months} months · Option ${summary.return_option ?? 'A'}`
                         : 'None — already covered'}
                     />
                   ) : (

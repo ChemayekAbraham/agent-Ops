@@ -31913,6 +31913,12 @@ export type Database = {
           phone: string | null
           reference: string | null
           return_option: string | null
+          auto_portfolio_id: string | null
+          self_support_allowance: number | null
+          self_support_reminded_at: string | null
+          support_mode: string | null
+          support_mode_set_at: string | null
+          support_mode_set_by: string | null
           status: string
           updated_at: string
         }
@@ -31943,6 +31949,12 @@ export type Database = {
           phone?: string | null
           reference?: string | null
           return_option?: string | null
+          auto_portfolio_id?: string | null
+          self_support_allowance?: number | null
+          self_support_reminded_at?: string | null
+          support_mode?: string | null
+          support_mode_set_at?: string | null
+          support_mode_set_by?: string | null
           status?: string
           updated_at?: string
         }
@@ -31973,6 +31985,12 @@ export type Database = {
           phone?: string | null
           reference?: string | null
           return_option?: string | null
+          auto_portfolio_id?: string | null
+          self_support_allowance?: number | null
+          self_support_reminded_at?: string | null
+          support_mode?: string | null
+          support_mode_set_at?: string | null
+          support_mode_set_by?: string | null
           status?: string
           updated_at?: string
         }

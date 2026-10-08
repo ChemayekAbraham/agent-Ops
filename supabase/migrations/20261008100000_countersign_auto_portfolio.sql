@@ -16,8 +16,10 @@
 --   * existing open portfolios count toward the contract; only the difference
 --     (needed) is created / must be covered;
 --   * the operational float must hold AT LEAST `needed`; exactly `needed` is taken;
---   * company-managed terms: 15% for 12 months, Option A = monthly payout,
---     Option B = compounding, payout day = activation day (max 28);
+--   * company-managed terms: 15% for 12 months, payout day = activation day
+--     (max 28); Return option filled automatically (signup election, else first
+--     portfolio's mode, else Option A per contract clause 4.3) — Option A =
+--     monthly payout, Option B = compounding;
 --   * float short → nothing happens (no portfolio, no countersign, no email);
 --   * self-support money not allocated after 14 days → one reminder to the
 --     partner and Partner Ops, no automatic conversion.
@@ -88,11 +90,13 @@ BEGIN
   v_needed := greatest(0, v_amount - v_exist);
   v_float  := coalesce(public.funder_float_available(p_partner_id), 0);
 
-  v_option := coalesce(a.return_option,
+  v_option := coalesce(
+    CASE WHEN a.return_option IN ('A', 'B') THEN a.return_option END,
     (SELECT CASE ip.roi_mode WHEN 'monthly_payout' THEN 'A'
                              WHEN 'monthly_compounding' THEN 'B' END
        FROM public.investor_portfolios ip
-      WHERE ip.investor_id = p_partner_id ORDER BY ip.created_at LIMIT 1));
+      WHERE ip.investor_id = p_partner_id ORDER BY ip.created_at LIMIT 1),
+    'A');
 
   RETURN jsonb_build_object(
     'contract_amount', v_amount,
@@ -190,17 +194,19 @@ BEGIN
                         to_char(v_needed, 'FM999,999,999,999'), to_char(v_float, 'FM999,999,999,999')));
   END IF;
 
-  v_option := coalesce(p_return_option, a.return_option);
-  IF v_option IS NOT NULL AND v_option NOT IN ('A', 'B') THEN
-    RETURN jsonb_build_object('ok', false, 'code', 'INVALID_RETURN_OPTION', 'message', 'Return option must be A or B.');
-  END IF;
+  -- Return option is filled automatically, never chosen at countersign:
+  -- the partner's election at signup, else their first portfolio's mode,
+  -- else Option A (contract clause 4.3: no election => Option A).
+  v_option := coalesce(
+    CASE WHEN p_return_option IN ('A', 'B') THEN p_return_option END,
+    CASE WHEN a.return_option IN ('A', 'B') THEN a.return_option END,
+    (SELECT CASE ip.roi_mode WHEN 'monthly_payout' THEN 'A' WHEN 'monthly_compounding' THEN 'B' END
+       FROM public.investor_portfolios ip
+      WHERE ip.investor_id = p_partner_id ORDER BY ip.created_at LIMIT 1),
+    'A');
 
   -- Company-managed: create, fund and activate the difference.
   IF v_mode = 'company_managed' AND v_needed > 0 THEN
-    IF v_option IS NULL THEN
-      RETURN jsonb_build_object('ok', false, 'code', 'RETURN_OPTION_REQUIRED',
-        'message', 'Choose the Return option (A monthly payout or B compounding) for the portfolio.');
-    END IF;
     v_roi_mode := CASE v_option WHEN 'A' THEN 'monthly_payout' ELSE 'monthly_compounding' END;
 
     v_pid := gen_random_uuid();
@@ -257,7 +263,7 @@ BEGIN
   UPDATE public.partner_agreements
      SET partnership_amount = v_amount,
          partnership_amount_words = CASE WHEN partnership_amount IS DISTINCT FROM v_amount THEN NULL ELSE partnership_amount_words END,
-         return_option = coalesce(v_option, return_option),
+         return_option = v_option,
          support_mode = v_mode,
          support_mode_set_at = CASE WHEN support_mode IS DISTINCT FROM v_mode THEN now() ELSE support_mode_set_at END,
          support_mode_set_by = CASE WHEN support_mode IS DISTINCT FROM v_mode THEN p_actor ELSE support_mode_set_by END,
