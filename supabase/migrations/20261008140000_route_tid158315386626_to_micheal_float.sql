@@ -18,6 +18,7 @@ DO $$
 DECLARE
   c_micheal  constant uuid    := '75891dff-d684-49e9-83ea-fab6e4cb4ded';
   c_operator constant uuid    := '59d45ad2-0d44-433c-b4ec-20927a25c281'; -- Nankambo, platform-leg actor as on 5 Oct
+  c_josh     constant uuid    := 'cb798acb-68bc-4b4e-a414-a3d374e030b6'; -- Josh Wanda (cfo): author of the correction record, on his explicit instruction
   c_gmail    constant uuid    := 'da604405-265b-4cb6-bdd9-a87b445cbbc3';
   c_tid      constant text    := 'TID158315386626';
   c_amt      constant numeric := 10000;
@@ -43,6 +44,21 @@ BEGIN
   INSERT INTO public.email_credit_idempotency
     (gmail_transaction_id, gmail_message_id, email_tid, target_user_id, amount, operation, reference_id)
   VALUES (c_gmail, v_msg, c_tid, c_micheal, c_amt, 'credit', c_ref);
+
+  -- enforce_wallet_correction_evidence refuses any cfo_direct_credit leg without an evidenced,
+  -- authorized platform_wallet_corrections row for the same reference_id (append-only table).
+  -- Recorded under Josh (cfo), who explicitly instructed it (2026-10-08: "Record it under me").
+  IF NOT EXISTS (SELECT 1 FROM public.platform_wallet_corrections WHERE reference_id = c_ref) THEN
+    INSERT INTO public.platform_wallet_corrections
+      (tool, operation, target_user_id, amount, evidence, reference_id, created_by, metadata)
+    VALUES (
+      'cfo_direct_credit', 'credit', c_micheal, c_amt,
+      'Routed inbound deposit email ' || c_tid || ' (Airtel UGX 10,000 from 0730647169, 08-Oct-2026 05:57 UTC, gmail_transactions ' || c_gmail || ') to agent float by SQL migration, not the Route dialog, because the dialog failed; inserted on the explicit instruction of Josh Wanda (CFO).',
+      c_ref, c_josh,
+      jsonb_build_object('category_label', 'Operational Float (from email)', 'platform_category', 'agent_float_deposit',
+                         'recipient_type', 'operational_wallet', 'sub_category', c_tid,
+                         'wallet_category', 'agent_float_deposit', 'inserted_by_sql_on_instruction', true, 'doc', 210));
+  END IF;
 
   PERFORM public.create_ledger_transaction(
     entries := jsonb_build_array(
