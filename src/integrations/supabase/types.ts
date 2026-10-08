@@ -74355,7 +74355,10 @@ export type Database = {
           total_pending: number
         }[]
       }
-      staff_requisition_prompt_snooze: { Args: never; Returns: string }
+      staff_requisition_prompt_snooze: {
+        Args: { p_prompt_id?: string }
+        Returns: string
+      }
       staff_requisition_reduce_amount: {
         Args: {
           p_new_amount: number
