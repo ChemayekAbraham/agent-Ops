@@ -12458,6 +12458,39 @@ export type Database = {
         }
         Relationships: []
       }
+      db_stat_hourly: {
+        Row: {
+          backends: number | null
+          captured_at: string
+          delta_commit: number | null
+          delta_rollback: number | null
+          rollback_pct: number | null
+          top_statements: Json | null
+          xact_commit: number
+          xact_rollback: number
+        }
+        Insert: {
+          backends?: number | null
+          captured_at: string
+          delta_commit?: number | null
+          delta_rollback?: number | null
+          rollback_pct?: number | null
+          top_statements?: Json | null
+          xact_commit: number
+          xact_rollback: number
+        }
+        Update: {
+          backends?: number | null
+          captured_at?: string
+          delta_commit?: number | null
+          delta_rollback?: number | null
+          rollback_pct?: number | null
+          top_statements?: Json | null
+          xact_commit?: number
+          xact_rollback?: number
+        }
+        Relationships: []
+      }
       db_stat_snapshots: {
         Row: {
           captured_at: string
@@ -12479,6 +12512,27 @@ export type Database = {
           deadlocks?: number | null
           xact_commit?: number
           xact_rollback?: number
+        }
+        Relationships: []
+      }
+      db_stmt_last_sample: {
+        Row: {
+          calls: number
+          query: string | null
+          queryid: number
+          userid: unknown
+        }
+        Insert: {
+          calls: number
+          query?: string | null
+          queryid: number
+          userid: unknown
+        }
+        Update: {
+          calls?: number
+          query?: string | null
+          queryid?: number
+          userid?: unknown
         }
         Relationships: []
       }
@@ -61710,6 +61764,7 @@ export type Database = {
         Args: { p_reason: string; p_rent_request_id: string }
         Returns: Json
       }
+      capture_db_stat_hourly: { Args: never; Returns: Json }
       capture_location_by_token: {
         Args: {
           p_accuracy?: number
