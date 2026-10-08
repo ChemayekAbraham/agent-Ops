@@ -3599,6 +3599,13 @@
       "when": 1791449003578,
       "tag": "0513_agent_products_in_progress",
       "breakpoints": true
+    },
+    {
+      "idx": 514,
+      "version": "7",
+      "when": 1791452134916,
+      "tag": "0514_tenant_sms_campaigns",
+      "breakpoints": true
     }
   ]
 }
