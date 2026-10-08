@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { AlertTriangle, Clock, FileText, Home, UserCheck } from 'lucide-react';
+import { AlertTriangle, Clock, FileText, Home, UserCheck, X } from 'lucide-react';
 import { AlertDialog, AlertDialogContent, AlertDialogDescription, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -65,6 +65,7 @@ export function OverdueVettingDialog({ suppressed }: { suppressed?: boolean }) {
         aria-labelledby="overdue-vetting-title"
         className={cn('overflow-hidden p-0 gap-0 sm:max-w-md', !reduce && 'ovd-enter')}
         onEscapeKeyDown={(e) => { e.preventDefault(); remindLater(); }}
+        onPointerDownOutside={() => remindLater()}
         onOpenAutoFocus={(e) => { e.preventDefault(); primaryRef.current?.focus(); }}
       >
         <style>{`
@@ -82,9 +83,17 @@ export function OverdueVettingDialog({ suppressed }: { suppressed?: boolean }) {
           )}
         >
           <ToneIcon className="h-5 w-5 shrink-0" aria-hidden />
-          <AlertDialogTitle id="overdue-vetting-title" className="text-base font-semibold">
+          <AlertDialogTitle id="overdue-vetting-title" className="flex-1 text-base font-semibold">
             {copy.title}
           </AlertDialogTitle>
+          <button
+            type="button"
+            onClick={remindLater}
+            aria-label={copy.secondaryLabel}
+            className="rounded-md p-1 opacity-80 hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <X className="h-4 w-4" aria-hidden />
+          </button>
         </div>
 
         <div className="space-y-4 px-5 py-4">
