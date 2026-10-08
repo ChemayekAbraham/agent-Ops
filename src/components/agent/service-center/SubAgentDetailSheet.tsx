@@ -2,10 +2,9 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetClose, SheetContent } from '@/components/ui/sheet';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  ArrowLeft, ArrowLeftRight, Building2, Home, KeyRound, Mail, Phone, ShieldCheck, ShieldOff, Unlink, Users, Wallet, X,
+  ArrowLeft, ArrowLeftRight, Building2, Home, KeyRound, Mail, Phone, ShieldCheck, ShieldOff, Unlink, Users, Wallet,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatUGX } from '@/lib/rentCalculations';
