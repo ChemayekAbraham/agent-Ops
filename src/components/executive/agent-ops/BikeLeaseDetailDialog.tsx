@@ -7,7 +7,6 @@ import {
   Calendar,
   Check,
   Clock,
-  Edit3,
   FileText,
   Phone,
   ShieldAlert,
@@ -99,7 +98,6 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   onApprove?: (order: BikeLeaseDetailRow) => void;
   onReject?: (order: BikeLeaseDetailRow) => void;
-  onEditPrice?: (order: BikeLeaseDetailRow) => void;
   stage?: 'ops' | 'coo' | 'cfo';
 }
 
@@ -109,7 +107,6 @@ export function BikeLeaseDetailDialog({
   onOpenChange,
   onApprove,
   onReject,
-  onEditPrice,
   stage,
 }: Props) {
   const supplierCostFor = useBikeCatalogCosts();
@@ -707,16 +704,6 @@ export function BikeLeaseDetailDialog({
                   Motor Bike &amp; Financial Terms
                 </h3>
               </div>
-              {onEditPrice && canAct && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 px-2.5 text-xs font-semibold gap-1.5 rounded-lg border-primary/30 text-primary hover:bg-primary/10 transition-colors shrink-0"
-                  onClick={() => onEditPrice(order)}
-                >
-                  <Edit3 className="h-3 w-3" /> Edit Price
-                </Button>
-              )}
             </div>
 
             <div className="grid grid-cols-2 gap-2 text-xs">
@@ -1003,19 +990,6 @@ export function BikeLeaseDetailDialog({
 
           <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-end gap-2 w-full sm:w-auto">
             <div className="flex items-center justify-center gap-2 w-full sm:w-auto">
-              {onEditPrice && canAct && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-9 text-xs gap-1.5 flex-1 sm:flex-initial justify-center"
-                  onClick={() => {
-                    onOpenChange(false);
-                    onEditPrice(order);
-                  }}
-                >
-                  <Edit3 className="h-3.5 w-3.5 text-primary" /> Edit Price
-                </Button>
-              )}
               {!canAct && (
                 <span className="text-[11px] text-muted-foreground">
                   Read-only — already decided at this level

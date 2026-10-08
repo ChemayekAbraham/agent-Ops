@@ -208,15 +208,22 @@ export function InvitedPortfoliosPanel() {
       // store/email it via `generate-partner-agreement`. This mirrors the
       // Sign-off dialog flow so the counter-signed contract is produced in
       // the same request.
+      let countersigned = false;
       if (countersign && countersign.repName.trim()) {
         try {
           const pdfBase64 = await renderAgreementPdfBase64(
             buildAgreementHtml(countersign.previewData),
           );
-          await supabase.functions.invoke('generate-partner-agreement', {
+          // countersignOnly: this path approves an EXISTING portfolio, so it
+          // never creates another one. The server countersigns only when the
+          // partner's portfolios already cover the contract and a support type
+          // is on record; otherwise it refuses and Ops use the Sign-off dialog.
+          const { error: csErr } = await supabase.functions.invoke('generate-partner-agreement', {
             body: {
               partnerId: row.investor_id,
               countersign: true,
+              countersignOnly: true,
+              amount: countersign.previewData.partnershipAmount || undefined,
               pdfBase64,
               rep: {
                 name: countersign.repName.trim(),
@@ -226,16 +233,20 @@ export function InvitedPortfoliosPanel() {
               },
             },
           });
+          if (csErr) throw new Error(await extractFromErrorObject(csErr, 'Counter-signature failed.'));
+          countersigned = true;
         } catch (e: any) {
           console.warn('[approve] counter-signature dispatch failed:', e?.message);
-          toast.warning('Portfolio approved, but counter-signed PDF failed to generate.', {
-            description: e?.message || 'Retry from the Sign-off dialog.',
+          toast.warning('Portfolio approved, but the agreement was not counter-signed.', {
+            description: e?.message || 'Counter-sign it from the Sign-off dialog.',
           });
         }
       }
 
       toast.success('Portfolio approved', {
-        description: `${row.portfolio_code} is now active. Final agreement sent to ${row.partner_name}.`,
+        description: countersigned
+          ? `${row.portfolio_code} is now active. Final agreement sent to ${row.partner_name}.`
+          : `${row.portfolio_code} is now active.`,
       });
       await queryClient.invalidateQueries({ queryKey: ['invited-portfolios'] });
       await queryClient.invalidateQueries({ queryKey: ['exec-partner-portfolios'] });

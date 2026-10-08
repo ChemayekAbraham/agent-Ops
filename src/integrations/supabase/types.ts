@@ -60950,11 +60950,13 @@ export type Database = {
           ac_30m: string
           ac_caller: string
           ac_codes: string
+          ac_consent: string
           ac_day: string
           ac_dial: string
           ac_explained: string
           ac_id: string
           ac_note: string
+          ac_otp: string
           ac_person: string
           ac_phone: string
           ac_recorded: string
@@ -66645,6 +66647,20 @@ export type Database = {
       }
       get_my_landlord_properties: { Args: never; Returns: Json }
       get_my_listing_block: { Args: never; Returns: Json }
+      get_my_overdue_bike_asset_details: {
+        Args: never
+        Returns: {
+          agent_name: string
+          battery_serial: string
+          brand: string
+          cfo_disbursed_at: string
+          chassis_number: string
+          lease_id: string
+          model: string
+          plate_number: string
+          tracking_reference: string
+        }[]
+      }
       get_my_parent_agent: {
         Args: never
         Returns: {
@@ -68835,6 +68851,7 @@ export type Database = {
         Args: { p_user_id?: string }
         Returns: boolean
       }
+      is_bucket_a_approver: { Args: { _user_id: string }; Returns: boolean }
       is_budget_coo_reviewer: { Args: { _user_id: string }; Returns: boolean }
       is_budget_reviewer: { Args: { _user_id: string }; Returns: boolean }
       is_business_advance_ops: { Args: { _uid: string }; Returns: boolean }
@@ -69276,6 +69293,21 @@ export type Database = {
       link_referred_agent_to_parent: {
         Args: { p_sub_agent_id: string }
         Returns: boolean
+      }
+      list_agent_products_in_progress: {
+        Args: { p_category: string }
+        Returns: {
+          client_name: string
+          client_phone: string
+          coo_approved_at: string
+          created_at: string
+          id: string
+          item_name: string
+          ops_approved_at: string
+          order_status: string
+          quantity: number
+          total_revenue: number
+        }[]
       }
       list_assignable_agents:
         | {

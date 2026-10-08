@@ -3571,6 +3571,34 @@
       "when": 1791445374125,
       "tag": "0509_referral_performance_real",
       "breakpoints": true
+    },
+    {
+      "idx": 510,
+      "version": "7",
+      "when": 1791445835705,
+      "tag": "0510_bucket_a_approver_allowlist",
+      "breakpoints": true
+    },
+    {
+      "idx": 511,
+      "version": "7",
+      "when": 1791447503351,
+      "tag": "0511_dormant_bike_leases_projection_join",
+      "breakpoints": true
+    },
+    {
+      "idx": 512,
+      "version": "7",
+      "when": 1791448742020,
+      "tag": "0512_bike_asset_details_after_disbursement",
+      "breakpoints": true
+    },
+    {
+      "idx": 513,
+      "version": "7",
+      "when": 1791449003578,
+      "tag": "0513_agent_products_in_progress",
+      "breakpoints": true
     }
   ]
 }
