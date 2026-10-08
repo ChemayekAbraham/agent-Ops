@@ -47351,6 +47351,226 @@ export type Database = {
         }
         Relationships: []
       }
+      tenant_campaign_clicks: {
+        Row: {
+          browser: string | null
+          campaign_id: string
+          city: string | null
+          clicked_at: string
+          country: string | null
+          device_class: string | null
+          gps_accuracy: number | null
+          gps_lat: number | null
+          gps_lng: number | null
+          gps_status: string | null
+          id: string
+          ip_address: string | null
+          is_bot: boolean
+          os: string | null
+          referrer: string | null
+          user_agent: string | null
+          visitor_hash: string | null
+        }
+        Insert: {
+          browser?: string | null
+          campaign_id: string
+          city?: string | null
+          clicked_at?: string
+          country?: string | null
+          device_class?: string | null
+          gps_accuracy?: number | null
+          gps_lat?: number | null
+          gps_lng?: number | null
+          gps_status?: string | null
+          id?: string
+          ip_address?: string | null
+          is_bot?: boolean
+          os?: string | null
+          referrer?: string | null
+          user_agent?: string | null
+          visitor_hash?: string | null
+        }
+        Update: {
+          browser?: string | null
+          campaign_id?: string
+          city?: string | null
+          clicked_at?: string
+          country?: string | null
+          device_class?: string | null
+          gps_accuracy?: number | null
+          gps_lat?: number | null
+          gps_lng?: number | null
+          gps_status?: string | null
+          id?: string
+          ip_address?: string | null
+          is_bot?: boolean
+          os?: string | null
+          referrer?: string | null
+          user_agent?: string | null
+          visitor_hash?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_campaign_clicks_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_campaign_sends: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          dedupe_key: string | null
+          error: string | null
+          id: string
+          is_test: boolean
+          message: string
+          phone: string
+          recipient_name: string | null
+          rent_amount: number | null
+          segment: string | null
+          sent_at: string | null
+          status: string
+          tenant_id: string | null
+          wave_id: string | null
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          dedupe_key?: string | null
+          error?: string | null
+          id?: string
+          is_test?: boolean
+          message: string
+          phone: string
+          recipient_name?: string | null
+          rent_amount?: number | null
+          segment?: string | null
+          sent_at?: string | null
+          status?: string
+          tenant_id?: string | null
+          wave_id?: string | null
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          dedupe_key?: string | null
+          error?: string | null
+          id?: string
+          is_test?: boolean
+          message?: string
+          phone?: string
+          recipient_name?: string | null
+          rent_amount?: number | null
+          segment?: string | null
+          sent_at?: string | null
+          status?: string
+          tenant_id?: string | null
+          wave_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_campaign_sends_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_campaign_sends_wave_id_fkey"
+            columns: ["wave_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_campaign_waves"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_campaign_waves: {
+        Row: {
+          campaign_id: string
+          finished_at: string | null
+          id: string
+          note: string | null
+          scheduled_at: string
+          segment: string
+          started_at: string | null
+          status: string
+          wave_no: number
+        }
+        Insert: {
+          campaign_id: string
+          finished_at?: string | null
+          id?: string
+          note?: string | null
+          scheduled_at: string
+          segment: string
+          started_at?: string | null
+          status?: string
+          wave_no: number
+        }
+        Update: {
+          campaign_id?: string
+          finished_at?: string | null
+          id?: string
+          note?: string | null
+          scheduled_at?: string
+          segment?: string
+          started_at?: string | null
+          status?: string
+          wave_no?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_campaign_waves_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_campaigns: {
+        Row: {
+          created_at: string
+          destination_url: string
+          fallback_template: string
+          id: string
+          message_template: string
+          name: string
+          short_code: string
+          slug: string
+          status: string
+          test_phones: string[]
+        }
+        Insert: {
+          created_at?: string
+          destination_url: string
+          fallback_template: string
+          id?: string
+          message_template: string
+          name: string
+          short_code: string
+          slug: string
+          status?: string
+          test_phones?: string[]
+        }
+        Update: {
+          created_at?: string
+          destination_url?: string
+          fallback_template?: string
+          id?: string
+          message_template?: string
+          name?: string
+          short_code?: string
+          slug?: string
+          status?: string
+          test_phones?: string[]
+        }
+        Relationships: []
+      }
       tenant_dashboard_access_log: {
         Row: {
           browser: string | null
@@ -63211,6 +63431,11 @@ export type Database = {
         }
         Returns: Json
       }
+      crm_tenant_campaign_overview: { Args: { p_slug: string }; Returns: Json }
+      crm_tenant_campaign_set_wave: {
+        Args: { p_status: string; p_wave_id: string }
+        Returns: undefined
+      }
       cron_jobs_health: {
         Args: never
         Returns: {
@@ -74273,6 +74498,20 @@ export type Database = {
       }
       telecom_sending_charge: { Args: { p_amount: number }; Returns: number }
       tenant_balance_edits_pending: { Args: never; Returns: Json }
+      tenant_campaign_audience: {
+        Args: never
+        Returns: {
+          full_name: string
+          phone: string
+          rent_amount: number
+          segment: string
+          tenant_id: string
+        }[]
+      }
+      tenant_campaign_unschedule: {
+        Args: { p_job_names: string[] }
+        Returns: undefined
+      }
       tenant_location_correction_active_metrics: {
         Args: { p_agent_id?: string }
         Returns: Json
