@@ -178,10 +178,24 @@ export function BikeLeaseApprovalQueue({
     },
   });
 
+  // Deduplicate orders so that duplicate entity keys (e.g. sale_id vs lease_id or duplicate submissions)
+  // never render as duplicate cards in the approval queue.
+  const deduplicatedOrders = useMemo(() => {
+    const seen = new Set<string>();
+    const result: BikeLeaseRow[] = [];
+    for (const order of orders) {
+      const key = order.id || (order as any).lease_id || (order as any).sale_id;
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      result.push(order);
+    }
+    return result;
+  }, [orders]);
+
   // Query running advances for all applicants in the queue to flag deduction collision risk for Ops
   const applicantIds = useMemo(
-    () => Array.from(new Set(orders.map((o) => o.customer_id).filter(Boolean))) as string[],
-    [orders],
+    () => Array.from(new Set(deduplicatedOrders.map((o) => o.customer_id).filter(Boolean))) as string[],
+    [deduplicatedOrders],
   );
 
   const { data: activeAdvancesMap = {} } = useQuery({
@@ -210,6 +224,7 @@ export function BikeLeaseApprovalQueue({
 
   const invalidate = () => {
     queryClient.invalidateQueries({ queryKey: ['bike-lease-queue'] });
+    queryClient.invalidateQueries({ queryKey: ['bike-lease-category-counts'] });
     queryClient.invalidateQueries({ queryKey: ['agent-products'] });
   };
 
@@ -291,7 +306,7 @@ export function BikeLeaseApprovalQueue({
   });
 
   const scoped = useMemo(() => {
-    let rows = orders;
+    let rows = deduplicatedOrders;
     // A dashboard scoped to one step only ever sees the rows waiting on it,
     // plus the rows it has already handled so officers can follow them through.
     if (stageFilter === 'coo') {
@@ -312,7 +327,7 @@ export function BikeLeaseApprovalQueue({
       return rows.filter((o) => isOpen(o.order_status));
     }
     return rows;
-  }, [orders, pendingOnly, awaitingExecOnly, approvedOnly, stageFilter]);
+  }, [deduplicatedOrders, pendingOnly, awaitingExecOnly, approvedOnly, stageFilter]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -324,11 +339,11 @@ export function BikeLeaseApprovalQueue({
     );
   }, [scoped, search]);
 
-  const pendingCount = useMemo(() => orders.filter((o) => isPending(o.order_status)).length, [orders]);
-  const cooCount = useMemo(() => orders.filter((o) => isAwaitingCoo(o.order_status)).length, [orders]);
-  const cfoCount = useMemo(() => orders.filter((o) => isAwaitingCfo(o.order_status)).length, [orders]);
+  const pendingCount = useMemo(() => deduplicatedOrders.filter((o) => isPending(o.order_status)).length, [deduplicatedOrders]);
+  const cooCount = useMemo(() => deduplicatedOrders.filter((o) => isAwaitingCoo(o.order_status)).length, [deduplicatedOrders]);
+  const cfoCount = useMemo(() => deduplicatedOrders.filter((o) => isAwaitingCfo(o.order_status)).length, [deduplicatedOrders]);
   const execCount = useMemo(() => cooCount + cfoCount, [cooCount, cfoCount]);
-  const approvedCount = useMemo(() => orders.filter((o) => isApproved(o.order_status)).length, [orders]);
+  const approvedCount = useMemo(() => deduplicatedOrders.filter((o) => isApproved(o.order_status)).length, [deduplicatedOrders]);
 
   const rowBusy = (id: string) =>
     (approve.isPending && approve.variables?.id === id) ||

@@ -345,7 +345,7 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
                 <div className="flex items-start gap-2">
                   <FileText className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
                   <p>
-                    <strong className="text-foreground">Logbook & Title Custody:</strong> The physical Spiro logbook and registration remain in Welile's exclusive legal custody as collateral throughout the lease period.
+                    <strong className="text-foreground">Direct Bike Financing:</strong> Once approved, purchase capital is disbursed directly into your agent wallet so you can acquire your electric motorbike immediately.
                   </p>
                 </div>
                 <div className="flex items-start gap-2">
@@ -357,13 +357,13 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
                 <div className="flex items-start gap-2">
                   <FileText className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
                   <p>
-                    <strong className="text-foreground">Daily Commission Sweeps:</strong> Once your bike lease is approved and activated, daily repayments are recovered from your agent wallet commission earnings on a reducing-balance schedule without overdrafting.
+                    <strong className="text-foreground">Daily Float Sweeps:</strong> Once activated, daily repayments are recovered from your agent wallet on a reducing-balance schedule without overdrafting.
                   </p>
                 </div>
                 <div className="flex items-start gap-2">
                   <FileText className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
                   <p>
-                    <strong className="text-foreground">Full Settlement & Ownership:</strong> Upon full balance clearance (0 UGX), a certified <em>Certificate of Full Settlement</em> is automatically issued, and the logbook is officially transferred to you.
+                    <strong className="text-foreground">Full Settlement Certificate:</strong> Upon full balance clearance (0 UGX), a certified <em>Certificate of Full Settlement</em> is automatically issued confirming full completion.
                   </p>
                 </div>
               </div>

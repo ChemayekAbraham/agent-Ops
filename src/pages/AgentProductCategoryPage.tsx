@@ -241,7 +241,7 @@ function SmartphoneTabs({ category }: { category?: AgentProductCategory }) {
 function MotorBikeTabs({ category }: { category?: AgentProductCategory }) {
   const [tab, setTab] = useState('overview');
   const { data: counts = { pendingOps: 0, awaitingExec: 0, approved: 0 } } = useQuery({
-    queryKey: ['bike-lease-queue'],
+    queryKey: ['bike-lease-category-counts'],
     queryFn: async () => {
       const { data, error } = await db.rpc('list_bike_lease_orders', { p_status: null });
       if (error) throw error;

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
-import { Bike, CheckCircle2, ChevronDown, ChevronUp, Clock, XCircle, ShieldCheck, Download, Loader2, Trash2 } from 'lucide-react';
+import { Bike, CheckCircle2, ChevronDown, ChevronUp, Clock, XCircle, ShieldCheck, Download, Loader2, Trash2, TrendingDown } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent } from '@/components/ui/card';
@@ -43,6 +43,7 @@ interface BikeLeaseRow {
   cfo_disbursed_at: string | null;
   lease_activated_at: string | null;
   tracking_reference: string | null;
+  settlement_completed_at?: string | null;
 }
 
 const STAGES = [
@@ -232,6 +233,23 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder, filterStatu
   const termMonths = selected?.lease_term_months || 12;
   const leaseSchedule = useMemo(() => spiroLeaseSchedule(termMonths, valuation), [termMonths, valuation]);
 
+  // Active lease month using strict 30-day elapsed windows
+  const activeMonth = useMemo(() => {
+    const actDateStr = selected?.lease_activated_at ?? selected?.cfo_disbursed_at;
+    if (!actDateStr) return 1;
+    try {
+      const act = new Date(actDateStr).getTime();
+      const now = Date.now();
+      const elapsedDays = Math.max(0, Math.floor((now - act) / (1000 * 60 * 60 * 24)));
+      const m = Math.floor(elapsedDays / 30) + 1;
+      return Math.min(termMonths, Math.max(1, m));
+    } catch {
+      return 1;
+    }
+  }, [selected?.lease_activated_at, selected?.cfo_disbursed_at, termMonths]);
+
+  const currentDailyPay = leaseSchedule.rows[activeMonth - 1]?.daily ?? leaseSchedule.rows[0]?.daily ?? 0;
+
   if (!userId || !selected || filteredOrders.length === 0) return null;
 
   const statusInfo = getDetailedStatus(status, outstanding);
@@ -364,21 +382,21 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder, filterStatu
                   </div>
                   <div className="rounded-lg bg-background/90 border border-border/70 p-2 sm:p-2.5 text-right sm:text-left">
                     <span className="text-[10px] text-muted-foreground block uppercase font-bold tracking-wider">
-                      Daily Repayment
+                      Daily Repayment (Month {activeMonth})
                     </span>
                     <span className="text-sm sm:text-base font-extrabold text-primary tabular-nums block mt-0.5 whitespace-nowrap">
-                      {formatUGX(leaseSchedule.rows[0]?.daily || 0)}/d
+                      {formatUGX(currentDailyPay)}/d
                     </span>
                   </div>
                 </div>
 
                 <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-background/80 border border-border/60">
                   <span className="text-[10px] sm:text-[11px] text-muted-foreground font-medium flex items-center gap-1.5">
-                    <ShieldCheck className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
-                    Logbook Title Custody
+                    <TrendingDown className="h-3.5 w-3.5 text-primary shrink-0" />
+                    Reducing Daily Schedule
                   </span>
-                  <span className="text-xs font-semibold tabular-nums text-indigo-600 dark:text-indigo-400">
-                    {outstanding === 0 ? '✓ Ready for Transfer' : '🔒 Welile Custody'}
+                  <span className="text-xs font-semibold tabular-nums text-foreground">
+                    Month {activeMonth} of {termMonths}
                   </span>
                 </div>
               </div>
@@ -478,41 +496,29 @@ export default function BikeLeaseStatus({ userId, onRequestNewOrder, filterStatu
               </div>
             )}
 
-            {current === 3 && !rejected && (
+            {current === 3 && !rejected && outstanding === 0 && (
               <div className="space-y-2">
-                {/* Logbook Custody & Settlement Card */}
-                <div
-                  className={`rounded-lg border p-3 space-y-2 ${
-                    outstanding === 0
-                      ? 'border-emerald-500/30 bg-emerald-500/5'
-                      : 'border-border bg-card/60'
-                  }`}
-                >
+                {/* Full Settlement Card */}
+                <div className="rounded-lg border border-emerald-500/30 bg-emerald-500/5 p-3 space-y-2">
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <ShieldCheck className={`h-4 w-4 ${outstanding === 0 ? 'text-emerald-600' : 'text-primary'}`} />
+                      <ShieldCheck className="h-4 w-4 text-emerald-600" />
                       <p className="text-xs font-semibold text-foreground whitespace-nowrap">
-                        {outstanding === 0 ? 'Logbook Transfer Authorized' : 'Logbook Title Custody'}
+                        Lease Fully Settled
                       </p>
                     </div>
                     <Badge
                       variant="outline"
-                      className={`text-[10px] shrink-0 ${
-                        outstanding === 0
-                          ? 'bg-emerald-500/15 text-emerald-600 border-emerald-500/30'
-                          : 'bg-indigo-500/15 text-indigo-600 border-indigo-500/30'
-                      }`}
+                      className="text-[10px] shrink-0 bg-emerald-500/15 text-emerald-600 border-emerald-500/30"
                     >
-                      {outstanding === 0 ? '✓ Ready for Pickup' : '🔒 In Welile Custody'}
+                      ✓ Completed
                     </Badge>
                   </div>
                   <p className="text-[11px] text-muted-foreground leading-relaxed">
-                    {outstanding === 0
-                      ? 'Congratulations! Your Spiro bike lease is 100% settled. Welile has discharged its legal custody hold, and your official logbook transfer is authorized.'
-                      : 'The Spiro logbook and registration title remain in Welile legal custody throughout the active lease period until full settlement.'}
+                    Congratulations! Your Spiro bike lease is 100% settled with zero balance remaining. Your official Certificate of Full Settlement is available below.
                   </p>
 
-                  {outstanding === 0 && (
+                  {(outstanding <= 0 || status === 'completed') && (
                     <Button
                       size="sm"
                       className="w-full h-8 text-xs font-semibold gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white mt-1"
