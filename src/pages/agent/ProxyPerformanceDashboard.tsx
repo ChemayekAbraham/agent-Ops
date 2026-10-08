@@ -1,7 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { FilePlus2 } from 'lucide-react';
+import { FilePlus2, Share2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { getPublicOrigin } from '@/lib/getPublicOrigin';
+import { createShortLink } from '@/lib/createShortLink';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { useProxyPerformanceDashboard, type ProxyRange } from '@/hooks/useProxyPerformanceDashboard';
@@ -45,6 +49,39 @@ export default function ProxyPerformanceDashboard() {
   const name = (meta.full_name || user?.email?.split('@')[0] || 'Agent').split(' ')[0];
   const go = (s: ProxySection) => navigate(sectionPath(s));
   const startNote = () => setSupportModeOpen(true);
+
+  // Funder-onboarding invite link (same attributed flow as the Invite tab).
+  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
+  const inviteStarted = useRef(false);
+  const buildInvite = async () => {
+    if (!user?.id) return;
+    try {
+      const { data, error } = await supabase.rpc('log_proxy_partner_invite', { p_channel: 'link', p_invitee_name: null, p_invitee_phone: null });
+      if (error) throw error;
+      const payload = data as unknown as { path: string };
+      const long = `${getPublicOrigin()}${payload.path}`;
+      try {
+        const parsed = new URL(long);
+        const params: Record<string, string> = {};
+        parsed.searchParams.forEach((v, k) => { params[k] = v; });
+        setInviteUrl(await createShortLink(user.id, parsed.pathname, params));
+      } catch { setInviteUrl(long); }
+    } catch {
+      toast.error('Could not create your invite link');
+    }
+  };
+  useEffect(() => {
+    if (user?.id && !inviteStarted.current) { inviteStarted.current = true; void buildInvite(); }
+  }, [user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const shareInvite = async () => {
+    if (!inviteUrl) { void buildInvite(); return; }
+    const message = `Join me in supporting tenants on Welile and earn monthly returns: ${inviteUrl}`;
+    try {
+      if (navigator.share) await navigator.share({ title: 'Join Welile', text: message, url: inviteUrl });
+      else { await navigator.clipboard.writeText(inviteUrl); toast.success('Invite link copied'); }
+    } catch { /* share cancelled */ }
+  };
   const startHouseNote = (house: HouseOpportunity) => {
     setSupportMode('self');
     setNoteHouse(house);
