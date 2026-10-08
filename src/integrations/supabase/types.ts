@@ -1358,6 +1358,7 @@ export type Database = {
           agent_id: string
           allocation_id: string
           amount: number
+          auto_approved: boolean
           cfo_decision_at: string | null
           cfo_id: string | null
           cfo_note: string | null
@@ -1375,6 +1376,7 @@ export type Database = {
           agent_id: string
           allocation_id: string
           amount: number
+          auto_approved?: boolean
           cfo_decision_at?: string | null
           cfo_id?: string | null
           cfo_note?: string | null
@@ -1392,6 +1394,7 @@ export type Database = {
           agent_id?: string
           allocation_id?: string
           amount?: number
+          auto_approved?: boolean
           cfo_decision_at?: string | null
           cfo_id?: string | null
           cfo_note?: string | null
@@ -10750,6 +10753,81 @@ export type Database = {
           receivable_category?: string
           source_id?: string
           source_table?: string
+        }
+        Relationships: []
+      }
+      cfo_corr_5300000_events: {
+        Row: {
+          actor: string | null
+          created_at: string
+          details: Json
+          event_type: string
+          id: string
+          package_hash: string | null
+          preflight_id: string | null
+        }
+        Insert: {
+          actor?: string | null
+          created_at?: string
+          details?: Json
+          event_type: string
+          id?: string
+          package_hash?: string | null
+          preflight_id?: string | null
+        }
+        Update: {
+          actor?: string | null
+          created_at?: string
+          details?: Json
+          event_type?: string
+          id?: string
+          package_hash?: string | null
+          preflight_id?: string | null
+        }
+        Relationships: []
+      }
+      cfo_corr_5300000_lines: {
+        Row: {
+          amount: number
+          credit_account: string
+          debit_account: string
+          equity_leg_direction: string
+          idempotency_key: string
+          label: string
+          line_no: number
+          post_source_id: string
+          post_source_table: string
+          receivable_leg_category: string
+          receivable_leg_direction: string
+          source_groups: string[]
+        }
+        Insert: {
+          amount: number
+          credit_account: string
+          debit_account: string
+          equity_leg_direction: string
+          idempotency_key: string
+          label: string
+          line_no: number
+          post_source_id: string
+          post_source_table: string
+          receivable_leg_category: string
+          receivable_leg_direction: string
+          source_groups: string[]
+        }
+        Update: {
+          amount?: number
+          credit_account?: string
+          debit_account?: string
+          equity_leg_direction?: string
+          idempotency_key?: string
+          label?: string
+          line_no?: number
+          post_source_id?: string
+          post_source_table?: string
+          receivable_leg_category?: string
+          receivable_leg_direction?: string
+          source_groups?: string[]
         }
         Relationships: []
       }
@@ -59681,6 +59759,19 @@ export type Database = {
         Args: { p_account: string; p_source_id: string }
         Returns: number
       }
+      _cfo_corr_5300000_acct: { Args: { p_account: string }; Returns: number }
+      _cfo_corr_5300000_evaluate: { Args: never; Returns: Json }
+      _cfo_corr_5300000_group_ok: {
+        Args: {
+          p_amt: number
+          p_cat: string
+          p_dir: string
+          p_prefix: string
+          p_scope: string
+        }
+        Returns: boolean
+      }
+      _cfo_corr_5300000_hash: { Args: never; Returns: string }
       _cfo_credit_type: { Args: { p_category: string }; Returns: string }
       _cfo_paid_out_base: {
         Args: {
@@ -59727,6 +59818,15 @@ export type Database = {
             }
             Returns: string
           }
+      _complete_allocation_return: {
+        Args: {
+          p_auto?: boolean
+          p_decided_by: string
+          p_note: string
+          p_request_id: string
+        }
+        Returns: Json
+      }
       _create_landlord_number_change_request: {
         Args: {
           p_actor: string
@@ -60187,6 +60287,14 @@ export type Database = {
           p_amount: number
           p_notes?: string
           p_partner_id: string
+        }
+        Returns: Json
+      }
+      agent_edit_sent_back_rent_plan: {
+        Args: {
+          p_new_rent_amount: number
+          p_note: string
+          p_request_id: string
         }
         Returns: Json
       }
@@ -62317,6 +62425,15 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      cfo_corr_5300000_post: {
+        Args: {
+          p_confirmation: string
+          p_package_hash: string
+          p_preflight_id: string
+        }
+        Returns: Json
+      }
+      cfo_corr_5300000_preflight: { Args: never; Returns: Json }
       cfo_correct_trail_entry: {
         Args: {
           p_audit_id: string
