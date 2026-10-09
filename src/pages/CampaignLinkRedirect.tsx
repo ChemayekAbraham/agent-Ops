@@ -26,7 +26,7 @@ function askGps(): Promise<GpsResult> {
 /** Tenant campaign short link: welileapp.com/n/{code}. Logs the click (device, IP, GPS if allowed), then opens the form. */
 export default function CampaignLinkRedirect({ fixedCode }: { fixedCode?: string } = {}) {
   const params = useParams();
-  const code = fixedCode ?? params.code ?? '';
+  const code = (fixedCode ?? params.code ?? '').replace(/[.,;:!?)]+$/, '');
   const [missing, setMissing] = useState(false);
 
   useEffect(() => {
