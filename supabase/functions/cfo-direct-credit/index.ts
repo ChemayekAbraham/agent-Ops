@@ -253,8 +253,47 @@ Deno.serve(async (req) => {
     const op = operation === "debit" ? "debit" : "credit";
 
     // Normalise email-origin identifiers (any may be null)
-    const gmailTxId: string | null = typeof rawGmailTxId === "string" && rawGmailTxId ? rawGmailTxId : null;
+    let gmailTxId: string | null = typeof rawGmailTxId === "string" && rawGmailTxId ? rawGmailTxId : null;
     const gmailMsgId: string | null = typeof rawGmailMsgId === "string" && rawGmailMsgId ? rawGmailMsgId : null;
+
+    // ── Reversal of one email-routing entry ────────────────────────────────
+    // Financial Ops "Reverse" posts the opposite leg of a row in
+    // email_routing_history. The request names that row, and everything about
+    // it is checked against the row itself, never against what the caller says:
+    //   • the same wallet and (to within UGX 1) the same amount, in full
+    //   • the opposite direction (a credit is debited back, a debit credited back)
+    //   • the row is itself a routing, not an earlier reversal
+    // Each row can be reversed once: the reversal reserves the key REV-<row id>
+    // in email_credit_idempotency (unique per wallet), so a second or concurrent
+    // attempt fails with 409 before any ledger entry is written.
+    const rawReversesId = (body as Record<string, unknown>)?.reverses_routing_history_id;
+    const reversesRoutingId = typeof rawReversesId === "string" && rawReversesId ? rawReversesId : null;
+    let reversalTid: string | null = null;
+    let reversalOk = false;
+    if (reversesRoutingId) {
+      const denyReversal = (why: string) => new Response(JSON.stringify({ error: `REVERSAL_REFUSED: ${why}` }), {
+        status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+      const { data: orig } = await adminClient
+        .from("email_routing_history")
+        .select("id, gmail_transaction_id, route, amount, target_user_id, reason")
+        .eq("id", reversesRoutingId)
+        .maybeSingle();
+      if (!orig) return denyReversal("that routing entry was not found.");
+      if (/^\s*reversed\b/i.test(String(orig.reason ?? ""))) return denyReversal("that entry is itself a reversal.");
+      if (orig.target_user_id !== target_user_id) return denyReversal("the wallet does not match the routing entry.");
+      if (!Number.isFinite(amount) || amount <= 0 || Math.abs(Number(orig.amount) - amount) > 1) {
+        return denyReversal("the amount must equal the routing entry in full.");
+      }
+      const origWasDebit = String(orig.route ?? "").endsWith("_debit");
+      if (op !== (origWasDebit ? "credit" : "debit")) return denyReversal("the direction must be the opposite of the routing entry.");
+      if (rawAllowOverdraw === true || rawSolvencyReason || isManualCredit) {
+        return denyReversal("a reversal cannot overdraw the wallet. Use the CFO approver for a forced reversal.");
+      }
+      reversalTid = `REV-${orig.id}`;
+      gmailTxId = orig.gmail_transaction_id ?? null;
+      reversalOk = true;
+    }
 
     // ── Financial Ops email-routing allowance ───────────────────────────────
     // A non-approver Financial Ops user passes only when ALL of these hold, so
@@ -265,7 +304,17 @@ Deno.serve(async (req) => {
     //   • it references a real incoming email receipt, for exactly that amount
     // The email idempotency reservation further down still stops a second
     // credit for the same receipt.
-    if (finOpsEmailRoutingOnly) {
+    // A validated reversal (above) is the one debit a non-approver may post, and
+    // only against its own routing entry, never for themselves.
+    if (finOpsEmailRoutingOnly && reversalOk) {
+      const denyFinOps = () => cfoApproverDenied(corsHeaders);
+      if (
+        userId === target_user_id ||
+        (wallet_category !== "wallet_transfer" && wallet_category !== "agent_float_deposit")
+      ) {
+        return denyFinOps();
+      }
+    } else if (finOpsEmailRoutingOnly) {
       const denyFinOps = () => cfoApproverDenied(corsHeaders);
       if (
         op !== "credit" || isManualCredit || !gmailTxId ||
@@ -300,12 +349,12 @@ Deno.serve(async (req) => {
       typeof v === "string" && v.length >= 4 && /\d/.test(v);
     // For manual CFO payouts we ignore every potential idempotency key so the
     // tool can pay the same user under the same category endlessly.
-    const emailTid: string | null = isManualCredit
+    const emailTid: string | null = reversalTid ?? (isManualCredit
       ? null
       : (looksLikeTxnRef(rawEmailTid)
           ? rawEmailTid
-          : (looksLikeTxnRef(sub_category) ? sub_category : null));
-    const effectiveGmailMsgId: string | null = isManualCredit ? null : gmailMsgId;
+          : (looksLikeTxnRef(sub_category) ? sub_category : null)));
+    const effectiveGmailMsgId: string | null = isManualCredit || reversalOk ? null : gmailMsgId;
     // Email-origin idempotency applies to BOTH credits and debits. The
     // outgoing-payout auto-debit (gmail-poll-transactions) and the backlog
     // sweep (sweep-payout-debits) can run concurrently on the same email;
@@ -734,6 +783,13 @@ Deno.serve(async (req) => {
             "[cfo-direct-credit] DUPLICATE_EMAIL_CREDIT blocked",
             { gmailMsgId, emailTid, target_user_id, amount },
           );
+          if (reversalOk) {
+            return new Response(JSON.stringify({
+              error: "ALREADY_REVERSED: this routing entry has already been reversed.",
+              reason: "ALREADY_REVERSED",
+              target_user_id,
+            }), { status: 409, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          }
           return new Response(JSON.stringify({
             error: "DUPLICATE_EMAIL_CREDIT: this email / transaction reference has already been credited to this user.",
             reason: "DUPLICATE_EMAIL_CREDIT",
