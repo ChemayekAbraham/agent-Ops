@@ -42,7 +42,7 @@ export default function CampaignLinkRedirect({ fixedCode }: { fixedCode?: string
         if (lead.data.click_id) {
           try { localStorage.setItem('welile_lead_click', JSON.stringify({ id: lead.data.click_id, at: Date.now() })); } catch { /* ignore */ }
         }
-        window.location.replace(`${lead.data.destination}?src=neexabot`);
+        window.location.replace(lead.data.destination);
         return;
       }
       const { data, error } = await supabase.functions.invoke('tenant-campaign-click', {
