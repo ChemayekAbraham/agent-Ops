@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Copy } from 'lucide-react';
 import { toast } from 'sonner';
-import { getPublicOrigin } from '@/lib/publicOrigin';
+import { getPublicOrigin } from '@/lib/getPublicOrigin';
 
 type Link = { id: string; kind: string; short_code: string; destination_path: string; referrer_label: string };
 type Click = {
