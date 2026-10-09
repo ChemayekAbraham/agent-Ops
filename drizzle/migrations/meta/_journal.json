@@ -3711,6 +3711,13 @@
       "when": 1791536462655,
       "tag": "0529_migration",
       "breakpoints": true
+    },
+    {
+      "idx": 530,
+      "version": "7",
+      "when": 1791537216569,
+      "tag": "0530_lead_links_general_kind",
+      "breakpoints": true
     }
   ]
 }
