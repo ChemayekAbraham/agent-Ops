@@ -16,7 +16,7 @@ type Click = {
   user_id: string | null; came_in_at: string | null; is_new_registration: boolean | null;
 };
 
-const KIND_LABEL: Record<string, string> = { partnership: 'Partnership', tenant: 'Tenants' };
+const KIND_LABEL: Record<string, string> = { partnership: 'Partnership', tenant: 'Tenants', general: 'General' };
 
 export function CustomerLeadsPanel() {
   const [filter, setFilter] = useState<string>('all');
@@ -67,9 +67,9 @@ export function CustomerLeadsPanel() {
         <p className="text-sm text-muted-foreground">Two short links, both referred by NeexaBot. Every click records the device, browser, IP address and country.</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid gap-4 md:grid-cols-3">
         {(links.data ?? []).map((l) => {
-          const url = `${origin}/n/${l.short_code}`;
+          const url = l.kind === 'general' ? `${origin}/${l.short_code}` : `${origin}/n/${l.short_code}`;
           const s = stats(all.filter((c) => c.link_id === l.id));
           return (
             <Card key={l.id}>
