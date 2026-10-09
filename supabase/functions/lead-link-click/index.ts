@@ -40,6 +40,16 @@ Deno.serve(async (req) => {
   const ua = getClientUserAgent(req) ?? "";
   const ip = resolveTrustedClientIp(req);
   const device = classifyDevice(ua);
+  let country = req.headers.get("cf-ipcountry");
+  let city = req.headers.get("cf-ipcity");
+  let region = req.headers.get("cf-region");
+  if ((!country || country === "XX") && ip && !/^(10\.|127\.|192\.168\.|::1)/.test(ip)) {
+    try {
+      const r = await fetch(`https://ipwho.is/${encodeURIComponent(ip)}?fields=success,country_code,city,region`, { signal: AbortSignal.timeout(2500) });
+      const g = await r.json();
+      if (g?.success) { country = g.country_code ?? null; city = g.city ?? city; region = g.region ?? region; }
+    } catch { /* lookup is best-effort */ }
+  }
   const { data: row } = await admin.from("lead_link_clicks").insert({
     link_id: link.id,
     ip_address: ip,
@@ -51,9 +61,7 @@ Deno.serve(async (req) => {
     is_bot: device.deviceClass === "bot",
     visitor_hash: await sha256Hex(`${ip ?? ""}|${ua}`),
     referrer: typeof body?.referrer === "string" ? body.referrer.slice(0, 300) : null,
-    country: req.headers.get("cf-ipcountry"),
-    city: req.headers.get("cf-ipcity"),
-    region: req.headers.get("cf-region"),
+    country, city, region,
   }).select("id").single();
 
   return json({ destination: link.destination_path, click_id: row?.id ?? null });
