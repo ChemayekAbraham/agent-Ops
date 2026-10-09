@@ -6,11 +6,12 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
   Phone, MessageCircle, MessageSquare, HandCoins, Loader2, ChevronDown,
-  CheckCircle2, Clock, AlertTriangle, CalendarClock, Repeat, PlusCircle, CalendarPlus, Check,
+  CheckCircle2, Clock, AlertTriangle, CalendarClock, Repeat, PlusCircle, CalendarPlus, Check, Share2,
 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { LendingLoan, outstandingOf, dueStateOf, normalizePhone, repaymentPlanOf } from './lendingHelpers';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 import { motion } from 'framer-motion';
 
 interface Props {
@@ -54,6 +55,7 @@ export default function LendingBorrowerCard({ loan, onRecordRepayment, onTopUpOr
   const [extra, setExtra] = useState('');
   const [days, setDays] = useState(30);
   const [saving, setSaving] = useState(false);
+  const [sharing, setSharing] = useState(false);
 
   const name = loan.borrower_display_name ?? loan.borrower_ai_id;
   const phone = normalizePhone(loan.borrower_phone);
@@ -97,6 +99,42 @@ export default function LendingBorrowerCard({ loan, onRecordRepayment, onTopUpOr
       kind === 'wa' ? `https://wa.me/${phone}?text=${msg}` :
       `sms:+${phone}?body=${msg}`;
     window.open(url, kind === 'wa' ? '_blank' : '_self');
+  };
+
+  const shareHistory = async () => {
+    if (!phone) { toast.error('No phone number on file for this borrower'); return; }
+    setSharing(true);
+    try {
+      const { data, error } = await (supabase
+        .from('lending_audit_log' as any)
+        .select('amount_ugx, created_at')
+        .eq('entity_id', loan.id)
+        .eq('action_type', 'repayment_recorded')
+        .order('created_at', { ascending: true })
+        .limit(200) as any);
+      if (error) throw error;
+      const rows: { amount_ugx: number; created_at: string }[] = data ?? [];
+      const fmt = (d: string) => new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'Africa/Kampala' });
+      const paid = rows.reduce((a, r) => a + Number(r.amount_ugx || 0), 0);
+      const lines = [
+        `Hello ${name}, here is your Welile loan repayment history:`,
+        '',
+        `Loan: ${formatUGX(loan.principal_ugx)} @ ${rate}% = ${formatUGX(totalDue)}`,
+        `Taken on: ${fmt(loan.created_at)}`,
+        '',
+        rows.length ? 'Payments:' : 'No payments recorded yet.',
+        ...rows.map((r, i) => `${i + 1}. ${fmt(r.created_at)} - ${formatUGX(Number(r.amount_ugx))}`),
+        '',
+        `Total paid: ${formatUGX(Math.max(paid, Number(loan.amount_repaid_ugx) || 0))}`,
+        `Still owed: ${formatUGX(outstanding)}`,
+        loan.expected_repayment_date ? `Due date: ${fmt(loan.expected_repayment_date)}` : '',
+      ].filter((l, i, a) => !(l === '' && a[i - 1] === ''));
+      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(lines.join('\n'))}`, '_blank');
+    } catch {
+      toast.error('Could not load repayment history. Try again.');
+    } finally {
+      setSharing(false);
+    }
   };
 
   const submitPayment = async () => {
@@ -232,6 +270,11 @@ export default function LendingBorrowerCard({ loan, onRecordRepayment, onTopUpOr
                 <MessageSquare className="h-6 w-6 text-primary" /> SMS
               </Button>
             </div>
+
+            <Button variant="outline" className="h-11 w-full gap-2 text-xs font-semibold" onClick={shareHistory} disabled={sharing}>
+              {sharing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4 text-primary" />}
+              Share repayment history on WhatsApp
+            </Button>
 
             <div className="grid grid-cols-3 gap-2">
               {isOpen && (
