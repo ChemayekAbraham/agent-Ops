@@ -27,6 +27,7 @@ import { CombinedSettingsProvider } from "@/hooks/useCombinedSettings";
 import { CurrencyProvider } from "@/hooks/useCurrency";
 import StalledLoaderWatchdog from "@/components/common/StalledLoaderWatchdog";
 import AuthRecoveryPrompt from "@/components/auth/AuthRecoveryPrompt";
+import LeadClickClaimer from "@/components/crm/LeadClickClaimer";
 
 // Dev-only e2e harness (lazy + tree-shaken in prod via the import.meta.env.DEV guard below).
 const BusinessAdvanceHarness = lazyWithRetry(
@@ -1028,6 +1029,7 @@ const App = () => {
                           </AccountFrozenGate>
                         <MaintenanceLockScreen />
                         <AuthRecoveryPrompt />
+                        <LeadClickClaimer />
                       </DeferredProviders>
                       <DeferredErrorBoundary>
                         <Suspense fallback={null}>

@@ -26594,6 +26594,110 @@ export type Database = {
           },
         ]
       }
+      lead_link_clicks: {
+        Row: {
+          browser: string | null
+          browser_version: string | null
+          came_in_at: string | null
+          city: string | null
+          country: string | null
+          created_at: string
+          device_class: string | null
+          device_model: string | null
+          id: string
+          ip_address: string | null
+          is_bot: boolean
+          is_new_registration: boolean | null
+          link_id: string
+          os: string | null
+          os_version: string | null
+          referrer: string | null
+          region: string | null
+          user_agent: string | null
+          user_id: string | null
+          visitor_hash: string | null
+        }
+        Insert: {
+          browser?: string | null
+          browser_version?: string | null
+          came_in_at?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          device_class?: string | null
+          device_model?: string | null
+          id?: string
+          ip_address?: string | null
+          is_bot?: boolean
+          is_new_registration?: boolean | null
+          link_id: string
+          os?: string | null
+          os_version?: string | null
+          referrer?: string | null
+          region?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+          visitor_hash?: string | null
+        }
+        Update: {
+          browser?: string | null
+          browser_version?: string | null
+          came_in_at?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          device_class?: string | null
+          device_model?: string | null
+          id?: string
+          ip_address?: string | null
+          is_bot?: boolean
+          is_new_registration?: boolean | null
+          link_id?: string
+          os?: string | null
+          os_version?: string | null
+          referrer?: string | null
+          region?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+          visitor_hash?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_link_clicks_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "lead_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_links: {
+        Row: {
+          created_at: string
+          destination_path: string
+          id: string
+          kind: string
+          referrer_label: string
+          short_code: string
+        }
+        Insert: {
+          created_at?: string
+          destination_path: string
+          id?: string
+          kind: string
+          referrer_label?: string
+          short_code: string
+        }
+        Update: {
+          created_at?: string
+          destination_path?: string
+          id?: string
+          kind?: string
+          referrer_label?: string
+          short_code?: string
+        }
+        Relationships: []
+      }
       leave_balances: {
         Row: {
           created_at: string
@@ -62956,6 +63060,7 @@ export type Database = {
         }
         Returns: string
       }
+      claim_lead_click: { Args: { p_click_id: string }; Returns: boolean }
       claim_next_agent_capability_batch: {
         Args: { _job_id?: string }
         Returns: Json
