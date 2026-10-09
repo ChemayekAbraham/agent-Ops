@@ -513,6 +513,7 @@ function AppRoutes() {
           <Route path="/r/:code" element={<ResolveRLink />} />
           <Route path="/s/:code" element={<TrackedRedirect />} />
           <Route path="/n/:code" element={<CampaignLinkRedirect />} />
+          <Route path="/ZQhyGb" element={<CampaignLinkRedirect fixedCode="ZQhyGb" />} />
           <Route path="/m/:code" element={<MerchandiseShareRedirect />} />
           <Route path="/support-house" element={<SupportHouse />} />
           <Route path="/t/:token" element={<TenantDashboardLandingPage />} />
