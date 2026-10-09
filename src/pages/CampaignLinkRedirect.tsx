@@ -33,6 +33,17 @@ export default function CampaignLinkRedirect() {
     if (started.has(code)) return;
     started.add(code);
     (async () => {
+      // CRM Customer Leads links (partnership / tenants) share the /n/ prefix.
+      const lead = await supabase.functions.invoke('lead-link-click', {
+        body: { code, referrer: document.referrer || null },
+      });
+      if (!lead.error && lead.data?.destination) {
+        if (lead.data.click_id) {
+          try { localStorage.setItem('welile_lead_click', JSON.stringify({ id: lead.data.click_id, at: Date.now() })); } catch { /* ignore */ }
+        }
+        window.location.replace(`${lead.data.destination}?src=neexabot`);
+        return;
+      }
       const { data, error } = await supabase.functions.invoke('tenant-campaign-click', {
         body: { code, referrer: document.referrer || null },
       });
