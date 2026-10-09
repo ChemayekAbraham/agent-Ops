@@ -1,4 +1,4 @@
-import { useContext, useEffect, useRef, useState } from 'react';
+import { forwardRef, useContext, useEffect, useRef, useState } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { OTPInputContext } from 'input-otp';
 import { Button } from '@/components/ui/button';
@@ -32,7 +32,7 @@ function maskPhone(phone: string): string {
   return `${digits.slice(0, 3)} ••• ${digits.slice(-3)}`;
 }
 
-function OtpDigitBox({ index, hasError, reduceMotion }: { index: number; hasError: boolean; reduceMotion: boolean }) {
+function OtpDigitBox({ index, hasError, reduceMotion, large }: { index: number; hasError: boolean; reduceMotion: boolean; large?: boolean }) {
   const { slots } = useContext(OTPInputContext);
   const { char, isActive, hasFakeCaret } = slots[index];
 
@@ -43,7 +43,8 @@ function OtpDigitBox({ index, hasError, reduceMotion }: { index: number; hasErro
       transition={{ delay: reduceMotion ? 0 : index * 0.06, type: 'spring', stiffness: 260, damping: 20 }}
       style={{ transformPerspective: 400 }}
       className={cn(
-        'relative flex h-12 w-10 items-center justify-center rounded-lg border-2 bg-background text-lg font-semibold transition-colors sm:w-11',
+        'relative flex items-center justify-center rounded-lg border-2 bg-background font-semibold transition-colors',
+        large ? 'h-14 w-11 text-xl' : 'h-12 w-10 text-lg sm:w-11',
         hasError
           ? 'border-destructive bg-destructive/10 text-destructive'
           : isActive
@@ -72,7 +73,60 @@ function OtpDigitBox({ index, hasError, reduceMotion }: { index: number; hasErro
   );
 }
 
-function SendingAnimation({ phone, reduceMotion }: { phone: string; reduceMotion: boolean }) {
+interface AnimatedOtpInputProps {
+  value: string;
+  onChange: (value: string) => void;
+  disabled?: boolean;
+  hasError?: boolean;
+  /** Increment to replay the shake (e.g. after a rejected code). */
+  shakeKey?: number;
+  size?: 'md' | 'lg';
+}
+
+/** Six flip-in digit boxes with a fill progress bar. Paste and SMS autofill work. */
+export const AnimatedOtpInput = forwardRef<HTMLInputElement, AnimatedOtpInputProps>(
+  ({ value, onChange, disabled, hasError = false, shakeKey = 0, size = 'md' }, ref) => {
+    const reduceMotion = !!useReducedMotion();
+    return (
+      <div className="space-y-3">
+        <motion.div
+          key={shakeKey}
+          className="flex justify-center"
+          animate={shakeKey > 0 && !reduceMotion ? { x: [0, -10, 10, -8, 8, -4, 4, 0] } : { x: 0 }}
+          transition={{ duration: 0.45 }}
+        >
+          <InputOTP
+            ref={ref}
+            maxLength={OTP_LENGTH}
+            value={value}
+            onChange={onChange}
+            disabled={disabled}
+            autoFocus
+            autoComplete="one-time-code"
+            inputMode="numeric"
+            containerClassName="gap-1.5"
+          >
+            <div className="flex items-center gap-1.5">
+              {Array.from({ length: OTP_LENGTH }, (_, i) => (
+                <OtpDigitBox key={i} index={i} hasError={hasError} reduceMotion={reduceMotion} large={size === 'lg'} />
+              ))}
+            </div>
+          </InputOTP>
+        </motion.div>
+        <div className="mx-auto h-1 w-40 overflow-hidden rounded-full bg-muted" aria-hidden>
+          <motion.div
+            className="h-full rounded-full bg-primary"
+            animate={{ width: `${(value.length / OTP_LENGTH) * 100}%` }}
+            transition={{ type: 'spring', stiffness: 200, damping: 25 }}
+          />
+        </div>
+      </div>
+    );
+  },
+);
+AnimatedOtpInput.displayName = 'AnimatedOtpInput';
+
+export function SendingAnimation({ phone, reduceMotion }: { phone: string; reduceMotion: boolean }) {
   return (
     <div className="flex flex-col items-center gap-3 py-2" role="status" aria-live="polite">
       <div className="relative flex w-48 items-center justify-between">
@@ -100,7 +154,7 @@ function SendingAnimation({ phone, reduceMotion }: { phone: string; reduceMotion
   );
 }
 
-function SuccessBurst({ reduceMotion }: { reduceMotion: boolean }) {
+export function SuccessBurst({ reduceMotion }: { reduceMotion: boolean }) {
   return (
     <div className="relative flex h-10 w-10 items-center justify-center">
       {!reduceMotion && (
@@ -216,8 +270,6 @@ export function OtpVerificationStep({
     );
   }
 
-  const filled = otp.length / OTP_LENGTH;
-
   return (
     <div className="space-y-3">
       <div className="text-center">
@@ -252,38 +304,14 @@ export function OtpVerificationStep({
         </div>
       )}
 
-      <motion.div
-        key={shakeKey}
-        className="flex justify-center"
-        animate={shakeKey > 0 && !reduceMotion ? { x: [0, -10, 10, -8, 8, -4, 4, 0] } : { x: 0 }}
-        transition={{ duration: 0.45 }}
-      >
-        <InputOTP
-          ref={inputRef}
-          maxLength={OTP_LENGTH}
-          value={otp}
-          onChange={handleOtpChange}
-          disabled={otpLoading}
-          autoFocus
-          autoComplete="one-time-code"
-          inputMode="numeric"
-          containerClassName="gap-1.5"
-        >
-          <div className="flex items-center gap-1.5">
-            {Array.from({ length: OTP_LENGTH }, (_, i) => (
-              <OtpDigitBox key={i} index={i} hasError={showError} reduceMotion={reduceMotion} />
-            ))}
-          </div>
-        </InputOTP>
-      </motion.div>
-
-      <div className="mx-auto h-1 w-40 overflow-hidden rounded-full bg-muted" aria-hidden>
-        <motion.div
-          className="h-full rounded-full bg-primary"
-          animate={{ width: `${filled * 100}%` }}
-          transition={{ type: 'spring', stiffness: 200, damping: 25 }}
-        />
-      </div>
+      <AnimatedOtpInput
+        ref={inputRef}
+        value={otp}
+        onChange={handleOtpChange}
+        disabled={otpLoading}
+        hasError={showError}
+        shakeKey={shakeKey}
+      />
 
       {otpLoading && (
         <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground" role="status">

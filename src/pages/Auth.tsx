@@ -15,7 +15,7 @@ import { OAuthEnvironmentHint } from '@/components/auth/OAuthEnvironmentHint';
 import { OAuthErrorCard } from '@/components/auth/OAuthErrorCard';
 import { AppleSignInButton } from '@/components/auth/AppleSignInButton';
 import { ReferralBanner } from '@/components/auth/ReferralBanner';
-import { OtpVerificationStep } from '@/components/auth/OtpVerificationStep';
+import { OtpVerificationStep, AnimatedOtpInput, SuccessBurst, SendingAnimation } from '@/components/auth/OtpVerificationStep';
 import { ArchivedAccountSupport } from '@/components/auth/ArchivedAccountSupport';
 import { useAuthForm } from '@/hooks/useAuthForm';
 import { SIGNUP_PAUSED } from '@/components/SignupPauseBanner';
@@ -202,6 +202,10 @@ export default function Auth() {
   const [otpLoginCode, setOtpLoginCode] = useState('');
   const [otpLoginStep, setOtpLoginStep] = useState<'phone' | 'code'>('phone');
   const [otpLoginLoading, setOtpLoginLoading] = useState(false);
+  const [otpLoginError, setOtpLoginError] = useState<string | null>(null);
+  const [otpLoginShake, setOtpLoginShake] = useState(0);
+  const [otpLoginSuccess, setOtpLoginSuccess] = useState(false);
+  const otpLoginInputRef = useRef<HTMLInputElement>(null);
   const [otpLoginCountryCode, setOtpLoginCountryCode] = useState('256');
   const [otpResendCooldown, setOtpResendCooldown] = useState(0);
   // Permanent login by default. When unchecked the session is
@@ -283,6 +287,20 @@ export default function Auth() {
     }
   };
 
+  // Rejected code: show the reason inline, shake, clear the boxes, refocus.
+  const rejectOtpLogin = (message: string) => {
+    setOtpLoginError(message);
+    setOtpLoginShake((k) => k + 1);
+    setOtpLoginCode('');
+    requestAnimationFrame(() => otpLoginInputRef.current?.focus());
+  };
+
+  // Let the success burst play before the full-page navigation.
+  const playOtpLoginSuccess = async () => {
+    setOtpLoginSuccess(true);
+    await new Promise((r) => setTimeout(r, 900));
+  };
+
   const handleOtpLogin = async (phoneOverride?: string, codeOverride?: string) => {
     const phoneVal = phoneOverride || otpLoginPhone;
     const codeVal = codeOverride || otpLoginCode;
@@ -293,6 +311,7 @@ export default function Auth() {
       return;
     }
 
+    setOtpLoginError(null);
     setOtpLoginLoading(true);
     // Safety net: guarantee the spinner is released even if a network call
     // never settles (e.g. verifyOtp / fetch hangs on a flaky connection),
@@ -309,7 +328,7 @@ export default function Auth() {
       }).finally(() => clearTimeout(fetchTimeout));
       const data = await response.json();
       if (!response.ok) {
-        toast({ title: 'Login Failed', description: data.error || 'Could not verify code', variant: 'destructive' });
+        rejectOtpLogin(data.error || 'Could not verify code');
         return;
       }
 
@@ -338,10 +357,11 @@ export default function Auth() {
             token_hash: data.token_hash,
           });
           if (verifyErr) {
-            toast({ title: 'Login Failed', description: verifyErr.message || 'Could not complete login. Please try again.', variant: 'destructive' });
+            rejectOtpLogin(verifyErr.message || 'Could not complete login. Please try again.');
             return;
           }
           toast({ title: `Welcome back${data.user_name ? ', ' + data.user_name : ''}! 🎉`, description: 'Logging you in...' });
+          await playOtpLoginSuccess();
           // Same-origin navigation — session is already persisted first-party.
           window.location.href = '/';
           return;
@@ -349,6 +369,7 @@ export default function Auth() {
 
         // LEGACY fallback: server didn't return a token_hash (older deploy).
         toast({ title: `Welcome back${data.user_name ? ', ' + data.user_name : ''}! 🎉`, description: 'Logging you in...' });
+        await playOtpLoginSuccess();
         window.location.href = data.verify_url;
       }
     } catch {
@@ -923,6 +944,9 @@ export default function Auth() {
                         />
                       </div>
                     </div>
+                    {otpLoginLoading && (
+                      <SendingAnimation phone={getFullOtpPhone(otpLoginPhone, otpLoginCountryCode)} reduceMotion={false} />
+                    )}
                     <Button
                       type="button"
                       onClick={handleSendOtpForLogin}
@@ -975,27 +999,32 @@ export default function Auth() {
                       </p>
                     </div>
 
-                    <div className="flex justify-center py-1">
-                      <InputOTP
-                        maxLength={6}
+                    {otpLoginSuccess ? (
+                      <div className="flex items-center justify-center gap-3 py-3" role="status">
+                        <SuccessBurst reduceMotion={false} />
+                        <span className="text-sm font-medium text-emerald-600 dark:text-emerald-400">Code verified — logging you in…</span>
+                      </div>
+                    ) : (
+                      <AnimatedOtpInput
+                        ref={otpLoginInputRef}
+                        size="lg"
                         value={otpLoginCode}
+                        disabled={otpLoginLoading}
+                        hasError={!!otpLoginError}
+                        shakeKey={otpLoginShake}
                         onChange={(value) => {
                           setOtpLoginCode(value);
+                          if (otpLoginError) setOtpLoginError(null);
                           if (value.length === 6) {
                             handleOtpLogin(otpLoginPhone, value);
                           }
                         }}
-                      >
-                        <InputOTPGroup>
-                          <InputOTPSlot index={0} className="h-14 w-12 text-lg" />
-                          <InputOTPSlot index={1} className="h-14 w-12 text-lg" />
-                          <InputOTPSlot index={2} className="h-14 w-12 text-lg" />
-                          <InputOTPSlot index={3} className="h-14 w-12 text-lg" />
-                          <InputOTPSlot index={4} className="h-14 w-12 text-lg" />
-                          <InputOTPSlot index={5} className="h-14 w-12 text-lg" />
-                        </InputOTPGroup>
-                      </InputOTP>
-                    </div>
+                      />
+                    )}
+
+                    {otpLoginError && (
+                      <p className="text-sm text-destructive text-center" role="alert">{otpLoginError}</p>
+                    )}
 
                     {otpLoginLoading && (
                       <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
@@ -1007,7 +1036,7 @@ export default function Auth() {
                     <Button
                       type="button"
                       onClick={() => handleOtpLogin()}
-                      disabled={otpLoginLoading || otpLoginCode.length !== 6}
+                      disabled={otpLoginLoading || otpLoginSuccess || otpLoginCode.length !== 6}
                       className="w-full h-16 text-lg rounded-xl font-bold shadow-md touch-manipulation active:scale-[0.98] transition-transform"
                       style={{ fontSize: '16px', WebkitTapHighlightColor: 'transparent' }}
                     >
@@ -1027,7 +1056,7 @@ export default function Auth() {
                     <div className="flex items-center justify-between pt-1">
                       <button
                         type="button"
-                        onClick={() => { setOtpLoginStep('phone'); setOtpLoginCode(''); setOtpResendCooldown(0); }}
+                        onClick={() => { setOtpLoginStep('phone'); setOtpLoginCode(''); setOtpLoginError(null); setOtpResendCooldown(0); }}
                         className="text-sm text-muted-foreground hover:text-primary flex items-center gap-1 py-1"
                       >
                         <ArrowLeft className="h-4 w-4" /> Change number
