@@ -24,8 +24,9 @@ function askGps(): Promise<GpsResult> {
 }
 
 /** Tenant campaign short link: welileapp.com/n/{code}. Logs the click (device, IP, GPS if allowed), then opens the form. */
-export default function CampaignLinkRedirect() {
-  const { code = '' } = useParams();
+export default function CampaignLinkRedirect({ fixedCode }: { fixedCode?: string } = {}) {
+  const params = useParams();
+  const code = (fixedCode ?? params.code ?? '').replace(/[.,;:!?)]+$/, '');
   const [missing, setMissing] = useState(false);
 
   useEffect(() => {
@@ -33,6 +34,17 @@ export default function CampaignLinkRedirect() {
     if (started.has(code)) return;
     started.add(code);
     (async () => {
+      // CRM Customer Leads links (partnership / tenants) share the /n/ prefix.
+      const lead = await supabase.functions.invoke('lead-link-click', {
+        body: { code, referrer: document.referrer || null },
+      });
+      if (!lead.error && lead.data?.destination) {
+        if (lead.data.click_id) {
+          try { localStorage.setItem('welile_lead_click', JSON.stringify({ id: lead.data.click_id, at: Date.now() })); } catch { /* ignore */ }
+        }
+        window.location.replace(lead.data.destination);
+        return;
+      }
       const { data, error } = await supabase.functions.invoke('tenant-campaign-click', {
         body: { code, referrer: document.referrer || null },
       });

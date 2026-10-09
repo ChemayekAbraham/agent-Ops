@@ -24,6 +24,7 @@ const CallCentrePeople = lazyNamed(() => import('@/components/executive/crm/call
 const UserBehaviourAnalyticsPanel = lazyNamed(() => import('@/components/executive/crm/UserBehaviourAnalyticsPanel'), 'UserBehaviourAnalyticsPanel');
 
 const TenantCampaignPanel = lazyNamed(() => import('@/components/executive/crm/TenantCampaignPanel'), 'TenantCampaignPanel');
+const CustomerLeadsPanel = lazyNamed(() => import('@/components/crm/CustomerLeadsPanel'), 'CustomerLeadsPanel');
 
 const PanelFallback = () => (
   <div className="space-y-3">
@@ -111,6 +112,12 @@ export default function CRMDashboardPage() {
         return (
           <Suspense fallback={<PanelFallback />}>
             <TenantCampaignPanel />
+          </Suspense>
+        );
+      case 'customer-leads':
+        return (
+          <Suspense fallback={<PanelFallback />}>
+            <CustomerLeadsPanel />
           </Suspense>
         );
       case 'user-behaviour':
