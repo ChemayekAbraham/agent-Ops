@@ -19,9 +19,12 @@ type Args = Record<string, unknown>;
 const WINDOW = { start_day: '2026-10-01', end_day: '2026-10-07', days: 7, timezone: 'Africa/Kampala' };
 const summary = {
   window: WINDOW, basis: 'x',
-  totals: { calls: 42, answered: 27, no_answer: 9, phone_off: 4, wrong_number: 2, answered_pct: 64.3, people_called: 38, people_reached: 24, rent_plans_called: 35, callers: 5 },
+  totals: { calls: 42, answered: 27, no_answer: 9, phone_off: 4, wrong_number: 2, answered_pct: 64.3, people_called: 38, people_reached: 24, rent_plans_called: 35, callers: 5,
+    answered_tenant_agent: 20, answered_landlord: 6, answered_landlord_old_questions: 1 },
   aware_30m: { knew: 6, heard: 9, did_not_know: 12, knew_pct: 22.2, heard_pct: 33.3, did_not_know_pct: 44.4 },
   aware_merchant_codes: { knew: 4, heard: 8, did_not_know: 15, knew_pct: 14.8, heard_pct: 29.6, did_not_know_pct: 55.6 },
+  landlord_consent: { consents: 4, unsure: 1, refuses: 1, consents_pct: 66.7, unsure_pct: 16.7, refuses_pct: 16.7 },
+  aware_payout_otp: { knew: 2, heard: 3, did_not_know: 1, knew_pct: 33.3, heard_pct: 50, did_not_know_pct: 16.7 },
   explained: { yes: 18, partly: 6, no: 3, yes_pct: 66.7, partly_pct: 22.2, no_pct: 11.1 },
   trend: [
     { day: '2026-10-06', calls: 20, answered: 14, people_called: 18, people_reached: 12, answered_pct: 70 },
@@ -30,7 +33,7 @@ const summary = {
 };
 const emptySummary = { ...summary, totals: { ...summary.totals, calls: 0, answered: 0, people_called: 0, people_reached: 0, rent_plans_called: 0, callers: 0, answered_pct: null }, trend: [] };
 const teamRows = [
-  { team: 'service_centre', calls: 10, answered: 4, answered_pct: 40, people_called: 9, people_reached: 4, rent_plans_called: 9, callers: 2, aware_30m: { knew: 1, heard: 1, did_not_know: 2 }, aware_merchant_codes: { knew: 0, heard: 1, did_not_know: 3 }, explained: { yes: 2, partly: 1, no: 1 } },
+  { team: 'service_centre', calls: 10, answered: 4, answered_pct: 40, people_called: 9, people_reached: 4, rent_plans_called: 9, callers: 2, aware_30m: { knew: 1, heard: 1, did_not_know: 2 }, aware_merchant_codes: { knew: 0, heard: 1, did_not_know: 3 }, landlord_consent: { consents: 1, unsure: 0, refuses: 0 }, aware_payout_otp: { knew: 0, heard: 1, did_not_know: 0 }, explained: { yes: 2, partly: 1, no: 1 } },
   { team: 'agent_ops', calls: 32, answered: 23, answered_pct: 71.9, people_called: 29, people_reached: 20, rent_plans_called: 26, callers: 3, aware_30m: { knew: 5, heard: 8, did_not_know: 10 }, aware_merchant_codes: { knew: 4, heard: 7, did_not_know: 12 }, explained: { yes: 16, partly: 5, no: 2 } },
   ...['tenant_ops', 'landlord_ops', 'other'].map((team) => ({ team, calls: 0, answered: 0, answered_pct: null, people_called: 0, people_reached: 0, rent_plans_called: 0, callers: 0, aware_30m: { knew: 0, heard: 0, did_not_know: 0 }, aware_merchant_codes: { knew: 0, heard: 0, did_not_know: 0 }, explained: { yes: 0, partly: 0, no: 0 } })),
 ];
@@ -75,6 +78,7 @@ const options = {
 let summaryData: unknown = summary;
 let summaryError: string | null = null;
 let logTotal = 3;
+let logOverride: Record<string, unknown>[] | null = null;
 
 function install() {
   rpcMock.mockImplementation((fn: string, a: Args) => {
@@ -92,6 +96,7 @@ function install() {
         return ok({ ...gaps, total: rows.length, rows });
       }
       case 'awareness_calls_log': {
+        if (logOverride) return ok({ window: WINDOW, total: logOverride.length, limit: 25, offset: 0, rows: logOverride });
         const offset = Number(a.p_offset ?? 0); const limit = Number(a.p_limit ?? 25);
         const n = Math.max(0, Math.min(limit, logTotal - offset));
         return ok({ window: WINDOW, total: logTotal, limit, offset, rows: Array.from({ length: n }, (_v, i) => logRow(offset + i + 1)) });
@@ -123,7 +128,7 @@ async function pick(user: ReturnType<typeof userEvent.setup>, label: string, opt
 describe('AwarenessCallsPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    summaryData = summary; summaryError = null; logTotal = 3;
+    summaryData = summary; summaryError = null; logTotal = 3; logOverride = null;
     install();
   });
 
@@ -143,12 +148,20 @@ describe('AwarenessCallsPage', () => {
     expect(within(cards).getByText('Answered').closest('div')).toHaveTextContent('9 no answer, 4 phone off, 2 wrong number');
     expect(within(cards).getByText('Rent Plans called').closest('div')).toHaveTextContent('by 5 callers');
     expect(within(cards).getByText('Knew about 30M access').closest('div')).toHaveTextContent('22.2% of answered calls');
-    expect(within(cards).getByText('Knew about merchant-code self-payment').closest('div')).toHaveTextContent('14.8% of answered calls');
+    expect(within(cards).getByText('Knew about merchant-code self-payment').closest('div')).toHaveTextContent('14.8% of answered tenant and agent calls');
+    // landlords are asked about consent and the payment code (OTP) instead, and counted over answered landlord calls
+    expect(within(cards).getByText('Landlords who consent').closest('div')).toHaveTextContent('66.7% of 6 answered landlord calls');
+    expect(within(cards).getByText('Knew about payment code (OTP)').closest('div')).toHaveTextContent('33.3% of answered landlord calls');
     expect(within(cards).getByText('Fully explained').closest('div')).toHaveTextContent('6 partly, 3 not explained');
     await waitFor(() => expect(within(cards).getByText('Stages without a call').closest('div')).toHaveTextContent('90'));
     expect(within(cards).getByText('Stages without a call').closest('div')).toHaveTextContent('25.0% of 120 stage moves had a call');
     expect(screen.getByText('What people told us')).toBeInTheDocument();
     expect(screen.getByText('Calls per day')).toBeInTheDocument();
+    // the answer blocks: landlord consent and payment code beside the tenant and agent merchant-code block
+    expect(screen.getByText('Landlord consent (landlords)')).toBeInTheDocument();
+    expect(screen.getByText('Knew about payment code (OTP) (landlords)')).toBeInTheDocument();
+    expect(screen.getByText('Knew about merchant-code self-payment (tenants and agents)')).toBeInTheDocument();
+    expect(screen.getByText('Does not consent')).toBeInTheDocument();
   });
 
   it('says so, and since when calls exist, when nothing matches', async () => {
@@ -166,6 +179,15 @@ describe('AwarenessCallsPage', () => {
     expect(screen.getAllByText('Service centre review').length).toBeGreaterThan(0);
     await waitFor(() => expect(screen.getAllByText('38').length).toBeGreaterThan(0));          // Agent Ops review, without a call
     expect(screen.getAllByText('5 / 8 / 10').length).toBeGreaterThan(0);                       // Agent Ops 30M: knew / heard / did not know
+  });
+
+  it('By stage / team shows the landlord consent and payment code columns', async () => {
+    const user = userEvent.setup();
+    render(<AwarenessCallsPage />, { wrapper });
+    await user.click(screen.getByRole('tab', { name: 'By stage / team' }));
+    expect((await screen.findAllByText('Landlord consent')).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Knew about payment code (OTP)').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('1 / 0 / 0').length).toBeGreaterThan(0);          // Service centre: 1 consent
   });
 
   it('By caller reads only when its tab is opened', async () => {
@@ -282,6 +304,39 @@ describe('AwarenessCallsPage', () => {
     render(<AwarenessCallsPage />, { wrapper });
     await screen.findByTestId('awareness-cards');
     for (const c of calls('awareness_coverage_gaps')) expect(c.p_outcome ?? null).toBeNull();
+  });
+
+  it('Call log reads each call by the questions it was asked: landlord consent and payment code, and "Old question" / "Not asked" for older landlord calls', async () => {
+    logOverride = [
+      { ...logRow(1), subject_name: 'Tenant Tina' },
+      { ...logRow(2), subject_type: 'landlord', subject_name: 'Landlord Lawi', aware_merchant_codes: null, landlord_consent: 'refuses', aware_payout_otp: 'heard' },
+      { ...logRow(3), subject_type: 'landlord', subject_name: 'Old Landlord', aware_merchant_codes: 'knew' },
+    ];
+    const user = userEvent.setup();
+    render(<AwarenessCallsPage />, { wrapper });
+    await screen.findByTestId('awareness-cards');
+    await user.click(screen.getByRole('tab', { name: 'Call log' }));
+    expect((await screen.findAllByText('Landlord Lawi')).length).toBeGreaterThan(0);
+    const text = document.body.textContent ?? '';
+    // tenant: self-payment, no landlord questions
+    expect(text).toContain('Knew about merchant-code self-payment: Heard but unsure');
+    // landlord (new questions): consent and payment code
+    expect(text).toContain('Landlord consent: Does not consent');
+    expect(text).toContain('Knew about payment code (OTP): Heard but unsure');
+    // landlord (recorded before the change)
+    expect(text).toContain('Knew about merchant-code self-payment: Old question');
+    expect(text).toContain('Landlord consent: Not asked');
+    expect(text).toContain('Knew about payment code (OTP): Not asked');
+  });
+
+  it('the answer filter offers the landlord consent and payment code answers', async () => {
+    const user = userEvent.setup();
+    render(<AwarenessCallsPage />, { wrapper });
+    await screen.findByTestId('awareness-cards');
+    await pick(user, 'Answer choice', 'Landlord consent: Does not consent');
+    await waitFor(() => expect(lastSummary()).toMatchObject({ p_answer_field: 'landlord_consent', p_answer: 'refuses' }));
+    await pick(user, 'Answer choice', 'Knew about payment code (OTP): Heard but unsure');
+    await waitFor(() => expect(lastSummary()).toMatchObject({ p_answer_field: 'aware_payout_otp', p_answer: 'heard' }));
   });
 
   it('Call log pages through the calls and exports every matching call to CSV and Excel', async () => {

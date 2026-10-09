@@ -2,7 +2,8 @@ import { downloadCsv } from '@/lib/csvExport';
 import { kampalaYmd } from '@/lib/kampalaDays';
 import { downloadXlsxWorkbook, type XlsxSheet } from '@/lib/xlsxExport';
 import {
-  LABEL_30M_ACCESS, LABEL_EXPLAINED, LABEL_SELF_PAYMENT, SUBJECT_LABEL, TEAM_LABEL, awarenessLabel, callResultLabel, explainedLabel, stageLabel,
+  LABEL_30M_ACCESS, LABEL_EXPLAINED, LABEL_LANDLORD_CONSENT, LABEL_PAYOUT_OTP, LABEL_SELF_PAYMENT, NOT_ASKED_LABEL, OLD_QUESTION_LABEL,
+  SUBJECT_LABEL, TEAM_LABEL, answerShape, awarenessLabel, callResultLabel, consentLabel, explainedLabel, stageLabel,
 } from '@/lib/awarenessCallLabels';
 import { ANSWER_FILTER_OPTIONS, kampalaDate, kampalaDateTime, statusLabel } from '@/lib/awarenessMonitoringLabels';
 import type { AwarenessFilters, AwarenessLogRow } from '@/hooks/useAwarenessMonitoring';
@@ -12,8 +13,21 @@ import type { AwarenessFilters, AwarenessLogRow } from '@/hooks/useAwarenessMoni
 export const AWARENESS_LOG_HEADERS = [
   'Day (Kampala)', 'Dialled (Kampala)', 'Recorded (Kampala)', 'Rent Plan', 'Person type', 'Person', 'Phone',
   'Caller', 'Caller team', 'Stage at the call', 'Rent Plan status now', 'Region', 'Call result',
-  LABEL_30M_ACCESS, LABEL_SELF_PAYMENT, LABEL_EXPLAINED, 'Note',
+  LABEL_30M_ACCESS, LABEL_SELF_PAYMENT, LABEL_LANDLORD_CONSENT, LABEL_PAYOUT_OTP, LABEL_EXPLAINED, 'Note',
 ];
+
+/**
+ * The self-payment, landlord consent and payment code (OTP) cells of one call. A tenant or agent was asked about self-payment only; a
+ * landlord about consent and the payment code only. A landlord call recorded before the change reads "Old question" for self-payment and
+ * "Not asked" for the two new questions. A question a call was never meant to ask is left blank.
+ */
+function landlordAwareCells(r: AwarenessLogRow): [string, string, string] {
+  const shape = answerShape(r);
+  if (shape === 'tenant_agent') return [r.aware_merchant_codes ? awarenessLabel(r.aware_merchant_codes) : '', '', ''];
+  if (shape === 'landlord') return ['', consentLabel(r.landlord_consent), r.aware_payout_otp ? awarenessLabel(r.aware_payout_otp) : ''];
+  if (shape === 'landlord_old') return [OLD_QUESTION_LABEL, NOT_ASKED_LABEL, NOT_ASKED_LABEL];
+  return ['', '', ''];
+}
 
 export function awarenessLogRows(rows: AwarenessLogRow[]): (string | number)[][] {
   return rows.map((r) => [
@@ -31,7 +45,7 @@ export function awarenessLogRows(rows: AwarenessLogRow[]): (string | number)[][]
     r.region ?? '',
     callResultLabel(r.call_result),
     r.aware_30m ? awarenessLabel(r.aware_30m) : '',
-    r.aware_merchant_codes ? awarenessLabel(r.aware_merchant_codes) : '',
+    ...landlordAwareCells(r),
     r.explained ? explainedLabel(r.explained) : '',
     r.note ?? '',
   ]);

@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, Phone, MessageSquare, Loader2, RefreshCw, MapPin } from 'lucide-react';
+import { AlertTriangle, Phone, MessageSquare, Loader2, RefreshCw, MapPin, RotateCcw } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Textarea } from '@/components/ui/textarea';
 import { toast } from 'sonner';
 import { formatUGX } from '@/lib/agentAdvanceCalculations';
 
@@ -14,8 +16,18 @@ type Row = {
   amount_outstanding: number; wallet_zero: boolean; service_centre: string | null;
 };
 
+const MAX_MSG = 480;
+
+function autoMessage(r: Row): string {
+  const name = (r.agent_name || 'Agent').split(' ')[0];
+  const bal = formatUGX(Number(r.amount_outstanding || 0));
+  return `Hello ${name}, your Welile electric bike lease has had no repayment for 7+ days. Outstanding: ${bal}. Please top up your Welile wallet today so your daily repayment can be collected. Thank you.`;
+}
+
 export function DormantBikeLeasesPanel() {
   const [sending, setSending] = useState<string | null>(null);
+  const [editing, setEditing] = useState<Row | null>(null);
+  const [message, setMessage] = useState('');
   const { data = [], isLoading, error, refetch, isFetching } = useQuery({
     queryKey: ['dormant-bike-leases'],
     queryFn: async () => {
@@ -25,16 +37,25 @@ export function DormantBikeLeasesPanel() {
     },
   });
 
-  const remind = async (r: Row) => {
-    setSending(r.lease_id);
+  const openDialog = (r: Row) => {
+    setEditing(r);
+    setMessage(autoMessage(r));
+  };
+
+  const send = async () => {
+    if (!editing) return;
+    setSending(editing.lease_id);
     try {
-      const { data, error } = await supabase.functions.invoke('dormant-bike-lease-reminder', { body: { lease_id: r.lease_id } });
+      const { data, error } = await supabase.functions.invoke('dormant-bike-lease-reminder', {
+        body: { lease_id: editing.lease_id, custom_message: message.trim() },
+      });
       if (error || (data as any)?.error) {
         let msg = (data as any)?.error || error?.message;
         try { msg = (await (error as any)?.context?.json())?.error || msg; } catch { /* ignore */ }
         throw new Error(msg);
       }
-      toast.success(`Reminder sent to ${r.agent_name ?? 'agent'}`);
+      toast.success(`Reminder sent to ${editing.agent_name ?? 'agent'}`);
+      setEditing(null);
     } catch (e: any) {
       toast.error(e.message || 'Could not send reminder');
     } finally { setSending(null); }
@@ -82,8 +103,8 @@ export function DormantBikeLeasesPanel() {
                   <Button asChild size="sm" variant="outline" className="flex-1" disabled={!r.agent_phone}>
                     <a href={r.agent_phone ? `tel:${r.agent_phone}` : undefined}><Phone className="h-4 w-4 mr-1" />Call</a>
                   </Button>
-                  <Button size="sm" className="flex-1" onClick={() => remind(r)} disabled={!r.agent_phone || sending === r.lease_id}>
-                    {sending === r.lease_id ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <MessageSquare className="h-4 w-4 mr-1" />}
+                  <Button size="sm" className="flex-1" onClick={() => openDialog(r)} disabled={!r.agent_phone}>
+                    <MessageSquare className="h-4 w-4 mr-1" />
                     Send SMS
                   </Button>
                 </div>
@@ -92,6 +113,41 @@ export function DormantBikeLeasesPanel() {
           </div>
         )}
       </CardContent>
+
+      <Dialog open={!!editing} onOpenChange={(open) => { if (!open) setEditing(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reminder to {editing?.agent_name || 'agent'}</DialogTitle>
+            <DialogDescription>
+              The message below was generated from this lease's details. Edit it before sending, or send it as is.
+            </DialogDescription>
+          </DialogHeader>
+          <Textarea
+            value={message}
+            onChange={(e) => setMessage(e.target.value.slice(0, MAX_MSG))}
+            rows={6}
+            className="text-sm"
+            placeholder="Reminder message"
+          />
+          <div className="flex items-center justify-between text-xs text-muted-foreground">
+            <button
+              type="button"
+              className="inline-flex items-center gap-1 hover:text-foreground"
+              onClick={() => editing && setMessage(autoMessage(editing))}
+            >
+              <RotateCcw className="h-3 w-3" /> Reset to auto-generated
+            </button>
+            <span>{message.length}/{MAX_MSG}</span>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditing(null)} disabled={sending !== null}>Cancel</Button>
+            <Button onClick={send} disabled={sending !== null || !message.trim()}>
+              {sending ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <MessageSquare className="h-4 w-4 mr-1" />}
+              Send SMS
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

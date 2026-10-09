@@ -346,7 +346,6 @@ function TransferSummaryCard({
   transactionReference?: string | null;
   gmailTransactionId?: string | null;
 }) {
-  if (!toUser || amount <= 0) return null;
 
   const isTransfer = mode === 'credit' && !!fromUser;
   const isDebit = mode === 'debit';
@@ -412,6 +411,7 @@ function TransferSummaryCard({
     }
   };
 
+  if (!toUser || amount <= 0) return null;
   return (
     <div className={`rounded-xl border-2 overflow-hidden ${lowData ? 'border-foreground/15' : 'border-primary/20'}`}>
       {/* Header */}

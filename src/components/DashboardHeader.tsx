@@ -32,6 +32,7 @@ interface MenuItemConfig {
   onClick: () => void;
   destructive?: boolean;
   separator?: boolean;
+  badge?: React.ReactNode;
 }
 
 interface DashboardHeaderProps {
@@ -363,17 +364,24 @@ const DashboardHeader = memo(function DashboardHeader({
                       <DropdownMenuItem
                         onClick={item.onClick}
                         className={cn(
-                          "gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation",
+                          "gap-3 cursor-pointer py-3 px-3 rounded-xl text-sm font-medium touch-manipulation flex items-center justify-between",
                           item.destructive ? 'text-destructive' : ''
                         )}
                       >
-                        <div className={cn(
-                          "p-1.5 rounded-lg",
-                          item.destructive ? "bg-destructive/10" : "bg-muted"
-                        )}>
-                          <item.icon className={cn("h-4 w-4", item.destructive && "text-destructive")} />
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className={cn(
+                            "p-1.5 rounded-lg shrink-0",
+                            item.destructive ? "bg-destructive/10" : "bg-muted"
+                          )}>
+                            <item.icon className={cn("h-4 w-4", item.destructive && "text-destructive")} />
+                          </div>
+                          <span className="truncate">{item.label}</span>
                         </div>
-                        {item.label}
+                        {item.badge !== undefined && item.badge !== null && item.badge !== false && item.badge !== '' && (
+                          <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-primary/15 text-primary shrink-0">
+                            {item.badge}
+                          </span>
+                        )}
                       </DropdownMenuItem>
                     </div>
                   ))}

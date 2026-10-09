@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { formatUGX } from "@/lib/agentAdvanceCalculations";
 
 const CONFIRM = "AUTHORIZE BUCKET A POSTING";
-type Check = { check: string; pass: boolean; value: unknown };
+type Check = { check: string; pass: boolean | null; status?: string; value: unknown };
 type Preflight = {
   pass: boolean; package_hash: string; record_count: number; total: number; preflight_id: string;
   checks: Check[]; amount_mismatches: any[]; status_changes: any[]; already_posted: boolean;
@@ -31,14 +31,23 @@ export default function BucketAPostingGate() {
   const authorize = async () => {
     if (!pf) return;
     setBusy(true); setErr(null);
-    const { data, error } = await (supabase.rpc as any)("cfo_bucket_a_post", {
-      p_preflight_id: pf.preflight_id, p_package_hash: pf.package_hash, p_confirmation: typed,
+    // Routed through a server step only to lift the 8s timeout; it calls the same
+    // cfo_bucket_a_post as the signed-in user, so every server safeguard still applies.
+    const { data: resp, error: fnErr } = await supabase.functions.invoke("cfo-bucket-a-post", {
+      body: { p_preflight_id: pf.preflight_id, p_package_hash: pf.package_hash, p_confirmation: typed },
     });
     setBusy(false);
-    if (error) return setErr(error.message);
+    let errMsg: string | null = fnErr ? fnErr.message : null;
+    if (fnErr && (fnErr as any).context?.json) {
+      try { errMsg = (await (fnErr as any).context.json())?.error ?? errMsg; } catch { /* keep */ }
+    }
+    if (errMsg) return setErr(errMsg);
+    const data = (resp as any)?.data;
     setResult(data); setPf(null);
   };
 
+  // Pre-flight older than 30 minutes cannot authorise (the server enforces the same rule).
+  const pfFresh = !!pf?.evaluated_at && Date.now() - new Date(pf.evaluated_at).getTime() < 30 * 60 * 1000;
   const ready = pf && pf.pass && !pf.already_posted;
   const row = (k: string, v: string) => (
     <div className="flex justify-between border-b border-border py-1.5 text-sm"><span className="text-muted-foreground">{k}</span><span className="font-medium">{v}</span></div>
@@ -54,11 +63,11 @@ export default function BucketAPostingGate() {
       {pf && (
         <Card>
           <CardHeader><CardTitle className={pf.pass ? "" : "text-destructive"}>
-            {pf.already_posted ? "Bucket A has already been posted" : pf.pass ? "PRE-FLIGHT PASSED — NOTHING POSTED" : "POSTING BLOCKED — NEW CFO VALIDATION REQUIRED"}
+            {pf.already_posted ? "Bucket A has already been posted" : !pf.pass || !pfFresh ? "POSTING BLOCKED — NEW CFO VALIDATION REQUIRED" : "PRE-FLIGHT PASSED — READY FOR CFO REVIEW — NOT AUTHORIZED — NOT POSTED"}
           </CardTitle></CardHeader>
           <CardContent className="space-y-1">
             {pf.checks.map((c) => (
-              <div key={c.check} className="flex justify-between text-sm"><span>{c.check}</span><span className={c.pass ? "text-primary" : "text-destructive"}>{c.pass ? "PASS" : "FAIL"}</span></div>
+              <div key={c.check} className="flex justify-between text-sm"><span>{c.check}</span><span className={c.status ? "text-muted-foreground" : c.pass ? "text-primary" : "text-destructive"}>{c.status ?? (c.pass ? "PASS" : "FAIL")}</span></div>
             ))}
             {[...pf.amount_mismatches, ...pf.status_changes].length > 0 && (
               <pre className="mt-2 max-h-64 overflow-auto rounded bg-muted p-2 text-xs">{JSON.stringify([...pf.amount_mismatches, ...pf.status_changes], null, 2)}</pre>
@@ -73,14 +82,16 @@ export default function BucketAPostingGate() {
           <CardContent>
             {row("Records", "322")}
             {row("Correction", formatUGX(pf!.total))}
-            {row("Debits", formatUGX(pf!.total))}
-            {row("Credits", formatUGX(pf!.total))}
+            {row("Debits (verified at posting)", formatUGX(pf!.total))}
+            {row("Credits (verified at posting)", formatUGX(pf!.total))}
             {row("Wallet / cash / repayment / agent float impact", formatUGX(0))}
             {row("Existing matching correction", "None")}
             {row("Atomic transaction", "Yes")}
             {row("All 322 records unchanged", "Yes")}
             {row("Agent receivables in the books now", formatUGX(pf!.mapped_receivable_balance_now))}
-            {pf!.can_authorize ? (
+            {pf!.can_authorize && !pfFresh ? (
+              <p className="mt-4 text-sm text-destructive">This pre-flight is older than 30 minutes. Run a fresh pre-flight before authorising.</p>
+            ) : pf!.can_authorize ? (
               <div className="mt-4 space-y-2">
                 <p className="text-sm">Type <b>{CONFIRM}</b> to post. Viewing this page does not authorise anything.</p>
                 <Input value={typed} onChange={(e) => setTyped(e.target.value)} placeholder={CONFIRM} />
@@ -93,7 +104,8 @@ export default function BucketAPostingGate() {
 
       {result && (
         <Card><CardHeader><CardTitle className={result.status === "committed" ? "" : "text-destructive"}>
-          {result.status === "committed" ? "BUCKET A POSTED SUCCESSFULLY — UGX 10,133,013.74 ACROSS 322 RECORDS" : result.message}
+          {result.status === "committed" ? "BUCKET A POSTED SUCCESSFULLY — 322/322 — UGX 10,133,013.74" : (result.status === "blocked" ? "POSTING BLOCKED — FINAL VALIDATION FAILED — NO POSTING ATTEMPTED" : "POSTING FAILED — ROLLED BACK — NOTHING POSTED")}
+          {result.status !== "committed" && result.message && <p className="mt-1 text-sm font-normal">{result.message}</p>}
         </CardTitle></CardHeader>
         <CardContent>{result.status === "committed" && <>
           {row("Books before", formatUGX(result.receivable_balance_before))}

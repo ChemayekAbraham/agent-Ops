@@ -109,6 +109,7 @@ interface Repayment {
 }
 
 export default function TenantDashboard({ user, signOut, currentRole, availableRoles, onRoleChange, addRoleComponent }: TenantDashboardProps) {
+  const uid = user?.id ?? "";
   const navigate = useNavigate();
   const { profile } = useProfile();
   const { isOnline } = useOffline();
@@ -122,14 +123,14 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
   // Local-first: read cache synchronously for instant paint
   const [rentRequests, setRentRequests] = useState<RentRequest[]>(() => {
     try {
-      const raw = localStorage.getItem(`tenant_dashboard_${user.id}`);
+      const raw = localStorage.getItem(`tenant_dashboard_${uid}`);
       if (raw) return JSON.parse(raw).rentRequests || [];
     } catch {}
     return [];
   });
   const [repayments, setRepayments] = useState<Repayment[]>(() => {
     try {
-      const raw = localStorage.getItem(`tenant_dashboard_${user.id}`);
+      const raw = localStorage.getItem(`tenant_dashboard_${uid}`);
       if (raw) return JSON.parse(raw).repayments || [];
     } catch {}
     return [];
@@ -261,7 +262,7 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
 
   // Background fetch — never blocks UI if cache exists
   useEffect(() => {
-    if (!navigator.onLine) {
+    if (!uid || !navigator.onLine) {
       setLoading(false);
       return;
     }
@@ -271,7 +272,7 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
         const { data: requests } = await supabase
           .from('rent_requests')
           .select('*')
-          .eq('tenant_id', user.id)
+          .eq('tenant_id', uid)
           .order('created_at', { ascending: false });
         
         const newRentRequests = requests || [];
@@ -280,7 +281,7 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
         setRentRequests(newRentRequests);
         setRepayments(newRepayments);
         
-        localStorage.setItem(`tenant_dashboard_${user.id}`, JSON.stringify({
+        localStorage.setItem(`tenant_dashboard_${uid}`, JSON.stringify({
           rentRequests: newRentRequests,
           repayments: newRepayments,
           timestamp: Date.now()
@@ -290,22 +291,22 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
       }
       setLoading(false);
     })();
-  }, [user.id]);
+  }, [uid]);
 
   const fetchData = async () => {
-    if (!navigator.onLine) return;
+    if (!uid || !navigator.onLine) return;
     try {
       const { data: requests } = await supabase
         .from('rent_requests')
         .select('*')
-        .eq('tenant_id', user.id)
+        .eq('tenant_id', uid)
         .order('created_at', { ascending: false });
       
       const newRentRequests = requests || [];
       setRentRequests(newRentRequests);
       setRepayments([]);
       
-      localStorage.setItem(`tenant_dashboard_${user.id}`, JSON.stringify({
+      localStorage.setItem(`tenant_dashboard_${uid}`, JSON.stringify({
         rentRequests: newRentRequests,
         repayments: [],
         timestamp: Date.now()
@@ -319,7 +320,7 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
   // individual widgets reveal as their data arrives. The legacy full-page
   // skeleton is kept for the rare empty-cache *offline* case only.
   const showFullSkeleton = loading && !hasCachedData && !isOnline;
-  if (showFullSkeleton) {
+  if (showFullSkeleton || !uid) {
     return <TenantDashboardSkeleton />;
   }
   const dataLoading = loading && !hasCachedData;
@@ -346,7 +347,7 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
         onRoleChange={onRoleChange}
         onSignOut={signOut}
         menuItems={menuItems}
-        headerActions={<TenantInAppNotificationBell tenantId={user.id} />}
+        headerActions={<TenantInAppNotificationBell tenantId={uid} />}
       />
 
       {/* Scrollable content area */}
@@ -414,7 +415,7 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
 
           {/* Outstanding balance / daily-charge status */}
           <WidgetErrorBoundary label="Subscription status">
-            <SubscriptionStatusCard userId={user.id} />
+            <SubscriptionStatusCard userId={uid} />
           </WidgetErrorBoundary>
 
           {/* Available houses — surfaced near the top of home so tenants find them first */}
@@ -423,7 +424,7 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
               <FindAHouseCTA onClick={() => { hapticTap(); navigate('/find-a-house'); }} />
             </WidgetErrorBoundary>
             <WidgetErrorBoundary label="Request rent as tenant">
-              <TenantRentRequestCard userId={user.id} />
+              <TenantRentRequestCard userId={uid} />
             </WidgetErrorBoundary>
           </div>
 
@@ -437,12 +438,12 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
             <PaymentTimeline />
           </WidgetErrorBoundary>
 
-          <RentAccessProgressTracker userId={user.id} />
+          <RentAccessProgressTracker userId={uid} />
 
           <RentAccessGrowthBanner />
 
           <WidgetErrorBoundary label="Suggested houses">
-            <SuggestedHousesCard userId={user.id} onViewAll={goToAllHouses} />
+            <SuggestedHousesCard userId={uid} onViewAll={goToAllHouses} />
           </WidgetErrorBoundary>
 
           {/* Apply your Rent Fees discount to rent — horizontally scrollable rentals */}

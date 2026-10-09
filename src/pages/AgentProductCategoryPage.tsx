@@ -18,6 +18,7 @@ import { MotorBikeCatalogDialog } from '@/components/executive/agent-ops/MotorBi
 import { DormantBikeLeasesPanel } from '@/components/executive/agent-ops/DormantBikeLeasesPanel';
 import { SmartphoneOrderApprovalQueue } from '@/components/executive/agent-ops/SmartphoneOrderApprovalQueue';
 import { BikeLeaseApprovalQueue } from '@/components/executive/agent-ops/BikeLeaseApprovalQueue';
+import { AgentProductsInProgress, useAgentProductsInProgress } from '@/components/executive/agent-ops/AgentProductsInProgress';
 import { LendingAgentsPanel } from '@/components/executive/LendingAgentsPanel';
 
 
@@ -375,9 +376,11 @@ function BoutiqueTabs({ category }: { category?: AgentProductCategory }) {
     staleTime: 60_000,
   });
 
+  const { data: inProgressRows = [] } = useAgentProductsInProgress(category ?? undefined);
   const boutiqueTabs = [
     { value: 'overview', label: 'Overview', icon: LayoutDashboard, count: 0 },
     { value: 'applications', label: 'Applications', icon: ClipboardList, count: pendingCount, badgeColor: 'bg-amber-500' },
+    { value: 'in-progress', label: 'In Progress', icon: Clock, count: inProgressRows.length, badgeColor: 'bg-sky-500' },
     { value: 'issued', label: 'Issued', icon: ShoppingBag, count: 0 },
     { value: 'completed', label: 'Completed', icon: CheckCircle2, count: 0 },
   ];
@@ -396,6 +399,12 @@ function BoutiqueTabs({ category }: { category?: AgentProductCategory }) {
               </Badge>
             )}
           </TabsTrigger>
+          <TabsTrigger value="in-progress" className="shrink-0 text-xs sm:text-sm gap-1.5">
+            In Progress
+            {inProgressRows.length > 0 && (
+              <Badge variant="secondary" className="text-[10px] px-1.5 py-0 h-4">{inProgressRows.length}</Badge>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="issued" className="shrink-0 text-xs sm:text-sm">
             Issued <span className="hidden sm:inline">in Field</span>
           </TabsTrigger>
@@ -410,7 +419,7 @@ function BoutiqueTabs({ category }: { category?: AgentProductCategory }) {
         aria-label="Boutique tabs navigation"
         className="sm:hidden fixed bottom-0 inset-x-0 z-50 bg-background/95 backdrop-blur-md border-t border-border shadow-[0_-4px_20px_rgba(0,0,0,0.08)] pb-[calc(env(safe-area-inset-bottom,0px)+6px)] pt-1 px-2"
       >
-        <div className="grid grid-cols-4 gap-1">
+        <div className="grid grid-cols-5 gap-1">
           {boutiqueTabs.map((t) => {
             const Icon = t.icon;
             const isActive = tab === t.value;
@@ -455,6 +464,10 @@ function BoutiqueTabs({ category }: { category?: AgentProductCategory }) {
 
       <TabsContent value="applications" className="space-y-6">
         <AgentProductsPanel category={category} mode="applications" />
+      </TabsContent>
+
+      <TabsContent value="in-progress" className="space-y-6">
+        <AgentProductsInProgress category={category ?? undefined} />
       </TabsContent>
 
       <TabsContent value="issued" className="space-y-6">

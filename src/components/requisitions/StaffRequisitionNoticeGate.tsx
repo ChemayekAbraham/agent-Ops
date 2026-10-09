@@ -19,7 +19,7 @@ import { cn } from '@/lib/utils';
 
 const POLL_MS = 5 * 60 * 1000;
 
-type Kind = 'moved' | 'amount_changed' | 'declined' | 'returned' | 'paid';
+type Kind = 'moved' | 'amount_changed' | 'declined' | 'returned' | 'paid' | 'deferred' | 'payment_delayed';
 
 interface Notice {
   id: string;
@@ -37,6 +37,8 @@ const ACCENT: Record<Kind, string> = {
   returned: 'border-l-4 border-l-blue-600',
   moved: '',
   amount_changed: '',
+  deferred: 'border-l-4 border-l-amber-500',
+  payment_delayed: 'border-l-4 border-l-amber-500',
 };
 
 const ICON_TONE: Record<Kind, string> = {
@@ -45,6 +47,8 @@ const ICON_TONE: Record<Kind, string> = {
   returned: 'text-blue-600',
   moved: 'text-muted-foreground',
   amount_changed: 'text-muted-foreground',
+  deferred: 'text-amber-600',
+  payment_delayed: 'text-amber-600',
 };
 
 function fmtKampala(iso: string) {

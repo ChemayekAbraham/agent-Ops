@@ -1358,6 +1358,7 @@ export type Database = {
           agent_id: string
           allocation_id: string
           amount: number
+          auto_approved: boolean
           cfo_decision_at: string | null
           cfo_id: string | null
           cfo_note: string | null
@@ -1375,6 +1376,7 @@ export type Database = {
           agent_id: string
           allocation_id: string
           amount: number
+          auto_approved?: boolean
           cfo_decision_at?: string | null
           cfo_id?: string | null
           cfo_note?: string | null
@@ -1392,6 +1394,7 @@ export type Database = {
           agent_id?: string
           allocation_id?: string
           amount?: number
+          auto_approved?: boolean
           cfo_decision_at?: string | null
           cfo_id?: string | null
           cfo_note?: string | null
@@ -10753,6 +10756,81 @@ export type Database = {
         }
         Relationships: []
       }
+      cfo_corr_5300000_events: {
+        Row: {
+          actor: string | null
+          created_at: string
+          details: Json
+          event_type: string
+          id: string
+          package_hash: string | null
+          preflight_id: string | null
+        }
+        Insert: {
+          actor?: string | null
+          created_at?: string
+          details?: Json
+          event_type: string
+          id?: string
+          package_hash?: string | null
+          preflight_id?: string | null
+        }
+        Update: {
+          actor?: string | null
+          created_at?: string
+          details?: Json
+          event_type?: string
+          id?: string
+          package_hash?: string | null
+          preflight_id?: string | null
+        }
+        Relationships: []
+      }
+      cfo_corr_5300000_lines: {
+        Row: {
+          amount: number
+          credit_account: string
+          debit_account: string
+          equity_leg_direction: string
+          idempotency_key: string
+          label: string
+          line_no: number
+          post_source_id: string
+          post_source_table: string
+          receivable_leg_category: string
+          receivable_leg_direction: string
+          source_groups: string[]
+        }
+        Insert: {
+          amount: number
+          credit_account: string
+          debit_account: string
+          equity_leg_direction: string
+          idempotency_key: string
+          label: string
+          line_no: number
+          post_source_id: string
+          post_source_table: string
+          receivable_leg_category: string
+          receivable_leg_direction: string
+          source_groups: string[]
+        }
+        Update: {
+          amount?: number
+          credit_account?: string
+          debit_account?: string
+          equity_leg_direction?: string
+          idempotency_key?: string
+          label?: string
+          line_no?: number
+          post_source_id?: string
+          post_source_table?: string
+          receivable_leg_category?: string
+          receivable_leg_direction?: string
+          source_groups?: string[]
+        }
+        Relationships: []
+      }
       cfo_debit_obligations: {
         Row: {
           amount: number
@@ -12458,6 +12536,39 @@ export type Database = {
         }
         Relationships: []
       }
+      db_stat_hourly: {
+        Row: {
+          backends: number | null
+          captured_at: string
+          delta_commit: number | null
+          delta_rollback: number | null
+          rollback_pct: number | null
+          top_statements: Json | null
+          xact_commit: number
+          xact_rollback: number
+        }
+        Insert: {
+          backends?: number | null
+          captured_at: string
+          delta_commit?: number | null
+          delta_rollback?: number | null
+          rollback_pct?: number | null
+          top_statements?: Json | null
+          xact_commit: number
+          xact_rollback: number
+        }
+        Update: {
+          backends?: number | null
+          captured_at?: string
+          delta_commit?: number | null
+          delta_rollback?: number | null
+          rollback_pct?: number | null
+          top_statements?: Json | null
+          xact_commit?: number
+          xact_rollback?: number
+        }
+        Relationships: []
+      }
       db_stat_snapshots: {
         Row: {
           captured_at: string
@@ -12479,6 +12590,27 @@ export type Database = {
           deadlocks?: number | null
           xact_commit?: number
           xact_rollback?: number
+        }
+        Relationships: []
+      }
+      db_stmt_last_sample: {
+        Row: {
+          calls: number
+          query: string | null
+          queryid: number
+          userid: unknown
+        }
+        Insert: {
+          calls: number
+          query?: string | null
+          queryid: number
+          userid: unknown
+        }
+        Update: {
+          calls?: number
+          query?: string | null
+          queryid?: number
+          userid?: unknown
         }
         Relationships: []
       }
@@ -40665,12 +40797,14 @@ export type Database = {
         Row: {
           aware_30m: string | null
           aware_merchant_codes: string | null
+          aware_payout_otp: string | null
           call_result: string
           caller_id: string
           caller_team: string
           dial_started_at: string
           explained: string | null
           id: string
+          landlord_consent: string | null
           note: string | null
           pipeline_stage: string
           recorded_at: string
@@ -40682,12 +40816,14 @@ export type Database = {
         Insert: {
           aware_30m?: string | null
           aware_merchant_codes?: string | null
+          aware_payout_otp?: string | null
           call_result: string
           caller_id: string
           caller_team: string
           dial_started_at: string
           explained?: string | null
           id?: string
+          landlord_consent?: string | null
           note?: string | null
           pipeline_stage: string
           recorded_at?: string
@@ -40699,12 +40835,14 @@ export type Database = {
         Update: {
           aware_30m?: string | null
           aware_merchant_codes?: string | null
+          aware_payout_otp?: string | null
           call_result?: string
           caller_id?: string
           caller_team?: string
           dial_started_at?: string
           explained?: string | null
           id?: string
+          landlord_consent?: string | null
           note?: string | null
           pipeline_stage?: string
           recorded_at?: string
@@ -42926,6 +43064,30 @@ export type Database = {
         }
         Relationships: []
       }
+      service_center_overdue_alert_log: {
+        Row: {
+          id: string
+          manager_id: string
+          oldest_age_hours: number
+          overdue_count: number
+          shown_at: string
+        }
+        Insert: {
+          id?: string
+          manager_id: string
+          oldest_age_hours: number
+          overdue_count: number
+          shown_at?: string
+        }
+        Update: {
+          id?: string
+          manager_id?: string
+          oldest_age_hours?: number
+          overdue_count?: number
+          shown_at?: string
+        }
+        Relationships: []
+      }
       service_center_qualification_config: {
         Row: {
           activity_window_days: number
@@ -43145,6 +43307,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      service_center_vetting_policy: {
+        Row: {
+          effective_from: string
+          enabled: boolean
+          id: boolean
+          overdue_hours: number
+          updated_at: string
+          updated_by: string | null
+          warn_hours: number
+        }
+        Insert: {
+          effective_from?: string
+          enabled?: boolean
+          id?: boolean
+          overdue_hours?: number
+          updated_at?: string
+          updated_by?: string | null
+          warn_hours?: number
+        }
+        Update: {
+          effective_from?: string
+          enabled?: boolean
+          id?: boolean
+          overdue_hours?: number
+          updated_at?: string
+          updated_by?: string | null
+          warn_hours?: number
+        }
+        Relationships: []
       }
       service_centre_advances: {
         Row: {
@@ -47342,6 +47534,226 @@ export type Database = {
           rent_request_id?: string | null
           status?: string | null
           tenant_id?: string
+        }
+        Relationships: []
+      }
+      tenant_campaign_clicks: {
+        Row: {
+          browser: string | null
+          campaign_id: string
+          city: string | null
+          clicked_at: string
+          country: string | null
+          device_class: string | null
+          gps_accuracy: number | null
+          gps_lat: number | null
+          gps_lng: number | null
+          gps_status: string | null
+          id: string
+          ip_address: string | null
+          is_bot: boolean
+          os: string | null
+          referrer: string | null
+          user_agent: string | null
+          visitor_hash: string | null
+        }
+        Insert: {
+          browser?: string | null
+          campaign_id: string
+          city?: string | null
+          clicked_at?: string
+          country?: string | null
+          device_class?: string | null
+          gps_accuracy?: number | null
+          gps_lat?: number | null
+          gps_lng?: number | null
+          gps_status?: string | null
+          id?: string
+          ip_address?: string | null
+          is_bot?: boolean
+          os?: string | null
+          referrer?: string | null
+          user_agent?: string | null
+          visitor_hash?: string | null
+        }
+        Update: {
+          browser?: string | null
+          campaign_id?: string
+          city?: string | null
+          clicked_at?: string
+          country?: string | null
+          device_class?: string | null
+          gps_accuracy?: number | null
+          gps_lat?: number | null
+          gps_lng?: number | null
+          gps_status?: string | null
+          id?: string
+          ip_address?: string | null
+          is_bot?: boolean
+          os?: string | null
+          referrer?: string | null
+          user_agent?: string | null
+          visitor_hash?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_campaign_clicks_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_campaign_sends: {
+        Row: {
+          campaign_id: string
+          created_at: string
+          dedupe_key: string | null
+          error: string | null
+          id: string
+          is_test: boolean
+          message: string
+          phone: string
+          recipient_name: string | null
+          rent_amount: number | null
+          segment: string | null
+          sent_at: string | null
+          status: string
+          tenant_id: string | null
+          wave_id: string | null
+        }
+        Insert: {
+          campaign_id: string
+          created_at?: string
+          dedupe_key?: string | null
+          error?: string | null
+          id?: string
+          is_test?: boolean
+          message: string
+          phone: string
+          recipient_name?: string | null
+          rent_amount?: number | null
+          segment?: string | null
+          sent_at?: string | null
+          status?: string
+          tenant_id?: string | null
+          wave_id?: string | null
+        }
+        Update: {
+          campaign_id?: string
+          created_at?: string
+          dedupe_key?: string | null
+          error?: string | null
+          id?: string
+          is_test?: boolean
+          message?: string
+          phone?: string
+          recipient_name?: string | null
+          rent_amount?: number | null
+          segment?: string | null
+          sent_at?: string | null
+          status?: string
+          tenant_id?: string | null
+          wave_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_campaign_sends_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_campaign_sends_wave_id_fkey"
+            columns: ["wave_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_campaign_waves"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_campaign_waves: {
+        Row: {
+          campaign_id: string
+          finished_at: string | null
+          id: string
+          note: string | null
+          scheduled_at: string
+          segment: string
+          started_at: string | null
+          status: string
+          wave_no: number
+        }
+        Insert: {
+          campaign_id: string
+          finished_at?: string | null
+          id?: string
+          note?: string | null
+          scheduled_at: string
+          segment: string
+          started_at?: string | null
+          status?: string
+          wave_no: number
+        }
+        Update: {
+          campaign_id?: string
+          finished_at?: string | null
+          id?: string
+          note?: string | null
+          scheduled_at?: string
+          segment?: string
+          started_at?: string | null
+          status?: string
+          wave_no?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_campaign_waves_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenant_campaigns: {
+        Row: {
+          created_at: string
+          destination_url: string
+          fallback_template: string
+          id: string
+          message_template: string
+          name: string
+          short_code: string
+          slug: string
+          status: string
+          test_phones: string[]
+        }
+        Insert: {
+          created_at?: string
+          destination_url: string
+          fallback_template: string
+          id?: string
+          message_template: string
+          name: string
+          short_code: string
+          slug: string
+          status?: string
+          test_phones?: string[]
+        }
+        Update: {
+          created_at?: string
+          destination_url?: string
+          fallback_template?: string
+          id?: string
+          message_template?: string
+          name?: string
+          short_code?: string
+          slug?: string
+          status?: string
+          test_phones?: string[]
         }
         Relationships: []
       }
@@ -59347,6 +59759,19 @@ export type Database = {
         Args: { p_account: string; p_source_id: string }
         Returns: number
       }
+      _cfo_corr_5300000_acct: { Args: { p_account: string }; Returns: number }
+      _cfo_corr_5300000_evaluate: { Args: never; Returns: Json }
+      _cfo_corr_5300000_group_ok: {
+        Args: {
+          p_amt: number
+          p_cat: string
+          p_dir: string
+          p_prefix: string
+          p_scope: string
+        }
+        Returns: boolean
+      }
+      _cfo_corr_5300000_hash: { Args: never; Returns: string }
       _cfo_credit_type: { Args: { p_category: string }; Returns: string }
       _cfo_paid_out_base: {
         Args: {
@@ -59393,6 +59818,15 @@ export type Database = {
             }
             Returns: string
           }
+      _complete_allocation_return: {
+        Args: {
+          p_auto?: boolean
+          p_decided_by: string
+          p_note: string
+          p_request_id: string
+        }
+        Returns: Json
+      }
       _create_landlord_number_change_request: {
         Args: {
           p_actor: string
@@ -59853,6 +60287,14 @@ export type Database = {
           p_amount: number
           p_notes?: string
           p_partner_id: string
+        }
+        Returns: Json
+      }
+      agent_edit_sent_back_rent_plan: {
+        Args: {
+          p_new_rent_amount: number
+          p_note: string
+          p_request_id: string
         }
         Returns: Json
       }
@@ -60944,11 +61386,13 @@ export type Database = {
           ac_30m: string
           ac_caller: string
           ac_codes: string
+          ac_consent: string
           ac_day: string
           ac_dial: string
           ac_explained: string
           ac_id: string
           ac_note: string
+          ac_otp: string
           ac_person: string
           ac_phone: string
           ac_recorded: string
@@ -61482,6 +61926,7 @@ export type Database = {
         Args: { p_reason: string; p_rent_request_id: string }
         Returns: Json
       }
+      capture_db_stat_hourly: { Args: never; Returns: Json }
       capture_location_by_token: {
         Args: {
           p_accuracy?: number
@@ -61927,6 +62372,10 @@ export type Database = {
         Returns: Json
       }
       cfo_bucket_a_preflight: { Args: never; Returns: Json }
+      cfo_cancel_bike_lease: {
+        Args: { p_reason: string; p_sale_id: string }
+        Returns: Json
+      }
       cfo_collection_reconciliation_s11: {
         Args: never
         Returns: {
@@ -61976,6 +62425,15 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      cfo_corr_5300000_post: {
+        Args: {
+          p_confirmation: string
+          p_package_hash: string
+          p_preflight_id: string
+        }
+        Returns: Json
+      }
+      cfo_corr_5300000_preflight: { Args: never; Returns: Json }
       cfo_correct_trail_entry: {
         Args: {
           p_audit_id: string
@@ -63199,6 +63657,11 @@ export type Database = {
         }
         Returns: Json
       }
+      crm_tenant_campaign_overview: { Args: { p_slug: string }; Returns: Json }
+      crm_tenant_campaign_set_wave: {
+        Args: { p_status: string; p_wave_id: string }
+        Returns: undefined
+      }
       cron_jobs_health: {
         Args: never
         Returns: {
@@ -63361,6 +63824,10 @@ export type Database = {
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
+      }
+      delete_portfolio_and_refund: {
+        Args: { p_portfolio_id: string; p_reason?: string }
+        Returns: Json
       }
       delete_welile_home_subscription: {
         Args: { p_subscription_id: string }
@@ -66128,6 +66595,10 @@ export type Database = {
           silence_minutes: number
         }[]
       }
+      get_growth_metrics_live: {
+        Args: { p_end: string; p_start: string }
+        Returns: Json
+      }
       get_house_activity_timeline: {
         Args: { p_house_id: string }
         Returns: {
@@ -66635,6 +67106,21 @@ export type Database = {
       }
       get_my_landlord_properties: { Args: never; Returns: Json }
       get_my_listing_block: { Args: never; Returns: Json }
+      get_my_overdue_bike_asset_details: {
+        Args: never
+        Returns: {
+          agent_name: string
+          battery_serial: string
+          brand: string
+          cfo_disbursed_at: string
+          chassis_number: string
+          lease_id: string
+          model: string
+          plate_number: string
+          tracking_reference: string
+        }[]
+      }
+      get_my_overdue_vetting: { Args: never; Returns: Json }
       get_my_parent_agent: {
         Args: never
         Returns: {
@@ -66776,6 +67262,20 @@ export type Database = {
           outstanding: number
           total_assigned: number
           total_settled: number
+        }[]
+      }
+      get_overdue_vetting_overview: {
+        Args: never
+        Returns: {
+          escalated_count: number
+          landlords: number
+          last_alert_at: string
+          lc1: number
+          manager_id: string
+          manager_name: string
+          oldest_age_hours: number
+          overdue_count: number
+          rent_plans: number
         }[]
       }
       get_paginated_transactions: {
@@ -67176,6 +67676,10 @@ export type Database = {
         Returns: Json
       }
       get_receivables_total: { Args: never; Returns: Json }
+      get_referral_performance_rows: {
+        Args: { p_end: string; p_start: string }
+        Returns: Json
+      }
       get_referral_progress: { Args: { p_referred_id: string }; Returns: Json }
       get_rent_access_promo_stats: {
         Args: { p_from?: string; p_to?: string }
@@ -68299,6 +68803,7 @@ export type Database = {
         Args: { _dashboard: string; _user_id: string }
         Returns: boolean
       }
+      has_internal_staff_role: { Args: { p_user_id: string }; Returns: boolean }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -68820,6 +69325,7 @@ export type Database = {
         Args: { p_user_id?: string }
         Returns: boolean
       }
+      is_bucket_a_approver: { Args: { _user_id: string }; Returns: boolean }
       is_budget_coo_reviewer: { Args: { _user_id: string }; Returns: boolean }
       is_budget_reviewer: { Args: { _user_id: string }; Returns: boolean }
       is_business_advance_ops: { Args: { _uid: string }; Returns: boolean }
@@ -69262,6 +69768,21 @@ export type Database = {
         Args: { p_sub_agent_id: string }
         Returns: boolean
       }
+      list_agent_products_in_progress: {
+        Args: { p_category: string }
+        Returns: {
+          client_name: string
+          client_phone: string
+          coo_approved_at: string
+          created_at: string
+          id: string
+          item_name: string
+          ops_approved_at: string
+          order_status: string
+          quantity: number
+          total_revenue: number
+        }[]
+      }
       list_assignable_agents:
         | {
             Args: never
@@ -69553,6 +70074,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      log_overdue_vetting_alert_shown: { Args: never; Returns: boolean }
       log_proxy_partner_invite: {
         Args: {
           p_channel?: string
@@ -72313,9 +72835,11 @@ export type Database = {
         Args: {
           p_aware_30m?: string
           p_aware_merchant_codes?: string
+          p_aware_payout_otp?: string
           p_call_result: string
           p_dial_started_at: string
           p_explained?: string
+          p_landlord_consent?: string
           p_note?: string
           p_rent_request_id: string
           p_subject_phone: string
@@ -73216,6 +73740,15 @@ export type Database = {
           role: string
         }[]
       }
+      search_bike_supplier_candidates: {
+        Args: { p_search?: string }
+        Returns: {
+          full_name: string
+          phone: string
+          roles: string[]
+          user_id: string
+        }[]
+      }
       search_invitable_subagents: {
         Args: { result_limit?: number; search_term?: string }
         Returns: {
@@ -73380,6 +73913,16 @@ export type Database = {
         }
         Returns: Json
       }
+      service_center_vetting_items: {
+        Args: never
+        Returns: {
+          clock_at: string
+          item_id: string
+          kind: string
+          label: string
+          manager_id: string
+        }[]
+      }
       service_centre_assign_agents: {
         Args: {
           p_agent_ids: string[]
@@ -73487,6 +74030,14 @@ export type Database = {
       }
       set_proxy_target_mode: {
         Args: { p_accept: boolean; p_agent_id?: string }
+        Returns: Json
+      }
+      set_service_center_vetting_policy: {
+        Args: {
+          p_effective_from?: string
+          p_enabled: boolean
+          p_overdue_hours?: number
+        }
         Returns: Json
       }
       set_staff_access_password: {
@@ -73921,7 +74472,10 @@ export type Database = {
           total_pending: number
         }[]
       }
-      staff_requisition_prompt_snooze: { Args: never; Returns: string }
+      staff_requisition_prompt_snooze: {
+        Args: { p_prompt_id?: string }
+        Returns: string
+      }
       staff_requisition_reduce_amount: {
         Args: {
           p_new_amount: number
@@ -74207,6 +74761,20 @@ export type Database = {
       }
       telecom_sending_charge: { Args: { p_amount: number }; Returns: number }
       tenant_balance_edits_pending: { Args: never; Returns: Json }
+      tenant_campaign_audience: {
+        Args: never
+        Returns: {
+          full_name: string
+          phone: string
+          rent_amount: number
+          segment: string
+          tenant_id: string
+        }[]
+      }
+      tenant_campaign_unschedule: {
+        Args: { p_job_names: string[] }
+        Returns: undefined
+      }
       tenant_location_correction_active_metrics: {
         Args: { p_agent_id?: string }
         Returns: Json
@@ -76035,6 +76603,10 @@ export type Database = {
           p_user_id: string
         }
         Returns: boolean
+      }
+      withdrawal_payout_number_check: {
+        Args: { p_withdrawal_id: string }
+        Returns: Json
       }
       withdrawal_settlement_status: {
         Args: { p_withdrawal_id: string }

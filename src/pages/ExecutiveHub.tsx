@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { roleToSlug } from '@/lib/roleRoutes';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Download, Loader2 } from 'lucide-react';
-import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import { lazyWithRetry, lazyNamed } from '@/lib/lazyWithRetry';
 import { MissionBanner } from '@/components/mission/MissionBanner';
 import { useStaffPermissions } from '@/hooks/useStaffPermissions';
 import NotFound from '@/pages/NotFound';
@@ -13,34 +13,15 @@ import ScreenLoader from '@/components/common/ScreenLoader';
 // so each is code-split into its own chunk instead of being welded into one
 // multi-MB ExecutiveHub bundle. Behaviour is unchanged — the selected tab
 // still renders exactly the same component.
-const CEODashboard = lazyWithRetry(() =>
-  import('@/components/executive/CEODashboard').then((m) => ({ default: m.CEODashboard })),
-);
-const CTODashboard = lazyWithRetry(() =>
-  import('@/components/executive/CTODashboard').then((m) => ({ default: m.CTODashboard })),
-);
-const CMODashboard = lazyWithRetry(() =>
-  import('@/components/executive/CMODashboard').then((m) => ({ default: m.CMODashboard })),
-);
-const AgentOpsDashboard = lazyWithRetry(() =>
-  import('@/components/executive/AgentOpsDashboard').then((m) => ({ default: m.AgentOpsDashboard })),
-);
-const TenantOpsHub = lazyWithRetry(() =>
-  import('@/components/executive/TenantOpsHub').then((m) => ({ default: m.TenantOpsHub })),
-);
-const LandlordOpsDashboard = lazyWithRetry(() =>
-  import('@/components/executive/landlord-ops/LandlordOpsClassicShell').then((m) => ({ default: m.LandlordOpsDashboardShell })),
-
-);
-const PartnersOpsDashboard = lazyWithRetry(() =>
-  import('@/components/executive/PartnersOpsDashboard').then((m) => ({ default: m.PartnersOpsDashboard })),
-);
-const CRMDashboard = lazyWithRetry(() =>
-  import('@/components/executive/CRMDashboard').then((m) => ({ default: m.CRMDashboard })),
-);
-const LocationManager = lazyWithRetry(() =>
-  import('@/components/ops/LocationManager').then((m) => ({ default: m.LocationManager })),
-);
+const CEODashboard = lazyNamed(() => import('@/components/executive/CEODashboard'), 'CEODashboard');
+const CTODashboard = lazyNamed(() => import('@/components/executive/CTODashboard'), 'CTODashboard');
+const CMODashboard = lazyNamed(() => import('@/components/executive/CMODashboard'), 'CMODashboard');
+const AgentOpsDashboard = lazyNamed(() => import('@/components/executive/AgentOpsDashboard'), 'AgentOpsDashboard');
+const TenantOpsHub = lazyNamed(() => import('@/components/executive/TenantOpsHub'), 'TenantOpsHub');
+const LandlordOpsDashboard = lazyNamed(() => import('@/components/executive/landlord-ops/LandlordOpsClassicShell'), 'LandlordOpsDashboardShell');
+const PartnersOpsDashboard = lazyNamed(() => import('@/components/executive/PartnersOpsDashboard'), 'PartnersOpsDashboard');
+const CRMDashboard = lazyNamed(() => import('@/components/executive/CRMDashboard'), 'CRMDashboard');
+const LocationManager = lazyNamed(() => import('@/components/ops/LocationManager'), 'LocationManager');
 
 import { BudgetDepartmentNotificationBell } from '@/components/budget/BudgetDepartmentNotificationBell';
 

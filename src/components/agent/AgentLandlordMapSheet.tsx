@@ -15,6 +15,7 @@ import {
   MapPin, RefreshCw, Building2, Phone, Navigation, CheckCircle2, AlertTriangle, ExternalLink, User
 } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { MapSafeUnmount } from '@/components/map/MapSafeUnmount';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { toast } from 'sonner';
@@ -195,6 +196,7 @@ export function AgentLandlordMapSheet({ open, onOpenChange }: AgentLandlordMapSh
                     style={{ height: '100%', width: '100%' }}
                     scrollWheelZoom={true}
                   >
+<MapSafeUnmount />
                     <TileLayer
                       attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                       url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

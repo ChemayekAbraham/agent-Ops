@@ -1,5 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, CircleMarker, useMap } from 'react-leaflet';
+import { MapSafeUnmount } from '@/components/map/MapSafeUnmount';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -91,6 +92,7 @@ export function SellerMapPreview({ sellers, userCoords, selectedId, onSelect }: 
         style={{ height: '100%', width: '100%' }}
         attributionControl={false}
       >
+<MapSafeUnmount />
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution='&copy; OpenStreetMap'
