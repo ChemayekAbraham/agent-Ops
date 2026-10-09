@@ -218,35 +218,19 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
     const remaining = Math.max(0, Math.round(newPrincipal * (1 + rate / 100) - repaid));
     const freq = ((loan.repayment_frequency as RepaymentFrequency) || 'monthly');
     const schedule = buildSchedule(remaining, freq === 'once' ? 'monthly' : freq, new Date(), newDue);
-    const { error } = await (supabase.from('lending_agent_loans' as any)
-      .update({
-        principal_ugx: newPrincipal,
-        platform_fee_ugx: (Number((loan as any).platform_fee_ugx) || 0) + fee,
-        expected_repayment_date: newDue,
-        status: repaid > 0 ? 'partially_repaid' : 'active',
-        closed_at: null,
-        auto_deduct_enabled: true,
-        repayment_frequency: freq === 'once' ? 'monthly' : freq,
-        installment_ugx: schedule.installment,
-        next_deduction_date: schedule.firstDate,
-      })
-      .eq('id', loan.id) as any);
-    if (error) { toast.error('Could not save: ' + error.message); return; }
-    toast.success(extra > 0
-      ? `Added ${formatUGX(extra)}. New balance ${formatUGX(remaining)}`
-      : `New end date ${new Date(newDue).toLocaleDateString()}`);
-    await logLendingAudit({
-      actorId: user.id, actorDisplayName: myName, actionType: 'status_change',
-      entityType: 'loan', entityId: loan.id,
-      borrowerUserId: (loan as any).borrower_user_id ?? null, lenderAgentId: user.id,
-      amountUgx: extra, feeUgx: fee, oldStatus: loan.status,
-      newStatus: repaid > 0 ? 'partially_repaid' : 'active',
-      details: {
-        kind: extra > 0 ? 'topup' : 'renew',
-        old_principal_ugx: loan.principal_ugx, new_principal_ugx: newPrincipal,
-        old_due: loan.expected_repayment_date, new_due: newDue,
+    // Server sends the money lender → borrower first, then updates the loan.
+    const { data, error } = await supabase.functions.invoke('lending-borrower-pay', {
+      body: {
+        action: 'topup', loan_id: loan.id, request_id: safeUUID(),
+        extra, fee, new_due: newDue,
+        installment: schedule.installment, first_date: schedule.firstDate,
       },
     });
+    const errMsg = (data as any)?.error || (error ? await (error as any)?.context?.json?.().then((j: any) => j?.error).catch(() => null) : null);
+    if (error || !(data as any)?.ok) { toast.error(errMsg || 'Top-up failed. No money was sent.'); return; }
+    toast.success(extra > 0
+      ? `Sent ${formatUGX(extra)} to ${loan.borrower_display_name ?? 'the borrower'}. New balance ${formatUGX(remaining)}`
+      : `New end date ${new Date(newDue).toLocaleDateString()}`);
     refetchBalances();
     await reloadLoans();
   };
