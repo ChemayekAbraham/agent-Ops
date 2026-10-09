@@ -225,6 +225,105 @@ Deno.serve(async (req) => {
       return json({ ok: true, reference: ref, borrower_wallet_after_ugx: Math.max(0, Math.floor(Number(after ?? 0))), paid_ugx: amount, remaining_ugx: Math.max(0, outstanding - amount), fully_repaid: fully });
     }
 
+    // Lending agent tops up (adds money to) and/or renews an existing loan.
+    // Money moves lender → borrower FIRST; the loan only changes if that succeeds.
+    if (action === "topup") {
+      const loanId = String(body?.loan_id || "");
+      const requestId = String(body?.request_id || "").replace(/[^a-zA-Z0-9-]/g, "").slice(0, 36);
+      const extra = Math.floor(Number(body?.extra) || 0);
+      const fee = Math.max(0, Math.round(Number(body?.fee) || 0));
+      const newDue = String(body?.new_due || "").slice(0, 10);
+      const installment = Math.max(0, Math.round(Number(body?.installment) || 0));
+      const firstDate = String(body?.first_date || "").slice(0, 10) || null;
+      if (!loanId || !requestId || !/^\d{4}-\d{2}-\d{2}$/.test(newDue)) return json({ error: "Missing details" }, 400);
+      if (extra < 0 || extra > 100_000_000) return json({ error: "Invalid amount" }, 400);
+      if (extra > 0 && extra < 1000) return json({ error: "Minimum top-up is UGX 1,000" }, 400);
+
+      const { data: loan } = await admin.from("lending_agent_loans").select("*").eq("id", loanId).maybeSingle();
+      if (!loan || loan.lender_agent_id !== userId) return json({ error: "Not found" }, 404);
+      if (extra > 0 && !loan.borrower_user_id) return json({ error: "This borrower has no Welile wallet" }, 400);
+      if (["cancelled", "defaulted", "written_off"].includes(loan.status)) return json({ error: "This loan is closed" }, 400);
+
+      const ref = `LTU-${loan.id.slice(0, 8)}-${requestId}`;
+      const borrowerLabel = loan.borrower_display_name || loan.borrower_ai_id || "Borrower";
+      const now = new Date().toISOString();
+
+      if (extra > 0) {
+        const { data: availRaw, error: availError } = await admin.rpc("get_user_available_balance", { p_user_id: userId });
+        if (availError) throw availError;
+        const available = Math.max(0, Math.floor(Number(availRaw ?? 0)));
+        if (extra > available) {
+          return json({ error: `Not enough money in your wallet. You have UGX ${available.toLocaleString("en-US")}` }, 400);
+        }
+        await admin.from("wallets").upsert(
+          { user_id: loan.borrower_user_id, balance: 0 },
+          { onConflict: "user_id", ignoreDuplicates: true },
+        );
+        const { data: lender } = await admin.from("profiles").select("full_name").eq("id", userId).maybeSingle();
+        const lenderLabel = lender?.full_name || "Lending agent";
+        const { error: ledgerError } = await admin.rpc("create_ledger_transaction", {
+          entries: [
+            {
+              user_id: userId, amount: extra, direction: "cash_out", category: "wallet_transfer",
+              ledger_scope: "wallet", source_table: "lending_agent_loans", source_id: loan.id,
+              description: `Loan top-up to ${borrowerLabel}`, currency: "UGX", transaction_date: now,
+              reference_id: ref, linked_party: borrowerLabel, recipient_type: "user",
+            },
+            {
+              user_id: loan.borrower_user_id, amount: extra, direction: "cash_in", category: "wallet_transfer",
+              ledger_scope: "wallet", source_table: "lending_agent_loans", source_id: loan.id,
+              description: `Loan top-up from ${lenderLabel}`, currency: "UGX", transaction_date: now,
+              reference_id: ref, linked_party: lenderLabel, recipient_type: "user",
+            },
+          ],
+          idempotency_key: ref,
+        });
+        if (ledgerError) {
+          console.error("[lending-borrower-pay] topup ledger", ledgerError);
+          return json({ error: "Top-up failed. No money was sent and the loan was not changed." }, 400);
+        }
+      }
+
+      const newPrincipal = (Number(loan.principal_ugx) || 0) + extra;
+      const repaid = Number(loan.amount_repaid_ugx) || 0;
+      const freq = loan.repayment_frequency === "once" ? "monthly" : (loan.repayment_frequency || "monthly");
+      const { error: updError } = await admin.from("lending_agent_loans").update({
+        principal_ugx: newPrincipal,
+        platform_fee_ugx: (Number(loan.platform_fee_ugx) || 0) + (extra > 0 ? fee : 0),
+        expected_repayment_date: newDue,
+        status: repaid > 0 ? "partially_repaid" : "active",
+        closed_at: null,
+        auto_deduct_enabled: true,
+        repayment_frequency: freq,
+        installment_ugx: installment || null,
+        next_deduction_date: firstDate,
+      }).eq("id", loan.id);
+      if (updError) {
+        console.error("[lending-borrower-pay] topup update", updError, { ref });
+        return json({ error: `Money was sent (ref ${ref}) but the loan could not be updated. Contact support.` }, 500);
+      }
+
+      await admin.from("lending_audit_log").insert({
+        actor_id: userId, actor_display_name: "Lending agent", action_type: "status_change",
+        entity_type: "loan", entity_id: loan.id, borrower_user_id: loan.borrower_user_id,
+        lender_agent_id: userId, amount_ugx: extra, fee_ugx: extra > 0 ? fee : 0,
+        old_status: loan.status, new_status: repaid > 0 ? "partially_repaid" : "active",
+        details: {
+          kind: extra > 0 ? "topup" : "renew", reference: extra > 0 ? ref : null, money_sent: extra > 0,
+          old_principal_ugx: loan.principal_ugx, new_principal_ugx: newPrincipal,
+          old_due: loan.expected_repayment_date, new_due: newDue,
+        },
+      }).then(() => {}, () => {});
+      if (extra > 0) {
+        await admin.from("system_events").insert({
+          event_type: "wallet_transfer", user_id: loan.borrower_user_id, related_entity_type: "lending_agent_loan",
+          related_entity_id: loan.id, metadata: { amount: extra, reference: ref, kind: "loan_topup" },
+        }).then(() => {}, () => {});
+      }
+      const remaining = Math.max(0, Math.round(newPrincipal * (1 + (Number(loan.interest_rate_pct) || 0) / 100) - repaid));
+      return json({ ok: true, reference: extra > 0 ? ref : null, remaining_ugx: remaining });
+    }
+
     return json({ error: "Unknown action" }, 400);
   } catch (err) {
     console.error("[lending-borrower-pay] error", err);
