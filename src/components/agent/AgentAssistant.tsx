@@ -145,6 +145,8 @@ function AssistantPanel({ open, onOpenChange }: { open: boolean; onOpenChange: (
               isLatest={m.id === lastAssistantId}
               disabled={isLoading}
               escalated={escalated}
+              userAvatarUrl={profile?.avatar_url ?? null}
+              userFullName={profile?.full_name ?? undefined}
               onQuickReply={submit}
               onEscalate={() => { hapticTap(); void escalate(); }}
             />
