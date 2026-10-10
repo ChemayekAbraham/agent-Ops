@@ -7057,6 +7057,182 @@ export type Database = {
           },
         ]
       }
+      assistant_conversations: {
+        Row: {
+          client_device: Json | null
+          closed_at: string | null
+          device_browser: string | null
+          device_class: string | null
+          device_os: string | null
+          escalated_at: string | null
+          geo_accuracy_m: number | null
+          geo_captured_at: string | null
+          geo_lat: number | null
+          geo_lng: number | null
+          id: string
+          ip_address: string | null
+          last_active_at: string
+          message_count: number
+          persona: string
+          started_at: string
+          status: string
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          client_device?: Json | null
+          closed_at?: string | null
+          device_browser?: string | null
+          device_class?: string | null
+          device_os?: string | null
+          escalated_at?: string | null
+          geo_accuracy_m?: number | null
+          geo_captured_at?: string | null
+          geo_lat?: number | null
+          geo_lng?: number | null
+          id?: string
+          ip_address?: string | null
+          last_active_at?: string
+          message_count?: number
+          persona?: string
+          started_at?: string
+          status?: string
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          client_device?: Json | null
+          closed_at?: string | null
+          device_browser?: string | null
+          device_class?: string | null
+          device_os?: string | null
+          escalated_at?: string | null
+          geo_accuracy_m?: number | null
+          geo_captured_at?: string | null
+          geo_lat?: number | null
+          geo_lng?: number | null
+          id?: string
+          ip_address?: string | null
+          last_active_at?: string
+          message_count?: number
+          persona?: string
+          started_at?: string
+          status?: string
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      assistant_escalations: {
+        Row: {
+          assigned_to: string | null
+          conversation_id: string
+          created_at: string
+          id: string
+          reason: string
+          resolution_notes: string | null
+          resolved_at: string | null
+          resolved_by: string | null
+          status: string
+          trigger_message_id: string | null
+          updated_at: string
+          user_id: string
+          user_note: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          conversation_id: string
+          created_at?: string
+          id?: string
+          reason: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          trigger_message_id?: string | null
+          updated_at?: string
+          user_id: string
+          user_note?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          reason?: string
+          resolution_notes?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
+          status?: string
+          trigger_message_id?: string | null
+          updated_at?: string
+          user_id?: string
+          user_note?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assistant_escalations_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "assistant_conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "assistant_escalations_trigger_message_id_fkey"
+            columns: ["trigger_message_id"]
+            isOneToOne: false
+            referencedRelation: "assistant_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assistant_messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          latency_ms: number | null
+          model: string | null
+          outcome: string | null
+          role: string
+          tools_called: string[]
+          user_id: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          latency_ms?: number | null
+          model?: string | null
+          outcome?: string | null
+          role: string
+          tools_called?: string[]
+          user_id: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          latency_ms?: number | null
+          model?: string | null
+          outcome?: string | null
+          role?: string
+          tools_called?: string[]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assistant_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "assistant_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_logs: {
         Row: {
           action: string | null
@@ -60432,6 +60608,10 @@ export type Database = {
         Returns: number
       }
       agent_expired_cycles: { Args: { p_agent_id?: string }; Returns: Json }
+      agent_float_read_allowed: {
+        Args: { p_agent_id: string }
+        Returns: boolean
+      }
       agent_league_heat_level: {
         Args: { p_collected: number; p_expected: number }
         Returns: string
@@ -61314,6 +61494,28 @@ export type Database = {
         Args: { p_sale_id: string; p_supplier_id?: string }
         Returns: Json
       }
+      assistant_agent_advances: { Args: { p_status?: string }; Returns: Json }
+      assistant_agent_collection_day_detail: {
+        Args: { p_day?: string }
+        Returns: Json
+      }
+      assistant_agent_collections_summary: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_agent_tenants: { Args: never; Returns: Json }
+      assistant_agent_wallet: { Args: never; Returns: Json }
+      assistant_agent_wallet_transactions: {
+        Args: {
+          p_direction?: string
+          p_from?: string
+          p_limit?: number
+          p_to?: string
+        }
+        Returns: Json
+      }
+      assistant_is_agent: { Args: never; Returns: boolean }
+      assistant_require_agent: { Args: never; Returns: undefined }
       attach_campaign_registration: {
         Args: { p_short_code: string; p_visitor_id?: string }
         Returns: Json
