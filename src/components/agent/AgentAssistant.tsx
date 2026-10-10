@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { Bot, Check, ChevronRight, Loader2, MapPin, MoreVertical, RotateCcw, Send, LifeBuoy } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { Bot, Check, MessageCircle, Loader2, MapPin, MoreVertical, RotateCcw, Send, LifeBuoy } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -33,22 +34,21 @@ function AssistantCard() {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button
+      {createPortal(<Button
         type="button"
+        size="icon"
         onClick={() => { hapticTap(); setOpen(true); }}
-        className="w-full min-h-[44px] flex items-center gap-3 p-4 rounded-2xl bg-card border border-border/60 text-left active:scale-[0.98] transition-all touch-manipulation"
+        aria-label="Chat with Welile Assistant"
+        title="Chat with Welile Assistant"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        className={cn(
+          'fixed bottom-[max(var(--fab-bottom-stacked),10rem)] right-4 z-40 h-14 w-14 rounded-full border-2 border-background bg-primary text-primary-foreground shadow-lg shadow-primary/30 touch-manipulation fab-shrink-landscape active:scale-[0.96] transition-transform',
+          open && 'hidden',
+        )}
       >
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-          <Bot className="h-5 w-5" />
-        </span>
-        <span className="flex-1 min-w-0">
-          <span className="block font-semibold text-sm text-foreground">Welile Assistant</span>
-          <span className="block text-xs text-muted-foreground">
-            Ask about your own collections, tenants, wallet and advances. Read-only.
-          </span>
-        </span>
-        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-      </button>
+        <MessageCircle className="h-6 w-6" aria-hidden="true" />
+      </Button>, document.body)}
       <AssistantPanel open={open} onOpenChange={setOpen} />
     </>
   );
@@ -89,7 +89,7 @@ function AssistantPanel({ open, onOpenChange }: { open: boolean; onOpenChange: (
         onOpenAutoFocus={(e) => { e.preventDefault(); inputRef.current?.focus(); }}
         className={cn(
           'flex flex-col p-0 gap-0',
-          isMobile ? 'h-[100dvh] rounded-t-2xl' : 'w-full sm:max-w-md',
+          isMobile ? 'h-[100dvh] rounded-t-2xl' : 'inset-y-auto bottom-6 right-4 h-[min(640px,calc(100dvh-3rem))] w-[calc(100vw-2rem)] sm:max-w-md rounded-lg border border-border shadow-xl',
         )}
         style={{ paddingBottom: 'env(safe-area-inset-bottom)', paddingTop: isMobile ? 'env(safe-area-inset-top)' : undefined }}
       >
