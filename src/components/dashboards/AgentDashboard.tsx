@@ -128,6 +128,7 @@ import { AgentActionInsights } from '@/components/agent/AgentActionInsights';
 import { AgentArrearsCard } from '@/components/agent/AgentArrearsCard';
 import { AgentExpiredCyclesCard } from '@/components/agent/AgentExpiredCyclesCard';
 import { AgentLandlordFloatCard } from '@/components/agent/AgentLandlordFloatCard';
+import { AgentAssistant } from '@/components/agent/AgentAssistant';
 import { useTrackSection } from '@/hooks/useTrackSection';
 import { userBehaviourTracker } from '@/lib/userBehaviourTracker';
 import { AgentConvertToFloatCard } from '@/components/agent/AgentConvertToFloatCard';
@@ -1642,6 +1643,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
 
             <AgentCompanyDebtCard onViewBreakdown={() => { hapticTap(); setTenantsSheetOpen(true); }} />
             <AgentMyAdvancesCard />
+            <AgentAssistant />
             <AgentRiskExposureCard />
             <EarnedSinceLastWithdrawalCard />
             {!isMerchant && (
