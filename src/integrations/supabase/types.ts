@@ -27813,6 +27813,7 @@ export type Database = {
           platform_fee_ugx: number
           principal_repaid_ugx: number
           principal_ugx: number
+          recovery_started_at: string | null
           repayment_frequency: string
           status: string
           updated_at: string
@@ -27849,6 +27850,7 @@ export type Database = {
           platform_fee_ugx?: number
           principal_repaid_ugx?: number
           principal_ugx: number
+          recovery_started_at?: string | null
           repayment_frequency?: string
           status?: string
           updated_at?: string
@@ -27885,6 +27887,7 @@ export type Database = {
           platform_fee_ugx?: number
           principal_repaid_ugx?: number
           principal_ugx?: number
+          recovery_started_at?: string | null
           repayment_frequency?: string
           status?: string
           updated_at?: string

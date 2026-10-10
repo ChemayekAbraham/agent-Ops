@@ -283,6 +283,24 @@ Deno.serve(async (req) => {
       return json({ ok: true, loan_id: loanId, reference: ref, total_owed_ugx: Math.round(principal * (1 + rate / 100)) });
     }
 
+    if (action === "recovery") {
+      // Lender flags (or un-flags) an overdue loan as "in recovery". No money moves.
+      const loanId = String(body?.loan_id || "");
+      const on = body?.on !== false;
+      if (!loanId) return json({ error: "Missing details" }, 400);
+      const { data: loan } = await admin.from("lending_agent_loans").select("*").eq("id", loanId).maybeSingle();
+      if (!loan || loan.lender_agent_id !== userId) return json({ error: "Not found" }, 404);
+      if (!["active", "partially_repaid"].includes(loan.status)) return json({ error: "Only open loans can be put in recovery" }, 400);
+      if (on) {
+        const due = loan.expected_repayment_date ? new Date(loan.expected_repayment_date).getTime() : null;
+        if (due === null || due >= new Date().setHours(0, 0, 0, 0)) return json({ error: "Only overdue loans can be put in recovery" }, 400);
+      }
+      const { error: updError } = await admin.from("lending_agent_loans").update({ recovery_started_at: on ? new Date().toISOString() : null }).eq("id", loan.id);
+      if (updError) return json({ error: "Could not update the loan" }, 500);
+      await admin.from("lending_audit_log").insert({ actor_id: userId, actor_display_name: "Lending agent", action_type: "status_change", entity_type: "loan", entity_id: loan.id, borrower_user_id: loan.borrower_user_id, lender_agent_id: userId, amount_ugx: 0, fee_ugx: 0, old_status: loan.status, new_status: loan.status, details: { kind: on ? "recovery_started" : "recovery_cleared", money_sent: false } });
+      return json({ ok: true, in_recovery: on });
+    }
+
     if (action === "topup") {
       const loanId = String(body?.loan_id || "");
       const requestId = String(body?.request_id || "").replace(/[^a-zA-Z0-9-]/g, "").slice(0, 36);

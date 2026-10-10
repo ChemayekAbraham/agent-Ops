@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
   Phone, MessageCircle, MessageSquare, HandCoins, Loader2, ChevronDown,
-  CheckCircle2, Clock, AlertTriangle, CalendarClock, Repeat, PlusCircle, CalendarPlus, Check, Share2,
+  CheckCircle2, Clock, AlertTriangle, CalendarClock, Repeat, PlusCircle, CalendarPlus, Check, Share2, ShieldAlert,
 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { LendingLoan, outstandingOf, dueStateOf, normalizePhone, repaymentPlanOf } from './lendingHelpers';
@@ -18,6 +18,7 @@ interface Props {
   loan: LendingLoan;
   onRecordRepayment: (loan: LendingLoan, amount: number) => Promise<void>;
   onTopUpOrRenew?: (loan: LendingLoan, extra: number, newDue: string) => Promise<void>;
+  onSetRecovery?: (loan: LendingLoan, on: boolean) => Promise<void>;
 }
 
 const DAY_CHOICES = [7, 14, 30, 60];
@@ -48,8 +49,9 @@ const DUE_STYLE: Record<string, { label: string; cls: string; Icon: typeof Clock
   due_soon: { label: 'Due soon', cls: 'bg-amber-500/10 text-amber-600', Icon: CalendarClock },
 };
 
-export default function LendingBorrowerCard({ loan, onRecordRepayment, onTopUpOrRenew }: Props) {
+export default function LendingBorrowerCard({ loan, onRecordRepayment, onTopUpOrRenew, onSetRecovery }: Props) {
   const [expanded, setExpanded] = useState(false);
+  const [customDue, setCustomDue] = useState('');
   const [mode, setMode] = useState<null | 'paid' | 'add' | 'time'>(null);
   const [payAmount, setPayAmount] = useState('');
   const [extra, setExtra] = useState('');
@@ -72,7 +74,17 @@ export default function LendingBorrowerCard({ loan, onRecordRepayment, onTopUpOr
   // New end date: count from today, or from the current end date if that is still ahead.
   const currentDue = loan.expected_repayment_date ? new Date(loan.expected_repayment_date) : null;
   const base = currentDue && currentDue.getTime() > Date.now() ? currentDue : new Date();
-  const newDue = new Date(base.getTime() + days * 86400000).toISOString().slice(0, 10);
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const newDue = customDue && customDue >= todayStr
+    ? customDue
+    : new Date(base.getTime() + days * 86400000).toISOString().slice(0, 10);
+  const inRecovery = !!loan.recovery_started_at && isOpen;
+
+  const toggleRecovery = async () => {
+    if (!onSetRecovery) return;
+    setSaving(true);
+    try { await onSetRecovery(loan, !inRecovery); } finally { setSaving(false); }
+  };
   const extraNum = Number(extra) || 0;
   const rate = Number(loan.interest_rate_pct) || 0;
   const previewBalance = Math.round(outstanding + extraNum * (1 + rate / 100));
@@ -170,6 +182,7 @@ export default function LendingBorrowerCard({ loan, onRecordRepayment, onTopUpOr
             </div>
             <div className="flex flex-col items-end gap-1 shrink-0">
               <Badge className={`${statusStyle.cls} border-0 text-[9px] font-bold`}>{statusStyle.label}</Badge>
+              {inRecovery && <Badge className="bg-destructive/15 text-destructive border-0 text-[9px] font-bold">In recovery</Badge>}
               {dueStyle && (
                 <span className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-bold ${dueStyle.cls}`}>
                   <dueStyle.Icon className="h-2.5 w-2.5" />{dueStyle.label}
@@ -276,6 +289,14 @@ export default function LendingBorrowerCard({ loan, onRecordRepayment, onTopUpOr
               Share repayment history on WhatsApp
             </Button>
 
+            {isOpen && onSetRecovery && (inRecovery || due === 'overdue') && (
+              <Button variant={inRecovery ? 'secondary' : 'destructive'} className="h-11 w-full gap-2 text-xs font-semibold"
+                onClick={toggleRecovery} disabled={saving}>
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldAlert className="h-4 w-4" />}
+                {inRecovery ? 'Take out of recovery' : 'Mark as in recovery'}
+              </Button>
+            )}
+
             <div className="grid grid-cols-3 gap-2">
               {isOpen && (
                 <Button
@@ -357,7 +378,10 @@ export default function LendingBorrowerCard({ loan, onRecordRepayment, onTopUpOr
             {mode === 'time' && (
               <div className="space-y-2 rounded-xl bg-background border p-3">
                 <p className="text-sm font-bold">Give how many more days?</p>
-                <DayPicker value={days} onChange={setDays} />
+                <DayPicker value={days} onChange={(d) => { setCustomDue(''); setDays(d); }} />
+                <p className="text-sm font-bold pt-1">Or pick a new last day</p>
+                <Input type="date" value={customDue} min={todayStr}
+                  onChange={(e) => setCustomDue(e.target.value)} className="h-12 text-base font-bold" />
                 <div className="rounded-lg bg-primary/10 p-2.5 text-center">
                   <p className="text-[11px] text-muted-foreground">New last day</p>
                   <p className="text-xl font-bold text-primary">{new Date(newDue).toLocaleDateString()}</p>

@@ -1,0 +1,1 @@
+ALTER TABLE public.lending_agent_loans ADD COLUMN IF NOT EXISTS recovery_started_at timestamptz;
