@@ -418,6 +418,10 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
             <LendingOffersCard userId={uid} />
           </WidgetErrorBoundary>
 
+          <WidgetErrorBoundary label="My loan requests">
+            <MyLoanRequestsCard userId={uid} />
+          </WidgetErrorBoundary>
+
           {/* Outstanding balance / daily-charge status */}
           <WidgetErrorBoundary label="Subscription status">
             <SubscriptionStatusCard userId={uid} />
