@@ -102,7 +102,7 @@ function AssistantPanel({ open, onOpenChange }: { open: boolean; onOpenChange: (
           </span>
           <div className="flex-1 min-w-0">
             <SheetTitle className="text-base">Welile Assistant</SheetTitle>
-            <SheetDescription className="text-xs">Read-only answers about your own work.</SheetDescription>
+            <SheetDescription className="text-xs">Answers about your own work.</SheetDescription>
           </div>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
