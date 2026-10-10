@@ -7,6 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { UserAvatar } from '@/components/UserAvatar';
+import { useProfile } from '@/hooks/useProfile';
 import { useAssistantAccess } from '@/hooks/useAssistantAccess';
 import { useAgentAssistant, type AssistantMessage } from '@/hooks/useAgentAssistant';
 import { useIsMobile } from '@/hooks/use-mobile';
