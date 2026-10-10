@@ -47,6 +47,8 @@ export function ShoppingAdvanceQualifiedUsersSheet({ open, onOpenChange }: { ope
       return (data ?? []) as Row[];
     },
     staleTime: 60_000,
+    refetchOnMount: 'always',
+    refetchInterval: 60_000,
   });
 
   const depth = path.length;

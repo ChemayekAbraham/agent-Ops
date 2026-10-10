@@ -3732,6 +3732,13 @@
       "when": 1791628868255,
       "tag": "0532_lending_loans_recovery_flag",
       "breakpoints": true
+    },
+    {
+      "idx": 533,
+      "version": "7",
+      "when": 1791630552480,
+      "tag": "0533_agent_ops_shopping_advance_rolling_24h",
+      "breakpoints": true
     }
   ]
 }
