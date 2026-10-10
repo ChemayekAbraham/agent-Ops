@@ -1643,7 +1643,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
 
             <AgentCompanyDebtCard onViewBreakdown={() => { hapticTap(); setTenantsSheetOpen(true); }} />
             <AgentMyAdvancesCard />
-            <AgentAssistant />
             <AgentRiskExposureCard />
             <EarnedSinceLastWithdrawalCard />
             {!isMerchant && (
@@ -1875,6 +1874,8 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         </div>
         </main>
       </div>
+
+      <AgentAssistant />
 
       <LazyModal when={nationalIdGroupOpen}>
       <NationalIdGroupSheet open={nationalIdGroupOpen} onOpenChange={setNationalIdGroupOpen} />
