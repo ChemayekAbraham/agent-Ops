@@ -3746,6 +3746,13 @@
       "when": 1791642877874,
       "tag": "0534_agent_assistant_foundation",
       "breakpoints": true
+    },
+    {
+      "idx": 535,
+      "version": "7",
+      "when": 1791642958957,
+      "tag": "0535_lock_down_agent_float_rpcs",
+      "breakpoints": true
     }
   ]
 }

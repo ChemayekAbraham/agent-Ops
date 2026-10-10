@@ -60608,6 +60608,10 @@ export type Database = {
         Returns: number
       }
       agent_expired_cycles: { Args: { p_agent_id?: string }; Returns: Json }
+      agent_float_read_allowed: {
+        Args: { p_agent_id: string }
+        Returns: boolean
+      }
       agent_league_heat_level: {
         Args: { p_collected: number; p_expected: number }
         Returns: string
