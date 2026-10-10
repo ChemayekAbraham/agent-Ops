@@ -182,6 +182,7 @@ export default function LendingBorrowerCard({ loan, onRecordRepayment, onTopUpOr
             </div>
             <div className="flex flex-col items-end gap-1 shrink-0">
               <Badge className={`${statusStyle.cls} border-0 text-[9px] font-bold`}>{statusStyle.label}</Badge>
+              {inRecovery && <Badge className="bg-destructive/15 text-destructive border-0 text-[9px] font-bold">In recovery</Badge>}
               {dueStyle && (
                 <span className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[9px] font-bold ${dueStyle.cls}`}>
                   <dueStyle.Icon className="h-2.5 w-2.5" />{dueStyle.label}
