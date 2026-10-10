@@ -43,7 +43,7 @@ function AssistantCard() {
         aria-haspopup="dialog"
         aria-expanded={open}
         className={cn(
-          'fixed bottom-[var(--fab-bottom-stacked)] right-4 md:right-6 z-40 h-14 w-14 rounded-full border-2 border-background bg-primary text-primary-foreground shadow-lg shadow-primary/30 touch-manipulation fab-shrink-landscape active:scale-[0.96] transition-transform',
+          'fixed bottom-[max(var(--fab-bottom-stacked),10rem)] right-4 z-40 h-14 w-14 rounded-full border-2 border-background bg-primary text-primary-foreground shadow-lg shadow-primary/30 touch-manipulation fab-shrink-landscape active:scale-[0.96] transition-transform',
           open && 'hidden',
         )}
       >
@@ -89,7 +89,7 @@ function AssistantPanel({ open, onOpenChange }: { open: boolean; onOpenChange: (
         onOpenAutoFocus={(e) => { e.preventDefault(); inputRef.current?.focus(); }}
         className={cn(
           'flex flex-col p-0 gap-0',
-          isMobile ? 'h-[100dvh] rounded-t-2xl' : 'inset-y-auto bottom-[calc(var(--fab-bottom-stacked)+4.5rem)] right-4 md:right-6 h-[min(640px,calc(100dvh-10rem))] w-[calc(100vw-2rem)] sm:max-w-md rounded-lg border border-border shadow-xl',
+          isMobile ? 'h-[100dvh] rounded-t-2xl' : 'inset-y-auto bottom-6 right-4 h-[min(640px,calc(100dvh-3rem))] w-[calc(100vw-2rem)] sm:max-w-md rounded-lg border border-border shadow-xl',
         )}
         style={{ paddingBottom: 'env(safe-area-inset-bottom)', paddingTop: isMobile ? 'env(safe-area-inset-top)' : undefined }}
       >
