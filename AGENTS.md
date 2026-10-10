@@ -6,7 +6,7 @@
 - Requisition approval errors are normalized only in the client; server authorization remains the sole permission authority.
 - Four-part repayment validation reconciles Returns + Agent Commission + Platform Fee to Access Fee + Registration Fee, because those two stored fee components form the approved Platform Fee pool.
 - CFO 7-day reporting labels and day buckets use Kampala (EAT, UTC+3) calendar days through `src/lib/kampalaDays.ts`, matching the reporting RPCs; browser-local dates shifted cards by a day.
-- Shopping Advance qualification (distinct outbound peer-transfer senders, legacy + ledger) and user dossiers come from role-gated server functions, so legacy transfers count and limits aren't mistaken for issued credit.
+- Agent Ops Shopping Advance counts, lists and dossiers use a shared received-transfer ledger helper behind role-gated RPCs; visible-screen refetches expire access without financial writes.
 - Support capacity and its funding debit use operational float only (`funder_support_capacity` = `funder_float_available`), so support can never drain withdrawable Returns.
 - Balance Sheet (`sofp_ledger_legs`) reads advance top-up company legs as Agent Advance Receivable (A10) and emits no synthetic X4 lines for bucket_reclass_in/out pairs, because top-ups move no bank cash and reclass pairs already balance (CFO approved 2026-10-01).
 - `v_agent_daily_eligibility` falls back to LEAST(daily_repayment, outstanding) for counted daily/lapsed-weekly plans only when the agent has no pinned bill today/yesterday, because counted plans with no bill row showed a UGX 0 target.

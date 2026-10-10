@@ -10,6 +10,8 @@ import {
   BadgeCheck,
 } from 'lucide-react';
 import { FindAHouseCTA } from '@/components/tenant/FindAHouseCTA';
+import { LendingOffersCard } from '@/components/vouch/borrower/LendingOffersCard';
+import { MyLoanRequestsCard } from '@/components/vouch/borrower/MyLoanRequestsCard';
 import { RentAccessGrowthBanner } from '@/components/tenant/RentAccessGrowthBanner';
 import { RentAccessProgressTracker } from '@/components/tenant/RentAccessProgressTracker';
 import { TenantRentRequestCard } from '@/components/tenant/TenantRentRequestCard';
@@ -412,6 +414,14 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
               }
             />
           </div>
+
+          <WidgetErrorBoundary label="Loan offers">
+            <LendingOffersCard userId={uid} />
+          </WidgetErrorBoundary>
+
+          <WidgetErrorBoundary label="My loan requests">
+            <MyLoanRequestsCard userId={uid} />
+          </WidgetErrorBoundary>
 
           {/* Outstanding balance / daily-charge status */}
           <WidgetErrorBoundary label="Subscription status">

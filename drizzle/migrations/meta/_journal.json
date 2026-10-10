@@ -3718,6 +3718,27 @@
       "when": 1791537216569,
       "tag": "0530_lead_links_general_kind",
       "breakpoints": true
+    },
+    {
+      "idx": 531,
+      "version": "7",
+      "when": 1791628102014,
+      "tag": "0531_lending_float_funding_source",
+      "breakpoints": true
+    },
+    {
+      "idx": 532,
+      "version": "7",
+      "when": 1791628868255,
+      "tag": "0532_lending_loans_recovery_flag",
+      "breakpoints": true
+    },
+    {
+      "idx": 533,
+      "version": "7",
+      "when": 1791630552480,
+      "tag": "0533_agent_ops_shopping_advance_rolling_24h",
+      "breakpoints": true
     }
   ]
 }

@@ -3,6 +3,7 @@ export const SHOPPING_ADVANCE_LIMIT_CAP = 30_000_000;
 
 export function shoppingAdvanceAccessLimit(receivedTransferTotal: number): number {
   const received = Number.isFinite(receivedTransferTotal) ? Math.max(0, receivedTransferTotal) : 0;
+  if (received === 0) return 0;
   return Math.min(SHOPPING_ADVANCE_LIMIT_CAP, SHOPPING_ADVANCE_BASE_LIMIT + received * 2);
 }
 

@@ -1,4 +1,5 @@
 # Tasks
+- [x] Align Agent Ops Shopping Advance counts, lists and dossiers with rolling 24-hour received transfers; verified signed-in count, list and real-user dossier without moving money.
 - [x] Add selected-note Approve & Pay with live proxy-agent payout preview and explicit confirmation.
 - [x] Run logic guards and confirm error-free compilation.
 - [ ] Verify signed-in preview and cancellation without sending real payouts — blocked because the requester has no matching sign-in account; preview sign-in required.

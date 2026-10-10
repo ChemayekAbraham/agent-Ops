@@ -34,6 +34,7 @@ import { toast } from 'sonner';
 import { motion } from 'framer-motion';
 import LendingStatCards from './LendingStatCards';
 import LendingBorrowerCard from './LendingBorrowerCard';
+import LendFloatWizard from './LendFloatWizard';
 import {
   LendingLoan, computeStats, matchesFilter, matchesSearch, dueStateOf,
   StatusFilter,
@@ -60,7 +61,8 @@ const FILTERS: { key: StatusFilter; label: string }[] = [
 export default function LendingAgentPortal({ open, onOpenChange }: Props) {
   const { user } = useAuth();
   const { snapshot, loading: trustLoading } = useMyTrustScore();
-  const { withdrawableBalance, commissionBalance, refetch: refetchBalances } = useAgentBalances();
+  const { withdrawableBalance, commissionBalance, floatBalance, refetch: refetchBalances } = useAgentBalances();
+  const [wizardOpen, setWizardOpen] = useState(false);
   const { isAccepted, acceptAgreement, isLoading: agreementLoading } = useLendingAgentAgreement();
 
   const [showAgreement, setShowAgreement] = useState(false);
@@ -235,6 +237,17 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
     await reloadLoans();
   };
 
+
+  /** Flag an overdue loan as "in recovery" (or clear the flag). No money moves. */
+  const handleSetRecovery = async (loan: LendingLoan, on: boolean) => {
+    const { data, error } = await supabase.functions.invoke('lending-borrower-pay', {
+      body: { action: 'recovery', loan_id: loan.id, on },
+    });
+    const errMsg = (data as any)?.error || (error ? await (error as any)?.context?.json?.().then((j: any) => j?.error).catch(() => null) : null);
+    if (error || !(data as any)?.ok) { toast.error(errMsg || 'Could not update the loan.'); return; }
+    toast.success(on ? 'Marked as in recovery' : 'Taken out of recovery');
+    await reloadLoans();
+  };
 
   const handleCreateOffer = async () => {
     if (!user) return;
@@ -722,7 +735,7 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
                   ) : (
                     <div className="space-y-2.5">
                       {filteredLoans.map((loan) => (
-                        <LendingBorrowerCard key={loan.id} loan={loan} onRecordRepayment={handleRecordRepayment} onTopUpOrRenew={handleTopUpOrRenew} />
+                        <LendingBorrowerCard key={loan.id} loan={loan} onRecordRepayment={handleRecordRepayment} onTopUpOrRenew={handleTopUpOrRenew} onSetRecovery={handleSetRecovery} />
                       ))}
                     </div>
                   )}
@@ -784,6 +797,11 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
               {/* ===== OFFERS TAB (offers + borrower lookup + new loan) ===== */}
               {tab === 'offers' && (
                 <>
+                  <Button className="w-full h-16 text-lg font-bold rounded-2xl mb-3" onClick={() => setWizardOpen(true)}>
+                    <Plus className="h-5 w-5 mr-2" />Lend float
+                  </Button>
+                  <LendFloatWizard open={wizardOpen} onOpenChange={setWizardOpen} floatAvailable={Math.max(0, floatBalance || 0)}
+                    onDone={() => { refetchBalances(); reloadLoans(); setTab('borrowers'); }} />
                   {/* Lendable pool */}
                   <Card className="border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 to-primary/5 mb-4">
                     <CardContent className="p-4">
@@ -792,6 +810,7 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
                       <div className="flex items-center gap-3 mt-2 text-[11px] text-muted-foreground">
                         <span><Wallet className="h-3 w-3 inline mr-1" />Withdrawable: {formatUGX(withdrawableBalance)}</span>
                         <span>· Commission: {formatUGX(commissionBalance)}</span>
+                        <span>· Float: {formatUGX(floatBalance || 0)}</span>
                       </div>
                     </CardContent>
                   </Card>
