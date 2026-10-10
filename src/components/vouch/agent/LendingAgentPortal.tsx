@@ -735,7 +735,7 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
                   ) : (
                     <div className="space-y-2.5">
                       {filteredLoans.map((loan) => (
-                        <LendingBorrowerCard key={loan.id} loan={loan} onRecordRepayment={handleRecordRepayment} onTopUpOrRenew={handleTopUpOrRenew} />
+                        <LendingBorrowerCard key={loan.id} loan={loan} onRecordRepayment={handleRecordRepayment} onTopUpOrRenew={handleTopUpOrRenew} onSetRecovery={handleSetRecovery} />
                       ))}
                     </div>
                   )}
