@@ -60071,6 +60071,16 @@ export type Database = {
         }
         Returns: Json
       }
+      _shopping_advance_received_24h: {
+        Args: never
+        Returns: {
+          first_transfer_at: string
+          last_transfer_at: string
+          transfer_count: number
+          transfer_total: number
+          user_id: string
+        }[]
+      }
       _spiro_lease_fee_total: {
         Args: { p_base: number; p_term: number }
         Returns: number
