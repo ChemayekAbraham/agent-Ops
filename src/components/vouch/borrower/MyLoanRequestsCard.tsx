@@ -34,6 +34,7 @@ export function MyLoanRequestsCard({ userId }: { userId: string }) {
   const [requests, setRequests] = useState<RequestRow[]>([]);
   const [lenderNames, setLenderNames] = useState<Record<string, string>>({});
   const [loaded, setLoaded] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
@@ -63,7 +64,7 @@ export function MyLoanRequestsCard({ userId }: { userId: string }) {
     };
     load();
     return () => { cancelled = true; };
-  }, [userId]);
+  }, [userId, refreshKey]);
 
   // Realtime: keep statuses fresh when the lending agent decides
   useEffect(() => {
@@ -73,7 +74,7 @@ export function MyLoanRequestsCard({ userId }: { userId: string }) {
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'lending_loan_requests', filter: `borrower_user_id=eq.${userId}` },
-        () => { setLoaded(false); },
+        () => { setRefreshKey((k) => k + 1); },
       )
       .subscribe();
     return () => { supabase.removeChannel(channel); };
