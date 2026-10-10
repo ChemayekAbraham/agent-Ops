@@ -238,6 +238,17 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
   };
 
 
+  /** Flag an overdue loan as "in recovery" (or clear the flag). No money moves. */
+  const handleSetRecovery = async (loan: LendingLoan, on: boolean) => {
+    const { data, error } = await supabase.functions.invoke('lending-borrower-pay', {
+      body: { action: 'recovery', loan_id: loan.id, on },
+    });
+    const errMsg = (data as any)?.error || (error ? await (error as any)?.context?.json?.().then((j: any) => j?.error).catch(() => null) : null);
+    if (error || !(data as any)?.ok) { toast.error(errMsg || 'Could not update the loan.'); return; }
+    toast.success(on ? 'Marked as in recovery' : 'Taken out of recovery');
+    await reloadLoans();
+  };
+
   const handleCreateOffer = async () => {
     if (!user) return;
     const min = Number(offerForm.min_amount);

@@ -16,6 +16,7 @@ export interface LendingLoan {
   auto_deduct_enabled?: boolean | null;
   installment_ugx?: number | null;
   next_deduction_date?: string | null;
+  recovery_started_at?: string | null;
 }
 
 /** Normalize a Ugandan phone number to international (256...) digits for tel/wa/sms links. */
