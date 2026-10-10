@@ -3739,6 +3739,13 @@
       "when": 1791630552480,
       "tag": "0533_agent_ops_shopping_advance_rolling_24h",
       "breakpoints": true
+    },
+    {
+      "idx": 534,
+      "version": "7",
+      "when": 1791642877874,
+      "tag": "0534_agent_assistant_foundation",
+      "breakpoints": true
     }
   ]
 }
