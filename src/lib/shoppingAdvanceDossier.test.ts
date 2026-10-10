@@ -7,14 +7,17 @@ import {
 
 describe('Shopping Advance dossier helpers', () => {
   it('calculates informational access without exceeding the cap', () => {
-    expect(shoppingAdvanceAccessLimit(0)).toBe(30_000);
     expect(shoppingAdvanceAccessLimit(10_000)).toBe(50_000);
     expect(shoppingAdvanceAccessLimit(20_000_000)).toBe(30_000_000);
   });
 
-  it('does not reduce access below the base for invalid totals', () => {
-    expect(shoppingAdvanceAccessLimit(-5_000)).toBe(30_000);
-    expect(shoppingAdvanceAccessLimit(Number.NaN)).toBe(30_000);
+  it('resets access to UGX 0 when no eligible transfers remain', () => {
+    expect(shoppingAdvanceAccessLimit(0)).toBe(0);
+  });
+
+  it('treats invalid totals as no eligible transfers', () => {
+    expect(shoppingAdvanceAccessLimit(-5_000)).toBe(0);
+    expect(shoppingAdvanceAccessLimit(Number.NaN)).toBe(0);
   });
 
   it('masks contacts and monetary values until revealed', () => {
