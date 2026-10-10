@@ -94,7 +94,7 @@ if (!existsSync(FN_DIR)) {
     // Any .rpc("name") outside the registry must be the gate.
     if (!file.endsWith('tools.ts')) {
       for (const m of code.matchAll(/\.rpc\(\s*["'`]([^"'`]+)["'`]/g)) {
-        if (m[1] !== 'assistant_is_agent') fail(`${rel}: .rpc("${m[1]}") — only assistant_is_agent may be called directly; tool RPCs live in tools.ts.`);
+        if (!['assistant_is_agent', 'assistant_has_access'].includes(m[1])) fail(`${rel}: .rpc("${m[1]}") — only the assistant_is_agent / assistant_has_access gates may be called directly; tool RPCs live in tools.ts.`);
       }
     }
   }
@@ -135,6 +135,8 @@ if (existsSync(MIGRATIONS_DIR)) {
   if (existsSync(FN_DIR) && !defined.size) fail('no assistant_* functions found in migrations — the guard cannot verify them.');
   for (const [name, { file, header, args, body }] of defined) {
     const where = `${file}: ${name}()`;
+    // Trigger functions are not callable over the API, so the tool-RPC rules do not apply.
+    if (/returns\s+trigger/i.test(header)) continue;
     if (!GATE_HELPERS.has(name) && !/\bstable\b/i.test(header)) fail(`${where} must be STABLE (read-only).`);
     if (!/security\s+definer/i.test(header)) fail(`${where} must be SECURITY DEFINER (it reads tables the caller has no direct grant on).`);
     if (!/set\s+search_path\s*=/i.test(header)) fail(`${where} must pin search_path.`);

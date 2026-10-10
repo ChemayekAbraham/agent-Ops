@@ -58,6 +58,8 @@ interface TurnResult {
 }
 
 class NotAnAgentError extends Error {}
+/** The rollout gate closed between the access check and a tool call (e.g. removed from the allowlist). */
+class NotEnabledError extends Error {}
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -171,6 +173,7 @@ async function runTurn(
 
       let content: string;
       if (error) {
+        if (error.message?.includes("assistant_not_enabled")) throw new NotEnabledError();
         if (error.message?.includes("not_an_agent")) throw new NotAnAgentError();
         if (/invalid_(range|direction|status)/.test(error.message ?? "")) {
           content = JSON.stringify({ error: "That range is not allowed (no future dates, at most 92 days)." });
@@ -213,6 +216,26 @@ Deno.serve(async (req) => {
     const parsed = RequestSchema.safeParse(safeParse(raw));
     if (!parsed.success) return json({ error: MSG.invalidRequest }, 400);
     const request = parsed.data;
+
+    // --- rollout gate: enabled for this user at all? Checked before anything is logged or any
+    // model is called, so a user outside the rollout creates no rows and costs nothing. --------
+    const { data: hasAccess, error: accessError } = await userClient.rpc("assistant_has_access");
+    if (accessError) throw new Error(`access check failed: ${accessError.message}`);
+
+    if (request.action === "access") {
+      let isAgentForUi = false;
+      if (hasAccess === true) {
+        const { data } = await userClient.rpc("assistant_is_agent");
+        isAgentForUi = data === true;
+      }
+      return json({
+        enabled: hasAccess === true && isAgentForUi,
+        reason: hasAccess !== true ? "not_enabled" : isAgentForUi ? "ok" : "not_an_agent",
+      });
+    }
+    if (hasAccess !== true) {
+      return json({ reply: MSG.notEnabled, outcome: "not_enabled", escalation_offered: false }, 403);
+    }
 
     if (await isRateLimited(user.id)) {
       return json({ reply: MSG.rateLimited, outcome: "rate_limited", escalation_offered: false }, 429);
@@ -269,6 +292,8 @@ Deno.serve(async (req) => {
       } catch (e) {
         if (e instanceof NotAnAgentError) {
           turn = { reply: MSG.notAnAgent, outcome: "not_an_agent", toolsCalled: [] };
+        } else if (e instanceof NotEnabledError) {
+          turn = { reply: MSG.notEnabled, outcome: "blocked", toolsCalled: [] };
         } else {
           console.error("[agent-assistant] turn failed", e instanceof ModelError ? e.message : e);
           turn = { reply: MSG.error, outcome: "error", toolsCalled: [] };

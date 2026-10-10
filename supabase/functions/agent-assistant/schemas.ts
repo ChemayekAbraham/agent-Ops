@@ -43,6 +43,8 @@ export type ClientContext = z.infer<typeof ClientContextSchema>;
  * Identity comes from the verified JWT; history comes from our own table.
  */
 export const RequestSchema = z.discriminatedUnion("action", [
+  // "Is the assistant enabled for me?" Lets the UI decide whether to show itself. No body.
+  z.object({ action: z.literal("access") }).strict(),
   z.object({
     action: z.literal("message"),
     message: messageText,

@@ -19,6 +19,7 @@ export type AssistantOutcome =
   | 'unmatched'
   | 'rate_limited'
   | 'blocked'
+  | 'not_enabled'
   | 'error';
 
 export interface AssistantMessage {

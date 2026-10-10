@@ -3,6 +3,7 @@
 // Terminology (CLAUDE.md): "Rent Plan", "Supporter", "Returns" — never loan / lender / ROI / interest.
 
 export const MSG = {
+  notEnabled: "The assistant isn't available on your account yet.",
   notAnAgent:
     "You don't seem to be an agent. This assistant is only available to agents who have tenants.",
   outOfScope:

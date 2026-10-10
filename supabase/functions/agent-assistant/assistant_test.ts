@@ -93,6 +93,12 @@ Deno.test("request: bad ids, empty and oversized messages are rejected", () => {
   assertEquals(RequestSchema.safeParse({ action: "delete_everything" }).success, false);
 });
 
+Deno.test("request: access check takes no other fields", () => {
+  assertEquals(RequestSchema.safeParse({ action: "access" }).success, true);
+  assertEquals(RequestSchema.safeParse({ action: "access", user_id: "x" }).success, false);
+  assertEquals(RequestSchema.safeParse({ action: "access", message: "hi" }).success, false);
+});
+
 Deno.test("request: client_context accepts device details and GPS", () => {
   const r = RequestSchema.safeParse({
     action: "message",
