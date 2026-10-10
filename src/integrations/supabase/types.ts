@@ -7057,6 +7057,42 @@ export type Database = {
           },
         ]
       }
+      assistant_access_allowlist: {
+        Row: {
+          created_at: string
+          note: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          note?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          note?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      assistant_config: {
+        Row: {
+          key: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
       assistant_conversations: {
         Row: {
           client_device: Json | null
@@ -61514,6 +61550,7 @@ export type Database = {
         }
         Returns: Json
       }
+      assistant_has_access: { Args: never; Returns: boolean }
       assistant_is_agent: { Args: never; Returns: boolean }
       assistant_require_agent: { Args: never; Returns: undefined }
       attach_campaign_registration: {
