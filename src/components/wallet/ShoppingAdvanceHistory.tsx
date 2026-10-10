@@ -35,6 +35,7 @@ export function ShoppingAdvanceHistory() {
         .eq('direction', 'cash_in')
         .neq('classification', 'admin_correction')
         .neq('category', 'system_balance_correction')
+        .gte('transaction_date', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
         .order('transaction_date', { ascending: true })
         .limit(5000);
       if (cancelled) return;
@@ -60,7 +61,8 @@ export function ShoppingAdvanceHistory() {
     running = Math.min(running + increase, SHOPPING_ADVANCE_MAX);
     return { ...r, increase, limitAfter: running };
   });
-  const current = running;
+  // Limit resets to 0 once 24 hours pass without a received transfer.
+  const current = rows.length === 0 ? 0 : running;
   const recent = [...history].reverse().slice(0, 20);
 
   return (
@@ -81,13 +83,13 @@ export function ShoppingAdvanceHistory() {
           <p>
             For information only — this is not money in your wallet and cannot be spent or withdrawn.
             Every limit starts at {formatUGX(SHOPPING_ADVANCE_MIN)} and grows by 2× each transfer you
-            receive, up to {formatUGX(SHOPPING_ADVANCE_MAX)}.
+            receive, up to {formatUGX(SHOPPING_ADVANCE_MAX)}. It resets to UGX 0 every 24 hours.
           </p>
         </div>
 
         {recent.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            No transfers received yet. When someone sends you money, your limit grows by 2× the amount.
+            No transfers received in the last 24 hours. Your limit is UGX 0. When someone sends you money, your limit grows by 2× the amount.
           </p>
         ) : (
           <ul className="divide-y divide-border">
