@@ -1,5 +1,6 @@
 import { lazy, Suspense } from 'react';
 import { lazyNamed } from '@/lib/lazyWithRetry';
+import { useOpenAssistantEscalationCount } from '@/hooks/useAssistantCrm';
 import ExecutiveDashboardLayout from '@/components/layout/ExecutiveDashboardLayout';
 import { usePersistedActiveTab } from '@/hooks/usePersistedActiveTab';
 import { CRMDashboard } from '@/components/executive/CRMDashboard';
@@ -25,6 +26,7 @@ const UserBehaviourAnalyticsPanel = lazyNamed(() => import('@/components/executi
 
 const TenantCampaignPanel = lazyNamed(() => import('@/components/executive/crm/TenantCampaignPanel'), 'TenantCampaignPanel');
 const CustomerLeadsPanel = lazyNamed(() => import('@/components/crm/CustomerLeadsPanel'), 'CustomerLeadsPanel');
+const AssistantConversationsPanel = lazyNamed(() => import('@/components/executive/crm/AssistantConversationsPanel'), 'AssistantConversationsPanel');
 
 const PanelFallback = () => (
   <div className="space-y-3">
@@ -35,6 +37,7 @@ const PanelFallback = () => (
 
 export default function CRMDashboardPage() {
   const [activeTab, setActiveTab] = usePersistedActiveTab('crm');
+  const { data: openAssistantCount = 0 } = useOpenAssistantEscalationCount();
 
   const renderContent = () => {
     // The Call Centre is five queues × four views. Resolve those first, by
@@ -114,6 +117,12 @@ export default function CRMDashboardPage() {
             <TenantCampaignPanel />
           </Suspense>
         );
+      case 'assistant-conversations':
+        return (
+          <Suspense fallback={<PanelFallback />}>
+            <AssistantConversationsPanel />
+          </Suspense>
+        );
       case 'customer-leads':
         return (
           <Suspense fallback={<PanelFallback />}>
@@ -132,7 +141,7 @@ export default function CRMDashboardPage() {
   };
 
   return (
-    <ExecutiveDashboardLayout role="crm" activeTab={activeTab} onTabChange={setActiveTab}>
+    <ExecutiveDashboardLayout role="crm" activeTab={activeTab} onTabChange={setActiveTab} badges={{ "assistant-conversations": openAssistantCount }}>
       {renderContent()}
     </ExecutiveDashboardLayout>
   );

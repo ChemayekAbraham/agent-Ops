@@ -5,7 +5,7 @@ import {
   Crown, LayoutDashboard, Globe, DollarSign, UserCog, Truck, Layers, MinusCircle, Receipt,
   ShieldCheck, GraduationCap, Mail, FolderOpen, CalendarCheck, Landmark, KeyRound, SlidersHorizontal, HandCoins, Snowflake, ShoppingBag, MonitorSmartphone
   , Gauge, Download, ShieldAlert,
-  Eye, Trash2, PhoneCall, History, RefreshCw, Archive, Bike, GitCommit,
+  Eye, Trash2, PhoneCall, History, RefreshCw, Archive, Bike, GitCommit, Bot,
 } from 'lucide-react';
 import type { AppRole } from '@/hooks/auth/types';
 
@@ -329,6 +329,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Communications', icon: MessageSquare, id: 'communications' },
         { label: 'SMS Campaigns', icon: Megaphone, id: 'sms-campaigns', access: { roles: ['crm', 'cto', 'super_admin'] } },
         { label: 'Customer Leads', icon: Megaphone, id: 'customer-leads', access: { roles: ['crm', 'cto', 'super_admin'] } },
+        { label: 'Agent Assistant', icon: Bot, id: 'assistant-conversations', access: { roles: ['crm', 'cto', 'super_admin'] } },
         {
           label: 'User Behaviour',
           icon: Activity,
