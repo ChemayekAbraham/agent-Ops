@@ -74,11 +74,11 @@ export default function LendFloatWizard({ open, onOpenChange, floatAvailable, on
 
   return (
     <Dialog open={open} onOpenChange={close}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-sm:h-[100dvh] max-sm:max-w-none max-sm:rounded-none max-sm:overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {step > 1 && <button aria-label="Back" onClick={() => setStep(step - 1)}><ArrowLeft className="h-5 w-5" /></button>}
-            Lend float · Step {step} of 3
+            Lend float · Step {step} of 3 · {['','Borrower','Amount & schedule','Confirm'][step]}
           </DialogTitle>
         </DialogHeader>
         <p className="text-xs text-muted-foreground -mt-2">Your float available: <span className="font-semibold text-foreground">{formatUGX(floatAvailable)}</span></p>
@@ -110,14 +110,6 @@ export default function LendFloatWizard({ open, onOpenChange, floatAvailable, on
             <Label>Interest %</Label>
             <Input value={rate} onChange={(e) => setRate(e.target.value.replace(/[^0-9.]/g, ''))} inputMode="decimal" className="h-12 text-lg" />
             {principal > 0 && <p className="text-sm">They will pay back <span className="font-bold">{formatUGX(total)}</span></p>}
-            <Button className="w-full h-14 text-base" disabled={principal < 1000 || principal > floatAvailable} onClick={() => setStep(3)}>
-              {principal > floatAvailable ? 'Not enough float' : 'Next'}
-            </Button>
-          </div>
-        )}
-
-        {step === 3 && who && (
-          <div className="space-y-3">
             <Label className="text-base">How will they pay back?</Label>
             <div className="grid grid-cols-2 gap-2">
               {FREQS.map((f) => <Button key={f.value} variant={freq === f.value ? 'default' : 'outline'} className="h-12" onClick={() => setFreq(f.value)}>{f.label}</Button>)}
@@ -126,14 +118,25 @@ export default function LendFloatWizard({ open, onOpenChange, floatAvailable, on
             <div className="grid grid-cols-4 gap-2">
               {QUICK_DAYS.map((d) => <Button key={d} variant={days === d ? 'default' : 'outline'} onClick={() => setDays(d)}>{d} days</Button>)}
             </div>
-            <div className="rounded-xl bg-muted/40 p-3 text-sm space-y-1">
-              <p>Send now: <span className="font-bold">{formatUGX(principal)}</span> from your float to {who.full_name}'s float</p>
+            <Button className="w-full h-14 text-base" disabled={principal < 1000 || principal > floatAvailable} onClick={() => setStep(3)}>
+              {principal > floatAvailable ? 'Not enough float' : 'Next'}
+            </Button>
+          </div>
+        )}
+
+        {step === 3 && who && (
+          <div className="space-y-3">
+            <Label className="text-base">Confirm your loan</Label>
+            <div className="rounded-xl bg-muted/40 p-3 text-sm space-y-2">
+              <p>Borrower: <span className="font-bold">{who.full_name}</span> · {who.phone || '—'}</p>
+              <p>Send now: <span className="font-bold">{formatUGX(principal)}</span> from your float to their float</p>
+              <p>Interest: {rate || 0}% · They pay back <span className="font-bold">{formatUGX(total)}</span></p>
               <p>They pay: <span className="font-bold">{formatUGX(schedule.installment)}</span> {freq === 'once' ? 'once' : FREQS.find((f) => f.value === freq)?.label.toLowerCase()}, taken automatically</p>
               <p>Last day: {due}</p>
               <p className="text-xs text-muted-foreground">Each repayment: your money back goes to your float, the interest goes to your main wallet.</p>
             </div>
             <Button className="w-full h-14 text-base" onClick={send} disabled={sending}>
-              {sending ? <Loader2 className="h-5 w-5 animate-spin" /> : <><CheckCircle2 className="h-5 w-5 mr-2" />Send {formatUGX(principal)}</>}
+              {sending ? <Loader2 className="h-5 w-5 animate-spin" /> : <><CheckCircle2 className="h-5 w-5 mr-2" />Confirm &amp; send {formatUGX(principal)}</>}
             </Button>
           </div>
         )}
