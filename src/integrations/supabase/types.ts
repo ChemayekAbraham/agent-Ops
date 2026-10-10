@@ -27795,11 +27795,14 @@ export type Database = {
           borrower_user_id: string | null
           closed_at: string | null
           created_at: string
+          disbursement_reference: string | null
           expected_repayment_date: string | null
           external_loan_reference: string | null
+          funding_source: string
           id: string
           installment_ugx: number
           interest_rate_pct: number | null
+          interest_repaid_ugx: number
           last_auto_deduct_at: string | null
           last_repayment_at: string | null
           lender_agent_id: string
@@ -27808,6 +27811,7 @@ export type Database = {
           next_deduction_date: string | null
           notes: string | null
           platform_fee_ugx: number
+          principal_repaid_ugx: number
           principal_ugx: number
           repayment_frequency: string
           status: string
@@ -27827,11 +27831,14 @@ export type Database = {
           borrower_user_id?: string | null
           closed_at?: string | null
           created_at?: string
+          disbursement_reference?: string | null
           expected_repayment_date?: string | null
           external_loan_reference?: string | null
+          funding_source?: string
           id?: string
           installment_ugx?: number
           interest_rate_pct?: number | null
+          interest_repaid_ugx?: number
           last_auto_deduct_at?: string | null
           last_repayment_at?: string | null
           lender_agent_id: string
@@ -27840,6 +27847,7 @@ export type Database = {
           next_deduction_date?: string | null
           notes?: string | null
           platform_fee_ugx?: number
+          principal_repaid_ugx?: number
           principal_ugx: number
           repayment_frequency?: string
           status?: string
@@ -27859,11 +27867,14 @@ export type Database = {
           borrower_user_id?: string | null
           closed_at?: string | null
           created_at?: string
+          disbursement_reference?: string | null
           expected_repayment_date?: string | null
           external_loan_reference?: string | null
+          funding_source?: string
           id?: string
           installment_ugx?: number
           interest_rate_pct?: number | null
+          interest_repaid_ugx?: number
           last_auto_deduct_at?: string | null
           last_repayment_at?: string | null
           lender_agent_id?: string
@@ -27872,6 +27883,7 @@ export type Database = {
           next_deduction_date?: string | null
           notes?: string | null
           platform_fee_ugx?: number
+          principal_repaid_ugx?: number
           principal_ugx?: number
           repayment_frequency?: string
           status?: string

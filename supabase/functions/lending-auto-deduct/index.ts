@@ -224,17 +224,17 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // How much can we actually pull from the borrower's withdrawable wallet?
-      const { data: availRaw, error: availError } = await admin.rpc(
-        "get_user_available_balance",
-        { p_user_id: loan.borrower_user_id },
-      );
-      if (availError) {
-        results.push({ loan_id: loan.id, action: "balance_error", error: availError.message });
+      // How much can we pull? Float loans: principal from float then wallet,
+      // interest from wallet only (see floatSplit.ts).
+      let plan;
+      try {
+        plan = await planRepayment(admin, loan, target);
+      } catch (e) {
+        results.push({ loan_id: loan.id, action: "balance_error", error: String((e as Error)?.message ?? e) });
         continue;
       }
-      const available = Math.max(0, Math.floor(Number(availRaw ?? 0)));
-      const deductible = Math.min(target, available);
+      const available = plan.available.withdrawable + plan.available.float;
+      const deductible = plan.amount;
 
       const attempts = (Number(loan.auto_deduct_attempts) || 0) + 1;
 
@@ -272,38 +272,13 @@ Deno.serve(async (req) => {
       const borrowerLabel = loan.borrower_display_name || loan.borrower_ai_id || "Borrower";
 
       const { error: ledgerError } = await admin.rpc("create_ledger_transaction", {
-        entries: [
-          {
-            user_id: loan.borrower_user_id,
-            amount: deductible,
-            direction: "cash_out",
-            category: "wallet_transfer",
-            ledger_scope: "wallet",
-            source_table: "lending_agent_loans",
-            source_id: loan.id,
-            description: `Automatic repayment to ${lenderLabel}`,
-            currency: "UGX",
-            transaction_date: new Date().toISOString(),
-            reference_id: ref,
-            linked_party: "Lending agent",
-            recipient_type: "user",
-          },
-          {
-            user_id: loan.lender_agent_id,
-            amount: deductible,
-            direction: "cash_in",
-            category: "wallet_transfer",
-            ledger_scope: "wallet",
-            source_table: "lending_agent_loans",
-            source_id: loan.id,
-            description: `Advance repayment from ${borrowerLabel}`,
-            currency: "UGX",
-            transaction_date: new Date().toISOString(),
-            reference_id: ref,
-            linked_party: borrowerLabel,
-            recipient_type: "user",
-          },
-        ],
+        entries: repaymentLegs(loan, plan, {
+          ref,
+          now: new Date().toISOString(),
+          borrowerDesc: `Automatic repayment to ${lenderLabel}`,
+          lenderDesc: `Advance repayment from ${borrowerLabel}`,
+          borrowerLabel,
+        }),
         idempotency_key: ref,
       });
 
@@ -336,6 +311,7 @@ Deno.serve(async (req) => {
         .from("lending_agent_loans")
         .update({
           amount_repaid_ugx: newRepaid,
+          ...splitColumns(loan, plan),
           auto_deduct_collected_ugx:
             (Number(loan.auto_deduct_collected_ugx) || 0) + deductible,
           auto_deduct_attempts: attempts,
