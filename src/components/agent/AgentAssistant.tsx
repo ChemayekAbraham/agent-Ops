@@ -59,6 +59,7 @@ function AssistantCard() {
 function AssistantPanel({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const isMobile = useIsMobile();
   const { messages, isLoading, escalated, locationStatus, requestLocation, send, escalate, reset } = useAgentAssistant();
+  const { profile } = useProfile();
   const [text, setText] = useState('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
