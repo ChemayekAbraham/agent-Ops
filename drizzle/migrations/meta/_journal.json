@@ -3718,6 +3718,13 @@
       "when": 1791537216569,
       "tag": "0530_lead_links_general_kind",
       "breakpoints": true
+    },
+    {
+      "idx": 531,
+      "version": "7",
+      "when": 1791628102014,
+      "tag": "0531_lending_float_funding_source",
+      "breakpoints": true
     }
   ]
 }
