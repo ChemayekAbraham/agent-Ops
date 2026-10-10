@@ -39,7 +39,7 @@ export function MyLoanRequestsCard({ userId }: { userId: string }) {
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
-    (async () => {
+    const load = async () => {
       const { data } = await (supabase
         .from('lending_loan_requests' as any)
         .select('id, lender_agent_id, requested_amount_ugx, requested_duration_days, interest_rate_pct, purpose, status, decline_reason, loan_id, created_at')
@@ -60,7 +60,8 @@ export function MyLoanRequestsCard({ userId }: { userId: string }) {
           setLenderNames(Object.fromEntries((profs as any[]).map((p) => [p.id, p.full_name ?? 'Lending agent'])));
         }
       }
-    })();
+    };
+    load();
     return () => { cancelled = true; };
   }, [userId]);
 
