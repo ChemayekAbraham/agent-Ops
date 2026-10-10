@@ -7,6 +7,8 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { UserAvatar } from '@/components/UserAvatar';
+import { useProfile } from '@/hooks/useProfile';
 import { useAssistantAccess } from '@/hooks/useAssistantAccess';
 import { useAgentAssistant, type AssistantMessage } from '@/hooks/useAgentAssistant';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -57,6 +59,7 @@ function AssistantCard() {
 function AssistantPanel({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
   const isMobile = useIsMobile();
   const { messages, isLoading, escalated, locationStatus, requestLocation, send, escalate, reset } = useAgentAssistant();
+  const { profile } = useProfile();
   const [text, setText] = useState('');
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
@@ -142,6 +145,8 @@ function AssistantPanel({ open, onOpenChange }: { open: boolean; onOpenChange: (
               isLatest={m.id === lastAssistantId}
               disabled={isLoading}
               escalated={escalated}
+              userAvatarUrl={profile?.avatar_url ?? null}
+              userFullName={profile?.full_name ?? undefined}
               onQuickReply={submit}
               onEscalate={() => { hapticTap(); void escalate(); }}
             />
@@ -210,35 +215,52 @@ function Chip({ label, onClick, disabled }: { label: string; onClick: () => void
   );
 }
 
+function AssistantAvatar() {
+  return (
+    <span
+      aria-hidden="true"
+      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"
+    >
+      <Bot className="h-4 w-4" />
+    </span>
+  );
+}
+
 function MessageBubble({
-  message, isLatest, disabled, escalated, onQuickReply, onEscalate,
+  message, isLatest, disabled, escalated, userAvatarUrl, userFullName, onQuickReply, onEscalate,
 }: {
   message: AssistantMessage;
   isLatest: boolean;
   disabled: boolean;
   escalated: boolean;
+  userAvatarUrl?: string | null;
+  userFullName?: string;
   onQuickReply: (t: string) => void;
   onEscalate: () => void;
 }) {
   if (message.role === 'user') {
     return (
-      <div className="flex justify-end">
+      <div className="flex items-end justify-end gap-2">
         <div className="max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-primary px-4 py-2.5 text-sm text-primary-foreground">
           {message.content}
         </div>
+        <UserAvatar avatarUrl={userAvatarUrl ?? null} fullName={userFullName} size="sm" />
       </div>
     );
   }
   const muted = message.outcome ? MUTED_OUTCOMES.has(message.outcome) : false;
   return (
     <div className="flex flex-col items-start gap-2">
-      <div
-        className={cn(
-          'max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-bl-md px-4 py-2.5 text-sm',
-          muted ? 'bg-muted/50 text-muted-foreground border border-border/60' : 'bg-muted text-foreground',
-        )}
-      >
-        {message.content}
+      <div className="flex items-end justify-start gap-2">
+        <AssistantAvatar />
+        <div
+          className={cn(
+            'max-w-[85%] whitespace-pre-wrap break-words rounded-2xl rounded-bl-md px-4 py-2.5 text-sm',
+            muted ? 'bg-muted/50 text-muted-foreground border border-border/60' : 'bg-muted text-foreground',
+          )}
+        >
+          {message.content}
+        </div>
       </div>
       {isLatest && message.quickReplies && message.quickReplies.length > 0 && (
         <div className="flex flex-wrap gap-2">
