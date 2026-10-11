@@ -257,7 +257,11 @@ export default function BorrowerProfileSheet({ person, onLend, onClose }: Props)
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  {loans.slice(0, 5).map((l) => {
+                  {filteredLoans.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      No {fundingFilter === 'withdrawable' ? 'My own money' : 'Operational float'} loans with this borrower.
+                    </p>
+                  ) : filteredLoans.slice(0, 5).map((l) => {
                     const fm = fundingSourceMeta(l.funding_source);
                     return (
                       <div key={l.id} className="flex items-center justify-between gap-2 text-xs">
