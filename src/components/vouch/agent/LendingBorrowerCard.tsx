@@ -206,6 +206,7 @@ export default function LendingBorrowerCard({ loan, vouchLimit, onRecordRepaymen
               </div>
             </div>
             <div className="flex flex-col items-end gap-1 shrink-0">
+              <Badge className={`${funding.cls} border-0 text-[9px] font-bold`}>{funding.label}</Badge>
               <Badge className={`${statusStyle.cls} border-0 text-[9px] font-bold`}>{statusStyle.label}</Badge>
               {inRecovery && <Badge className="bg-destructive/15 text-destructive border-0 text-[9px] font-bold">In recovery</Badge>}
               {dueStyle && (
