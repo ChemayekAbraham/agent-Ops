@@ -240,14 +240,18 @@ Deno.serve(async (req) => {
       if (dup) return json({ ok: true, loan_id: dup.id, reference: ref, replay: true });
       const { data: agreement } = await admin.from("lending_agent_agreement_acceptance").select("id").eq("agent_user_id", userId).limit(1).maybeSingle();
       if (agreement === null) return json({ error: "Sign the lending agreement first" }, 403);
+      // Funding source: operational float (default) or the lender's own withdrawable money.
+      // Withdrawable loans go withdrawable -> borrower withdrawable; repayments return to withdrawable.
+      const source: "float" | "withdrawable" = body?.funding_source === "withdrawable" ? "withdrawable" : "float";
+      const isFloatSrc = source === "float";
       const since = new Date(Date.now() - 86400000).toISOString();
-      const { data: todays } = await admin.from("lending_agent_loans").select("principal_ugx").eq("lender_agent_id", userId).eq("funding_source", "float").gte("created_at", since);
+      const { data: todays } = await admin.from("lending_agent_loans").select("principal_ugx").eq("lender_agent_id", userId).eq("funding_source", source).gte("created_at", since);
       const lentToday = (todays ?? []).reduce((a: number, r: any) => a + (Number(r.principal_ugx) || 0), 0);
-      if (lentToday + principal > FLOAT_LOAN_DAILY_MAX_UGX) return json({ error: `Daily float lending limit is UGX ${FLOAT_LOAN_DAILY_MAX_UGX.toLocaleString("en-US")}. You can lend UGX ${Math.max(0, FLOAT_LOAN_DAILY_MAX_UGX - lentToday).toLocaleString("en-US")} more today.` }, 400);
-      const { data: fRaw, error: fErr } = await admin.rpc("get_user_float_available_balance", { p_user_id: userId });
+      if (lentToday + principal > FLOAT_LOAN_DAILY_MAX_UGX) return json({ error: `Daily lending limit is UGX ${FLOAT_LOAN_DAILY_MAX_UGX.toLocaleString("en-US")}. You can lend UGX ${Math.max(0, FLOAT_LOAN_DAILY_MAX_UGX - lentToday).toLocaleString("en-US")} more today from this balance.` }, 400);
+      const { data: fRaw, error: fErr } = await admin.rpc(isFloatSrc ? "get_user_float_available_balance" : "get_user_available_balance", { p_user_id: userId });
       if (fErr) throw fErr;
-      const floatAvail = Math.max(0, Math.floor(Number(fRaw ?? 0)));
-      if (principal > floatAvail) return json({ error: `Not enough operational float. You have UGX ${floatAvail.toLocaleString("en-US")}` }, 400);
+      const srcAvail = Math.max(0, Math.floor(Number(fRaw ?? 0)));
+      if (principal > srcAvail) return json({ error: `Not enough ${isFloatSrc ? "operational float" : "withdrawable money"}. You have UGX ${srcAvail.toLocaleString("en-US")}` }, 400);
       const [{ data: bp }, { data: lp }] = await Promise.all([
         admin.from("profiles").select("full_name, phone").eq("id", borrowerId).maybeSingle(),
         admin.from("profiles").select("full_name").eq("id", userId).maybeSingle(),
@@ -258,15 +262,16 @@ Deno.serve(async (req) => {
       const loanId = crypto.randomUUID();
       const now = new Date().toISOString();
       await admin.from("wallets").upsert({ user_id: borrowerId, balance: 0 }, { onConflict: "user_id", ignoreDuplicates: true });
-      const base = { amount: principal, category: "wallet_transfer", ledger_scope: "wallet", source_table: "lending_agent_loans", source_id: loanId, currency: "UGX", transaction_date: now, reference_id: ref, recipient_type: "operational_wallet" };
+      const base = { amount: principal, category: "wallet_transfer", ledger_scope: "wallet", source_table: "lending_agent_loans", source_id: loanId, currency: "UGX", transaction_date: now, reference_id: ref, recipient_type: isFloatSrc ? "operational_wallet" : "user" };
+      const tag = isFloatSrc ? " float_usage=lending_float_loan" : "";
       const { error: lErr } = await admin.rpc("create_ledger_transaction", {
         entries: [
-          { ...base, user_id: userId, direction: "cash_out", description: `Float loan to ${borrowerLabel} float_usage=lending_float_loan`, linked_party: borrowerLabel },
-          { ...base, user_id: borrowerId, direction: "cash_in", description: `Float loan from ${lenderLabel} float_usage=lending_float_loan`, linked_party: lenderLabel },
+          { ...base, user_id: userId, direction: "cash_out", description: `${isFloatSrc ? "Float loan" : "Loan"} to ${borrowerLabel}${tag}`, linked_party: borrowerLabel },
+          { ...base, user_id: borrowerId, direction: "cash_in", description: `${isFloatSrc ? "Float loan" : "Loan"} from ${lenderLabel}${tag}`, linked_party: lenderLabel },
         ],
         idempotency_key: ref,
       });
-      if (lErr) { console.error("[lending-borrower-pay] disburse ledger", lErr); return json({ error: "Loan failed. No float was sent." }, 400); }
+      if (lErr) { console.error("[lending-borrower-pay] disburse ledger", lErr); return json({ error: "Loan failed. No money was sent." }, 400); }
       const { error: insErr } = await admin.from("lending_agent_loans").insert({
         id: loanId, lender_agent_id: userId, borrower_user_id: borrowerId,
         borrower_ai_id: body?.borrower_ai_id ? String(body.borrower_ai_id).slice(0, 40) : null,
@@ -275,12 +280,12 @@ Deno.serve(async (req) => {
         loan_purpose: body?.purpose ? String(body.purpose).slice(0, 300) : null, platform_fee_ugx: 0,
         status: "active", repayment_frequency: freq, auto_deduct_enabled: true,
         installment_ugx: installment || null, next_deduction_date: firstDate, auto_deduct_started_at: now,
-        funding_source: "float", disbursement_reference: ref,
+        funding_source: source, disbursement_reference: ref,
       });
-      if (insErr) { console.error("[lending-borrower-pay] disburse insert", insErr, { ref }); return json({ error: `Float was sent (ref ${ref}) but the loan could not be saved. Contact support.` }, 500); }
+      if (insErr) { console.error("[lending-borrower-pay] disburse insert", insErr, { ref }); return json({ error: `Money was sent (ref ${ref}) but the loan could not be saved. Contact support.` }, 500); }
       if (loanRequestId) await admin.from("lending_loan_requests").update({ status: "approved", decided_at: now, loan_id: loanId }).eq("id", loanRequestId).eq("lender_agent_id", userId).then(() => {}, () => {});
-      await admin.from("lending_audit_log").insert({ actor_id: userId, actor_display_name: lenderLabel, action_type: "loan_disbursed", entity_type: "loan", entity_id: loanId, borrower_user_id: borrowerId, lender_agent_id: userId, amount_ugx: principal, fee_ugx: 0, new_status: "active", details: { funding_source: "float", reference: ref, interest_rate_pct: rate } }).then(() => {}, () => {});
-      await admin.from("system_events").insert({ event_type: "wallet_transfer", user_id: borrowerId, related_entity_type: "lending_agent_loan", related_entity_id: loanId, metadata: { amount: principal, reference: ref, kind: "float_loan" } }).then(() => {}, () => {});
+      await admin.from("lending_audit_log").insert({ actor_id: userId, actor_display_name: lenderLabel, action_type: "loan_disbursed", entity_type: "loan", entity_id: loanId, borrower_user_id: borrowerId, lender_agent_id: userId, amount_ugx: principal, fee_ugx: 0, new_status: "active", details: { funding_source: source, reference: ref, interest_rate_pct: rate } }).then(() => {}, () => {});
+      await admin.from("system_events").insert({ event_type: "wallet_transfer", user_id: borrowerId, related_entity_type: "lending_agent_loan", related_entity_id: loanId, metadata: { amount: principal, reference: ref, kind: isFloatSrc ? "float_loan" : "withdrawable_loan" } }).then(() => {}, () => {});
       const totalOwedUgx = Math.round(principal * (1 + rate / 100));
       if (bp.phone) {
         const msg = `Welile: UGX ${principal.toLocaleString("en-US")} has been sent to your Welile wallet by ${lenderLabel}. Total to repay: UGX ${totalOwedUgx.toLocaleString("en-US")} by ${due}. Ref ${ref}.`;

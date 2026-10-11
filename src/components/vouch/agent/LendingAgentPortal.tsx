@@ -1125,7 +1125,7 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
           )}
         </div>
 
-        <LendFloatWizard key={wizardOpen ? `open-${wizardPhone}` : 'closed'} open={wizardOpen} onOpenChange={setWizardOpen} initialPhone={wizardPhone} floatAvailable={Math.max(0, floatBalance || 0)}
+        <LendFloatWizard key={wizardOpen ? `open-${wizardPhone}` : 'closed'} open={wizardOpen} onOpenChange={setWizardOpen} initialPhone={wizardPhone} floatAvailable={Math.max(0, floatBalance || 0)} withdrawableAvailable={Math.max(0, withdrawableBalance || 0)}
           onDone={() => { refetchBalances(); reloadLoans(); setView('borrowers'); setStatusFilter('all'); }} />
 
         <LendingAgentAgreementModal
