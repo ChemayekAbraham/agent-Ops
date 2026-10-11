@@ -308,6 +308,19 @@ Deno.serve(async (req) => {
             console.error('[process-supporter-roi] ROI advance recovery failed:', recErr);
           }
 
+          // Smartphone Returns pledge: send the promised part of this Returns
+          // payment to the user's phone plan (capped at what is still owed).
+          try {
+            const { error: pledgeErr } = await supabase.rpc('apply_smartphone_roi_pledge', {
+              p_user_id: walletRecipientId,
+              p_roi_amount: roiAmount,
+              p_reference: `sup-roi-${rr.id}-${paymentNumber}`,
+            });
+            if (pledgeErr) console.error('[process-supporter-roi] phone pledge failed:', pledgeErr);
+          } catch (pledgeErr) {
+            console.error('[process-supporter-roi] phone pledge threw:', pledgeErr);
+          }
+
           if (managedProxy) {
             // Partner notification — money went to their wallet, agent will deliver.
             await supabase.from('notifications').insert({
