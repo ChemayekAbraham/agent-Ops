@@ -174,11 +174,25 @@ export default function LendingBorrowerCard({ loan, vouchLimit, onRecordRepaymen
         .limit(500) as any);
       if (error) throw error;
       let agentName: string | null = null;
+      let fundingBreakdown: { label: string; loans: number; totalDue: number; repaid: number; outstanding: number }[] | undefined;
       try {
         const { data: u } = await supabase.auth.getUser();
         if (u?.user) {
           const { data: pr } = await (supabase.from('profiles' as any).select('full_name').eq('id', u.user.id).maybeSingle() as any);
           agentName = pr?.full_name ?? null;
+          const { data: bl } = await (supabase.from('lending_agent_loans' as any)
+            .select('*').eq('lender_agent_id', u.user.id).eq('borrower_ai_id', loan.borrower_ai_id).limit(200) as any);
+          const groups = new Map<string, { label: string; loans: number; totalDue: number; repaid: number; outstanding: number }>();
+          for (const l of ((bl ?? [loan]) as LendingLoan[])) {
+            const meta = fundingSourceMeta(l.funding_source);
+            const g = groups.get(meta.label) ?? { label: meta.label, loans: 0, totalDue: 0, repaid: 0, outstanding: 0 };
+            g.loans += 1;
+            g.totalDue += l.principal_ugx + (l.principal_ugx * (Number(l.interest_rate_pct) || 0)) / 100;
+            g.repaid += Number(l.amount_repaid_ugx) || 0;
+            g.outstanding += outstandingOf(l);
+            groups.set(meta.label, g);
+          }
+          fundingBreakdown = [...groups.values()];
         }
       } catch { /* optional */ }
       const blob = await generateRepaymentHistoryPdf({
@@ -194,6 +208,7 @@ export default function LendingBorrowerCard({ loan, vouchLimit, onRecordRepaymen
         dueDate: loan.expected_repayment_date,
         status: loan.status,
         fundingLabel: funding.label,
+        fundingBreakdown,
         filterNote: (pdfFrom || pdfTo || pdfStatus !== 'all')
           ? [pdfFrom || pdfTo ? `${pdfFrom || 'start'} to ${pdfTo || 'today'}` : '', pdfStatus === 'on_time' ? 'on-time payments' : pdfStatus === 'late' ? 'late payments' : ''].filter(Boolean).join(', ')
           : null,

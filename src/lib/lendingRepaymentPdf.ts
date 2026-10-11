@@ -40,6 +40,8 @@ export interface RepaymentPdfInput {
   dueDate?: string | null;
   status: string;
   fundingLabel: string;
+  /** Per-funding-source totals across this borrower's loans with this lender. */
+  fundingBreakdown?: { label: string; loans: number; totalDue: number; repaid: number; outstanding: number }[];
   payments: { amount_ugx: number; created_at: string }[];
 }
 
@@ -107,7 +109,30 @@ export async function generateRepaymentHistoryPdf(i: RepaymentPdfInput): Promise
     columnStyles: { 0: { fontStyle: 'bold', cellWidth: 160 } },
   });
 
-  const y = (doc as any).lastAutoTable.finalY + 24;
+  let y = (doc as any).lastAutoTable.finalY + 24;
+  if (i.fundingBreakdown && i.fundingBreakdown.length) {
+    doc.setTextColor(30, 41, 59).setFont('helvetica', 'bold').setFontSize(12).text('Repayments by funding source', M, y);
+    doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(100, 116, 139)
+      .text('All loans this borrower holds with this lender', M, y + 12);
+    const rows = i.fundingBreakdown.map((b) => {
+      const p = b.totalDue > 0 ? Math.min(100, Math.round((b.repaid / b.totalDue) * 100)) : 0;
+      return [b.label, String(b.loans), ugx(b.totalDue), `${ugx(b.repaid)} (${p}%)`, ugx(b.outstanding)];
+    });
+    if (i.fundingBreakdown.length > 1) {
+      const t = i.fundingBreakdown.reduce((a, b) => ({ loans: a.loans + b.loans, due: a.due + b.totalDue, rep: a.rep + b.repaid, out: a.out + b.outstanding }), { loans: 0, due: 0, rep: 0, out: 0 });
+      const p = t.due > 0 ? Math.min(100, Math.round((t.rep / t.due) * 100)) : 0;
+      rows.push(['Total', String(t.loans), ugx(t.due), `${ugx(t.rep)} (${p}%)`, ugx(t.out)]);
+    }
+    autoTable(doc, {
+      startY: y + 20,
+      theme: 'grid',
+      styles: { fontSize: 10, cellPadding: 6 },
+      headStyles: { fillColor: [107, 33, 168] },
+      head: [['Funding source', 'Loans', 'Total to repay', 'Repaid', 'Still owed']],
+      body: rows,
+    });
+    y = (doc as any).lastAutoTable.finalY + 24;
+  }
   doc.setTextColor(30, 41, 59).setFont('helvetica', 'bold').setFontSize(12).text('Payments', M, y);
   if (i.filterNote) doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(100, 116, 139).text(`Filtered: ${i.filterNote}`, M + 60, y);
   let running = 0;
