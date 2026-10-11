@@ -21,11 +21,15 @@ const FREQS: { value: RepaymentFrequency; label: string }[] = [
 const QUICK_AMOUNTS = [50000, 100000, 200000, 500000];
 const QUICK_DAYS = [7, 14, 30, 60];
 
-export default function LendFloatWizard({ open, onOpenChange, floatAvailable, onDone }: {
-  open: boolean; onOpenChange: (o: boolean) => void; floatAvailable: number; onDone: () => void;
+export default function LendFloatWizard({ open, onOpenChange, floatAvailable, withdrawableAvailable = 0, onDone, initialPhone = '' }: {
+  open: boolean; onOpenChange: (o: boolean) => void; floatAvailable: number; withdrawableAvailable?: number; onDone: () => void; initialPhone?: string;
 }) {
+  const [source, setSource] = useState<'float' | 'withdrawable'>('float');
+  const isFloat = source === 'float';
+  const available = isFloat ? floatAvailable : withdrawableAvailable;
+  const sourceName = isFloat ? 'float' : 'withdrawable balance';
   const [step, setStep] = useState(1);
-  const [phone, setPhone] = useState('');
+  const [phone, setPhone] = useState(initialPhone);
   const [searching, setSearching] = useState(false);
   const [matches, setMatches] = useState<Match[]>([]);
   const [who, setWho] = useState<Match | null>(null);
@@ -36,7 +40,7 @@ export default function LendFloatWizard({ open, onOpenChange, floatAvailable, on
   const [sending, setSending] = useState(false);
   const [requestId] = useState(() => safeUUID());
 
-  const reset = () => { setStep(1); setPhone(''); setMatches([]); setWho(null); setAmount(''); setRate('10'); setDays(30); setFreq('daily'); };
+  const reset = () => { setStep(1); setPhone(''); setMatches([]); setWho(null); setAmount(''); setRate('10'); setDays(30); setFreq('daily'); setSource('float'); };
   const close = (o: boolean) => { if (!o) reset(); onOpenChange(o); };
 
   const principal = Math.floor(Number(amount) || 0);
@@ -62,12 +66,12 @@ export default function LendFloatWizard({ open, onOpenChange, floatAvailable, on
     const { data, error } = await supabase.functions.invoke('lending-borrower-pay', {
       body: { action: 'disburse', request_id: requestId, borrower_user_id: who.user_id, borrower_ai_id: who.ai_id,
         principal, interest_rate_pct: Number(rate) || 0, due_date: due, frequency: freq,
-        installment: schedule.installment, first_date: schedule.firstDate },
+        installment: schedule.installment, first_date: schedule.firstDate, funding_source: source },
     });
     setSending(false);
     const msg = (data as any)?.error || (error ? await (error as any)?.context?.json?.().then((j: any) => j?.error).catch(() => null) : null);
-    if (error || !(data as any)?.ok) { toast.error(msg || 'Loan failed. No float was sent.'); return; }
-    toast.success(`${formatUGX(principal)} float sent to ${who.full_name ?? 'borrower'}`);
+    if (error || !(data as any)?.ok) { toast.error(msg || 'Loan failed. No money was sent.'); return; }
+    toast.success(`${formatUGX(principal)} sent from your ${sourceName} to ${who.full_name ?? 'borrower'}`);
     onDone();
     close(false);
   };
@@ -78,10 +82,22 @@ export default function LendFloatWizard({ open, onOpenChange, floatAvailable, on
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {step > 1 && <button aria-label="Back" onClick={() => setStep(step - 1)}><ArrowLeft className="h-5 w-5" /></button>}
-            Lend float · Step {step} of 3 · {['','Borrower','Amount & schedule','Confirm'][step]}
+            Lend · Step {step} of 3 · {['','Borrower','Amount & schedule','Confirm'][step]}
           </DialogTitle>
         </DialogHeader>
-        <p className="text-xs text-muted-foreground -mt-2">Your float available: <span className="font-semibold text-foreground">{formatUGX(floatAvailable)}</span></p>
+        <div className="space-y-1 -mt-1">
+          <Label className="text-sm">Lend from</Label>
+          <div className="grid grid-cols-2 gap-2">
+            <Button variant={isFloat ? 'default' : 'outline'} className="h-auto py-2 flex-col items-start" onClick={() => setSource('float')}>
+              <span className="text-sm font-semibold">Operational float</span>
+              <span className="text-xs opacity-80">{formatUGX(floatAvailable)}</span>
+            </Button>
+            <Button variant={!isFloat ? 'default' : 'outline'} className="h-auto py-2 flex-col items-start" onClick={() => setSource('withdrawable')}>
+              <span className="text-sm font-semibold">My own money</span>
+              <span className="text-xs opacity-80">{formatUGX(withdrawableAvailable)}</span>
+            </Button>
+          </div>
+        </div>
 
         {step === 1 && (
           <div className="space-y-3">
@@ -118,8 +134,8 @@ export default function LendFloatWizard({ open, onOpenChange, floatAvailable, on
             <div className="grid grid-cols-4 gap-2">
               {QUICK_DAYS.map((d) => <Button key={d} variant={days === d ? 'default' : 'outline'} onClick={() => setDays(d)}>{d} days</Button>)}
             </div>
-            <Button className="w-full h-14 text-base" disabled={principal < 1000 || principal > floatAvailable} onClick={() => setStep(3)}>
-              {principal > floatAvailable ? 'Not enough float' : 'Next'}
+            <Button className="w-full h-14 text-base" disabled={principal < 1000 || principal > available} onClick={() => setStep(3)}>
+              {principal > available ? `Not enough ${sourceName}` : 'Next'}
             </Button>
           </div>
         )}
@@ -129,11 +145,11 @@ export default function LendFloatWizard({ open, onOpenChange, floatAvailable, on
             <Label className="text-base">Confirm your loan</Label>
             <div className="rounded-xl bg-muted/40 p-3 text-sm space-y-2">
               <p>Borrower: <span className="font-bold">{who.full_name}</span> · {who.phone || '—'}</p>
-              <p>Send now: <span className="font-bold">{formatUGX(principal)}</span> from your float to their float</p>
+              <p>Send now: <span className="font-bold">{formatUGX(principal)}</span> {isFloat ? 'from your float to their float' : 'from your withdrawable balance to their wallet'}</p>
               <p>Interest: {rate || 0}% · They pay back <span className="font-bold">{formatUGX(total)}</span></p>
               <p>They pay: <span className="font-bold">{formatUGX(schedule.installment)}</span> {freq === 'once' ? 'once' : FREQS.find((f) => f.value === freq)?.label.toLowerCase()}, taken automatically</p>
               <p>Last day: {due}</p>
-              <p className="text-xs text-muted-foreground">Each repayment: your money back goes to your float, the interest goes to your main wallet.</p>
+              <p className="text-xs text-muted-foreground">{isFloat ? 'Each repayment: your money back goes to your float, the interest goes to your main wallet.' : 'Each repayment, money back and interest, goes to your withdrawable balance.'}</p>
             </div>
             <Button className="w-full h-14 text-base" onClick={send} disabled={sending}>
               {sending ? <Loader2 className="h-5 w-5 animate-spin" /> : <><CheckCircle2 className="h-5 w-5 mr-2" />Confirm &amp; send {formatUGX(principal)}</>}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -6,16 +6,21 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
   Phone, MessageCircle, MessageSquare, HandCoins, Loader2, ChevronDown,
-  CheckCircle2, Clock, AlertTriangle, CalendarClock, Repeat, PlusCircle, CalendarPlus, Check, Share2, ShieldAlert,
+  CheckCircle2, FileText, Clock, AlertTriangle, CalendarClock, Repeat, PlusCircle, CalendarPlus, Check, Share2, ShieldAlert,
 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
-import { LendingLoan, outstandingOf, dueStateOf, normalizePhone, repaymentPlanOf } from './lendingHelpers';
+import { generateRepaymentHistoryPdf, filterPayments, PaymentStatusFilter } from '@/lib/lendingRepaymentPdf';
+import { LendingLoan, outstandingOf, dueStateOf, normalizePhone, repaymentPlanOf, fundingSourceMeta } from './lendingHelpers';
 import { toast } from 'sonner';
+import PdfPagePreview from './PdfPagePreview';
 import { supabase } from '@/integrations/supabase/client';
 import { motion } from 'framer-motion';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface Props {
   loan: LendingLoan;
+  /** Amount Welile vouches for this borrower (undefined while loading). */
+  vouchLimit?: number;
   onRecordRepayment: (loan: LendingLoan, amount: number) => Promise<void>;
   onTopUpOrRenew?: (loan: LendingLoan, extra: number, newDue: string) => Promise<void>;
   onSetRecovery?: (loan: LendingLoan, on: boolean) => Promise<void>;
@@ -49,7 +54,7 @@ const DUE_STYLE: Record<string, { label: string; cls: string; Icon: typeof Clock
   due_soon: { label: 'Due soon', cls: 'bg-amber-500/10 text-amber-600', Icon: CalendarClock },
 };
 
-export default function LendingBorrowerCard({ loan, onRecordRepayment, onTopUpOrRenew, onSetRecovery }: Props) {
+export default function LendingBorrowerCard({ loan, vouchLimit, onRecordRepayment, onTopUpOrRenew, onSetRecovery }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [customDue, setCustomDue] = useState('');
   const [mode, setMode] = useState<null | 'paid' | 'add' | 'time'>(null);
@@ -58,9 +63,19 @@ export default function LendingBorrowerCard({ loan, onRecordRepayment, onTopUpOr
   const [days, setDays] = useState(30);
   const [saving, setSaving] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfPreview, setPdfPreview] = useState<{ file: File; url: string } | null>(null);
+  const closePreview = () => { setPdfPreview((p) => { if (p) URL.revokeObjectURL(p.url); return null; }); };
+  useEffect(() => () => { if (pdfPreview) URL.revokeObjectURL(pdfPreview.url); }, [pdfPreview]);
+  const [pdfOpen, setPdfOpen] = useState(false);
+  const [pdfFrom, setPdfFrom] = useState('');
+  const [pdfTo, setPdfTo] = useState('');
+  const [pdfStatus, setPdfStatus] = useState<PaymentStatusFilter>('all');
+  const [history, setHistory] = useState<{ amount_ugx: number; created_at: string }[] | null>(null);
 
   const name = loan.borrower_display_name ?? loan.borrower_ai_id;
   const phone = normalizePhone(loan.borrower_phone);
+  const funding = fundingSourceMeta((loan as any).funding_source);
   const outstanding = outstandingOf(loan);
   const plan = repaymentPlanOf(loan);
   const totalDue = loan.principal_ugx + (loan.principal_ugx * (Number(loan.interest_rate_pct) || 0)) / 100;
@@ -69,6 +84,9 @@ export default function LendingBorrowerCard({ loan, onRecordRepayment, onTopUpOr
   const due = dueStateOf(loan);
   const statusStyle = STATUS_STYLE[loan.status] ?? STATUS_STYLE.active;
   const dueStyle = DUE_STYLE[due];
+  const accessed = isOpen ? Number(loan.principal_ugx) || 0 : 0;
+  const PLAN_CAP = 5_000_000;
+  const availableTopUp = vouchLimit === undefined ? null : Math.max(0, Math.min(vouchLimit - accessed, PLAN_CAP - accessed));
   const autoOn = !!loan.auto_deduct_enabled && isOpen;
 
   // New end date: count from today, or from the current end date if that is still ahead.
@@ -149,6 +167,79 @@ export default function LendingBorrowerCard({ loan, onRecordRepayment, onTopUpOr
     }
   };
 
+  const downloadPdf = async () => {
+    setPdfBusy(true);
+    try {
+      const { data, error } = await (supabase
+        .from('lending_audit_log' as any)
+        .select('amount_ugx, created_at')
+        .eq('entity_id', loan.id)
+        .eq('action_type', 'repayment_recorded')
+        .order('created_at', { ascending: true })
+        .limit(500) as any);
+      if (error) throw error;
+      let agentName: string | null = null;
+      let fundingBreakdown: { label: string; loans: number; totalDue: number; repaid: number; outstanding: number }[] | undefined;
+      try {
+        const { data: u } = await supabase.auth.getUser();
+        if (u?.user) {
+          const { data: pr } = await (supabase.from('profiles' as any).select('full_name').eq('id', u.user.id).maybeSingle() as any);
+          agentName = pr?.full_name ?? null;
+          const { data: bl } = await (supabase.from('lending_agent_loans' as any)
+            .select('*').eq('lender_agent_id', u.user.id).eq('borrower_ai_id', loan.borrower_ai_id).limit(200) as any);
+          const groups = new Map<string, { label: string; loans: number; totalDue: number; repaid: number; outstanding: number }>();
+          for (const l of ((bl ?? [loan]) as LendingLoan[])) {
+            const meta = fundingSourceMeta(l.funding_source);
+            const g = groups.get(meta.label) ?? { label: meta.label, loans: 0, totalDue: 0, repaid: 0, outstanding: 0 };
+            g.loans += 1;
+            g.totalDue += l.principal_ugx + (l.principal_ugx * (Number(l.interest_rate_pct) || 0)) / 100;
+            g.repaid += Number(l.amount_repaid_ugx) || 0;
+            g.outstanding += outstandingOf(l);
+            groups.set(meta.label, g);
+          }
+          fundingBreakdown = [...groups.values()];
+        }
+      } catch { /* optional */ }
+      const blob = await generateRepaymentHistoryPdf({
+        agentName,
+        borrowerName: name,
+        borrowerPhone: loan.borrower_phone,
+        principal: loan.principal_ugx,
+        ratePct: rate,
+        totalDue,
+        amountRepaid: Number(loan.amount_repaid_ugx) || 0,
+        outstanding,
+        takenOn: loan.created_at,
+        dueDate: loan.expected_repayment_date,
+        status: loan.status,
+        fundingLabel: funding.label,
+        fundingBreakdown,
+        filterNote: (pdfFrom || pdfTo || pdfStatus !== 'all')
+          ? [pdfFrom || pdfTo ? `${pdfFrom || 'start'} to ${pdfTo || 'today'}` : '', pdfStatus === 'on_time' ? 'on-time payments' : pdfStatus === 'late' ? 'late payments' : ''].filter(Boolean).join(', ')
+          : null,
+        payments: filterPayments(data ?? [], pdfFrom, pdfTo, pdfStatus, loan.expected_repayment_date),
+      });
+      const file = new File([blob], `repayment-history-${name.replace(/\W+/g, '-')}.pdf`, { type: 'application/pdf' });
+      setPdfOpen(false);
+      setPdfPreview({ file, url: URL.createObjectURL(file) });
+    } catch {
+      toast.error('Could not create the PDF. Try again.');
+    } finally {
+      setPdfBusy(false);
+    }
+  };
+
+  const sharePreview = async () => {
+    if (!pdfPreview) return;
+    const { file, url } = pdfPreview;
+    const nav: any = navigator;
+    if (nav.canShare?.({ files: [file] })) {
+      try { await nav.share({ files: [file], title: 'Repayment history' }); return; } catch (e: any) { if (e?.name === 'AbortError') return; }
+    }
+    const a = document.createElement('a');
+    a.href = url; a.download = file.name; a.click();
+  };
+
   const submitPayment = async () => {
     const amt = Number(payAmount);
     if (!amt || amt <= 0) { toast.error('Enter a valid amount'); return; }
@@ -161,6 +252,24 @@ export default function LendingBorrowerCard({ loan, onRecordRepayment, onTopUpOr
       setSaving(false);
     }
   };
+
+  // Repayment history for this loan, labeled with the funding source the
+  // money came from (repayments return to that same source).
+  useEffect(() => {
+    if (!expanded) { setHistory(null); return; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await (supabase
+        .from('lending_audit_log' as any)
+        .select('amount_ugx, created_at')
+        .eq('entity_id', loan.id)
+        .eq('action_type', 'repayment_recorded')
+        .order('created_at', { ascending: false })
+        .limit(50) as any);
+      if (!cancelled) setHistory((data ?? []) as { amount_ugx: number; created_at: string }[]);
+    })();
+    return () => { cancelled = true; };
+  }, [expanded, loan.id]);
 
   return (
     <Card className="border-border/60 overflow-hidden">
@@ -181,6 +290,7 @@ export default function LendingBorrowerCard({ loan, onRecordRepayment, onTopUpOr
               </div>
             </div>
             <div className="flex flex-col items-end gap-1 shrink-0">
+              <Badge className={`${funding.cls} border-0 text-[9px] font-bold`}>{funding.label}</Badge>
               <Badge className={`${statusStyle.cls} border-0 text-[9px] font-bold`}>{statusStyle.label}</Badge>
               {inRecovery && <Badge className="bg-destructive/15 text-destructive border-0 text-[9px] font-bold">In recovery</Badge>}
               {dueStyle && (
@@ -205,6 +315,17 @@ export default function LendingBorrowerCard({ loan, onRecordRepayment, onTopUpOr
                   Due {new Date(loan.expected_repayment_date).toLocaleDateString()}
                 </p>
               )}
+            </div>
+          </div>
+
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <div className="rounded-lg bg-muted/50 px-2.5 py-1.5">
+              <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold">Accessed</p>
+              <p className="text-sm font-bold text-foreground">{formatUGX(accessed)}</p>
+            </div>
+            <div className="rounded-lg bg-primary/10 px-2.5 py-1.5">
+              <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold">Available top-up</p>
+              <p className="text-sm font-bold text-primary">{availableTopUp === null ? '…' : formatUGX(availableTopUp)}</p>
             </div>
           </div>
 
@@ -245,6 +366,21 @@ export default function LendingBorrowerCard({ loan, onRecordRepayment, onTopUpOr
           )}
         </button>
 
+        {/* Quick top-up — one tap straight to the top-up form */}
+        {isOpen && mode !== 'add' && (
+          <div className="border-t border-border/60 px-3.5 py-2.5">
+            <Button
+              className="h-11 w-full gap-2 text-sm font-bold"
+              onClick={() => { setExpanded(true); setMode('add'); }}
+            >
+              <PlusCircle className="h-4 w-4" /> Top up
+              {availableTopUp !== null && availableTopUp > 0 && (
+                <span className="text-[11px] font-semibold opacity-80">· up to {formatUGX(availableTopUp)}</span>
+              )}
+            </Button>
+          </div>
+        )}
+
         {/* Expanded actions — big picture buttons, few words */}
         {expanded && (
           <motion.div
@@ -272,6 +408,30 @@ export default function LendingBorrowerCard({ loan, onRecordRepayment, onTopUpOr
               </div>
             )}
 
+            {/* Repayment history — each payment labeled with where the money goes */}
+            {history !== null && (
+              <div className="rounded-xl bg-background border p-3 space-y-1.5">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
+                  Repayment history · funded from {funding.label}
+                </p>
+                {history.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No payments recorded yet.</p>
+                ) : (
+                  history.map((r, i) => (
+                    <div key={i} className="flex items-center justify-between gap-2 text-xs">
+                      <span className="text-muted-foreground">
+                        {new Date(r.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </span>
+                      <span className="flex items-center gap-1.5 min-w-0">
+                        <span className={`rounded px-1 py-0.5 text-[9px] font-bold whitespace-nowrap ${funding.cls}`}>{funding.label}</span>
+                        <span className="font-semibold tabular-nums">{formatUGX(Number(r.amount_ugx))}</span>
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
             <div className="grid grid-cols-3 gap-2">
               <Button variant="outline" className="h-16 flex-col gap-1 text-xs font-semibold" onClick={() => contact('call')}>
                 <Phone className="h-6 w-6 text-primary" /> Call
@@ -288,6 +448,52 @@ export default function LendingBorrowerCard({ loan, onRecordRepayment, onTopUpOr
               {sharing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4 text-primary" />}
               Share repayment history on WhatsApp
             </Button>
+
+            <Button variant="outline" className="h-11 w-full gap-2 text-xs font-semibold" onClick={() => setPdfOpen(true)} disabled={pdfBusy}>
+              {pdfBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4 text-primary" />}
+              Repayment history PDF (share or save)
+            </Button>
+
+            {pdfOpen && (
+              <div className="rounded-xl border bg-muted/30 p-3 space-y-3">
+                <p className="text-xs font-semibold">PDF filters</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="text-[10px] text-muted-foreground">From
+                    <Input type="date" value={pdfFrom} max={pdfTo || undefined} onChange={(e) => setPdfFrom(e.target.value)} className="h-10 mt-1" />
+                  </label>
+                  <label className="text-[10px] text-muted-foreground">To
+                    <Input type="date" value={pdfTo} min={pdfFrom || undefined} onChange={(e) => setPdfTo(e.target.value)} className="h-10 mt-1" />
+                  </label>
+                </div>
+                <div className="flex gap-1.5">
+                  {([['all', 'All payments'], ['on_time', 'On time'], ['late', 'Late']] as const).map(([k, l]) => (
+                    <Button key={k} type="button" size="sm" variant={pdfStatus === k ? 'default' : 'outline'}
+                      className="h-9 flex-1 text-xs" onClick={() => setPdfStatus(k)}>{l}</Button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-muted-foreground">On time = paid on or before the loan's due date.</p>
+                <div className="flex gap-2">
+                  <Button variant="ghost" className="h-10 flex-1 text-xs" onClick={() => setPdfOpen(false)}>Cancel</Button>
+                  <Button className="h-10 flex-1 text-xs gap-1.5" onClick={downloadPdf} disabled={pdfBusy}>
+                    {pdfBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />} Preview PDF
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <Dialog open={!!pdfPreview} onOpenChange={(o) => { if (!o) closePreview(); }}>
+              <DialogContent className="max-w-2xl w-[calc(100vw-1rem)] h-[90vh] p-3 flex flex-col gap-2">
+                <DialogHeader><DialogTitle className="text-sm">Preview: repayment history</DialogTitle></DialogHeader>
+                {pdfPreview && (
+                  <PdfPagePreview url={pdfPreview.url} />
+                )}
+                <div className="grid grid-cols-3 gap-2">
+                  <Button variant="ghost" className="h-11 text-xs" onClick={closePreview}>Close</Button>
+                  <Button variant="outline" className="h-11 text-xs" onClick={() => pdfPreview && window.open(pdfPreview.url, '_blank')}>Open full</Button>
+                  <Button className="h-11 text-xs gap-1.5" onClick={sharePreview}><Share2 className="h-4 w-4" />Share / Save</Button>
+                </div>
+              </DialogContent>
+            </Dialog>
 
             {isOpen && onSetRecovery && (inRecovery || due === 'overdue') && (
               <Button variant={inRecovery ? 'secondary' : 'destructive'} className="h-11 w-full gap-2 text-xs font-semibold"

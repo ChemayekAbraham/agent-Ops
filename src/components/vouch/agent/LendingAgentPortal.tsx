@@ -35,11 +35,23 @@ import { motion } from 'framer-motion';
 import LendingStatCards from './LendingStatCards';
 import LendingBorrowerCard from './LendingBorrowerCard';
 import LendFloatWizard from './LendFloatWizard';
+import { ownMoneySummary, repaymentProgressBySource } from './lendingHelpers';
+import LendingUserDirectory from './LendingUserDirectory';
+import { ArrowLeft, ArrowRight, MoreHorizontal, UserPlus } from 'lucide-react';
+import { SheetTitle } from '@/components/ui/sheet';
 import {
   LendingLoan, computeStats, matchesFilter, matchesSearch, dueStateOf,
   StatusFilter,
   RepaymentFrequency, REPAYMENT_FREQUENCIES, buildSchedule,
+  fundingSourceMeta, normalizeFundingSource, FundingSource,
 } from './lendingHelpers';
+
+/** Funding-source filter chips for the Activity log. */
+const FUNDING_FILTERS: { key: 'all' | FundingSource; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'withdrawable', label: 'My own money' },
+  { key: 'float', label: 'Operational float' },
+];
 
 interface Props {
   open: boolean;
@@ -50,12 +62,18 @@ type Tab = 'borrowers' | 'requests' | 'offers' | 'activity';
 
 const PLATFORM_FEE_PCT = 0.01; // 1% per Lending Agent Agreement §4.3
 
-const FILTERS: { key: StatusFilter; label: string }[] = [
+type BorrowerFilter = StatusFilter | 'recovery' | 'partially_repaid' | 'defaulted' | 'cancelled' | 'written_off';
+const FILTERS: { key: BorrowerFilter; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'overdue', label: 'Overdue' },
   { key: 'due_today', label: 'Due today' },
   { key: 'active', label: 'Active' },
   { key: 'repaid', label: 'Repaid' },
+  { key: 'partially_repaid', label: 'Part-paid' },
+  { key: 'recovery', label: 'In recovery' },
+  { key: 'defaulted', label: 'Defaulted' },
+  { key: 'cancelled', label: 'Cancelled' },
+  { key: 'written_off', label: 'Written off' },
 ];
 
 export default function LendingAgentPortal({ open, onOpenChange }: Props) {
@@ -63,6 +81,8 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
   const { snapshot, loading: trustLoading } = useMyTrustScore();
   const { withdrawableBalance, commissionBalance, floatBalance, refetch: refetchBalances } = useAgentBalances();
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [view, setView] = useState<'home' | 'lend' | 'directory' | 'borrowers' | 'topup' | 'more'>('home');
+  const [wizardPhone, setWizardPhone] = useState('');
   const { isAccepted, acceptAgreement, isLoading: agreementLoading } = useLendingAgentAgreement();
 
   const [showAgreement, setShowAgreement] = useState(false);
@@ -70,8 +90,11 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
   const [loansLoading, setLoansLoading] = useState(false);
 
   const [tab, setTab] = useState<Tab>('borrowers');
+  const [fundingFilter, setFundingFilter] = useState<'all' | FundingSource>('all');
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+  const [borrowerPage, setBorrowerPage] = useState(0);
+  const BORROWER_PAGE_SIZE = 5;
+  const [statusFilter, setStatusFilter] = useState<BorrowerFilter>('all');
 
   // Borrower lookup (phone number or AI ID)
   const [aiIdInput, setAiIdInput] = useState('');
@@ -132,6 +155,7 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
   // Load my disbursed loans when sheet opens
   useEffect(() => {
     if (!open || !user) return;
+    setView('home');
     setLoansLoading(true);
     (async () => {
       await reloadLoans();
@@ -487,8 +511,26 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
 
   const stats = useMemo(() => computeStats(loans), [loans]);
 
+  // Activity log filtered by funding source. Non-money rows (status changes,
+  // agreement actions) only appear under "All".
+  const fundingFilteredAudit = useMemo(() => {
+    if (fundingFilter === 'all') return auditLog;
+    return auditLog.filter((a) => {
+      const isMoneyMove = a.action_type === 'loan_disbursed' || a.action_type === 'repayment_recorded';
+      if (!isMoneyMove) return false;
+      const src = (a.details as any)?.funding_source
+        ?? loans.find((l) => l.id === a.entity_id)?.funding_source;
+      return normalizeFundingSource(src) === fundingFilter;
+    });
+  }, [auditLog, loans, fundingFilter]);
+
   const filteredLoans = useMemo(() => {
-    const list = loans.filter((l) => matchesFilter(l, statusFilter) && matchesSearch(l, search));
+    const list = loans.filter((l) => {
+      const matchesStatus = statusFilter === 'recovery' ? !!l.recovery_started_at
+        : ['partially_repaid', 'defaulted', 'cancelled', 'written_off'].includes(statusFilter) ? l.status === statusFilter
+        : matchesFilter(l, statusFilter as StatusFilter);
+      return matchesStatus && matchesSearch(l, search);
+    });
     // Sort: overdue first, then due today, then soonest due, then newest.
     const rank = (l: LendingLoan) => {
       const ds = dueStateOf(l);
@@ -505,18 +547,33 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
     });
   }, [loans, statusFilter, search]);
 
+  useEffect(() => { setBorrowerPage(0); }, [statusFilter, search, view]);
+  const borrowerPageCount = Math.max(1, Math.ceil(filteredLoans.length / BORROWER_PAGE_SIZE));
+  const safeBorrowerPage = Math.min(borrowerPage, borrowerPageCount - 1);
+  const pagedLoans = filteredLoans.slice(safeBorrowerPage * BORROWER_PAGE_SIZE, (safeBorrowerPage + 1) * BORROWER_PAGE_SIZE);
+  const pagedAiIds = pagedLoans.map((l) => l.borrower_ai_id).filter(Boolean).join(',');
+  const [vouchByAiId, setVouchByAiId] = useState<Record<string, number>>({});
+  useEffect(() => {
+    const ids = pagedAiIds ? pagedAiIds.split(',') : [];
+    if (!ids.length) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await (supabase.from('welile_trust_score_cache' as any).select('ai_id, borrowing_limit_ugx').in('ai_id', ids) as any);
+      if (cancelled || !data) return;
+      const m: Record<string, number> = {};
+      (data as any[]).forEach((r) => { m[r.ai_id] = Number(r.borrowing_limit_ugx) || 0; });
+      setVouchByAiId((prev) => ({ ...prev, ...m }));
+    })();
+    return () => { cancelled = true; };
+  }, [pagedAiIds]);
+
   const pendingCount = requests.filter((r) => r.status === 'pending').length;
   const activeOffers = offers.filter((o) => o.active).length;
 
   const goToNewLoan = () => {
-    setTab('offers');
-    setActiveAiId(null);
-    setShowLoanForm(false);
-    setAiIdInput('');
-    setTimeout(() => {
-      borrowerInputRef.current?.focus();
-      borrowerInputRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }, 60);
+    setView('lend');
+    setWizardPhone('');
+    setWizardOpen(true);
   };
 
   const TABS: { key: Tab; label: string; Icon: typeof Users; badge?: number }[] = [
@@ -530,51 +587,51 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className="h-[96dvh] overflow-y-auto rounded-t-3xl p-0"
+        className="h-[96dvh] overflow-y-auto rounded-t-lg p-0"
       >
-        {/* Sticky header */}
-        <div className="sticky top-0 z-20 bg-background/95 backdrop-blur-md border-b border-border/60 px-4 pt-4 pb-3">
-          <div className="flex items-center justify-between gap-2 mb-3">
-            <div className="flex min-w-0 items-center gap-2.5">
-              <div className="h-10 w-10 shrink-0 rounded-2xl bg-gradient-to-br from-emerald-500 to-primary flex items-center justify-center shadow-sm">
-                <Banknote className="h-5 w-5 text-white" />
-              </div>
-              <div className="min-w-0">
-                <p className="truncate text-base font-bold text-foreground tracking-tight leading-none">Lending Agent</p>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Score {trustScore} · Manage your borrowers</p>
-              </div>
-            </div>
-            <LenderInviteShare aiId={myAiId} displayName={myName} variant="icon" />
-          </div>
-
-
-          {/* Material-style segmented tabs */}
-          <div className="grid grid-cols-4 gap-1 rounded-2xl bg-muted/60 p-1">
-            {TABS.map(({ key, label, Icon, badge }) => (
-              <button
-                key={key}
-                onClick={() => setTab(key)}
-                className={`relative flex min-h-[52px] flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[10px] font-semibold leading-none transition-colors ${
-                  tab === key ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground'
-                }`}
-              >
-                <Icon className="h-[18px] w-[18px]" />
-                {label}
-                {badge != null && badge > 0 && (
-                  <span className="absolute top-0.5 right-1.5 min-w-[16px] h-[16px] px-1 rounded-full bg-primary text-primary-foreground text-[8px] font-bold flex items-center justify-center">
-                    {badge}
-                  </span>
-                )}
-              </button>
-            ))}
+        <div className="sticky top-0 z-20 border-b border-border bg-background/95 px-4 py-3 pr-12 backdrop-blur-md sm:px-5 sm:py-5">
+          <div className="mx-auto flex max-w-3xl items-center gap-3">
+            {view !== 'home' && <Button variant="ghost" size="icon" aria-label="Back to lending home" onClick={() => setView('home')}><ArrowLeft className="h-5 w-5" /></Button>}
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><Banknote className="h-6 w-6" /></div>
+            <SheetTitle className="text-lg font-semibold sm:text-xl text-foreground">{view === 'home' ? 'Lending Agent' : view === 'lend' ? 'Lend' : view === 'directory' ? 'See users that I can lend to' : view === 'topup' ? 'Top up current borrowers' : view === 'borrowers' ? 'My current borrowers' : 'More'}</SheetTitle>
           </div>
         </div>
 
-        <div className="px-4 pt-4 pb-[calc(3rem+env(safe-area-inset-bottom))]">
+        <div className="mx-auto max-w-3xl px-4 pt-4 pb-[calc(3rem+env(safe-area-inset-bottom))] sm:px-5 sm:pt-6">
           {trustLoading || agreementLoading ? (
             <Skeleton className="h-40 w-full rounded-2xl" />
           ) : (
             <>
+              {view === 'home' && (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {[
+                    { key: 'lend' as const, title: 'Lend', Icon: UserPlus, tone: 'bg-primary/10 text-primary' },
+                    { key: 'directory' as const, title: 'See users that I can lend to', Icon: ShieldCheck, tone: 'bg-success/10 text-success' },
+                    { key: 'borrowers' as const, title: 'My current borrowers', Icon: Users, tone: 'bg-info/10 text-info' },
+                    { key: 'more' as const, title: 'More', Icon: MoreHorizontal, tone: 'bg-muted text-muted-foreground' },
+                  ].map(({ key, title, Icon, tone }) => (
+                    <Button key={key} variant="outline" onClick={() => { setView(key); setTab(key === 'more' ? 'requests' : 'borrowers'); setStatusFilter('all'); setSearch(''); }}
+                      className="h-auto min-h-[5.5rem] justify-start gap-3 whitespace-normal rounded-lg border-border bg-card p-4 text-left text-base font-semibold hover:bg-accent active:scale-[0.99] sm:min-h-32 sm:gap-4 sm:p-5 sm:text-lg">
+                      <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-lg ${tone}`}><Icon className="h-6 w-6" /></span>
+                      <span className="min-w-0 flex-1 break-words">{title}</span><ArrowRight className="h-5 w-5 shrink-0 text-muted-foreground" />
+                    </Button>
+                  ))}
+                </div>
+              )}
+              {view === 'lend' && (
+                <section className="space-y-5">
+                  <div className="border-b border-border pb-5"><p className="text-sm text-muted-foreground">Operational float available</p><p className="mt-1 text-2xl font-semibold sm:text-3xl">{formatUGX(Math.max(0, floatBalance || 0))}</p></div>
+                  <Button className="h-14 w-full justify-start gap-3 text-base" onClick={() => { setWizardPhone(''); setWizardOpen(true); }}><UserPlus className="h-5 w-5" />Lend to new borrowers<ArrowRight className="ml-auto h-5 w-5" /></Button>
+                  <Button variant="outline" className="h-14 w-full justify-start gap-3 text-base" onClick={() => { setView('topup'); setStatusFilter('active'); setSearch(''); }}><Plus className="h-5 w-5" />Top up current borrowers<ArrowRight className="ml-auto h-5 w-5" /></Button>
+                  {!isAccepted && <Button variant="outline" onClick={() => setShowAgreement(true)}><FileText className="mr-2 h-4 w-4" />Read &amp; sign lending terms</Button>}
+                </section>
+              )}
+              {view === 'directory' && <LendingUserDirectory onLend={phone => { setWizardPhone(phone); setWizardOpen(true); }} />}
+              {view === 'more' && <>
+                <div className="mb-5 flex flex-wrap gap-2">
+                  {TABS.filter(t => t.key !== 'borrowers').map(({ key, label, Icon, badge }) => <Button key={key} variant={tab === key ? 'default' : 'outline'} onClick={() => setTab(key)}><Icon className="mr-2 h-4 w-4" />{label}{badge ? <span className="ml-2">{badge}</span> : null}</Button>)}
+                  <Button variant="outline" onClick={() => setShowAgreement(true)}><FileText className="mr-2 h-4 w-4" />Terms</Button>
+                </div>
               {/* Borrower acquisition — shareable public link */}
               <div className="mb-4">
                 <LenderInviteShare aiId={myAiId} displayName={myName} />
@@ -624,8 +681,10 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
                 </Card>
               )}
 
+              </>}
+
               {/* ===== BORROWERS TAB ===== */}
-              {tab === 'borrowers' && (
+              {(view === 'borrowers' || view === 'topup') && (
                 <>
                   <LendingStatCards stats={stats} onJump={(f) => setStatusFilter(f)} />
 
@@ -653,9 +712,12 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
                         f.key === 'overdue' ? stats.overdueCount :
                         f.key === 'due_today' ? stats.dueTodayCount :
                         f.key === 'active' ? stats.activeCount :
-                        f.key === 'repaid' ? stats.repaidCount : loans.length;
+                        f.key === 'repaid' ? stats.repaidCount :
+                        f.key === 'all' ? loans.length :
+                        f.key === 'recovery' ? loans.filter(l => !!l.recovery_started_at).length :
+                        loans.filter(l => l.status === f.key).length;
                       return (
-                        <button
+                        <Button
                           key={f.key}
                           onClick={() => setStatusFilter(f.key)}
                           className={`shrink-0 inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition-colors ${
@@ -664,10 +726,53 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
                         >
                           {f.label}
                           <span className={`text-[10px] ${active ? 'opacity-90' : 'opacity-70'}`}>{count}</span>
-                        </button>
+                        </Button>
                       );
                     })}
                   </div>
+
+                  {(() => {
+                    const s = ownMoneySummary(loans);
+                    if (s.count === 0) return null;
+                    return (
+                      <div className="rounded-xl border bg-violet-500/5 p-3">
+                        <p className="text-xs font-semibold mb-2">My own money · {s.count} loan{s.count === 1 ? '' : 's'}</p>
+                        <div className="grid grid-cols-3 gap-2 text-center">
+                          <div><p className="text-[10px] text-muted-foreground">Lent out</p><p className="text-xs font-bold">UGX {s.lent.toLocaleString()}</p></div>
+                          <div><p className="text-[10px] text-muted-foreground">Awaiting repayment</p><p className="text-xs font-bold">UGX {s.awaiting.toLocaleString()}</p></div>
+                          <div><p className="text-[10px] text-muted-foreground">Returned</p><p className="text-xs font-bold">UGX {s.returned.toLocaleString()}</p></div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {(() => {
+                    const p = repaymentProgressBySource(loans);
+                    if (p.float.count + p.withdrawable.count === 0) return null;
+                    const rows = [
+                      { key: 'float', label: 'Operational float', bar: 'bg-sky-500', d: p.float },
+                      { key: 'withdrawable', label: 'My own money', bar: 'bg-violet-500', d: p.withdrawable },
+                    ];
+                    return (
+                      <div className="rounded-xl border p-3 space-y-3">
+                        <p className="text-xs font-semibold">Repayment progress by funding source</p>
+                        {rows.map((r) => (
+                          <div key={r.key}>
+                            <div className="flex items-center justify-between text-xs mb-1">
+                              <span className="font-medium">{r.label} · {r.d.count} loan{r.d.count === 1 ? '' : 's'}</span>
+                              <span className="font-bold">{r.d.pct}% repaid</span>
+                            </div>
+                            <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                              <div className={`h-full ${r.bar}`} style={{ width: `${r.d.pct}%` }} />
+                            </div>
+                            <p className="text-[10px] text-muted-foreground mt-1">
+                              Repaid UGX {r.d.repaid.toLocaleString()} of UGX {r.d.due.toLocaleString()} · Still owed UGX {r.d.outstanding.toLocaleString()}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
 
                   {/* Loan list */}
                   {loansLoading ? (
@@ -697,16 +802,23 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
                     </Card>
                   ) : (
                     <div className="space-y-2.5">
-                      {filteredLoans.map((loan) => (
-                        <LendingBorrowerCard key={loan.id} loan={loan} onRecordRepayment={handleRecordRepayment} onTopUpOrRenew={handleTopUpOrRenew} onSetRecovery={handleSetRecovery} />
+                      {pagedLoans.map((loan) => (
+                        <LendingBorrowerCard key={loan.id} loan={loan} vouchLimit={vouchByAiId[loan.borrower_ai_id]} onRecordRepayment={handleRecordRepayment} onTopUpOrRenew={handleTopUpOrRenew} onSetRecovery={handleSetRecovery} />
                       ))}
+                      {borrowerPageCount > 1 && (
+                        <nav aria-label="Borrower pages" className="flex items-center justify-between gap-2 pt-2">
+                          <Button variant="outline" size="sm" className="h-10" disabled={safeBorrowerPage === 0} onClick={() => setBorrowerPage(safeBorrowerPage - 1)}>Previous</Button>
+                          <span className="text-xs text-muted-foreground">Page {safeBorrowerPage + 1} of {borrowerPageCount}</span>
+                          <Button variant="outline" size="sm" className="h-10" disabled={safeBorrowerPage >= borrowerPageCount - 1} onClick={() => setBorrowerPage(safeBorrowerPage + 1)}>Next</Button>
+                        </nav>
+                      )}
                     </div>
                   )}
                 </>
               )}
 
               {/* ===== REQUESTS TAB ===== */}
-              {tab === 'requests' && (
+              {view === 'more' && tab === 'requests' && (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between mb-1">
                     <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
@@ -758,13 +870,12 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
               )}
 
               {/* ===== OFFERS TAB (offers + borrower lookup + new loan) ===== */}
-              {tab === 'offers' && (
+              {view === 'more' && tab === 'offers' && (
                 <>
                   <Button className="w-full h-16 text-lg font-bold rounded-2xl mb-3" onClick={() => setWizardOpen(true)}>
                     <Plus className="h-5 w-5 mr-2" />Lend float
                   </Button>
-                  <LendFloatWizard open={wizardOpen} onOpenChange={setWizardOpen} floatAvailable={Math.max(0, floatBalance || 0)}
-                    onDone={() => { refetchBalances(); reloadLoans(); setTab('borrowers'); }} />
+
                   {/* Lendable pool */}
                   <Card className="border-emerald-500/30 bg-gradient-to-br from-emerald-500/10 to-primary/5 mb-4">
                     <CardContent className="p-4">
@@ -1039,7 +1150,7 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
               )}
 
               {/* ===== ACTIVITY TAB ===== */}
-              {tab === 'activity' && (
+              {view === 'more' && tab === 'activity' && (
                 <div className="space-y-2">
                   <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
                     <ScrollText className="h-3.5 w-3.5" /> Activity Log
@@ -1052,13 +1163,50 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
                       </CardContent>
                     </Card>
                   ) : (
-                    <div className="space-y-1.5">
-                      {auditLog.map((a) => {
+                    <>
+                      {/* Funding-source filter — show only My own money or Operational float activity */}
+                      <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+                        {FUNDING_FILTERS.map((f) => (
+                          <Button
+                            key={f.key}
+                            variant={fundingFilter === f.key ? 'default' : 'outline'}
+                            className="h-8 shrink-0 rounded-full px-3 text-[11px] font-bold"
+                            onClick={() => setFundingFilter(f.key)}
+                          >
+                            {f.label}
+                          </Button>
+                        ))}
+                      </div>
+                      {fundingFilteredAudit.length === 0 ? (
+                        <Card className="border-dashed">
+                          <CardContent className="p-6 text-center">
+                            <p className="text-xs text-muted-foreground">
+                              No {FUNDING_FILTERS.find((f) => f.key === fundingFilter)?.label.toLowerCase()} activity yet.
+                            </p>
+                          </CardContent>
+                        </Card>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {fundingFilteredAudit.map((a) => {
                         const label = (a.action_type as string).replace(/_/g, ' ');
+                        // Disbursement/repayment rows get a funding-source label:
+                        // disbursement reads it from the audit details, repayment
+                        // falls back to the loan it belongs to.
+                        const isMoneyMove = a.action_type === 'loan_disbursed' || a.action_type === 'repayment_recorded';
+                        const src = isMoneyMove
+                          ? ((a.details as any)?.funding_source
+                            ?? loans.find((l) => l.id === a.entity_id)?.funding_source)
+                          : null;
+                        const fm = src != null ? fundingSourceMeta(src) : null;
                         return (
                           <div key={a.id} className="flex items-start justify-between gap-2 rounded-xl border border-border/50 px-3 py-2.5">
                             <div className="min-w-0">
-                              <p className="text-[11px] font-semibold capitalize text-foreground">{label}</p>
+                              <p className="text-[11px] font-semibold capitalize text-foreground flex items-center gap-1.5 flex-wrap">
+                                {label}
+                                {fm && (
+                                  <span className={`rounded px-1 py-px text-[8px] font-bold ${fm.cls}`}>{fm.label}</span>
+                                )}
+                              </p>
                               <p className="text-[10px] text-muted-foreground truncate">
                                 {a.actor_display_name ?? 'User'}
                                 {a.amount_ugx != null ? ` · ${formatUGX(Number(a.amount_ugx))}` : ''}
@@ -1072,7 +1220,9 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
                           </div>
                         );
                       })}
-                    </div>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               )}
@@ -1080,15 +1230,8 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
           )}
         </div>
 
-        {/* Floating New Loan button (borrowers tab) */}
-        {tab === 'borrowers' && !loansLoading && (
-          <button
-            onClick={goToNewLoan}
-            className="fixed bottom-6 right-5 z-30 h-14 px-5 rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/30 flex items-center gap-2 font-semibold text-sm active:scale-95 transition-transform"
-          >
-            <Plus className="h-5 w-5" /> New Loan
-          </button>
-        )}
+        <LendFloatWizard key={wizardOpen ? `open-${wizardPhone}` : 'closed'} open={wizardOpen} onOpenChange={setWizardOpen} initialPhone={wizardPhone} floatAvailable={Math.max(0, floatBalance || 0)} withdrawableAvailable={Math.max(0, withdrawableBalance || 0)}
+          onDone={() => { refetchBalances(); reloadLoans(); setView('borrowers'); setStatusFilter('all'); }} />
 
         <LendingAgentAgreementModal
           isOpen={showAgreement}
