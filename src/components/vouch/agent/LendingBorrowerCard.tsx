@@ -12,6 +12,7 @@ import { formatUGX } from '@/lib/rentCalculations';
 import { generateRepaymentHistoryPdf, filterPayments, PaymentStatusFilter } from '@/lib/lendingRepaymentPdf';
 import { LendingLoan, outstandingOf, dueStateOf, normalizePhone, repaymentPlanOf, fundingSourceMeta } from './lendingHelpers';
 import { toast } from 'sonner';
+import PdfPagePreview from './PdfPagePreview';
 import { supabase } from '@/integrations/supabase/client';
 import { motion } from 'framer-motion';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -484,7 +485,7 @@ export default function LendingBorrowerCard({ loan, vouchLimit, onRecordRepaymen
               <DialogContent className="max-w-2xl w-[calc(100vw-1rem)] h-[90vh] p-3 flex flex-col gap-2">
                 <DialogHeader><DialogTitle className="text-sm">Preview: repayment history</DialogTitle></DialogHeader>
                 {pdfPreview && (
-                  <iframe title="Repayment history preview" src={pdfPreview.url} className="flex-1 w-full rounded-md border bg-muted" />
+                  <PdfPagePreview url={pdfPreview.url} />
                 )}
                 <div className="grid grid-cols-3 gap-2">
                   <Button variant="ghost" className="h-11 text-xs" onClick={closePreview}>Close</Button>

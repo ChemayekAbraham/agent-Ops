@@ -96,6 +96,7 @@
     "lucide-react": "^0.462.0",
     "motion": "^13.1.0",
     "next-themes": "^0.3.0",
+    "pdfjs-dist": "4.4.168",
     "pptxgenjs": "^4.0.1",
     "qrcode": "^1.5.4",
     "qrcode.react": "^4.2.0",
