@@ -44587,6 +44587,72 @@ export type Database = {
           },
         ]
       }
+      smartphone_roi_pledge_applications: {
+        Row: {
+          applied_amount: number
+          created_at: string
+          id: string
+          outstanding_after: number
+          plan_id: string
+          pledged_amount: number
+          reference: string
+          roi_amount: number
+          user_id: string
+        }
+        Insert: {
+          applied_amount: number
+          created_at?: string
+          id?: string
+          outstanding_after: number
+          plan_id: string
+          pledged_amount: number
+          reference: string
+          roi_amount: number
+          user_id: string
+        }
+        Update: {
+          applied_amount?: number
+          created_at?: string
+          id?: string
+          outstanding_after?: number
+          plan_id?: string
+          pledged_amount?: number
+          reference?: string
+          roi_amount?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      smartphone_roi_pledges: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          mode: string
+          updated_at: string
+          user_id: string
+          value: number
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          mode: string
+          updated_at?: string
+          user_id: string
+          value: number
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          mode?: string
+          updated_at?: string
+          user_id?: string
+          value?: number
+        }
+        Relationships: []
+      }
       smartphone_test_allowlist: {
         Row: {
           active: boolean
@@ -61369,6 +61435,10 @@ export type Database = {
         Returns: Json
       }
       apply_smartphone_overdue_surcharges: { Args: never; Returns: Json }
+      apply_smartphone_roi_pledge: {
+        Args: { p_reference: string; p_roi_amount: number; p_user_id: string }
+        Returns: Json
+      }
       apply_tier_capabilities: {
         Args: {
           _actor: string
@@ -67519,6 +67589,7 @@ export type Database = {
           unlocked_at: string
         }[]
       }
+      get_my_smartphone_journey: { Args: never; Returns: Json }
       get_my_subagent_profiles: {
         Args: never
         Returns: {
@@ -69160,6 +69231,7 @@ export type Database = {
           window_start: string
         }[]
       }
+      has_active_smartphone_plan: { Args: { p_user: string }; Returns: boolean }
       has_agent_capability: {
         Args: { _agent_id: string; _capability: string }
         Returns: boolean
@@ -74407,6 +74479,10 @@ export type Database = {
           p_enabled: boolean
           p_overdue_hours?: number
         }
+        Returns: Json
+      }
+      set_smartphone_roi_pledge: {
+        Args: { p_active?: boolean; p_mode: string; p_value: number }
         Returns: Json
       }
       set_staff_access_password: {

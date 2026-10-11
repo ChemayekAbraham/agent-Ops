@@ -145,7 +145,18 @@ const DashboardHeader = memo(function DashboardHeader({
     staleTime: 30_000,
   });
 
-  const canAccessAgentsSpace = isExecutive || isSpecialAgent;
+  const { data: hasPhonePlan = false } = useQuery({
+    queryKey: ['user-has-active-smartphone-plan'],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return false;
+      const { data } = await supabase.rpc('has_active_smartphone_plan', { p_user: user.id });
+      return !!data;
+    },
+    staleTime: 60_000,
+  });
+
+  const canAccessAgentsSpace = isExecutive || isSpecialAgent || hasPhonePlan;
   const showRolePicker = availableRoles.length > 1 || canAccessAgentsSpace;
 
   return (

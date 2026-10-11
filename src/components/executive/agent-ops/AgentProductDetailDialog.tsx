@@ -10,6 +10,7 @@ import { UserAvatar } from '@/components/UserAvatar';
 import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
 import { SmartphoneRepaymentBreakdown } from './SmartphoneRepaymentBreakdown';
+import { AgentProductProgress } from './AgentProductProgress';
 
 interface AgentDetail {
   agent: {
@@ -253,6 +254,14 @@ export function AgentProductDetailDialog({ agentId, category, onClose }: Props) 
                   </p>
                 </div>
               </div>
+
+              {agentId && totals && (
+                <AgentProductProgress
+                  agentId={agentId}
+                  repaid={Number(totals.repaid || 0)}
+                  outstanding={Number(totals.outstanding || 0)}
+                />
+              )}
 
               {/* Partnership status */}
               <div className="rounded-xl border border-border p-2.5 space-y-2">

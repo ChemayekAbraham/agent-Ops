@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { AgentsSpacePanel } from '@/components/executive/AgentsSpacePanel';
+import { SmartphoneJourneyCard } from '@/components/merchandise/SmartphoneJourneyCard';
 import ScreenLoader from '@/components/common/ScreenLoader';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -37,11 +38,23 @@ export default function AgentsSpacePage() {
     staleTime: 30_000,
   });
 
-  if (authLoading || isCheckingDesignation) {
+  // Anyone repaying a released phone gets automatic access to their phone section.
+  const { data: hasPhonePlan = false, isLoading: isCheckingPhone } = useQuery({
+    queryKey: ['user-has-active-smartphone-plan', user?.id],
+    enabled: !!user?.id,
+    queryFn: async () => {
+      const { data } = await supabase.rpc('has_active_smartphone_plan', { p_user: user!.id });
+      return !!data;
+    },
+    staleTime: 60_000,
+  });
+
+  if (authLoading || isCheckingDesignation || isCheckingPhone) {
     return <ScreenLoader />;
   }
 
-  const hasAccess = isExecutive || isSpecialAgent;
+  const hasFullAccess = isExecutive || isSpecialAgent;
+  const hasAccess = hasFullAccess || hasPhonePlan;
 
   if (!hasAccess) {
     return (
@@ -69,8 +82,21 @@ export default function AgentsSpacePage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6">
-        <AgentsSpacePanel onBack={() => navigate('/dashboard')} />
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 py-4 sm:py-6 space-y-4">
+        {!hasFullAccess && (
+          <div className="flex items-center gap-2">
+            <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard')} className="gap-1">
+              <ArrowLeft className="h-4 w-4" /> Back
+            </Button>
+            <h1 className="text-lg font-bold">Agents' Space</h1>
+          </div>
+        )}
+        {hasPhonePlan && (
+          <div className="max-w-2xl">
+            <SmartphoneJourneyCard />
+          </div>
+        )}
+        {hasFullAccess && <AgentsSpacePanel onBack={() => navigate('/dashboard')} />}
       </div>
     </div>
   );
