@@ -511,6 +511,19 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
 
   const stats = useMemo(() => computeStats(loans), [loans]);
 
+  // Activity log filtered by funding source. Non-money rows (status changes,
+  // agreement actions) only appear under "All".
+  const fundingFilteredAudit = useMemo(() => {
+    if (fundingFilter === 'all') return auditLog;
+    return auditLog.filter((a) => {
+      const isMoneyMove = a.action_type === 'loan_disbursed' || a.action_type === 'repayment_recorded';
+      if (!isMoneyMove) return false;
+      const src = (a.details as any)?.funding_source
+        ?? loans.find((l) => l.id === a.entity_id)?.funding_source;
+      return normalizeFundingSource(src) === fundingFilter;
+    });
+  }, [auditLog, loans, fundingFilter]);
+
   const filteredLoans = useMemo(() => {
     const list = loans.filter((l) => {
       const matchesStatus = statusFilter === 'recovery' ? !!l.recovery_started_at
@@ -1122,8 +1135,31 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
                       </CardContent>
                     </Card>
                   ) : (
-                    <div className="space-y-1.5">
-                      {auditLog.map((a) => {
+                    <>
+                      {/* Funding-source filter — show only My own money or Operational float activity */}
+                      <div className="flex gap-1.5 overflow-x-auto pb-0.5">
+                        {FUNDING_FILTERS.map((f) => (
+                          <Button
+                            key={f.key}
+                            variant={fundingFilter === f.key ? 'default' : 'outline'}
+                            className="h-8 shrink-0 rounded-full px-3 text-[11px] font-bold"
+                            onClick={() => setFundingFilter(f.key)}
+                          >
+                            {f.label}
+                          </Button>
+                        ))}
+                      </div>
+                      {fundingFilteredAudit.length === 0 ? (
+                        <Card className="border-dashed">
+                          <CardContent className="p-6 text-center">
+                            <p className="text-xs text-muted-foreground">
+                              No {FUNDING_FILTERS.find((f) => f.key === fundingFilter)?.label.toLowerCase()} activity yet.
+                            </p>
+                          </CardContent>
+                        </Card>
+                      ) : (
+                        <div className="space-y-1.5">
+                          {fundingFilteredAudit.map((a) => {
                         const label = (a.action_type as string).replace(/_/g, ' ');
                         // Disbursement/repayment rows get a funding-source label:
                         // disbursement reads it from the audit details, repayment
