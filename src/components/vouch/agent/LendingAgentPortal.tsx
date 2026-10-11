@@ -82,6 +82,8 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
 
   const [tab, setTab] = useState<Tab>('borrowers');
   const [search, setSearch] = useState('');
+  const [borrowerPage, setBorrowerPage] = useState(0);
+  const BORROWER_PAGE_SIZE = 5;
   const [statusFilter, setStatusFilter] = useState<BorrowerFilter>('all');
 
   // Borrower lookup (phone number or AI ID)
@@ -522,6 +524,11 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
     });
   }, [loans, statusFilter, search]);
 
+  useEffect(() => { setBorrowerPage(0); }, [statusFilter, search, view]);
+  const borrowerPageCount = Math.max(1, Math.ceil(filteredLoans.length / BORROWER_PAGE_SIZE));
+  const safeBorrowerPage = Math.min(borrowerPage, borrowerPageCount - 1);
+  const pagedLoans = filteredLoans.slice(safeBorrowerPage * BORROWER_PAGE_SIZE, (safeBorrowerPage + 1) * BORROWER_PAGE_SIZE);
+
   const pendingCount = requests.filter((r) => r.status === 'pending').length;
   const activeOffers = offers.filter((o) => o.active).length;
 
@@ -714,9 +721,16 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
                     </Card>
                   ) : (
                     <div className="space-y-2.5">
-                      {filteredLoans.map((loan) => (
+                      {pagedLoans.map((loan) => (
                         <LendingBorrowerCard key={loan.id} loan={loan} onRecordRepayment={handleRecordRepayment} onTopUpOrRenew={handleTopUpOrRenew} onSetRecovery={handleSetRecovery} />
                       ))}
+                      {borrowerPageCount > 1 && (
+                        <nav aria-label="Borrower pages" className="flex items-center justify-between gap-2 pt-2">
+                          <Button variant="outline" size="sm" className="h-10" disabled={safeBorrowerPage === 0} onClick={() => setBorrowerPage(safeBorrowerPage - 1)}>Previous</Button>
+                          <span className="text-xs text-muted-foreground">Page {safeBorrowerPage + 1} of {borrowerPageCount}</span>
+                          <Button variant="outline" size="sm" className="h-10" disabled={safeBorrowerPage >= borrowerPageCount - 1} onClick={() => setBorrowerPage(safeBorrowerPage + 1)}>Next</Button>
+                        </nav>
+                      )}
                     </div>
                   )}
                 </>
