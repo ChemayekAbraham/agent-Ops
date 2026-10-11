@@ -35,7 +35,7 @@ import { motion } from 'framer-motion';
 import LendingStatCards from './LendingStatCards';
 import LendingBorrowerCard from './LendingBorrowerCard';
 import LendFloatWizard from './LendFloatWizard';
-import { ownMoneySummary } from './lendingHelpers';
+import { ownMoneySummary, repaymentProgressBySource } from './lendingHelpers';
 import LendingUserDirectory from './LendingUserDirectory';
 import { ArrowLeft, ArrowRight, MoreHorizontal, UserPlus } from 'lucide-react';
 import { SheetTitle } from '@/components/ui/sheet';
@@ -742,6 +742,34 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
                           <div><p className="text-[10px] text-muted-foreground">Awaiting repayment</p><p className="text-xs font-bold">UGX {s.awaiting.toLocaleString()}</p></div>
                           <div><p className="text-[10px] text-muted-foreground">Returned</p><p className="text-xs font-bold">UGX {s.returned.toLocaleString()}</p></div>
                         </div>
+                      </div>
+                    );
+                  })()}
+
+                  {(() => {
+                    const p = repaymentProgressBySource(loans);
+                    if (p.float.count + p.withdrawable.count === 0) return null;
+                    const rows = [
+                      { key: 'float', label: 'Operational float', bar: 'bg-sky-500', d: p.float },
+                      { key: 'withdrawable', label: 'My own money', bar: 'bg-violet-500', d: p.withdrawable },
+                    ];
+                    return (
+                      <div className="rounded-xl border p-3 space-y-3">
+                        <p className="text-xs font-semibold">Repayment progress by funding source</p>
+                        {rows.map((r) => (
+                          <div key={r.key}>
+                            <div className="flex items-center justify-between text-xs mb-1">
+                              <span className="font-medium">{r.label} · {r.d.count} loan{r.d.count === 1 ? '' : 's'}</span>
+                              <span className="font-bold">{r.d.pct}% repaid</span>
+                            </div>
+                            <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                              <div className={`h-full ${r.bar}`} style={{ width: `${r.d.pct}%` }} />
+                            </div>
+                            <p className="text-[10px] text-muted-foreground mt-1">
+                              Repaid UGX {r.d.repaid.toLocaleString()} of UGX {r.d.due.toLocaleString()} · Still owed UGX {r.d.outstanding.toLocaleString()}
+                            </p>
+                          </div>
+                        ))}
                       </div>
                     );
                   })()}

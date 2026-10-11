@@ -280,3 +280,27 @@ export function ownMoneySummary(loans: LendingLoan[]) {
   const awaiting = own.reduce((a, l) => a + outstandingOf(l), 0);
   return { count: own.length, lent, returned, awaiting };
 }
+
+/** Repayment progress per funding source: total due (principal + interest), repaid, still owed, % repaid. */
+export function repaymentProgressBySource(loans: LendingLoan[]) {
+  const out = {
+    float: { count: 0, due: 0, repaid: 0, outstanding: 0, pct: 0 },
+    withdrawable: { count: 0, due: 0, repaid: 0, outstanding: 0, pct: 0 },
+  };
+  for (const l of loans) {
+    const k = l.funding_source === 'withdrawable' ? 'withdrawable' : 'float';
+    const due = l.principal_ugx + (l.principal_ugx * (Number(l.interest_rate_pct) || 0)) / 100;
+    const o = out[k];
+    o.count += 1;
+    o.due += due;
+    o.outstanding += outstandingOf(l);
+    o.repaid += Math.min(due, Number(l.amount_repaid_ugx) || 0);
+  }
+  for (const k of ['float', 'withdrawable'] as const) {
+    const o = out[k];
+    o.due = Math.round(o.due);
+    o.repaid = Math.round(o.repaid);
+    o.pct = o.due > 0 ? Math.min(100, Math.round((o.repaid / o.due) * 100)) : 0;
+  }
+  return out;
+}
