@@ -3774,6 +3774,13 @@
       "when": 1791747969214,
       "tag": "0538_smartphone_journey_and_roi_pledge",
       "breakpoints": true
+    },
+    {
+      "idx": 539,
+      "version": "7",
+      "when": 1791748022338,
+      "tag": "0539_smartphone_pledge_event_nonfatal",
+      "breakpoints": true
     }
   ]
 }
