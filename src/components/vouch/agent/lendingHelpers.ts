@@ -12,11 +12,33 @@ export interface LendingLoan {
   expected_repayment_date: string | null;
   created_at: string;
   platform_fee_ugx: number;
+  funding_source?: string | null;
   repayment_frequency?: string | null;
   auto_deduct_enabled?: boolean | null;
   installment_ugx?: number | null;
   next_deduction_date?: string | null;
   recovery_started_at?: string | null;
+}
+
+// ===== Funding source labels =====
+// Every loan is funded either from the agent's operational float (company
+// money) or from the agent's own withdrawable balance. Repayments return to
+// the same source the loan came from, so one label covers the loan and all
+// of its repayments.
+
+export interface FundingSourceMeta {
+  label: string;
+  cls: string;
+}
+
+export const FUNDING_SOURCE_META: Record<'float' | 'withdrawable', FundingSourceMeta> = {
+  float: { label: 'Operational float', cls: 'bg-sky-500/15 text-sky-700' },
+  withdrawable: { label: 'My own money', cls: 'bg-violet-500/15 text-violet-700' },
+};
+
+/** Label/colors for a loan's funding source; unknown values fall back to float (the default). */
+export function fundingSourceMeta(source?: string | null): FundingSourceMeta {
+  return FUNDING_SOURCE_META[source === 'withdrawable' ? 'withdrawable' : 'float'];
 }
 
 /** Normalize a Ugandan phone number to international (256...) digits for tel/wa/sms links. */

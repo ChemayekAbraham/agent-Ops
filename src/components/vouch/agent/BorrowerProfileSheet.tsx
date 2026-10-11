@@ -12,6 +12,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Banknote, BadgeCheck, MapPin, Phone, ShieldCheck } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { formatLocation } from '@/lib/locationText';
+import { fundingSourceMeta } from './lendingHelpers';
 import { cn } from '@/lib/utils';
 
 export interface DirectoryPerson {
@@ -42,7 +43,7 @@ interface Props {
 export default function BorrowerProfileSheet({ person, onLend, onClose }: Props) {
   const { user } = useAuth();
   const [loans, setLoans] = useState<
-    { id: string; principal_ugx: number; amount_repaid_ugx: number; status: string; created_at: string; borrower_display_name: string | null }[]
+    { id: string; principal_ugx: number; amount_repaid_ugx: number; status: string; created_at: string; borrower_display_name: string | null; funding_source?: string | null }[]
   >([]);
   const [loansLoading, setLoansLoading] = useState(false);
 
@@ -68,7 +69,7 @@ export default function BorrowerProfileSheet({ person, onLend, onClose }: Props)
     setLoansLoading(true);
     (supabase
       .from('lending_agent_loans' as any)
-      .select('id, principal_ugx, amount_repaid_ugx, status, created_at, borrower_display_name')
+      .select('id, principal_ugx, amount_repaid_ugx, status, created_at, borrower_display_name, funding_source')
       .eq('lender_agent_id', user.id)
       .eq('borrower_user_id', person.id)
       .order('created_at', { ascending: false })
@@ -233,13 +234,19 @@ export default function BorrowerProfileSheet({ person, onLend, onClose }: Props)
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  {loans.slice(0, 5).map((l) => (
-                    <div key={l.id} className="flex items-center justify-between gap-2 text-xs">
-                      <span className="text-muted-foreground">{new Date(l.created_at).toLocaleDateString()}</span>
-                      <span className="font-semibold tabular-nums">{formatUGX(Number(l.principal_ugx))}</span>
-                      <Badge variant="outline" className="text-[9px] capitalize">{(l.status || '').replace(/_/g, ' ')}</Badge>
-                    </div>
-                  ))}
+                  {loans.slice(0, 5).map((l) => {
+                    const fm = fundingSourceMeta(l.funding_source);
+                    return (
+                      <div key={l.id} className="flex items-center justify-between gap-2 text-xs">
+                        <span className="text-muted-foreground">{new Date(l.created_at).toLocaleDateString()}</span>
+                        <span className="font-semibold tabular-nums">{formatUGX(Number(l.principal_ugx))}</span>
+                        <span className="flex items-center gap-1">
+                          <span className={`rounded px-1 py-0.5 text-[9px] font-bold ${fm.cls}`}>{fm.label}</span>
+                          <Badge variant="outline" className="text-[9px] capitalize">{(l.status || '').replace(/_/g, ' ')}</Badge>
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </>
             )}

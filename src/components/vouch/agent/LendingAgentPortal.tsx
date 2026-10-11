@@ -42,6 +42,7 @@ import {
   LendingLoan, computeStats, matchesFilter, matchesSearch, dueStateOf,
   StatusFilter,
   RepaymentFrequency, REPAYMENT_FREQUENCIES, buildSchedule,
+  fundingSourceMeta,
 } from './lendingHelpers';
 
 interface Props {
@@ -1100,10 +1101,24 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
                     <div className="space-y-1.5">
                       {auditLog.map((a) => {
                         const label = (a.action_type as string).replace(/_/g, ' ');
+                        // Disbursement/repayment rows get a funding-source label:
+                        // disbursement reads it from the audit details, repayment
+                        // falls back to the loan it belongs to.
+                        const isMoneyMove = a.action_type === 'loan_disbursed' || a.action_type === 'repayment_recorded';
+                        const src = isMoneyMove
+                          ? ((a.details as any)?.funding_source
+                            ?? loans.find((l) => l.id === a.entity_id)?.funding_source)
+                          : null;
+                        const fm = src != null ? fundingSourceMeta(src) : null;
                         return (
                           <div key={a.id} className="flex items-start justify-between gap-2 rounded-xl border border-border/50 px-3 py-2.5">
                             <div className="min-w-0">
-                              <p className="text-[11px] font-semibold capitalize text-foreground">{label}</p>
+                              <p className="text-[11px] font-semibold capitalize text-foreground flex items-center gap-1.5 flex-wrap">
+                                {label}
+                                {fm && (
+                                  <span className={`rounded px-1 py-px text-[8px] font-bold ${fm.cls}`}>{fm.label}</span>
+                                )}
+                              </p>
                               <p className="text-[10px] text-muted-foreground truncate">
                                 {a.actor_display_name ?? 'User'}
                                 {a.amount_ugx != null ? ` · ${formatUGX(Number(a.amount_ugx))}` : ''}

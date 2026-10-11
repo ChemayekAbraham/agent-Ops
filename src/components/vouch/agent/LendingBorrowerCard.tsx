@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,7 +9,7 @@ import {
   CheckCircle2, Clock, AlertTriangle, CalendarClock, Repeat, PlusCircle, CalendarPlus, Check, Share2, ShieldAlert,
 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
-import { LendingLoan, outstandingOf, dueStateOf, normalizePhone, repaymentPlanOf } from './lendingHelpers';
+import { LendingLoan, outstandingOf, dueStateOf, normalizePhone, repaymentPlanOf, fundingSourceMeta } from './lendingHelpers';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { motion } from 'framer-motion';
@@ -60,9 +60,11 @@ export default function LendingBorrowerCard({ loan, vouchLimit, onRecordRepaymen
   const [days, setDays] = useState(30);
   const [saving, setSaving] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [history, setHistory] = useState<{ amount_ugx: number; created_at: string }[] | null>(null);
 
   const name = loan.borrower_display_name ?? loan.borrower_ai_id;
   const phone = normalizePhone(loan.borrower_phone);
+  const funding = fundingSourceMeta((loan as any).funding_source);
   const outstanding = outstandingOf(loan);
   const plan = repaymentPlanOf(loan);
   const totalDue = loan.principal_ugx + (loan.principal_ugx * (Number(loan.interest_rate_pct) || 0)) / 100;
@@ -167,6 +169,24 @@ export default function LendingBorrowerCard({ loan, vouchLimit, onRecordRepaymen
     }
   };
 
+  // Repayment history for this loan, labeled with the funding source the
+  // money came from (repayments return to that same source).
+  useEffect(() => {
+    if (!expanded) { setHistory(null); return; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await (supabase
+        .from('lending_audit_log' as any)
+        .select('amount_ugx, created_at')
+        .eq('entity_id', loan.id)
+        .eq('action_type', 'repayment_recorded')
+        .order('created_at', { ascending: false })
+        .limit(50) as any);
+      if (!cancelled) setHistory((data ?? []) as { amount_ugx: number; created_at: string }[]);
+    })();
+    return () => { cancelled = true; };
+  }, [expanded, loan.id]);
+
   return (
     <Card className="border-border/60 overflow-hidden">
       <CardContent className="p-0">
@@ -186,6 +206,7 @@ export default function LendingBorrowerCard({ loan, vouchLimit, onRecordRepaymen
               </div>
             </div>
             <div className="flex flex-col items-end gap-1 shrink-0">
+              <Badge className={`${funding.cls} border-0 text-[9px] font-bold`}>{funding.label}</Badge>
               <Badge className={`${statusStyle.cls} border-0 text-[9px] font-bold`}>{statusStyle.label}</Badge>
               {inRecovery && <Badge className="bg-destructive/15 text-destructive border-0 text-[9px] font-bold">In recovery</Badge>}
               {dueStyle && (
@@ -300,6 +321,30 @@ export default function LendingBorrowerCard({ loan, vouchLimit, onRecordRepaymen
                     {plan.nextDueDate ? new Date(plan.nextDueDate).toLocaleDateString() : '—'}
                   </p>
                 </div>
+              </div>
+            )}
+
+            {/* Repayment history — each payment labeled with where the money goes */}
+            {history !== null && (
+              <div className="rounded-xl bg-background border p-3 space-y-1.5">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
+                  Repayment history · funded from {funding.label}
+                </p>
+                {history.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No payments recorded yet.</p>
+                ) : (
+                  history.map((r, i) => (
+                    <div key={i} className="flex items-center justify-between gap-2 text-xs">
+                      <span className="text-muted-foreground">
+                        {new Date(r.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </span>
+                      <span className="flex items-center gap-1.5 min-w-0">
+                        <span className={`rounded px-1 py-0.5 text-[9px] font-bold whitespace-nowrap ${funding.cls}`}>{funding.label}</span>
+                        <span className="font-semibold tabular-nums">{formatUGX(Number(r.amount_ugx))}</span>
+                      </span>
+                    </div>
+                  ))
+                )}
               </div>
             )}
 
