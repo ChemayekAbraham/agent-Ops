@@ -46,7 +46,7 @@ export async function dispatchWithdrawal(
   const { data: w, error: wErr } = await admin
     .from("withdrawal_requests")
     .select(
-      "id, user_id, amount, payout_method, bank_name, mobile_money_provider, reason, status, created_at, dispatch_claimed_by, initiated_by",
+      "id, user_id, amount, payout_method, bank_name, mobile_money_provider, reason, status, created_at, dispatch_claimed_by",
     )
     .eq("id", withdrawalId)
     .maybeSingle();
@@ -71,7 +71,7 @@ export async function dispatchWithdrawal(
   // the agent knows this is a Partner Returns payout, not a regular
   // customer wallet withdrawal.
   const reasonLc = typeof w.reason === "string" ? w.reason.toLowerCase() : "";
-  const meta = { initiated_by: (w as any).initiated_by } as Record<string, unknown>;
+  const meta: Record<string, unknown> = {};
   const initiator = typeof meta.initiated_by === "string"
     ? (meta.initiated_by as string).toLowerCase()
     : "";
