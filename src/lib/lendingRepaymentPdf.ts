@@ -3,7 +3,31 @@
 
 import welileLogo from '@/assets/welile-logo.png';
 
+export type PaymentStatusFilter = 'all' | 'on_time' | 'late';
+
+/** A payment is on time if made on or before the loan's due date (Kampala day); late if after. No due date counts as on time. */
+export function paymentStatusOf(createdAt: string, dueDate?: string | null): 'on_time' | 'late' {
+  if (!dueDate) return 'on_time';
+  const day = (d: string) => new Date(d).toLocaleDateString('en-CA', { timeZone: 'Africa/Kampala' });
+  return day(createdAt) <= day(dueDate) ? 'on_time' : 'late';
+}
+
+/** Filters payments by inclusive Kampala-day range (YYYY-MM-DD) and status. */
+export function filterPayments<T extends { created_at: string }>(
+  rows: T[], from: string, to: string, status: PaymentStatusFilter, dueDate?: string | null,
+): T[] {
+  const day = (d: string) => new Date(d).toLocaleDateString('en-CA', { timeZone: 'Africa/Kampala' });
+  return rows.filter((r) => {
+    const d = day(r.created_at);
+    if (from && d < from) return false;
+    if (to && d > to) return false;
+    return status === 'all' || paymentStatusOf(r.created_at, dueDate) === status;
+  });
+}
+
 export interface RepaymentPdfInput {
+  /** Human-readable description of the filters applied, shown on the statement. */
+  filterNote?: string | null;
   agentName?: string | null;
   borrowerName: string;
   borrowerPhone?: string | null;
@@ -85,19 +109,20 @@ export async function generateRepaymentHistoryPdf(i: RepaymentPdfInput): Promise
 
   const y = (doc as any).lastAutoTable.finalY + 24;
   doc.setTextColor(30, 41, 59).setFont('helvetica', 'bold').setFontSize(12).text('Payments', M, y);
+  if (i.filterNote) doc.setFont('helvetica', 'normal').setFontSize(9).setTextColor(100, 116, 139).text(`Filtered: ${i.filterNote}`, M + 60, y);
   let running = 0;
   autoTable(doc, {
     startY: y + 8,
     theme: 'striped',
     styles: { fontSize: 10, cellPadding: 6 },
     headStyles: { fillColor: [107, 33, 168] },
-    head: [['#', 'Date', 'Amount paid', 'Total paid so far']],
+    head: [['#', 'Date', 'Amount paid', 'Status', 'Total paid so far']],
     body: i.payments.length
       ? i.payments.map((p, idx) => {
           running += Number(p.amount_ugx) || 0;
-          return [String(idx + 1), fmtDate(p.created_at), ugx(Number(p.amount_ugx) || 0), ugx(running)];
+          return [String(idx + 1), fmtDate(p.created_at), ugx(Number(p.amount_ugx) || 0), paymentStatusOf(p.created_at, i.dueDate) === 'late' ? 'Late' : 'On time', ugx(running)];
         })
-      : [['', 'No payments recorded yet', '', '']],
+      : [['', i.filterNote ? 'No payments match these filters' : 'No payments recorded yet', '', '', '']],
   });
 
   const H = doc.internal.pageSize.getHeight();

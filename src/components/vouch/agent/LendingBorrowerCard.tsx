@@ -9,7 +9,7 @@ import {
   CheckCircle2, FileText, Clock, AlertTriangle, CalendarClock, Repeat, PlusCircle, CalendarPlus, Check, Share2, ShieldAlert,
 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
-import { generateRepaymentHistoryPdf } from '@/lib/lendingRepaymentPdf';
+import { generateRepaymentHistoryPdf, filterPayments, PaymentStatusFilter } from '@/lib/lendingRepaymentPdf';
 import { LendingLoan, outstandingOf, dueStateOf, normalizePhone, repaymentPlanOf, fundingSourceMeta } from './lendingHelpers';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -62,6 +62,10 @@ export default function LendingBorrowerCard({ loan, vouchLimit, onRecordRepaymen
   const [saving, setSaving] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfOpen, setPdfOpen] = useState(false);
+  const [pdfFrom, setPdfFrom] = useState('');
+  const [pdfTo, setPdfTo] = useState('');
+  const [pdfStatus, setPdfStatus] = useState<PaymentStatusFilter>('all');
   const [history, setHistory] = useState<{ amount_ugx: number; created_at: string }[] | null>(null);
 
   const name = loan.borrower_display_name ?? loan.borrower_ai_id;
@@ -190,10 +194,14 @@ export default function LendingBorrowerCard({ loan, vouchLimit, onRecordRepaymen
         dueDate: loan.expected_repayment_date,
         status: loan.status,
         fundingLabel: funding.label,
-        payments: data ?? [],
+        filterNote: (pdfFrom || pdfTo || pdfStatus !== 'all')
+          ? [pdfFrom || pdfTo ? `${pdfFrom || 'start'} to ${pdfTo || 'today'}` : '', pdfStatus === 'on_time' ? 'on-time payments' : pdfStatus === 'late' ? 'late payments' : ''].filter(Boolean).join(', ')
+          : null,
+        payments: filterPayments(data ?? [], pdfFrom, pdfTo, pdfStatus, loan.expected_repayment_date),
       });
       const file = new File([blob], `repayment-history-${name.replace(/\W+/g, '-')}.pdf`, { type: 'application/pdf' });
       const nav: any = navigator;
+      setPdfOpen(false);
       if (nav.canShare?.({ files: [file] })) {
         try { await nav.share({ files: [file], title: 'Repayment history' }); return; } catch (e: any) { if (e?.name === 'AbortError') return; }
       }
@@ -417,10 +425,37 @@ export default function LendingBorrowerCard({ loan, vouchLimit, onRecordRepaymen
               Share repayment history on WhatsApp
             </Button>
 
-            <Button variant="outline" className="h-11 w-full gap-2 text-xs font-semibold" onClick={downloadPdf} disabled={pdfBusy}>
+            <Button variant="outline" className="h-11 w-full gap-2 text-xs font-semibold" onClick={() => setPdfOpen(true)} disabled={pdfBusy}>
               {pdfBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4 text-primary" />}
               Repayment history PDF (share or save)
             </Button>
+
+            {pdfOpen && (
+              <div className="rounded-xl border bg-muted/30 p-3 space-y-3">
+                <p className="text-xs font-semibold">PDF filters</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <label className="text-[10px] text-muted-foreground">From
+                    <Input type="date" value={pdfFrom} max={pdfTo || undefined} onChange={(e) => setPdfFrom(e.target.value)} className="h-10 mt-1" />
+                  </label>
+                  <label className="text-[10px] text-muted-foreground">To
+                    <Input type="date" value={pdfTo} min={pdfFrom || undefined} onChange={(e) => setPdfTo(e.target.value)} className="h-10 mt-1" />
+                  </label>
+                </div>
+                <div className="flex gap-1.5">
+                  {([['all', 'All payments'], ['on_time', 'On time'], ['late', 'Late']] as const).map(([k, l]) => (
+                    <Button key={k} type="button" size="sm" variant={pdfStatus === k ? 'default' : 'outline'}
+                      className="h-9 flex-1 text-xs" onClick={() => setPdfStatus(k)}>{l}</Button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-muted-foreground">On time = paid on or before the loan's due date.</p>
+                <div className="flex gap-2">
+                  <Button variant="ghost" className="h-10 flex-1 text-xs" onClick={() => setPdfOpen(false)}>Cancel</Button>
+                  <Button className="h-10 flex-1 text-xs gap-1.5" onClick={downloadPdf} disabled={pdfBusy}>
+                    {pdfBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />} Create PDF
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {isOpen && onSetRecovery && (inRecovery || due === 'overdue') && (
               <Button variant={inRecovery ? 'secondary' : 'destructive'} className="h-11 w-full gap-2 text-xs font-semibold"
