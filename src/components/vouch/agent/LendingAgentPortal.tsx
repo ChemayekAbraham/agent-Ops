@@ -90,6 +90,7 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
   const [loansLoading, setLoansLoading] = useState(false);
 
   const [tab, setTab] = useState<Tab>('borrowers');
+  const [fundingFilter, setFundingFilter] = useState<'all' | FundingSource>('all');
   const [search, setSearch] = useState('');
   const [borrowerPage, setBorrowerPage] = useState(0);
   const BORROWER_PAGE_SIZE = 5;
