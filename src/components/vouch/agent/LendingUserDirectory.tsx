@@ -73,7 +73,7 @@ export default function LendingUserDirectory({ onLend }: { onLend: (phone: strin
         const raw = (p as { welile_trust_score_cache?: EmbeddedTrust | EmbeddedTrust[] | null }).welile_trust_score_cache;
         const trust = Array.isArray(raw) ? raw[0] : raw;
         const { welile_trust_score_cache: _drop, ...rest } = p as typeof p & { welile_trust_score_cache?: unknown };
-        return { ...rest, trust: trust ?? null };
+        return { ...rest, trust: trust ? { user_id: p.id, ai_id: trust.ai_id ?? null, borrowing_limit_ugx: trust.borrowing_limit_ugx ?? null } : null };
       });
       return { count: count ?? 0, rows };
     },
