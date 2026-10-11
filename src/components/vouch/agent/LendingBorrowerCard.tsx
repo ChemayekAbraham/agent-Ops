@@ -16,6 +16,8 @@ import { motion } from 'framer-motion';
 
 interface Props {
   loan: LendingLoan;
+  /** Amount Welile vouches for this borrower (undefined while loading). */
+  vouchLimit?: number;
   onRecordRepayment: (loan: LendingLoan, amount: number) => Promise<void>;
   onTopUpOrRenew?: (loan: LendingLoan, extra: number, newDue: string) => Promise<void>;
   onSetRecovery?: (loan: LendingLoan, on: boolean) => Promise<void>;
@@ -49,7 +51,7 @@ const DUE_STYLE: Record<string, { label: string; cls: string; Icon: typeof Clock
   due_soon: { label: 'Due soon', cls: 'bg-amber-500/10 text-amber-600', Icon: CalendarClock },
 };
 
-export default function LendingBorrowerCard({ loan, onRecordRepayment, onTopUpOrRenew, onSetRecovery }: Props) {
+export default function LendingBorrowerCard({ loan, vouchLimit, onRecordRepayment, onTopUpOrRenew, onSetRecovery }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [customDue, setCustomDue] = useState('');
   const [mode, setMode] = useState<null | 'paid' | 'add' | 'time'>(null);
@@ -69,6 +71,9 @@ export default function LendingBorrowerCard({ loan, onRecordRepayment, onTopUpOr
   const due = dueStateOf(loan);
   const statusStyle = STATUS_STYLE[loan.status] ?? STATUS_STYLE.active;
   const dueStyle = DUE_STYLE[due];
+  const accessed = isOpen ? Number(loan.principal_ugx) || 0 : 0;
+  const PLAN_CAP = 5_000_000;
+  const availableTopUp = vouchLimit === undefined ? null : Math.max(0, Math.min(vouchLimit - accessed, PLAN_CAP - accessed));
   const autoOn = !!loan.auto_deduct_enabled && isOpen;
 
   // New end date: count from today, or from the current end date if that is still ahead.
@@ -205,6 +210,17 @@ export default function LendingBorrowerCard({ loan, onRecordRepayment, onTopUpOr
                   Due {new Date(loan.expected_repayment_date).toLocaleDateString()}
                 </p>
               )}
+            </div>
+          </div>
+
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            <div className="rounded-lg bg-muted/50 px-2.5 py-1.5">
+              <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold">Accessed</p>
+              <p className="text-sm font-bold text-foreground">{formatUGX(accessed)}</p>
+            </div>
+            <div className="rounded-lg bg-primary/10 px-2.5 py-1.5">
+              <p className="text-[9px] uppercase tracking-wider text-muted-foreground font-bold">Available top-up</p>
+              <p className="text-sm font-bold text-primary">{availableTopUp === null ? '…' : formatUGX(availableTopUp)}</p>
             </div>
           </div>
 
