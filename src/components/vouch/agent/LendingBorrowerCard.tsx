@@ -169,7 +169,16 @@ export default function LendingBorrowerCard({ loan, vouchLimit, onRecordRepaymen
         .order('created_at', { ascending: true })
         .limit(500) as any);
       if (error) throw error;
+      let agentName: string | null = null;
+      try {
+        const { data: u } = await supabase.auth.getUser();
+        if (u?.user) {
+          const { data: pr } = await (supabase.from('profiles' as any).select('full_name').eq('id', u.user.id).maybeSingle() as any);
+          agentName = pr?.full_name ?? null;
+        }
+      } catch { /* optional */ }
       const blob = await generateRepaymentHistoryPdf({
+        agentName,
         borrowerName: name,
         borrowerPhone: loan.borrower_phone,
         principal: loan.principal_ugx,
@@ -410,7 +419,7 @@ export default function LendingBorrowerCard({ loan, vouchLimit, onRecordRepaymen
 
             <Button variant="outline" className="h-11 w-full gap-2 text-xs font-semibold" onClick={downloadPdf} disabled={pdfBusy}>
               {pdfBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4 text-primary" />}
-              Repayment history as PDF
+              Repayment history PDF (share or save)
             </Button>
 
             {isOpen && onSetRecovery && (inRecovery || due === 'overdue') && (
