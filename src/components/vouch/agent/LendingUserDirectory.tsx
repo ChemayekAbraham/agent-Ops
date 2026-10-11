@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, MapPin, Phone, ShieldCheck } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, MapPin, Phone, ShieldCheck } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
@@ -11,11 +11,13 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { formatUGX } from '@/lib/rentCalculations';
 import { formatLocation } from '@/lib/locationText';
 import { lendingDirectoryRange, LENDING_DIRECTORY_PAGE_SIZE } from '@/lib/lendingDirectory';
+import BorrowerProfileSheet, { type DirectoryPerson } from './BorrowerProfileSheet';
 
 export default function LendingUserDirectory({ onLend }: { onLend: (phone: string) => void }) {
   const { user } = useAuth();
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
+  const [selected, setSelected] = useState<DirectoryPerson | null>(null);
   const term = useDebouncedValue(search.trim());
   const query = useQuery({
     queryKey: ['lending-user-directory', user?.id, page, term],
