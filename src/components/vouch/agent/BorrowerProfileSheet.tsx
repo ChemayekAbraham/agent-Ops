@@ -12,7 +12,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Banknote, BadgeCheck, MapPin, Phone, ShieldCheck } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { formatLocation } from '@/lib/locationText';
-import { fundingSourceMeta } from './lendingHelpers';
+import { fundingSourceMeta, normalizeFundingSource, FundingSource } from './lendingHelpers';
 import { cn } from '@/lib/utils';
 
 export interface DirectoryPerson {
@@ -42,6 +42,7 @@ interface Props {
  */
 export default function BorrowerProfileSheet({ person, onLend, onClose }: Props) {
   const { user } = useAuth();
+  const [fundingFilter, setFundingFilter] = useState<'all' | FundingSource>('all');
   const [loans, setLoans] = useState<
     { id: string; principal_ugx: number; amount_repaid_ugx: number; status: string; created_at: string; borrower_display_name: string | null; funding_source?: string | null }[]
   >([]);
@@ -95,8 +96,14 @@ export default function BorrowerProfileSheet({ person, onLend, onClose }: Props)
       ? 'bg-amber-500/10 text-amber-700 border-amber-500/30'
       : 'bg-destructive/10 text-destructive border-destructive/30';
 
-  const totalLent = loans.reduce((s, l) => s + (Number(l.principal_ugx) || 0), 0);
-  const stillOwed = loans.reduce((s, l) => s + Math.max(0, (Number(l.principal_ugx) || 0) - (Number(l.amount_repaid_ugx) || 0)), 0);
+  // History filtered by funding source (All / My own money / Operational float).
+  const filteredLoans = useMemo(
+    () => (fundingFilter === 'all' ? loans : loans.filter((l) => normalizeFundingSource(l.funding_source) === fundingFilter)),
+    [loans, fundingFilter],
+  );
+
+  const totalLent = filteredLoans.reduce((s, l) => s + (Number(l.principal_ugx) || 0), 0);
+  const stillOwed = filteredLoans.reduce((s, l) => s + Math.max(0, (Number(l.principal_ugx) || 0) - (Number(l.amount_repaid_ugx) || 0)), 0);
 
   const locationParts = person ? [person.village, person.parish, person.sub_county, person.district, person.city] : [];
   const shortLocation = formatLocation(locationParts);
