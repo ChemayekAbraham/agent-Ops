@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { ChevronLeft, ChevronRight, ChevronDown, MapPin, Phone, ShieldCheck, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronDown, MapPin, Phone, ShieldCheck, SlidersHorizontal, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
@@ -38,9 +38,11 @@ export default function LendingUserDirectory({ onLend }: { onLend: (phone: strin
   const [location, setLocation] = useState('');
   const [minVouch, setMinVouch] = useState<number | null>(null);
   const [sort, setSort] = useState<SortKey>('name');
+  const [showFilters, setShowFilters] = useState(false);
   const [selected, setSelected] = useState<DirectoryPerson | null>(null);
   const term = useDebouncedValue(search.trim());
   const locationTerm = useDebouncedValue(sanitizeLocationTerm(location));
+  const activeCount = (location.trim() ? 1 : 0) + (minVouch !== null ? 1 : 0) + (sort !== 'name' ? 1 : 0);
   const filtersActive = !!term || !!locationTerm || minVouch !== null || sort !== 'name';
 
   const query = useQuery({
@@ -93,7 +95,13 @@ export default function LendingUserDirectory({ onLend }: { onLend: (phone: strin
   return (
     <section className="space-y-4">
       <Input aria-label="Search users by name" placeholder="Search by name" value={search}
-        onChange={e => resetPage(() => setSearch(e.target.value))} className="h-12 text-base" />
+        onChange={e => resetPage(() => setSearch(e.target.value))} className="h-12 text-base" inputMode="search" />
+      <Button type="button" variant="outline" className="h-11 w-full justify-between" aria-expanded={showFilters}
+        onClick={() => setShowFilters(v => !v)}>
+        <span className="flex items-center gap-2"><SlidersHorizontal className="h-4 w-4" />Filters{activeCount ? ` (${activeCount})` : ''}</span>
+        <ChevronDown className={cn('h-4 w-4 transition-transform', showFilters && 'rotate-180')} />
+      </Button>
+      {showFilters && <div className="space-y-4 rounded-lg border border-border bg-card p-3">
       <Input aria-label="Filter by location" placeholder="Filter by district, city or village" value={location}
         onChange={e => resetPage(() => setLocation(e.target.value))} className="h-12 text-base" />
       <div className="space-y-2" role="group" aria-label="Vouched amount filter">
@@ -102,7 +110,7 @@ export default function LendingUserDirectory({ onLend }: { onLend: (phone: strin
           {VOUCH_FILTERS.map(f => (
             <button key={f.label} type="button" aria-pressed={minVouch === f.value}
               onClick={() => resetPage(() => setMinVouch(f.value))}
-              className={cn('shrink-0 rounded-full border border-border px-3 py-1.5 text-sm font-medium transition-colors',
+              className={cn('shrink-0 rounded-full border border-border px-3.5 py-2 text-sm font-medium transition-colors',
                 minVouch === f.value ? 'border-primary bg-primary text-primary-foreground' : 'bg-card text-muted-foreground hover:text-foreground')}>
               {f.label}
             </button>
@@ -115,19 +123,20 @@ export default function LendingUserDirectory({ onLend }: { onLend: (phone: strin
           {SORT_OPTIONS.map(o => (
             <button key={o.value} type="button" aria-pressed={sort === o.value}
               onClick={() => resetPage(() => setSort(o.value))}
-              className={cn('rounded-full border border-border px-3 py-1.5 text-sm font-medium transition-colors',
+              className={cn('rounded-full border border-border px-3.5 py-2 text-sm font-medium transition-colors',
                 sort === o.value ? 'border-primary bg-primary text-primary-foreground' : 'bg-card text-muted-foreground hover:text-foreground')}>
               {o.label}
             </button>
           ))}
           {filtersActive && (
             <button type="button" onClick={clearFilters}
-              className="ml-auto flex items-center gap-1 rounded-full border border-border px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground">
+              className="ml-auto flex items-center gap-1 rounded-full border border-border px-3.5 py-2 text-sm font-medium text-muted-foreground hover:text-foreground">
               <X className="h-3.5 w-3.5" />Clear filters
             </button>
           )}
         </div>
       </div>
+      </div>}
       {query.isLoading ? Array.from({ length: 5 }, (_, i) => <Skeleton key={i} className="h-36 w-full rounded-lg" />)
         : query.isError ? <div className="py-8 text-center"><p className="text-destructive">Could not load users.</p><Button variant="outline" onClick={() => query.refetch()}>Try again</Button></div>
         : !query.data?.rows.length ? (
@@ -153,14 +162,14 @@ export default function LendingUserDirectory({ onLend }: { onLend: (phone: strin
             <div className="mt-4 flex flex-wrap items-end justify-between gap-3 border-t border-border pt-3">
               <div><p className="flex items-center gap-1 text-xs text-muted-foreground"><ShieldCheck className="h-3.5 w-3.5 text-success" />Welile vouches up to</p>
                 <p className="mt-1 text-lg font-semibold text-foreground">{person.trust ? formatUGX(Number(person.trust.borrowing_limit_ugx)) : 'Not available'}</p></div>
-              <Button variant="outline" disabled={!person.phone} onClick={() => { if (person.phone) onLend(person.phone); }}>Lend</Button>
+              <Button variant="outline" className="h-11 min-w-20" disabled={!person.phone} onClick={() => { if (person.phone) onLend(person.phone); }}>Lend</Button>
             </div>
           </article>
         ))}
-      <nav aria-label="User pages" className="flex items-center justify-between border-t border-border py-3">
-        <Button variant="outline" size="icon" aria-label="Previous five users" disabled={page === 0 || query.isFetching} onClick={() => setPage(p => p - 1)}><ChevronLeft className="h-4 w-4" /></Button>
+      <nav aria-label="User pages" className="sticky bottom-0 z-10 -mx-4 flex items-center justify-between border-t border-border bg-background/95 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur-md sm:mx-0 sm:px-0">
+        <Button variant="outline" size="icon" className="h-11 w-11" aria-label="Previous five users" disabled={page === 0 || query.isFetching} onClick={() => setPage(p => p - 1)}><ChevronLeft className="h-4 w-4" /></Button>
         <span className="text-sm text-muted-foreground">Page {page + 1} of {pages}</span>
-        <Button variant="outline" size="icon" aria-label="Next five users" disabled={page + 1 >= pages || query.isFetching} onClick={() => setPage(p => p + 1)}><ChevronRight className="h-4 w-4" /></Button>
+        <Button variant="outline" size="icon" className="h-11 w-11" aria-label="Next five users" disabled={page + 1 >= pages || query.isFetching} onClick={() => setPage(p => p + 1)}><ChevronRight className="h-4 w-4" /></Button>
       </nav>
       <BorrowerProfileSheet person={selected} onLend={onLend} onClose={() => setSelected(null)} />
     </section>
