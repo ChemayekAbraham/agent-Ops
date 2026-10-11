@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Sheet, SheetContent, SheetTitle,
@@ -226,10 +226,26 @@ export default function BorrowerProfileSheet({ person, onLend, onClose }: Props)
               <p className="text-xs text-muted-foreground">You have not lent to this person yet. Any amount you lend here will appear on your Borrowers list.</p>
             ) : (
               <>
+                <div className="flex gap-1.5 overflow-x-auto">
+                  {([
+                    { key: 'all' as const, label: 'All' },
+                    { key: 'withdrawable' as const, label: 'My own money' },
+                    { key: 'float' as const, label: 'Operational float' },
+                  ]).map((f) => (
+                    <Button
+                      key={f.key}
+                      variant={fundingFilter === f.key ? 'default' : 'outline'}
+                      className="h-8 shrink-0 rounded-full px-3 text-[11px] font-bold"
+                      onClick={() => setFundingFilter(f.key)}
+                    >
+                      {f.label}
+                    </Button>
+                  ))}
+                </div>
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <div className="rounded-lg bg-muted p-2">
                     <p className="text-[10px] text-muted-foreground">Loans</p>
-                    <p className="text-sm font-bold tabular-nums">{loans.length}</p>
+                    <p className="text-sm font-bold tabular-nums">{filteredLoans.length}</p>
                   </div>
                   <div className="rounded-lg bg-muted p-2">
                     <p className="text-[10px] text-muted-foreground">Lent</p>
