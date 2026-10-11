@@ -42,7 +42,7 @@ interface Props {
 export default function BorrowerProfileSheet({ person, onLend, onClose }: Props) {
   const { user } = useAuth();
   const [loans, setLoans] = useState<
-    { id: string; principal_ugx: number; amount_repaid_ugx: number; status: string; created_at: string; borrower_display_name: string | null }[]
+    { id: string; principal_ugx: number; amount_repaid_ugx: number; status: string; created_at: string; borrower_display_name: string | null; funding_source?: string | null }[]
   >([]);
   const [loansLoading, setLoansLoading] = useState(false);
 
