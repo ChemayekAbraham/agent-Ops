@@ -324,6 +324,30 @@ export default function LendingBorrowerCard({ loan, vouchLimit, onRecordRepaymen
               </div>
             )}
 
+            {/* Repayment history — each payment labeled with where the money goes */}
+            {history !== null && (
+              <div className="rounded-xl bg-background border p-3 space-y-1.5">
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-bold">
+                  Repayment history · funded from {funding.label}
+                </p>
+                {history.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No payments recorded yet.</p>
+                ) : (
+                  history.map((r, i) => (
+                    <div key={i} className="flex items-center justify-between gap-2 text-xs">
+                      <span className="text-muted-foreground">
+                        {new Date(r.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </span>
+                      <span className="flex items-center gap-1.5 min-w-0">
+                        <span className={`rounded px-1 py-0.5 text-[9px] font-bold whitespace-nowrap ${funding.cls}`}>{funding.label}</span>
+                        <span className="font-semibold tabular-nums">{formatUGX(Number(r.amount_ugx))}</span>
+                      </span>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
             <div className="grid grid-cols-3 gap-2">
               <Button variant="outline" className="h-16 flex-col gap-1 text-xs font-semibold" onClick={() => contact('call')}>
                 <Phone className="h-6 w-6 text-primary" /> Call
