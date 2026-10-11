@@ -6,9 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import {
   Phone, MessageCircle, MessageSquare, HandCoins, Loader2, ChevronDown,
-  CheckCircle2, Clock, AlertTriangle, CalendarClock, Repeat, PlusCircle, CalendarPlus, Check, Share2, ShieldAlert,
+  CheckCircle2, FileText, Clock, AlertTriangle, CalendarClock, Repeat, PlusCircle, CalendarPlus, Check, Share2, ShieldAlert,
 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
+import { generateRepaymentHistoryPdf } from '@/lib/lendingRepaymentPdf';
 import { LendingLoan, outstandingOf, dueStateOf, normalizePhone, repaymentPlanOf, fundingSourceMeta } from './lendingHelpers';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
@@ -60,6 +61,7 @@ export default function LendingBorrowerCard({ loan, vouchLimit, onRecordRepaymen
   const [days, setDays] = useState(30);
   const [saving, setSaving] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState(false);
   const [history, setHistory] = useState<{ amount_ugx: number; created_at: string }[] | null>(null);
 
   const name = loan.borrower_display_name ?? loan.borrower_ai_id;
@@ -153,6 +155,47 @@ export default function LendingBorrowerCard({ loan, vouchLimit, onRecordRepaymen
       toast.error('Could not load repayment history. Try again.');
     } finally {
       setSharing(false);
+    }
+  };
+
+  const downloadPdf = async () => {
+    setPdfBusy(true);
+    try {
+      const { data, error } = await (supabase
+        .from('lending_audit_log' as any)
+        .select('amount_ugx, created_at')
+        .eq('entity_id', loan.id)
+        .eq('action_type', 'repayment_recorded')
+        .order('created_at', { ascending: true })
+        .limit(500) as any);
+      if (error) throw error;
+      const blob = await generateRepaymentHistoryPdf({
+        borrowerName: name,
+        borrowerPhone: loan.borrower_phone,
+        principal: loan.principal_ugx,
+        ratePct: rate,
+        totalDue,
+        amountRepaid: Number(loan.amount_repaid_ugx) || 0,
+        outstanding,
+        takenOn: loan.created_at,
+        dueDate: loan.expected_repayment_date,
+        status: loan.status,
+        fundingLabel: funding.label,
+        payments: data ?? [],
+      });
+      const file = new File([blob], `repayment-history-${name.replace(/\W+/g, '-')}.pdf`, { type: 'application/pdf' });
+      const nav: any = navigator;
+      if (nav.canShare?.({ files: [file] })) {
+        try { await nav.share({ files: [file], title: 'Repayment history' }); return; } catch (e: any) { if (e?.name === 'AbortError') return; }
+      }
+      const url = URL.createObjectURL(file);
+      const a = document.createElement('a');
+      a.href = url; a.download = file.name; a.click();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch {
+      toast.error('Could not create the PDF. Try again.');
+    } finally {
+      setPdfBusy(false);
     }
   };
 
@@ -363,6 +406,11 @@ export default function LendingBorrowerCard({ loan, vouchLimit, onRecordRepaymen
             <Button variant="outline" className="h-11 w-full gap-2 text-xs font-semibold" onClick={shareHistory} disabled={sharing}>
               {sharing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4 text-primary" />}
               Share repayment history on WhatsApp
+            </Button>
+
+            <Button variant="outline" className="h-11 w-full gap-2 text-xs font-semibold" onClick={downloadPdf} disabled={pdfBusy}>
+              {pdfBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4 text-primary" />}
+              Repayment history as PDF
             </Button>
 
             {isOpen && onSetRecovery && (inRecovery || due === 'overdue') && (
