@@ -21,11 +21,11 @@ const FREQS: { value: RepaymentFrequency; label: string }[] = [
 const QUICK_AMOUNTS = [50000, 100000, 200000, 500000];
 const QUICK_DAYS = [7, 14, 30, 60];
 
-export default function LendFloatWizard({ open, onOpenChange, floatAvailable, onDone }: {
-  open: boolean; onOpenChange: (o: boolean) => void; floatAvailable: number; onDone: () => void;
+export default function LendFloatWizard({ open, onOpenChange, floatAvailable, onDone, initialPhone = '' }: {
+  open: boolean; onOpenChange: (o: boolean) => void; floatAvailable: number; onDone: () => void; initialPhone?: string;
 }) {
   const [step, setStep] = useState(1);
-  const [phone, setPhone] = useState('');
+  const [phone, setPhone] = useState(initialPhone);
   const [searching, setSearching] = useState(false);
   const [matches, setMatches] = useState<Match[]>([]);
   const [who, setWho] = useState<Match | null>(null);
