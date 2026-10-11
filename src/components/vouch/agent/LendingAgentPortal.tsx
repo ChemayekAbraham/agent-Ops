@@ -544,21 +544,21 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
         side="bottom"
         className="h-[96dvh] overflow-y-auto rounded-t-lg p-0"
       >
-        <div className="sticky top-0 z-20 border-b border-border bg-background/95 px-5 py-5 pr-12 backdrop-blur-md">
+        <div className="sticky top-0 z-20 border-b border-border bg-background/95 px-4 py-3 pr-12 backdrop-blur-md sm:px-5 sm:py-5">
           <div className="mx-auto flex max-w-3xl items-center gap-3">
             {view !== 'home' && <Button variant="ghost" size="icon" aria-label="Back to lending home" onClick={() => setView('home')}><ArrowLeft className="h-5 w-5" /></Button>}
             <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><Banknote className="h-6 w-6" /></div>
-            <SheetTitle className="text-xl font-semibold text-foreground">{view === 'home' ? 'Lending Agent' : view === 'lend' ? 'Lend' : view === 'directory' ? 'See users that I can lend to' : view === 'topup' ? 'Top up current borrowers' : view === 'borrowers' ? 'My current borrowers' : 'More'}</SheetTitle>
+            <SheetTitle className="text-lg font-semibold sm:text-xl text-foreground">{view === 'home' ? 'Lending Agent' : view === 'lend' ? 'Lend' : view === 'directory' ? 'See users that I can lend to' : view === 'topup' ? 'Top up current borrowers' : view === 'borrowers' ? 'My current borrowers' : 'More'}</SheetTitle>
           </div>
         </div>
 
-        <div className="mx-auto max-w-3xl px-5 pt-6 pb-[calc(3rem+env(safe-area-inset-bottom))]">
+        <div className="mx-auto max-w-3xl px-4 pt-4 pb-[calc(3rem+env(safe-area-inset-bottom))] sm:px-5 sm:pt-6">
           {trustLoading || agreementLoading ? (
             <Skeleton className="h-40 w-full rounded-2xl" />
           ) : (
             <>
               {view === 'home' && (
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                   {[
                     { key: 'lend' as const, title: 'Lend', Icon: UserPlus, tone: 'bg-primary/10 text-primary' },
                     { key: 'directory' as const, title: 'See users that I can lend to', Icon: ShieldCheck, tone: 'bg-success/10 text-success' },
@@ -566,7 +566,7 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
                     { key: 'more' as const, title: 'More', Icon: MoreHorizontal, tone: 'bg-muted text-muted-foreground' },
                   ].map(({ key, title, Icon, tone }) => (
                     <Button key={key} variant="outline" onClick={() => { setView(key); setTab(key === 'more' ? 'requests' : 'borrowers'); setStatusFilter('all'); setSearch(''); }}
-                      className="h-auto min-h-32 justify-start gap-4 whitespace-normal rounded-lg border-border bg-card p-5 text-left text-lg font-semibold hover:bg-accent">
+                      className="h-auto min-h-[5.5rem] justify-start gap-3 whitespace-normal rounded-lg border-border bg-card p-4 text-left text-base font-semibold hover:bg-accent active:scale-[0.99] sm:min-h-32 sm:gap-4 sm:p-5 sm:text-lg">
                       <span className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-lg ${tone}`}><Icon className="h-6 w-6" /></span>
                       <span className="min-w-0 flex-1 break-words">{title}</span><ArrowRight className="h-5 w-5 shrink-0 text-muted-foreground" />
                     </Button>
@@ -575,9 +575,9 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
               )}
               {view === 'lend' && (
                 <section className="space-y-5">
-                  <div className="border-b border-border pb-5"><p className="text-sm text-muted-foreground">Operational float available</p><p className="mt-1 text-3xl font-semibold">{formatUGX(Math.max(0, floatBalance || 0))}</p></div>
-                  <Button className="h-16 w-full justify-start gap-3 text-base" onClick={() => { setWizardPhone(''); setWizardOpen(true); }}><UserPlus className="h-5 w-5" />Lend to new borrowers<ArrowRight className="ml-auto h-5 w-5" /></Button>
-                  <Button variant="outline" className="h-16 w-full justify-start gap-3 text-base" onClick={() => { setView('topup'); setStatusFilter('active'); setSearch(''); }}><Plus className="h-5 w-5" />Top up current borrowers<ArrowRight className="ml-auto h-5 w-5" /></Button>
+                  <div className="border-b border-border pb-5"><p className="text-sm text-muted-foreground">Operational float available</p><p className="mt-1 text-2xl font-semibold sm:text-3xl">{formatUGX(Math.max(0, floatBalance || 0))}</p></div>
+                  <Button className="h-14 w-full justify-start gap-3 text-base" onClick={() => { setWizardPhone(''); setWizardOpen(true); }}><UserPlus className="h-5 w-5" />Lend to new borrowers<ArrowRight className="ml-auto h-5 w-5" /></Button>
+                  <Button variant="outline" className="h-14 w-full justify-start gap-3 text-base" onClick={() => { setView('topup'); setStatusFilter('active'); setSearch(''); }}><Plus className="h-5 w-5" />Top up current borrowers<ArrowRight className="ml-auto h-5 w-5" /></Button>
                   {!isAccepted && <Button variant="outline" onClick={() => setShowAgreement(true)}><FileText className="mr-2 h-4 w-4" />Read &amp; sign lending terms</Button>}
                 </section>
               )}
