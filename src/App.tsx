@@ -1,3 +1,4 @@
+import type { AppRole } from '@/hooks/useAuth';
 // Realtime: enabled
 
 
