@@ -340,35 +340,23 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
     const dueStr = new Date(Date.now() + durationDays * 86400000).toISOString().slice(0, 10);
     const reqFreq: RepaymentFrequency = durationDays <= 1 ? 'once' : 'monthly';
     const reqSchedule = buildSchedule(totalOwed, reqFreq, new Date(), dueStr);
-    const { data: loanRow, error } = await (supabase.from('lending_agent_loans' as any).insert({
-      lender_agent_id: user.id,
-      borrower_user_id: req.borrower_user_id,
-      borrower_ai_id: req.borrower_ai_id,
-      borrower_display_name: req.borrower_display_name,
-      borrower_phone: req.borrower_phone,
-      principal_ugx: principalNum,
-      interest_rate_pct: req.interest_rate_pct ?? 0,
-      expected_repayment_date: dueStr,
-      loan_purpose: req.purpose ?? null,
-      platform_fee_ugx: fee,
-      lender_trust_score_at_record: trustScore,
-      status: 'active',
-      repayment_frequency: reqFreq,
-      auto_deduct_enabled: true,
-      installment_ugx: reqSchedule.installment,
-      next_deduction_date: reqSchedule.firstDate,
-      auto_deduct_started_at: new Date().toISOString(),
-    }).select('id').single() as any);
-    if (error) {
+    const { data: dData, error: dErr } = await supabase.functions.invoke('lending-borrower-pay', {
+      body: {
+        action: 'disburse', request_id: safeUUID(), borrower_user_id: req.borrower_user_id,
+        borrower_ai_id: req.borrower_ai_id, principal: principalNum, interest_rate_pct: ratePct,
+        due_date: dueStr, frequency: reqFreq, installment: reqSchedule.installment,
+        first_date: reqSchedule.firstDate, purpose: req.purpose ?? null, loan_request_id: req.id,
+      },
+    });
+    const dMsg = (dData as any)?.error || (dErr ? await (dErr as any)?.context?.json?.().then((j: any) => j?.error).catch(() => null) : null);
+    if (dErr || !(dData as any)?.ok) {
       setDecidingId(null);
-      toast.error('Could not disburse: ' + error.message);
+      toast.error(dMsg || 'Could not disburse. No money was sent.');
       return;
     }
-    await (supabase.from('lending_loan_requests' as any)
-      .update({ status: 'approved', decided_at: new Date().toISOString(), loan_id: loanRow?.id ?? null })
-      .eq('id', req.id) as any);
+    const loanRow = { id: (dData as any).loan_id as string };
     setDecidingId(null);
-    toast.success(`Loan to ${req.borrower_display_name ?? req.borrower_ai_id} approved & recorded`);
+    toast.success(`Loan to ${req.borrower_display_name ?? req.borrower_ai_id} sent to their wallet`);
     await logLendingAudit({
       actorId: user.id, actorDisplayName: myName, actionType: 'request_approved',
       entityType: 'request', entityId: req.id,
@@ -479,32 +467,20 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
     const schedule = autoDeduct
       ? buildSchedule(totalOwed, frequency, new Date(), dueDate || null)
       : null;
-    const { error } = await (supabase.from('lending_agent_loans' as any).insert({
-      lender_agent_id: user.id,
-      borrower_user_id: borrower.user_id,
-      borrower_ai_id: borrower.ai_id,
-      borrower_display_name: borrower.identity?.full_name ?? null,
-      borrower_phone: borrower.identity?.phone ?? null,
-      principal_ugx: principalNum,
-      interest_rate_pct: interestRate ? Number(interestRate) : 0,
-      expected_repayment_date: dueDate || null,
-      loan_purpose: purpose.trim() || null,
-      platform_fee_ugx: fee,
-      lender_trust_score_at_record: trustScore,
-      borrower_trust_score_at_record: borrower.trust.score,
-      borrower_trust_tier_at_record: borrower.trust.tier,
-      status: 'active',
-      repayment_frequency: autoDeduct ? frequency : 'once',
-      auto_deduct_enabled: autoDeduct,
-      installment_ugx: schedule?.installment ?? 0,
-      next_deduction_date: schedule?.firstDate ?? null,
-      auto_deduct_started_at: autoDeduct ? new Date().toISOString() : null,
-    }) as any);
+    if (!dueDate) { setSubmitting(false); toast.error('Pick a due date'); return; }
+    const sched = schedule ?? buildSchedule(totalOwed, 'once', new Date(), dueDate);
+    const { data: dData, error: dErr } = await supabase.functions.invoke('lending-borrower-pay', {
+      body: {
+        action: 'disburse', request_id: safeUUID(), borrower_user_id: borrower.user_id,
+        borrower_ai_id: borrower.ai_id, principal: principalNum, interest_rate_pct: ratePct,
+        due_date: dueDate, frequency: autoDeduct ? frequency : 'once', installment: sched.installment,
+        first_date: sched.firstDate, purpose: purpose.trim() || null,
+      },
+    });
     setSubmitting(false);
-
-    if (error) {
-      console.error('[LendingAgentPortal] disburse error', error);
-      toast.error('Could not record loan: ' + error.message);
+    const dMsg = (dData as any)?.error || (dErr ? await (dErr as any)?.context?.json?.().then((j: any) => j?.error).catch(() => null) : null);
+    if (dErr || !(dData as any)?.ok) {
+      toast.error(dMsg || 'Could not send. No money was moved.');
       return;
     }
 
