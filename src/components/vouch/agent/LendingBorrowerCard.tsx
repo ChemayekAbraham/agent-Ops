@@ -261,6 +261,21 @@ export default function LendingBorrowerCard({ loan, vouchLimit, onRecordRepaymen
           )}
         </button>
 
+        {/* Quick top-up — one tap straight to the top-up form */}
+        {isOpen && mode !== 'add' && (
+          <div className="border-t border-border/60 px-3.5 py-2.5">
+            <Button
+              className="h-11 w-full gap-2 text-sm font-bold"
+              onClick={() => { setExpanded(true); setMode('add'); }}
+            >
+              <PlusCircle className="h-4 w-4" /> Top up
+              {availableTopUp !== null && availableTopUp > 0 && (
+                <span className="text-[11px] font-semibold opacity-80">· up to {formatUGX(availableTopUp)}</span>
+              )}
+            </Button>
+          </div>
+        )}
+
         {/* Expanded actions — big picture buttons, few words */}
         {expanded && (
           <motion.div
