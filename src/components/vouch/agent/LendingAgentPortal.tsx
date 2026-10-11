@@ -1192,7 +1192,9 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
                           </div>
                         );
                       })}
-                    </div>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               )}
