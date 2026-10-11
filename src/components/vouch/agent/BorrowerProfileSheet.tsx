@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Sheet, SheetContent, SheetTitle,
@@ -12,7 +12,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Banknote, BadgeCheck, MapPin, Phone, ShieldCheck } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { formatLocation } from '@/lib/locationText';
-import { fundingSourceMeta } from './lendingHelpers';
+import { fundingSourceMeta, normalizeFundingSource, FundingSource } from './lendingHelpers';
 import { cn } from '@/lib/utils';
 
 export interface DirectoryPerson {
@@ -42,6 +42,7 @@ interface Props {
  */
 export default function BorrowerProfileSheet({ person, onLend, onClose }: Props) {
   const { user } = useAuth();
+  const [fundingFilter, setFundingFilter] = useState<'all' | FundingSource>('all');
   const [loans, setLoans] = useState<
     { id: string; principal_ugx: number; amount_repaid_ugx: number; status: string; created_at: string; borrower_display_name: string | null; funding_source?: string | null }[]
   >([]);
@@ -95,8 +96,14 @@ export default function BorrowerProfileSheet({ person, onLend, onClose }: Props)
       ? 'bg-amber-500/10 text-amber-700 border-amber-500/30'
       : 'bg-destructive/10 text-destructive border-destructive/30';
 
-  const totalLent = loans.reduce((s, l) => s + (Number(l.principal_ugx) || 0), 0);
-  const stillOwed = loans.reduce((s, l) => s + Math.max(0, (Number(l.principal_ugx) || 0) - (Number(l.amount_repaid_ugx) || 0)), 0);
+  // History filtered by funding source (All / My own money / Operational float).
+  const filteredLoans = useMemo(
+    () => (fundingFilter === 'all' ? loans : loans.filter((l) => normalizeFundingSource(l.funding_source) === fundingFilter)),
+    [loans, fundingFilter],
+  );
+
+  const totalLent = filteredLoans.reduce((s, l) => s + (Number(l.principal_ugx) || 0), 0);
+  const stillOwed = filteredLoans.reduce((s, l) => s + Math.max(0, (Number(l.principal_ugx) || 0) - (Number(l.amount_repaid_ugx) || 0)), 0);
 
   const locationParts = person ? [person.village, person.parish, person.sub_county, person.district, person.city] : [];
   const shortLocation = formatLocation(locationParts);
@@ -219,10 +226,26 @@ export default function BorrowerProfileSheet({ person, onLend, onClose }: Props)
               <p className="text-xs text-muted-foreground">You have not lent to this person yet. Any amount you lend here will appear on your Borrowers list.</p>
             ) : (
               <>
+                <div className="flex gap-1.5 overflow-x-auto">
+                  {([
+                    { key: 'all' as const, label: 'All' },
+                    { key: 'withdrawable' as const, label: 'My own money' },
+                    { key: 'float' as const, label: 'Operational float' },
+                  ]).map((f) => (
+                    <Button
+                      key={f.key}
+                      variant={fundingFilter === f.key ? 'default' : 'outline'}
+                      className="h-8 shrink-0 rounded-full px-3 text-[11px] font-bold"
+                      onClick={() => setFundingFilter(f.key)}
+                    >
+                      {f.label}
+                    </Button>
+                  ))}
+                </div>
                 <div className="grid grid-cols-3 gap-2 text-center">
                   <div className="rounded-lg bg-muted p-2">
                     <p className="text-[10px] text-muted-foreground">Loans</p>
-                    <p className="text-sm font-bold tabular-nums">{loans.length}</p>
+                    <p className="text-sm font-bold tabular-nums">{filteredLoans.length}</p>
                   </div>
                   <div className="rounded-lg bg-muted p-2">
                     <p className="text-[10px] text-muted-foreground">Lent</p>
@@ -234,7 +257,11 @@ export default function BorrowerProfileSheet({ person, onLend, onClose }: Props)
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  {loans.slice(0, 5).map((l) => {
+                  {filteredLoans.length === 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      No {fundingFilter === 'withdrawable' ? 'My own money' : 'Operational float'} loans with this borrower.
+                    </p>
+                  ) : filteredLoans.slice(0, 5).map((l) => {
                     const fm = fundingSourceMeta(l.funding_source);
                     return (
                       <div key={l.id} className="flex items-center justify-between gap-2 text-xs">
