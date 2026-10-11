@@ -35,6 +35,7 @@ import { motion } from 'framer-motion';
 import LendingStatCards from './LendingStatCards';
 import LendingBorrowerCard from './LendingBorrowerCard';
 import LendFloatWizard from './LendFloatWizard';
+import { ownMoneySummary } from './lendingHelpers';
 import LendingUserDirectory from './LendingUserDirectory';
 import { ArrowLeft, ArrowRight, MoreHorizontal, UserPlus } from 'lucide-react';
 import { SheetTitle } from '@/components/ui/sheet';
@@ -708,6 +709,21 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
                       );
                     })}
                   </div>
+
+                  {(() => {
+                    const s = ownMoneySummary(loans);
+                    if (s.count === 0) return null;
+                    return (
+                      <div className="rounded-xl border bg-violet-500/5 p-3">
+                        <p className="text-xs font-semibold mb-2">My own money · {s.count} loan{s.count === 1 ? '' : 's'}</p>
+                        <div className="grid grid-cols-3 gap-2 text-center">
+                          <div><p className="text-[10px] text-muted-foreground">Lent out</p><p className="text-xs font-bold">UGX {s.lent.toLocaleString()}</p></div>
+                          <div><p className="text-[10px] text-muted-foreground">Awaiting repayment</p><p className="text-xs font-bold">UGX {s.awaiting.toLocaleString()}</p></div>
+                          <div><p className="text-[10px] text-muted-foreground">Returned</p><p className="text-xs font-bold">UGX {s.returned.toLocaleString()}</p></div>
+                        </div>
+                      </div>
+                    );
+                  })()}
 
                   {/* Loan list */}
                   {loansLoading ? (
