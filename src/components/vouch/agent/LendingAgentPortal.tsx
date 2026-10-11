@@ -42,6 +42,7 @@ import {
   LendingLoan, computeStats, matchesFilter, matchesSearch, dueStateOf,
   StatusFilter,
   RepaymentFrequency, REPAYMENT_FREQUENCIES, buildSchedule,
+  fundingSourceMeta,
 } from './lendingHelpers';
 
 interface Props {
