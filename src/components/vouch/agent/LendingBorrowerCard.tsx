@@ -60,9 +60,11 @@ export default function LendingBorrowerCard({ loan, vouchLimit, onRecordRepaymen
   const [days, setDays] = useState(30);
   const [saving, setSaving] = useState(false);
   const [sharing, setSharing] = useState(false);
+  const [history, setHistory] = useState<{ amount_ugx: number; created_at: string }[] | null>(null);
 
   const name = loan.borrower_display_name ?? loan.borrower_ai_id;
   const phone = normalizePhone(loan.borrower_phone);
+  const funding = fundingSourceMeta((loan as any).funding_source);
   const outstanding = outstandingOf(loan);
   const plan = repaymentPlanOf(loan);
   const totalDue = loan.principal_ugx + (loan.principal_ugx * (Number(loan.interest_rate_pct) || 0)) / 100;
