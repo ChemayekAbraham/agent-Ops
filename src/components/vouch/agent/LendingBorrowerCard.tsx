@@ -14,6 +14,7 @@ import { LendingLoan, outstandingOf, dueStateOf, normalizePhone, repaymentPlanOf
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { motion } from 'framer-motion';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface Props {
   loan: LendingLoan;
@@ -62,6 +63,9 @@ export default function LendingBorrowerCard({ loan, vouchLimit, onRecordRepaymen
   const [saving, setSaving] = useState(false);
   const [sharing, setSharing] = useState(false);
   const [pdfBusy, setPdfBusy] = useState(false);
+  const [pdfPreview, setPdfPreview] = useState<{ file: File; url: string } | null>(null);
+  const closePreview = () => { setPdfPreview((p) => { if (p) URL.revokeObjectURL(p.url); return null; }); };
+  useEffect(() => () => { if (pdfPreview) URL.revokeObjectURL(pdfPreview.url); }, [pdfPreview]);
   const [pdfOpen, setPdfOpen] = useState(false);
   const [pdfFrom, setPdfFrom] = useState('');
   const [pdfTo, setPdfTo] = useState('');
@@ -215,20 +219,24 @@ export default function LendingBorrowerCard({ loan, vouchLimit, onRecordRepaymen
         payments: filterPayments(data ?? [], pdfFrom, pdfTo, pdfStatus, loan.expected_repayment_date),
       });
       const file = new File([blob], `repayment-history-${name.replace(/\W+/g, '-')}.pdf`, { type: 'application/pdf' });
-      const nav: any = navigator;
       setPdfOpen(false);
-      if (nav.canShare?.({ files: [file] })) {
-        try { await nav.share({ files: [file], title: 'Repayment history' }); return; } catch (e: any) { if (e?.name === 'AbortError') return; }
-      }
-      const url = URL.createObjectURL(file);
-      const a = document.createElement('a');
-      a.href = url; a.download = file.name; a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      setPdfPreview({ file, url: URL.createObjectURL(file) });
     } catch {
       toast.error('Could not create the PDF. Try again.');
     } finally {
       setPdfBusy(false);
     }
+  };
+
+  const sharePreview = async () => {
+    if (!pdfPreview) return;
+    const { file, url } = pdfPreview;
+    const nav: any = navigator;
+    if (nav.canShare?.({ files: [file] })) {
+      try { await nav.share({ files: [file], title: 'Repayment history' }); return; } catch (e: any) { if (e?.name === 'AbortError') return; }
+    }
+    const a = document.createElement('a');
+    a.href = url; a.download = file.name; a.click();
   };
 
   const submitPayment = async () => {
@@ -466,11 +474,25 @@ export default function LendingBorrowerCard({ loan, vouchLimit, onRecordRepaymen
                 <div className="flex gap-2">
                   <Button variant="ghost" className="h-10 flex-1 text-xs" onClick={() => setPdfOpen(false)}>Cancel</Button>
                   <Button className="h-10 flex-1 text-xs gap-1.5" onClick={downloadPdf} disabled={pdfBusy}>
-                    {pdfBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />} Create PDF
+                    {pdfBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />} Preview PDF
                   </Button>
                 </div>
               </div>
             )}
+
+            <Dialog open={!!pdfPreview} onOpenChange={(o) => { if (!o) closePreview(); }}>
+              <DialogContent className="max-w-2xl w-[calc(100vw-1rem)] h-[90vh] p-3 flex flex-col gap-2">
+                <DialogHeader><DialogTitle className="text-sm">Preview: repayment history</DialogTitle></DialogHeader>
+                {pdfPreview && (
+                  <iframe title="Repayment history preview" src={pdfPreview.url} className="flex-1 w-full rounded-md border bg-muted" />
+                )}
+                <div className="grid grid-cols-3 gap-2">
+                  <Button variant="ghost" className="h-11 text-xs" onClick={closePreview}>Close</Button>
+                  <Button variant="outline" className="h-11 text-xs" onClick={() => pdfPreview && window.open(pdfPreview.url, '_blank')}>Open full</Button>
+                  <Button className="h-11 text-xs gap-1.5" onClick={sharePreview}><Share2 className="h-4 w-4" />Share / Save</Button>
+                </div>
+              </DialogContent>
+            </Dialog>
 
             {isOpen && onSetRecovery && (inRecovery || due === 'overdue') && (
               <Button variant={inRecovery ? 'secondary' : 'destructive'} className="h-11 w-full gap-2 text-xs font-semibold"
