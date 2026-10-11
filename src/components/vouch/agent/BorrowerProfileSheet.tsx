@@ -233,13 +233,19 @@ export default function BorrowerProfileSheet({ person, onLend, onClose }: Props)
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  {loans.slice(0, 5).map((l) => (
-                    <div key={l.id} className="flex items-center justify-between gap-2 text-xs">
-                      <span className="text-muted-foreground">{new Date(l.created_at).toLocaleDateString()}</span>
-                      <span className="font-semibold tabular-nums">{formatUGX(Number(l.principal_ugx))}</span>
-                      <Badge variant="outline" className="text-[9px] capitalize">{(l.status || '').replace(/_/g, ' ')}</Badge>
-                    </div>
-                  ))}
+                  {loans.slice(0, 5).map((l) => {
+                    const fm = fundingSourceMeta(l.funding_source);
+                    return (
+                      <div key={l.id} className="flex items-center justify-between gap-2 text-xs">
+                        <span className="text-muted-foreground">{new Date(l.created_at).toLocaleDateString()}</span>
+                        <span className="font-semibold tabular-nums">{formatUGX(Number(l.principal_ugx))}</span>
+                        <span className="flex items-center gap-1">
+                          <span className={`rounded px-1 py-0.5 text-[9px] font-bold ${fm.cls}`}>{fm.label}</span>
+                          <Badge variant="outline" className="text-[9px] capitalize">{(l.status || '').replace(/_/g, ' ')}</Badge>
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
               </>
             )}
