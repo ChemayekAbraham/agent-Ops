@@ -49,7 +49,9 @@ export default function LendingUserDirectory({ onLend }: { onLend: (phone: strin
         : !query.data?.rows.length ? <p className="py-12 text-center text-muted-foreground">No users available in your directory{term ? ' with that name' : ''}.</p>
         : query.data.rows.map(person => (
           <article key={person.id} className="rounded-lg border border-border bg-card p-4 sm:p-5">
-            <div className="flex items-start gap-3">
+            <button type="button" onClick={() => setSelected(person)}
+              className="flex w-full items-start gap-3 rounded-md text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+              aria-label={`View profile for ${person.full_name || 'Welile user'}`}>
               <UserAvatar avatarUrl={person.avatar_url} fullName={person.full_name} />
               <div className="min-w-0 flex-1">
                 <h3 className="break-words text-base font-semibold text-foreground">{person.full_name || 'Welile user'}</h3>
@@ -57,7 +59,8 @@ export default function LendingUserDirectory({ onLend }: { onLend: (phone: strin
                 <p className="mt-2 flex items-start gap-1.5 text-sm text-muted-foreground"><MapPin className="mt-0.5 h-4 w-4 shrink-0" />{formatLocation([person.village, person.parish, person.sub_county, person.district, person.city]) || 'Location not provided'}</p>
                 <p className="mt-1 flex items-center gap-1.5 text-sm"><Phone className="h-4 w-4 text-muted-foreground" />{person.phone || 'Phone not provided'}</p>
               </div>
-            </div>
+              <ChevronDown className="mt-1 h-5 w-5 shrink-0 text-muted-foreground" />
+            </button>
             <div className="mt-4 flex flex-wrap items-end justify-between gap-3 border-t border-border pt-3">
               <div><p className="flex items-center gap-1 text-xs text-muted-foreground"><ShieldCheck className="h-3.5 w-3.5 text-success" />Welile vouches up to</p>
                 <p className="mt-1 text-lg font-semibold text-foreground">{person.trust ? formatUGX(Number(person.trust.borrowing_limit_ugx)) : 'Not available'}</p></div>
@@ -70,6 +73,7 @@ export default function LendingUserDirectory({ onLend }: { onLend: (phone: strin
         <span className="text-sm text-muted-foreground">Page {page + 1} of {pages}</span>
         <Button variant="outline" size="icon" aria-label="Next five users" disabled={page + 1 >= pages || query.isFetching} onClick={() => setPage(p => p + 1)}><ChevronRight className="h-4 w-4" /></Button>
       </nav>
+      <BorrowerProfileSheet person={selected} onLend={onLend} onClose={() => setSelected(null)} />
     </section>
   );
 }
