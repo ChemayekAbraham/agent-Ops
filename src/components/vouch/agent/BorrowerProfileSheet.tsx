@@ -68,7 +68,7 @@ export default function BorrowerProfileSheet({ person, onLend, onClose }: Props)
     setLoansLoading(true);
     (supabase
       .from('lending_agent_loans' as any)
-      .select('id, principal_ugx, amount_repaid_ugx, status, created_at, borrower_display_name')
+      .select('id, principal_ugx, amount_repaid_ugx, status, created_at, borrower_display_name, funding_source')
       .eq('lender_agent_id', user.id)
       .eq('borrower_user_id', person.id)
       .order('created_at', { ascending: false })
