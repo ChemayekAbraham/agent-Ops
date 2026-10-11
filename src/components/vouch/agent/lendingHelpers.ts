@@ -36,9 +36,16 @@ export const FUNDING_SOURCE_META: Record<'float' | 'withdrawable', FundingSource
   withdrawable: { label: 'My own money', cls: 'bg-violet-500/15 text-violet-700' },
 };
 
+export type FundingSource = 'float' | 'withdrawable';
+
+/** Normalize any stored funding-source value; unknown/missing → float (the default). */
+export function normalizeFundingSource(source?: string | null): FundingSource {
+  return source === 'withdrawable' ? 'withdrawable' : 'float';
+}
+
 /** Label/colors for a loan's funding source; unknown values fall back to float (the default). */
 export function fundingSourceMeta(source?: string | null): FundingSourceMeta {
-  return FUNDING_SOURCE_META[source === 'withdrawable' ? 'withdrawable' : 'float'];
+  return FUNDING_SOURCE_META[normalizeFundingSource(source)];
 }
 
 /** Normalize a Ugandan phone number to international (256...) digits for tel/wa/sms links. */

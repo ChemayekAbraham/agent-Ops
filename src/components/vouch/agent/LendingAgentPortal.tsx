@@ -43,8 +43,15 @@ import {
   LendingLoan, computeStats, matchesFilter, matchesSearch, dueStateOf,
   StatusFilter,
   RepaymentFrequency, REPAYMENT_FREQUENCIES, buildSchedule,
-  fundingSourceMeta,
+  fundingSourceMeta, normalizeFundingSource, FundingSource,
 } from './lendingHelpers';
+
+/** Funding-source filter chips for the Activity log. */
+const FUNDING_FILTERS: { key: 'all' | FundingSource; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'withdrawable', label: 'My own money' },
+  { key: 'float', label: 'Operational float' },
+];
 
 interface Props {
   open: boolean;
