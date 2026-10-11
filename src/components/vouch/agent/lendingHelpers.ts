@@ -264,3 +264,12 @@ export function repaymentPlanOf(loan: LendingLoan): RepaymentPlan | null {
 
   return { frequency: freq, frequencyLabel, installment, remainingCount, nextDueDate, nextDueInPast };
 }
+
+/** Totals for loans funded from the lender's own withdrawable balance. */
+export function ownMoneySummary(loans: LendingLoan[]) {
+  const own = loans.filter((l) => l.funding_source === 'withdrawable');
+  const lent = own.reduce((a, l) => a + (Number(l.principal_ugx) || 0), 0);
+  const returned = own.reduce((a, l) => a + (Number(l.amount_repaid_ugx) || 0), 0);
+  const awaiting = own.reduce((a, l) => a + outstandingOf(l), 0);
+  return { count: own.length, lent, returned, awaiting };
+}
