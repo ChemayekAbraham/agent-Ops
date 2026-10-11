@@ -528,6 +528,21 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
   const borrowerPageCount = Math.max(1, Math.ceil(filteredLoans.length / BORROWER_PAGE_SIZE));
   const safeBorrowerPage = Math.min(borrowerPage, borrowerPageCount - 1);
   const pagedLoans = filteredLoans.slice(safeBorrowerPage * BORROWER_PAGE_SIZE, (safeBorrowerPage + 1) * BORROWER_PAGE_SIZE);
+  const pagedAiIds = pagedLoans.map((l) => l.borrower_ai_id).filter(Boolean).join(',');
+  const [vouchByAiId, setVouchByAiId] = useState<Record<string, number>>({});
+  useEffect(() => {
+    const ids = pagedAiIds ? pagedAiIds.split(',') : [];
+    if (!ids.length) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await (supabase.from('welile_trust_score_cache' as any).select('ai_id, borrowing_limit_ugx').in('ai_id', ids) as any);
+      if (cancelled || !data) return;
+      const m: Record<string, number> = {};
+      (data as any[]).forEach((r) => { m[r.ai_id] = Number(r.borrowing_limit_ugx) || 0; });
+      setVouchByAiId((prev) => ({ ...prev, ...m }));
+    })();
+    return () => { cancelled = true; };
+  }, [pagedAiIds]);
 
   const pendingCount = requests.filter((r) => r.status === 'pending').length;
   const activeOffers = offers.filter((o) => o.active).length;
@@ -722,7 +737,7 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
                   ) : (
                     <div className="space-y-2.5">
                       {pagedLoans.map((loan) => (
-                        <LendingBorrowerCard key={loan.id} loan={loan} onRecordRepayment={handleRecordRepayment} onTopUpOrRenew={handleTopUpOrRenew} onSetRecovery={handleSetRecovery} />
+                        <LendingBorrowerCard key={loan.id} loan={loan} vouchLimit={vouchByAiId[loan.borrower_ai_id]} onRecordRepayment={handleRecordRepayment} onTopUpOrRenew={handleTopUpOrRenew} onSetRecovery={handleSetRecovery} />
                       ))}
                       {borrowerPageCount > 1 && (
                         <nav aria-label="Borrower pages" className="flex items-center justify-between gap-2 pt-2">
