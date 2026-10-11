@@ -169,6 +169,24 @@ export default function LendingBorrowerCard({ loan, vouchLimit, onRecordRepaymen
     }
   };
 
+  // Repayment history for this loan, labeled with the funding source the
+  // money came from (repayments return to that same source).
+  useEffect(() => {
+    if (!expanded) { setHistory(null); return; }
+    let cancelled = false;
+    (async () => {
+      const { data } = await (supabase
+        .from('lending_audit_log' as any)
+        .select('amount_ugx, created_at')
+        .eq('entity_id', loan.id)
+        .eq('action_type', 'repayment_recorded')
+        .order('created_at', { ascending: false })
+        .limit(50) as any);
+      if (!cancelled) setHistory((data ?? []) as { amount_ugx: number; created_at: string }[]);
+    })();
+    return () => { cancelled = true; };
+  }, [expanded, loan.id]);
+
   return (
     <Card className="border-border/60 overflow-hidden">
       <CardContent className="p-0">
