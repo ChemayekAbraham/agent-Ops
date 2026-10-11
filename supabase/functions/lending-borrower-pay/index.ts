@@ -280,12 +280,12 @@ Deno.serve(async (req) => {
         loan_purpose: body?.purpose ? String(body.purpose).slice(0, 300) : null, platform_fee_ugx: 0,
         status: "active", repayment_frequency: freq, auto_deduct_enabled: true,
         installment_ugx: installment || null, next_deduction_date: firstDate, auto_deduct_started_at: now,
-        funding_source: "float", disbursement_reference: ref,
+        funding_source: source, disbursement_reference: ref,
       });
-      if (insErr) { console.error("[lending-borrower-pay] disburse insert", insErr, { ref }); return json({ error: `Float was sent (ref ${ref}) but the loan could not be saved. Contact support.` }, 500); }
+      if (insErr) { console.error("[lending-borrower-pay] disburse insert", insErr, { ref }); return json({ error: `Money was sent (ref ${ref}) but the loan could not be saved. Contact support.` }, 500); }
       if (loanRequestId) await admin.from("lending_loan_requests").update({ status: "approved", decided_at: now, loan_id: loanId }).eq("id", loanRequestId).eq("lender_agent_id", userId).then(() => {}, () => {});
-      await admin.from("lending_audit_log").insert({ actor_id: userId, actor_display_name: lenderLabel, action_type: "loan_disbursed", entity_type: "loan", entity_id: loanId, borrower_user_id: borrowerId, lender_agent_id: userId, amount_ugx: principal, fee_ugx: 0, new_status: "active", details: { funding_source: "float", reference: ref, interest_rate_pct: rate } }).then(() => {}, () => {});
-      await admin.from("system_events").insert({ event_type: "wallet_transfer", user_id: borrowerId, related_entity_type: "lending_agent_loan", related_entity_id: loanId, metadata: { amount: principal, reference: ref, kind: "float_loan" } }).then(() => {}, () => {});
+      await admin.from("lending_audit_log").insert({ actor_id: userId, actor_display_name: lenderLabel, action_type: "loan_disbursed", entity_type: "loan", entity_id: loanId, borrower_user_id: borrowerId, lender_agent_id: userId, amount_ugx: principal, fee_ugx: 0, new_status: "active", details: { funding_source: source, reference: ref, interest_rate_pct: rate } }).then(() => {}, () => {});
+      await admin.from("system_events").insert({ event_type: "wallet_transfer", user_id: borrowerId, related_entity_type: "lending_agent_loan", related_entity_id: loanId, metadata: { amount: principal, reference: ref, kind: isFloatSrc ? "float_loan" : "withdrawable_loan" } }).then(() => {}, () => {});
       const totalOwedUgx = Math.round(principal * (1 + rate / 100));
       if (bp.phone) {
         const msg = `Welile: UGX ${principal.toLocaleString("en-US")} has been sent to your Welile wallet by ${lenderLabel}. Total to repay: UGX ${totalOwedUgx.toLocaleString("en-US")} by ${due}. Ref ${ref}.`;
