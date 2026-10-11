@@ -1183,7 +1183,9 @@ export default function MerchandiseStore() {
                     onChange={(e) => {
                       const raw = e.target.value.replace(/[^0-9]/g, '');
                       if (raw === '') return;
-                      const n = Math.max(1, Math.min(12, parseInt(raw, 10)));
+                      const last = raw.slice(-1);
+                      const candidate = parseInt(raw, 10) > 12 ? parseInt(last, 10) || 1 : parseInt(raw, 10);
+                      const n = Math.max(1, Math.min(12, candidate));
                       setTermMonths(n);
                     }}
                   />

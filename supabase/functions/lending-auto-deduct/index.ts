@@ -4,6 +4,7 @@
 // RPC. Designed to run on a daily cron, but also accepts an optional
 // { loan_id } body so an agent can trigger a single loan immediately to test.
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { planRepayment, repaymentLegs, splitColumns } from "./floatSplit.ts";
 import {
   firstDeductionDate,
   nextDeductionDate,
