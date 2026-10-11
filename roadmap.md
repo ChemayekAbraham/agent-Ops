@@ -1,5 +1,6 @@
 # Tasks
-- [ ] Simplify lending to four entry choices, add five-user vouched directory, and verify navigation without moving money.
+- [x] Simplify lending to four entry choices and add a five-user directory with photos, IDs, locations, phone and available vouched amounts; guards and pagination test passed.
+- [ ] Verify lending navigation in the signed-in preview — blocked by inconsistent dashboard loading and stacked notices; no money-moving actions tested.
 - [x] Align Agent Ops Shopping Advance counts, lists and dossiers with rolling 24-hour received transfers; verified signed-in count, list and real-user dossier without moving money.
 - [x] Add selected-note Approve & Pay with live proxy-agent payout preview and explicit confirmation.
 - [x] Run logic guards and confirm error-free compilation.
