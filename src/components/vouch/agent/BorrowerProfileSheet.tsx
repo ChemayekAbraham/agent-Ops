@@ -12,6 +12,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Banknote, BadgeCheck, MapPin, Phone, ShieldCheck } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { formatLocation } from '@/lib/locationText';
+import { fundingSourceMeta } from './lendingHelpers';
 import { cn } from '@/lib/utils';
 
 export interface DirectoryPerson {
