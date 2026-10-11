@@ -3,6 +3,7 @@
 //   schedule (amount + due date + paid state) and payment history.
 // action "pay": moves { amount } from the borrower's strict available wallet
 //   balance to the lending agent via create_ledger_transaction (single writer).
+import { sendSMS } from "../_shared/sendSmsMultiProvider.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   firstDeductionDate,
@@ -280,7 +281,12 @@ Deno.serve(async (req) => {
       if (loanRequestId) await admin.from("lending_loan_requests").update({ status: "approved", decided_at: now, loan_id: loanId }).eq("id", loanRequestId).eq("lender_agent_id", userId).then(() => {}, () => {});
       await admin.from("lending_audit_log").insert({ actor_id: userId, actor_display_name: lenderLabel, action_type: "loan_disbursed", entity_type: "loan", entity_id: loanId, borrower_user_id: borrowerId, lender_agent_id: userId, amount_ugx: principal, fee_ugx: 0, new_status: "active", details: { funding_source: "float", reference: ref, interest_rate_pct: rate } }).then(() => {}, () => {});
       await admin.from("system_events").insert({ event_type: "wallet_transfer", user_id: borrowerId, related_entity_type: "lending_agent_loan", related_entity_id: loanId, metadata: { amount: principal, reference: ref, kind: "float_loan" } }).then(() => {}, () => {});
-      return json({ ok: true, loan_id: loanId, reference: ref, total_owed_ugx: Math.round(principal * (1 + rate / 100)) });
+      const totalOwedUgx = Math.round(principal * (1 + rate / 100));
+      if (bp.phone) {
+        const msg = `Welile: UGX ${principal.toLocaleString("en-US")} has been sent to your Welile wallet by ${lenderLabel}. Total to repay: UGX ${totalOwedUgx.toLocaleString("en-US")} by ${due}. Ref ${ref}.`;
+        await sendSMS(bp.phone, msg).catch((e) => console.error("[lending-borrower-pay] disburse sms", e));
+      }
+      return json({ ok: true, loan_id: loanId, reference: ref, total_owed_ugx: totalOwedUgx });
     }
 
     if (action === "recovery") {
