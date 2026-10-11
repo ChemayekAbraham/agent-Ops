@@ -1,5 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { fundingSourceMeta, FUNDING_SOURCE_META } from '@/components/vouch/agent/lendingHelpers';
+import { fundingSourceMeta, FUNDING_SOURCE_META, normalizeFundingSource } from '@/components/vouch/agent/lendingHelpers';
+
+describe('funding-source normalization (history filter)', () => {
+  it('maps only withdrawable to withdrawable; everything else to float', () => {
+    expect(normalizeFundingSource('withdrawable')).toBe('withdrawable');
+    expect(normalizeFundingSource('float')).toBe('float');
+    expect(normalizeFundingSource(undefined)).toBe('float');
+    expect(normalizeFundingSource(null)).toBe('float');
+    expect(normalizeFundingSource('legacy_value')).toBe('float');
+  });
+});
 
 describe('lending funding-source labels', () => {
   it('labels float-funded loans as Operational float', () => {
