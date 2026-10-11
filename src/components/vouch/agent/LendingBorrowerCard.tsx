@@ -208,6 +208,7 @@ export default function LendingBorrowerCard({ loan, vouchLimit, onRecordRepaymen
         dueDate: loan.expected_repayment_date,
         status: loan.status,
         fundingLabel: funding.label,
+        fundingBreakdown,
         filterNote: (pdfFrom || pdfTo || pdfStatus !== 'all')
           ? [pdfFrom || pdfTo ? `${pdfFrom || 'start'} to ${pdfTo || 'today'}` : '', pdfStatus === 'on_time' ? 'on-time payments' : pdfStatus === 'late' ? 'late payments' : ''].filter(Boolean).join(', ')
           : null,
