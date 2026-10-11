@@ -3760,6 +3760,13 @@
       "when": 1791644954336,
       "tag": "0536_assistant_rollout_gate",
       "breakpoints": true
+    },
+    {
+      "idx": 537,
+      "version": "7",
+      "when": 1791718477813,
+      "tag": "0537_perf_house_listings_rls_initplan_frozen_index",
+      "breakpoints": true
     }
   ]
 }

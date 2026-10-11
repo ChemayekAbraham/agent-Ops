@@ -44,7 +44,7 @@ export function RentAccessProgressTracker({ userId }: Props) {
             .from('rent_requests')
             .select('daily_repayment')
             .eq('tenant_id', userId)
-            .in('status', ['funded', 'repaying'])
+            .in('status', ['funded', 'repaying', 'disbursed'])
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle(),
