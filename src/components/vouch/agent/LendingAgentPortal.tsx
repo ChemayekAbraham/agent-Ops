@@ -364,19 +364,6 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
       amountUgx: principalNum, feeUgx: fee, oldStatus: 'pending', newStatus: 'approved',
       details: { loan_id: loanRow?.id ?? null, borrower_ai_id: req.borrower_ai_id },
     });
-    await logLendingAudit({
-      actorId: user.id, actorDisplayName: myName, actionType: 'loan_disbursed',
-      entityType: 'loan', entityId: loanRow?.id ?? null,
-      borrowerUserId: req.borrower_user_id, lenderAgentId: user.id,
-      amountUgx: principalNum, feeUgx: fee, newStatus: 'active',
-      details: { interest_rate_pct: req.interest_rate_pct ?? 0, request_id: req.id },
-    });
-    await logLendingAudit({
-      actorId: user.id, actorDisplayName: myName, actionType: 'fee_deducted',
-      entityType: 'loan', entityId: loanRow?.id ?? null,
-      borrowerUserId: req.borrower_user_id, lenderAgentId: user.id,
-      feeUgx: fee, details: { platform_fee_pct: PLATFORM_FEE_PCT, principal_ugx: principalNum },
-    });
     await reloadRequests();
     refetchBalances();
     await reloadLoans();
@@ -486,8 +473,8 @@ export default function LendingAgentPortal({ open, onOpenChange }: Props) {
 
     toast.success(
       autoDeduct
-        ? `Loan recorded. Auto-deduction set ${frequency.replace('_', ' ')} (~${formatUGX(schedule?.installment ?? 0)}/cycle).`
-        : `Loan to ${borrower.identity?.full_name ?? borrower.ai_id} recorded.`,
+        ? `Money sent to the borrower's wallet. Auto-deduction set ${frequency.replace('_', ' ')} (~${formatUGX(schedule?.installment ?? 0)}/cycle).`
+        : `Loan to ${borrower.identity?.full_name ?? borrower.ai_id} sent to their wallet.`,
     );
     await reloadLoans();
     refetchBalances();
