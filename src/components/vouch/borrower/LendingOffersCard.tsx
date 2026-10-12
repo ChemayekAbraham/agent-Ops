@@ -18,7 +18,7 @@ interface OfferRow {
 }
 
 /** Borrower home: a short list of active lending offers with a clear "Request" button. */
-export function LendingOffersCard({ userId }: { userId: string }) {
+export function LendingOffersCard({ userId, showHeader = true }: { userId: string; showHeader?: boolean }) {
   const [offers, setOffers] = useState<OfferRow[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [open, setOpen] = useState(false);
