@@ -149,6 +149,7 @@ export function AgentMenuDrawer({
   onDownloadTenantForm,
   onOpenRentPoster,
   onViewMoney,
+  onViewTenantHub,
   isFinancialAgent = false,
   restricted = false,
 }: AgentMenuDrawerProps) {
@@ -209,6 +210,7 @@ export function AgentMenuDrawer({
       icon: Users,
       label: '👥 People',
       items: [
+        { icon: Users, label: 'My Tenant Hub', description: 'Tenants, repayments & rent requests', onClick: onViewTenantHub, accent: 'primary' },
         { icon: Users, label: 'My Tenants', description: 'Repayment schedules', onClick: onViewTenants, accent: 'primary' },
         { icon: UserPlus, label: 'Onboard Tenant', description: 'Invite link — you earn commission', onClick: onInviteTenant, accent: 'teal-500', badge: '🔗' },
         { icon: ClipboardList, label: 'Registrations', description: 'Invite status & links', path: '/agent-registrations', accent: 'blue-600' },

@@ -669,7 +669,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   const getTabOrder = (): AgentHubTab[] =>
     isCashoutAgent
       ? ['home']
-      : ['home', 'tenants', 'grow', 'subagents'];
+      : ['home', 'grow', 'subagents'];
   const swipeHandlers = useHorizontalSwipe({
     onSwipeLeft: () => {
       const order = getTabOrder();
@@ -1636,8 +1636,18 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
             Never rendered for Merchant Agents (tenant operations disabled). */}
         {activeTab === 'tenants' && !isMerchant && (
           <div className={cn("space-y-4 pb-24", tabAnimClass)}>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center justify-between gap-2">
               <h2 className="text-base sm:text-lg font-bold text-foreground">My Tenants</h2>
+              <button
+                type="button"
+                onClick={() => { hapticTap(); setActiveTab('home'); }}
+                className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-3 py-1.5 text-[11px] font-bold text-primary active:scale-[0.97]"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+                Home
+              </button>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex flex-wrap items-center gap-2">
                 <Button
                   variant="outline"
@@ -1847,6 +1857,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         onViewTenants={() => { setMenuOpen(false); setTenantsSheetOpen(true); }}
         onViewCreditAccess={() => { setMenuOpen(false); setCreditOpen(true); }}
         onViewMoney={() => { setMenuOpen(false); setSlideDirection(null); setActiveTab('money'); }}
+        onViewTenantHub={() => { setMenuOpen(false); setSlideDirection(null); setActiveTab('tenants'); }}
         onFundPartner={() => { setMenuOpen(false); setInvestForPartnerOpen(true); }}
         onViewProxyHistory={() => { setMenuOpen(false); setProxyHistoryOpen(true); }}
         onIssueReceipt={() => { setMenuOpen(false); setReceiptOpen(true); }}
