@@ -439,14 +439,11 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
           </WidgetErrorBoundary>
 
 
-          <RentAccessGrowthBanner />
-
           <WidgetErrorBoundary label="Suggested houses">
             <SuggestedHousesCard userId={uid} onViewAll={goToAllHouses} />
           </WidgetErrorBoundary>
 
-
-
+          <RentAccessGrowthBanner />
         </main>
       </div>
 
