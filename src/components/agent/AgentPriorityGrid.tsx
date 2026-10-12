@@ -30,7 +30,7 @@ export function AgentPriorityGrid({ onOpenNewTenant, onOpenListHouse, restricted
   useProfile(); // keep hook to preserve profile prefetch behaviour
 
   return (
-    <div className="grid grid-cols-2 gap-2.5">
+    <div className="flex flex-col gap-2.5">
       {/* 3. Add Tenant — rent request (hidden for Merchant Agents) */}
       {!restricted && (
       <PriorityTile
