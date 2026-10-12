@@ -479,6 +479,29 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
   // Delete portfolio dialog
   const [deletePortfolio, setDeletePortfolio] = useState<PortfolioRow | null>(null);
   const [deleteReason, setDeleteReason] = useState('');
+  const [redeemTarget, setRedeemTarget] = useState<PortfolioRow | null>(null);
+  const [redeemReason, setRedeemReason] = useState('');
+  const [redeeming, setRedeeming] = useState(false);
+  const handleStaffFullRedemption = async () => {
+    if (!redeemTarget) return;
+    if (redeemReason.trim().length < 10) { toast.error('Enter a reason of at least 10 characters'); return; }
+    setRedeeming(true);
+    try {
+      const { data: reqId, error: e1 } = await (supabase.rpc as any)('staff_create_redemption_request', {
+        p_portfolio_id: redeemTarget.id, p_reason: redeemReason.trim(),
+      });
+      if (e1) throw e1;
+      const { error: e2 } = await supabase.functions.invoke('process-portfolio-redemption', {
+        body: { request_id: reqId, scope: 'full', amount: Number(redeemTarget.investment_amount) || 0, note: redeemReason.trim() },
+      });
+      if (e2) throw e2;
+      toast.success(`${redeemTarget.portfolio_code} redeemed in full`);
+      setRedeemTarget(null); setRedeemReason('');
+      window.location.reload();
+    } catch (err: any) {
+      toast.error(err?.message || 'Redemption failed');
+    } finally { setRedeeming(false); }
+  };
   const [deleting, setDeleting] = useState(false);
 
   // Renew portfolio dialog
@@ -3193,6 +3216,17 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
                                     title="Split part of the principal into a new portfolio"
                                   >
                                     <Scissors className="h-3.5 w-3.5" /> Split
+                                  </Button>
+                                )}
+                                {!readOnly && p.status !== 'redeemed' && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-9 px-3 text-xs text-emerald-700 hover:text-emerald-800 hover:bg-emerald-500/10 gap-1.5 min-h-[44px]"
+                                    onClick={() => { setRedeemTarget(p); setRedeemReason(''); }}
+                                    title="Return the full principal to the partner and close this portfolio"
+                                  >
+                                    <ArrowRightLeft className="h-3.5 w-3.5" /> Redeem
                                   </Button>
                                 )}
                                 {!readOnly && (
