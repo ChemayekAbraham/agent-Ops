@@ -1087,6 +1087,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
           <AgentHubTabs
             active={activeTab}
             restricted={isMerchant}
+            onMenuClick={handleOpenMenu}
             onChange={(tab) => {
               // Merchant Agents are locked to Home only.
               if (isMerchant && tab !== 'home') { guardMerchant(); return; }
