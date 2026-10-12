@@ -2,6 +2,13 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  describePayout,
+  formatPipelineStatus,
+  sortUncovered,
+  summariseUncovered,
+  type UncoveredPlanRow,
+} from '@/lib/agentMonitoringUncovered';
 
 /**
  * Tenant Ops → Classic → Agent Monitoring PDF.
@@ -37,6 +44,14 @@ export interface ReportAgent {
   weeklyCollected: number;
 }
 
+/** The two lists of Rent Plans the payout clock does not cover, handed in already built. */
+export interface ReportUncovered {
+  tenantPaying: UncoveredPlanRow[];
+  awaiting: UncoveredPlanRow[];
+  /** Kampala day the days-since-funding figures were counted to (yyyy-MM-dd). */
+  asOf: string;
+}
+
 export interface AgentMonitoringReportInput {
   day: Date;
   cohortLabel: string;
@@ -44,6 +59,8 @@ export interface AgentMonitoringReportInput {
   statusLabel: string;
   search: string;
   agents: ReportAgent[];
+  /** Optional: adds "Tenant paying, landlord not paid" and "Awaiting landlord payment" sections. */
+  uncovered?: ReportUncovered;
 }
 
 const STATUS_LABEL: Record<ReportStatus, string> = {
@@ -402,8 +419,68 @@ export async function generateAgentMonitoringPdf(input: AgentMonitoringReportInp
     didDrawPage: () => { if (doc.getCurrentPageInfo().pageNumber > 1) header(false); },
   });
 
+  // ---------- Rent Plans the payout clock does not cover ----------
+  let cy = (doc as any).lastAutoTable.finalY + 10;
+  if (input.uncovered) {
+    const uncoveredSection = (title: string, note: string, rows: UncoveredPlanRow[], showRepayment: boolean) => {
+      if (cy > H - 50) { doc.addPage(); header(false); cy = 22; }
+      const sum = summariseUncovered(rows);
+      doc.setTextColor(...INK); doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+      doc.text(title, M, cy);
+      doc.setFont('helvetica', 'normal'); doc.setFontSize(7.5); doc.setTextColor(...MUTED);
+      const summary = showRepayment
+        ? `${sum.plans} Rent Plans · ${ugx(sum.totalRepaid)} repaid so far · ${ugx(sum.totalOwed)} still owed`
+        : `${sum.plans} Rent Plans · ${ugx(sum.totalFunded)} funded, not yet paid to landlords${sum.longestDays === null ? '' : ` · longest wait ${sum.longestDays} day${sum.longestDays === 1 ? '' : 's'}`}`;
+      doc.text(summary, M, cy + 4.5);
+      const noteLines = doc.splitTextToSize(note, W - 2 * M) as string[];
+      doc.text(noteLines, M, cy + 8.5);
+      const sorted = sortUncovered(rows, showRepayment ? 'repaid_desc' : 'days_desc');
+      autoTable(doc, {
+        startY: cy + 9 + noteLines.length * 3.2,
+        margin: { left: M, right: M, top: 18, bottom: 14 },
+        head: [showRepayment
+          ? ['#', 'Tenant', 'Phone', 'Agent', 'Rent Plan funded', 'Repaid so far', 'Still owed', 'Days since funding', 'Landlord payout', 'Pipeline status']
+          : ['#', 'Tenant', 'Phone', 'Agent', 'Rent Plan funded', 'Days waiting', 'Landlord payout', 'Pipeline status']],
+        body: sorted.length === 0
+          ? [[{ content: 'No Rent Plan is in this position right now.', colSpan: showRepayment ? 10 : 8, styles: { halign: 'center', textColor: MUTED } }]]
+          : sorted.map((r, i) => (showRepayment
+            ? [i + 1, r.tenantName, r.tenantPhone || '—', r.agentName, ugx(r.fundedAmount), ugx(r.repaid), ugx(r.stillOwed),
+               r.daysSinceFunding === null ? '—' : r.daysSinceFunding, describePayout(r.payout, ugx), formatPipelineStatus(r.pipelineStatus)]
+            : [i + 1, r.tenantName, r.tenantPhone || '—', r.agentName, ugx(r.fundedAmount),
+               r.daysSinceFunding === null ? '—' : r.daysSinceFunding, describePayout(r.payout, ugx), formatPipelineStatus(r.pipelineStatus)])),
+        theme: 'grid',
+        styles: { fontSize: 7, cellPadding: 1.5, textColor: INK, lineColor: LINE, lineWidth: 0.1, overflow: 'linebreak' },
+        headStyles: { fillColor: BRAND, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7 },
+        alternateRowStyles: { fillColor: SOFT },
+        columnStyles: showRepayment
+          ? { 0: { cellWidth: 8, halign: 'right', textColor: MUTED }, 1: { fontStyle: 'bold' }, 4: { halign: 'right' }, 5: { halign: 'right', textColor: GREEN, fontStyle: 'bold' }, 6: { halign: 'right' }, 7: { halign: 'right' } }
+          : { 0: { cellWidth: 8, halign: 'right', textColor: MUTED }, 1: { fontStyle: 'bold' }, 4: { halign: 'right' }, 5: { halign: 'right' } },
+        didParseCell: (d) => {
+          if (d.section === 'head') {
+            const right = showRepayment ? [0, 4, 5, 6, 7] : [0, 4, 5];
+            if (right.includes(d.column.index)) d.cell.styles.halign = 'right';
+          }
+        },
+        didDrawPage: () => { if (doc.getCurrentPageInfo().pageNumber > 1) header(false); },
+      });
+      cy = (doc as any).lastAutoTable.finalY + 10;
+    };
+    uncoveredSection(
+      'Tenant paying, landlord not paid',
+      `Rent Plans with tenant repayments but no landlord payout yet: the repayment clock has not started, so no arrears are counted. Days counted to ${input.uncovered.asOf}.`,
+      input.uncovered.tenantPaying,
+      true,
+    );
+    uncoveredSection(
+      'Awaiting landlord payment',
+      `Funded Rent Plans with no landlord payout and no tenant repayment yet. Days counted to ${input.uncovered.asOf}.`,
+      input.uncovered.awaiting,
+      false,
+    );
+  }
+
   // ---------- Definitions ----------
-  let dy = (doc as any).lastAutoTable.finalY + 8;
+  let dy = (input.uncovered ? cy - 2 : (doc as any).lastAutoTable.finalY + 8);
   if (dy > H - 40) { doc.addPage(); header(false); dy = 20; }
   doc.setTextColor(...INK); doc.setFont('helvetica', 'bold'); doc.setFontSize(8.5);
   doc.text('How these figures are defined', M, dy);
@@ -412,6 +489,7 @@ export async function generateAgentMonitoringPdf(input: AgentMonitoringReportInp
     'Expected: UGX genuinely due on the selected day under each tenant\'s own Rent Plan schedule (weekly plans fall due on their instalment weekday at 7 × the daily amount; tenants already covered by earlier over-payment owe nothing that day).',
     'Collected: every receipt posted against the Rent Plan during the selected day (00:00–24:00 EAT), whoever recorded it, plus tenant self-payments not already mirrored by an agent collection. Reversed collections are excluded.',
     'Arrears: UGX still owed for periods already due, after payments clear the oldest periods first. Paid ahead: tenants whose surplus covers future periods.',
+    'Counting: repayments are counted from the day after the landlord was paid (the LAST landlord payout). Rent Plans with no landlord payout yet are not measured and appear in the two lists above instead of the agent figures. Outstanding balance plans keep their existing start.',
     'Status: On target = collected >= expected; Partial = some but not all collected; Critical = money due and nothing collected; Nothing due = no money expected that day. Identical to the Agent Monitoring page.',
   ];
   defs.forEach((d) => {

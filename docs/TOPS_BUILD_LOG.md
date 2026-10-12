@@ -1071,3 +1071,16 @@ No code change. User reported the "Workspace" tab wasn't visible in the Tenant O
 Collected today did not change: none of the 58 plans taken off the page had a receipt today.
 
 **Verified:** unit tests for the schedule mapping and the batched hook (`src/lib/agentMonitoringClockSchedule.test.ts`, `src/hooks/useAgentMonitoringClock.test.tsx`); in the browser a day change made 2 `am_plan_clock` and 2 `am_plan_arrears` calls (two chunks), all 200, no failed requests.
+
+## 2026-10-12 — Agent Monitoring: two lists for Rent Plans the payout clock does not cover (page only)
+
+**What:** two new tabs beside All agents / After 1 Sep / Before 1 Sep / Expected vs paid / Rent Analysis, and an "Outstanding balance" marker on the main tab. Read-only; no database change (uses `am_plan_clock` plus reads of profiles, landlord payouts and float allocations).
+- **Tenant paying, landlord not paid** (bucket `tenant_paying_no_landlord`) and **Awaiting landlord payment** (bucket `awaiting_landlord`): tenant, phone, agent, Rent Plan amount funded, days since funding (days waiting on the second list), landlord payout (No payout / Payout pending / Payout failed / Part-paid with amount / "Float paid ..., no payout record"), pipeline status; the first list also shows repaid so far and still owed. Summary cards (plans, total repaid, still owed; plans, total funded, longest wait), search on tenant / phone digits / agent, agent filter, sort, 25 per page. Cards on phones, a table from md up. The only link opens the existing tenant profile drawer; no action changes data.
+- Population: every active Rent Plan (funded / disbursed / repaying), the same set the bucket counts were taken on, not only the eligibility-filtered set the main tab uses.
+- Main tab: agents with plans that keep their existing start show "N outstanding balance" in the table and cards; each such Rent Plan in the agent dialog carries an "Outstanding balance" badge.
+- PDF: both lists are added as separate sections (summary line, table, empty-list line) before the definitions, plus a definition of the payout-clock counting. The export fails with a message rather than silently leaving them out if the lists cannot be loaded.
+- New files: `src/components/executive/tenant-ops/UncoveredPlansTab.tsx`, `src/hooks/useAgentMonitoringUncovered.ts`, `src/lib/agentMonitoringUncovered.ts` (+ tests, and a PDF test). Edited: `AgentMonitoring.tsx` (tab list, badge, PDF data) and `agentMonitoringReportPdf.ts`.
+
+**Live check (12 Oct 2026):** Tenant paying list 59 plans, UGX 13,395,793 repaid, UGX 26,739,562 still owed; Awaiting list 25 plans, UGX 4,300,001 funded, longest wait 150 days; all equal to the same sums taken in SQL. The PDF built with 9 pages and both sections. No horizontal overflow at 380 px.
+
+**Known limits:** float allocations are readable only by manager / super admin / CFO / COO / operations, so for a `tenant_ops` viewer the Part-paid / "no payout record" wording cannot show (it reads "No payout"). Two awaiting plans have a fully paid float allocation (UGX 450,000 in total) but no payout record, which is why they sit on the no-clock list; some plans carry a Rent Plan amount of UGX 0 or UGX 1.
