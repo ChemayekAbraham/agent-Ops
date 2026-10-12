@@ -1,4 +1,4 @@
-import { CartesianGrid, Line, LineChart, XAxis, YAxis } from 'recharts';
+import { Area, AreaChart, CartesianGrid, XAxis, YAxis } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { formatUGX } from '@/lib/rentCalculations';
 
@@ -30,16 +30,16 @@ export function PrincipalRecoveryChart({ comparison }: { comparison: PrincipalCo
         expected: { label: 'Expected', color: 'hsl(var(--chart-1))' },
         recovered: { label: 'Recovered', color: 'hsl(var(--chart-2))' },
       }}>
-        <LineChart accessibilityLayer data={comparison.trend} margin={{ top: 12, right: 12, bottom: 8, left: 0 }}>
+        <AreaChart accessibilityLayer data={comparison.trend} margin={{ top: 12, right: 12, bottom: 8, left: 0 }}>
           <CartesianGrid vertical={false} />
           <XAxis dataKey="date" tickFormatter={dateLabel} minTickGap={30} tickLine={false} axisLine={false} />
           <YAxis width={80} tickLine={false} axisLine={false} tickFormatter={(value: number) => `UGX ${value >= 1_000_000 ? `${(value / 1_000_000).toFixed(1)}M` : value >= 1_000 ? `${(value / 1_000).toFixed(0)}K` : value}`} />
           <ChartTooltip content={<ChartTooltipContent labelFormatter={(label) => dateLabel(String(label))} formatter={(value, name) => (
             <div className="flex w-full justify-between gap-4"><span className="text-muted-foreground">{name === 'expected' ? 'Expected' : 'Recovered'}</span><span className="font-medium tabular-nums">{formatUGX(Number(value))}</span></div>
           )} />} />
-          <Line type="stepAfter" dataKey="expected" stroke="var(--color-expected)" strokeWidth={2} dot={comparison.trend.length === 1} isAnimationActive={false} />
-          <Line type="stepAfter" dataKey="recovered" stroke="var(--color-recovered)" strokeWidth={2} dot={comparison.trend.length === 1} isAnimationActive={false} />
-        </LineChart>
+          <Area type="monotone" dataKey="expected" stroke="var(--color-expected)" fill="var(--color-expected)" fillOpacity={0.12} strokeWidth={2} dot={comparison.trend.length === 1} isAnimationActive={false} />
+          <Area type="monotone" dataKey="recovered" stroke="var(--color-recovered)" fill="var(--color-recovered)" fillOpacity={0.16} strokeWidth={2} dot={comparison.trend.length === 1} isAnimationActive={false} />
+        </AreaChart>
       </ChartContainer>
       <div className="flex flex-wrap justify-between gap-2 text-sm">
         <span className="text-muted-foreground">Principal still to recover</span>
