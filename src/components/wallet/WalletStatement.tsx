@@ -322,6 +322,33 @@ export function WalletStatement() {
   // Accessibility: shared easy-read mode (applies globally to wallet + receipt UI)
   const { enabled: a11yMode, toggle: toggleA11y, size: a11ySize, setSize: setA11ySize } = useEasyReadMode();
 
+  // ── Quick navigation out of the statement ──
+  const QUICK_LINKS = [
+    { label: 'Home', Icon: Home, to: '/' },
+    { label: 'All transactions', Icon: ArrowRight, to: '/transactions' },
+  ] as const;
+  const go = useCallback((to: string) => {
+    setOpen(false);
+    navigate(to);
+  }, [navigate]);
+  const quickLinksRow = (key: string) => (
+    <nav key={key} aria-label="Quick links" className="mb-4 flex flex-wrap gap-2">
+      {QUICK_LINKS.map(({ label, Icon, to }) => (
+        <Button
+          key={to}
+          variant="outline"
+          size="sm"
+          onClick={() => go(to)}
+          className="gap-1.5 rounded-full border-primary/30 text-xs font-semibold text-primary hover:bg-primary/10"
+        >
+          <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+          {label}
+        </Button>
+      ))}
+    </nav>
+  );
+
+
   useEffect(() => {
     if (open && user) {
       fetchStatement();
