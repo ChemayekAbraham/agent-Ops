@@ -603,11 +603,10 @@ export function AgentMenuDrawer({
                       </GuideAccordion>
                     </div>
                   )}
-                </div>
-              )}
-            </div>
-          </div>
-        </>
+                 </div>
+               )}
+             </div>
+    </div>
   );
 }
 
