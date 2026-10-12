@@ -176,6 +176,7 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
   }, []);
   const [housesOpen, setHousesOpen] = useState(false);
   const [loanOffersOpen, setLoanOffersOpen] = useState(false);
+  useBackGestureClose(loanOffersOpen, () => setLoanOffersOpen(false));
 
   // Dynamic telemetry tracking across tenant sheets and modals
   useEffect(() => {
