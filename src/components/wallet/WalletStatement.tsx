@@ -813,12 +813,22 @@ export function WalletStatement() {
         className="h-[92vh] rounded-t-3xl p-0 flex flex-col"
       >
         <SheetHeader className="px-5 pt-5 pb-4 border-b shrink-0">
-          <div className="flex items-center justify-between">
-            <div>
-              <SheetTitle className="text-xl font-bold flex items-center gap-2">
-                <ArrowUpDown className="h-5 w-5 text-primary" aria-hidden="true" />
-                Wallet Statement
-              </SheetTitle>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-1.5">
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => setOpen(false)}
+                aria-label="Go back"
+                className="h-9 w-9 shrink-0 rounded-full"
+              >
+                <ArrowLeft className="h-5 w-5" aria-hidden="true" />
+              </Button>
+              <div className="min-w-0">
+                <SheetTitle className="text-xl font-bold flex items-center gap-2">
+                  <ArrowUpDown className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+                  Wallet Statement
+                </SheetTitle>
               <p className="text-xs text-muted-foreground">All money in & out of your wallet</p>
             </div>
             <div className="flex items-center gap-2">
