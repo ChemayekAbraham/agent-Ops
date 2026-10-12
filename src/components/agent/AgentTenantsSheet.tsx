@@ -1219,6 +1219,8 @@ export function AgentTenantsSheet({ open, onOpenChange, initialView, initialPipe
   };
 
   return (
+    <>
+    {renewalOtp.dialog}
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
@@ -3012,5 +3014,6 @@ export function AgentTenantsSheet({ open, onOpenChange, initialView, initialPipe
         onOpenChange={setApplyAdvanceOpen}
       />
     </Sheet>
+    </>
   );
 }

@@ -2897,8 +2897,8 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
         }}
       />
 
+      {renewalOtp.dialog}
       {profile && lastCompletedRequest && lastCompletedRequest.landlord_id && (
-        {renewalOtp.dialog}
         <RenewalAgreementDialog
           open={renewalAgreementOpen}
           onOpenChange={setRenewalAgreementOpen}
