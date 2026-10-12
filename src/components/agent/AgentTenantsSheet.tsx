@@ -32,6 +32,7 @@ import AgentRentRequestDialog from './AgentRentRequestDialog';
 import { AgentTenantCollectDialog } from './AgentTenantCollectDialog';
 import { TenantBehaviorCard } from './TenantBehaviorCard';
 import { TenantProfileView } from './TenantProfileView';
+import { useRenewalOtp } from './RenewalOtpDialog';
 import { TenantFieldCollectDialog } from './TenantFieldCollectDialog';
 import { AgentRequestPipelineView } from './AgentRequestPipelineView';
 import { MarkNotFundedDialog } from './MarkNotFundedDialog';
@@ -298,6 +299,7 @@ function Highlight({ text, query }: { text?: string | null; query: string }) {
 
 export function AgentTenantsSheet({ open, onOpenChange, initialView, initialPipelineTab, initialHighlightId, initialProfileTenantId }: AgentTenantsSheetProps) {
   const { user } = useAuth();
+  const renewalOtp = useRenewalOtp();
   const { toast } = useToast();
   const [view, setView] = useState<'tenants' | 'pipeline'>(initialView ?? 'tenants');
   // When the sheet is (re)opened with a requested initial view (e.g. straight
@@ -1076,6 +1078,8 @@ export function AgentTenantsSheet({ open, onOpenChange, initialView, initialPipe
       toast({ title: 'Cannot renew', description: 'Landlord info missing on prior request.', variant: 'destructive' });
       return;
     }
+    const consented = await renewalOtp.requestConsent(req.id, tenant.full_name || 'the tenant');
+    if (!consented) return;
     setRenewingReqId(req.id);
     try {
       const fees = calculateRentRepayment(req.rent_amount, req.duration_days);
