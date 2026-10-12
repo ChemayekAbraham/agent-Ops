@@ -240,7 +240,6 @@ export function AgentMenuDrawer({
         { icon: Home, label: 'Managed Props', description: 'Properties & payouts', onClick: onViewManagedProperties, accent: 'teal-500' },
         { icon: Search, label: 'Find Rentals', description: 'Browse by location', onClick: onFindRentals, accent: 'violet-500' },
         { icon: MapPin, label: 'Landlord Map', description: 'Navigate to landlords', onClick: onViewLandlordMap, accent: 'emerald-500', badge: 'GPS' },
-        { icon: FileText, label: 'Post Rent', description: 'Request on behalf of tenant', onClick: onPostRentRequest, accent: 'blue-600' },
       ].filter(i => i.onClick !== undefined),
     },
     {
