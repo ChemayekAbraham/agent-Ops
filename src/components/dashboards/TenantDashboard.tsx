@@ -8,7 +8,15 @@ import {
   WifiOff,
   RefreshCw,
   BadgeCheck,
+  HandCoins,
 } from 'lucide-react';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import { FindAHouseCTA } from '@/components/tenant/FindAHouseCTA';
 import { LendingOffersCard } from '@/components/vouch/borrower/LendingOffersCard';
 import { MyLoanRequestsCard } from '@/components/vouch/borrower/MyLoanRequestsCard';
