@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { 
-  X, 
+import { useBackGestureClose } from '@/hooks/useBackGestureClose';
+import {
+  X,
+  ArrowLeft,
   UserPlus, 
   ArrowDownCircle,
   TrendingUp,
@@ -168,6 +170,9 @@ export function AgentMenuDrawer({
     setSearch('');
     onOpenChange(false);
   };
+
+  // Hardware back / edge-swipe closes the full-page menu instead of leaving the route.
+  useBackGestureClose(open, handleClose);
 
   const handleItemClick = (item: MenuItem) => {
     hapticSuccess();
@@ -360,33 +365,18 @@ export function AgentMenuDrawer({
   if (!open) return null;
 
   return (
-        <>
-          {/* Backdrop */}
-          <div
-            onClick={handleClose}
-            className="fixed inset-0 bg-black/60 z-[100] animate-fade-in"
-          />
-
-          {/* Bottom Sheet */}
-          <div
-            className="fixed inset-x-0 bottom-0 z-[101] bg-background rounded-t-3xl shadow-2xl flex flex-col animate-slide-up"
-            style={{ maxHeight: '88vh' }}
-          >
-            {/* Drag Handle */}
-            <div className="flex justify-center pt-3 pb-1">
-              <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
-            </div>
-
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 pb-3">
-              <h2 className="font-bold text-lg">Agent Hub</h2>
-              <button
-                onClick={handleClose}
-                className="p-2 rounded-full bg-muted hover:bg-muted/80 transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+    <div className="fixed inset-0 z-[101] bg-background flex flex-col animate-fade-in">
+      {/* Header */}
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-border/50 bg-background/95">
+        <button
+          onClick={handleClose}
+          aria-label="Close agent menu"
+          className="p-2 rounded-full bg-muted hover:bg-muted/80 transition-colors"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+        <h2 className="font-bold text-lg">Agent Hub</h2>
+      </div>
 
             {/* Search — type to jump to any action across every category */}
             <div className="px-4 pb-3">
@@ -613,11 +603,10 @@ export function AgentMenuDrawer({
                       </GuideAccordion>
                     </div>
                   )}
-                </div>
-              )}
-            </div>
-          </div>
-        </>
+                 </div>
+               )}
+             </div>
+    </div>
   );
 }
 
