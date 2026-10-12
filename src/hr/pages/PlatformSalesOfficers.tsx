@@ -313,7 +313,19 @@ interface FundingCommissionRow {
   as_at: string;
 }
 
-export default function PlatformSalesOfficersPage() {
+export interface PlatformSalesOfficersPageProps {
+  /** Render without the page layout header/back link (for embedding). */
+  embedded?: boolean;
+  /** Hide every commission figure and skip the funding-commission query. */
+  hideCommission?: boolean;
+}
+
+export default function PlatformSalesOfficersPage({
+  embedded = false,
+  hideCommission = false,
+}: PlatformSalesOfficersPageProps = {}) {
+  const Shell = ({ children }: { children: React.ReactNode }) =>
+    embedded ? <>{children}</> : <PersonalLayout title="Platform Sales Officers">{children}</PersonalLayout>;
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<WindowMode>('WEEKLY');
   // 0 = the live Wed–Tue week, -1 = the week before it, and so on.
@@ -465,6 +477,7 @@ export default function PlatformSalesOfficersPage() {
   // Both funding-commission engines in one list, server-ordered by commission paid.
   const { data: fundingRows = [], error: fundingError } = useQuery<FundingCommissionRow[]>({
     queryKey: ['funding-commission-summary', from, to],
+    enabled: !hideCommission,
     refetchInterval: 60_000,
     refetchOnWindowFocus: true,
     refetchIntervalInBackground: false,
@@ -773,14 +786,14 @@ export default function PlatformSalesOfficersPage() {
 
   if (isNotPermitted) {
     return (
-      <PersonalLayout title="Platform Sales Officers">
+      <Shell>
         <p className="text-sm text-muted-foreground">You do not have access to this report.</p>
-      </PersonalLayout>
+      </Shell>
     );
   }
 
   return (
-    <PersonalLayout title="Platform Sales Officers">
+    <Shell>
       <div className="space-y-4 sm:space-y-6">
         <div className="flex flex-col gap-2">
           <div className="flex flex-col gap-0.5">
@@ -958,10 +971,12 @@ export default function PlatformSalesOfficersPage() {
                       <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Money deployed</div>
                       <div className="text-xs font-semibold tabular-nums">{formatUgxCompact(officer.amountDeployed)}</div>
                     </div>
+                    {!hideCommission && (
                     <div>
                       <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Commission</div>
                       <div className="text-xs font-semibold tabular-nums">{formatUgxCompact(officer.commissionAccrued)}</div>
                     </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -994,8 +1009,10 @@ export default function PlatformSalesOfficersPage() {
                       <SortableTh label="Top-ups" sortKey="topups" activeKey={sortKey} onSort={setSortKey} />
                       <SortableTh label="Promised" sortKey="promisedAmount" activeKey={sortKey} onSort={setSortKey} />
                       <SortableTh label="Money deployed" sortKey="amountDeployed" activeKey={sortKey} onSort={setSortKey} />
+                      {!hideCommission && (<>
                       <SortableTh label="Commission base" sortKey="commissionBase" activeKey={sortKey} onSort={setSortKey} />
                       <SortableTh label="Commission" sortKey="commissionAccrued" activeKey={sortKey} onSort={setSortKey} />
+                      </>)}
                       <SortableTh label="Pre-enrol" sortKey="preEnrolmentNotes" activeKey={sortKey} onSort={setSortKey} />
                       <SortableTh label="Pre-enrol funded" sortKey="preEnrolmentFunded" activeKey={sortKey} onSort={setSortKey} />
                     </tr>
@@ -1028,12 +1045,14 @@ export default function PlatformSalesOfficersPage() {
                         <td className="px-4 py-2 text-right tabular-nums">
                           UGX {officer.amountDeployed.toLocaleString('en-UG')}
                         </td>
+                        {!hideCommission && (<>
                         <td className="px-4 py-2 text-right tabular-nums">
                           UGX {officer.commissionBase.toLocaleString('en-UG')}
                         </td>
                         <td className="px-4 py-2 text-right tabular-nums">
                           UGX {officer.commissionAccrued.toLocaleString('en-UG')}
                         </td>
+                        </>)}
                         <td className="px-4 py-2 text-right tabular-nums">
                           {officer.preEnrolmentNotes === 0 ? '—' : officer.preEnrolmentNotes}
                         </td>
@@ -1131,10 +1150,12 @@ export default function PlatformSalesOfficersPage() {
                       <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Money deployed</div>
                       <div className="text-xs font-semibold tabular-nums">{formatUgxCompact(person.amountDeployed)}</div>
                     </div>
+                    {!hideCommission && (
                     <div>
                       <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Commission</div>
                       <div className="text-xs font-semibold tabular-nums">{formatUgxCompact(person.commissionAccrued)}</div>
                     </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -1164,8 +1185,10 @@ export default function PlatformSalesOfficersPage() {
                       <SortableTh label="Funders" sortKey="fundersConverted" activeKey={sortKey} onSort={setSortKey} />
                       <SortableTh label="Top-ups" sortKey="topups" activeKey={sortKey} onSort={setSortKey} />
                       <SortableTh label="Money deployed" sortKey="amountDeployed" activeKey={sortKey} onSort={setSortKey} />
+                      {!hideCommission && (<>
                       <SortableTh label="Commission base" sortKey="commissionBase" activeKey={sortKey} onSort={setSortKey} />
                       <SortableTh label="Commission" sortKey="commissionAccrued" activeKey={sortKey} onSort={setSortKey} />
+                      </>)}
                       <th className="px-4 py-2 text-right font-medium">Pre-enrol</th>
                       <th className="px-4 py-2 text-right font-medium">Pre-enrol funded</th>
                     </tr>
@@ -1191,12 +1214,14 @@ export default function PlatformSalesOfficersPage() {
                         <td className="px-4 py-2 text-right tabular-nums">
                           UGX {person.amountDeployed.toLocaleString('en-UG')}
                         </td>
+                        {!hideCommission && (<>
                         <td className="px-4 py-2 text-right tabular-nums">
                           UGX {person.commissionBase.toLocaleString('en-UG')}
                         </td>
                         <td className="px-4 py-2 text-right tabular-nums">
                           UGX {person.commissionAccrued.toLocaleString('en-UG')}
                         </td>
+                        </>)}
                         <td className="px-4 py-2 text-right tabular-nums">—</td>
                         <td className="px-4 py-2 text-right tabular-nums">—</td>
                       </tr>
@@ -1259,15 +1284,17 @@ export default function PlatformSalesOfficersPage() {
                 <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Top-ups</div>
                 <div className="text-base font-bold tabular-nums sm:text-lg">{combinedTopups}</div>
               </div>
+              {!hideCommission && (
               <div className="rounded-lg border bg-card px-3 py-2">
                 <div className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Commission</div>
                 <div className="text-base font-bold tabular-nums sm:text-lg">{formatUgxCompact(combinedCommission)}</div>
               </div>
+              )}
             </div>
           </div>
         )}
 
-        {fundingRows.length > 0 && (
+        {!hideCommission && fundingRows.length > 0 && (
           <div className="space-y-2">
             <div className="flex flex-col gap-0.5 border-t pt-4">
               <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -1393,18 +1420,18 @@ export default function PlatformSalesOfficersPage() {
           notes, on the day they were approved, so the two will differ for any given window. Promised
           is the face value of the notes; Money deployed is what funders actually put in.
         </p>
-        <p className="text-xs text-muted-foreground">
+        {!hideCommission && <p className="text-xs text-muted-foreground">
           Money deployed is what the funder put in. Commission base is the amount commission was
           calculated on, capped at the note's promised amount. On monthly reports, the ranked total
           includes every note collected during the month, including work before a mid-month officer
           assignment. Pre-enrol keeps that earlier work visible as a separate breakdown. Funding
           commission is paid through two routes — a matched promissory note, or a managed proxy
           account — and the section above shows both.
-        </p>
+        </p>}
         <p className="text-xs text-muted-foreground">
           as at {fundedAsAt ? formatKampalaDateTime(fundedAsAt) : '—'} · funded figures are never frozen
         </p>
       </div>
-    </PersonalLayout>
+    </Shell>
   );
 }
