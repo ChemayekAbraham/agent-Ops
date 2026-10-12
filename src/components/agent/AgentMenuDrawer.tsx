@@ -53,7 +53,6 @@ interface AgentMenuDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onDeposit: () => void;
-  onPostRentRequest: () => void;
   onInviteSubAgent: () => void;
   onOpenEarningsRank: () => void;
   onManageProperty?: () => void;
@@ -119,7 +118,6 @@ export function AgentMenuDrawer({
   open, 
   onOpenChange, 
   onDeposit,
-  onPostRentRequest,
   onInviteSubAgent,
   onOpenEarningsRank,
   onManageProperty,
