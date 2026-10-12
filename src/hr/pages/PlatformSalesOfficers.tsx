@@ -1425,8 +1425,8 @@ export default function PlatformSalesOfficersPage({
           is the face value of the notes; Money deployed is what funders actually put in.
         </p>
         {!hideCommission && <p className="text-xs text-muted-foreground">
-          Money deployed is what the funder put in. Commission base is the amount commission was
-          calculated on, capped at the note's promised amount. On monthly reports, the ranked total
+          Money deployed is what the funder put in. Commission base is the full amount the funder
+          deployed: 2% on a partner's first fund-in, 1% on every later one. On monthly reports, the ranked total
           includes every note collected during the month, including work before a mid-month officer
           assignment. Pre-enrol keeps that earlier work visible as a separate breakdown. Funding
           commission is paid through two routes — a matched promissory note, or a managed proxy

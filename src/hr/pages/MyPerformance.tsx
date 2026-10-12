@@ -132,10 +132,11 @@ function getWindowDates(mode: WindowMode, todayStr: string): { from: string; to:
   };
 }
 
-async function fetchPsoSeries(from: string, to: string): Promise<PsoRow[]> {
+async function fetchPsoSeries(from: string, to: string, staffId: string | null = null): Promise<PsoRow[]> {
   const { data, error } = (await supabase.rpc('pso_daily_series' as any, {
     p_from: from,
     p_to: to,
+    ...(staffId ? { p_staff_id: staffId } : {}),
   })) as unknown as { data: PsoRow[] | null; error: { message: string } | null };
 
   if (error) throw new Error(error.message);
@@ -166,13 +167,27 @@ export default function MyPerformancePage() {
 
   const { from, to, label } = useMemo(() => getWindowDates(mode, todayStr), [mode, todayStr]);
 
+  const { data: myStaffId = null, isFetched: staffIdReady } = useQuery<string | null>({
+    queryKey: ['hr-my-staff-id'],
+    staleTime: 10 * 60_000,
+    queryFn: async () => {
+      const { data, error } = (await supabase.rpc('hr_my_staff_id' as any)) as unknown as {
+        data: string | null;
+        error: { message: string } | null;
+      };
+      if (error) return null;
+      return data ?? null;
+    },
+  });
+
   const {
     data: rows = [],
     isLoading,
     error,
   } = useQuery<PsoRow[]>({
-    queryKey: ['pso-daily-series', todayStr, from, to],
-    queryFn: () => fetchPsoSeries(from, to),
+    queryKey: ['pso-daily-series', myStaffId, todayStr, from, to],
+    enabled: staffIdReady,
+    queryFn: () => fetchPsoSeries(from, to, myStaffId),
     refetchInterval: 60000,
     refetchOnWindowFocus: true,
     refetchIntervalInBackground: false,
@@ -188,8 +203,9 @@ export default function MyPerformancePage() {
     data: rollingRows = [],
     isLoading: rollingLoading,
   } = useQuery<PsoRow[]>({
-    queryKey: ['pso-daily-series', 'rolling-7', todayStr, rollingFrom, rollingTo],
-    queryFn: () => fetchPsoSeries(rollingFrom, rollingTo),
+    queryKey: ['pso-daily-series', 'rolling-7', myStaffId, todayStr, rollingFrom, rollingTo],
+    enabled: staffIdReady,
+    queryFn: () => fetchPsoSeries(rollingFrom, rollingTo, myStaffId),
     refetchInterval: 60000,
     refetchOnWindowFocus: true,
     refetchIntervalInBackground: false,
@@ -216,11 +232,13 @@ export default function MyPerformancePage() {
   }, [rows, rollingRows, todayStr]);
 
   const { data: fundedSummary = null } = useQuery<PsoFundedSummary | null>({
-    queryKey: ['pso-funded-summary', todayStr, from, to],
+    queryKey: ['pso-funded-summary', myStaffId, todayStr, from, to],
+    enabled: staffIdReady,
     queryFn: async () => {
       const { data, error } = (await supabase.rpc('pso_funded_summary' as any, {
         p_from: from,
         p_to: to,
+        ...(myStaffId ? { p_staff_id: myStaffId } : {}),
       })) as unknown as { data: PsoFundedSummary[] | null; error: { message: string } | null };
       if (error) throw new Error(error.message);
       return data?.[0] ?? null;
