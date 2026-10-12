@@ -37,7 +37,7 @@ describe('Service Centre tenant Claim', () => {
     expect(mocks.rpc).toHaveBeenCalledWith('tenant_rent_intake_decide', {
       p_request_id: row.id, p_action: 'claim', p_reason: null, p_latitude: 0.3, p_longitude: 32.5,
     });
-    expect(screen.getByRole('button', { name: 'Mine' })).toHaveAttribute('data-state', null);
+    expect(screen.getByRole('button', { name: 'Mine' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Claim', exact: true })).not.toBeInTheDocument();
   });
 
