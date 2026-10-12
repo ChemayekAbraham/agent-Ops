@@ -60182,6 +60182,7 @@ export type Database = {
         Args: { p_agent: string; p_week_start: string }
         Returns: number
       }
+      _am_staff_ok: { Args: never; Returns: boolean }
       _can_renew_rent_request: {
         Args: {
           p_actor: string
@@ -61469,6 +61470,37 @@ export type Database = {
           last_landlord_paid_on: string
           rent_request_id: string
           shift_days: number
+        }[]
+      }
+      am_plan_positions: {
+        Args: {
+          p_from: string
+          p_include_self_payments?: boolean
+          p_to: string
+        }
+        Returns: {
+          agent_id: string
+          arrears: number
+          covered_through: string
+          credit_ahead: number
+          due_dates_in_period: number
+          exclusion_reason: string
+          expected_in_period: number
+          expected_to_date: number
+          frequency: string
+          instalment_amount: number
+          is_eligible: boolean
+          obligation_end: string
+          outstanding: number
+          paid_in_period_agent: number
+          paid_in_period_self: number
+          paid_to_date: number
+          position_band: string
+          rent_request_id: string
+          tenant_id: string
+          term_end: string
+          term_start: string
+          total_repayment: number
         }[]
       }
       apply_advance_topup: {
