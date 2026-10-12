@@ -432,10 +432,6 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
             />
           </div>
 
-          <WidgetErrorBoundary label="Loan offers">
-            <LendingOffersCard userId={uid} />
-          </WidgetErrorBoundary>
-
           <WidgetErrorBoundary label="My loan requests">
             <MyLoanRequestsCard userId={uid} />
           </WidgetErrorBoundary>
