@@ -418,13 +418,13 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
             <SubscriptionStatusCard userId={uid} />
           </WidgetErrorBoundary>
 
-          {/* Available houses — surfaced near the top of home so tenants find them first */}
+          {/* Rent actions — request rent first, then browse available houses */}
           <div className="flex flex-col gap-3">
-            <WidgetErrorBoundary label="Find a house">
-              <FindAHouseCTA onClick={() => { hapticTap(); navigate('/find-a-house'); }} />
-            </WidgetErrorBoundary>
             <WidgetErrorBoundary label="Request rent as tenant">
               <TenantRentRequestCard userId={uid} />
+            </WidgetErrorBoundary>
+            <WidgetErrorBoundary label="Find a house">
+              <FindAHouseCTA onClick={() => { hapticTap(); navigate('/find-a-house'); }} />
             </WidgetErrorBoundary>
           </div>
 
