@@ -61438,6 +61438,39 @@ export type Database = {
           registration_fee_component: number
         }[]
       }
+      am_plan_arrears: {
+        Args: { p_as_at?: string; p_rent_request_ids: string[] }
+        Returns: {
+          arrears: number
+          bucket: string
+          cadence: string
+          clock_start: string
+          days_ahead: number
+          days_behind: number
+          expected_to_date: number
+          paid_to_date: number
+          periods_ahead: number
+          periods_behind: number
+          rent_request_id: string
+          unit: string
+        }[]
+      }
+      am_plan_clock: {
+        Args: { p_rent_request_ids: string[] }
+        Returns: {
+          bucket: string
+          clock_end: string
+          clock_start: string
+          current_start: string
+          first_landlord_paid_on: string
+          landlord_paid_count: number
+          landlord_paid_dates_estimated: number
+          landlord_paid_total: number
+          last_landlord_paid_on: string
+          rent_request_id: string
+          shift_days: number
+        }[]
+      }
       apply_advance_topup: {
         Args: {
           p_advance_id: string
