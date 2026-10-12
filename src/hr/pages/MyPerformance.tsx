@@ -288,6 +288,49 @@ export default function MyPerformancePage() {
     },
   });
 
+  // PSO head only: staff_ref -> full name for the leaderboard.
+  const { data: officerNames = {} } = useQuery<Record<string, string>>({
+    queryKey: ['pso-officer-names'],
+    enabled: isTeamLead,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data, error } = (await supabase.rpc('pso_officer_names' as any)) as unknown as {
+        data: { staff_id: string; full_name: string | null }[] | null;
+        error: { message: string } | null;
+      };
+      if (error) return {};
+      const m: Record<string, string> = {};
+      for (const r of data ?? []) if (r.full_name) m[r.staff_id] = r.full_name;
+      return m;
+    },
+  });
+
+  const { data: staffRefToId = {} } = useQuery<Record<string, string>>({
+    queryKey: ['pso-promise-summary-refs', from, to],
+    enabled: isTeamLead,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data, error } = (await supabase.rpc('pso_promise_summary' as any, {
+        p_from: from,
+        p_to: to,
+      })) as unknown as {
+        data: { staff_id: string; staff_ref: string }[] | null;
+        error: { message: string } | null;
+      };
+      if (error) return {};
+      const m: Record<string, string> = {};
+      for (const r of data ?? []) if (r.staff_ref && r.staff_id) m[r.staff_ref] = r.staff_id;
+      return m;
+    },
+  });
+
+  const leaderLabel = (ref: string): string => {
+    if (!isTeamLead) return ref;
+    const id = staffRefToId[ref];
+    return (id && officerNames[id]) || ref;
+  };
+
+
   if (error && error.message.toLowerCase().includes('not permitted')) {
     return (
       <PersonalLayout title="My performance">
