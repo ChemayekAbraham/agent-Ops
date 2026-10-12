@@ -1,6 +1,6 @@
 import { ArrowRight, FileText, Home as HomeIcon, Sparkles } from 'lucide-react';
 import { useProfile } from '@/hooks/useProfile';
-import { formatUGX } from '@/lib/rentCalculations';
+import { formatUGX, LANDLORD_PAYOUT_COMMISSION_RATE } from '@/lib/rentCalculations';
 import { hapticTap } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
 
@@ -37,7 +37,7 @@ export function AgentPriorityGrid({ onOpenNewTenant, onOpenListHouse, restricted
       {!restricted && (
         <button
           onClick={() => { hapticTap(); onOpenNewTenant(); }}
-          aria-label="Post rent request here — earn UGX 10,000 when the landlord float is disbursed"
+          aria-label={`Post rent request here — earn ${Math.round(LANDLORD_PAYOUT_COMMISSION_RATE * 100)}% of the landlord payout when the money reaches the landlord`}
           title="Post a rent request for your tenant"
           className="flex w-full flex-col items-start gap-2 rounded-2xl border border-primary/40 bg-primary p-4 text-left text-primary-foreground shadow-sm transition-all min-h-[132px] active:scale-[0.97] touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           style={{ WebkitTapHighlightColor: 'transparent' }}
@@ -52,11 +52,11 @@ export function AgentPriorityGrid({ onOpenNewTenant, onOpenListHouse, restricted
             <p className="text-[15px] font-bold uppercase leading-tight tracking-wide">
               Post rent request here
             </p>
-            <p className="mt-1 truncate text-sm font-semibold tabular-nums leading-tight opacity-95">
-              {formatUGX(10000)} bonus
+            <p className="mt-1 truncate text-sm font-semibold leading-tight opacity-95">
+              {Math.round(LANDLORD_PAYOUT_COMMISSION_RATE * 100)}% of the landlord payout
             </p>
             <p className="mt-0.5 truncate text-[11px] opacity-85">
-              On landlord float disbursed
+              When the money reaches the landlord
             </p>
           </div>
         </button>
