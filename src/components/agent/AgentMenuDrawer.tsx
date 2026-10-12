@@ -85,6 +85,7 @@ interface AgentMenuDrawerProps {
   onDownloadLandlordForm?: () => void;
   onDownloadTenantForm?: () => void;
   onOpenRentPoster?: () => void;
+  onViewMoney?: () => void;
   isFinancialAgent?: boolean;
   /**
    * Merchant Agents (cash-out only) must not access tenant / landlord / house
@@ -147,6 +148,7 @@ export function AgentMenuDrawer({
   onDownloadLandlordForm,
   onDownloadTenantForm,
   onOpenRentPoster,
+  onViewMoney,
   isFinancialAgent = false,
   restricted = false,
 }: AgentMenuDrawerProps) {
@@ -177,6 +179,7 @@ export function AgentMenuDrawer({
       icon: Banknote,
       label: '💰 Money',
       items: [
+        { icon: Wallet, label: 'Money', description: 'Advance, wallet & your cash flow', onClick: onViewMoney, accent: 'primary', badge: '★' },
         { icon: Banknote, label: 'Pay Rent', description: 'Pay rent for your tenant', onClick: onTopUpTenant, accent: 'primary', badge: '★' },
         { icon: ArrowDownCircle, label: 'Deposit', description: 'Add funds to wallet', onClick: onDeposit, accent: 'success' },
         { icon: Wallet, label: 'Top Up Wallet', description: 'Deposit to tenant wallet', onClick: onTopUpTenant, accent: 'emerald-500' },
