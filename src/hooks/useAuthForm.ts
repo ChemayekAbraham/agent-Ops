@@ -470,69 +470,68 @@ export function useAuthForm() {
     // as an opaque "Database error while creating new user" (unexpected_failure),
     // so the raw message never reaches the client. Catch duplicates up front
     // to give the user an accurate, friendly message instead.
+    // The checks run in parallel with a ~1.5s cap. They are friendly UX only:
+    // handle_new_user / phone-signup still enforce every rule server-side, so a
+    // slow or failed check lets the sign-up continue.
+    const stopTotal = lt.start('signup.total', { hasRealEmail });
+    const stopPre = lt.start('signup.prechecks');
     try {
       const last9 = fullPhone.replace(/\D/g, '').slice(-9);
       if (last9.length === 9) {
-        const { data: fraudRows } = await (supabase as any).rpc('check_fraud_account_by_phone', {
-          phone_variants: [`0${last9}`, `256${last9}`, last9],
-        });
-        const fraudRow = Array.isArray(fraudRows) ? fraudRows[0] : null;
-        if (fraudRow?.is_blocked) {
-          setIsLoading(false);
-          toast({
-            title: 'Account Restricted',
-            description: 'This phone number is permanently restricted for fraud review and cannot create a Welile account.',
-            variant: 'destructive',
-          });
-          return;
-        }
-
-        if (hasRealEmail) {
-          const { data: emailFraudRows } = await (supabase as any).rpc('check_fraud_account_by_email', {
-            p_email: trimmedEmail,
-          });
-          const emailFraudRow = Array.isArray(emailFraudRows) ? emailFraudRows[0] : null;
-          if (emailFraudRow?.is_blocked) {
+        const sb = supabase as any;
+        const settle = (p: PromiseLike<{ data: any }>) =>
+          Promise.resolve(p).then((r) => r?.data ?? null, () => null);
+        const timedOut = Symbol('timeout');
+        const checks = Promise.all([
+          settle(sb.rpc('check_fraud_account_by_phone', { phone_variants: [`0${last9}`, `256${last9}`, last9] })),
+          hasRealEmail ? settle(sb.rpc('check_fraud_account_by_email', { p_email: trimmedEmail })) : Promise.resolve(null),
+          settle(sb.rpc('check_fraud_account_by_name', { p_full_name: trimmedFullName })),
+          settle(supabase.rpc('check_phone_exists', { phone_suffix: last9 })),
+        ]);
+        const res = await Promise.race([
+          checks,
+          new Promise<typeof timedOut>((r) => setTimeout(() => r(timedOut), 1500)),
+        ]);
+        if (res === timedOut) {
+          stopPre('timeout');
+        } else {
+          stopPre('ok');
+          const [fraudRows, emailFraudRows, nameFraudRows, existing] = res;
+          const first = (rows: unknown) => (Array.isArray(rows) ? (rows[0] as { is_blocked?: boolean } | undefined) : undefined);
+          const restricted = (description: string) => {
             setIsLoading(false);
+            stopTotal('blocked');
+            toast({ title: 'Account Restricted', description, variant: 'destructive' });
+          };
+          if (first(fraudRows)?.is_blocked) {
+            restricted('This phone number is permanently restricted for fraud review and cannot create a Welile account.');
+            return;
+          }
+          if (first(emailFraudRows)?.is_blocked) {
+            restricted('This email is permanently restricted for fraud review and cannot create a Welile account.');
+            return;
+          }
+          if (first(nameFraudRows)?.is_blocked) {
+            restricted('This name is linked to an account that was permanently restricted for fraud review and cannot be used to create a new Welile account.');
+            return;
+          }
+          if (Array.isArray(existing) && existing.length > 0) {
+            setIsLoading(false);
+            stopTotal('duplicate');
             toast({
-              title: 'Account Restricted',
-              description: 'This email is permanently restricted for fraud review and cannot create a Welile account.',
+              title: 'Phone already registered',
+              description: 'This phone number is already linked to an account. Please sign in instead.',
               variant: 'destructive',
             });
             return;
           }
         }
-
-        // Block recycled fraud accounts that reuse the same display name with a
-        // fresh phone/email. The DB trigger enforces this too, but we pre-check
-        // to show a clear message before attempting account creation.
-        const { data: nameFraudRows } = await (supabase as any).rpc('check_fraud_account_by_name', {
-          p_full_name: trimmedFullName,
-        });
-        const nameFraudRow = Array.isArray(nameFraudRows) ? nameFraudRows[0] : null;
-        if (nameFraudRow?.is_blocked) {
-          setIsLoading(false);
-          toast({
-            title: 'Account Restricted',
-            description: 'This name is linked to an account that was permanently restricted for fraud review and cannot be used to create a new Welile account.',
-            variant: 'destructive',
-          });
-          return;
-        }
-
-        const { data: existing } = await supabase.rpc('check_phone_exists', { phone_suffix: last9 });
-        if (Array.isArray(existing) && existing.length > 0) {
-          setIsLoading(false);
-          toast({
-            title: 'Phone already registered',
-            description: 'This phone number is already linked to an account. Please sign in instead.',
-            variant: 'destructive',
-          });
-          return;
-        }
+      } else {
+        stopPre('skipped');
       }
     } catch {
-      // Non-fatal: fall through to signUp; the generic-error mapping below covers it.
+      stopPre('error');
+      // Non-fatal: fall through to signUp; the server still enforces every rule.
     }
 
     const storedSignupSource = signupSourceState || sanitizeSignupSource((() => { try { return localStorage.getItem(SIGNUP_SOURCE_KEY); } catch { return null; } })());
