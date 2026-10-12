@@ -8,7 +8,15 @@ import {
   WifiOff,
   RefreshCw,
   BadgeCheck,
+  HandCoins,
 } from 'lucide-react';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import { FindAHouseCTA } from '@/components/tenant/FindAHouseCTA';
 import { LendingOffersCard } from '@/components/vouch/borrower/LendingOffersCard';
 import { MyLoanRequestsCard } from '@/components/vouch/borrower/MyLoanRequestsCard';
@@ -175,6 +183,7 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
     } catch { /* ignore */ }
   }, []);
   const [housesOpen, setHousesOpen] = useState(false);
+  const [loanOffersOpen, setLoanOffersOpen] = useState(false);
 
   // Dynamic telemetry tracking across tenant sheets and modals
   useEffect(() => {
@@ -333,7 +342,15 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
 
   const handleViewWallet = () => { hapticTap(); setShowWallet(true); };
 
-  const menuItems: never[] = [];
+  // Menu (header ☰) entries. The loan-offers surface lives here instead of the
+  // home feed, so the menu is its single entry point — no duplicated card.
+  const menuItems = [
+    {
+      icon: HandCoins,
+      label: 'Loan offers',
+      onClick: () => { hapticTap(); setLoanOffersOpen(true); },
+    },
+  ];
 
   // Most relevant rent request for the process tracker — the active one
   // (mirrors RepaymentSection's own selection) falling back to the most
@@ -415,10 +432,6 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
             />
           </div>
 
-          <WidgetErrorBoundary label="Loan offers">
-            <LendingOffersCard userId={uid} />
-          </WidgetErrorBoundary>
-
           <WidgetErrorBoundary label="My loan requests">
             <MyLoanRequestsCard userId={uid} />
           </WidgetErrorBoundary>
@@ -470,6 +483,26 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
 
         </main>
       </div>
+
+      {/* Loan offers — opened from the header ☰ menu */}
+      <Sheet open={loanOffersOpen} onOpenChange={setLoanOffersOpen}>
+        <SheetContent
+          side="bottom"
+          className="rounded-t-2xl max-h-[85dvh] overflow-y-auto px-4 pb-6"
+        >
+          <SheetHeader className="text-left">
+            <SheetTitle className="flex items-center gap-1.5 text-sm font-bold">
+              <HandCoins className="h-4 w-4 text-primary" /> Loan offers for you
+            </SheetTitle>
+            <SheetDescription className="text-xs">
+              Active offers from lending agents — request one that fits you.
+            </SheetDescription>
+          </SheetHeader>
+          <WidgetErrorBoundary label="Loan offers">
+            <LendingOffersCard userId={uid} />
+          </WidgetErrorBoundary>
+        </SheetContent>
+      </Sheet>
 
       {/* Full-screen wallet sheet */}
       <FullScreenWalletSheet open={showWallet} onOpenChange={setShowWallet} />
