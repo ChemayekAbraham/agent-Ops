@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { 
-  X, 
+import { useBackGestureClose } from '@/hooks/useBackGestureClose';
+import {
+  X,
+  ArrowLeft,
   UserPlus, 
   ArrowDownCircle,
   TrendingUp,
