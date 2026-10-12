@@ -914,6 +914,9 @@ export function WalletStatement() {
         ) : (
           <ScrollArea ref={scrollRootRef} className="flex-1 px-4 py-4" aria-label="Wallet statement content">
 
+            {/* ── Quick links to other pages (top) ── */}
+            {quickLinksRow('ws-quick-links-top')}
+
             {/* ── Hero: Net Balance ── */}
             <section aria-labelledby="ws-net-balance" className="mb-4 rounded-2xl border bg-card p-5">
               <h3 id="ws-net-balance" className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Net Balance</h3>
@@ -1088,6 +1091,9 @@ export function WalletStatement() {
               </h3>
               <TransactionsFeed userId={user?.id} balanceAfterById={balanceAfterById} />
             </section>
+
+            {/* ── Quick links to other pages (bottom, after a long scroll) ── */}
+            {quickLinksRow('ws-quick-links-bottom')}
 
           </ScrollArea>
         )}
