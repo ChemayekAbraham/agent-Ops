@@ -62,7 +62,6 @@ interface AgentMenuDrawerProps {
   onFundPartner?: () => void;
   onViewProxyHistory?: () => void;
   onIssueReceipt?: () => void;
-  onViewLandlordMap?: () => void;
   onFindRentals?: () => void;
   onListEmptyHouse?: () => void;
   onViewMyListings?: () => void;
@@ -127,7 +126,6 @@ export function AgentMenuDrawer({
   onFundPartner,
   onViewProxyHistory,
   onIssueReceipt,
-  onViewLandlordMap,
   onFindRentals,
   onListEmptyHouse,
   onViewMyListings,

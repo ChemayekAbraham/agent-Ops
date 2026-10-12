@@ -211,7 +211,6 @@ const AgentManagedUsersSheet = lazyNamed(() => import('@/components/agent/AgentM
 const AgentInvestForPartnerDialog = lazyNamed(() => import('@/components/agent/AgentInvestForPartnerDialog'), 'AgentInvestForPartnerDialog');
 const ProxyInvestmentHistorySheet = lazyNamed(() => import('@/components/agent/ProxyInvestmentHistorySheet'), 'ProxyInvestmentHistorySheet');
 const AgentReceiptDialog = lazyNamed(() => import('@/components/agent/AgentReceiptDialog'), 'AgentReceiptDialog');
-const AgentLandlordMapSheet = lazyNamed(() => import('@/components/agent/AgentLandlordMapSheet'), 'AgentLandlordMapSheet');
 const RentalFinderSheet = lazyNamed(() => import('@/components/agent/RentalFinderSheet'), 'RentalFinderSheet');
 const ListEmptyHouseDialog = lazyNamed(() => import('@/components/agent/ListEmptyHouseDialog'), 'ListEmptyHouseDialog');
 const AgentListingsSheet = lazyNamed(() => import('@/components/agent/AgentListingsSheet'), 'AgentListingsSheet');
@@ -494,7 +493,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   const [investForPartnerOpen, setInvestForPartnerOpen] = useState(false);
   const [proxyHistoryOpen, setProxyHistoryOpen] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
-  const [landlordMapOpen, setLandlordMapOpen] = useState(false);
   const [rentalFinderOpen, setRentalFinderOpen] = useState(false);
   const [listHouseOpen, setListHouseOpen] = useState(false);
   const [listHouseFromPromo, setListHouseFromPromo] = useState(false);
@@ -1873,7 +1871,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         onFundPartner={() => { setMenuOpen(false); setInvestForPartnerOpen(true); }}
         onViewProxyHistory={() => { setMenuOpen(false); setProxyHistoryOpen(true); }}
         onIssueReceipt={() => { setMenuOpen(false); setReceiptOpen(true); }}
-        onViewLandlordMap={() => { setMenuOpen(false); setLandlordMapOpen(true); }}
         onFindRentals={() => { setMenuOpen(false); setRentalFinderOpen(true); }}
         onListEmptyHouse={() => {
           setMenuOpen(false);
@@ -2132,9 +2129,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
       </LazyModal>
       <LazyModal when={receiptOpen}>
       <AgentReceiptDialog open={receiptOpen} onOpenChange={setReceiptOpen} />
-      </LazyModal>
-      <LazyModal when={landlordMapOpen}>
-      <AgentLandlordMapSheet open={landlordMapOpen} onOpenChange={setLandlordMapOpen} />
       </LazyModal>
       <LazyModal when={rentalFinderOpen}>
       <RentalFinderSheet open={rentalFinderOpen} onOpenChange={setRentalFinderOpen} />
