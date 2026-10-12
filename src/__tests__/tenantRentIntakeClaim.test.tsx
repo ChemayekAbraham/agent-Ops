@@ -32,19 +32,19 @@ describe('Service Centre tenant Claim', () => {
   it('uses only live RPC arguments and opens Mine after confirmed success', async () => {
     mocks.rpc.mockResolvedValue({ data: { request_id: row.id, status: 'claimed' }, error: null });
     mount();
-    fireEvent.click(await screen.findByRole('button', { name: 'Claim', exact: true }));
+    fireEvent.click(await screen.findByRole('button', { name: /^Claim$/ }));
     await waitFor(() => expect(mocks.success).toHaveBeenCalledWith('Request claimed — find it in Mine'));
     expect(mocks.rpc).toHaveBeenCalledWith('tenant_rent_intake_decide', {
       p_request_id: row.id, p_action: 'claim', p_reason: null, p_latitude: 0.3, p_longitude: 32.5,
     });
     expect(screen.getByRole('button', { name: 'Mine' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Claim', exact: true })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Claim$/ })).not.toBeInTheDocument();
   });
 
   it('keeps server rejection visible on the row and does not report success', async () => {
     mocks.rpc.mockResolvedValue({ data: null, error: { message: 'This request has already been claimed' } });
     mount();
-    fireEvent.click(await screen.findByRole('button', { name: 'Claim', exact: true }));
+    fireEvent.click(await screen.findByRole('button', { name: /^Claim$/ }));
     expect(await screen.findByRole('alert')).toHaveTextContent('This request has already been claimed');
     expect(mocks.success).not.toHaveBeenCalled();
   });
@@ -52,7 +52,7 @@ describe('Service Centre tenant Claim', () => {
   it('shows location failure without sending a claim', async () => {
     navigator.geolocation.getCurrentPosition = vi.fn((_success, failure) => failure?.({ code: 1 } as GeolocationPositionError));
     mount();
-    fireEvent.click(await screen.findByRole('button', { name: 'Claim', exact: true }));
+    fireEvent.click(await screen.findByRole('button', { name: /^Claim$/ }));
     expect(await screen.findByRole('alert')).toHaveTextContent('Turn on location to claim');
     expect(mocks.rpc).not.toHaveBeenCalled();
   });
@@ -60,7 +60,7 @@ describe('Service Centre tenant Claim', () => {
   it('rejects empty success responses instead of pretending the request was claimed', async () => {
     mocks.rpc.mockResolvedValue({ data: null, error: null });
     mount();
-    fireEvent.click(await screen.findByRole('button', { name: 'Claim', exact: true }));
+    fireEvent.click(await screen.findByRole('button', { name: /^Claim$/ }));
     expect(await screen.findByRole('alert')).toHaveTextContent('The update could not be confirmed');
     expect(mocks.success).not.toHaveBeenCalled();
   });
