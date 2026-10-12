@@ -208,7 +208,6 @@ const AgentMyRentRequestsSheet = lazyNamed(() => import('@/components/agent/Agen
 const AgentTenantsSheet = lazyNamed(() => import('@/components/agent/AgentTenantsSheet'), 'AgentTenantsSheet');
 const FieldCollectReconciliationSheet = lazyNamed(() => import('@/components/agent/FieldCollectReconciliationSheet'), 'FieldCollectReconciliationSheet');
 const AgentManagedUsersSheet = lazyNamed(() => import('@/components/agent/AgentManagedUsersSheet'), 'AgentManagedUsersSheet');
-const AgentTopUpTenantDialog = lazyNamed(() => import('@/components/agent/AgentTopUpTenantDialog'), 'AgentTopUpTenantDialog');
 const AgentInvestForPartnerDialog = lazyNamed(() => import('@/components/agent/AgentInvestForPartnerDialog'), 'AgentInvestForPartnerDialog');
 const ProxyInvestmentHistorySheet = lazyNamed(() => import('@/components/agent/ProxyInvestmentHistorySheet'), 'ProxyInvestmentHistorySheet');
 const AgentReceiptDialog = lazyNamed(() => import('@/components/agent/AgentReceiptDialog'), 'AgentReceiptDialog');
@@ -411,7 +410,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   const [payoutProperty, setPayoutProperty] = useState<any>(null);
   const [myRentRequestsOpen, setMyRentRequestsOpen] = useState(false);
   
-  const [topUpTenantOpen, setTopUpTenantOpen] = useState(false);
   const [businessAdvanceOpen, setBusinessAdvanceOpen] = useState(false);
   const { event: commissionEvent, dismiss: dismissCommission } = useBusinessAdvanceCommissionListener();
   // Agent's personal advance credit limit — drives the prominent Money-tab promo.
@@ -1868,10 +1866,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         onManageProperty={() => { setMenuOpen(false); setManagedPropertyOpen(true); }}
         onViewManagedProperties={() => { setMenuOpen(false); setManagedPropertiesSheetOpen(true); }}
         onViewMyRentRequests={() => { setMenuOpen(false); setMyRentRequestsOpen(true); }}
-        onTopUpTenant={() => {
-          // Disabled — Pay Rent / Collect Rent flow removed.
-          setMenuOpen(false);
-        }}
         onViewTenants={() => { setMenuOpen(false); setTenantsSheetOpen(true); }}
         onViewCreditAccess={() => { setMenuOpen(false); setCreditOpen(true); }}
         onViewMoney={() => { setMenuOpen(false); setSlideDirection(null); setActiveTab('money'); }}
@@ -2130,9 +2124,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
       </LazyModal>
       <LazyModal when={managedUsersOpen}>
       <AgentManagedUsersSheet open={managedUsersOpen} onOpenChange={setManagedUsersOpen} agentId={user.id} />
-      </LazyModal>
-      <LazyModal when={topUpTenantOpen}>
-      <AgentTopUpTenantDialog open={topUpTenantOpen} onOpenChange={setTopUpTenantOpen} onSuccess={refreshOfflineData} />
       </LazyModal>
       <LazyModal when={investForPartnerOpen}>
       <AgentInvestForPartnerDialog open={investForPartnerOpen} onOpenChange={setInvestForPartnerOpen} onSuccess={() => { refreshOfflineData(); refreshWallet(); }} />
