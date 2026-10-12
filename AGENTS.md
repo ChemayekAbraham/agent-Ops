@@ -3,30 +3,24 @@
 - Receivables Analysis uses existing read-only reporting RPCs; aggregate totals outrank sampled items, behavioural runoff excludes new business, and unsupported location forecasts stay unavailable to prevent invented figures.
 <!-- LOVABLE:END -->
 
-- Requisition approval errors are normalized only in the client; server authorization remains the sole permission authority.
-- Four-part repayment validation reconciles Returns + Agent Commission + Platform Fee to Access Fee + Registration Fee, because those two stored fee components form the approved Platform Fee pool.
-- CFO 7-day reporting labels and day buckets use Kampala (EAT, UTC+3) calendar days through `src/lib/kampalaDays.ts`, matching the reporting RPCs; browser-local dates shifted cards by a day.
-- Agent Ops Shopping Advance counts, lists and dossiers use a shared received-transfer ledger helper behind role-gated RPCs; visible-screen refetches expire access without financial writes.
-- Support capacity and its funding debit use operational float only (`funder_support_capacity` = `funder_float_available`), so support can never drain withdrawable Returns.
-- Balance Sheet (`sofp_ledger_legs`) reads advance top-up company legs as Agent Advance Receivable (A10) and emits no synthetic X4 lines for bucket_reclass_in/out pairs, because top-ups move no bank cash and reclass pairs already balance (CFO approved 2026-10-01).
-- `v_agent_daily_eligibility` falls back to LEAST(daily_repayment, outstanding) for counted daily/lapsed-weekly plans only when the agent has no pinned bill today/yesterday, because counted plans with no bill row showed a UGX 0 target.
-- The CRM call drawer paints directory identity immediately, then loads one cached role-gated dossier (`crm_callee_dossier`); partner visibility (partner_ops/super_admin/hr only) is decided server-side.
-- The CFO staff TIN/NSSF list derives per paid payroll run (`cfo_statutory_consent_list`) and pushes on the `paid` payroll event, so the list reappears each cycle without polling.
-- CFO Correction Center reads/writes only evidence-review tables via role-gated functions (`cfo_save_evidence_review` + append-only audit); Approve is recorded but never executed, so review can never move money.
-- `cfo_s12_save_evidence` accepts evidence files only inside the owning collection's folder of the private `collection-evidence` bucket, so evidence can't be cross-attached or point outside storage.
-- Stage 14 evidence recovery writes only `fin_s14_cases`/`fin_s14_evidence`/`fin_s14_audit` via `cfo_s14_add_evidence`/`cfo_s14_decide`, asserting Stage 11/12 control totals and zero financial-table writes; everything is append-only, so case resolution can never move money.
-- Rent Plan writes verify a linked landlord or LC1 (releasing registration bonuses) only on the first Landlord Ops review transition (review date NULL → set), because generic status writes were releasing bonuses.
-- Batch 1 restoration (`cfo_s14b1r_execute`) counts only its 13 frozen `fin_s14b1r_lines`; the stored-balance refresh runs solely via `cfo_s14b1w_execute` with a single-use fingerprinted CFO approval, so corrections can't inflate balances or touch other users.
-- Phone wallet collection runs only for plans with `phone_collection_enabled` (daily `recover_smartphone_from_wallets`), one plan at a time; it may draw advance-locked funds (withdrawals stay locked); the late charge runs only when `smartphone_surcharge_enabled` is on.
-- Agent lending is excluded from company Receivables totals/forecasts (agents' own money); Payables mirrors Receivables read-only; the Receivables sidebar now exposes the company Forecast instead of the separate lending section.
-- Merchandise/phone/bike plans count as owed or recoverable only if `merchandise_plan_recovery_eligible` passes, because pending orders created phantom receivables.
-- Business-line cost attribution of already-posted payments lives in append-only `cfo_reporting_cost_tags` (one tag per ledger group per line), never in correcting journals, so reports re-attribute costs without double counting.
-- Bucket A agent-receivables corrections post only via `cfo_bucket_a_post` after a fresh passed `cfo_bucket_a_preflight` by the same CFO approver, against frozen fingerprinted `cfo_bucket_a_package_lines`; all lines post atomically or none, so no partial or double posting.
-- Bike lease suppliers must hold an internal staff/ops role: `assign_bike_lease_supplier` checks `has_internal_staff_role`; the picker searches via `search_bike_supplier_candidates` (SECURITY DEFINER, `can_review_bike_leases`-guarded) since RLS hides other users' roles; the phone-order picker stays unrestricted.
-- Landlord awareness calls ask for consent (`landlord_consent`: consents / unsure / refuses) and for knowledge of the payment code (`aware_payout_otp`) instead of the merchant-code question, because a landlord is paid through the payout code and does not pay by merchant code; tenant and agent calls keep `aware_merchant_codes`. Landlord calls recorded before 2026-10-08 09:00 UTC keep their old merchant-code answer through an explicit legacy branch of the answers CHECK (the screens read it as "Old question", with "Not asked" for the new questions), and the merchant-code counts only cover tenant and agent calls. The answers are stored only through `record_awareness_call`, are append-only, and never block or change an approval or rejection.
-- Agent float send-backs (`request_allocation_return`) complete automatically only when the Rent Plan is `funded`, nothing was paid, the float is `open` and no landlord payout row exists; everything else waits for the CFO. Both paths use the single helper `_complete_allocation_return` (never copy its steps), the Rent Plan is never cancelled by a send-back, the sending agent cannot approve Agent Ops / Tenant Ops / Landlord Ops on that plan (trigger `trg_a0_block_send_back_self_approval`), and an amount change goes through `agent_edit_sent_back_rent_plan`, which puts the plan back to `pending` first.
-- Fingerprinted CFO correction packages (Bucket A `cfo_bucket_a_post`; CORR-2026-10-08-9fc656402a73 `cfo_corr_5300000_post`) post only via their own function: cfo_approval_approvers allowlist, the poster's own fresh passed preflight (<30 min), exact phrase, frozen lines, atomic with post-checks, so nothing posts partially, twice or by anyone else.
-- Tenant SMS campaigns (`tenant_campaigns` + waves/sends/clicks) send only via `tenant-campaign-sender`, one row per tenant per campaign (unique `dedupe_key`), stopping a wave above 20% failures and unscheduling its own cron after the last wave, so no tenant is messaged twice and nothing keeps running.
-- Landlord phone/MoMo/approved numbers are locked by trigger `lock_landlord_number_at_cfo_stage` once any open Rent Plan reaches COO/CFO review or funding (released only if cancelled/rejected/completed); payouts always use the approved number, so a differing contact number no longer blocks the OTP.
-- The overdue-vetting dialog mounts once in App.tsx and only shows what `get_my_overdue_vetting` returns (server-decided, ships disabled); the Service Centre page suppresses it and shows the banner, so managers are never double-alerted.
-- Service Centre Shop tab 'Active advances' reads only via get_service_center_active_advances (SECURITY DEFINER, scoped to caller + verified sub-agents), so a manager never sees other centres' advances.
+- Requisition approval errors are normalized client-side only; server authorization is the sole permission authority.
+- Four-part repayment validation reconciles Returns + Agent Commission + Platform Fee to Access Fee + Registration Fee (the approved Platform Fee pool).
+- CFO 7-day reporting uses Kampala days via `src/lib/kampalaDays.ts`, matching the RPCs.
+- Shopping Advance counts/dossiers use one received-transfer ledger helper behind role-gated RPCs; no financial writes.
+- Support capacity and its debit use operational float only, so support never drains withdrawable Returns.
+- `sofp_ledger_legs` reads advance top-up legs as A10 and emits no X4 for bucket_reclass pairs (CFO approved 2026-10-01).
+- `v_agent_daily_eligibility` falls back to LEAST(daily_repayment, outstanding) only when no pinned bill exists today/yesterday.
+- CRM call drawer loads one cached role-gated `crm_callee_dossier`; partner visibility is decided server-side.
+- CFO TIN/NSSF list derives per paid payroll run (`cfo_statutory_consent_list`).
+- CFO correction/evidence tooling (Correction Center, `cfo_s12_save_evidence`, Stage 14 `fin_s14_*`, `cfo_s14b1r/b1w_execute`) is append-only, role-gated and scoped, so review never moves money or touches other users.
+- Fingerprinted CFO packages (`cfo_bucket_a_post`, `cfo_corr_5300000_post`) post only via their own function: approver allowlist, own fresh preflight (<30 min), frozen lines, atomic.
+- Business-line cost attribution lives in append-only `cfo_reporting_cost_tags`, never correcting journals.
+- Rent Plan landlord/LC1 verification (bonus release) fires only on the first Landlord Ops review transition.
+- Phone wallet collection runs only for `phone_collection_enabled` plans; late charge only when `smartphone_surcharge_enabled`.
+- Agent lending is excluded from company Receivables (agents' own money); Payables mirrors Receivables read-only.
+- Merchandise plans count as owed only if `merchandise_plan_recovery_eligible` passes (no phantom receivables).
+- Landlord awareness calls store consent + `aware_payout_otp` (not merchant codes) only via append-only `record_awareness_call`; pre-2026-10-08 answers kept via a legacy CHECK branch; never affects approvals.
+- Float send-backs auto-complete only when funded/unpaid/open/no payout, via single helper `_complete_allocation_return`; sender can't self-approve; amount edits go through `agent_edit_sent_back_rent_plan`.
+- Tenant SMS campaigns send only via `tenant-campaign-sender`, unique `dedupe_key` per tenant, wave stops above 20% failures.
+- Landlord payout numbers lock at COO/CFO stage (`lock_landlord_number_at_cfo_stage`); payouts use the approved number.
+- Overdue-vetting dialog mounts once in App.tsx from server `get_my_overdue_vetting`; Service Centre shows a banner instead.
