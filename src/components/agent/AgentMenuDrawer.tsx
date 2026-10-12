@@ -171,6 +171,9 @@ export function AgentMenuDrawer({
     onOpenChange(false);
   };
 
+  // Hardware back / edge-swipe closes the full-page menu instead of leaving the route.
+  useBackGestureClose(open, handleClose);
+
   const handleItemClick = (item: MenuItem) => {
     hapticSuccess();
     onOpenChange(false);
