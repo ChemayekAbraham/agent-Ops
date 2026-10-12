@@ -419,7 +419,7 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
           </WidgetErrorBoundary>
 
           {/* Available houses — surfaced near the top of home so tenants find them first */}
-          <div className="grid grid-cols-2 gap-3">
+          <div className="flex flex-col gap-3">
             <WidgetErrorBoundary label="Find a house">
               <FindAHouseCTA onClick={() => { hapticTap(); navigate('/find-a-house'); }} />
             </WidgetErrorBoundary>
