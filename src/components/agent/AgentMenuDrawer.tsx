@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { 
-  X, 
+import { useBackGestureClose } from '@/hooks/useBackGestureClose';
+import {
+  X,
+  ArrowLeft,
   UserPlus, 
   ArrowDownCircle,
   TrendingUp,
@@ -28,7 +30,6 @@ import {
   BarChart3,
   PiggyBank,
   Building2,
-  Calendar,
   Wallet,
   ShieldCheck,
   MapPin,
@@ -52,18 +53,15 @@ interface AgentMenuDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onDeposit: () => void;
-  onPostRentRequest: () => void;
   onInviteSubAgent: () => void;
   onOpenEarningsRank: () => void;
   onManageProperty?: () => void;
   onViewManagedProperties?: () => void;
   onViewMyRentRequests?: () => void;
-  onTopUpTenant?: () => void;
   onViewTenants?: () => void;
   onFundPartner?: () => void;
   onViewProxyHistory?: () => void;
   onIssueReceipt?: () => void;
-  onViewLandlordMap?: () => void;
   onFindRentals?: () => void;
   onListEmptyHouse?: () => void;
   onViewMyListings?: () => void;
@@ -119,18 +117,15 @@ export function AgentMenuDrawer({
   open, 
   onOpenChange, 
   onDeposit,
-  onPostRentRequest,
   onInviteSubAgent,
   onOpenEarningsRank,
   onManageProperty,
   onViewManagedProperties,
   onViewMyRentRequests,
-  onTopUpTenant,
   onViewTenants,
   onFundPartner,
   onViewProxyHistory,
   onIssueReceipt,
-  onViewLandlordMap,
   onFindRentals,
   onListEmptyHouse,
   onViewMyListings,
@@ -169,6 +164,9 @@ export function AgentMenuDrawer({
     onOpenChange(false);
   };
 
+  // Hardware back / edge-swipe closes the full-page menu instead of leaving the route.
+  useBackGestureClose(open, handleClose);
+
   const handleItemClick = (item: MenuItem) => {
     hapticSuccess();
     onOpenChange(false);
@@ -187,9 +185,7 @@ export function AgentMenuDrawer({
       items: [
         { icon: Wallet, label: 'Money', description: 'Advance, wallet & your cash flow', onClick: onViewMoney, accent: 'primary', badge: '★' },
         ...(onViewGrow ? [{ icon: TrendingUp, label: 'Grow & Earn', description: 'Leaderboard, share & recruit', onClick: onViewGrow, accent: 'primary' as const }] : []),
-        { icon: Banknote, label: 'Pay Rent', description: 'Pay rent for your tenant', onClick: onTopUpTenant, accent: 'primary', badge: '★' },
         { icon: ArrowDownCircle, label: 'Deposit', description: 'Add funds to wallet', onClick: onDeposit, accent: 'success' },
-        { icon: Wallet, label: 'Top Up Wallet', description: 'Deposit to tenant wallet', onClick: onTopUpTenant, accent: 'emerald-500' },
         { icon: HandCoins, label: 'Fund Partner', description: 'Proxy funding', onClick: onFundPartner, accent: 'emerald-600', badge: 'Proxy' },
         { icon: Receipt, label: 'Issue Receipt', description: 'Record cash payment', onClick: onIssueReceipt, accent: 'amber-500' },
         { icon: Banknote, label: 'Cash, Mobile Money & Bank Payouts', description: 'Verify & pay cash-outs', path: '/agent/cash-payouts', accent: 'orange-500', badge: '💵' },
@@ -223,7 +219,6 @@ export function AgentMenuDrawer({
         { icon: Building2, label: 'My Landlords', description: 'Registered & referred status', onClick: onViewLandlords, accent: 'emerald-600', badge: '🏠' },
         { icon: ScrollText, label: 'Rent Requests', description: 'Verify posted requests', onClick: onViewMyRentRequests, accent: 'indigo-500' },
         { icon: FileText, label: 'Saved Rent Drafts', description: 'Drafts waiting to unlock', onClick: onViewSavedDrafts, accent: 'amber-500', badge: '💾' },
-        { icon: Calendar, label: 'Schedules', description: 'PDF & WhatsApp', onClick: onViewMyRentRequests, accent: 'primary', badge: 'PDF' },
         { icon: History, label: 'Proxy History', description: 'Partner funding records', onClick: onViewProxyHistory, accent: 'emerald-500' },
         { icon: HandCoins, label: 'My Funders', description: 'No-smartphone partners', onClick: onManageFunders, accent: 'primary', badge: '📱' },
         { icon: Handshake, label: 'Register Sub-Agent', description: 'Add to your team', onClick: onInviteSubAgent, accent: 'amber-500', badge: '500' },
@@ -240,8 +235,6 @@ export function AgentMenuDrawer({
         { icon: Building2, label: 'Manage Property', description: 'For landlords', onClick: onManageProperty, accent: 'orange-500', badge: '2%' },
         { icon: Home, label: 'Managed Props', description: 'Properties & payouts', onClick: onViewManagedProperties, accent: 'teal-500' },
         { icon: Search, label: 'Find Rentals', description: 'Browse by location', onClick: onFindRentals, accent: 'violet-500' },
-        { icon: MapPin, label: 'Landlord Map', description: 'Navigate to landlords', onClick: onViewLandlordMap, accent: 'emerald-500', badge: 'GPS' },
-        { icon: FileText, label: 'Post Rent', description: 'Request on behalf of tenant', onClick: onPostRentRequest, accent: 'blue-600' },
       ].filter(i => i.onClick !== undefined),
     },
     {
@@ -305,9 +298,9 @@ export function AgentMenuDrawer({
   const MERCHANT_BLOCKED_LABELS = new Set<string>([
     // Tenant operations
     'Money', 'Pay Rent', 'Top Up Wallet', 'Issue Receipt', 'Share Tenant Form', 'Tenant Reg Form',
-    'My Tenants', 'My Tenant Hub', 'Rent Requests', 'Saved Rent Drafts', 'Schedules', 'Post Rent',
+    'My Tenants', 'My Tenant Hub', 'Rent Requests', 'Saved Rent Drafts',
     // Landlord operations
-    'Share Landlord Signup', 'Landlord Reg Form', 'My Landlords', 'Landlord Map',
+    'Share Landlord Signup', 'Landlord Reg Form', 'My Landlords',
     'Manage Property', 'Managed Props',
     // House listing
     'List House', 'My Listings',
@@ -360,33 +353,18 @@ export function AgentMenuDrawer({
   if (!open) return null;
 
   return (
-        <>
-          {/* Backdrop */}
-          <div
-            onClick={handleClose}
-            className="fixed inset-0 bg-black/60 z-[100] animate-fade-in"
-          />
-
-          {/* Bottom Sheet */}
-          <div
-            className="fixed inset-x-0 bottom-0 z-[101] bg-background rounded-t-3xl shadow-2xl flex flex-col animate-slide-up"
-            style={{ maxHeight: '88vh' }}
-          >
-            {/* Drag Handle */}
-            <div className="flex justify-center pt-3 pb-1">
-              <div className="w-10 h-1 rounded-full bg-muted-foreground/30" />
-            </div>
-
-            {/* Header */}
-            <div className="flex items-center justify-between px-5 pb-3">
-              <h2 className="font-bold text-lg">Agent Hub</h2>
-              <button
-                onClick={handleClose}
-                className="p-2 rounded-full bg-muted hover:bg-muted/80 transition-colors"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
+    <div className="fixed inset-0 z-[101] bg-background flex flex-col animate-fade-in">
+      {/* Header */}
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-border/50 bg-background/95">
+        <button
+          onClick={handleClose}
+          aria-label="Close agent menu"
+          className="p-2 rounded-full bg-muted hover:bg-muted/80 transition-colors"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+        <h2 className="font-bold text-lg">Agent Hub</h2>
+      </div>
 
             {/* Search — type to jump to any action across every category */}
             <div className="px-4 pb-3">
@@ -613,11 +591,10 @@ export function AgentMenuDrawer({
                       </GuideAccordion>
                     </div>
                   )}
-                </div>
-              )}
-            </div>
-          </div>
-        </>
+                 </div>
+               )}
+             </div>
+    </div>
   );
 }
 
