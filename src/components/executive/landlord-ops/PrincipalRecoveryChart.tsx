@@ -11,6 +11,11 @@ export interface PrincipalComparison {
 }
 
 export function PrincipalRecoveryChart({ comparison }: { comparison: PrincipalComparison }) {
+  const singleDay = comparison.trend.length === 1 ? comparison.trend[0] : undefined;
+  // Extend a single daily snapshot across the plot, without inventing intraday movements.
+  const chartData = singleDay
+    ? [{ ...singleDay, plotPosition: 0 }, { ...singleDay, plotPosition: 1 }]
+    : comparison.trend;
   const dateLabel = (date: string) => new Date(`${date}T00:00:00Z`).toLocaleDateString('en-GB', {
     timeZone: 'UTC', month: 'short', ...(comparison.monthly ? { year: '2-digit' } : { day: 'numeric' }),
   });
@@ -30,15 +35,19 @@ export function PrincipalRecoveryChart({ comparison }: { comparison: PrincipalCo
         expected: { label: 'Expected', color: 'hsl(var(--chart-1))' },
         recovered: { label: 'Recovered', color: 'hsl(var(--chart-2))' },
       }}>
-        <AreaChart accessibilityLayer data={comparison.trend} margin={{ top: 12, right: 12, bottom: 8, left: 0 }}>
+        <AreaChart accessibilityLayer data={chartData} margin={{ top: 12, right: 12, bottom: 8, left: 0 }}>
           <CartesianGrid vertical={false} />
-          <XAxis dataKey="date" tickFormatter={dateLabel} minTickGap={30} tickLine={false} axisLine={false} />
+          {singleDay ? (
+            <XAxis dataKey="plotPosition" type="number" domain={[0, 1]} ticks={[0.5]} tickFormatter={() => dateLabel(singleDay.date)} tickLine={false} axisLine={false} />
+          ) : (
+            <XAxis dataKey="date" tickFormatter={dateLabel} minTickGap={30} tickLine={false} axisLine={false} />
+          )}
           <YAxis width={80} tickLine={false} axisLine={false} tickFormatter={(value: number) => `UGX ${value >= 1_000_000 ? `${(value / 1_000_000).toFixed(1)}M` : value >= 1_000 ? `${(value / 1_000).toFixed(0)}K` : value}`} />
-          <ChartTooltip content={<ChartTooltipContent labelFormatter={(label) => dateLabel(String(label))} formatter={(value, name) => (
+          <ChartTooltip content={<ChartTooltipContent labelFormatter={(label) => dateLabel(singleDay?.date ?? String(label))} formatter={(value, name) => (
             <div className="flex w-full justify-between gap-4"><span className="text-muted-foreground">{name === 'expected' ? 'Expected' : 'Recovered'}</span><span className="font-medium tabular-nums">{formatUGX(Number(value))}</span></div>
           )} />} />
-          <Area type="monotone" dataKey="expected" stroke="var(--color-expected)" fill="var(--color-expected)" fillOpacity={0.12} strokeWidth={2} dot={comparison.trend.length === 1} isAnimationActive={false} />
-          <Area type="monotone" dataKey="recovered" stroke="var(--color-recovered)" fill="var(--color-recovered)" fillOpacity={0.16} strokeWidth={2} dot={comparison.trend.length === 1} isAnimationActive={false} />
+          <Area type="monotone" dataKey="expected" stroke="var(--color-expected)" fill="var(--color-expected)" fillOpacity={0.12} strokeWidth={2} dot={false} isAnimationActive={false} />
+          <Area type="monotone" dataKey="recovered" stroke="var(--color-recovered)" fill="var(--color-recovered)" fillOpacity={0.16} strokeWidth={2} dot={false} isAnimationActive={false} />
         </AreaChart>
       </ChartContainer>
       <div className="flex flex-wrap justify-between gap-2 text-sm">
