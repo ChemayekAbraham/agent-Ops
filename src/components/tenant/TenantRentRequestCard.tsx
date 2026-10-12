@@ -193,7 +193,7 @@ export function TenantRentRequestCard({ userId }: { userId: string }) {
             <div className="p-1.5 lg:p-2.5 rounded-lg bg-muted w-fit">
               <HandCoins className="h-[18px] w-[18px] lg:h-7 lg:w-7 text-foreground" />
             </div>
-            <p className="font-bold text-sm lg:text-lg leading-tight text-foreground">Request rent as tenant</p>
+            <p className="font-bold text-sm lg:text-lg leading-tight text-foreground">Request rent here</p>
           </div>
 
           <div className="space-y-1.5 lg:space-y-2">
