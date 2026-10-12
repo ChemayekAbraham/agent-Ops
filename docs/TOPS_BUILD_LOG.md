@@ -1094,3 +1094,31 @@ Collected today did not change: none of the 58 plans taken off the page had a re
 - **Requests submitted** excludes rejected, cancelled and deleted_by_agent; all-time is the secondary line; Live plans is its own column.
 - **PDF** prints the same figures, the "Counted from the day after the landlord was paid" note, the new request columns and the two uncovered-plan sections.
 - **Access:** `am_plan_clock`, `am_plan_arrears` and `am_plan_positions` share one gate, `_am_staff_ok()` (manager, super_admin, coo, ceo, cto, cfo, operations, tenant_ops, agent_ops, financial_ops), so roles that could open the page before are not refused.
+
+## 2026-10-12 — `20261012180000`: Tenant Operations Workspace on the shared payout clock
+
+**What:** the Workspace now counts every Rent Plan from the day after the LAST counted landlord payout (`am_plan_clock`), the same start Agent Monitoring uses. Read-only: new functions only, with `supabase/rollbacks/20261012180000_tops_workspace_amclock.rollback.sql` to drop them. `tops_plan_clock`, `tops_resolve_plan_clock`, `tops_plan_instalments` and every existing `tops_*` function, view, trigger and policy are untouched (TenantOpsHome and its cards still read them).
+- New: `_am_plan_clock_core`, `_tops_plan_clock_amclock_for`, `tops_plan_clock_amclock`, `_tops_am_schedule` (synthetic schedule, same FIFO and de-duplication as `am_plan_arrears`), `tops_open_instalments_asof_amclock`, `tops_plan_position_internal_amclock`, `tops_plan_schedule_ledger_amclock` / `_count_amclock`, `tops_pay_behaviour_scope_amclock`, `tops_landlord_not_paid_summary_amclock`, and 29 `_amclock` clones generated from the live definitions (the migration raises if any old-start reference is left in a clone).
+- `override` rows in `tops_plan_clock` (2 hand-set plans) are used exactly as set and left out of the landlord-not-paid count. `outstanding_balance` plans keep their start. Plans with no counted payout (`tenant_paying_no_landlord`, `awaiting_landlord`) owe nothing and are counted separately.
+- Cadence: a saved daily/weekly cadence, otherwise the plan's repayment frequency (weekly, else daily). This counts plans the old Workspace skipped as "unknown cadence", which is why the population grew.
+- Hooks switched (`src/hooks/tenantOpsWorkspace/`): agent arrears book, area book, arrears ageing, collections movement, never billed (+summary), overnight changes, portfolio quality, agent float adequacy, plan position, plan schedule ledger (+count), plan pipeline stages, pipeline queue (+gap counts), calling queue money at risk, shortfall breakdown / detail, and the six payment behaviour v2 reads (Workspace tab only: `amclock` filter flag, default off so the Home card is unchanged). The Payment Behaviour tab no longer compares itself with Tenant Ops Home (it shows a note that the two count from different starts).
+- Page: "Counted from the day after the landlord was paid" plus "Landlord not paid yet: N plans (not counted as owing)" at the top of the Workspace (`WorkspaceClockNote`).
+
+**Old vs new (12 Oct 2026):**
+
+| Workspace figure | Old | New |
+|---|---|---|
+| Arrears ageing: plans behind | 6 | 613 |
+| Arrears ageing: total arrears | UGX 3,226,506 | UGX 146,668,052 |
+| Ageing 1-7 / 8-14 / 15-30 / 30+ days | 1 / 0 / 2 / 3 plans | 180 / 70 / 142 / 221 plans |
+| Never billed | 2 plans, UGX 336,398 | 305 plans, UGX 76,145,706 |
+| Landlord not paid yet (not counted as owing) | not shown | 82 plans (57 tenant paying, 25 awaiting landlord) |
+| Pipeline "Funded but landlord unpaid" | 124 | 10 |
+
+Why the jump: 713 of 719 live clock rows had cadence "unknown" and no settlement rows, so the old Workspace only counted about 6 plans. The new start also moves clocks forward for plans whose landlord was paid later than the code was confirmed. Ageing and never-billed arrears add to 222,813,758.
+
+**Verified:** `supabase/tests/tops_amclock_parity.sql` (rolled back, all steps pass): Workspace due and arrears equal `am_plan_arrears` for the same plan and day on 854 plans over 3 days with 0 differences, and no plan without a counted payout is ever in arrears. 99 Workspace tests pass.
+
+**Not switched, by decision:** `get_tenant_topup_eligibility` (an eligibility and money decision shared with other screens), `tops_unknown_cadence_plans`, `tops_blocked_items`, and the `tppo_*` reads. The plan position card still says "cadence not confirmed" for landlord-unpaid plans (copy follow-up).
+
+**Follow-up for Operations:** the 6 plans the old Workspace counted as owing although no payout ever succeeded are in `docs/workspace-landlord-not-paid-check.md`.

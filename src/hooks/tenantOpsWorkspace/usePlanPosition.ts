@@ -43,7 +43,7 @@ export interface PlanPositionResult extends TopsPlanPosition {
 
 async function fetchPlanPosition(rentRequestId: string, asAt?: string): Promise<PlanPositionResult> {
   const [{ data: posRows, error: posError }, { data: rr, error: rrError }] = await Promise.all([
-    anyDb.rpc('tops_plan_position', { p_rent_request_id: rentRequestId, p_as_at: asAt ?? null }),
+    anyDb.rpc('tops_plan_position_amclock', { p_rent_request_id: rentRequestId, p_as_at: asAt ?? null }),
     supabase
       .from('rent_requests')
       .select('total_repayment, duration_days, daily_repayment')
