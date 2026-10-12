@@ -3813,6 +3813,25 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
       </AlertDialog>
 
       {/* ─── Delete Portfolio Confirmation ─── */}
+      <Dialog open={!!redeemTarget} onOpenChange={open => { if (!open && !redeeming) { setRedeemTarget(null); setRedeemReason(''); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Redeem portfolio in full</DialogTitle>
+            <DialogDescription>
+              {redeemTarget ? `${redeemTarget.portfolio_code} — the full principal of ${formatUGX(Number(redeemTarget.investment_amount) || 0)} is returned and the portfolio is closed. Returns already paid stay on record.` : ''}
+            </DialogDescription>
+          </DialogHeader>
+          <Label htmlFor="redeem-reason">Reason (min 10 characters)</Label>
+          <Textarea id="redeem-reason" value={redeemReason} onChange={e => setRedeemReason(e.target.value)} placeholder="e.g. Opened for the wrong partner by mistake" />
+          <DialogFooter>
+            <Button variant="outline" disabled={redeeming} onClick={() => { setRedeemTarget(null); setRedeemReason(''); }}>Cancel</Button>
+            <Button disabled={redeeming || redeemReason.trim().length < 10} onClick={handleStaffFullRedemption}>
+              {redeeming ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null} Confirm redemption
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={!!deletePortfolio} onOpenChange={open => { if (!open) { setDeletePortfolio(null); setDeleteReason(''); } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
