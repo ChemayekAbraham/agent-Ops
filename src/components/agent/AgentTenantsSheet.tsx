@@ -1224,7 +1224,7 @@ export function AgentTenantsSheet({ open, onOpenChange, initialView, initialPipe
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className={`${view === 'pipeline' && !profileTenantId ? 'h-screen max-h-screen rounded-none' : 'h-[92vh] rounded-t-3xl'} flex flex-col p-0 gap-0 overflow-y-auto`}
+        className="h-[100dvh] max-h-[100dvh] w-full max-w-none rounded-none border-0 flex flex-col p-0 gap-0 overflow-y-auto font-sans [&>button.absolute]:hidden"
       >
         {profileTenantId ? (
           <TenantProfileView
