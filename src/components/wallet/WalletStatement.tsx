@@ -296,6 +296,7 @@ async function buildSubAgentEarnings(userId: string, entries: LedgerEntry[]): Pr
 
 export function WalletStatement() {
   const { user, role } = useAuth();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const { count: newActivityCount, markSeen, refresh: refreshActivity } = useWalletActivityBadge(user?.id);
   const [loading, setLoading] = useState(true);
