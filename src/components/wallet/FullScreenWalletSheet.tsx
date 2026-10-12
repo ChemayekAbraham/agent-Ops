@@ -8,12 +8,13 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { 
-  Send, Plus, HandCoins, 
+import {
+  Send, Plus, HandCoins,
   TrendingUp,
   X, Calendar, ChevronRight,
   ChevronDown, FileDown, CreditCard,
-  SlidersHorizontal
+  SlidersHorizontal,
+  ArrowLeft, Home, ArrowRight
 } from 'lucide-react';
 import { fetchAgentWalletData } from '@/lib/fetchAgentWalletData';
 import { generateAgentWalletReportPdf } from '@/lib/agentWalletReportPdf';
@@ -177,6 +178,26 @@ export function FullScreenWalletSheet({ open, onOpenChange, scrollTarget }: Full
                   aria-hidden="true"
                   className="mx-auto mb-3 h-40 w-auto pointer-events-none select-none"
                 />
+                {/* Quick links back to other pages */}
+                <nav aria-label="Quick links" className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => { onOpenChange(false); navigate('/'); }}
+                    className="gap-1.5 rounded-full border-primary/30 text-xs font-semibold text-primary hover:bg-primary/10"
+                  >
+                    <Home className="h-3.5 w-3.5" aria-hidden="true" />Home
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => { onOpenChange(false); navigate('/transactions'); }}
+                    className="gap-1.5 rounded-full border-primary/30 text-xs font-semibold text-primary hover:bg-primary/10"
+                  >
+                    <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />All transactions
+                  </Button>
+                </nav>
+
                 <div className="flex items-center justify-between mb-3">
                   <div>
                     <h3 className="text-base font-bold text-foreground">Wallet Statement</h3>
