@@ -171,12 +171,31 @@ already used. Same signatures and bodies otherwise.
 
 ## 9. Scope confirmation (`git diff --stat` against `origin/lovable`)
 
-@@DIFFSTAT@@
+```
+ AGENTS.md                                          |   1 +
+ docs/TOPS_BUILD_LOG.md                             |  10 +
+ scripts/schema-types.fingerprint.json              |   6 +-
+ .../executive/tenant-ops/AgentMonitoring.tsx       |  81 ++--
+ .../executive/tenant-ops/AgentPaymentPosition.tsx  |   9 +-
+ .../executive/tenant-ops/RentAnalysis.tsx          |  23 +-
+ src/lib/agentMonitoringClockSchedule.test.ts       |  15 +
+ src/lib/agentMonitoringClockSchedule.ts            |  12 +
+ src/lib/agentMonitoringReportPdf.test.ts           |  17 +
+ src/lib/agentMonitoringReportPdf.ts                |  24 +-
+ src/lib/rentAnalysis.test.ts                       |  37 ++
+ src/lib/rentAnalysis.ts                            |  16 +-
+ ...1012150000_am_plan_positions_and_staff_gate.sql | 440 +++++++++++++++++++++
+ ...0_am_plan_positions_and_staff_gate.rollback.sql | 229 +++++++++++
+ supabase/tests/am_plan_positions.sql               | 130 ++++++
+ 15 files changed, 1004 insertions(+), 46 deletions(-)
+```
 
-Outside Agent Monitoring and the new `am_` migration / rollback / test: `src/integrations/supabase/types.ts`
-and `scripts/schema-types.fingerprint.json` (generated types for the new function and the build guard
-that fingerprints them), plus `AGENTS.md` and the two `docs/` files. No other page, hook, view or shared
-file changed. `src/lib/rentAnalysis.ts` is used only by Rent Analysis inside Agent Monitoring and gained an
+(This file, `docs/agent-monitoring-reconciliation.md`, is the 16th and is left out of its own listing.)
+
+Outside Agent Monitoring and the new `am_` migration / rollback / test: only `scripts/schema-types.fingerprint.json`
+(the build guard that fingerprints the generated types; the generated `types.ts` already carried the new
+function once it was applied to the database, so it shows no difference), `AGENTS.md`, and the two `docs/` files.
+No other page, hook, view or shared file changed. `src/lib/rentAnalysis.ts` is used only by Rent Analysis inside Agent Monitoring and gained an
 optional parameter whose default is the old behaviour.
 
 ## 10. Verification
