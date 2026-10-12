@@ -1,4 +1,5 @@
 # Architecture Decisions
+- Service Centre intake actions use the live typed RPC contract and require its returned request/status before showing success; persistent row errors prevent silent failures.
 - Landlord principal comparison is a read-only enabled-role RPC: cumulative non-cancelled float allocations versus non-reversed principal; collected fee totals exclude principal and never add gross fees to their allocation breakdown, preventing double counting.
 <!-- LOVABLE:BEGIN -->
 - Receivables Analysis uses existing read-only reporting RPCs; aggregate totals outrank sampled items, behavioural runoff excludes new business, and unsupported location forecasts stay unavailable to prevent invented figures.

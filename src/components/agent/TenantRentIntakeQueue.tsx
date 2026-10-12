@@ -103,6 +103,7 @@ export function TenantRentIntakeQueue({ searchQuery = '' }: { searchQuery?: stri
   const qc = useQueryClient();
   const { user } = useAuth();
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<{ id: string; message: string } | null>(null);
   const [declineFor, setDeclineFor] = useState<string | null>(null);
   const [reason, setReason] = useState('');
   const [filter, setFilter] = useState<FilterKey>('new');
@@ -112,18 +113,19 @@ export function TenantRentIntakeQueue({ searchQuery = '' }: { searchQuery?: stri
 
   const act = async (
     id: string,
-    action: 'claim' | 'verify_visit' | 'approve' | 'decline' | 'forward',
-    extra?: { reason?: string; toAgentId?: string },
+    action: 'claim' | 'verify_visit' | 'approve' | 'decline',
+    extra?: { reason?: string },
   ) => {
+    if (busyId) return;
     setBusyId(id);
+    setActionError(null);
     try {
       let coords: { lat: number; lng: number } | null = null;
       // Claim records how far the claiming agent is from the tenant's pin;
       // verify_visit proves the agent is at the house. Both need live GPS.
       if (action === 'claim' || action === 'verify_visit') {
         if (!navigator.geolocation) {
-          toast.error('Location required', { description: 'This device cannot share its location.' });
-          return;
+          throw new Error('This device cannot share its location. Try a device with location access.');
         }
         coords = await new Promise((resolve) =>
           navigator.geolocation.getCurrentPosition(
@@ -133,37 +135,36 @@ export function TenantRentIntakeQueue({ searchQuery = '' }: { searchQuery?: stri
           ),
         );
         if (!coords) {
-          toast.error('Location required', {
-            description: action === 'claim'
+          throw new Error(action === 'claim'
               ? 'Turn on location to claim — we check how close you are to the tenant.'
-              : 'Turn on location at the house to verify the visit.',
-          });
-          return;
+              : 'Turn on location at the house to verify the visit.');
         }
       }
-      // p_to_agent_id is newer than the generated types.
-      const { data, error } = await (supabase as any).rpc('tenant_rent_intake_decide', {
+      // Match the live six-parameter RPC; even an unsupported null argument
+      // prevents PostgREST from resolving the function.
+      const { data, error } = await supabase.rpc('tenant_rent_intake_decide', {
         p_request_id: id,
         p_action: action,
         p_reason: extra?.reason ?? null,
         p_latitude: coords?.lat ?? null,
         p_longitude: coords?.lng ?? null,
-        p_to_agent_id: extra?.toAgentId ?? null,
       });
       if (error) throw error;
-      const result = data as { proximity?: 'near' | 'far' | null; distance_km?: number | null } | null;
-      if (action === 'claim' && result?.proximity === 'far' && result.distance_km != null) {
-        toast.warning('Claimed — but you are far from this tenant', {
-          description: `You are about ${Number(result.distance_km).toFixed(1)} km from their house. Consider forwarding to a nearer agent.`,
-        });
-      } else {
-        toast.success(action === 'forward' ? 'Tenant forwarded' : 'Updated');
+      const result = data as { request_id?: string; status?: string } | null;
+      const expectedStatus = { claim: 'claimed', verify_visit: 'visit_verified', approve: 'approved', decline: 'declined' }[action];
+      if (result?.request_id !== id || result.status !== expectedStatus) {
+        throw new Error('The update could not be confirmed. Refresh the requests before trying again.');
       }
+      toast.success(action === 'claim' ? 'Request claimed — find it in Mine' : 'Updated');
+      if (action === 'claim') setFilter('mine');
       setDeclineFor(null); setReason('');
-      qc.invalidateQueries({ queryKey: QUEUE_KEY });
-    } catch (e: any) {
-      toast.error('Action failed', { description: e?.message });
+    } catch (e: unknown) {
+      const message = e && typeof e === 'object' && 'message' in e && typeof e.message === 'string'
+        ? e.message : 'The request could not be updated. Check your connection and try again.';
+      setActionError({ id, message });
+      toast.error('Action failed', { description: message });
     } finally {
+      void qc.invalidateQueries({ queryKey: QUEUE_KEY });
       setBusyId(null);
     }
   };
@@ -333,8 +334,9 @@ export function TenantRentIntakeQueue({ searchQuery = '' }: { searchQuery?: stri
               </Button>
 
               {r.status === 'submitted' && (
-                <Button size="sm" className="text-[11px]" disabled={busyId === r.id} onClick={() => act(r.id, 'claim')}>
-                  <UserCheck className="mr-1.5 h-3.5 w-3.5" />Claim
+                <Button size="sm" className="text-[11px]" disabled={busyId !== null} onClick={() => act(r.id, 'claim')}>
+                  {busyId === r.id ? <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" /> : <UserCheck className="mr-1.5 h-3.5 w-3.5" />}
+                  {busyId === r.id ? 'Claiming…' : 'Claim'}
                 </Button>
               )}
               {r.status === 'claimed' && (
@@ -359,6 +361,9 @@ export function TenantRentIntakeQueue({ searchQuery = '' }: { searchQuery?: stri
               )}
             </div>
 
+            {actionError?.id === r.id && (
+              <p role="alert" className="text-[11px] text-destructive break-words">{actionError.message}</p>
+            )}
             {r.status === 'submitted' && (
               <p className="text-[11px] text-muted-foreground">Claim this request first, then verify the house at the site.</p>
             )}
