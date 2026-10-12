@@ -186,14 +186,14 @@ export function TenantRentRequestCard({ userId }: { userId: string }) {
       <button
         type="button"
         onClick={() => { window.location.href = 'https://welileapp.com/tenants-onboarding'; }}
-        className="w-full rounded-xl border border-primary/25 bg-gradient-to-br from-primary/15 via-primary/10 to-primary/5 p-2.5 lg:p-5 text-left flex flex-col shadow-sm active:scale-[0.99] transition-transform touch-manipulation overflow-hidden"
+        className="w-full rounded-xl border border-primary/40 bg-primary p-2.5 lg:p-5 text-left flex flex-col shadow-md active:scale-[0.99] transition-transform touch-manipulation overflow-hidden"
       >
         <div className="flex flex-col justify-between h-full w-full gap-2 lg:gap-4">
           <div className="space-y-2 lg:space-y-3">
-            <div className="p-1.5 lg:p-2.5 rounded-lg bg-primary text-primary-foreground w-fit shadow-sm">
+            <div className="p-1.5 lg:p-2.5 rounded-lg bg-primary-foreground/15 text-primary-foreground w-fit">
               <HandCoins className="h-[18px] w-[18px] lg:h-7 lg:w-7" />
             </div>
-            <p className="font-bold text-sm lg:text-lg leading-tight text-foreground">Request rent here</p>
+            <p className="font-bold text-sm lg:text-lg leading-tight text-primary-foreground">Request rent here</p>
           </div>
 
           <div className="space-y-1.5 lg:space-y-2">
@@ -203,23 +203,23 @@ export function TenantRentRequestCard({ userId }: { userId: string }) {
                   {trackSteps.map((s, i) => (
                     <span
                       key={s.key}
-                      className={`h-1.5 flex-1 rounded-full ${i < doneCount ? 'bg-success' : 'bg-success/20'}`}
+                      className={`h-1.5 flex-1 rounded-full ${i < doneCount ? 'bg-primary-foreground' : 'bg-primary-foreground/25'}`}
                     />
                   ))}
                 </div>
-                <p className="text-[10px] lg:text-sm font-semibold text-success leading-tight">
+                <p className="text-[10px] lg:text-sm font-semibold text-primary-foreground leading-tight">
                   Step {Math.max(doneCount, 1)} of {trackSteps.length} · {status?.label}
                 </p>
-                <p className="text-[10px] lg:text-sm text-foreground/70 leading-tight lg:leading-relaxed line-clamp-2 lg:line-clamp-3 break-words">{status?.note}</p>
-                <p className="text-[10px] lg:text-xs font-medium text-success/90 underline">Track progress</p>
+                <p className="text-[10px] lg:text-sm text-primary-foreground/80 leading-tight lg:leading-relaxed line-clamp-2 lg:line-clamp-3 break-words">{status?.note}</p>
+                <p className="text-[10px] lg:text-xs font-medium text-primary-foreground/80 underline">Track progress</p>
               </>
             ) : (
-              <p className="text-xs lg:text-sm text-foreground/70 leading-snug lg:leading-relaxed line-clamp-2 lg:line-clamp-3 break-words">
+              <p className="text-xs lg:text-sm text-primary-foreground/85 leading-snug lg:leading-relaxed line-clamp-2 lg:line-clamp-3 break-words">
                 Request rent · agent verifies your house
               </p>
             )}
             {latest?.status === 'declined' && !openRequest && latest.decline_reason && (
-              <p className="text-[10px] lg:text-xs text-destructive leading-snug line-clamp-1">
+              <p className="text-[10px] lg:text-xs text-primary-foreground/90 leading-snug line-clamp-1">
                 Last request not approved: {latest.decline_reason}
               </p>
             )}
