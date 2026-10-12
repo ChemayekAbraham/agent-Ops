@@ -50,7 +50,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { Info, UsersRound } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Wallet, Landmark, LayoutDashboard, ChevronRight } from 'lucide-react';
+import { Wallet, Landmark, LayoutDashboard, ChevronRight, ChevronLeft } from 'lucide-react';
 import { HandCoins, Receipt } from 'lucide-react';
 import { ShieldCheck } from 'lucide-react';
 import { Trophy } from 'lucide-react';
@@ -669,7 +669,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   const getTabOrder = (): AgentHubTab[] =>
     isCashoutAgent
       ? ['home']
-      : ['home', 'money', 'tenants', 'grow', 'subagents'];
+      : ['home', 'tenants', 'grow', 'subagents'];
   const swipeHandlers = useHorizontalSwipe({
     onSwipeLeft: () => {
       const order = getTabOrder();
@@ -1438,6 +1438,19 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         {/* === MONEY TAB === Wallet, advances, payouts, recovery */}
         {activeTab === 'money' && (
           <div className={cn("space-y-5", tabAnimClass)}>
+            {/* Money is opened from the agent menu, so it carries its own
+                heading and a way back to Home. */}
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-lg font-black leading-none text-foreground">Money</h2>
+              <button
+                type="button"
+                onClick={() => { hapticTap(); setSlideDirection('right'); setActiveTab('home'); }}
+                className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-card px-3 py-1.5 text-xs font-bold text-muted-foreground transition-transform active:scale-[0.97] touch-manipulation"
+                style={{ WebkitTapHighlightColor: 'transparent' }}
+              >
+                <ChevronLeft className="h-3.5 w-3.5" /> Home
+              </button>
+            </div>
             {/* Prominent Agent Advance promo — high-visibility entry point so
                 agents always see the cash they can access instantly. */}
             <div className="relative w-full overflow-hidden rounded-3xl border border-primary/30 bg-gradient-to-br from-card via-card to-primary/10 p-5 text-card-foreground shadow-lg ring-1 ring-primary/20">
@@ -1833,6 +1846,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         }}
         onViewTenants={() => { setMenuOpen(false); setTenantsSheetOpen(true); }}
         onViewCreditAccess={() => { setMenuOpen(false); setCreditOpen(true); }}
+        onViewMoney={() => { setMenuOpen(false); setSlideDirection(null); setActiveTab('money'); }}
         onFundPartner={() => { setMenuOpen(false); setInvestForPartnerOpen(true); }}
         onViewProxyHistory={() => { setMenuOpen(false); setProxyHistoryOpen(true); }}
         onIssueReceipt={() => { setMenuOpen(false); setReceiptOpen(true); }}
