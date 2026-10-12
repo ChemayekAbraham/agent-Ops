@@ -1,4 +1,4 @@
-import { Home, TrendingUp, Store, Sparkles } from 'lucide-react';
+import { Home, Store, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { hapticTap } from '@/lib/haptics';
 import {
@@ -22,7 +22,6 @@ interface AgentHubTabsProps {
 
 const tabs: { id: AgentHubTab; icon: typeof Home; label: string }[] = [
   { id: 'home', icon: Home, label: 'Home' },
-  { id: 'grow', icon: TrendingUp, label: 'More' },
   { id: 'subagents', icon: Store, label: 'Service Center' },
 ];
 
