@@ -30,7 +30,6 @@ import {
   BarChart3,
   PiggyBank,
   Building2,
-  Calendar,
   Wallet,
   ShieldCheck,
   MapPin,
@@ -224,7 +223,6 @@ export function AgentMenuDrawer({
         { icon: Building2, label: 'My Landlords', description: 'Registered & referred status', onClick: onViewLandlords, accent: 'emerald-600', badge: '🏠' },
         { icon: ScrollText, label: 'Rent Requests', description: 'Verify posted requests', onClick: onViewMyRentRequests, accent: 'indigo-500' },
         { icon: FileText, label: 'Saved Rent Drafts', description: 'Drafts waiting to unlock', onClick: onViewSavedDrafts, accent: 'amber-500', badge: '💾' },
-        { icon: Calendar, label: 'Schedules', description: 'PDF & WhatsApp', onClick: onViewMyRentRequests, accent: 'primary', badge: 'PDF' },
         { icon: History, label: 'Proxy History', description: 'Partner funding records', onClick: onViewProxyHistory, accent: 'emerald-500' },
         { icon: HandCoins, label: 'My Funders', description: 'No-smartphone partners', onClick: onManageFunders, accent: 'primary', badge: '📱' },
         { icon: Handshake, label: 'Register Sub-Agent', description: 'Add to your team', onClick: onInviteSubAgent, accent: 'amber-500', badge: '500' },
@@ -306,7 +304,7 @@ export function AgentMenuDrawer({
   const MERCHANT_BLOCKED_LABELS = new Set<string>([
     // Tenant operations
     'Money', 'Pay Rent', 'Top Up Wallet', 'Issue Receipt', 'Share Tenant Form', 'Tenant Reg Form',
-    'My Tenants', 'My Tenant Hub', 'Rent Requests', 'Saved Rent Drafts', 'Schedules', 'Post Rent',
+    'My Tenants', 'My Tenant Hub', 'Rent Requests', 'Saved Rent Drafts', 'Post Rent',
     // Landlord operations
     'Share Landlord Signup', 'Landlord Reg Form', 'My Landlords', 'Landlord Map',
     'Manage Property', 'Managed Props',

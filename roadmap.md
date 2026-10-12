@@ -20,3 +20,4 @@
 ## Open (8 Oct 2026)
 - [ ] Flagged agent wallets: lift only after ID + fraud checks — waiting for which agents, and who approved
 - [ ] Agent dashboard: move direct table writes to secure server procedures — waiting for the user to choose where to start
+- [x] Remove the duplicate "Schedules" card from the agent menu People section; verified signed-in that it is gone and the other People cards remain.
