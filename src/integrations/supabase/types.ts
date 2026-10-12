@@ -39178,6 +39178,62 @@ export type Database = {
           },
         ]
       }
+      pso_team_leads: {
+        Row: {
+          active: boolean
+          appointed_by: string
+          appointed_on: string
+          created_at: string
+          note: string | null
+          staff_id: string
+        }
+        Insert: {
+          active?: boolean
+          appointed_by: string
+          appointed_on?: string
+          created_at?: string
+          note?: string | null
+          staff_id: string
+        }
+        Update: {
+          active?: boolean
+          appointed_by?: string
+          appointed_on?: string
+          created_at?: string
+          note?: string | null
+          staff_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pso_team_leads_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
+            referencedRelation: "hr_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pso_team_leads_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "pso_team_leads_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
+            referencedRelation: "v_pso_note_events"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "pso_team_leads_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
+            referencedRelation: "v_pso_officers"
+            referencedColumns: ["staff_id"]
+          },
+        ]
+      }
       public_error_logs: {
         Row: {
           created_at: string
@@ -72933,6 +72989,7 @@ export type Database = {
         }[]
       }
       pso_is_officer: { Args: never; Returns: boolean }
+      pso_is_team_lead: { Args: never; Returns: boolean }
       pso_non_officer_funded_summary: {
         Args: { p_from: string; p_to: string }
         Returns: {
