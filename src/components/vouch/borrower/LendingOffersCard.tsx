@@ -50,9 +50,11 @@ export function LendingOffersCard({ userId, showHeader = true }: { userId: strin
       <>
         <Card className="border-dashed">
           <CardContent className="p-3.5 space-y-2">
-            <p className="flex items-center gap-1.5 text-sm font-bold">
-              <HandCoins className="h-4 w-4 text-primary" /> Loan offers for you
-            </p>
+            {showHeader && (
+              <p className="flex items-center gap-1.5 text-sm font-bold">
+                <HandCoins className="h-4 w-4 text-primary" /> Loan offers for you
+              </p>
+            )}
             <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
               <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               No lending agents have published an offer right now. Agents publish offers when they have money ready to lend — new ones appear here automatically.
