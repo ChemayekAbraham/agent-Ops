@@ -21,7 +21,6 @@ import { FindAHouseCTA } from '@/components/tenant/FindAHouseCTA';
 import { LendingOffersCard } from '@/components/vouch/borrower/LendingOffersCard';
 import { MyLoanRequestsCard } from '@/components/vouch/borrower/MyLoanRequestsCard';
 import { RentAccessGrowthBanner } from '@/components/tenant/RentAccessGrowthBanner';
-import { RentAccessProgressTracker } from '@/components/tenant/RentAccessProgressTracker';
 import { TenantRentRequestCard } from '@/components/tenant/TenantRentRequestCard';
 import { WidgetErrorBoundary } from '@/components/shared/WidgetErrorBoundary';
 
@@ -461,7 +460,6 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
             <PaymentTimeline />
           </WidgetErrorBoundary>
 
-          <RentAccessProgressTracker userId={uid} />
 
           <RentAccessGrowthBanner />
 
