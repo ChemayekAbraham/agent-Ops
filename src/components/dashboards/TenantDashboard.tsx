@@ -409,22 +409,6 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
 
 
 
-          {/* Wallet hero card — replaces the previous bread hero on tenant dashboard */}
-          <div id="tenant-wallet-hero">
-            <UnifiedWalletHeroCard
-              balance={wallet?.balance ?? 0}
-              role="tenant"
-              onOpenWallet={() => setShowWallet(true)}
-              quickActions={
-                <FunderQuickActions
-                  variant="hero"
-                  availableBalance={wallet?.balance ?? 0}
-                  onChanged={() => { refreshWallet(); }}
-                />
-              }
-            />
-          </div>
-
           <WidgetErrorBoundary label="My loan requests">
             <MyLoanRequestsCard userId={uid} />
           </WidgetErrorBoundary>
