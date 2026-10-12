@@ -468,7 +468,7 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
 
       {/* Loan offers — opened from the header ☰ menu, full page */}
       {loanOffersOpen && (
-        <div className="fixed inset-0 z-[70] bg-background flex flex-col animate-fade-in">
+        <div className="fixed inset-0 z-[110] bg-background flex flex-col animate-fade-in">
           <header className="flex items-start gap-1 border-b border-border/60 bg-background px-2 py-2">
             <Button
               variant="ghost"
