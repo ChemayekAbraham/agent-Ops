@@ -183,6 +183,7 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
     } catch { /* ignore */ }
   }, []);
   const [housesOpen, setHousesOpen] = useState(false);
+  const [loanOffersOpen, setLoanOffersOpen] = useState(false);
 
   // Dynamic telemetry tracking across tenant sheets and modals
   useEffect(() => {
@@ -341,7 +342,15 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
 
   const handleViewWallet = () => { hapticTap(); setShowWallet(true); };
 
-  const menuItems: never[] = [];
+  // Menu (header ☰) entries. The loan-offers surface lives here instead of the
+  // home feed, so the menu is its single entry point — no duplicated card.
+  const menuItems = [
+    {
+      icon: HandCoins,
+      label: 'Loan offers',
+      onClick: () => { hapticTap(); setLoanOffersOpen(true); },
+    },
+  ];
 
   // Most relevant rent request for the process tracker — the active one
   // (mirrors RepaymentSection's own selection) falling back to the most
