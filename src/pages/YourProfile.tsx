@@ -13,6 +13,7 @@ import { UserAvatar } from '@/components/UserAvatar';
 import { useMyEliteRank } from '@/components/agent/AgentRankCelebrationDialog';
 import { BusinessAdvanceStatusHero } from '@/components/tenant/BusinessAdvanceStatusHero';
 import { format } from 'date-fns';
+import { ProfileWalletCard } from '@/components/wallet/ProfileWalletCard';
 
 
 /**
@@ -111,6 +112,8 @@ export default function YourProfile() {
           </div>
         ) : (
           <>
+            <ProfileWalletCard />
+
             {/* ─── Hero flip card: front = avatar+stats, back = contact details ─── */}
             <FlipCard className="h-52 w-full">
               <FlipCardFront className="rounded-2xl border border-border/60 bg-card shadow-sm p-6">
