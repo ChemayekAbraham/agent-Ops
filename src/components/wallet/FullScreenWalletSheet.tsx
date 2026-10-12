@@ -143,10 +143,19 @@ export function FullScreenWalletSheet({ open, onOpenChange, scrollTarget }: Full
           {/* Clean white top bar */}
           <div className="safe-area-top bg-background border-b border-border/40">
             <div className="flex items-center gap-3 px-4 py-3">
-              <UserAvatar 
-                avatarUrl={profile?.avatar_url} 
-                fullName={profile?.full_name} 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Go back"
+                onClick={() => onOpenChange(false)}
+                className="h-9 w-9 shrink-0 rounded-full"
+              >
+                <ArrowLeft className="h-5 w-5" aria-hidden="true" />
+              </Button>
+              <UserAvatar
+                avatarUrl={profile?.avatar_url}
+                fullName={profile?.full_name}
+                size="sm"
               />
               <span className="text-lg font-bold text-foreground tracking-tight">Welile</span>
             </div>
