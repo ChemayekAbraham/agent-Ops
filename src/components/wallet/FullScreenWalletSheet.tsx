@@ -14,7 +14,7 @@ import {
   X, Calendar, ChevronRight,
   ChevronDown, FileDown, CreditCard,
   SlidersHorizontal,
-  ArrowLeft, Home, ArrowRight
+  ArrowLeft, Settings, ArrowRight
 } from 'lucide-react';
 import { fetchAgentWalletData } from '@/lib/fetchAgentWalletData';
 import { generateAgentWalletReportPdf } from '@/lib/agentWalletReportPdf';
@@ -183,10 +183,10 @@ export function FullScreenWalletSheet({ open, onOpenChange, scrollTarget }: Full
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => { onOpenChange(false); navigate('/'); }}
+                    onClick={() => { onOpenChange(false); navigate('/settings'); }}
                     className="gap-1.5 rounded-full border-primary/30 text-xs font-semibold text-primary hover:bg-primary/10"
                   >
-                    <Home className="h-3.5 w-3.5" aria-hidden="true" />Home
+                    <Settings className="h-3.5 w-3.5" aria-hidden="true" />Settings
                   </Button>
                   <Button
                     variant="outline"
