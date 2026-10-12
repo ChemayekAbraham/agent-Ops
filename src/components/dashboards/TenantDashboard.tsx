@@ -484,6 +484,26 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
         </main>
       </div>
 
+      {/* Loan offers — opened from the header ☰ menu */}
+      <Sheet open={loanOffersOpen} onOpenChange={setLoanOffersOpen}>
+        <SheetContent
+          side="bottom"
+          className="rounded-t-2xl max-h-[85dvh] overflow-y-auto px-4 pb-6"
+        >
+          <SheetHeader className="text-left">
+            <SheetTitle className="flex items-center gap-1.5 text-sm font-bold">
+              <HandCoins className="h-4 w-4 text-primary" /> Loan offers for you
+            </SheetTitle>
+            <SheetDescription className="text-xs">
+              Active offers from lending agents — request one that fits you.
+            </SheetDescription>
+          </SheetHeader>
+          <WidgetErrorBoundary label="Loan offers">
+            <LendingOffersCard userId={uid} />
+          </WidgetErrorBoundary>
+        </SheetContent>
+      </Sheet>
+
       {/* Full-screen wallet sheet */}
       <FullScreenWalletSheet open={showWallet} onOpenChange={setShowWallet} />
 
