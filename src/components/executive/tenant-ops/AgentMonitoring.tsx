@@ -53,7 +53,7 @@ import {
   type AgentScheduleStatus,
   type PlanSchedule,
 } from '@/lib/agentMonitoringSchedule';
-import { describePlanScheduleFromClock, isMonitoredReading } from '@/lib/agentMonitoringClockSchedule';
+import { describePlanScheduleFromClock, inClockCohort, isMonitoredReading } from '@/lib/agentMonitoringClockSchedule';
 import { useAgentMonitoringClock } from '@/hooks/useAgentMonitoringClock';
 import { UNCOVERED_QUERY_KEY, fetchUncoveredPlans } from '@/hooks/useAgentMonitoringUncovered';
 import { UncoveredPlansTab } from './UncoveredPlansTab';
@@ -133,7 +133,12 @@ interface AgentRow {
   /** UGX genuinely due on the selected day, per each tenant's own schedule. */
   expected: number;
   collected: number;
+  /** Requests submitted that still count: everything except rejected, cancelled and deleted_by_agent. */
   requestCount: number;
+  /** All-time requests, including rejected / cancelled / deleted ones (secondary line). */
+  requestCountAll: number;
+  /** Rent Plans the agent holds that are live now (funded, disbursed or repaying). */
+  livePlanCount: number;
   tenants: ActiveRentRequest[];
   /** Tenants whose schedule places an obligation on the selected day. */
   dueCount: number;
@@ -436,8 +441,18 @@ function StatCard({
 
 type AgentMonitoringTab = 'all' | 'after-sep-2026' | 'before-sep-2026' | 'position' | 'rent-analysis' | 'tenant-paying' | 'awaiting-landlord';
 
-/** Same boundary for both cohort tabs — one date rule, read from the existing added date. */
-const SEP_2026_BOUNDARY = '2026-09-01T00:00:00+03:00';
+/**
+ * Same boundary for both cohort tabs. A Rent Plan belongs to the cohort of its clock start (the
+ * day after the landlord was paid), as a Kampala calendar day. Plans with no clock are not in
+ * either cohort; they have their own tabs.
+ */
+const SEP_2026_BOUNDARY = '2026-09-01';
+
+/** Requests that no longer count toward "Requests submitted". */
+const NON_COUNTING_REQUEST_STATUSES = ['rejected', 'cancelled', 'deleted_by_agent'];
+const LIVE_PLAN_STATUSES = ['funded', 'disbursed', 'repaying'];
+
+interface RequestCounts { all: number; counting: number; live: number }
 
 export function AgentMonitoring() {
   const [tab, setTab] = useState<AgentMonitoringTab>('all');
@@ -449,8 +464,7 @@ export function AgentMonitoring() {
   const [selectedAgent, setSelectedAgent] = useState<AgentRow | null>(null);
   const [selectedTenant, setSelectedTenant] = useState<string | null>(null);
   const bounds = useMemo(() => dayBounds(day), [day]);
-  const createdAfter = tab === 'after-sep-2026' ? SEP_2026_BOUNDARY : undefined;
-  const createdBefore = tab === 'before-sep-2026' ? SEP_2026_BOUNDARY : undefined;
+  const cohort: 'after' | 'before' | null = tab === 'after-sep-2026' ? 'after' : tab === 'before-sep-2026' ? 'before' : null;
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['tenant-ops-agent-monitoring', format(day, 'yyyy-MM-dd')],
@@ -459,7 +473,7 @@ export function AgentMonitoring() {
         supabase.from('v_tenant_daily_eligibility').select('rent_request_id').range(from, to),
       );
       const eligibleIds = new Set(eligibility.map((row) => row.rent_request_id));
-      if (eligibleIds.size === 0) return { requests: [], collections: [], repayments: [] as RepaymentRow[], profiles: [] as Profile[], requestCounts: new Map<string, number>() };
+      if (eligibleIds.size === 0) return { requests: [], collections: [], repayments: [] as RepaymentRow[], profiles: [] as Profile[], requestCounts: new Map<string, RequestCounts>() };
 
       const requests = await fetchAll<ActiveRentRequest>((from, to) =>
         supabase
@@ -492,12 +506,17 @@ export function AgentMonitoring() {
       if (repaymentsError) throw repaymentsError;
 
       const agentIds = new Set<string>(activeRequests.map((request) => request.agent_id).filter((id): id is string => Boolean(id)));
-      const requestCounts = new Map<string, number>();
-      const allRequests = await fetchAll<{ agent_id: string | null }>((from, to) =>
-        supabase.from('rent_requests').select('agent_id').not('agent_id', 'is', null).range(from, to),
+      const requestCounts = new Map<string, RequestCounts>();
+      const allRequests = await fetchAll<{ agent_id: string | null; status: string | null }>((from, to) =>
+        supabase.from('rent_requests').select('agent_id, status').not('agent_id', 'is', null).range(from, to),
       );
       allRequests.forEach((request) => {
-        if (request.agent_id) requestCounts.set(request.agent_id, (requestCounts.get(request.agent_id) ?? 0) + 1);
+        if (!request.agent_id) return;
+        const entry = requestCounts.get(request.agent_id) ?? { all: 0, counting: 0, live: 0 };
+        entry.all += 1;
+        if (!NON_COUNTING_REQUEST_STATUSES.includes(request.status ?? '')) entry.counting += 1;
+        if (LIVE_PLAN_STATUSES.includes(request.status ?? '')) entry.live += 1;
+        requestCounts.set(request.agent_id, entry);
       });
       (collections ?? []).forEach((collection) => { if (collection.agent_id) agentIds.add(collection.agent_id); });
 
@@ -575,6 +594,14 @@ export function AgentMonitoring() {
     [clock.readings, data?.requests],
   );
 
+  /** The cohort tabs split Rent Plans on their clock start, not on when the request was made. */
+  const cohortRequests = useMemo(() => {
+    if (!cohort) return monitoredRequests;
+    return monitoredRequests.filter((request) =>
+      inClockCohort(clock.readings.get(request.id)?.clock.clock_start, cohort, SEP_2026_BOUNDARY),
+    );
+  }, [clock.readings, cohort, monitoredRequests]);
+
   /** One schedule reading per monitored rent plan, computed once for the selected day. */
   const scheduleMap = useMemo(() => {
     const map = new Map<string, PlanSchedule>();
@@ -587,7 +614,7 @@ export function AgentMonitoring() {
 
   const agents = useMemo<AgentRow[]>(() => {
     const grouped = new Map<string, ActiveRentRequest[]>();
-    monitoredRequests.forEach((request) => {
+    cohortRequests.forEach((request) => {
       if (!request.agent_id) return;
       const rows = grouped.get(request.agent_id) ?? [];
       rows.push(request);
@@ -641,7 +668,9 @@ export function AgentMonitoring() {
           tenantCount: new Set(tenants.map((request) => request.tenant_id)).size,
           expected,
           collected,
-          requestCount: data?.requestCounts.get(agentId) ?? 0,
+          requestCount: data?.requestCounts.get(agentId)?.counting ?? 0,
+          requestCountAll: data?.requestCounts.get(agentId)?.all ?? 0,
+          livePlanCount: data?.requestCounts.get(agentId)?.live ?? 0,
           tenants,
           dueCount,
           coveredAheadCount,
@@ -655,15 +684,12 @@ export function AgentMonitoring() {
       })
       .filter((agent) => {
         if (frequencyFilter !== 'all' && agent.tenants.length === 0) return false;
-        if (!createdAfter && !createdBefore) return true;
-        const profile = profileMap.get(agent.id);
-        if (!profile?.created_at) return false;
-        const added = new Date(profile.created_at);
-        if (createdAfter) return added >= new Date(createdAfter);
-        return added < new Date(createdBefore as string);
+        // A cohort tab lists only agents that hold Rent Plans counted from that period.
+        if (cohort && agent.tenants.length === 0) return false;
+        return true;
       })
       .sort((a, b) => b.expected - a.expected || a.name.localeCompare(b.name));
-  }, [clock.readings, collectionMap, createdAfter, createdBefore, data?.collections, data?.requestCounts, frequencyFilter, monitoredRequests, profileMap, scheduleMap]);
+  }, [clock.readings, cohort, cohortRequests, collectionMap, data?.collections, data?.requestCounts, frequencyFilter, profileMap, scheduleMap]);
 
   const filteredAgents = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -835,7 +861,7 @@ export function AgentMonitoring() {
           dailyCount: agent.dailyCount, weeklyCount: agent.weeklyCount, dueCount: agent.dueCount,
           coveredAheadCount: agent.coveredAheadCount, expected: agent.expected, collected: agent.collected,
           arrears: agent.arrears, behindCount: agent.behindCount, aheadCount: agent.aheadCount,
-          requestCount: agent.requestCount, status: collectionStatus(agent.expected, agent.collected),
+          requestCount: agent.requestCount, requestCountAll: agent.requestCountAll, livePlanCount: agent.livePlanCount, status: collectionStatus(agent.expected, agent.collected),
           dailyExpected, dailyCollected, weeklyExpected, weeklyCollected,
         };
       });
@@ -847,7 +873,7 @@ export function AgentMonitoring() {
       });
       await generateAgentMonitoringPdf({
         day,
-        cohortLabel: tab === 'after-sep-2026' ? 'Agents added on/after 1 Sep 2026' : tab === 'before-sep-2026' ? 'Agents added before 1 Sep 2026' : 'All agents',
+        cohortLabel: tab === 'after-sep-2026' ? 'Rent Plans counted from 1 Sep 2026 on' : tab === 'before-sep-2026' ? 'Rent Plans counted from before 1 Sep 2026' : 'All agents',
         frequencyLabel: frequencyFilter === 'all' ? 'All plans' : frequencyFilter === 'daily' ? 'Daily' : 'Weekly',
         statusLabel: statusFilter === 'all' ? 'All' : STATUS_LABEL[statusFilter],
         search,
@@ -894,6 +920,9 @@ export function AgentMonitoring() {
                   Arrears {formatUGX(agent.arrears)} · {agent.behindCount} behind
                 </p>
               )}
+              <p className="mt-1 break-words text-[11px] text-muted-foreground">
+                {agent.requestCount} requests ({agent.requestCountAll} all-time) · {agent.livePlanCount} live plans
+              </p>
             </div>
             <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
           </button>
@@ -935,7 +964,11 @@ export function AgentMonitoring() {
         <TableCell className="whitespace-nowrap text-right font-bold tabular-nums">
           {rate === null ? '—' : `${rate.toFixed(1)}%`}
         </TableCell>
-        <TableCell className="text-right tabular-nums">{agent.requestCount}</TableCell>
+        <TableCell className="whitespace-nowrap text-right tabular-nums">
+          <span className="font-semibold">{agent.requestCount}</span>
+          <span className="block text-[10px] text-muted-foreground">{agent.requestCountAll} all-time</span>
+        </TableCell>
+        <TableCell className="text-right tabular-nums">{agent.livePlanCount}</TableCell>
         <TableCell><StatusIndicator status={collectionStatus(agent.expected, agent.collected)} /></TableCell>
         <TableCell className="text-right">
           <div className="flex items-center justify-end gap-1">
@@ -1030,7 +1063,7 @@ export function AgentMonitoring() {
             <>
               <div className="hidden overflow-x-auto md:block">
                 <Table>
-                  <TableHeader className="[&_th]:whitespace-nowrap [&_th]:text-[11px] [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-wide"><TableRow className="bg-muted/20"><TableHead>Agent name / phone</TableHead><TableHead className="text-right">Tenants</TableHead><TableHead className="text-right">Due</TableHead><TableHead className="text-right">Expected</TableHead><TableHead className="text-right">Collected</TableHead><TableHead className="text-right">Arrears</TableHead><TableHead className="text-right">Collection %</TableHead><TableHead className="text-right">Requests submitted</TableHead><TableHead>Status</TableHead><TableHead /></TableRow></TableHeader>
+                  <TableHeader className="[&_th]:whitespace-nowrap [&_th]:text-[11px] [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-wide"><TableRow className="bg-muted/20"><TableHead>Agent name / phone</TableHead><TableHead className="text-right">Tenants</TableHead><TableHead className="text-right">Due</TableHead><TableHead className="text-right">Expected</TableHead><TableHead className="text-right">Collected</TableHead><TableHead className="text-right">Arrears</TableHead><TableHead className="text-right">Collection %</TableHead><TableHead className="text-right">Requests submitted</TableHead><TableHead className="text-right">Live plans</TableHead><TableHead>Status</TableHead><TableHead /></TableRow></TableHeader>
                   <TableBody>{filteredAgents.map((agent) => renderAgentRow(agent))}</TableBody>
                 </Table>
               </div>
@@ -1052,7 +1085,7 @@ export function AgentMonitoring() {
                 <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Tenants</p><p className="mt-1 font-bold tabular-nums">{selectedAgent.tenantCount}</p></CardContent></Card>
                 <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Expected</p><p className="mt-1 font-bold tabular-nums">{formatUGX(selectedAgent.expected)}</p></CardContent></Card>
                 <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Paid today</p><p className="mt-1 font-bold tabular-nums">{formatUGX(selectedAgent.collected)}</p></CardContent></Card>
-                <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Requests submitted</p><p className="mt-1 font-bold tabular-nums">{selectedAgent.requestCount}</p></CardContent></Card>
+                <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Requests submitted</p><p className="mt-1 font-bold tabular-nums">{selectedAgent.requestCount}</p><p className="text-[10px] text-muted-foreground">{selectedAgent.requestCountAll} all-time · {selectedAgent.livePlanCount} live plans</p></CardContent></Card>
               </div>
               {selectedAgent.phone && (
                 <Button asChild variant="outline" size="sm" className="w-full gap-2 sm:w-auto">

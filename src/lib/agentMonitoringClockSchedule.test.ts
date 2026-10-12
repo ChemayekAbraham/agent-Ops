@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   describePlanScheduleFromClock,
+  inClockCohort,
   isMonitoredReading,
   planIdsSignature,
   type AmPlanClockReading,
@@ -127,5 +128,19 @@ describe('planIdsSignature', () => {
     expect(planIdsSignature(['a', 'b', 'c'])).toBe(planIdsSignature(['c', 'a', 'b']));
     expect(planIdsSignature(['a', 'b'])).not.toBe(planIdsSignature(['a', 'c']));
     expect(planIdsSignature(['a', 'b'])).not.toBe(planIdsSignature(['a', 'b', 'c']));
+  });
+});
+
+describe('inClockCohort', () => {
+  it('splits Rent Plans on the clock start day, not the request date', () => {
+    expect(inClockCohort('2026-09-01', 'after', '2026-09-01')).toBe(true);
+    expect(inClockCohort('2026-08-31', 'after', '2026-09-01')).toBe(false);
+    expect(inClockCohort('2026-08-31', 'before', '2026-09-01')).toBe(true);
+    expect(inClockCohort('2026-09-01', 'before', '2026-09-01')).toBe(false);
+    expect(inClockCohort('2026-10-03T00:00:00', 'after', '2026-09-01')).toBe(true);
+  });
+  it('leaves a plan with no clock in neither cohort', () => {
+    expect(inClockCohort(null, 'after', '2026-09-01')).toBe(false);
+    expect(inClockCohort(undefined, 'before', '2026-09-01')).toBe(false);
   });
 });

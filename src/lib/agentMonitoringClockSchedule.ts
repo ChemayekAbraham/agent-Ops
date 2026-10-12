@@ -112,3 +112,15 @@ export function planIdsSignature(ids: readonly string[]): string {
   }
   return `${sorted.length}:${hash.toString(36)}`;
 }
+
+export type ClockCohort = 'after' | 'before';
+
+/**
+ * Cohort of a Rent Plan by the day its repayments start counting (Kampala yyyy-MM-dd), against
+ * a boundary day. A plan with no clock is in neither cohort.
+ */
+export function inClockCohort(clockStart: string | null | undefined, cohort: ClockCohort, boundary: string): boolean {
+  if (!clockStart) return false;
+  const day = clockStart.slice(0, 10);
+  return cohort === 'after' ? day >= boundary : day < boundary;
+}

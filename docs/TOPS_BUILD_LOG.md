@@ -1084,3 +1084,13 @@ Collected today did not change: none of the 58 plans taken off the page had a re
 **Live check (12 Oct 2026):** Tenant paying list 59 plans, UGX 13,395,793 repaid, UGX 26,739,562 still owed; Awaiting list 25 plans, UGX 4,300,001 funded, longest wait 150 days; all equal to the same sums taken in SQL. The PDF built with 9 pages and both sections. No horizontal overflow at 380 px.
 
 **Known limits:** float allocations are readable only by manager / super admin / CFO / COO / operations, so for a `tenant_ops` viewer the Part-paid / "no payout record" wording cannot show (it reads "No payout"). Two awaiting plans have a fully paid float allocation (UGX 450,000 in total) but no payout record, which is why they sit on the no-clock list; some plans carry a Rent Plan amount of UGX 0 or UGX 1.
+
+## 2026-10-12 — `20261012150000`: every Agent Monitoring tab and the PDF on the payout clock, then reconciled
+
+**What:** the remaining Agent Monitoring tabs now count from `clock_start` and use only the `counting` and `outstanding_balance` buckets; the full old-vs-new reconciliation is in `docs/agent-monitoring-reconciliation.md`.
+- **Expected vs paid** reads new `am_plan_positions(p_from, p_to, p_include_self_payments)`: the same columns, instalment shape, payment de-duplication and bands as `get_agent_monitoring_positions`, started on the clock. Frozen historical day expectations are not used (24 of 1,384 unmoved plans differ for that reason). Test: `supabase/tests/am_plan_positions.sql`; rollback restores `am_plan_clock` / `am_plan_arrears` exactly.
+- **Rent Analysis** takes each plan's schedule from the clock (`buildTenantRows` got an optional `scheduleFor`; default is the old behaviour) and leaves out plans with no clock.
+- **After / Before 1 Sep** split Rent Plans by `clock_start` (they used to split agents by profile creation date). After + Before = All exactly.
+- **Requests submitted** excludes rejected, cancelled and deleted_by_agent; all-time is the secondary line; Live plans is its own column.
+- **PDF** prints the same figures, the "Counted from the day after the landlord was paid" note, the new request columns and the two uncovered-plan sections.
+- **Access:** `am_plan_clock`, `am_plan_arrears` and `am_plan_positions` share one gate, `_am_staff_ok()` (manager, super_admin, coo, ceo, cto, cfo, operations, tenant_ops, agent_ops, financial_ops), so roles that could open the page before are not refused.

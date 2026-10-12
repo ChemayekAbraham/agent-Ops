@@ -67,6 +67,23 @@ describe('generateAgentMonitoringPdf with the two uncovered lists', () => {
     expect(captured.texts.join('\n')).toContain('No Rent Plan is in this position right now.');
   });
 
+  it('prints the counting note, requests with all-time in brackets, and live plans', async () => {
+    await generateAgentMonitoringPdf({
+      ...base,
+      agents: [{
+        name: 'Agent One', phone: '+256700000000', tenantCount: 3, dailyCount: 3, weeklyCount: 0, dueCount: 3, coveredAheadCount: 0,
+        expected: 30_000, collected: 10_000, arrears: 5_000, behindCount: 1, aheadCount: 0,
+        requestCount: 42, requestCountAll: 57, livePlanCount: 9, status: 'partial',
+        dailyExpected: 30_000, dailyCollected: 10_000, weeklyExpected: 0, weeklyCollected: 0,
+      }],
+    });
+    const all = captured.texts.join('\n');
+    expect(all).toContain('Counted from the day after the landlord was paid');
+    expect(all).toContain('Requests (all-time)');
+    expect(all).toContain('Live plans');
+    expect(all).toContain('42 (57)');
+  });
+
   it('is unchanged when the lists are not supplied', async () => {
     await expect(generateAgentMonitoringPdf(base)).resolves.toBe('agent-monitoring-2026-10-12.pdf');
     expect(captured.texts.join('\n')).not.toContain('Awaiting landlord payment');

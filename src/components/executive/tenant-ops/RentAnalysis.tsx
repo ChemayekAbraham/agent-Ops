@@ -28,6 +28,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
 import { unmatchedRepayments } from '@/lib/rentReceipts';
+import { describePlanScheduleFromClock, isMonitoredReading } from '@/lib/agentMonitoringClockSchedule';
+import { useAgentMonitoringClock } from '@/hooks/useAgentMonitoringClock';
 import {
   CUSTOM_BAND_KEY,
   RENT_BANDS,
@@ -202,6 +204,11 @@ export function RentAnalysis() {
     [data?.profiles],
   );
 
+  /* Position is counted from the day after the landlord was paid (`am_plan_clock`); Rent
+     Plans with no landlord payout yet are left out and listed on their own tabs. */
+  const planIds = useMemo(() => (data?.plans ?? []).map((plan) => plan.id), [data?.plans]);
+  const clock = useAgentMonitoringClock(planIds, today);
+
   const rows = useMemo(
     () =>
       buildTenantRows({
@@ -210,8 +217,12 @@ export function RentAnalysis() {
         referenceDay: today,
         nameFor: (id) => (id ? profileMap.get(id)?.full_name || 'Unnamed' : 'Unassigned'),
         phoneFor: (id) => (id ? profileMap.get(id)?.phone ?? null : null),
+        scheduleFor: (plan) => {
+          const reading = clock.readings.get(plan.id);
+          return isMonitoredReading(reading) ? describePlanScheduleFromClock(plan, reading, today) : null;
+        },
       }),
-    [data?.plans, data?.receipts, profileMap, today],
+    [clock.readings, data?.plans, data?.receipts, profileMap, today],
   );
 
   const bands = useMemo(() => (customApplied ? [...RENT_BANDS, customApplied] : RENT_BANDS), [customApplied]);
@@ -299,7 +310,7 @@ export function RentAnalysis() {
 
   const scopeLines = useMemo(
     () => [
-      `Population: active Rent Plans (funded, disbursed or repaying) on the daily eligibility list — ${searchedRows.length} tenant${searchedRows.length === 1 ? '' : 's'} of ${rows.length} active.`,
+      `Population: active Rent Plans (funded, disbursed or repaying) on the daily eligibility list that are counted from the day after the landlord was paid — ${searchedRows.length} tenant${searchedRows.length === 1 ? '' : 's'} of ${rows.length}. Plans with no landlord payout yet are not measured here.`,
       `Rent category: ${selectedBand ? selectedBand.label : 'all categories'}${customApplied ? ` · custom range applied: ${customApplied.label}` : ''}.`,
       `Search filter: ${search.trim() ? `"${search.trim()}"` : 'none'}.`,
       `Receipt figures cover ${format(periodStart, 'dd MMM yyyy')} to ${format(periodEnd, 'dd MMM yyyy')}; arrears and outstanding balances are the position as at ${format(today, 'dd MMM yyyy')}.`,
@@ -348,7 +359,7 @@ export function RentAnalysis() {
     toast.success('Rent analysis report downloaded.');
   };
 
-  if (isLoading) {
+  if (isLoading || (Boolean(data) && !isError && !clock.ready && !clock.isError)) {
     return (
       <div className="flex items-center justify-center gap-2 p-10 text-sm text-muted-foreground">
         <Loader2 className="h-4 w-4 animate-spin" /> Loading rent analysis…
@@ -356,14 +367,14 @@ export function RentAnalysis() {
     );
   }
 
-  if (isError) {
+  if (isError || clock.isError) {
     return (
       <div className="flex flex-col items-center gap-3 p-10 text-center">
         <AlertTriangle className="h-5 w-5 text-destructive" />
         <p className="text-sm text-muted-foreground">
-          {error instanceof Error ? error.message : 'Unable to load rent analysis.'}
+          {(isError ? error : clock.error) instanceof Error ? ((isError ? error : clock.error) as Error).message : 'Unable to load rent analysis.'}
         </p>
-        <Button variant="outline" size="sm" onClick={() => void refetch()}>Try again</Button>
+        <Button variant="outline" size="sm" onClick={() => void (isError ? refetch() : clock.refetch())}>Try again</Button>
       </div>
     );
   }

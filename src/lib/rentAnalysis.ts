@@ -122,12 +122,18 @@ export function buildTenantRows({
   referenceDay,
   nameFor,
   phoneFor,
+  scheduleFor,
 }: {
   plans: RentAnalysisPlan[];
   receipts: RentAnalysisReceipt[];
   referenceDay: Date;
   nameFor: (id: string | null) => string;
   phoneFor: (id: string | null) => string | null;
+  /**
+   * Optional: supplies each plan's schedule (the payout-clock reading). Return null to leave a
+   * plan out. Omitted = the original behaviour (`describePlanSchedule` from the stored start).
+   */
+  scheduleFor?: (plan: RentAnalysisPlan) => PlanSchedule | null;
 }): TenantRentRow[] {
   const byPlan = new Map<string, RentAnalysisReceipt[]>();
   receipts.forEach((receipt) => {
@@ -136,7 +142,9 @@ export function buildTenantRows({
     byPlan.set(receipt.rent_request_id, list);
   });
 
-  return plans.map((plan) => {
+  return plans.flatMap((plan) => {
+    const schedule = scheduleFor ? scheduleFor(plan) : describePlanSchedule(plan, referenceDay);
+    if (!schedule) return [];
     const planReceipts = (byPlan.get(plan.id) ?? []).sort(
       (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
     );
@@ -152,7 +160,7 @@ export function buildTenantRows({
       averageGapDays = total / (planReceipts.length - 1);
     }
 
-    return {
+    return [{
       planId: plan.id,
       tenantId: plan.tenant_id,
       tenantName: nameFor(plan.tenant_id),
@@ -163,12 +171,12 @@ export function buildTenantRows({
       status: plan.status,
       houseCategory: plan.house_category,
       rent: Number(plan.rent_amount ?? 0),
-      schedule: describePlanSchedule(plan, referenceDay),
+      schedule,
       paymentsInPeriod: planReceipts.length,
       paidInPeriod: planReceipts.reduce((sum, receipt) => sum + Number(receipt.amount ?? 0), 0),
       averageGapDays,
       lastPaymentAt: planReceipts.length ? planReceipts[planReceipts.length - 1].created_at : null,
-    };
+    }];
   });
 }
 
