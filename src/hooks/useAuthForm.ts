@@ -561,6 +561,7 @@ export function useAuthForm() {
       // so without this the phone-only signup route had no device limit at all.
       const rawFp = await getDeviceFingerprint().catch(() => null);
       const deviceFp = isValidFingerprintShape(rawFp) ? rawFp : null;
+      const stopFn = lt.start('signup.phone_signup_fn');
       const { data: fnData, error: fnError } = await supabase.functions.invoke('phone-signup', {
         body: {
           email: authEmail,
@@ -590,8 +591,10 @@ export function useAuthForm() {
         }
         if (!serverError) serverError = fnError.message;
       }
+      stopFn(serverError ? 'error' : 'ok');
       if (serverError) {
         setIsLoading(false);
+        stopTotal('phone_signup_error');
         toast({ title: 'Sign Up Failed', description: serverError, variant: 'destructive' });
         return;
       }
@@ -600,9 +603,12 @@ export function useAuthForm() {
       saveLocationInBackground();
       try { localStorage.removeItem(SIGNUP_SOURCE_KEY); } catch { /* ignore */ }
 
+      const stopSignIn = lt.start('signup.signin');
       const { error: signInError } = await signIn(authEmail, password);
+      stopSignIn(signInError ? 'error' : 'ok');
       if (signInError) {
         setIsLoading(false);
+        stopTotal('created_signin_failed');
         toast({
           title: 'Almost there',
           description: 'Your account was created. Please sign in to continue.',
@@ -610,6 +616,7 @@ export function useAuthForm() {
         return;
       }
       setIsLoading(false);
+      stopTotal('ok');
       return;
     }
 
@@ -1116,10 +1123,17 @@ export function useAuthForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // A second "Create Account" tap while the first sign-up is still running
+    // does nothing (prevents "phone already registered" from double submits).
+    if (isSignUp && !isForgotPhone && !isForgotPassword) {
+      if (signUpInFlightRef.current) return;
+      signUpInFlightRef.current = true;
+    }
     setIsLoading(true);
 
-    // Safety timeout: reset spinner after 6s so UI never gets stuck
-    const safetyTimer = setTimeout(() => setIsLoading(false), 6000);
+    // Safety timeout: reset spinner so UI never gets stuck. Sign-up gets 20s
+    // so the button doesn't come back while account creation is still running.
+    const safetyTimer = setTimeout(() => setIsLoading(false), isSignUp ? 20000 : 6000);
 
     try {
       if (isForgotPhone) {
