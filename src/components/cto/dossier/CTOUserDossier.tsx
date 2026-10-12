@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { format } from 'date-fns';
-import { Search, Loader2, MapPin, ChevronDown, ChevronRight } from 'lucide-react';
+import { Search, Loader2, MapPin, ChevronDown, ChevronRight, Copy, ExternalLink } from 'lucide-react';
+import { toast } from 'sonner';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -18,6 +19,17 @@ function Loading() { return <div className="flex justify-center py-10"><Loader2 
 function Err({ e }: { e: any }) { return <p className="text-sm text-destructive py-4">{String(e?.message ?? e)}</p>; }
 function Field({ k, v }: { k: string; v: any }) {
   return <div><p className="text-xs text-muted-foreground">{k}</p><p className="text-sm font-medium break-words">{v ?? '—'}</p></div>;
+}
+function Val({ v }: { v: any }) {
+  if (v == null || v === '') return <>—</>;
+  const s = String(v);
+  if (!/^https?:\/\//i.test(s)) return <>{s}</>;
+  return (
+    <span className="inline-flex gap-1">
+      <Button size="sm" variant="outline" className="h-7 px-2 text-xs" onClick={() => { navigator.clipboard?.writeText(s); toast.success('Link copied'); }}><Copy className="h-3 w-3 mr-1" />Copy</Button>
+      <Button size="sm" variant="outline" className="h-7 px-2 text-xs" asChild><a href={s} target="_blank" rel="noreferrer"><ExternalLink className="h-3 w-3 mr-1" />Open</a></Button>
+    </span>
+  );
 }
 
 export function CTOUserDossier() {
@@ -104,7 +116,7 @@ function ProfileSection({ d }: { d: any }) {
           {(d?.contact_changes ?? []).length === 0 ? <p className="text-sm text-muted-foreground">No recorded changes</p> : (
             <div className="overflow-x-auto"><table className="w-full text-sm"><thead className="text-xs text-muted-foreground"><tr><th className="text-left p-2">When</th><th className="text-left p-2">Field</th><th className="text-left p-2">Old</th><th className="text-left p-2">New</th><th className="text-left p-2">By</th></tr></thead>
               <tbody>{d.contact_changes.map((c: any, i: number) => (
-                <tr key={i} className={`border-t ${['email', 'phone'].includes(c.field) ? 'bg-accent/40' : ''}`}><td className="p-2 whitespace-nowrap">{dt(c.at)}</td><td className="p-2">{label(c.field)}</td><td className="p-2 text-muted-foreground">{c.old ?? '—'}</td><td className="p-2">{c.new ?? '—'}</td><td className="p-2">{c.by ?? 'System'}</td></tr>
+                <tr key={i} className={`border-t ${['email', 'phone'].includes(c.field) ? 'bg-accent/40' : ''}`}><td className="p-2 whitespace-nowrap">{dt(c.at)}</td><td className="p-2">{label(c.field)}</td><td className="p-2 text-muted-foreground"><Val v={c.old} /></td><td className="p-2"><Val v={c.new} /></td><td className="p-2">{c.by ?? 'System'}</td></tr>
               ))}</tbody></table></div>)}
         </CardContent></Card>
     </div>
