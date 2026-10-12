@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useEasyReadMode } from '@/hooks/useEasyReadMode';
@@ -34,7 +35,10 @@ import {
   ChevronDown,
   ChevronUp,
   FileSpreadsheet,
-  Eye
+  Eye,
+  ArrowLeft,
+  ArrowRight,
+  Home
 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { format, subDays, isToday, isYesterday } from 'date-fns';
