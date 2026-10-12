@@ -41262,6 +41262,48 @@ export type Database = {
           },
         ]
       }
+      rent_renewal_otps: {
+        Row: {
+          agent_id: string
+          attempts: number
+          code_hash: string
+          consumed_at: string | null
+          consumed_request_id: string | null
+          created_at: string
+          expires_at: string
+          id: string
+          prev_request_id: string
+          tenant_id: string
+          verified_at: string | null
+        }
+        Insert: {
+          agent_id: string
+          attempts?: number
+          code_hash: string
+          consumed_at?: string | null
+          consumed_request_id?: string | null
+          created_at?: string
+          expires_at: string
+          id?: string
+          prev_request_id: string
+          tenant_id: string
+          verified_at?: string | null
+        }
+        Update: {
+          agent_id?: string
+          attempts?: number
+          code_hash?: string
+          consumed_at?: string | null
+          consumed_request_id?: string | null
+          created_at?: string
+          expires_at?: string
+          id?: string
+          prev_request_id?: string
+          tenant_id?: string
+          verified_at?: string | null
+        }
+        Relationships: []
+      }
       rent_repaid_reconciliation_snapshot: {
         Row: {
           agent_id: string | null
@@ -60140,6 +60182,13 @@ export type Database = {
         Args: { p_agent: string; p_week_start: string }
         Returns: number
       }
+      _can_renew_rent_request: {
+        Args: {
+          p_actor: string
+          p_prev: Database["public"]["Tables"]["rent_requests"]["Row"]
+        }
+        Returns: boolean
+      }
       _cf_partner_ops_portfolios: {
         Args: never
         Returns: {
@@ -68140,6 +68189,7 @@ export type Database = {
         Args: { p_end: string; p_start: string }
         Returns: Json
       }
+      get_service_center_active_advances: { Args: never; Returns: Json }
       get_service_center_listing_queue: {
         Args: { p_manager_id?: string }
         Returns: Json
@@ -70066,6 +70116,10 @@ export type Database = {
             Returns: Json
           }
       landlord_ops_pool_position: { Args: never; Returns: Json }
+      landlord_ops_principal_comparison: {
+        Args: { p_from?: string; p_to?: string }
+        Returns: Json
+      }
       landlord_ops_principal_recovered: { Args: never; Returns: number }
       landlord_ops_principal_recovered_periods: { Args: never; Returns: Json }
       landlord_ops_principal_recovered_rows: {
@@ -73750,6 +73804,10 @@ export type Database = {
         }[]
       }
       rent_pricing_floor_effective_from: { Args: never; Returns: string }
+      rent_renewal_otp_context: {
+        Args: { p_prev_request_id: string }
+        Returns: Json
+      }
       rent_request_agent_financials_ok: {
         Args: {
           _amount_repaid: number

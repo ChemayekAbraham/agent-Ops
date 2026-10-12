@@ -41,6 +41,7 @@ import { useRestoreBodyPointerEvents } from '@/hooks/useRestoreBodyPointerEvents
 import { SubAgentInviteLinkDialog } from '@/components/agent/SubAgentInviteLinkDialog';
 import { TenantRentIntakeQueue, useTenantRentIntakeQueue } from '@/components/agent/TenantRentIntakeQueue';
 import { merchandiseInstallmentSchedule } from '@/lib/merchandiseInstallments';
+import { ServiceCenterAdvancesTracker } from '@/components/agent/service-center/ServiceCenterAdvancesTracker';
 
 export default function AgentServiceCenter() {
   const navigate = useNavigate();
@@ -64,6 +65,7 @@ export default function AgentServiceCenter() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [mainTab, setMainTab] = useState('team');
   const [vetTab, setVetTab] = useState('rent');
+  const [shopTab, setShopTab] = useState('catalog');
   const [searchParams, setSearchParams] = useSearchParams();
   const { data: overdueData } = useOverdueVettingAlert({ suppressed: true });
 
@@ -381,6 +383,15 @@ export default function AgentServiceCenter() {
           </TabsContent>
 
           <TabsContent value="shop" className="mt-3 space-y-2">
+            <Tabs value={shopTab} onValueChange={setShopTab}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="catalog" className="text-xs sm:text-sm">Catalogue</TabsTrigger>
+                <TabsTrigger value="advances" className="text-xs sm:text-sm">Active advances</TabsTrigger>
+              </TabsList>
+              <TabsContent value="advances" className="mt-3">
+                {shopTab === 'advances' && <ServiceCenterAdvancesTracker />}
+              </TabsContent>
+              <TabsContent value="catalog" className="mt-3 space-y-2">
             {loadingCatalog ? (
               <div className="space-y-2">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}</div>
             ) : catalog.length === 0 ? (
@@ -421,6 +432,8 @@ export default function AgentServiceCenter() {
               })
 
             )}
+              </TabsContent>
+            </Tabs>
           </TabsContent>
         </Tabs>
       </main>

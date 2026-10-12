@@ -8,12 +8,13 @@ import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { 
-  Send, Plus, HandCoins, 
+import {
+  Send, Plus, HandCoins,
   TrendingUp,
   X, Calendar, ChevronRight,
   ChevronDown, FileDown, CreditCard,
-  SlidersHorizontal
+  SlidersHorizontal,
+  ArrowLeft, Settings, ArrowRight, LayoutDashboard
 } from 'lucide-react';
 import { fetchAgentWalletData } from '@/lib/fetchAgentWalletData';
 import { generateAgentWalletReportPdf } from '@/lib/agentWalletReportPdf';
@@ -143,10 +144,19 @@ export function FullScreenWalletSheet({ open, onOpenChange, scrollTarget }: Full
           {/* Clean white top bar */}
           <div className="safe-area-top bg-background border-b border-border/40">
             <div className="flex items-center gap-3 px-4 py-3">
-              <UserAvatar 
-                avatarUrl={profile?.avatar_url} 
-                fullName={profile?.full_name} 
-                size="sm" 
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Go back"
+                onClick={() => onOpenChange(false)}
+                className="h-9 w-9 shrink-0 rounded-full"
+              >
+                <ArrowLeft className="h-5 w-5" aria-hidden="true" />
+              </Button>
+              <UserAvatar
+                avatarUrl={profile?.avatar_url}
+                fullName={profile?.full_name}
+                size="sm"
               />
               <span className="text-lg font-bold text-foreground tracking-tight">Welile</span>
             </div>
@@ -168,6 +178,34 @@ export function FullScreenWalletSheet({ open, onOpenChange, scrollTarget }: Full
                   aria-hidden="true"
                   className="mx-auto mb-3 h-40 w-auto pointer-events-none select-none"
                 />
+                {/* Quick links back to other pages */}
+                <nav aria-label="Quick links" className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => { onOpenChange(false); navigate('/dashboard'); }}
+                    className="gap-1.5 rounded-full border-primary/30 text-xs font-semibold text-primary hover:bg-primary/10"
+                  >
+                    <LayoutDashboard className="h-3.5 w-3.5" aria-hidden="true" />My dashboard
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => { onOpenChange(false); navigate('/settings'); }}
+                    className="gap-1.5 rounded-full border-primary/30 text-xs font-semibold text-primary hover:bg-primary/10"
+                  >
+                    <Settings className="h-3.5 w-3.5" aria-hidden="true" />Settings
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => { onOpenChange(false); navigate('/transactions'); }}
+                    className="gap-1.5 rounded-full border-primary/30 text-xs font-semibold text-primary hover:bg-primary/10"
+                  >
+                    <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />All transactions
+                  </Button>
+                </nav>
+
                 <div className="flex items-center justify-between mb-3">
                   <div>
                     <h3 className="text-base font-bold text-foreground">Wallet Statement</h3>

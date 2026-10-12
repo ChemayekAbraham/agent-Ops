@@ -140,6 +140,9 @@ export function useServiceCenterOverview() {
         // Defensive de-duplication: a sub-agent with two link rows or two active
         // freezes must still render exactly one card.
         const id = (s as ServiceCenterSubAgent).sub_agent_id;
+        // The account no longer exists (no profile, so the parent-child link is
+        // dead): the RPC labels these with a placeholder name. Drop them.
+        if ((s as { name?: string | null }).name === 'Sub-agent (profile missing)') return false;
         if (!id || seen.has(id)) return false;
         seen.add(id);
         return true;
