@@ -211,6 +211,9 @@ export function useFoodCanUseCanteen() {
   return useQuery({
     queryKey: ['food', 'can-use-canteen'] as const,
     staleTime: 60_000,
+    // Navigation gate on every personal page: a failure means "not offered".
+    // No retries, so a missing or failing RPC never multiplies requests (FM-33).
+    retry: false,
     queryFn: async () => {
       const userId = await resolveFoodUserId();
       if (!userId && !isFoodMockMode()) return false;
@@ -277,6 +280,8 @@ export function useFoodCoordinatorStatus() {
   return useQuery({
     queryKey: keys.coordinator(),
     staleTime: 30_000,
+    // Navigation gate on every personal page; a failure means "no access" (FM-33).
+    retry: false,
     queryFn: async () => {
       const userId = await resolveFoodUserId();
       // Signed out is a definite "no" against the real service. The fixture has

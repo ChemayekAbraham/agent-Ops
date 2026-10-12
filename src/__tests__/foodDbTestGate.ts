@@ -160,11 +160,50 @@ function connectionModeRefusal(): string | null {
   return null;
 }
 
+/** The live Welile project (supabase/config.toml). Never a test target. */
+export const PRODUCTION_PROJECT_REF = 'wirntoujqoyjobfhyelc';
+
+/**
+ * LIVE-SYSTEM PROTECTION. This harness INSERTS into auth.users and profiles and
+ * commits orders, so it must never be able to reach a live database.
+ *
+ *  - Any setting mentioning the production project ref is refused outright,
+ *    whatever else is set. There is no override.
+ *  - Loopback hosts (a local disposable cluster) are allowed.
+ *  - Any other host is refused unless FOOD_DB_ALLOW_HOST names that exact host,
+ *    so a remote disposable test project needs a deliberate, per-host opt-in.
+ *  - PGHOSTADDR / PGSERVICE / DATABASE_URL could redirect the driver behind
+ *    PGHOST's back, so their presence is refused.
+ *
+ * Checked before any pool exists, so a refused endpoint is never even looked
+ * up. Reads environment metadata only; no credential is read or reported.
+ */
+export function hostRefusal(env: NodeJS.ProcessEnv = process.env): string | null {
+  const host = (env.PGHOST ?? '').trim().toLowerCase();
+  const settings = [env.PGHOST, env.PGHOSTADDR, env.PGSERVICE, env.PGDATABASE, env.DATABASE_URL, env.PGUSER]
+    .map((v) => (v ?? '').toLowerCase()).join(' ');
+  if (settings.includes(PRODUCTION_PROJECT_REF)) {
+    return 'the connection settings name the PRODUCTION project; this harness never connects there';
+  }
+  if (env.PGHOSTADDR || env.PGSERVICE || env.DATABASE_URL) {
+    return 'PGHOSTADDR, PGSERVICE or DATABASE_URL is set and could redirect the connection; unset it';
+  }
+  const loopback = ['localhost', '127.0.0.1', '::1'].includes(host);
+  if (!loopback && (env.FOOD_DB_ALLOW_HOST ?? '').trim().toLowerCase() !== host) {
+    return `PGHOST "${host}" is not a local cluster. Point the harness at a disposable local ` +
+      `database, or set FOOD_DB_ALLOW_HOST to this exact host for a disposable remote test project`;
+  }
+  return null;
+}
+
 export async function openGate(): Promise<Gate> {
   const fail = (reason: string): Gate => ({ sql: null, canRun: false, reason, pgVersion: '' });
 
   if (!process.env.PGHOST) return fail('PGHOST is not set');
   if (process.env.RACE_TEST_ISOLATED_DB !== '1') return fail('RACE_TEST_ISOLATED_DB is not 1');
+  // Before the pool is created: a refused endpoint is never resolved or dialled.
+  const hostProblem = hostRefusal();
+  if (hostProblem) return fail(hostProblem);
 
   // Checked BEFORE the pool is created: this needs no connection, and a
   // transaction-pooler endpoint should never be dialled by this harness at all.

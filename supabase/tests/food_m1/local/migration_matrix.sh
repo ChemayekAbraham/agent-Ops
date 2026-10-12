@@ -8,6 +8,10 @@
 export PGCLIENTENCODING=UTF8
 set -uo pipefail
 case "${PGHOST:-}" in 127.0.0.1|localhost) ;; *) echo "refusing: PGHOST must be local" >&2; exit 2;; esac
+# live-system protection: nothing may redirect psql away from PGHOST, and the
+# production project is refused outright
+[ -z "${PGHOSTADDR:-}${PGSERVICE:-}${DATABASE_URL:-}" ] || { echo "refusing: PGHOSTADDR/PGSERVICE/DATABASE_URL set" >&2; exit 2; }
+case "${PGHOST:-} ${PGDATABASE:-} ${PGUSER:-}" in *wirntoujqoyjobfhyelc*) echo "refusing: production project" >&2; exit 2;; esac
 here="$(cd "$(dirname "$0")" && pwd)"; root="$(cd "$here/../../../.." && pwd)"
 old_ref="${1:-8c437912daed55ca3c7fa1e161ed32012ea8ebea}"
 M="$root/supabase/migrations"

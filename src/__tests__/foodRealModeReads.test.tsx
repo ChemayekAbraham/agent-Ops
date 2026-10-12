@@ -147,3 +147,22 @@ describe('real-mode completion hooks', () => {
     await waitFor(() => expect(calls()).toBeGreaterThan(before));
   });
 });
+
+describe('navigation gates fail closed without retry storms (FM-33)', () => {
+  it('a failing canteen check is a single request and means "not offered"', async () => {
+    const original = rpcCalls.length;
+    const { supabase } = await import('@/integrations/supabase/client');
+    const spy = vi.spyOn(supabase, 'rpc').mockImplementation(((fn: string) => {
+      rpcCalls.push([fn, null]);
+      return Promise.resolve({ data: null, error: { message: 'function does not exist' } });
+    }) as never);
+    const qc = new QueryClient();   // library defaults: would retry 3 times
+    const w = ({ children }: { children: ReactNode }) =>
+      <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+    const { result } = renderHook(() => useFoodCanUseCanteen(), { wrapper: w });
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.data).toBeUndefined();          // nav treats undefined as hidden
+    expect(rpcCalls.slice(original).filter(([fn]) => fn === 'food_can_use_canteen')).toHaveLength(1);
+    spy.mockRestore();
+  });
+});
