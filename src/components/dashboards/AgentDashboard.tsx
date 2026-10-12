@@ -1859,7 +1859,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         onOpenChange={setMenuOpen}
         restricted={isMerchant}
         onDeposit={handleDeposit}
-        onPostRentRequest={() => setRentRequestOpen(true)}
         onInviteSubAgent={handleInviteSubAgent}
         onInviteTenant={() => { setMenuOpen(false); setTenantInviteOpen(true); }}
         onOpenEarningsRank={() => setEarningsRankOpen(true)}

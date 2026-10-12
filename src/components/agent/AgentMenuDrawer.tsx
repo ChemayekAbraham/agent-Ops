@@ -53,7 +53,6 @@ interface AgentMenuDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onDeposit: () => void;
-  onPostRentRequest: () => void;
   onInviteSubAgent: () => void;
   onOpenEarningsRank: () => void;
   onManageProperty?: () => void;
@@ -119,7 +118,6 @@ export function AgentMenuDrawer({
   open, 
   onOpenChange, 
   onDeposit,
-  onPostRentRequest,
   onInviteSubAgent,
   onOpenEarningsRank,
   onManageProperty,
@@ -240,7 +238,6 @@ export function AgentMenuDrawer({
         { icon: Home, label: 'Managed Props', description: 'Properties & payouts', onClick: onViewManagedProperties, accent: 'teal-500' },
         { icon: Search, label: 'Find Rentals', description: 'Browse by location', onClick: onFindRentals, accent: 'violet-500' },
         { icon: MapPin, label: 'Landlord Map', description: 'Navigate to landlords', onClick: onViewLandlordMap, accent: 'emerald-500', badge: 'GPS' },
-        { icon: FileText, label: 'Post Rent', description: 'Request on behalf of tenant', onClick: onPostRentRequest, accent: 'blue-600' },
       ].filter(i => i.onClick !== undefined),
     },
     {
@@ -304,7 +301,7 @@ export function AgentMenuDrawer({
   const MERCHANT_BLOCKED_LABELS = new Set<string>([
     // Tenant operations
     'Money', 'Pay Rent', 'Top Up Wallet', 'Issue Receipt', 'Share Tenant Form', 'Tenant Reg Form',
-    'My Tenants', 'My Tenant Hub', 'Rent Requests', 'Saved Rent Drafts', 'Post Rent',
+    'My Tenants', 'My Tenant Hub', 'Rent Requests', 'Saved Rent Drafts',
     // Landlord operations
     'Share Landlord Signup', 'Landlord Reg Form', 'My Landlords', 'Landlord Map',
     'Manage Property', 'Managed Props',
