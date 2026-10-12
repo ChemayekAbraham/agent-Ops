@@ -16,6 +16,8 @@ import {
   PhoneIncoming,
   Wallet,
   TrendingUp,
+  UtensilsCrossed,
+  ChefHat,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -26,6 +28,10 @@ export interface PersonalNavItem {
   description: string;
   requiresPsoOfficer?: boolean;
   requiresStaff?: boolean;
+  /** Only shown to someone holding a Food Coordinator assignment. */
+  requiresFoodCoordinator?: boolean;
+  /** Only shown to someone the server admits to the canteen (staff or coordinator). */
+  requiresCanteen?: boolean;
 }
 
 export const PERSONAL_NAV: PersonalNavItem[] = [
@@ -41,6 +47,20 @@ export const PERSONAL_NAV: PersonalNavItem[] = [
   },
   { to: '/me/performance', icon: TrendingUp, title: 'My performance', description: 'Your notes, your cohort', requiresPsoOfficer: true },
   { to: '/me/tickets', icon: Ticket, title: 'Tickets', description: 'Raise a fault or pick one up' },
+  {
+    to: '/me/food',
+    icon: UtensilsCrossed,
+    title: 'Canteen',
+    description: "Today's menu and your orders",
+    requiresCanteen: true,
+  },
+  {
+    to: '/me/food/manage',
+    icon: ChefHat,
+    title: 'Food Management',
+    description: 'Menu, orders and service — Food Coordinator only',
+    requiresFoodCoordinator: true,
+  },
   {
     to: '/me/requisitions',
     icon: Wallet,

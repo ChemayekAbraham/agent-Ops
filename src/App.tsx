@@ -353,6 +353,9 @@ const PartnerOnboarding = lazy(() => import('./pages/PartnerOnboarding'));
 const PersonalHub = lazy(() => import('./pages/me/PersonalHub'));
 const MyDocuments = lazy(() => import('./pages/me/MyDocuments'));
 const MyRequisitions = lazy(() => import('./pages/me/Requisitions'));
+const FoodOrderingPage = lazy(() => import('./pages/me/food/FoodOrderingPage'));
+const MyFoodOrdersPage = lazy(() => import('./pages/me/food/MyFoodOrdersPage'));
+const FoodManagementPage = lazy(() => import('./pages/me/food/FoodManagementPage'));
 const HRContractsPage = lazy(() => import('./hr/pages/ContractsPage'));
 const TenantDashboardLandingPage = lazy(() => import('./pages/TenantDashboardLandingPage'));
 const TenantNotificationAnalyticsPage = lazy(() => import('./pages/tenant-ops/TenantNotificationAnalyticsPage'));
@@ -753,6 +756,11 @@ function AppRoutes() {
           <Route path="/me" element={<PersonalHub />} />
           <Route path="/me/documents" element={<MyDocuments />} />
           <Route path="/me/requisitions" element={<HRSignedInRoute><MyRequisitions /></HRSignedInRoute>} />
+          {/* Canteen. Food Management is gated inside the page by the
+              coordinator assignment, and is deliberately NOT in CFO navigation. */}
+          <Route path="/me/food" element={<HRSignedInRoute><FoodOrderingPage /></HRSignedInRoute>} />
+          <Route path="/me/food/orders" element={<HRSignedInRoute><MyFoodOrdersPage /></HRSignedInRoute>} />
+          <Route path="/me/food/manage" element={<HRSignedInRoute><FoodManagementPage /></HRSignedInRoute>} />
           <Route path="/hr/contracts" element={<RoleGuard allowedRoles={['hr', 'super_admin']} requiredPermission="hr"><HRContractsPage /></RoleGuard>} />
           <Route path="/me/payslips" element={<RoleGuard allowedRoles={['tenant', 'agent', 'landlord', 'supporter', 'manager', 'ceo', 'coo', 'cfo', 'cto', 'cmo', 'crm', 'employee', 'operations', 'super_admin', 'hr']}><MyPayslipsPage /></RoleGuard>} />
           <Route path="/me/work" element={<HRSignedInRoute><HRMyWorkPage /></HRSignedInRoute>} />

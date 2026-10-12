@@ -8,6 +8,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { PERSONAL_NAV } from './personalNav';
+import { useFoodCoordinatorStatus, useFoodCanUseCanteen } from '@/hooks/useFoodService';
 
 const SIDEBAR_WIDTH_KEY = 'personal-sidebar-width';
 const SIDEBAR_MIN = 200;
@@ -43,6 +44,11 @@ const PersonalLayout = ({ children, title }: PersonalLayoutProps) => {
   const { user, roles, switchRole } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Food Management is only offered to someone holding the assignment.
+  const { data: foodStatus } = useFoodCoordinatorStatus();
+  const isFoodCoordinator = foodStatus?.isCoordinator === true;
+  const { data: canUseCanteen } = useFoodCanUseCanteen();
 
   const [displayName, setDisplayName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -158,7 +164,7 @@ const PersonalLayout = ({ children, title }: PersonalLayoutProps) => {
           Tools and records
         </p>
         <div className="space-y-1 px-2">
-          {PERSONAL_NAV.filter((item) => (!item.requiresPsoOfficer || isPsoOfficer === true) && (!item.requiresStaff || isStaff === true))
+          {PERSONAL_NAV.filter((item) => (!item.requiresPsoOfficer || isPsoOfficer === true) && (!item.requiresStaff || isStaff === true) && (!item.requiresFoodCoordinator || isFoodCoordinator) && (!item.requiresCanteen || canUseCanteen === true))
             .map((item) => (
               <NavRow key={item.to} to={item.to} icon={item.icon} label={item.title} />
             ))}

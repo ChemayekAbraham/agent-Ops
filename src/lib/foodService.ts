@@ -1,0 +1,402 @@
+/**
+ * Employee Food Ordering — shared types and the rules the UI is allowed to
+ * assume. Deliberately free of any Supabase import so it stays unit-testable
+ * and can be pulled into components without dragging in a client.
+ *
+ * Anything here that mirrors server behaviour is recorded behaviour, verified
+ * against the real RPCs in the sandbox on 2026-10-09, not a guess. The server
+ * remains authoritative: these rules exist so the UI can disable a control
+ * rather than let someone click into a guaranteed error.
+ */
+
+export interface FoodMenuMeal {
+  menu_item_id: string;
+  meal_id: string;
+  name: string;
+  description: string | null;
+  image_path: string | null;
+  category: string | null;
+  price_ugx: number;
+  servings_total: number | null;
+  /** null when the meal has no serving cap */
+  servings_remaining: number | null;
+  sold_out: boolean;
+}
+
+export interface FoodMenuPeriod {
+  period_id: string;
+  name: string;
+  ordering_opens_at: string;
+  ordering_closes_at: string;
+  /** server-evaluated against Africa/Kampala — do not recompute in the browser */
+  ordering_open: boolean;
+  collection_instructions: string | null;
+  max_qty_per_employee: number | null;
+  meals: FoodMenuMeal[];
+}
+
+export interface FoodMenuDay {
+  service_date: string;
+  closed: boolean;
+  /** false: settlement is disabled; payment is made after delivery */
+  checkout_enabled: boolean;
+  /** the payment modes the server accepts on food_place_order */
+  payment_modes?: FoodPaymentMode[];
+  /** server bound: most servings of one meal in one order */
+  max_qty_per_line?: number;
+  /** server bound: longest accepted special instructions */
+  max_instructions_length?: number;
+  periods: FoodMenuPeriod[];
+}
+
+/**
+ * How the employee intends to pay AFTER delivery. Recorded on the order only:
+ * choosing one never debits a wallet, moves money or marks the order paid
+ * (CFO decision 2026-10-12). Wallet settlement stays disabled until a
+ * separately approved design exists.
+ */
+export type FoodPaymentMode = 'cash' | 'wallet' | 'mobile_money';
+
+export const FOOD_PAYMENT_MODES: readonly FoodPaymentMode[] = ['cash', 'wallet', 'mobile_money'];
+
+export const FOOD_PAYMENT_MODE_LABEL: Record<FoodPaymentMode, string> = {
+  cash: 'Cash',
+  wallet: 'Welile wallet',
+  mobile_money: 'Mobile money',
+};
+
+/** Server-enforced bounds (food_place_order). The server remains authoritative. */
+export const FOOD_MAX_QTY_PER_LINE = 20;
+export const FOOD_MAX_INSTRUCTIONS = 500;
+
+export interface FoodCoordinatorOverview {
+  service_date: string;
+  checkout_enabled: boolean;
+  /**
+   * Whether the kitchen must see payment before preparing. False: payment is
+   * made after delivery (CFO decision 2026-10-12). Server-sent, so the UI reads
+   * the rule rather than inferring it from the build.
+   */
+  fulfilment_requires_payment: boolean;
+  menu_published: number;
+  orders_today: number;
+  /** live orders still awaiting payment — a count of orders, not a money figure */
+  unpaid_orders: number;
+  /** orders handed over (collected or delivered) and not yet paid — a count */
+  unpaid_handed_over?: number;
+  /** live orders per declared payment mode — counts, not money */
+  by_payment_mode?: Partial<Record<FoodPaymentMode, number>>;
+  awaiting_prep: number;
+  preparing: number;
+  ready: number;
+  completed: number;
+  cancelled: number;
+  open_exceptions: number;
+  /** sum of paid order totals — an operational figure, NOT recognised revenue */
+  paid_order_total_ugx: number;
+}
+
+export interface FoodPreparationRow {
+  meal_name: string;
+  total_quantity: number;
+  order_count: number;
+}
+
+export type FoodFulfilmentStatus =
+  | 'confirmed' | 'preparing' | 'ready' | 'collected' | 'delivered' | 'cancelled';
+
+export type FoodPaymentStatus =
+  | 'pending_payment' | 'paid' | 'payment_failed' | 'refund_pending' | 'refunded';
+
+export interface FoodOrder {
+  id: string;
+  order_reference: string;
+  employee_id: string;
+  service_date: string;
+  period_id: string;
+  total_ugx: number;
+  payment_status: FoodPaymentStatus;
+  /** declared at placement; null only on orders that predate payment modes */
+  payment_mode: FoodPaymentMode | null;
+  fulfilment_status: FoodFulfilmentStatus;
+  /**
+   * The ledger transaction group a settlement would record against this order.
+   * A real column (M1:101), returned by the `select('*')` both read paths use.
+   *
+   * NULL ON EVERY GENUINE ORDER TODAY. Checkout is disabled - food_pay_order
+   * raises FOOD_CHECKOUT_DISABLED - so nothing ever sets it, and the schema's
+   * food_orders_paid_needs_txn CHECK (M1:108-109) only requires it to be
+   * non-null once payment_status is 'paid'. The fixture's simulated-paid rows
+   * carry the SIMULATED_PAYMENT_TXN sentinel so they can never be mistaken for
+   * settled orders; that is what isSimulatedPayment() reads.
+   */
+  transaction_group_id: string | null;
+  special_instructions: string | null;
+  placed_at: string;
+  paid_at: string | null;
+}
+
+export interface FoodAuditEntry {
+  id: string;
+  entity: string;
+  entity_id: string | null;
+  action: string;
+  before_val: unknown;
+  after_val: unknown;
+  reason: string | null;
+  actor_id: string;
+  created_at: string;
+}
+
+export interface FoodCategory {
+  id: string;
+  name: string;
+  sort_order: number;
+  archived_at: string | null;
+}
+
+export interface FoodServicePeriod {
+  id: string;
+  name: string;
+  ordering_opens_at: string;
+  ordering_closes_at: string;
+  collection_instructions: string | null;
+  max_qty_per_employee: number | null;
+  active: boolean;
+}
+
+export interface FoodServiceClosure {
+  closure_date: string;
+  reason: string;
+  created_at: string;
+}
+
+export type FoodHandoverMode = 'full_transfer' | 'transfer_with_backup';
+
+/**
+ * The only transitions `food_set_fulfilment` accepts. Everything else raises
+ * 22023. Mirrors the CASE expression in
+ * 20261009130000_food_service_operations_rpcs.sql.
+ */
+export const FOOD_ALLOWED_TRANSITIONS: Record<FoodFulfilmentStatus, FoodFulfilmentStatus[]> = {
+  confirmed: ['preparing', 'cancelled'],
+  preparing: ['ready', 'cancelled'],
+  ready: ['collected', 'delivered'],
+  collected: [],
+  delivered: [],
+  cancelled: [],
+};
+
+/** What this order can move to next; empty for a terminal order. */
+export function nextFoodStatuses(from: FoodFulfilmentStatus): FoodFulfilmentStatus[] {
+  return FOOD_ALLOWED_TRANSITIONS[from] ?? [];
+}
+
+/**
+ * Whether the kitchen may start this order.
+ *
+ * Payment is made after delivery (CFO decision 2026-10-12), so the default does
+ * not require payment, matching `food_set_fulfilment` in Postgres. Starting an
+ * order never marks it paid. `requirePayment: true` remains available should a
+ * future, separately approved policy reinstate payment-first.
+ */
+export function canStartPreparing(
+  fulfilment: FoodFulfilmentStatus,
+  payment: FoodPaymentStatus,
+  options: { requirePayment?: boolean } = {},
+): boolean {
+  const requirePayment = options.requirePayment ?? false;
+  if (!nextFoodStatuses(fulfilment).includes('preparing')) return false;
+  return requirePayment ? payment === 'paid' : true;
+}
+
+export interface FoodMeal {
+  id: string;
+  name: string;
+  description: string | null;
+  image_path: string | null;
+  category_id: string | null;
+  price_ugx: number;
+  status: 'draft' | 'published' | 'archived';
+  archived_at: string | null;
+}
+
+export interface FoodOrderLine {
+  id: string;
+  order_id: string;
+  menu_item_id: string;
+  meal_id: string;
+  /** snapshot taken when the order was placed; a later menu edit never restates it */
+  meal_name: string;
+  meal_description: string | null;
+  unit_price_ugx: number;
+  quantity: number;
+  line_total_ugx: number;
+}
+
+export interface FoodOrderDetail extends FoodOrder {
+  /** present on the coordinator's view; employees only ever see their own */
+  employee_name?: string;
+  items: FoodOrderLine[];
+  cancelled_at?: string | null;
+}
+
+export interface FoodOrderEvent {
+  id: string;
+  order_id: string;
+  event_type: string;
+  from_status: string | null;
+  to_status: string | null;
+  note: string | null;
+  actor_id: string;
+  created_at: string;
+}
+
+export interface FoodException {
+  id: string;
+  order_id: string | null;
+  kind: string;
+  /** the original evidence; never rewritten when the exception is resolved */
+  detail: Record<string, unknown>;
+  resolved_at: string | null;
+  resolved_by: string | null;
+  /** mandatory once resolved; null only for rows predating resolution support */
+  resolution_reason?: string | null;
+  /** who logged it; null only for rows predating food_raise_exception */
+  raised_by?: string | null;
+  /** 'coordinator' or 'employee' (an employee's report about their own order) */
+  raised_via?: 'coordinator' | 'employee' | null;
+  created_at: string;
+}
+
+/** The fixed exception kinds (CFO decision 2026-10-12), enforced server-side. */
+export type FoodExceptionKind =
+  | 'stock_shortfall' | 'substitution' | 'wrong_or_missing_item' | 'quality_complaint' | 'other';
+
+export const FOOD_EXCEPTION_KINDS: readonly FoodExceptionKind[] = [
+  'stock_shortfall', 'substitution', 'wrong_or_missing_item', 'quality_complaint', 'other',
+];
+
+export const FOOD_EXCEPTION_KIND_LABEL: Record<FoodExceptionKind, string> = {
+  stock_shortfall: 'Stock shortfall',
+  substitution: 'Substitution',
+  wrong_or_missing_item: 'Wrong or missing item',
+  quality_complaint: 'Quality complaint',
+  other: 'Other',
+};
+
+/** Server bound on an exception description. */
+export const FOOD_MAX_EXCEPTION_NOTE = 500;
+
+export interface FoodCoordinatorAssignment {
+  id: string;
+  coordinator_id: string;
+  coordinator_name?: string;
+  access_level: 'active' | 'backup';
+  assigned_by: string | null;
+  assigned_at: string;
+  revoked_at: string | null;
+  revoked_by: string | null;
+  handover_mode: FoodHandoverMode | null;
+  reason: string | null;
+}
+
+/** Presentation labels. The server never sends these; it sends the raw status. */
+export const FOOD_FULFILMENT_LABEL: Record<FoodFulfilmentStatus, string> = {
+  confirmed: 'Order received',
+  preparing: 'Being prepared',
+  ready: 'Ready for collection',
+  collected: 'Collected',
+  delivered: 'Delivered',
+  cancelled: 'Cancelled',
+};
+
+export const FOOD_PAYMENT_LABEL: Record<FoodPaymentStatus, string> = {
+  pending_payment: 'Not paid yet',
+  paid: 'Paid',
+  payment_failed: 'Payment failed',
+  refund_pending: 'Refund pending',
+  refunded: 'Refunded',
+};
+
+/** Formats a UGX amount the way the rest of the product does. */
+export function formatUgx(amount: number | string | null | undefined): string {
+  const n = Number(amount ?? 0);
+  return 'UGX ' + (Number.isFinite(n) ? n : 0).toLocaleString('en-UG', {
+    maximumFractionDigits: 0,
+  });
+}
+
+/**
+ * Turns a raw Postgres or fixture error into something worth putting in front
+ * of a person. The server messages are already written for humans, so this
+ * mostly strips the plumbing and special-cases the one error the UI has a
+ * considered answer for.
+ */
+export function foodErrorMessage(e: unknown): string {
+  if (!(e instanceof Error)) return 'Something went wrong. Please try again.';
+  const raw = e.message ?? '';
+
+  if (isFoodCheckoutDisabled(e)) {
+    return 'Paying for meals is not switched on yet. Your order is saved as unpaid.';
+  }
+  if (/Only the active Food Coordinator/i.test(raw)) {
+    return 'Only the active Food Coordinator can do that.';
+  }
+  if (/Not authorised/i.test(raw)) return 'You do not have access to Food Management.';
+  if (/Authentication required/i.test(raw)) return 'Please sign in again.';
+
+  // strip "ERROR: ", SQLSTATE prefixes and any trailing context the driver adds
+  const cleaned = raw
+    .replace(/^.*?(?:ERROR|error):\s*/i, '')
+    .replace(/\s*\(SQLSTATE\s*\w+\)\s*$/i, '')
+    .trim();
+  return cleaned.length ? cleaned : 'Something went wrong. Please try again.';
+}
+
+/** Error marker raised by food_pay_order while payment is switched off. */
+export const FOOD_CHECKOUT_DISABLED = 'FOOD_CHECKOUT_DISABLED';
+
+export function isFoodCheckoutDisabled(e: unknown): boolean {
+  return e instanceof Error && e.message.includes(FOOD_CHECKOUT_DISABLED);
+}
+
+// ─────────── environment and fixture markers (pure; safe in production) ───────────
+
+/** Payment is made after delivery (CFO 2026-10-12): the kitchen never waits for it. */
+export const FULFILMENT_REQUIRES_PAYMENT = false;
+
+/**
+ * Fixture-only payment evidence. An order carrying this transaction id was
+ * NEVER paid: it exists only in the development fixture so the "paid" badge can
+ * be seen. Real orders never carry it.
+ */
+export const SIMULATED_PAYMENT_TXN = '00000000-5111-4000-8000-000000000000';
+export const SIMULATED_ORDER_PREFIX = 'FO-SIM-';
+
+/** True when an order's "payment" is fixture evidence rather than a real one. */
+export function isSimulatedPayment(o: { order_reference?: string; transaction_group_id?: unknown }) {
+  return String(o.order_reference ?? '').startsWith(SIMULATED_ORDER_PREFIX)
+    || o.transaction_group_id === SIMULATED_PAYMENT_TXN;
+}
+
+/**
+ * Whether reads and writes go to the in-memory development fixture instead of
+ * the real RPCs. Opt-in, development builds only. Written as literal
+ * import.meta.env reads so Vite replaces them at build time: in a production
+ * bundle this is the constant false.
+ */
+export function isFoodMockMode(): boolean {
+  return import.meta.env.DEV === true && import.meta.env.VITE_FOOD_SERVICE_MOCK === 'true';
+}
+
+const KAMPALA = 'Africa/Kampala';
+/** Wall-clock date and time in Africa/Kampala, the canteen's business zone. */
+export function foodKampalaNow(): { date: string; time: string } {
+  const s = new Date().toLocaleString('en-GB', { timeZone: KAMPALA, hour12: false });
+  const [d, t] = s.split(', ');
+  const [dd, mm, yyyy] = d.split('/');
+  return { date: `${yyyy}-${mm}-${dd}`, time: t };
+}
+/** Today's business date (Africa/Kampala), as the server computes it. */
+export function foodToday(): string { return foodKampalaNow().date; }
