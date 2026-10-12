@@ -237,7 +237,6 @@ export function AgentMenuDrawer({
         { icon: Building2, label: 'Manage Property', description: 'For landlords', onClick: onManageProperty, accent: 'orange-500', badge: '2%' },
         { icon: Home, label: 'Managed Props', description: 'Properties & payouts', onClick: onViewManagedProperties, accent: 'teal-500' },
         { icon: Search, label: 'Find Rentals', description: 'Browse by location', onClick: onFindRentals, accent: 'violet-500' },
-        { icon: MapPin, label: 'Landlord Map', description: 'Navigate to landlords', onClick: onViewLandlordMap, accent: 'emerald-500', badge: 'GPS' },
       ].filter(i => i.onClick !== undefined),
     },
     {
@@ -303,7 +302,7 @@ export function AgentMenuDrawer({
     'Money', 'Pay Rent', 'Top Up Wallet', 'Issue Receipt', 'Share Tenant Form', 'Tenant Reg Form',
     'My Tenants', 'My Tenant Hub', 'Rent Requests', 'Saved Rent Drafts',
     // Landlord operations
-    'Share Landlord Signup', 'Landlord Reg Form', 'My Landlords', 'Landlord Map',
+    'Share Landlord Signup', 'Landlord Reg Form', 'My Landlords',
     'Manage Property', 'Managed Props',
     // House listing
     'List House', 'My Listings',
