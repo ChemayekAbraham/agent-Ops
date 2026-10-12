@@ -585,7 +585,7 @@ export default function MyPerformancePage() {
               LEADERBOARD · PROMISSORY NOTES
             </h2>
             <p className="mb-3 text-xs text-muted-foreground">
-              ranked by net notes, highest first · every officer sees this list · staff codes only, no names · no money and no commission appear here
+              ranked by net notes, highest first · every officer sees this list · {isTeamLead ? 'names shown for the PSO head' : 'staff codes only, no names'} · no money and no commission appear here
             </p>
             {cohortLoading ? (
               <div className="h-24 animate-pulse rounded-2xl bg-muted" />
@@ -607,7 +607,7 @@ export default function MyPerformancePage() {
                               #{row.rank}
                             </span>
                             <div className="text-sm font-semibold">
-                              {row.staff_ref}
+                              {leaderLabel(row.staff_ref)}
                               {row.is_me && (
                                 <span className="ml-2 text-[10px] uppercase tracking-wide text-muted-foreground">
                                   you
@@ -669,7 +669,7 @@ export default function MyPerformancePage() {
                         <tr key={row.staff_ref} className={cn(row.is_me && 'bg-muted/40')}>
                           <td className="px-4 py-2.5 tabular-nums">{row.rank}</td>
                           <td className="px-4 py-2.5">
-                            <span className="font-medium">{row.staff_ref}</span>
+                            <span className="font-medium">{leaderLabel(row.staff_ref)}</span>
                             {row.is_me && (
                               <span className="ml-2 text-xs text-muted-foreground">you</span>
                             )}
