@@ -74876,6 +74876,10 @@ export type Database = {
         }
         Returns: Json
       }
+      staff_create_redemption_request: {
+        Args: { p_portfolio_id: string; p_reason: string }
+        Returns: string
+      }
       staff_loan_accrue_interest: {
         Args: never
         Returns: {
