@@ -76,7 +76,6 @@ import { WelileReceiptDialog } from '@/components/tenant/WelileReceiptDialog';
 import { ClaimBreadDialog } from '@/components/tenant/ClaimBreadDialog';
 import { ClaimRentDiscountDialog } from '@/components/tenant/ClaimRentDiscountDialog';
 import { AddMonthlyRentDialog, getStoredMonthlyRent } from '@/components/tenant/AddMonthlyRentDialog';
-import { RentDiscountCarousel } from '@/components/tenant/RentDiscountCarousel';
 import { useAvailableBalance } from '@/hooks/useAvailableBalance';
 import { UnifiedWalletHeroCard } from '@/components/wallet/UnifiedWalletHeroCard';
 import { FunderQuickActions } from '@/components/supporter/FunderQuickActions';
@@ -156,7 +155,6 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
   
   const [showCalculator, setShowCalculator] = useState(false);
   const [showRequestForm, setShowRequestForm] = useState(false);
-  const rentCarouselRef = useRef<HTMLDivElement | null>(null);
   const [depositOpen, setDepositOpen] = useState(false);
   // Global "open deposit" entry: triggered from the mobile bottom-nav Deposit
   // FAB and from `?deposit=1` deep-links so users can reach the deposit flow
@@ -467,16 +465,6 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
             <SuggestedHousesCard userId={uid} onViewAll={goToAllHouses} />
           </WidgetErrorBoundary>
 
-          {/* Apply your Rent Fees discount to rent — horizontally scrollable rentals */}
-          <div ref={rentCarouselRef} id="rent-discount-carousel">
-            <RentDiscountCarousel
-              discountPct={
-                breadPrice.basePrice > 0
-                  ? Math.max(0, (breadPrice.basePrice - breadPrice.reducedPrice) / breadPrice.basePrice)
-                  : 0
-              }
-            />
-          </div>
 
 
         </main>
