@@ -86,6 +86,8 @@ interface AgentMenuDrawerProps {
   onDownloadTenantForm?: () => void;
   onOpenRentPoster?: () => void;
   onViewMoney?: () => void;
+  /** Opens the Grow view (leaderboard, share, recruit) that used to be "More" in the bottom bar. */
+  onViewGrow?: () => void;
   /** Opens the My Tenants view (tenant list, repayments & rent requests) that used to live in the bottom bar. */
   onViewTenantHub?: () => void;
   isFinancialAgent?: boolean;
@@ -151,6 +153,7 @@ export function AgentMenuDrawer({
   onDownloadTenantForm,
   onOpenRentPoster,
   onViewMoney,
+  onViewGrow,
   onViewTenantHub,
   isFinancialAgent = false,
   restricted = false,
@@ -183,6 +186,7 @@ export function AgentMenuDrawer({
       label: '💰 Money',
       items: [
         { icon: Wallet, label: 'Money', description: 'Advance, wallet & your cash flow', onClick: onViewMoney, accent: 'primary', badge: '★' },
+        ...(onViewGrow ? [{ icon: TrendingUp, label: 'Grow & Earn', description: 'Leaderboard, share & recruit', onClick: onViewGrow, accent: 'primary' as const }] : []),
         { icon: Banknote, label: 'Pay Rent', description: 'Pay rent for your tenant', onClick: onTopUpTenant, accent: 'primary', badge: '★' },
         { icon: ArrowDownCircle, label: 'Deposit', description: 'Add funds to wallet', onClick: onDeposit, accent: 'success' },
         { icon: Wallet, label: 'Top Up Wallet', description: 'Deposit to tenant wallet', onClick: onTopUpTenant, accent: 'emerald-500' },

@@ -669,7 +669,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   const getTabOrder = (): AgentHubTab[] =>
     isCashoutAgent
       ? ['home']
-      : ['home', 'grow', 'subagents'];
+      : ['home', 'subagents'];
   const swipeHandlers = useHorizontalSwipe({
     onSwipeLeft: () => {
       const order = getTabOrder();
@@ -1735,6 +1735,17 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         {/* === GROW TAB === Share, recruit, partners */}
         {activeTab === 'grow' && (
           <div className={cn("space-y-5", tabAnimClass)}>
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-base sm:text-lg font-bold text-foreground">Grow & Earn</h2>
+              <button
+                type="button"
+                onClick={() => { hapticTap(); setActiveTab('home'); }}
+                className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-3 py-1.5 text-[11px] font-bold text-primary active:scale-[0.97]"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+                Home
+              </button>
+            </div>
             {/* Leaderboard CTA — draws agents into the recruitment competition */}
             <button
               onClick={() => { hapticTap(); navigate('/dashboard/agents/leaderboard'); }}
@@ -1858,6 +1869,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         onViewCreditAccess={() => { setMenuOpen(false); setCreditOpen(true); }}
         onViewMoney={() => { setMenuOpen(false); setSlideDirection(null); setActiveTab('money'); }}
         onViewTenantHub={() => { setMenuOpen(false); setSlideDirection(null); setActiveTab('tenants'); }}
+        onViewGrow={isCashoutAgent ? undefined : () => { setMenuOpen(false); setSlideDirection(null); setActiveTab('grow'); }}
         onFundPartner={() => { setMenuOpen(false); setInvestForPartnerOpen(true); }}
         onViewProxyHistory={() => { setMenuOpen(false); setProxyHistoryOpen(true); }}
         onIssueReceipt={() => { setMenuOpen(false); setReceiptOpen(true); }}
