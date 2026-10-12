@@ -38,7 +38,7 @@ import {
   Eye,
   ArrowLeft,
   ArrowRight,
-  Home
+  Settings
 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { format, subDays, isToday, isYesterday } from 'date-fns';
@@ -324,7 +324,7 @@ export function WalletStatement() {
 
   // ── Quick navigation out of the statement ──
   const QUICK_LINKS = [
-    { label: 'Home', Icon: Home, to: '/' },
+    { label: 'Settings', Icon: Settings, to: '/settings' },
     { label: 'All transactions', Icon: ArrowRight, to: '/transactions' },
   ] as const;
   const go = useCallback((to: string) => {
