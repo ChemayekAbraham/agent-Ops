@@ -104,6 +104,7 @@ export function useAuthForm() {
 
   const phoneInputRef = useRef<HTMLInputElement>(null);
   const passwordInputRef = useRef<HTMLInputElement>(null);
+  const signUpInFlightRef = useRef(false);
 
   const { signUpWithoutRole, signIn, signInWithGoogle, signInWithApple, resetPassword, user, roles } = useAuth();
   const { isDuplicate, isChecking: isCheckingDuplicate, duplicateMessage } = usePhoneDuplicateCheck(phone, 400);
@@ -1151,6 +1152,7 @@ export function useAuthForm() {
       toast({ title: 'Error', description: `Unexpected error: ${msg}`, variant: 'destructive' });
     } finally {
       clearTimeout(safetyTimer);
+      signUpInFlightRef.current = false;
       setIsLoading(false);
       setLoginStage('idle');
     }
