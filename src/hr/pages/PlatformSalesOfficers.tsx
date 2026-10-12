@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { startOfISOWeek } from 'date-fns';
 import PersonalLayout from '@/components/layout/PersonalLayout';
@@ -313,6 +313,11 @@ interface FundingCommissionRow {
   as_at: string;
 }
 
+// Defined at module scope so its identity is stable across renders.
+function Shell({ embedded, children }: { embedded: boolean; children: ReactNode }) {
+  return embedded ? <>{children}</> : <PersonalLayout title="Platform Sales Officers">{children}</PersonalLayout>;
+}
+
 export interface PlatformSalesOfficersPageProps {
   /** Render without the page layout header/back link (for embedding). */
   embedded?: boolean;
@@ -324,8 +329,7 @@ export default function PlatformSalesOfficersPage({
   embedded = false,
   hideCommission = false,
 }: PlatformSalesOfficersPageProps = {}) {
-  const Shell = ({ children }: { children: React.ReactNode }) =>
-    embedded ? <>{children}</> : <PersonalLayout title="Platform Sales Officers">{children}</PersonalLayout>;
+
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<WindowMode>('WEEKLY');
   // 0 = the live Wed–Tue week, -1 = the week before it, and so on.
@@ -786,14 +790,14 @@ export default function PlatformSalesOfficersPage({
 
   if (isNotPermitted) {
     return (
-      <Shell>
+      <Shell embedded={embedded}>
         <p className="text-sm text-muted-foreground">You do not have access to this report.</p>
       </Shell>
     );
   }
 
   return (
-    <Shell>
+    <Shell embedded={embedded}>
       <div className="space-y-4 sm:space-y-6">
         <div className="flex flex-col gap-2">
           <div className="flex flex-col gap-0.5">
