@@ -4,19 +4,14 @@ import { toast as sonnerToast } from 'sonner';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useOffline } from '@/contexts/OfflineContext';
-import { 
+import {
   WifiOff,
   RefreshCw,
   BadgeCheck,
   HandCoins,
+  ArrowLeft,
 } from 'lucide-react';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
+import { useBackGestureClose } from '@/hooks/useBackGestureClose';
 import { FindAHouseCTA } from '@/components/tenant/FindAHouseCTA';
 import { LendingOffersCard } from '@/components/vouch/borrower/LendingOffersCard';
 import { MyLoanRequestsCard } from '@/components/vouch/borrower/MyLoanRequestsCard';
