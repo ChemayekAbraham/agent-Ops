@@ -50,7 +50,7 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { Info, UsersRound } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Wallet, Landmark, LayoutDashboard, ChevronRight } from 'lucide-react';
+import { Wallet, Landmark, LayoutDashboard, ChevronRight, ChevronLeft } from 'lucide-react';
 import { HandCoins, Receipt } from 'lucide-react';
 import { ShieldCheck } from 'lucide-react';
 import { Trophy } from 'lucide-react';
@@ -669,7 +669,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   const getTabOrder = (): AgentHubTab[] =>
     isCashoutAgent
       ? ['home']
-      : ['home', 'money', 'tenants', 'grow', 'subagents'];
+      : ['home', 'subagents'];
   const swipeHandlers = useHorizontalSwipe({
     onSwipeLeft: () => {
       const order = getTabOrder();
@@ -1078,110 +1078,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
           <DeviceSessionIndicator userId={user.id} />
         </div>
 
-        {/* Wallet Hero Card — always visible */}
-        {wallet ? (
-          <UnifiedWalletHeroCard
-          balance={
-            isMerchant
-              ? realWithdrawableBalance
-              : Math.max(0, visibleAgentFloatBalance - merchantReservedFloat) +
-                realWithdrawableBalance
-          }
-          role="agent"
-          // Merchant Agents never see the generic operational-float box here —
-          // it's company custody money, not theirs to Deposit/Withdraw/Transfer
-          // via this card's action buttons, and MerchantFloatAvailableCard
-          // (rendered on their Home tab) is the single, correctly-guardrailed
-          // place that explains and displays it ("Company cash in your hands").
-          // Showing it in both places invited exactly that confusion.
-          floatBalance={isMerchant ? undefined : visibleAgentFloatBalance}
-          floatReserved={isMerchant ? undefined : merchantReservedFloat}
-          floatCaption={undefined}
-          commissionBalance={commissionBalance}
-          withdrawableBalance={realWithdrawableBalance}
-          otherBalance={otherBalance}
-          onOpenWallet={() => setShowWallet(true)}
-          onViewStatement={() => { setWalletScrollTarget('statement'); setShowWallet(true); }}
-          quickActions={
-            <div className="flex items-center gap-2.5">
-              <button
-                onClick={() => { hapticTap(); setShowQuickDeposit(true); }}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-white/20 hover:bg-white/10 active:scale-95 transition-all min-h-[44px]"
-                style={{ WebkitTapHighlightColor: 'transparent' }}
-              >
-                <ArrowDownLeft className="h-4 w-4 text-white" />
-                <span className="text-[11px] font-bold text-white uppercase tracking-wider">Deposit</span>
-              </button>
-              <button
-                onClick={() => {
-                  hapticTap();
-                  if (payoutsUiEnabled) setShowQuickWithdraw(true);
-                  else toast.info('Withdrawals are temporarily disabled.');
-                }}
-                disabled={!payoutsUiEnabled}
-                aria-disabled={!payoutsUiEnabled}
-                title={payoutsUiEnabled ? undefined : 'Withdrawals are temporarily disabled'}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border min-h-[44px] ${payoutsUiEnabled ? 'border-white/20 hover:bg-white/10 active:scale-95 transition-all' : 'border-white/10 bg-white/5 opacity-50 cursor-not-allowed'}`}
-                style={{ WebkitTapHighlightColor: 'transparent' }}
-              >
-                <ArrowUpRight className="h-4 w-4 text-white" />
-                <span className="text-[11px] font-bold text-white uppercase tracking-wider">Withdraw</span>
-              </button>
-              <button
-                onClick={() => { hapticTap(); setShowQuickTransfer(true); }}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-white/20 hover:bg-white/10 active:scale-95 transition-all min-h-[44px]"
-                style={{ WebkitTapHighlightColor: 'transparent' }}
-              >
-                <Send className="h-4 w-4 text-white" />
-                <span className="text-[11px] font-bold text-white uppercase tracking-wider">Transfer</span>
-              </button>
-            </div>
-          }
-          />
-        ) : (
-          // Wallet still loading — show the skeleton AND a tappable Deposit
-          // strip so the agent never feels like the dashboard is "frozen".
-          // Without this, the hero Deposit button doesn't exist for the
-          // first ~1–3s after the dashboard mounts and taps appear to do
-          // nothing, which is the most common "deposit button is broken"
-          // complaint.
-          <div className="space-y-3">
-            <WalletHeroSkeleton />
-            <div className="flex items-center gap-2.5 px-1">
-              <button
-                onClick={() => { hapticTap(); setShowQuickDeposit(true); }}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-border bg-muted/40 hover:bg-muted active:scale-95 transition-all min-h-[44px]"
-                style={{ WebkitTapHighlightColor: 'transparent' }}
-              >
-                <ArrowDownLeft className="h-4 w-4 text-muted-foreground" />
-                <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Deposit</span>
-              </button>
-              <button
-                onClick={() => {
-                  hapticTap();
-                  if (payoutsUiEnabled) setShowQuickWithdraw(true);
-                  else toast.info('Withdrawals are temporarily disabled.');
-                }}
-                disabled={!payoutsUiEnabled}
-                aria-disabled={!payoutsUiEnabled}
-                title={payoutsUiEnabled ? undefined : 'Withdrawals are temporarily disabled'}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-border min-h-[44px] ${payoutsUiEnabled ? 'bg-muted/40 hover:bg-muted active:scale-95 transition-all' : 'bg-muted/40 opacity-50 cursor-not-allowed'}`}
-                style={{ WebkitTapHighlightColor: 'transparent' }}
-              >
-                <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
-                <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Withdraw</span>
-              </button>
-              <button
-                onClick={() => { hapticTap(); setShowQuickTransfer(true); }}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-border bg-muted/40 hover:bg-muted active:scale-95 transition-all min-h-[44px]"
-                style={{ WebkitTapHighlightColor: 'transparent' }}
-              >
-                <Send className="h-4 w-4 text-muted-foreground" />
-                <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Transfer</span>
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Live cash-with-agent deposit codes targeting this agent */}
         <AgentCashDepositCodesPanel />
@@ -1191,6 +1087,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
           <AgentHubTabs
             active={activeTab}
             restricted={isMerchant}
+            onMenuClick={handleOpenMenu}
             onChange={(tab) => {
               // Merchant Agents are locked to Home only.
               if (isMerchant && tab !== 'home') { guardMerchant(); return; }
@@ -1542,6 +1439,19 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         {/* === MONEY TAB === Wallet, advances, payouts, recovery */}
         {activeTab === 'money' && (
           <div className={cn("space-y-5", tabAnimClass)}>
+            {/* Money is opened from the agent menu, so it carries its own
+                heading and a way back to Home. */}
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-lg font-black leading-none text-foreground">Money</h2>
+              <button
+                type="button"
+                onClick={() => { hapticTap(); setSlideDirection('right'); setActiveTab('home'); }}
+                className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-card px-3 py-1.5 text-xs font-bold text-muted-foreground transition-transform active:scale-[0.97] touch-manipulation"
+                style={{ WebkitTapHighlightColor: 'transparent' }}
+              >
+                <ChevronLeft className="h-3.5 w-3.5" /> Home
+              </button>
+            </div>
             {/* Prominent Agent Advance promo — high-visibility entry point so
                 agents always see the cash they can access instantly. */}
             <div className="relative w-full overflow-hidden rounded-3xl border border-primary/30 bg-gradient-to-br from-card via-card to-primary/10 p-5 text-card-foreground shadow-lg ring-1 ring-primary/20">
@@ -1727,8 +1637,18 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
             Never rendered for Merchant Agents (tenant operations disabled). */}
         {activeTab === 'tenants' && !isMerchant && (
           <div className={cn("space-y-4 pb-24", tabAnimClass)}>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center justify-between gap-2">
               <h2 className="text-base sm:text-lg font-bold text-foreground">My Tenants</h2>
+              <button
+                type="button"
+                onClick={() => { hapticTap(); setActiveTab('home'); }}
+                className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-3 py-1.5 text-[11px] font-bold text-primary active:scale-[0.97]"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+                Home
+              </button>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex flex-wrap items-center gap-2">
                 <Button
                   variant="outline"
@@ -1816,6 +1736,17 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         {/* === GROW TAB === Share, recruit, partners */}
         {activeTab === 'grow' && (
           <div className={cn("space-y-5", tabAnimClass)}>
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-base sm:text-lg font-bold text-foreground">Grow & Earn</h2>
+              <button
+                type="button"
+                onClick={() => { hapticTap(); setActiveTab('home'); }}
+                className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-3 py-1.5 text-[11px] font-bold text-primary active:scale-[0.97]"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+                Home
+              </button>
+            </div>
             {/* Leaderboard CTA — draws agents into the recruitment competition */}
             <button
               onClick={() => { hapticTap(); navigate('/dashboard/agents/leaderboard'); }}
@@ -1937,6 +1868,9 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         }}
         onViewTenants={() => { setMenuOpen(false); setTenantsSheetOpen(true); }}
         onViewCreditAccess={() => { setMenuOpen(false); setCreditOpen(true); }}
+        onViewMoney={() => { setMenuOpen(false); setSlideDirection(null); setActiveTab('money'); }}
+        onViewTenantHub={() => { setMenuOpen(false); setSlideDirection(null); setActiveTab('tenants'); }}
+        onViewGrow={isCashoutAgent ? undefined : () => { setMenuOpen(false); setSlideDirection(null); setActiveTab('grow'); }}
         onFundPartner={() => { setMenuOpen(false); setInvestForPartnerOpen(true); }}
         onViewProxyHistory={() => { setMenuOpen(false); setProxyHistoryOpen(true); }}
         onIssueReceipt={() => { setMenuOpen(false); setReceiptOpen(true); }}

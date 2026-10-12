@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.1"
   }
   public: {
     Tables: {
@@ -39178,6 +39178,62 @@ export type Database = {
           },
         ]
       }
+      pso_team_leads: {
+        Row: {
+          active: boolean
+          appointed_by: string
+          appointed_on: string
+          created_at: string
+          note: string | null
+          staff_id: string
+        }
+        Insert: {
+          active?: boolean
+          appointed_by: string
+          appointed_on?: string
+          created_at?: string
+          note?: string | null
+          staff_id: string
+        }
+        Update: {
+          active?: boolean
+          appointed_by?: string
+          appointed_on?: string
+          created_at?: string
+          note?: string | null
+          staff_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pso_team_leads_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
+            referencedRelation: "hr_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pso_team_leads_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "pso_team_leads_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
+            referencedRelation: "v_pso_note_events"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "pso_team_leads_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
+            referencedRelation: "v_pso_officers"
+            referencedColumns: ["staff_id"]
+          },
+        ]
+      }
       public_error_logs: {
         Row: {
           created_at: string
@@ -60182,6 +60238,23 @@ export type Database = {
         Args: { p_agent: string; p_week_start: string }
         Returns: number
       }
+      _am_plan_clock_core: {
+        Args: { p_rent_request_ids: string[] }
+        Returns: {
+          bucket: string
+          clock_end: string
+          clock_start: string
+          current_start: string
+          first_landlord_paid_on: string
+          landlord_paid_count: number
+          landlord_paid_dates_estimated: number
+          landlord_paid_total: number
+          last_landlord_paid_on: string
+          rent_request_id: string
+          shift_days: number
+        }[]
+      }
+      _am_staff_ok: { Args: never; Returns: boolean }
       _can_renew_rent_request: {
         Args: {
           p_actor: string
@@ -60445,6 +60518,42 @@ export type Database = {
           passed: boolean
           test_name: string
         }[]
+      }
+      _tops_am_schedule: {
+        Args: { p_as_at: string; p_ids: string[] }
+        Returns: {
+          amount_ugx: number
+          cum_before: number
+          due_date: string
+          instalment_id: string
+          never_billed: boolean
+          outstanding_ugx: number
+          paid_ugx: number
+          rent_request_id: string
+          seq: number
+          settled_ugx: number
+        }[]
+      }
+      _tops_plan_clock_amclock_for: {
+        Args: { p_ids: string[] }
+        Returns: {
+          cadence: string
+          cadence_source: string
+          clock_source: string
+          clock_start: string
+          created_at: string
+          override_reason: string | null
+          rent_request_id: string
+          set_by: string | null
+          updated_at: string
+          weekly_due_dow: number | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "tops_plan_clock"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       accept_proxy_agreement:
         | { Args: { p_code: string; p_nin?: string }; Returns: Json }
@@ -61436,6 +61545,70 @@ export type Database = {
           cumulative_before: number
           principal_component: number
           registration_fee_component: number
+        }[]
+      }
+      am_plan_arrears: {
+        Args: { p_as_at?: string; p_rent_request_ids: string[] }
+        Returns: {
+          arrears: number
+          bucket: string
+          cadence: string
+          clock_start: string
+          days_ahead: number
+          days_behind: number
+          expected_to_date: number
+          paid_to_date: number
+          periods_ahead: number
+          periods_behind: number
+          rent_request_id: string
+          unit: string
+        }[]
+      }
+      am_plan_clock: {
+        Args: { p_rent_request_ids: string[] }
+        Returns: {
+          bucket: string
+          clock_end: string
+          clock_start: string
+          current_start: string
+          first_landlord_paid_on: string
+          landlord_paid_count: number
+          landlord_paid_dates_estimated: number
+          landlord_paid_total: number
+          last_landlord_paid_on: string
+          rent_request_id: string
+          shift_days: number
+        }[]
+      }
+      am_plan_positions: {
+        Args: {
+          p_from: string
+          p_include_self_payments?: boolean
+          p_to: string
+        }
+        Returns: {
+          agent_id: string
+          arrears: number
+          covered_through: string
+          credit_ahead: number
+          due_dates_in_period: number
+          exclusion_reason: string
+          expected_in_period: number
+          expected_to_date: number
+          frequency: string
+          instalment_amount: number
+          is_eligible: boolean
+          obligation_end: string
+          outstanding: number
+          paid_in_period_agent: number
+          paid_in_period_self: number
+          paid_to_date: number
+          position_band: string
+          rent_request_id: string
+          tenant_id: string
+          term_end: string
+          term_start: string
+          total_repayment: number
         }[]
       }
       apply_advance_topup: {
@@ -72816,6 +72989,7 @@ export type Database = {
         }[]
       }
       pso_is_officer: { Args: never; Returns: boolean }
+      pso_is_team_lead: { Args: never; Returns: boolean }
       pso_non_officer_funded_summary: {
         Args: { p_from: string; p_to: string }
         Returns: {
@@ -74759,6 +74933,10 @@ export type Database = {
         }
         Returns: Json
       }
+      staff_create_redemption_request: {
+        Args: { p_portfolio_id: string; p_reason: string }
+        Returns: string
+      }
       staff_loan_accrue_interest: {
         Args: never
         Returns: {
@@ -75508,6 +75686,16 @@ export type Database = {
           plan_count: number
         }[]
       }
+      tops_agent_arrears_book_amclock: {
+        Args: { p_as_at?: string }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          arrears_ugx: number
+          bucket: string
+          plan_count: number
+        }[]
+      }
       tops_agent_attainment: {
         Args: { p_from: string; p_to: string }
         Returns: {
@@ -75549,7 +75737,31 @@ export type Database = {
           tenants_at_risk: number
         }[]
       }
+      tops_agent_float_adequacy_amclock: {
+        Args: { p_for_date: string }
+        Returns: {
+          adequacy_ratio: number
+          agent_id: string
+          agent_name: string
+          expected_obligation_ugx: number
+          float_balance_ugx: number
+          shortfall_ugx: number
+          tenants_at_risk: number
+        }[]
+      }
       tops_agent_float_adequacy_internal: {
+        Args: { p_for_date: string }
+        Returns: {
+          adequacy_ratio: number
+          agent_id: string
+          agent_name: string
+          expected_obligation_ugx: number
+          float_balance_ugx: number
+          shortfall_ugx: number
+          tenants_at_risk: number
+        }[]
+      }
+      tops_agent_float_adequacy_internal_amclock: {
         Args: { p_for_date: string }
         Returns: {
           adequacy_ratio: number
@@ -75593,7 +75805,29 @@ export type Database = {
           region: string
         }[]
       }
+      tops_area_book_amclock: {
+        Args: { p_as_at?: string; p_level: string }
+        Returns: {
+          area_key: string
+          area_name: string
+          arrears_plan_count: number
+          arrears_rate: number
+          money_at_risk_ugx: number
+          plan_count: number
+          region: string
+        }[]
+      }
       tops_arrears_ageing: {
+        Args: {
+          p_as_at?: string
+          p_bucket?: string
+          p_dir?: string
+          p_limit?: number
+          p_offset?: number
+        }
+        Returns: Json
+      }
+      tops_arrears_ageing_amclock: {
         Args: {
           p_as_at?: string
           p_bucket?: string
@@ -75627,6 +75861,14 @@ export type Database = {
       }
       tops_calling_gap_summary: { Args: never; Returns: Json }
       tops_calling_money_at_risk: {
+        Args: { p_tenant_ids: string[] }
+        Returns: {
+          money_at_risk_ugx: number
+          rent_request_id: string
+          tenant_id: string
+        }[]
+      }
+      tops_calling_money_at_risk_amclock: {
         Args: { p_tenant_ids: string[] }
         Returns: {
           money_at_risk_ugx: number
@@ -75695,6 +75937,15 @@ export type Database = {
         }
         Returns: Json
       }
+      tops_collections_movement_amclock: {
+        Args: {
+          p_from: string
+          p_limit?: number
+          p_offset?: number
+          p_to: string
+        }
+        Returns: Json
+      }
       tops_detect_collection_anomalies: {
         Args: { p_since: string }
         Returns: number
@@ -75712,6 +75963,15 @@ export type Database = {
         Returns: boolean
       }
       tops_is_workspace_enabled: { Args: never; Returns: boolean }
+      tops_landlord_not_paid_summary_amclock: {
+        Args: never
+        Returns: {
+          as_of: string
+          awaiting_landlord: number
+          tenant_paying_no_landlord: number
+          total_plans: number
+        }[]
+      }
       tops_never_billed: {
         Args: {
           p_as_at?: string
@@ -75721,7 +75981,20 @@ export type Database = {
         }
         Returns: Json
       }
+      tops_never_billed_amclock: {
+        Args: {
+          p_as_at?: string
+          p_dir?: string
+          p_limit?: number
+          p_offset?: number
+        }
+        Returns: Json
+      }
       tops_never_billed_summary: { Args: { p_as_at?: string }; Returns: Json }
+      tops_never_billed_summary_amclock: {
+        Args: { p_as_at?: string }
+        Returns: Json
+      }
       tops_open_instalments_asof: {
         Args: { p_as_at: string }
         Returns: {
@@ -75734,8 +76007,56 @@ export type Database = {
           settled_ugx: number
         }[]
       }
+      tops_open_instalments_asof_amclock: {
+        Args: { p_as_at: string }
+        Returns: {
+          amount_ugx: number
+          due_date: string
+          instalment_id: string
+          never_billed: boolean
+          outstanding_ugx: number
+          rent_request_id: string
+          settled_ugx: number
+        }[]
+      }
       tops_overnight_changes: { Args: { p_as_at?: string }; Returns: Json }
+      tops_overnight_changes_amclock: {
+        Args: { p_as_at?: string }
+        Returns: Json
+      }
       tops_pay_behaviour_flags: {
+        Args: {
+          p_agent_id?: string
+          p_asof: string
+          p_cadence?: string
+          p_district?: string
+          p_region?: string
+        }
+        Returns: {
+          f_behind: boolean
+          f_refused: boolean
+          f_silent: boolean
+          f_slipping: boolean
+          f_to_agent: boolean
+          fl_agent: string
+          fl_agent28: number
+          fl_behind_days: number
+          fl_bills_prev7: number
+          fl_bills7: number
+          fl_cadence: string
+          fl_days_since: number
+          fl_last_paid_day: string
+          fl_med_gap: number
+          fl_pay_prev7: number
+          fl_pay7: number
+          fl_rent: number
+          fl_rr: string
+          fl_score: number
+          fl_self28: number
+          fl_tenant: string
+        }[]
+      }
+      tops_pay_behaviour_flags_amclock: {
         Args: {
           p_agent_id?: string
           p_asof: string
@@ -75789,7 +76110,53 @@ export type Database = {
           pay_tenant: string
         }[]
       }
+      tops_pay_behaviour_payments_amclock: {
+        Args: {
+          p_agent_id?: string
+          p_cadence?: string
+          p_district?: string
+          p_end: string
+          p_region?: string
+          p_start: string
+        }
+        Returns: {
+          pay_agent: string
+          pay_amount: number
+          pay_at: string
+          pay_channel: string
+          pay_day: string
+          pay_dow: number
+          pay_hour: number
+          pay_id: string
+          pay_rr: string
+          pay_tenant: string
+        }[]
+      }
       tops_pay_behaviour_payments_capped: {
+        Args: {
+          p_agent_id?: string
+          p_cadence?: string
+          p_district?: string
+          p_end: string
+          p_region?: string
+          p_start: string
+        }
+        Returns: {
+          pay_agent: string
+          pay_amount: number
+          pay_at: string
+          pay_channel: string
+          pay_counted_ugx: number
+          pay_day: string
+          pay_dow: number
+          pay_excess_ugx: number
+          pay_hour: number
+          pay_id: string
+          pay_rr: string
+          pay_tenant: string
+        }[]
+      }
+      tops_pay_behaviour_payments_capped_amclock: {
         Args: {
           p_agent_id?: string
           p_cadence?: string
@@ -75885,7 +76252,64 @@ export type Database = {
           pl_tenant: string
         }[]
       }
+      tops_pay_behaviour_plans_capped_amclock: {
+        Args: {
+          p_agent_id?: string
+          p_cadence?: string
+          p_district?: string
+          p_end: string
+          p_region?: string
+          p_start: string
+        }
+        Returns: {
+          pl_agent: string
+          pl_agent_n: number
+          pl_agent_ugx: number
+          pl_ahead_agent_n: number
+          pl_ahead_agent_ugx: number
+          pl_ahead_n: number
+          pl_ahead_other_n: number
+          pl_ahead_other_ugx: number
+          pl_ahead_self_n: number
+          pl_ahead_self_ugx: number
+          pl_ahead_ugx: number
+          pl_billed_days: number
+          pl_billed_ugx: number
+          pl_cadence: string
+          pl_covered_ugx: number
+          pl_first_paid: string
+          pl_last_paid: string
+          pl_other_n: number
+          pl_other_ugx: number
+          pl_paid_days: number
+          pl_paid_ugx: number
+          pl_rent: number
+          pl_rr: string
+          pl_segment: string
+          pl_self_n: number
+          pl_self_ugx: number
+          pl_start: string
+          pl_tenant: string
+        }[]
+      }
       tops_pay_behaviour_scope: {
+        Args: {
+          p_agent_id?: string
+          p_cadence?: string
+          p_district?: string
+          p_region?: string
+        }
+        Returns: {
+          sc_agent: string
+          sc_cadence: string
+          sc_rent: number
+          sc_rr: string
+          sc_start: string
+          sc_status: string
+          sc_tenant: string
+        }[]
+      }
+      tops_pay_behaviour_scope_amclock: {
         Args: {
           p_agent_id?: string
           p_cadence?: string
@@ -75928,6 +76352,19 @@ export type Database = {
         }
         Returns: Json
       }
+      tops_payment_behaviour_by_v2_amclock: {
+        Args: {
+          p_agent_id?: string
+          p_cadence?: string
+          p_dimension: string
+          p_district?: string
+          p_end: string
+          p_limit?: number
+          p_region?: string
+          p_start: string
+        }
+        Returns: Json
+      }
       tops_payment_behaviour_options: { Args: never; Returns: Json }
       tops_payment_behaviour_overview: {
         Args: {
@@ -75941,6 +76378,17 @@ export type Database = {
         Returns: Json
       }
       tops_payment_behaviour_overview_v2: {
+        Args: {
+          p_agent_id?: string
+          p_cadence?: string
+          p_district?: string
+          p_end: string
+          p_region?: string
+          p_start: string
+        }
+        Returns: Json
+      }
+      tops_payment_behaviour_overview_v2_amclock: {
         Args: {
           p_agent_id?: string
           p_cadence?: string
@@ -75973,6 +76421,17 @@ export type Database = {
         }
         Returns: Json
       }
+      tops_payment_behaviour_summary_v2_amclock: {
+        Args: {
+          p_agent_id?: string
+          p_cadence?: string
+          p_district?: string
+          p_end: string
+          p_region?: string
+          p_start: string
+        }
+        Returns: Json
+      }
       tops_payment_behaviour_timing: {
         Args: {
           p_agent_id?: string
@@ -75995,6 +76454,17 @@ export type Database = {
         }
         Returns: Json
       }
+      tops_payment_behaviour_timing_v2_amclock: {
+        Args: {
+          p_agent_id?: string
+          p_cadence?: string
+          p_district?: string
+          p_end: string
+          p_region?: string
+          p_start: string
+        }
+        Returns: Json
+      }
       tops_payment_behaviour_trend: {
         Args: {
           p_agent_id?: string
@@ -76007,6 +76477,17 @@ export type Database = {
         Returns: Json
       }
       tops_payment_behaviour_trend_v2: {
+        Args: {
+          p_agent_id?: string
+          p_cadence?: string
+          p_district?: string
+          p_end: string
+          p_region?: string
+          p_start: string
+        }
+        Returns: Json
+      }
+      tops_payment_behaviour_trend_v2_amclock: {
         Args: {
           p_agent_id?: string
           p_cadence?: string
@@ -76045,7 +76526,36 @@ export type Database = {
         }
         Returns: Json
       }
+      tops_payment_behaviour_watchlist_v2_amclock: {
+        Args: {
+          p_agent_id?: string
+          p_cadence?: string
+          p_district?: string
+          p_end: string
+          p_limit?: number
+          p_min_score?: number
+          p_offset?: number
+          p_region?: string
+          p_start: string
+        }
+        Returns: Json
+      }
       tops_pipeline_queue: {
+        Args: { p_gap_label?: string; p_owner_id?: string }
+        Returns: {
+          age_days: number
+          agent_name: string
+          current_stage_key: string
+          current_stage_label: string
+          gap_label: string
+          owner_id: string
+          owner_name: string
+          rent_request_id: string
+          stage_entered_at: string
+          tenant_name: string
+        }[]
+      }
+      tops_pipeline_queue_amclock: {
         Args: { p_gap_label?: string; p_owner_id?: string }
         Returns: {
           age_days: number
@@ -76067,6 +76577,34 @@ export type Database = {
           gap_label: string
         }[]
       }
+      tops_pipeline_queue_gap_counts_amclock: {
+        Args: never
+        Returns: {
+          cnt: number
+          gap_label: string
+        }[]
+      }
+      tops_plan_clock_amclock: {
+        Args: never
+        Returns: {
+          cadence: string
+          cadence_source: string
+          clock_source: string
+          clock_start: string
+          created_at: string
+          override_reason: string | null
+          rent_request_id: string
+          set_by: string | null
+          updated_at: string
+          weekly_due_dow: number | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "tops_plan_clock"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       tops_plan_pipeline_stages: {
         Args: { p_rent_request_id: string }
         Returns: {
@@ -76078,7 +76616,41 @@ export type Database = {
           stage_label: string
         }[]
       }
+      tops_plan_pipeline_stages_amclock: {
+        Args: { p_rent_request_id: string }
+        Returns: {
+          actor_id: string
+          actor_name: string
+          age_days: number
+          occurred_at: string
+          stage_key: string
+          stage_label: string
+        }[]
+      }
       tops_plan_position: {
+        Args: { p_as_at?: string; p_rent_request_id: string }
+        Returns: {
+          as_at: string
+          basis: string
+          cadence: string
+          cadence_source: string
+          catch_up_daily_ugx: number
+          clock_source: string
+          clock_start: string
+          days_ahead: number
+          days_behind: number
+          days_past_due: number
+          expected_to_date_ugx: number
+          outstanding_ugx: number
+          paid_to_date_ugx: number
+          periods_due: number
+          position_ugx: number
+          rent_request_id: string
+          term_end_date: string
+          term_expired: boolean
+        }[]
+      }
+      tops_plan_position_amclock: {
         Args: { p_as_at?: string; p_rent_request_id: string }
         Returns: {
           as_at: string
@@ -76124,7 +76696,43 @@ export type Database = {
           term_expired: boolean
         }[]
       }
+      tops_plan_position_internal_amclock: {
+        Args: { p_as_at?: string; p_rent_request_id: string }
+        Returns: {
+          as_at: string
+          basis: string
+          cadence: string
+          cadence_source: string
+          catch_up_daily_ugx: number
+          clock_source: string
+          clock_start: string
+          days_ahead: number
+          days_behind: number
+          days_past_due: number
+          expected_to_date_ugx: number
+          outstanding_ugx: number
+          paid_to_date_ugx: number
+          periods_due: number
+          position_ugx: number
+          rent_request_id: string
+          term_end_date: string
+          term_expired: boolean
+        }[]
+      }
       tops_plan_schedule_ledger: {
+        Args: { p_limit?: number; p_offset?: number; p_rent_request_id: string }
+        Returns: {
+          amount_ugx: number
+          due_date: string
+          never_billed: boolean
+          outstanding_ugx: number
+          running_arrears_ugx: number
+          seq: number
+          settled_by: Json
+          settled_ugx: number
+        }[]
+      }
+      tops_plan_schedule_ledger_amclock: {
         Args: { p_limit?: number; p_offset?: number; p_rent_request_id: string }
         Returns: {
           amount_ugx: number
@@ -76141,7 +76749,15 @@ export type Database = {
         Args: { p_rent_request_id: string }
         Returns: number
       }
+      tops_plan_schedule_ledger_count_amclock: {
+        Args: { p_rent_request_id: string }
+        Returns: number
+      }
       tops_portfolio_quality: { Args: { p_as_at?: string }; Returns: Json }
+      tops_portfolio_quality_amclock: {
+        Args: { p_as_at?: string }
+        Returns: Json
+      }
       tops_promise_kept_rate: {
         Args: { p_from: string; p_to: string; p_user_id?: string }
         Returns: {
@@ -76243,6 +76859,28 @@ export type Database = {
           tenant_count: number
         }[]
       }
+      tops_shortfall_breakdown_v2_amclock: {
+        Args: {
+          p_area_level?: string
+          p_end: string
+          p_group: string
+          p_start: string
+        }
+        Returns: {
+          avg_days_behind: number
+          collected_ugx: number
+          expected_ugx: number
+          group_key: string
+          group_name: string
+          max_days_behind: number
+          oldest_unpaid_due: string
+          parent_name: string
+          plan_count: number
+          short_pct: number
+          short_ugx: number
+          tenant_count: number
+        }[]
+      }
       tops_shortfall_daily_trend: {
         Args: { p_days?: number }
         Returns: {
@@ -76300,6 +76938,22 @@ export type Database = {
         }
         Returns: Json
       }
+      tops_shortfall_detail_v3_amclock: {
+        Args: {
+          p_area_level?: string
+          p_dir?: string
+          p_end: string
+          p_followup?: string
+          p_group?: string
+          p_group_key?: string
+          p_limit?: number
+          p_offset?: number
+          p_search?: string
+          p_sort?: string
+          p_start: string
+        }
+        Returns: Json
+      }
       tops_shortfall_followups_latest: {
         Args: { p_rent_request_ids: string[] }
         Returns: {
@@ -76331,7 +76985,42 @@ export type Database = {
           tenant_id: string
         }[]
       }
+      tops_shortfall_lines_amclock: {
+        Args: { p_end: string; p_start: string }
+        Returns: {
+          agent_id: string
+          cadence: string
+          collected_capped_ugx: number
+          collected_raw_ugx: number
+          days_behind: number
+          expected_ugx: number
+          last_paid_at: string
+          oldest_unpaid_due: string
+          periods_behind: number
+          rent_request_id: string
+          short_ugx: number
+          tenant_id: string
+        }[]
+      }
       tops_shortfall_lines_v2: {
+        Args: { p_end: string; p_start: string }
+        Returns: {
+          age_basis: string
+          agent_id: string
+          cadence: string
+          collected_capped_ugx: number
+          collected_raw_ugx: number
+          days_behind: number
+          expected_ugx: number
+          last_paid_at: string
+          oldest_unpaid_due: string
+          periods_behind: number
+          rent_request_id: string
+          short_ugx: number
+          tenant_id: string
+        }[]
+      }
+      tops_shortfall_lines_v2_amclock: {
         Args: { p_end: string; p_start: string }
         Returns: {
           age_basis: string

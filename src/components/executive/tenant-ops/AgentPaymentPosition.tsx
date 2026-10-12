@@ -188,9 +188,11 @@ export function AgentPaymentPosition() {
   const range = useMemo(() => resolveRange(granularity, anchor, custom), [anchor, custom, granularity]);
 
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: ['agent-payment-position', range.from, range.to, includeSelf],
+    queryKey: ['agent-payment-position', 'clock', range.from, range.to, includeSelf],
     queryFn: async () => {
-      const { data: rows, error: rpcError } = await supabase.rpc('get_agent_monitoring_positions', {
+      /* Counted from the day after the landlord was paid (`am_plan_clock`); Rent Plans with
+         no landlord payout yet are left out and listed on their own tabs. */
+      const { data: rows, error: rpcError } = await supabase.rpc('am_plan_positions', {
         p_from: range.from,
         p_to: range.to,
         p_include_self_payments: includeSelf,
@@ -459,6 +461,9 @@ export function AgentPaymentPosition() {
             <h1 className="text-lg font-bold leading-tight">Expected vs actual paid</h1>
             <p className="text-[11px] text-muted-foreground">
               Schedule-aware expectation per tenant · {periodLabel}
+            </p>
+            <p className="text-[11px] text-muted-foreground">
+              Counted from the day after the landlord was paid
             </p>
           </div>
         </div>

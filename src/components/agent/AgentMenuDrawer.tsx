@@ -85,6 +85,11 @@ interface AgentMenuDrawerProps {
   onDownloadLandlordForm?: () => void;
   onDownloadTenantForm?: () => void;
   onOpenRentPoster?: () => void;
+  onViewMoney?: () => void;
+  /** Opens the Grow view (leaderboard, share, recruit) that used to be "More" in the bottom bar. */
+  onViewGrow?: () => void;
+  /** Opens the My Tenants view (tenant list, repayments & rent requests) that used to live in the bottom bar. */
+  onViewTenantHub?: () => void;
   isFinancialAgent?: boolean;
   /**
    * Merchant Agents (cash-out only) must not access tenant / landlord / house
@@ -147,6 +152,9 @@ export function AgentMenuDrawer({
   onDownloadLandlordForm,
   onDownloadTenantForm,
   onOpenRentPoster,
+  onViewMoney,
+  onViewGrow,
+  onViewTenantHub,
   isFinancialAgent = false,
   restricted = false,
 }: AgentMenuDrawerProps) {
@@ -177,6 +185,8 @@ export function AgentMenuDrawer({
       icon: Banknote,
       label: '💰 Money',
       items: [
+        { icon: Wallet, label: 'Money', description: 'Advance, wallet & your cash flow', onClick: onViewMoney, accent: 'primary', badge: '★' },
+        ...(onViewGrow ? [{ icon: TrendingUp, label: 'Grow & Earn', description: 'Leaderboard, share & recruit', onClick: onViewGrow, accent: 'primary' as const }] : []),
         { icon: Banknote, label: 'Pay Rent', description: 'Pay rent for your tenant', onClick: onTopUpTenant, accent: 'primary', badge: '★' },
         { icon: ArrowDownCircle, label: 'Deposit', description: 'Add funds to wallet', onClick: onDeposit, accent: 'success' },
         { icon: Wallet, label: 'Top Up Wallet', description: 'Deposit to tenant wallet', onClick: onTopUpTenant, accent: 'emerald-500' },
@@ -206,6 +216,7 @@ export function AgentMenuDrawer({
       icon: Users,
       label: '👥 People',
       items: [
+        { icon: Users, label: 'My Tenant Hub', description: 'Tenants, repayments & rent requests', onClick: onViewTenantHub, accent: 'primary' },
         { icon: Users, label: 'My Tenants', description: 'Repayment schedules', onClick: onViewTenants, accent: 'primary' },
         { icon: UserPlus, label: 'Onboard Tenant', description: 'Invite link — you earn commission', onClick: onInviteTenant, accent: 'teal-500', badge: '🔗' },
         { icon: ClipboardList, label: 'Registrations', description: 'Invite status & links', path: '/agent-registrations', accent: 'blue-600' },
@@ -293,8 +304,8 @@ export function AgentMenuDrawer({
   // operational entry so they cannot be reached via the menu drawer.
   const MERCHANT_BLOCKED_LABELS = new Set<string>([
     // Tenant operations
-    'Pay Rent', 'Top Up Wallet', 'Issue Receipt', 'Share Tenant Form', 'Tenant Reg Form',
-    'My Tenants', 'Rent Requests', 'Saved Rent Drafts', 'Schedules', 'Post Rent',
+    'Money', 'Pay Rent', 'Top Up Wallet', 'Issue Receipt', 'Share Tenant Form', 'Tenant Reg Form',
+    'My Tenants', 'My Tenant Hub', 'Rent Requests', 'Saved Rent Drafts', 'Schedules', 'Post Rent',
     // Landlord operations
     'Share Landlord Signup', 'Landlord Reg Form', 'My Landlords', 'Landlord Map',
     'Manage Property', 'Managed Props',

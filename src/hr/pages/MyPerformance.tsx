@@ -6,6 +6,7 @@ import PersonalLayout from '@/components/layout/PersonalLayout';
 import { MetricCard } from '@/components/MetricCard';
 import { supabase } from '@/hr/api/client';
 import { cn } from '@/lib/utils';
+import PlatformSalesOfficersPage from '@/hr/pages/PlatformSalesOfficers';
 
 interface PsoRow {
   staff_id: string;
@@ -254,6 +255,20 @@ export default function MyPerformancePage() {
       return { ...row, rank };
     });
   }, [cohortRows]);
+
+  // Team leads also see their officers' report (no commission). Server decides.
+  const { data: isTeamLead = false } = useQuery<boolean>({
+    queryKey: ['pso-is-team-lead'],
+    staleTime: 10 * 60_000,
+    queryFn: async () => {
+      const { data, error } = (await supabase.rpc('pso_is_team_lead' as any)) as unknown as {
+        data: boolean | null;
+        error: { message: string } | null;
+      };
+      if (error) return false;
+      return data === true;
+    },
+  });
 
   if (error && error.message.toLowerCase().includes('not permitted')) {
     return (
@@ -615,6 +630,13 @@ export default function MyPerformancePage() {
             )}
 
           </div>
+        )}
+
+        {isTeamLead && (
+          <section className="space-y-3 border-t pt-4">
+            <h2 className="text-sm font-semibold text-foreground">My team — Platform Sales Officers</h2>
+            <PlatformSalesOfficersPage embedded hideCommission />
+          </section>
         )}
       </div>
     </PersonalLayout>

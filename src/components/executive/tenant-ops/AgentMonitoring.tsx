@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { addDays, format, startOfDay, subDays } from 'date-fns';
 import {
   AlertTriangle,
@@ -49,11 +49,14 @@ import { RentAnalysis } from './RentAnalysis';
 import { generateAgentMonitoringPdf } from '@/lib/agentMonitoringReportPdf';
 import { toast } from 'sonner';
 import {
-  describePlanSchedule,
   scheduleAwareStatus,
   type AgentScheduleStatus,
   type PlanSchedule,
 } from '@/lib/agentMonitoringSchedule';
+import { describePlanScheduleFromClock, inClockCohort, isMonitoredReading } from '@/lib/agentMonitoringClockSchedule';
+import { useAgentMonitoringClock } from '@/hooks/useAgentMonitoringClock';
+import { UNCOVERED_QUERY_KEY, fetchUncoveredPlans } from '@/hooks/useAgentMonitoringUncovered';
+import { UncoveredPlansTab } from './UncoveredPlansTab';
 
 
 interface ActiveRentRequest {
@@ -130,7 +133,12 @@ interface AgentRow {
   /** UGX genuinely due on the selected day, per each tenant's own schedule. */
   expected: number;
   collected: number;
+  /** Requests submitted that still count: everything except rejected, cancelled and deleted_by_agent. */
   requestCount: number;
+  /** All-time requests, including rejected / cancelled / deleted ones (secondary line). */
+  requestCountAll: number;
+  /** Rent Plans the agent holds that are live now (funded, disbursed or repaying). */
+  livePlanCount: number;
   tenants: ActiveRentRequest[];
   /** Tenants whose schedule places an obligation on the selected day. */
   dueCount: number;
@@ -138,6 +146,8 @@ interface AgentRow {
   coveredAheadCount: number;
   dailyCount: number;
   weeklyCount: number;
+  /** Plans on this agent's book that keep their existing start (outstanding balance). */
+  outstandingBalanceCount: number;
   /** Total UGX owed for periods already due across the portfolio. */
   arrears: number;
   behindCount: number;
@@ -429,10 +439,20 @@ function StatCard({
   );
 }
 
-type AgentMonitoringTab = 'all' | 'after-sep-2026' | 'before-sep-2026' | 'position' | 'rent-analysis';
+type AgentMonitoringTab = 'all' | 'after-sep-2026' | 'before-sep-2026' | 'position' | 'rent-analysis' | 'tenant-paying' | 'awaiting-landlord';
 
-/** Same boundary for both cohort tabs — one date rule, read from the existing added date. */
-const SEP_2026_BOUNDARY = '2026-09-01T00:00:00+03:00';
+/**
+ * Same boundary for both cohort tabs. A Rent Plan belongs to the cohort of its clock start (the
+ * day after the landlord was paid), as a Kampala calendar day. Plans with no clock are not in
+ * either cohort; they have their own tabs.
+ */
+const SEP_2026_BOUNDARY = '2026-09-01';
+
+/** Requests that no longer count toward "Requests submitted". */
+const NON_COUNTING_REQUEST_STATUSES = ['rejected', 'cancelled', 'deleted_by_agent'];
+const LIVE_PLAN_STATUSES = ['funded', 'disbursed', 'repaying'];
+
+interface RequestCounts { all: number; counting: number; live: number }
 
 export function AgentMonitoring() {
   const [tab, setTab] = useState<AgentMonitoringTab>('all');
@@ -444,8 +464,7 @@ export function AgentMonitoring() {
   const [selectedAgent, setSelectedAgent] = useState<AgentRow | null>(null);
   const [selectedTenant, setSelectedTenant] = useState<string | null>(null);
   const bounds = useMemo(() => dayBounds(day), [day]);
-  const createdAfter = tab === 'after-sep-2026' ? SEP_2026_BOUNDARY : undefined;
-  const createdBefore = tab === 'before-sep-2026' ? SEP_2026_BOUNDARY : undefined;
+  const cohort: 'after' | 'before' | null = tab === 'after-sep-2026' ? 'after' : tab === 'before-sep-2026' ? 'before' : null;
 
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ['tenant-ops-agent-monitoring', format(day, 'yyyy-MM-dd')],
@@ -454,7 +473,7 @@ export function AgentMonitoring() {
         supabase.from('v_tenant_daily_eligibility').select('rent_request_id').range(from, to),
       );
       const eligibleIds = new Set(eligibility.map((row) => row.rent_request_id));
-      if (eligibleIds.size === 0) return { requests: [], collections: [], repayments: [] as RepaymentRow[], profiles: [] as Profile[], requestCounts: new Map<string, number>() };
+      if (eligibleIds.size === 0) return { requests: [], collections: [], repayments: [] as RepaymentRow[], profiles: [] as Profile[], requestCounts: new Map<string, RequestCounts>() };
 
       const requests = await fetchAll<ActiveRentRequest>((from, to) =>
         supabase
@@ -487,12 +506,17 @@ export function AgentMonitoring() {
       if (repaymentsError) throw repaymentsError;
 
       const agentIds = new Set<string>(activeRequests.map((request) => request.agent_id).filter((id): id is string => Boolean(id)));
-      const requestCounts = new Map<string, number>();
-      const allRequests = await fetchAll<{ agent_id: string | null }>((from, to) =>
-        supabase.from('rent_requests').select('agent_id').not('agent_id', 'is', null).range(from, to),
+      const requestCounts = new Map<string, RequestCounts>();
+      const allRequests = await fetchAll<{ agent_id: string | null; status: string | null }>((from, to) =>
+        supabase.from('rent_requests').select('agent_id, status').not('agent_id', 'is', null).range(from, to),
       );
       allRequests.forEach((request) => {
-        if (request.agent_id) requestCounts.set(request.agent_id, (requestCounts.get(request.agent_id) ?? 0) + 1);
+        if (!request.agent_id) return;
+        const entry = requestCounts.get(request.agent_id) ?? { all: 0, counting: 0, live: 0 };
+        entry.all += 1;
+        if (!NON_COUNTING_REQUEST_STATUSES.includes(request.status ?? '')) entry.counting += 1;
+        if (LIVE_PLAN_STATUSES.includes(request.status ?? '')) entry.live += 1;
+        requestCounts.set(request.agent_id, entry);
       });
       (collections ?? []).forEach((collection) => { if (collection.agent_id) agentIds.add(collection.agent_id); });
 
@@ -557,18 +581,40 @@ export function AgentMonitoring() {
   }, [data?.collections, data?.repayments]);
 
 
-  /** One schedule reading per rent plan, computed once for the selected day. */
+  /**
+   * Repayments are counted from the day after the landlord was paid (`am_plan_clock`), not
+   * from the stored start date. One batched read for every plan loaded above.
+   */
+  const planIds = useMemo(() => (data?.requests ?? []).map((request) => request.id), [data?.requests]);
+  const clock = useAgentMonitoringClock(planIds, day);
+
+  /** Only plans with a clock (counting / outstanding balance) feed the figures on this page. */
+  const monitoredRequests = useMemo(
+    () => (data?.requests ?? []).filter((request) => isMonitoredReading(clock.readings.get(request.id))),
+    [clock.readings, data?.requests],
+  );
+
+  /** The cohort tabs split Rent Plans on their clock start, not on when the request was made. */
+  const cohortRequests = useMemo(() => {
+    if (!cohort) return monitoredRequests;
+    return monitoredRequests.filter((request) =>
+      inClockCohort(clock.readings.get(request.id)?.clock.clock_start, cohort, SEP_2026_BOUNDARY),
+    );
+  }, [clock.readings, cohort, monitoredRequests]);
+
+  /** One schedule reading per monitored rent plan, computed once for the selected day. */
   const scheduleMap = useMemo(() => {
     const map = new Map<string, PlanSchedule>();
-    (data?.requests ?? []).forEach((request) => {
-      map.set(request.id, describePlanSchedule(request, day));
+    monitoredRequests.forEach((request) => {
+      const reading = clock.readings.get(request.id);
+      if (isMonitoredReading(reading)) map.set(request.id, describePlanScheduleFromClock(request, reading, day));
     });
     return map;
-  }, [data?.requests, day]);
+  }, [clock.readings, day, monitoredRequests]);
 
   const agents = useMemo<AgentRow[]>(() => {
     const grouped = new Map<string, ActiveRentRequest[]>();
-    (data?.requests ?? []).forEach((request) => {
+    cohortRequests.forEach((request) => {
       if (!request.agent_id) return;
       const rows = grouped.get(request.agent_id) ?? [];
       rows.push(request);
@@ -592,6 +638,7 @@ export function AgentMonitoring() {
         let coveredAheadCount = 0;
         let dailyCount = 0;
         let weeklyCount = 0;
+        let outstandingBalanceCount = 0;
         let arrears = 0;
         let behindCount = 0;
         let aheadCount = 0;
@@ -603,6 +650,7 @@ export function AgentMonitoring() {
           if (schedule.expectedOnDay > 0) dueCount += 1;
           if (schedule.coveredByAdvance) coveredAheadCount += 1;
           if (schedule.weekly) weeklyCount += 1; else dailyCount += 1;
+          if (clock.readings.get(request.id)?.clock.bucket === 'outstanding_balance') outstandingBalanceCount += 1;
           arrears += schedule.arrears;
           if (schedule.arrears > 0) behindCount += 1;
           if (schedule.periodsAhead > 0) aheadCount += 1;
@@ -620,12 +668,15 @@ export function AgentMonitoring() {
           tenantCount: new Set(tenants.map((request) => request.tenant_id)).size,
           expected,
           collected,
-          requestCount: data?.requestCounts.get(agentId) ?? 0,
+          requestCount: data?.requestCounts.get(agentId)?.counting ?? 0,
+          requestCountAll: data?.requestCounts.get(agentId)?.all ?? 0,
+          livePlanCount: data?.requestCounts.get(agentId)?.live ?? 0,
           tenants,
           dueCount,
           coveredAheadCount,
           dailyCount,
           weeklyCount,
+          outstandingBalanceCount,
           arrears,
           behindCount,
           aheadCount,
@@ -633,15 +684,12 @@ export function AgentMonitoring() {
       })
       .filter((agent) => {
         if (frequencyFilter !== 'all' && agent.tenants.length === 0) return false;
-        if (!createdAfter && !createdBefore) return true;
-        const profile = profileMap.get(agent.id);
-        if (!profile?.created_at) return false;
-        const added = new Date(profile.created_at);
-        if (createdAfter) return added >= new Date(createdAfter);
-        return added < new Date(createdBefore as string);
+        // A cohort tab lists only agents that hold Rent Plans counted from that period.
+        if (cohort && agent.tenants.length === 0) return false;
+        return true;
       })
       .sort((a, b) => b.expected - a.expected || a.name.localeCompare(b.name));
-  }, [collectionMap, createdAfter, createdBefore, data?.collections, data?.requests, data?.requestCounts, frequencyFilter, profileMap, scheduleMap]);
+  }, [clock.readings, cohort, cohortRequests, collectionMap, data?.collections, data?.requestCounts, frequencyFilter, profileMap, scheduleMap]);
 
   const filteredAgents = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -653,7 +701,7 @@ export function AgentMonitoring() {
   }, [agents, search, statusFilter]);
 
   /* Cards show numbers only once this day's load has succeeded; see StatCard. */
-  const statCardState: StatCardState = isError ? 'error' : data ? 'ready' : 'loading';
+  const statCardState: StatCardState = isError || clock.isError ? 'error' : data && clock.ready ? 'ready' : 'loading';
 
   const totals = useMemo(() => filteredAgents.reduce(
     (sum, agent) => ({
@@ -673,13 +721,19 @@ export function AgentMonitoring() {
 
   const selectedAgentRows = useMemo(() => {
     if (!selectedAgent) return [];
-    return selectedAgent.tenants.map((request) => ({
-      request,
-      tenant: profileMap.get(request.tenant_id),
-      collected: collectionMap.forPlan(selectedAgent.id, request),
-      schedule: scheduleMap.get(request.id) ?? describePlanSchedule(request, day),
-    }));
-  }, [collectionMap, day, profileMap, scheduleMap, selectedAgent]);
+    return selectedAgent.tenants.flatMap((request) => {
+      const schedule = scheduleMap.get(request.id);
+      if (!schedule) return [];
+      return [{
+        request,
+        tenant: profileMap.get(request.tenant_id),
+        collected: collectionMap.forPlan(selectedAgent.id, request),
+        schedule,
+        clockStart: clock.readings.get(request.id)?.clock.clock_start ?? null,
+        outstandingBalance: clock.readings.get(request.id)?.clock.bucket === 'outstanding_balance',
+      }];
+    });
+  }, [clock.readings, collectionMap, profileMap, scheduleMap, selectedAgent]);
 
   /**
    * Comprehensive payment position for the open agent: how much of the whole
@@ -688,7 +742,7 @@ export function AgentMonitoring() {
    * figure is derived from the rent plans already loaded above.
    */
   const agentPortfolio = useMemo(() => {
-    const blank = () => ({ planned: 0, paid: 0, scheduled: 0, tenants: 0 });
+    const blank = () => ({ planned: 0, paid: 0, paidByClock: 0, scheduled: 0, tenants: 0 });
     const totals = blank();
     const daily = blank();
     const weekly = blank();
@@ -697,7 +751,8 @@ export function AgentMonitoring() {
       const bucket = schedule.weekly ? weekly : daily;
       [totals, bucket].forEach((target) => {
         target.planned += planned;
-        target.paid += schedule.paidToDate;
+        target.paid += Number(request.amount_repaid ?? 0);
+        target.paidByClock += schedule.paidToDate;
         target.scheduled += schedule.scheduledToDate;
         target.tenants += 1;
       });
@@ -706,7 +761,7 @@ export function AgentMonitoring() {
       ...value,
       remaining: Math.max(0, value.planned - value.paid),
       planPercent: value.planned > 0 ? Math.min(100, (value.paid / value.planned) * 100) : null,
-      schedulePercent: value.scheduled > 0 ? Math.min(100, (value.paid / value.scheduled) * 100) : null,
+      schedulePercent: value.scheduled > 0 ? Math.min(100, (value.paidByClock / value.scheduled) * 100) : null,
     });
     return { totals: withRates(totals), daily: withRates(daily), weekly: withRates(weekly) };
   }, [selectedAgentRows]);
@@ -786,6 +841,7 @@ export function AgentMonitoring() {
 
 
 
+  const queryClient = useQueryClient();
   const [exporting, setExporting] = useState(false);
   /** PDF of exactly what the page shows: same filtered agents, same per-plan figures. */
   const exportPdf = async () => {
@@ -805,17 +861,28 @@ export function AgentMonitoring() {
           dailyCount: agent.dailyCount, weeklyCount: agent.weeklyCount, dueCount: agent.dueCount,
           coveredAheadCount: agent.coveredAheadCount, expected: agent.expected, collected: agent.collected,
           arrears: agent.arrears, behindCount: agent.behindCount, aheadCount: agent.aheadCount,
-          requestCount: agent.requestCount, status: collectionStatus(agent.expected, agent.collected),
+          requestCount: agent.requestCount, requestCountAll: agent.requestCountAll, livePlanCount: agent.livePlanCount, status: collectionStatus(agent.expected, agent.collected),
           dailyExpected, dailyCollected, weeklyExpected, weeklyCollected,
         };
       });
+      /* The two lists the clock does not cover go into the PDF as their own sections. */
+      const uncovered = await queryClient.fetchQuery({
+        queryKey: UNCOVERED_QUERY_KEY,
+        queryFn: fetchUncoveredPlans,
+        staleTime: 60_000,
+      });
       await generateAgentMonitoringPdf({
         day,
-        cohortLabel: tab === 'after-sep-2026' ? 'Agents added on/after 1 Sep 2026' : tab === 'before-sep-2026' ? 'Agents added before 1 Sep 2026' : 'All agents',
+        cohortLabel: tab === 'after-sep-2026' ? 'Rent Plans counted from 1 Sep 2026 on' : tab === 'before-sep-2026' ? 'Rent Plans counted from before 1 Sep 2026' : 'All agents',
         frequencyLabel: frequencyFilter === 'all' ? 'All plans' : frequencyFilter === 'daily' ? 'Daily' : 'Weekly',
         statusLabel: statusFilter === 'all' ? 'All' : STATUS_LABEL[statusFilter],
         search,
         agents: reportAgents,
+        uncovered: {
+          tenantPaying: uncovered.tenantPaying,
+          awaiting: uncovered.awaiting,
+          asOf: uncovered.asOf,
+        },
       });
       toast.success('Agent Monitoring report downloaded');
     } catch (err) {
@@ -840,6 +907,9 @@ export function AgentMonitoring() {
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold leading-tight">{agent.name}</p>
               <p className="truncate text-xs text-muted-foreground">{agent.phone || 'No phone number'} · {agent.tenantCount} tenants</p>
+              {agent.outstandingBalanceCount > 0 && (
+                <p className="text-[11px] font-medium text-primary">{agent.outstandingBalanceCount} outstanding balance</p>
+              )}
               <div className="mt-2 flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
                 <span className="text-base font-bold tabular-nums text-emerald-600 dark:text-emerald-400">{formatUGX(agent.collected)}</span>
                 <span className="text-xs tabular-nums text-muted-foreground">of {formatUGX(agent.expected)}</span>
@@ -850,6 +920,9 @@ export function AgentMonitoring() {
                   Arrears {formatUGX(agent.arrears)} · {agent.behindCount} behind
                 </p>
               )}
+              <p className="mt-1 break-words text-[11px] text-muted-foreground">
+                {agent.requestCount} requests ({agent.requestCountAll} all-time) · {agent.livePlanCount} live plans
+              </p>
             </div>
             <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-muted-foreground" />
           </button>
@@ -876,6 +949,9 @@ export function AgentMonitoring() {
         <TableCell className="whitespace-nowrap text-right tabular-nums">
           <span className="font-semibold">{agent.tenantCount}</span>
           <span className="block text-[10px] text-muted-foreground">{agent.dailyCount}D / {agent.weeklyCount}W</span>
+          {agent.outstandingBalanceCount > 0 && (
+            <span className="block text-[10px] font-medium text-primary">{agent.outstandingBalanceCount} outstanding balance</span>
+          )}
         </TableCell>
         <TableCell className="whitespace-nowrap text-right font-semibold tabular-nums">{agent.dueCount}</TableCell>
         <TableCell className="whitespace-nowrap text-right tabular-nums">{formatUGX(agent.expected)}</TableCell>
@@ -888,7 +964,11 @@ export function AgentMonitoring() {
         <TableCell className="whitespace-nowrap text-right font-bold tabular-nums">
           {rate === null ? '—' : `${rate.toFixed(1)}%`}
         </TableCell>
-        <TableCell className="text-right tabular-nums">{agent.requestCount}</TableCell>
+        <TableCell className="whitespace-nowrap text-right tabular-nums">
+          <span className="font-semibold">{agent.requestCount}</span>
+          <span className="block text-[10px] text-muted-foreground">{agent.requestCountAll} all-time</span>
+        </TableCell>
+        <TableCell className="text-right tabular-nums">{agent.livePlanCount}</TableCell>
         <TableCell><StatusIndicator status={collectionStatus(agent.expected, agent.collected)} /></TableCell>
         <TableCell className="text-right">
           <div className="flex items-center justify-end gap-1">
@@ -922,6 +1002,7 @@ export function AgentMonitoring() {
           <div className="min-w-0">
             <h1 className="truncate text-lg font-bold leading-tight tracking-tight sm:text-xl">Agent Monitoring</h1>
             <p className="truncate text-xs text-muted-foreground">Daily expected collections and field performance</p>
+            <p className="break-words text-[11px] leading-snug text-muted-foreground">Counted from the day after the landlord was paid</p>
           </div>
         </div>
         <div className="flex w-full items-center gap-1 rounded-xl border bg-muted/40 p-1 sm:w-auto">
@@ -931,7 +1012,7 @@ export function AgentMonitoring() {
           <Button variant="outline" size="sm" className="h-8 shrink-0 gap-1.5 text-xs" onClick={() => setDay(startOfDay(new Date()))}>
             <CalendarDays className="h-3.5 w-3.5" /> Today
           </Button>
-          <Button variant="default" size="sm" className="h-8 shrink-0 gap-1.5 text-xs" onClick={() => void exportPdf()} disabled={exporting || isLoading || isError}>
+          <Button variant="default" size="sm" className="h-8 shrink-0 gap-1.5 text-xs" onClick={() => void exportPdf()} disabled={exporting || isLoading || isError || !clock.ready || clock.isError}>
             {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />} PDF
           </Button>
         </div>
@@ -972,17 +1053,17 @@ export function AgentMonitoring() {
         </CardHeader>
 
         <CardContent className="p-0">
-          {isLoading ? (
+          {isLoading || (Boolean(data) && !isError && !clock.ready && !clock.isError) ? (
             <div className="flex items-center justify-center gap-2 p-10 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading agent collections…</div>
-          ) : isError ? (
-            <div className="flex flex-col items-center gap-3 p-10 text-center"><AlertTriangle className="h-5 w-5 text-destructive" /><p className="text-sm text-muted-foreground">{getErrorMessage(error)}</p><Button variant="outline" size="sm" onClick={() => void refetch()}>Try again</Button></div>
+          ) : isError || clock.isError ? (
+            <div className="flex flex-col items-center gap-3 p-10 text-center"><AlertTriangle className="h-5 w-5 text-destructive" /><p className="text-sm text-muted-foreground">{getErrorMessage(isError ? error : clock.error)}</p><Button variant="outline" size="sm" onClick={() => void (isError ? refetch() : clock.refetch())}>Try again</Button></div>
           ) : filteredAgents.length === 0 ? (
             <div className="flex flex-col items-center gap-2 p-10 text-center"><CircleAlert className="h-5 w-5 text-muted-foreground" /><p className="text-sm font-medium">No agents match this view</p><p className="text-xs text-muted-foreground">Try clearing the search or status filter.</p></div>
           ) : (
             <>
               <div className="hidden overflow-x-auto md:block">
                 <Table>
-                  <TableHeader className="[&_th]:whitespace-nowrap [&_th]:text-[11px] [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-wide"><TableRow className="bg-muted/20"><TableHead>Agent name / phone</TableHead><TableHead className="text-right">Tenants</TableHead><TableHead className="text-right">Due</TableHead><TableHead className="text-right">Expected</TableHead><TableHead className="text-right">Collected</TableHead><TableHead className="text-right">Arrears</TableHead><TableHead className="text-right">Collection %</TableHead><TableHead className="text-right">Requests submitted</TableHead><TableHead>Status</TableHead><TableHead /></TableRow></TableHeader>
+                  <TableHeader className="[&_th]:whitespace-nowrap [&_th]:text-[11px] [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-wide"><TableRow className="bg-muted/20"><TableHead>Agent name / phone</TableHead><TableHead className="text-right">Tenants</TableHead><TableHead className="text-right">Due</TableHead><TableHead className="text-right">Expected</TableHead><TableHead className="text-right">Collected</TableHead><TableHead className="text-right">Arrears</TableHead><TableHead className="text-right">Collection %</TableHead><TableHead className="text-right">Requests submitted</TableHead><TableHead className="text-right">Live plans</TableHead><TableHead>Status</TableHead><TableHead /></TableRow></TableHeader>
                   <TableBody>{filteredAgents.map((agent) => renderAgentRow(agent))}</TableBody>
                 </Table>
               </div>
@@ -1004,7 +1085,7 @@ export function AgentMonitoring() {
                 <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Tenants</p><p className="mt-1 font-bold tabular-nums">{selectedAgent.tenantCount}</p></CardContent></Card>
                 <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Expected</p><p className="mt-1 font-bold tabular-nums">{formatUGX(selectedAgent.expected)}</p></CardContent></Card>
                 <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Paid today</p><p className="mt-1 font-bold tabular-nums">{formatUGX(selectedAgent.collected)}</p></CardContent></Card>
-                <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Requests submitted</p><p className="mt-1 font-bold tabular-nums">{selectedAgent.requestCount}</p></CardContent></Card>
+                <Card><CardContent className="p-3"><p className="text-xs text-muted-foreground">Requests submitted</p><p className="mt-1 font-bold tabular-nums">{selectedAgent.requestCount}</p><p className="text-[10px] text-muted-foreground">{selectedAgent.requestCountAll} all-time · {selectedAgent.livePlanCount} live plans</p></CardContent></Card>
               </div>
               {selectedAgent.phone && (
                 <Button asChild variant="outline" size="sm" className="w-full gap-2 sm:w-auto">
@@ -1079,7 +1160,7 @@ export function AgentMonitoring() {
                 <div className="flex items-center justify-between"><h3 className="text-sm font-semibold">Active tenants</h3><StatusIndicator status={collectionStatus(selectedAgent.expected, selectedAgent.collected)} /></div>
                 {selectedAgentRows.length === 0 ? <p className="py-6 text-center text-sm text-muted-foreground">No active daily-collection tenants for this agent.</p> : (
                   <div className="space-y-2">
-                    {selectedAgentRows.map(({ request, tenant, collected, schedule }) => {
+                    {selectedAgentRows.map(({ request, tenant, collected, schedule, clockStart, outstandingBalance }) => {
                       const unit = schedule.unit;
                       return (
                         <div key={request.id} className="border p-3">
@@ -1091,11 +1172,16 @@ export function AgentMonitoring() {
                                   <a href={`tel:${tenant.phone.replace(/[^\d+]/g, '')}`} className="underline underline-offset-2">{tenant.phone}</a>
                                 ) : 'No phone number'}{request.house_category ? ` · ${request.house_category}` : ''}
                               </p>
-                              <p className="mt-1 text-xs text-muted-foreground">Rent Plan: {formatStatus(request.status)} · Started {format(new Date(request.created_at), 'dd MMM yyyy')}</p>
+                              <p className="mt-1 text-xs text-muted-foreground">Rent Plan: {formatStatus(request.status)} · Started {format(new Date(request.created_at), 'dd MMM yyyy')}{clockStart ? ` · Counted from ${format(new Date(`${clockStart}T00:00:00`), 'dd MMM yyyy')}` : ''}</p>
                             </div>
                             <div className="flex flex-col items-start gap-1.5 sm:items-end">
                               <div className="flex flex-wrap items-center gap-1.5">
                                 <FrequencyTag schedule={schedule} />
+                                {outstandingBalance && (
+                                  <Badge variant="outline" className="w-fit px-1.5 py-0 text-[10px] font-medium uppercase tracking-wide text-primary border-primary/40 bg-primary/10">
+                                    Outstanding balance
+                                  </Badge>
+                                )}
                                 <StatusIndicator status={collectionStatus(schedule.expectedOnDay, collected)} />
                               </div>
                               <SchedulePositionTag schedule={schedule} />
@@ -1176,6 +1262,8 @@ export function AgentMonitoring() {
           <TabsTrigger value="before-sep-2026" variant="pills" className="text-xs">Before 1 Sep 2026</TabsTrigger>
           <TabsTrigger value="position" variant="pills" className="text-xs">Expected vs paid</TabsTrigger>
           <TabsTrigger value="rent-analysis" variant="pills" className="text-xs">Rent Analysis</TabsTrigger>
+          <TabsTrigger value="tenant-paying" variant="pills" className="text-xs">Tenant paying, landlord not paid</TabsTrigger>
+          <TabsTrigger value="awaiting-landlord" variant="pills" className="text-xs">Awaiting landlord payment</TabsTrigger>
         </TabsList>
       </div>
       <TabsContent value="all" className="space-y-4">{body}</TabsContent>
@@ -1183,6 +1271,8 @@ export function AgentMonitoring() {
       <TabsContent value="before-sep-2026" className="space-y-4">{body}</TabsContent>
       <TabsContent value="position" className="space-y-4"><AgentPaymentPosition /></TabsContent>
       <TabsContent value="rent-analysis" className="space-y-4"><RentAnalysis /></TabsContent>
+      <TabsContent value="tenant-paying" className="space-y-4"><UncoveredPlansTab bucket="tenant_paying_no_landlord" /></TabsContent>
+      <TabsContent value="awaiting-landlord" className="space-y-4"><UncoveredPlansTab bucket="awaiting_landlord" /></TabsContent>
     </Tabs>
   );
 }

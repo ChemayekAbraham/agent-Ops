@@ -46,7 +46,7 @@ function kampalaDate(offsetDays = 0): string {
 function buildPeriods() {
   const today = kampalaDate();
   const t = new Date(today + 'T00:00:00Z');
-  const dow = (t.getUTCDay() + 6) % 7;
+  const dow = t.getUTCDay();
   const dom = t.getUTCDate();
   const list: { key: string; label: string; from: string | null; to: string | null }[] = [
     { key: 'today', label: 'Today', from: today, to: today },

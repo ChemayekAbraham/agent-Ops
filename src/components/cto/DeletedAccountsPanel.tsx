@@ -110,7 +110,22 @@ export function DeletedAccountsPanel() {
         const { data, error } = await supabase.functions.invoke('delete-user', {
           body: { user_id: target.user_id, reason: trimmed, mode: 'permanent' },
         });
-        if (error) throw error;
+        if (error) {
+          // The server refuses (409) when the account has money history; read its reason.
+          let serverMsg: string | null = null;
+          const ctx = (error as { context?: Response }).context;
+          if (ctx && typeof ctx.json === 'function') {
+            try {
+              const body = await ctx.json();
+              if (body?.financial_history?.has_history) {
+                serverMsg = 'This account has money history, so it stays deleted (recoverable) to keep the books correct. It cannot be permanently removed.';
+              } else if (body?.error) {
+                serverMsg = String(body.error);
+              }
+            } catch { /* fall through */ }
+          }
+          throw new Error(serverMsg ?? error.message);
+        }
         if (data && typeof data === 'object' && 'error' in data && data.error) {
           throw new Error(String((data as { error: string }).error));
         }
