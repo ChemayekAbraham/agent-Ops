@@ -86,6 +86,8 @@ interface AgentMenuDrawerProps {
   onDownloadTenantForm?: () => void;
   onOpenRentPoster?: () => void;
   onViewMoney?: () => void;
+  /** Opens the My Tenants view (tenant list, repayments & rent requests) that used to live in the bottom bar. */
+  onViewTenantHub?: () => void;
   isFinancialAgent?: boolean;
   /**
    * Merchant Agents (cash-out only) must not access tenant / landlord / house
