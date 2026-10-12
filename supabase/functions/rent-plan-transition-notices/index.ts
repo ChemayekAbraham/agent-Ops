@@ -6,8 +6,10 @@
 //   T1  to the TENANT  when the landlord has actually been paid, telling them
 //                      repayment starts tomorrow and what it will be.
 //   AP  to the AGENT   on the same event: their landlord is paid, with the
-//                      receipt number, when the tenant starts, and the 1% they
-//                      earned.
+//                      receipt number and code, when the tenant starts, and the
+//                      1% they earned. Also sent as an EMAIL to agents who have
+//                      a real address of their own - see the AP email notes on
+//                      the loop at the bottom of this file.
 //   A2/A3 to the AGENT at 6h and 18h, when landlord float is still unpaid and
 //                      the 24-hour recall is approaching. Suppressed between
 //                      22:00 and 06:00 by the RPC, because landlord payouts are
@@ -54,6 +56,8 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { sendSMS } from '../_shared/sendSmsMultiProvider.ts';
+import { receiptUrl, formatReceiptDateTime } from '../_shared/landlordReceipt.ts';
+import { isPlaceholderRecipient } from '../_shared/recipientMailbox.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -114,8 +118,34 @@ interface AgentPaidNotice {
   period_label: string;
   repayment_starts_on: string;
   receipt_number: string | null;
+  /** The public code the receipt page is read at. Null until the receipt exists. */
+  receipt_code: string | null;
   /** Only present when the commission leg actually exists in general_ledger. */
   commission_ugx: number | null;
+}
+
+/**
+ * AP, by email. The RPC only returns a row when the agent has an address that
+ * provably belongs to them and the receipt already exists, so every field the
+ * email leans on is present.
+ */
+interface AgentPaidEmailNotice {
+  rent_request_id: string;
+  agent_id: string;
+  agent_email: string;
+  agent_name: string | null;
+  landlord_name: string | null;
+  tenant_name: string | null;
+  rent_amount: number;
+  instalment: number;
+  period_label: string;
+  repayment_starts_on: string;
+  receipt_number: string;
+  receipt_code: string;
+  /** When the landlord was paid, as an ISO timestamp. */
+  paid_at: string;
+  commission_ugx: number | null;
+  ref: string | null;
 }
 
 interface AgentNudgeNotice {
@@ -205,7 +235,19 @@ Ref ${n.ref}.` : '');
 
 export function agentPaidMessage(n: AgentPaidNotice): string {
   const tenant = n.tenant_first_name || 'your tenant';
-  const receipt = n.receipt_number ? ` Receipt No ${n.receipt_number}.` : '';
+  // The number and the code are one receipt: both or neither. A number with no
+  // code is something the agent cannot look up, and 'Receipt No: .' must never
+  // reach a live SMS. Written like the landlord's own SMS so the two can read
+  // the same identifiers to each other.
+  const hasReceipt = Boolean(n.receipt_number && n.receipt_code);
+  const receipt = hasReceipt
+    ? ` Receipt No: ${n.receipt_number} (Code: ${n.receipt_code}).`
+    : '';
+  const viewReceipt = hasReceipt
+    ? `
+
+View receipt: ${receiptUrl(n.receipt_code as string)}`
+    : '';
   // Only claim the commission when the ledger leg is really there.
   const commission = n.commission_ugx
     ? `
@@ -220,10 +262,41 @@ You earned ${ugx(n.commission_ugx)} commission.`
     `${tenant} starts repaying TOMORROW, ${dayLabel(n.repayment_starts_on)}: ` +
     `${ugx(n.instalment)} ${n.period_label}.` +
     commission +
+    viewReceipt +
     `
 
 Please upload the receipt.`
   );
+}
+
+/**
+ * What the `agent-landlord-paid-receipt` email is rendered from. It says what
+ * the AP SMS says, so the figures are formatted here, next to that message,
+ * and the template only lays them out.
+ *
+ * `rent_request_id` is in the data on purpose: send-transactional-email stores
+ * the template data on its email_send_log row, and that row is the only record
+ * that this plan has been emailed. The pending-notices RPC reads the plan id
+ * back out of it so the same plan is never emailed twice.
+ */
+export function agentPaidEmailData(n: AgentPaidEmailNotice) {
+  return {
+    rent_request_id: n.rent_request_id,
+    agent_name: (n.agent_name || '').trim().split(/\s+/)[0] || 'there',
+    landlord_name: n.landlord_name || 'your landlord',
+    tenant_name: n.tenant_name || 'your tenant',
+    amount: n.rent_amount,
+    currency: 'UGX',
+    receipt_number: n.receipt_number,
+    receipt_code: n.receipt_code,
+    receipt_url: receiptUrl(n.receipt_code),
+    paid_on: formatReceiptDateTime(n.paid_at),
+    repayment_starts_on: dayLabel(n.repayment_starts_on),
+    instalment: n.instalment,
+    period_label: n.period_label,
+    commission: n.commission_ugx ?? '',
+    rent_request_ref: n.ref ?? '',
+  };
 }
 
 export function agentNudgeMessage(n: AgentNudgeNotice): string {
@@ -291,6 +364,7 @@ Deno.serve(async (req) => {
     agent_cancelled_sent: 0, agent_cancelled_failed: 0,
     tenant_sent: 0, tenant_failed: 0,
     agent_paid_sent: 0, agent_paid_failed: 0,
+    agent_paid_email_sent: 0, agent_paid_email_skipped: 0, agent_paid_email_failed: 0,
     nudge_sent: 0, nudge_failed: 0,
     cancelled_sent: 0, cancelled_failed: 0,
   };
@@ -328,6 +402,7 @@ Deno.serve(async (req) => {
     const agents = (data?.agent_float_funded ?? []) as AgentNotice[];
     const tenants = (data?.tenant_welcome ?? []) as TenantNotice[];
     const agentsPaid = (data?.agent_landlord_paid ?? []) as AgentPaidNotice[];
+    const agentsPaidEmail = (data?.agent_landlord_paid_email ?? []) as AgentPaidEmailNotice[];
     const nudges = (data?.agent_nudge ?? []) as AgentNudgeNotice[];
     const cancelled = (data?.tenant_cancelled ?? []) as TenantCancelledNotice[];
     const agentCancelled = (data?.agent_cancelled ?? []) as AgentCancelledNotice[];
@@ -409,6 +484,52 @@ Deno.serve(async (req) => {
         idempotencyKey: `rent-plan-a4:${n.rent_request_id}`,
       });
       ok ? result.agent_cancelled_sent++ : result.agent_cancelled_failed++;
+    }
+
+    // AP, by email. Deliberately LAST: every SMS above has already gone, so
+    // nothing here - a slow render, a mail outage - can delay a notice an agent
+    // or tenant is waiting for.
+    //
+    // The RPC has already decided who is mailed: only an address that provably
+    // belongs to the agent (resolve_owned_notification_email - never a
+    // phone-only placeholder, never one shared between accounts), only once the
+    // receipt exists, only for payouts in the last six hours, and never a plan
+    // that already has a row in email_send_log. So this loop holds no policy of
+    // its own; it sends what it is given.
+    //
+    // send-transactional-email answers 200 with success:false for a recipient it
+    // will not mail (suppressed, unsubscribed). That is a skip, not an outage,
+    // and it is logged, so the plan stops being offered.
+    for (const n of agentsPaidEmail) {
+      // resolve_owned_notification_email only rules out the @welile.user and
+      // @welile.agent placeholders; this is the platform's full list. The mailer
+      // would refuse these too, but it logs the refusal WITHOUT the plan id, so
+      // the plan would be offered again on every run for six hours. Skip it here.
+      if (isPlaceholderRecipient(n.agent_email)) {
+        result.agent_paid_email_skipped++;
+        continue;
+      }
+      try {
+        const { data: sent, error } = await admin.functions.invoke('send-transactional-email', {
+          body: {
+            templateName: 'agent-landlord-paid-receipt',
+            recipientEmail: n.agent_email,
+            idempotencyKey: `rent-plan-ap-email:${n.rent_request_id}`,
+            templateData: agentPaidEmailData(n),
+          },
+        });
+        if (error) {
+          console.error('[rent-plan-transition-notices] AP email failed', n.rent_request_id, error.message);
+          result.agent_paid_email_failed++;
+        } else if (sent?.success === true) {
+          result.agent_paid_email_sent++;
+        } else {
+          result.agent_paid_email_skipped++;
+        }
+      } catch (e) {
+        console.error('[rent-plan-transition-notices] AP email threw', n.rent_request_id, e);
+        result.agent_paid_email_failed++;
+      }
     }
 
     return new Response(JSON.stringify({ success: true, ...result }), {
