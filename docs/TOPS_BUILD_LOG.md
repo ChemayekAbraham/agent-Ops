@@ -1050,3 +1050,24 @@ No code change. User reported the "Workspace" tab wasn't visible in the Tenant O
 **Live counts (active plans = funded / disbursed / repaying, 939):** counting 747, outstanding_balance 108, tenant_paying_no_landlord 59, awaiting_landlord 25; 12 with `shift_days > 0`, 4 with `shift_days < 0` (clock earlier than the stored start by 1, 1, 13 and 14 days), 1 split payout. All plans (6,467): counting 1,219, awaiting 4,794, outstanding 314, tenant paying 140. `paid_to_date` equals `rent_requests.amount_repaid` for 848 of 939 active plans and differs for 91 (the page's current arrears use `amount_repaid`).
 
 **Verified (rolled back):** single payout, split payout (day after the LAST), failed / pending / disbursing payouts ignored, outstanding_balance kept, tenant paying without a landlord payout, awaiting landlord, daily and weekly arrears, ahead-of-schedule, a duplicate repayment counted once, a reversed collection ignored, payments after the as-at day not counted, `paid_to_date` equal to an independent sum for all 939 active plans, signed-out / role-less callers refused, 10,001 ids refused. `npm run guard:all`.
+
+## 2026-10-12 — Agent Monitoring figures now count from the landlord-payout clock (page only)
+
+**What:** `src/components/executive/tenant-ops/AgentMonitoring.tsx` now reads each Rent Plan's start from `am_plan_clock` / `am_plan_arrears` (migration `20261012100000`) instead of `repayment_starts_on` / `created_at`. New files only besides the page: `src/hooks/useAgentMonitoringClock.ts` (one batched read: plan ids chunked at 500, three chunks in flight, React Query `staleTime` 60 s, keyed by day and a hash of the plan ids; no per-plan calls) and `src/lib/agentMonitoringClockSchedule.ts` (maps the server rows onto the existing `PlanSchedule`, reusing `describePlanSchedule` unchanged). `src/lib/agentMonitoringSchedule.ts` and every shared hook / view are untouched, so other pages behave exactly as before.
+
+**On the page:** Expected, Due this day, Schedule met, Paid ahead, the weekly due day, Status (On target / Partial / Critical / Nothing due), Total arrears and days behind are all counted from `clock_start`, on the agent table, the cards and the agent detail dialog (the dialog also says "Counted from <date>" per Rent Plan). Only buckets `counting` and `outstanding_balance` feed the main tab; `tenant_paying_no_landlord` and `awaiting_landlord` are left out of every figure and list there. Collected today is computed exactly as before (same receipts, same rule). "% of plan paid" and "Outstanding plan" still use the plan's own `amount_repaid`; only "Schedule met" and arrears use the clock's paid-to-date. A note under the title reads "Counted from the day after the landlord was paid". While the clock is loading the cards show their loading state, and if it fails they show the error state (the page never silently falls back to the old start date).
+
+**Live comparison, 12 Oct 2026, same signed-in session, 380 px and 1280 px (no horizontal overflow at either width):**
+
+| Card | Before | After |
+|---|---|---|
+| Agents monitored | 105 | 98 |
+| Due this day | 861 of 858 tenants | 799 of 804 tenants |
+| Collected today | UGX 1,401,922 of UGX 23,632,017 expected | UGX 1,401,922 of UGX 22,473,610 expected |
+| Total arrears | UGX 230,460,592 (861 tenants behind) | UGX 216,490,443 (799 tenants behind) |
+| Paid ahead | 4 | 7 |
+| Daily / weekly | 836 / 30 | 778 / 30 |
+
+Collected today did not change: none of the 58 plans taken off the page had a receipt today.
+
+**Verified:** unit tests for the schedule mapping and the batched hook (`src/lib/agentMonitoringClockSchedule.test.ts`, `src/hooks/useAgentMonitoringClock.test.tsx`); in the browser a day change made 2 `am_plan_clock` and 2 `am_plan_arrears` calls (two chunks), all 200, no failed requests.

@@ -49,11 +49,12 @@ import { RentAnalysis } from './RentAnalysis';
 import { generateAgentMonitoringPdf } from '@/lib/agentMonitoringReportPdf';
 import { toast } from 'sonner';
 import {
-  describePlanSchedule,
   scheduleAwareStatus,
   type AgentScheduleStatus,
   type PlanSchedule,
 } from '@/lib/agentMonitoringSchedule';
+import { describePlanScheduleFromClock, isMonitoredReading } from '@/lib/agentMonitoringClockSchedule';
+import { useAgentMonitoringClock } from '@/hooks/useAgentMonitoringClock';
 
 
 interface ActiveRentRequest {
@@ -557,18 +558,32 @@ export function AgentMonitoring() {
   }, [data?.collections, data?.repayments]);
 
 
-  /** One schedule reading per rent plan, computed once for the selected day. */
+  /**
+   * Repayments are counted from the day after the landlord was paid (`am_plan_clock`), not
+   * from the stored start date. One batched read for every plan loaded above.
+   */
+  const planIds = useMemo(() => (data?.requests ?? []).map((request) => request.id), [data?.requests]);
+  const clock = useAgentMonitoringClock(planIds, day);
+
+  /** Only plans with a clock (counting / outstanding balance) feed the figures on this page. */
+  const monitoredRequests = useMemo(
+    () => (data?.requests ?? []).filter((request) => isMonitoredReading(clock.readings.get(request.id))),
+    [clock.readings, data?.requests],
+  );
+
+  /** One schedule reading per monitored rent plan, computed once for the selected day. */
   const scheduleMap = useMemo(() => {
     const map = new Map<string, PlanSchedule>();
-    (data?.requests ?? []).forEach((request) => {
-      map.set(request.id, describePlanSchedule(request, day));
+    monitoredRequests.forEach((request) => {
+      const reading = clock.readings.get(request.id);
+      if (isMonitoredReading(reading)) map.set(request.id, describePlanScheduleFromClock(request, reading, day));
     });
     return map;
-  }, [data?.requests, day]);
+  }, [clock.readings, day, monitoredRequests]);
 
   const agents = useMemo<AgentRow[]>(() => {
     const grouped = new Map<string, ActiveRentRequest[]>();
-    (data?.requests ?? []).forEach((request) => {
+    monitoredRequests.forEach((request) => {
       if (!request.agent_id) return;
       const rows = grouped.get(request.agent_id) ?? [];
       rows.push(request);
@@ -641,7 +656,7 @@ export function AgentMonitoring() {
         return added < new Date(createdBefore as string);
       })
       .sort((a, b) => b.expected - a.expected || a.name.localeCompare(b.name));
-  }, [collectionMap, createdAfter, createdBefore, data?.collections, data?.requests, data?.requestCounts, frequencyFilter, profileMap, scheduleMap]);
+  }, [collectionMap, createdAfter, createdBefore, data?.collections, data?.requestCounts, frequencyFilter, monitoredRequests, profileMap, scheduleMap]);
 
   const filteredAgents = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -653,7 +668,7 @@ export function AgentMonitoring() {
   }, [agents, search, statusFilter]);
 
   /* Cards show numbers only once this day's load has succeeded; see StatCard. */
-  const statCardState: StatCardState = isError ? 'error' : data ? 'ready' : 'loading';
+  const statCardState: StatCardState = isError || clock.isError ? 'error' : data && clock.ready ? 'ready' : 'loading';
 
   const totals = useMemo(() => filteredAgents.reduce(
     (sum, agent) => ({
@@ -673,13 +688,18 @@ export function AgentMonitoring() {
 
   const selectedAgentRows = useMemo(() => {
     if (!selectedAgent) return [];
-    return selectedAgent.tenants.map((request) => ({
-      request,
-      tenant: profileMap.get(request.tenant_id),
-      collected: collectionMap.forPlan(selectedAgent.id, request),
-      schedule: scheduleMap.get(request.id) ?? describePlanSchedule(request, day),
-    }));
-  }, [collectionMap, day, profileMap, scheduleMap, selectedAgent]);
+    return selectedAgent.tenants.flatMap((request) => {
+      const schedule = scheduleMap.get(request.id);
+      if (!schedule) return [];
+      return [{
+        request,
+        tenant: profileMap.get(request.tenant_id),
+        collected: collectionMap.forPlan(selectedAgent.id, request),
+        schedule,
+        clockStart: clock.readings.get(request.id)?.clock.clock_start ?? null,
+      }];
+    });
+  }, [clock.readings, collectionMap, profileMap, scheduleMap, selectedAgent]);
 
   /**
    * Comprehensive payment position for the open agent: how much of the whole
@@ -688,7 +708,7 @@ export function AgentMonitoring() {
    * figure is derived from the rent plans already loaded above.
    */
   const agentPortfolio = useMemo(() => {
-    const blank = () => ({ planned: 0, paid: 0, scheduled: 0, tenants: 0 });
+    const blank = () => ({ planned: 0, paid: 0, paidByClock: 0, scheduled: 0, tenants: 0 });
     const totals = blank();
     const daily = blank();
     const weekly = blank();
@@ -697,7 +717,8 @@ export function AgentMonitoring() {
       const bucket = schedule.weekly ? weekly : daily;
       [totals, bucket].forEach((target) => {
         target.planned += planned;
-        target.paid += schedule.paidToDate;
+        target.paid += Number(request.amount_repaid ?? 0);
+        target.paidByClock += schedule.paidToDate;
         target.scheduled += schedule.scheduledToDate;
         target.tenants += 1;
       });
@@ -706,7 +727,7 @@ export function AgentMonitoring() {
       ...value,
       remaining: Math.max(0, value.planned - value.paid),
       planPercent: value.planned > 0 ? Math.min(100, (value.paid / value.planned) * 100) : null,
-      schedulePercent: value.scheduled > 0 ? Math.min(100, (value.paid / value.scheduled) * 100) : null,
+      schedulePercent: value.scheduled > 0 ? Math.min(100, (value.paidByClock / value.scheduled) * 100) : null,
     });
     return { totals: withRates(totals), daily: withRates(daily), weekly: withRates(weekly) };
   }, [selectedAgentRows]);
@@ -922,6 +943,7 @@ export function AgentMonitoring() {
           <div className="min-w-0">
             <h1 className="truncate text-lg font-bold leading-tight tracking-tight sm:text-xl">Agent Monitoring</h1>
             <p className="truncate text-xs text-muted-foreground">Daily expected collections and field performance</p>
+            <p className="break-words text-[11px] leading-snug text-muted-foreground">Counted from the day after the landlord was paid</p>
           </div>
         </div>
         <div className="flex w-full items-center gap-1 rounded-xl border bg-muted/40 p-1 sm:w-auto">
@@ -931,7 +953,7 @@ export function AgentMonitoring() {
           <Button variant="outline" size="sm" className="h-8 shrink-0 gap-1.5 text-xs" onClick={() => setDay(startOfDay(new Date()))}>
             <CalendarDays className="h-3.5 w-3.5" /> Today
           </Button>
-          <Button variant="default" size="sm" className="h-8 shrink-0 gap-1.5 text-xs" onClick={() => void exportPdf()} disabled={exporting || isLoading || isError}>
+          <Button variant="default" size="sm" className="h-8 shrink-0 gap-1.5 text-xs" onClick={() => void exportPdf()} disabled={exporting || isLoading || isError || !clock.ready || clock.isError}>
             {exporting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileDown className="h-3.5 w-3.5" />} PDF
           </Button>
         </div>
@@ -972,10 +994,10 @@ export function AgentMonitoring() {
         </CardHeader>
 
         <CardContent className="p-0">
-          {isLoading ? (
+          {isLoading || (Boolean(data) && !isError && !clock.ready && !clock.isError) ? (
             <div className="flex items-center justify-center gap-2 p-10 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading agent collections…</div>
-          ) : isError ? (
-            <div className="flex flex-col items-center gap-3 p-10 text-center"><AlertTriangle className="h-5 w-5 text-destructive" /><p className="text-sm text-muted-foreground">{getErrorMessage(error)}</p><Button variant="outline" size="sm" onClick={() => void refetch()}>Try again</Button></div>
+          ) : isError || clock.isError ? (
+            <div className="flex flex-col items-center gap-3 p-10 text-center"><AlertTriangle className="h-5 w-5 text-destructive" /><p className="text-sm text-muted-foreground">{getErrorMessage(isError ? error : clock.error)}</p><Button variant="outline" size="sm" onClick={() => void (isError ? refetch() : clock.refetch())}>Try again</Button></div>
           ) : filteredAgents.length === 0 ? (
             <div className="flex flex-col items-center gap-2 p-10 text-center"><CircleAlert className="h-5 w-5 text-muted-foreground" /><p className="text-sm font-medium">No agents match this view</p><p className="text-xs text-muted-foreground">Try clearing the search or status filter.</p></div>
           ) : (
@@ -1079,7 +1101,7 @@ export function AgentMonitoring() {
                 <div className="flex items-center justify-between"><h3 className="text-sm font-semibold">Active tenants</h3><StatusIndicator status={collectionStatus(selectedAgent.expected, selectedAgent.collected)} /></div>
                 {selectedAgentRows.length === 0 ? <p className="py-6 text-center text-sm text-muted-foreground">No active daily-collection tenants for this agent.</p> : (
                   <div className="space-y-2">
-                    {selectedAgentRows.map(({ request, tenant, collected, schedule }) => {
+                    {selectedAgentRows.map(({ request, tenant, collected, schedule, clockStart }) => {
                       const unit = schedule.unit;
                       return (
                         <div key={request.id} className="border p-3">
@@ -1091,7 +1113,7 @@ export function AgentMonitoring() {
                                   <a href={`tel:${tenant.phone.replace(/[^\d+]/g, '')}`} className="underline underline-offset-2">{tenant.phone}</a>
                                 ) : 'No phone number'}{request.house_category ? ` · ${request.house_category}` : ''}
                               </p>
-                              <p className="mt-1 text-xs text-muted-foreground">Rent Plan: {formatStatus(request.status)} · Started {format(new Date(request.created_at), 'dd MMM yyyy')}</p>
+                              <p className="mt-1 text-xs text-muted-foreground">Rent Plan: {formatStatus(request.status)} · Started {format(new Date(request.created_at), 'dd MMM yyyy')}{clockStart ? ` · Counted from ${format(new Date(`${clockStart}T00:00:00`), 'dd MMM yyyy')}` : ''}</p>
                             </div>
                             <div className="flex flex-col items-start gap-1.5 sm:items-end">
                               <div className="flex flex-wrap items-center gap-1.5">
