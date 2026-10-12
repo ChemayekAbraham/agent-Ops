@@ -3795,6 +3795,13 @@
       "when": 1791783871336,
       "tag": "0541_rent_renewal_tenant_otp",
       "breakpoints": true
+    },
+    {
+      "idx": 542,
+      "version": "7",
+      "when": 1791790628621,
+      "tag": "0542_landlord_principal_recovery_comparison",
+      "breakpoints": true
     }
   ]
 }
