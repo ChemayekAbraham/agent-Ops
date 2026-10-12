@@ -299,7 +299,7 @@ export function AgentMenuDrawer({
   const MERCHANT_BLOCKED_LABELS = new Set<string>([
     // Tenant operations
     'Money', 'Pay Rent', 'Top Up Wallet', 'Issue Receipt', 'Share Tenant Form', 'Tenant Reg Form',
-    'My Tenants', 'Rent Requests', 'Saved Rent Drafts', 'Schedules', 'Post Rent',
+    'My Tenants', 'My Tenant Hub', 'Rent Requests', 'Saved Rent Drafts', 'Schedules', 'Post Rent',
     // Landlord operations
     'Share Landlord Signup', 'Landlord Reg Form', 'My Landlords', 'Landlord Map',
     'Manage Property', 'Managed Props',
