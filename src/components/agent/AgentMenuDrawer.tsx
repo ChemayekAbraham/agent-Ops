@@ -296,7 +296,7 @@ export function AgentMenuDrawer({
   // operational entry so they cannot be reached via the menu drawer.
   const MERCHANT_BLOCKED_LABELS = new Set<string>([
     // Tenant operations
-    'Pay Rent', 'Top Up Wallet', 'Issue Receipt', 'Share Tenant Form', 'Tenant Reg Form',
+    'Money', 'Pay Rent', 'Top Up Wallet', 'Issue Receipt', 'Share Tenant Form', 'Tenant Reg Form',
     'My Tenants', 'Rent Requests', 'Saved Rent Drafts', 'Schedules', 'Post Rent',
     // Landlord operations
     'Share Landlord Signup', 'Landlord Reg Form', 'My Landlords', 'Landlord Map',
