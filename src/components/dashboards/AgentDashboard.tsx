@@ -162,6 +162,7 @@ import { AgentTenantRentRequestsList } from '@/components/agent/AgentTenantRentR
 import { ShareRentRecorderCard } from '@/components/agent/ShareRentRecorderCard';
 import { TodayCollectionsCard } from '@/components/agent/TodayCollectionsCard';
 import { AgentPriorityGrid } from '@/components/agent/AgentPriorityGrid';
+import { AgentPostRentRequestCard } from '@/components/agent/AgentPostRentRequestCard';
 import { MERCHANT_RESTRICTION_MESSAGE, useIsMerchantAgent } from '@/hooks/useIsMerchantAgent';
 import { MerchantDashboardHome } from '@/components/agent/MerchantDashboardHome';
 import { AgentTenantInlineList } from '@/components/agent/AgentTenantInlineList';
@@ -1082,6 +1083,12 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         {/* Live cash-with-agent deposit codes targeting this agent */}
         <AgentCashDepositCodesPanel />
 
+        {/* Major action — sits directly above the Service Center button */}
+        <AgentPostRentRequestCard
+          restricted={isMerchant}
+          onOpen={() => { if (guardMerchant()) return; setRentRequestOpen(true); }}
+        />
+
         {/* Tab Navigation — scrolls with the dashboard so the Service Center / Proxy Agents buttons never float */}
         <div className="-mx-4 px-4 py-2 bg-background border-b border-border/40 overflow-x-auto overflow-y-hidden scrollbar-hide">
           <AgentHubTabs
@@ -1218,7 +1225,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
             <AgentPriorityGrid
               agentId={user.id}
               restricted={isMerchant}
-              onOpenNewTenant={() => { if (guardMerchant()) return; setRentRequestOpen(true); }}
               onOpenListHouse={() => {
                 if (guardMerchant()) return;
                 if (!guardListingHours()) return;
