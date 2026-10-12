@@ -63,7 +63,7 @@ export function AgentPriorityGrid({ onOpenNewTenant, onOpenListHouse, restricted
       )}
 
 
-      {/* 4. List House — open empty house listing flow (hidden for Merchant Agents) */}
+      {/* 2. List House — open empty house listing flow (hidden for Merchant Agents) */}
       {!restricted && (
       <PriorityTile
         onClick={() => { hapticTap(); onOpenListHouse(); }}
