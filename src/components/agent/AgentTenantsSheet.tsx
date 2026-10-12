@@ -1429,13 +1429,14 @@ export function AgentTenantsSheet({ open, onOpenChange, initialView, initialPipe
                   variant="ghost"
                   size="sm"
                   onClick={() => onOpenChange(false)}
-                  className="h-11 px-3 rounded-xl text-base font-semibold gap-1"
+                  className="h-8 px-2 text-xs font-semibold gap-1"
+                  aria-label="Back"
                 >
-                  <ArrowLeft className="h-5 w-5" />
+                  <ArrowLeft className="h-4 w-4" />
                   Back
                 </Button>
-                <Users className="h-5 w-5 text-primary" />
-                <span className="text-lg font-bold">My Tenants</span>
+                <Users className="h-4 w-4 text-primary" />
+                <span className="text-base font-bold">My Tenants</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <Badge variant="outline" className="text-sm font-mono px-2.5 py-0.5">
