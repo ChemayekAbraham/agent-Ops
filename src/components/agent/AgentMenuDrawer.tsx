@@ -86,6 +86,8 @@ interface AgentMenuDrawerProps {
   onDownloadTenantForm?: () => void;
   onOpenRentPoster?: () => void;
   onViewMoney?: () => void;
+  /** Opens the My Tenants view (tenant list, repayments & rent requests) that used to live in the bottom bar. */
+  onViewTenantHub?: () => void;
   isFinancialAgent?: boolean;
   /**
    * Merchant Agents (cash-out only) must not access tenant / landlord / house
@@ -149,6 +151,7 @@ export function AgentMenuDrawer({
   onDownloadTenantForm,
   onOpenRentPoster,
   onViewMoney,
+  onViewTenantHub,
   isFinancialAgent = false,
   restricted = false,
 }: AgentMenuDrawerProps) {
@@ -209,6 +212,7 @@ export function AgentMenuDrawer({
       icon: Users,
       label: '👥 People',
       items: [
+        { icon: Users, label: 'My Tenant Hub', description: 'Tenants, repayments & rent requests', onClick: onViewTenantHub, accent: 'primary' },
         { icon: Users, label: 'My Tenants', description: 'Repayment schedules', onClick: onViewTenants, accent: 'primary' },
         { icon: UserPlus, label: 'Onboard Tenant', description: 'Invite link — you earn commission', onClick: onInviteTenant, accent: 'teal-500', badge: '🔗' },
         { icon: ClipboardList, label: 'Registrations', description: 'Invite status & links', path: '/agent-registrations', accent: 'blue-600' },
@@ -297,7 +301,7 @@ export function AgentMenuDrawer({
   const MERCHANT_BLOCKED_LABELS = new Set<string>([
     // Tenant operations
     'Money', 'Pay Rent', 'Top Up Wallet', 'Issue Receipt', 'Share Tenant Form', 'Tenant Reg Form',
-    'My Tenants', 'Rent Requests', 'Saved Rent Drafts', 'Schedules', 'Post Rent',
+    'My Tenants', 'My Tenant Hub', 'Rent Requests', 'Saved Rent Drafts', 'Schedules', 'Post Rent',
     // Landlord operations
     'Share Landlord Signup', 'Landlord Reg Form', 'My Landlords', 'Landlord Map',
     'Manage Property', 'Managed Props',
