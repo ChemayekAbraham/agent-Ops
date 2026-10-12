@@ -1,27 +1,29 @@
-import { ArrowRight, UserPlus, Home as HomeIcon, Sparkles } from 'lucide-react';
+import { ArrowRight, FileText, Home as HomeIcon, Sparkles } from 'lucide-react';
 import { useProfile } from '@/hooks/useProfile';
 import { formatUGX } from '@/lib/rentCalculations';
 import { hapticTap } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
 
 /**
- * Agent dashboard priority grid — 3 large, finger-friendly tiles.
+ * Agent dashboard priority grid — the actions an ordinary agent should reach instantly.
  *
- * The three priorities an ordinary agent should reach instantly, in plain words:
- *   1. Collect Rent  — record cash collected today (live total)
- *   2. Add Tenant    — start a rent request
- *   3. List House    — register an empty house and earn a bonus
+ *   1. Post rent request here — the major action: post a rent request for a tenant
+ *   2. List House             — register an empty house and earn a bonus
+ *
+ * "Post rent request here" is the major action: full width, primary colour, biggest
+ * tap target. It opens the same rent request screen the old "Add Tenant" tile opened.
  *
  * Designed for low-end Android browsers: 1.5x icon size, ≥80px tap target,
- * minimal text, plain language. Collect Rent uses local IndexedDB so it works offline.
+ * minimal text, plain language.
  */
 
 interface Props {
   agentId: string;
+  /** Opens the rent request screen — the major action. */
   onOpenNewTenant: () => void;
   onOpenListHouse: () => void;
   /**
-   * Merchant Agents are payout-only: hide Collect Rent / Add Tenant / List House.
+   * Merchant Agents are payout-only: hide Post rent request here / List House.
    */
   restricted?: boolean;
 }
@@ -31,17 +33,35 @@ export function AgentPriorityGrid({ onOpenNewTenant, onOpenListHouse, restricted
 
   return (
     <div className="flex flex-col gap-2.5">
-      {/* 3. Add Tenant — rent request (hidden for Merchant Agents) */}
+      {/* 1. Post rent request here — the major action (hidden for Merchant Agents) */}
       {!restricted && (
-      <PriorityTile
-        onClick={() => { hapticTap(); onOpenNewTenant(); }}
-        icon={<UserPlus className="h-6 w-6" strokeWidth={2.2} />}
-        iconBg="bg-emerald-600 text-white"
-        label="Add Tenant"
-        valueLabel="UGX 10,000"
-        sub="On landlord float disbursed"
-      />
+        <button
+          onClick={() => { hapticTap(); onOpenNewTenant(); }}
+          aria-label="Post rent request here — earn UGX 10,000 when the landlord float is disbursed"
+          title="Post a rent request for your tenant"
+          className="flex w-full flex-col items-start gap-2 rounded-2xl border border-primary/40 bg-primary p-4 text-left text-primary-foreground shadow-sm transition-all min-h-[132px] active:scale-[0.97] touch-manipulation focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          style={{ WebkitTapHighlightColor: 'transparent' }}
+        >
+          <div className="flex w-full items-center justify-between">
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary-foreground/15 shadow-sm">
+              <FileText className="h-7 w-7" strokeWidth={2.2} />
+            </div>
+            <ArrowRight className="h-4 w-4 opacity-80" />
+          </div>
+          <div className="w-full min-w-0">
+            <p className="text-[15px] font-bold uppercase leading-tight tracking-wide">
+              Post rent request here
+            </p>
+            <p className="mt-1 truncate text-sm font-semibold tabular-nums leading-tight opacity-95">
+              {formatUGX(10000)} bonus
+            </p>
+            <p className="mt-0.5 truncate text-[11px] opacity-85">
+              On landlord float disbursed
+            </p>
+          </div>
+        </button>
       )}
+
 
       {/* 4. List House — open empty house listing flow (hidden for Merchant Agents) */}
       {!restricted && (
