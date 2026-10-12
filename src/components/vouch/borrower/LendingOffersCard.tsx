@@ -18,7 +18,7 @@ interface OfferRow {
 }
 
 /** Borrower home: a short list of active lending offers with a clear "Request" button. */
-export function LendingOffersCard({ userId }: { userId: string }) {
+export function LendingOffersCard({ userId, showHeader = true }: { userId: string; showHeader?: boolean }) {
   const [offers, setOffers] = useState<OfferRow[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [open, setOpen] = useState(false);
@@ -50,9 +50,11 @@ export function LendingOffersCard({ userId }: { userId: string }) {
       <>
         <Card className="border-dashed">
           <CardContent className="p-3.5 space-y-2">
-            <p className="flex items-center gap-1.5 text-sm font-bold">
-              <HandCoins className="h-4 w-4 text-primary" /> Loan offers for you
-            </p>
+            {showHeader && (
+              <p className="flex items-center gap-1.5 text-sm font-bold">
+                <HandCoins className="h-4 w-4 text-primary" /> Loan offers for you
+              </p>
+            )}
             <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
               <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               No lending agents have published an offer right now. Agents publish offers when they have money ready to lend — new ones appear here automatically.
@@ -78,12 +80,14 @@ export function LendingOffersCard({ userId }: { userId: string }) {
     <>
       <Card>
         <CardContent className="p-3.5 space-y-2.5">
-          <div className="flex items-center justify-between">
-            <p className="flex items-center gap-1.5 text-sm font-bold">
-              <HandCoins className="h-4 w-4 text-primary" /> Loan offers for you
-            </p>
-            <button className="text-xs font-semibold text-primary" onClick={() => setOpen(true)}>See all</button>
-          </div>
+          {showHeader && (
+            <div className="flex items-center justify-between">
+              <p className="flex items-center gap-1.5 text-sm font-bold">
+                <HandCoins className="h-4 w-4 text-primary" /> Loan offers for you
+              </p>
+              <button className="text-xs font-semibold text-primary" onClick={() => setOpen(true)}>See all</button>
+            </div>
+          )}
           {offers.map((o) => (
             <div key={o.id} className="flex items-center gap-3 rounded-xl border bg-muted/20 p-2.5">
               <div className="min-w-0 flex-1">

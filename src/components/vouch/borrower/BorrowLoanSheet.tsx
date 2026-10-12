@@ -267,7 +267,7 @@ export default function BorrowLoanSheet({ open, onOpenChange, onOpenLendingPorta
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="h-[94vh] overflow-y-auto rounded-t-2xl px-4 pb-8 pt-5">
+      <SheetContent side="bottom" className="z-[120] h-[94vh] overflow-y-auto rounded-t-2xl px-4 pb-8 pt-5">
         <BorrowerResidenceGate
           open={gateOpen}
           onOpenChange={setGateOpen}

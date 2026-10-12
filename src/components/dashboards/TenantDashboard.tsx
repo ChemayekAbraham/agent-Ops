@@ -4,19 +4,14 @@ import { toast as sonnerToast } from 'sonner';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useOffline } from '@/contexts/OfflineContext';
-import { 
+import {
   WifiOff,
   RefreshCw,
   BadgeCheck,
   HandCoins,
+  ArrowLeft,
 } from 'lucide-react';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
+import { useBackGestureClose } from '@/hooks/useBackGestureClose';
 import { FindAHouseCTA } from '@/components/tenant/FindAHouseCTA';
 import { LendingOffersCard } from '@/components/vouch/borrower/LendingOffersCard';
 import { MyLoanRequestsCard } from '@/components/vouch/borrower/MyLoanRequestsCard';
@@ -181,6 +176,7 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
   }, []);
   const [housesOpen, setHousesOpen] = useState(false);
   const [loanOffersOpen, setLoanOffersOpen] = useState(false);
+  useBackGestureClose(loanOffersOpen, () => setLoanOffersOpen(false));
 
   // Dynamic telemetry tracking across tenant sheets and modals
   useEffect(() => {
@@ -470,25 +466,37 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
         </main>
       </div>
 
-      {/* Loan offers — opened from the header ☰ menu */}
-      <Sheet open={loanOffersOpen} onOpenChange={setLoanOffersOpen}>
-        <SheetContent
-          side="bottom"
-          className="rounded-t-2xl max-h-[85dvh] overflow-y-auto px-4 pb-6"
-        >
-          <SheetHeader className="text-left">
-            <SheetTitle className="flex items-center gap-1.5 text-sm font-bold">
-              <HandCoins className="h-4 w-4 text-primary" /> Loan offers for you
-            </SheetTitle>
-            <SheetDescription className="text-xs">
-              Active offers from lending agents — request one that fits you.
-            </SheetDescription>
-          </SheetHeader>
-          <WidgetErrorBoundary label="Loan offers">
-            <LendingOffersCard userId={uid} />
-          </WidgetErrorBoundary>
-        </SheetContent>
-      </Sheet>
+      {/* Loan offers — opened from the header ☰ menu, full page */}
+      {loanOffersOpen && (
+        <div className="fixed inset-0 z-[110] bg-background flex flex-col animate-fade-in">
+          <header className="flex items-start gap-1 border-b border-border/60 bg-background px-2 py-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="mt-0.5 h-9 w-9 shrink-0"
+              aria-label="Back to dashboard"
+              onClick={() => { hapticTap(); setLoanOffersOpen(false); }}
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div className="min-w-0 py-0.5">
+              <p className="flex items-center gap-1.5 text-sm font-bold leading-tight">
+                <HandCoins className="h-4 w-4 shrink-0 text-primary" /> Loan offers for you
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                Active offers from lending agents — request one that fits you.
+              </p>
+            </div>
+          </header>
+          <div className="flex-1 overflow-y-auto px-4 py-4 pb-nav">
+            <div className="mx-auto max-w-lg">
+              <WidgetErrorBoundary label="Loan offers">
+                <LendingOffersCard userId={uid} showHeader={false} />
+              </WidgetErrorBoundary>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Full-screen wallet sheet */}
       <FullScreenWalletSheet open={showWallet} onOpenChange={setShowWallet} />
