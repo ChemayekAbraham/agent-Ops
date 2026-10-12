@@ -1,11 +1,6 @@
 /**
- * The model behind the assistant. This is the ONLY file that knows which provider is in use, so
- * moving from OpenAI to a self-hosted model is a config change: point OPENAI_BASE_URL at any
- * OpenAI-compatible endpoint (vLLM, Ollama, ...) and set OPENAI_MODEL.
- *
- *   OPENAI_API_KEY   required (a Supabase secret; never in the frontend, never in .env)
- *   OPENAI_MODEL     default gpt-4o-mini
- *   OPENAI_BASE_URL  default https://api.openai.com/v1
+ * The model behind the assistant. This is the ONLY file that knows which provider is in use.
+ * It calls the Lovable AI Gateway (OpenAI-compatible chat completions) with LOVABLE_API_KEY.
  */
 
 export interface ChatMessage {
@@ -31,12 +26,13 @@ export class ModelError extends Error {}
 const TIMEOUT_MS = 25_000;
 
 function config() {
-  const apiKey = Deno.env.get("OPENAI_API_KEY");
-  if (!apiKey) throw new ModelError("OPENAI_API_KEY is not configured");
+  // Lovable AI Gateway (built in, billed to workspace credits; no third-party key needed).
+  const apiKey = Deno.env.get("LOVABLE_API_KEY");
+  if (!apiKey) throw new ModelError("LOVABLE_API_KEY is not configured");
   return {
     apiKey,
-    model: Deno.env.get("OPENAI_MODEL") || "gpt-4o-mini",
-    baseUrl: (Deno.env.get("OPENAI_BASE_URL") || "https://api.openai.com/v1").replace(/\/+$/, ""),
+    model: "google/gemini-3-flash-preview",
+    baseUrl: "https://ai.gateway.lovable.dev/v1",
   };
 }
 
@@ -51,7 +47,7 @@ export async function callModel(opts: {
     model,
     messages: opts.messages,
     temperature: 0,
-    max_tokens: opts.maxTokens ?? 400,
+    max_tokens: opts.maxTokens ?? 1500,
   };
   if (opts.tools?.length) {
     body.tools = opts.tools;

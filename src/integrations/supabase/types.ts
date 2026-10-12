@@ -60182,6 +60182,7 @@ export type Database = {
         Args: { p_agent: string; p_week_start: string }
         Returns: number
       }
+      _am_staff_ok: { Args: never; Returns: boolean }
       _can_renew_rent_request: {
         Args: {
           p_actor: string
@@ -61472,7 +61473,11 @@ export type Database = {
         }[]
       }
       am_plan_positions: {
-        Args: { p_from: string; p_include_self_payments?: boolean; p_to: string }
+        Args: {
+          p_from: string
+          p_include_self_payments?: boolean
+          p_to: string
+        }
         Returns: {
           agent_id: string
           arrears: number
