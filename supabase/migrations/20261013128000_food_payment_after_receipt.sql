@@ -1,10 +1,9 @@
 -- Food M1 — wallet payment after the employee confirms receipt.
 --
--- NOT APPLIED TO PRODUCTION. Applies after 20261013127000 (and, in
--- production, after 20261013126000, which removes direct ledger access from
--- signed-in users; these definer functions call the ledger as their owner,
--- which must hold EXECUTE on create_ledger_transaction other than through
--- PUBLIC: production evidence pack E6).
+-- NOT APPLIED TO PRODUCTION. Applies after 20261013127000. Independent of the
+-- ledger-boundary revoke (20261013129000, applied later): these definer
+-- functions call the ledger as their owner, which must hold EXECUTE on
+-- create_ledger_transaction other than through PUBLIC (evidence pack E6b).
 --
 -- APPROVED SEQUENCE (owner, 2026-10-13):
 --   1. The Food Coordinator marks the order delivered or collected.

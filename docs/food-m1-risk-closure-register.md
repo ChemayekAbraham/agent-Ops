@@ -518,3 +518,22 @@ Nothing was done in production or in `nykdsrixasxokqtfvvgw`. Nothing was pushed 
 **Unverified in production:**
 - that `public.wallets.id` equals `wallets_physical.id`, and that the live `create_ledger_transaction` resolves `wallet_id` the same way (E1 and E4);
 - the stand-in ledger copies the repo behaviour, not the live function.
+
+
+## Release-readiness pass (2026-10-13, after 99deced69d)
+
+Nothing in production was touched. No merge into or push to `lovable`.
+
+| ID | Item | Result | Evidence | Status |
+|---|---|---|---|---|
+| DEPS | Shared objects Food depends on, at the local `origin/lovable` tip `2b3a0f0144` (no fetch) | All defined: `create_ledger_transaction`, `check_transfer_recipient_eligibility`, `get_user_available_balance`, `profiles`, `user_roles`, `general_ledger`, `wallets_physical`, `wallets`, `treasury_controls`, `hr_*`, `v_pso_officers`. Upstream changes since the branch point only read them, add a SECURITY DEFINER ledger caller (`20261013200000`), or purge deleted accounts by freezing them and removing roles (`20261013190000`); for Food, a purged coordinator is **blocked**, never paid | repo scan; merge simulation: one conflict (`package-lock.json`), no new duplicate versions | **VERIFIED (repo)**; production **UNVERIFIED** |
+| ORDER-1 | `20261013126000` both created `post_portfolio_roi_ledger` and revoked direct ledger access, so the COO Partners Returns posting broke whichever of migration or frontend shipped first | **FIXED.** Split: `126000` creates the boundary only (no permission change); `20261013129000` performs the revoke and is applied after the new frontend is published and verified | ledger-boundary suite 32/32 on PostgreSQL 17 and 18, including the new A-32 (after part 1 only, the old direct path still works and the boundary exists) | **FIXED (local)** |
+| PACK-2 | The evidence pack did not check what wallet routing (`99deced69d`) relies on | **FIXED.** E1c reads the live `wallets` view definition, the `wallets_physical.id`/`user_id` columns and keys, and `general_ledger.wallet_id`; E2 lists `129000`; E6 targets `129000` | the pack runs locally (25 result sets; only the intended read-only probe error) | **READY**; production output **not supplied** |
+| RUNBOOK | Exact release steps | Added as section 7 of `docs/food-m1-production-evidence-and-isolation.md` (gates, nine ordered steps, rollback) | — | **DONE** |
+
+**Tests rerun:** only those invalidated by this pass.
+- The ledger-boundary suite on both PostgreSQL versions.
+- The evidence pack on a disposable database.
+- `guard:all`.
+
+Food SQL logic and TypeScript did not change (the `128000` edit is comment-only, verified by diff), so the Food suites (run 361/361, race 17/17, matrix 31/31, isolation 10/10, dry run 15/15, R2–R4 16/16, Food vitest 253, tsc 0) remain valid from `99deced69d`.

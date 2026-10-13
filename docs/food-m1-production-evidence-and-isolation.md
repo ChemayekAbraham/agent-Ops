@@ -85,7 +85,7 @@ Food also does **not** do any of the following:
 - The job must run as `service_role`. The function checks the JWT role claim; a cron job running as `postgres` without that claim is refused.
 - Owner approval is needed: this is a production configuration change.
 
-## 5. Impact of `20261013126000` (revoking direct ledger execution)
+## 5. Impact of the ledger boundary (`20261013126000` creates it; `20261013129000` revokes direct execution)
 
 **Repository evidence (subagent scan of 5,125 function definitions):**
 - 119 SQL functions post to `create_ledger_transaction*`; every one is SECURITY DEFINER in its latest definition. No invoker poster was found.
@@ -93,6 +93,12 @@ Food also does **not** do any of the following:
 - All 53 edge functions with a direct call use a service-role client.
 - No frontend call remains: `COOPartnersPage` now calls `post_portfolio_roi_ledger`, and the build guard enforces it.
 - A legacy overload `(uuid, jsonb, text, boolean)` (`20260504122059`) was never dropped. The migration's catch-all loop covers it.
+
+**Split for a safe release order (2026-10-13).**
+- `126000` now only creates `post_portfolio_roi_ledger`. It changes no permission, so the live COO page keeps working.
+- The revoke moved to `20261013129000`, which is applied only **after** the new COO page is published and verified.
+- The ledger-boundary suite checks the state in between: A-32 confirms the old direct path still works and the boundary exists. The suite passes 32/32 on PostgreSQL 17 and 18.
+- One more upstream ledger caller appeared on `lovable` after the scan: `pay_agent_posted_rent_bonus_on_landlord_paid` (`20261013200000`). It is SECURITY DEFINER, so the revoke does not affect it.
 
 **The release depends on the following, which is unverified in production:**
 - every definer caller's **owner** must keep EXECUTE after the revoke from PUBLIC (by owning the ledger function, being superuser, or holding an explicit grant);
@@ -111,14 +117,18 @@ These are queries E6, E6b and E6c. The local test showed E6b flags an owner with
 5. `20261012120000_food_m1_release_corrections`
 6. `20261013120001_food_meal_images`
 7. `20261013125000_food_staff_includes_pso`
-8. `20261013126000_ledger_direct_execute_boundary`, deployed together with the `COOPartnersPage.tsx` change
+8. `20261013126000_ledger_direct_execute_boundary` (part 1: creates the boundary only)
 9. `20261013127000_food_exception_self_resolution`
 10. `20261013128000_food_payment_after_receipt`
+11. `20261013129000_ledger_direct_execute_revoke` (part 2). Apply **only after** the new frontend is published and the COO Returns posting is verified (runbook step 8).
 
 **Production prerequisites** (Food calls these by name; E1 to E5 verify them):
 - `check_transfer_recipient_eligibility(uuid, text, uuid)`, `get_user_available_balance(uuid)`, `create_ledger_transaction(jsonb, text, boolean)`;
 - `treasury_controls` (with `value`), `general_ledger`, `wallets_physical`, `profiles.is_frozen` and `deleted_at`, `user_roles.enabled`;
 - `v_pso_officers`, `is_active_food_coordinator` (created by the Food migrations), and `storage` for meal photos.
+- For wallet routing: `public.wallets.id` = `wallets_physical.id` (one wallet per user) and `general_ledger.wallet_id`, filled by `create_ledger_transaction` (evidence E1c and E4).
+
+All of these are defined at the local `origin/lovable` tip `2b3a0f0144` (repository check). Upstream changes since our branch point only read them, call the ledger from a SECURITY DEFINER function, or (purge of deleted accounts, `20261013190000`) freeze the account and remove roles. For Food, that means a purged coordinator is **blocked**, never paid.
 
 **Merge preparation** (read-only `git merge-tree` against `origin/lovable`):
 - One textual conflict, in `package-lock.json`. Our side is the two portability commits (`79d9e07dba`, `716a115a88`); our `package.json` adds only the `test:food-db` script.
@@ -127,3 +137,32 @@ These are queries E6, E6b and E6c. The local test showed E6b flags an owner with
 - Pre-existing upstream issue, not caused by Food: `lovable` has two files with version `20261013090000`.
 
 **Moving `lovable` itself is a separate step.** It requires Lovable's agent to be idle, Josh's go-ahead, a fast-forward only, and a message to Lovable afterwards.
+
+## 7. Release runbook (exact order; every step needs its own go-ahead)
+
+**Gates before step 1:**
+- the evidence pack output (E0–E7) has been reviewed and shows no blocking difference;
+- owner decisions REV-D1, REV-D2, REV-D3 and HND-D1 are made;
+- if `nykdsrixasxokqtfvvgw` is to be used, the isolation checklist (section 2) is confirmed;
+- Josh's go-ahead is given.
+
+1. **Merge preparation.** In `release/food-m1-v2`, `git fetch origin`, then merge `origin/lovable` with a merge commit (no rebase).
+   - Resolve `package-lock.json` by taking `lovable`'s version.
+   - Run `npm run guard:all`, the Food database suites on PostgreSQL 17 and 18 (run, race, matrix, isolation, dry run, ledger boundary), R2–R4, the Food app tests and tsc.
+   - Push the feature branch.
+   - *The permission system has twice refused this merge from an assistant session; a person may need to run it.*
+2. **Confirm Lovable's agent is idle** (`get_project` → `agentFinished`; no new `lovable-sync-*` branch).
+3. **Apply migrations 1–10** (section 6) in production, through the Lovable agent, **in that order**. Do **not** apply `20261013129000` yet.
+4. **Post-migration read-only check:** rerun E2 (all Food objects present; versions recorded), E1c and E6b.
+5. **Fast-forward `lovable`** to the merged release commit. Confirm the remote first; never force-push.
+6. **Message Lovable** so it re-syncs on purpose, and let it publish the frontend.
+7. **Smoke test** with approved test accounts only:
+   - the COO Partners Returns compounding posts through `post_portfolio_roi_ledger`;
+   - the Food menu loads, an order can be placed, delivered and receipt-confirmed;
+   - a payment is made only with explicitly approved accounts and amounts, per the controlled transaction test plan, and then reconciled.
+8. **Apply `20261013129000_ledger_direct_execute_revoke`** through the Lovable agent, then rerun E6 and E6b and repeat the COO smoke test.
+9. **Operations:** enable a scheduled reconciliation only if REV-D3 approves it (section 4). Monitor `payment_blocked` and `payment_reversed` events.
+
+**Rollback per step:**
+- Steps 3–6: each migration header has a ROLLBACK note. Revert the frontend by fast-forwarding a revert commit; never rewrite `lovable`.
+- Step 8: re-grant only if absolutely required, and record why.

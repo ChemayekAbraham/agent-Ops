@@ -77,6 +77,30 @@ SELECT table_name, column_name, data_type
      OR (table_name = 'wallets' AND column_name = 'user_id'))
  ORDER BY 1, 2;
 
+-- E1c. Wallet routing (release commit 99deced69d). Food records the
+--   coordinator's wallets_physical.id at receipt and requires the ledger's
+--   credit leg to carry exactly that id in general_ledger.wallet_id. The shared
+--   create_ledger_transaction fills wallet_id itself from public.wallets by
+--   user_id (repo 20260914180000; confirm in the E4 definition text).
+--   repo: public.wallets is a view whose id IS wallets_physical.id (20260723195215).
+--   PROVES: the live view still maps wallets.id to wallets_physical.id, one
+--           wallet per user, and the ledger column Food verifies exists.
+--   CANNOT PROVE: how the live ledger function fills wallet_id (read E4).
+SELECT c.relkind AS wallets_kind,
+       CASE WHEN c.relkind = 'v' THEN pg_get_viewdef('public.wallets'::regclass, true) END AS wallets_view_definition
+  FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+ WHERE n.nspname = 'public' AND c.relname = 'wallets';
+SELECT table_name, column_name, data_type
+  FROM information_schema.columns
+ WHERE table_schema = 'public'
+   AND ((table_name = 'wallets_physical' AND column_name IN ('id', 'user_id'))
+     OR (table_name = 'wallets' AND column_name = 'id')
+     OR (table_name = 'general_ledger' AND column_name = 'wallet_id'))
+ ORDER BY 1, 2;
+SELECT conname, pg_get_constraintdef(oid) AS definition
+  FROM pg_constraint
+ WHERE conrelid = 'public.wallets_physical'::regclass AND contype IN ('u', 'p');
+
 -- ─────────────────────────────────────────────────────────────────────────
 -- E2. Food M1 presence and migration status
 --   Expected today: NO Food objects and NO Food versions (never deployed).
@@ -89,7 +113,7 @@ SELECT version, name
  WHERE version IN ('20261009120000', '20261009120001', '20261009130000', '20261009130001',
                    '20261009160000', '20261009170000', '20261012120000', '20261013120000',
                    '20261013120001', '20261013125000', '20261013126000', '20261013127000',
-                   '20261013128000')
+                   '20261013128000', '20261013129000')
  ORDER BY version;
 --   (20261009120000, 20261009130000, 20261013120000 are EXPECTED to exist: they
 --    are lovable's Apophia, Emma and CTO-report migrations. Food uses …0001.)
@@ -197,8 +221,9 @@ SELECT p.oid::regprocedure FROM pg_proc p JOIN pg_namespace n ON n.oid = p.prona
  WHERE n.nspname = 'public' AND p.prosrc LIKE '%-REV%' ORDER BY 1;
 
 -- ─────────────────────────────────────────────────────────────────────────
--- E6. Permission impact of 20261013126000 (revokes EXECUTE on
---     create_ledger_transaction% from PUBLIC, anon, authenticated)
+-- E6. Permission impact of 20261013129000 (part 2 of the ledger boundary,
+--     split from 20261013126000: revokes EXECUTE on create_ledger_transaction%
+--     from PUBLIC, anon, authenticated; applied only after the new COO page ships)
 --   PROVES: who can execute today; which functions call the ledger as
 --           SECURITY INVOKER (those would fail for user-session callers after
 --           the revoke); the owner that definer callers (incl. Food) run as.
