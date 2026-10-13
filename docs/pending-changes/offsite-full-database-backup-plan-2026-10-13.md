@@ -19,6 +19,10 @@ an additional safeguard; if not, it is the primary one.
 
 ### Decisions needed from Josh / CEO (code cannot make these)
 1. **Destination — DECIDED 2026-10-13 (Josh): the separate Supabase project `fqvgfkqxykaxzndhbaps`** (private Storage bucket).
+   CONFIRMED by Josh 2026-10-13: owner `weliletenants@gmail.com` (SAME login as production — fails requirement (a); one compromised
+   login reaches both copies, so move ownership to a separate account or add a different owner before any data goes in),
+   region eu-west-1 (Ireland), project already has tables (contents unknown — inspect before use), public sign-up was open
+   (`disable_signup:false`, checked 2026-10-13 from outside) and must be switched off.
    Still to confirm: (a) which account owns it and that it is NOT the same account/login as production, (b) its region
    (Settings → Infrastructure), (c) the bucket is private with no public policy, (d) who has access. It is a new PDPO entry
    (a copy of ALL personal data), and it is still Supabase, so it protects against losing the production project, not
