@@ -293,7 +293,7 @@ export function CFOROIRequests() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map(op => {
+              {filtered.map((op, index) => {
                 const meta = op.metadata as Record<string, any> | null;
                 const isAltWallet = op.operation_type === 'roi_split_alt_wallet';
                 const isProxy = !!op.target_wallet_user_id && !isAltWallet;
@@ -305,6 +305,7 @@ export function CFOROIRequests() {
                 return (
                   <Fragment key={op.id}>
                     <TableRow className="align-top">
+                      <TableCell className="text-right text-xs text-muted-foreground tabular-nums align-top">{index + 1}</TableCell>
                       <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
                         {format(new Date(op.created_at), 'dd MMM yyyy')}<br />{format(new Date(op.created_at), 'HH:mm')}
                       </TableCell>
