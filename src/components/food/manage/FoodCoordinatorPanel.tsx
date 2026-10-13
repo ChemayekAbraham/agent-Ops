@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import FoodLoadError from '@/components/food/FoodLoadError';
 import { Lock, ShieldCheck, UserCog } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -27,7 +28,8 @@ function when(iso: string): string {
 }
 
 export default function FoodCoordinatorPanel({ canAuthor }: { canAuthor: boolean }) {
-  const { data: assignments, isLoading } = useFoodCoordinatorAssignments();
+  const assignmentsQ = useFoodCoordinatorAssignments();
+  const { data: assignments, isLoading } = assignmentsQ;
   const { data: status } = useFoodCoordinatorStatus();
   const transfer = useTransferFoodCoordinator();
 
@@ -51,6 +53,7 @@ export default function FoodCoordinatorPanel({ canAuthor }: { canAuthor: boolean
 
   return (
     <div className="space-y-6">
+      <FoodLoadError queries={[assignmentsQ]} />
       <section>
         <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold">
           <ShieldCheck className="h-4 w-4" aria-hidden="true" />

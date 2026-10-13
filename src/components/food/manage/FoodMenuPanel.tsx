@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import FoodLoadError from '@/components/food/FoodLoadError';
 import { Plus, Tags, UtensilsCrossed } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -37,10 +38,14 @@ const EMPTY: MealForm = { id: null, name: '', description: '', categoryId: '', p
 const NO_CATEGORY = '__none__';
 
 export default function FoodMenuPanel({ canAuthor }: { canAuthor: boolean }) {
-  const { data: meals, isLoading } = useFoodMeals();
-  const { data: categories } = useFoodCategories();
-  const { data: periods } = useFoodServicePeriods();
-  const { data: menu } = useFoodMenu();
+  const mealsQ = useFoodMeals();
+  const { data: meals, isLoading } = mealsQ;
+  const categoriesQ = useFoodCategories();
+  const { data: categories } = categoriesQ;
+  const periodsQ = useFoodServicePeriods();
+  const { data: periods } = periodsQ;
+  const menuQ = useFoodMenu();
+  const { data: menu } = menuQ;
 
   const upsertMeal = useUpsertFoodMeal();
   const setStatus = useSetFoodMealStatus();
@@ -97,6 +102,7 @@ export default function FoodMenuPanel({ canAuthor }: { canAuthor: boolean }) {
 
   return (
     <div className="space-y-6">
+      <FoodLoadError queries={[mealsQ, categoriesQ, periodsQ, menuQ]} />
       {/* ── meals ───────────────────────────────────────────── */}
       <section>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">

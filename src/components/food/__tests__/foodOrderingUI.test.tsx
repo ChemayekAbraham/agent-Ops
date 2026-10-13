@@ -667,3 +667,27 @@ describe('Exception pickers offer the nine approved kinds', () => {
     expect(options).toEqual(NINE);
   });
 });
+
+describe('Keyboard use (UI acceptance)', () => {
+  it('chooses a payment mode and places an order with the keyboard only', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<FoodOrderingPage />);
+    await screen.findByText('Lunch');
+    const pilau = screen.getByText('Chicken Pilau').closest('article')!;
+    within(pilau).getByRole('button', { name: /^add$/i }).focus();
+    await user.keyboard('{Enter}');
+    const review = await screen.findByRole('button', { name: /review order/i });
+    review.focus();
+    await user.keyboard('{Enter}');
+    const cash = await screen.findByRole('radio', { name: /^cash$/i });
+    cash.focus();
+    await user.keyboard(' ');
+    expect(cash).toBeChecked();
+    const place = screen.getByRole('button', { name: /place order/i });
+    expect(place).toBeEnabled();
+    place.focus();
+    await user.keyboard('{Enter}');
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: /review order/i })).not.toBeInTheDocument());
+  });
+});

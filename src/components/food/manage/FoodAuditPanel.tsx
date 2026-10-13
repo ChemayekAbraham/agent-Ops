@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import FoodLoadError from '@/components/food/FoodLoadError';
 import { History, Lock, TriangleAlert } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -52,8 +53,10 @@ function Evidence({ e, orderRef }: { e: FoodException; orderRef: (id: string) =>
 }
 
 export default function FoodAuditPanel({ canAuthor = false }: { canAuthor?: boolean }) {
-  const { data: audit, isLoading } = useFoodAuditHistory();
-  const { data: exceptions } = useFoodExceptions();
+  const auditQ = useFoodAuditHistory();
+  const { data: audit, isLoading } = auditQ;
+  const exceptionsQ = useFoodExceptions();
+  const { data: exceptions } = exceptionsQ;
   const resolve = useResolveFoodException();
 
   const [target, setTarget] = useState<FoodException | null>(null);
@@ -78,6 +81,7 @@ export default function FoodAuditPanel({ canAuthor = false }: { canAuthor?: bool
 
   return (
     <div className="space-y-6">
+      <FoodLoadError queries={[auditQ, exceptionsQ]} />
       <section>
         <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold">
           <TriangleAlert className="h-4 w-4" aria-hidden="true" />

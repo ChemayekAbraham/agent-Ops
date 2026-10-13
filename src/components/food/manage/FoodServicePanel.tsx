@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import FoodLoadError from '@/components/food/FoodLoadError';
 import { CalendarOff, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,8 +14,10 @@ import {
 const EMPTY_PERIOD = { name: '', opensAt: '', closesAt: '', instructions: '', maxQty: '' };
 
 export default function FoodServicePanel({ canAuthor }: { canAuthor: boolean }) {
-  const { data: periods, isLoading } = useFoodServicePeriods(true);
-  const { data: closures } = useFoodClosures();
+  const periodsQ = useFoodServicePeriods(true);
+  const { data: periods, isLoading } = periodsQ;
+  const closuresQ = useFoodClosures();
+  const { data: closures } = closuresQ;
   const upsertPeriod = useUpsertFoodServicePeriod();
   const setClosure = useSetFoodClosure();
 
@@ -30,6 +33,7 @@ export default function FoodServicePanel({ canAuthor }: { canAuthor: boolean }) 
 
   return (
     <div className="space-y-6">
+      <FoodLoadError queries={[periodsQ, closuresQ]} />
       <section>
         <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold">
           <Clock className="h-4 w-4" aria-hidden="true" />

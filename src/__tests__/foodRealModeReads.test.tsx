@@ -21,6 +21,7 @@ type Call = { table: string; ops: Array<[string, unknown[]]> };
 const calls: Call[] = [];
 const rpcCalls: Array<[string, unknown]> = [];
 const authListeners: Array<(event: string) => void> = [];
+const failTables = new Set<string>();
 let rows: Record<string, unknown>[] = [];
 
 function builder(table: string) {
@@ -30,7 +31,9 @@ function builder(table: string) {
   for (const op of ['select', 'eq', 'is', 'order', 'limit']) {
     b[op] = (...args: unknown[]) => { call.ops.push([op, args]); return b; };
   }
-  b.then = (resolve: (v: unknown) => void) => resolve({ data: rows, error: null });
+  b.then = (resolve: (v: unknown) => void) => resolve(failTables.has(table)
+    ? { data: null, error: { message: 'permission denied for table ' + table } }
+    : { data: rows, error: null });
   return b;
 }
 
@@ -73,7 +76,7 @@ function wrapper({ children }: { children: ReactNode }) {
   return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
 }
 
-beforeEach(() => { calls.length = 0; rpcCalls.length = 0; rows = []; });
+beforeEach(() => { calls.length = 0; rpcCalls.length = 0; rows = []; failTables.clear(); });
 
 describe('real-mode food reads', () => {
   it('runs against the real service when the fixture is not opted into', () => {
@@ -163,6 +166,38 @@ describe('navigation gates fail closed without retry storms (FM-33)', () => {
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(result.current.data).toBeUndefined();          // nav treats undefined as hidden
     expect(rpcCalls.slice(original).filter(([fn]) => fn === 'food_can_use_canteen')).toHaveLength(1);
+    spy.mockRestore();
+  });
+});
+
+describe('a failed read is never shown as an empty list (UI states)', () => {
+  it('the service panel shows an error with retry when its reads fail', async () => {
+    const { render, screen } = await import('@testing-library/react');
+    const { default: FoodServicePanel } = await import('@/components/food/manage/FoodServicePanel');
+    failTables.add('food_service_periods');
+    failTables.add('food_service_closures');
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<QueryClientProvider client={qc}><FoodServicePanel canAuthor /></QueryClientProvider>);
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent(/could not be loaded/i);
+    expect(alert).toHaveTextContent(/permission denied/i);
+  });
+
+  it('the coordinator-status gate makes one request on failure, and means no access (FM-33)', async () => {
+    const { supabase } = await import('@/integrations/supabase/client');
+    const before = rpcCalls.length;
+    const spy = vi.spyOn(supabase, 'rpc').mockImplementation(((fn: string) => {
+      rpcCalls.push([fn, null]);
+      return Promise.resolve({ data: null, error: { message: 'function does not exist' } });
+    }) as never);
+    const qc = new QueryClient();   // library default would retry 3 times
+    const w = ({ children }: { children: ReactNode }) =>
+      <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+    const { result } = renderHook(() => useFoodCoordinatorStatus(), { wrapper: w });
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.data?.isCoordinator).toBeUndefined();
+    // one attempt: is_food_coordinator and is_active_food_coordinator once each
+    expect(rpcCalls.slice(before).filter(([fn]) => fn === 'is_food_coordinator')).toHaveLength(1);
     spy.mockRestore();
   });
 });
