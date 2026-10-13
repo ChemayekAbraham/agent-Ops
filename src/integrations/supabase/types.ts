@@ -67115,6 +67115,10 @@ export type Database = {
           verified: number
         }[]
       }
+      get_cto_auth_metrics_forecast: {
+        Args: { p_history_days?: number }
+        Returns: Json
+      }
       get_cto_daily_addendum: { Args: { p_date?: string }; Returns: Json }
       get_cto_daily_report: { Args: { p_date?: string }; Returns: Json }
       get_cto_diagnostics: { Args: { p_date?: string }; Returns: Json }

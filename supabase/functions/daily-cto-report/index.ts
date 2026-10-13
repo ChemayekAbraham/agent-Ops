@@ -309,6 +309,16 @@ Deno.serve(async (req) => {
     } catch (e) {
       console.error('[daily-cto-report] otp usage threw', e);
     }
+    // Successful logins / OTPs with a naive 7-day forecast (all-hands action 001/09,
+    // best-effort: the report still ships if this RPC fails).
+    let authForecast: any = {};
+    try {
+      const { data: af, error: afErr } = await supabase.rpc('get_cto_auth_metrics_forecast', { p_history_days: 14 });
+      if (afErr) console.error('[daily-cto-report] auth forecast rpc failed', afErr);
+      else authForecast = af || {};
+    } catch (e) {
+      console.error('[daily-cto-report] auth forecast threw', e);
+    }
     const otpByCategory: any[] = Array.isArray(otpUsage.by_category) ? otpUsage.by_category : [];
     const otpTotals: any = otpUsage.totals || {};
 
@@ -1368,6 +1378,17 @@ Deno.serve(async (req) => {
         ['Monthly active share', 'Unreliable (bulk-stamped last_active_at)'],
         ['Emails sent today', fmt(M.sent_today)], ['Emails failed today', fmt(M.failed_today)],
         ['Emails suppressed today', fmt(M.suppressed_today)],
+        ...(authForecast?.window_totals ? (() => {
+          const w = authForecast.window_totals, f = authForecast.forecast_next_7d?.total_7d || {};
+          const rng = (x: any) => `${fmt(x?.expected)} (${fmt(x?.low)}-${fmt(x?.high)})`;
+          return [
+            ['Successful logins, last 14 days', `${fmt(w.login_successes)} of ${fmt(w.login_attempts)} attempts (${n(w.login_success_rate).toFixed(1)}%)`],
+            ['OTPs verified, last 14 days', `${fmt(w.otp_verified)} of ${fmt(w.otp_verify_attempts)} (${n(w.otp_verify_success_rate).toFixed(1)}%)`],
+            ['Forecast: successful logins, next 7 days', rng(f.login_successes)],
+            ['Forecast: OTPs verified, next 7 days', rng(f.otp_verified)],
+            ['Forecast method', 'Trailing 14-day daily mean, range = +/- 1 sd; not seasonal'],
+          ] as [string, string][];
+        })() : []),
         ['E-mail delivery (excludes SMS)', `${(100 - emailFailRate).toFixed(1)}%`], ['SMS rejected 30d', `${smsFailRateEarly.toFixed(1)}%`], ['Emails sent 7d', fmt(M.sent_7d)],
         ['Backup runs 7d', fmt(B.runs_7d)], ['Backup failures 7d', fmt(B.failures_7d)],
         ['Latest backup status', B.latest?.status ? String(B.latest.status) : 'none'],
