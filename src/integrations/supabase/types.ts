@@ -12748,6 +12748,54 @@ export type Database = {
         }
         Relationships: []
       }
+      db_rollback_burst_evidence: {
+        Row: {
+          by_backend: Json | null
+          captured_at: string
+          delta_rollback: number
+          running_cron: Json | null
+          running_queries: Json | null
+        }
+        Insert: {
+          by_backend?: Json | null
+          captured_at: string
+          delta_rollback: number
+          running_cron?: Json | null
+          running_queries?: Json | null
+        }
+        Update: {
+          by_backend?: Json | null
+          captured_at?: string
+          delta_rollback?: number
+          running_cron?: Json | null
+          running_queries?: Json | null
+        }
+        Relationships: []
+      }
+      db_rollback_minute: {
+        Row: {
+          captured_at: string
+          delta_commit: number | null
+          delta_rollback: number | null
+          xact_commit: number
+          xact_rollback: number
+        }
+        Insert: {
+          captured_at: string
+          delta_commit?: number | null
+          delta_rollback?: number | null
+          xact_commit: number
+          xact_rollback: number
+        }
+        Update: {
+          captured_at?: string
+          delta_commit?: number | null
+          delta_rollback?: number | null
+          xact_commit?: number
+          xact_rollback?: number
+        }
+        Relationships: []
+      }
       db_stat_hourly: {
         Row: {
           backends: number | null
@@ -62636,6 +62684,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      capture_rollback_minute: { Args: never; Returns: Json }
       capture_trust_signal: {
         Args: {
           p_accuracy?: number
@@ -74938,6 +74987,14 @@ export type Database = {
       sms_forwarder_shadow_coverage: {
         Args: { p_hours?: number }
         Returns: Json
+      }
+      sms_row_invalid_destination: {
+        Args: { p_error: string }
+        Returns: boolean
+      }
+      sms_row_is_recovered: {
+        Args: { p_at: string; p_phone: string; p_status: string }
+        Returns: boolean
       }
       sms_segment_count: { Args: { p_message: string }; Returns: number }
       snapshot_agent_daily_eligibility: {
