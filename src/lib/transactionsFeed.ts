@@ -72,12 +72,19 @@ export const TX_ITEM_OPTIONS: { value: TxItemFilter; label: string }[] = [
   ...WELILE_ITEMS.map((i) => ({ value: i as TxItemFilter, label: i })),
 ];
 
+/** Ledger source of a Food M1 meal payment; never a Welile item transfer. */
+export const FOOD_ORDER_SOURCE_TABLE = "food_orders";
+
 /** The Welile item an entry represents, or null when it isn't an item transfer. */
 export function welileItemOf(row: {
   category: string;
   description: string | null;
+  source_table?: string | null;
 }): WelileItem | null {
   if (row.category !== "wallet_transfer") return null;
+  // A canteen payment can name a meal ("Chapati", "Eggs", ...) in its
+  // description; it is identified by its source, never by that text.
+  if (row.source_table === FOOD_ORDER_SOURCE_TABLE) return null;
   const haystack = (row.description ?? "").toLowerCase();
   return WELILE_ITEMS.find((i) => haystack.includes(i.toLowerCase())) ?? null;
 }
@@ -416,7 +423,12 @@ export async function fetchTxFeedPage(
   const fetched = (data ?? []) as TxFeedRow[];
   const hasMore = fetched.length > TX_PAGE_SIZE;
   const pageRows = fetched.slice(0, TX_PAGE_SIZE);
-  const rows = pageRows.filter(isCustomerWalletLedgerEntryVisible);
+  const itemFilterOn = Boolean(filters.item && filters.item !== "all");
+  const rows = pageRows
+    .filter(isCustomerWalletLedgerEntryVisible)
+    // the item filter matches description text server-side; keep only rows
+    // that really are item transfers (excludes canteen payments)
+    .filter((r) => !itemFilterOn || welileItemOf(r) !== null);
   const last = pageRows[pageRows.length - 1];
 
   // Enrich person-to-person transfers with the counterparty's name + photo so

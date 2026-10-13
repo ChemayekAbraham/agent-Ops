@@ -490,13 +490,18 @@ Deno.serve(async (req) => {
     try {
       const { data: rx } = await adminClient
         .from('general_ledger')
-        .select('amount')
+        .select('amount, source_table')
         .eq('user_id', resolvedRecipientId)
         .eq('category', 'wallet_transfer')
         .eq('direction', 'cash_in')
         .gte('transaction_date', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
         .limit(5000);
-      const received = (rx ?? []).reduce((s: number, r: any) => s + Number(r.amount || 0), 0);
+      // Canteen meal payments (source_table 'food_orders') are not transfers
+      // received, so they never grow the Shopping Advance limit. Filtered here,
+      // not in the query, so rows with no source_table are kept as before.
+      const received = (rx ?? [])
+        .filter((r: { source_table?: string | null }) => r.source_table !== 'food_orders')
+        .reduce((s: number, r: any) => s + Number(r.amount || 0), 0);
       if (received > 0) advanceTotal = Math.min(ADV_MIN + received * 2, ADV_MAX);
     } catch { /* best-effort */ }
     const fmtUgx = (n: number) => `UGX ${Math.round(n).toLocaleString('en-US')}`;

@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
+import { planListingMediaDeletion, type RefusalReason } from "./media.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,21 +10,9 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-type MediaRef = { bucket: string; path: string };
-
-function parseMedia(raw: string | null | undefined): MediaRef | null {
-  if (!raw) return null;
-  const marker = "/storage/v1/object/public/";
-  const idx = raw.indexOf(marker);
-  if (idx === -1) return null;
-  const rest = raw.slice(idx + marker.length);
-  const slash = rest.indexOf("/");
-  if (slash <= 0) return null;
-  const bucket = rest.slice(0, slash);
-  const path = decodeURIComponent(rest.slice(slash + 1).split("?")[0]);
-  if (!bucket || !path) return null;
-  return { bucket, path };
-}
+// Which objects may be deleted is decided ONLY by ./media.ts: this project's
+// own Storage host, an authorised listing bucket, and a clean object path.
+// Everything else is refused, counted and reported, never deleted.
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -43,6 +32,7 @@ Deno.serve(async (req) => {
   let bytesFreed = 0;
   let skipped = 0;
   const errors: unknown[] = [];
+  const refusedMedia = new Map<string, { reason: RefusalReason; bucket?: string; count: number }>();
 
   try {
     for (let batch = 0; batch < maxBatches; batch++) {
@@ -56,14 +46,9 @@ Deno.serve(async (req) => {
       const ids = (rows as Array<{ id: string; image_urls: string[] | null; video_url: string | null }>).map((r) => r.id);
 
       // Gather media references from the listing row + listing_photos
-      const refs: MediaRef[] = [];
+      const raws: unknown[] = [];
       for (const r of rows as Array<{ image_urls: string[] | null; video_url: string | null }>) {
-        for (const url of r.image_urls ?? []) {
-          const ref = parseMedia(url);
-          if (ref) refs.push(ref);
-        }
-        const vref = parseMedia(r.video_url);
-        if (vref) refs.push(vref);
+        raws.push(...(r.image_urls ?? []), r.video_url);
       }
 
       const { data: photos, error: photoErr } = await admin
@@ -71,16 +56,15 @@ Deno.serve(async (req) => {
         .select("storage_path")
         .in("listing_id", ids);
       if (photoErr) errors.push({ stage: "listing_photos", message: photoErr.message });
-      for (const p of photos ?? []) {
-        const ref = parseMedia((p as { storage_path: string }).storage_path);
-        if (ref) refs.push(ref);
-      }
+      for (const p of photos ?? []) raws.push((p as { storage_path: string }).storage_path);
 
-      // Dedupe and group by bucket
-      const byBucket = new Map<string, Set<string>>();
-      for (const ref of refs) {
-        if (!byBucket.has(ref.bucket)) byBucket.set(ref.bucket, new Set());
-        byBucket.get(ref.bucket)!.add(ref.path);
+      // Dedupe and group by bucket: authorised listing buckets only
+      const { byBucket, refused } = planListingMediaDeletion(raws, SUPABASE_URL);
+      for (const r of refused) {
+        const key = `${r.reason}|${r.bucket ?? ""}`;
+        const hit = refusedMedia.get(key);
+        if (hit) hit.count += r.count;
+        else refusedMedia.set(key, { ...r });
       }
 
       // Measure size before removal so we can report freed bytes
@@ -122,6 +106,12 @@ Deno.serve(async (req) => {
     errors.push({ stage: "fatal", message: e instanceof Error ? e.message : String(e) });
   }
 
+  // Refused media is recorded in the run log for review, but is not a failure
+  // of the run: the listing is still purged, only the object is left alone.
+  const failed = errors.length > 0;
+  const mediaRefused = [...refusedMedia.values()];
+  if (mediaRefused.length > 0) errors.push({ stage: "media_refused", refused: mediaRefused });
+
   await admin.from("rejected_listing_purge_runs").insert({
     cutoff_days: days,
     listings_deleted: listingsDeleted,
@@ -134,14 +124,15 @@ Deno.serve(async (req) => {
 
   return new Response(
     JSON.stringify({
-      ok: errors.length === 0,
+      ok: !failed,
       listings_deleted: listingsDeleted,
       media_files_deleted: mediaDeleted,
       bytes_freed: bytesFreed,
       mb_freed: Number((bytesFreed / 1048576).toFixed(2)),
       skipped,
+      media_refused: mediaRefused,
       errors,
     }),
-    { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: errors.length === 0 ? 200 : 500 },
+    { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: failed ? 500 : 200 },
   );
 });

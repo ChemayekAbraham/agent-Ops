@@ -628,36 +628,16 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
       if (upErr) throw upErr;
 
       // Double-entry ledger: roi_expense + roi_reinvestment
-      const { error: ledgerErr } = await supabase.rpc('create_ledger_transaction', {
-        entries: [
-          {
-            user_id: detailPartner.profile.id,
-            ledger_scope: 'platform',
-            direction: 'cash_out',
-            amount: roiAmount,
-            category: 'roi_expense',
-            description: `ROI compounded: ${formatUGX(roiAmount)} reinvested into portfolio. New principal: ${formatUGX(newAmount)}. Ref: ${refId}`,
-            reference_id: refId,
-            source_table: 'investor_portfolios',
-            source_id: portfolio.id,
-            linked_party: user.id,
-            currency: 'UGX',
-          },
-          {
-            user_id: detailPartner.profile.id,
-            ledger_scope: 'platform',
-            direction: 'cash_in',
-            amount: roiAmount,
-            category: 'roi_reinvestment',
-            description: `ROI reinvestment: ${formatUGX(roiAmount)} added to principal. New principal: ${formatUGX(newAmount)}. Ref: ${refId}`,
-            reference_id: refId,
-            source_table: 'investor_portfolios',
-            source_id: portfolio.id,
-            linked_party: user.id,
-            currency: 'UGX',
-          },
-        ],
-      });
+      const { error: ledgerErr } = await supabase.rpc('post_portfolio_roi_ledger' as never, {
+        // Server-side boundary: the caller names the operation; the server checks
+        // the caller, bounds the amount, picks the recipient and builds the legs.
+        p_operation: 'compound',
+        p_portfolio_id: portfolio.id,
+        p_amount: roiAmount,
+        p_reference: refId,
+        p_description_out: `ROI compounded: ${formatUGX(roiAmount)} reinvested into portfolio. New principal: ${formatUGX(newAmount)}. Ref: ${refId}`,
+        p_description_in: `ROI reinvestment: ${formatUGX(roiAmount)} added to principal. New principal: ${formatUGX(newAmount)}. Ref: ${refId}`,
+      } as never);
       if (ledgerErr) throw ledgerErr;
 
       await supabase.from('audit_logs').insert({
@@ -5212,36 +5192,16 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
       if (upErr) throw upErr;
 
       // Reinvest ledger via RPC (double-entry: roi_expense + roi_reinvestment)
-      const { error: ledgerErr } = await supabase.rpc('create_ledger_transaction', {
-        entries: [
-          {
-            user_id: p.investorId,
-            ledger_scope: 'platform',
-            direction: 'cash_out',
-            amount: roiAmount,
-            category: 'roi_expense',
-            description: `ROI compounded: ${formatUGX(roiAmount)} reinvested into portfolio. New principal: ${formatUGX(newAmount)}. Reason: ${reason}`,
-            reference_id: refId,
-            source_table: 'investor_portfolios',
-            source_id: p.portfolioId,
-            linked_party: user.id,
-            currency: 'UGX',
-          },
-          {
-            user_id: p.investorId,
-            ledger_scope: 'platform',
-            direction: 'cash_in',
-            amount: roiAmount,
-            category: 'roi_reinvestment',
-            description: `ROI reinvestment: ${formatUGX(roiAmount)} added to principal. New principal: ${formatUGX(newAmount)}. Ref: ${refId}`,
-            reference_id: refId,
-            source_table: 'investor_portfolios',
-            source_id: p.portfolioId,
-            linked_party: user.id,
-            currency: 'UGX',
-          },
-        ],
-      });
+      const { error: ledgerErr } = await supabase.rpc('post_portfolio_roi_ledger' as never, {
+        // Server-side boundary: the caller names the operation; the server checks
+        // the caller, bounds the amount, picks the recipient and builds the legs.
+        p_operation: 'compound',
+        p_portfolio_id: p.portfolioId,
+        p_amount: roiAmount,
+        p_reference: refId,
+        p_description_out: `ROI compounded: ${formatUGX(roiAmount)} reinvested into portfolio. New principal: ${formatUGX(newAmount)}. Reason: ${reason}`,
+        p_description_in: `ROI reinvestment: ${formatUGX(roiAmount)} added to principal. New principal: ${formatUGX(newAmount)}. Ref: ${refId}`,
+      } as never);
       if (ledgerErr) throw ledgerErr;
 
       await supabase.from('audit_logs').insert({
@@ -5690,55 +5650,18 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
       }
 
       // Reinvest ledger via RPC (double-entry: roi_expense + roi_reinvestment)
-      const { error: ledgerErr } = await supabase.rpc('create_ledger_transaction', {
-        entries: [
-          {
-            user_id: p.investorId,
-            ledger_scope: 'platform',
-            direction: 'cash_out',
-            amount: reinvestAmount,
-            category: 'roi_expense',
-            description: `[Split ROI] ${formatUGX(reinvestAmount)} ${reinvestLabel}. ${isKeepReturns ? `Principal unchanged: ${formatUGX(p.investmentAmount)}` : `New principal: ${formatUGX(newPrincipal)}`}. Cash portion: ${formatUGX(cashAmount)} via ${modeLabel}. Reason: ${reason}`,
-            reference_id: refId,
-            source_table: 'investor_portfolios',
-            source_id: p.portfolioId,
-            linked_party: user.id,
-            currency: 'UGX',
-          },
-          {
-            // Keep-as-Returns for a managed-proxy partner lands on the AGENT's
-            // wallet (same custody rule as the cash portion) — never the
-            // partner's own, which enforce_managed_proxy_roi_routing rejects.
-            user_id: (isKeepReturns && isManagedProxy) ? managed!.agentId : p.investorId,
-            // "Keep as Returns" MUST land as real withdrawable wallet balance, not just
-            // a platform-scope ledger record — ledger_scope: 'platform' here was the
-            // actual root cause of the remainder never becoming withdrawable (it still
-            // posted a balanced ledger pair, but never fired sync_wallet_from_ledger).
-            // 'roi_reinvestment' (true compounding into principal) correctly stays
-            // platform-scope: no wallet money should move for that leg.
-            ledger_scope: isKeepReturns ? 'wallet' : 'platform',
-            direction: 'cash_in',
-            amount: reinvestAmount,
-            category: isKeepReturns ? 'roi_wallet_credit' : 'roi_reinvestment',
-            ...(isKeepReturns ? { recipient_type: 'user', wallet_bucket: 'withdrawable' } : {}),
-            description: (isKeepReturns && isManagedProxy)
+      const { error: ledgerErr } = await supabase.rpc('post_portfolio_roi_ledger' as never, {
+        // Server-side boundary: the caller names the operation; the server checks
+        // the caller, bounds the amount, picks the recipient and builds the legs.
+        p_operation: isKeepReturns ? 'split_keep_returns' : 'split_reinvest',
+        p_portfolio_id: p.portfolioId,
+        p_amount: reinvestAmount,
+        p_reference: refId,
+        p_description_out: `[Split ROI] ${formatUGX(reinvestAmount)} ${reinvestLabel}. ${isKeepReturns ? `Principal unchanged: ${formatUGX(p.investmentAmount)}` : `New principal: ${formatUGX(newPrincipal)}`}. Cash portion: ${formatUGX(cashAmount)} via ${modeLabel}. Reason: ${reason}`,
+        p_description_in: (isKeepReturns && isManagedProxy)
               ? `[Split ROI → Proxy Agent ${managed!.agentName}'s Wallet] ${formatUGX(reinvestAmount)} ${reinvestLabel} for managed partner ${p.name}. Ref: ${refId}`
               : `[Split ROI] ${formatUGX(reinvestAmount)} ${reinvestLabel}. Ref: ${refId}`,
-            reference_id: refId,
-            source_table: 'investor_portfolios',
-            source_id: p.portfolioId,
-            // Self-link when the money stays with the partner themselves. When it's
-            // routed to a managed proxy agent instead, linked_party stays the PARTNER
-            // (not the agent) so the credit is still correctly attributed to whose ROI
-            // this is — matching the same pattern approve-wallet-operation already uses
-            // for managed-proxy routing, and satisfying both ledger guards
-            // (block_proxy_custody_writes' approved-managed-proxy check, and
-            // enforce_managed_proxy_roi_routing's NEW.user_id = v_agent allow-path).
-            linked_party: p.investorId,
-            currency: 'UGX',
-          },
-        ],
-      });
+      } as never);
       if (ledgerErr) throw ledgerErr;
 
       // ── Cash portion: submit to pending_wallet_operations for CFO approval ──
