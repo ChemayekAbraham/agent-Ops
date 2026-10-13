@@ -587,9 +587,11 @@ export default function Auth() {
                     {isGoogleLoading ? <Loader2 className="btn-spin" /> : <GoogleMark />}
                     <span>Continue with Google</span>
                   </button>
+                  {/* Apple sign-in kept in code but hidden from the screen. */}
                   <button
                     type="button"
                     className="btn btn-apple"
+                    style={{ display: "none" }}
                     onClick={() => {
                       localStorage.setItem('welile_last_login_method', 'apple');
                       // OAuth sign-ins are always persistent — clear stale ephemeral flag.
