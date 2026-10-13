@@ -54,10 +54,6 @@ export default function AgentsMock() {
                 <p className="mt-1 text-[9px] opacity-70">expected today · {TENANTS_TOTAL} tenants</p>
               </div>
             </div>
-            <div className="relative mt-4 grid grid-cols-2 gap-2">
-              <div className="rounded-xl bg-primary/30 px-3 py-2"><p className="text-[8px] uppercase opacity-70">Collected today</p><p className="text-sm font-semibold">{amount(COLLECTED_TODAY)}</p><p className="text-[8px] opacity-70">{TENANTS_DONE} of {TENANTS_TOTAL} tenants paid</p></div>
-              <div className="rounded-xl bg-primary/30 px-3 py-2"><p className="text-[8px] uppercase opacity-70">Still to collect</p><p className="text-sm font-semibold">{amount(EXPECTED_TODAY - COLLECTED_TODAY)}</p><p className="text-[8px] opacity-70">{TENANTS_TOTAL - TENANTS_DONE} tenants left</p></div>
-            </div>
           </section>
           <div className="grid grid-cols-4 gap-1" aria-label="Agent shortcuts">
             {SHORTCUTS.map(({ label, Icon, color, to }) => <Button key={label} variant="ghost" onClick={() => (to ? navigate(to) : setNotice(label))} className="h-[64px] flex-col gap-1 px-0 text-[10px]"><span className={cn('flex h-8 w-8 items-center justify-center rounded-full bg-card', color)}><Icon className="!h-4 !w-4" /></span>{label}</Button>)}
