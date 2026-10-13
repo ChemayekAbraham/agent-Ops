@@ -143,6 +143,7 @@ export default function Auth() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user, loading: authLoading, signIn: authSignIn, roles: authRoles } = useAuth();
+  const [resetMethod, setResetMethod] = useState<"sms" | "email">("sms");
   const [emailLoginLoading, setEmailLoginLoading] = useState(false);
 
   // Internship funnel: auto-fill from query params and switch to signup
@@ -691,8 +692,8 @@ export default function Auth() {
                   <button type="submit" className="btn btn-primary" disabled={isLoading}>
                     {isLoading ? <><Loader2 className="btn-spin" /> <span className="truncate">{stageText}</span></> : <span>Sign in</span>}
                   </button>
-                  <button type="button" onClick={() => setLoginMode('otp')} className="btn-link-muted">
-                    Forgot password? Sign in with a code
+                  <button type="button" onClick={() => { if (phone) setResetPhone(phone); setResetStep('phone'); setIsForgotPassword(true); }} className="btn-link-muted">
+                    Forgot password? Send a reset code
                   </button>
                 </form>
 
@@ -829,8 +830,8 @@ export default function Auth() {
                   >
                     {emailLoginLoading ? <><Loader2 className="btn-spin" /> <span>Signing in…</span></> : <span>Sign in</span>}
                   </button>
-                  <button type="button" onClick={() => setLoginMode('otp')} className="btn-link-muted">
-                    Forgot password? Sign in with a code
+                  <button type="button" onClick={() => { if (phone) setResetPhone(phone); setResetStep('phone'); setIsForgotPassword(true); }} className="btn-link-muted">
+                    Forgot password? Send a reset code
                   </button>
                 </form>
             )}
@@ -959,26 +960,28 @@ export default function Auth() {
                     {resetStep === 'phone' ? '🔑 Reset Your Password' : resetStep === 'otp' ? '📱 Enter SMS Code' : '🔒 Create New Password'}
                   </p>
                   <p className="text-sm text-muted-foreground mt-1">
-                    {resetStep === 'phone' ? 'Enter your phone number and we\'ll send you a code via SMS' : resetStep === 'otp' ? `We sent a 6-digit code to ${resetPhone || 'your phone'}` : 'Choose a strong password you\'ll remember'}
+                    {resetStep === 'phone' ? (resetMethod === 'email' ? 'Enter your email and we\'ll send you a reset link' : 'Enter your phone number and we\'ll send you a code via SMS') : resetStep === 'otp' ? `We sent a 6-digit code to ${resetPhone || 'your phone'}` : 'Choose a strong password you\'ll remember'}
                   </p>
                 </div>
 
                 <form onSubmit={wrappedHandleSubmit} className="space-y-3">
                   {resetStep === 'phone' && (
                     <>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button type="button" onClick={() => { setResetMethod('sms'); setEmail(''); }} className={cn("h-12 rounded-xl border-2 text-sm font-semibold", resetMethod === 'sms' ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground")}>📲 Phone (SMS)</button>
+                        <button type="button" onClick={() => setResetMethod('email')} className={cn("h-12 rounded-xl border-2 text-sm font-semibold", resetMethod === 'email' ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground")}>📧 Email</button>
+                      </div>
+                      {resetMethod === 'sms' ? (
                       <div className="relative">
                         <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                         <Input type="tel" inputMode="tel" value={resetPhone} onChange={(e) => setResetPhone(e.target.value)} placeholder="Enter your phone number e.g. 0700123456" className="pl-11 h-14 text-base rounded-xl border-2 focus:border-primary" style={{ fontSize: '16px' }} autoFocus />
                       </div>
-                      <div className="relative flex items-center">
-                        <div className="flex-1 border-t border-border/40" />
-                        <span className="px-3 text-xs text-muted-foreground">or use email</span>
-                        <div className="flex-1 border-t border-border/40" />
-                      </div>
+                      ) : (
                       <div className="relative">
                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                        <Input type="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="pl-11 h-14 text-base rounded-xl border-2 focus:border-primary" style={{ fontSize: '16px' }} />
+                        <Input type="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="pl-11 h-14 text-base rounded-xl border-2 focus:border-primary" style={{ fontSize: '16px' }} autoFocus />
                       </div>
+                      )}
                     </>
                   )}
 
@@ -1022,7 +1025,7 @@ export default function Auth() {
                   )}
 
                   <Button type="submit" className="w-full h-14 text-base rounded-xl font-bold touch-manipulation active:scale-[0.98] shadow-md" disabled={isLoading} style={{ fontSize: '16px' }}>
-                    {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : resetStep === 'phone' ? (email ? '📧 Send Reset Link' : '📲 Send SMS Code') : resetStep === 'otp' ? '✅ Verify Code' : '🔐 Reset Password'}
+                    {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : resetStep === 'phone' ? (resetMethod === 'email' ? '📧 Send Reset Link' : '📲 Send SMS Code') : resetStep === 'otp' ? '✅ Verify Code' : '🔐 Reset Password'}
                   </Button>
                 </form>
 
