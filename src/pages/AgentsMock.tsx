@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { ArrowLeftRight, Bell, Building2, Calculator, CalendarDays, ChevronLeft, ChevronRight, Eye, EyeOff, FileText, Hand, Home, Menu, Store, Users, Wallet, type LucideIcon } from 'lucide-react';
+import { ArrowLeftRight, Bell, Building2, Calculator, CalendarDays, ChevronLeft, ChevronRight, Eye, EyeOff, FileText, Hand, Home, Menu, Store, Trophy, Users, Wallet, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -17,7 +17,7 @@ const CAPACITY_PCT = EXPECTED_TODAY > 0 ? Math.round((COLLECTED_TODAY / EXPECTED
 const SHORTCUTS: { label: string; Icon: LucideIcon; color: string; to?: string }[] = [
   { label: 'Calculator', Icon: Calculator, color: 'text-primary' },
   { label: 'Service Center', Icon: Store, color: 'text-info', to: '/agent/service-center' },
-  { label: 'Transactions', Icon: ArrowLeftRight, color: 'text-success' },
+  { label: 'Leaderboard', Icon: Trophy, color: 'text-success', to: '/dashboard/agents/leaderboard' },
   { label: 'Landlord Float', Icon: Building2, color: 'text-warning' },
 ];
 
