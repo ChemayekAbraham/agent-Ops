@@ -29,6 +29,7 @@ import { CalendarClock, ClipboardList, FileDown, History, LucideIcon, TrendingUp
 import { Button } from '@/components/ui/button';
 import { downloadPdf, generateWeeklyPerformancePdf } from '@/lib/tenantOpsWeeklyPerformancePdf';
 import { cn } from '@/lib/utils';
+import { PAYOUT_CLOCK_EXPLAINER } from '@/lib/payoutClockExplainer';
 import { WorkspaceEmptyState } from '@/components/executive/tenant-ops/workspace/WorkspaceEmptyState';
 import { WorkspaceMobileRow } from '@/components/executive/tenant-ops/workspace/WorkspaceMobileRow';
 import { TenantSelfPaymentWeeklyTrend } from '@/components/executive/tenant-ops/workspace/TenantSelfPaymentWeeklyTrend';
@@ -160,6 +161,7 @@ export function WeeklyPerformanceTab() {
           </p>
           <div className="space-y-0.5 text-[11px] text-muted-foreground" data-testid="weekly-clock-note">
             <p>{WEEKLY_CLOCK_NOTE}</p>
+            <p data-testid="payout-clock-explainer">{PAYOUT_CLOCK_EXPLAINER}</p>
             {current.landlord_not_paid_count != null && (
               <p data-testid="weekly-landlord-not-paid">{landlordNotPaidLine(current.landlord_not_paid_count)}</p>
             )}

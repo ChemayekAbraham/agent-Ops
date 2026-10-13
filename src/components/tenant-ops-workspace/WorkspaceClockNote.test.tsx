@@ -17,6 +17,13 @@ describe('WorkspaceClockNote', () => {
     expect(screen.queryByTestId('workspace-landlord-not-paid')).toBeNull();
   });
 
+  it('explains the clock in one sentence', () => {
+    render(<WorkspaceClockNote />);
+    expect(screen.getByTestId('payout-clock-explainer').textContent).toBe(
+      "Repayments count from the day after the landlord's last payment. Plans whose landlord is not paid yet are listed separately.",
+    );
+  });
+
   it('shows how many plans are not counted as owing', () => {
     state = { data: { total_plans: 82 } };
     render(<WorkspaceClockNote />);

@@ -1,4 +1,5 @@
 import { useLandlordNotPaid } from '@/hooks/tenantOpsWorkspace/useLandlordNotPaid';
+import { PAYOUT_CLOCK_EXPLAINER } from '@/lib/payoutClockExplainer';
 
 /**
  * One line of context above every Workspace section: where the repayment clock starts, and how many
@@ -10,6 +11,7 @@ export default function WorkspaceClockNote() {
   return (
     <div className="mb-3 space-y-0.5 text-xs text-muted-foreground" data-testid="workspace-clock-note">
       <p>Counted from the day after the landlord was paid</p>
+      <p data-testid="payout-clock-explainer">{PAYOUT_CLOCK_EXPLAINER}</p>
       {data && (
         <p data-testid="workspace-landlord-not-paid">
           Landlord not paid yet: {data.total_plans.toLocaleString('en-US')} plan{data.total_plans === 1 ? '' : 's'} (not

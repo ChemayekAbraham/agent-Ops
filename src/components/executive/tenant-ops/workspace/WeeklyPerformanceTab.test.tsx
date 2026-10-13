@@ -72,6 +72,9 @@ describe('WeeklyPerformanceTab on the landlord-paid clock', () => {
       'Landlord not paid yet: 98 plans (not counted as owing)',
     );
     expect(screen.queryByTestId('weekly-counting-changed')).toBeNull();
+    expect(screen.getByTestId('payout-clock-explainer').textContent).toContain(
+      "Repayments count from the day after the landlord's last payment.",
+    );
   });
 
   it('flags the week the counting changed on the figures and in the history', async () => {
