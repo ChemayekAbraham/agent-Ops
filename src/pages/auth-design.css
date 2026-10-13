@@ -352,3 +352,20 @@
 .welile-auth .roles-btn-stack { display: flex; flex-direction: column; gap: 4px; }
 .welile-auth .btn-link-muted { background: transparent; border: none; font-family: var(--font-body); font-size: 0.9rem; font-weight: 600; color: var(--color-text-muted); cursor: pointer; padding: 6px; }
 .welile-auth .btn-link-muted:hover { color: var(--color-text-main); }
+
+/* Create account (design screen 8) */
+.welile-auth .account-profile-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 2px 0 10px; }
+.welile-auth .account-title { font-family: var(--font-heading); font-size: 1.48rem; font-weight: 800; color: var(--color-text-main); line-height: 1.2; margin: 0; }
+.welile-auth .account-role-label { font-size: 0.86rem; font-weight: 700; color: var(--welile-purple); margin: 0; }
+.welile-auth .account-avatar-wrapper { width: 48px; height: 48px; border-radius: 50%; overflow: hidden; border: 2px solid var(--welile-purple-tint); background: var(--welile-purple-soft); flex-shrink: 0; }
+.welile-auth .account-avatar-img { width: 100%; height: 100%; object-fit: cover; }
+.welile-auth .account-value-box { margin: 0 0 12px; padding: 10px 14px; background: var(--color-subtle); border-radius: 12px; border: 1px solid var(--color-border-subtle); }
+.welile-auth .value-box-text { font-size: 0.8rem; color: var(--color-text-muted); line-height: 1.35; margin: 0; }
+.welile-auth .account-creation-form { display: flex; flex-direction: column; gap: 10px; }
+.welile-auth .form-row-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+@media (max-width: 340px) { .welile-auth .form-row-pair { grid-template-columns: 1fr; } }
+.welile-auth .security-guarantee-card { display: flex; align-items: center; gap: 10px; margin: 10px 0 0; padding: 10px 12px; background: var(--color-subtle); border-radius: 12px; border: 1px solid var(--color-border-subtle); }
+.welile-auth .security-shield-icon { width: 32px; height: 32px; flex-shrink: 0; color: var(--welile-purple); }
+.welile-auth .security-heading { font-family: var(--font-heading); font-size: 0.84rem; font-weight: 700; color: var(--color-text-main); margin: 0; }
+.welile-auth .security-text { font-size: 0.72rem; color: var(--color-text-muted); line-height: 1.25; margin: 0; }
+.welile-auth .signup-otp-box { border: 1px solid var(--color-border-subtle); background: var(--color-subtle); border-radius: 12px; padding: 10px 12px; }
