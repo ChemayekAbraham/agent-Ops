@@ -1,4 +1,4 @@
--- Rolled-back verification for 20261013200000_tops_tenant_classification.sql
+-- Rolled-back verification for 20261013201000_tops_tenant_classification.sql
 --
 -- Run against the live database. The functions are read-only; the few rows changed below to build edge cases
 -- are rolled back, and the block ends in RAISE EXCEPTION so the error text IS the report (steps with "pass").
