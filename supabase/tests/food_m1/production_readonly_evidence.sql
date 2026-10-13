@@ -33,8 +33,23 @@ SET statement_timeout = '60s';
 -- E0. Context: which database and role this output came from
 --   PROVES: the output belongs to the intended project and was taken read-only.
 --   CANNOT PROVE: anything about objects.
-SELECT current_database() AS db, current_user AS role, now() AS taken_at,
-       current_setting('transaction_read_only') AS read_only, version();
+SELECT current_database() AS db, current_user AS role, session_user AS login_role, now() AS taken_at,
+       current_setting('transaction_read_only') AS read_only,
+       current_setting('default_transaction_read_only') AS default_read_only, version();
+
+-- E0b. Proof that writes are rejected in this session.
+--   Expected output: ERROR  25006  cannot execute CREATE TABLE in a read-only transaction.
+--   The block ALWAYS ends in an exception, so even if read-only were somehow
+--   not in force, everything it did is rolled back: it can never leave an
+--   object behind. If the output is instead 'READ_ONLY_NOT_ENFORCED', stop and
+--   report it: the session is not read-only and nothing further should run.
+--   PROVES: this session cannot write.  CANNOT PROVE: anything about objects.
+DO $probe$
+BEGIN
+  CREATE TABLE public.food_m1_readonly_probe_do_not_create (x int);
+  RAISE EXCEPTION 'READ_ONLY_NOT_ENFORCED (rolled back; nothing was kept)';
+END
+$probe$;
 
 -- ─────────────────────────────────────────────────────────────────────────
 -- E1. Recipient eligibility (C-P2)
@@ -82,6 +97,8 @@ SELECT max(version) AS latest_applied_version FROM supabase_migrations.schema_mi
 SELECT c.relname, c.relkind
   FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
  WHERE n.nspname = 'public' AND c.relname LIKE 'food\_%' ORDER BY 1;
+--   (the release adds, among others: food_orders, food_order_events, food_audit,
+--    food_payment_attempts; none is expected to exist yet)
 SELECT p.oid::regprocedure, pg_get_userbyid(p.proowner) AS owner, p.proacl
   FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
  WHERE n.nspname = 'public'
@@ -202,11 +219,42 @@ SELECT p.oid::regprocedure, p.prosecdef AS security_definer,
    AND p.proname NOT LIKE 'create\_ledger\_transaction%'
    AND NOT p.prosecdef          -- invoker functions only: these break after the revoke
  ORDER BY 1;
+-- E6b. Definer callers (including, once deployed, food_pay_order) run the
+--   ledger function AS THEIR OWNER. After the revoke from PUBLIC an owner
+--   keeps EXECUTE only by owning the ledger function, being superuser, or
+--   holding an explicit (or role-inherited) grant. Any row with
+--   keeps_execute_without_public = false would break.
+--   PROVES: whether the revoke would break any existing definer caller.
+--   CANNOT PROVE: the owner the Food migrations will get (that is the role
+--   that applies them; E6c shows who owns existing functions).
+WITH ledger AS (
+  SELECT p.oid, p.proowner, coalesce(p.proacl, acldefault('f', p.proowner)) AS acl
+    FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'public' AND p.proname LIKE 'create\_ledger\_transaction%'
+), callers AS (
+  SELECT p.oid, p.proowner
+    FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+   WHERE n.nspname = 'public' AND p.prosecdef AND p.prosrc ILIKE '%create_ledger_transaction%'
+     AND p.proname NOT LIKE 'create\_ledger\_transaction%'
+)
+SELECT pg_get_userbyid(c.proowner) AS caller_owner, count(*) AS definer_callers, l.oid::regprocedure AS ledger_function,
+       bool_or(c.proowner = l.proowner
+               OR (SELECT rolsuper FROM pg_roles WHERE oid = c.proowner)
+               OR EXISTS (SELECT 1 FROM aclexplode(l.acl) a
+                           WHERE a.privilege_type = 'EXECUTE' AND a.grantee <> 0
+                             AND pg_has_role(c.proowner, a.grantee, 'USAGE'))) AS keeps_execute_without_public
+  FROM callers c CROSS JOIN ledger l
+ GROUP BY c.proowner, l.oid ORDER BY 1, 3;
+-- E6c. Who owns functions in public (the role migrations run as)
+SELECT pg_get_userbyid(p.proowner) AS owner, count(*) AS functions,
+       count(*) FILTER (WHERE p.prosecdef) AS security_definer
+  FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+ WHERE n.nspname = 'public' GROUP BY p.proowner ORDER BY 2 DESC;
 
 RESET statement_timeout;
 
 -- ─────────────────────────────────────────────────────────────────────────
--- E7. Not SQL: deployed edge-function source (request through the Lovable
---     agent, read-only export): wallet-transfer/index.ts, _shared/treasuryGuard.ts,
---     process-agent-advance-deductions/index.ts, run-wallet-transfer-schedules/index.ts.
+-- E7. Not SQL: deployed edge-function source. See
+--     docs/food-m1-production-evidence-and-isolation.md for the exact
+--     read-only export request to the Lovable agent.
 --   PROVES: the deployed standard path matches the repo copy compared here.

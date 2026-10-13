@@ -137,6 +137,11 @@ export interface FoodOrder {
   payee_id?: string | null;
   /** Last time the payment was re-checked against the ledger. */
   payment_verified_at?: string | null;
+  /** Payment attempt the order is on; above 1 only after an authorised retry. */
+  payment_attempt?: number;
+  /** Set when the payment was reversed or the payee became ineligible. */
+  payment_resolution_required?: boolean;
+  payment_resolution_reason?: string | null;
   special_instructions: string | null;
   placed_at: string;
   paid_at: string | null;

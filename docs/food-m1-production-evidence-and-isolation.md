@@ -1,0 +1,129 @@
+# Food M1: production evidence, test-project isolation and settlement operations
+
+This document is a companion to `supabase/tests/food_m1/production_readonly_evidence.sql` and `docs/food-m1-risk-closure-register.md`.
+
+**Nothing in this document is production-verified.** Production evidence exists only once an authorised operator returns the outputs requested here.
+
+## 1. Exporting the deployed edge functions (evidence E7)
+
+Ask the Lovable agent for a **read-only export**. It should change nothing, deploy nothing and run nothing. Suggested request:
+
+> Read-only request, please do not modify, deploy or invoke anything. Export the exact source currently **deployed** (not the repository copy) of these edge functions, with each function's deployment version/date if available:
+> `wallet-transfer/index.ts`, `_shared/treasuryGuard.ts`, `run-wallet-transfer-schedules/index.ts`, `process-agent-advance-deductions/index.ts`.
+> For each, also state whether it is deployed with JWT verification on or off.
+> Return the files verbatim. Do not include environment variable values or secrets.
+
+**What it proves:** whether the deployed standard transfer path makes the same checks as the repository copy that Food was compared against:
+- the treasury guard, using its debit scope;
+- recipient eligibility, called with item NULL and sender = payer;
+- the strict available-balance pre-check;
+- the ledger leg shape;
+- the advance-deduction sweep's use of `get_agent_sweepable_withdrawable`.
+
+**What it cannot prove:** database function bodies. Those come from E1 to E6.
+
+**Compare by:** saving the files outside the repository and running `git diff --no-index` against the repository copies at the release commit. Report every difference.
+
+## 2. Test-project isolation checklist (`nykdsrixasxokqtfvvgw`)
+
+Do **not** use the project until the owner has confirmed in writing every item below and has authorised test transactions there. A project name, a database name or a passing local isolation suite is **not** proof.
+
+| # | Evidence needed | From whom |
+|---|---|---|
+| 1 | Project identity: the dashboard project ref is `nykdsrixasxokqtfvvgw`, its organisation and owner, and that it is **not** `wirntoujqoyjobfhyelc` (production) nor a branch of it | Owner (screenshot of project settings) |
+| 2 | Database target: host or connection string shows the test ref; it is not a pooler or replica of production; no logical replication or foreign data wrapper to production (`SELECT * FROM pg_subscription; SELECT * FROM pg_foreign_server;` run there) | Operator |
+| 3 | Credential separation: its anon and service keys and DB password differ from production; no production secret is stored in its Edge Function secrets or Vault | Owner |
+| 4 | External integrations disabled or pointed at sandboxes: SMS (Yoola, Africa's Talking), email, mobile money, bank and Gmail polling, webhooks, `pg_net`/`http` targets, cron jobs (`SELECT jobname, schedule, command FROM cron.job;`) | Owner and operator |
+| 5 | No real wallet or ledger connected: its `general_ledger` / wallets are not populated from production, or are anonymised test data only; no job copies to or from production | Owner |
+| 6 | Personal data: no production personal data present (GDPR), or a documented legal basis and approved anonymisation | Owner / DPO |
+| 7 | Schema parity statement: which production schema it was created from and when, for interpreting test results | Owner |
+| 8 | Written authorisation naming the test accounts, the maximum amount per test transaction, and a rollback/compensation procedure | Owner |
+
+## 3. Reversed-order settlement and reconciliation specification
+
+When a Food payment is reversed through the standard Reverse feature, Food records it. Food **does not** prevent reversal; the shared feature allows it until the coordinator withdraws.
+
+Food then:
+- marks the order `payment_reversed`;
+- sets `payment_resolution_required`;
+- keeps the original transaction and paid time;
+- records on the attempt row (`food_payment_attempts`) the amount actually returned (`reversed_amount`, which may be **partial**), the reversal reference and when it was posted.
+
+Food also does **not** do any of the following:
+- charge the employee again;
+- repay the coordinator;
+- write anything off;
+- post anything.
+
+**Evidence an authorised reviewer needs to decide the case:**
+
+| Question | Evidence (all read-only) |
+|---|---|
+| What was paid? | `food_payment_attempts` row for the attempt: `amount`, `reference`, `transaction_group_id`, `paid_at`, `payer_id`, `payee_id`; the two `general_ledger` legs of `transaction_group_id` |
+| What came back to the employee? | `reversed_amount`, `reversal_reference` (`<reference>-REV`), `reversal_posted_at`; the `-REV` ledger legs (employee cash_in, coordinator cash_out) and the `system_events` row written by `reverse_wallet_transfer` (`action: sender_reversal`, `amount`, `sent`) |
+| What does the coordinator still hold from it? | `amount - reversed_amount` (zero for a full reversal) |
+| What does the employee owe again? | `reversed_amount` for that order (the order total if the reversal was full). Whether it is owed at all is a business decision, not a Food computation |
+| Who did what, when? | `food_order_events` (`paid`, `payment_reversed`, `payment_blocked`, `payment_retry_authorised`) and `food_audit` rows for the order. A `payment_reversed` row with no actor and the note "system reconciliation" was found by a scheduler |
+| Was the meal delivered and received? | `fulfilment_status`, `received_at`, `received_by`, and any `food_exceptions` for the order |
+
+**The only Food action available is `food_authorize_payment_retry(order, reason)`:**
+- Only the active coordinator can call it, and never for their own order.
+- It opens attempt *n+1* with its own reference (`-A<n>`) and key (`:<n>`), keeps the same payee and charges nobody.
+- The employee must then pay themselves, and every payment check applies again.
+- Any other outcome (waiver, repayment to the coordinator, or a manual settlement) is outside Food and needs an owner-approved process.
+
+## 4. Scheduling `food_reconcile_payments`: recommendation (not configured)
+
+**Recommendation for later approval:**
+- Run every 15 to 60 minutes as `service_role`, with `p_limit` 100.
+- If `more_pending` is true, run again until it is false, with at most N runs per cycle.
+- Alert when `reversed > 0`, or when `more_pending` is still true after N runs, which means a backlog.
+
+**Operational requirements:**
+- The function never posts and only changes `paid` to `payment_reversed` for the posting it checked. It is safe to retry and to run concurrently (RACE-REC); locked rows are skipped.
+- **Explicit cap:** 1 to 500 rows per call (organisation rule: every recurring automation has a batch cap).
+- The job must run as `service_role`. The function checks the JWT role claim; a cron job running as `postgres` without that claim is refused.
+- Owner approval is needed: this is a production configuration change.
+
+## 5. Impact of `20261013126000` (revoking direct ledger execution)
+
+**Repository evidence (subagent scan of 5,125 function definitions):**
+- 119 SQL functions post to `create_ledger_transaction*`; every one is SECURITY DEFINER in its latest definition. No invoker poster was found.
+- Every trigger function that posts is SECURITY DEFINER.
+- All 53 edge functions with a direct call use a service-role client.
+- No frontend call remains: `COOPartnersPage` now calls `post_portfolio_roi_ledger`, and the build guard enforces it.
+- A legacy overload `(uuid, jsonb, text, boolean)` (`20260504122059`) was never dropped. The migration's catch-all loop covers it.
+
+**The release depends on the following, which is unverified in production:**
+- every definer caller's **owner** must keep EXECUTE after the revoke from PUBLIC (by owning the ledger function, being superuser, or holding an explicit grant);
+- no production-only invoker function or external job calls the ledger as `authenticated`.
+
+These are queries E6, E6b and E6c. The local test showed E6b flags an owner without a grant. Do not weaken the revoke to make Food work.
+
+## 6. Migration order and merge plan
+
+**Apply in this order, explicitly.** These files are older than migrations already on `lovable`, so a "pending only" runner may skip or misorder them:
+
+1. `20261009120001_food_service_schema_and_coordinator`
+2. `20261009130001_food_service_operations_rpcs`
+3. `20261009160000_food_coordinator_candidates`
+4. `20261009170000_food_exception_resolution`
+5. `20261012120000_food_m1_release_corrections`
+6. `20261013120001_food_meal_images`
+7. `20261013125000_food_staff_includes_pso`
+8. `20261013126000_ledger_direct_execute_boundary`, deployed together with the `COOPartnersPage.tsx` change
+9. `20261013127000_food_exception_self_resolution`
+10. `20261013128000_food_payment_after_receipt`
+
+**Production prerequisites** (Food calls these by name; E1 to E5 verify them):
+- `check_transfer_recipient_eligibility(uuid, text, uuid)`, `get_user_available_balance(uuid)`, `create_ledger_transaction(jsonb, text, boolean)`;
+- `treasury_controls` (with `value`), `general_ledger`, `wallets_physical`, `profiles.is_frozen` and `deleted_at`, `user_roles.enabled`;
+- `v_pso_officers`, `is_active_food_coordinator` (created by the Food migrations), and `storage` for meal photos.
+
+**Merge preparation** (read-only `git merge-tree` against `origin/lovable`):
+- One textual conflict, in `package-lock.json`. Our side is the two portability commits (`79d9e07dba`, `716a115a88`); our `package.json` adds only the `test:food-db` script.
+- **Plan:** merge `origin/lovable` into `release/food-m1-v2` with a merge commit (no rebase); take `lovable`'s lockfile; re-apply only the portability fix if Lovable's install needs it; rerun every suite.
+- No new duplicate migration versions after the merge.
+- Pre-existing upstream issue, not caused by Food: `lovable` has two files with version `20261013090000`.
+
+**Moving `lovable` itself is a separate step.** It requires Lovable's agent to be idle, Josh's go-ahead, a fast-forward only, and a message to Lovable afterwards.

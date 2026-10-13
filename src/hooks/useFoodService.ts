@@ -738,7 +738,10 @@ export type FoodPayResult =
   | { status: 'failed'; order_id: string; reason: 'insufficient_funds' }
   // a retry found the earlier payment reversed (standard sender reversal);
   // the order is no longer paid (20261013128000)
-  | { status: 'payment_reversed'; order_id: string; reason: string };
+  | { status: 'payment_reversed'; order_id: string; problem: string; reversed_amount?: number | null; partial?: boolean }
+  // the receipt-time coordinator can no longer be paid; nothing was posted and
+  // the order is flagged for another active coordinator to resolve
+  | { status: 'blocked'; order_id: string; reason: 'recipient_ineligible'; detail: string; escalate: true };
 
 /**
  * Pay for a received order from the employee's own Welile wallet. The server
@@ -755,6 +758,7 @@ export function usePayFoodOrder() {
       invalidateFood(qc);
       if (r.status === 'paid') toast.success(r.replayed ? 'This order is already paid' : 'Paid from your wallet');
       else if (r.status === 'payment_reversed') toast.error('This payment was reversed, so the order is no longer paid.');
+      else if (r.status === 'blocked') toast.error('The Food Coordinator for this order cannot receive payment right now. Nothing was charged; a coordinator has been asked to resolve it.');
       else toast.error('Not enough in your wallet to pay. Nothing was charged; top up and try again.');
     },
     onError,
@@ -783,6 +787,22 @@ export function useReconcileFoodPayments() {
     mutationFn: (v: { limit?: number } = {}) =>
       call<{ checked: number; reversed: number; limit: number; more_pending: boolean }>(
         'food_reconcile_payments', { p_limit: v.limit ?? 100 }),
+    onSuccess: () => invalidateFood(qc),
+    onError,
+  });
+}
+
+/**
+ * Active coordinator: open a new payment attempt for an order whose payment
+ * was reversed. Charges nobody and keeps the original payee; the employee
+ * must pay again themselves. A reason is recorded.
+ */
+export function useAuthorizeFoodPaymentRetry() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { orderId: string; reason: string }) =>
+      call<{ status: 'pending_payment'; order_id: string; attempt: number; payee_id: string }>(
+        'food_authorize_payment_retry', { p_order_id: v.orderId, p_reason: v.reason }),
     onSuccess: () => invalidateFood(qc),
     onError,
   });

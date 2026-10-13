@@ -30,6 +30,11 @@ P -d "$db" -f "$here/05_ledger_standin.sql" >/dev/null
 # welile_transfer_items and check_transfer_recipient_eligibility; the schedule
 # function in that file needs tables the scaffold does not have).
 sed -n '/^CREATE OR REPLACE FUNCTION public.welile_transfer_items/,/^GRANT EXECUTE ON FUNCTION public.check_transfer_recipient_eligibility/p'   "$root"/drizzle/migrations/0045_transfer_recipient_eligibility.sql | P -d "$db" >/dev/null
+# the standard sender reversal (drizzle 0451/0453, verbatim) for RACE-REC
+sed -n '/^CREATE OR REPLACE FUNCTION public.wallet_transfer_reversal_status/,/^\$function\$;/p' \
+  "$root"/drizzle/migrations/0453_wallet_transfer_reversal_status_reversed_at.sql | P -d "$db" >/dev/null
+sed -n '/^CREATE OR REPLACE FUNCTION public.reverse_wallet_transfer/,/^\$\$;/p' \
+  "$root"/drizzle/migrations/0451_wallet_transfer_reversal_atomic_and_notify.sql | P -d "$db" >/dev/null
 
 A=f0000000-0000-4000-8000-0000000000a1; B=f0000000-0000-4000-8000-0000000000b1
 # session(user, menu_item, key, hold_seconds) -> prints OK or the SQLSTATE
@@ -137,5 +142,35 @@ check "RACE-PAY-1 the first session pays (not a replay)" "$(cat "$s1")" "OK paid
 check "RACE-PAY-2 the second session waits, then gets the same payment back" "$(cat "$s2")" "OK paid replayed=true"
 legs=$(P -At -d "$db" -c "select count(*)||'/'||count(distinct transaction_group_id) from general_ledger where source_id='$ORD'")
 check "RACE-PAY-3 exactly one posting: two legs, one transaction" "$legs" "2/1"
+# ── RACE-REC: the employee reverses the payment; two reconcilers run at once. ──
+P -d "$db" >/dev/null <<SQL
+BEGIN;
+SELECT set_config('request.jwt.claims', '{"sub":"$B","role":"authenticated"}', true);
+SET LOCAL ROLE authenticated;
+SELECT public.reverse_wallet_transfer((SELECT 'FOODPAY-' || order_reference FROM public.food_orders WHERE id = '$ORD'));
+COMMIT;
+SQL
+rec() {
+  psql -X -q -At -d "$db" -v ON_ERROR_STOP=1 2>&1 <<SQL | grep -E '^(OK|ERROR)' | head -1
+BEGIN;
+SELECT set_config('request.jwt.claims', '{"role":"service_role"}', true);
+SET LOCAL ROLE service_role;
+SET LOCAL lock_timeout = '10s';
+\set VERBOSITY sqlstate
+SELECT 'OK ' || (r->>'reversed') FROM (SELECT public.food_reconcile_payments(10) AS r) x;
+SELECT pg_sleep($1);
+COMMIT;
+SQL
+}
+rec 2 >"$s1" &
+sleep 0.5
+rec 0 >"$s2" &
+wait
+both="$(cat "$s1") / $(cat "$s2")"
+check "RACE-REC-1 exactly one concurrent reconciler marks the reversal" "$both" "OK 1 / OK 0"
+n=$(P -At -d "$db" -c "select count(*) from food_order_events where order_id='$ORD' and event_type='payment_reversed'")
+check "RACE-REC-2 the reversal is recorded once" "$n" "1"
+st=$(P -At -d "$db" -c "select payment_status || '/' || (select count(*) from general_ledger where source_id='$ORD') from food_orders where id='$ORD'")
+check "RACE-REC-3 order reversed; reconcilers posted nothing" "$st" "payment_reversed/2"
 rm -f "$s1" "$s2"
 exit $result

@@ -40,15 +40,15 @@ CREATE TEMP TABLE o (id uuid); GRANT ALL ON o TO authenticated, anon;
 INSERT INTO o SELECT pg_temp.received_order('pay_a', 'elig-k2');
 UPDATE public.profiles SET is_frozen = true WHERE id = food_test.id('coord');
 SELECT food_test.act_as(food_test.id('pay_a'));
-SELECT food_test.raises(format($$SELECT public.food_pay_order(%L)$$, (SELECT id FROM o)), 'P0002',
-                        'ELIG-03 a frozen coordinator cannot be paid');
+SELECT food_test.ok((public.food_pay_order((SELECT id FROM o))->>'status') = 'blocked',
+                    'ELIG-03 a frozen coordinator cannot be paid (blocked, nothing posted)');
 RESET ROLE;
 SELECT food_test.ok(pg_temp.untouched((SELECT id FROM o)) AND pg_temp.avail('pay_a') = 100000 AND pg_temp.avail('coord') = 0,
                     'ELIG-04 ...no ledger legs, no paid event, neither wallet changed');
 -- duplicate and repeated requests after the refusal: still refused, still nothing posted
 SELECT food_test.act_as(food_test.id('pay_a'));
-SELECT food_test.raises(format($$SELECT public.food_pay_order(%L)$$, (SELECT id FROM o)), 'P0002',
-                        'ELIG-05 a repeated request is refused the same way');
+SELECT food_test.ok((public.food_pay_order((SELECT id FROM o))->>'status') = 'blocked',
+                    'ELIG-05 a repeated request is refused the same way (blocked, nothing posted)');
 RESET ROLE;
 SELECT food_test.ok(pg_temp.untouched((SELECT id FROM o)), 'ELIG-06 ...and still posts nothing');
 -- once the account is unfrozen the same order pays exactly once
@@ -70,8 +70,8 @@ CREATE TEMP TABLE o (id uuid); GRANT ALL ON o TO authenticated, anon;
 INSERT INTO o SELECT pg_temp.received_order('pay_a', 'elig-k3');
 UPDATE public.profiles SET is_frozen = true WHERE id = food_test.id('coord');   -- as the fraud tool does
 SELECT food_test.act_as(food_test.id('pay_a'));
-SELECT food_test.raises(format($$SELECT public.food_pay_order(%L)$$, (SELECT id FROM o)), 'P0002',
-                        'ELIG-09 a fraud-blocked (and therefore frozen) coordinator cannot be paid');
+SELECT food_test.ok((public.food_pay_order((SELECT id FROM o))->>'status') = 'blocked',
+                    'ELIG-09 a fraud-blocked (and therefore frozen) coordinator cannot be paid (blocked, nothing posted)');
 RESET ROLE;
 SELECT food_test.ok(pg_temp.untouched((SELECT id FROM o)), 'ELIG-10 ...nothing posted');
 ROLLBACK;
@@ -83,8 +83,8 @@ CREATE TEMP TABLE o (id uuid); GRANT ALL ON o TO authenticated, anon;
 INSERT INTO o SELECT pg_temp.received_order('pay_a', 'elig-k4');
 UPDATE public.profiles SET deleted_at = now() WHERE id = food_test.id('coord');
 SELECT food_test.act_as(food_test.id('pay_a'));
-SELECT food_test.raises(format($$SELECT public.food_pay_order(%L)$$, (SELECT id FROM o)), 'P0002',
-                        'ELIG-11 a coordinator with a closed account cannot be paid');
+SELECT food_test.ok((public.food_pay_order((SELECT id FROM o))->>'status') = 'blocked',
+                    'ELIG-11 a coordinator with a closed account cannot be paid (blocked, nothing posted)');
 SELECT food_test.ok((SELECT reason FROM public.check_transfer_recipient_eligibility(food_test.id('coord'), NULL, food_test.id('pay_a'))) ILIKE '%closed%',
                     'ELIG-12 ...the shared gate refuses it too (same rule, both paths)');
 RESET ROLE;
@@ -112,13 +112,13 @@ CREATE TEMP TABLE o (id uuid); GRANT ALL ON o TO authenticated, anon;
 INSERT INTO o SELECT pg_temp.received_order('pay_a', 'elig-k6');
 UPDATE public.user_roles SET enabled = false WHERE user_id = food_test.id('coord') AND role = 'employee';
 SELECT food_test.act_as(food_test.id('pay_a'));
-SELECT food_test.raises(format($$SELECT public.food_pay_order(%L)$$, (SELECT id FROM o)), 'P0002',
-                        'ELIG-17 a coordinator whose staff role is disabled cannot be paid');
+SELECT food_test.ok((public.food_pay_order((SELECT id FROM o))->>'status') = 'blocked',
+                    'ELIG-17 a coordinator whose staff role is disabled cannot be paid (blocked, nothing posted)');
 RESET ROLE;
 DELETE FROM public.user_roles WHERE user_id = food_test.id('coord') AND role = 'employee';
 SELECT food_test.act_as(food_test.id('pay_a'));
-SELECT food_test.raises(format($$SELECT public.food_pay_order(%L)$$, (SELECT id FROM o)), 'P0002',
-                        'ELIG-18 a coordinator who is no longer staff cannot be paid');
+SELECT food_test.ok((public.food_pay_order((SELECT id FROM o))->>'status') = 'blocked',
+                    'ELIG-18 a coordinator who is no longer staff cannot be paid (blocked, nothing posted)');
 RESET ROLE;
 SELECT food_test.ok(pg_temp.untouched((SELECT id FROM o)), 'ELIG-19 ...nothing posted');
 ROLLBACK;
@@ -133,8 +133,8 @@ SELECT public.food_transfer_coordinator(food_test.id('emp_ok'), 'full_transfer',
 RESET ROLE;
 UPDATE public.profiles SET is_frozen = true WHERE id = food_test.id('coord');
 SELECT food_test.act_as(food_test.id('pay_a'));
-SELECT food_test.raises(format($$SELECT public.food_pay_order(%L)$$, (SELECT id FROM o)), 'P0002',
-                        'ELIG-20 after a handover, a payee who has become ineligible is not paid');
+SELECT food_test.ok((public.food_pay_order((SELECT id FROM o))->>'status') = 'blocked',
+                    'ELIG-20 after a handover, a payee who has become ineligible is not paid (blocked, nothing posted)');
 RESET ROLE;
 SELECT food_test.ok(pg_temp.untouched((SELECT id FROM o)), 'ELIG-21 ...nothing posted');
 ROLLBACK;

@@ -450,3 +450,42 @@ How it is safe and what it reads:
 - The session is `default_transaction_read_only`: it was checked locally that writes are refused there, and that every statement parses and runs.
 - Catalogue reads plus three aggregate counts only; no personal records.
 - **Its output, once an authorised operator supplies it, is the only production evidence. Nothing in this register is production-verified.**
+
+
+## Risk-closure pass: settlement, handover recipient, reconciliation (2026-10-13, after 16ea6b0001)
+
+All evidence below is local:
+- disposable PostgreSQL 17.10 and 18.6 on 127.0.0.1;
+- jsdom;
+- the repo reversal and eligibility functions, loaded verbatim.
+
+Nothing was done in production or in `nykdsrixasxokqtfvvgw`. Nothing was pushed or merged. Operations detail is in `docs/food-m1-production-evidence-and-isolation.md`.
+
+| ID | Issue | Change | Evidence | Status |
+|---|---|---|---|---|
+| SET-1 | Reversed payment had no permanent record of what was paid and what came back (partial amounts lost) | New `food_payment_attempts` (one row per successful posting: reference, key, transaction, payer, payee, time, authoriser). A reversal records `reversed_amount` (the amount actually returned; may be partial), `reversal_reference`, `reversal_posted_at` and `problem_detected_at`. The order keeps its original transaction and paid time and gets `payment_resolution_required` | SET-01…05; REVX-09, 10 | **FIXED (local)** |
+| SET-2 | A reversed order had no auditable way forward; re-paying with the old key could reuse the reversed transaction | Attempt-scoped identity: attempt n>1 uses `-A<n>` / `:<n>`. `food_authorize_payment_retry`: active coordinator only, never for their own order, reason required, only from `payment_reversed`. It charges nobody and keeps the payee. Post-posting verification also refuses a group that is already recorded or reversed | RTY-01…13; REVX-15, 16 | **FIXED (local)** |
+| SET-3 | **Defect in 16ea6b0001:** the service-role (scheduler) path of `food_reconcile_payments` aborted on the NOT NULL `actor_id` whenever it found a reversal | `actor_id` may be NULL **only** for `payment_reversed` events and audit rows (CHECK constraints); such rows are noted "system reconciliation" | REC-02…04, REC-06 | **FIXED (local)** |
+| SET-4 | Reconciliation could overwrite a newer state | Marking applies only to the exact posting checked (`transaction_group_id`) and only from `paid` | REC-07…09 | **FIXED (local)** |
+| SET-5 | Claims parsing: an empty `request.jwt.claims` crashed the role check | `nullif(…,'')` before the jsonb cast | REC-11 | **FIXED (local)** |
+| REC | Batch cap 1..500; coordinator or service_role; repeat-safe; posts nothing; mixed batches; concurrency | — | REVX-17…22; REC-01…13; RACE-REC-1…3 (two concurrent reconcilers: one records, once) | **VERIFIED (local)** |
+| HND-1 | Payee after a handover | Already a receipt-time snapshot. Now an ineligible payee returns `{status:'blocked', reason:'recipient_ineligible', escalate:true}`, recorded (`payment_blocked` event and audit) and flagged, with nothing posted. Previously it raised an error with no record. The payee is never redirected, and the new coordinator receives nothing | BLK-01…05; ELIG-03…21 (now expecting `blocked`) | **FIXED (local)** |
+| COL | False reversal detection from look-alike references | Exact match on both markers; attempt-scoped references | COL-01, 02; RTY-09, 11; REVX-11 | **VERIFIED (local)** |
+| ELIG | Recipient gate (frozen, closed, self, role, after handover, repeat after rejection, exactly one payment after restoration) | Unchanged call; result now `blocked` | ELIG-01…24; BLK-01…04 | **VERIFIED (local)**; live body **UNVERIFIED** (E1) |
+| SENDER | The standard path has no **sender**-frozen check (neither `wallet-transfer` nor the repo `create_ledger_transaction`); Food matches it | None. No Food-only rule added | repo: `wallet-transfer/index.ts` (recipient check only) | **UNVERIFIED in production** (E1, E4, E7); shared observation, not a Food defect |
+| 126000 | Callers affected by the revoke | None in repo: 119 posters, all SECURITY DEFINER; all 53 edge callers service-role; no frontend caller; legacy overload `(uuid,jsonb,text,boolean)` covered by the catch-all | subagent scan; E6/E6b/E6c added. E6b tested locally: it flags an owner that would lose EXECUTE | **UNVERIFIED in production** (owners, live-only overloads/invokers) |
+| PACK | Evidence pack | Added E0b (write probe that always rolls back; tested in read-only *and* writable sessions: no object left), E6b, E6c; Lovable export request; isolation checklist | local run: every statement executes | **READY**; production output **not yet supplied** |
+| REV-SHARED | Employees can reverse Food payments through the shared Reverse feature | **Not changed** (shared function/UI out of scope). Food detects and records it; it does **not** prevent it | REVX-01…03 | **OPEN: owner decision REV-D1** |
+
+**Negative controls** (each run with one protection removed, as a scratch override on a disposable database):
+- A: system actor made NOT NULL again → scheduler path aborts.
+- B: attempt-insensitive reference and key → the reused key returns the reversed group and verification refuses (XX000).
+- C: the posting guard removed from the marker → REC-09 fails.
+- D: prefix (`LIKE`) matching → COL-01 fails.
+- Earlier controls still stand: 12 ELIG tests fail without the eligibility gate; 5 REVX tests fail with the pre-reversal-fix `food_pay_order`.
+
+**Owner decisions still open:**
+- REV-D1: block employee reversal of Food payments? This needs a shared change.
+- REV-D2: settlement policy for a reversed order. Only "authorise a new attempt" exists. Should the payee be allowed to authorise, given they are the affected party? Currently any active coordinator except the employee can.
+- REV-D3: schedule reconciliation (see the recommendation in the operations doc).
+- HND-D1: who resolves a `blocked` order whose receipt-time payee stays ineligible? Redirecting the payment is deliberately not implemented.

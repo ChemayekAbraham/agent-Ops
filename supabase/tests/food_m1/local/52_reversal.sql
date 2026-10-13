@@ -150,5 +150,5 @@ SELECT food_test.ok(pg_temp.status((SELECT id FROM o WHERE k = 'reversed')) = 'p
 ROLLBACK;
 
 SELECT food_test.ok(NOT has_function_privilege('authenticated', 'public.food_payment_problem(public.food_orders)', 'EXECUTE')
-                    AND NOT has_function_privilege('authenticated', 'public.food_mark_payment_reversed(uuid, text, uuid)', 'EXECUTE'),
+                    AND NOT has_function_privilege('authenticated', 'public.food_mark_payment_reversed(uuid, uuid, jsonb, uuid)', 'EXECUTE'),
                     'REVX-23 the internal helpers are not callable by users');

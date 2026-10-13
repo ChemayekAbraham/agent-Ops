@@ -39,7 +39,7 @@ for m in "${CHAIN[@]}"; do out=$(apply mm_fresh "$M/$m.sql") || { ok=0; echo "$o
 check "MIG-A1 full chain applies on a fresh database with no seed profile" "$ok" "1"
 check "MIG-A2 skipped seed is announced, not silent" "$notice" "yes"
 check "MIG-A3 nobody is seated" "$(Q -d mm_fresh -c "select count(*) from food_coordinator_assignments")" "0"
-check "MIG-A4 all 11 Food tables exist with RLS on" "$(Q -d mm_fresh -c "select count(*) from pg_class where relname like 'food\_%' and relkind='r' and relrowsecurity")" "11"
+check "MIG-A4 all 12 Food tables (incl. food_payment_attempts) exist with RLS on" "$(Q -d mm_fresh -c "select count(*) from pg_class where relname like 'food\_%' and relkind='r' and relrowsecurity")" "12"
 Q -d mm_fresh -c "insert into auth.users(id,email) values ('f0000000-0000-4000-8000-0000000000e1','boot@example.invalid'); insert into profiles(id,full_name,email) values ('f0000000-0000-4000-8000-0000000000e1','BOOT','boot@example.invalid'); insert into user_roles(user_id,role) values ('f0000000-0000-4000-8000-0000000000e1','employee')" >/dev/null
 check "MIG-A5 first coordinator appointed via service-role bootstrap" \
   "$(Q -d mm_fresh -c "begin; set local role service_role; select public.food_bootstrap_coordinator('f0000000-0000-4000-8000-0000000000e1','first appointment on a fresh database')->>'status'; commit;" | grep -v -E '^(BEGIN|SET|COMMIT)$')" "appointed"

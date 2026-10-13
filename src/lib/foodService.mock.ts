@@ -461,6 +461,17 @@ const RPC: Record<string, (a: Args) => unknown> = {
     return { checked: 0, reversed: 0, limit, more_pending: false };
   },
 
+  // Mirrors food_authorize_payment_retry's rules. The fixture never takes a
+  // payment, so no order is ever reversed and this always refuses.
+  food_authorize_payment_retry: (a) => {
+    requireActiveCoordinator();
+    if (typeof a.p_reason !== 'string' || a.p_reason.trim().length < 10) fail('Give a reason of at least 10 characters');
+    const o = S.orders.find((x) => x.id === a.p_order_id);
+    if (!o) fail('Order not found');
+    if (o.employee_id === currentUser) fail('You cannot authorise a new payment attempt for your own order');
+    fail(`Only an order whose payment was reversed can get a new payment attempt (this one is ${o.payment_status})`);
+  },
+
   food_pay_order: (a) => {
     const o = S.orders.find((x) => x.id === a.p_order_id);
     const why = !o ? 'order not found'

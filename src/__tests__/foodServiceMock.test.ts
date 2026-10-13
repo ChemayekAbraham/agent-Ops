@@ -1059,3 +1059,20 @@ describe('payment reconciliation in the fixture', () => {
       .toEqual({ checked: 0, reversed: 0, limit: 10, more_pending: false });
   });
 });
+
+describe('authorised payment retry in the fixture', () => {
+  it('is coordinator-only, needs a reason, and refuses an order that was never reversed', async () => {
+    setFoodMockUser(MOCK_EMPLOYEE);
+    const p = await openPeriod();
+    const res = await foodMockRpc<{ order_id: string }>('food_place_order', {
+      p_items: [{ menu_item_id: p.meals[0].menu_item_id, quantity: 1 }], p_payment_mode: 'wallet', p_idempotency_key: 'retry-fx',
+    });
+    await expect(foodMockRpc('food_authorize_payment_retry', { p_order_id: res.order_id, p_reason: 'long enough reason' }))
+      .rejects.toThrow(/active Food Coordinator/i);
+    actAsFoodCoordinator(true);
+    await expect(foodMockRpc('food_authorize_payment_retry', { p_order_id: res.order_id, p_reason: 'short' }))
+      .rejects.toThrow(/at least 10/i);
+    await expect(foodMockRpc('food_authorize_payment_retry', { p_order_id: res.order_id, p_reason: 'long enough reason' }))
+      .rejects.toThrow(/whose payment was reversed/i);
+  });
+});
