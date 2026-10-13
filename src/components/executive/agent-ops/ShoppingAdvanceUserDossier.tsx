@@ -152,7 +152,7 @@ export function ShoppingAdvanceUserDossier({ userId, fallbackName, onBack }: Pro
     </section>
 
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-      <Metric icon={ShoppingBag} title="Shopping access" value={<Amount value={qualification.access_limit} revealed={revealed} />} hint="Informational · not issued funds" />
+      <Metric icon={ShoppingBag} title="Shopping access" value={<Amount value={qualification.access_limit} revealed={revealed} />} hint="Last 24 hours · not issued funds" />
       <Metric icon={WalletCards} title="Withdrawable" value={Boolean(wallet.available) ? <Amount value={wallet.withdrawable} revealed={revealed} /> : 'Unavailable'} hint={Boolean(wallet.available) ? 'Strict available balance' : 'No wallet projection'} tone="success" />
       <Metric icon={ReceiptText} title="Rent Plan outstanding" value={<Amount value={totalRentOutstanding} revealed={revealed} />} hint={`${rentPlans.length} Rent Plan${rentPlans.length === 1 ? '' : 's'}`} tone="warning" />
       <Metric icon={HandCoins} title="Other obligations" value={<Amount value={totalAdvanceOutstanding} revealed={revealed} />} hint={`${agentAdvances.length + businessAdvances.length + obligations.length} active or historical records`} tone={totalAdvanceOutstanding > 0 ? 'destructive' : 'success'} />
@@ -181,7 +181,7 @@ export function ShoppingAdvanceUserDossier({ userId, fallbackName, onBack }: Pro
           </section>
           <section><h3 className="mb-3 flex items-center gap-2 font-semibold"><TrendingUp className="h-4 w-4 text-primary" />Qualification evidence</h3>
             <dl className="grid gap-px overflow-hidden rounded-lg border border-border bg-border sm:grid-cols-2">
-              {[['Transfers sent', text(qualification.transfer_count, '0')], ['Total sent', maskMoney(revealed, formatUGX(number(qualification.transfer_total)))], ['First transfer', date(qualification.first_transfer_at)], ['Last transfer', date(qualification.last_transfer_at)]].map(([k,v]) => <div key={k} className="bg-background p-3"><dt className="text-xs text-muted-foreground">{k}</dt><dd className="mt-1 text-sm font-semibold">{v}</dd></div>)}
+              {[['Transfers received (24h)', text(qualification.transfer_count, '0')], ['Total received (24h)', maskMoney(revealed, formatUGX(number(qualification.transfer_total)))], ['First transfer in window', date(qualification.first_transfer_at)], ['Last transfer in window', date(qualification.last_transfer_at)]].map(([k,v]) => <div key={k} className="bg-background p-3"><dt className="text-xs text-muted-foreground">{k}</dt><dd className="mt-1 text-sm font-semibold">{v}</dd></div>)}
             </dl>
           </section>
         </div>

@@ -4,14 +4,18 @@ import { toast as sonnerToast } from 'sonner';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useOffline } from '@/contexts/OfflineContext';
-import { 
+import {
   WifiOff,
   RefreshCw,
   BadgeCheck,
+  HandCoins,
+  ArrowLeft,
 } from 'lucide-react';
+import { useBackGestureClose } from '@/hooks/useBackGestureClose';
 import { FindAHouseCTA } from '@/components/tenant/FindAHouseCTA';
+import { LendingOffersCard } from '@/components/vouch/borrower/LendingOffersCard';
+import { MyLoanRequestsCard } from '@/components/vouch/borrower/MyLoanRequestsCard';
 import { RentAccessGrowthBanner } from '@/components/tenant/RentAccessGrowthBanner';
-import { RentAccessProgressTracker } from '@/components/tenant/RentAccessProgressTracker';
 import { TenantRentRequestCard } from '@/components/tenant/TenantRentRequestCard';
 import { WidgetErrorBoundary } from '@/components/shared/WidgetErrorBoundary';
 
@@ -67,7 +71,6 @@ import { WelileReceiptDialog } from '@/components/tenant/WelileReceiptDialog';
 import { ClaimBreadDialog } from '@/components/tenant/ClaimBreadDialog';
 import { ClaimRentDiscountDialog } from '@/components/tenant/ClaimRentDiscountDialog';
 import { AddMonthlyRentDialog, getStoredMonthlyRent } from '@/components/tenant/AddMonthlyRentDialog';
-import { RentDiscountCarousel } from '@/components/tenant/RentDiscountCarousel';
 import { useAvailableBalance } from '@/hooks/useAvailableBalance';
 import { UnifiedWalletHeroCard } from '@/components/wallet/UnifiedWalletHeroCard';
 import { FunderQuickActions } from '@/components/supporter/FunderQuickActions';
@@ -109,6 +112,7 @@ interface Repayment {
 }
 
 export default function TenantDashboard({ user, signOut, currentRole, availableRoles, onRoleChange, addRoleComponent }: TenantDashboardProps) {
+  const uid = user?.id ?? "";
   const navigate = useNavigate();
   const { profile } = useProfile();
   const { isOnline } = useOffline();
@@ -122,14 +126,14 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
   // Local-first: read cache synchronously for instant paint
   const [rentRequests, setRentRequests] = useState<RentRequest[]>(() => {
     try {
-      const raw = localStorage.getItem(`tenant_dashboard_${user.id}`);
+      const raw = localStorage.getItem(`tenant_dashboard_${uid}`);
       if (raw) return JSON.parse(raw).rentRequests || [];
     } catch {}
     return [];
   });
   const [repayments, setRepayments] = useState<Repayment[]>(() => {
     try {
-      const raw = localStorage.getItem(`tenant_dashboard_${user.id}`);
+      const raw = localStorage.getItem(`tenant_dashboard_${uid}`);
       if (raw) return JSON.parse(raw).repayments || [];
     } catch {}
     return [];
@@ -146,7 +150,6 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
   
   const [showCalculator, setShowCalculator] = useState(false);
   const [showRequestForm, setShowRequestForm] = useState(false);
-  const rentCarouselRef = useRef<HTMLDivElement | null>(null);
   const [depositOpen, setDepositOpen] = useState(false);
   // Global "open deposit" entry: triggered from the mobile bottom-nav Deposit
   // FAB and from `?deposit=1` deep-links so users can reach the deposit flow
@@ -172,6 +175,8 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
     } catch { /* ignore */ }
   }, []);
   const [housesOpen, setHousesOpen] = useState(false);
+  const [loanOffersOpen, setLoanOffersOpen] = useState(false);
+  useBackGestureClose(loanOffersOpen, () => setLoanOffersOpen(false));
 
   // Dynamic telemetry tracking across tenant sheets and modals
   useEffect(() => {
@@ -261,7 +266,7 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
 
   // Background fetch — never blocks UI if cache exists
   useEffect(() => {
-    if (!navigator.onLine) {
+    if (!uid || !navigator.onLine) {
       setLoading(false);
       return;
     }
@@ -271,7 +276,7 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
         const { data: requests } = await supabase
           .from('rent_requests')
           .select('*')
-          .eq('tenant_id', user.id)
+          .eq('tenant_id', uid)
           .order('created_at', { ascending: false });
         
         const newRentRequests = requests || [];
@@ -280,7 +285,7 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
         setRentRequests(newRentRequests);
         setRepayments(newRepayments);
         
-        localStorage.setItem(`tenant_dashboard_${user.id}`, JSON.stringify({
+        localStorage.setItem(`tenant_dashboard_${uid}`, JSON.stringify({
           rentRequests: newRentRequests,
           repayments: newRepayments,
           timestamp: Date.now()
@@ -290,22 +295,22 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
       }
       setLoading(false);
     })();
-  }, [user.id]);
+  }, [uid]);
 
   const fetchData = async () => {
-    if (!navigator.onLine) return;
+    if (!uid || !navigator.onLine) return;
     try {
       const { data: requests } = await supabase
         .from('rent_requests')
         .select('*')
-        .eq('tenant_id', user.id)
+        .eq('tenant_id', uid)
         .order('created_at', { ascending: false });
       
       const newRentRequests = requests || [];
       setRentRequests(newRentRequests);
       setRepayments([]);
       
-      localStorage.setItem(`tenant_dashboard_${user.id}`, JSON.stringify({
+      localStorage.setItem(`tenant_dashboard_${uid}`, JSON.stringify({
         rentRequests: newRentRequests,
         repayments: [],
         timestamp: Date.now()
@@ -319,7 +324,7 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
   // individual widgets reveal as their data arrives. The legacy full-page
   // skeleton is kept for the rare empty-cache *offline* case only.
   const showFullSkeleton = loading && !hasCachedData && !isOnline;
-  if (showFullSkeleton) {
+  if (showFullSkeleton || !uid) {
     return <TenantDashboardSkeleton />;
   }
   const dataLoading = loading && !hasCachedData;
@@ -330,7 +335,15 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
 
   const handleViewWallet = () => { hapticTap(); setShowWallet(true); };
 
-  const menuItems: never[] = [];
+  // Menu (header ☰) entries. The loan-offers surface lives here instead of the
+  // home feed, so the menu is its single entry point — no duplicated card.
+  const menuItems = [
+    {
+      icon: HandCoins,
+      label: 'Loan offers',
+      onClick: () => { hapticTap(); setLoanOffersOpen(true); },
+    },
+  ];
 
   // Most relevant rent request for the process tracker — the active one
   // (mirrors RepaymentSection's own selection) falling back to the most
@@ -346,7 +359,7 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
         onRoleChange={onRoleChange}
         onSignOut={signOut}
         menuItems={menuItems}
-        headerActions={<TenantInAppNotificationBell tenantId={user.id} />}
+        headerActions={<TenantInAppNotificationBell tenantId={uid} />}
       />
 
       {/* Scrollable content area */}
@@ -396,34 +409,22 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
 
 
 
-          {/* Wallet hero card — replaces the previous bread hero on tenant dashboard */}
-          <div id="tenant-wallet-hero">
-            <UnifiedWalletHeroCard
-              balance={wallet?.balance ?? 0}
-              role="tenant"
-              onOpenWallet={() => setShowWallet(true)}
-              quickActions={
-                <FunderQuickActions
-                  variant="hero"
-                  availableBalance={wallet?.balance ?? 0}
-                  onChanged={() => { refreshWallet(); }}
-                />
-              }
-            />
-          </div>
+          <WidgetErrorBoundary label="My loan requests">
+            <MyLoanRequestsCard userId={uid} />
+          </WidgetErrorBoundary>
 
           {/* Outstanding balance / daily-charge status */}
           <WidgetErrorBoundary label="Subscription status">
-            <SubscriptionStatusCard userId={user.id} />
+            <SubscriptionStatusCard userId={uid} />
           </WidgetErrorBoundary>
 
-          {/* Available houses — surfaced near the top of home so tenants find them first */}
-          <div className="grid grid-cols-2 gap-3">
+          {/* Rent actions — request rent first, then browse available houses */}
+          <div className="flex flex-col gap-3">
+            <WidgetErrorBoundary label="Request rent as tenant">
+              <TenantRentRequestCard userId={uid} />
+            </WidgetErrorBoundary>
             <WidgetErrorBoundary label="Find a house">
               <FindAHouseCTA onClick={() => { hapticTap(); navigate('/find-a-house'); }} />
-            </WidgetErrorBoundary>
-            <WidgetErrorBoundary label="Request rent as tenant">
-              <TenantRentRequestCard userId={user.id} />
             </WidgetErrorBoundary>
           </div>
 
@@ -437,28 +438,46 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
             <PaymentTimeline />
           </WidgetErrorBoundary>
 
-          <RentAccessProgressTracker userId={user.id} />
-
-          <RentAccessGrowthBanner />
 
           <WidgetErrorBoundary label="Suggested houses">
-            <SuggestedHousesCard userId={user.id} onViewAll={goToAllHouses} />
+            <SuggestedHousesCard userId={uid} onViewAll={goToAllHouses} />
           </WidgetErrorBoundary>
 
-          {/* Apply your Rent Fees discount to rent — horizontally scrollable rentals */}
-          <div ref={rentCarouselRef} id="rent-discount-carousel">
-            <RentDiscountCarousel
-              discountPct={
-                breadPrice.basePrice > 0
-                  ? Math.max(0, (breadPrice.basePrice - breadPrice.reducedPrice) / breadPrice.basePrice)
-                  : 0
-              }
-            />
-          </div>
-
-
+          <RentAccessGrowthBanner />
         </main>
       </div>
+
+      {/* Loan offers — opened from the header ☰ menu, full page */}
+      {loanOffersOpen && (
+        <div className="fixed inset-0 z-[110] bg-background flex flex-col animate-fade-in">
+          <header className="flex items-start gap-1 border-b border-border/60 bg-background px-2 py-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="mt-0.5 h-9 w-9 shrink-0"
+              aria-label="Back to dashboard"
+              onClick={() => { hapticTap(); setLoanOffersOpen(false); }}
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </Button>
+            <div className="min-w-0 py-0.5">
+              <p className="flex items-center gap-1.5 text-sm font-bold leading-tight">
+                <HandCoins className="h-4 w-4 shrink-0 text-primary" /> Loan offers for you
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                Active offers from lending agents — request one that fits you.
+              </p>
+            </div>
+          </header>
+          <div className="flex-1 overflow-y-auto px-4 py-4 pb-nav">
+            <div className="mx-auto max-w-lg">
+              <WidgetErrorBoundary label="Loan offers">
+                <LendingOffersCard userId={uid} showHeader={false} />
+              </WidgetErrorBoundary>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Full-screen wallet sheet */}
       <FullScreenWalletSheet open={showWallet} onOpenChange={setShowWallet} />

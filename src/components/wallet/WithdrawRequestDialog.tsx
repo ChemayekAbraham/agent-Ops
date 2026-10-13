@@ -1,3 +1,4 @@
+import { safeUUID } from '@/lib/safeUUID';
 import { useState, useEffect, useRef } from 'react';
 import { WithdrawalStepTracker } from './WithdrawalStepTracker';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -537,9 +538,7 @@ export function WithdrawRequestDialog({ open, onOpenChange, walletBalance = 0, o
     // collapses any duplicate inserts into a single row.
     if (!clientRequestIdRef.current) {
       clientRequestIdRef.current =
-        (typeof crypto !== 'undefined' && 'randomUUID' in crypto)
-          ? crypto.randomUUID()
-          : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+        safeUUID();
     }
     const clientRequestId = clientRequestIdRef.current;
     // Persist BEFORE the insert attempt so an unmount (network hang, dialog

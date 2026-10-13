@@ -2,7 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type {
-  AwarenessCallResult, AwarenessChoice, AwarenessSubject, AwarenessTeam, ExplainedChoice,
+  AwarenessCallResult, AwarenessChoice, AwarenessSubject, AwarenessTeam, ExplainedChoice, LandlordConsent,
 } from '@/lib/awarenessCallLabels';
 
 /**
@@ -26,6 +26,10 @@ export interface AwarenessCall {
   call_result: AwarenessCallResult;
   aware_30m: AwarenessChoice | null;
   aware_merchant_codes: AwarenessChoice | null;
+  /** Landlord calls only: whether the landlord consents to receive the rent through Welile. */
+  landlord_consent?: LandlordConsent | null;
+  /** Landlord calls only: whether the landlord knew about the payment code (OTP). */
+  aware_payout_otp?: AwarenessChoice | null;
   explained: ExplainedChoice | null;
   note: string | null;
 }
@@ -47,6 +51,9 @@ export interface RecordAwarenessCallInput {
   subjectUserId?: string | null;
   aware30m?: AwarenessChoice | null;
   awareMerchantCodes?: AwarenessChoice | null;
+  /** Landlord calls only (a tenant or agent call never sends these two). */
+  landlordConsent?: LandlordConsent | null;
+  awarePayoutOtp?: AwarenessChoice | null;
   explained?: ExplainedChoice | null;
   note?: string | null;
 }
@@ -84,9 +91,17 @@ export function useRecordAwarenessCall() {
         p_call_result: input.result,
         p_subject_user_id: input.subjectUserId ?? null,
         p_aware_30m: answered ? input.aware30m ?? null : null,
-        p_aware_merchant_codes: answered ? input.awareMerchantCodes ?? null : null,
+        p_aware_merchant_codes: answered && input.subject !== 'landlord' ? input.awareMerchantCodes ?? null : null,
         p_explained: answered ? input.explained ?? null : null,
         p_note: input.note?.trim() ? input.note.trim() : null,
+        // a landlord is asked about consent and the payment code instead of the merchant codes; a tenant or agent call sends
+        // exactly the arguments it always did
+        ...(input.subject === 'landlord'
+          ? {
+              p_landlord_consent: answered ? input.landlordConsent ?? null : null,
+              p_aware_payout_otp: answered ? input.awarePayoutOtp ?? null : null,
+            }
+          : {}),
       });
       if (error) throw error;
       return data as AwarenessCall & { already_recorded: boolean };

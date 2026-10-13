@@ -27,8 +27,8 @@ async function fetchPlanScheduleLedgerPage(
   offset: number,
 ): Promise<{ rows: PlanScheduleLedgerRow[]; totalRowCount: number }> {
   const [{ data, error }, { data: count, error: countError }] = await Promise.all([
-    anyDb.rpc('tops_plan_schedule_ledger', { p_rent_request_id: rentRequestId, p_limit: limit, p_offset: offset }),
-    anyDb.rpc('tops_plan_schedule_ledger_count', { p_rent_request_id: rentRequestId }),
+    anyDb.rpc('tops_plan_schedule_ledger_amclock', { p_rent_request_id: rentRequestId, p_limit: limit, p_offset: offset }),
+    anyDb.rpc('tops_plan_schedule_ledger_count_amclock', { p_rent_request_id: rentRequestId }),
   ]);
   if (error) throw error;
   if (countError) throw countError;

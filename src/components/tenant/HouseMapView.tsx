@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup, useMap } from 'react-leaflet';
+import { MapSafeUnmount } from '@/components/map/MapSafeUnmount';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import 'leaflet.markercluster';
@@ -296,6 +297,7 @@ export function HouseMapView({ listings, mapPins, userCoords, selectedId, onSele
         style={{ height: '100%', width: '100%' }}
         attributionControl={false}
       >
+<MapSafeUnmount />
         <TileLayer
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           attribution="&copy; OpenStreetMap"

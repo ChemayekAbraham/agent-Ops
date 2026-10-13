@@ -345,7 +345,13 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
                 <div className="flex items-start gap-2">
                   <FileText className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
                   <p>
-                    <strong className="text-foreground">Direct Bike Financing:</strong> Once approved, purchase capital is disbursed directly into your agent wallet so you can acquire your electric motorbike immediately.
+                    <strong className="text-foreground">Company Procurement & Handover:</strong> Upon CFO approval, purchase capital is paid directly to an assigned company supplier who procures the electric motorbike for you.
+                  </p>
+                </div>
+                <div className="flex items-start gap-2">
+                  <FileText className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
+                  <p>
+                    <strong className="text-foreground">Logbook Custody & Bike Records:</strong> Welile Technologies keeps the official motorbike registration logbook and title in legal custody throughout the lease as security collateral, alongside maintaining full bike asset records (plate, chassis, battery serial, and tracking telemetry), until the lease is 100% repaid.
                   </p>
                 </div>
                 <div className="flex items-start gap-2">
@@ -357,13 +363,13 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
                 <div className="flex items-start gap-2">
                   <FileText className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
                   <p>
-                    <strong className="text-foreground">Daily Float Sweeps:</strong> Once activated, daily repayments are recovered from your agent wallet on a reducing-balance schedule without overdrafting.
+                    <strong className="text-foreground">Daily Float Sweeps:</strong> Once activated, daily repayments are recovered from your agent wallet on a 28% monthly reducing-balance schedule without overdrafting.
                   </p>
                 </div>
                 <div className="flex items-start gap-2">
                   <FileText className="h-3.5 w-3.5 text-primary shrink-0 mt-0.5" />
                   <p>
-                    <strong className="text-foreground">Full Settlement Certificate:</strong> Upon full balance clearance (0 UGX), a certified <em>Certificate of Full Settlement</em> is automatically issued confirming full completion.
+                    <strong className="text-foreground">Settlement & Title Handover:</strong> Upon reaching UGX 0 balance, Welile's custody hold is discharged, the official logbook and title are handed over to you, and your <em>Certificate of Full Settlement</em> is issued.
                   </p>
                 </div>
               </div>
@@ -380,7 +386,7 @@ export default function SpiroBikeOrderDialog({ open, onOpenChange, userId }: Pro
                 htmlFor="spiro-terms"
                 className="text-[11px] leading-tight text-foreground/90 cursor-pointer select-none"
               >
-                I agree to the Spiro Motorbike Lease Terms, acknowledging that running advances are not allowed and any active advance must be fully cleared first.
+                I agree to the Spiro Motorbike Lease Terms, agreeing that Welile keeps legal custody of the bike's official logbook and records as collateral until full settlement, and that active advances must be cleared first.
               </label>
             </div>
           </div>

@@ -34,7 +34,7 @@ type RangePreset = 'last_7' | 'last_30' | 'last_90' | 'last_180' | 'custom';
 type Granularity = 'day' | 'week' | 'month';
 
 interface TrendsRPC {
-  totals: { total: number; referred: number };
+  totals: { total: number; referred: number; excluded?: number };
   buckets: { bucket: string; total: number; referred: number; organic: number }[];
   dow: { d: number; c: number }[];
   source_mix: { name: string; value: number }[];
@@ -233,6 +233,12 @@ export function SignupTrendsView() {
           </div>
         )}
       </div>
+
+      {(trends?.totals?.excluded ?? 0) > 0 && (
+        <p className="text-xs text-muted-foreground">
+          {(trends!.totals.excluded ?? 0).toLocaleString()} suspected fake accounts (no phone number and never signed in) are left out of these figures.
+        </p>
+      )}
 
       {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">

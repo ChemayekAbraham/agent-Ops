@@ -94,31 +94,6 @@ export function VerifyLandlordButton({
     }
   };
 
-  if (!isManager) {
-    // Show status badges for non-managers
-    if (readyToReceive) {
-      return (
-        <Badge variant="outline" className="gap-1 bg-success/10 text-success border-success/30">
-          <ShieldCheck className="h-3 w-3" />
-          Ready to Receive
-        </Badge>
-      );
-    }
-    if (verified) {
-      return (
-        <Badge variant="outline" className="gap-1 bg-primary/10 text-primary border-primary/30">
-          <CheckCircle2 className="h-3 w-3" />
-          Verified
-        </Badge>
-      );
-    }
-    return (
-      <Badge variant="outline" className="gap-1 bg-muted text-muted-foreground">
-        Pending Verification
-      </Badge>
-    );
-  }
-
   const LONG_PRESS_MS = 1200;
 
   const clearPressTimers = useCallback(() => {
@@ -145,6 +120,32 @@ export function VerifyLandlordButton({
       setConfirmDialog(true);
     }, LONG_PRESS_MS);
   }, [clearPressTimers]);
+
+  if (!isManager) {
+    // Show status badges for non-managers
+    if (readyToReceive) {
+      return (
+        <Badge variant="outline" className="gap-1 bg-success/10 text-success border-success/30">
+          <ShieldCheck className="h-3 w-3" />
+          Ready to Receive
+        </Badge>
+      );
+    }
+    if (verified) {
+      return (
+        <Badge variant="outline" className="gap-1 bg-primary/10 text-primary border-primary/30">
+          <CheckCircle2 className="h-3 w-3" />
+          Verified
+        </Badge>
+      );
+    }
+    return (
+      <Badge variant="outline" className="gap-1 bg-muted text-muted-foreground">
+        Pending Verification
+      </Badge>
+    );
+  }
+
 
   // Manager view with action buttons
   if (readyToReceive) {

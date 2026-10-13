@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useEasyReadMode } from '@/hooks/useEasyReadMode';
@@ -34,7 +35,11 @@ import {
   ChevronDown,
   ChevronUp,
   FileSpreadsheet,
-  Eye
+  Eye,
+  ArrowLeft,
+  ArrowRight,
+  Settings,
+  LayoutDashboard
 } from 'lucide-react';
 import { formatUGX } from '@/lib/rentCalculations';
 import { format, subDays, isToday, isYesterday } from 'date-fns';
@@ -292,6 +297,7 @@ async function buildSubAgentEarnings(userId: string, entries: LedgerEntry[]): Pr
 
 export function WalletStatement() {
   const { user, role } = useAuth();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const { count: newActivityCount, markSeen, refresh: refreshActivity } = useWalletActivityBadge(user?.id);
   const [loading, setLoading] = useState(true);
@@ -316,6 +322,34 @@ export function WalletStatement() {
   const sentinelRef = useRef<HTMLDivElement>(null);
   // Accessibility: shared easy-read mode (applies globally to wallet + receipt UI)
   const { enabled: a11yMode, toggle: toggleA11y, size: a11ySize, setSize: setA11ySize } = useEasyReadMode();
+
+  // ── Quick navigation out of the statement ──
+  const QUICK_LINKS = [
+    { label: 'My dashboard', Icon: LayoutDashboard, to: '/dashboard' },
+    { label: 'Settings', Icon: Settings, to: '/settings' },
+    { label: 'All transactions', Icon: ArrowRight, to: '/transactions' },
+  ] as const;
+  const go = useCallback((to: string) => {
+    setOpen(false);
+    navigate(to);
+  }, [navigate]);
+  const quickLinksRow = (key: string) => (
+    <nav key={key} aria-label="Quick links" className="mb-4 flex flex-wrap gap-2">
+      {QUICK_LINKS.map(({ label, Icon, to }) => (
+        <Button
+          key={to}
+          variant="outline"
+          size="sm"
+          onClick={() => go(to)}
+          className="gap-1.5 rounded-full border-primary/30 text-xs font-semibold text-primary hover:bg-primary/10"
+        >
+          <Icon className="h-3.5 w-3.5" aria-hidden="true" />
+          {label}
+        </Button>
+      ))}
+    </nav>
+  );
+
 
   useEffect(() => {
     if (open && user) {
@@ -781,13 +815,24 @@ export function WalletStatement() {
         className="h-[92vh] rounded-t-3xl p-0 flex flex-col"
       >
         <SheetHeader className="px-5 pt-5 pb-4 border-b shrink-0">
-          <div className="flex items-center justify-between">
-            <div>
-              <SheetTitle className="text-xl font-bold flex items-center gap-2">
-                <ArrowUpDown className="h-5 w-5 text-primary" aria-hidden="true" />
-                Wallet Statement
-              </SheetTitle>
-              <p className="text-xs text-muted-foreground">All money in & out of your wallet</p>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-1.5">
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => setOpen(false)}
+                aria-label="Go back"
+                className="h-9 w-9 shrink-0 rounded-full"
+              >
+                <ArrowLeft className="h-5 w-5" aria-hidden="true" />
+              </Button>
+              <div className="min-w-0">
+                <SheetTitle className="text-xl font-bold flex items-center gap-2">
+                  <ArrowUpDown className="h-5 w-5 shrink-0 text-primary" aria-hidden="true" />
+                  Wallet Statement
+                </SheetTitle>
+                <p className="text-xs text-muted-foreground">All money in &amp; out of your wallet</p>
+              </div>
             </div>
             <div className="flex items-center gap-2">
               <Button
@@ -871,6 +916,9 @@ export function WalletStatement() {
           </div>
         ) : (
           <ScrollArea ref={scrollRootRef} className="flex-1 px-4 py-4" aria-label="Wallet statement content">
+
+            {/* ── Quick links to other pages (top) ── */}
+            {quickLinksRow('ws-quick-links-top')}
 
             {/* ── Hero: Net Balance ── */}
             <section aria-labelledby="ws-net-balance" className="mb-4 rounded-2xl border bg-card p-5">
@@ -1046,6 +1094,9 @@ export function WalletStatement() {
               </h3>
               <TransactionsFeed userId={user?.id} balanceAfterById={balanceAfterById} />
             </section>
+
+            {/* ── Quick links to other pages (bottom, after a long scroll) ── */}
+            {quickLinksRow('ws-quick-links-bottom')}
 
           </ScrollArea>
         )}

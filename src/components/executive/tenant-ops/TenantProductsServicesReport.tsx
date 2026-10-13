@@ -1,4 +1,5 @@
 import { Suspense, lazy, useEffect, useMemo, useState } from 'react';
+import { lazyNamed } from '@/lib/lazyWithRetry';
 import { useQuery } from '@tanstack/react-query';
 import { format, subDays, startOfMonth } from 'date-fns';
 import { toast } from 'sonner';
@@ -29,12 +30,8 @@ import {
   type TpsReport, type TpsTenantRow,
 } from '@/lib/generateTenantProductsServicesPdf';
 
-const TenantProductsProjections = lazy(() =>
-  import('./TenantProductsProjections').then((m) => ({ default: m.TenantProductsProjections })),
-);
-const CollectionsProjectionPanel = lazy(() =>
-  import('./CollectionsProjectionPanel').then((m) => ({ default: m.CollectionsProjectionPanel })),
-);
+const TenantProductsProjections = lazyNamed(() => import('./TenantProductsProjections'), 'TenantProductsProjections');
+const CollectionsProjectionPanel = lazyNamed(() => import('./CollectionsProjectionPanel'), 'CollectionsProjectionPanel');
 
 const PAGE_SIZE = 25;
 const CHART_COLORS = ['#7c3aed', '#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#6366f1', '#ec4899', '#14b8a6'];

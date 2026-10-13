@@ -1,3 +1,4 @@
+import { safeUUID } from '@/lib/safeUUID';
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -58,7 +59,7 @@ export default function LendingRepayments() {
     if (amt <= 0) { toast.error('Enter an amount'); return; }
     setPaying(true);
     const { data, error } = await supabase.functions.invoke('lending-borrower-pay', {
-      body: { action: 'pay', loan_id: loan.id, amount: amt, request_id: crypto.randomUUID() },
+      body: { action: 'pay', loan_id: loan.id, amount: amt, request_id: safeUUID() },
     });
     setPaying(false);
     if (error || data?.error) {

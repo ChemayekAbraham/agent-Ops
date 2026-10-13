@@ -12,7 +12,7 @@ import type {
   ChannelOnTime, DimensionRow, PaymentBehaviorReportData, PaymentBehaviorTrend, WarningFlag,
 } from '@/hooks/tenantOpsWorkspace/usePaymentBehavior';
 import {
-  HOME_CHECK_FILTERED_TEXT, HOME_CHECK_MATCH_TEXT, HOME_CHECK_PLACE_FILTER_TEXT, homeDifferenceMessage, type HomeCheck,
+  HOME_CHECK_CLOCK_TEXT, HOME_CHECK_FILTERED_TEXT, HOME_CHECK_MATCH_TEXT, HOME_CHECK_PLACE_FILTER_TEXT, homeDifferenceMessage, type HomeCheck,
 } from '@/lib/paymentBehaviorHomeCheck';
 
 type RGB = [number, number, number];
@@ -63,7 +63,7 @@ export interface PaymentBehaviorPdfMeta {
    * The "matches Home" check. `filtered` = a filter is on so Home cannot be compared; otherwise `check` is
    * the comparison with Tenant Ops Home made when the report was built (null if Home could not be read).
    */
-  homeCheck?: { filtered: boolean; check: HomeCheck | null };
+  homeCheck?: { filtered: boolean; check: HomeCheck | null; clock?: boolean };
 }
 
 interface Card { label: string; value: string; sub?: string; color: RGB }
@@ -358,7 +358,9 @@ export async function generatePaymentBehaviorPdf(data: PaymentBehaviorReportData
   const hc = meta.homeCheck;
   if (hc) {
     r.heading('Check against Tenant Ops Home');
-    if (hc.filtered) {
+    if (hc.clock && !hc.filtered) {
+      r.note(HOME_CHECK_CLOCK_TEXT, MUTED, 8.6);
+    } else if (hc.filtered) {
       r.note(HOME_CHECK_FILTERED_TEXT, MUTED, 8.6);
       if (meta.filters.region || meta.filters.district) r.note(HOME_CHECK_PLACE_FILTER_TEXT, MUTED, 8.6);
     } else if (!hc.check) {

@@ -78,6 +78,7 @@ export function useServiceCenterReviewRentRequest() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['service-center-rent-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['overdue-vetting'] });
     },
   });
 }

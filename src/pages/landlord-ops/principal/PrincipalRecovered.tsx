@@ -1,13 +1,16 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { formatUGX } from '@/lib/rentCalculations';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { PrincipalRecoveryChart, type PrincipalComparison } from '@/components/executive/landlord-ops/PrincipalRecoveryChart';
+import { summarizePrincipalComponents } from '@/lib/landlordPrincipalSummary';
 
 interface PrincipalRow {
   id: string;
@@ -43,7 +46,7 @@ function kampalaDate(offsetDays = 0): string {
 function buildPeriods() {
   const today = kampalaDate();
   const t = new Date(today + 'T00:00:00Z');
-  const dow = (t.getUTCDay() + 6) % 7;
+  const dow = t.getUTCDay();
   const dom = t.getUTCDate();
   const list: { key: string; label: string; from: string | null; to: string | null }[] = [
     { key: 'today', label: 'Today', from: today, to: today },
@@ -70,7 +73,20 @@ function buildPeriods() {
 export default function PrincipalRecovered() {
   const periods = useMemo(buildPeriods, []);
   const [key, setKey] = useState('today');
-  const period = periods.find((p) => p.key === key)!;
+  const period = periods.find((p) => p.key === key) ?? periods[0];
+  const [showPlatformMoney, setShowPlatformMoney] = useState(false);
+
+  const { data: comparison, isFetching: comparisonLoading, error: comparisonError } = useQuery({
+    queryKey: ['landlord-ops-principal-comparison', period.from, period.to],
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('landlord_ops_principal_comparison', {
+        p_from: period.from ?? undefined, p_to: period.to ?? undefined,
+      });
+      if (error) throw error;
+      return data as unknown as PrincipalComparison;
+    },
+  });
 
   const { data: rows = [], isFetching, error } = useQuery({
     queryKey: ['landlord-ops-principal-rows', period.from, period.to],
@@ -93,18 +109,9 @@ export default function PrincipalRecovered() {
     },
   });
 
-  const totals = useMemo(
-    () =>
-      rows.reduce(
-        (a, r) => ({
-          total: a.total + Number(r.total_repayment),
-          principal: a.principal + Number(r.principal),
-          other: a.other + Number(r.total_repayment) - Number(r.principal),
-        }),
-        { total: 0, principal: 0, other: 0 },
-      ),
-    [rows],
-  );
+  const totals = useMemo(() => summarizePrincipalComponents(rows), [rows]);
+  const comparisonValue = (value: number | undefined) => comparisonError ? 'Unavailable' : comparisonLoading || value == null ? '—' : formatUGX(value);
+  const asOfLabel = comparison?.as_of ? new Date(`${comparison.as_of}T00:00:00Z`).toLocaleDateString('en-GB', { timeZone: 'UTC', dateStyle: 'medium' }) : '—';
 
   return (
     <div className="space-y-4 p-4">
@@ -115,7 +122,7 @@ export default function PrincipalRecovered() {
         <div>
           <h1 className="text-lg font-bold">Landlord Principal Recovered</h1>
           <p className="text-xs text-muted-foreground">
-            Tenant repayments behind the KPI — reversed repayments excluded. Dates in Kampala time.
+            Landlord float disbursed and principal recovered. Dates in Kampala time.
           </p>
         </div>
       </div>
@@ -128,19 +135,53 @@ export default function PrincipalRecovered() {
         </TabsList>
       </Tabs>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         {[
-          ['Principal recovered', formatUGX(totals.principal)],
-          ['Total repayments', formatUGX(totals.total)],
-          ['Other components', formatUGX(totals.other)],
-          ['Repayments', rows.length.toLocaleString()],
-        ].map(([l, v]) => (
+          ['Expected', comparisonValue(comparison?.expected), `Total disbursed landlord float · As of ${asOfLabel}`],
+          ['Recovered', comparisonValue(comparison?.recovered), `Principal repaid · As of ${asOfLabel}`],
+        ].map(([l, v, detail]) => (
           <Card key={l} className="p-4">
             <p className="text-[11px] uppercase tracking-wider text-muted-foreground">{l}</p>
-            <p className="mt-1 text-lg font-bold tabular-nums">{v}</p>
+            <p className="mt-1 break-words text-lg font-bold tabular-nums">{v}</p>
+            <p className="mt-2 text-xs text-muted-foreground">{detail}</p>
           </Card>
         ))}
+        <Button variant="outline" disabled={isFetching || !!error} onClick={() => setShowPlatformMoney(true)} aria-label="Platform Money breakdown" className="h-auto min-w-0 flex-col items-start whitespace-normal rounded-lg bg-card p-4 text-left">
+          <span className="flex w-full items-center justify-between gap-2 text-[11px] uppercase tracking-wider text-muted-foreground">Platform Money <ChevronRight className="h-4 w-4 shrink-0" /></span>
+          <span className="mt-1 break-words text-lg font-bold tabular-nums">{error ? 'Unavailable' : isFetching ? '—' : formatUGX(totals.platformMoney)}</span>
+          <span className="mt-2 text-xs font-normal text-muted-foreground">Collected fees · {period.label}</span>
+        </Button>
       </div>
+
+      {comparisonError ? (
+        <p role="alert" className="py-6 text-sm text-destructive">Could not load principal comparison: {comparisonError.message}</p>
+      ) : comparisonLoading || !comparison ? (
+        <div className="flex h-[300px] items-center justify-center" role="status"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /><span className="sr-only">Loading principal comparison</span></div>
+      ) : <PrincipalRecoveryChart comparison={comparison} />}
+
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-base font-semibold">Repayment breakdown</h2>
+        <p className="text-xs text-muted-foreground">{period.label} · {rows.length.toLocaleString()} repayments · Principal {formatUGX(totals.principal)}</p>
+      </div>
+
+      <Dialog open={showPlatformMoney} onOpenChange={setShowPlatformMoney}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader className="pr-8">
+            <DialogTitle>Platform Money breakdown</DialogTitle>
+            <DialogDescription>Collected fees · {period.label} · Excludes principal</DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-wrap justify-between gap-2 border-b border-border pb-4 text-lg font-semibold">
+            <span>Total Platform Money</span><span className="tabular-nums">{formatUGX(totals.platformMoney)}</span>
+          </div>
+          <dl className="divide-y divide-border">
+            {[
+              ['Returns', totals.returns], ['Commission', totals.commission], ['Platform fee', totals.platformFee],
+              ['Access fee', totals.accessFee], ['Registration Fee', totals.registrationFee],
+            ].map(([label, value]) => <div key={String(label)} className="flex justify-between gap-4 py-3 text-sm"><dt>{label}</dt><dd className="text-right font-medium tabular-nums">{formatUGX(Number(value))}</dd></div>)}
+          </dl>
+          <p className="text-xs text-muted-foreground">Access Fee + Registration Fee make up the total collected fees. Returns, Commission and Platform Fee show how those fees are allocated; they are not added again. Older repayments may have no recorded allocation breakdown.</p>
+        </DialogContent>
+      </Dialog>
 
       <Card className="overflow-x-auto">
         {isFetching ? (

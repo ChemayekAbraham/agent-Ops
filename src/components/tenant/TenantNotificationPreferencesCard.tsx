@@ -1,4 +1,5 @@
 import { lazy, Suspense } from 'react';
+import { lazyNamed } from '@/lib/lazyWithRetry';
 import {
   useTenantNotificationPreferences,
   useUpdateTenantNotificationPreferences,
@@ -10,11 +11,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Sparkles, Bell, ShieldCheck, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
-const PushNotificationButton = lazy(() =>
-  import('@/components/PushNotificationButton').then((m) => ({
-    default: m.PushNotificationButton,
-  })),
-);
+const PushNotificationButton = lazyNamed(() => import('@/components/PushNotificationButton'), 'PushNotificationButton');
 
 interface TenantNotificationPreferencesCardProps {
   tenantId: string;

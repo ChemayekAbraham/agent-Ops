@@ -26,6 +26,7 @@ const GUARDS = [
   ['guard-canonical-tags.mjs', 'canonical tags'],
   ['guard-privileged-function-grants.mjs', 'privileged function EXECUTE grants'],
   ['guard-tops-client-math.mjs', 'tenant ops workspace client-side money math'],
+  ['guard-assistant-readonly.mjs', 'agent assistant is read-only and user-scoped'],
 ];
 
 const bar = '='.repeat(78);

@@ -122,6 +122,7 @@ export function BikeAssetDetailsDialog({ lease, open, onOpenChange, onSuccess }:
   });
 
   if (!lease) return null;
+  const locked = !lease.cfo_disbursed_at;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -147,6 +148,12 @@ export function BikeAssetDetailsDialog({ lease, open, onOpenChange, onSuccess }:
             </Badge>
           </div>
 
+          {locked && (
+            <p className="text-[11px] rounded-md border border-border bg-muted p-2 text-muted-foreground">
+              Plate, chassis and battery serial can be recorded only after the CFO disburses funds for this bike.
+            </p>
+          )}
+
           {/* Plate Number */}
           <div className="space-y-1">
             <Label className="text-xs flex items-center gap-1.5">
@@ -156,6 +163,7 @@ export function BikeAssetDetailsDialog({ lease, open, onOpenChange, onSuccess }:
               placeholder="e.g. UBJ 123A"
               value={plateNumber}
               onChange={(e) => setPlateNumber(e.target.value.toUpperCase())}
+              disabled={locked}
               className="h-9 text-sm font-mono"
             />
           </div>
@@ -169,6 +177,7 @@ export function BikeAssetDetailsDialog({ lease, open, onOpenChange, onSuccess }:
               placeholder="e.g. LAEPCJ1A1PB012345"
               value={chassisNumber}
               onChange={(e) => setChassisNumber(e.target.value.toUpperCase())}
+              disabled={locked}
               className="h-9 text-sm font-mono"
             />
           </div>
@@ -182,6 +191,7 @@ export function BikeAssetDetailsDialog({ lease, open, onOpenChange, onSuccess }:
               placeholder="e.g. BAT-2026-00123"
               value={batterySerial}
               onChange={(e) => setBatterySerial(e.target.value.toUpperCase())}
+              disabled={locked}
               className="h-9 text-sm font-mono"
             />
             <p className="text-[10px] text-muted-foreground">

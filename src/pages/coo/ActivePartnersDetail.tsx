@@ -1,3 +1,4 @@
+import { safeUUID } from '@/lib/safeUUID';
 import { useEffect, useState, useCallback } from 'react';
 import ScreenLoader from '@/components/common/ScreenLoader';
 import { useNavigate } from 'react-router-dom';
@@ -392,7 +393,7 @@ export default function ActivePartnersDetail() {
                 duration_months: 12,
                 portfolio_code: portfolioCode,
                 portfolio_pin: Math.floor(1000 + Math.random() * 9000).toString(),
-                activation_token: crypto.randomUUID(),
+                activation_token: safeUUID(),
                 status: 'active',
                 next_roi_date: nextRoiDate.toISOString().slice(0, 10),
                 maturity_date: maturityDate.toISOString().slice(0, 10),

@@ -89,45 +89,23 @@ export function ReferralPerformanceView() {
   const spanDays = differenceInCalendarDays(end, start) + 1;
   const granularity: Granularity = spanDays <= 45 ? 'day' : spanDays <= 120 ? 'week' : 'month';
 
-  // All referred signups in range (paginated; capped for safety)
-  const { data: referrals, isLoading: loadingRefs } = useQuery({
-    queryKey: ['referral-perf-rows', start.toISOString(), end.toISOString()],
+  // Real referred signups + real total in range, from one role-gated server function
+  // (suspected fake accounts — no phone and never signed in — are left out).
+  const { data: perf, isLoading: loadingRefs } = useQuery({
+    queryKey: ['referral-perf-real', start.toISOString(), end.toISOString()],
     queryFn: async () => {
-      const rows: ReferralRow[] = [];
-      const pageSize = 1000;
-      for (let from = 0; from < 20000; from += pageSize) {
-        const { data, error } = await supabase
-          .from('profiles')
-          .select('id, full_name, phone, created_at, referrer_id, signup_source')
-          .not('referrer_id', 'is', null)
-          .gte('created_at', start.toISOString())
-          .lte('created_at', end.toISOString())
-          .order('created_at', { ascending: false })
-          .range(from, from + pageSize - 1);
-        if (error) throw error;
-        if (!data || data.length === 0) break;
-        rows.push(...(data as unknown as ReferralRow[]));
-        if (data.length < pageSize) break;
-      }
-      return rows;
-    },
-    staleTime: 60_000,
-  });
-
-  // Total signups in range (organic + referred) for conversion rate
-  const { data: totalSignups } = useQuery({
-    queryKey: ['referral-perf-total', start.toISOString(), end.toISOString()],
-    queryFn: async () => {
-      const { count, error } = await supabase
-        .from('profiles')
-        .select('id', { count: 'exact', head: true })
-        .gte('created_at', start.toISOString())
-        .lte('created_at', end.toISOString());
+      const { data, error } = await (supabase.rpc as any)('get_referral_performance_rows', {
+        p_start: start.toISOString(),
+        p_end: end.toISOString(),
+      });
       if (error) throw error;
-      return count || 0;
+      return data as { total_signups: number; excluded_referred: number; rows: ReferralRow[] };
     },
     staleTime: 60_000,
   });
+  const referrals = perf?.rows;
+  const totalSignups = perf?.total_signups;
+  const excludedReferred = perf?.excluded_referred ?? 0;
 
   // Enrich top referrers with name/phone/role
   const topReferrerIds = useMemo(() => {
@@ -307,6 +285,12 @@ export function ReferralPerformanceView() {
             <CalendarRange className="h-3.5 w-3.5" /> {spanDays} day window · bucketed by {granularity}
           </div>
         </div>
+      )}
+
+      {excludedReferred > 0 && (
+        <p className="text-xs text-muted-foreground">
+          {excludedReferred.toLocaleString()} suspected fake referred accounts (no phone number and never signed in) are left out of these figures.
+        </p>
       )}
 
       {/* KPIs */}

@@ -10,6 +10,7 @@ import {
 } from '@/hooks/usePWAInstall';
 import { trackInstallEvent } from '@/lib/installTracking';
 import { toast } from 'sonner';
+import { isCriticalFlowActive } from '@/lib/criticalFlowGuard';
 
 const IOSInstallGuide = lazy(() => import('@/components/IOSInstallGuide'));
 const GenericInstallGuide = lazy(() => import('@/components/GenericInstallGuide'));
@@ -73,6 +74,8 @@ export default function InstallNagOverlay() {
     const tryOpen = () => {
       if (Date.now() < snoozedUntil()) return;
       if (document.hidden) return;
+      // never cover a call, a form or any other live work; the next repeat tries again
+      if (isCriticalFlowActive()) return;
       setOpen(true);
     };
 

@@ -32,6 +32,8 @@ type Req = {
   redemption_amount?: number | null;
   remaining_principal?: number | null;
   processing_note?: string | null;
+  processing_started_at?: string | null;
+  notice_ends_on?: string | null;
   portfolio?: {
     duration_months: number | null;
     payout_day: number | null;
@@ -218,6 +220,37 @@ export function MaturityRequestsQueue() {
       return;
     }
     toast({ title: `Request ${label}`, description: `${req.portfolio_code} — ${req.partner_name}` });
+
+    // Redemption moved to processing: email the partner their 90-day notice
+    // dates (read fresh from the DB, set by the countdown trigger).
+    if (status === 'processing' && req.request_type === 'REDEMPTION_REQUEST') {
+      const { data: fresh } = await supabase
+        .from('portfolio_action_requests')
+        .select('processing_started_at, notice_ends_on')
+        .eq('id', req.id)
+        .maybeSingle();
+      const email = req.partner_email;
+      const realEmail = !!email && !email.endsWith('@welile.user') && !email.endsWith('@noapp.welile.user');
+      if (fresh?.processing_started_at && realEmail) {
+        const { error: mailErr } = await supabase.functions.invoke('send-transactional-email', {
+          body: {
+            templateName: 'redemption-notice-started',
+            recipientEmail: email,
+            idempotencyKey: `redemption-notice-started-${req.id}`,
+            templateData: {
+              partner_name: req.partner_name,
+              portfolio_name: req.portfolio_name,
+              portfolio_id: req.portfolio_code,
+              amount: req.redemption_amount ?? req.portfolio_value,
+              currency: req.currency || 'UGX',
+              started_on: format(new Date(fresh.processing_started_at), 'd MMM yyyy'),
+              ends_on: fresh.notice_ends_on ? format(new Date(fresh.notice_ends_on), 'd MMM yyyy') : '',
+            },
+          },
+        });
+        if (mailErr) toast({ title: 'Notice email not sent', description: mailErr.message, variant: 'destructive' });
+      }
+    }
     queryClient.invalidateQueries({ queryKey: ['maturity-requests-queue'] });
   };
 
@@ -501,6 +534,12 @@ export function MaturityRequestsQueue() {
                       <Clock className="h-3 w-3 shrink-0" />
                       Sent {format(new Date(req.created_at), 'd MMM, HH:mm')}
                     </span>
+                    {!isRenewal && req.status === 'processing' && req.notice_ends_on && (
+                      <span className="col-span-2 flex items-center gap-1.5 font-medium text-foreground">
+                        <CalendarClock className="h-3 w-3 shrink-0" />
+                        90-day notice started {req.processing_started_at ? format(new Date(req.processing_started_at), 'd MMM yyyy') : ''} · ends {format(new Date(req.notice_ends_on), 'd MMM yyyy')} ({Math.max(0, Math.ceil((new Date(req.notice_ends_on).getTime() - Date.now()) / 86400000))} days left)
+                      </span>
+                    )}
                   </div>
 
                   {req.message && (

@@ -96,6 +96,7 @@ export function useServiceCenterReviewVerification() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['service-center-verification-queue'] });
+      queryClient.invalidateQueries({ queryKey: ['overdue-vetting'] });
     },
   });
 }

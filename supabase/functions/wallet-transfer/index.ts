@@ -494,6 +494,7 @@ Deno.serve(async (req) => {
         .eq('user_id', resolvedRecipientId)
         .eq('category', 'wallet_transfer')
         .eq('direction', 'cash_in')
+        .gte('transaction_date', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
         .limit(5000);
       const received = (rx ?? []).reduce((s: number, r: any) => s + Number(r.amount || 0), 0);
       if (received > 0) advanceTotal = Math.min(ADV_MIN + received * 2, ADV_MAX);

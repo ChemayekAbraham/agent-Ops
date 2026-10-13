@@ -276,7 +276,6 @@ export function CashDepositCodesPanel({
     };
   }, [load]);
 
-  if (denied) return null;
 
   const reissue = async (verificationId: string, channel: 'sms' | 'email' = 'sms') => {
     setReissuing(verificationId);
@@ -605,6 +604,7 @@ export function CashDepositCodesPanel({
     );
   };
 
+  if (denied) return null;
   return (
     <>
       <StartCashDepositDialog open={startOpen} onOpenChange={setStartOpen} onIssued={load} />

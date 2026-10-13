@@ -167,8 +167,11 @@ export function useMerchantFloatPositions(enabled = true) {
     queryKey: ['merchant-float-positions'],
     enabled,
     retry: false,
-    staleTime: 10_000,
-    refetchInterval: 20_000,
+    // Heavy RPC (~4s): refresh only while the screen is visible, and rarely.
+    staleTime: 60_000,
+    refetchInterval: 120_000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: false,
     queryFn: async (): Promise<MerchantFloatPosition[]> => {
       const { data, error } = await supabase.rpc('get_merchant_float_positions' as any);
       if (error) throw error;
@@ -629,8 +632,11 @@ export function useMerchantFloatLedgerVariance(enabled = true) {
     queryKey: ['merchant-float-ledger-variance'],
     enabled,
     retry: false,
-    staleTime: 30_000,
-    refetchInterval: 60_000,
+    // Heavy RPC (~7s): refresh only while visible, every 5 minutes.
+    staleTime: 120_000,
+    refetchInterval: 300_000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: false,
     queryFn: async (): Promise<MerchantFloatLedgerVariance[]> => {
       const { data, error } = await supabase.rpc('get_merchant_float_ledger_variance' as any);
       if (error) throw error;
@@ -844,8 +850,9 @@ export function useLatestMerchantFloatMovements(agentIds: string[], enabled = tr
     queryKey: ['merchant-latest-float-movement', ids],
     enabled: enabled && ids.length > 0,
     retry: false,
-    staleTime: 10_000,
-    refetchInterval: 20_000,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
     queryFn: async (): Promise<Map<string, LatestFloatMovement>> => {
       const { data, error } = await supabase
         .from('general_ledger')
@@ -891,8 +898,9 @@ export function useRecentMerchantFloatMovements(
     queryKey: ['merchant-recent-float-movements', ids, perAgent],
     enabled: enabled && ids.length > 0,
     retry: false,
-    staleTime: 10_000,
-    refetchInterval: 20_000,
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
     queryFn: async (): Promise<Map<string, LatestFloatMovement[]>> => {
       const { data, error } = await supabase
         .from('general_ledger')

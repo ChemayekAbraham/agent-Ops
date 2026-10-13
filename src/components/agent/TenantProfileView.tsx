@@ -44,6 +44,7 @@ import { Sparkles, ChevronRight } from 'lucide-react';
 import AgentContactLocationGate from './AgentContactLocationGate';
 import { useRequireContactLocation } from '@/hooks/useRequireContactLocation';
 import { RenewalAgreementDialog } from './RenewalAgreementDialog';
+import { useRenewalOtp } from './RenewalOtpDialog';
 import { TenantDocumentsSection } from './TenantDocumentsSection';
 import { TenantPropertyCard } from './TenantPropertyCard';
 
@@ -268,6 +269,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
   const [rentLimitOpen, setRentLimitOpen] = useState(false);
   const [renewing, setRenewing] = useState(false);
   const [renewalAgreementOpen, setRenewalAgreementOpen] = useState(false);
+  const renewalOtp = useRenewalOtp();
   const [historyRange, setHistoryRange] = useState<'all' | '7d' | '30d' | 'month' | 'custom'>('all');
   const [historyFrom, setHistoryFrom] = useState<string>('');
   const [historyTo, setHistoryTo] = useState<string>('');
@@ -847,6 +849,9 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
       setRenewalAgreementOpen(true);
       return;
     }
+    // Tenant must confirm the renewal with the code texted to them (enforced server-side too).
+    const consented = await renewalOtp.requestConsent(req.id, profile.full_name || 'the tenant');
+    if (!consented) return;
 
     setRenewing(true);
     try {
@@ -2892,6 +2897,7 @@ export function TenantProfileView({ tenantId, onBack, autoEdit }: TenantProfileV
         }}
       />
 
+      {renewalOtp.dialog}
       {profile && lastCompletedRequest && lastCompletedRequest.landlord_id && (
         <RenewalAgreementDialog
           open={renewalAgreementOpen}

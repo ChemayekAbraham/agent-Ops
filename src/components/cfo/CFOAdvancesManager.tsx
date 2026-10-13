@@ -5,6 +5,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Plus, TrendingUp, AlertTriangle, DollarSign, Shield, Percent, Calculator, Receipt, Trash2, RefreshCw, Download, FileText, Ban, Pencil, ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
 import { exportAdvanceStatements, exportConsolidatedPayments } from '@/lib/agentAdvancePdfExport';
+import { downloadAdvancesExcel, downloadAdvancesPdf } from '@/lib/advancesListExport';
+import { FileSpreadsheet } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -272,6 +275,21 @@ export function CFOAdvancesManager() {
           <p className="text-sm text-muted-foreground">Track repayment progress on disbursed advances, record payments and export repayment reports.</p>
         </div>
         <div className="flex gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="outline" className="gap-1" disabled={filtered.length === 0}>
+                <Download className="h-4 w-4" /> Download
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => downloadAdvancesPdf(filtered, filter).catch((e) => toast.error(e.message || 'Download failed'))}>
+                <FileText className="h-4 w-4 mr-2" /> PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => downloadAdvancesExcel(filtered, filter).catch((e) => toast.error(e.message || 'Download failed'))}>
+                <FileSpreadsheet className="h-4 w-4 mr-2" /> Excel
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button
             onClick={handleExportPdfs}
             size="sm"

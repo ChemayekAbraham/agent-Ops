@@ -421,4 +421,142 @@ describe('AwarenessCallPanel', () => {
     expect(calls('get_awareness_calls_for_request')).toHaveLength(0);
     expect(screen.queryByTestId('awareness-reminder')).not.toBeInTheDocument();
   });
+
+  describe('landlord calls ask consent and the payment code (OTP), not the merchant codes', () => {
+    const openLandlordForm = async (user: ReturnType<typeof userEvent.setup>) => {
+      render(<AwarenessCallPanel request={request} defaultSubject="landlord" />, { wrapper });
+      await screen.findByTestId('awareness-reminder');
+      await user.click(screen.getByRole('button', { name: /Record feedback/ }));
+      const form = await screen.findByRole('form', { name: /Record awareness call feedback/ });
+      await user.click(within(form).getByRole('radio', { name: 'Answered' }));
+      return form;
+    };
+
+    it('shows the two landlord questions and a read-aloud script instead of the merchant-code question and pills', async () => {
+      const user = userEvent.setup();
+      const form = await openLandlordForm(user);
+      expect(within(form).getByText("Does the landlord consent to receive this tenant's rent through Welile?")).toBeInTheDocument();
+      expect(within(form).getByText(/Does the landlord know about the payment code \(OTP\)\? When they are paid, Welile sends an SMS from WELILE with a 6-digit code valid for 1 hour, to share only with the agent paying them\./)).toBeInTheDocument();
+      expect(within(form).getByTestId('awareness-landlord-script')).toHaveTextContent('6-digit code that is valid for 1 hour');
+      expect(within(form).queryByRole('radiogroup', { name: /merchant codes/ })).not.toBeInTheDocument();
+      expect(within(form).queryByText('090999')).not.toBeInTheDocument();
+      // the 30M and explained questions are still asked
+      expect(within(form).getByRole('radiogroup', { name: /UGX 30,000,000/ })).toBeInTheDocument();
+      expect(within(form).getByRole('radiogroup', { name: /explain it/ })).toBeInTheDocument();
+      // the three consent answers
+      const consent = within(form).getByRole('radiogroup', { name: /consent to receive/ });
+      expect(within(consent).getAllByRole('radio').map((r) => r.textContent)).toEqual(['Consents', 'Not sure, wants to think', 'Does not consent']);
+    });
+
+    it('needs all four answers, then saves them with no merchant-code answer and no user id', async () => {
+      const user = userEvent.setup();
+      const form = await openLandlordForm(user);
+      const save = within(form).getByRole('button', { name: 'Save call' });
+      expect(save).toBeDisabled();
+      await user.click(within(within(form).getByRole('radiogroup', { name: /UGX 30,000,000/ })).getByRole('radio', { name: 'Did not know' }));
+      await user.click(within(within(form).getByRole('radiogroup', { name: /consent to receive/ })).getByRole('radio', { name: 'Consents' }));
+      expect(save).toBeDisabled();
+      await user.click(within(within(form).getByRole('radiogroup', { name: /payment code/ })).getByRole('radio', { name: 'Heard but unsure' }));
+      await user.click(within(within(form).getByRole('radiogroup', { name: /explain it/ })).getByRole('radio', { name: 'Yes, fully explained' }));
+      expect(save).toBeEnabled();
+      await user.click(save);
+      await waitFor(() => expect(calls('record_awareness_call')).toHaveLength(1));
+      expect(calls('record_awareness_call')[0]).toMatchObject({
+        p_subject_type: 'landlord', p_subject_phone: '+256700333444', p_call_result: 'answered', p_subject_user_id: null,
+        p_aware_30m: 'did_not_know', p_aware_merchant_codes: null, p_landlord_consent: 'consents', p_aware_payout_otp: 'heard', p_explained: 'yes',
+      });
+    });
+
+    it('an unanswered landlord call sends no answers', async () => {
+      const user = userEvent.setup();
+      render(<AwarenessCallPanel request={request} defaultSubject="landlord" />, { wrapper });
+      await screen.findByTestId('awareness-reminder');
+      await user.click(screen.getByRole('button', { name: /Record feedback/ }));
+      const form = await screen.findByRole('form', { name: /Record awareness call feedback/ });
+      await user.click(within(form).getByRole('radio', { name: 'No answer' }));
+      await user.click(within(form).getByRole('button', { name: 'Save call' }));
+      await waitFor(() => expect(calls('record_awareness_call')).toHaveLength(1));
+      expect(calls('record_awareness_call')[0]).toMatchObject({
+        p_aware_30m: null, p_aware_merchant_codes: null, p_landlord_consent: null, p_aware_payout_otp: null, p_explained: null,
+      });
+    });
+
+    it('a tenant or agent call never sends the landlord answers', async () => {
+      const user = userEvent.setup();
+      render(<AwarenessCallPanel request={request} />, { wrapper });
+      await screen.findByTestId('awareness-reminder');
+      await user.click(screen.getByRole('button', { name: /Record feedback/ }));
+      const form = await screen.findByRole('form', { name: /Record awareness call feedback/ });
+      await user.click(within(form).getByRole('radio', { name: 'Agent' }));
+      await user.click(within(form).getByRole('radio', { name: 'Phone off' }));
+      await user.click(within(form).getByRole('button', { name: 'Save call' }));
+      await waitFor(() => expect(calls('record_awareness_call')).toHaveLength(1));
+      expect(calls('record_awareness_call')[0]).not.toHaveProperty('p_landlord_consent');
+      expect(calls('record_awareness_call')[0]).not.toHaveProperty('p_aware_payout_otp');
+    });
+
+    it('changing who was called clears the answers that no longer apply', async () => {
+      const user = userEvent.setup();
+      render(<AwarenessCallPanel request={request} />, { wrapper });
+      await screen.findByTestId('awareness-reminder');
+      await user.click(screen.getByRole('button', { name: /Record feedback/ }));
+      const form = await screen.findByRole('form', { name: /Record awareness call feedback/ });
+      await user.click(within(form).getByRole('radio', { name: 'Answered' }));
+
+      // a tenant answers the merchant-code question ...
+      await user.click(within(within(form).getByRole('radiogroup', { name: /merchant codes/ })).getByRole('radio', { name: 'Heard but unsure' }));
+      // ... then it turns out the landlord was called: the merchant-code answer is gone, and the new questions are blank
+      await user.click(within(form).getByRole('radio', { name: 'Landlord' }));
+      expect(within(form).queryByRole('radiogroup', { name: /merchant codes/ })).not.toBeInTheDocument();
+      const consent = within(form).getByRole('radiogroup', { name: /consent to receive/ });
+      for (const r of within(consent).getAllByRole('radio')) expect(r).toHaveAttribute('aria-checked', 'false');
+      await user.click(within(consent).getByRole('radio', { name: 'Not sure, wants to think' }));
+      await user.click(within(within(form).getByRole('radiogroup', { name: /payment code/ })).getByRole('radio', { name: 'Knew about it' }));
+
+      // and back to the tenant: the landlord answers are gone, and so is the old merchant-code answer
+      await user.click(within(form).getByRole('radio', { name: 'Tenant' }));
+      expect(within(form).queryByRole('radiogroup', { name: /consent to receive/ })).not.toBeInTheDocument();
+      expect(within(form).queryByRole('radiogroup', { name: /payment code/ })).not.toBeInTheDocument();
+      const codes = within(form).getByRole('radiogroup', { name: /merchant codes/ });
+      for (const r of within(codes).getAllByRole('radio')) expect(r).toHaveAttribute('aria-checked', 'false');
+      await user.click(within(form).getByRole('radio', { name: 'Landlord' }));
+      const again = within(form).getByRole('radiogroup', { name: /consent to receive/ });
+      for (const r of within(again).getAllByRole('radio')) expect(r).toHaveAttribute('aria-checked', 'false');
+    });
+
+    it('"Does not consent" uses the destructive colour, selected or not, and the other answers do not', async () => {
+      const user = userEvent.setup();
+      const form = await openLandlordForm(user);
+      const consent = within(form).getByRole('radiogroup', { name: /consent to receive/ });
+      const refuses = within(consent).getByRole('radio', { name: 'Does not consent' });
+      expect(refuses.className).toMatch(/text-destructive/);
+      await user.click(refuses);
+      expect(refuses).toHaveAttribute('aria-checked', 'true');
+      expect(refuses.className).toMatch(/bg-destructive/);
+      expect(within(consent).getByRole('radio', { name: 'Consents' }).className).not.toMatch(/destructive/);
+      // saving "Does not consent" is allowed: it never blocks approving or rejecting, and nothing here touches those
+      expect(screen.queryByRole('button', { name: /Approve|Reject/ })).not.toBeInTheDocument();
+    });
+
+    it('earlier calls are read by the questions each was asked', async () => {
+      stored = [
+        call({ id: 'c-l1', subject_type: 'landlord', caller_team: 'tenant_ops', aware_merchant_codes: null, landlord_consent: 'refuses', aware_payout_otp: 'heard', note: null }),
+        call({ id: 'c-l2', subject_type: 'landlord', caller_team: 'agent_ops', aware_merchant_codes: 'knew', note: null }),
+        call({ id: 'c-t1', subject_type: 'tenant', caller_team: 'service_centre', note: null }),
+      ];
+      render(<AwarenessCallPanel request={request} />, { wrapper });
+      const earlier = await screen.findByTestId('awareness-earlier');
+      const tenantOps = within(earlier).getByTestId('awareness-team-tenant_ops');
+      expect(within(tenantOps).getByText('Landlord consent')).toBeInTheDocument();
+      expect(within(tenantOps).getByText('Does not consent').className).toMatch(/text-destructive/);
+      expect(within(tenantOps).getByText('Knew about payment code (OTP)')).toBeInTheDocument();
+      expect(within(tenantOps).queryByText('Knew about merchant-code self-payment')).not.toBeInTheDocument();
+      const agentOps = within(earlier).getByTestId('awareness-team-agent_ops');
+      expect(within(agentOps).getByText('Old question')).toBeInTheDocument();
+      expect(within(agentOps).getAllByText('Not asked')).toHaveLength(2);
+      const serviceCentre = within(earlier).getByTestId('awareness-team-service_centre');
+      expect(within(serviceCentre).getByText('Knew about merchant-code self-payment')).toBeInTheDocument();
+      expect(within(serviceCentre).queryByText('Landlord consent')).not.toBeInTheDocument();
+    });
+  });
 });

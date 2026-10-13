@@ -104,6 +104,7 @@ export function useAuthForm() {
 
   const phoneInputRef = useRef<HTMLInputElement>(null);
   const passwordInputRef = useRef<HTMLInputElement>(null);
+  const signUpInFlightRef = useRef(false);
 
   const { signUpWithoutRole, signIn, signInWithGoogle, signInWithApple, resetPassword, user, roles } = useAuth();
   const { isDuplicate, isChecking: isCheckingDuplicate, duplicateMessage } = usePhoneDuplicateCheck(phone, 400);
@@ -470,69 +471,68 @@ export function useAuthForm() {
     // as an opaque "Database error while creating new user" (unexpected_failure),
     // so the raw message never reaches the client. Catch duplicates up front
     // to give the user an accurate, friendly message instead.
+    // The checks run in parallel with a ~1.5s cap. They are friendly UX only:
+    // handle_new_user / phone-signup still enforce every rule server-side, so a
+    // slow or failed check lets the sign-up continue.
+    const stopTotal = lt.start('signup.total', { hasRealEmail });
+    const stopPre = lt.start('signup.prechecks');
     try {
       const last9 = fullPhone.replace(/\D/g, '').slice(-9);
       if (last9.length === 9) {
-        const { data: fraudRows } = await (supabase as any).rpc('check_fraud_account_by_phone', {
-          phone_variants: [`0${last9}`, `256${last9}`, last9],
-        });
-        const fraudRow = Array.isArray(fraudRows) ? fraudRows[0] : null;
-        if (fraudRow?.is_blocked) {
-          setIsLoading(false);
-          toast({
-            title: 'Account Restricted',
-            description: 'This phone number is permanently restricted for fraud review and cannot create a Welile account.',
-            variant: 'destructive',
-          });
-          return;
-        }
-
-        if (hasRealEmail) {
-          const { data: emailFraudRows } = await (supabase as any).rpc('check_fraud_account_by_email', {
-            p_email: trimmedEmail,
-          });
-          const emailFraudRow = Array.isArray(emailFraudRows) ? emailFraudRows[0] : null;
-          if (emailFraudRow?.is_blocked) {
+        const sb = supabase as any;
+        const settle = (p: PromiseLike<{ data: any }>) =>
+          Promise.resolve(p).then((r) => r?.data ?? null, () => null);
+        const timedOut = Symbol('timeout');
+        const checks = Promise.all([
+          settle(sb.rpc('check_fraud_account_by_phone', { phone_variants: [`0${last9}`, `256${last9}`, last9] })),
+          hasRealEmail ? settle(sb.rpc('check_fraud_account_by_email', { p_email: trimmedEmail })) : Promise.resolve(null),
+          settle(sb.rpc('check_fraud_account_by_name', { p_full_name: trimmedFullName })),
+          settle(supabase.rpc('check_phone_exists', { phone_suffix: last9 })),
+        ]);
+        const res = await Promise.race([
+          checks,
+          new Promise<typeof timedOut>((r) => setTimeout(() => r(timedOut), 1500)),
+        ]);
+        if (res === timedOut) {
+          stopPre('timeout');
+        } else {
+          stopPre('ok');
+          const [fraudRows, emailFraudRows, nameFraudRows, existing] = res;
+          const first = (rows: unknown) => (Array.isArray(rows) ? (rows[0] as { is_blocked?: boolean } | undefined) : undefined);
+          const restricted = (description: string) => {
             setIsLoading(false);
+            stopTotal('blocked');
+            toast({ title: 'Account Restricted', description, variant: 'destructive' });
+          };
+          if (first(fraudRows)?.is_blocked) {
+            restricted('This phone number is permanently restricted for fraud review and cannot create a Welile account.');
+            return;
+          }
+          if (first(emailFraudRows)?.is_blocked) {
+            restricted('This email is permanently restricted for fraud review and cannot create a Welile account.');
+            return;
+          }
+          if (first(nameFraudRows)?.is_blocked) {
+            restricted('This name is linked to an account that was permanently restricted for fraud review and cannot be used to create a new Welile account.');
+            return;
+          }
+          if (Array.isArray(existing) && existing.length > 0) {
+            setIsLoading(false);
+            stopTotal('duplicate');
             toast({
-              title: 'Account Restricted',
-              description: 'This email is permanently restricted for fraud review and cannot create a Welile account.',
+              title: 'Phone already registered',
+              description: 'This phone number is already linked to an account. Please sign in instead.',
               variant: 'destructive',
             });
             return;
           }
         }
-
-        // Block recycled fraud accounts that reuse the same display name with a
-        // fresh phone/email. The DB trigger enforces this too, but we pre-check
-        // to show a clear message before attempting account creation.
-        const { data: nameFraudRows } = await (supabase as any).rpc('check_fraud_account_by_name', {
-          p_full_name: trimmedFullName,
-        });
-        const nameFraudRow = Array.isArray(nameFraudRows) ? nameFraudRows[0] : null;
-        if (nameFraudRow?.is_blocked) {
-          setIsLoading(false);
-          toast({
-            title: 'Account Restricted',
-            description: 'This name is linked to an account that was permanently restricted for fraud review and cannot be used to create a new Welile account.',
-            variant: 'destructive',
-          });
-          return;
-        }
-
-        const { data: existing } = await supabase.rpc('check_phone_exists', { phone_suffix: last9 });
-        if (Array.isArray(existing) && existing.length > 0) {
-          setIsLoading(false);
-          toast({
-            title: 'Phone already registered',
-            description: 'This phone number is already linked to an account. Please sign in instead.',
-            variant: 'destructive',
-          });
-          return;
-        }
+      } else {
+        stopPre('skipped');
       }
     } catch {
-      // Non-fatal: fall through to signUp; the generic-error mapping below covers it.
+      stopPre('error');
+      // Non-fatal: fall through to signUp; the server still enforces every rule.
     }
 
     const storedSignupSource = signupSourceState || sanitizeSignupSource((() => { try { return localStorage.getItem(SIGNUP_SOURCE_KEY); } catch { return null; } })());
@@ -562,6 +562,7 @@ export function useAuthForm() {
       // so without this the phone-only signup route had no device limit at all.
       const rawFp = await getDeviceFingerprint().catch(() => null);
       const deviceFp = isValidFingerprintShape(rawFp) ? rawFp : null;
+      const stopFn = lt.start('signup.phone_signup_fn');
       const { data: fnData, error: fnError } = await supabase.functions.invoke('phone-signup', {
         body: {
           email: authEmail,
@@ -591,8 +592,10 @@ export function useAuthForm() {
         }
         if (!serverError) serverError = fnError.message;
       }
+      stopFn(serverError ? 'error' : 'ok');
       if (serverError) {
         setIsLoading(false);
+        stopTotal('phone_signup_error');
         toast({ title: 'Sign Up Failed', description: serverError, variant: 'destructive' });
         return;
       }
@@ -601,9 +604,12 @@ export function useAuthForm() {
       saveLocationInBackground();
       try { localStorage.removeItem(SIGNUP_SOURCE_KEY); } catch { /* ignore */ }
 
+      const stopSignIn = lt.start('signup.signin');
       const { error: signInError } = await signIn(authEmail, password);
+      stopSignIn(signInError ? 'error' : 'ok');
       if (signInError) {
         setIsLoading(false);
+        stopTotal('created_signin_failed');
         toast({
           title: 'Almost there',
           description: 'Your account was created. Please sign in to continue.',
@@ -611,6 +617,7 @@ export function useAuthForm() {
         return;
       }
       setIsLoading(false);
+      stopTotal('ok');
       return;
     }
 
@@ -1117,10 +1124,17 @@ export function useAuthForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // A second "Create Account" tap while the first sign-up is still running
+    // does nothing (prevents "phone already registered" from double submits).
+    if (isSignUp && !isForgotPhone && !isForgotPassword) {
+      if (signUpInFlightRef.current) return;
+      signUpInFlightRef.current = true;
+    }
     setIsLoading(true);
 
-    // Safety timeout: reset spinner after 6s so UI never gets stuck
-    const safetyTimer = setTimeout(() => setIsLoading(false), 6000);
+    // Safety timeout: reset spinner so UI never gets stuck. Sign-up gets 20s
+    // so the button doesn't come back while account creation is still running.
+    const safetyTimer = setTimeout(() => setIsLoading(false), isSignUp ? 20000 : 6000);
 
     try {
       if (isForgotPhone) {
@@ -1138,6 +1152,7 @@ export function useAuthForm() {
       toast({ title: 'Error', description: `Unexpected error: ${msg}`, variant: 'destructive' });
     } finally {
       clearTimeout(safetyTimer);
+      signUpInFlightRef.current = false;
       setIsLoading(false);
       setLoginStage('idle');
     }

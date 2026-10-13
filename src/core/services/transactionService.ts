@@ -1,3 +1,4 @@
+import { safeUUID } from '@/lib/safeUUID';
 /**
  * Transaction Service (Phase 2 — Shadow Mode)
  * 
@@ -533,7 +534,7 @@ export const TransactionService = {
       description: input.description,
       sourceTable: input.sourceTable,
       sourceId: input.sourceId,
-      transactionGroupId: input.transactionGroupId || crypto.randomUUID(),
+      transactionGroupId: input.transactionGroupId || safeUUID(),
       linkedParty: input.linkedParty,
       referenceId: input.referenceId,
     };

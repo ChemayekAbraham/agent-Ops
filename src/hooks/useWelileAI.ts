@@ -1,3 +1,4 @@
+import { safeUUID } from '@/lib/safeUUID';
 import { useState, useCallback, useRef } from 'react';
 import { toast } from 'sonner';
 
@@ -19,7 +20,7 @@ export function useWelileAI() {
     if (!input.trim() || isLoading) return;
 
     const userMsg: AIChatMessage = {
-      id: crypto.randomUUID(),
+      id: safeUUID(),
       role: 'user',
       content: input.trim(),
       created_at: new Date().toISOString(),
@@ -96,7 +97,7 @@ export function useWelileAI() {
         }
       }
 
-      const finalId = crypto.randomUUID();
+      const finalId = safeUUID();
       setMessages(prev => prev.map(m => m.id === 'streaming' ? { ...m, id: finalId } : m));
     } catch (e: any) {
       if (e.name === 'AbortError') return;

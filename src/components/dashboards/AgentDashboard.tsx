@@ -50,11 +50,12 @@ import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { Info, UsersRound } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Wallet, Landmark, LayoutDashboard, ChevronRight } from 'lucide-react';
+import { Wallet, Landmark, LayoutDashboard, ChevronRight, ChevronLeft } from 'lucide-react';
 import { HandCoins, Receipt } from 'lucide-react';
 import { ShieldCheck } from 'lucide-react';
 import { Trophy } from 'lucide-react';
-import { ShoppingBag, Smartphone, Bike, Store } from 'lucide-react';
+import { ShoppingBag, Smartphone, Bike, Store, Package } from 'lucide-react';
+import { useMyOrdersCount } from '@/hooks/useMyOrdersCount';
 import SmartphoneOrderStatus from '@/components/merchandise/SmartphoneOrderStatus';
 import MerchandiseRepaymentPortfolio from '@/components/merchandise/MerchandiseRepaymentPortfolio';
 import { useMerchandiseOrderLock } from '@/hooks/useMerchandiseOrderLock';
@@ -127,6 +128,7 @@ import { AgentActionInsights } from '@/components/agent/AgentActionInsights';
 import { AgentArrearsCard } from '@/components/agent/AgentArrearsCard';
 import { AgentExpiredCyclesCard } from '@/components/agent/AgentExpiredCyclesCard';
 import { AgentLandlordFloatCard } from '@/components/agent/AgentLandlordFloatCard';
+import { AgentAssistant } from '@/components/agent/AgentAssistant';
 import { useTrackSection } from '@/hooks/useTrackSection';
 import { userBehaviourTracker } from '@/lib/userBehaviourTracker';
 import { AgentConvertToFloatCard } from '@/components/agent/AgentConvertToFloatCard';
@@ -160,6 +162,7 @@ import { AgentTenantRentRequestsList } from '@/components/agent/AgentTenantRentR
 import { ShareRentRecorderCard } from '@/components/agent/ShareRentRecorderCard';
 import { TodayCollectionsCard } from '@/components/agent/TodayCollectionsCard';
 import { AgentPriorityGrid } from '@/components/agent/AgentPriorityGrid';
+import { AgentPostRentRequestCard } from '@/components/agent/AgentPostRentRequestCard';
 import { MERCHANT_RESTRICTION_MESSAGE, useIsMerchantAgent } from '@/hooks/useIsMerchantAgent';
 import { MerchantDashboardHome } from '@/components/agent/MerchantDashboardHome';
 import { AgentTenantInlineList } from '@/components/agent/AgentTenantInlineList';
@@ -205,11 +208,9 @@ const AgentMyRentRequestsSheet = lazyNamed(() => import('@/components/agent/Agen
 const AgentTenantsSheet = lazyNamed(() => import('@/components/agent/AgentTenantsSheet'), 'AgentTenantsSheet');
 const FieldCollectReconciliationSheet = lazyNamed(() => import('@/components/agent/FieldCollectReconciliationSheet'), 'FieldCollectReconciliationSheet');
 const AgentManagedUsersSheet = lazyNamed(() => import('@/components/agent/AgentManagedUsersSheet'), 'AgentManagedUsersSheet');
-const AgentTopUpTenantDialog = lazyNamed(() => import('@/components/agent/AgentTopUpTenantDialog'), 'AgentTopUpTenantDialog');
 const AgentInvestForPartnerDialog = lazyNamed(() => import('@/components/agent/AgentInvestForPartnerDialog'), 'AgentInvestForPartnerDialog');
 const ProxyInvestmentHistorySheet = lazyNamed(() => import('@/components/agent/ProxyInvestmentHistorySheet'), 'ProxyInvestmentHistorySheet');
 const AgentReceiptDialog = lazyNamed(() => import('@/components/agent/AgentReceiptDialog'), 'AgentReceiptDialog');
-const AgentLandlordMapSheet = lazyNamed(() => import('@/components/agent/AgentLandlordMapSheet'), 'AgentLandlordMapSheet');
 const RentalFinderSheet = lazyNamed(() => import('@/components/agent/RentalFinderSheet'), 'RentalFinderSheet');
 const ListEmptyHouseDialog = lazyNamed(() => import('@/components/agent/ListEmptyHouseDialog'), 'ListEmptyHouseDialog');
 const AgentListingsSheet = lazyNamed(() => import('@/components/agent/AgentListingsSheet'), 'AgentListingsSheet');
@@ -408,7 +409,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   const [payoutProperty, setPayoutProperty] = useState<any>(null);
   const [myRentRequestsOpen, setMyRentRequestsOpen] = useState(false);
   
-  const [topUpTenantOpen, setTopUpTenantOpen] = useState(false);
   const [businessAdvanceOpen, setBusinessAdvanceOpen] = useState(false);
   const { event: commissionEvent, dismiss: dismissCommission } = useBusinessAdvanceCommissionListener();
   // Agent's personal advance credit limit — drives the prominent Money-tab promo.
@@ -493,7 +493,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   const [investForPartnerOpen, setInvestForPartnerOpen] = useState(false);
   const [proxyHistoryOpen, setProxyHistoryOpen] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
-  const [landlordMapOpen, setLandlordMapOpen] = useState(false);
   const [rentalFinderOpen, setRentalFinderOpen] = useState(false);
   const [listHouseOpen, setListHouseOpen] = useState(false);
   const [listHouseFromPromo, setListHouseFromPromo] = useState(false);
@@ -667,7 +666,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   const getTabOrder = (): AgentHubTab[] =>
     isCashoutAgent
       ? ['home']
-      : ['home', 'money', 'tenants', 'grow', 'subagents'];
+      : ['home', 'subagents'];
   const swipeHandlers = useHorizontalSwipe({
     onSwipeLeft: () => {
       const order = getTabOrder();
@@ -904,6 +903,7 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   // We only fall back to the full-page skeleton if the user is OFFLINE with
   // no cache (nothing else can render anyway).
   const showFullSkeleton = loading && !isOnline && !hasLoadedOnce;
+  const { data: myOrdersCount = 0 } = useMyOrdersCount(user?.id);
   if (showFullSkeleton) {
     return <AgentDashboardSkeleton />;
   }
@@ -948,9 +948,16 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   // plus a period-based access fee) and is reviewed by Agent Ops.
 
 
+
   const menuItems = [
     { icon: Store, label: 'Service Center', onClick: () => { hapticTap(); navigate('/agent/service-center'); } },
     { icon: ShoppingBag, label: 'Buy Merchandise', onClick: () => { hapticTap(); navigate('/merchandise'); } },
+    {
+      icon: Package,
+      label: 'My Orders',
+      badge: myOrdersCount > 0 ? myOrdersCount : null,
+      onClick: () => { hapticTap(); navigate('/merchandise?tab=orders'); },
+    },
   ];
 
   const quickActions = [] as any[];
@@ -1068,119 +1075,22 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
           <DeviceSessionIndicator userId={user.id} />
         </div>
 
-        {/* Wallet Hero Card — always visible */}
-        {wallet ? (
-          <UnifiedWalletHeroCard
-          balance={
-            isMerchant
-              ? realWithdrawableBalance
-              : Math.max(0, visibleAgentFloatBalance - merchantReservedFloat) +
-                realWithdrawableBalance
-          }
-          role="agent"
-          // Merchant Agents never see the generic operational-float box here —
-          // it's company custody money, not theirs to Deposit/Withdraw/Transfer
-          // via this card's action buttons, and MerchantFloatAvailableCard
-          // (rendered on their Home tab) is the single, correctly-guardrailed
-          // place that explains and displays it ("Company cash in your hands").
-          // Showing it in both places invited exactly that confusion.
-          floatBalance={isMerchant ? undefined : visibleAgentFloatBalance}
-          floatReserved={isMerchant ? undefined : merchantReservedFloat}
-          floatCaption={undefined}
-          commissionBalance={commissionBalance}
-          withdrawableBalance={realWithdrawableBalance}
-          otherBalance={otherBalance}
-          onOpenWallet={() => setShowWallet(true)}
-          onViewStatement={() => { setWalletScrollTarget('statement'); setShowWallet(true); }}
-          quickActions={
-            <div className="flex items-center gap-2.5">
-              <button
-                onClick={() => { hapticTap(); setShowQuickDeposit(true); }}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-white/20 hover:bg-white/10 active:scale-95 transition-all min-h-[44px]"
-                style={{ WebkitTapHighlightColor: 'transparent' }}
-              >
-                <ArrowDownLeft className="h-4 w-4 text-white" />
-                <span className="text-[11px] font-bold text-white uppercase tracking-wider">Deposit</span>
-              </button>
-              <button
-                onClick={() => {
-                  hapticTap();
-                  if (payoutsUiEnabled) setShowQuickWithdraw(true);
-                  else toast.info('Withdrawals are temporarily disabled.');
-                }}
-                disabled={!payoutsUiEnabled}
-                aria-disabled={!payoutsUiEnabled}
-                title={payoutsUiEnabled ? undefined : 'Withdrawals are temporarily disabled'}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border min-h-[44px] ${payoutsUiEnabled ? 'border-white/20 hover:bg-white/10 active:scale-95 transition-all' : 'border-white/10 bg-white/5 opacity-50 cursor-not-allowed'}`}
-                style={{ WebkitTapHighlightColor: 'transparent' }}
-              >
-                <ArrowUpRight className="h-4 w-4 text-white" />
-                <span className="text-[11px] font-bold text-white uppercase tracking-wider">Withdraw</span>
-              </button>
-              <button
-                onClick={() => { hapticTap(); setShowQuickTransfer(true); }}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-white/20 hover:bg-white/10 active:scale-95 transition-all min-h-[44px]"
-                style={{ WebkitTapHighlightColor: 'transparent' }}
-              >
-                <Send className="h-4 w-4 text-white" />
-                <span className="text-[11px] font-bold text-white uppercase tracking-wider">Transfer</span>
-              </button>
-            </div>
-          }
-          />
-        ) : (
-          // Wallet still loading — show the skeleton AND a tappable Deposit
-          // strip so the agent never feels like the dashboard is "frozen".
-          // Without this, the hero Deposit button doesn't exist for the
-          // first ~1–3s after the dashboard mounts and taps appear to do
-          // nothing, which is the most common "deposit button is broken"
-          // complaint.
-          <div className="space-y-3">
-            <WalletHeroSkeleton />
-            <div className="flex items-center gap-2.5 px-1">
-              <button
-                onClick={() => { hapticTap(); setShowQuickDeposit(true); }}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-border bg-muted/40 hover:bg-muted active:scale-95 transition-all min-h-[44px]"
-                style={{ WebkitTapHighlightColor: 'transparent' }}
-              >
-                <ArrowDownLeft className="h-4 w-4 text-muted-foreground" />
-                <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Deposit</span>
-              </button>
-              <button
-                onClick={() => {
-                  hapticTap();
-                  if (payoutsUiEnabled) setShowQuickWithdraw(true);
-                  else toast.info('Withdrawals are temporarily disabled.');
-                }}
-                disabled={!payoutsUiEnabled}
-                aria-disabled={!payoutsUiEnabled}
-                title={payoutsUiEnabled ? undefined : 'Withdrawals are temporarily disabled'}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-border min-h-[44px] ${payoutsUiEnabled ? 'bg-muted/40 hover:bg-muted active:scale-95 transition-all' : 'bg-muted/40 opacity-50 cursor-not-allowed'}`}
-                style={{ WebkitTapHighlightColor: 'transparent' }}
-              >
-                <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
-                <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Withdraw</span>
-              </button>
-              <button
-                onClick={() => { hapticTap(); setShowQuickTransfer(true); }}
-                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl border border-border bg-muted/40 hover:bg-muted active:scale-95 transition-all min-h-[44px]"
-                style={{ WebkitTapHighlightColor: 'transparent' }}
-              >
-                <Send className="h-4 w-4 text-muted-foreground" />
-                <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">Transfer</span>
-              </button>
-            </div>
-          </div>
-        )}
 
         {/* Live cash-with-agent deposit codes targeting this agent */}
         <AgentCashDepositCodesPanel />
+
+        {/* Major action — sits directly above the Service Center button */}
+        <AgentPostRentRequestCard
+          restricted={isMerchant}
+          onOpen={() => { if (guardMerchant()) return; setRentRequestOpen(true); }}
+        />
 
         {/* Tab Navigation — scrolls with the dashboard so the Service Center / Proxy Agents buttons never float */}
         <div className="-mx-4 px-4 py-2 bg-background border-b border-border/40 overflow-x-auto overflow-y-hidden scrollbar-hide">
           <AgentHubTabs
             active={activeTab}
             restricted={isMerchant}
+            onMenuClick={handleOpenMenu}
             onChange={(tab) => {
               // Merchant Agents are locked to Home only.
               if (isMerchant && tab !== 'home') { guardMerchant(); return; }
@@ -1311,7 +1221,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
             <AgentPriorityGrid
               agentId={user.id}
               restricted={isMerchant}
-              onOpenNewTenant={() => { if (guardMerchant()) return; setRentRequestOpen(true); }}
               onOpenListHouse={() => {
                 if (guardMerchant()) return;
                 if (!guardListingHours()) return;
@@ -1366,24 +1275,45 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
                 <MerchandiseRepaymentPortfolio userId={user.id} />
 
 
-                {/* Merchandise store shortcut */}
-                <button
-                  type="button"
-                  onClick={() => { hapticTap(); navigate('/merchandise'); }}
-                  className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-2xl border border-primary/25 bg-primary/5 hover:bg-primary/10 transition-colors text-left touch-manipulation min-h-[56px]"
-                  style={{ WebkitTapHighlightColor: 'transparent' }}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <ShoppingBag className="h-5 w-5 text-primary shrink-0" />
-                    <div className="min-w-0">
-                      <div className="text-sm font-semibold text-foreground">Buy Merchandise</div>
-                      <div className="text-[11px] text-muted-foreground truncate">
-                        Order branded gear — paid off from your wallet
+                {/* Merchandise store shortcuts */}
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => { hapticTap(); navigate('/merchandise'); }}
+                    className="flex items-center justify-between gap-2.5 p-3 rounded-2xl border border-primary/25 bg-primary/5 hover:bg-primary/10 transition-colors text-left touch-manipulation min-h-[56px]"
+                    style={{ WebkitTapHighlightColor: 'transparent' }}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <ShoppingBag className="h-5 w-5 text-primary shrink-0" />
+                      <div className="min-w-0">
+                        <div className="text-xs sm:text-sm font-semibold text-foreground truncate">Buy Merchandise</div>
+                        <div className="text-[10px] text-muted-foreground truncate">Shop gear</div>
                       </div>
                     </div>
-                  </div>
-                  <span className="text-xs font-medium text-primary shrink-0">Shop →</span>
-                </button>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => { hapticTap(); navigate('/merchandise?tab=orders'); }}
+                    className="flex items-center justify-between gap-2 p-3 rounded-2xl border border-border/80 bg-card hover:bg-muted/40 transition-colors text-left touch-manipulation min-h-[56px]"
+                    style={{ WebkitTapHighlightColor: 'transparent' }}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <Package className="h-5 w-5 text-foreground shrink-0" />
+                      <div className="min-w-0">
+                        <div className="text-xs sm:text-sm font-semibold text-foreground truncate">My Orders</div>
+                        <div className="text-[10px] text-muted-foreground truncate">
+                          {myOrdersCount > 0 ? `${myOrdersCount} recorded` : 'View orders'}
+                        </div>
+                      </div>
+                    </div>
+                    {myOrdersCount > 0 && (
+                      <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-primary/15 text-primary shrink-0">
+                        {myOrdersCount}
+                      </span>
+                    )}
+                  </button>
+                </div>
 
                 {/* Order a Welile Smartphone */}
                 <Card className="border-primary/30 bg-primary/5">
@@ -1511,6 +1441,19 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         {/* === MONEY TAB === Wallet, advances, payouts, recovery */}
         {activeTab === 'money' && (
           <div className={cn("space-y-5", tabAnimClass)}>
+            {/* Money is opened from the agent menu, so it carries its own
+                heading and a way back to Home. */}
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-lg font-black leading-none text-foreground">Money</h2>
+              <button
+                type="button"
+                onClick={() => { hapticTap(); setSlideDirection('right'); setActiveTab('home'); }}
+                className="inline-flex items-center gap-1 rounded-full border border-border/60 bg-card px-3 py-1.5 text-xs font-bold text-muted-foreground transition-transform active:scale-[0.97] touch-manipulation"
+                style={{ WebkitTapHighlightColor: 'transparent' }}
+              >
+                <ChevronLeft className="h-3.5 w-3.5" /> Home
+              </button>
+            </div>
             {/* Prominent Agent Advance promo — high-visibility entry point so
                 agents always see the cash they can access instantly. */}
             <div className="relative w-full overflow-hidden rounded-3xl border border-primary/30 bg-gradient-to-br from-card via-card to-primary/10 p-5 text-card-foreground shadow-lg ring-1 ring-primary/20">
@@ -1696,8 +1639,18 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
             Never rendered for Merchant Agents (tenant operations disabled). */}
         {activeTab === 'tenants' && !isMerchant && (
           <div className={cn("space-y-4 pb-24", tabAnimClass)}>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center justify-between gap-2">
               <h2 className="text-base sm:text-lg font-bold text-foreground">My Tenants</h2>
+              <button
+                type="button"
+                onClick={() => { hapticTap(); setActiveTab('home'); }}
+                className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-3 py-1.5 text-[11px] font-bold text-primary active:scale-[0.97]"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+                Home
+              </button>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex flex-wrap items-center gap-2">
                 <Button
                   variant="outline"
@@ -1785,6 +1738,17 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         {/* === GROW TAB === Share, recruit, partners */}
         {activeTab === 'grow' && (
           <div className={cn("space-y-5", tabAnimClass)}>
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-base sm:text-lg font-bold text-foreground">Grow & Earn</h2>
+              <button
+                type="button"
+                onClick={() => { hapticTap(); setActiveTab('home'); }}
+                className="shrink-0 inline-flex items-center gap-1.5 rounded-full border border-primary/25 bg-primary/10 px-3 py-1.5 text-[11px] font-bold text-primary active:scale-[0.97]"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" />
+                Home
+              </button>
+            </div>
             {/* Leaderboard CTA — draws agents into the recruitment competition */}
             <button
               onClick={() => { hapticTap(); navigate('/dashboard/agents/leaderboard'); }}
@@ -1844,6 +1808,8 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         </main>
       </div>
 
+      <AgentAssistant />
+
       <LazyModal when={nationalIdGroupOpen}>
       <NationalIdGroupSheet open={nationalIdGroupOpen} onOpenChange={setNationalIdGroupOpen} />
       </LazyModal>
@@ -1891,23 +1857,20 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         onOpenChange={setMenuOpen}
         restricted={isMerchant}
         onDeposit={handleDeposit}
-        onPostRentRequest={() => setRentRequestOpen(true)}
         onInviteSubAgent={handleInviteSubAgent}
         onInviteTenant={() => { setMenuOpen(false); setTenantInviteOpen(true); }}
         onOpenEarningsRank={() => setEarningsRankOpen(true)}
         onManageProperty={() => { setMenuOpen(false); setManagedPropertyOpen(true); }}
         onViewManagedProperties={() => { setMenuOpen(false); setManagedPropertiesSheetOpen(true); }}
         onViewMyRentRequests={() => { setMenuOpen(false); setMyRentRequestsOpen(true); }}
-        onTopUpTenant={() => {
-          // Disabled — Pay Rent / Collect Rent flow removed.
-          setMenuOpen(false);
-        }}
         onViewTenants={() => { setMenuOpen(false); setTenantsSheetOpen(true); }}
         onViewCreditAccess={() => { setMenuOpen(false); setCreditOpen(true); }}
+        onViewMoney={() => { setMenuOpen(false); setSlideDirection(null); setActiveTab('money'); }}
+        onViewTenantHub={() => { setMenuOpen(false); setSlideDirection(null); setActiveTab('tenants'); }}
+        onViewGrow={isCashoutAgent ? undefined : () => { setMenuOpen(false); setSlideDirection(null); setActiveTab('grow'); }}
         onFundPartner={() => { setMenuOpen(false); setInvestForPartnerOpen(true); }}
         onViewProxyHistory={() => { setMenuOpen(false); setProxyHistoryOpen(true); }}
         onIssueReceipt={() => { setMenuOpen(false); setReceiptOpen(true); }}
-        onViewLandlordMap={() => { setMenuOpen(false); setLandlordMapOpen(true); }}
         onFindRentals={() => { setMenuOpen(false); setRentalFinderOpen(true); }}
         onListEmptyHouse={() => {
           setMenuOpen(false);
@@ -2158,9 +2121,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
       <LazyModal when={managedUsersOpen}>
       <AgentManagedUsersSheet open={managedUsersOpen} onOpenChange={setManagedUsersOpen} agentId={user.id} />
       </LazyModal>
-      <LazyModal when={topUpTenantOpen}>
-      <AgentTopUpTenantDialog open={topUpTenantOpen} onOpenChange={setTopUpTenantOpen} onSuccess={refreshOfflineData} />
-      </LazyModal>
       <LazyModal when={investForPartnerOpen}>
       <AgentInvestForPartnerDialog open={investForPartnerOpen} onOpenChange={setInvestForPartnerOpen} onSuccess={() => { refreshOfflineData(); refreshWallet(); }} />
       </LazyModal>
@@ -2169,9 +2129,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
       </LazyModal>
       <LazyModal when={receiptOpen}>
       <AgentReceiptDialog open={receiptOpen} onOpenChange={setReceiptOpen} />
-      </LazyModal>
-      <LazyModal when={landlordMapOpen}>
-      <AgentLandlordMapSheet open={landlordMapOpen} onOpenChange={setLandlordMapOpen} />
       </LazyModal>
       <LazyModal when={rentalFinderOpen}>
       <RentalFinderSheet open={rentalFinderOpen} onOpenChange={setRentalFinderOpen} />

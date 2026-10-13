@@ -177,7 +177,10 @@ export function StaffRequisitionApprovalGate(
   const later = async () => {
     if (!prompt) return;
     setWorking(true);
-    const { data, error } = await supabase.rpc('staff_requisition_prompt_snooze' as never);
+    const { data, error } = await supabase.rpc(
+      'staff_requisition_prompt_snooze' as never,
+      { p_prompt_id: prompt.prompt_id } as never,
+    );
     setWorking(false);
     if (error) { toast.error(error.message); return; }
     const until = new Date(String(data)).getTime();
@@ -297,6 +300,7 @@ export function StaffRequisitionApprovalGate(
             {!declining && needsReceipt && (
               <p className="text-xs text-muted-foreground">Open the receipt to enable Accept.</p>
             )}
+            <p className="text-xs text-muted-foreground">Later tells the requester you have seen it, and hides this until you refresh or for 1 hour.</p>
           </div>
         </div>
       </DialogContent>

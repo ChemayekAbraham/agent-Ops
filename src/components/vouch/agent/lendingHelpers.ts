@@ -12,10 +12,40 @@ export interface LendingLoan {
   expected_repayment_date: string | null;
   created_at: string;
   platform_fee_ugx: number;
+  funding_source?: string | null;
   repayment_frequency?: string | null;
   auto_deduct_enabled?: boolean | null;
   installment_ugx?: number | null;
   next_deduction_date?: string | null;
+  recovery_started_at?: string | null;
+}
+
+// ===== Funding source labels =====
+// Every loan is funded either from the agent's operational float (company
+// money) or from the agent's own withdrawable balance. Repayments return to
+// the same source the loan came from, so one label covers the loan and all
+// of its repayments.
+
+export interface FundingSourceMeta {
+  label: string;
+  cls: string;
+}
+
+export const FUNDING_SOURCE_META: Record<'float' | 'withdrawable', FundingSourceMeta> = {
+  float: { label: 'Operational float', cls: 'bg-sky-500/15 text-sky-700' },
+  withdrawable: { label: 'My own money', cls: 'bg-violet-500/15 text-violet-700' },
+};
+
+export type FundingSource = 'float' | 'withdrawable';
+
+/** Normalize any stored funding-source value; unknown/missing → float (the default). */
+export function normalizeFundingSource(source?: string | null): FundingSource {
+  return source === 'withdrawable' ? 'withdrawable' : 'float';
+}
+
+/** Label/colors for a loan's funding source; unknown values fall back to float (the default). */
+export function fundingSourceMeta(source?: string | null): FundingSourceMeta {
+  return FUNDING_SOURCE_META[normalizeFundingSource(source)];
 }
 
 /** Normalize a Ugandan phone number to international (256...) digits for tel/wa/sms links. */
@@ -240,4 +270,37 @@ export function repaymentPlanOf(loan: LendingLoan): RepaymentPlan | null {
   const nextDueInPast = !!nextDueDate && new Date(nextDueDate) < today;
 
   return { frequency: freq, frequencyLabel, installment, remainingCount, nextDueDate, nextDueInPast };
+}
+
+/** Totals for loans funded from the lender's own withdrawable balance. */
+export function ownMoneySummary(loans: LendingLoan[]) {
+  const own = loans.filter((l) => l.funding_source === 'withdrawable');
+  const lent = own.reduce((a, l) => a + (Number(l.principal_ugx) || 0), 0);
+  const returned = own.reduce((a, l) => a + (Number(l.amount_repaid_ugx) || 0), 0);
+  const awaiting = own.reduce((a, l) => a + outstandingOf(l), 0);
+  return { count: own.length, lent, returned, awaiting };
+}
+
+/** Repayment progress per funding source: total due (principal + interest), repaid, still owed, % repaid. */
+export function repaymentProgressBySource(loans: LendingLoan[]) {
+  const out = {
+    float: { count: 0, due: 0, repaid: 0, outstanding: 0, pct: 0 },
+    withdrawable: { count: 0, due: 0, repaid: 0, outstanding: 0, pct: 0 },
+  };
+  for (const l of loans) {
+    const k = l.funding_source === 'withdrawable' ? 'withdrawable' : 'float';
+    const due = l.principal_ugx + (l.principal_ugx * (Number(l.interest_rate_pct) || 0)) / 100;
+    const o = out[k];
+    o.count += 1;
+    o.due += due;
+    o.outstanding += outstandingOf(l);
+    o.repaid += Math.min(due, Number(l.amount_repaid_ugx) || 0);
+  }
+  for (const k of ['float', 'withdrawable'] as const) {
+    const o = out[k];
+    o.due = Math.round(o.due);
+    o.repaid = Math.round(o.repaid);
+    o.pct = o.due > 0 ? Math.min(100, Math.round((o.repaid / o.due) * 100)) : 0;
+  }
+  return out;
 }

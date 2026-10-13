@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useCallback, useRef, memo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, CircleMarker, useMap, useMapEvents } from 'react-leaflet';
+import { MapSafeUnmount } from '@/components/map/MapSafeUnmount';
 import L from 'leaflet';
 
 import { Home } from 'lucide-react';
@@ -212,6 +213,7 @@ function PropertyMapLeaflet({ data, onViewportChange, isLoading }: Props) {
         maxZoom={18}
         minZoom={3}
       >
+<MapSafeUnmount />
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a>'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"

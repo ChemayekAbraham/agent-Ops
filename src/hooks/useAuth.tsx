@@ -11,6 +11,7 @@ import {
 } from '@/lib/sessionCache';
 import { installStaleSessionDetector, STALE_SESSION_EVENTS, isSignOutSuppressed } from '@/lib/staleSessionDetector';
 import { loginTelemetry as lt } from '@/lib/loginTelemetry';
+import { keepRoles, keepSession, keepUser } from '@/lib/authStateIdentity';
 
 
 // Re-export types so existing imports keep working
@@ -126,7 +127,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Keep ref in sync with state
   const setRolesWithRef = (newRoles: AppRole[]) => {
     rolesRef.current = newRoles;
-    setRoles(newRoles);
+    // same roles = same array, so nothing that depends on the list starts over
+    setRoles(keepRoles(newRoles));
   };
 
   useEffect(() => {
@@ -151,8 +153,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!isMounted || !fresh?.user) return;
         lt.setUserId(fresh.user.id);
         lt.mark('auth.rehydrate.session_ok', { userId: fresh.user.id });
-        setSession(fresh);
-        setUser(fresh.user);
+        setSession(keepSession(fresh));
+        setUser(keepUser(fresh.user));
         setCachedSession(fresh.user.id, fresh.user.email || '', fresh.expires_at || 0);
         fetchUserRoles(fresh.user.id, role, setRolesWithRef, setRole, setRolesResolved).catch(() => { /* ignore */ });
       }).catch(() => { /* ignore */ });
@@ -217,9 +219,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // or if this is an explicit sign-out. This prevents transient
         // null sessions (e.g., during INITIAL_SESSION before token refresh)
         // from logging users out on page refresh.
+        // A repeat announcement for the same person (every tab resume, every token renewal) carries a freshly
+        // parsed copy; keep the object already held unless the user or the sign-in really changed, so nothing
+        // that depends on it starts over and no dashboard is thrown away and rebuilt.
         if (session) {
-          setSession(session);
-          setUser(session.user);
+          setSession(keepSession(session));
+          setUser(keepUser(session.user));
         } else if (event === 'SIGNED_OUT' && !isSignOutSuppressed()) {
           setSession(null);
           setUser(null);
@@ -391,8 +396,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             ]);
             if (guardCapped) lt.mark('auth.enforceAccountAccess.wait_capped', { userId: session.user.id }, 'warn');
             if (!allowed || !isMounted) return;
-            setSession(session);
-            setUser(session.user);
+            setSession(keepSession(session));
+            setUser(keepUser(session.user));
 
             setCachedSession(session.user.id, session.user.email || '', session.expires_at || 0);
             // If early fetch was for the same user, just await it; otherwise fetch fresh

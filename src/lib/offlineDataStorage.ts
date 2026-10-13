@@ -1,3 +1,4 @@
+import { safeUUID } from '@/lib/safeUUID';
 // Comprehensive IndexedDB-based offline storage for app data
 // Extends chat offline storage to cover wallet, profile, dashboard data
 
@@ -242,7 +243,7 @@ export async function getCachedEarnings(userId: string): Promise<any[] | null> {
 export async function addToSyncQueue(item: Omit<SyncQueueItem, 'id' | 'createdAt' | 'retryCount'>): Promise<void> {
   const queueItem: SyncQueueItem = {
     ...item,
-    id: crypto.randomUUID(),
+    id: safeUUID(),
     createdAt: new Date().toISOString(),
     retryCount: 0,
   };

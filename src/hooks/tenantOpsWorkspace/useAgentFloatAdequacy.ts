@@ -15,7 +15,7 @@ export interface AgentFloatAdequacy {
 }
 
 async function fetchAgentFloatAdequacy(forDate: string): Promise<AgentFloatAdequacy[]> {
-  const { data, error } = await anyDb.rpc('tops_agent_float_adequacy', { p_for_date: forDate });
+  const { data, error } = await anyDb.rpc('tops_agent_float_adequacy_amclock', { p_for_date: forDate });
   if (error) throw error;
   return ((data ?? []) as Record<string, any>[]).map((r) => ({
     agent_id: r.agent_id,

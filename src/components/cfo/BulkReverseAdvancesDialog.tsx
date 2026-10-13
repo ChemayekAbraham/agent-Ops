@@ -1,3 +1,4 @@
+import { safeUUID } from '@/lib/safeUUID';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -188,7 +189,7 @@ export function BulkReverseAdvancesDialog({ open, onOpenChange, advanceIds, onSu
     setRunning(true);
     setResults(null);
     setDone(0);
-    const groupId = groupIdRef.current ?? crypto.randomUUID();
+    const groupId = groupIdRef.current ?? safeUUID();
     groupIdRef.current = groupId;
     const collected: ExecResult[] = [];
 

@@ -161,7 +161,7 @@ interface QueueFilterOpts {
 // Maximum unclaimed queue candidates fetched per query before client-side
 // filtering. The real-time pending queue has never approached this size
 // (85 unclaimed rows platform-wide when this was written) — wide headroom.
-const QUEUE_CANDIDATE_CAP = 2000;
+const QUEUE_CANDIDATE_CAP = 500;
 
 /**
  * Only filters that are safe to combine via normal PostgREST AND-chaining
@@ -292,12 +292,13 @@ function applyQueueSort(q: any, sort: string) {
 /** Resolve profile ids whose name or phone match the search term. */
 async function resolveSearchUserIds(term: string): Promise<string[]> {
   const t = sanitizeOrTerm(term);
-  if (!t) return [];
+  // Only search once at least 3 characters are typed (keeps the scan indexed and small).
+  if (!t || t.length < 3) return [];
   const { data } = await supabase
     .from('profiles')
     .select('id')
     .or(`full_name.ilike.*${t}*,phone.ilike.*${t}*`)
-    .limit(500);
+    .limit(100);
   return (data || []).map((p: any) => p.id);
 }
 
@@ -555,7 +556,8 @@ export function AgentCashPayoutsTab() {
     enabled: !!user,
     // Permission edits by the CFO must take effect for this merchant right away.
     staleTime: 0,
-    refetchInterval: 20_000,
+    refetchInterval: 45_000,
+    refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
     retry: 2,
   });
@@ -600,8 +602,8 @@ export function AgentCashPayoutsTab() {
     queryKey: ['cashout-frozen-user-ids'],
     queryFn: resolveFrozenUserIds,
     enabled: !!isCashoutAgent,
-    staleTime: 30_000,
-    refetchOnWindowFocus: true,
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
   });
 
   // Requests this agent has claimed and still needs to confirm. Kept as its own
@@ -635,7 +637,8 @@ export function AgentCashPayoutsTab() {
     },
     enabled: !!isCashoutAgent?.id,
     staleTime: 5_000,
-    refetchInterval: 20_000,
+    refetchInterval: 45_000,
+    refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
     refetchOnMount: 'always',
     retry: 2,
@@ -729,7 +732,8 @@ export function AgentCashPayoutsTab() {
     },
     enabled: !!isCashoutAgent && proxyPriorityEnforced,
     staleTime: 10_000,
-    refetchInterval: 20_000,
+    refetchInterval: 45_000,
+    refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
   });
 
@@ -760,7 +764,8 @@ export function AgentCashPayoutsTab() {
     // row silently freezing the whole queue.
     enabled: !!isCashoutAgent && landlordPriorityEnforced && !landlordPayoutsBlocked,
     staleTime: 10_000,
-    refetchInterval: 20_000,
+    refetchInterval: 45_000,
+    refetchIntervalInBackground: false,
     refetchOnWindowFocus: true,
   });
 

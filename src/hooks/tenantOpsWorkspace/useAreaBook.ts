@@ -17,7 +17,7 @@ export interface AreaBookRow {
 }
 
 async function fetchAreaBook(level: AreaLevel, asAt: string | null): Promise<AreaBookRow[]> {
-  const { data, error } = await anyDb.rpc('tops_area_book', { p_level: level, p_as_at: asAt });
+  const { data, error } = await anyDb.rpc('tops_area_book_amclock', { p_level: level, p_as_at: asAt });
   if (error) throw error;
   return ((data ?? []) as Record<string, any>[]).map((r) => ({
     area_key: r.area_key ?? null,

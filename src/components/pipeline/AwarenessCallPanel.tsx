@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { CheckCircle2, ClipboardList, History, Loader2, PhoneCall } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -7,15 +7,17 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { MerchantCodePills } from '@/components/supporter/MerchantCodePills';
 import { useMerchantCodes } from '@/hooks/useMerchantCodes';
+import { useCriticalFlow } from '@/hooks/useCriticalFlow';
 import {
   clearDialSession, readDialSession, useAwarenessCalls, useRecordAwarenessCall, useReturnFromCall, writeDialSession,
   type AwarenessCall, type DialSession,
 } from '@/hooks/useAwarenessCalls';
 import {
-  AWARENESS_OPTIONS, CALL_BUTTON_LABEL, CALL_RESULT_OPTIONS, EXPLAINED_OPTIONS, LABEL_30M_ACCESS, LABEL_EXPLAINED, LABEL_SELF_PAYMENT,
-  QUESTION_30M_ACCESS, QUESTION_EXPLAINED, QUESTION_SELF_PAYMENT, SUBJECT_LABEL, TEAM_LABEL, TEAM_ORDER,
-  awarenessLabel, callResultLabel, explainedLabel, isNotAuthorizedError, stageLabel, telHref,
-  type AwarenessCallResult, type AwarenessChoice, type AwarenessSubject, type ExplainedChoice,
+  AWARENESS_OPTIONS, CALL_BUTTON_LABEL, CALL_RESULT_OPTIONS, CONSENT_OPTIONS, EXPLAINED_OPTIONS, LANDLORD_READ_ALOUD,
+  QUESTION_30M_ACCESS, QUESTION_EXPLAINED, QUESTION_LANDLORD_CONSENT, QUESTION_PAYOUT_OTP, QUESTION_SELF_PAYMENT,
+  SUBJECT_LABEL, TEAM_LABEL, TEAM_ORDER,
+  answerRowsForCall, callResultLabel, isNotAuthorizedError, stageLabel, telHref,
+  type AwarenessCallResult, type AwarenessChoice, type AwarenessSubject, type ExplainedChoice, type LandlordConsent,
 } from '@/lib/awarenessCallLabels';
 
 /**
@@ -46,7 +48,9 @@ export interface AwarenessCallRequest {
 
 function ChoiceChips<T extends string>({
   label, value, options, onChange, name,
-}: { label: string; value: T | null; options: { value: T; label: string }[]; onChange: (v: T) => void; name: string }) {
+}: {
+  label: string; value: T | null; options: { value: T; label: string; tone?: 'destructive' }[]; onChange: (v: T) => void; name: string;
+}) {
   return (
     <div className="space-y-1.5">
       <p id={`${name}-label`} className="text-xs font-medium">{label}</p>
@@ -62,9 +66,13 @@ function ChoiceChips<T extends string>({
               onClick={() => onChange(o.value)}
               className={cn(
                 'min-h-11 rounded-lg border px-3 py-2 text-left text-sm transition-colors touch-manipulation',
-                selected
-                  ? 'border-primary bg-primary text-primary-foreground font-semibold'
-                  : 'border-border bg-background text-foreground hover:bg-muted/60',
+                o.tone === 'destructive'
+                  ? selected
+                    ? 'border-destructive bg-destructive text-destructive-foreground font-semibold'
+                    : 'border-destructive/40 bg-background text-destructive hover:bg-destructive/10'
+                  : selected
+                    ? 'border-primary bg-primary text-primary-foreground font-semibold'
+                    : 'border-border bg-background text-foreground hover:bg-muted/60',
               )}
             >
               {o.label}
@@ -90,12 +98,13 @@ function CallLine({ call }: { call: AwarenessCall }) {
       <p className="text-muted-foreground">At stage: {stageLabel(call.pipeline_stage)}</p>
       {call.call_result === 'answered' && (
         <dl className="grid grid-cols-1 gap-y-0.5 pt-0.5 min-[420px]:grid-cols-[auto_1fr] min-[420px]:gap-x-2">
-          <dt className="text-muted-foreground">{LABEL_30M_ACCESS}</dt>
-          <dd className="font-medium">{awarenessLabel(call.aware_30m)}</dd>
-          <dt className="text-muted-foreground">{LABEL_SELF_PAYMENT}</dt>
-          <dd className="font-medium">{awarenessLabel(call.aware_merchant_codes)}</dd>
-          <dt className="text-muted-foreground">{LABEL_EXPLAINED}</dt>
-          <dd className="font-medium">{explainedLabel(call.explained)}</dd>
+          {/* a landlord is read by the questions a landlord is asked; an older landlord call shows "Old question" / "Not asked" */}
+          {answerRowsForCall(call).map((r) => (
+            <Fragment key={r.key}>
+              <dt className="text-muted-foreground">{r.label}</dt>
+              <dd className={cn('font-medium', r.destructive && 'text-destructive')}>{r.value}</dd>
+            </Fragment>
+          ))}
         </dl>
       )}
       {call.note && <p className="pt-0.5 italic text-foreground/80">“{call.note}”</p>}
@@ -125,6 +134,9 @@ export function AwarenessCallPanel({
 
   const [session, setSession] = useState<DialSession | null>(() => readDialSession(requestId));
   const [formOpen, setFormOpen] = useState<boolean>(() => readDialSession(requestId) !== null);
+  // A call in progress or a feedback form that is open is live work: nothing may interrupt it.
+  useCriticalFlow('awareness-call', formOpen || session !== null);
+
   // Used only when feedback is recorded without having tapped a call button here.
   const [manualSubject, setManualSubject] = useState<AwarenessSubject | null>(null);
   const [openedAt, setOpenedAt] = useState<string | null>(null);
@@ -132,6 +144,9 @@ export function AwarenessCallPanel({
   const [result, setResult] = useState<AwarenessCallResult | null>(null);
   const [aware30m, setAware30m] = useState<AwarenessChoice | null>(null);
   const [awareCodes, setAwareCodes] = useState<AwarenessChoice | null>(null);
+  // landlord calls only: consent to receive the rent through Welile, and whether they know about the payment code (OTP)
+  const [landlordConsent, setLandlordConsent] = useState<LandlordConsent | null>(null);
+  const [payoutOtp, setPayoutOtp] = useState<AwarenessChoice | null>(null);
   const [explained, setExplained] = useState<ExplainedChoice | null>(null);
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -161,7 +176,7 @@ export function AwarenessCallPanel({
   };
 
   const resetForm = () => {
-    setResult(null); setAware30m(null); setAwareCodes(null); setExplained(null); setNote(''); setError(null);
+    setResult(null); setAware30m(null); setAwareCodes(null); setLandlordConsent(null); setPayoutOtp(null); setExplained(null); setNote(''); setError(null);
     setManualSubject(null); setOpenedAt(null);
   };
 
@@ -177,14 +192,28 @@ export function AwarenessCallPanel({
   const phone = session?.phone ?? (subject ? phones[subject].phone : '');
   const dialStartedAt = session?.dialStartedAt ?? openedAt;
 
+  const isLandlord = subject === 'landlord';
+  // The answers belong to the person called: a landlord is asked about consent and the payment code, a tenant or agent about the
+  // merchant codes. Changing who was called clears the answers that no longer apply.
+  useEffect(() => {
+    if (subject === 'landlord') setAwareCodes(null);
+    else { setLandlordConsent(null); setPayoutOtp(null); }
+  }, [subject]);
+
   const answered = result === 'answered';
-  const ready = Boolean(subject && phone && dialStartedAt && result && (!answered || (aware30m && awareCodes && explained)));
+  const answersComplete = isLandlord
+    ? Boolean(aware30m && landlordConsent && payoutOtp && explained)
+    : Boolean(aware30m && awareCodes && explained);
+  const ready = Boolean(subject && phone && dialStartedAt && result && (!answered || answersComplete));
 
   const save = async () => {
     setError(null);
     if (!subject || !dialStartedAt || !result) { setError('Choose who you called and how the call went.'); return; }
     if (!phone) { setError('There is no phone number on this Rent Plan for that person.'); return; }
-    if (answered && !(aware30m && awareCodes && explained)) { setError('Please answer all three questions for an answered call.'); return; }
+    if (answered && !answersComplete) {
+      setError(isLandlord ? 'Please answer all four questions for an answered landlord call.' : 'Please answer all three questions for an answered call.');
+      return;
+    }
     try {
       await record.mutateAsync({
         rentRequestId: requestId,
@@ -194,7 +223,8 @@ export function AwarenessCallPanel({
         result,
         // a tenant and an agent are users; a landlord on a Rent Plan is a landlord record, so only the phone is kept for them
         subjectUserId: subject === 'tenant' ? request.tenant_id ?? null : subject === 'agent' ? request.agent_id ?? null : null,
-        aware30m, awareMerchantCodes: awareCodes, explained, note,
+        aware30m, awareMerchantCodes: isLandlord ? null : awareCodes, explained, note,
+        ...(isLandlord ? { landlordConsent, awarePayoutOtp: payoutOtp } : {}),
       });
       toast.success('Awareness call saved');
       discard();
@@ -342,16 +372,39 @@ export function AwarenessCallPanel({
                 options={AWARENESS_OPTIONS}
                 onChange={setAware30m}
               />
-              <div className="space-y-1">
-                <ChoiceChips<AwarenessChoice>
-                  name="awareness-codes"
-                  label={QUESTION_SELF_PAYMENT}
-                  value={awareCodes}
-                  options={AWARENESS_OPTIONS}
-                  onChange={setAwareCodes}
-                />
-                <MerchantCodePills channels={merchantCodes} />
-              </div>
+              {isLandlord ? (
+                <>
+                  <div className="space-y-1 rounded-lg bg-muted/50 p-2.5 text-xs leading-relaxed" data-testid="awareness-landlord-script">
+                    <p className="font-semibold">Read aloud to the landlord</p>
+                    <p className="text-muted-foreground">{LANDLORD_READ_ALOUD}</p>
+                  </div>
+                  <ChoiceChips<LandlordConsent>
+                    name="awareness-consent"
+                    label={QUESTION_LANDLORD_CONSENT}
+                    value={landlordConsent}
+                    options={CONSENT_OPTIONS.map((o) => (o.value === 'refuses' ? { ...o, tone: 'destructive' as const } : o))}
+                    onChange={setLandlordConsent}
+                  />
+                  <ChoiceChips<AwarenessChoice>
+                    name="awareness-otp"
+                    label={QUESTION_PAYOUT_OTP}
+                    value={payoutOtp}
+                    options={AWARENESS_OPTIONS}
+                    onChange={setPayoutOtp}
+                  />
+                </>
+              ) : (
+                <div className="space-y-1">
+                  <ChoiceChips<AwarenessChoice>
+                    name="awareness-codes"
+                    label={QUESTION_SELF_PAYMENT}
+                    value={awareCodes}
+                    options={AWARENESS_OPTIONS}
+                    onChange={setAwareCodes}
+                  />
+                  <MerchantCodePills channels={merchantCodes} />
+                </div>
+              )}
               <ChoiceChips<ExplainedChoice>
                 name="awareness-explained"
                 label={QUESTION_EXPLAINED}

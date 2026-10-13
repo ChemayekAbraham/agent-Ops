@@ -1,4 +1,6 @@
 import { lazy, Suspense } from 'react';
+import { lazyNamed } from '@/lib/lazyWithRetry';
+import { useOpenAssistantEscalationCount } from '@/hooks/useAssistantCrm';
 import ExecutiveDashboardLayout from '@/components/layout/ExecutiveDashboardLayout';
 import { usePersistedActiveTab } from '@/hooks/usePersistedActiveTab';
 import { CRMDashboard } from '@/components/executive/CRMDashboard';
@@ -16,31 +18,15 @@ import {
  * Call Centre panels are lazy: they pull in recharts, which no other CRM tab
  * needs, so the default Overview should not pay for it.
  */
-const CallCentreOverview = lazy(() =>
-  import('@/components/executive/crm/call-centre/CallCentreOverview').then((m) => ({
-    default: m.CallCentreOverview,
-  })),
-);
-const CallCentreHistory = lazy(() =>
-  import('@/components/executive/crm/call-centre/CallCentreHistory').then((m) => ({
-    default: m.CallCentreHistory,
-  })),
-);
-const CallCentreSummaries = lazy(() =>
-  import('@/components/executive/crm/call-centre/CallCentreSummaries').then((m) => ({
-    default: m.CallCentreSummaries,
-  })),
-);
-const CallCentrePeople = lazy(() =>
-  import('@/components/executive/crm/call-centre/CallCentrePeople').then((m) => ({
-    default: m.CallCentrePeople,
-  })),
-);
-const UserBehaviourAnalyticsPanel = lazy(() =>
-  import('@/components/executive/crm/UserBehaviourAnalyticsPanel').then((m) => ({
-    default: m.UserBehaviourAnalyticsPanel,
-  })),
-);
+const CallCentreOverview = lazyNamed(() => import('@/components/executive/crm/call-centre/CallCentreOverview'), 'CallCentreOverview');
+const CallCentreHistory = lazyNamed(() => import('@/components/executive/crm/call-centre/CallCentreHistory'), 'CallCentreHistory');
+const CallCentreSummaries = lazyNamed(() => import('@/components/executive/crm/call-centre/CallCentreSummaries'), 'CallCentreSummaries');
+const CallCentrePeople = lazyNamed(() => import('@/components/executive/crm/call-centre/CallCentrePeople'), 'CallCentrePeople');
+const UserBehaviourAnalyticsPanel = lazyNamed(() => import('@/components/executive/crm/UserBehaviourAnalyticsPanel'), 'UserBehaviourAnalyticsPanel');
+
+const TenantCampaignPanel = lazyNamed(() => import('@/components/executive/crm/TenantCampaignPanel'), 'TenantCampaignPanel');
+const CustomerLeadsPanel = lazyNamed(() => import('@/components/crm/CustomerLeadsPanel'), 'CustomerLeadsPanel');
+const AssistantConversationsPanel = lazyNamed(() => import('@/components/executive/crm/AssistantConversationsPanel'), 'AssistantConversationsPanel');
 
 const PanelFallback = () => (
   <div className="space-y-3">
@@ -51,6 +37,7 @@ const PanelFallback = () => (
 
 export default function CRMDashboardPage() {
   const [activeTab, setActiveTab] = usePersistedActiveTab('crm');
+  const { data: openAssistantCount = 0 } = useOpenAssistantEscalationCount();
 
   const renderContent = () => {
     // The Call Centre is five queues × four views. Resolve those first, by
@@ -124,6 +111,24 @@ export default function CRMDashboardPage() {
         );
       case 'communications':
         return <CTOCommunicationOverview />;
+      case 'sms-campaigns':
+        return (
+          <Suspense fallback={<PanelFallback />}>
+            <TenantCampaignPanel />
+          </Suspense>
+        );
+      case 'assistant-conversations':
+        return (
+          <Suspense fallback={<PanelFallback />}>
+            <AssistantConversationsPanel />
+          </Suspense>
+        );
+      case 'customer-leads':
+        return (
+          <Suspense fallback={<PanelFallback />}>
+            <CustomerLeadsPanel />
+          </Suspense>
+        );
       case 'user-behaviour':
         return (
           <Suspense fallback={<PanelFallback />}>
@@ -136,7 +141,7 @@ export default function CRMDashboardPage() {
   };
 
   return (
-    <ExecutiveDashboardLayout role="crm" activeTab={activeTab} onTabChange={setActiveTab}>
+    <ExecutiveDashboardLayout role="crm" activeTab={activeTab} onTabChange={setActiveTab} badges={{ "assistant-conversations": openAssistantCount }}>
       {renderContent()}
     </ExecutiveDashboardLayout>
   );

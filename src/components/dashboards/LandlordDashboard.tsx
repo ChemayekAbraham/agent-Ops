@@ -106,22 +106,6 @@ export default function LandlordDashboard({ user, signOut, currentRole, availabl
 
           <MissionBanner dashboardRole="landlord" />
 
-          {/* Portfolio Hero Card */}
-          <UnifiedWalletHeroCard
-            balance={wallet?.balance ?? 0}
-            role="landlord"
-            secondaryLabel="Withdrawable"
-            secondaryValue={formatUGX(wallet?.balance ?? 0)}
-            onOpenWallet={handleViewWallet}
-            quickActions={
-              <FunderQuickActions
-                variant="hero"
-                availableBalance={wallet?.balance ?? 0}
-                onChanged={() => { refreshWallet(); }}
-              />
-            }
-          />
-
           {/* Verification Checklist */}
           <VerificationChecklist userId={user.id} highlightRole="landlord" compact />
 

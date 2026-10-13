@@ -34,10 +34,21 @@ describe('awarenessFilterArgs', () => {
   });
 });
 
+describe('awarenessFilterArgs: the landlord answer filters', () => {
+  it('passes the consent and payment code (OTP) answers through as the answer field and answer', () => {
+    expect(awarenessFilterArgs({ ...base, answer: 'landlord_consent:refuses' })).toMatchObject({ p_answer_field: 'landlord_consent', p_answer: 'refuses' });
+    expect(awarenessFilterArgs({ ...base, answer: 'aware_payout_otp:knew' })).toMatchObject({ p_answer_field: 'aware_payout_otp', p_answer: 'knew' });
+  });
+});
+
 describe('awarenessGapArgs', () => {
   it('sends only what the coverage gaps report can use', () => {
     const args = awarenessGapArgs({ ...base, team: 'agent_ops', caller: 'u-1', result: 'phone_off', region: 'Western', district: 'Mbarara', status: 'funded' });
-    expect(args).toEqual({ p_from: base.startIso, p_to: base.endIso, p_team: 'agent_ops', p_region: 'Western', p_district: 'Mbarara', p_status: 'funded' });
+    expect(args).toEqual({ p_from: base.startIso, p_to: base.endIso, p_team: 'agent_ops', p_region: 'Western', p_district: 'Mbarara', p_status: 'funded', p_outcome: null });
+  });
+
+  it('adds the outcome when one is chosen', () => {
+    expect(awarenessGapArgs(base, 'rejected')).toMatchObject({ p_outcome: 'rejected' });
   });
 });
 

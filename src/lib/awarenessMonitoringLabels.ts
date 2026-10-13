@@ -3,26 +3,29 @@
  * call log stores (and the 30M awareness record already uses): knew / heard / did_not_know and yes / partly / no.
  */
 import {
-  AWARENESS_OPTIONS, EXPLAINED_OPTIONS, LABEL_30M_ACCESS, LABEL_EXPLAINED, LABEL_SELF_PAYMENT, stageLabel,
-  type AwarenessCallResult, type AwarenessChoice, type ExplainedChoice,
+  AWARENESS_OPTIONS, CONSENT_OPTIONS, EXPLAINED_OPTIONS, LABEL_30M_ACCESS, LABEL_EXPLAINED, LABEL_LANDLORD_CONSENT, LABEL_PAYOUT_OTP,
+  LABEL_SELF_PAYMENT, stageLabel,
+  type AwarenessCallResult, type AwarenessChoice, type ExplainedChoice, type LandlordConsent,
 } from '@/lib/awarenessCallLabels';
 
-export type AnswerField = 'aware_30m' | 'aware_merchant_codes' | 'explained';
+export type AnswerField = 'aware_30m' | 'aware_merchant_codes' | 'explained' | 'landlord_consent' | 'aware_payout_otp';
 
 /** One entry of the "answer choice" filter: a question and one of its answers. */
-export interface AnswerFilterOption { value: string; label: string; field: AnswerField; answer: AwarenessChoice | ExplainedChoice }
+export interface AnswerFilterOption { value: string; label: string; field: AnswerField; answer: AwarenessChoice | ExplainedChoice | LandlordConsent }
 
 const optionsFor = (field: AnswerField, prefix: string, options: { value: string; label: string }[]): AnswerFilterOption[] =>
   options.map((o) => ({
     value: `${field}:${o.value}`,
     label: `${prefix}: ${o.label}`,
     field,
-    answer: o.value as AwarenessChoice | ExplainedChoice,
+    answer: o.value as AwarenessChoice | ExplainedChoice | LandlordConsent,
   }));
 
 export const ANSWER_FILTER_OPTIONS: AnswerFilterOption[] = [
   ...optionsFor('aware_30m', LABEL_30M_ACCESS, AWARENESS_OPTIONS),
   ...optionsFor('aware_merchant_codes', LABEL_SELF_PAYMENT, AWARENESS_OPTIONS),
+  ...optionsFor('landlord_consent', LABEL_LANDLORD_CONSENT, CONSENT_OPTIONS),
+  ...optionsFor('aware_payout_otp', LABEL_PAYOUT_OTP, AWARENESS_OPTIONS),
   ...optionsFor('explained', LABEL_EXPLAINED, EXPLAINED_OPTIONS),
 ];
 

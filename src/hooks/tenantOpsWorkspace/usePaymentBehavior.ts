@@ -16,7 +16,16 @@ export interface PaymentBehaviorFilters {
   district?: string | null;
   /** 'daily' | 'weekly' | null for all */
   cadence?: string | null;
+  /**
+   * Count every Rent Plan from the shared payout clock (the day after the landlord was paid, the
+   * same start Agent Monitoring uses) by reading the *_amclock functions. Default (omitted) keeps
+   * the original functions, so other screens that use these hooks behave exactly as before.
+   */
+  amclock?: boolean;
 }
+
+/** The RPC to call: the clock version when the caller opted in, otherwise the original. */
+const pbRpc = (f: PaymentBehaviorFilters, name: string) => (f.amclock ? `${name}_amclock` : name);
 
 const filterArgs = (f: PaymentBehaviorFilters) => ({
   p_start: f.startIso,
@@ -27,7 +36,7 @@ const filterArgs = (f: PaymentBehaviorFilters) => ({
   p_cadence: f.cadence ?? null,
 });
 
-const filterKey = (f: PaymentBehaviorFilters) => [f.startIso, f.endIso, f.agentId ?? null, f.region ?? null, f.district ?? null, f.cadence ?? null];
+const filterKey = (f: PaymentBehaviorFilters) => [f.startIso, f.endIso, f.agentId ?? null, f.region ?? null, f.district ?? null, f.cadence ?? null, f.amclock ? 'amclock' : 'saved-clock'];
 
 const ROOT = ['tenantOpsWorkspace', 'paymentBehavior'] as const;
 
@@ -170,7 +179,7 @@ export function usePaymentBehaviorOverview(f: PaymentBehaviorFilters) {
   return useQuery({
     queryKey: [...ROOT, 'overview', ...filterKey(f)],
     queryFn: async () => {
-      const { data, error } = await anyDb.rpc('tops_payment_behaviour_overview_v2', filterArgs(f));
+      const { data, error } = await anyDb.rpc(pbRpc(f, 'tops_payment_behaviour_overview_v2'), filterArgs(f));
       if (error) throw error;
       return data as PaymentBehaviorOverview;
     },
@@ -184,7 +193,7 @@ export function usePaymentBehaviorSummary(f: PaymentBehaviorFilters, enabled = t
   return useQuery({
     queryKey: [...ROOT, 'summary', ...filterKey(f)],
     queryFn: async () => {
-      const { data, error } = await anyDb.rpc('tops_payment_behaviour_summary_v2', filterArgs(f));
+      const { data, error } = await anyDb.rpc(pbRpc(f, 'tops_payment_behaviour_summary_v2'), filterArgs(f));
       if (error) throw error;
       return data as PaymentBehaviorSummary;
     },
@@ -241,7 +250,7 @@ export function usePaymentBehaviorTrend(f: PaymentBehaviorFilters) {
   return useQuery({
     queryKey: [...ROOT, 'trend', ...filterKey(f)],
     queryFn: async () => {
-      const { data, error } = await anyDb.rpc('tops_payment_behaviour_trend_v2', filterArgs(f));
+      const { data, error } = await anyDb.rpc(pbRpc(f, 'tops_payment_behaviour_trend_v2'), filterArgs(f));
       if (error) throw error;
       return data as PaymentBehaviorTrend;
     },
@@ -318,7 +327,7 @@ export function usePaymentBehaviorTiming(f: PaymentBehaviorFilters) {
   return useQuery({
     queryKey: [...ROOT, 'timing', ...filterKey(f)],
     queryFn: async () => {
-      const { data, error } = await anyDb.rpc('tops_payment_behaviour_timing_v2', filterArgs(f));
+      const { data, error } = await anyDb.rpc(pbRpc(f, 'tops_payment_behaviour_timing_v2'), filterArgs(f));
       if (error) throw error;
       return data as PaymentBehaviorTiming;
     },
@@ -358,7 +367,7 @@ export interface DimensionRow {
 }
 
 export async function fetchPaymentBehaviorBy(f: PaymentBehaviorFilters, dimension: PaymentBehaviorDimension, limit = 300): Promise<DimensionRow[]> {
-  const { data, error } = await anyDb.rpc('tops_payment_behaviour_by_v2', { ...filterArgs(f), p_dimension: dimension, p_limit: limit });
+  const { data, error } = await anyDb.rpc(pbRpc(f, 'tops_payment_behaviour_by_v2'), { ...filterArgs(f), p_dimension: dimension, p_limit: limit });
   if (error) throw error;
   return ((data?.rows ?? []) as DimensionRow[]);
 }
@@ -447,7 +456,7 @@ export interface WatchlistPaging {
 }
 
 export async function fetchPaymentBehaviorWatchlist(f: PaymentBehaviorFilters, paging: WatchlistPaging): Promise<PaymentBehaviorWatchlist> {
-  const { data, error } = await anyDb.rpc('tops_payment_behaviour_watchlist_v2', {
+  const { data, error } = await anyDb.rpc(pbRpc(f, 'tops_payment_behaviour_watchlist_v2'), {
     ...filterArgs(f),
     p_min_score: paging.minScore,
     p_limit: paging.limit,
@@ -496,9 +505,9 @@ export async function fetchPaymentBehaviorReportData(f: PaymentBehaviorFilters) 
     return data as T;
   };
   const [overview, trend, timing, agents, regions, districts, rentBands, cadences, cohorts, watchlist] = await Promise.all([
-    rpc<PaymentBehaviorOverview>('tops_payment_behaviour_overview_v2'),
-    rpc<PaymentBehaviorTrend>('tops_payment_behaviour_trend_v2'),
-    rpc<PaymentBehaviorTiming>('tops_payment_behaviour_timing_v2'),
+    rpc<PaymentBehaviorOverview>(pbRpc(f, 'tops_payment_behaviour_overview_v2')),
+    rpc<PaymentBehaviorTrend>(pbRpc(f, 'tops_payment_behaviour_trend_v2')),
+    rpc<PaymentBehaviorTiming>(pbRpc(f, 'tops_payment_behaviour_timing_v2')),
     fetchPaymentBehaviorBy(f, 'agent'),
     fetchPaymentBehaviorBy(f, 'region'),
     fetchPaymentBehaviorBy(f, 'district'),

@@ -1,3 +1,4 @@
+import { safeUUID } from '@/lib/safeUUID';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
@@ -175,7 +176,7 @@ function ProjectCard({ p }: { p: Project }) {
           <div className="flex items-center justify-between gap-2">
             <SectionTitle icon={ClipboardList}>Updates</SectionTitle>
             <Button size="sm" variant="outline" className="h-7 gap-1 px-2 text-xs"
-              onClick={() => setUpdates((u) => [...u, { id: crypto.randomUUID(), date: today(), text: '' }])}>
+              onClick={() => setUpdates((u) => [...u, { id: safeUUID(), date: today(), text: '' }])}>
               <Plus className="h-3 w-3" />Add update
             </Button>
           </div>
@@ -227,7 +228,7 @@ function BusinessIdeasCashTable({ rows, setRows }: { rows: IdeaRow[]; setRows: R
           <p className="mt-0.5 pl-6 text-xs text-muted-foreground">Tap any figure to edit. Net position = cash in minus cash out. Saved on this device.</p>
         </div>
         <Button size="sm" variant="outline" className="gap-1.5"
-          onClick={() => setRows((r) => [...r, { id: crypto.randomUUID(), name: 'New idea', customers: 0, cashIn: 0, cashOut: 0 }])}>
+          onClick={() => setRows((r) => [...r, { id: safeUUID(), name: 'New idea', customers: 0, cashIn: 0, cashOut: 0 }])}>
           <Plus className="h-4 w-4" />Add idea
         </Button>
       </div>

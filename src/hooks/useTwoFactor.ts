@@ -1,3 +1,4 @@
+import { safeUUID } from '@/lib/safeUUID';
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { invokeEdgeFunction } from '@/lib/invokeEdgeFunction';
@@ -10,7 +11,7 @@ export function getDeviceId(): string {
   try {
     let id = localStorage.getItem(DEVICE_ID_KEY);
     if (!id) {
-      id = crypto?.randomUUID?.() ?? `dev-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      id = safeUUID();
       localStorage.setItem(DEVICE_ID_KEY, id);
     }
     return id;

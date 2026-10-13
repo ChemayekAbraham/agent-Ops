@@ -141,7 +141,7 @@ export default function MyAdvanceCard({ staffId }: { staffId: string }) {
         <CardTitle className="text-sm">Salary advance</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="hidden">
+        <div>
           <Button onClick={() => setOpen(true)}>Request advance</Button>
         </div>
 

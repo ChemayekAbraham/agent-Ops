@@ -31,7 +31,7 @@ export function useMerchandiseOrderLock(userId?: string, itemName = 'Welile Smar
 
       const repayingStatuses = ['approved', 'processing', 'completed'];
 
-      const activePlan = (plans.data ?? []).some((p: any) => {
+      const activePlan = (plans ?? []).some((p: any) => {
         const outstanding = Number(p.outstanding_balance || 0);
         if (outstanding <= 0) return false;
         const saleStatus = p.merchandise_sales?.order_status ?? p.sale_status ?? null;
@@ -40,7 +40,7 @@ export function useMerchandiseOrderLock(userId?: string, itemName = 'Welile Smar
         return saleStatus == null || repayingStatuses.includes(saleStatus);
       });
 
-      const owingSale = (sales.data ?? []).some(
+      const owingSale = (sales ?? []).some(
         (s: any) => Number(s.amount_outstanding || 0) > 0
       );
 

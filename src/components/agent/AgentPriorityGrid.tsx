@@ -1,66 +1,54 @@
-import { ArrowRight, UserPlus, Home as HomeIcon, Sparkles } from 'lucide-react';
+import { ArrowRight, Home as HomeIcon, Sparkles } from 'lucide-react';
 import { useProfile } from '@/hooks/useProfile';
 import { formatUGX } from '@/lib/rentCalculations';
 import { hapticTap } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
 
 /**
- * Agent dashboard priority grid — 3 large, finger-friendly tiles.
+ * Agent dashboard priority tiles.
  *
- * The three priorities an ordinary agent should reach instantly, in plain words:
- *   1. Collect Rent  — record cash collected today (live total)
- *   2. Add Tenant    — start a rent request
- *   3. List House    — register an empty house and earn a bonus
+ *   List House — register an empty house and earn a bonus
+ *
+ * The dashboard's major action, "Post rent request here", is its own component
+ * (`AgentPostRentRequestCard`) and is rendered directly above the Service Center
+ * button, so it no longer sits in this grid.
  *
  * Designed for low-end Android browsers: 1.5x icon size, ≥80px tap target,
- * minimal text, plain language. Collect Rent uses local IndexedDB so it works offline.
+ * minimal text, plain language.
  */
 
 interface Props {
   agentId: string;
-  onOpenNewTenant: () => void;
   onOpenListHouse: () => void;
   /**
-   * Merchant Agents are payout-only: hide Collect Rent / Add Tenant / List House.
+   * Merchant Agents are payout-only: hide List House.
    */
   restricted?: boolean;
 }
 
-export function AgentPriorityGrid({ onOpenNewTenant, onOpenListHouse, restricted = false }: Props) {
+export function AgentPriorityGrid({ onOpenListHouse, restricted = false }: Props) {
   useProfile(); // keep hook to preserve profile prefetch behaviour
 
   return (
-    <div className="grid grid-cols-2 gap-2.5">
-      {/* 3. Add Tenant — rent request (hidden for Merchant Agents) */}
+    <div className="flex flex-col gap-2.5">
+      {/* List House — open empty house listing flow (hidden for Merchant Agents) */}
       {!restricted && (
-      <PriorityTile
-        onClick={() => { hapticTap(); onOpenNewTenant(); }}
-        icon={<UserPlus className="h-6 w-6" strokeWidth={2.2} />}
-        iconBg="bg-emerald-600 text-white"
-        label="Add Tenant"
-        valueLabel="UGX 10,000"
-        sub="On landlord float disbursed"
-      />
-      )}
-
-      {/* 4. List House — open empty house listing flow (hidden for Merchant Agents) */}
-      {!restricted && (
-      <PriorityTile
-        onClick={() => { hapticTap(); onOpenListHouse(); }}
-        icon={
-          <div className="relative">
-            <HomeIcon className="h-6 w-6" strokeWidth={2.2} />
-            <Sparkles className="h-3 w-3 text-amber-300 absolute -top-1 -right-1" />
-          </div>
-        }
-        iconBg="bg-amber-500 text-white"
-        label="List House"
-        valueLabel={formatUGX(2000)}
-        sub="Landlord + LC1 bonus"
-        ariaLabel="List an empty house — earn up to UGX 2,000 when you register the landlord and LC1 chairperson"
-        title="List an empty house"
-        highlight
-      />
+        <PriorityTile
+          onClick={() => { hapticTap(); onOpenListHouse(); }}
+          icon={
+            <div className="relative">
+              <HomeIcon className="h-6 w-6" strokeWidth={2.2} />
+              <Sparkles className="h-3 w-3 text-amber-300 absolute -top-1 -right-1" />
+            </div>
+          }
+          iconBg="bg-amber-500 text-white"
+          label="List House"
+          valueLabel={formatUGX(2000)}
+          sub="Landlord + LC1 bonus"
+          ariaLabel="List an empty house — earn up to UGX 2,000 when you register the landlord and LC1 chairperson"
+          title="List an empty house"
+          highlight
+        />
       )}
     </div>
   );

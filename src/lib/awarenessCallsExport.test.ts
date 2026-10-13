@@ -24,15 +24,36 @@ describe('awarenessLogRows', () => {
     const [r] = awarenessLogRows([row]);
     expect(r).toHaveLength(AWARENESS_LOG_HEADERS.length);
     expect(r.slice(0, 3)).toEqual(['06 Oct 2026', '06 Oct 23:59', '07 Oct 08:10']);
-    expect(r.slice(3, 17)).toEqual([
+    // this fixture is a landlord call recorded before the change: it has a merchant-code answer and no consent
+    expect(r.slice(3, 19)).toEqual([
       '94d31512', 'Landlord', 'Mr Okello', '0700333444', 'Grace Namukasa', 'Service centre', 'Service centre review', 'Pending', 'Central',
-      'Answered', 'Heard but unsure', 'Did not know', 'Partly explained', 'Wants the codes in writing',
+      'Answered', 'Heard but unsure', 'Old question', 'Not asked', 'Not asked', 'Partly explained', 'Wants the codes in writing',
     ]);
+  });
+
+  it('has the two landlord columns, named as asked, between self-payment and explained', () => {
+    expect(AWARENESS_LOG_HEADERS.slice(13, 19)).toEqual([
+      'Knew about 30M access', 'Knew about merchant-code self-payment', 'Landlord consent', 'Knew about payment code (OTP)', 'Explained on the call', 'Note',
+    ]);
+  });
+
+  it('a tenant or agent call keeps the merchant-code answer and leaves the landlord columns blank', () => {
+    const [r] = awarenessLogRows([{ ...row, subject_type: 'tenant', landlord_consent: null, aware_payout_otp: null }]);
+    expect(r.slice(13, 18)).toEqual(['Heard but unsure', 'Did not know', '', '', 'Partly explained']);
+    const [a] = awarenessLogRows([{ ...row, subject_type: 'agent' }]);
+    expect(a.slice(14, 17)).toEqual(['Did not know', '', '']);
+  });
+
+  it('a landlord call with the new questions fills consent and the payment code and leaves self-payment blank', () => {
+    const [r] = awarenessLogRows([{ ...row, aware_merchant_codes: null, landlord_consent: 'refuses', aware_payout_otp: 'heard' }]);
+    expect(r.slice(13, 18)).toEqual(['Heard but unsure', '', 'Does not consent', 'Heard but unsure', 'Partly explained']);
+    const [c] = awarenessLogRows([{ ...row, aware_merchant_codes: null, landlord_consent: 'consents', aware_payout_otp: 'knew' }]);
+    expect(c.slice(15, 17)).toEqual(['Consents', 'Knew about it']);
   });
 
   it('leaves the answers blank for an unanswered call', () => {
     const [r] = awarenessLogRows([{ ...row, call_result: 'no_answer', aware_30m: null, aware_merchant_codes: null, explained: null, note: null, region: null }]);
-    expect(r.slice(11, 17)).toEqual(['', 'No answer', '', '', '', '']);
+    expect(r.slice(11, 19)).toEqual(['', 'No answer', '', '', '', '', '', '']);
   });
 });
 

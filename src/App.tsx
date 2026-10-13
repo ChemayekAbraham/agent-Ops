@@ -1,10 +1,12 @@
+import type { AppRole } from '@/hooks/useAuth';
 // Realtime: enabled
 
 
 import { Suspense, memo, useEffect, useState, Component, type ReactNode } from "react";
 import { HelmetProvider } from "react-helmet-async";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { GlobalOverdueVettingDialog } from "@/components/service-center/GlobalOverdueVettingDialog";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useSearchParams } from "react-router-dom";
 import { LANDLORD_OPS_ROUTES } from "./pages/landlord-ops/routes";
 import { ThemeProvider } from "next-themes";
 import { ThemeColorSync } from "@/components/ThemeColorSync";
@@ -12,7 +14,7 @@ import AvatarSyncBridge from "@/components/system/AvatarSyncBridge";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import ChunkErrorBoundary from "@/components/ChunkErrorBoundary";
 import { PullToRefresh } from "@/components/PullToRefresh";
-import { lazyWithRetry, optionalLazyWithRetry } from "@/lib/lazyWithRetry";
+import { lazyWithRetry, optionalLazyWithRetry, lazyNamed } from "@/lib/lazyWithRetry";
 import { BuildUpdateWatcher } from "@/components/BuildUpdateWatcher";
 // Route every page chunk through the concurrency-limited queue so slow
 // networks never see more than N parallel chunk requests at once.
@@ -26,6 +28,7 @@ import { CombinedSettingsProvider } from "@/hooks/useCombinedSettings";
 import { CurrencyProvider } from "@/hooks/useCurrency";
 import StalledLoaderWatchdog from "@/components/common/StalledLoaderWatchdog";
 import AuthRecoveryPrompt from "@/components/auth/AuthRecoveryPrompt";
+import LeadClickClaimer from "@/components/crm/LeadClickClaimer";
 
 // Dev-only e2e harness (lazy + tree-shaken in prod via the import.meta.env.DEV guard below).
 const BusinessAdvanceHarness = lazyWithRetry(
@@ -55,8 +58,8 @@ const ProxyPartnerWithdrawalHarness = lazyWithRetry(
 import { LanguageProvider } from "@/hooks/useLanguage";
 
 // Auth providers — deferred since they're not needed for first paint
-const PinAuthProvider = lazyWithRetry(() => import("@/hooks/usePinAuth").then(m => ({ default: m.PinAuthProvider })));
-const BiometricAuthProvider = lazyWithRetry(() => import("@/hooks/useBiometricAuth").then(m => ({ default: m.BiometricAuthProvider })));
+const PinAuthProvider = lazyNamed(() => import("@/hooks/usePinAuth"), 'PinAuthProvider');
+const BiometricAuthProvider = lazyNamed(() => import("@/hooks/useBiometricAuth"), 'BiometricAuthProvider');
 const PushNotificationGate = optionalLazyWithRetry(() => import("@/components/notifications/PushNotificationGate"), "PushNotificationGate");
 const TwoFactorGate = optionalLazyWithRetry(() => import("@/components/account/TwoFactorGate"), "TwoFactorGate");
 const PhoneCollectionGate = optionalLazyWithRetry(() => import("@/components/notifications/PhoneCollectionGate"), "PhoneCollectionGate");
@@ -65,7 +68,6 @@ const RejectionAlertGate = optionalLazyWithRetry(() => import("@/components/noti
 const SubAgentInviteGate = optionalLazyWithRetry(() => import("@/components/agent/SubAgentInviteGate"), "SubAgentInviteGate");
 const MerchantAgentReferralGate = optionalLazyWithRetry(() => import("@/components/merchant/MerchantAgentReferralGate"), "MerchantAgentReferralGate");
 const ForceResetPasswordGate = optionalLazyWithRetry(() => import("@/components/auth/ForceResetPasswordGate"), "ForceResetPasswordGate");
-const UserLocationCorrectionGate = optionalLazyWithRetry(() => import("@/components/location/UserLocationCorrectionGate"), "UserLocationCorrectionGate");
 const RequisitionUsageReportGate = optionalLazyWithRetry(() => import("@/components/requisitions/RequisitionUsageReportGate"), "RequisitionUsageReportGate");
 const NationalIdLinkGate = optionalLazyWithRetry(() => import("@/components/notifications/NationalIdLinkGate"), "NationalIdLinkGate");
 const ConcernAssignmentGate = optionalLazyWithRetry(() => import("@/components/notifications/ConcernAssignmentGate"), "ConcernAssignmentGate");
@@ -82,12 +84,13 @@ const CampaignRedirect = lazyWithRetry(() => import("@/pages/CampaignRedirect"))
 const AgentCampaignsPage = lazyWithRetry(() => import("@/pages/AgentCampaignsPage"));
 
 // Deferred providers - loaded after first paint
-const CartProvider = lazyWithRetry(() => import("@/hooks/useCart").then(m => ({ default: m.CartProvider })));
-const ComparisonProvider = lazyWithRetry(() => import("@/hooks/useProductComparison").then(m => ({ default: m.ComparisonProvider })));
-const OfflineProvider = lazyWithRetry(() => import("@/contexts/OfflineContext").then(m => ({ default: m.OfflineProvider })));
-const FeatureFlagsProvider = lazyWithRetry(() => import("@/contexts/FeatureFlagsContext").then(m => ({ default: m.FeatureFlagsProvider })));
+const CartProvider = lazyNamed(() => import("@/hooks/useCart"), 'CartProvider');
+const ComparisonProvider = lazyNamed(() => import("@/hooks/useProductComparison"), 'ComparisonProvider');
+const OfflineProvider = lazyNamed(() => import("@/contexts/OfflineContext"), 'OfflineProvider');
+const FeatureFlagsProvider = lazyNamed(() => import("@/contexts/FeatureFlagsContext"), 'FeatureFlagsProvider');
 
 // Lazy load optional UI components
+const SupplierBikeAssetReminder = optionalLazyWithRetry(() => import("@/components/merchandise/SupplierBikeAssetReminder").then(m => ({ default: m.SupplierBikeAssetReminder })), "SupplierBikeAssetReminder");
 const Toaster = optionalLazyWithRetry(() => import("@/components/ui/toaster").then(m => ({ default: m.Toaster })), "Toaster");
 const SonnerToaster = optionalLazyWithRetry(() => import("@/components/ui/sonner").then(m => ({ default: m.Toaster })), "SonnerToaster");
 const NationalIdUnlinkNoticeDialog = optionalLazyWithRetry(() => import("@/components/national-id/NationalIdUnlinkNoticeDialog"), "NationalIdUnlinkNoticeDialog");
@@ -105,13 +108,22 @@ const GlobalInstallPrompt = optionalLazyWithRetry(() => import("@/components/Glo
 // Index is the entry router — must be eager for instant redirect
 
 import Index from "./pages/Index";
-// Landing is only needed on /welcome — lazy load it
+// The new welcome screens own / and /welcome — lazy load them.
 const Landing = lazy(() => import("./pages/Landing"));
+const WelcomeNew = lazy(() => import("./pages/WelcomeNew"));
+
+// Old /welcome-new links forward to /welcome, keeping any query params.
+function WelcomeNewRedirect() {
+  const [params] = useSearchParams();
+  const qs = params.toString();
+  return <Navigate to={qs ? `/welcome?${qs}` : "/welcome"} replace />;
+}
 const TenantsOnboarding = lazy(() => import("./pages/TenantsOnboarding"));
 const Auth = lazy(() => import("./pages/Auth"));
 const OAuthFunnel = lazy(() => import("./pages/OAuthFunnel"));
 const OAuthConsent = lazy(() => import("./pages/OAuthConsent"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
+const AgentsMock = lazy(() => import("./pages/AgentsMock"));
 const FunderDashboardNew = lazy(() => import("./pages/FunderDashboardNew"));
 // Frozen snapshot of the funder dashboard — see SupporterDashboard.backup.tsx.
 const FunderDashboardBackup = lazy(() => import("./pages/FunderDashboardBackup"));
@@ -202,6 +214,7 @@ const ActivatePartner = lazy(() => import('./pages/ActivatePartner'));
 const BusinessAdvanceTrack = lazy(() => import('./pages/BusinessAdvanceTrack'));
 const ResolveRLink = lazy(() => import('./pages/ResolveRLink'));
 const TrackedRedirect = lazy(() => import('./pages/TrackedRedirect'));
+const CampaignLinkRedirect = lazy(() => import('./pages/CampaignLinkRedirect'));
 const MerchandiseShareRedirect = lazy(() => import('./pages/MerchandiseShareRedirect'));
 const SupportHouse = lazy(() => import('./pages/SupportHouse'));
 const RentAccessLimitPublic = lazy(() => import('./pages/RentAccessLimitPublic'));
@@ -229,6 +242,7 @@ const CFOReceivablesAnalysisPage = lazy(() => import('./pages/cfo/ReceivablesOve
 const CFOPayablesOverviewPage = lazy(() => import('./pages/cfo/PayablesOverview'));
 const CFOWelileHomesDayReportPage = lazy(() => import('./pages/cfo/WelileHomesDayReport'));
 const CFOBucketAPostingPage = lazy(() => import('./pages/cfo/BucketAPostingGate'));
+const CFOCorrection5300000Page = lazy(() => import('./pages/cfo/CorrectionPackage5300000Gate'));
 const InvestorReportPage = lazy(() => import('./pages/cfo/InvestorReportPage'));
 const MoneyFlowTracePage = lazy(() => import('./pages/cfo/MoneyFlowTrace'));
 const LedgerEntryDetailPage = lazy(() => import('./pages/cfo/LedgerEntryDetail'));
@@ -244,7 +258,7 @@ const CalculatorSelfCheck = lazy(() => import('./hr/pay/calculator/CalculatorSel
 const PayrollConfigPage = lazy(() => import('./hr/pay/PayrollConfig'));
 const PayRunsPage = lazy(() => import('./hr/pay/PayRuns'));
 const PayrollEnrollmentPage = lazy(() => import('./hr/pay/PayrollEnrollment'));
-const PayRunDetailPage = lazy(() => import('./hr/pay/PayRuns').then((m) => ({ default: m.PayRunDetailPlaceholder })));
+const PayRunDetailPage = lazyNamed(() => import('./hr/pay/PayRuns'), 'PayRunDetailPlaceholder');
 const PayslipPage = lazy(() => import('./hr/pay/Payslip'));
 const MyPayslipsPage = lazy(() => import('./hr/pay/MyPayslips'));
 const ApprovalsPage = lazy(() => import('./hr/pay/Approvals'));
@@ -316,7 +330,7 @@ const TppoPortfolioPerformanceReport = lazy(() => import('./pages/tenant-ops/Por
 const COOFinancialOpsReport = lazy(() => import('./pages/coo/reports/FinancialOpsReport'));
 const COOSystemOverviewReport = lazy(() => import('./pages/coo/reports/SystemOverviewReport'));
 const COOFunderRentPlanVisibility = lazy(() => import('./pages/coo/FunderRentPlanVisibility'));
-const WelileAIPage = lazy(() => import('./components/ai-chat/WelileAIChatButton').then(m => ({ default: m.WelileAIPage })));
+const WelileAIPage = lazyNamed(() => import('./components/ai-chat/WelileAIChatButton'), 'WelileAIPage');
 const Terms = lazy(() => import('./pages/Terms'));
 const SeoResults = lazy(() => import('./pages/SeoResults'));
 const PartnersTerms = lazy(() => import('./pages/PartnersTerms'));
@@ -419,6 +433,7 @@ PageLoader.displayName = 'PageLoader';
 // receipt from an SMS/QR link see a clean, distraction-free page.
 function GlobalFloatingWidgets() {
   const location = useLocation();
+  if (location.pathname === '/dashboard/agents-mock') return null;
   const isReceiptRoute =
     location.pathname.startsWith('/r/') ||
     location.pathname.startsWith('/receipt/') ||
@@ -453,7 +468,6 @@ function GlobalOnboardingGates() {
       <RejectionAlertGate />
       <SubAgentInviteGate />
       <MerchantAgentReferralGate />
-      <UserLocationCorrectionGate />
       <RequisitionUsageReportGate />
       <NationalIdLinkGate />
       <ConcernAssignmentGate />
@@ -486,7 +500,9 @@ function AppRoutes() {
       <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/" element={<Index />} />
-          <Route path="/welcome" element={<Landing />} />
+          <Route path="/welcome" element={<WelcomeNew />} />
+          <Route path="/welcome-new" element={<WelcomeNewRedirect />} />
+          <Route path="/welcome-classic" element={<Landing />} />
            <Route path="/internship" element={<Internship />} />
            <Route path="/careers" element={<Careers />} />
            <Route path="/auth" element={<Auth />} />
@@ -507,6 +523,8 @@ function AppRoutes() {
           <Route path="/cash-deposit/resend" element={<ResendCashDepositCode />} />
           <Route path="/r/:code" element={<ResolveRLink />} />
           <Route path="/s/:code" element={<TrackedRedirect />} />
+          <Route path="/n/:code" element={<CampaignLinkRedirect />} />
+          <Route path="/ZQhyGb" element={<CampaignLinkRedirect fixedCode="ZQhyGb" />} />
           <Route path="/m/:code" element={<MerchandiseShareRedirect />} />
           <Route path="/support-house" element={<SupportHouse />} />
           <Route path="/t/:token" element={<TenantDashboardLandingPage />} />
@@ -533,6 +551,9 @@ function AppRoutes() {
           <Route path="/dashboard" element={<DashboardRedirect />} />
           <Route path="/dashboard/tenant" element={<Dashboard />} />
           <Route path="/dashboard/agent" element={<Dashboard />} />
+          <Route path="/dashboard/agents-mock" element={<AgentsMock />} />
+          {/* Frozen copy of the agent dashboard from before the 12 Oct 2026 rework. */}
+          <Route path="/dashboard/agent-bk" element={<Dashboard variant="agent-bk" />} />
           <Route path="/dashboard/agent/proxy" element={<ProxyAgentGuard><ProxyPerformanceDashboard /></ProxyAgentGuard>} />
           <Route path="/dashboard/agent/proxy/:section" element={<ProxyAgentGuard><ProxyPerformanceDashboard /></ProxyAgentGuard>} />
           <Route path="/dashboard/landlord" element={<Dashboard />} />
@@ -717,6 +738,7 @@ function AppRoutes() {
           <Route path="/cfo/payables" element={<RoleGuard allowedRoles={['cfo', 'super_admin', 'cto']} requiredPermission="cfo"><CFOPayablesOverviewPage /></RoleGuard>} />
           <Route path="/cfo/welile-homes" element={<RoleGuard allowedRoles={['cfo', 'super_admin', 'cto']} requiredPermission="cfo"><CFOWelileHomesDayReportPage /></RoleGuard>} />
           <Route path="/cfo/bucket-a-posting" element={<RoleGuard allowedRoles={['cfo', 'super_admin']} requiredPermission="cfo"><CFOBucketAPostingPage /></RoleGuard>} />
+          <Route path="/cfo/correction-5300000-posting" element={<RoleGuard allowedRoles={['cfo', 'super_admin']} requiredPermission="cfo"><CFOCorrection5300000Page /></RoleGuard>} />
           <Route path="/cfo" element={<Navigate to="/cfo/dashboard" replace />} />
           <Route path="/dashboard/cfo" element={<Navigate to="/cfo/dashboard" replace />} />
           <Route path="/admin/cfo" element={<Navigate to="/cfo/dashboard" replace />} />
@@ -771,7 +793,7 @@ function AppRoutes() {
           <Route path="/admin/users" element={<RoleGuard allowedRoles={['super_admin', 'manager', 'cto']} requiredPermission="company-ops"><AdminUsersPage /></RoleGuard>} />
           <Route path="/admin/access-audit" element={<RoleGuard allowedRoles={['super_admin', 'manager', 'cto']}><AdminAccessAuditPage /></RoleGuard>} />
           <Route path="/admin/financial-ops" element={<RoleGuard allowedRoles={['super_admin', 'manager', 'coo', 'cfo', 'employee', 'operations']} requiredPermission="financial-ops"><AdminFinancialOpsPage /></RoleGuard>} />
-          <Route path="/admin/financial-ops/merchant-desk-funding" element={<RoleGuard allowedRoles={['cfo', 'super_admin', 'ceo', 'coo', 'manager']}><MerchantDeskFundingPage /></RoleGuard>} />
+          <Route path="/admin/financial-ops/merchant-desk-funding" element={<RoleGuard allowedRoles={['cfo', 'financial_ops' as AppRole, 'super_admin', 'ceo', 'coo', 'manager']}><MerchantDeskFundingPage /></RoleGuard>} />
           {/* Legacy/bookmarked paths staff type or tap from older links — these
               previously fell through to the catch-all NotFound (404). */}
           <Route path="/financial-ops" element={<Navigate to="/admin/financial-ops" replace />} />
@@ -857,6 +879,7 @@ function AppRoutes() {
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Suspense>
+      <Suspense fallback={null}><GlobalOverdueVettingDialog /></Suspense>
       </div>
     </div>
   );
@@ -951,6 +974,7 @@ function DeferredProviders({ children }: { children: ReactNode }) {
                 <CartProvider>
                   <ComparisonProvider>
                     {children}
+                    <SupplierBikeAssetReminder />
                   </ComparisonProvider>
                 </CartProvider>
               </FeatureFlagsProvider>
@@ -1020,6 +1044,7 @@ const App = () => {
                           </AccountFrozenGate>
                         <MaintenanceLockScreen />
                         <AuthRecoveryPrompt />
+                        <LeadClickClaimer />
                       </DeferredProviders>
                       <DeferredErrorBoundary>
                         <Suspense fallback={null}>

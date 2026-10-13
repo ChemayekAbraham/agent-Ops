@@ -1,3 +1,4 @@
+import { safeUUID } from '@/lib/safeUUID';
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import * as AlertDialogPrimitive from '@radix-ui/react-alert-dialog';
 import { supabase } from '@/integrations/supabase/client';
@@ -478,6 +479,29 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
   // Delete portfolio dialog
   const [deletePortfolio, setDeletePortfolio] = useState<PortfolioRow | null>(null);
   const [deleteReason, setDeleteReason] = useState('');
+  const [redeemTarget, setRedeemTarget] = useState<PortfolioRow | null>(null);
+  const [redeemReason, setRedeemReason] = useState('');
+  const [redeeming, setRedeeming] = useState(false);
+  const handleStaffFullRedemption = async () => {
+    if (!redeemTarget) return;
+    if (redeemReason.trim().length < 10) { toast.error('Enter a reason of at least 10 characters'); return; }
+    setRedeeming(true);
+    try {
+      const { data: reqId, error: e1 } = await (supabase.rpc as any)('staff_create_redemption_request', {
+        p_portfolio_id: redeemTarget.id, p_reason: redeemReason.trim(),
+      });
+      if (e1) throw e1;
+      const { error: e2 } = await supabase.functions.invoke('process-portfolio-redemption', {
+        body: { request_id: reqId, scope: 'full', amount: Number(redeemTarget.investment_amount) || 0, note: redeemReason.trim() },
+      });
+      if (e2) throw e2;
+      toast.success(`${redeemTarget.portfolio_code} redeemed in full`);
+      setRedeemTarget(null); setRedeemReason('');
+      window.location.reload();
+    } catch (err: any) {
+      toast.error(err?.message || 'Redemption failed');
+    } finally { setRedeeming(false); }
+  };
   const [deleting, setDeleting] = useState(false);
 
   // Renew portfolio dialog
@@ -1189,7 +1213,8 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
             .select('portfolio_id')
             .in('portfolio_id', portfolioIds)
             .eq('request_type', 'REDEMPTION_REQUEST')
-            .in('status', ['pending', 'processing']),
+            // Only a redemption Partner Ops has started processing locks the portfolio.
+            .eq('status', 'processing'),
         ]);
         const counts: Record<string, number> = {};
         const latestRenewal: Record<string, string> = {};
@@ -1540,33 +1565,28 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
         return;
       }
 
-      // Log to audit_logs before deletion
-      const { error: auditErr } = await supabase.from('audit_logs').insert({
-        user_id: user.id,
-        action_type: 'delete_investment_portfolio',
-        table_name: 'investor_portfolios',
-        record_id: deletePortfolio.id,
-        metadata: {
-          portfolio_code: deletePortfolio.portfolio_code,
-          investment_amount: deletePortfolio.investment_amount,
-          roi_percentage: deletePortfolio.roi_percentage,
-          status: deletePortfolio.status,
-          created_at: deletePortfolio.created_at,
-          reason: deleteReason.trim(),
-          partner_id: detailPartner?.profile.id,
-          partner_name: detailPartner?.profile.full_name,
-        },
+      // One server step (delete_portfolio_and_refund): cancels the portfolio
+      // (releases its Landlord Float Pool money and its house claims back to the
+      // queue), refunds the principal taken to the partner's operational float,
+      // writes the audit record, then deletes. It refuses — changing nothing —
+      // when Returns/commission/top-ups were paid, money is out with tenants,
+      // or the portfolio is self-support or split.
+      const { data: res, error: delErr } = await (supabase.rpc as any)('delete_portfolio_and_refund', {
+        p_portfolio_id: deletePortfolio.id,
+        p_reason: deleteReason.trim(),
       });
-      if (auditErr) throw auditErr;
-
-      // Delete the portfolio
-      const { error: delErr } = await supabase
-        .from('investor_portfolios')
-        .delete()
-        .eq('id', deletePortfolio.id);
       if (delErr) throw delErr;
+      if (!res?.ok) throw new Error(res?.message || 'Portfolio could not be deleted.');
 
-      toast.success(`Portfolio ${deletePortfolio.portfolio_code} deleted`, { description: 'Action logged for audit.' });
+      const refunded = Number(res.refunded_to_operational_float) || 0;
+      const houses = Number(res.houses_released) || 0;
+      toast.success(`Portfolio ${deletePortfolio.portfolio_code} deleted`, {
+        description: [
+          refunded > 0 ? `${formatUGX(refunded)} returned to the partner's operational float.` : 'No wallet charge on record, so nothing was refunded.',
+          houses > 0 ? `${houses} house${houses === 1 ? '' : 's'} released back to the queue.` : null,
+          'Action logged for audit.',
+        ].filter(Boolean).join(' '),
+      });
 
       // Update local state
       if (detailPartner) {
@@ -3199,6 +3219,17 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
                                     <Scissors className="h-3.5 w-3.5" /> Split
                                   </Button>
                                 )}
+                                {!readOnly && p.status !== 'redeemed' && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-9 px-3 text-xs text-emerald-700 hover:text-emerald-800 hover:bg-emerald-500/10 gap-1.5 min-h-[44px]"
+                                    onClick={() => { setRedeemTarget(p); setRedeemReason(''); }}
+                                    title="Return the full principal to the partner and close this portfolio"
+                                  >
+                                    <ArrowRightLeft className="h-3.5 w-3.5" /> Redeem
+                                  </Button>
+                                )}
                                 {!readOnly && (
                                   <Button
                                     variant="ghost"
@@ -3783,6 +3814,25 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
       </AlertDialog>
 
       {/* ─── Delete Portfolio Confirmation ─── */}
+      <Dialog open={!!redeemTarget} onOpenChange={open => { if (!open && !redeeming) { setRedeemTarget(null); setRedeemReason(''); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Redeem portfolio in full</DialogTitle>
+            <DialogDescription>
+              {redeemTarget ? `${redeemTarget.portfolio_code} — the full principal of ${formatUGX(Number(redeemTarget.investment_amount) || 0)} is returned and the portfolio is closed. Returns already paid stay on record.` : ''}
+            </DialogDescription>
+          </DialogHeader>
+          <Label htmlFor="redeem-reason">Reason (min 10 characters)</Label>
+          <Textarea id="redeem-reason" value={redeemReason} onChange={e => setRedeemReason(e.target.value)} placeholder="e.g. Opened for the wrong partner by mistake" />
+          <DialogFooter>
+            <Button variant="outline" disabled={redeeming} onClick={() => { setRedeemTarget(null); setRedeemReason(''); }}>Cancel</Button>
+            <Button disabled={redeeming || redeemReason.trim().length < 10} onClick={handleStaffFullRedemption}>
+              {redeeming ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null} Confirm redemption
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={!!deletePortfolio} onOpenChange={open => { if (!open) { setDeletePortfolio(null); setDeleteReason(''); } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -3791,6 +3841,8 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
             </DialogTitle>
             <DialogDescription>
               This will permanently delete portfolio <strong>{deletePortfolio?.portfolio_code}</strong> ({formatUGX(deletePortfolio?.investment_amount || 0)}).
+              The money taken for it is returned to the partner's operational float and any houses it claimed go back to the queue.
+              Portfolios that have paid Returns, have top-ups or have money out with tenants cannot be deleted — redeem those instead.
               This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
@@ -5393,7 +5445,7 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
       const operationType = mode === 'wallet' ? 'roi_wallet_credit' : 'roi_already_paid';
       const modeLabel = mode === 'wallet' ? 'Wallet' : 'Cash';
       const managed = managedInfo[p.portfolioId];
-      const txnGroupId = crypto.randomUUID();
+      const txnGroupId = safeUUID();
       const hasProxy = !!managed;
       const isManagedProxy = !!managed?.isManaged;
 
@@ -5608,7 +5660,7 @@ export function NearingPayoutsDialog({ open, onOpenChange, portfolios, onActionC
       const isManagedProxy = !!managed?.isManaged;
       const modeLabel = payMode === 'wallet' ? 'Partner Wallet' : payMode === 'agent_wallet' ? 'Partner Wallet (via Proxy)'
         : payMode === 'different_wallet' ? `${altRecipient?.full_name || 'Recipient'}'s Wallet` : 'Cash';
-      const txnGroupId = crypto.randomUUID();
+      const txnGroupId = safeUUID();
 
       // Date stays unchanged — only advances when CFO approves the payout
 

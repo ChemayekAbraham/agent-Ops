@@ -74,6 +74,9 @@ export interface AwarenessWindow { start_day: string; end_day: string; days: num
 export interface AnswerCounts { knew: number; heard: number; did_not_know: number }
 export interface AnswerPcts extends AnswerCounts { knew_pct: number | null; heard_pct: number | null; did_not_know_pct: number | null }
 export interface ExplainedCounts { yes: number; partly: number; no: number }
+/** Landlord calls: whether the landlord consents to receive the rent through Welile. */
+export interface ConsentCounts { consents: number; unsure: number; refuses: number }
+export interface ConsentPcts extends ConsentCounts { consents_pct: number | null; unsure_pct: number | null; refuses_pct: number | null }
 
 export interface AwarenessSummary {
   window: AwarenessWindow;
@@ -81,9 +84,15 @@ export interface AwarenessSummary {
   totals: {
     calls: number; answered: number; no_answer: number; phone_off: number; wrong_number: number; answered_pct: number | null;
     people_called: number; people_reached: number; rent_plans_called: number; callers: number;
+    /** Answered calls by who was called; landlords are counted when they were asked the consent and payment code questions. */
+    answered_tenant_agent?: number; answered_landlord?: number; answered_landlord_old_questions?: number;
   };
   aware_30m: AnswerPcts;
+  /** Over answered tenant and agent calls only. */
   aware_merchant_codes: AnswerPcts;
+  /** Over answered landlord calls that were asked these questions. */
+  landlord_consent?: ConsentPcts;
+  aware_payout_otp?: AnswerPcts;
   explained: ExplainedCounts & { yes_pct: number | null; partly_pct: number | null; no_pct: number | null };
   bucket?: AwarenessBucket;
   trend: { day: string; period_end?: string; calls: number; answered: number; people_called: number; people_reached: number; answered_pct: number | null }[];
@@ -91,14 +100,16 @@ export interface AwarenessSummary {
 
 export interface AwarenessTeamRow {
   team: AwarenessTeam; calls: number; answered: number; answered_pct: number | null; people_called: number; people_reached: number;
-  rent_plans_called: number; callers: number; aware_30m: AnswerCounts; aware_merchant_codes: AnswerCounts; explained: ExplainedCounts;
+  rent_plans_called: number; callers: number; aware_30m: AnswerCounts; aware_merchant_codes: AnswerCounts;
+  landlord_consent?: ConsentCounts; aware_payout_otp?: AnswerCounts; explained: ExplainedCounts;
 }
 export interface AwarenessByTeam { window: AwarenessWindow; rows: AwarenessTeamRow[] }
 
 export interface AwarenessCallerRow {
   caller_id: string; caller_name: string; team: AwarenessTeam; calls: number; answered: number; answered_pct: number | null;
   people_called: number; people_reached: number; rent_plans_called: number;
-  aware_30m: AnswerCounts; aware_merchant_codes: AnswerCounts; explained: ExplainedCounts; last_call_at: string | null;
+  aware_30m: AnswerCounts; aware_merchant_codes: AnswerCounts; landlord_consent?: ConsentCounts; aware_payout_otp?: AnswerCounts;
+  explained: ExplainedCounts; last_call_at: string | null;
 }
 export interface AwarenessByCaller { window: AwarenessWindow; total_callers: number; rows: AwarenessCallerRow[] }
 
@@ -126,7 +137,8 @@ export interface AwarenessGaps {
 export interface AwarenessLogRow {
   id: string; rent_request_id: string; plan_code: string; subject_type: AwarenessSubject; subject_name: string; subject_phone: string;
   caller_id: string; caller_name: string; caller_team: AwarenessTeam; pipeline_stage: string; current_status: string; region: string | null;
-  call_result: AwarenessCallResult; aware_30m: string | null; aware_merchant_codes: string | null; explained: string | null;
+  call_result: AwarenessCallResult; aware_30m: string | null; aware_merchant_codes: string | null;
+  landlord_consent?: string | null; aware_payout_otp?: string | null; explained: string | null;
   note: string | null; day: string; dial_started_at: string; recorded_at: string;
 }
 export interface AwarenessLog { window: AwarenessWindow; total: number; limit: number; offset: number; rows: AwarenessLogRow[] }

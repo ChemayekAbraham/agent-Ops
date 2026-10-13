@@ -15,6 +15,7 @@ export function ShoppingAdvanceEligibleCount() {
     },
     staleTime: 60_000,
     refetchOnMount: 'always',
+    refetchInterval: 60_000,
   });
 
   return (
@@ -31,7 +32,7 @@ export function ShoppingAdvanceEligibleCount() {
         {isLoading ? '—' : isError ? 'Unavailable' : data?.toLocaleString('en-US')}
       </button>
       <p className="mt-2 text-sm text-muted-foreground">
-        Tap the number to see each person's location and profile. Each person who has sent money to another Welile wallet is counted once, including past transfers.
+        Users who received wallet transfers in the last 24 hours are counted once. Access returns to UGX 0 when no transfers remain in that window.
       </p>
       <p className="mt-1 text-xs text-muted-foreground">
         Qualification is informational; it does not issue an advance or make a wallet balance spendable.

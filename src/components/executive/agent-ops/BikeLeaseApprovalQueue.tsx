@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
-import { Bike, Check, Edit3, Loader2, X, Download, Award, ShieldCheck, Wrench, TrendingUp, ChevronDown, ChevronUp, FileText, AlertCircle } from 'lucide-react';
+import { Bike, Check, Loader2, X, Download, Award, ShieldCheck, Wrench, TrendingUp, ChevronDown, ChevronUp, FileText, AlertCircle } from 'lucide-react';
 
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
@@ -33,7 +33,6 @@ import { SPIRO_LEASE_PERIODS, spiroLeaseSchedule } from '@/lib/spiroBikeLease';
 import { useBikeCatalogCosts, bikeProfit, resolveBikeBasePrice } from '@/hooks/useBikeCatalogCosts';
 import { BikeLeaseDetailDialog } from './BikeLeaseDetailDialog';
 import { BikeLeaseSupplierAssign, useBikeLeaseSupplier } from './BikeLeaseSupplierAssign';
-import { EditBikeApplicationDialog } from './EditBikeApplicationDialog';
 import { MotorBikeCatalogDialog } from './MotorBikeCatalogDialog';
 import { BikeAssetDetailsDialog } from './BikeAssetDetailsDialog';
 import {
@@ -158,7 +157,6 @@ export function BikeLeaseApprovalQueue({
   const [rejectTarget, setRejectTarget] = useState<BikeLeaseRow | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [detailTarget, setDetailTarget] = useState<BikeLeaseRow | null>(null);
-  const [editTarget, setEditTarget] = useState<BikeLeaseRow | null>(null);
   const [assetTarget, setAssetTarget] = useState<BikeLeaseRow | null>(null);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
 
@@ -535,24 +533,14 @@ export function BikeLeaseApprovalQueue({
                             <FileText className="h-3.5 w-3.5" /> View Full Application Dossier
                           </Button>
 
-                          <div className="grid grid-cols-2 gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-8 text-xs gap-1 border-border text-foreground hover:text-primary hover:bg-primary/10 font-medium"
-                              onClick={() => setEditTarget(o)}
-                            >
-                              <Edit3 className="h-3.5 w-3.5" /> Edit Price
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-8 text-xs gap-1 text-muted-foreground hover:text-primary hover:bg-primary/10 font-medium"
-                              onClick={() => setAssetTarget(o)}
-                            >
-                              <Wrench className="h-3.5 w-3.5" /> Asset Info
-                            </Button>
-                          </div>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-8 w-full text-xs gap-1 text-muted-foreground hover:text-primary hover:bg-primary/10 font-medium"
+                            onClick={() => setAssetTarget(o)}
+                          >
+                            <Wrench className="h-3.5 w-3.5" /> Bike Asset Info &amp; Logbook
+                          </Button>
 
                           {canActOnRow(o.order_status) && (
                             <div className="flex items-center gap-2">
@@ -669,19 +657,6 @@ export function BikeLeaseApprovalQueue({
                       </td>
                       <td className="py-2 text-right">
                         <div className="flex justify-end items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 px-2 text-xs gap-1 text-muted-foreground hover:text-primary hover:bg-primary/10"
-                            title="Edit application price & details"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditTarget(o);
-                            }}
-                          >
-                            <Edit3 className="h-3.5 w-3.5" />
-                            <span className="hidden lg:inline">Edit</span>
-                          </Button>
                           <Button
                             size="sm"
                             variant="ghost"
@@ -960,19 +935,6 @@ export function BikeLeaseApprovalQueue({
         onOpenChange={(v) => { if (!v) setDetailTarget(null); }}
         onApprove={(ord) => openApprove(ord)}
         onReject={(ord) => setRejectTarget(ord)}
-        onEditPrice={(ord) => setEditTarget(ord)}
-      />
-
-      {/* Edit Application Price & Terms Dialog */}
-      <EditBikeApplicationDialog
-        order={editTarget}
-        open={!!editTarget}
-        onOpenChange={(v) => { if (!v) setEditTarget(null); }}
-        onSuccess={() => {
-          if (detailTarget && editTarget && detailTarget.id === editTarget.id) {
-            setDetailTarget(null);
-          }
-        }}
       />
 
       {/* Bike Asset Details Dialog */}

@@ -1,3 +1,4 @@
+import { safeUUID } from '@/lib/safeUUID';
 import { useState, useRef } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -74,7 +75,7 @@ export function AgentReceiptDialog({ open, onOpenChange, onSuccess }: AgentRecei
       // Upload image if provided
       if (imageFile) {
         const ext = imageFile.name.split('.').pop() || 'jpg';
-        const filePath = `${user.id}/${crypto.randomUUID()}.${ext}`;
+        const filePath = `${user.id}/${safeUUID()}.${ext}`;
         const { error: uploadError } = await supabase.storage
           .from('agent-receipts')
           .upload(filePath, imageFile, { upsert: false });

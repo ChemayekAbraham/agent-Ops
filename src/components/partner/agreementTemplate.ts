@@ -44,6 +44,12 @@ export interface AgreementFillData {
    * must not carry the stamp.
    */
   includeStamp?: boolean;
+  /**
+   * How the Partner supports, chosen by Partner Ops at countersign. Self-support
+   * adds clause 4.4A (the Partner chooses the Tenants or houses; Returns start
+   * on each when the Company approves it). Company-managed adds nothing.
+   */
+  supportMode?: 'company_managed' | 'self_support';
 }
 
 function ordinal(day: number): string {
@@ -180,6 +186,10 @@ export function buildAgreementHtml(data: AgreementFillData): string {
     // Stamp appears only on executed/counter-signed agreements; the template
     // places it on every page (empty string for drafts).
     StampPage: stamp,
+
+    SelfSupportClause: data.supportMode === 'self_support'
+      ? `<p class="legal-paragraph"><span class="clause-number">4.4A</span> <strong>Self-support.</strong> The Partner has chosen self-support: the Partner selects, through the Partner's Welile dashboard, the Tenants or houses supported with the Principal. Monthly Returns on each part of the Principal start from the date the Company approves the Tenant or house selected for it.</p>`
+      : '',
   };
 
   let html = RAW_TEMPLATE;

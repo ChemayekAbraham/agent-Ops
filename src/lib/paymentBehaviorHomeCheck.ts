@@ -81,6 +81,8 @@ export function homeDifferenceMessage(check: HomeCheck, formatMoney: (n: number)
 }
 
 export const HOME_CHECK_MATCH_TEXT = 'Matches Home';
+export const HOME_CHECK_CLOCK_TEXT =
+  "Counted from the day after the landlord was paid. Home still counts from each Rent Plan's saved start, so these figures are not compared with it.";
 export const HOME_CHECK_FILTERED_TEXT = "Filtered view: Home figures cover all tenants and can't be compared.";
 export const HOME_CHECK_PLACE_FILTER_TEXT =
   'Region and district filters leave out tenants with no recorded location, so their totals can be lower than the unfiltered view.';

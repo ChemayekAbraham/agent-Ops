@@ -23,6 +23,7 @@ interface ReturnRequest {
   cfo_id: string | null;
   cfo_decision_at: string | null;
   cfo_note: string | null;
+  auto_approved?: boolean | null;
   created_at: string;
 }
 
@@ -33,12 +34,15 @@ interface AgentInfo { id: string; full_name: string | null; phone: string | null
  * float back to the CFO. Approval posts a balanced ledger reversal returning the
  * money to the CFO, cancels the allocation, and sends the landlord back to
  * Landlord Ops. Rejection puts the landlord back on the agent's pay list.
+ *
+ * Send-backs where nothing was paid or started complete automatically in the
+ * database; they never wait here and show up under "Automatic" as read-only history.
  */
 export function CFOAllocationReturnApprovals() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [submittingId, setSubmittingId] = useState<string | null>(null);
-  const [tab, setTab] = useState<'pending' | 'decided'>('pending');
+  const [tab, setTab] = useState<'pending' | 'decided' | 'automatic'>('pending');
   const [items, setItems] = useState<ReturnRequest[]>([]);
   const [agents, setAgents] = useState<Record<string, AgentInfo>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
@@ -73,7 +77,11 @@ export function CFOAllocationReturnApprovals() {
   useEffect(() => { load(); }, []);
 
   const filtered = useMemo(
-    () => items.filter((i) => (tab === 'pending' ? i.status === 'pending' : i.status !== 'pending')),
+    () => items.filter((i) => {
+      if (tab === 'automatic') return !!i.auto_approved;
+      if (tab === 'pending') return i.status === 'pending';
+      return i.status !== 'pending' && !i.auto_approved;
+    }),
     [items, tab],
   );
 
@@ -126,7 +134,10 @@ export function CFOAllocationReturnApprovals() {
             Pending ({items.filter((i) => i.status === 'pending').length})
           </Button>
           <Button size="sm" variant={tab === 'decided' ? 'default' : 'outline'} onClick={() => setTab('decided')}>
-            Decided ({items.filter((i) => i.status !== 'pending').length})
+            Decided ({items.filter((i) => i.status !== 'pending' && !i.auto_approved).length})
+          </Button>
+          <Button size="sm" variant={tab === 'automatic' ? 'default' : 'outline'} onClick={() => setTab('automatic')}>
+            Automatic ({items.filter((i) => i.auto_approved).length})
           </Button>
         </div>
 
@@ -136,7 +147,11 @@ export function CFOAllocationReturnApprovals() {
           </div>
         ) : filtered.length === 0 ? (
           <p className="text-sm text-muted-foreground py-6 text-center">
-            {tab === 'pending' ? 'No requests waiting for CFO approval.' : 'No decided requests yet.'}
+            {tab === 'pending'
+              ? 'No requests waiting for CFO approval.'
+              : tab === 'automatic'
+                ? 'No automatic send-backs yet.'
+                : 'No decided requests yet.'}
           </p>
         ) : (
           <div className="space-y-3">
@@ -168,7 +183,7 @@ export function CFOAllocationReturnApprovals() {
 
                   {!isPending && r.cfo_note && (
                     <p className="text-xs text-muted-foreground">
-                      <span className="font-semibold">CFO note: </span>{r.cfo_note}
+                      <span className="font-semibold">{r.auto_approved ? 'System note: ' : 'CFO note: '}</span>{r.cfo_note}
                     </p>
                   )}
 

@@ -32,6 +32,7 @@ import AgentRentRequestDialog from './AgentRentRequestDialog';
 import { AgentTenantCollectDialog } from './AgentTenantCollectDialog';
 import { TenantBehaviorCard } from './TenantBehaviorCard';
 import { TenantProfileView } from './TenantProfileView';
+import { useRenewalOtp } from './RenewalOtpDialog';
 import { TenantFieldCollectDialog } from './TenantFieldCollectDialog';
 import { AgentRequestPipelineView } from './AgentRequestPipelineView';
 import { MarkNotFundedDialog } from './MarkNotFundedDialog';
@@ -298,6 +299,7 @@ function Highlight({ text, query }: { text?: string | null; query: string }) {
 
 export function AgentTenantsSheet({ open, onOpenChange, initialView, initialPipelineTab, initialHighlightId, initialProfileTenantId }: AgentTenantsSheetProps) {
   const { user } = useAuth();
+  const renewalOtp = useRenewalOtp();
   const { toast } = useToast();
   const [view, setView] = useState<'tenants' | 'pipeline'>(initialView ?? 'tenants');
   // When the sheet is (re)opened with a requested initial view (e.g. straight
@@ -1076,6 +1078,8 @@ export function AgentTenantsSheet({ open, onOpenChange, initialView, initialPipe
       toast({ title: 'Cannot renew', description: 'Landlord info missing on prior request.', variant: 'destructive' });
       return;
     }
+    const consented = await renewalOtp.requestConsent(req.id, tenant.full_name || 'the tenant');
+    if (!consented) return;
     setRenewingReqId(req.id);
     try {
       const fees = calculateRentRepayment(req.rent_amount, req.duration_days);
@@ -1215,10 +1219,12 @@ export function AgentTenantsSheet({ open, onOpenChange, initialView, initialPipe
   };
 
   return (
+    <>
+    {renewalOtp.dialog}
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
         side="bottom"
-        className={`${view === 'pipeline' && !profileTenantId ? 'h-screen max-h-screen rounded-none' : 'h-[92vh] rounded-t-3xl'} flex flex-col p-0 gap-0 overflow-y-auto`}
+        className="h-[100dvh] max-h-[100dvh] w-full max-w-none rounded-none border-0 flex flex-col p-0 gap-0 overflow-y-auto font-sans [&>button.absolute]:hidden"
       >
         {profileTenantId ? (
           <TenantProfileView
@@ -1423,13 +1429,14 @@ export function AgentTenantsSheet({ open, onOpenChange, initialView, initialPipe
                   variant="ghost"
                   size="sm"
                   onClick={() => onOpenChange(false)}
-                  className="h-11 px-3 rounded-xl text-base font-semibold gap-1"
+                  className="h-8 px-2 text-xs font-semibold gap-1"
+                  aria-label="Back"
                 >
-                  <ArrowLeft className="h-5 w-5" />
+                  <ArrowLeft className="h-4 w-4" />
                   Back
                 </Button>
-                <Users className="h-5 w-5 text-primary" />
-                <span className="text-lg font-bold">My Tenants</span>
+                <Users className="h-4 w-4 text-primary" />
+                <span className="text-base font-bold">My Tenants</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <Badge variant="outline" className="text-sm font-mono px-2.5 py-0.5">
@@ -3008,5 +3015,6 @@ export function AgentTenantsSheet({ open, onOpenChange, initialView, initialPipe
         onOpenChange={setApplyAdvanceOpen}
       />
     </Sheet>
+    </>
   );
 }

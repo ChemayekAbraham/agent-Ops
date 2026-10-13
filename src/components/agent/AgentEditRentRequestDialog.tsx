@@ -341,14 +341,26 @@ export function AgentEditRentRequestDialog({ request, open, onOpenChange, onResu
 
 
     if (newLcLetter) {
-      const ext = (newLcLetter.file.name.split('.').pop() || 'jpg').toLowerCase();
+      let letterFile = newLcLetter.file;
+      try {
+        const optimized = await optimizeImage(newLcLetter.file, {
+          maxWidth: 2000,
+          maxHeight: 2000,
+          quality: 0.85,
+          format: 'image/jpeg',
+        });
+        letterFile = optimized.file;
+      } catch {
+        letterFile = newLcLetter.file;
+      }
+      const ext = (letterFile.name.split('.').pop() || 'jpg').toLowerCase();
       const path = `${user.id}/${requestId}/lc_letter_${Date.now()}.${ext}`;
       const { error } = await supabase.storage
         .from('lc-letters')
-        .upload(path, newLcLetter.file, {
+        .upload(path, letterFile, {
           cacheControl: '86400',
           upsert: false,
-          contentType: newLcLetter.file.type,
+          contentType: letterFile.type,
         });
       if (error) throw new Error(`LC letter upload failed: ${error.message}`);
       patch.lc_letter_path = path;

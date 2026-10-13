@@ -11,6 +11,8 @@
  *    `RecordOutcomeDialog` is reused as-is for engaged / callback outcomes.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSessionPersistedState } from '@/hooks/useSessionPersistedState';
+import { useCriticalFlow } from '@/hooks/useCriticalFlow';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -121,18 +123,22 @@ const TAB_ICON: Record<string, typeof Phone> = {
 
 
 export function TenantCallingCenter() {
-  const [tab, setTab] = useState<CenterTab>('overview');
-  const [queueState, setQueueState] = useState<CallingTabKey>('to_call');
-  const [search, setSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [sortKey, setSortKey] = useState<string | null>(null);
-  const [page, setPage] = useState(0);
-  const [filters, setFilters] = useState<CcFilterSelection>({});
-  const [autoCap, setAutoCap] = useState(DEFAULT_AUTO_CAP);
+  // View choices are kept for the tab with the existing session helper, so a screen that is built again lands where
+  // the officer was. Only view state; nothing about a call, a tenant or a phone number is stored. A call in progress
+  // is never restored from here: it lives in the voice connection and the call record.
+  const [tab, setTab] = useSessionPersistedState<CenterTab>('tcc:tab', 'overview');
+  const [queueState, setQueueState] = useSessionPersistedState<CallingTabKey>('tcc:queue', 'to_call');
+  const [search, setSearch] = useSessionPersistedState<string>('tcc:search', '');
+  const [debouncedSearch, setDebouncedSearch] = useState(search);
+  const [sortKey, setSortKey] = useSessionPersistedState<string | null>('tcc:sort', null);
+  const [page, setPage] = useSessionPersistedState<number>('tcc:page', 0);
+  const [filters, setFilters] = useSessionPersistedState<CcFilterSelection>('tcc:filters', {});
+  const [autoCap, setAutoCap] = useSessionPersistedState<number>('tcc:autoCap', DEFAULT_AUTO_CAP);
+  const firstRun = useRef(true);
   const [formAttempt, setFormAttempt] = useState<{ id: string; cycle_row_id: string; name: string } | null>(null);
   /** Tenant chosen from the list — details first, calling from inside the modal. */
   const [detailsRow, setDetailsRow] = useState<CcRow | null>(null);
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useSessionPersistedState<boolean>('tcc:showFilters', false);
   /** Second heavy History read is opt-in, so visiting the tab costs one query. */
   const [fullHistoryOpen, setFullHistoryOpen] = useState(false);
 
@@ -162,7 +168,12 @@ export function TenantCallingCenter() {
         .join('&'),
     [filters],
   );
-  useEffect(() => setPage(0), [queueState, debouncedSearch, sortKey, filtersKey]);
+  useEffect(() => {
+    // the choices were restored on the first render, so only a later change sends the list back to page 1
+    if (firstRun.current) return;
+    setPage(0);
+  }, [queueState, debouncedSearch, sortKey, filtersKey]);
+  useEffect(() => { firstRun.current = false; }, []);
 
   const hub = useCcCallingHub('tenant', {
     state: queueState,
@@ -225,6 +236,16 @@ export function TenantCallingCenter() {
         : [],
     [debouncedSearch, hub.counts, queueState],
   );
+
+  // A call waiting for its outcome, or the outcome form itself, is live work: nothing may interrupt it. (The call
+  // itself registers inside the voice hook while it is connecting, ringing or connected.)
+  useCriticalFlow('calling-center-outcome', dialer.needsOutcome || !!formAttempt);
+
+  // A restored "Live call" page with no call behind it (the screen was built again) goes back to the overview.
+  useEffect(() => {
+    if (tab === 'live' && !dialer.current) setTab('overview');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   /** A live or settling call always belongs on the Live Call page. */
   useEffect(() => {

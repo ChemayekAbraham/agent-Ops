@@ -1,3 +1,4 @@
+import { OverdueVettingOpsCard } from '@/components/service-center/OverdueVettingOpsCard';
 import { usePersistedActiveTab } from '@/hooks/usePersistedActiveTab';
 import { BusinessAdvanceQueue } from '@/components/ops/BusinessAdvanceQueue';
 import ExecutiveDashboardLayout from '@/components/layout/ExecutiveDashboardLayout';
@@ -335,6 +336,7 @@ export default function COODashboardPage() {
       default:
         return (
           <div className="space-y-5">
+            <OverdueVettingOpsCard />
             {/* HERO: Welile Operations — manage every user category */}
             <button
               onClick={() => handleNavTo('welile-operations')}

@@ -27,8 +27,12 @@ type Args = Record<string, unknown>;
 const HOME_MATCHING = { expected: 227715911, collected: 88191948 };
 let homeFigures = { ...HOME_MATCHING };
 
+// The Workspace reads the *_amclock versions (same arguments, same shape); the fixtures answer both.
+const baseName = (fn: string) => fn.replace(/_amclock$/, '');
+
 function install() {
-  rpcMock.mockImplementation((fn: string, args: Args) => {
+  rpcMock.mockImplementation((rawFn: string, args: Args) => {
+    const fn = baseName(rawFn);
     const ok = (data: unknown) => Promise.resolve({ data, error: null });
     switch (fn) {
       case 'ops_tenant_ops_home_range': return ok({ ...homeFigures });
@@ -56,7 +60,7 @@ function wrapperAt(url: string) {
   };
 }
 const wrapper = wrapperAt('/executive-hub?tab=tenant-ops&view=tenant-operations-workspace');
-const callsTo = (fn: string) => rpcMock.mock.calls.filter((c) => c[0] === fn).map((c) => c[1] as Args);
+const callsTo = (fn: string) => rpcMock.mock.calls.filter((c) => baseName(String(c[0])) === fn).map((c) => c[1] as Args);
 
 describe('PaymentBehaviorTab', () => {
   beforeEach(() => { vi.clearAllMocks(); homeFigures = { ...HOME_MATCHING }; install(); });
@@ -153,13 +157,13 @@ describe('PaymentBehaviorTab', () => {
     expect(data.overview).toBeTruthy();
     expect(Object.keys(data.byDimension).sort()).toEqual(['agent', 'cadence', 'cohort', 'district', 'region', 'rent_band']);
     expect(meta.filters).toEqual({ agent: null, region: null, district: null, cadence: null });
-    expect((meta as unknown as { homeCheck: { filtered: boolean; check: { status: string } } }).homeCheck).toMatchObject({ filtered: false, check: { status: 'match' } });
+    expect((meta as unknown as { homeCheck: { filtered: boolean; clock?: boolean; check: unknown } }).homeCheck).toMatchObject({ filtered: false, clock: true, check: null });
     expect(meta.periodLabel).toMatch(/ to /);
     await waitFor(() => expect(toastSuccess).toHaveBeenCalledWith('Report ready', expect.anything()));
   });
 
   it('shows a readable message when the data cannot load', async () => {
-    rpcMock.mockImplementation((fn: string) => Promise.resolve(fn === 'tops_payment_behaviour_overview_v2'
+    rpcMock.mockImplementation((fn: string) => Promise.resolve(baseName(fn) === 'tops_payment_behaviour_overview_v2'
       ? { data: null, error: { message: 'not authorized' } } : { data: null, error: null }));
     render(<PaymentBehaviorTab />, { wrapper });
     expect(await screen.findByText('Could not load Tenant Payment Behavior')).toBeInTheDocument();
@@ -181,62 +185,37 @@ describe('PaymentBehaviorTab', () => {
 describe('PaymentBehaviorTab: check against Tenant Ops Home', () => {
   beforeEach(() => { vi.clearAllMocks(); homeFigures = { ...HOME_MATCHING }; install(); });
 
-  it('reads Home for the same dates as the tab and says "Matches Home" when the figures agree', async () => {
+  it('counts from the payout clock: reads the *_amclock functions and says Home is not compared', async () => {
     render(<PaymentBehaviorTab />, { wrapper });
-    expect(await screen.findByText('Matches Home')).toBeInTheDocument();
-    const strip = screen.getByTestId('home-check');
-    expect(strip).toHaveAttribute('data-state', 'match');
-    expect(within(strip).getAllByText('UGX 227,715,911')).toHaveLength(2);   // Expected on Home, billed on the tab
-    expect(within(strip).getAllByText('UGX 88,191,948')).toHaveLength(2);    // Collected on Home, counted on the tab
-    expect(within(strip).getAllByText('UGX 139,523,963')).toHaveLength(2);   // Short on both
-    expect(within(strip).getByText('39%')).toBeInTheDocument();              // Home shows a whole number
-    expect(within(strip).getByText('38.7%')).toBeInTheDocument();
+    const strip = await screen.findByTestId('home-check');
+    await waitFor(() => expect(strip).toHaveAttribute('data-state', 'clock'));
+    expect(strip).toHaveTextContent('Counted from the day after the landlord was paid');
+    expect(strip).toHaveTextContent('not compared with it');
+    expect(screen.queryByText('Matches Home')).not.toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
 
-    const home = callsTo('ops_tenant_ops_home_range')[0];
-    const tab = callsTo('tops_payment_behaviour_overview_v2')[0];
-    expect(home).toEqual({ p_start: tab.p_start, p_end: tab.p_end });
+    // Home is never read, and every payment behaviour read uses the clock version.
+    expect(callsTo('ops_tenant_ops_home_range')).toHaveLength(0);
+    const names = rpcMock.mock.calls.map((c) => String(c[0])).filter((n) => n.startsWith('tops_payment_behaviour_') && n !== 'tops_payment_behaviour_options');
+    expect(names.length).toBeGreaterThan(0);
+    expect(names.every((n) => n.endsWith('_amclock'))).toBe(true);
   });
 
-  it('warns, and logs both sets of figures, when the tab differs from Home by more than UGX 1', async () => {
-    homeFigures = { expected: 227715911, collected: 87191948 };   // Home shows UGX 1,000,000 less collected
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    render(<PaymentBehaviorTab />, { wrapper });
-
-    const alert = await screen.findByRole('alert');
-    expect(alert).toHaveTextContent('These figures differ from Tenant Ops Home by UGX 1,000,000. Home is the reference.');
-    expect(screen.getByTestId('home-check')).toHaveAttribute('data-state', 'differ');
-    expect(screen.queryByText('Matches Home')).not.toBeInTheDocument();
-    // Both sides were read again once before the warning was trusted.
-    expect(callsTo('ops_tenant_ops_home_range').length).toBeGreaterThanOrEqual(2);
-    expect(callsTo('tops_payment_behaviour_overview_v2').length).toBeGreaterThanOrEqual(2);
-
-    await waitFor(() => expect(warn).toHaveBeenCalled());
-    const [label, detail] = warn.mock.calls.find((c) => String(c[0]).includes('differ from Tenant Ops Home'))! as [string, { home: { collected: number }; tab: { collected: number } }];
-    expect(label).toContain('Home is the reference');
-    expect(detail.home.collected).toBe(87191948);
-    expect(detail.tab.collected).toBe(88191948);
-    warn.mockRestore();
-  });
-
-  it('puts the check in the PDF with its status', async () => {
-    homeFigures = { expected: 227715911, collected: 87191948 };
-    vi.spyOn(console, 'warn').mockImplementation(() => {});
+  it('tells the PDF the Home check was skipped because the tab counts from the clock', async () => {
     pdfMock.mockResolvedValue(undefined);
     const user = userEvent.setup();
     render(<PaymentBehaviorTab />, { wrapper });
-    await screen.findByRole('alert');
+    await screen.findByTestId('home-check');
     await user.click(screen.getByRole('button', { name: /download pdf report/i }));
     await waitFor(() => expect(pdfMock).toHaveBeenCalledTimes(1));
-    const meta = pdfMock.mock.calls[0][1] as { homeCheck: { filtered: boolean; check: { status: string; maxUgxDiff: number } } };
-    expect(meta.homeCheck.filtered).toBe(false);
-    expect(meta.homeCheck.check).toMatchObject({ status: 'differ', maxUgxDiff: 1000000 });
+    const meta = pdfMock.mock.calls[0][1] as { homeCheck: { filtered: boolean; clock?: boolean; check: unknown } };
+    expect(meta.homeCheck).toMatchObject({ filtered: false, clock: true, check: null });
   });
 
   it('replaces the strip with a plain explanation when a filter is on, and stops asking Home', async () => {
     const user = userEvent.setup();
     render(<PaymentBehaviorTab />, { wrapper });
-    await screen.findByText('Matches Home');
+    await screen.findByTestId('home-check');
     await user.click(screen.getByRole('tab', { name: 'Breakdowns' }));
     await user.click((await screen.findAllByRole('button', { name: /Focus on SHAFEEQ SSENABULYA/ }))[0]);
     await user.click(screen.getByRole('tab', { name: 'Overview' }));
@@ -252,7 +231,7 @@ describe('PaymentBehaviorTab: check against Tenant Ops Home', () => {
   it('explains that region and district filters leave out tenants with no recorded location', async () => {
     const user = userEvent.setup();
     render(<PaymentBehaviorTab />, { wrapper });
-    await screen.findByText('Matches Home');
+    await screen.findByTestId('home-check');
     await user.click(screen.getByRole('tab', { name: 'Breakdowns' }));
     await user.click(screen.getByRole('tab', { name: 'Region' }));
     await user.click((await screen.findAllByRole('button', { name: /Focus on Central/ }))[0]);

@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+.agents-mock-exact { --mock-surface: 220 20% 97%; --mock-wallet-start: 275 80% 48%; --mock-wallet-end: 277 90% 26%; background: hsl(var(--mock-surface)); }
+.dark .agents-mock-exact { --mock-surface: 222 47% 8%; }
+.agents-mock-wallet { background: linear-gradient(120deg, hsl(var(--mock-wallet-start)), hsl(var(--mock-wallet-end))); color: hsl(var(--header-foreground)); }
+.agents-mock-wallet::before, .agents-mock-wallet::after { content: ''; position: absolute; border-radius: 50%; background: hsl(var(--header-foreground) / .06); pointer-events: none; }
+.agents-mock-wallet::before { width: 130px; height: 130px; right: -30px; top: -30px; }
+.agents-mock-wallet::after { width: 150px; height: 150px; left: -40px; bottom: -120px; }
+
 /* Sonner toaster — prevent phantom right gutter on mobile */
 /* Hide the sonner notifications section entirely when no toasts are active.
    It re-appears automatically when a toast is rendered inside it. */
@@ -1711,3 +1718,7 @@ html.reduce-motion *::after {
   transition-duration: 0.001ms !important;
   scroll-behavior: auto !important;
 }
+
+/* Service Centre: row focused from the overdue vetting alert (2s). */
+[data-vet-highlight="true"] { outline: 2px solid hsl(var(--destructive)); outline-offset: 2px; border-radius: 0.75rem; transition: outline-color 200ms; }
+@media (prefers-reduced-motion: reduce) { [data-vet-highlight="true"] { transition: none; } }

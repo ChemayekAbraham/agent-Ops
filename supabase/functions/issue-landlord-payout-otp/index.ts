@@ -475,8 +475,11 @@ Deno.serve(async (req) => {
       if (digits.length === 9) return `0${digits}`;
       return digits;
     };
-    if (!approvedPhone || phoneMatchKey(resolvedPhone) !== phoneMatchKey(approvedPhone)) {
-      return json({ error: "The landlord number on file has changed since approval. Landlord Ops must verify the current number before an OTP can be sent." }, 400);
+    // The approved number is locked once the Rent Plan reaches CFO, so it is the
+    // payout number even if another contact number is stored on the landlord.
+    void phoneMatchKey;
+    if (!approvedPhone) {
+      return json({ error: "Landlord Ops has not approved a payout number for this landlord yet." }, 400);
     }
 
     // Eligibility check (float, cutoff, landlord status) — same gate as final insert

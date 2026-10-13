@@ -73,7 +73,7 @@ export default function PaymentBehaviorTab() {
   const [exporting, setExporting] = useState(false);
 
   const filters: PaymentBehaviorFilters = useMemo(
-    () => ({ startIso, endIso, agentId, region, district, cadence }),
+    () => ({ startIso, endIso, agentId, region, district, cadence, amclock: true }),
     [startIso, endIso, agentId, region, district, cadence],
   );
   const filtered = !!(agentId || region || district || cadence);
@@ -83,7 +83,7 @@ export default function PaymentBehaviorTab() {
   const trend = usePaymentBehaviorTrend(filters);
   const timing = usePaymentBehaviorTiming(filters);
   // Tenant Ops Home is the reference for Expected, Collected, Short and % covered: same dates as this tab.
-  const homeCheck = usePaymentBehaviorHomeCheck(startIso, endIso, filtered, overview);
+  const homeCheck = usePaymentBehaviorHomeCheck(startIso, endIso, filtered, overview, filters.amclock === true);
 
   const districtOptions = useMemo(
     () => (options?.districts ?? []).filter((d) => !region || d.region === region),
@@ -116,12 +116,12 @@ export default function PaymentBehaviorTab() {
         fetchPaymentBehaviorReportData(filters),
         import('@/lib/tenantPaymentBehaviorPdf'),
       ]);
-      const reportCheck = filtered ? null : await homeCheck.checkAgainst(data.overview.summary).catch(() => null);
+      const reportCheck = filtered || filters.amclock ? null : await homeCheck.checkAgainst(data.overview.summary).catch(() => null);
       await generatePaymentBehaviorPdf(data, {
         periodLabel: `${format(start, 'dd MMM yyyy')} to ${format(end, 'dd MMM yyyy')}`,
         phrase,
         filters: selectedLabels(),
-        homeCheck: { filtered, check: reportCheck },
+        homeCheck: { filtered, check: reportCheck, clock: filters.amclock === true },
       });
       toast.success('Report ready', { id: toastId });
     } catch (e) {

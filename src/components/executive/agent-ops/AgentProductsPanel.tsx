@@ -814,9 +814,9 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
 
 
       {showOverview && (
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
           {isLoading || (category === 'motor_bike' && isBikeOrdersLoading) || !effectiveKpis ? (
-            Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-[110px] rounded-2xl" />)
+            Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-[110px] rounded-2xl" />)
           ) : (
             <>
               <Card
@@ -860,6 +860,27 @@ export function AgentProductsPanel({ category, mode = 'full' }: { category?: Age
                     </div>
                   </div>
                   <p className="text-[11px] text-muted-foreground">{effectiveKpis.in_field_items ?? 0} item(s) issued</p>
+                </CardContent>
+              </Card>
+
+              <Card
+                role="button"
+                tabIndex={0}
+                onClick={() => setDrill('portfolio')}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDrill('portfolio'); } }}
+                className="relative overflow-hidden cursor-pointer transition hover:border-primary/50 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <CardContent className="p-3 flex flex-col justify-between h-full">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Total Invested</p>
+                      <p className="text-lg font-bold tabular-nums">{formatUGX(Number(effectiveKpis.in_field_amount || 0))}</p>
+                    </div>
+                    <div className="rounded-lg bg-primary/10 p-2 text-primary">
+                      <Wallet className="h-4 w-4" />
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">Value of {effectiveKpis.in_field_items ?? 0} item(s) issued</p>
                 </CardContent>
               </Card>
 

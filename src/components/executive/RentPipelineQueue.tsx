@@ -35,6 +35,7 @@ import { TenantPhotoChecksPanel } from './TenantPhotoChecksPanel';
 import { AwarenessCallPanel } from '@/components/pipeline/AwarenessCallPanel';
 import { defaultAwarenessSubjectForStage, isAwarenessReadOnlyStage } from '@/lib/awarenessCallLabels';
 import { AwarenessCallBadge } from '@/components/pipeline/AwarenessCallBadge';
+import { useCriticalFlow } from '@/hooks/useCriticalFlow';
 import { MyAwarenessCallsCard } from '@/components/pipeline/MyAwarenessCallsCard';
 import { useAwarenessCallStatus } from '@/hooks/useAwarenessCallStatus';
 import { hasNoCallAtStage } from '@/lib/awarenessCallStatus';
@@ -326,6 +327,13 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
   // persisted filter value is.
   const [tenantSyncAt, setTenantSyncAt] = useState<Date | null>(null);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  // A Review Rent Request sheet with text typed into it, or a bulk reject reason being written, is unsent work: nothing
+  // may interrupt it (the "new version" prompt, the install nag). This only registers the work; it changes no decision.
+  useCriticalFlow(
+    'review-request-sheet',
+    (!!selectedRequest && [comment, payoutRef, landlordCallNotes].some((t) => t.trim().length > 0))
+      || (bulkRejectOpen && bulkRejectReason.trim().length > 0),
+  );
 
   // Hydrate the selected tenant from the server so the filter follows the
   // CFO across devices/browsers, then mirror back into localStorage.

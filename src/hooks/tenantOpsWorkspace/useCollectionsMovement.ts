@@ -30,7 +30,7 @@ export interface MovementParams {
 }
 
 async function fetchMovement(params: MovementParams): Promise<MovementResult> {
-  const { data, error } = await anyDb.rpc('tops_collections_movement', {
+  const { data, error } = await anyDb.rpc('tops_collections_movement_amclock', {
     p_from: params.from,
     p_to: params.to,
     p_limit: params.limit ?? 50,

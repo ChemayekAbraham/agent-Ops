@@ -147,7 +147,8 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
   const [phoneReqNote, setPhoneReqNote] = useState('');
   const [submittingPhoneReq, setSubmittingPhoneReq] = useState(false);
   // "Resubmit to CFO" — return the allocated (not-yet-paid) landlord float back
-  // to the CFO for re-routing. Requires a reason and CFO approval.
+  // to the CFO. Requires a reason; completes at once when nothing was paid or
+  // started, otherwise waits for CFO approval.
   const [showReturnPanel, setShowReturnPanel] = useState(false);
   const [returnReason, setReturnReason] = useState('');
   const [submittingReturn, setSubmittingReturn] = useState(false);
@@ -339,10 +340,10 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
     selectedRequest?.landlord?.phone ||
     ''
   ).trim();
-  const payoutNumberMatchesOnFile =
-    !!landlordPhone &&
-    !!landlordPhoneOnFile &&
-    normalizeLandlordPhone(landlordPhone) === normalizeLandlordPhone(landlordPhoneOnFile);
+  // The Landlord-Ops-approved number is locked once the Rent Plan reaches CFO
+  // (database trigger), so it is the payout number; a different stored contact
+  // number no longer blocks the OTP.
+  const payoutNumberMatchesOnFile = !!landlordPhone;
 
   const parsedAmount = Number((amountInput || '').toString().replace(/[^\d.]/g, ''));
   const effectiveAmount =
@@ -697,10 +698,10 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
     setStep('otp');
   };
 
-  // Resubmit to CFO — return the ring-fenced (not-yet-paid) landlord float for
-  // this allocation back to the CFO. The agent gives a reason; a CFO must
-  // approve. On approval the money goes back to the CFO and the landlord
-  // returns to Landlord Ops.
+  // Send the ring-fenced (not-yet-paid) landlord float for this allocation back to
+  // the CFO. The agent gives a reason. When nothing has been paid or started for the
+  // landlord the database completes it immediately; otherwise it waits for the CFO.
+  // Either way the money goes back to the CFO and the Rent Plan returns to review.
   const submitAllocationReturn = async () => {
     const allocId = allocation?.id || (selectedRequest as any)?.__allocationId;
     if (!allocId) {
@@ -720,9 +721,14 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
       if (error || (data as any)?.success === false) {
         throw new Error(error?.message || (data as any)?.error || 'Could not submit the request');
       }
-      toast.success('Sent to CFO for approval', {
-        description: 'Once approved, the money returns to the CFO and the landlord goes back to Landlord Ops.',
-      });
+      if ((data as any)?.auto_approved) {
+        // Completed in the same step: float is back with the CFO, Rent Plan stays open for edits.
+        toast.success('Float returned. You can now edit the Rent Plan.');
+      } else {
+        toast.success('Sent to CFO for approval', {
+          description: 'Once approved, the money returns to the CFO and the landlord goes back to Landlord Ops.',
+        });
+      }
       qc.invalidateQueries({ queryKey: ['landlord-float-allocations'] });
       qc.invalidateQueries({ queryKey: ['agent-landlord-payout-float-balance'] });
       qc.invalidateQueries({ queryKey: ['agent-landlord-float-row'] });
@@ -1069,7 +1075,7 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
                       Pay {req.landlord?.name || 'Landlord'}
                     </h3>
                     <p className="text-xs text-muted-foreground font-mono mt-0.5">
-                      {maskLandlordPhone(landlordPhoneOnFile)} · MTN Mobile Money
+                      {maskLandlordPhone(landlordPhone || landlordPhoneOnFile)} · MTN Mobile Money
                     </p>
                   </div>
                   <Badge variant="outline" className="text-[10px] font-mono shrink-0">
@@ -1126,7 +1132,7 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
                     id="payout-phone"
                     inputMode="tel"
                     readOnly
-                    value={landlordPhoneOnFile}
+                    value={landlordPhone || landlordPhoneOnFile}
                     placeholder="No landlord number on file"
                     className="h-9 font-mono bg-muted/60 cursor-not-allowed text-muted-foreground"
                   />
@@ -1415,8 +1421,8 @@ export function AgentFloatPayoutWizard({ open, onOpenChange, allocation, onDone 
                     Send this landlord's allocated money back to the CFO
                   </p>
                   <p className="text-[11px] text-muted-foreground">
-                    The CFO must approve. Once approved, the money returns to the CFO and the
-                    landlord goes back to Landlord Ops.
+                    If nothing has been paid to the landlord, the money returns straight away
+                    and you can edit the Rent Plan. Otherwise the CFO must approve first.
                   </p>
                   <Textarea
                     value={returnReason}

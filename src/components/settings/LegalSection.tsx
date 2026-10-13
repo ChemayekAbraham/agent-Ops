@@ -1,4 +1,5 @@
 import { useState, lazy, Suspense } from 'react';
+import { lazyNamed } from '@/lib/lazyWithRetry';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { FileText, Download } from 'lucide-react';
@@ -15,9 +16,9 @@ import type { AppRole } from '@/hooks/useAuth';
 import { STAFF_ROLES } from '@/lib/roleConstants';
 import { EmployeeBadge } from '@/components/employee/EmployeeBadge';
 
-const TenantAgreementModal = lazy(() => import('@/components/tenant/agreement').then(m => ({ default: m.TenantAgreementModal })));
-const AgentAgreementModal = lazy(() => import('@/components/agent/agreement').then(m => ({ default: m.AgentAgreementModal })));
-const SupporterAgreementModal = lazy(() => import('@/components/supporter/agreement').then(m => ({ default: m.SupporterAgreementModal })));
+const TenantAgreementModal = lazyNamed(() => import('@/components/tenant/agreement'), 'TenantAgreementModal');
+const AgentAgreementModal = lazyNamed(() => import('@/components/agent/agreement'), 'AgentAgreementModal');
+const SupporterAgreementModal = lazyNamed(() => import('@/components/supporter/agreement'), 'SupporterAgreementModal');
 const EmployeeAgreementModal = lazy(() => import('@/components/employee/EmployeeAgreementModal'));
 const LenderVouchAgreementModal = lazy(() => import('@/components/vouch/lender/LenderVouchAgreementModal'));
 const LendingAgentAgreementModal = lazy(() => import('@/components/vouch/agent/LendingAgentAgreementModal'));

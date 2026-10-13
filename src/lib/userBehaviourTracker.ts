@@ -1,3 +1,4 @@
+import { safeUUID } from '@/lib/safeUUID';
 /**
  * User Behaviour Telemetry Tracker
  * 
@@ -51,7 +52,7 @@ class UserBehaviourTracker {
     try {
       let id = sessionStorage.getItem(SESSION_STORAGE_KEY);
       if (!id) {
-        id = crypto.randomUUID();
+        id = safeUUID();
         sessionStorage.setItem(SESSION_STORAGE_KEY, id);
       }
       return id;
@@ -217,7 +218,7 @@ class UserBehaviourTracker {
       const gps = await this.getSilentGps();
 
       const item: TelemetryPayload = {
-        id: crypto.randomUUID(),
+        id: safeUUID(),
         session_id: this.getSessionId(),
         role: this.getEffectiveRole(event.role),
         path: window.location.pathname,

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, lazy, Suspense, Component, ReactNode, useMemo } from 'react';
+import { lazyNamed } from '@/lib/lazyWithRetry';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Helmet } from 'react-helmet-async';
@@ -52,11 +53,9 @@ const IdentityPhotoCapture = lazy(() => import('@/components/wallet/IdentityPhot
 const AccountLinkingCard = lazy(() => import('@/components/settings/AccountLinkingCard'));
 
 
-const ArchivedPdfsCard = lazy(() =>
-  import('@/components/settings/ArchivedPdfsCard').then((m) => ({ default: m.ArchivedPdfsCard })),
-);
+const ArchivedPdfsCard = lazyNamed(() => import('@/components/settings/ArchivedPdfsCard'), 'ArchivedPdfsCard');
 
-const PushNotificationButton = lazy(() => import('@/components/PushNotificationButton').then(m => ({ default: m.PushNotificationButton })));
+const PushNotificationButton = lazyNamed(() => import('@/components/PushNotificationButton'), 'PushNotificationButton');
 import { TenantNotificationPreferencesCard } from '@/components/tenant/TenantNotificationPreferencesCard';
 
 /**

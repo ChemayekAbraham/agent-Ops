@@ -1,6 +1,10 @@
 import { cn } from '@/lib/utils';
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { OverdueVettingBanner } from '@/components/service-center/OverdueVettingBanner';
+import { useOverdueVettingAlert } from '@/hooks/useOverdueVettingAlert';
+import { KIND_TAB, VET_FOCUS_EVENT, scrollAndHighlight, type VetFocus } from '@/components/service-center/vettingNav';
+import type { OverdueKind } from '@/lib/vettingOverdueCopy';
 import { ArrowLeft, ClipboardCheck, Package, Route, Search, ShoppingBag, Store, UserPlus, Users } from 'lucide-react';
 import officeIllustration from '@/assets/At_the_office-bro-2.svg.asset.json';
 import { Button } from '@/components/ui/button';
@@ -37,6 +41,7 @@ import { useRestoreBodyPointerEvents } from '@/hooks/useRestoreBodyPointerEvents
 import { SubAgentInviteLinkDialog } from '@/components/agent/SubAgentInviteLinkDialog';
 import { TenantRentIntakeQueue, useTenantRentIntakeQueue } from '@/components/agent/TenantRentIntakeQueue';
 import { merchandiseInstallmentSchedule } from '@/lib/merchandiseInstallments';
+import { ServiceCenterAdvancesTracker } from '@/components/agent/service-center/ServiceCenterAdvancesTracker';
 
 export default function AgentServiceCenter() {
   const navigate = useNavigate();
@@ -58,6 +63,38 @@ export default function AgentServiceCenter() {
   const [unlinkTarget, setUnlinkTarget] = useState<ServiceCenterSubAgent | null>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
   const [inviteOpen, setInviteOpen] = useState(false);
+  const [mainTab, setMainTab] = useState('team');
+  const [vetTab, setVetTab] = useState('rent');
+  const [shopTab, setShopTab] = useState('catalog');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { data: overdueData } = useOverdueVettingAlert({ suppressed: true });
+
+  const focusItem = (t: VetFocus) => {
+    setMainTab('vetting');
+    setVetTab(KIND_TAB[t.kind]);
+    setVettingQuery('');
+    scrollAndHighlight(t.kind, t.id);
+  };
+  useEffect(() => {
+    const kind = searchParams.get('vet') as OverdueKind | null;
+    const id = searchParams.get('item');
+    if (kind && id && KIND_TAB[kind]) {
+      focusItem({ kind, id });
+      const next = new URLSearchParams(searchParams); next.delete('vet'); next.delete('item');
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+  useEffect(() => {
+    const on = (e: Event) => focusItem((e as CustomEvent<VetFocus>).detail);
+    window.addEventListener(VET_FOCUS_EVENT, on);
+    return () => window.removeEventListener(VET_FOCUS_EVENT, on);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  const jumpToOldest = () => {
+    const first = overdueData?.oldest?.[0];
+    if (first) focusItem({ kind: first.kind, id: first.id });
+  };
 
   const subAgents = data?.sub_agents ?? [];
   // Derived so the open sheet re-renders with fresh data after suspend/restore/transfer,
@@ -117,8 +154,8 @@ export default function AgentServiceCenter() {
 
   return (
     <div className="min-h-[100dvh] bg-background">
-      {/* Sticky top bar with back navigation to /dashboard/agent */}
-      <div className="sticky top-0 z-30 border-b border-border/60 bg-background/95 backdrop-blur-md px-3 sm:px-4 py-2">
+      {/* Top bar with back navigation to /dashboard/agent (scrolls with page) */}
+      <div className="border-b border-border/60 bg-background px-3 sm:px-4 py-2">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-2">
           <Button
             variant="ghost"
@@ -178,7 +215,8 @@ export default function AgentServiceCenter() {
           ))}
         </div>
 
-        <Tabs defaultValue="team">
+        <div className="sticky top-0 z-20"><OverdueVettingBanner onJumpToOldest={jumpToOldest} /></div>
+        <Tabs value={mainTab} onValueChange={setMainTab}>
           <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="team" className="text-xs sm:text-sm">
               <Users className="mr-1.5 h-4 w-4" /> Team
@@ -215,7 +253,7 @@ export default function AgentServiceCenter() {
                 className="pl-9 text-xs sm:text-sm h-9 sm:h-10"
               />
             </div>
-            <Tabs defaultValue="rent">
+            <Tabs value={vetTab} onValueChange={setVetTab}>
               <TabsList className="grid w-full grid-cols-3 sm:grid-cols-5 h-auto gap-1 p-1">
                 <TabsTrigger value="rent" className="text-[10px] sm:text-[11px] px-1 py-1.5 whitespace-normal leading-tight text-center">
                   Rent{vetting?.pending_count ? ` (${vetting.pending_count})` : ''}
@@ -345,6 +383,15 @@ export default function AgentServiceCenter() {
           </TabsContent>
 
           <TabsContent value="shop" className="mt-3 space-y-2">
+            <Tabs value={shopTab} onValueChange={setShopTab}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="catalog" className="text-xs sm:text-sm">Catalogue</TabsTrigger>
+                <TabsTrigger value="advances" className="text-xs sm:text-sm">Active advances</TabsTrigger>
+              </TabsList>
+              <TabsContent value="advances" className="mt-3">
+                {shopTab === 'advances' && <ServiceCenterAdvancesTracker />}
+              </TabsContent>
+              <TabsContent value="catalog" className="mt-3 space-y-2">
             {loadingCatalog ? (
               <div className="space-y-2">{[0, 1, 2].map((i) => <Skeleton key={i} className="h-16 w-full rounded-lg" />)}</div>
             ) : catalog.length === 0 ? (
@@ -368,11 +415,12 @@ export default function AgentServiceCenter() {
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-sm font-semibold text-foreground">{item.item_name}</div>
-                        <div className="text-xs text-muted-foreground">{formatUGX(item.unit_price)}</div>
-                        <div className="mt-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-                          Or pay in instalments — from{' '}
-                          {formatUGX(merchandiseInstallmentSchedule(Number(item.unit_price) || 0, 12).firstDaily)}/day
-                          {' '}over up to 12 months
+                        <div className="mt-0.5 text-base font-bold leading-tight text-primary">
+                          {formatUGX(merchandiseInstallmentSchedule(Number(item.unit_price) || 0, 12).firstDaily)}
+                          <span className="text-xs font-medium">/day</span>
+                        </div>
+                        <div className="text-[11px] text-muted-foreground">
+                          Instalments over up to 12 months · or {formatUGX(item.unit_price)} cash
                         </div>
                       </div>
                       <Button size="sm" onClick={() => navigate(`/merchandise?item=${item.id}`)}>
@@ -384,6 +432,8 @@ export default function AgentServiceCenter() {
               })
 
             )}
+              </TabsContent>
+            </Tabs>
           </TabsContent>
         </Tabs>
       </main>
