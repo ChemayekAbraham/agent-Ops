@@ -109,9 +109,16 @@ const GlobalInstallPrompt = optionalLazyWithRetry(() => import("@/components/Glo
 // Index is the entry router — must be eager for instant redirect
 
 import Index from "./pages/Index";
-// Landing is only needed on /welcome — lazy load it
+// The new welcome screens own / and /welcome — lazy load them.
 const Landing = lazy(() => import("./pages/Landing"));
 const WelcomeNew = lazy(() => import("./pages/WelcomeNew"));
+
+// Old /welcome-new links forward to /welcome, keeping any query params.
+function WelcomeNewRedirect() {
+  const [params] = useSearchParams();
+  const qs = params.toString();
+  return <Navigate to={qs ? `/welcome?${qs}` : "/welcome"} replace />;
+}
 const TenantsOnboarding = lazy(() => import("./pages/TenantsOnboarding"));
 const Auth = lazy(() => import("./pages/Auth"));
 const OAuthFunnel = lazy(() => import("./pages/OAuthFunnel"));
