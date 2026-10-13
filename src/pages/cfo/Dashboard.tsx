@@ -388,7 +388,6 @@ export default function CFODashboardPage() {
             <CFOTenantBalanceApprovals />
             <LandlordFloatIdleQueue />
             <CFOAllocationReturnApprovals />
-            <RentDisbursementQueue locationProvisionsOnly />
             <PromissoryBookingsPanel />
             <BatchPayoutProcessor />
             <LandlordFloatAllocationsPanel />
