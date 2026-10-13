@@ -467,9 +467,9 @@ export default function Auth() {
           </button>
         </div>
 
-        <div className="auth-brand" hidden={isSignUp}>
+        {!isSignUp && (<div className="auth-brand">
           <img src={authLogoAsset.url} alt="Welile" className="auth-logo" />
-        </div>
+        </div>)}
 
         <div className="auth-step" style={{ flex: '1 0 auto' }}>
         {isLoginView && (
