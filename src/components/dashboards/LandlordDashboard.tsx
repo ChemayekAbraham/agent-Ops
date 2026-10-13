@@ -10,6 +10,7 @@ import {
   DoorOpen,
   Banknote,
   BadgeCheck,
+  ArrowRight,
 } from 'lucide-react';
 import { AppRole } from '@/hooks/useAuth';
 import { ReactNode } from 'react';
@@ -104,6 +105,21 @@ export default function LandlordDashboard({ user, signOut, currentRole, availabl
       <div className="flex-1 overflow-y-auto pb-nav">
         <main className="px-4 py-5 space-y-5 animate-fade-in max-w-lg mx-auto">
 
+          {/* Register your house — primary CTA, first in the body */}
+          <button
+            onClick={handleOpenRegisterProperty}
+            className="w-full flex items-center gap-3 px-4 py-4 rounded-xl bg-primary text-primary-foreground shadow-lg shadow-primary/25 active:scale-[0.98] transition-transform touch-manipulation text-left"
+          >
+            <span className="h-10 w-10 rounded-xl bg-primary-foreground/15 ring-1 ring-primary-foreground/25 flex items-center justify-center shrink-0">
+              <Building2 className="h-5 w-5" />
+            </span>
+            <span className="flex-1 min-w-0 text-left">
+              <span className="block font-bold text-base leading-tight">Register your House Here</span>
+              <span className="block text-xs text-primary-foreground/80 mt-0.5">Start earning guaranteed monthly rent</span>
+            </span>
+            <ArrowRight className="h-4 w-4 shrink-0" />
+          </button>
+
           <MissionBanner dashboardRole="landlord" />
 
           {/* Verification Checklist */}
@@ -116,17 +132,6 @@ export default function LandlordDashboard({ user, signOut, currentRole, availabl
           <div className="space-y-2">
             <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider px-0.5">Actions</p>
 
-            <button
-              onClick={handleOpenRegisterProperty}
-              className="w-full flex items-center gap-3 px-4 py-3.5 rounded-xl border border-border/60 bg-card hover:bg-muted/40 transition-colors touch-manipulation"
-            >
-              <Building2 className="h-5 w-5 text-primary shrink-0" />
-              <div className="flex-1 text-left min-w-0">
-                <p className="font-medium text-sm">Register Property</p>
-                <p className="text-xs text-muted-foreground">Start earning guaranteed monthly rent</p>
-              </div>
-              <span className="text-xs text-muted-foreground">→</span>
-            </button>
 
             <button
               onClick={handleOpenMenu}
