@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Accessible native progress for the separate design preview. */
+.agents-mock-progress { appearance: none; background: hsl(var(--muted)); }
+.agents-mock-progress::-webkit-progress-bar { background: hsl(var(--muted)); border-radius: 999px; }
+.agents-mock-progress::-webkit-progress-value { background: hsl(var(--success)); border-radius: 999px; }
+.agents-mock-progress::-moz-progress-bar { background: hsl(var(--success)); border-radius: 999px; }
+
 /* Sonner toaster — prevent phantom right gutter on mobile */
 /* Hide the sonner notifications section entirely when no toasts are active.
    It re-appears automatically when a toast is rendered inside it. */
