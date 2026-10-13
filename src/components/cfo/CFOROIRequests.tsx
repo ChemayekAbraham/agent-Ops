@@ -372,7 +372,7 @@ export function CFOROIRequests() {
                     )}
                     {op.status === 'rejected' && op.rejection_reason && (
                       <TableRow key={op.id + '-rej'} className="hover:bg-transparent">
-                        <TableCell colSpan={9} className="text-xs text-destructive py-2">Reason: {op.rejection_reason}</TableCell>
+                        <TableCell colSpan={10} className="text-xs text-destructive py-2">Reason: {op.rejection_reason}</TableCell>
                       </TableRow>
                     )}
                   </Fragment>
