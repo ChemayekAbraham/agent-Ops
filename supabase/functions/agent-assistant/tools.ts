@@ -1,5 +1,5 @@
 import { z } from "https://esm.sh/zod@3.23.8";
-import { ISO_DATE, kampalaToday, PERIODS, resolvePeriod } from "./dates.ts";
+import { ISO_DATE, kampalaToday, type Period, PERIODS, resolvePeriod } from "./dates.ts";
 
 /**
  * Tool registry for the AGENT persona. This is the only thing that decides what the model can
@@ -51,7 +51,20 @@ const rangeProps = {
 
 type Range = z.infer<typeof rangeSchema>;
 
-function rangeToRpc(a: Range, defaultPeriod: "today" | "last_7_days"): { p_from: string; p_to: string } {
+/**
+ * A name or phone fragment used ONLY to filter inside the signed-in agent's own records. It is
+ * length-limited and restricted to letters, digits, space and . ' + - so wildcards, quotes and
+ * markup never reach the database (which re-validates and escapes it again).
+ */
+const search = z.string().trim().min(1).max(40).regex(/^[\p{L}\p{N} .'+\-]+$/u);
+const searchProp = {
+  type: "string",
+  maxLength: 40,
+  description: "Part of a person's name (or digits of their phone number). Letters, digits, space . ' + - only.",
+};
+const limitProp = { type: "integer", minimum: 1, maximum: 25, description: "How many to list (default 15, max 25)." };
+
+function rangeToRpc(a: Range, defaultPeriod: Period): { p_from: string; p_to: string } {
   if (a.from || a.to) {
     const to = a.to ?? kampalaToday();
     return { p_from: a.from ?? to, p_to: to };
@@ -139,12 +152,133 @@ export const AGENT_TOOLS: ToolDef[] = [
   {
     name: "get_tenants",
     description:
-      "Counts of the agent's tenants: tenants_linked (all), active_rent_plans, tenants_on_active_plans, " +
-      "tenants_billed_today. Counts only, no personal details.",
+      "Counts only of the agent's tenants: tenants_linked (all), active_rent_plans, tenants_on_active_plans, " +
+      "tenants_billed_today. For names, phones or Rent Plan details use find_tenants / get_tenant_detail.",
     parameters: { type: "object", properties: {}, additionalProperties: false },
     schema: z.object({}).strict(),
     rpc: "assistant_agent_tenants",
     toRpcArgs: () => ({}),
+  },
+  {
+    name: "get_my_profile",
+    description:
+      "The signed-in agent's own profile: name, phone, email, joined date, verified flags, agent type and tier, " +
+      "territory and location, occupation, whether the account is frozen, their parent agent's name and phone, and how many " +
+      "sub-agents they have. Passwords, login history, avatar, national ID and payout numbers are NOT available.",
+    parameters: { type: "object", properties: {}, additionalProperties: false },
+    schema: z.object({}).strict(),
+    rpc: "assistant_agent_my_profile",
+    toRpcArgs: () => ({}),
+  },
+  {
+    name: "find_tenants",
+    description:
+      "List the agent's OWN tenants (name, phone, location) with each tenant's latest Rent Plan and what the agent collected " +
+      "from them in the period (default last 30 days; reversed collections are excluded). Optional search by name or phone and a " +
+      "plan filter: active, in_review, completed or all. total_matching says how many exist; the list is capped. " +
+      "plan_total / recorded_repaid / plan_balance come from the Rent Plan record, NOT from collection receipts, so they can " +
+      "differ from collected_in_period. Use get_tenant_detail for everything about one tenant.",
+    parameters: {
+      type: "object",
+      properties: {
+        search: searchProp,
+        plan: { type: "string", enum: ["all", "active", "in_review", "completed"], description: "Only tenants with a Rent Plan at this stage." },
+        ...rangeProps,
+        limit: limitProp,
+      },
+      additionalProperties: false,
+    },
+    schema: z.object({
+      search: search.optional(),
+      plan: z.enum(["all", "active", "in_review", "completed"]).optional(),
+      ...rangeShape,
+      limit: z.number().int().min(1).max(25).optional(),
+    }).strict().refine(noPeriodAndDates, RANGE_CONFLICT) as unknown as z.ZodType<Record<string, unknown>>,
+    rpc: "assistant_agent_find_tenants",
+    toRpcArgs: (a) => {
+      const x = a as Range & { search?: string; plan?: string; limit?: number };
+      return { p_search: x.search ?? null, p_plan: x.plan ?? "all", ...rangeToRpc(x, "last_30_days"), p_limit: x.limit ?? 15 };
+    },
+  },
+  {
+    name: "get_tenant_detail",
+    description:
+      "Everything about ONE of the agent's tenants, found by name or phone digits: profile (name, phone, joined, verified, " +
+      "location), their Rent Plans newest first (stage, amounts, fees, dates, balance, repayment frequency) each with the landlord's " +
+      "name, phone and property address, and what the agent collected from them in the period (reversed collections excluded). " +
+      "If match_count is more than 1, several tenants matched: list the names and ask which one. Plan figures come from the plan " +
+      "record, not collection receipts.",
+    parameters: {
+      type: "object",
+      properties: { search: { ...searchProp, description: "The tenant's name or phone digits (required)." }, ...rangeProps },
+      required: ["search"],
+      additionalProperties: false,
+    },
+    schema: z.object({ search, ...rangeShape }).strict().refine(noPeriodAndDates, RANGE_CONFLICT) as unknown as z.ZodType<
+      Record<string, unknown>
+    >,
+    rpc: "assistant_agent_tenant_detail",
+    toRpcArgs: (a) => {
+      const x = a as Range & { search: string };
+      return { p_search: x.search, ...rangeToRpc(x, "last_30_days") };
+    },
+  },
+  {
+    name: "get_landlords",
+    description:
+      "Landlords of the agent's own tenants' Rent Plans: name, phone, property address, verified, and how many of the agent's " +
+      "tenants and Rent Plans are with each. Optional search by landlord name or phone. No payout or bank details are available.",
+    parameters: { type: "object", properties: { search: searchProp, limit: limitProp }, additionalProperties: false },
+    schema: z.object({ search: search.optional(), limit: z.number().int().min(1).max(25).optional() }).strict(),
+    rpc: "assistant_agent_landlords",
+    toRpcArgs: (a) => {
+      const x = a as { search?: string; limit?: number };
+      return { p_search: x.search ?? null, p_limit: x.limit ?? 15 };
+    },
+  },
+  {
+    name: "get_subagents",
+    description:
+      "The agent's own verified sub-agents (direct only): name, phone, district, when they were linked, how much they collected in " +
+      "the period (default last 30 days; reversed collections excluded), number of collections, last collection date and tenant " +
+      "count, ranked by collected. Also totals: how many sub-agents, how many pending invitations, how many were active. " +
+      "Optional search by name or phone. These are the sub-agents' collections, not the agent's own.",
+    parameters: {
+      type: "object",
+      properties: { search: searchProp, ...rangeProps, limit: limitProp },
+      additionalProperties: false,
+    },
+    schema: z.object({
+      search: search.optional(),
+      ...rangeShape,
+      limit: z.number().int().min(1).max(25).optional(),
+    }).strict().refine(noPeriodAndDates, RANGE_CONFLICT) as unknown as z.ZodType<Record<string, unknown>>,
+    rpc: "assistant_agent_subagents",
+    toRpcArgs: (a) => {
+      const x = a as Range & { search?: string; limit?: number };
+      return { p_search: x.search ?? null, ...rangeToRpc(x, "last_30_days"), p_limit: x.limit ?? 15 };
+    },
+  },
+  {
+    name: "get_subagent_detail",
+    description:
+      "One of the agent's verified sub-agents in detail, found by name or phone digits: contact (name, phone, email when real), " +
+      "district and region, occupation, when they joined, their collections in the period (total, count, by day; reversed excluded), " +
+      "and their tenants (names and phones, up to 25). If match_count is more than 1, list the names and ask which one.",
+    parameters: {
+      type: "object",
+      properties: { search: { ...searchProp, description: "The sub-agent's name or phone digits (required)." }, ...rangeProps },
+      required: ["search"],
+      additionalProperties: false,
+    },
+    schema: z.object({ search, ...rangeShape }).strict().refine(noPeriodAndDates, RANGE_CONFLICT) as unknown as z.ZodType<
+      Record<string, unknown>
+    >,
+    rpc: "assistant_agent_subagent_detail",
+    toRpcArgs: (a) => {
+      const x = a as Range & { search: string };
+      return { p_search: x.search, ...rangeToRpc(x, "last_30_days") };
+    },
   },
   {
     name: "get_advances",
