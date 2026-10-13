@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
-import { ArrowLeft, Mail, Lock, User, Phone, Loader2, MessageCircle, AlertCircle, LogIn, Smartphone, ArrowRight, Key, Clock } from 'lucide-react';
+import { ArrowLeft, Mail, Lock, User, Phone, Loader2, MessageCircle, AlertCircle, LogIn, Smartphone, ArrowRight, Key, Clock, House, Building2, Handshake, HeartHandshake, type LucideIcon } from 'lucide-react';
 import { CountryCodeSelect, COUNTRIES } from '@/components/auth/CountryCodeSelect';
 import WelileLogo from '@/components/WelileLogo';
 import PasswordStrengthIndicator from '@/components/auth/PasswordStrengthIndicator';
@@ -33,10 +33,6 @@ import { setCriticalFlowActive } from '@/lib/criticalFlowGuard';
 import { captureOAuthRedirectError } from '@/lib/oauthErrorLog';
 import { getStoredAttributionToken, restoreAttributionFromToken } from '@/lib/campaignAttribution';
 import ScreenLoader from '@/components/common/ScreenLoader';
-import roleHouseAsset from '@/assets/welcome-new/role-landlord-house.png.asset.json';
-import roleFamilyAsset from '@/assets/welcome-new/welcome-family.png.asset.json';
-import roleAgentAsset from '@/assets/welcome-new/agent.png.asset.json';
-import roleHeartAsset from '@/assets/welcome-new/role-supporter-heart.png.asset.json';
 import PersonNameFields from '@/components/shared/PersonNameFields';
 
 const VALID_SIGNUP_ROLES = ['tenant', 'agent', 'landlord', 'supporter'] as const;
@@ -48,18 +44,18 @@ const ROLE_OPTIONS = [
   { role: 'landlord' as const, emoji: '🏢', label: 'Guaranteed rent', desc: 'Never chase tenants', gradient: 'from-purple-500 to-violet-600' },
 ];
 
-const DESIGN_ROLES: { role: string; label: string; desc: string; img?: string; path?: string }[] = [
-  { role: 'tenant', label: 'Tenant', desc: 'Find a home, pay rent and access support', path: 'M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z' },
-  { role: 'landlord', label: 'Landlord', desc: 'List properties, manage tenants and grow your income', img: roleHouseAsset.url },
-  { role: 'agent', label: 'Agent', desc: 'Connect people, manage listings and close deals', path: 'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z' },
-  { role: 'supporter', label: 'Supporter', desc: 'Support tenants and communities through funding and services', img: roleHeartAsset.url },
+const DESIGN_ROLES: { role: string; label: string; desc: string; icon: LucideIcon }[] = [
+  { role: 'tenant', label: 'Tenant', desc: 'Find a home, pay rent and access support', icon: House },
+  { role: 'landlord', label: 'Landlord', desc: 'List properties, manage tenants and grow your income', icon: Building2 },
+  { role: 'agent', label: 'Agent', desc: 'Connect people, manage listings and close deals', icon: Handshake },
+  { role: 'supporter', label: 'Supporter', desc: 'Support tenants and communities through funding and services', icon: HeartHandshake },
 ];
 
-const SIGNUP_ROLE_CONFIG: Record<string, { label: string; avatar: string; text: string }> = {
-  tenant: { label: 'Join as a Tenant', avatar: roleFamilyAsset.url, text: 'A safer, simpler way to find your next home and access rent support.' },
-  landlord: { label: 'Join as a Landlord', avatar: roleHouseAsset.url, text: 'List properties, manage tenants and track rent activity from one place.' },
-  agent: { label: 'Join as an Agent', avatar: roleAgentAsset.url, text: 'Connect people, support onboarding and grow through field opportunities.' },
-  supporter: { label: 'Join as a Partner', avatar: roleHeartAsset.url, text: 'Support rent opportunities, monitor portfolios and help make housing possible.' },
+const SIGNUP_ROLE_CONFIG: Record<string, { label: string; icon: LucideIcon; text: string }> = {
+  tenant: { label: 'Join as a Tenant', icon: House, text: 'A safer, simpler way to find your next home and access rent support.' },
+  landlord: { label: 'Join as a Landlord', icon: Building2, text: 'List properties, manage tenants and track rent activity from one place.' },
+  agent: { label: 'Join as an Agent', icon: Handshake, text: 'Connect people, support onboarding and grow through field opportunities.' },
+  supporter: { label: 'Join as a Partner', icon: HeartHandshake, text: 'Support rent opportunities, monitor portfolios and help make housing possible.' },
 };
 
 export default function Auth() {
@@ -540,11 +536,7 @@ export default function Auth() {
                     }}
                   >
                     <div className={cn('role-circle-badge', `role-badge-${r.role}`)}>
-                      {r.img ? (
-                        <img src={r.img} alt="" className="role-asset-icon" />
-                      ) : (
-                        <svg className="role-badge-svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={r.path} /></svg>
-                      )}
+                      <r.icon className="role-badge-svg" strokeWidth={2} aria-hidden="true" />
                     </div>
                     <div className="role-info">
                       <h3 className="role-name">{r.label}</h3>
@@ -1105,7 +1097,7 @@ export default function Auth() {
                     </p>
                   </div>
                   <div className="account-avatar-wrapper">
-                    <img src={cfg.avatar} alt="" className="account-avatar-img" />
+                    <cfg.icon className="account-avatar-icon" strokeWidth={2} aria-hidden="true" />
                   </div>
                 </div>
 
