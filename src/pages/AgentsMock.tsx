@@ -20,6 +20,23 @@ const SHORTCUTS: { label: string; Icon: LucideIcon; color: string; to?: string }
   { label: 'Landlord Float', Icon: Building2, color: 'text-warning' },
 ];
 
+/**
+ * The three moments an agent is paid for a Rent Plan they posted. The two
+ * percentages are read from the same constants the payout paths use, so this
+ * card can't drift from what the backend actually pays.
+ */
+const POST_EARNINGS: { label: string; when: string; tone: 'primary' | 'warning' | 'success' }[] = [
+  { label: 'UGX 5,000', when: 'when you post the request', tone: 'primary' },
+  { label: `${Math.round(LANDLORD_PAYOUT_COMMISSION_RATE * 100)}%`, when: 'when the landlord is paid', tone: 'warning' },
+  { label: `${Math.round(COMMISSION_RATE * 100)}%`, when: 'when the tenant starts to pay', tone: 'success' },
+];
+
+const EARN_TONES = {
+  primary: { chip: 'bg-primary/10 text-primary', text: 'text-primary' },
+  warning: { chip: 'bg-warning/10 text-warning', text: 'text-warning' },
+  success: { chip: 'bg-success/10 text-success', text: 'text-success' },
+} as const;
+
 export default function AgentsMock() {
   const { profile } = useProfile();
   const { user } = useAuth();
@@ -150,6 +167,29 @@ export default function AgentsMock() {
               <p className="text-[22px] font-bold leading-6">{formatUGX(EXPECTED_TODAY)}</p>
               <p className="mt-1 text-[9px] opacity-70">expected today · {TENANTS_TOTAL} tenant{TENANTS_TOTAL === 1 ? '' : 's'}</p>
             </div>
+          </section>
+          <section aria-labelledby="post-cta-heading" className="relative overflow-hidden rounded-[18px] border border-primary/25 bg-card p-4">
+            <span aria-hidden className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-primary via-warning to-success" />
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 id="post-cta-heading" className="text-xs font-semibold">Post a rent request</h2>
+                <p className="mt-1 text-[10px] leading-3 text-muted-foreground">For your tenant — and you earn at three points.</p>
+              </div>
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><FileText className="!h-4 !w-4" /></span>
+            </div>
+            <ol className="mt-3 space-y-1.5">
+              {POST_EARNINGS.map((e, i) => (
+                <li key={e.when} className="flex items-center gap-2.5 rounded-xl bg-background/70 px-2.5 py-2">
+                  <span className={cn('flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[9px] font-bold', EARN_TONES[e.tone].chip)}>{i + 1}</span>
+                  <span className={cn('shrink-0 text-[12px] font-bold leading-none', EARN_TONES[e.tone].text)}>{e.label}</span>
+                  <span className="ml-auto text-right text-[9px] leading-3 text-muted-foreground">{e.when}</span>
+                </li>
+              ))}
+            </ol>
+            <Button onClick={() => navigate('/dashboard/agent?action=post-rent-request')} className="mt-3 h-11 w-full gap-2 rounded-xl bg-primary text-[12px] font-bold text-primary-foreground">
+              Post rent request here
+              <ArrowRight className="!h-4 !w-4" />
+            </Button>
           </section>
           <div className="grid grid-cols-4 gap-1" aria-label="Agent shortcuts">
             {SHORTCUTS.map(({ label, Icon, color, to }) => <Button key={label} variant="ghost" onClick={() => (to ? navigate(to) : setNotice(label))} className="h-[64px] flex-col gap-1 px-0 text-[10px]"><span className={cn('flex h-8 w-8 items-center justify-center rounded-full bg-card', color)}><Icon className="!h-4 !w-4" /></span>{label}</Button>)}
