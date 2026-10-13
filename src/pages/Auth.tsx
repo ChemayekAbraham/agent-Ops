@@ -143,6 +143,7 @@ export default function Auth() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const { user, loading: authLoading, signIn: authSignIn, roles: authRoles } = useAuth();
+  const [resetMethod, setResetMethod] = useState<"sms" | "email">("sms");
   const [emailLoginLoading, setEmailLoginLoading] = useState(false);
 
   // Internship funnel: auto-fill from query params and switch to signup
