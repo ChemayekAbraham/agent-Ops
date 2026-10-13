@@ -24,7 +24,7 @@ export function DatabaseBackupReadyEmail({
   tableCount = 0,
   rowCount = 0,
   generatedAt = new Date().toISOString(),
-  expiresInHours = 168,
+  expiresInHours = 24,
   actorName = 'System (scheduled cron)',
   actorTimestamp = new Date().toISOString(),
   actorUserAgent = 'n/a',
@@ -93,6 +93,6 @@ export const template = {
     tableCount: 90,
     rowCount: 123456,
     generatedAt: new Date().toISOString(),
-    expiresInHours: 168,
+    expiresInHours: 24,
   },
 } satisfies TemplateEntry
