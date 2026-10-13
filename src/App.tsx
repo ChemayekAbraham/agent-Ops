@@ -68,7 +68,6 @@ const RejectionAlertGate = optionalLazyWithRetry(() => import("@/components/noti
 const SubAgentInviteGate = optionalLazyWithRetry(() => import("@/components/agent/SubAgentInviteGate"), "SubAgentInviteGate");
 const MerchantAgentReferralGate = optionalLazyWithRetry(() => import("@/components/merchant/MerchantAgentReferralGate"), "MerchantAgentReferralGate");
 const ForceResetPasswordGate = optionalLazyWithRetry(() => import("@/components/auth/ForceResetPasswordGate"), "ForceResetPasswordGate");
-const UserLocationCorrectionGate = optionalLazyWithRetry(() => import("@/components/location/UserLocationCorrectionGate"), "UserLocationCorrectionGate");
 const RequisitionUsageReportGate = optionalLazyWithRetry(() => import("@/components/requisitions/RequisitionUsageReportGate"), "RequisitionUsageReportGate");
 const NationalIdLinkGate = optionalLazyWithRetry(() => import("@/components/notifications/NationalIdLinkGate"), "NationalIdLinkGate");
 const ConcernAssignmentGate = optionalLazyWithRetry(() => import("@/components/notifications/ConcernAssignmentGate"), "ConcernAssignmentGate");
@@ -467,7 +466,6 @@ function GlobalOnboardingGates() {
       <RejectionAlertGate />
       <SubAgentInviteGate />
       <MerchantAgentReferralGate />
-      <UserLocationCorrectionGate />
       <RequisitionUsageReportGate />
       <NationalIdLinkGate />
       <ConcernAssignmentGate />
