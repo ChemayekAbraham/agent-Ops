@@ -4,8 +4,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
-import { calculateRentRepayment } from '@/lib/rentCalculations';
-import { formatUGX } from '@/lib/agentAdvanceCalculations';
+import { calculateRentRepayment, formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
 
 const DURATIONS = [30, 60, 90] as const;
