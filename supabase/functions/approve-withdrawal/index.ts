@@ -43,13 +43,24 @@ const TELECOM_CHARGE_TIERS: { min: number; max: number; charge: number }[] = [
   { min: 500_001, max: 1_000_000, charge: 1_500 },
   { min: 1_000_001, max: 5_000_000, charge: 2_000 },
 ];
-function getTelecomSendingCharge(amount: number): number {
+// Wallet-to-bank tiers (MTN schedule). Bank payouts are charged by the telecom
+// on THIS schedule, not the P2P one above. Keep in sync with `BANK_CHARGE_TIERS`.
+const BANK_CHARGE_TIERS: { min: number; max: number; charge: number }[] = [
+  { min: 0, max: 125_000, charge: 1_500 },
+  { min: 125_001, max: 250_000, charge: 2_250 },
+  { min: 250_001, max: 500_000, charge: 4_100 },
+  { min: 500_001, max: 1_000_000, charge: 6_150 },
+  { min: 1_000_001, max: 2_000_000, charge: 9_250 },
+  { min: 2_000_001, max: 5_000_000, charge: 11_300 },
+];
+function getTelecomSendingCharge(amount: number, payoutMethod?: string | null): number {
   const amt = Number(amount || 0);
   if (amt <= 0) return 0;
-  for (const t of TELECOM_CHARGE_TIERS) {
+  const tiers = payoutMethod === "bank_transfer" ? BANK_CHARGE_TIERS : TELECOM_CHARGE_TIERS;
+  for (const t of tiers) {
     if (amt >= t.min && amt <= t.max) return t.charge;
   }
-  const top = TELECOM_CHARGE_TIERS[TELECOM_CHARGE_TIERS.length - 1];
+  const top = tiers[tiers.length - 1];
   return amt > top.max ? top.charge : 0;
 }
 
@@ -2349,7 +2360,7 @@ Deno.serve(async (req) => {
       }
       merchantFloatReserved = reservedForThis;
       merchantFloatAvailable = reservedForThis;
-      merchantTelecomExpected = getTelecomSendingCharge(amount);
+      merchantTelecomExpected = getTelecomSendingCharge(amount, wrPayoutMethod);
       merchantFloatForPrincipal = Math.min(merchantFloatAvailable, amount);
       merchantPrincipalShortfall = Math.max(0, amount - merchantFloatForPrincipal);
       const floatLeft = Math.max(0, merchantFloatAvailable - merchantFloatForPrincipal);
