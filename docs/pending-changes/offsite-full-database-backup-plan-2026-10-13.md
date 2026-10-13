@@ -18,8 +18,13 @@ an additional safeguard; if not, it is the primary one.
 ## Step 2 — Off-platform encrypted dump (only after the decisions below)
 
 ### Decisions needed from Josh / CEO (code cannot make these)
-1. **Destination** owned by the company, in a different account and provider from Supabase. Whatever it is becomes a new
-   entry on the PDPO form (name, region, cross-border). Not decided.
+1. **Destination — DECIDED 2026-10-13 (Josh): the separate Supabase project `fqvgfkqxykaxzndhbaps`** (private Storage bucket).
+   Still to confirm: (a) which account owns it and that it is NOT the same account/login as production, (b) its region
+   (Settings → Infrastructure), (c) the bucket is private with no public policy, (d) who has access. It is a new PDPO entry
+   (a copy of ALL personal data), and it is still Supabase, so it protects against losing the production project, not
+   against a Supabase-wide or account-level incident. Upload with that project's SERVICE-ROLE key stored as a GitHub secret
+   (`BACKUP_SUPABASE_URL`, `BACKUP_SUPABASE_SERVICE_KEY`); the anon key shown in the dashboard cannot and must not be used.
+   Never paste either key into chat, git or docs.
 2. **Encryption key holder.** Dump is encrypted before it leaves the runner (age or gpg). Name two people who hold the key;
    lose the key = no backup.
 3. **Database credential.** `pg_dump` needs a database connection string/password. Handover doc 01 says it is inaccessible by
