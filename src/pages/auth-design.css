@@ -144,7 +144,7 @@
 }
 .welile-auth .auth-tab {
   flex: 1; padding: 8px 6px; border: none; border-radius: 9px; background: transparent;
-  font-family: var(--font-body); font-size: 0.8rem; font-weight: 700; color: var(--color-text-muted);
+  font-family: var(--font-body); font-size: 0.8rem; font-weight: 700; color: var(--color-text-muted); white-space: nowrap;
   cursor: pointer; transition: all 0.2s ease;
 }
 .welile-auth .auth-tab:hover { color: var(--welile-purple); }
@@ -160,7 +160,7 @@
   color: var(--color-text-main); background: #ffffff; border: 1.5px solid var(--color-border);
   border-radius: 12px; outline: none; transition: all 0.2s ease;
 }
-.welile-auth .phone-number-field { padding-left: 96px; font-weight: 600; letter-spacing: 0.4px; }
+.welile-auth .phone-number-field { padding-left: 112px; font-weight: 600; letter-spacing: 0.4px; }
 .welile-auth .text-input-field::placeholder,
 .welile-auth .phone-number-field::placeholder { color: #94a3b8; font-weight: 400; }
 .welile-auth .text-input-field:focus,
