@@ -152,6 +152,6 @@ RESET ROLE;
 SELECT food_test.ok(pg_temp.untouched((SELECT id FROM o)), 'ELIG-23 ...nothing posted');
 ROLLBACK;
 
-SELECT food_test.ok((SELECT prosrc ~ 'check_transfer_recipient_eligibility\(\s*p_recipient_id\s*=>\s*v_o\.payee_id,\s*p_item\s*=>\s*NULL::text,\s*p_sender_id\s*=>\s*v_uid\)'
+SELECT food_test.ok((SELECT prosrc ~ 'check_transfer_recipient_eligibility\(\s*p_recipient_id\s*=>\s*v_payee_user,\s*p_item\s*=>\s*NULL::text,\s*p_sender_id\s*=>\s*v_uid\)'
                        FROM pg_proc WHERE proname = 'food_pay_order'),
-                    'ELIG-24 the gate is called by name with the wallet-transfer arguments (recipient, no item, sender = payer)');
+                    'ELIG-24 the gate is called by name with the wallet-transfer arguments (recipient = the recorded wallet''s owner, no item, sender = payer)');

@@ -1034,6 +1034,7 @@ describe('receipt confirmation and payment in the fixture (20261013128000)', () 
     const first = await foodMockRpc<{ status: string; payee_id: string }>('food_confirm_receipt', { p_order_id: id });
     expect(first.status).toBe('confirmed');
     expect(first.payee_id).toBe(MOCK_COORDINATOR);
+    expect((first as unknown as { payee_name: string }).payee_name).toBeTruthy();
     const again = await foodMockRpc<{ status: string }>('food_confirm_receipt', { p_order_id: id });
     expect(again.status).toBe('already_confirmed');
   });

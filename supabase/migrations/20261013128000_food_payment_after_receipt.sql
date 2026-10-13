@@ -9,14 +9,21 @@
 -- APPROVED SEQUENCE (owner, 2026-10-13):
 --   1. The Food Coordinator marks the order delivered or collected.
 --   2. The EMPLOYEE who placed it confirms receipt. The active coordinator at
---      that moment is snapshotted as the payee; a later handover never
---      redirects this order's payment.
+--      that moment is snapshotted as the payee: their WALLET id
+--      (wallets_physical.id, the id the ledger records as general_ledger.wallet_id)
+--      and their display name. A later handover never redirects this payment.
 --   3. Payment becomes available to that employee only. It is a personal
 --      wallet-to-personal-wallet transfer: the employee's withdrawable wallet
---      to the payee's, the exact order total, no fee, no platform leg.
+--      to the payee's, the exact order total, no fee, no platform leg. It is
+--      ROUTED BY THE RECORDED WALLET: the credited account is the owner of that
+--      wallet record, which must still be the receipt-time coordinator. The
+--      shared create_ledger_transaction takes a user id per leg and resolves
+--      the wallet itself (repo 20260914180000), so Food passes the wallet's
+--      owner and then verifies each leg landed on the expected wallet id.
 --   4. The posting is re-read from general_ledger and VERIFIED (two legs,
 --      right people, right amount, right direction, scope, source and
---      reference, not reversed, not already recorded) before the order is
+--      reference, the expected wallet ids, not reversed, not already recorded)
+--      before the order is
 --      marked paid. Ledger legs, verification, the attempt record and the paid
 --      status commit together or not at all.
 --
@@ -80,7 +87,7 @@
 -- food_pay_order from 20261012120000; restore NOT NULL on
 -- food_order_events.actor_id and food_audit.actor_id (dropping their
 -- *_actor_required checks); DROP the columns received_at, received_by,
--- payee_id, payment_verified_at, payment_attempt, payment_resolution_required,
+-- payee_id, payee_wallet_id, payee_name, payment_verified_at, payment_attempt, payment_resolution_required,
 -- payment_resolution_reason and the two order constraints; restore the
 -- payment_status CHECK without 'payment_reversed'.
 
@@ -89,6 +96,10 @@ ALTER TABLE public.food_orders
   ADD COLUMN received_at                 timestamptz,
   ADD COLUMN received_by                 uuid REFERENCES public.profiles(id),
   ADD COLUMN payee_id                    uuid REFERENCES public.profiles(id),
+  -- the coordinator's wallet (wallets_physical.id) and name at receipt; no FK
+  -- to the shared wallet table, so Food never constrains wallet operations
+  ADD COLUMN payee_wallet_id             uuid,
+  ADD COLUMN payee_name                  text,
   ADD COLUMN payment_verified_at         timestamptz,
   -- the attempt the order is currently on; > 1 only after an authorised retry
   ADD COLUMN payment_attempt             integer NOT NULL DEFAULT 1 CHECK (payment_attempt >= 1),
@@ -136,6 +147,9 @@ CREATE TABLE public.food_payment_attempts (
   attempt_no            integer NOT NULL CHECK (attempt_no >= 1),
   payer_id              uuid NOT NULL REFERENCES public.profiles(id),
   payee_id              uuid NOT NULL REFERENCES public.profiles(id),
+  payer_wallet_id       uuid NOT NULL,
+  payee_wallet_id       uuid NOT NULL,
+  payee_name            text,
   amount                numeric NOT NULL CHECK (amount > 0),
   reference             text NOT NULL UNIQUE,
   idempotency_key       text NOT NULL UNIQUE,
@@ -162,6 +176,7 @@ GRANT SELECT ON public.food_payment_attempts TO authenticated;
 CREATE FUNCTION public.food_confirm_receipt(p_order_id uuid)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE v_uid uuid := auth.uid(); v_o public.food_orders%ROWTYPE; v_payee uuid;
+        v_wallet uuid; v_name text;
 BEGIN
   IF v_uid IS NULL THEN RAISE EXCEPTION 'Authentication required' USING ERRCODE='28000'; END IF;
   SELECT * INTO v_o FROM public.food_orders WHERE id = p_order_id FOR UPDATE;
@@ -170,7 +185,8 @@ BEGIN
     RAISE EXCEPTION 'Only the person who placed this order can confirm receiving it' USING ERRCODE='42501'; END IF;
   IF v_o.received_at IS NOT NULL THEN
     RETURN jsonb_build_object('status','already_confirmed','order_id',v_o.id,
-                              'payee_id',v_o.payee_id,'amount_due',v_o.total_ugx);
+                              'payee_id',v_o.payee_id,'payee_name',v_o.payee_name,
+                              'payee_wallet_id',v_o.payee_wallet_id,'amount_due',v_o.total_ugx);
   END IF;
   IF v_o.fulfilment_status NOT IN ('delivered','collected') THEN
     RAISE EXCEPTION 'This order has not been handed over yet' USING ERRCODE='22023'; END IF;
@@ -181,18 +197,27 @@ BEGIN
   IF v_payee IS NULL THEN
     RAISE EXCEPTION 'There is no active Food Coordinator to pay; try again later' USING ERRCODE='P0002'; END IF;
 
+  -- the coordinator's wallet and name, recorded now (a missing wallet is
+  -- allowed here; payment then needs one, see food_pay_order)
+  SELECT w.id INTO v_wallet FROM public.wallets_physical w WHERE w.user_id = v_payee;
+  SELECT coalesce(nullif(btrim(p.full_name), ''), 'Food Coordinator') INTO v_name
+    FROM public.profiles p WHERE p.id = v_payee;
+
   UPDATE public.food_orders
-     SET received_at = now(), received_by = v_uid, payee_id = v_payee
+     SET received_at = now(), received_by = v_uid, payee_id = v_payee,
+         payee_wallet_id = v_wallet, payee_name = v_name
    WHERE id = v_o.id;
   INSERT INTO public.food_order_events (order_id, event_type, from_status, to_status, note, actor_id)
   VALUES (v_o.id, 'receipt_confirmed', v_o.fulfilment_status, v_o.fulfilment_status,
           'Employee confirmed receipt; payment now available', v_uid);
   PERFORM public.food_audit_write('order', v_o.id, 'receipt_confirmed',
     jsonb_build_object('received_at', NULL, 'payee_id', NULL),
-    jsonb_build_object('received_by', v_uid, 'payee_id', v_payee), NULL, v_uid);
+    jsonb_build_object('received_by', v_uid, 'payee_id', v_payee, 'payee_wallet_id', v_wallet,
+                       'payee_name', v_name), NULL, v_uid);
 
   RETURN jsonb_build_object('status','confirmed','order_id',v_o.id,
-                            'payee_id',v_payee,'amount_due',v_o.total_ugx);
+                            'payee_id',v_payee,'payee_name',v_name,'payee_wallet_id',v_wallet,
+                            'amount_due',v_o.total_ugx);
 END $$;
 
 -- ═══════════════ payment identity and integrity helpers (internal) ═══════════════
@@ -216,10 +241,14 @@ CREATE FUNCTION public.food_payment_problem(p_order public.food_orders)
 RETURNS jsonb LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
 DECLARE v_ref text := public.food_payment_reference(p_order.order_reference, p_order.payment_attempt);
         v_ok boolean; v_amt numeric; v_at timestamptz; v_marked boolean;
+        v_att public.food_payment_attempts%ROWTYPE;
 BEGIN
+  SELECT * INTO v_att FROM public.food_payment_attempts a WHERE a.transaction_group_id = p_order.transaction_group_id;
   SELECT count(*) = 2
-     AND count(*) FILTER (WHERE g.user_id = p_order.employee_id AND g.direction = 'cash_out') = 1
-     AND count(*) FILTER (WHERE g.user_id = p_order.payee_id AND g.direction = 'cash_in') = 1
+     AND count(*) FILTER (WHERE g.user_id = p_order.employee_id AND g.direction = 'cash_out'
+                            AND g.wallet_id IS NOT DISTINCT FROM v_att.payer_wallet_id AND g.wallet_id IS NOT NULL) = 1
+     AND count(*) FILTER (WHERE g.user_id = p_order.payee_id AND g.direction = 'cash_in'
+                            AND g.wallet_id IS NOT DISTINCT FROM v_att.payee_wallet_id AND g.wallet_id IS NOT NULL) = 1
      AND bool_and(g.amount = p_order.total_ugx AND g.category = 'wallet_transfer' AND g.ledger_scope = 'wallet'
                   AND g.reference_id = v_ref)
     INTO v_ok
@@ -285,6 +314,7 @@ DECLARE
   v_maint boolean; v_until text; v_wpaused boolean; v_short boolean := false;
   v_elig boolean; v_elig_reason text; v_problem jsonb; v_block text;
   v_auth_by uuid; v_auth_reason text;
+  v_payee_wallet uuid; v_payee_user uuid; v_payer_wallet uuid;
 BEGIN
   IF v_uid IS NULL THEN RAISE EXCEPTION 'Authentication required' USING ERRCODE='28000'; END IF;
   SELECT * INTO v_o FROM public.food_orders WHERE id = p_order_id FOR UPDATE;
@@ -316,18 +346,36 @@ BEGIN
   IF v_o.payee_id = v_uid THEN
     RAISE EXCEPTION 'A Food Coordinator cannot pay themselves for their own order' USING ERRCODE='42501'; END IF;
 
+  -- Route by WALLET. The coordinator's wallet recorded at receipt decides
+  -- which account is credited: its owner is read from the wallet record. If
+  -- the coordinator had no wallet at receipt, their wallet is recorded now.
+  v_payee_wallet := v_o.payee_wallet_id;
+  IF v_payee_wallet IS NULL THEN
+    SELECT w.id INTO v_payee_wallet FROM public.wallets_physical w WHERE w.user_id = v_o.payee_id;
+    IF v_payee_wallet IS NULL THEN
+      RAISE EXCEPTION 'The Food Coordinator does not have a Welile wallet; payment cannot be made'
+        USING ERRCODE='P0002'; END IF;
+    UPDATE public.food_orders SET payee_wallet_id = v_payee_wallet WHERE id = v_o.id;
+  END IF;
+  SELECT w.user_id INTO v_payee_user FROM public.wallets_physical w WHERE w.id = v_payee_wallet;
+  SELECT w.id INTO v_payer_wallet FROM public.wallets_physical w WHERE w.user_id = v_uid;
+  IF v_payer_wallet IS NULL THEN
+    RAISE EXCEPTION 'You do not have a Welile wallet' USING ERRCODE='P0002'; END IF;
+
   -- The payee is the coordinator snapshotted at receipt; a handover never
   -- redirects it. Their eligibility is re-checked now: Food staff, and the
   -- shared recipient gate every wallet transfer passes (frozen, closed, no
   -- account, self), called exactly as wallet-transfer calls it. If they no
   -- longer qualify the order is blocked for authorised resolution and
   -- nothing is posted.
-  IF NOT public.food_is_staff(v_o.payee_id) THEN
+  IF v_payee_user IS DISTINCT FROM v_o.payee_id THEN
+    v_block := 'The wallet recorded for this order''s Food Coordinator no longer belongs to them';
+  ELSIF NOT public.food_is_staff(v_o.payee_id) THEN
     v_block := 'The Food Coordinator for this order is no longer Food staff';
   ELSE
     SELECT e.eligible, e.reason INTO v_elig, v_elig_reason
       FROM public.check_transfer_recipient_eligibility(
-             p_recipient_id => v_o.payee_id, p_item => NULL::text, p_sender_id => v_uid) e;
+             p_recipient_id => v_payee_user, p_item => NULL::text, p_sender_id => v_uid) e;
     IF NOT COALESCE(v_elig, false) THEN v_block := COALESCE(v_elig_reason, 'not eligible'); END IF;
   END IF;
   IF v_block IS NOT NULL THEN
@@ -337,16 +385,11 @@ BEGIN
     INSERT INTO public.food_order_events (order_id, event_type, from_status, to_status, note, actor_id)
     VALUES (v_o.id, 'payment_blocked', v_o.payment_status, v_o.payment_status, v_block, v_uid);
     PERFORM public.food_audit_write('order', v_o.id, 'payment_blocked', NULL,
-      jsonb_build_object('reason','recipient_ineligible','detail',v_block,'payee_id',v_o.payee_id), NULL, v_uid);
+      jsonb_build_object('reason','recipient_ineligible','detail',v_block,'payee_id',v_o.payee_id,
+                         'payee_wallet_id',v_payee_wallet), NULL, v_uid);
     RETURN jsonb_build_object('status','blocked','order_id',v_o.id,'reason','recipient_ineligible',
-                              'detail',v_block,'escalate',true);
+                              'detail',v_block,'payee_name',v_o.payee_name,'escalate',true);
   END IF;
-
-  IF NOT EXISTS (SELECT 1 FROM public.wallets_physical w WHERE w.user_id = v_uid) THEN
-    RAISE EXCEPTION 'You do not have a Welile wallet' USING ERRCODE='P0002'; END IF;
-  IF NOT EXISTS (SELECT 1 FROM public.wallets_physical w WHERE w.user_id = v_o.payee_id) THEN
-    RAISE EXCEPTION 'The Food Coordinator does not have a Welile wallet; payment cannot be made'
-      USING ERRCODE='P0002'; END IF;
   IF v_o.total_ugx IS NULL OR v_o.total_ugx <= 0 THEN
     RAISE EXCEPTION 'Nothing to pay on this order' USING ERRCODE='22023'; END IF;
 
@@ -382,7 +425,7 @@ BEGIN
           'recipient_type', 'user', 'wallet_bucket', 'withdrawable',
           'source_table', 'food_orders', 'source_id', v_o.id, 'reference_id', v_ref,
           'description', 'Canteen order ' || v_o.order_reference, 'currency', 'UGX'),
-        jsonb_build_object('user_id', v_o.payee_id, 'amount', v_o.total_ugx, 'direction', 'cash_in',
+        jsonb_build_object('user_id', v_payee_user, 'amount', v_o.total_ugx, 'direction', 'cash_in',
           'category', 'wallet_transfer', 'ledger_scope', 'wallet',
           'recipient_type', 'user', 'wallet_bucket', 'withdrawable',
           'source_table', 'food_orders', 'source_id', v_o.id, 'reference_id', v_ref,
@@ -406,8 +449,10 @@ BEGIN
   -- independent verification: what the ledger actually holds for this group,
   -- and that this attempt's posting has not been reversed
   SELECT count(*) = 2
-     AND count(*) FILTER (WHERE g.user_id = v_uid AND g.direction = 'cash_out') = 1
-     AND count(*) FILTER (WHERE g.user_id = v_o.payee_id AND g.direction = 'cash_in') = 1
+     AND count(*) FILTER (WHERE g.user_id = v_uid AND g.direction = 'cash_out'
+                            AND g.wallet_id = v_payer_wallet) = 1
+     AND count(*) FILTER (WHERE g.user_id = v_payee_user AND g.direction = 'cash_in'
+                            AND g.wallet_id = v_payee_wallet) = 1
      AND bool_and(g.amount = v_o.total_ugx AND g.category = 'wallet_transfer'
                   AND g.ledger_scope = 'wallet' AND g.source_table = 'food_orders'
                   AND g.source_id::text = v_o.id::text AND g.reference_id = v_ref)
@@ -433,10 +478,11 @@ BEGIN
      WHERE e.order_id = v_o.id AND e.event_type = 'payment_retry_authorised'
      ORDER BY e.created_at DESC LIMIT 1;
   END IF;
-  INSERT INTO public.food_payment_attempts (order_id, attempt_no, payer_id, payee_id, amount, reference,
-    idempotency_key, transaction_group_id, paid_at, authorised_by, authorised_reason)
-  VALUES (v_o.id, v_o.payment_attempt, v_uid, v_o.payee_id, v_o.total_ugx, v_ref, v_key, v_group, now(),
-          v_auth_by, v_auth_reason);
+  INSERT INTO public.food_payment_attempts (order_id, attempt_no, payer_id, payee_id, payer_wallet_id,
+    payee_wallet_id, payee_name, amount, reference, idempotency_key, transaction_group_id, paid_at,
+    authorised_by, authorised_reason)
+  VALUES (v_o.id, v_o.payment_attempt, v_uid, v_o.payee_id, v_payer_wallet, v_payee_wallet, v_o.payee_name,
+          v_o.total_ugx, v_ref, v_key, v_group, now(), v_auth_by, v_auth_reason);
   UPDATE public.food_orders
      SET payment_status = 'paid', paid_at = now(), transaction_group_id = v_group,
          payment_verified_at = now(), payment_resolution_required = false, payment_resolution_reason = NULL
@@ -446,10 +492,12 @@ BEGIN
   PERFORM public.food_audit_write('order', v_o.id, 'paid',
     jsonb_build_object('payment_status','pending_payment'),
     jsonb_build_object('payment_status','paid','transaction_group_id',v_group,'payee_id',v_o.payee_id,
-                       'amount',v_o.total_ugx,'reference',v_ref,'attempt',v_o.payment_attempt), NULL, v_uid);
+                       'amount',v_o.total_ugx,'reference',v_ref,'attempt',v_o.payment_attempt,
+                       'payee_wallet_id',v_payee_wallet), NULL, v_uid);
 
   RETURN jsonb_build_object('status','paid','order_id',v_o.id,'transaction_group_id',v_group,
-                            'amount',v_o.total_ugx,'attempt',v_o.payment_attempt,'replayed',false);
+                            'amount',v_o.total_ugx,'attempt',v_o.payment_attempt,
+                            'payee_name',v_o.payee_name,'payee_wallet_id',v_payee_wallet,'replayed',false);
 END $$;
 
 -- ═══════════════ reconciliation of a paid order ═══════════════

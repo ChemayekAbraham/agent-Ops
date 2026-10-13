@@ -723,7 +723,8 @@ export function useConfirmFoodReceipt() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (v: { orderId: string }) =>
-      call<{ status: 'confirmed' | 'already_confirmed'; order_id: string; payee_id: string; amount_due: number }>(
+      call<{ status: 'confirmed' | 'already_confirmed'; order_id: string; payee_id: string;
+             payee_name: string | null; payee_wallet_id: string | null; amount_due: number }>(
         'food_confirm_receipt', { p_order_id: v.orderId }),
     onSuccess: () => {
       invalidateFood(qc);
@@ -734,14 +735,16 @@ export function useConfirmFoodReceipt() {
 }
 
 export type FoodPayResult =
-  | { status: 'paid'; order_id: string; transaction_group_id: string; amount?: number; replayed: boolean }
+  | { status: 'paid'; order_id: string; transaction_group_id: string; amount?: number; replayed: boolean;
+      payee_name?: string | null; payee_wallet_id?: string }
   | { status: 'failed'; order_id: string; reason: 'insufficient_funds' }
   // a retry found the earlier payment reversed (standard sender reversal);
   // the order is no longer paid (20261013128000)
   | { status: 'payment_reversed'; order_id: string; problem: string; reversed_amount?: number | null; partial?: boolean }
   // the receipt-time coordinator can no longer be paid; nothing was posted and
   // the order is flagged for another active coordinator to resolve
-  | { status: 'blocked'; order_id: string; reason: 'recipient_ineligible'; detail: string; escalate: true };
+  | { status: 'blocked'; order_id: string; reason: 'recipient_ineligible'; detail: string;
+      payee_name?: string | null; escalate: true };
 
 /**
  * Pay for a received order from the employee's own Welile wallet. The server

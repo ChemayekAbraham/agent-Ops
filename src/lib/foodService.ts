@@ -135,6 +135,10 @@ export interface FoodOrder {
   received_at?: string | null;
   /** The Food Coordinator snapshotted at receipt confirmation: the payment's recipient. */
   payee_id?: string | null;
+  /** That coordinator's Welile wallet id, recorded at receipt; the payment is routed to it. */
+  payee_wallet_id?: string | null;
+  /** That coordinator's name at receipt, for display ("You are paying …"). */
+  payee_name?: string | null;
   /** Last time the payment was re-checked against the ledger. */
   payment_verified_at?: string | null;
   /** Payment attempt the order is on; above 1 only after an authorised retry. */

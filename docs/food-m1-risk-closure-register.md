@@ -489,3 +489,32 @@ Nothing was done in production or in `nykdsrixasxokqtfvvgw`. Nothing was pushed 
 - REV-D2: settlement policy for a reversed order. Only "authorise a new attempt" exists. Should the payee be allowed to authorise, given they are the affected party? Currently any active coordinator except the employee can.
 - REV-D3: schedule reconciliation (see the recommendation in the operations doc).
 - HND-D1: who resolves a `blocked` order whose receipt-time payee stays ineligible? Redirecting the payment is deliberately not implemented.
+
+
+## Wallet routing of Food payments (2026-10-13, owner request, after 33244b4235)
+
+**Owner instruction:** show the Food Coordinator's name, and route the payment by their wallet id rather than their profile.
+
+**Constraint.** The shared `create_ledger_transaction` (repo `20260914180000`) takes a **user id** on each leg and itself resolves `general_ledger.wallet_id` from `public.wallets`. Changing that shared function is out of scope.
+
+**Change** (`20261013128000`, Food only):
+- At receipt, the order records `payee_wallet_id` and `payee_name`. `payee_wallet_id` is `wallets_physical.id`, which is `wallets.id` in the repo view and the id the ledger writes as `wallet_id`.
+- Payment is routed by that wallet. The credited account is the **owner read from the wallet record**. If the wallet no longer belongs to the receipt-time coordinator, the order is `blocked` with nothing posted. If the coordinator had no wallet at receipt, their wallet is recorded at payment time (still the same coordinator).
+- Before an order is marked paid, the credit leg must carry exactly the recorded coordinator wallet id and the debit leg the employee's wallet id. Later checks (verify and reconcile) apply the same test against the attempt record.
+- The attempt record and the payment result carry both wallet ids and the coordinator's name. The confirm-receipt result returns the name and wallet id, so the screen can show "You are paying <name>"; the display itself is Gemini's.
+
+**Tests** (`54_wallet_routing.sql`, WAL-01…10):
+- WAL-01: wallet and name recorded at receipt.
+- WAL-02: credit on the recorded wallet, debit on the employee's wallet.
+- WAL-03: the result and the attempt record carry the wallets and the name.
+- WAL-04: a wallet that changed owner is blocked; the new owner gets nothing.
+- WAL-05…07: no wallet at receipt; refused; then paid once the wallet exists.
+- WAL-08, 09: a credit without a wallet id is refused, nothing marked paid.
+- WAL-10: verification flags a credit not on the recorded wallet.
+- Negative control: with profile-based routing restored, WAL-04 fails (the payment reaches ledger verification and is refused, instead of being cleanly blocked).
+
+**Results** (PostgreSQL 17 and 18): run 361/361, race 17/17, matrix 31/31, isolation 10/10, dry run 15/15; R2–R4 16/16; Food vitest 253.
+
+**Unverified in production:**
+- that `public.wallets.id` equals `wallets_physical.id`, and that the live `create_ledger_transaction` resolves `wallet_id` the same way (E1 and E4);
+- the stand-in ledger copies the repo behaviour, not the live function.

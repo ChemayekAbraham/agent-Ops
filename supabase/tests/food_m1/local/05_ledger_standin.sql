@@ -13,7 +13,7 @@ CREATE TABLE public.wallets_physical (
   user_id uuid NOT NULL UNIQUE REFERENCES auth.users(id));
 CREATE TABLE public.general_ledger (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  transaction_group_id uuid, user_id uuid, amount numeric NOT NULL,
+  transaction_group_id uuid, user_id uuid, wallet_id uuid, amount numeric NOT NULL,
   direction text NOT NULL CHECK (direction IN ('cash_in','cash_out')),
   category text NOT NULL, ledger_scope text, wallet_bucket text, recipient_type text,
   source_table text NOT NULL, source_id uuid, reference_id text, description text,
@@ -21,6 +21,7 @@ CREATE TABLE public.general_ledger (
 -- test funding: an opening withdrawable balance per user
 CREATE TABLE ledger_test.opening (user_id uuid PRIMARY KEY, amount numeric NOT NULL);
 -- test switch: 'normal' | 'short' (posts only the first leg) | 'skew' (wrong amount)
+-- | 'nowallet' (the credit leg is recorded without a wallet id)
 CREATE TABLE ledger_test.mode (m text NOT NULL);
 INSERT INTO ledger_test.mode VALUES ('normal');
 GRANT ALL ON ALL TABLES IN SCHEMA ledger_test TO authenticated, service_role;
@@ -58,9 +59,12 @@ BEGIN
   FOR e IN SELECT * FROM jsonb_array_elements(entries) LOOP
     n := n + 1;
     CONTINUE WHEN m = 'short' AND n > 1;
-    INSERT INTO public.general_ledger (transaction_group_id, user_id, amount, direction, category, ledger_scope,
+    -- as the repo function does: the wallet id is resolved from public.wallets by user_id
+    INSERT INTO public.general_ledger (transaction_group_id, user_id, wallet_id, amount, direction, category, ledger_scope,
       wallet_bucket, recipient_type, source_table, source_id, reference_id, description, idempotency_key, skip_balance_check)
     VALUES (g, (e->>'user_id')::uuid,
+            CASE WHEN m = 'nowallet' AND n = 2 THEN NULL
+                 ELSE (SELECT w.id FROM public.wallets w WHERE w.user_id = (e->>'user_id')::uuid) END,
             (e->>'amount')::numeric + CASE WHEN m = 'skew' AND n = 2 THEN 1 ELSE 0 END,
             e->>'direction', e->>'category', e->>'ledger_scope', e->>'wallet_bucket', e->>'recipient_type',
             e->>'source_table', (e->>'source_id')::uuid, e->>'reference_id', e->>'description',
@@ -108,7 +112,8 @@ REVOKE ALL ON FUNCTION public.get_user_available_balance(uuid) FROM PUBLIC, anon
 -- ── what check_transfer_recipient_eligibility (drizzle/migrations/0045, loaded
 -- verbatim by run.sh and race.sh) reads: profiles.is_frozen and public.wallets ──
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_frozen boolean DEFAULT false;
-CREATE VIEW public.wallets AS SELECT user_id FROM public.wallets_physical;
+-- same id/user_id as the repo view (20260723195215): wallets.id IS wallets_physical.id
+CREATE VIEW public.wallets AS SELECT id, user_id FROM public.wallets_physical;
 
 -- ── what the standard reversal (drizzle/migrations/0451 reverse_wallet_transfer,
 -- 0453 wallet_transfer_reversal_status; loaded verbatim by run.sh) writes or reads ──

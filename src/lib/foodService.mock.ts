@@ -435,17 +435,22 @@ const RPC: Record<string, (a: Args) => unknown> = {
     const o = S.orders.find((x) => x.id === a.p_order_id);
     if (!o) fail('Order not found');
     if (o.employee_id !== currentUser) fail('Only the person who placed this order can confirm receiving it');
-    if (o.received_at) return { status: 'already_confirmed', order_id: o.id, payee_id: o.payee_id, amount_due: o.total_ugx };
+    if (o.received_at) return { status: 'already_confirmed', order_id: o.id, payee_id: o.payee_id,
+      payee_name: o.payee_name, payee_wallet_id: o.payee_wallet_id ?? null, amount_due: o.total_ugx };
     if (!['delivered', 'collected'].includes(String(o.fulfilment_status))) fail('This order has not been handed over yet');
     const active = S.assignments.find((c) => !c.revoked_at && c.access_level === 'active');
     if (!active) fail('There is no active Food Coordinator to pay; try again later');
     o.received_at = new Date().toISOString();
     o.received_by = currentUser;
     o.payee_id = active.coordinator_id;
+    // the fixture has no wallets: the name is recorded, the wallet id stays empty
+    o.payee_name = PEOPLE[String(active.coordinator_id)] ?? 'Food Coordinator';
+    o.payee_wallet_id = null;
     S.events.push({ id: uid(), order_id: o.id, event_type: 'receipt_confirmed', from_status: o.fulfilment_status,
       to_status: o.fulfilment_status, note: 'Employee confirmed receipt; payment now available', actor_id: currentUser,
       created_at: new Date().toISOString() });
-    return { status: 'confirmed', order_id: o.id, payee_id: o.payee_id, amount_due: o.total_ugx };
+    return { status: 'confirmed', order_id: o.id, payee_id: o.payee_id, payee_name: o.payee_name,
+      payee_wallet_id: null, amount_due: o.total_ugx };
   },
 
   // The fixture has no wallets or ledger, so it can never take a payment. It
