@@ -134,6 +134,7 @@
   "devDependencies": {
     "@eslint/js": "^9.32.0",
     "@playwright/test": "^1.60.0",
+    "@react-email/components": "^0.0.22",
     "@tailwindcss/typography": "^0.5.16",
     "@types/google.maps": "^3.65.0",
     "@types/node": "^22.16.5",
