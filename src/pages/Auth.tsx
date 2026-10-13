@@ -7,7 +7,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { ArrowLeft, Mail, Lock, User, Phone, Loader2, MessageCircle, AlertCircle, LogIn, Smartphone, ArrowRight, Key, Clock } from 'lucide-react';
-import { CountryCodeSelect } from '@/components/auth/CountryCodeSelect';
+import { COUNTRIES } from '@/components/auth/CountryCodeSelect';
 import WelileLogo from '@/components/WelileLogo';
 import PasswordStrengthIndicator from '@/components/auth/PasswordStrengthIndicator';
 import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
@@ -21,7 +21,8 @@ import { useAuthForm } from '@/hooks/useAuthForm';
 import { SIGNUP_PAUSED } from '@/components/SignupPauseBanner';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { cn } from '@/lib/utils';
-import authStyles from './Auth.module.css';
+import './auth-design.css';
+import authArtAsset from '@/assets/welcome-new/tenant.png.asset.json';
 import authLogoAsset from '@/assets/welcome-new/welile-logo.png.asset.json';
 import { useOtpVerification } from '@/hooks/useOtpVerification';
 import { setDeviceTrust } from '@/lib/deviceTrust';
@@ -1256,29 +1257,117 @@ export default function Auth() {
               </div>
             )}
 
-            {/* Sign in / Sign up toggle */}
-            {!isForgotPassword && !isForgotPhone && !SIGNUP_PAUSED && (
-              <div className={authStyles.switchRow}>
-                <span>{isSignUp ? 'Already have an account?' : "Don't have an account?"}</span>
-                <button
-                  type="button"
-                  onClick={() => setIsSignUp(!isSignUp)}
-                  className={authStyles.switchBtn}
-                >
-                  {isSignUp ? 'Sign in' : 'Create account'}
-                </button>
-              </div>
-            )}
           </div>
         )}
 
-        <p className="text-center text-[10px] text-muted-foreground/60 mt-6">
-          By continuing, you agree to our{' '}
-          <Link to="/terms" className="hover:underline">Terms</Link>
-          {' & '}
-          <Link to="/privacy" className="hover:underline">Privacy Policy</Link>
-        </p>
+        {/* Sign in / Sign up toggle */}
+        {!isForgotPassword && !isForgotPhone && !SIGNUP_PAUSED && (
+          <div className="signin-redirect-row auth-switch-row">
+            <span>{isSignUp ? 'Already have an account?' : 'New to Welile?'}</span>
+            <button
+              type="button"
+              onClick={() => setIsSignUp(!isSignUp)}
+              className="signin-highlight-btn"
+            >
+              {isSignUp ? 'Sign in' : 'Create account'}
+            </button>
+          </div>
+        )}
+        {(isForgotPassword || isForgotPhone || SIGNUP_PAUSED) && <div className="auth-spacer" />}
+
+        <footer className="legal-footer compact">
+          <a className="legal-action" href="/privacy-policy" target="_blank" rel="noopener">Privacy Policy</a>
+          <span className="legal-divider">|</span>
+          <Link className="legal-action" to="/terms">Terms of Service</Link>
+        </footer>
+        </div>
       </div>
+      </main>
+    </div>
+  );
+}
+
+/* ---------- design-matched field pieces (presentation only) ---------- */
+
+function GoogleMark() {
+  return (
+    <svg className="google-icon" viewBox="0 0 48 48" aria-hidden="true">
+      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+      <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+    </svg>
+  );
+}
+
+function AppleMark() {
+  return (
+    <svg className="google-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M16.37 12.6c-.02-2.2 1.8-3.26 1.88-3.31-1.03-1.5-2.62-1.71-3.18-1.73-1.35-.14-2.64.8-3.33.8-.69 0-1.74-.78-2.86-.76-1.47.02-2.83.86-3.59 2.17-1.53 2.66-.39 6.59 1.1 8.75.73 1.05 1.6 2.24 2.73 2.2 1.1-.04 1.51-.71 2.84-.71 1.32 0 1.7.71 2.86.69 1.18-.02 1.93-1.07 2.65-2.13.84-1.22 1.18-2.4 1.2-2.46-.03-.01-2.29-.88-2.3-3.51zM14.2 6.13c.6-.73 1.01-1.75.9-2.76-.87.04-1.92.58-2.54 1.31-.56.64-1.05 1.67-.92 2.66.97.08 1.96-.49 2.56-1.21z" />
+    </svg>
+  );
+}
+
+function DesignPasswordInput({ id, value, onChange, shown, onToggle, inputRef }: {
+  id: string; value: string; onChange: (v: string) => void; shown: boolean; onToggle: () => void;
+  inputRef?: React.Ref<HTMLInputElement>;
+}) {
+  return (
+    <div className="password-field">
+      <input
+        id={id}
+        ref={inputRef}
+        type={shown ? 'text' : 'password'}
+        autoComplete="current-password"
+        className="text-input-field password-input"
+        placeholder="Your password"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        required
+      />
+      <button type="button" className="password-toggle" aria-label={shown ? 'Hide password' : 'Show password'} aria-pressed={shown} aria-controls={id} onClick={onToggle}>
+        {shown ? (
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z" /></svg>
+        ) : (
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" /></svg>
+        )}
+      </button>
+    </div>
+  );
+}
+
+function DesignPhoneInput({ id, code, onCodeChange, value, onChange, invalid, autoFocus, inputRef }: {
+  id: string; code: string; onCodeChange: (c: string) => void; value: string; onChange: (v: string) => void;
+  invalid?: boolean; autoFocus?: boolean; inputRef?: React.Ref<HTMLInputElement>;
+}) {
+  const current = COUNTRIES.find((c) => c.code === code);
+  return (
+    <div className="phone-input-combo has-code">
+      <div className="country-trigger">
+        <span className="country-dial-code" aria-hidden="true">{current ? `${current.flag} +${current.code}` : `+${code}`}</span>
+        <svg className="chevron-svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+          <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+        </svg>
+        <select className="country-select" aria-label="Country code" value={code} onChange={(e) => onCodeChange(e.target.value)}>
+          {COUNTRIES.map((c, i) => (
+            <option key={`${c.short}-${i}`} value={c.code}>{c.flag} {c.name} (+{c.code})</option>
+          ))}
+        </select>
+      </div>
+      <input
+        id={id}
+        ref={inputRef}
+        type="tel"
+        inputMode="tel"
+        autoComplete="tel-national"
+        className="phone-number-field"
+        placeholder="Phone number"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-invalid={invalid || undefined}
+        autoFocus={autoFocus}
+        required
+      />
     </div>
   );
 }
