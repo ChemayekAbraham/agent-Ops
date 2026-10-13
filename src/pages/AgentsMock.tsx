@@ -80,6 +80,46 @@ export default function AgentsMock() {
     });
     return m;
   }, [monthRows]);
+  // What the agent was expected to collect each day: the nightly eligibility
+  // history (agent_daily_eligibility_history) holds expected_daily per day.
+  const monthStart = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}-01`;
+  const monthEndKey = `${month.getMonth() + 1 === 12 ? month.getFullYear() + 1 : month.getFullYear()}-${String(month.getMonth() + 2 > 12 ? 1 : month.getMonth() + 2).padStart(2, '0')}-01`;
+  const { data: historyRows } = useQuery({
+    queryKey: ['agents-mock-month-expected', user?.id, monthKey],
+    enabled: !!user?.id,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('agent_daily_eligibility_history')
+        .select('day, expected_daily, paid')
+        .eq('agent_id', user!.id)
+        .gte('day', monthStart).lt('day', monthEndKey).limit(500);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const expectedByDay = useMemo(() => {
+    const m = new Map<string, number>();
+    (historyRows ?? []).forEach(r => m.set(String(r.day), Number(r.expected_daily) || 0));
+    return m;
+  }, [historyRows]);
+  // Kampala "today" — the same +3h day boundary the collections query uses.
+  const todayKey = new Date(Date.now() + 3 * 3600_000).toISOString().slice(0, 10);
+  const dayStatus = (dayNum: number): 'paid' | 'partial' | 'missed' | null => {
+    const dateKey = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+    const expected = dateKey === todayKey ? EXPECTED_TODAY : (expectedByDay.get(dateKey) ?? 0);
+    if (expected <= 0) return null;
+    const collected = byDay.get(dayNum)?.total ?? 0;
+    if (collected >= expected) return 'paid';
+    if (collected > 0) return 'partial';
+    // Nothing collected on a day that had an expectation. Today isn't a miss
+    // until it ends; only finished days are marked.
+    return dateKey < todayKey ? 'missed' : null;
+  };
+  const DAY_STYLES: Record<'paid' | 'partial' | 'missed', string> = {
+    paid: 'bg-success text-success-foreground',
+    partial: 'bg-success/35 text-foreground',
+    missed: 'bg-destructive text-destructive-foreground',
+  };
   const selected = byDay.get(day);
   const amount = (value: number) => hidden ? '••••••' : formatUGX(value);
   return (
