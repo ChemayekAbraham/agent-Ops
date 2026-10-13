@@ -544,33 +544,16 @@ export default function Auth() {
         {!needsRoleSelection && (
           <div className={cn("animate-in fade-in slide-in-from-bottom-3 duration-400", authStyles.panel)}>
 
-            {/* Sign In / Sign Up tabs — bound to the existing isSignUp state so
-                deep links (?signup=1, ?become=…, referral links) still land on
-                the right panel. Hidden during reset flows. */}
-            {!isForgotPassword && !isForgotPhone && !SIGNUP_PAUSED && (
-              <Tabs
-                value={isSignUp ? 'sign-up' : 'sign-in'}
-                onValueChange={(v) => setIsSignUp(v === 'sign-up')}
-                className="mb-5"
-              >
-                <TabsList className="grid w-full grid-cols-2 h-12 rounded-xl p-1">
-                  <TabsTrigger value="sign-in" className="h-10 rounded-lg text-sm font-semibold">Sign In</TabsTrigger>
-                  <TabsTrigger value="sign-up" className="h-10 rounded-lg text-sm font-semibold">Sign Up</TabsTrigger>
-                </TabsList>
-              </Tabs>
-            )}
-
-            {/* ===== SIGN IN VIEW ===== */}
-            {isLoginView && loginMode === 'password' && (
-              <div className="space-y-5">
-                {/* Social sign-in first — matches the card layout */}
+            {/* Design layout: Google → "or sign in with" → method tabs → active form.
+                Tabs are bound to the existing loginMode state (logic unchanged). */}
+            {isLoginView && (
+              <div className="space-y-4 mb-5">
                 <OAuthEnvironmentHint />
                 <OAuthErrorCard />
-
                 <div className={cn("flex w-full flex-col gap-3", authStyles.oauthStack)}>
                   <GoogleSignInButton
                     onClick={wrappedHandleGoogleSignIn}
-                    disabled={isGoogleLoading || isAppleLoading || isLoading}
+                    disabled={isGoogleLoading || isAppleLoading || isLoading || emailLoginLoading}
                     isLoading={isGoogleLoading}
                     variant="standard"
                   />
@@ -591,6 +574,32 @@ export default function Auth() {
                   <span className={authStyles.sepText}>or sign in with</span>
                   <span className={authStyles.sepLine} />
                 </div>
+
+                <div className={authStyles.tabs} role="tablist" aria-label="Sign-in method">
+                  {([
+                    ['email', 'Email'],
+                    ['password', 'Phone'],
+                    ['otp', 'One-time code'],
+                  ] as const).map(([mode, label]) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      role="tab"
+                      aria-selected={loginMode === mode}
+                      tabIndex={loginMode === mode ? 0 : -1}
+                      className={cn(authStyles.tab, loginMode === mode && authStyles.tabActive)}
+                      onClick={() => setLoginMode(mode)}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ===== SIGN IN VIEW ===== */}
+            {isLoginView && loginMode === 'password' && (
+              <div className="space-y-5">
 
                 {/* Phone + Password — primary path (phone-first for African users) */}
                 <form onSubmit={wrappedHandleSubmit} className="space-y-5">
@@ -715,37 +724,6 @@ export default function Auth() {
                   </Button>
                 )}
 
-                {/* Alternative login methods */}
-                <div className="pt-2 space-y-2">
-                  {/* Prominent SMS code login card */}
-                  <button
-                    type="button"
-                    onClick={() => setLoginMode('otp')}
-                    className={cn(
-                      "w-full flex items-center gap-4 p-4 rounded-xl text-left transition-all duration-150",
-                      "bg-card border border-border/60 shadow-sm",
-                      "hover:shadow-md hover:border-primary/30 active:scale-[0.98]",
-                      "touch-manipulation"
-                    )}
-                  >
-                    <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
-                      <Smartphone className="h-6 w-6 text-primary" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-foreground text-sm">Log in with SMS code</p>
-                      <p className="text-xs text-muted-foreground">Get a one-time code sent to your phone — no password needed</p>
-                    </div>
-                    <ArrowRight className="h-5 w-5 text-muted-foreground/40 shrink-0" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setLoginMode('email')}
-                    className="w-full text-sm text-muted-foreground hover:text-primary transition-colors py-1 text-center"
-                  >
-                    Use email & password instead
-                  </button>
-                </div>
               </div>
             )}
 
@@ -876,18 +854,8 @@ export default function Auth() {
                   </Button>
                 </form>
 
-                <OAuthEnvironmentHint />
-                <OAuthErrorCard />
-
-                <GoogleSignInButton
-                  onClick={wrappedHandleGoogleSignIn}
-                  disabled={isGoogleLoading || isAppleLoading || emailLoginLoading}
-                  isLoading={isGoogleLoading}
-                  variant="standard"
-                />
-
-                <button type="button" onClick={() => setLoginMode('password')} className="w-full text-xs text-muted-foreground hover:text-primary text-center pt-1">
-                  ← Back to phone login
+                <button type="button" onClick={() => setLoginMode('otp')} className={authStyles.mutedLink}>
+                  Forgot password? Sign in with a code
                 </button>
               </div>
             )}
@@ -1061,15 +1029,6 @@ export default function Auth() {
                   </>
                 )}
 
-                <div className="pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setLoginMode('password')}
-                    className="w-full text-sm text-muted-foreground hover:text-primary text-center py-2 flex items-center justify-center gap-1"
-                  >
-                    Prefer a password? <span className="font-medium">Sign in with password</span>
-                  </button>
-                </div>
               </div>
             )}
 
@@ -1415,18 +1374,15 @@ export default function Auth() {
 
             {/* Sign in / Sign up toggle */}
             {!isForgotPassword && !isForgotPhone && !SIGNUP_PAUSED && (
-              <div className="text-center mt-5">
-                <p className="text-sm text-muted-foreground">
-                  {isSignUp ? 'Already have an account?' : "Don't have an account?"}
-                  {' '}
-                  <button
-                    type="button"
-                    onClick={() => setIsSignUp(!isSignUp)}
-                    className="text-primary font-semibold hover:underline"
-                  >
-                    {isSignUp ? 'Sign In' : 'Sign Up'}
-                  </button>
-                </p>
+              <div className={authStyles.switchRow}>
+                <span>{isSignUp ? 'Already have an account?' : "Don't have an account?"}</span>
+                <button
+                  type="button"
+                  onClick={() => setIsSignUp(!isSignUp)}
+                  className={authStyles.switchBtn}
+                >
+                  {isSignUp ? 'Sign in' : 'Create account'}
+                </button>
               </div>
             )}
           </div>
