@@ -6,6 +6,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
 
+// Design-only sample figures: expected today is the agent's daily target, collected today is what has been banked so far.
+const EXPECTED_TODAY = 250000;
+const COLLECTED_TODAY = 0;
+const TENANTS_DONE = 0;
+const TENANTS_TOTAL = 8;
+const CAPACITY_PCT = EXPECTED_TODAY > 0 ? Math.round((COLLECTED_TODAY / EXPECTED_TODAY) * 100) : 0;
+
 export default function AgentsMock() {
   const [hidden, setHidden] = useState(false);
   const [bucket, setBucket] = useState<'Float' | 'Withdrawable'>('Float');
@@ -36,11 +43,11 @@ export default function AgentsMock() {
           <div className="grid grid-cols-4 gap-1" aria-label="Agent shortcuts">
             {[{ label: 'Calculator', Icon: Calculator, color: 'text-primary' }, { label: 'Sub-Agents', Icon: Users, color: 'text-info' }, { label: 'Transactions', Icon: ArrowLeftRight, color: 'text-success' }, { label: 'Landlord Float', Icon: Building2, color: 'text-warning' }].map(({ label, Icon, color }) => <Button key={label} variant="ghost" onClick={() => setNotice(label)} className="h-[64px] flex-col gap-1 px-0 text-[10px]"><span className={cn('flex h-8 w-8 items-center justify-center rounded-full bg-card', color)}><Icon className="!h-4 !w-4" /></span>{label}</Button>)}
           </div>
-          <section aria-labelledby="collections-heading" className="rounded-[14px] border border-primary/25 bg-card p-4">
-            <div className="flex items-center justify-between"><h1 id="collections-heading" className="text-xs font-semibold">Today's Collections</h1><span className="text-xs font-bold text-primary">0%</span></div>
-            <p className="mt-3 text-xl font-bold text-primary">{formatUGX(0)}</p><p className="text-[11px] text-muted-foreground">collected of {formatUGX(0)}</p>
-            <progress aria-label="Today's collection progress" value={0} max={100} className="agents-mock-progress mt-3 block h-1.5 w-full rounded-full" />
-            <div className="mt-3 flex justify-between text-[10px]"><span className="text-muted-foreground">0 of 0 tenants completed</span><span className="font-semibold text-primary">{formatUGX(0)} left</span></div>
+          <section aria-labelledby="capacity-heading" className="rounded-[14px] border border-primary/25 bg-card p-4">
+            <div className="flex items-center justify-between"><h1 id="capacity-heading" className="text-xs font-semibold">Today's Capacity</h1><span className="text-xs font-bold text-primary">{CAPACITY_PCT}%</span></div>
+            <p className="mt-3 text-xl font-bold text-primary">{formatUGX(COLLECTED_TODAY)}</p><p className="text-[11px] text-muted-foreground">collected of {formatUGX(EXPECTED_TODAY)} expected today</p>
+            <progress aria-label="Today's capacity progress" value={CAPACITY_PCT} max={100} className="agents-mock-progress mt-3 block h-1.5 w-full rounded-full" />
+            <div className="mt-3 flex justify-between text-[10px]"><span className="text-muted-foreground">{TENANTS_DONE} of {TENANTS_TOTAL} tenants completed</span><span className="font-semibold text-primary">{formatUGX(EXPECTED_TODAY - COLLECTED_TODAY)} left</span></div>
           </section>
           <section className="flex h-[142px] flex-col items-center justify-center rounded-[16px] bg-card text-center" aria-label="Today's scheduled collections">
             <span className="mb-2 flex h-9 w-9 items-center justify-center rounded-full bg-background text-muted-foreground"><CalendarDays className="h-4 w-4" /></span><h2 className="text-[11px] font-semibold">No collections scheduled</h2><p className="mt-1 max-w-[180px] text-[10px] leading-3 text-muted-foreground">There are no rent repayments due for collection today.</p>
