@@ -149,17 +149,12 @@ export default function AgentsMock() {
         </header>
         <main className="space-y-4 px-4 pt-4">
           <section aria-label="Rent due and collected today" className="agents-mock-wallet relative overflow-hidden rounded-[18px] p-[18px]">
-            <div className="relative flex items-center justify-between"><span className="text-[10px] font-semibold uppercase tracking-wide opacity-80">Today's rent</span><Button variant="ghost" size="icon-sm" aria-label={hidden ? 'Show amounts' : 'Hide amounts'} onClick={() => setHidden(!hidden)} className="text-inherit hover:bg-primary/20">{hidden ? <EyeOff className="!h-4 !w-4" /> : <Eye className="!h-4 !w-4" />}</Button></div>
-            <div className="relative mt-2 flex items-center gap-4">
-              <div className="relative h-[84px] w-[84px] shrink-0 rounded-full" style={{ background: `conic-gradient(hsl(var(--header-foreground)) ${CAPACITY_PCT * 3.6}deg, hsl(var(--header-foreground) / .2) 0deg)` }}>
-                <div className="absolute inset-[7px] flex flex-col items-center justify-center rounded-full bg-[hsl(var(--mock-wallet-end))]"><span className="text-lg font-bold leading-5">{CAPACITY_PCT}%</span><span className="text-[8px] opacity-70">collected</span></div>
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[9px] uppercase opacity-70">Rent due to collect</p>
-                <p className="text-[22px] font-bold leading-6">{amount(EXPECTED_TODAY)}</p>
-                <p className="mt-1 text-[9px] opacity-70">expected today · {TENANTS_TOTAL} tenant{TENANTS_TOTAL === 1 ? '' : 's'}</p>
-              </div>
+            <div className="relative mt-1">
+              <p className="text-[9px] uppercase opacity-70">Rent due to collect</p>
+              <p className="text-[22px] font-bold leading-6">{formatUGX(EXPECTED_TODAY)}</p>
+              <p className="mt-1 text-[9px] opacity-70">expected today · {TENANTS_TOTAL} tenant{TENANTS_TOTAL === 1 ? '' : 's'}</p>
             </div>
+
           </section>
           <div className="grid grid-cols-4 gap-1" aria-label="Agent shortcuts">
             {SHORTCUTS.map(({ label, Icon, color, to }) => <Button key={label} variant="ghost" onClick={() => (to ? navigate(to) : setNotice(label))} className="h-[64px] flex-col gap-1 px-0 text-[10px]"><span className={cn('flex h-8 w-8 items-center justify-center rounded-full bg-card', color)}><Icon className="!h-4 !w-4" /></span>{label}</Button>)}
