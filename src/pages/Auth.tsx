@@ -34,6 +34,8 @@ import { captureOAuthRedirectError } from '@/lib/oauthErrorLog';
 import { getStoredAttributionToken, restoreAttributionFromToken } from '@/lib/campaignAttribution';
 import ScreenLoader from '@/components/common/ScreenLoader';
 import roleHouseAsset from '@/assets/welcome-new/role-landlord-house.png.asset.json';
+import roleFamilyAsset from '@/assets/welcome-new/welcome-family.png.asset.json';
+import roleAgentAsset from '@/assets/welcome-new/agent.png.asset.json';
 import roleHeartAsset from '@/assets/welcome-new/role-supporter-heart.png.asset.json';
 import PersonNameFields from '@/components/shared/PersonNameFields';
 
@@ -52,6 +54,13 @@ const DESIGN_ROLES: { role: string; label: string; desc: string; img?: string; p
   { role: 'agent', label: 'Agent', desc: 'Connect people, manage listings and close deals', path: 'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z' },
   { role: 'supporter', label: 'Supporter', desc: 'Support tenants and communities through funding and services', img: roleHeartAsset.url },
 ];
+
+const SIGNUP_ROLE_CONFIG: Record<string, { label: string; avatar: string; text: string }> = {
+  tenant: { label: 'Join as a Tenant', avatar: roleFamilyAsset.url, text: 'A safer, simpler way to find your next home and access rent support.' },
+  landlord: { label: 'Join as a Landlord', avatar: roleHouseAsset.url, text: 'List properties, manage tenants and track rent activity from one place.' },
+  agent: { label: 'Join as an Agent', avatar: roleAgentAsset.url, text: 'Connect people, support onboarding and grow through field opportunities.' },
+  supporter: { label: 'Join as a Partner', avatar: roleHeartAsset.url, text: 'Support rent opportunities, monitor portfolios and help make housing possible.' },
+};
 
 export default function Auth() {
   // Detect an active recruitment-campaign attribution (secure token stored
@@ -458,9 +467,9 @@ export default function Auth() {
           </button>
         </div>
 
-        <div className="auth-brand">
+        {!isSignUp && (<div className="auth-brand">
           <img src={authLogoAsset.url} alt="Welile" className="auth-logo" />
-        </div>
+        </div>)}
 
         <div className="auth-step" style={{ flex: '1 0 auto' }}>
         {isLoginView && (
@@ -469,12 +478,6 @@ export default function Auth() {
               {hadSession && lastUserName ? `Welcome back, ${lastUserName}` : 'Welcome back'}
             </h1>
             <p className="auth-subtitle">Sign in to your Welile account</p>
-          </>
-        )}
-        {isSignUp && !needsRoleSelection && (
-          <>
-            <h1 className="auth-title" tabIndex={-1}>Create your account</h1>
-            <p className="auth-subtitle">Join Welile in a few quick steps</p>
           </>
         )}
         {!isLoginView && !isSignUp && <div className="mb-2" />}
@@ -510,23 +513,6 @@ export default function Auth() {
                   : 'Your referring agent will be linked to you automatically after sign up.'}
               </p>
             </div>
-          </div>
-        )}
-
-        {/* Role badge for signup */}
-        {isSignUp && hasValidRole && (
-          <div className="mb-4 p-3 rounded-xl bg-primary/5 border border-primary/20 flex items-center justify-between animate-in fade-in duration-200">
-            <span className="text-sm font-medium text-foreground">
-              Joining as <span className="font-bold">{roleLabelMap[preSelectedRole!] || preSelectedRole}</span>
-              {referringAgentName && (
-                <span className="block text-xs font-normal text-muted-foreground mt-0.5">
-                  through Agent <span className="font-semibold text-foreground">{referringAgentName}</span>
-                </span>
-              )}
-            </span>
-            <button type="button" onClick={() => navigate('/welcome')} className="text-xs text-primary hover:underline">
-              Change
-            </button>
           </div>
         )}
 
@@ -1090,204 +1076,132 @@ export default function Auth() {
               </div>
             )}
 
-            {/* ===== SIGN UP ===== */}
-            {isSignUp && !needsRoleSelection && (
-              <div className="space-y-3 animate-in fade-in duration-200">
-                {/* Social signup */}
-                <div className="space-y-2.5">
-                  <OAuthEnvironmentHint />
-                <OAuthErrorCard />
-                  <GoogleSignInButton
-                    onClick={wrappedHandleGoogleSignIn}
-                    disabled={isGoogleLoading || isAppleLoading || isLoading}
-                    isLoading={isGoogleLoading}
-                    variant="prominent"
-                  />
-                  <AppleSignInButton
-                    onClick={handleAppleSignIn}
-                    disabled={isGoogleLoading || isAppleLoading || isLoading}
-                    isLoading={isAppleLoading}
-                  />
+            {/* ===== SIGN UP (design screen 8) ===== */}
+            {isSignUp && !needsRoleSelection && (() => {
+              const cfg = SIGNUP_ROLE_CONFIG[preSelectedRole ?? 'tenant'] ?? SIGNUP_ROLE_CONFIG.tenant;
+              const fullPhone = () => {
+                const d = phone.replace(/\D/g, '');
+                return d.startsWith(countryCode) ? d : countryCode + (d.startsWith('0') ? d.slice(1) : d);
+              };
+              const mismatch = !!confirmPassword && password !== confirmPassword;
+              const formError = namePartsError || (isDuplicate ? duplicateMessage : null) || (mismatch ? "Passwords don't match" : null);
+              return (
+              <div className="flex flex-col">
+                <div className="account-profile-header">
+                  <div className="account-heading-box">
+                    <h1 className="account-title" tabIndex={-1}>Create your account</h1>
+                    <p className="account-role-label">
+                      {cfg.label}
+                      {referringAgentName ? ` · through Agent ${referringAgentName}` : ''}
+                    </p>
+                  </div>
+                  <div className="account-avatar-wrapper">
+                    <img src={cfg.avatar} alt="" className="account-avatar-img" />
+                  </div>
                 </div>
 
-                <div className="relative flex items-center py-1">
-                  <div className="flex-1 border-t border-border/40" />
-                  <span className="px-3 text-xs text-muted-foreground">or</span>
-                  <div className="flex-1 border-t border-border/40" />
+                <div className="account-value-box">
+                  <p className="value-box-text">{cfg.text}</p>
                 </div>
 
-                <form onSubmit={wrappedHandleSubmit} className="space-y-4">
-                  {/* Person name — split capture, single `full_name` payload */}
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2 px-1">
-                      <User className="h-4 w-4 text-muted-foreground" />
-                      <Label className="p-0">Your name</Label>
+                <form className="account-creation-form" onSubmit={wrappedHandleSubmit} noValidate>
+                  <div className="form-row-pair">
+                    <div className="form-row">
+                      <label className="input-label" htmlFor="signup-first">First name</label>
+                      <input id="signup-first" className="text-input-field" placeholder="First name" autoComplete="given-name" required
+                        aria-describedby="signup-form-error" value={nameParts.firstName} disabled={isLoading}
+                        onChange={(e) => { setNameParts({ ...nameParts, firstName: e.target.value }); if (namePartsError) setNamePartsError(null); }} />
                     </div>
-                    <PersonNameFields
-                      idPrefix="signup"
-                      value={nameParts}
-                      onChange={(next) => {
-                        setNameParts(next);
-                        if (namePartsError) setNamePartsError(null);
-                      }}
-                      disabled={isLoading}
-                      errors={{
-                        firstName: namePartsError && !nameParts.firstName.trim() ? namePartsError : null,
-                        lastName: namePartsError && nameParts.firstName.trim() && !nameParts.lastName.trim() ? namePartsError : null,
-                        otherNames: namePartsError && nameParts.firstName.trim() && nameParts.lastName.trim() ? namePartsError : null,
-                      }}
+                    <div className="form-row">
+                      <label className="input-label" htmlFor="signup-last">Last name</label>
+                      <input id="signup-last" className="text-input-field" placeholder="Last name" autoComplete="family-name" required
+                        aria-describedby="signup-form-error" value={nameParts.lastName} disabled={isLoading}
+                        onChange={(e) => { setNameParts({ ...nameParts, lastName: e.target.value }); if (namePartsError) setNamePartsError(null); }} />
+                    </div>
+                  </div>
+
+                  <div className="form-row">
+                    <label className="input-label" htmlFor="signup-email">Email</label>
+                    <input id="signup-email" type="email" inputMode="email" autoComplete="email" className="text-input-field"
+                      placeholder="you@example.com" aria-describedby="signup-form-error"
+                      value={signupEmail} onChange={(e) => setSignupEmail(e.target.value)} />
+                  </div>
+
+                  <div className="form-row">
+                    <label className="input-label" htmlFor="signup-phone">Phone number</label>
+                    <DesignPhoneInput
+                      id="signup-phone"
+                      code={countryCode}
+                      onCodeChange={setCountryCode}
+                      value={phone}
+                      onChange={(v) => { setPhone(v); setLoginError(null); }}
+                      invalid={isDuplicate}
+                      inputRef={phoneInputRef}
                     />
+                    <p className="field-hint">
+                      {isCheckingDuplicate ? 'Checking this number…' : "We'll text you a code to verify this number."}
+                    </p>
                   </div>
 
-                  {/* Email (optional — lets users sign up without SMS OTP) */}
-                  <div className="space-y-1.5">
-                    <Label htmlFor="signup-email" className="px-1">Email <span className="font-normal text-muted-foreground">(optional)</span></Label>
-                    <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="signup-email"
-                      type="email"
-                      inputMode="email"
-                      autoComplete="email"
-                      value={signupEmail}
-                      onChange={(e) => setSignupEmail(e.target.value)}
-                      placeholder="you@example.com"
-                      className="pl-10 h-14 text-base rounded-lg"
-                      style={{ fontSize: '16px' }}
-                    />
-                    </div>
-                  </div>
-
-                  {/* Phone */}
-                  <div className="space-y-1.5">
-                    <Label htmlFor="signup-phone" className="px-1">Phone number</Label>
-                    <div className="relative flex">
-                    <CountryCodeSelect value={countryCode} onChange={setCountryCode} />
-                    <div className="relative flex-1">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="signup-phone"
-                        ref={phoneInputRef}
-                        type="tel"
-                        inputMode="tel"
-                        autoComplete="tel"
-                        value={phone}
-                        onChange={(e) => { setPhone(e.target.value); setLoginError(null); }}
-                        placeholder="700 123 456"
-                        className={cn("pl-10 h-14 text-base rounded-lg rounded-l-none", isDuplicate && 'border-destructive')}
-                        style={{ fontSize: '16px' }}
-                        required
-                      />
-                    </div>
-                    </div>
-                  </div>
-                  {isDuplicate && (
-                    <p className="text-xs text-destructive flex items-center gap-1 px-1"><AlertCircle className="h-3 w-3" />{duplicateMessage}</p>
-                  )}
-                  {isCheckingDuplicate && (
-                    <p className="text-xs text-muted-foreground flex items-center gap-1 px-1"><Loader2 className="h-3 w-3 animate-spin" />Checking...</p>
-                  )}
-
-                  {/* Phone OTP — required only when no email was provided */}
                   {!signupEmail.trim() && phone.replace(/\D/g, '').length >= 9 && !isDuplicate && (
-                    <div className="rounded-xl border border-border/60 bg-muted/30 p-3 space-y-2">
-                      <p className="text-xs text-muted-foreground">
-                        No email provided — we'll verify your phone instead. No email will be sent.
-                      </p>
+                    <div className="signup-otp-box">
                       <OtpVerificationStep
-                        phone={(() => {
-                          const d = phone.replace(/\D/g, '');
-                          return d.startsWith(countryCode) ? d : countryCode + (d.startsWith('0') ? d.slice(1) : d);
-                        })()}
+                        phone={fullPhone()}
                         otpSent={otpSent}
                         otpVerified={otpVerified}
                         otpLoading={otpLoading}
                         otpError={otpError}
                         sendStatus={otpSendStatus}
                         cooldownSeconds={otpCooldownSeconds}
-                        onSendOtp={() => {
-                          const d = phone.replace(/\D/g, '');
-                          const full = d.startsWith(countryCode) ? d : countryCode + (d.startsWith('0') ? d.slice(1) : d);
-                          sendOtp(full, { category: 'signup' });
-                        }}
-                        onVerifyOtp={(code) => {
-                          const d = phone.replace(/\D/g, '');
-                          const full = d.startsWith(countryCode) ? d : countryCode + (d.startsWith('0') ? d.slice(1) : d);
-                          verifyOtp(full, code, { category: 'signup' });
-                        }}
-                        onResendOtp={() => {
-                          const d = phone.replace(/\D/g, '');
-                          const full = d.startsWith(countryCode) ? d : countryCode + (d.startsWith('0') ? d.slice(1) : d);
-                          sendOtp(full, { category: 'signup' });
-                        }}
+                        onSendOtp={() => sendOtp(fullPhone(), { category: 'signup' })}
+                        onVerifyOtp={(code) => verifyOtp(fullPhone(), code, { category: 'signup' })}
+                        onResendOtp={() => sendOtp(fullPhone(), { category: 'signup' })}
                       />
                     </div>
                   )}
 
-                  {/* Password */}
-                  <div className="space-y-1.5">
-                    <Label htmlFor="signup-password" className="px-1">Password</Label>
-                    <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="signup-password"
-                      type={showPassword ? "text" : "password"}
-                      autoComplete="new-password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Password"
-                      className="pl-10 pr-14 h-14 text-base rounded-lg"
-                      style={{ fontSize: '16px' }}
-                      required
-                    />
-                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground">
-                      {showPassword ? 'Hide' : 'Show'}
-                    </button>
-                    </div>
+                  <div className="form-row">
+                    <label className="input-label" htmlFor="signup-password">Password</label>
+                    <DesignPasswordInput id="signup-password" value={password} onChange={setPassword}
+                      shown={showPassword} onToggle={() => setShowPassword(!showPassword)}
+                      placeholder="Create a password" autoComplete="new-password" describedBy="signup-password-hint" />
+                    <p className="field-hint" id="signup-password-hint">At least 8 characters.</p>
                   </div>
-                  <PasswordStrengthIndicator password={password} />
 
-                  {/* Confirm Password */}
-                  <div className="space-y-1.5">
-                    <Label htmlFor="signup-confirm-password" className="px-1">Confirm password</Label>
-                    <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      id="signup-confirm-password"
-                      type={showConfirmPassword ? "text" : "password"}
-                      autoComplete="new-password"
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Confirm password"
-                      className={cn("pl-10 pr-14 h-14 text-base rounded-lg", confirmPassword && password !== confirmPassword && 'border-destructive', confirmPassword && password === confirmPassword && 'border-emerald-500')}
-                      style={{ fontSize: '16px' }}
-                      required
-                    />
-                    <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground">
-                      {showConfirmPassword ? 'Hide' : 'Show'}
-                    </button>
-                    </div>
+                  <div className="form-row">
+                    <label className="input-label" htmlFor="signup-confirm-password">Confirm password</label>
+                    <DesignPasswordInput id="signup-confirm-password" value={confirmPassword} onChange={setConfirmPassword}
+                      shown={showConfirmPassword} onToggle={() => setShowConfirmPassword(!showConfirmPassword)}
+                      placeholder="Re-enter your password" autoComplete="new-password" describedBy="signup-form-error" />
                   </div>
-                  {confirmPassword && password !== confirmPassword && (
-                    <p className="text-xs text-destructive px-1">Passwords don't match</p>
-                  )}
 
-                  <Button
+                  <p className="form-error" id="signup-form-error" role="alert">{formError ?? ''}</p>
+
+                  <button
                     type="submit"
-                    className="w-full h-14 text-base rounded-lg font-semibold touch-manipulation active:scale-[0.98]"
-                    disabled={
-                      isLoading ||
-                      isDuplicate ||
-                      isCheckingDuplicate ||
-                      (!signupEmail.trim() && !otpVerified)
-                    }
-                    style={{ fontSize: '16px', WebkitTapHighlightColor: 'transparent' }}
+                    className="btn btn-primary"
+                    disabled={isLoading || isDuplicate || isCheckingDuplicate || (!signupEmail.trim() && !otpVerified)}
                   >
-                    {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Create Account'}
-                  </Button>
+                    {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : (<><span>Continue</span><ArrowRight className="h-4 w-4" /></>)}
+                  </button>
                 </form>
+
+                <div className="security-guarantee-card">
+                  <svg className="security-shield-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /><polyline points="9 12 11 14 15 10" />
+                  </svg>
+                  <div className="security-content">
+                    <h4 className="security-heading">Secure verification</h4>
+                    <p className="security-text">Your information is protected and never shared without your consent.</p>
+                  </div>
+                </div>
+
+                <div className="or-separator">
+                  <span className="sep-line" /><span className="sep-text">or</span><span className="sep-line" />
+                </div>
               </div>
-            )}
+              );
+            })()}
 
           </div>
         )}
@@ -1347,9 +1261,9 @@ function AppleMark() {
   );
 }
 
-function DesignPasswordInput({ id, value, onChange, shown, onToggle, inputRef }: {
+function DesignPasswordInput({ id, value, onChange, shown, onToggle, inputRef, placeholder = 'Your password', autoComplete = 'current-password', describedBy }: {
   id: string; value: string; onChange: (v: string) => void; shown: boolean; onToggle: () => void;
-  inputRef?: React.Ref<HTMLInputElement>;
+  inputRef?: React.Ref<HTMLInputElement>; placeholder?: string; autoComplete?: string; describedBy?: string;
 }) {
   return (
     <div className="password-field">
@@ -1357,9 +1271,10 @@ function DesignPasswordInput({ id, value, onChange, shown, onToggle, inputRef }:
         id={id}
         ref={inputRef}
         type={shown ? 'text' : 'password'}
-        autoComplete="current-password"
+        autoComplete={autoComplete}
+        aria-describedby={describedBy}
         className="text-input-field password-input"
-        placeholder="Your password"
+        placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         required
