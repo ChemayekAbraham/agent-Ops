@@ -1,4 +1,5 @@
 # Tasks
+- [x] Remove the "Collected today" / "Still to collect" tiles from the agents-mock rent card; card now shows only the ring, rent due and tenant count — checked in the browser (both tile labels gone, no page errors), build clean.
 - [x] Swap the Transactions shortcut on agents-mock for Leaderboard that opens /dashboard/agents/leaderboard; click checked in the browser (real rankings load), build clean.
 - [x] Swap the Sub-Agents shortcut on agents-mock for Service Center that opens /agent/service-center; click checked in the browser (lands on the real Service Center page), build clean.
 - [x] Show "Today's Capacity" (collected of expected today, progress, tenants completed) in place of Today's Collections on agents-mock; card text, progress value and phone layout checked in the browser, build clean.
