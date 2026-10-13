@@ -160,7 +160,7 @@ export default function AgentsMock() {
             {SHORTCUTS.map(({ label, Icon, color, to }) => <Button key={label} variant="ghost" onClick={() => (to ? navigate(to) : setNotice(label))} className="h-[64px] flex-col gap-1 px-0 text-[10px]"><span className={cn('flex h-8 w-8 items-center justify-center rounded-full bg-card', color)}><Icon className="!h-4 !w-4" /></span>{label}</Button>)}
           </div>
           <section aria-labelledby="due-heading" className="rounded-[16px] bg-card p-4">
-            <div className="flex items-center justify-between"><h2 id="due-heading" className="text-xs font-semibold">Collections due today</h2><span className="text-[11px] font-bold text-primary">{arrearsFailed ? 'Unavailable' : amount(DUE_TOTAL)}</span></div>
+            <div className="flex items-center justify-between"><h2 id="due-heading" className="text-xs font-semibold">Collections due today</h2><span className="text-[11px] font-bold text-primary">{arrearsFailed ? 'Unavailable' : formatUGX(DUE_TOTAL)}</span></div>
             {arrearsLoading && !arrears ? (
               <p className="mt-3 text-[10px] text-muted-foreground">Loading today's list…</p>
             ) : arrearsFailed ? (
@@ -182,7 +182,7 @@ export default function AgentsMock() {
                         <p className="truncate text-[11px] font-medium">{t.tenant_name || 'Tenant'}</p>
                         <p className="text-[9px] text-muted-foreground">{Number(t.days_behind) > 0 ? `${t.days_behind} day${Number(t.days_behind) === 1 ? '' : 's'} behind` : 'Due today'}</p>
                       </div>
-                      <span className="shrink-0 text-[11px] font-bold text-primary">{amount(Number(t.due_today_ugx) || 0)}</span>
+                      <span className="shrink-0 text-[11px] font-bold text-primary">{formatUGX(Number(t.due_today_ugx) || 0)}</span>
                     </li>
                   ))}
                 </ul>
@@ -199,7 +199,7 @@ export default function AgentsMock() {
               <div className="grid grid-cols-7 text-center">{['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(label => <span key={label} className="pb-2 text-[9px] text-muted-foreground">{label}</span>)}{Array.from({ length: offset }, (_, i) => <span key={`blank-${i}`} />)}{Array.from({ length: days }, (_, i) => { const st = dayStatus(i + 1); const isToday = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}-${String(i + 1).padStart(2, '0')}` === todayKey; return <Button key={i} variant="ghost" aria-label={`${monthLabel} ${i + 1}${st ? ` · ${st}` : ''}`} aria-pressed={day === i + 1} onClick={() => setDay(i + 1)} className="h-9 rounded-none p-0 text-[10px]"><span className={cn('flex h-7 w-7 items-center justify-center rounded-lg font-semibold', st && DAY_STYLES[st], isToday && 'border border-primary', day === i + 1 && 'ring-2 ring-primary ring-offset-1 ring-offset-card')}>{i + 1}</span></Button>; })}</div>
               <div className="mt-4 flex justify-center gap-3 border-t border-border pt-3 text-[9px] text-muted-foreground">{[{ name: 'Paid', color: 'bg-success' }, { name: 'Partial', color: 'bg-success/35' }, { name: 'Missed', color: 'bg-destructive' }].map(item => <span key={item.name} className="flex items-center gap-1"><span className={cn('h-2 w-2 rounded-full', item.color)} />{item.name}</span>)}</div>
             </div>
-            <div className="mt-3 rounded-[16px] bg-card p-4"><h3 className="text-[10px] font-semibold">{new Date(month.getFullYear(), month.getMonth(), day).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</h3>{selected ? <p className="mt-1 text-[10px] text-muted-foreground">{selected.count} collection{selected.count === 1 ? '' : 's'} · <strong className="text-primary">{amount(selected.total)}</strong>{selected.partial ? ' (includes partial)' : ''}</p> : <p className="mt-1 text-[10px] italic text-muted-foreground">{dayStatus(day) === 'missed' ? 'Nothing was collected this day — missed.' : 'No collections recorded.'}</p>}</div>
+            <div className="mt-3 rounded-[16px] bg-card p-4"><h3 className="text-[10px] font-semibold">{new Date(month.getFullYear(), month.getMonth(), day).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</h3>{selected ? <p className="mt-1 text-[10px] text-muted-foreground">{selected.count} collection{selected.count === 1 ? '' : 's'} · <strong className="text-primary">{formatUGX(selected.total)}</strong>{selected.partial ? ' (includes partial)' : ''}</p> : <p className="mt-1 text-[10px] italic text-muted-foreground">{dayStatus(day) === 'missed' ? 'Nothing was collected this day — missed.' : 'No collections recorded.'}</p>}</div>
           </section>
         </main>
       </div>
