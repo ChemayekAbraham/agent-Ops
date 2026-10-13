@@ -9,8 +9,8 @@ import { cn } from '@/lib/utils';
 
 // Design-only sample figures: expected today is the agent's daily target, collected today is what has been banked so far.
 const EXPECTED_TODAY = 250000;
-const COLLECTED_TODAY = 0;
-const TENANTS_DONE = 0;
+const COLLECTED_TODAY = 85000;
+const TENANTS_DONE = 3;
 const TENANTS_TOTAL = 8;
 const CAPACITY_PCT = EXPECTED_TODAY > 0 ? Math.round((COLLECTED_TODAY / EXPECTED_TODAY) * 100) : 0;
 
@@ -43,11 +43,22 @@ export default function AgentsMock() {
           <div className="flex items-center gap-2"><Button variant="ghost" size="icon-sm" aria-label="Notifications" className="text-primary" onClick={() => setNotice('Notifications')}><Bell className="!h-4 !w-4" /></Button><Button variant="outline" size="icon-sm" aria-label="Your profile" onClick={() => setNotice('Your profile')} className="relative rounded-full border-primary text-[11px] text-primary">SP<span className="absolute right-0 top-0 h-2 w-2 rounded-full border border-card bg-primary" /></Button></div>
         </header>
         <main className="space-y-4 px-4 pt-4">
-          <section aria-label="Sample wallet balances" className="agents-mock-wallet relative h-[173px] overflow-hidden rounded-[18px] px-[18px] py-4">
-            <div className="flex items-center justify-between"><span className="text-lg font-extrabold italic">Welile</span><Button variant="ghost" size="icon-sm" aria-label={hidden ? 'Show balances' : 'Hide balances'} onClick={() => setHidden(!hidden)} className="text-inherit hover:bg-primary/20">{hidden ? <EyeOff className="!h-4 !w-4" /> : <Eye className="!h-4 !w-4" />}</Button></div>
-            <div className="mt-4 flex items-center gap-1"><p className="text-[9px] font-semibold uppercase opacity-70">{bucket} balance</p><Button variant="ghost" onClick={() => setBucket(bucket === 'Float' ? 'Withdrawable' : 'Float')} className="h-4 rounded-full bg-primary/40 px-1.5 text-[8px] text-inherit"><ArrowLeftRight className="!h-2 !w-2" />Switch</Button></div>
-            <p className="text-[22px] leading-6 font-bold">{amount(bucket === 'Float' ? 250000 : 210000)}</p>
-            <div className="mt-5 flex items-end justify-between"><div><p className="text-[8px] uppercase opacity-70">{bucket === 'Float' ? 'Withdrawable' : 'Float'} balance</p><p className="text-sm font-semibold">{amount(bucket === 'Float' ? 210000 : 250000)}</p></div><span className="mb-1 text-[8px] opacity-60">Last updated just now</span></div>
+          <section aria-label="Rent due and collected today" className="agents-mock-wallet relative overflow-hidden rounded-[18px] p-[18px]">
+            <div className="relative flex items-center justify-between"><span className="text-[10px] font-semibold uppercase tracking-wide opacity-80">Today's rent</span><Button variant="ghost" size="icon-sm" aria-label={hidden ? 'Show amounts' : 'Hide amounts'} onClick={() => setHidden(!hidden)} className="text-inherit hover:bg-primary/20">{hidden ? <EyeOff className="!h-4 !w-4" /> : <Eye className="!h-4 !w-4" />}</Button></div>
+            <div className="relative mt-2 flex items-center gap-4">
+              <div className="relative h-[84px] w-[84px] shrink-0 rounded-full" style={{ background: `conic-gradient(hsl(var(--header-foreground)) ${CAPACITY_PCT * 3.6}deg, hsl(var(--header-foreground) / .2) 0deg)` }}>
+                <div className="absolute inset-[7px] flex flex-col items-center justify-center rounded-full bg-[hsl(var(--mock-wallet-end))]"><span className="text-lg font-bold leading-5">{CAPACITY_PCT}%</span><span className="text-[8px] opacity-70">collected</span></div>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[9px] uppercase opacity-70">Rent due to collect</p>
+                <p className="text-[22px] font-bold leading-6">{amount(EXPECTED_TODAY)}</p>
+                <p className="mt-1 text-[9px] opacity-70">expected today · {TENANTS_TOTAL} tenants</p>
+              </div>
+            </div>
+            <div className="relative mt-4 grid grid-cols-2 gap-2">
+              <div className="rounded-xl bg-primary/30 px-3 py-2"><p className="text-[8px] uppercase opacity-70">Collected today</p><p className="text-sm font-semibold">{amount(COLLECTED_TODAY)}</p><p className="text-[8px] opacity-70">{TENANTS_DONE} of {TENANTS_TOTAL} tenants paid</p></div>
+              <div className="rounded-xl bg-primary/30 px-3 py-2"><p className="text-[8px] uppercase opacity-70">Still to collect</p><p className="text-sm font-semibold">{amount(EXPECTED_TODAY - COLLECTED_TODAY)}</p><p className="text-[8px] opacity-70">{TENANTS_TOTAL - TENANTS_DONE} tenants left</p></div>
+            </div>
           </section>
           <div className="grid grid-cols-4 gap-1" aria-label="Agent shortcuts">
             {SHORTCUTS.map(({ label, Icon, color, to }) => <Button key={label} variant="ghost" onClick={() => (to ? navigate(to) : setNotice(label))} className="h-[64px] flex-col gap-1 px-0 text-[10px]"><span className={cn('flex h-8 w-8 items-center justify-center rounded-full bg-card', color)}><Icon className="!h-4 !w-4" /></span>{label}</Button>)}
