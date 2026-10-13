@@ -257,16 +257,16 @@ export function CFOROIRequests() {
       const isAltWallet = op.operation_type === 'roi_split_alt_wallet';
       const isProxy = !!op.target_wallet_user_id && !isAltWallet;
       const reasonMatch = op.description?.match(/Reason:\s*(.*)$/i);
-      const reason = reasonMatch ? reasonMatch[1].trim() : '—';
+      const reason = latin(reasonMatch ? reasonMatch[1].trim() : '—');
       const settledAt = settlementMap.get(op.id);
       const payment = paymentStatus(op, isProxy, settledAt);
       return [
         String(index + 1),
         format(new Date(op.created_at), 'dd MMM yyyy HH:mm'),
-        meta?.partner_name || getName(op.user_id),
-        isProxy ? (meta?.target_agent_name || getName(op.target_wallet_user_id))
-          : isAltWallet ? (meta?.alt_recipient_name || getName(op.target_wallet_user_id))
-          : 'Partner wallet',
+        latin(meta?.partner_name || getName(op.user_id)),
+        latin(isProxy ? (meta?.target_agent_name || getName(op.target_wallet_user_id))
+            : isAltWallet ? (meta?.alt_recipient_name || getName(op.target_wallet_user_id))
+            : 'Partner wallet'),
         op.source_id?.slice(0, 8) || '—',
         reason,
         formatUGX(op.amount),
