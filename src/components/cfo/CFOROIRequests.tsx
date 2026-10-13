@@ -43,7 +43,7 @@ export function CFOROIRequests() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [rejectionReasons, setRejectionReasons] = useState<Record<string, string>>({});
-  const [filter, setFilter] = useState<'coo_approved' | 'approved' | 'rejected'>('coo_approved');
+  const [filter, setFilter] = useState<'coo_approved' | 'approved' | 'rejected'>('approved');
   const [search, setSearch] = useState('');
   const [dateFilter, setDateFilter] = useState<Date | undefined>(undefined);
   const [rangeFilter, setRangeFilter] = useState<'today' | 'yesterday' | 'last_week' | 'this_month' | null>(null);
