@@ -61831,6 +61831,40 @@ export type Database = {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
       }
+      assistant_agent_find_tenants: {
+        Args: {
+          p_email?: string
+          p_from?: string
+          p_limit?: number
+          p_plan?: string
+          p_search?: string
+          p_to?: string
+        }
+        Returns: Json
+      }
+      assistant_agent_landlords: {
+        Args: { p_limit?: number; p_search?: string }
+        Returns: Json
+      }
+      assistant_agent_my_profile: { Args: never; Returns: Json }
+      assistant_agent_subagent_detail: {
+        Args: { p_from?: string; p_search: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_agent_subagents: {
+        Args: {
+          p_email?: string
+          p_from?: string
+          p_limit?: number
+          p_search?: string
+          p_to?: string
+        }
+        Returns: Json
+      }
+      assistant_agent_tenant_detail: {
+        Args: { p_from?: string; p_search: string; p_to?: string }
+        Returns: Json
+      }
       assistant_agent_tenants: { Args: never; Returns: Json }
       assistant_agent_wallet: { Args: never; Returns: Json }
       assistant_agent_wallet_transactions: {
@@ -61842,8 +61876,14 @@ export type Database = {
         }
         Returns: Json
       }
+      assistant_clean_phone: { Args: { p_phone: string }; Returns: string }
+      assistant_clean_text: {
+        Args: { p_address?: boolean; p_max?: number; p_text: string }
+        Returns: string
+      }
       assistant_has_access: { Args: never; Returns: boolean }
       assistant_is_agent: { Args: never; Returns: boolean }
+      assistant_real_email: { Args: { p_email: string }; Returns: string }
       assistant_require_agent: { Args: never; Returns: undefined }
       attach_campaign_registration: {
         Args: { p_short_code: string; p_visitor_id?: string }
