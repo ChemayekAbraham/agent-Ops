@@ -24,14 +24,12 @@ export default function AgentsMock() {
   const { profile } = useProfile();
   const { user } = useAuth();
   const ids = useMemo(() => (user?.id ? [user.id] : []), [user?.id]);
-  const { data: capMap, isLoading: capLoading } = useAgentCapacityMap(ids);
+  const { data: capMap } = useAgentCapacityMap(ids);
   const cap = user?.id ? capMap?.get(user.id) : undefined;
   const EXPECTED_TODAY = Math.max(0, cap?.expected_daily ?? 0);
   const COLLECTED_TODAY = Math.max(0, cap?.paid_today ?? 0);
-  const TENANTS_DONE = cap?.tenants_paid_today ?? 0;
   const TENANTS_TOTAL = cap?.tenants_due ?? 0;
   const CAPACITY_PCT = EXPECTED_TODAY > 0 ? Math.min(100, Math.round((COLLECTED_TODAY / EXPECTED_TODAY) * 100)) : 0;
-  const LEFT_TODAY = Math.max(0, EXPECTED_TODAY - COLLECTED_TODAY);
   // Today's collection list comes from the same server read the Collect dialog
   // uses (`agent_arrears_overview`), so the names and amounts here are the
   // tenant's own open days — never a placeholder.
