@@ -220,6 +220,37 @@ export function MaturityRequestsQueue() {
       return;
     }
     toast({ title: `Request ${label}`, description: `${req.portfolio_code} — ${req.partner_name}` });
+
+    // Redemption moved to processing: email the partner their 90-day notice
+    // dates (read fresh from the DB, set by the countdown trigger).
+    if (status === 'processing' && req.request_type === 'REDEMPTION_REQUEST') {
+      const { data: fresh } = await supabase
+        .from('portfolio_action_requests')
+        .select('processing_started_at, notice_ends_on')
+        .eq('id', req.id)
+        .maybeSingle();
+      const email = req.partner_email;
+      const realEmail = !!email && !email.endsWith('@welile.user') && !email.endsWith('@noapp.welile.user');
+      if (fresh?.processing_started_at && realEmail) {
+        const { error: mailErr } = await supabase.functions.invoke('send-transactional-email', {
+          body: {
+            templateName: 'redemption-notice-started',
+            recipientEmail: email,
+            idempotencyKey: `redemption-notice-started-${req.id}`,
+            templateData: {
+              partner_name: req.partner_name,
+              portfolio_name: req.portfolio_name,
+              portfolio_id: req.portfolio_code,
+              amount: req.redemption_amount ?? req.portfolio_value,
+              currency: req.currency || 'UGX',
+              started_on: format(new Date(fresh.processing_started_at), 'd MMM yyyy'),
+              ends_on: fresh.notice_ends_on ? format(new Date(fresh.notice_ends_on), 'd MMM yyyy') : '',
+            },
+          },
+        });
+        if (mailErr) toast({ title: 'Notice email not sent', description: mailErr.message, variant: 'destructive' });
+      }
+    }
     queryClient.invalidateQueries({ queryKey: ['maturity-requests-queue'] });
   };
 
