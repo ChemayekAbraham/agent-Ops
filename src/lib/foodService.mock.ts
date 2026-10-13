@@ -244,7 +244,7 @@ function seed() {
   seedOrder(MOCK_EMPLOYEE, [[iGnuts, 'Steamed Greens', 2500, 1]], 'confirmed', false, 'mobile_money');
 
   S.exceptions.push({
-    id: uid(), order_id: null, kind: 'stock_shortfall',
+    id: uid(), order_id: null, kind: 'STOCK_UNAVAILABLE',
     detail: { note: 'Greens ran short at 13:10; two orders were substituted.' },
     resolved_at: null, resolved_by: null, raised_by: MOCK_COORDINATOR, raised_via: 'coordinator',
     created_at: new Date().toISOString(),

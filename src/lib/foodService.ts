@@ -269,20 +269,26 @@ export interface FoodException {
   created_at: string;
 }
 
-/** The fixed exception kinds (CFO decision 2026-10-12), enforced server-side. */
+/** The nine approved exception kinds, enforced server-side (CHECK + RPC). */
 export type FoodExceptionKind =
-  | 'stock_shortfall' | 'substitution' | 'wrong_or_missing_item' | 'quality_complaint' | 'other';
+  | 'MISSING_ITEM' | 'WRONG_ITEM' | 'QUALITY_ISSUE' | 'LATE_DELIVERY' | 'NOT_DELIVERED'
+  | 'DAMAGED_ORDER' | 'STOCK_UNAVAILABLE' | 'ORDER_ERROR' | 'OTHER';
 
 export const FOOD_EXCEPTION_KINDS: readonly FoodExceptionKind[] = [
-  'stock_shortfall', 'substitution', 'wrong_or_missing_item', 'quality_complaint', 'other',
+  'MISSING_ITEM', 'WRONG_ITEM', 'QUALITY_ISSUE', 'LATE_DELIVERY', 'NOT_DELIVERED',
+  'DAMAGED_ORDER', 'STOCK_UNAVAILABLE', 'ORDER_ERROR', 'OTHER',
 ];
 
 export const FOOD_EXCEPTION_KIND_LABEL: Record<FoodExceptionKind, string> = {
-  stock_shortfall: 'Stock shortfall',
-  substitution: 'Substitution',
-  wrong_or_missing_item: 'Wrong or missing item',
-  quality_complaint: 'Quality complaint',
-  other: 'Other',
+  MISSING_ITEM: 'Missing item',
+  WRONG_ITEM: 'Wrong item',
+  QUALITY_ISSUE: 'Quality issue',
+  LATE_DELIVERY: 'Late delivery',
+  NOT_DELIVERED: 'Not delivered',
+  DAMAGED_ORDER: 'Damaged order',
+  STOCK_UNAVAILABLE: 'Stock unavailable',
+  ORDER_ERROR: 'Order error',
+  OTHER: 'Other',
 };
 
 /** Server bound on an exception description. */

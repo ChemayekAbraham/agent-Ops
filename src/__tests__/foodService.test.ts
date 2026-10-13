@@ -151,3 +151,16 @@ describe('canStartPreparing honours the environment rule', () => {
     expect(canStartPreparing('cancelled', 'paid', { requirePayment: false })).toBe(false);
   });
 });
+
+describe('food exception kinds — the nine approved codes', () => {
+  it('are exactly the approved set, in order', async () => {
+    const { FOOD_EXCEPTION_KINDS, FOOD_EXCEPTION_KIND_LABEL } = await import('@/lib/foodService');
+    expect([...FOOD_EXCEPTION_KINDS]).toEqual([
+      'MISSING_ITEM', 'WRONG_ITEM', 'QUALITY_ISSUE', 'LATE_DELIVERY', 'NOT_DELIVERED',
+      'DAMAGED_ORDER', 'STOCK_UNAVAILABLE', 'ORDER_ERROR', 'OTHER',
+    ]);
+    // every kind has a human label, and nothing else does
+    expect(Object.keys(FOOD_EXCEPTION_KIND_LABEL).sort()).toEqual([...FOOD_EXCEPTION_KINDS].sort());
+    for (const k of FOOD_EXCEPTION_KINDS) expect(FOOD_EXCEPTION_KIND_LABEL[k].length).toBeGreaterThan(0);
+  });
+});

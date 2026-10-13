@@ -636,8 +636,10 @@ END $$;
 --   * the ACTIVE Food Coordinator may log an exception, against an order or not;
 --   * an EMPLOYEE may report a problem with their OWN order only, one open
 --     report per order at a time;
---   * kinds: stock_shortfall, substitution, wrong_or_missing_item,
---     quality_complaint, other; a description (<= 500 chars) is mandatory.
+--   * kinds — the nine approved codes: MISSING_ITEM, WRONG_ITEM,
+--     QUALITY_ISSUE, LATE_DELIVERY, NOT_DELIVERED, DAMAGED_ORDER,
+--     STOCK_UNAVAILABLE, ORDER_ERROR, OTHER; a description (<= 500 chars) is
+--     mandatory.
 
 ALTER TABLE public.food_exceptions ADD COLUMN IF NOT EXISTS raised_by uuid REFERENCES public.profiles(id);
 ALTER TABLE public.food_exceptions ADD COLUMN IF NOT EXISTS raised_via text;
@@ -648,8 +650,7 @@ ALTER TABLE public.food_exceptions
 -- whatever kind they had; every new or updated row must use a known kind.
 ALTER TABLE public.food_exceptions
   ADD CONSTRAINT food_exceptions_kind_known
-  CHECK (kind IN ('stock_shortfall', 'substitution', 'wrong_or_missing_item',
-                  'quality_complaint', 'other')) NOT VALID;
+  CHECK (kind IN ('MISSING_ITEM', 'WRONG_ITEM', 'QUALITY_ISSUE', 'LATE_DELIVERY', 'NOT_DELIVERED', 'DAMAGED_ORDER', 'STOCK_UNAVAILABLE', 'ORDER_ERROR', 'OTHER')) NOT VALID;
 
 CREATE UNIQUE INDEX food_exceptions_one_open_employee_report
   ON public.food_exceptions (order_id, raised_by)
@@ -678,8 +679,7 @@ BEGIN
   IF v_uid IS NULL THEN RAISE EXCEPTION 'Authentication required' USING ERRCODE='28000'; END IF;
   PERFORM public.food_require_canteen_user();
 
-  IF p_kind IS NULL OR p_kind NOT IN ('stock_shortfall', 'substitution', 'wrong_or_missing_item',
-                                       'quality_complaint', 'other') THEN
+  IF p_kind IS NULL OR p_kind NOT IN ('MISSING_ITEM', 'WRONG_ITEM', 'QUALITY_ISSUE', 'LATE_DELIVERY', 'NOT_DELIVERED', 'DAMAGED_ORDER', 'STOCK_UNAVAILABLE', 'ORDER_ERROR', 'OTHER') THEN
     RAISE EXCEPTION 'Unknown exception kind' USING ERRCODE='22023'; END IF;
   IF v_note = '' THEN
     RAISE EXCEPTION 'Describe the problem' USING ERRCODE='22023'; END IF;

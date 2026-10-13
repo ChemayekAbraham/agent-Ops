@@ -56,7 +56,7 @@ COMMIT;
 BEGIN; SELECT set_config('request.jwt.claims','{"sub":"f0000000-0000-4000-8000-0000000000a1"}',true); SET LOCAL ROLE authenticated;
 INSERT INTO c SELECT 'o_'||m, (food_place_order(jsonb_build_array(jsonb_build_object('menu_item_id',(SELECT v FROM c WHERE k='i'),'quantity',2)),'iso-'||m, m, 'no onions')->>'order_id')::uuid
   FROM unnest(ARRAY['cash','wallet','mobile_money']) m;
-SELECT food_raise_exception('quality_complaint','cold',(SELECT v FROM c WHERE k='o_cash'));
+SELECT food_raise_exception('QUALITY_ISSUE','cold',(SELECT v FROM c WHERE k='o_cash'));
 SELECT food_cancel_my_order((SELECT v FROM c WHERE k='o_mobile_money'),'changed my mind');
 COMMIT;
 BEGIN; SELECT set_config('request.jwt.claims','{"sub":"29a0cfa8-1eaf-453c-874c-0fc72fa4f74b"}',true); SET LOCAL ROLE authenticated;
@@ -65,7 +65,7 @@ SELECT food_set_fulfilment((SELECT v FROM c WHERE k='o_cash'),'ready');
 SELECT food_set_fulfilment((SELECT v FROM c WHERE k='o_cash'),'delivered');
 SELECT food_set_fulfilment((SELECT v FROM c WHERE k='o_wallet'),'cancelled','kitchen closed');
 SELECT food_resolve_exception((SELECT id FROM food_exceptions LIMIT 1),'replaced');
-SELECT food_raise_exception('stock_shortfall','short of greens');
+SELECT food_raise_exception('STOCK_UNAVAILABLE','short of greens');
 SELECT food_coordinator_overview(); SELECT * FROM food_preparation_list();
 SELECT food_transfer_coordinator('f0000000-0000-4000-8000-0000000000e1','transfer_with_backup','planned canary handover');
 COMMIT;

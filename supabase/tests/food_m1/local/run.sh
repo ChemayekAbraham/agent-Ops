@@ -29,7 +29,9 @@ suites=("$here/10_behaviour.sql")
 ls "$root"/supabase/migrations/20261012120000_food_m1_release_corrections.sql >/dev/null 2>&1 \
   && suites+=("$here/20_release_corrections.sql" "$here/25_canteen_access.sql" "$here/40_completion.sql")
 out="$(cat "${suites[@]}" | P -d "$db" 2>&1 || true)"
-echo "$out" | grep -E 'PASS|FAIL|ERROR' | sed -E 's/^(psql:[^ ]* )?NOTICE:  //'
-pass=$(echo "$out" | grep -c 'NOTICE:  PASS' || true); fail=$(echo "$out" | grep -c -E 'NOTICE:  FAIL|ERROR' || true)
+# Count only real psql errors ("ERROR:  ..."), never a result value that
+# happens to contain the word (e.g. the ORDER_ERROR exception kind).
+echo "$out" | grep -E 'NOTICE:  (PASS|FAIL)|(^|: )ERROR:  ' | sed -E 's/^(psql:[^ ]* )?NOTICE:  //'
+pass=$(echo "$out" | grep -c 'NOTICE:  PASS' || true); fail=$(echo "$out" | grep -c -E 'NOTICE:  FAIL|(^|: )ERROR:  ' || true)
 echo "== $pass passed, $fail failed"
 [ "$fail" -eq 0 ]

@@ -203,7 +203,7 @@ ROLLBACK;
 
 -- ═════════════════ EXC: exception resolution ═════════════════
 BEGIN;
-INSERT INTO public.food_exceptions (kind, detail) VALUES ('other', '{"note":"x"}');
+INSERT INTO public.food_exceptions (kind, detail) VALUES ('OTHER', '{"note":"x"}');
 SELECT food_test.act_as(food_test.id('coord'));
 SELECT food_test.raises(format($$SELECT public.food_resolve_exception(%L, '   ')$$, (SELECT id FROM public.food_exceptions LIMIT 1)), '22023', 'EXC-01 blank reason refused');
 SELECT public.food_resolve_exception((SELECT id FROM public.food_exceptions LIMIT 1), 'handled at the counter');

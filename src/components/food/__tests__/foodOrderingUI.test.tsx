@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -65,6 +65,16 @@ function renderWithProviders(ui: ReactNode) {
 
 const asEmployee = () => { authState.userId = MOCK_EMPLOYEE; setFoodMockUser(MOCK_EMPLOYEE); };
 const asCoordinator = () => { authState.userId = MOCK_COORDINATOR; setFoodMockUser(MOCK_COORDINATOR); };
+
+// The fixture's service windows are wall-clock based (Breakfast 06:30-09:00,
+// Lunch 08:00-23:59, Africa/Kampala). Without a fixed clock these tests passed
+// or failed depending on the hour they ran (master register FM-35). Pin only
+// Date, to a Kampala noon, so testing-library's own timers stay real.
+beforeAll(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-10-12T09:00:00Z'));   // 12:00 in Kampala
+});
+afterAll(() => { vi.useRealTimers(); });
 
 beforeEach(() => {
   resetFoodMock();
@@ -541,7 +551,7 @@ describe('Reporting a problem with an order (FM-21)', () => {
     const report = await screen.findByRole('region', { name: /report a problem/i });
     const submit = within(report).getByRole('button', { name: /report problem/i });
     expect(submit).toBeDisabled();
-    await user.selectOptions(within(report).getByLabelText(/what went wrong/i), 'wrong_or_missing_item');
+    await user.selectOptions(within(report).getByLabelText(/what went wrong/i), 'MISSING_ITEM');
     await user.type(within(report).getByLabelText(/describe the problem/i), 'Beans were missing');
     expect(submit).toBeEnabled();
     await user.click(submit);
@@ -557,7 +567,7 @@ describe('Reporting a problem with an order (FM-21)', () => {
     const card = (await screen.findByText(/pays by mobile money/i)).closest('li')!;
     await user.click(within(card).getByRole('button', { name: /view details/i }));
     const report = await screen.findByRole('region', { name: /report a problem/i });
-    await user.selectOptions(within(report).getByLabelText(/what went wrong/i), 'quality_complaint');
+    await user.selectOptions(within(report).getByLabelText(/what went wrong/i), 'QUALITY_ISSUE');
     await user.type(within(report).getByLabelText(/describe the problem/i), 'Food was cold');
     await user.click(within(report).getByRole('button', { name: /report problem/i }));
     await within(report).findByText(/your report is with the food coordinator/i);
@@ -578,7 +588,7 @@ describe('Reporting a problem with an order (FM-21)', () => {
     await user.click(await screen.findByRole('tab', { name: /history/i }));
     const log = await screen.findByRole('button', { name: /log exception/i });
     expect(log).toBeDisabled();
-    await user.selectOptions(screen.getByLabelText(/exception kind/i), 'substitution');
+    await user.selectOptions(screen.getByLabelText(/exception kind/i), 'ORDER_ERROR');
     expect(log).toBeDisabled();
     await user.type(screen.getByLabelText(/exception description/i), 'Swapped matooke for rice');
     await user.click(log);
@@ -629,5 +639,31 @@ describe('Menu scheduling validates its inputs (FM-26)', () => {
     const date = await screen.findByLabelText(/service date/i);
     expect(date).toHaveAttribute('min', foodToday());
     expect(date).toHaveValue(foodToday());
+  });
+});
+
+describe('Exception pickers offer the nine approved kinds', () => {
+  const NINE = ['Missing item', 'Wrong item', 'Quality issue', 'Late delivery', 'Not delivered',
+    'Damaged order', 'Stock unavailable', 'Order error', 'Other'];
+
+  it('in the coordinator log form', async () => {
+    asCoordinator();
+    const user = userEvent.setup();
+    renderWithProviders(<FoodManagementPage />);
+    await user.click(await screen.findByRole('tab', { name: /history/i }));
+    const select = await screen.findByLabelText(/exception kind/i);
+    const options = within(select).getAllByRole('option').map((o) => o.textContent).filter((t) => t !== 'Kind…');
+    expect(options).toEqual(NINE);
+  });
+
+  it('in the employee report form', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(<MyFoodOrdersPage />);
+    const card = (await screen.findByText(/pays by mobile money/i)).closest('li')!;
+    await user.click(within(card).getByRole('button', { name: /view details/i }));
+    const report = await screen.findByRole('region', { name: /report a problem/i });
+    const options = within(within(report).getByLabelText(/what went wrong/i)).getAllByRole('option')
+      .map((o) => o.textContent).filter((t) => t !== 'What went wrong?');
+    expect(options).toEqual(NINE);
   });
 });

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, beforeAll, afterAll, vi } from 'vitest';
 import {
   foodMockRpc, foodMockSelect, resetFoodMock, actAsFoodCoordinator, setFoodMockUser,
   foodToday, MOCK_EMPLOYEE, MOCK_COORDINATOR, isFoodMockMode,
@@ -30,6 +30,16 @@ async function openPeriod() {
   if (!p) throw new Error('fixture has no open ordering window');
   return p;
 }
+
+// The fixture's service windows are wall-clock based (Breakfast 06:30-09:00,
+// Lunch 08:00-23:59, Africa/Kampala). Without a fixed clock these tests passed
+// or failed depending on the hour they ran (master register FM-35). Pin only
+// Date, to a Kampala noon, so testing-library's own timers stay real.
+beforeAll(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-10-12T09:00:00Z'));   // 12:00 in Kampala
+});
+afterAll(() => { vi.useRealTimers(); });
 
 beforeEach(() => {
   resetFoodMock();
@@ -926,33 +936,49 @@ describe('raising exceptions mirrors the server (FM-21)', () => {
 
   it('an employee reports only on their own order, once while open', async () => {
     const mine = (await foodMockSelect<FoodOrderDetail[]>('food_orders', { mineOnly: true }))[0];
-    await expect(foodMockRpc('food_raise_exception', { p_kind: 'other', p_note: 'x' }))
+    await expect(foodMockRpc('food_raise_exception', { p_kind: 'OTHER', p_note: 'x' }))
       .rejects.toThrow(/choose the order/i);
-    await foodMockRpc('food_raise_exception', { p_kind: 'other', p_note: 'cold', p_order_id: mine.id });
-    await expect(foodMockRpc('food_raise_exception', { p_kind: 'other', p_note: 'again', p_order_id: mine.id }))
+    await foodMockRpc('food_raise_exception', { p_kind: 'OTHER', p_note: 'cold', p_order_id: mine.id });
+    await expect(foodMockRpc('food_raise_exception', { p_kind: 'OTHER', p_note: 'again', p_order_id: mine.id }))
       .rejects.toThrow(/already have an open report/i);
     actAsFoodCoordinator(true);
     const theirs = (await foodMockSelect<FoodOrderDetail[]>('food_orders', {}))
       .find((o) => o.employee_id !== MOCK_EMPLOYEE)!;
     setFoodMockUser(MOCK_EMPLOYEE);
-    await expect(foodMockRpc('food_raise_exception', { p_kind: 'other', p_note: 'x', p_order_id: theirs.id }))
+    await expect(foodMockRpc('food_raise_exception', { p_kind: 'OTHER', p_note: 'x', p_order_id: theirs.id }))
       .rejects.toThrow(/own order/i);
   });
 
   it('refuses unknown kinds and blank or long descriptions', async () => {
     actAsFoodCoordinator(true);
     await expect(foodMockRpc('food_raise_exception', { p_kind: 'refund', p_note: 'x' })).rejects.toThrow(/unknown/i);
-    await expect(foodMockRpc('food_raise_exception', { p_kind: 'other', p_note: '  ' })).rejects.toThrow(/describe/i);
-    await expect(foodMockRpc('food_raise_exception', { p_kind: 'other', p_note: 'x'.repeat(501) }))
+    await expect(foodMockRpc('food_raise_exception', { p_kind: 'OTHER', p_note: '  ' })).rejects.toThrow(/describe/i);
+    await expect(foodMockRpc('food_raise_exception', { p_kind: 'OTHER', p_note: 'x'.repeat(501) }))
       .rejects.toThrow(/500/);
   });
 
   it('never changes an order status or payment status', async () => {
     const mine = (await foodMockSelect<FoodOrderDetail[]>('food_orders', { mineOnly: true }))[0];
-    await foodMockRpc('food_raise_exception', { p_kind: 'quality_complaint', p_note: 'cold', p_order_id: mine.id });
+    await foodMockRpc('food_raise_exception', { p_kind: 'QUALITY_ISSUE', p_note: 'cold', p_order_id: mine.id });
     const after = (await foodMockSelect<FoodOrderDetail[]>('food_orders', { mineOnly: true }))
       .find((o) => o.id === mine.id)!;
     expect(after.fulfilment_status).toBe(mine.fulfilment_status);
     expect(after.payment_status).toBe(mine.payment_status);
+  });
+});
+
+describe('the fixture accepts exactly the nine approved kinds', () => {
+  beforeEach(() => { resetFoodMock(); actAsFoodCoordinator(true); });
+
+  it.each([
+    'MISSING_ITEM', 'WRONG_ITEM', 'QUALITY_ISSUE', 'LATE_DELIVERY', 'NOT_DELIVERED',
+    'DAMAGED_ORDER', 'STOCK_UNAVAILABLE', 'ORDER_ERROR', 'OTHER',
+  ])('accepts %s', async (kind) => {
+    const r = await foodMockRpc<{ kind: string }>('food_raise_exception', { p_kind: kind, p_note: 'x' });
+    expect(r.kind).toBe(kind);
+  });
+
+  it.each(['stock_shortfall', 'missing_item', 'REFUND'])('refuses %s', async (kind) => {
+    await expect(foodMockRpc('food_raise_exception', { p_kind: kind, p_note: 'x' })).rejects.toThrow(/unknown/i);
   });
 });

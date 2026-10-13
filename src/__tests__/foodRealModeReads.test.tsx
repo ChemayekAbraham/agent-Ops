@@ -42,7 +42,7 @@ vi.mock('@/integrations/supabase/client', () => ({
       return Promise.resolve({
         data: fn === 'food_people_names' ? [{ user_id: OTHER, full_name: 'TEST OTHER' }]
           : fn === 'food_can_use_canteen' ? true
-          : fn === 'food_raise_exception' ? { exception_id: 'x', kind: 'other', raised_via: 'employee' }
+          : fn === 'food_raise_exception' ? { exception_id: 'x', kind: 'OTHER', raised_via: 'employee' }
           : fn === 'is_food_coordinator' || fn === 'is_active_food_coordinator' ? false
           : null,
         error: null,
@@ -127,10 +127,10 @@ describe('real-mode completion hooks', () => {
   it('sends kind, description and order when reporting a problem (FM-21)', async () => {
     const { result } = renderHook(() => useRaiseFoodException(), { wrapper });
     await act(async () => {
-      await result.current.mutateAsync({ kind: 'wrong_or_missing_item', note: 'No beans', orderId: 'o1' });
+      await result.current.mutateAsync({ kind: 'MISSING_ITEM', note: 'No beans', orderId: 'o1' });
     });
     expect(rpcCalls).toContainEqual(['food_raise_exception',
-      { p_kind: 'wrong_or_missing_item', p_note: 'No beans', p_order_id: 'o1' }]);
+      { p_kind: 'MISSING_ITEM', p_note: 'No beans', p_order_id: 'o1' }]);
   });
 
   it('drops cached Food answers when the signed-in user changes (FM-24)', async () => {
