@@ -537,3 +537,32 @@ Nothing in production was touched. No merge into or push to `lovable`.
 - `guard:all`.
 
 Food SQL logic and TypeScript did not change (the `128000` edit is comment-only, verified by diff), so the Food suites (run 361/361, race 17/17, matrix 31/31, isolation 10/10, dry run 15/15, R2–R4 16/16, Food vitest 253, tsc 0) remain valid from `99deced69d`.
+
+
+## Owner policy decisions implemented (2026-10-14, after 0ec0455bbb)
+
+All evidence below is local:
+- disposable PostgreSQL 17.10 and 18.6;
+- the repo eligibility and reversal functions, loaded verbatim;
+- jsdom.
+
+Nothing was done in production. No merge into or push to `lovable`.
+
+| ID | Decision | Implementation | Evidence | Status |
+|---|---|---|---|---|
+| REV-D1 | Reversals only through an authorised, audited process | `20261013128500`: a guard trigger on `general_ledger` (fires only for rows with a `FOODPAY-%-REV` reference or a `reversal:FOODPAY-%` key) refuses unless an authorised reversal is in progress. `food_reverse_payment(order, reason)` is the only path: the reviewer is an enabled `cfo`/`super_admin`, not a party to the payment; full amount; legs verified on the original wallets; a refusal (coordinator lacks funds) is recorded in `food_payment_reversals` with its outcome | P1-01…14 (incl. P1-05b): the employee's standard Reverse is refused with nothing posted; any other posting route is refused; authorised reversal recorded and audited. Negative controls: guard as a no-op fails P1-01/02/03; "anyone may authorise" fails P1-05b/06 | **FIXED (local)**. **Assumption:** reviewer roles `cfo`/`super_admin`, owner to confirm |
+| REV-D2 | Retry only by authorised decision; never an automatic recharge | Existing `food_authorize_payment_retry` and attempt identity. Re-verified with the guard on | P2-01…04: no charge after a reversal; reconciliation posts nothing; one new payment after authorisation; repeats replay | **VERIFIED (local)** |
+| REV-D3 | Schedule only after production verification and approval | No schedule anywhere in the migrations; recommendation only (ops doc section 4) | grep: no `cron.schedule` in Food migrations | **COMPLIANT**: not enabled |
+| HND-D1 | Another active coordinator handles a blocked payment, with a reason and an audit trail | `food_resolve_blocked_payment(order, reason)`: active coordinator, not the employee or the blocked payee; refused while the original payee is payable again; the new payee must have a wallet and be staff, not frozen, not closed; records wallet and name; audit holds both payees and the reason; no payment | P4-00…12 (incl. an incorrectly mapped wallet). Negative control: "a payable payee is displaceable" fails P4-05 | **FIXED (local)** |
+
+**Defects found and fixed during this pass:**
+- **INT-02 never checked ledger and wallet table access.** Its pattern used `\b`, which means backspace in PostgreSQL regular expressions, so it only detected `create_ledger_transaction(` calls. It now uses `\y`. Exactly three Food functions match: `food_pay_order`, `food_payment_problem`, `food_reverse_payment`. All three are on the payment path and allowlisted.
+- **Test harness:** the ledger stand-in now loads before the Food migrations, as `general_ledger` exists before Food in production. The financial canaries gained `reference_id`/`idempotency_key`, which the real table has.
+- **Matrix:** the upgrade path now also applies `128500` (MIG-C2f). MIG-A4 expects 13 tables.
+- **Isolation:** the only permitted non-Food change is **exactly** the guard trigger. ISO-01 and the new ISO-11 compare its full definition; ISO-09 now compares post-migration state against post-lifecycle state.
+
+**Results:**
+- PostgreSQL 17 and 18: run 395/395, race 17/17, matrix 32/32, isolation 11/11, dry run 15/15.
+- R2–R4 16/16; ledger boundary 32/32; Food vitest 257.
+
+**Evidence pack:** E2 lists `128500` and `food_payment_reversals`. A new E2b checks that the guard's trigger name is free, that no existing ledger row uses a Food payment reference, and that the reviewer roles exist.

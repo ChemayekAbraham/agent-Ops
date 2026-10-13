@@ -303,3 +303,6 @@ SELECT food_test.ok(NOT has_function_privilege('authenticated', 'public.food_pay
                     AND NOT has_table_privilege('authenticated', 'public.food_payment_attempts', 'DELETE'),
                     'REC-13 users cannot write payment attempts or call the identity helpers');
 ROLLBACK;
+
+-- back on for every later suite (see 52_reversal.sql)
+ALTER TABLE public.general_ledger ENABLE TRIGGER food_guard_payment_reversal;

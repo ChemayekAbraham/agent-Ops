@@ -5,7 +5,9 @@
 CREATE SCHEMA canary;
 CREATE TABLE canary.hits (tbl text, op text, at timestamptz DEFAULT now());
 
-CREATE TABLE public.general_ledger (id bigserial PRIMARY KEY, amount numeric NOT NULL, direction text, category text);
+-- reference_id / idempotency_key exist on the real table; 20261013128500 filters its guard on them
+CREATE TABLE public.general_ledger (id bigserial PRIMARY KEY, amount numeric NOT NULL, direction text, category text,
+                                    reference_id text, idempotency_key text);
 CREATE TABLE public.wallet_transactions (id bigserial PRIMARY KEY, user_id uuid, amount numeric NOT NULL);
 CREATE TABLE public.requisitions (id bigserial PRIMARY KEY, amount numeric NOT NULL, status text);
 CREATE VIEW public.wallets AS

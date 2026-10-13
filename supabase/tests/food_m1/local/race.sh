@@ -18,14 +18,14 @@ P() { psql -X -v ON_ERROR_STOP=1 -q "$@"; }
 P -d postgres -c "create database $db" >/dev/null
 trap 'P -d postgres -c "drop database if exists $db with (force)" >/dev/null' EXIT
 P -d "$db" -f "$here/00_supabase_scaffold.sql" >/dev/null
+# shared ledger stand-in BEFORE the Food migrations (as in production)
+P -d "$db" -f "$here/05_ledger_standin.sql" >/dev/null
 for m in "$root"/supabase/migrations/2026100912*food*.sql "$root"/supabase/migrations/2026100913*food*.sql \
          "$root"/supabase/migrations/2026100916*food*.sql "$root"/supabase/migrations/2026100917*food*.sql \
          "$root"/supabase/migrations/202610121*food*.sql "$root"/supabase/migrations/202610131*food*.sql; do
   P -d "$db" -1 -f "$m" >/dev/null
 done
 P -d "$db" -f "$here/30_race_setup.sql" >/dev/null
-# local stand-in for the shared ledger objects the payment path uses
-P -d "$db" -f "$here/05_ledger_standin.sql" >/dev/null
 # The shared recipient gate, loaded verbatim from drizzle/migrations/0045 (only
 # welile_transfer_items and check_transfer_recipient_eligibility; the schedule
 # function in that file needs tables the scaffold does not have).
@@ -142,12 +142,16 @@ check "RACE-PAY-1 the first session pays (not a replay)" "$(cat "$s1")" "OK paid
 check "RACE-PAY-2 the second session waits, then gets the same payment back" "$(cat "$s2")" "OK paid replayed=true"
 legs=$(P -At -d "$db" -c "select count(*)||'/'||count(distinct transaction_group_id) from general_ledger where source_id='$ORD'")
 check "RACE-PAY-3 exactly one posting: two legs, one transaction" "$legs" "2/1"
-# ── RACE-REC: the employee reverses the payment; two reconcilers run at once. ──
+# ── RACE-REC: a reversal exists (posted here through the standard mechanism with
+# the REV-D1 guard briefly off, standing in for any route); two reconcilers run at once.
 P -d "$db" >/dev/null <<SQL
 BEGIN;
+ALTER TABLE public.general_ledger DISABLE TRIGGER food_guard_payment_reversal;
 SELECT set_config('request.jwt.claims', '{"sub":"$B","role":"authenticated"}', true);
 SET LOCAL ROLE authenticated;
 SELECT public.reverse_wallet_transfer((SELECT 'FOODPAY-' || order_reference FROM public.food_orders WHERE id = '$ORD'));
+RESET ROLE;
+ALTER TABLE public.general_ledger ENABLE TRIGGER food_guard_payment_reversal;
 COMMIT;
 SQL
 rec() {

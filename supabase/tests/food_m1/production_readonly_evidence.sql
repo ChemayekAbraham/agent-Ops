@@ -113,7 +113,7 @@ SELECT version, name
  WHERE version IN ('20261009120000', '20261009120001', '20261009130000', '20261009130001',
                    '20261009160000', '20261009170000', '20261012120000', '20261013120000',
                    '20261013120001', '20261013125000', '20261013126000', '20261013127000',
-                   '20261013128000', '20261013129000')
+                   '20261013128000', '20261013128500', '20261013129000')
  ORDER BY version;
 --   (20261009120000, 20261009130000, 20261013120000 are EXPECTED to exist: they
 --    are lovable's Apophia, Emma and CTO-report migrations. Food uses …0001.)
@@ -122,7 +122,18 @@ SELECT c.relname, c.relkind
   FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
  WHERE n.nspname = 'public' AND c.relname LIKE 'food\_%' ORDER BY 1;
 --   (the release adds, among others: food_orders, food_order_events, food_audit,
---    food_payment_attempts; none is expected to exist yet)
+--    food_payment_attempts, food_payment_reversals; none is expected to exist yet)
+-- E2b. 20261013128500 attaches a guard trigger to general_ledger. Its name must
+--   be free, and no existing ledger row may already use a Food payment
+--   reference (aggregate count only).
+--   PROVES: the guard can be created and cannot misfire on existing data.
+SELECT count(*) AS existing_guard_triggers FROM pg_trigger
+ WHERE tgrelid = 'public.general_ledger'::regclass AND tgname = 'food_guard_payment_reversal';
+SELECT count(*) AS ledger_rows_with_food_payment_reference
+  FROM public.general_ledger WHERE reference_id LIKE 'FOODPAY-%' OR idempotency_key LIKE 'reversal:FOODPAY-%';
+-- the roles REV-D1 authorisation uses must exist in the enum
+SELECT e.enumlabel FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid
+ WHERE t.typname = 'app_role' AND e.enumlabel IN ('cfo', 'super_admin');
 SELECT p.oid::regprocedure, pg_get_userbyid(p.proowner) AS owner, p.proacl
   FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
  WHERE n.nspname = 'public'

@@ -19,12 +19,12 @@ CHAIN=(20261009120001_food_service_schema_and_coordinator 20261009130001_food_se
        20261009160000_food_coordinator_candidates 20261009170000_food_exception_resolution
        20261012120000_food_m1_release_corrections 20261013120001_food_meal_images
        20261013125000_food_staff_includes_pso 20261013127000_food_exception_self_resolution
-       20261013128000_food_payment_after_receipt)
+       20261013128000_food_payment_after_receipt 20261013128500_food_reversal_and_handover_controls)
 P() { psql -X -q -v ON_ERROR_STOP=1 "$@"; }
 Q() { psql -X -q -At -v ON_ERROR_STOP=1 "$@"; }
 result=0
 check() { if [ "$2" = "$3" ]; then echo "PASS $1"; else echo "FAIL $1 (got: $2, expected: $3)"; result=1; fi; }
-mkdb() { P -d postgres -c "drop database if exists $1 with (force)" -c "create database $1" >/dev/null; P -d "$1" -f "$here/00_supabase_scaffold.sql" >/dev/null; }
+mkdb() { P -d postgres -c "drop database if exists $1 with (force)" -c "create database $1" >/dev/null; P -d "$1" -f "$here/00_supabase_scaffold.sql" >/dev/null; P -d "$1" -f "$here/05_ledger_standin.sql" >/dev/null; }
 apply() { P -d "$1" -1 -f "$2" 2>&1; }   # one transaction per file, as in production
 inventory() {  # schema fingerprint of everything Food owns (see inventory.sql)
   Q -d "$1" -f "$here/inventory.sql" | md5sum | cut -c1-32; }
@@ -39,7 +39,7 @@ for m in "${CHAIN[@]}"; do out=$(apply mm_fresh "$M/$m.sql") || { ok=0; echo "$o
 check "MIG-A1 full chain applies on a fresh database with no seed profile" "$ok" "1"
 check "MIG-A2 skipped seed is announced, not silent" "$notice" "yes"
 check "MIG-A3 nobody is seated" "$(Q -d mm_fresh -c "select count(*) from food_coordinator_assignments")" "0"
-check "MIG-A4 all 12 Food tables (incl. food_payment_attempts) exist with RLS on" "$(Q -d mm_fresh -c "select count(*) from pg_class where relname like 'food\_%' and relkind='r' and relrowsecurity")" "12"
+check "MIG-A4 all 13 Food tables (incl. food_payment_attempts, food_payment_reversals) exist with RLS on" "$(Q -d mm_fresh -c "select count(*) from pg_class where relname like 'food\_%' and relkind='r' and relrowsecurity")" "13"
 Q -d mm_fresh -c "insert into auth.users(id,email) values ('f0000000-0000-4000-8000-0000000000e1','boot@example.invalid'); insert into profiles(id,full_name,email) values ('f0000000-0000-4000-8000-0000000000e1','BOOT','boot@example.invalid'); insert into user_roles(user_id,role) values ('f0000000-0000-4000-8000-0000000000e1','employee')" >/dev/null
 check "MIG-A5 first coordinator appointed via service-role bootstrap" \
   "$(Q -d mm_fresh -c "begin; set local role service_role; select public.food_bootstrap_coordinator('f0000000-0000-4000-8000-0000000000e1','first appointment on a fresh database')->>'status'; commit;" | grep -v -E '^(BEGIN|SET|COMMIT)$')" "appointed"
@@ -78,6 +78,8 @@ apply mm_upgrade "$M/${CHAIN[7]}.sql" >/dev/null; rc=$?
 check "MIG-C2d exception self-resolution migration applies" "$rc" "0"
 apply mm_upgrade "$M/${CHAIN[8]}.sql" >/dev/null; rc=$?
 check "MIG-C2e payment-after-receipt migration applies over legacy orders" "$rc" "0"
+apply mm_upgrade "$M/${CHAIN[9]}.sql" >/dev/null; rc=$?
+check "MIG-C2f reversal and handover controls migration applies" "$rc" "0"
 check "MIG-C3 legacy order kept, payment_mode NULL, still unpaid" \
   "$(Q -d mm_upgrade -c "select payment_mode is null and payment_status='pending_payment' from food_orders where order_reference='FO-LEGACY'")" "t"
 check "MIG-C4 legacy exception kind kept (constraint is NOT VALID for old rows)" \

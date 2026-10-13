@@ -182,6 +182,9 @@ SELECT food_test.act_as(food_test.id('pay_b'));
 SELECT food_test.raises(format($$SELECT public.food_verify_payment(%L)$$, (SELECT id FROM o)), '42501', 'PAYS-30 another employee cannot run verification on this order');
 -- a reversal is posted for the payment (convention '<reference>-REV')
 RESET ROLE;
+-- REV-D1 (20261013128500) refuses unauthorised reversal rows; switched off in
+-- this transaction only, to simulate a reversal reaching the ledger by any route
+ALTER TABLE public.general_ledger DISABLE TRIGGER food_guard_payment_reversal;
 INSERT INTO public.general_ledger (transaction_group_id, user_id, amount, direction, category, ledger_scope, source_table, reference_id)
 SELECT gen_random_uuid(), food_test.id('pay_a'), total_ugx, 'cash_in', 'wallet_transfer', 'wallet', 'wallet_transactions',
        'FOODPAY-' || order_reference || '-REV' FROM public.food_orders WHERE id = (SELECT id FROM o);

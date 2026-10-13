@@ -32,12 +32,17 @@ wt_before=$(Q -d "$db" -c "select count(*)||':'||sum(amount) from wallet_transac
 
 for m in 20261009120001_food_service_schema_and_coordinator 20261009130001_food_service_operations_rpcs \
          20261009160000_food_coordinator_candidates 20261009170000_food_exception_resolution \
-         20261012120000_food_m1_release_corrections 20261013120001_food_meal_images 20261013125000_food_staff_includes_pso 20261013127000_food_exception_self_resolution 20261013128000_food_payment_after_receipt; do
+         20261012120000_food_m1_release_corrections 20261013120001_food_meal_images 20261013125000_food_staff_includes_pso 20261013127000_food_exception_self_resolution 20261013128000_food_payment_after_receipt 20261013128500_food_reversal_and_handover_controls; do
   P -d "$db" -1 -f "$M/$m.sql" >/dev/null || { echo "FAIL apply $m"; result=1; }
 done
 after=$(inv) || exit 1
-if [ "$before" = "$after" ]; then echo "PASS ISO-01 every non-Food object identical after the migrations ($(echo "$before" | wc -l) objects)"
+# The ONE intended change to a non-Food object: the REV-D1 guard on general_ledger
+# (20261013128500). Anything else, or any variation of it, still fails.
+GUARD="trg general_ledger food_guard_payment_reversal CREATE TRIGGER food_guard_payment_reversal BEFORE INSERT ON public.general_ledger FOR EACH ROW WHEN (((new.reference_id ~~ 'FOODPAY-%-REV'::text) OR (new.idempotency_key ~~ 'reversal:FOODPAY-%'::text))) EXECUTE FUNCTION food_guard_payment_reversal()"
+added=$(comm -13 <(echo "$before" | sort) <(echo "$after" | sort)); removed=$(comm -23 <(echo "$before" | sort) <(echo "$after" | sort))
+if [ -z "$removed" ] && [ "$added" = "$GUARD" ]; then echo "PASS ISO-01 every non-Food object identical after the migrations, except the one intended guard trigger ($(echo "$before" | wc -l) objects)"
 else echo "FAIL ISO-01 non-Food objects changed:"; diff <(echo "$before") <(echo "$after") | head -20; result=1; fi
+check "ISO-11 the only non-Food addition is exactly the REV-D1 guard trigger" "$added" "$GUARD"
 
 # the whole lifecycle, as real users (synthetic identities)
 Q -d "$db" >/dev/null 2>&1 <<'SQL'
@@ -81,7 +86,7 @@ check "ISO-07 no Food order is paid, whatever its mode" "$(Q -d "$db" -c "select
 check "ISO-08 food_pay_order refuses an order whose receipt is not confirmed" \
   "$(Q -d "$db" -c "do \$\$ begin perform set_config('request.jwt.claims','{\"sub\":\"f0000000-0000-4000-8000-0000000000a1\"}',true); set local role authenticated; perform food_pay_order((select id from food_orders limit 1)); raise notice 'PAID'; exception when sqlstate '22023' then raise notice 'REFUSED'; end \$\$;" 2>&1 | grep -o -E 'REFUSED|PAID')" "REFUSED"
 final=$(inv) || exit 1
-check "ISO-09 non-Food objects still identical after the lifecycle" "$( [ "$before" = "$final" ] && echo same || echo changed)" "same"
+check "ISO-09 non-Food objects unchanged by the lifecycle (vs. after the migrations)" "$( [ "$after" = "$final" ] && echo same || echo changed)" "same"
 # positive control: the canary counter really does see a ledger write
 check "ISO-10 control: a real ledger write IS counted by the canary"   "$(Q -d "$db" -c "begin; select public.create_ledger_transaction(1,'control'); select count(*) from canary.hits; rollback;" | tail -1)" "1"
 exit $result

@@ -120,7 +120,8 @@ These are queries E6, E6b and E6c. The local test showed E6b flags an owner with
 8. `20261013126000_ledger_direct_execute_boundary` (part 1: creates the boundary only)
 9. `20261013127000_food_exception_self_resolution`
 10. `20261013128000_food_payment_after_receipt`
-11. `20261013129000_ledger_direct_execute_revoke` (part 2). Apply **only after** the new frontend is published and the COO Returns posting is verified (runbook step 8).
+11. `20261013128500_food_reversal_and_handover_controls`: owner decisions REV-D1 and HND-D1. It adds a narrowly filtered guard trigger on `general_ledger`, which fires only for Food payment reversal rows (evidence E2b).
+12. `20261013129000_ledger_direct_execute_revoke` (part 2). Apply **only after** the new frontend is published and the COO Returns posting is verified (runbook step 8).
 
 **Production prerequisites** (Food calls these by name; E1 to E5 verify them):
 - `check_transfer_recipient_eligibility(uuid, text, uuid)`, `get_user_available_balance(uuid)`, `create_ledger_transaction(jsonb, text, boolean)`;
@@ -152,7 +153,7 @@ All of these are defined at the local `origin/lovable` tip `2b3a0f0144` (reposit
    - Push the feature branch.
    - *The permission system has twice refused this merge from an assistant session; a person may need to run it.*
 2. **Confirm Lovable's agent is idle** (`get_project` → `agentFinished`; no new `lovable-sync-*` branch).
-3. **Apply migrations 1–10** (section 6) in production, through the Lovable agent, **in that order**. Do **not** apply `20261013129000` yet.
+3. **Apply migrations 1–11** (section 6) in production, through the Lovable agent, **in that order**. Do **not** apply `20261013129000` yet.
 4. **Post-migration read-only check:** rerun E2 (all Food objects present; versions recorded), E1c and E6b.
 5. **Fast-forward `lovable`** to the merged release commit. Confirm the remote first; never force-push.
 6. **Message Lovable** so it re-syncs on purpose, and let it publish the frontend.
@@ -166,3 +167,29 @@ All of these are defined at the local `origin/lovable` tip `2b3a0f0144` (reposit
 **Rollback per step:**
 - Steps 3–6: each migration header has a ROLLBACK note. Revert the frontend by fast-forwarding a revert commit; never rewrite `lovable`.
 - Step 8: re-grant only if absolutely required, and record why.
+
+## 8. Owner policy decisions (2026-10-13), as implemented
+
+**REV-D1: reversal only through an authorised, audited process.**
+- The employee's ordinary statement Reverse is refused for canteen payments, with nothing posted. The guard on `general_ledger` refuses any Food reversal row without a matching in-progress authorised record, so the shared `reverse_wallet_transfer` is not changed.
+- The only way to reverse is `food_reverse_payment(order, reason)`:
+  - full amount only;
+  - the reviewer must not be a party to the payment;
+  - every outcome is recorded in `food_payment_reversals`, including a refusal when the coordinator no longer holds the amount.
+- **Assumption, for the owner to confirm:** the authorised reviewer is an enabled `cfo` or `super_admin`. This lives in one function, `food_can_authorise_payment_reversal`.
+- The statement UI may still show a Reverse button for a canteen payment; the server refuses it. Hiding it is a UI change (Gemini).
+
+**REV-D2: retry only by authorised decision; never an automatic recharge.**
+- `food_authorize_payment_retry` (active coordinator, reason required, not for their own order) opens a new attempt identity.
+- The employee pays again themselves; repeats are replays.
+
+**REV-D3: scheduled reconciliation.**
+- Not enabled anywhere. The recommendation in section 4 applies only after production verification and approval.
+
+**HND-D1: another active coordinator handles a blocked payment.**
+- `food_resolve_blocked_payment(order, reason)` is for the active coordinator only.
+- The caller must be neither the employee nor the blocked payee.
+- A reason is required.
+- It is refused while the original payee can be paid again, and refused if the new payee has no wallet or is frozen, closed or not staff.
+- It records the new payee's wallet and name, and audits both payees and the reason. No payment is made or retried.
+

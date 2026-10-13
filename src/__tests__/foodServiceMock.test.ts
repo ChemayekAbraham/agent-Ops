@@ -1077,3 +1077,16 @@ describe('authorised payment retry in the fixture', () => {
       .rejects.toThrow(/whose payment was reversed/i);
   });
 });
+
+describe('policy controls in the fixture', () => {
+  it('nobody can reverse a canteen payment in the fixture, and a takeover needs an active coordinator and a reason', async () => {
+    setFoodMockUser(MOCK_EMPLOYEE);
+    await expect(foodMockRpc('food_reverse_payment', { p_order_id: crypto.randomUUID(), p_reason: 'long enough reason' }))
+      .rejects.toThrow(/authorised finance reviewer/i);
+    await expect(foodMockRpc('food_resolve_blocked_payment', { p_order_id: crypto.randomUUID(), p_reason: 'long enough reason' }))
+      .rejects.toThrow(/active Food Coordinator/i);
+    actAsFoodCoordinator(true);
+    await expect(foodMockRpc('food_resolve_blocked_payment', { p_order_id: crypto.randomUUID(), p_reason: 'short' }))
+      .rejects.toThrow(/at least 10/i);
+  });
+});

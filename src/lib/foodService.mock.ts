@@ -477,6 +477,21 @@ const RPC: Record<string, (a: Args) => unknown> = {
     fail(`Only an order whose payment was reversed can get a new payment attempt (this one is ${o.payment_status})`);
   },
 
+  // REV-D1 / HND-D1 mirrors. The fixture never takes a payment, so nothing is
+  // ever paid (to reverse) or blocked (to take over); the caller rules and
+  // the mandatory reason are applied, then the state rule refuses.
+  food_reverse_payment: () => {
+    fail('Only an authorised finance reviewer can reverse a canteen payment');
+  },
+  food_resolve_blocked_payment: (a) => {
+    requireActiveCoordinator();
+    if (typeof a.p_reason !== 'string' || a.p_reason.trim().length < 10) fail('Give a reason of at least 10 characters');
+    const o = S.orders.find((x) => x.id === a.p_order_id);
+    if (!o) fail('Order not found');
+    if (o.employee_id === currentUser) fail('You cannot take over the payment for your own order');
+    fail('This order is not blocked on its payee');
+  },
+
   food_pay_order: (a) => {
     const o = S.orders.find((x) => x.id === a.p_order_id);
     const why = !o ? 'order not found'
