@@ -288,5 +288,6 @@ export default function WelcomeNew() {
         </div>
       )}
     </div>
+    </>
   );
 }
