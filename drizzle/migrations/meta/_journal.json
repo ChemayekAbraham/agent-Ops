@@ -3823,6 +3823,20 @@
       "when": 1791867682719,
       "tag": "0545_assistant_tenant_counts_live_accounts",
       "breakpoints": true
+    },
+    {
+      "idx": 546,
+      "version": "7",
+      "when": 1791877114597,
+      "tag": "0546_redemption_lock_only_when_processing",
+      "breakpoints": true
+    },
+    {
+      "idx": 547,
+      "version": "7",
+      "when": 1791877275128,
+      "tag": "0547_redemption_notice_countdown",
+      "breakpoints": true
     }
   ]
 }
