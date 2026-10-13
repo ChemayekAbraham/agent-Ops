@@ -44,6 +44,25 @@ export function CFOROIRequests() {
   const [filter, setFilter] = useState<'coo_approved' | 'approved' | 'rejected' | 'all'>('coo_approved');
   const [search, setSearch] = useState('');
   const [dateFilter, setDateFilter] = useState<Date | undefined>(undefined);
+  const [rangeFilter, setRangeFilter] = useState<'today' | 'yesterday' | 'last_week' | 'this_month' | null>(null);
+
+  // Kampala (UTC+3) day boundaries — the platform's canonical day, used everywhere else
+  const kampalaDayStartUtc = (d: Date) => {
+    const k = new Date(d.getTime() + 3 * 3600 * 1000);
+    return new Date(Date.UTC(k.getUTCFullYear(), k.getUTCMonth(), k.getUTCDate()) - 3 * 3600 * 1000);
+  };
+  const rangeBounds = useMemo((): [Date, Date] | null => {
+    if (!rangeFilter) return null;
+    const now = new Date();
+    const todayStart = kampalaDayStartUtc(now);
+    if (rangeFilter === 'today') return [todayStart, new Date(todayStart.getTime() + 24 * 3600 * 1000)];
+    if (rangeFilter === 'yesterday') return [new Date(todayStart.getTime() - 24 * 3600 * 1000), todayStart];
+    if (rangeFilter === 'last_week') return [new Date(todayStart.getTime() - 6 * 24 * 3600 * 1000), new Date(todayStart.getTime() + 24 * 3600 * 1000)];
+    // this month: first day of the Kampala month through its end
+    const k = new Date(now.getTime() + 3 * 3600 * 1000);
+    const monthStartUtc = new Date(Date.UTC(k.getUTCFullYear(), k.getUTCMonth(), 1) - 3 * 3600 * 1000);
+    return [monthStartUtc, new Date(Date.UTC(k.getUTCFullYear(), k.getUTCMonth() + 1, 1) - 3 * 3600 * 1000)];
+  }, [rangeFilter]);
 
   const { data: operations = [], isLoading } = useQuery({
     queryKey: ['cfo-roi-requests', filter],
@@ -53,7 +72,7 @@ export function CFOROIRequests() {
         .select('*')
         .eq('category', 'roi_payout')
         .order('created_at', { ascending: false })
-        .limit(100);
+        .limit(rangeFilter === 'this_month' || rangeFilter === 'last_week' ? 500 : 100);
 
       if (filter !== 'all') {
         query = query.eq('status', filter);
@@ -188,12 +207,13 @@ export function CFOROIRequests() {
   });
 
   const filtered = operations.filter(op => {
+    const created = new Date(op.created_at);
+    if (rangeBounds) {
+      if (created < rangeBounds[0] || created >= rangeBounds[1]) return false;
+    }
     if (dateFilter) {
-      const created = new Date(op.created_at);
-      const sameDay = created.getFullYear() === dateFilter.getFullYear() &&
-        created.getMonth() === dateFilter.getMonth() &&
-        created.getDate() === dateFilter.getDate();
-      if (!sameDay) return false;
+      const dayStart = kampalaDayStartUtc(dateFilter);
+      if (created < dayStart || created >= new Date(dayStart.getTime() + 24 * 3600 * 1000)) return false;
     }
     if (!search) return true;
     const s = search.toLowerCase();
@@ -241,12 +261,30 @@ export function CFOROIRequests() {
             {f === 'coo_approved' ? 'Pending' : f.charAt(0).toUpperCase() + f.slice(1)}
           </Button>
         ))}
+        <span className="w-px self-stretch bg-border mx-1" aria-hidden />
+        {(['today', 'yesterday', 'last_week', 'this_month'] as const).map(r => (
+          <Button
+            key={r}
+            variant={rangeFilter === r ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => {
+              setRangeFilter(prev => (prev === r ? null : r));
+              setDateFilter(undefined);
+            }}
+          >
+            {r === 'today' && 'Today'}
+            {r === 'yesterday' && 'Yesterday'}
+            {r === 'last_week' && 'Last week'}
+            {r === 'this_month' && 'This month'}
+          </Button>
+        ))}
         <Popover>
           <PopoverTrigger asChild>
             <Button
               variant={dateFilter ? 'default' : 'outline'}
               size="sm"
               className={cn(!dateFilter && 'text-muted-foreground font-normal')}
+              onClick={() => setRangeFilter(null)}
             >
               <CalendarIcon className="h-3.5 w-3.5 mr-1" />
               {dateFilter ? format(dateFilter, 'dd MMM yyyy') : 'Filter by date'}
