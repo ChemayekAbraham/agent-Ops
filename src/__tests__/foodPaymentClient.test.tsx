@@ -23,7 +23,6 @@ vi.mock('@/integrations/supabase/client', () => ({
       if (fn === 'food_pay_order') return Promise.resolve({ data: payResult, error: null });
       if (fn === 'food_reconcile_payments') return Promise.resolve({ data: { checked: 0, reversed: 0, limit: args.p_limit, more_pending: false }, error: null });
       if (fn === 'food_authorize_payment_retry') return Promise.resolve({ data: { status: 'pending_payment', order_id: args.p_order_id, attempt: 2, payee_id: 'c' }, error: null });
-      if (fn === 'food_reverse_payment') return Promise.resolve({ data: payResult, error: null });
       if (fn === 'food_resolve_blocked_payment') return Promise.resolve({ data: { status: 'pending_payment', order_id: args.p_order_id, payee_id: 'n', payee_name: 'N', payee_wallet_id: 'w', previous_payee_blocked_because: 'account frozen' }, error: null });
       if (fn === 'food_verify_payment') return Promise.resolve({ data: { status: 'paid', order_id: args.p_order_id, verified: true }, error: null });
       return Promise.resolve({ data: null, error: null });
@@ -34,7 +33,7 @@ vi.mock('@/integrations/supabase/client', () => ({
 vi.mock('sonner', () => ({ toast: { success: (...a: unknown[]) => toastSuccess(...a), error: (...a: unknown[]) => toastError(...a) } }));
 vi.stubEnv('VITE_FOOD_SERVICE_MOCK', '');
 
-import { useConfirmFoodReceipt, usePayFoodOrder, useVerifyFoodPayment, useReconcileFoodPayments, useAuthorizeFoodPaymentRetry, useReverseFoodPayment, useResolveBlockedFoodPayment } from '@/hooks/useFoodService';
+import { useConfirmFoodReceipt, usePayFoodOrder, useVerifyFoodPayment, useReconcileFoodPayments, useAuthorizeFoodPaymentRetry, useResolveBlockedFoodPayment } from '@/hooks/useFoodService';
 
 function wrapper({ children }: { children: ReactNode }) {
   const qc = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
@@ -120,23 +119,7 @@ describe('blocked recipient and authorised retry', () => {
   });
 });
 
-describe('policy controls (REV-D1, HND-D1)', () => {
-  it('an authorised reversal sends only the order id and the reason', async () => {
-    payResult = { status: 'reversed', order_id: ORDER, amount: 5000, reversal_reference: 'FOODPAY-X-REV' };
-    const { result } = renderHook(() => useReverseFoodPayment(), { wrapper });
-    await act(async () => { await result.current.mutateAsync({ orderId: ORDER, reason: 'meal never delivered' }); });
-    expect(rpcCalls).toEqual([['food_reverse_payment', { p_order_id: ORDER, p_reason: 'meal never delivered' }]]);
-    expect(toastSuccess).toHaveBeenCalled();
-  });
-
-  it('a refused reversal is reported as not reversed', async () => {
-    payResult = { status: 'refused', order_id: ORDER, reason: 'coordinator_insufficient_funds' };
-    const { result } = renderHook(() => useReverseFoodPayment(), { wrapper });
-    await act(async () => { await result.current.mutateAsync({ orderId: ORDER, reason: 'meal never delivered' }); });
-    expect(toastSuccess).not.toHaveBeenCalled();
-    expect(toastError.mock.calls[0][0]).toMatch(/nothing was reversed/i);
-  });
-
+describe('policy controls (HND-D1)', () => {
   it('a takeover sends only the order id and the reason; no payment call is made', async () => {
     const { result } = renderHook(() => useResolveBlockedFoodPayment(), { wrapper });
     await act(async () => { await result.current.mutateAsync({ orderId: ORDER, reason: 'previous coordinator frozen' }); });

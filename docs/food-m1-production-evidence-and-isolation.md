@@ -120,7 +120,7 @@ These are queries E6, E6b and E6c. The local test showed E6b flags an owner with
 8. `20261013126000_ledger_direct_execute_boundary` (part 1: creates the boundary only)
 9. `20261013127000_food_exception_self_resolution`
 10. `20261013128000_food_payment_after_receipt`
-11. `20261013128500_food_reversal_and_handover_controls`: owner decisions REV-D1 and HND-D1. It adds a narrowly filtered guard trigger on `general_ledger`, which fires only for Food payment reversal rows (evidence E2b).
+11. `20261013128500_food_reversal_and_handover_controls`: owner decisions REV-D1 (no reversals) and HND-D1. It adds a narrowly filtered guard trigger on `general_ledger`, which fires only for Food payment reversal rows and refuses them (evidence E2b).
 12. `20261013129000_ledger_direct_execute_revoke` (part 2). Apply **only after** the new frontend is published and the COO Returns posting is verified (runbook step 8).
 
 **Production prerequisites** (Food calls these by name; E1 to E5 verify them):
@@ -170,14 +170,12 @@ All of these are defined at the local `origin/lovable` tip `2b3a0f0144` (reposit
 
 ## 8. Owner policy decisions (2026-10-13), as implemented
 
-**REV-D1: reversal only through an authorised, audited process.**
-- The employee's ordinary statement Reverse is refused for canteen payments, with nothing posted. The guard on `general_ledger` refuses any Food reversal row without a matching in-progress authorised record, so the shared `reverse_wallet_transfer` is not changed.
-- The only way to reverse is `food_reverse_payment(order, reason)`:
-  - full amount only;
-  - the reviewer must not be a party to the payment;
-  - every outcome is recorded in `food_payment_reversals`, including a refusal when the coordinator no longer holds the amount.
-- **Assumption, for the owner to confirm:** the authorised reviewer is an enabled `cfo` or `super_admin`. This lives in one function, `food_can_authorise_payment_reversal`.
-- The statement UI may still show a Reverse button for a canteen payment; the server refuses it. Hiding it is a UI change (Gemini).
+**REV-D1 (owner, 2026-10-14): canteen payments are internal and are not reversed.**
+- The ledger guard refuses every reversal posting for a canteen payment, whoever tries. That covers the employee's ordinary statement Reverse and any other route.
+- Food has no reversal path.
+- The shared `reverse_wallet_transfer` is not changed.
+- The statement UI may still show a Reverse button for a canteen payment; the server refuses it ("Canteen payments are not reversible"). Hiding the button is a UI change (Gemini).
+- Food still detects and records a reversal, should one ever reach the ledger by another route (defence in depth).
 
 **REV-D2: retry only by authorised decision; never an automatic recharge.**
 - `food_authorize_payment_retry` (active coordinator, reason required, not for their own order) opens a new attempt identity.

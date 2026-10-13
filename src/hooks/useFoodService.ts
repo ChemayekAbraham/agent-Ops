@@ -812,28 +812,6 @@ export function useAuthorizeFoodPaymentRetry() {
 }
 
 /**
- * REV-D1: an authorised finance reviewer (not a party to the payment) reverses
- * a canteen payment, with a mandatory reason. The ordinary statement Reverse
- * is refused for canteen payments. 'refused' means the coordinator no longer
- * holds the amount; nothing was posted and the refusal is recorded.
- */
-export function useReverseFoodPayment() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (v: { orderId: string; reason: string }) =>
-      call<{ status: 'reversed'; order_id: string; amount: number; reversal_reference: string }
-         | { status: 'refused'; order_id: string; reason: 'coordinator_insufficient_funds' }>(
-        'food_reverse_payment', { p_order_id: v.orderId, p_reason: v.reason }),
-    onSuccess: (r) => {
-      invalidateFood(qc);
-      if (r.status === 'reversed') toast.success('Payment reversed and returned to the employee');
-      else toast.error('The Food Coordinator no longer holds this amount. Nothing was reversed; the refusal is recorded.');
-    },
-    onError,
-  });
-}
-
-/**
  * HND-D1: another active Food Coordinator takes over an order whose payment
  * is blocked on its original coordinator, with a mandatory reason. No payment
  * is made: the employee pays again themselves.

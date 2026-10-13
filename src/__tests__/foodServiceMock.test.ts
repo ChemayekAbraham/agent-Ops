@@ -1079,10 +1079,10 @@ describe('authorised payment retry in the fixture', () => {
 });
 
 describe('policy controls in the fixture', () => {
-  it('nobody can reverse a canteen payment in the fixture, and a takeover needs an active coordinator and a reason', async () => {
+  it('has no reversal call at all, and a takeover needs an active coordinator and a reason', async () => {
     setFoodMockUser(MOCK_EMPLOYEE);
     await expect(foodMockRpc('food_reverse_payment', { p_order_id: crypto.randomUUID(), p_reason: 'long enough reason' }))
-      .rejects.toThrow(/authorised finance reviewer/i);
+      .rejects.toThrow(/no implementation for/i);
     await expect(foodMockRpc('food_resolve_blocked_payment', { p_order_id: crypto.randomUUID(), p_reason: 'long enough reason' }))
       .rejects.toThrow(/active Food Coordinator/i);
     actAsFoodCoordinator(true);

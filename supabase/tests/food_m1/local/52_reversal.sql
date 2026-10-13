@@ -6,8 +6,9 @@
 -- legs / avail). Repo definitions only: the live reversal functions have not
 -- been read in production.
 
--- REV-D1 (20261013128500) refuses any unauthorised reversal of a Food payment.
--- These detection and settlement tests need a reversal to EXIST, so the guard
+-- REV-D1 (20261013128500): canteen payments are not reversed; the ledger guard
+-- refuses every reversal. These detection and settlement tests need a reversal
+-- to EXIST (defence in depth, should one ever bypass the guard), so the guard
 -- is switched off for 52 and 53 (re-enabled at the end of 53) to stand in for
 -- a reversal reaching the ledger by any route. The guard itself is tested,
 -- switched on, in 55_policy_controls.sql.

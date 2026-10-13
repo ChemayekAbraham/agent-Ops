@@ -566,3 +566,24 @@ Nothing was done in production. No merge into or push to `lovable`.
 - R2–R4 16/16; ledger boundary 32/32; Food vitest 257.
 
 **Evidence pack:** E2 lists `128500` and `food_payment_reversals`. A new E2b checks that the guard's trigger name is free, that no existing ledger row uses a Food payment reference, and that the reviewer roles exist.
+
+
+## REV-D1 revised: no reversals (owner, 2026-10-14, after 2275cfd8ba)
+
+**Owner decision:** "We are not reversing, since it is internal, we don't need it." Chosen option: **block all reversals.**
+
+**Change** (`20261013128500`, never applied anywhere, edited in place):
+- The ledger guard now refuses **every** reversal posting for a canteen payment (reference `FOODPAY-%-REV` or key `reversal:FOODPAY-%`), whoever attempts it. The error is "Canteen payments are not reversible".
+- Removed: the authorised-reversal function `food_reverse_payment`, the `food_payment_reversals` table, the reviewer check `food_can_authorise_payment_reversal`, and the CFO/super_admin assumption.
+- Kept: HND-D1 (`food_resolve_blocked_payment`), REV-D2 (an authorised retry exists for a reversed order, should one ever arise), and the reversal detection and reconciliation as defence in depth.
+- App side: the reversal hook and fixture stub were removed; the takeover hook stays.
+
+**Tests:**
+- 55_policy_controls: P1-01…05 (the employee's standard Reverse and any other route are refused with nothing posted; the receiving coordinator cannot reverse; Food has no reversal path) and P4-00…12 (HND-D1).
+- Negative control: with the guard as a no-op, P1-01/02/03 fail.
+
+**Results:**
+- PostgreSQL 17 and 18: run 381/381, race 17/17, matrix 32/32 (MIG-A4 back to 12 tables), isolation 11/11, dry run 15/15.
+- R2–R4 16/16; Food vitest 255.
+
+**Status:** REV-D1 **FIXED (local)**; the open reviewer-role assumption is **withdrawn**. The statement UI may still show a Reverse button that the server refuses; hiding it is UI work (Gemini).

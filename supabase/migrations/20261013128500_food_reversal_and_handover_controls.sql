@@ -3,21 +3,15 @@
 -- NOT APPLIED TO PRODUCTION. Applies after 20261013128000 and before
 -- 20261013129000.
 --
--- REV-D1. Reversals of a Food payment are permitted ONLY through an
--- authorised, audited process. A Food payment is an ordinary wallet_transfer,
--- so the shared sender reversal (reverse_wallet_transfer, drizzle 0451/0453;
--- production-only definitions, not overwritten here) would let the employee
--- reverse it from their statement. Instead of changing that shared function,
--- a narrow guard on general_ledger refuses any reversal posting for a Food
--- payment reference (reference 'FOODPAY-…-REV' or key 'reversal:FOODPAY-…')
--- unless a matching authorised reversal is in progress. Only
--- food_reverse_payment creates that record, so the guard cannot be satisfied
--- from outside. The shared function then fails with nothing posted.
---   Authorisers: an enabled 'cfo' or 'super_admin' role, never the order's
---   employee or payee (food_can_authorise_payment_reversal; owner to confirm).
---   Full amount only; the coordinator's balance is checked by the ledger. A
---   refusal is recorded; nothing is retried or re-charged automatically.
---
+-- REV-D1 (owner, 2026-10-14). Canteen payments are internal and are NOT
+-- reversed. A Food payment is an ordinary wallet_transfer, so the shared
+-- sender reversal (reverse_wallet_transfer, drizzle 0451/0453; production-only
+-- definitions, not overwritten here) would otherwise let the employee reverse
+-- it from their statement. A narrow guard on general_ledger refuses EVERY
+-- reversal posting for a Food payment reference (reference 'FOODPAY-…-REV' or
+-- key 'reversal:FOODPAY-…'), whoever attempts it; the shared function then
+-- fails with nothing posted. There is deliberately no reversal path in Food.
+
 -- HND-D1. If the receipt-time coordinator cannot be paid (the order was
 -- blocked), ANOTHER active Food Coordinator takes the exception over with a
 -- mandatory reason: they become the payee (their wallet and name are
@@ -26,46 +20,14 @@
 -- retried: the employee pays again themselves, through every normal check.
 --
 -- ROLLBACK: DROP TRIGGER food_guard_payment_reversal ON general_ledger; DROP
--- FUNCTION food_guard_payment_reversal(), food_reverse_payment(uuid,text),
--- food_resolve_blocked_payment(uuid,text), food_can_authorise_payment_reversal(uuid),
--- food_payee_block_reason(uuid,uuid,uuid); DROP TABLE food_payment_reversals.
+-- FUNCTION food_guard_payment_reversal(), food_resolve_blocked_payment(uuid,text),
+-- food_payee_block_reason(uuid,uuid,uuid).
 
--- ═══════════════ the reversal record ═══════════════
-CREATE TABLE public.food_payment_reversals (
-  id                    uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  order_id              uuid NOT NULL REFERENCES public.food_orders(id),
-  attempt_no            integer NOT NULL,
-  reference             text NOT NULL,                 -- the payment's ledger reference
-  reversal_reference    text NOT NULL,                 -- reference || '-REV'
-  amount                numeric NOT NULL CHECK (amount > 0),
-  reason                text NOT NULL CHECK (length(btrim(reason)) >= 10),
-  authorised_by         uuid NOT NULL REFERENCES public.profiles(id),
-  state                 text NOT NULL CHECK (state IN ('executing','posted','refused')),
-  refusal_reason        text,
-  transaction_group_id  uuid,
-  created_at            timestamptz NOT NULL DEFAULT now(),
-  completed_at          timestamptz);
-CREATE UNIQUE INDEX food_payment_reversals_one_posted
-  ON public.food_payment_reversals (reference) WHERE state = 'posted';
-ALTER TABLE public.food_payment_reversals ENABLE ROW LEVEL SECURITY;
-CREATE POLICY food_reversals_read ON public.food_payment_reversals FOR SELECT TO authenticated
-  USING (EXISTS (SELECT 1 FROM public.food_orders o WHERE o.id = order_id
-                   AND (o.employee_id = auth.uid() OR public.is_food_coordinator(auth.uid()))));
-REVOKE ALL ON public.food_payment_reversals FROM PUBLIC, anon, authenticated;
-GRANT SELECT ON public.food_payment_reversals TO authenticated;
-
--- ═══════════════ the guard: no unauthorised reversal of a Food payment ═══════════════
+-- ═══════════════ the guard: no reversal of a Food payment ═══════════════
 CREATE FUNCTION public.food_guard_payment_reversal()
 RETURNS trigger LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
 BEGIN
-  IF NOT EXISTS (SELECT 1 FROM public.food_payment_reversals r
-                  WHERE r.state = 'executing'
-                    AND (r.reversal_reference = NEW.reference_id
-                         OR 'reversal:' || r.reference = NEW.idempotency_key)) THEN
-    RAISE EXCEPTION 'Canteen payments can only be reversed through the authorised Food reversal process. Nothing was changed.'
-      USING ERRCODE = '42501';
-  END IF;
-  RETURN NEW;
+  RAISE EXCEPTION 'Canteen payments are not reversible. Nothing was changed.' USING ERRCODE = '42501';
 END $$;
 REVOKE ALL ON FUNCTION public.food_guard_payment_reversal() FROM PUBLIC, anon, authenticated;
 -- Fires only for Food payment reversal rows; every other ledger insert skips it.
@@ -74,94 +36,6 @@ CREATE TRIGGER food_guard_payment_reversal
   FOR EACH ROW
   WHEN (NEW.reference_id LIKE 'FOODPAY-%-REV' OR NEW.idempotency_key LIKE 'reversal:FOODPAY-%')
   EXECUTE FUNCTION public.food_guard_payment_reversal();
-
--- ═══════════════ who may authorise a reversal ═══════════════
-CREATE FUNCTION public.food_can_authorise_payment_reversal(_user_id uuid)
-RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
-  SELECT _user_id IS NOT NULL AND EXISTS (
-    SELECT 1 FROM public.user_roles ur
-     WHERE ur.user_id = _user_id AND ur.role::text IN ('cfo', 'super_admin') AND COALESCE(ur.enabled, true));
-$$;
-REVOKE ALL ON FUNCTION public.food_can_authorise_payment_reversal(uuid) FROM PUBLIC, anon, authenticated;
-
--- ═══════════════ REV-D1: the authorised, audited reversal ═══════════════
-CREATE FUNCTION public.food_reverse_payment(p_order_id uuid, p_reason text)
-RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
-DECLARE v_uid uuid := auth.uid(); v_o public.food_orders%ROWTYPE; v_att public.food_payment_attempts%ROWTYPE;
-        v_ref text; v_rev_id uuid; v_group uuid; v_ok boolean; v_problem jsonb;
-BEGIN
-  IF NOT public.food_can_authorise_payment_reversal(v_uid) THEN
-    RAISE EXCEPTION 'Only an authorised finance reviewer can reverse a canteen payment' USING ERRCODE='42501'; END IF;
-  IF p_reason IS NULL OR length(btrim(p_reason)) < 10 THEN
-    RAISE EXCEPTION 'Give a reason of at least 10 characters' USING ERRCODE='22023'; END IF;
-  SELECT * INTO v_o FROM public.food_orders WHERE id = p_order_id FOR UPDATE;
-  IF NOT FOUND THEN RAISE EXCEPTION 'Order not found' USING ERRCODE='P0002'; END IF;
-  IF v_uid IN (v_o.employee_id, v_o.payee_id) THEN
-    RAISE EXCEPTION 'You cannot authorise a reversal of a payment you made or received' USING ERRCODE='42501'; END IF;
-  IF v_o.payment_status <> 'paid' THEN
-    RAISE EXCEPTION 'Only a paid order can be reversed (this one is %)', v_o.payment_status USING ERRCODE='22023'; END IF;
-  v_problem := public.food_payment_problem(v_o);
-  IF v_problem->>'problem' IS NOT NULL THEN
-    RAISE EXCEPTION 'This payment is not intact (%); run verification first', v_problem->>'problem' USING ERRCODE='22023'; END IF;
-  SELECT * INTO v_att FROM public.food_payment_attempts WHERE transaction_group_id = v_o.transaction_group_id;
-  v_ref := v_att.reference;
-
-  INSERT INTO public.food_payment_reversals (order_id, attempt_no, reference, reversal_reference, amount, reason,
-                                             authorised_by, state)
-  VALUES (v_o.id, v_att.attempt_no, v_ref, v_ref || '-REV', v_att.amount, btrim(p_reason), v_uid, 'executing')
-  RETURNING id INTO v_rev_id;
-
-  BEGIN
-    -- same markers as the standard reversal, so every detector recognises it
-    v_group := public.create_ledger_transaction(
-      entries => jsonb_build_array(
-        jsonb_build_object('user_id', v_att.payee_id, 'amount', v_att.amount, 'direction', 'cash_out',
-          'category', 'wallet_transfer', 'ledger_scope', 'wallet', 'recipient_type', 'user',
-          'wallet_bucket', 'withdrawable', 'source_table', 'food_orders', 'source_id', v_o.id,
-          'reference_id', v_ref || '-REV', 'description', 'Canteen payment reversed (' || v_o.order_reference || ')',
-          'currency', 'UGX'),
-        jsonb_build_object('user_id', v_att.payer_id, 'amount', v_att.amount, 'direction', 'cash_in',
-          'category', 'wallet_transfer', 'ledger_scope', 'wallet', 'recipient_type', 'user',
-          'wallet_bucket', 'withdrawable', 'source_table', 'food_orders', 'source_id', v_o.id,
-          'reference_id', v_ref || '-REV', 'description', 'Canteen payment returned (' || v_o.order_reference || ')',
-          'currency', 'UGX')),
-      idempotency_key => 'reversal:' || v_ref);
-  EXCEPTION WHEN raise_exception THEN
-    IF SQLERRM ILIKE 'Insufficient%balance%' THEN
-      UPDATE public.food_payment_reversals
-         SET state = 'refused', refusal_reason = 'coordinator_insufficient_funds', completed_at = now()
-       WHERE id = v_rev_id;
-      INSERT INTO public.food_order_events (order_id, event_type, from_status, to_status, note, actor_id)
-      VALUES (v_o.id, 'payment_reversal_refused', 'paid', 'paid', 'coordinator_insufficient_funds', v_uid);
-      PERFORM public.food_audit_write('order', v_o.id, 'payment_reversal_refused', NULL,
-        jsonb_build_object('reason','coordinator_insufficient_funds','amount',v_att.amount), btrim(p_reason), v_uid);
-      RETURN jsonb_build_object('status','refused','order_id',v_o.id,'reason','coordinator_insufficient_funds');
-    END IF;
-    RAISE;
-  END;
-
-  -- verify the reversal legs landed on the original wallets, exactly
-  SELECT count(*) = 2
-     AND count(*) FILTER (WHERE g.user_id = v_att.payee_id AND g.direction = 'cash_out' AND g.wallet_id = v_att.payee_wallet_id) = 1
-     AND count(*) FILTER (WHERE g.user_id = v_att.payer_id AND g.direction = 'cash_in'  AND g.wallet_id = v_att.payer_wallet_id) = 1
-     AND bool_and(g.amount = v_att.amount AND g.reference_id = v_ref || '-REV' AND g.category = 'wallet_transfer')
-    INTO v_ok FROM public.general_ledger g WHERE g.transaction_group_id = v_group;
-  IF NOT coalesce(v_ok, false) THEN
-    RAISE EXCEPTION 'The reversal could not be verified in the ledger; nothing was changed' USING ERRCODE='XX000'; END IF;
-
-  UPDATE public.food_payment_reversals
-     SET state = 'posted', transaction_group_id = v_group, completed_at = now() WHERE id = v_rev_id;
-  INSERT INTO public.food_order_events (order_id, event_type, from_status, to_status, note, actor_id)
-  VALUES (v_o.id, 'payment_reversal_authorised', 'paid', 'paid', btrim(p_reason), v_uid);
-  PERFORM public.food_audit_write('order', v_o.id, 'payment_reversal_authorised', NULL,
-    jsonb_build_object('amount', v_att.amount, 'reversal_reference', v_ref || '-REV',
-                       'transaction_group_id', v_group, 'reversal_id', v_rev_id), btrim(p_reason), v_uid);
-  -- record the outcome on the order and the attempt, as for any detected reversal
-  SELECT * INTO v_o FROM public.food_orders WHERE id = p_order_id;
-  PERFORM public.food_mark_payment_reversed(v_o.id, v_o.transaction_group_id, public.food_payment_problem(v_o), v_uid);
-  RETURN jsonb_build_object('status','reversed','order_id',v_o.id,'amount',v_att.amount,
-                            'reversal_reference',v_ref || '-REV','transaction_group_id',v_group,'reversal_id',v_rev_id);
-END $$;
 
 -- ═══════════════ HND-D1: another active coordinator takes over a blocked order ═══════════════
 -- Why a payee cannot be paid now (NULL = they can). Same checks as payment,
@@ -228,7 +102,5 @@ BEGIN
                             'payee_name',v_name,'payee_wallet_id',v_wallet,'previous_payee_blocked_because',v_still);
 END $$;
 
-REVOKE ALL ON FUNCTION public.food_reverse_payment(uuid, text), public.food_resolve_blocked_payment(uuid, text)
-  FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.food_reverse_payment(uuid, text), public.food_resolve_blocked_payment(uuid, text)
-  TO authenticated;
+REVOKE ALL ON FUNCTION public.food_resolve_blocked_payment(uuid, text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.food_resolve_blocked_payment(uuid, text) TO authenticated;

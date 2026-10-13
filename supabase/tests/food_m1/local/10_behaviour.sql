@@ -218,10 +218,9 @@ SELECT food_test.raises($$DELETE FROM public.food_audit$$, 'P0001', 'INT-01 audi
 SELECT food_test.ok(NOT EXISTS (
   SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
    WHERE n.nspname='public' AND (p.proname LIKE 'food\_%' OR p.proname LIKE '%food\_coordinator%')
-       -- the payment path (20261013128000) and the authorised reversal
-       -- (20261013128500) are the ONLY Food code allowed to reach the ledger;
-       -- their contracts are tested in 48_payment.sql and 55_policy_controls.sql
-       AND p.proname NOT IN ('food_pay_order', 'food_payment_problem', 'food_reverse_payment')
+       -- the payment path (20261013128000) is the ONLY Food code allowed to
+       -- reach the ledger; its contract is tested in 48_payment.sql
+       AND p.proname NOT IN ('food_pay_order', 'food_payment_problem')
      -- statements that would touch money; comments and messages mention
      -- "wallet" deliberately and are not matched
      -- \y is the word boundary in PostgreSQL regex (\b would mean backspace)
