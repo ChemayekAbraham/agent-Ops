@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { Bell, Building2, Calculator, CalendarDays, ChevronLeft, ChevronRight, Eye, EyeOff, FileText, Hand, Home, Menu, Store, Trophy, Users, Wallet, type LucideIcon } from 'lucide-react';
@@ -7,13 +7,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
 import { useProfile } from '@/hooks/useProfile';
-
-// Design-only sample figures: expected today is the agent's daily target, collected today is what has been banked so far.
-const EXPECTED_TODAY = 250000;
-const COLLECTED_TODAY = 85000;
-const TENANTS_DONE = 3;
-const TENANTS_TOTAL = 8;
-const CAPACITY_PCT = EXPECTED_TODAY > 0 ? Math.round((COLLECTED_TODAY / EXPECTED_TODAY) * 100) : 0;
+import { useAuth } from '@/hooks/useAuth';
+import { useAgentCapacityMap } from '@/hooks/useAgentCapacityMap';
 
 const SHORTCUTS: { label: string; Icon: LucideIcon; color: string; to?: string }[] = [
   { label: 'Calculator', Icon: Calculator, color: 'text-primary' },
@@ -24,6 +19,16 @@ const SHORTCUTS: { label: string; Icon: LucideIcon; color: string; to?: string }
 
 export default function AgentsMock() {
   const { profile } = useProfile();
+  const { user } = useAuth();
+  const ids = useMemo(() => (user?.id ? [user.id] : []), [user?.id]);
+  const { data: capMap, isLoading: capLoading } = useAgentCapacityMap(ids);
+  const cap = user?.id ? capMap?.get(user.id) : undefined;
+  const EXPECTED_TODAY = Math.max(0, cap?.expected_daily ?? 0);
+  const COLLECTED_TODAY = Math.max(0, cap?.paid_today ?? 0);
+  const TENANTS_DONE = cap?.tenants_paid_today ?? 0;
+  const TENANTS_TOTAL = cap?.tenants_due ?? 0;
+  const CAPACITY_PCT = EXPECTED_TODAY > 0 ? Math.min(100, Math.round((COLLECTED_TODAY / EXPECTED_TODAY) * 100)) : 0;
+  const LEFT_TODAY = Math.max(0, EXPECTED_TODAY - COLLECTED_TODAY);
   const initials = (profile?.full_name || '').trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('') || 'SP';
   const [brokenAvatar, setBrokenAvatar] = useState<string | null>(null);
   const [hidden, setHidden] = useState(false);
@@ -66,7 +71,7 @@ export default function AgentsMock() {
             <div className="flex items-center justify-between"><h1 id="capacity-heading" className="text-xs font-semibold">Today's Capacity</h1><span className="text-xs font-bold text-primary">{CAPACITY_PCT}%</span></div>
             <p className="mt-3 text-xl font-bold text-primary">{formatUGX(COLLECTED_TODAY)}</p><p className="text-[11px] text-muted-foreground">collected of {formatUGX(EXPECTED_TODAY)} expected today</p>
             <progress aria-label="Today's capacity progress" value={CAPACITY_PCT} max={100} className="agents-mock-progress mt-3 block h-1.5 w-full rounded-full" />
-            <div className="mt-3 flex justify-between text-[10px]"><span className="text-muted-foreground">{TENANTS_DONE} of {TENANTS_TOTAL} tenants completed</span><span className="font-semibold text-primary">{formatUGX(EXPECTED_TODAY - COLLECTED_TODAY)} left</span></div>
+            <div className="mt-3 flex justify-between text-[10px]"><span className="text-muted-foreground">{TENANTS_DONE} of {TENANTS_TOTAL} tenants completed</span><span className="font-semibold text-primary">{capLoading && !cap ? 'Loading…' : `${formatUGX(LEFT_TODAY)} left`}</span></div>
           </section>
           <section className="flex h-[142px] flex-col items-center justify-center rounded-[16px] bg-card text-center" aria-label="Today's scheduled collections">
             <span className="mb-2 flex h-9 w-9 items-center justify-center rounded-full bg-background text-muted-foreground"><CalendarDays className="h-4 w-4" /></span><h2 className="text-[11px] font-semibold">No collections scheduled</h2><p className="mt-1 max-w-[180px] text-[10px] leading-3 text-muted-foreground">There are no rent repayments due for collection today.</p>
