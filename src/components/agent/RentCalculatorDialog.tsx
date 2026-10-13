@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { calculateRentRepayment } from '@/lib/rentCalculations';
-import { formatUGX } from '@/lib/rentCalculations';
+import { formatUGX } from '@/lib/agentAdvanceCalculations';
 import { cn } from '@/lib/utils';
 
 const DURATIONS = [30, 60, 90] as const;
