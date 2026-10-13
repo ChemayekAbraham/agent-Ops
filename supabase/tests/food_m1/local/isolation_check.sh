@@ -32,7 +32,7 @@ wt_before=$(Q -d "$db" -c "select count(*)||':'||sum(amount) from wallet_transac
 
 for m in 20261009120000_food_service_schema_and_coordinator 20261009130000_food_service_operations_rpcs \
          20261009160000_food_coordinator_candidates 20261009170000_food_exception_resolution \
-         20261012120000_food_m1_release_corrections 20261013120000_food_meal_images 20261013125000_food_staff_includes_pso; do
+         20261012120000_food_m1_release_corrections 20261013120000_food_meal_images 20261013125000_food_staff_includes_pso 20261013127000_food_exception_self_resolution; do
   P -d "$db" -1 -f "$M/$m.sql" >/dev/null || { echo "FAIL apply $m"; result=1; }
 done
 after=$(inv) || exit 1

@@ -30,6 +30,7 @@ ls "$root"/supabase/migrations/20261012120000_food_m1_release_corrections.sql >/
   && suites+=("$here/20_release_corrections.sql" "$here/25_canteen_access.sql" "$here/40_completion.sql")
 ls "$root"/supabase/migrations/20261013120000_food_meal_images.sql >/dev/null 2>&1   && suites+=("$here/45_meal_images.sql")
 ls "$root"/supabase/migrations/20261013125000_food_staff_includes_pso.sql >/dev/null 2>&1 && suites+=("$here/46_staff_pso.sql")
+ls "$root"/supabase/migrations/20261013127000_food_exception_self_resolution.sql >/dev/null 2>&1 && suites+=("$here/47_exception_controls.sql")
 out="$(cat "${suites[@]}" | P -d "$db" 2>&1 || true)"
 # Count only real psql errors ("ERROR:  ..."), never a result value that
 # happens to contain the word (e.g. the ORDER_ERROR exception kind).

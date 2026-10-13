@@ -67,5 +67,29 @@ res=$(P -At -d "$db" -c "select servings_reserved||'/'||servings_total from food
 check "RACE-STOCK-3 reserved equals stock, never above" "$res" "1/1"
 orders=$(P -At -d "$db" -c "select count(*) from food_orders where period_id='f0000000-0000-4000-8000-00000000ef02'")
 check "RACE-STOCK-4 exactly one order exists" "$orders" "1"
+# ── RACE-EXC: the coordinator resolves the same exception from two sessions. ──
+C=29a0cfa8-1eaf-453c-874c-0fc72fa4f74b
+X=$(P -At -d "$db" -c "insert into food_exceptions (kind, detail) values ('OTHER', '{\"note\":\"race\"}') returning id" | head -1)
+resolve() {
+  psql -X -q -At -d "$db" -v ON_ERROR_STOP=1 2>&1 <<SQL | grep -E '^(OK|ERROR)' | head -1
+BEGIN;
+SELECT set_config('request.jwt.claims', '{"sub":"$C","role":"authenticated"}', true);
+SET LOCAL ROLE authenticated;
+SET LOCAL lock_timeout = '10s';
+\set VERBOSITY sqlstate
+SELECT 'OK ' || (public.food_resolve_exception('$X', '$1')->>'resolved_by');
+SELECT pg_sleep($2);
+COMMIT;
+SQL
+}
+resolve "first resolution reason" 2 >"$s1" &
+sleep 0.5
+resolve "second resolution reason" 0 >"$s2" &
+wait
+r1=$(cut -c1-2 "$s1"); r2=$(cat "$s2")
+check "RACE-EXC-1 first resolution accepted" "$r1" "OK"
+check "RACE-EXC-2 the concurrent second resolution is refused with 22023 after waiting" "$r2" "ERROR:  22023"
+kept=$(P -At -d "$db" -c "select resolution_reason||'/'||(select count(*) from food_audit where entity='exception' and entity_id='$X' and action='resolved') from food_exceptions where id='$X'")
+check "RACE-EXC-3 the first reason is kept and audited exactly once" "$kept" "first resolution reason/1"
 rm -f "$s1" "$s2"
 exit $result

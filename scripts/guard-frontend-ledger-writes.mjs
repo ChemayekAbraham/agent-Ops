@@ -97,6 +97,14 @@ function* walk(dir) {
   }
 }
 
+// A browser session must never post to the ledger directly: every
+// create_ledger_transaction* overload is revoked from `authenticated`
+// (20261013126000). Browser postings go through a named server-side boundary
+// such as post_portfolio_roi_ledger. Test files are exempt: they replicate
+// service-role edge-function logic against a fake client.
+const DIRECT_LEDGER_RPC_RE = /\.rpc\(\s*['"`]create_ledger_transaction/;
+const isTestFile = (rel) => /(^|[\\/])(__tests__|test)[\\/]|\.(test|spec)\.tsx?$/.test(rel);
+
 const violations = [];
 
 for (const file of walk(ROOT)) {
@@ -109,6 +117,13 @@ for (const file of walk(ROOT)) {
       if (re.test(line)) {
         violations.push({ file: rel, line: idx + 1, label, code: line.trim() });
       }
+    }
+    if (DIRECT_LEDGER_RPC_RE.test(line) && !isTestFile(rel)) {
+      violations.push({
+        file: rel, line: idx + 1,
+        label: "direct create_ledger_transaction rpc (use a server-side boundary)",
+        code: line.trim(),
+      });
     }
     if (WALLETS_INSERT_RE.test(line) && !ALLOWED_INSERTS.has(rel)) {
       violations.push({
