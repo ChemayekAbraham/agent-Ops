@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
 import type { ReactNode } from 'react';
 
 const rpc = vi.hoisted(() => vi.fn());
@@ -37,16 +38,18 @@ const historyRow = (week_start: string, counting: 'old' | 'amclock', changed = f
   landlord_not_paid_count: counting === 'old' ? null : 3,
 });
 
-function setup(changed: boolean, history: unknown[]) {
+function setup(changed: boolean, history: unknown[], url = '/page') {
   rpc.mockImplementation((name: string) =>
     Promise.resolve({
-      data: name === 'get_tenant_ops_weekly_performance_amclock' ? performance(changed) : history,
+      data: name === 'get_tenant_ops_weekly_performance_amclock' ? performance(changed)
+        : name === 'get_tenant_ops_dormant_amclock' ? { as_of: '2026-10-13', min_days: 30, count: 123, count_plus_10: 80, count_plus_20: 40, counted_plans: 789, landlord_not_paid_count: 98 }
+        : history,
       error: null,
     }));
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={qc}>
-      <WeeklyPerformanceTab />
+      <MemoryRouter initialEntries={[url]}><WeeklyPerformanceTab /></MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -83,5 +86,23 @@ describe('WeeklyPerformanceTab on the landlord-paid clock', () => {
     expect(flag.textContent).toBe('Counting changed this week - earlier weeks used the old start date');
     const marks = await screen.findAllByTestId('history-counting-changed');
     expect(marks).toHaveLength(1);
+  });
+
+  it('keeps the frozen 20+ card as it is and adds nothing at the default of 20', async () => {
+    setup(false, []);
+    await screen.findByTestId('weekly-clock-note');
+    expect(screen.getByText('20+ Days No Payment')).toBeTruthy();
+    expect(screen.queryByTestId('weekly-days-now-card')).toBeNull();
+    expect(rpc.mock.calls.map((c) => c[0])).not.toContain('get_tenant_ops_dormant_amclock');
+  });
+
+  it('with another number, adds a clearly labelled calculated-now card and leaves the frozen card alone', async () => {
+    setup(false, [], '/page?days=30');
+    const card = await screen.findByTestId('weekly-days-now-card');
+    expect(card.textContent).toContain('30+ days (calculated now — not part of the frozen weekly record)');
+    await waitFor(() => expect(card.textContent).toContain('123'));
+    expect(screen.getByText('20+ Days No Payment')).toBeTruthy();
+    expect(rpc.mock.calls.find((c) => c[0] === 'get_tenant_ops_dormant_amclock')?.[1]).toEqual({ p_min_days: 30 });
+    expect(screen.getByTestId('weekly-days-now').textContent).toContain('Days without payment');
   });
 });
