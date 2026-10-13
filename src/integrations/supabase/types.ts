@@ -35555,6 +35555,7 @@ export type Database = {
           id: string
           maturity_date: string | null
           message: string | null
+          notice_ends_on: string | null
           partner_email: string | null
           partner_id: string
           partner_name: string | null
@@ -35565,6 +35566,7 @@ export type Database = {
           processed_at: string | null
           processed_by: string | null
           processing_note: string | null
+          processing_started_at: string | null
           redemption_amount: number | null
           redemption_scope: string | null
           remaining_principal: number | null
@@ -35578,6 +35580,7 @@ export type Database = {
           id?: string
           maturity_date?: string | null
           message?: string | null
+          notice_ends_on?: string | null
           partner_email?: string | null
           partner_id: string
           partner_name?: string | null
@@ -35588,6 +35591,7 @@ export type Database = {
           processed_at?: string | null
           processed_by?: string | null
           processing_note?: string | null
+          processing_started_at?: string | null
           redemption_amount?: number | null
           redemption_scope?: string | null
           remaining_principal?: number | null
@@ -35601,6 +35605,7 @@ export type Database = {
           id?: string
           maturity_date?: string | null
           message?: string | null
+          notice_ends_on?: string | null
           partner_email?: string | null
           partner_id?: string
           partner_name?: string | null
@@ -35611,6 +35616,7 @@ export type Database = {
           processed_at?: string | null
           processed_by?: string | null
           processing_note?: string | null
+          processing_started_at?: string | null
           redemption_amount?: number | null
           redemption_scope?: string | null
           remaining_principal?: number | null
