@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { ArrowRight, Bell, Building2, Calculator, CheckCircle2, ChevronLeft, ChevronRight, FileText, Hand, Home, Menu, Store, Trophy, Users, Wallet, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import RentCalculatorDialog from '@/components/agent/RentCalculatorDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { COMMISSION_RATE, LANDLORD_PAYOUT_COMMISSION_RATE, formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
@@ -14,7 +15,7 @@ import { useAgentCapacityMap } from '@/hooks/useAgentCapacityMap';
 import { useAgentArrears } from '@/hooks/useAgentArrears';
 
 const SHORTCUTS: { label: string; Icon: LucideIcon; color: string; to?: string }[] = [
-  { label: 'Calculator', Icon: Calculator, color: 'text-primary', to: '/rent-calculator' },
+  { label: 'Calculator', Icon: Calculator, color: 'text-primary', },
   { label: 'Service Center', Icon: Store, color: 'text-info', to: '/agent/service-center' },
   { label: 'Leaderboard', Icon: Trophy, color: 'text-success', to: '/dashboard/agents/leaderboard' },
   { label: 'Landlord Float', Icon: Building2, color: 'text-warning' },
@@ -77,6 +78,7 @@ export default function AgentsMock() {
   const avatarSrc = signedAvatar ?? (avatarPath ? null : profile?.avatar_url ?? null);
   const [activeNav, setActiveNav] = useState('Home');
   const [notice, setNotice] = useState<string | null>(null);
+  const [calcOpen, setCalcOpen] = useState(false);
   const navigate = useNavigate();
   const [month, setMonth] = useState(new Date(2026, 9, 1));
   const [day, setDay] = useState(13);
@@ -192,7 +194,7 @@ export default function AgentsMock() {
             </Button>
           </section>
           <div className="grid grid-cols-4 gap-1" aria-label="Agent shortcuts">
-            {SHORTCUTS.map(({ label, Icon, color, to }) => <Button key={label} variant="ghost" onClick={() => (to ? navigate(to) : setNotice(label))} className="h-[64px] flex-col gap-1 px-0 text-[10px]"><span className={cn('flex h-8 w-8 items-center justify-center rounded-full bg-card', color)}><Icon className="!h-4 !w-4" /></span>{label}</Button>)}
+            {SHORTCUTS.map(({ label, Icon, color, to }) => <Button key={label} variant="ghost" onClick={() => (to ? navigate(to) : label === 'Calculator' ? setCalcOpen(true) : setNotice(label))} className="h-[64px] flex-col gap-1 px-0 text-[10px]"><span className={cn('flex h-8 w-8 items-center justify-center rounded-full bg-card', color)}><Icon className="!h-4 !w-4" /></span>{label}</Button>)}
           </div>
           <section aria-labelledby="due-heading" className="rounded-[16px] bg-card p-4">
             <div className="flex items-center justify-between"><h2 id="due-heading" className="text-xs font-semibold">Collections due today</h2><span className="text-[11px] font-bold text-primary">{arrearsFailed ? 'Unavailable' : formatUGX(DUE_TOTAL)}</span></div>
@@ -239,6 +241,7 @@ export default function AgentsMock() {
         </main>
       </div>
       <nav aria-label="Agent navigation" className="fixed inset-x-0 bottom-0 z-40 bg-card pb-safe"><div className="mx-auto grid max-w-[400px] grid-cols-5 px-2 py-1">{[{ label: 'Home', Icon: Home }, { label: 'Tenants', Icon: Users }, { label: 'Collect', Icon: Wallet }, { label: 'Post Rent', Icon: FileText }, { label: 'More', Icon: Menu }].map(({ label, Icon }) => <Button key={label} variant="ghost" aria-current={activeNav === label ? 'page' : undefined} onClick={() => { setActiveNav(label); if (label === 'Home') window.scrollTo({ top: 0, behavior: 'smooth' }); else setNotice(label); }} className="h-[50px] flex-col gap-0.5 rounded-lg px-0 text-foreground"><span className={cn('flex h-7 w-7 items-center justify-center rounded-full text-primary', activeNav === label && 'bg-primary/10')}><Icon className="!h-4 !w-4" strokeWidth={1.8} /></span><span className="text-[8px] font-medium">{label}</span></Button>)}</div></nav>
+      <RentCalculatorDialog open={calcOpen} onOpenChange={setCalcOpen} />
       <Dialog open={notice !== null} onOpenChange={open => { if (!open) setNotice(null); }}><DialogContent><DialogHeader><DialogTitle>{notice}</DialogTitle><DialogDescription>Design preview only. No transactions will be made.</DialogDescription></DialogHeader></DialogContent></Dialog>
     </div>
   );
