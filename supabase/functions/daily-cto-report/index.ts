@@ -1367,6 +1367,7 @@ Deno.serve(async (req) => {
         ['Weekly active share', `${pct(n(P.active_7d), Math.max(1, n(P.total_users))).toFixed(1)}%`],
         ['Monthly active share', 'Unreliable (bulk-stamped last_active_at)'],
         ['Emails sent today', fmt(M.sent_today)], ['Emails failed today', fmt(M.failed_today)],
+        ['Emails suppressed today', fmt(M.suppressed_today)],
         ['E-mail delivery (excludes SMS)', `${(100 - emailFailRate).toFixed(1)}%`], ['SMS rejected 30d', `${smsFailRateEarly.toFixed(1)}%`], ['Emails sent 7d', fmt(M.sent_7d)],
         ['Backup runs 7d', fmt(B.runs_7d)], ['Backup failures 7d', fmt(B.failures_7d)],
         ['Latest backup status', B.latest?.status ? String(B.latest.status) : 'none'],
