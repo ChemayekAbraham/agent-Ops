@@ -419,7 +419,7 @@ export default function Auth() {
   const isLoginView = !isSignUp && !isForgotPassword && !isForgotPhone;
 
   return (
-    <div className={authStyles.root}>
+    <div className="welile-auth">
       <Helmet>
         <title>Sign In or Create Your Welile Account</title>
         <meta name="description" content="Log in or sign up to access rent, fund tenants, and manage your Welile wallet securely." />
@@ -428,38 +428,45 @@ export default function Auth() {
         <meta property="og:description" content="Log in or sign up to access rent, fund tenants, and manage your Welile wallet securely." />
         <meta property="og:url" content="https://welileapp.com/auth" />
       </Helmet>
-      <div className={authStyles.inner}>
+      <main className="app-container">
+      <div
+        className="screen-layout screen-account-layout screen-auth-layout"
+        style={{ ['--desktop-art' as string]: `url('${authArtAsset.url}')` } as React.CSSProperties}
+      >
 
-        <div className={authStyles.topBar}>
+        <div className="screen-top-header">
           <button
             type="button"
-            className={authStyles.backBtn}
+            className="btn-circle-nav"
             aria-label="Back"
             onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/welcome'))}
           >
-            <ArrowLeft className="h-5 w-5" strokeWidth={2.5} />
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <polyline points="15 18 9 12 15 6" />
+            </svg>
           </button>
         </div>
 
-        <div className={authStyles.brand}>
-          <img src={authLogoAsset.url} alt="Welile" className={authStyles.logo} />
+        <div className="auth-brand">
+          <img src={authLogoAsset.url} alt="Welile" className="auth-logo" />
         </div>
 
+        <div className="auth-step" style={{ flex: '1 0 auto' }}>
         {isLoginView && (
           <>
-            <h1 className={authStyles.title}>
+            <h1 className="auth-title" tabIndex={-1}>
               {hadSession && lastUserName ? `Welcome back, ${lastUserName}` : 'Welcome back'}
             </h1>
-            <p className={authStyles.subtitle}>Sign in to your Welile account</p>
+            <p className="auth-subtitle">Sign in to your Welile account</p>
           </>
         )}
         {isSignUp && (
           <>
-            <h1 className={authStyles.title}>Create your account</h1>
-            <p className={authStyles.subtitle}>Join Welile in a few quick steps</p>
+            <h1 className="auth-title" tabIndex={-1}>Create your account</h1>
+            <p className="auth-subtitle">Join Welile in a few quick steps</p>
           </>
         )}
-        {!isLoginView && !isSignUp && <div className="mb-4" />}
+        {!isLoginView && !isSignUp && <div className="mb-2" />}
 
         {/* Agent deeplink banner */}
         {deepLinkAgent && (
@@ -542,22 +549,27 @@ export default function Auth() {
         )}
 
         {!needsRoleSelection && (
-          <div className={cn("animate-in fade-in slide-in-from-bottom-3 duration-400", authStyles.panel)}>
+          <div className="flex flex-col">
 
             {/* Design layout: Google → "or sign in with" → method tabs → active form.
                 Tabs are bound to the existing loginMode state (logic unchanged). */}
             {isLoginView && (
-              <div className="space-y-4 mb-5">
+              <>
                 <OAuthEnvironmentHint />
                 <OAuthErrorCard />
-                <div className={cn("flex w-full flex-col gap-3", authStyles.oauthStack)}>
-                  <GoogleSignInButton
+                <div className="flex w-full flex-col gap-2.5">
+                  <button
+                    type="button"
+                    className="btn btn-google"
                     onClick={wrappedHandleGoogleSignIn}
                     disabled={isGoogleLoading || isAppleLoading || isLoading || emailLoginLoading}
-                    isLoading={isGoogleLoading}
-                    variant="standard"
-                  />
-                  <AppleSignInButton
+                  >
+                    {isGoogleLoading ? <Loader2 className="btn-spin" /> : <GoogleMark />}
+                    <span>Continue with Google</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-apple"
                     onClick={() => {
                       localStorage.setItem('welile_last_login_method', 'apple');
                       // OAuth sign-ins are always persistent — clear stale ephemeral flag.
@@ -565,17 +577,19 @@ export default function Auth() {
                       handleAppleSignIn();
                     }}
                     disabled={isGoogleLoading || isAppleLoading || isLoading}
-                    isLoading={isAppleLoading}
-                  />
+                  >
+                    {isAppleLoading ? <Loader2 className="btn-spin" /> : <AppleMark />}
+                    <span>Continue with Apple</span>
+                  </button>
                 </div>
 
-                <div className={authStyles.separator}>
-                  <span className={authStyles.sepLine} />
-                  <span className={authStyles.sepText}>or sign in with</span>
-                  <span className={authStyles.sepLine} />
+                <div className="or-separator">
+                  <span className="sep-line" />
+                  <span className="sep-text">or sign in with</span>
+                  <span className="sep-line" />
                 </div>
 
-                <div className={authStyles.tabs} role="tablist" aria-label="Sign-in method">
+                <div className="auth-tabs" role="tablist" aria-label="Sign-in method">
                   {([
                     ['email', 'Email'],
                     ['password', 'Phone'],
@@ -587,72 +601,46 @@ export default function Auth() {
                       role="tab"
                       aria-selected={loginMode === mode}
                       tabIndex={loginMode === mode ? 0 : -1}
-                      className={cn(authStyles.tab, loginMode === mode && authStyles.tabActive)}
+                      className={cn('auth-tab', loginMode === mode && 'active')}
                       onClick={() => setLoginMode(mode)}
                     >
                       {label}
                     </button>
                   ))}
                 </div>
-              </div>
+              </>
             )}
 
-            {/* ===== SIGN IN VIEW ===== */}
+            {/* ===== SIGN IN VIEW (phone + password) ===== */}
             {isLoginView && loginMode === 'password' && (
-              <div className="space-y-5">
-
-                {/* Phone + Password — primary path (phone-first for African users) */}
-                <form onSubmit={wrappedHandleSubmit} className="space-y-5">
-                  <div className="space-y-2">
-                    <Label className="text-sm font-semibold text-foreground px-1">Phone number</Label>
-                    <div className="relative flex">
-                      <CountryCodeSelect value={countryCode} onChange={setCountryCode} triggerClassName="h-16 text-lg" />
-                      <div className="relative flex-1">
-                        <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 h-6 w-6 text-muted-foreground" />
-                        <Input
-                          ref={phoneInputRef}
-                          type="tel"
-                          inputMode="tel"
-                          autoComplete="tel"
-                          value={phone}
-                          onChange={(e) => { setPhone(e.target.value); setLoginError(null); }}
-                          placeholder="700 123 456"
-                          className={cn("pl-12 h-16 text-lg rounded-xl rounded-l-none", loginError && 'border-destructive')}
-                          style={{ fontSize: '16px' }}
-                          required
-                        />
-                      </div>
-                    </div>
+              <>
+                <form onSubmit={wrappedHandleSubmit} className="auth-form" role="tabpanel" aria-label="Phone" noValidate>
+                  <div className="form-row">
+                    <label className="input-label" htmlFor="authPwPhoneInput">Phone number</label>
+                    <DesignPhoneInput
+                      id="authPwPhoneInput"
+                      inputRef={phoneInputRef}
+                      code={countryCode}
+                      onCodeChange={setCountryCode}
+                      value={phone}
+                      onChange={(v) => { setPhone(v); setLoginError(null); }}
+                      invalid={!!loginError}
+                    />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label className="text-sm font-semibold text-foreground px-1">Password</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 h-6 w-6 text-muted-foreground" />
-                      <Input
-                        ref={passwordInputRef}
-                        type={showPassword ? "text" : "password"}
-                        autoComplete="current-password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Your password"
-                        className="pl-12 pr-16 h-16 text-lg rounded-xl"
-                        style={{ fontSize: '16px' }}
-                        required
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-2 text-sm font-semibold text-primary hover:text-primary/80 transition-colors"
-                      >
-                        {showPassword ? 'Hide' : 'Show'}
-                      </button>
-                    </div>
+                  <div className="form-row">
+                    <label className="input-label" htmlFor="authPhonePassword">Password</label>
+                    <DesignPasswordInput
+                      id="authPhonePassword"
+                      inputRef={passwordInputRef}
+                      value={password}
+                      onChange={setPassword}
+                      shown={showPassword}
+                      onToggle={() => setShowPassword(!showPassword)}
+                    />
                   </div>
 
-                  {loginError && (
-                    <p className="text-xs text-destructive px-1">{loginError.message}</p>
-                  )}
+                  {loginError && <p className="form-error" role="alert">{loginError.message}</p>}
                   {loginError && (
                     <ArchivedAccountSupport
                       identifier={phone ? `+${countryCode}${phone.replace(/\D/g, '')}` : undefined}
@@ -664,72 +652,48 @@ export default function Auth() {
                     />
                   )}
 
-                  <div className="flex items-center justify-between">
-                    <label className="flex items-center gap-2 cursor-pointer select-none py-1">
+                  <div className="form-options-row">
+                    <label>
                       <Checkbox
                         checked={rememberMe}
                         onCheckedChange={(checked) => {
                           setRememberMe(!!checked);
                           localStorage.setItem('welile_remember_me', String(!!checked));
                         }}
-                        className="h-5 w-5"
+                        className="h-4 w-4"
                       />
-                      <span className="text-sm text-muted-foreground">Remember me</span>
+                      <span>Remember me</span>
                     </label>
-                    <button type="button" onClick={() => { if (phone) setResetPhone(phone); setIsForgotPassword(true); }} className="text-sm font-semibold text-primary hover:underline py-1">
-                      Forgot password?
+                    <button type="button" className="link-purple" onClick={() => { if (phone) setResetPhone(phone); setIsForgotPassword(true); }}>
+                      {failedAttempts >= 1 ? 'Reset password via SMS' : 'Forgot password?'}
                     </button>
                   </div>
 
-                  {/* Prominent reset banner after 1 failed attempt */}
-                  {failedAttempts >= 1 && (
-                    <button
-                      type="button"
-                      onClick={() => { if (phone) setResetPhone(phone); setIsForgotPassword(true); }}
-                      className="w-full flex items-center gap-2 p-3 rounded-xl bg-primary/10 border border-primary/20 text-primary text-sm font-medium hover:bg-primary/15 transition-colors"
-                    >
-                      <Key className="h-4 w-4 shrink-0" />
-                      <span>Can't remember? Reset your password via SMS</span>
-                    </button>
-                  )}
-
-                  <Button
-                    type="submit"
-                    className="w-full h-16 text-lg rounded-xl font-bold shadow-md touch-manipulation active:scale-[0.98] transition-transform"
-                    disabled={isLoading}
-                    style={{ fontSize: '16px', WebkitTapHighlightColor: 'transparent' }}
-                  >
-                    {isLoading ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                        <span className="text-sm font-medium truncate">{stageText}</span>
-                      </span>
-                    ) : 'Sign In'}
-                  </Button>
+                  <button type="submit" className="btn btn-primary" disabled={isLoading}>
+                    {isLoading ? <><Loader2 className="btn-spin" /> <span className="truncate">{stageText}</span></> : <span>Sign in</span>}
+                  </button>
+                  <button type="button" onClick={() => setLoginMode('otp')} className="btn-link-muted">
+                    Forgot password? Sign in with a code
+                  </button>
                 </form>
 
                 {failedAttempts >= 2 && (
-                  <Button
+                  <button
                     type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="w-full gap-2 text-primary text-xs"
+                    className="btn-link-muted"
                     onClick={() => {
                       const message = encodeURIComponent(`Hello Welile Support,\n\nI'm having trouble logging in.\n\nPhone: ${phone}\n\nPlease help.`);
                       window.open(`https://wa.me/256783673998?text=${message}`, '_blank');
                     }}
                   >
-                    <MessageCircle className="h-4 w-4" />
                     Need help? Contact Support
-                  </Button>
+                  </button>
                 )}
-
-              </div>
+              </>
             )}
 
             {/* ===== EMAIL LOGIN ===== */}
             {isLoginView && loginMode === 'email' && (
-              <div className="space-y-3 animate-in fade-in duration-200">
                 <form onSubmit={async (e) => {
                   e.preventDefault();
                   if (!emailLoginAddress.trim() || !password.trim()) return;
@@ -798,41 +762,36 @@ export default function Auth() {
                     clearTimeout(safetyTimer);
                     setEmailLoginLoading(false);
                   }
-                }} className="space-y-3">
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
+                }} className="auth-form" role="tabpanel" aria-label="Email" noValidate>
+                  <div className="form-row">
+                    <label className="input-label" htmlFor="authEmailInput">Email</label>
+                    <input
+                      id="authEmailInput"
                       type="email"
                       inputMode="email"
                       autoComplete="email"
+                      className="text-input-field"
                       value={emailLoginAddress}
                       onChange={(e) => { setEmailLoginAddress(e.target.value); setLoginError(null); }}
                       placeholder="you@example.com"
-                      className={cn("pl-10 h-12 text-base rounded-xl", loginError && 'border-destructive')}
-                      style={{ fontSize: '16px' }}
+                      aria-invalid={!!loginError}
                       required
                       autoFocus
                     />
                   </div>
 
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      type={showPassword ? "text" : "password"}
-                      autoComplete="current-password"
+                  <div className="form-row">
+                    <label className="input-label" htmlFor="authEmailPassword">Password</label>
+                    <DesignPasswordInput
+                      id="authEmailPassword"
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Password"
-                      className="pl-10 h-12 text-base rounded-xl"
-                      style={{ fontSize: '16px' }}
-                      required
+                      onChange={setPassword}
+                      shown={showPassword}
+                      onToggle={() => setShowPassword(!showPassword)}
                     />
-                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground">
-                      {showPassword ? 'Hide' : 'Show'}
-                    </button>
                   </div>
 
-                  {loginError && <p className="text-xs text-destructive px-1">{loginError.message}</p>}
+                  {loginError && <p className="form-error" role="alert">{loginError.message}</p>}
                   {loginError && (
                     <ArchivedAccountSupport
                       identifier={emailLoginAddress || undefined}
@@ -844,192 +803,117 @@ export default function Auth() {
                     />
                   )}
 
-                  <Button
+                  <button
                     type="submit"
-                    className="w-full h-12 text-base rounded-xl font-semibold touch-manipulation active:scale-[0.98]"
+                    className="btn btn-primary"
                     disabled={emailLoginLoading || !emailLoginAddress.trim() || !password.trim()}
-                    style={{ fontSize: '16px', WebkitTapHighlightColor: 'transparent' }}
                   >
-                    {emailLoginLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Sign In'}
-                  </Button>
+                    {emailLoginLoading ? <><Loader2 className="btn-spin" /> <span>Signing in…</span></> : <span>Sign in</span>}
+                  </button>
+                  <button type="button" onClick={() => setLoginMode('otp')} className="btn-link-muted">
+                    Forgot password? Sign in with a code
+                  </button>
                 </form>
-
-                <button type="button" onClick={() => setLoginMode('otp')} className={authStyles.mutedLink}>
-                  Forgot password? Sign in with a code
-                </button>
-              </div>
             )}
 
             {/* ===== OTP LOGIN ===== */}
             {isLoginView && loginMode === 'otp' && (
-              <div className="space-y-4 animate-in fade-in duration-200">
-                {/* Step indicator */}
-                <div className="flex items-center gap-3 mb-1">
-                  <div className={cn(
-                    "h-9 w-9 rounded-full flex items-center justify-center text-sm font-bold transition-colors shrink-0",
-                    otpLoginStep === 'phone' ? "bg-primary text-primary-foreground" : "bg-primary/20 text-primary"
-                  )}>
-                    1
+              otpLoginStep === 'phone' ? (
+                <form
+                  className="auth-form"
+                  role="tabpanel"
+                  aria-label="One-time code"
+                  noValidate
+                  onSubmit={(e) => { e.preventDefault(); if (!otpLoginLoading && otpLoginPhone.replace(/\D/g, '').length >= 7) handleSendOtpForLogin(); }}
+                >
+                  <div className="form-row">
+                    <label className="input-label" htmlFor="authOtpPhoneInput">Phone number</label>
+                    <DesignPhoneInput
+                      id="authOtpPhoneInput"
+                      code={otpLoginCountryCode}
+                      onCodeChange={setOtpLoginCountryCode}
+                      value={otpLoginPhone}
+                      onChange={setOtpLoginPhone}
+                      autoFocus
+                    />
+                    <p className="field-hint">We'll text you a 6-digit code.</p>
                   </div>
-                  <div className={cn("flex-1 h-1 rounded-full", otpLoginStep === 'code' ? "bg-primary/40" : "bg-muted")} />
-                  <div className={cn(
-                    "h-9 w-9 rounded-full flex items-center justify-center text-sm font-bold transition-colors shrink-0",
-                    otpLoginStep === 'code' ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
-                  )}>
-                    2
-                  </div>
-                </div>
 
-                {otpLoginStep === 'phone' ? (
-                  <>
-                    <div>
-                      <p className="text-base font-semibold text-foreground">Enter your phone number</p>
-                      <p className="text-sm text-muted-foreground mt-0.5">We will send you a 6-digit code</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Phone className="h-6 w-6 text-muted-foreground shrink-0" />
-                      <div className="relative flex flex-1">
-                        <CountryCodeSelect value={otpLoginCountryCode} onChange={setOtpLoginCountryCode} triggerClassName="h-16 text-lg" />
-                        <Input
-                          type="tel"
-                          inputMode="tel"
-                          autoComplete="tel"
-                          value={otpLoginPhone}
-                          onChange={(e) => setOtpLoginPhone(e.target.value)}
-                          placeholder="700 123 456"
-                          className="flex-1 h-16 text-lg rounded-xl rounded-l-none"
-                          style={{ fontSize: '16px' }}
-                          autoFocus
-                        />
-                      </div>
-                    </div>
-                    <Button
+                  <label className="form-options-row" style={{ justifyContent: 'flex-start' }}>
+                    <Checkbox
+                      checked={rememberThisDevice}
+                      onCheckedChange={(checked) => setRememberThisDevice(!!checked)}
+                      className="h-4 w-4"
+                    />
+                    <span>Keep me logged in on this device</span>
+                  </label>
+                  {!rememberThisDevice && (
+                    <p className="field-hint">You'll be signed out when you close this browser, and need a new code next time.</p>
+                  )}
+
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    disabled={otpLoginLoading || otpLoginPhone.replace(/\D/g, '').length < 7}
+                  >
+                    {otpLoginLoading ? <><Loader2 className="btn-spin" /> <span>Sending code…</span></> : <span>Send code</span>}
+                  </button>
+                </form>
+              ) : (
+                <div className="auth-form">
+                  <h2 className="auth-title" tabIndex={-1} style={{ fontSize: '1.2rem' }}>Enter your code</h2>
+                  <p className="auth-subtitle" style={{ margin: '0 0 8px' }}>
+                    We sent a verification code to <strong>+{getFullOtpPhone(otpLoginPhone, otpLoginCountryCode)}</strong>
+                  </p>
+
+                  <div className="otp-boxes-group">
+                    <InputOTP
+                      maxLength={6}
+                      value={otpLoginCode}
+                      onChange={(value) => {
+                        setOtpLoginCode(value);
+                        if (value.length === 6) {
+                          handleOtpLogin(otpLoginPhone, value);
+                        }
+                      }}
+                    >
+                      <InputOTPGroup className="gap-2">
+                        {[0, 1, 2, 3, 4, 5].map((i) => (
+                          <InputOTPSlot key={i} index={i} className="otp-cell" />
+                        ))}
+                      </InputOTPGroup>
+                    </InputOTP>
+                  </div>
+
+                  <div className="otp-resend-bar">
+                    <span>{otpResendCooldown > 0 ? <>Resend code in <strong>0:{String(otpResendCooldown).padStart(2, '0')}</strong></> : "Didn't get it?"}</span>
+                    <button
                       type="button"
+                      className="resend-trigger-btn"
                       onClick={handleSendOtpForLogin}
-                      disabled={otpLoginLoading || otpLoginPhone.replace(/\D/g, '').length < 7}
-                      className="w-full h-16 text-lg rounded-xl font-bold shadow-md touch-manipulation active:scale-[0.98] transition-transform"
-                      style={{ fontSize: '16px', WebkitTapHighlightColor: 'transparent' }}
+                      disabled={otpLoginLoading || otpResendCooldown > 0}
                     >
-                      {otpLoginLoading ? (
-                        <span className="flex items-center justify-center gap-2">
-                          <Loader2 className="h-5 w-5 animate-spin" />
-                          <span className="text-sm font-medium">Sending code…</span>
-                        </span>
-                      ) : (
-                        <span className="flex items-center justify-center gap-2">
-                          <MessageCircle className="h-5 w-5" />
-                          Send SMS Code
-                        </span>
-                      )}
-                    </Button>
+                      Resend code
+                    </button>
+                  </div>
 
-                    {/* Remember this device — permanent login */}
-                    <label className="flex items-start gap-2.5 cursor-pointer select-none touch-manipulation">
-                      <Checkbox
-                        checked={rememberThisDevice}
-                        onCheckedChange={(checked) => setRememberThisDevice(!!checked)}
-                        className="h-4 w-4 mt-0.5"
-                      />
-                      <span className="min-w-0">
-                        <span className="block text-xs font-medium text-foreground">Keep me logged in on this device</span>
-                        <span className="block text-[11px] text-muted-foreground mt-0.5">Stay signed in permanently — you'll only need a code on a new device or after you log out.</span>
-                      </span>
-                    </label>
-
-                    {!rememberThisDevice && (
-                      <div className="flex items-start gap-3 rounded-xl border border-amber-500/20 bg-amber-500/5 p-3.5">
-                        <Clock className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-amber-700 dark:text-amber-400">You will be signed out when you close this browser</p>
-                          <p className="text-xs text-amber-600/80 dark:text-amber-400/70 mt-0.5">Next time you open Welile, you will need to enter a new SMS code to log in again.</p>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <div>
-                      <p className="text-base font-semibold text-foreground">Enter the 6-digit code</p>
-                      <p className="text-sm text-muted-foreground mt-0.5">
-                        Sent to <span className="font-medium text-foreground">+{getFullOtpPhone(otpLoginPhone, otpLoginCountryCode)}</span>
-                      </p>
-                    </div>
-
-                    <div className="flex justify-center py-1">
-                      <InputOTP
-                        maxLength={6}
-                        value={otpLoginCode}
-                        onChange={(value) => {
-                          setOtpLoginCode(value);
-                          if (value.length === 6) {
-                            handleOtpLogin(otpLoginPhone, value);
-                          }
-                        }}
-                      >
-                        <InputOTPGroup>
-                          <InputOTPSlot index={0} className="h-14 w-12 text-lg" />
-                          <InputOTPSlot index={1} className="h-14 w-12 text-lg" />
-                          <InputOTPSlot index={2} className="h-14 w-12 text-lg" />
-                          <InputOTPSlot index={3} className="h-14 w-12 text-lg" />
-                          <InputOTPSlot index={4} className="h-14 w-12 text-lg" />
-                          <InputOTPSlot index={5} className="h-14 w-12 text-lg" />
-                        </InputOTPGroup>
-                      </InputOTP>
-                    </div>
-
-                    {otpLoginLoading && (
-                      <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Verifying code…
-                      </div>
-                    )}
-
-                    <Button
-                      type="button"
-                      onClick={() => handleOtpLogin()}
-                      disabled={otpLoginLoading || otpLoginCode.length !== 6}
-                      className="w-full h-16 text-lg rounded-xl font-bold shadow-md touch-manipulation active:scale-[0.98] transition-transform"
-                      style={{ fontSize: '16px', WebkitTapHighlightColor: 'transparent' }}
-                    >
-                      {otpLoginLoading ? (
-                        <span className="flex items-center justify-center gap-2">
-                          <Loader2 className="h-5 w-5 animate-spin" />
-                          <span className="text-sm font-medium">Verifying…</span>
-                        </span>
-                      ) : (
-                        <span className="flex items-center justify-center gap-2">
-                          <LogIn className="h-5 w-5" />
-                          Verify & Log In
-                        </span>
-                      )}
-                    </Button>
-
-                    <div className="flex items-center justify-between pt-1">
-                      <button
-                        type="button"
-                        onClick={() => { setOtpLoginStep('phone'); setOtpLoginCode(''); setOtpResendCooldown(0); }}
-                        className="text-sm text-muted-foreground hover:text-primary flex items-center gap-1 py-1"
-                      >
-                        <ArrowLeft className="h-4 w-4" /> Change number
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleSendOtpForLogin}
-                        disabled={otpLoginLoading || otpResendCooldown > 0}
-                        className={cn(
-                          "text-sm py-1 font-medium transition-colors",
-                          otpResendCooldown > 0
-                            ? "text-muted-foreground cursor-not-allowed"
-                            : "text-primary hover:underline"
-                        )}
-                      >
-                        {otpResendCooldown > 0 ? `Resend in ${otpResendCooldown}s` : 'Resend code'}
-                      </button>
-                    </div>
-                  </>
-                )}
-
-              </div>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => handleOtpLogin()}
+                    disabled={otpLoginLoading || otpLoginCode.length !== 6}
+                  >
+                    {otpLoginLoading ? <><Loader2 className="btn-spin" /> <span>Verifying…</span></> : <span>Verify &amp; sign in</span>}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-link-muted"
+                    onClick={() => { setOtpLoginStep('phone'); setOtpLoginCode(''); setOtpResendCooldown(0); }}
+                  >
+                    Use a different number
+                  </button>
+                </div>
+              )
             )}
 
             {/* ===== FORGOT PASSWORD ===== */}
