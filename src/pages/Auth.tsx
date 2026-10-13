@@ -1,19 +1,12 @@
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 import { ArrowLeft, Mail, Lock, User, Phone, Loader2, MessageCircle, AlertCircle, LogIn, Smartphone, ArrowRight, Key, Clock } from 'lucide-react';
-import { CountryCodeSelect, COUNTRIES } from '@/components/auth/CountryCodeSelect';
-import WelileLogo from '@/components/WelileLogo';
-import PasswordStrengthIndicator from '@/components/auth/PasswordStrengthIndicator';
-import { GoogleSignInButton } from '@/components/auth/GoogleSignInButton';
+import { COUNTRIES } from '@/components/auth/CountryCodeSelect';
 import { OAuthEnvironmentHint } from '@/components/auth/OAuthEnvironmentHint';
 import { OAuthErrorCard } from '@/components/auth/OAuthErrorCard';
-import { AppleSignInButton } from '@/components/auth/AppleSignInButton';
 import { ReferralBanner } from '@/components/auth/ReferralBanner';
 import { OtpVerificationStep } from '@/components/auth/OtpVerificationStep';
 import { ArchivedAccountSupport } from '@/components/auth/ArchivedAccountSupport';
@@ -37,7 +30,6 @@ import { setCriticalFlowActive } from '@/lib/criticalFlowGuard';
 import { captureOAuthRedirectError } from '@/lib/oauthErrorLog';
 import { getStoredAttributionToken, restoreAttributionFromToken } from '@/lib/campaignAttribution';
 import ScreenLoader from '@/components/common/ScreenLoader';
-import PersonNameFields from '@/components/shared/PersonNameFields';
 
 const VALID_SIGNUP_ROLES = ['tenant', 'agent', 'landlord', 'supporter'] as const;
 
