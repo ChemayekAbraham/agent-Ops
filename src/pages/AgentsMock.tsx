@@ -24,14 +24,12 @@ export default function AgentsMock() {
   const { profile } = useProfile();
   const { user } = useAuth();
   const ids = useMemo(() => (user?.id ? [user.id] : []), [user?.id]);
-  const { data: capMap, isLoading: capLoading } = useAgentCapacityMap(ids);
+  const { data: capMap } = useAgentCapacityMap(ids);
   const cap = user?.id ? capMap?.get(user.id) : undefined;
   const EXPECTED_TODAY = Math.max(0, cap?.expected_daily ?? 0);
   const COLLECTED_TODAY = Math.max(0, cap?.paid_today ?? 0);
-  const TENANTS_DONE = cap?.tenants_paid_today ?? 0;
   const TENANTS_TOTAL = cap?.tenants_due ?? 0;
   const CAPACITY_PCT = EXPECTED_TODAY > 0 ? Math.min(100, Math.round((COLLECTED_TODAY / EXPECTED_TODAY) * 100)) : 0;
-  const LEFT_TODAY = Math.max(0, EXPECTED_TODAY - COLLECTED_TODAY);
   // Today's collection list comes from the same server read the Collect dialog
   // uses (`agent_arrears_overview`), so the names and amounts here are the
   // tenant's own open days — never a placeholder.
@@ -147,12 +145,6 @@ export default function AgentsMock() {
           <div className="grid grid-cols-4 gap-1" aria-label="Agent shortcuts">
             {SHORTCUTS.map(({ label, Icon, color, to }) => <Button key={label} variant="ghost" onClick={() => (to ? navigate(to) : setNotice(label))} className="h-[64px] flex-col gap-1 px-0 text-[10px]"><span className={cn('flex h-8 w-8 items-center justify-center rounded-full bg-card', color)}><Icon className="!h-4 !w-4" /></span>{label}</Button>)}
           </div>
-          <section aria-labelledby="capacity-heading" className="rounded-[14px] border border-primary/25 bg-card p-4">
-            <div className="flex items-center justify-between"><h1 id="capacity-heading" className="text-xs font-semibold">Today's Capacity</h1><span className="text-xs font-bold text-primary">{CAPACITY_PCT}%</span></div>
-            <p className="mt-3 text-xl font-bold text-primary">{formatUGX(COLLECTED_TODAY)}</p><p className="text-[11px] text-muted-foreground">collected of {formatUGX(EXPECTED_TODAY)} expected today</p>
-            <progress aria-label="Today's capacity progress" value={CAPACITY_PCT} max={100} className="agents-mock-progress mt-3 block h-1.5 w-full rounded-full" />
-            <div className="mt-3 flex justify-between text-[10px]"><span className="text-muted-foreground">{TENANTS_DONE} of {TENANTS_TOTAL} tenants completed</span><span className="font-semibold text-primary">{capLoading && !cap ? 'Loading…' : `${formatUGX(LEFT_TODAY)} left`}</span></div>
-          </section>
           <section aria-labelledby="due-heading" className="rounded-[16px] bg-card p-4">
             <div className="flex items-center justify-between"><h2 id="due-heading" className="text-xs font-semibold">Collections due today</h2><span className="text-[11px] font-bold text-primary">{arrearsFailed ? 'Unavailable' : amount(DUE_TOTAL)}</span></div>
             {arrearsLoading && !arrears ? (
