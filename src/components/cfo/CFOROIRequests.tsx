@@ -72,7 +72,7 @@ export function CFOROIRequests() {
         .select('*')
         .eq('category', 'roi_payout')
         .order('created_at', { ascending: false })
-        .limit(100);
+        .limit(rangeFilter === 'this_month' || rangeFilter === 'last_week' ? 500 : 100);
 
       if (filter !== 'all') {
         query = query.eq('status', filter);
