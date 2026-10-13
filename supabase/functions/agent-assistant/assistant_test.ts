@@ -195,17 +195,31 @@ Deno.test("tools: directory tools reject identity-looking and unknown arguments"
 Deno.test("tools: directory tool arguments map to the RPC's named parameters", () => {
   const find = findTool("find_tenants")!;
   const a = find.toRpcArgs({ search: "betty", plan: "active", period: "yesterday", limit: 10 });
-  assertEquals(a, { p_search: "betty", p_plan: "active", p_from: resolvePeriod("yesterday").from, p_to: resolvePeriod("yesterday").to, p_limit: 10 });
+  assertEquals(a, { p_search: "betty", p_plan: "active", p_from: resolvePeriod("yesterday").from, p_to: resolvePeriod("yesterday").to, p_limit: 10, p_email: "any" });
   const d = find.toRpcArgs({});
   assertEquals(d.p_search, null);
   assertEquals(d.p_plan, "all");
   assertEquals(d.p_limit, 15);
+  assertEquals(d.p_email, "any");
+  assertEquals(find.toRpcArgs({ email: "missing" }).p_email, "missing");
+  assertEquals(findTool("get_subagents")!.toRpcArgs({}).p_email, "any");
+  assertEquals(findTool("get_subagents")!.toRpcArgs({ email: "present" }).p_email, "present");
   assertEquals(d.p_from, resolvePeriod("last_30_days").from);
   const det = findTool("get_tenant_detail")!.toRpcArgs({ search: "betty", from: "2026-10-01", to: "2026-10-05" });
   assertEquals(det, { p_search: "betty", p_from: "2026-10-01", p_to: "2026-10-05" });
   assertEquals(findTool("get_subagents")!.toRpcArgs({ search: "sam", limit: 5 }).p_limit, 5);
   assertEquals(findTool("get_landlords")!.toRpcArgs({}), { p_search: null, p_limit: 15 });
   assertEquals(findTool("get_my_profile")!.toRpcArgs({}), {});
+});
+
+Deno.test("tools: the email filter only accepts any / missing / present", () => {
+  for (const name of ["find_tenants", "get_subagents"]) {
+    const t = findTool(name)!;
+    for (const ok of ["any", "missing", "present"]) assert(t.schema.safeParse({ email: ok }).success, `${name} ${ok}`);
+    for (const bad of ["all", "none", "yes", "", "a@b.com", "%"]) assert(!t.schema.safeParse({ email: bad }).success, `${name} ${bad}`);
+  }
+  // the detail tools have no email filter: they return everyone found, with or without an email
+  assert(!findTool("get_tenant_detail")!.schema.safeParse({ search: "a", email: "missing" }).success);
 });
 
 Deno.test("tools: a limit above 25 or a period together with dates is rejected", () => {

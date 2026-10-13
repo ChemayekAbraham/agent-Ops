@@ -63,6 +63,13 @@ const searchProp = {
   description: "Part of a person's name (or digits of their phone number). Letters, digits, space . ' + - only.",
 };
 const limitProp = { type: "integer", minimum: 1, maximum: 25, description: "How many to list (default 15, max 25)." };
+/** Narrows by whether a real email is on file. Never excludes anyone unless asked. */
+const emailFilter = z.enum(["any", "missing", "present"]);
+const emailProp = {
+  type: "string",
+  enum: ["any", "missing", "present"],
+  description: "any (default) includes everyone; missing = only people with no real email on file; present = only those with one.",
+};
 
 function rangeToRpc(a: Range, defaultPeriod: Period): { p_from: string; p_to: string } {
   if (a.from || a.to) {
@@ -175,7 +182,9 @@ export const AGENT_TOOLS: ToolDef[] = [
     description:
       "List the agent's OWN tenants (name, phone, location) with each tenant's latest Rent Plan and what the agent collected " +
       "from them in the period (default last 30 days; reversed collections are excluded). Optional search by name or phone and a " +
-      "plan filter: active, in_review, completed or all. total_matching says how many exist; the list is capped. " +
+      "plan filter: active, in_review, completed or all, and an email filter: any (default), missing (no real email on file) or " +
+      "present. Everyone is included whether or not they have an email; each item has email (null if none) and has_email, and " +
+      "email_summary counts how many have and lack one. total_matching says how many exist; the list is capped. " +
       "plan_total / recorded_repaid / plan_balance come from the Rent Plan record, NOT from collection receipts, so they can " +
       "differ from collected_in_period. Use get_tenant_detail for everything about one tenant.",
     parameters: {
@@ -183,6 +192,7 @@ export const AGENT_TOOLS: ToolDef[] = [
       properties: {
         search: searchProp,
         plan: { type: "string", enum: ["all", "active", "in_review", "completed"], description: "Only tenants with a Rent Plan at this stage." },
+        email: emailProp,
         ...rangeProps,
         limit: limitProp,
       },
@@ -191,13 +201,20 @@ export const AGENT_TOOLS: ToolDef[] = [
     schema: z.object({
       search: search.optional(),
       plan: z.enum(["all", "active", "in_review", "completed"]).optional(),
+      email: emailFilter.optional(),
       ...rangeShape,
       limit: z.number().int().min(1).max(25).optional(),
     }).strict().refine(noPeriodAndDates, RANGE_CONFLICT) as unknown as z.ZodType<Record<string, unknown>>,
     rpc: "assistant_agent_find_tenants",
     toRpcArgs: (a) => {
-      const x = a as Range & { search?: string; plan?: string; limit?: number };
-      return { p_search: x.search ?? null, p_plan: x.plan ?? "all", ...rangeToRpc(x, "last_30_days"), p_limit: x.limit ?? 15 };
+      const x = a as Range & { search?: string; plan?: string; limit?: number; email?: string };
+      return {
+        p_search: x.search ?? null,
+        p_plan: x.plan ?? "all",
+        ...rangeToRpc(x, "last_30_days"),
+        p_limit: x.limit ?? 15,
+        p_email: x.email ?? "any",
+      };
     },
   },
   {
@@ -242,21 +259,24 @@ export const AGENT_TOOLS: ToolDef[] = [
       "The agent's own verified sub-agents (direct only): name, phone, district, when they were linked, how much they collected in " +
       "the period (default last 30 days; reversed collections excluded), number of collections, last collection date and tenant " +
       "count, ranked by collected. Also totals: how many sub-agents, how many pending invitations, how many were active. " +
-      "Optional search by name or phone. These are the sub-agents' collections, not the agent's own.",
+      "Optional search by name or phone, and an email filter (any / missing / present). Everyone is included whether or not they " +
+      "have an email; each item has email (null if none) and has_email, and email_summary counts how many have and lack one. " +
+      "These are the sub-agents' collections, not the agent's own.",
     parameters: {
       type: "object",
-      properties: { search: searchProp, ...rangeProps, limit: limitProp },
+      properties: { search: searchProp, email: emailProp, ...rangeProps, limit: limitProp },
       additionalProperties: false,
     },
     schema: z.object({
       search: search.optional(),
+      email: emailFilter.optional(),
       ...rangeShape,
       limit: z.number().int().min(1).max(25).optional(),
     }).strict().refine(noPeriodAndDates, RANGE_CONFLICT) as unknown as z.ZodType<Record<string, unknown>>,
     rpc: "assistant_agent_subagents",
     toRpcArgs: (a) => {
-      const x = a as Range & { search?: string; limit?: number };
-      return { p_search: x.search ?? null, ...rangeToRpc(x, "last_30_days"), p_limit: x.limit ?? 15 };
+      const x = a as Range & { search?: string; limit?: number; email?: string };
+      return { p_search: x.search ?? null, ...rangeToRpc(x, "last_30_days"), p_limit: x.limit ?? 15, p_email: x.email ?? "any" };
     },
   },
   {

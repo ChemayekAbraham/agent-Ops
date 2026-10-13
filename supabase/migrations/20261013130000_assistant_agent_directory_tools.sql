@@ -98,6 +98,7 @@ begin
     'name',            public.assistant_clean_text(p.full_name, 80),
     'phone',           public.assistant_clean_phone(p.phone),
     'email',           public.assistant_real_email(p.email),
+    'has_email',       (public.assistant_real_email(p.email) is not null),
     'joined',          p.created_at::date,
     'verified',        coalesce(p.verified, false),
     'phone_verified',  coalesce(p.phone_verified, false),
@@ -190,7 +191,8 @@ create or replace function public.assistant_agent_find_tenants(
   p_plan   text default 'all',
   p_from   date default null,
   p_to     date default null,
-  p_limit  integer default 15
+  p_limit  integer default 15,
+  p_email  text default 'any'
 )
 returns jsonb
 language plpgsql
@@ -208,6 +210,7 @@ declare
   v_to_ts   timestamptz := (v_to + 1)::timestamp at time zone 'Africa/Kampala';
   v_limit  integer := least(greatest(coalesce(p_limit, 15), 1), 25);
   v_plan   text := lower(coalesce(nullif(btrim(p_plan), ''), 'all'));
+  v_email  text := lower(coalesce(nullif(btrim(p_email), ''), 'any'));
   v_term   text := nullif(btrim(left(coalesce(p_search, ''), 40)), '');
   v_words  text[];
   v_digits text;
@@ -220,6 +223,9 @@ begin
   end if;
   if v_plan not in ('all', 'active', 'in_review', 'completed') then
     raise exception 'invalid_plan' using errcode = '22023';
+  end if;
+  if v_email not in ('any', 'missing', 'present') then
+    raise exception 'invalid_email_filter' using errcode = '22023';
   end if;
   if v_term is not null and v_term !~ '^[[:alnum:] .''+-]+$' then
     raise exception 'invalid_search' using errcode = '22023';
@@ -241,7 +247,7 @@ begin
        and ac.reversed_at is null and ac.amount > 0
   ),
   base as (
-    select p.id, p.full_name, p.phone, p.village, p.sub_county, p.district
+    select p.id, p.full_name, p.phone, p.email, p.village, p.sub_county, p.district
       from public.profiles p
       join my_tenants t on t.tenant_id = p.id
      where p.deleted_at is null
@@ -266,9 +272,16 @@ begin
        and rr.status <> 'deleted_by_agent'
        and (rr.agent_id = v_uid or rr.assigned_agent_id = v_uid)
   ),
-  filtered as (
-    select b.* from base b
+  -- Everyone matching the search and plan filter, WITH or WITHOUT an email on file. The email
+  -- filter below only narrows this on request; nobody is ever dropped for lacking an email.
+  pre as (
+    select b.*, (public.assistant_real_email(b.email) is not null) as has_email
+      from base b
      where v_plan = 'all' or exists (select 1 from plans pf where pf.tenant_id = b.id and pf.stage = v_plan)
+  ),
+  filtered as (
+    select * from pre
+     where v_email = 'any' or (v_email = 'present') = has_email
   ),
   page as (
     select f.* from filtered f order by f.full_name nulls last, f.id limit v_limit
@@ -284,13 +297,19 @@ begin
   select jsonb_build_object(
     'search', v_term,
     'plan_filter', v_plan,
+    'email_filter', v_email,
     'period', jsonb_build_object('from', v_from, 'to', v_to),
     'total_matching', (select count(*) from filtered),
+    'email_summary', jsonb_build_object(
+      'with_email',    (select count(*) from pre where has_email),
+      'without_email', (select count(*) from pre where not has_email)),
     'returned', (select count(*) from page),
     'items', coalesce((
       select jsonb_agg(jsonb_build_object(
         'name',  public.assistant_clean_text(pg.full_name, 80),
         'phone', public.assistant_clean_phone(pg.phone),
+        'email', public.assistant_real_email(pg.email),
+        'has_email', pg.has_email,
         'location', public.assistant_clean_text(concat_ws(', ', pg.village, pg.sub_county, pg.district), 100, true),
         'plans_total', (select count(*) from plans pf where pf.tenant_id = pg.id),
         'latest_plan', (
@@ -376,7 +395,7 @@ begin
        and ac.reversed_at is null and ac.amount > 0
   ),
   matches as (
-    select p.id, p.full_name, p.phone, p.created_at, p.verified, p.monthly_rent, p.tenant_status,
+    select p.id, p.full_name, p.phone, p.email, p.created_at, p.verified, p.monthly_rent, p.tenant_status,
            p.village, p.parish, p.sub_county, p.district, p.region, p.town
       from public.profiles p
       join my_tenants t on t.tenant_id = p.id
@@ -396,6 +415,8 @@ begin
       select jsonb_agg(jsonb_build_object(
         'name',    public.assistant_clean_text(t.full_name, 80),
         'phone',   public.assistant_clean_phone(t.phone),
+        'email',   public.assistant_real_email(t.email),
+        'has_email', (public.assistant_real_email(t.email) is not null),
         'joined',  t.created_at::date,
         'verified', coalesce(t.verified, false),
         'monthly_rent', t.monthly_rent,
@@ -553,7 +574,8 @@ create or replace function public.assistant_agent_subagents(
   p_search text default null,
   p_from   date default null,
   p_to     date default null,
-  p_limit  integer default 15
+  p_limit  integer default 15,
+  p_email  text default 'any'
 )
 returns jsonb
 language plpgsql
@@ -570,6 +592,7 @@ declare
   v_from_ts timestamptz := v_from::timestamp at time zone 'Africa/Kampala';
   v_to_ts   timestamptz := (v_to + 1)::timestamp at time zone 'Africa/Kampala';
   v_limit  integer := least(greatest(coalesce(p_limit, 15), 1), 25);
+  v_email  text := lower(coalesce(nullif(btrim(p_email), ''), 'any'));
   v_term   text := nullif(btrim(left(coalesce(p_search, ''), 40)), '');
   v_words  text[];
   v_digits text;
@@ -579,6 +602,9 @@ begin
 
   if v_from > v_to or v_to - v_from > 92 or v_to > v_today then
     raise exception 'invalid_range' using errcode = '22023';
+  end if;
+  if v_email not in ('any', 'missing', 'present') then
+    raise exception 'invalid_email_filter' using errcode = '22023';
   end if;
   if v_term is not null and v_term !~ '^[[:alnum:] .''+-]+$' then
     raise exception 'invalid_search' using errcode = '22023';
@@ -596,7 +622,7 @@ begin
      group by sa.sub_agent_id
   ),
   people as (
-    select s.sub_agent_id, s.linked_at, p.full_name, p.phone, p.district, p.region
+    select s.sub_agent_id, s.linked_at, p.full_name, p.phone, p.email, p.district, p.region
       from subs s
       join public.profiles p on p.id = s.sub_agent_id and p.deleted_at is null
      where cardinality(v_words) = 0
@@ -613,27 +639,40 @@ begin
        and ac.created_at >= v_from_ts and ac.created_at < v_to_ts
      group by ac.agent_id
   ),
+  -- Everyone matching the search, WITH or WITHOUT an email on file. The email filter below only
+  -- narrows this on request; nobody is ever dropped for lacking an email.
   ranked as (
-    select pe.*, coalesce(c.total, 0) as collected, coalesce(c.n, 0) as collections, c.last_on
+    select pe.*, coalesce(c.total, 0) as collected, coalesce(c.n, 0) as collections, c.last_on,
+           (public.assistant_real_email(pe.email) is not null) as has_email
       from people pe left join cash c using (sub_agent_id)
   ),
+  ranked_f as (
+    select * from ranked
+     where v_email = 'any' or (v_email = 'present') = has_email
+  ),
   page as (
-    select * from ranked order by collected desc, full_name nulls last, sub_agent_id limit v_limit
+    select * from ranked_f order by collected desc, full_name nulls last, sub_agent_id limit v_limit
   )
   select jsonb_build_object(
     'search', v_term,
+    'email_filter', v_email,
     'period', jsonb_build_object('from', v_from, 'to', v_to),
     'sub_agents_verified_total', (select count(*) from subs),
     'sub_agents_pending', (select count(*) from public.agent_subagents sa where sa.parent_agent_id = v_uid and sa.status = 'pending_acceptance'),
-    'total_matching', (select count(*) from ranked),
-    'collected_by_matching', coalesce((select sum(collected) from ranked), 0),
-    'collections_by_matching', coalesce((select sum(collections) from ranked), 0),
-    'active_matching', (select count(*) from ranked where collections > 0),
+    'total_matching', (select count(*) from ranked_f),
+    'email_summary', jsonb_build_object(
+      'with_email',    (select count(*) from ranked where has_email),
+      'without_email', (select count(*) from ranked where not has_email)),
+    'collected_by_matching', coalesce((select sum(collected) from ranked_f), 0),
+    'collections_by_matching', coalesce((select sum(collections) from ranked_f), 0),
+    'active_matching', (select count(*) from ranked_f where collections > 0),
     'returned', (select count(*) from page),
     'items', coalesce((
       select jsonb_agg(jsonb_build_object(
         'name', public.assistant_clean_text(g.full_name, 80),
         'phone', public.assistant_clean_phone(g.phone),
+        'email', public.assistant_real_email(g.email),
+        'has_email', g.has_email,
         'district', public.assistant_clean_text(g.district, 60),
         'region', public.assistant_clean_text(g.region, 60),
         'linked_since', g.linked_at::date,
@@ -725,6 +764,7 @@ begin
         'name',  public.assistant_clean_text(m.full_name, 80),
         'phone', public.assistant_clean_phone(m.phone),
         'email', public.assistant_real_email(m.email),
+        'has_email', (public.assistant_real_email(m.email) is not null),
         'district', public.assistant_clean_text(m.district, 60),
         'region', public.assistant_clean_text(m.region, 60),
         'occupation', public.assistant_clean_text(m.occupation, 60),
@@ -788,8 +828,8 @@ grant  execute on function public.assistant_agent_my_profile() to authenticated,
 revoke execute on function public.assistant_agent_tenants() from public, anon;
 grant  execute on function public.assistant_agent_tenants() to authenticated, service_role;
 
-revoke execute on function public.assistant_agent_find_tenants(text, text, date, date, integer) from public, anon;
-grant  execute on function public.assistant_agent_find_tenants(text, text, date, date, integer) to authenticated, service_role;
+revoke execute on function public.assistant_agent_find_tenants(text, text, date, date, integer, text) from public, anon;
+grant  execute on function public.assistant_agent_find_tenants(text, text, date, date, integer, text) to authenticated, service_role;
 
 revoke execute on function public.assistant_agent_tenant_detail(text, date, date) from public, anon;
 grant  execute on function public.assistant_agent_tenant_detail(text, date, date) to authenticated, service_role;
@@ -797,8 +837,8 @@ grant  execute on function public.assistant_agent_tenant_detail(text, date, date
 revoke execute on function public.assistant_agent_landlords(text, integer) from public, anon;
 grant  execute on function public.assistant_agent_landlords(text, integer) to authenticated, service_role;
 
-revoke execute on function public.assistant_agent_subagents(text, date, date, integer) from public, anon;
-grant  execute on function public.assistant_agent_subagents(text, date, date, integer) to authenticated, service_role;
+revoke execute on function public.assistant_agent_subagents(text, date, date, integer, text) from public, anon;
+grant  execute on function public.assistant_agent_subagents(text, date, date, integer, text) to authenticated, service_role;
 
 revoke execute on function public.assistant_agent_subagent_detail(text, date, date) from public, anon;
 grant  execute on function public.assistant_agent_subagent_detail(text, date, date) to authenticated, service_role;
