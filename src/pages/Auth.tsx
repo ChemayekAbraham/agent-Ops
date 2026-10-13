@@ -24,6 +24,10 @@ import { cn } from '@/lib/utils';
 import './auth-design.css';
 import authArtAsset from '@/assets/welcome-new/tenant.png.asset.json';
 import authLogoAsset from '@/assets/welcome-new/welile-logo.png.asset.json';
+import familyAsset from '@/assets/welcome-new/welcome-family.png.asset.json';
+import houseAsset from '@/assets/welcome-new/role-landlord-house.png.asset.json';
+import agentAsset from '@/assets/welcome-new/agent.png.asset.json';
+import heartAsset from '@/assets/welcome-new/role-supporter-heart.png.asset.json';
 import { useOtpVerification } from '@/hooks/useOtpVerification';
 import { setDeviceTrust } from '@/lib/deviceTrust';
 import { useToast } from '@/hooks/use-toast';
@@ -37,12 +41,12 @@ import PersonNameFields from '@/components/shared/PersonNameFields';
 
 const VALID_SIGNUP_ROLES = ['tenant', 'agent', 'landlord', 'supporter'] as const;
 
-const ROLE_OPTIONS = [
-  { role: 'tenant' as const, emoji: '🏠', label: 'I need rent help', desc: 'Get funded instantly', gradient: 'from-blue-500 to-indigo-600' },
-  { role: 'supporter' as const, emoji: '💰', label: 'I want to earn', desc: '15% monthly returns', gradient: 'from-emerald-500 to-teal-600' },
-  { role: 'agent' as const, emoji: '⚡', label: 'I want to earn and learn', desc: 'Register & earn cash', gradient: 'from-amber-500 to-orange-600' },
-  { role: 'landlord' as const, emoji: '🏢', label: 'Guaranteed rent', desc: 'Never chase tenants', gradient: 'from-purple-500 to-violet-600' },
-];
+const SIGNUP_ROLE_CONFIG: Record<string, { roleLabel: string; avatar: string; bannerText: string }> = {
+  tenant: { roleLabel: 'Join as a Tenant', avatar: familyAsset.url, bannerText: 'A safer, simpler way to find your next home and access rent support.' },
+  landlord: { roleLabel: 'Join as a Landlord', avatar: houseAsset.url, bannerText: 'List properties, manage tenants and track rent activity from one place.' },
+  agent: { roleLabel: 'Join as an Agent', avatar: agentAsset.url, bannerText: 'Connect people, support onboarding and grow through field opportunities.' },
+  supporter: { roleLabel: 'Join as a Partner', avatar: heartAsset.url, bannerText: 'Support rent opportunities, monitor portfolios and help make housing possible.' },
+};
 
 export default function Auth() {
   // Detect an active recruitment-campaign attribution (secure token stored
@@ -162,12 +166,17 @@ export default function Auth() {
     setSearchParams(newParams, { replace: true });
   };
 
-  const roleLabelMap: Record<string, string> = {
-    tenant: '🏠 Tenant',
-    supporter: '💰 Funder',
-    agent: '⚡ Agent',
-    landlord: '🏢 Landlord',
-  };
+  // Create account follows the design flow: choose a role first (welcome
+  // screen 7), then come back here with ?role= for the account form.
+  useEffect(() => {
+    if (!needsRoleSelection) return;
+    const next = new URLSearchParams(searchParams);
+    const fromUrl = next.get('signup') === '1';
+    next.delete('signup');
+    next.delete('role');
+    next.set('step', '7');
+    navigate(`/welcome-new?${next.toString()}`, { replace: fromUrl });
+  }, [needsRoleSelection]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -448,9 +457,9 @@ export default function Auth() {
           </button>
         </div>
 
-        <div className="auth-brand">
+        {!isSignUp && <div className="auth-brand">
           <img src={authLogoAsset.url} alt="Welile" className="auth-logo" />
-        </div>
+        </div>}
 
         <div className="auth-step" style={{ flex: '1 0 auto' }}>
         {isLoginView && (
@@ -461,10 +470,20 @@ export default function Auth() {
             <p className="auth-subtitle">Sign in to your Welile account</p>
           </>
         )}
-        {isSignUp && (
+        {isSignUp && hasValidRole && (
           <>
-            <h1 className="auth-title" tabIndex={-1}>Create your account</h1>
-            <p className="auth-subtitle">Join Welile in a few quick steps</p>
+            <div className="account-profile-header">
+              <div className="account-heading-box">
+                <h1 className="account-title" tabIndex={-1}>Create your account</h1>
+                <p className="account-role-label">{SIGNUP_ROLE_CONFIG[preSelectedRole!]?.roleLabel ?? 'Join Welile'}</p>
+              </div>
+              <div className="account-avatar-wrapper">
+                <img src={SIGNUP_ROLE_CONFIG[preSelectedRole!]?.avatar ?? familyAsset.url} alt="Selected role avatar" className="account-avatar-img" />
+              </div>
+            </div>
+            <div className="account-value-box">
+              <p className="value-box-text">{SIGNUP_ROLE_CONFIG[preSelectedRole!]?.bannerText}</p>
+            </div>
           </>
         )}
         {!isLoginView && !isSignUp && <div className="mb-2" />}
@@ -500,52 +519,6 @@ export default function Auth() {
                   : 'Your referring agent will be linked to you automatically after sign up.'}
               </p>
             </div>
-          </div>
-        )}
-
-        {/* Role badge for signup */}
-        {isSignUp && hasValidRole && (
-          <div className="mb-4 p-3 rounded-xl bg-primary/5 border border-primary/20 flex items-center justify-between animate-in fade-in duration-200">
-            <span className="text-sm font-medium text-foreground">
-              Joining as <span className="font-bold">{roleLabelMap[preSelectedRole!] || preSelectedRole}</span>
-              {referringAgentName && (
-                <span className="block text-xs font-normal text-muted-foreground mt-0.5">
-                  through Agent <span className="font-semibold text-foreground">{referringAgentName}</span>
-                </span>
-              )}
-            </span>
-            <button type="button" onClick={() => navigate('/welcome')} className="text-xs text-primary hover:underline">
-              Change
-            </button>
-          </div>
-        )}
-
-        {/* Inline role selector for signup without role */}
-        {needsRoleSelection && (
-          <div className="space-y-2 mb-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            <p className="text-sm font-medium text-foreground mb-3">What do you need?</p>
-            {ROLE_OPTIONS.map((opt) => (
-              <button
-                key={opt.role}
-                type="button"
-                onClick={() => handleSelectRole(opt.role)}
-                className={cn(
-                  "w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all duration-150",
-                  "bg-card border border-border/50 shadow-sm",
-                  "hover:shadow-md hover:scale-[1.01] active:scale-[0.98]",
-                  "touch-manipulation"
-                )}
-              >
-                <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center text-xl shrink-0 bg-gradient-to-br", opt.gradient)}>
-                  <span>{opt.emoji}</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-foreground text-sm">{opt.label}</p>
-                  <p className="text-xs text-muted-foreground">{opt.desc}</p>
-                </div>
-                <ArrowRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />
-              </button>
-            ))}
           </div>
         )}
 
@@ -1058,205 +1031,169 @@ export default function Auth() {
               </div>
             )}
 
-            {/* ===== SIGN UP ===== */}
+            {/* ===== SIGN UP (design screen 8) ===== */}
             {isSignUp && !needsRoleSelection && (
-              <div className="space-y-3 animate-in fade-in duration-200">
-                {/* Social signup */}
-                <div className="space-y-2.5">
-                  <OAuthEnvironmentHint />
-                <OAuthErrorCard />
-                  <GoogleSignInButton
-                    onClick={wrappedHandleGoogleSignIn}
-                    disabled={isGoogleLoading || isAppleLoading || isLoading}
-                    isLoading={isGoogleLoading}
-                    variant="prominent"
-                  />
-                  <AppleSignInButton
-                    onClick={handleAppleSignIn}
-                    disabled={isGoogleLoading || isAppleLoading || isLoading}
-                    isLoading={isAppleLoading}
-                  />
-                </div>
-
-                <div className="relative flex items-center py-1">
-                  <div className="flex-1 border-t border-border/40" />
-                  <span className="px-3 text-xs text-muted-foreground">or</span>
-                  <div className="flex-1 border-t border-border/40" />
-                </div>
-
-                <form onSubmit={wrappedHandleSubmit} className="space-y-4">
-                  {/* Person name — split capture, single `full_name` payload */}
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2 px-1">
-                      <User className="h-4 w-4 text-muted-foreground" />
-                      <Label className="p-0">Your name</Label>
+              <>
+                <form onSubmit={wrappedHandleSubmit} className="account-creation-form" noValidate>
+                  <div className="form-row-pair">
+                    <div className="form-row">
+                      <label className="input-label" htmlFor="signup-first-name">First name</label>
+                      <input
+                        id="signup-first-name"
+                        type="text"
+                        className="text-input-field"
+                        placeholder="First name"
+                        autoComplete="given-name"
+                        value={nameParts.firstName}
+                        onChange={(e) => { setNameParts({ ...nameParts, firstName: e.target.value }); if (namePartsError) setNamePartsError(null); }}
+                        disabled={isLoading}
+                        required
+                      />
                     </div>
-                    <PersonNameFields
-                      idPrefix="signup"
-                      value={nameParts}
-                      onChange={(next) => {
-                        setNameParts(next);
-                        if (namePartsError) setNamePartsError(null);
-                      }}
-                      disabled={isLoading}
-                      errors={{
-                        firstName: namePartsError && !nameParts.firstName.trim() ? namePartsError : null,
-                        lastName: namePartsError && nameParts.firstName.trim() && !nameParts.lastName.trim() ? namePartsError : null,
-                        otherNames: namePartsError && nameParts.firstName.trim() && nameParts.lastName.trim() ? namePartsError : null,
-                      }}
-                    />
+                    <div className="form-row">
+                      <label className="input-label" htmlFor="signup-last-name">Last name</label>
+                      <input
+                        id="signup-last-name"
+                        type="text"
+                        className="text-input-field"
+                        placeholder="Last name"
+                        autoComplete="family-name"
+                        value={nameParts.lastName}
+                        onChange={(e) => { setNameParts({ ...nameParts, lastName: e.target.value }); if (namePartsError) setNamePartsError(null); }}
+                        disabled={isLoading}
+                        required
+                      />
+                    </div>
                   </div>
 
-                  {/* Email (optional — lets users sign up without SMS OTP) */}
-                  <div className="space-y-1.5">
-                    <Label htmlFor="signup-email" className="px-1">Email <span className="font-normal text-muted-foreground">(optional)</span></Label>
-                    <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
+                  <div className="form-row">
+                    <label className="input-label" htmlFor="signup-email">Email</label>
+                    <input
                       id="signup-email"
                       type="email"
                       inputMode="email"
                       autoComplete="email"
+                      className="text-input-field"
+                      placeholder="you@example.com"
                       value={signupEmail}
                       onChange={(e) => setSignupEmail(e.target.value)}
-                      placeholder="you@example.com"
-                      className="pl-10 h-14 text-base rounded-lg"
-                      style={{ fontSize: '16px' }}
                     />
-                    </div>
+                    <p className="field-hint">Optional. Without an email we'll verify your phone instead.</p>
                   </div>
 
-                  {/* Phone */}
-                  <div className="space-y-1.5">
-                    <Label htmlFor="signup-phone" className="px-1">Phone number</Label>
-                    <div className="relative flex">
-                    <CountryCodeSelect value={countryCode} onChange={setCountryCode} />
-                    <div className="relative flex-1">
-                      <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        id="signup-phone"
-                        ref={phoneInputRef}
-                        type="tel"
-                        inputMode="tel"
-                        autoComplete="tel"
-                        value={phone}
-                        onChange={(e) => { setPhone(e.target.value); setLoginError(null); }}
-                        placeholder="700 123 456"
-                        className={cn("pl-10 h-14 text-base rounded-lg rounded-l-none", isDuplicate && 'border-destructive')}
-                        style={{ fontSize: '16px' }}
-                        required
-                      />
-                    </div>
-                    </div>
+                  <div className="form-row">
+                    <label className="input-label" htmlFor="signup-phone">Phone number</label>
+                    <DesignPhoneInput
+                      id="signup-phone"
+                      inputRef={phoneInputRef}
+                      countryCode={countryCode}
+                      onCountryChange={setCountryCode}
+                      value={phone}
+                      onChange={(v) => { setPhone(v); setLoginError(null); }}
+                    />
+                    <p className="field-hint">We'll text you a code to verify this number.</p>
+                    {isDuplicate && <p className="form-error" role="alert">{duplicateMessage}</p>}
+                    {isCheckingDuplicate && <p className="field-hint">Checking…</p>}
                   </div>
-                  {isDuplicate && (
-                    <p className="text-xs text-destructive flex items-center gap-1 px-1"><AlertCircle className="h-3 w-3" />{duplicateMessage}</p>
-                  )}
-                  {isCheckingDuplicate && (
-                    <p className="text-xs text-muted-foreground flex items-center gap-1 px-1"><Loader2 className="h-3 w-3 animate-spin" />Checking...</p>
-                  )}
 
-                  {/* Phone OTP — required only when no email was provided */}
+                  {/* Phone OTP — required only when no email was provided (logic unchanged) */}
                   {!signupEmail.trim() && phone.replace(/\D/g, '').length >= 9 && !isDuplicate && (
-                    <div className="rounded-xl border border-border/60 bg-muted/30 p-3 space-y-2">
-                      <p className="text-xs text-muted-foreground">
-                        No email provided — we'll verify your phone instead. No email will be sent.
-                      </p>
-                      <OtpVerificationStep
-                        phone={(() => {
-                          const d = phone.replace(/\D/g, '');
-                          return d.startsWith(countryCode) ? d : countryCode + (d.startsWith('0') ? d.slice(1) : d);
-                        })()}
-                        otpSent={otpSent}
-                        otpVerified={otpVerified}
-                        otpLoading={otpLoading}
-                        otpError={otpError}
-                        sendStatus={otpSendStatus}
-                        cooldownSeconds={otpCooldownSeconds}
-                        onSendOtp={() => {
-                          const d = phone.replace(/\D/g, '');
-                          const full = d.startsWith(countryCode) ? d : countryCode + (d.startsWith('0') ? d.slice(1) : d);
-                          sendOtp(full, { category: 'signup' });
-                        }}
-                        onVerifyOtp={(code) => {
-                          const d = phone.replace(/\D/g, '');
-                          const full = d.startsWith(countryCode) ? d : countryCode + (d.startsWith('0') ? d.slice(1) : d);
-                          verifyOtp(full, code, { category: 'signup' });
-                        }}
-                        onResendOtp={() => {
-                          const d = phone.replace(/\D/g, '');
-                          const full = d.startsWith(countryCode) ? d : countryCode + (d.startsWith('0') ? d.slice(1) : d);
-                          sendOtp(full, { category: 'signup' });
-                        }}
-                      />
-                    </div>
+                    <OtpVerificationStep
+                      phone={(() => {
+                        const d = phone.replace(/\D/g, '');
+                        return d.startsWith(countryCode) ? d : countryCode + (d.startsWith('0') ? d.slice(1) : d);
+                      })()}
+                      otpSent={otpSent}
+                      otpVerified={otpVerified}
+                      otpLoading={otpLoading}
+                      otpError={otpError}
+                      sendStatus={otpSendStatus}
+                      cooldownSeconds={otpCooldownSeconds}
+                      onSendOtp={() => {
+                        const d = phone.replace(/\D/g, '');
+                        const full = d.startsWith(countryCode) ? d : countryCode + (d.startsWith('0') ? d.slice(1) : d);
+                        sendOtp(full, { category: 'signup' });
+                      }}
+                      onVerifyOtp={(code) => {
+                        const d = phone.replace(/\D/g, '');
+                        const full = d.startsWith(countryCode) ? d : countryCode + (d.startsWith('0') ? d.slice(1) : d);
+                        verifyOtp(full, code, { category: 'signup' });
+                      }}
+                      onResendOtp={() => {
+                        const d = phone.replace(/\D/g, '');
+                        const full = d.startsWith(countryCode) ? d : countryCode + (d.startsWith('0') ? d.slice(1) : d);
+                        sendOtp(full, { category: 'signup' });
+                      }}
+                    />
                   )}
 
-                  {/* Password */}
-                  <div className="space-y-1.5">
-                    <Label htmlFor="signup-password" className="px-1">Password</Label>
-                    <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
+                  <div className="form-row">
+                    <label className="input-label" htmlFor="signup-password">Password</label>
+                    <DesignPasswordInput
                       id="signup-password"
-                      type={showPassword ? "text" : "password"}
                       autoComplete="new-password"
+                      placeholder="Create a password"
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      placeholder="Password"
-                      className="pl-10 pr-14 h-14 text-base rounded-lg"
-                      style={{ fontSize: '16px' }}
-                      required
+                      onChange={setPassword}
+                      visible={showPassword}
+                      onToggle={() => setShowPassword(!showPassword)}
                     />
-                    <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground">
-                      {showPassword ? 'Hide' : 'Show'}
-                    </button>
-                    </div>
+                    <p className="field-hint">At least 8 characters.</p>
                   </div>
-                  <PasswordStrengthIndicator password={password} />
 
-                  {/* Confirm Password */}
-                  <div className="space-y-1.5">
-                    <Label htmlFor="signup-confirm-password" className="px-1">Confirm password</Label>
-                    <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
+                  <div className="form-row">
+                    <label className="input-label" htmlFor="signup-confirm-password">Confirm password</label>
+                    <DesignPasswordInput
                       id="signup-confirm-password"
-                      type={showConfirmPassword ? "text" : "password"}
                       autoComplete="new-password"
+                      placeholder="Re-enter your password"
                       value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      placeholder="Confirm password"
-                      className={cn("pl-10 pr-14 h-14 text-base rounded-lg", confirmPassword && password !== confirmPassword && 'border-destructive', confirmPassword && password === confirmPassword && 'border-emerald-500')}
-                      style={{ fontSize: '16px' }}
-                      required
+                      onChange={setConfirmPassword}
+                      visible={showConfirmPassword}
+                      onToggle={() => setShowConfirmPassword(!showConfirmPassword)}
                     />
-                    <button type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground">
-                      {showConfirmPassword ? 'Hide' : 'Show'}
-                    </button>
-                    </div>
                   </div>
+
+                  {namePartsError && <p className="form-error" role="alert">{namePartsError}</p>}
                   {confirmPassword && password !== confirmPassword && (
-                    <p className="text-xs text-destructive px-1">Passwords don't match</p>
+                    <p className="form-error" role="alert">Passwords don't match.</p>
                   )}
+                  {loginError && <p className="form-error" role="alert">{loginError.message}</p>}
 
-                  <Button
+                  <button
                     type="submit"
-                    className="w-full h-14 text-base rounded-lg font-semibold touch-manipulation active:scale-[0.98]"
-                    disabled={
-                      isLoading ||
-                      isDuplicate ||
-                      isCheckingDuplicate ||
-                      (!signupEmail.trim() && !otpVerified)
-                    }
-                    style={{ fontSize: '16px', WebkitTapHighlightColor: 'transparent' }}
+                    className="btn btn-primary"
+                    disabled={isLoading || isDuplicate || isCheckingDuplicate || (!signupEmail.trim() && !otpVerified)}
                   >
-                    {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Create Account'}
-                  </Button>
+                    {isLoading ? <Loader2 className="btn-spin" /> : (
+                      <>
+                        <span>Continue</span>
+                        <svg className="arrow-icon" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" width="18" height="18">
+                          <path fillRule="evenodd" d="M10.293 3.293a1 1 0 011.414 0l6 6a1 1 0 010 1.414l-6 6a1 1 0 01-1.414-1.414L14.586 11H3a1 1 0 110-2h11.586l-4.293-4.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                        </svg>
+                      </>
+                    )}
+                  </button>
                 </form>
-              </div>
-            )}
 
+                <div className="security-guarantee-card">
+                  <svg className="security-shield-icon" viewBox="0 0 24 24" fill="none" stroke="#7a38e8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                    <polyline points="9 12 11 14 15 10" />
+                  </svg>
+                  <div className="security-content">
+                    <h4 className="security-heading">Secure verification</h4>
+                    <p className="security-text">Your information is protected and never shared without your consent.</p>
+                  </div>
+                </div>
+
+                <div className="or-separator">
+                  <span className="sep-line" />
+                  <span className="sep-text">or</span>
+                  <span className="sep-line" />
+                </div>
+              </>
+            )}
           </div>
         )}
 
