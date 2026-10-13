@@ -70,7 +70,7 @@ export default function AgentsMock() {
               <div className="min-w-0 flex-1">
                 <p className="text-[9px] uppercase opacity-70">Rent due to collect</p>
                 <p className="text-[22px] font-bold leading-6">{amount(EXPECTED_TODAY)}</p>
-                <p className="mt-1 text-[9px] opacity-70">expected today · {TENANTS_TOTAL} tenants</p>
+                <p className="mt-1 text-[9px] opacity-70">expected today · {TENANTS_TOTAL} tenant{TENANTS_TOTAL === 1 ? '' : 's'}</p>
               </div>
             </div>
           </section>
