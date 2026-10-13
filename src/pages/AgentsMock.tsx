@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { Bell, Building2, Calculator, CalendarDays, ChevronLeft, ChevronRight, Eye, EyeOff, FileText, Hand, Home, Menu, Store, Trophy, Users, Wallet, type LucideIcon } from 'lucide-react';
+import { Bell, Building2, Calculator, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Eye, EyeOff, FileText, Hand, Home, Menu, Store, Trophy, Users, Wallet, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
 import { useAgentCapacityMap } from '@/hooks/useAgentCapacityMap';
+import { useAgentArrears } from '@/hooks/useAgentArrears';
 
 const SHORTCUTS: { label: string; Icon: LucideIcon; color: string; to?: string }[] = [
   { label: 'Calculator', Icon: Calculator, color: 'text-primary' },
@@ -29,6 +30,15 @@ export default function AgentsMock() {
   const TENANTS_TOTAL = cap?.tenants_due ?? 0;
   const CAPACITY_PCT = EXPECTED_TODAY > 0 ? Math.min(100, Math.round((COLLECTED_TODAY / EXPECTED_TODAY) * 100)) : 0;
   const LEFT_TODAY = Math.max(0, EXPECTED_TODAY - COLLECTED_TODAY);
+  // Today's collection list comes from the same server read the Collect dialog
+  // uses (`agent_arrears_overview`), so the names and amounts here are the
+  // tenant's own open days — never a placeholder.
+  const { data: arrears, isLoading: arrearsLoading, isError: arrearsFailed } = useAgentArrears(user?.id);
+  const DUE_LIST = useMemo(() => arrears?.tenants ?? [], [arrears]);
+  const DUE_TOTAL = DUE_LIST.reduce((s, t) => s + (Number(t.due_today_ugx) || 0), 0);
+  const [showAllDue, setShowAllDue] = useState(false);
+  const VISIBLE_DUE = showAllDue ? DUE_LIST : DUE_LIST.slice(0, 10);
+  const firstLetter = (name?: string | null) => (name || 'T').trim().charAt(0).toUpperCase() || 'T';
   const initials = (profile?.full_name || '').trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('') || 'SP';
   const [brokenAvatar, setBrokenAvatar] = useState<string | null>(null);
   const [hidden, setHidden] = useState(false);
