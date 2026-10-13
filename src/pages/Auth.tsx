@@ -1086,8 +1086,9 @@ export default function Auth() {
                     <DesignPhoneInput
                       id="signup-phone"
                       inputRef={phoneInputRef}
-                      countryCode={countryCode}
-                      onCountryChange={setCountryCode}
+                      code={countryCode}
+                      onCodeChange={setCountryCode}
+                      invalid={isDuplicate}
                       value={phone}
                       onChange={(v) => { setPhone(v); setLoginError(null); }}
                     />
@@ -1135,7 +1136,7 @@ export default function Auth() {
                       placeholder="Create a password"
                       value={password}
                       onChange={setPassword}
-                      visible={showPassword}
+                      shown={showPassword}
                       onToggle={() => setShowPassword(!showPassword)}
                     />
                     <p className="field-hint">At least 8 characters.</p>
@@ -1149,7 +1150,7 @@ export default function Auth() {
                       placeholder="Re-enter your password"
                       value={confirmPassword}
                       onChange={setConfirmPassword}
-                      visible={showConfirmPassword}
+                      shown={showConfirmPassword}
                       onToggle={() => setShowConfirmPassword(!showConfirmPassword)}
                     />
                   </div>
@@ -1245,9 +1246,9 @@ function AppleMark() {
   );
 }
 
-function DesignPasswordInput({ id, value, onChange, shown, onToggle, inputRef }: {
+function DesignPasswordInput({ id, value, onChange, shown, onToggle, inputRef, placeholder = 'Your password', autoComplete = 'current-password' }: {
   id: string; value: string; onChange: (v: string) => void; shown: boolean; onToggle: () => void;
-  inputRef?: React.Ref<HTMLInputElement>;
+  inputRef?: React.Ref<HTMLInputElement>; placeholder?: string; autoComplete?: string;
 }) {
   return (
     <div className="password-field">
@@ -1255,9 +1256,9 @@ function DesignPasswordInput({ id, value, onChange, shown, onToggle, inputRef }:
         id={id}
         ref={inputRef}
         type={shown ? 'text' : 'password'}
-        autoComplete="current-password"
+        autoComplete={autoComplete}
         className="text-input-field password-input"
-        placeholder="Your password"
+        placeholder={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         required
