@@ -207,12 +207,13 @@ export function CFOROIRequests() {
   });
 
   const filtered = operations.filter(op => {
+    const created = new Date(op.created_at);
+    if (rangeBounds) {
+      if (created < rangeBounds[0] || created >= rangeBounds[1]) return false;
+    }
     if (dateFilter) {
-      const created = new Date(op.created_at);
-      const sameDay = created.getFullYear() === dateFilter.getFullYear() &&
-        created.getMonth() === dateFilter.getMonth() &&
-        created.getDate() === dateFilter.getDate();
-      if (!sameDay) return false;
+      const dayStart = kampalaDayStartUtc(dateFilter);
+      if (created < dayStart || created >= new Date(dayStart.getTime() + 24 * 3600 * 1000)) return false;
     }
     if (!search) return true;
     const s = search.toLowerCase();
