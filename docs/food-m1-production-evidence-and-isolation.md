@@ -185,9 +185,8 @@ All of these are defined at the local `origin/lovable` tip `2b3a0f0144` (reposit
 - Not enabled anywhere. The recommendation in section 4 applies only after production verification and approval.
 
 **HND-D1: another active coordinator handles a blocked payment.**
-- `food_resolve_blocked_payment(order, reason)` is for the active coordinator only.
-- The caller must be neither the employee nor the blocked payee.
-- A reason is required.
-- It is refused while the original payee can be paid again, and refused if the new payee has no wallet or is frozen, closed or not staff.
-- It records the new payee's wallet and name, and audits both payees and the reason. No payment is made or retried.
-
+- Once a payment is blocked on its payee, `food_pay_order` refuses **every** retry until a decision is recorded. There is no automatic retry, even after the payee becomes payable again.
+- The decision is `food_resolve_blocked_payment(order, reason)`. It is for the active coordinator only, who must be neither the employee nor the blocked payee, and a reason is required. The outcome is either:
+  - **released:** the original payee can be paid again; the payee is unchanged and is never displaced; or
+  - **reassigned:** the original payee still cannot be paid; the resolver becomes the payee. This is refused if the resolver has no wallet or is frozen, closed or not staff.
+- Both outcomes are audited, with the reason (and, when reassigned, both payees). Neither makes a payment: the employee pays again themselves.

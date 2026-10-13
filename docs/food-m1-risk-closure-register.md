@@ -587,3 +587,33 @@ Nothing was done in production. No merge into or push to `lovable`.
 - R2–R4 16/16; Food vitest 255.
 
 **Status:** REV-D1 **FIXED (local)**; the open reviewer-role assumption is **withdrawn**. The statement UI may still show a Reverse button that the server refuses; hiding it is UI work (Gemini).
+
+
+## Post-merge verification and payment-safety audit (2026-10-14, merge `cc7f7854aa`)
+
+**State verified:**
+- `release/food-m1-v2` = `cc7f7854aa` locally and on the remote; `origin/lovable` = `2b3a0f0144`, unchanged.
+- No merge or rebase in progress. The only uncommitted file is the line-ending-only `PersonNameFields` snapshot.
+
+**Checks left running after the merge:** on `cc7f7854aa`, tsc exited 0 and guard:all passed (MCP untouched).
+
+**Payment-safety audit.** Traced in code and migrations, and proven by local tests; not production.
+
+| Area | Finding | Evidence | Status |
+|---|---|---|---|
+| Frontend → database | The merged frontend calls 29 Food RPCs, all defined in the release migrations (pending in production) | static scan of `src` vs migrations | VERIFIED (repo) |
+| Shared ledger mechanism | The only Food code that reaches the ledger is `food_pay_order` (posts) and `food_payment_problem` (reads). It never passes `skip_balance_check` and posts through `create_ledger_transaction` | INT-02 (now effective), PAYS-35 | VERIFIED (local) |
+| Non-Food objects | The only change to any non-Food object is the reversal guard trigger on `general_ledger` | ISO-01, ISO-11 | VERIFIED (local) |
+| Canteen reversals | Refused by every route; nothing posted | P1-01…05; negative control | VERIFIED (local) |
+| **Unrelated reversals and transfers** | **Not** blocked: an ordinary transfer reversal works with the guard on, including a reference that merely contains "FOODPAY" (the guard's filter is anchored: `FOODPAY-%-REV`) | **P1-06…08 (new)** | VERIFIED (local) |
+| Payee, wallet, no double charge | Payment goes to the recorded coordinator wallet; a repeat is a replay; concurrent requests post once | WAL-01…10, RACE-PAY, ELIG-07b | VERIFIED (local) |
+| **Blocked-payment retry** | **Defect against the owner's decision:** after a block, the employee could simply pay again once the payee was payable, with no coordinator decision | **FIXED:** `food_pay_order` refuses any retry while blocked; `food_resolve_blocked_payment` now records either a *release* (payee payable again, unchanged) or a *reassignment*, each with a reason and an audit entry | ELIG-05, 06b, 07a; BLK-03, 04; P4-05a, P4-05; negative control (check removed) fails ELIG-05 and 06b | **FIXED (local)** |
+| Takeover | Mandatory reason; another active coordinator only; audited; no payment | P4-00…12 | VERIFIED (local) |
+| COO Partners Returns | The merged page calls `post_portfolio_roi_ledger` three times (lines 631, 5195, 5653); no direct ledger call | ledgerBoundaryCOO test; ledger boundary 32/32 | VERIFIED (local) |
+| Tenant repayment, wallet balance, other accounting | Untouched by Food: no Food migration references them (ISO-01/11), and no Food function reads or writes them (INT-02) | as above | VERIFIED (local) |
+
+**Rerun on the final code:**
+- PostgreSQL 17 and 18: run 386/386, race 17/17, matrix 32/32, isolation 11/11, dry run 15/15.
+- R2–R4 16/16; ledger boundary 32/32; Food and COO vitest 259.
+
+**Production state:** unknown. No read-only evidence has been supplied and this session has no production access, so no claim is made about applied migrations, functions, triggers, permissions or `post_portfolio_roi_ledger`. What to collect is set out in `production_readonly_evidence.sql` (E0–E7).

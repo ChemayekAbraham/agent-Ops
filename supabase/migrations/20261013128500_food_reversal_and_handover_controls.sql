@@ -12,12 +12,15 @@
 -- key 'reversal:FOODPAY-…'), whoever attempts it; the shared function then
 -- fails with nothing posted. There is deliberately no reversal path in Food.
 
--- HND-D1. If the receipt-time coordinator cannot be paid (the order was
--- blocked), ANOTHER active Food Coordinator takes the exception over with a
--- mandatory reason: they become the payee (their wallet and name are
--- recorded) and the block is cleared. Refused while the original payee is
--- eligible again, so a valid payee is never displaced. No payment is made or
--- retried: the employee pays again themselves, through every normal check.
+-- HND-D1. Once an order is blocked on its payee, food_pay_order refuses every
+-- retry until ANOTHER active Food Coordinator records a decision, with a
+-- mandatory reason, through food_resolve_blocked_payment:
+--   * 'released'   - the original payee can be paid again: the block is
+--                    lifted and the payee is unchanged (never displaced);
+--   * 'reassigned' - the original payee still cannot be paid: the resolving
+--                    coordinator becomes the payee (wallet and name recorded).
+-- Neither makes or retries a payment: the employee pays again themselves,
+-- through every normal check.
 --
 -- ROLLBACK: DROP TRIGGER food_guard_payment_reversal ON general_ledger; DROP
 -- FUNCTION food_guard_payment_reversal(), food_resolve_blocked_payment(uuid,text),
@@ -75,11 +78,20 @@ BEGIN
   IF v_o.payment_status <> 'pending_payment' OR NOT v_o.payment_resolution_required
      OR v_o.payment_resolution_reason IS DISTINCT FROM 'recipient_ineligible' THEN
     RAISE EXCEPTION 'This order is not blocked on its payee' USING ERRCODE='22023'; END IF;
-  -- never displace a payee who can be paid again
+  -- the original payee can be paid again: release the block, payee unchanged
   v_still := public.food_payee_block_reason(v_o.payee_id, v_o.payee_wallet_id, v_o.employee_id);
   IF v_still IS NULL THEN
-    RAISE EXCEPTION 'The original Food Coordinator can be paid again; the employee should simply retry'
-      USING ERRCODE='22023'; END IF;
+    UPDATE public.food_orders
+       SET payment_resolution_required = false, payment_resolution_reason = 'block released'
+     WHERE id = v_o.id;
+    INSERT INTO public.food_order_events (order_id, event_type, from_status, to_status, note, actor_id)
+    VALUES (v_o.id, 'payment_block_released', 'pending_payment', 'pending_payment', btrim(p_reason), v_uid);
+    PERFORM public.food_audit_write('order', v_o.id, 'payment_block_released',
+      jsonb_build_object('payment_resolution_reason', 'recipient_ineligible', 'payee_id', v_o.payee_id),
+      jsonb_build_object('payee_id', v_o.payee_id, 'payee_wallet_id', v_o.payee_wallet_id), btrim(p_reason), v_uid);
+    RETURN jsonb_build_object('status','pending_payment','action','released','order_id',v_o.id,
+                              'payee_id',v_o.payee_id,'payee_name',v_o.payee_name,'payee_wallet_id',v_o.payee_wallet_id);
+  END IF;
   -- the new payee must themselves be payable, with a wallet of their own
   SELECT w.id INTO v_wallet FROM public.wallets_physical w WHERE w.user_id = v_uid;
   IF v_wallet IS NULL THEN
@@ -98,7 +110,7 @@ BEGIN
   PERFORM public.food_audit_write('order', v_o.id, 'payee_reassigned',
     jsonb_build_object('payee_id', v_o.payee_id, 'payee_wallet_id', v_o.payee_wallet_id, 'blocked_because', v_still),
     jsonb_build_object('payee_id', v_uid, 'payee_wallet_id', v_wallet, 'payee_name', v_name), btrim(p_reason), v_uid);
-  RETURN jsonb_build_object('status','pending_payment','order_id',v_o.id,'payee_id',v_uid,
+  RETURN jsonb_build_object('status','pending_payment','action','reassigned','order_id',v_o.id,'payee_id',v_uid,
                             'payee_name',v_name,'payee_wallet_id',v_wallet,'previous_payee_blocked_because',v_still);
 END $$;
 

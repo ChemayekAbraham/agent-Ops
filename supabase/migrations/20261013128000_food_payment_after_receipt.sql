@@ -344,6 +344,12 @@ BEGIN
       USING ERRCODE='22023'; END IF;
   IF v_o.payee_id = v_uid THEN
     RAISE EXCEPTION 'A Food Coordinator cannot pay themselves for their own order' USING ERRCODE='42501'; END IF;
+  -- HND-D1: once blocked on its payee, the payment is retried only after
+  -- another active Food Coordinator's recorded decision
+  -- (food_resolve_blocked_payment, 20261013128500); never automatically
+  IF v_o.payment_resolution_required AND v_o.payment_resolution_reason = 'recipient_ineligible' THEN
+    RAISE EXCEPTION 'This payment is blocked. Another active Food Coordinator must resolve it before it can be retried. Nothing was charged.'
+      USING ERRCODE='22023'; END IF;
 
   -- Route by WALLET. The coordinator's wallet recorded at receipt decides
   -- which account is credited: its owner is read from the wallet record. If

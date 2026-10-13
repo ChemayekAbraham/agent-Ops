@@ -44,15 +44,20 @@ SELECT food_test.ok((SELECT payment_status = 'pending_payment' AND payment_resol
                     AND pg_temp.legs((SELECT id FROM o)) = 0,
                     'BLK-02 ...flagged for resolution, recorded and audited, nothing posted');
 UPDATE public.profiles SET is_frozen = false WHERE id = food_test.id('coord');
+SELECT food_test.act_as(food_test.id('coord'));
+SELECT public.food_transfer_coordinator(food_test.id('emp_ok'), 'full_transfer', 'handover so another coordinator can decide');
+SELECT food_test.act_as(food_test.id('emp_ok'));
+SELECT public.food_resolve_blocked_payment((SELECT id FROM o), 'Coordinator eligible again; release the block');
 SELECT food_test.act_as(food_test.id('pay_a'));
 SELECT food_test.ok((public.food_pay_order((SELECT id FROM o))->>'status') = 'paid',
-                    'BLK-03 once the payee is eligible again, the employee''s retry pays');
+                    'BLK-03 after another coordinator releases the block, the employee''s payment goes through');
 RESET ROLE;
 SELECT food_test.ok((SELECT NOT payment_resolution_required AND payment_resolution_reason IS NULL
+                            AND payee_id = food_test.id('coord')
                        FROM public.food_orders WHERE id = (SELECT id FROM o))
                     AND (SELECT count(*) FROM public.food_payment_attempts WHERE order_id = (SELECT id FROM o)) = 1
                     AND pg_temp.legs((SELECT id FROM o)) = 2,
-                    'BLK-04 ...exactly one payment, the flag cleared');
+                    'BLK-04 ...exactly one payment, to the original coordinator; the flag cleared');
 ROLLBACK;
 
 BEGIN;

@@ -45,17 +45,25 @@ SELECT food_test.ok((public.food_pay_order((SELECT id FROM o))->>'status') = 'bl
 RESET ROLE;
 SELECT food_test.ok(pg_temp.untouched((SELECT id FROM o)) AND pg_temp.avail('pay_a') = 100000 AND pg_temp.avail('coord') = 0,
                     'ELIG-04 ...no ledger legs, no paid event, neither wallet changed');
--- duplicate and repeated requests after the refusal: still refused, still nothing posted
+-- a repeated request after the block: refused until a coordinator decides, nothing posted
 SELECT food_test.act_as(food_test.id('pay_a'));
-SELECT food_test.ok((public.food_pay_order((SELECT id FROM o))->>'status') = 'blocked',
-                    'ELIG-05 a repeated request is refused the same way (blocked, nothing posted)');
+SELECT food_test.raises(format($$SELECT public.food_pay_order(%L)$$, (SELECT id FROM o)), '22023',
+                        'ELIG-05 a repeated request is refused: a blocked payment is never retried automatically');
 RESET ROLE;
 SELECT food_test.ok(pg_temp.untouched((SELECT id FROM o)), 'ELIG-06 ...and still posts nothing');
--- once the account is unfrozen the same order pays exactly once
+-- the payee is payable again, but the employee still cannot simply retry
 UPDATE public.profiles SET is_frozen = false WHERE id = food_test.id('coord');
 SELECT food_test.act_as(food_test.id('pay_a'));
+SELECT food_test.raises(format($$SELECT public.food_pay_order(%L)$$, (SELECT id FROM o)), '22023',
+                        'ELIG-06b even once the payee is eligible again, a retry needs a coordinator''s decision');
+-- another active coordinator releases the block (recorded); then the employee pays once
+SELECT food_test.act_as(food_test.id('coord'));
+SELECT public.food_transfer_coordinator(food_test.id('emp_ok'), 'full_transfer', 'handover so another coordinator can decide');
+SELECT food_test.act_as(food_test.id('emp_ok'));
+SELECT public.food_resolve_blocked_payment((SELECT id FROM o), 'Coordinator account unfrozen; payment may proceed');
+SELECT food_test.act_as(food_test.id('pay_a'));
 SELECT food_test.ok((public.food_pay_order((SELECT id FROM o))->>'replayed') = 'false',
-                    'ELIG-07a after unfreezing, the same order pays');
+                    'ELIG-07a after the recorded decision, the same order pays');
 SELECT food_test.ok((public.food_pay_order((SELECT id FROM o))->>'replayed') = 'true',
                     'ELIG-07b ...and a repeat is a replay, not a second charge');
 RESET ROLE;
@@ -110,6 +118,9 @@ BEGIN;
 INSERT INTO ledger_test.opening VALUES (food_test.id('pay_a'), 100000);
 CREATE TEMP TABLE o (id uuid); GRANT ALL ON o TO authenticated, anon;
 INSERT INTO o SELECT pg_temp.received_order('pay_a', 'elig-k6');
+-- a second order, so ELIG-18 is not answered by ELIG-17's block
+CREATE TEMP TABLE o2 (id uuid); GRANT ALL ON o2 TO authenticated, anon;
+INSERT INTO o2 SELECT pg_temp.received_order('pay_a', 'elig-k6b');
 UPDATE public.user_roles SET enabled = false WHERE user_id = food_test.id('coord') AND role = 'employee';
 SELECT food_test.act_as(food_test.id('pay_a'));
 SELECT food_test.ok((public.food_pay_order((SELECT id FROM o))->>'status') = 'blocked',
@@ -117,10 +128,10 @@ SELECT food_test.ok((public.food_pay_order((SELECT id FROM o))->>'status') = 'bl
 RESET ROLE;
 DELETE FROM public.user_roles WHERE user_id = food_test.id('coord') AND role = 'employee';
 SELECT food_test.act_as(food_test.id('pay_a'));
-SELECT food_test.ok((public.food_pay_order((SELECT id FROM o))->>'status') = 'blocked',
+SELECT food_test.ok((public.food_pay_order((SELECT id FROM o2))->>'status') = 'blocked',
                     'ELIG-18 a coordinator who is no longer staff cannot be paid (blocked, nothing posted)');
 RESET ROLE;
-SELECT food_test.ok(pg_temp.untouched((SELECT id FROM o)), 'ELIG-19 ...nothing posted');
+SELECT food_test.ok(pg_temp.untouched((SELECT id FROM o)) AND pg_temp.untouched((SELECT id FROM o2)), 'ELIG-19 ...nothing posted');
 ROLLBACK;
 
 -- ── handover after receipt: the snapshot payee must still be eligible at payment time ──

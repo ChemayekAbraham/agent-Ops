@@ -41,6 +41,29 @@ SELECT food_test.ok(to_regprocedure('public.food_reverse_payment(uuid, text)') I
                                        AND p.proname NOT IN ('food_payment_problem', 'food_pay_order')),
                     'P1-05 Food has no reversal path at all: nothing in Food can post a reversal');
 
+-- ═══ the guard touches canteen payments only ═══
+BEGIN;
+INSERT INTO ledger_test.opening VALUES (food_test.id('pay_a'), 100000);
+CREATE FUNCTION pg_temp.ordinary_transfer(p_ref text) RETURNS uuid LANGUAGE sql AS $$
+  SELECT public.create_ledger_transaction(jsonb_build_array(
+    jsonb_build_object('user_id', food_test.id('pay_a'), 'amount', 1000, 'direction', 'cash_out', 'category', 'wallet_transfer',
+      'ledger_scope', 'wallet', 'recipient_type', 'user', 'wallet_bucket', 'withdrawable', 'source_table', 'wallet_transactions', 'reference_id', p_ref),
+    jsonb_build_object('user_id', food_test.id('pay_b'), 'amount', 1000, 'direction', 'cash_in', 'category', 'wallet_transfer',
+      'ledger_scope', 'wallet', 'recipient_type', 'user', 'wallet_bucket', 'withdrawable', 'source_table', 'wallet_transactions', 'reference_id', p_ref)), p_ref);
+$$;
+SELECT pg_temp.ordinary_transfer('WT-ORDINARY1');
+SELECT pg_temp.ordinary_transfer('WT-FOODPAY-LOOKALIKE');
+SELECT food_test.act_as(food_test.id('pay_a'));
+SELECT food_test.ok((public.reverse_wallet_transfer('WT-ORDINARY1')->>'success')::boolean,
+                    'P1-06 an ordinary wallet transfer can still be reversed with the guard on');
+SELECT food_test.ok((public.reverse_wallet_transfer('WT-FOODPAY-LOOKALIKE')->>'success')::boolean,
+                    'P1-07 a transfer whose reference merely contains FOODPAY is not blocked either');
+RESET ROLE;
+SELECT food_test.ok((SELECT count(*) FROM public.general_ledger WHERE reference_id IN ('WT-ORDINARY1-REV','WT-FOODPAY-LOOKALIKE-REV')) = 4
+                    AND pg_temp.avail('pay_a') = 100000,
+                    'P1-08 ...both reversals posted normally and the money is back');
+ROLLBACK;
+
 -- ═══ HND-D1: another active coordinator takes over a blocked payment ═══
 BEGIN;
 INSERT INTO ledger_test.opening VALUES (food_test.id('pay_a'), 100000);
@@ -67,9 +90,22 @@ SELECT food_test.raises(format($$SELECT public.food_resolve_blocked_payment(%L, 
 RESET ROLE;
 UPDATE public.profiles SET is_frozen = false WHERE id = food_test.id('coord');
 SELECT food_test.act_as(food_test.id('emp_ok'));
-SELECT food_test.raises(format($$SELECT public.food_resolve_blocked_payment(%L, 'coordinator was frozen last week')$$, (SELECT id FROM o)), '22023',
-                        'P4-05 a payee who can be paid again is never displaced');
+SELECT food_test.act_as(food_test.id('pay_a'));
+SELECT food_test.raises(format($$SELECT public.food_pay_order(%L)$$, (SELECT id FROM o)), '22023',
+                        'P4-05a no automatic retry: even with the payee payable again, the employee cannot simply pay');
+SELECT food_test.act_as(food_test.id('emp_ok'));
+SAVEPOINT rel;
+CREATE TEMP TABLE rl AS SELECT public.food_resolve_blocked_payment((SELECT id FROM o), 'Previous coordinator unfrozen; release') AS v;
+GRANT ALL ON rl TO authenticated;
 RESET ROLE;
+SELECT food_test.ok((SELECT v->>'action' = 'released' AND (v->>'payee_id')::uuid = food_test.id('coord') FROM rl)
+                    AND (SELECT payee_id = food_test.id('coord') AND NOT payment_resolution_required FROM public.food_orders WHERE id = (SELECT id FROM o))
+                    AND pg_temp.events((SELECT id FROM o), 'payment_block_released') = 1
+                    AND EXISTS (SELECT 1 FROM public.food_audit WHERE entity_id = (SELECT id FROM o) AND action = 'payment_block_released'
+                                  AND actor_id = food_test.id('emp_ok') AND reason ILIKE '%unfrozen%'),
+                    'P4-05 a payee who can be paid again is never displaced: the decision releases the block, recorded with its reason');
+ROLLBACK TO SAVEPOINT rel;
+RESET ROLE;   -- the rollback also undid the RESET ROLE above
 UPDATE public.profiles SET is_frozen = true WHERE id = food_test.id('coord');
 CREATE TEMP TABLE n AS SELECT pg_temp.gl_rows() AS c; GRANT ALL ON n TO authenticated;
 SELECT food_test.act_as(food_test.id('emp_ok'));
@@ -79,7 +115,7 @@ RESET ROLE;
 SELECT food_test.ok((SELECT payee_id = food_test.id('emp_ok') AND payee_wallet_id = pg_temp.wallet_of('emp_ok')
                             AND payee_name IS NOT NULL AND NOT payment_resolution_required AND payment_status = 'pending_payment'
                        FROM public.food_orders WHERE id = (SELECT id FROM o))
-                    AND (SELECT v->>'previous_payee_blocked_because' = 'account frozen' FROM r),
+                    AND (SELECT v->>'action' = 'reassigned' AND v->>'previous_payee_blocked_because' = 'account frozen' FROM r),
                     'P4-06 another active coordinator takes over: their wallet and name are recorded');
 SELECT food_test.ok(pg_temp.events((SELECT id FROM o), 'payee_reassigned') = 1
                     AND EXISTS (SELECT 1 FROM public.food_audit WHERE entity_id = (SELECT id FROM o) AND action = 'payee_reassigned'

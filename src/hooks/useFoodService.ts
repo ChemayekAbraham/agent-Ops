@@ -812,16 +812,17 @@ export function useAuthorizeFoodPaymentRetry() {
 }
 
 /**
- * HND-D1: another active Food Coordinator takes over an order whose payment
- * is blocked on its original coordinator, with a mandatory reason. No payment
- * is made: the employee pays again themselves.
+ * HND-D1: another active Food Coordinator records the decision on an order
+ * whose payment is blocked, with a mandatory reason: 'released' (the original
+ * coordinator can be paid again; payee unchanged) or 'reassigned' (they become
+ * the payee). Until then the employee cannot retry. No payment is made here.
  */
 export function useResolveBlockedFoodPayment() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (v: { orderId: string; reason: string }) =>
-      call<{ status: 'pending_payment'; order_id: string; payee_id: string; payee_name: string;
-             payee_wallet_id: string; previous_payee_blocked_because: string }>(
+      call<{ status: 'pending_payment'; action: 'released' | 'reassigned'; order_id: string; payee_id: string;
+             payee_name: string; payee_wallet_id: string; previous_payee_blocked_because?: string }>(
         'food_resolve_blocked_payment', { p_order_id: v.orderId, p_reason: v.reason }),
     onSuccess: () => invalidateFood(qc),
     onError,
