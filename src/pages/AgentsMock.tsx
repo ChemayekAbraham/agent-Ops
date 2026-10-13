@@ -14,7 +14,7 @@ import { useAgentCapacityMap } from '@/hooks/useAgentCapacityMap';
 import { useAgentArrears } from '@/hooks/useAgentArrears';
 
 const SHORTCUTS: { label: string; Icon: LucideIcon; color: string; to?: string }[] = [
-  { label: 'Calculator', Icon: Calculator, color: 'text-primary' },
+  { label: 'Calculator', Icon: Calculator, color: 'text-primary', to: '/rent-calculator' },
   { label: 'Service Center', Icon: Store, color: 'text-info', to: '/agent/service-center' },
   { label: 'Leaderboard', Icon: Trophy, color: 'text-success', to: '/dashboard/agents/leaderboard' },
   { label: 'Landlord Float', Icon: Building2, color: 'text-warning' },
