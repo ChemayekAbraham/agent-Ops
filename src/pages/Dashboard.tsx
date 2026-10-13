@@ -25,6 +25,8 @@ import { schedulePreloadOtherRoles } from '@/lib/preloadRoleDashboards';
 // Lazy load dashboards for faster initial load
 const TenantDashboard = lazyWithRetry(() => import('@/components/dashboards/TenantDashboard'));
 const AgentDashboard = lazyWithRetry(() => import('@/components/dashboards/AgentDashboard'));
+// Frozen copy of the agent dashboard as it was before the 12 Oct 2026 rework; served at /dashboard/agent-bk.
+const AgentDashboardBk = lazyWithRetry(() => import('@/components/dashboards/AgentDashboardBk'));
 const SupporterDashboard = lazyWithRetry(() => import('@/components/dashboards/SupporterDashboard'));
 const LandlordDashboard = lazyWithRetry(() => import('@/components/dashboards/LandlordDashboard'));
 const ManagerDashboard = lazyWithRetry(() => import('@/components/dashboards/ManagerDashboard'));
@@ -59,8 +61,10 @@ const OfflineFallback = ({ cachedRole, onRetry }: { cachedRole?: AppRole | null;
   </div>
 );
 
-function DashboardContent() {
+function DashboardContent({ variant }: { variant?: 'agent-bk' }) {
   const { user, role, roles, loading, signOut, switchRole, addRole } = useAuth();
+  // /dashboard/agent-bk shows the agent persona with the pre-rework dashboard.
+  const AgentView = variant === 'agent-bk' ? AgentDashboardBk : AgentDashboard;
   const [pendingRole, setPendingRole] = useState<AppRole | null>(null);
   const navigate = useNavigate();
 
@@ -126,7 +130,9 @@ function DashboardContent() {
   }, []);
 
   // URL is source of truth for which persona view is shown
-  const urlRole = slugToRole(location.pathname);
+  // agent-bk is not a persona slug, so name its persona here rather than let it
+  // fall through to the user's default role.
+  const urlRole = variant === 'agent-bk' ? 'agent' : slugToRole(location.pathname);
 
   // Keep auth.role aligned with the URL persona (so hooks reading useAuth().role
   // see the right value). This is a side-effect of URL-driven routing.
@@ -342,7 +348,7 @@ function DashboardContent() {
           )}
           {cachedDisplayRole === 'agent' && (
             <DashboardErrorBoundary label="agent dashboard">
-              <AgentDashboard {...dashboardProps} />
+              <AgentView {...dashboardProps} />
             </DashboardErrorBoundary>
           )}
           {cachedDisplayRole === 'supporter' && (
@@ -405,7 +411,7 @@ function DashboardContent() {
       case 'agent':
         return (
           <DashboardErrorBoundary label="agent dashboard">
-            <AgentDashboard {...dashboardProps} />
+            <AgentView {...dashboardProps} />
           </DashboardErrorBoundary>
         );
       case 'supporter':
@@ -449,6 +455,6 @@ function DashboardContent() {
 }
 
 // Main Dashboard component — LocationPermissionGate removed (was a passthrough)
-export default function Dashboard() {
-  return <DashboardContent />;
+export default function Dashboard({ variant }: { variant?: 'agent-bk' } = {}) {
+  return <DashboardContent variant={variant} />;
 }
