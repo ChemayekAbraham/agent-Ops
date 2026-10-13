@@ -7,6 +7,11 @@
 .agents-mock-progress::-webkit-progress-bar { background: hsl(var(--muted)); border-radius: 999px; }
 .agents-mock-progress::-webkit-progress-value { background: hsl(var(--success)); border-radius: 999px; }
 .agents-mock-progress::-moz-progress-bar { background: hsl(var(--success)); border-radius: 999px; }
+.agents-mock-summary { background: linear-gradient(125deg, hsl(var(--gradient-start)), hsl(var(--gradient-end))); color: hsl(var(--header-foreground)); }
+.agents-mock-summary .agents-mock-progress { background: hsl(var(--header-foreground) / 0.2); }
+.agents-mock-summary .agents-mock-progress::-webkit-progress-bar { background: hsl(var(--header-foreground) / 0.2); }
+.agents-mock-summary .agents-mock-progress::-webkit-progress-value { background: hsl(var(--header-foreground)); }
+.agents-mock-summary .agents-mock-progress::-moz-progress-bar { background: hsl(var(--header-foreground)); }
 
 /* Sonner toaster — prevent phantom right gutter on mobile */
 /* Hide the sonner notifications section entirely when no toasts are active.
