@@ -2,15 +2,15 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent as RKE, ty
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, User, Users, X } from 'lucide-react';
 import s from './WelcomeNew.module.css';
-import logoA from '@/assets/welcome-new/welile-logo.png.asset.json';
-import familyA from '@/assets/welcome-new/welcome-family.png.asset.json';
-import hubA from '@/assets/welcome-new/ecosystem-hub.png.asset.json';
-import tenantA from '@/assets/welcome-new/tenant.png.asset.json';
-import landlordA from '@/assets/welcome-new/landlord.png.asset.json';
-import agentA from '@/assets/welcome-new/agent.png.asset.json';
-import partnerA from '@/assets/welcome-new/partner.png.asset.json';
-import houseA from '@/assets/welcome-new/role-landlord-house.png.asset.json';
-import heartA from '@/assets/welcome-new/role-supporter-heart.png.asset.json';
+import logoA from '@/assets/welcome-new/welile-logo.webp.asset.json';
+import familyA from '@/assets/welcome-new/welcome-family.webp.asset.json';
+import hubA from '@/assets/welcome-new/ecosystem-hub.webp.asset.json';
+import tenantA from '@/assets/welcome-new/tenant.webp.asset.json';
+import landlordA from '@/assets/welcome-new/landlord.webp.asset.json';
+import agentA from '@/assets/welcome-new/agent.webp.asset.json';
+import partnerA from '@/assets/welcome-new/partner.webp.asset.json';
+import houseA from '@/assets/welcome-new/role-landlord-house.webp.asset.json';
+import heartA from '@/assets/welcome-new/role-supporter-heart.webp.asset.json';
 
 // Existing auth routes in this app.
 const SIGN_IN = '/auth';

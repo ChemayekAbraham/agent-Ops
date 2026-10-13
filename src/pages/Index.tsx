@@ -1,7 +1,10 @@
 import { Navigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { roleToSlug } from '@/lib/roleRoutes';
+import { Suspense, lazy } from 'react';
 import ScreenLoader from '@/components/common/ScreenLoader';
+
+const WelcomeNew = lazy(() => import('./WelcomeNew'));
 
 export default function Index() {
   const { user, loading, role: authRole } = useAuth();
@@ -32,5 +35,9 @@ export default function Index() {
     return <Navigate to={`/auth?${params.toString()}`} replace />;
   }
 
-  return <Navigate to="/welcome" replace />;
+  return (
+    <Suspense fallback={<ScreenLoader />}>
+      <WelcomeNew />
+    </Suspense>
+  );
 }
