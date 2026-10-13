@@ -19,6 +19,7 @@ import ManagementOverviewTab from '@/components/executive/tenant-ops/workspace/M
 
 // Charts and the PDF builder are only needed when this tab is opened.
 const PaymentBehaviorTab = lazy(() => import('@/components/executive/tenant-ops/workspace/PaymentBehaviorTab'));
+const TenantClassificationTab = lazy(() => import('@/components/executive/tenant-ops/workspace/TenantClassificationTab'));
 import { toast } from 'sonner';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import {
@@ -480,7 +481,7 @@ function TopUpEligibilityTab() {
   );
 }
 
-const WORKSPACE_TABS = ['topup', 'comms', 'registration', 'overview', 'payment-behavior'];
+const WORKSPACE_TABS = ['topup', 'comms', 'registration', 'overview', 'payment-behavior', 'classification'];
 
 export default function TenantOperationsWorkspace() {
   // `?wtab=payment-behavior` lets Tenant Ops Home open the Payment Behavior tab directly.
@@ -503,6 +504,7 @@ export default function TenantOperationsWorkspace() {
             <TabsTrigger value="registration" className="h-9 shrink-0 whitespace-nowrap rounded-lg px-2.5 text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">Agent Registration Control</TabsTrigger>
             <TabsTrigger value="overview" className="h-9 shrink-0 whitespace-nowrap rounded-lg px-2.5 text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">Management Overview</TabsTrigger>
             <TabsTrigger value="payment-behavior" className="h-9 shrink-0 whitespace-nowrap rounded-lg px-2.5 text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">Payment Behavior</TabsTrigger>
+            <TabsTrigger value="classification" className="h-9 shrink-0 whitespace-nowrap rounded-lg px-2.5 text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm">Tenant Classification</TabsTrigger>
           </TabsList>
           <TabsContent value="topup" className="mt-3">
             <TopUpEligibilityTab />
@@ -519,6 +521,11 @@ export default function TenantOperationsWorkspace() {
           <TabsContent value="payment-behavior" className="mt-3">
             <Suspense fallback={<div className="flex min-h-48 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>}>
               <PaymentBehaviorTab />
+            </Suspense>
+          </TabsContent>
+          <TabsContent value="classification" className="mt-3">
+            <Suspense fallback={<div className="flex min-h-48 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-primary" /></div>}>
+              <TenantClassificationTab />
             </Suspense>
           </TabsContent>
         </Tabs>
