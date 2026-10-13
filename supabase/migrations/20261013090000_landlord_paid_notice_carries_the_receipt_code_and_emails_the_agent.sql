@@ -61,7 +61,7 @@ DECLARE
   v_b    integer;
   v_cte  text := $cte$
   -- The landlord-paid notice, by SMS and by email. See migration
-  -- 20261012100000 for the reasoning behind each rule.
+  -- 20261013090000 for the reasoning behind each rule.
   emailed AS (
     -- Plans the mailer already has. One pass over a few hours of log, read as a
     -- set; the plan id is in the template data the edge function sends.
