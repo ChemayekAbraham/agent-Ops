@@ -417,7 +417,7 @@ export default function Auth() {
   const isLoginView = !isSignUp && !isForgotPassword && !isForgotPhone;
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className={authStyles.root}>
       <Helmet>
         <title>Sign In or Create Your Welile Account</title>
         <meta name="description" content="Log in or sign up to access rent, fund tenants, and manage your Welile wallet securely." />
@@ -426,27 +426,38 @@ export default function Auth() {
         <meta property="og:description" content="Log in or sign up to access rent, fund tenants, and manage your Welile wallet securely." />
         <meta property="og:url" content="https://welileapp.com/auth" />
       </Helmet>
-      <div className="w-full max-w-sm relative z-10">
+      <div className={authStyles.inner}>
 
-        {/* Logo — compact */}
-        <div className="text-center mb-6">
-          <div className="flex items-center justify-center mb-2">
-            <WelileLogo linkToHome={false} />
-          </div>
-          {isLoginView && (
-            <p className="text-lg font-semibold text-foreground mt-3 animate-in fade-in duration-300">
-              {hadSession && lastUserName ? `Welcome back, ${lastUserName}` : 'Welcome back'}
-            </p>
-          )}
-          {isLoginView && (
-            <p className="text-sm text-muted-foreground mt-0.5 animate-in fade-in duration-300">
-              Sign in with a one-time SMS code
-            </p>
-          )}
-          {isSignUp && (
-            <p className="text-lg font-semibold text-foreground mt-3 animate-in fade-in duration-300">Create your account</p>
-          )}
+        <div className={authStyles.topBar}>
+          <button
+            type="button"
+            className={authStyles.backBtn}
+            aria-label="Back"
+            onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/welcome'))}
+          >
+            <ArrowLeft className="h-5 w-5" strokeWidth={2.5} />
+          </button>
         </div>
+
+        <div className={authStyles.brand}>
+          <img src={authLogoAsset.url} alt="Welile" className={authStyles.logo} />
+        </div>
+
+        {isLoginView && (
+          <>
+            <h1 className={authStyles.title}>
+              {hadSession && lastUserName ? `Welcome back, ${lastUserName}` : 'Welcome back'}
+            </h1>
+            <p className={authStyles.subtitle}>Sign in to your Welile account</p>
+          </>
+        )}
+        {isSignUp && (
+          <>
+            <h1 className={authStyles.title}>Create your account</h1>
+            <p className={authStyles.subtitle}>Join Welile in a few quick steps</p>
+          </>
+        )}
+        {!isLoginView && !isSignUp && <div className="mb-4" />}
 
         {/* Agent deeplink banner */}
         {deepLinkAgent && (
@@ -529,7 +540,7 @@ export default function Auth() {
         )}
 
         {!needsRoleSelection && (
-          <div className="animate-in fade-in slide-in-from-bottom-3 duration-400 rounded-2xl border border-border/60 bg-card p-5 shadow-lg shadow-black/5 sm:p-6">
+          <div className={cn("animate-in fade-in slide-in-from-bottom-3 duration-400", authStyles.panel)}>
 
             {/* Sign In / Sign Up tabs — bound to the existing isSignUp state so
                 deep links (?signup=1, ?become=…, referral links) still land on
@@ -554,12 +565,12 @@ export default function Auth() {
                 <OAuthEnvironmentHint />
                 <OAuthErrorCard />
 
-                <div className="flex w-full flex-wrap items-center justify-center gap-4">
+                <div className="flex w-full flex-col gap-3">
                   <GoogleSignInButton
                     onClick={wrappedHandleGoogleSignIn}
                     disabled={isGoogleLoading || isAppleLoading || isLoading}
                     isLoading={isGoogleLoading}
-                    variant="icon"
+                    variant="standard"
                   />
                   <AppleSignInButton
                     onClick={() => {
@@ -570,14 +581,13 @@ export default function Auth() {
                     }}
                     disabled={isGoogleLoading || isAppleLoading || isLoading}
                     isLoading={isAppleLoading}
-                    variant="icon"
                   />
                 </div>
 
-                <div className="relative flex items-center py-1">
-                  <div className="flex-1 border-t border-border/40" />
-                  <span className="px-3 text-xs text-muted-foreground">or</span>
-                  <div className="flex-1 border-t border-border/40" />
+                <div className={authStyles.separator}>
+                  <span className={authStyles.sepLine} />
+                  <span className={authStyles.sepText}>or sign in with</span>
+                  <span className={authStyles.sepLine} />
                 </div>
 
                 {/* Phone + Password — primary path (phone-first for African users) */}
