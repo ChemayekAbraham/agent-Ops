@@ -9,6 +9,7 @@ import {
 } from "./smsDeliveryLog.ts";
 import { appendSupportFooter } from "./smsFooter.ts";
 import { confirmYoolaDelivery, extractYoolaMessageId } from "./yoolaDeliveryConfirm.ts";
+import { isYoolaOutOfCredit, resetYoolaCircuit, tripYoolaCircuit, yoolaCircuitOpen } from "./yoolaCircuit.ts";
 
 // ── GSM-7 normalisation ──────────────────────────────────────────────────────
 // A single character outside the GSM-7 alphabet forces the WHOLE message into
@@ -74,6 +75,9 @@ function toMsisdn(phone: string): string {
 async function sendViaYoola(phone: string, message: string) {
   const apiKey = Deno.env.get("YOOLA_SMS_API_KEY")?.trim();
   if (!apiKey) return null;
+  // Out of credit: skip Yoola (null = not attempted) so the chain goes straight
+  // to Africa's Talking without a doomed call or a failed trail entry.
+  if (yoolaCircuitOpen()) return null;
   try {
     const res = await fetch("https://yoolasms.com/api/v1/send", {
       method: "POST",
@@ -86,6 +90,8 @@ async function sendViaYoola(phone: string, message: string) {
     let data: any; try { data = JSON.parse(raw); } catch { data = null; }
     const status = String(data?.status ?? "").toLowerCase();
     const ok = res.ok && (status === "success" || status === "ok" || status === "sent" || status === "queued" || (!data?.error && status === ""));
+    if (ok) resetYoolaCircuit();
+    else if (isYoolaOutOfCredit(res.status, data, raw)) tripYoolaCircuit();
     return { ok, error: ok ? null : `Yoola rejected (HTTP ${res.status} ${status || "no-status"})`, response: data ?? raw?.slice(0, 300) };
   } catch (err) {
     return { ok: false, error: `Yoola network error: ${(err as Error)?.message || err}`, response: null };
