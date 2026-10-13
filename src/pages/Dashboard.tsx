@@ -63,8 +63,10 @@ const OfflineFallback = ({ cachedRole, onRetry }: { cachedRole?: AppRole | null;
 
 function DashboardContent({ variant }: { variant?: 'agent-bk' }) {
   const { user, role, roles, loading, signOut, switchRole, addRole } = useAuth();
-  // /dashboard/agent-bk shows the agent persona with the pre-rework dashboard.
-  const AgentView = variant === 'agent-bk' ? AgentDashboardBk : AgentDashboard;
+  // 2026-10-13: /dashboard/agent reverted to the pre-12-Oct design (same as /dashboard/agent-bk).
+  // The reworked AgentDashboard is kept on disk; swap back here to restore it.
+  void variant;
+  const AgentView = AgentDashboardBk;
   const [pendingRole, setPendingRole] = useState<AppRole | null>(null);
   const navigate = useNavigate();
 
