@@ -61,9 +61,18 @@ export function useFullDatabaseBackup() {
           setError('Still running after 3 hours; check backup_runs later.');
           return;
         }
+        // `tables: []` is a safety net: a deployed version WITHOUT the status action would treat this
+        // call as "start a run", and an empty table list makes that run a no-op instead of a full export.
         const { data: st, error: stErr } = await supabase.functions.invoke('full-table-backup', {
-          body: { action: 'status', folder: runFolder },
+          body: { action: 'status', folder: runFolder, tables: [] },
         });
+        if (st?.accepted) {
+          // Old deployment answered with a run ticket, not a status: stop before it repeats every poll.
+          stop();
+          setPhase('error');
+          setError('The deployed full-table-backup is out of date (no status action). Redeploy it.');
+          return;
+        }
         if (stErr || !st?.finished) return; // transient or not done yet; keep polling
         stop();
         setRun(st.run as FullBackupRun);
