@@ -3858,6 +3858,13 @@
       "when": 1791880359492,
       "tag": "0550_growth_metrics_exclude_deleted_accounts",
       "breakpoints": true
+    },
+    {
+      "idx": 551,
+      "version": "7",
+      "when": 1791894496528,
+      "tag": "0551_proxy_list_shows_explicit_payout_on_compounding_portfolio",
+      "breakpoints": true
     }
   ]
 }
