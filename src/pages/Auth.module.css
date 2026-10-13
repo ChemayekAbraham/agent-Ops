@@ -69,3 +69,11 @@
 
 /* the shared Google button brings its own "or" divider; this page has its own below */
 .oauthStack > div:first-child { display: none; }
+
+.tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; padding: 4px; border-radius: 9999px; background: hsl(258 89% 97%); }
+.tab { height: 40px; border: none; background: transparent; border-radius: 9999px; font-size: 14px; font-weight: 600; color: hsl(var(--muted-foreground)); cursor: pointer; transition: background .15s, color .15s; }
+.tabActive { background: #fff; color: hsl(263 79% 56%); box-shadow: 0 2px 8px -2px hsl(263 79% 40% / .25); }
+.mutedLink { width: 100%; background: none; border: none; text-align: center; padding: 6px 0; font-size: 14px; color: hsl(var(--muted-foreground)); cursor: pointer; }
+.mutedLink:hover { color: hsl(263 79% 56%); }
+.switchRow { display: flex; justify-content: center; align-items: center; gap: 6px; margin-top: 24px; font-size: 14px; color: hsl(var(--muted-foreground)); }
+.switchBtn { background: hsl(258 89% 97%); color: hsl(263 79% 56%); border: none; border-radius: 9999px; padding: 6px 14px; font-weight: 700; cursor: pointer; }
