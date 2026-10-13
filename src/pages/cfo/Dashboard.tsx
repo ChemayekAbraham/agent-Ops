@@ -42,7 +42,6 @@ import { WithdrawalRequestsManager } from '@/components/manager/WithdrawalReques
 import { GeneralLedger } from '@/components/manager/GeneralLedger';
 import { CFOPartnerPayoutProcessing } from '@/components/cfo/CFOPartnerPayoutProcessing';
 import { CFOApprovedRentPayouts } from '@/components/cfo/CFOApprovedRentPayouts';
-import { RentDisbursementQueue } from '@/components/cfo/RentDisbursementQueue';
 import { PromissoryBookingsPanel } from '@/components/cfo/PromissoryBookingsPanel';
 import { BatchPayoutProcessor } from '@/components/cfo/BatchPayoutProcessor';
 import { LandlordFloatAllocationsPanel } from '@/components/cfo/LandlordFloatAllocationsPanel';
