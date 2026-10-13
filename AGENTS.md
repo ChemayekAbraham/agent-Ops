@@ -1,4 +1,6 @@
 # Architecture Decisions
+- Service Centre intake actions use the live typed RPC contract and require its returned request/status before showing success; persistent row errors prevent silent failures.
+- Landlord principal comparison is a read-only enabled-role RPC: cumulative non-cancelled float allocations versus non-reversed principal; collected fee totals exclude principal and never add gross fees to their allocation breakdown, preventing double counting.
 <!-- LOVABLE:BEGIN -->
 - Receivables Analysis uses existing read-only reporting RPCs; aggregate totals outrank sampled items, behavioural runoff excludes new business, and unsupported location forecasts stay unavailable to prevent invented figures.
 <!-- LOVABLE:END -->
@@ -24,3 +26,6 @@
 - Tenant SMS campaigns send only via `tenant-campaign-sender`, unique `dedupe_key` per tenant, wave stops above 20% failures.
 - Landlord payout numbers lock at COO/CFO stage (`lock_landlord_number_at_cfo_stage`); payouts use the approved number.
 - Overdue-vetting dialog mounts once in App.tsx from server `get_my_overdue_vetting`; Service Centre shows a banner instead.
+- Sign-up client pre-checks run in parallel with a 1.5s cap and fail open; server trigger/edge function remain the only enforcement.
+- Agent Monitoring repayment clocks come only from `am_plan_clock` / `am_plan_arrears` (read-only, staff-gated): a plan's clock starts the day AFTER its LAST landlord payout (status `awaiting_agent_receipt` or `completed`, Kampala date of `COALESCE(finops_disbursed_at, disbursed_at)`; a payout with neither stamp falls back to `otp_verified_at` and is counted in `landlord_paid_dates_estimated`), `outstanding_balance` plans keep `repayment_starts_on`, and a plan with no landlord payout has no clock (nothing expected) and is bucketed `tenant_paying_no_landlord` or `awaiting_landlord`. Never recompute the start date client-side.
+- Agent Monitoring's every tab counts from the payout clock: the main tab, the two cohort tabs, Expected vs paid (`am_plan_positions`, same shape as `get_agent_monitoring_positions`) and Rent Analysis all use `am_plan_clock` and only the `counting` and `outstanding_balance` buckets; plans with no landlord payout have their own two tabs. The After / Before 1 Sep tabs split Rent Plans by `clock_start`, not by request or agent creation date. "Requests submitted" excludes rejected, cancelled and deleted_by_agent requests (all-time is the secondary line; live plans are shown separately). Who may read these figures is one function, `_am_staff_ok()`.

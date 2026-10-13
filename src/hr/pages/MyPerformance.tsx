@@ -6,6 +6,7 @@ import PersonalLayout from '@/components/layout/PersonalLayout';
 import { MetricCard } from '@/components/MetricCard';
 import { supabase } from '@/hr/api/client';
 import { cn } from '@/lib/utils';
+import PlatformSalesOfficersPage from '@/hr/pages/PlatformSalesOfficers';
 
 interface PsoRow {
   staff_id: string;
@@ -131,10 +132,11 @@ function getWindowDates(mode: WindowMode, todayStr: string): { from: string; to:
   };
 }
 
-async function fetchPsoSeries(from: string, to: string): Promise<PsoRow[]> {
+async function fetchPsoSeries(from: string, to: string, staffId: string | null = null): Promise<PsoRow[]> {
   const { data, error } = (await supabase.rpc('pso_daily_series' as any, {
     p_from: from,
     p_to: to,
+    ...(staffId ? { p_staff_id: staffId } : {}),
   })) as unknown as { data: PsoRow[] | null; error: { message: string } | null };
 
   if (error) throw new Error(error.message);
@@ -165,13 +167,27 @@ export default function MyPerformancePage() {
 
   const { from, to, label } = useMemo(() => getWindowDates(mode, todayStr), [mode, todayStr]);
 
+  const { data: myStaffId = null, isFetched: staffIdReady } = useQuery<string | null>({
+    queryKey: ['hr-my-staff-id'],
+    staleTime: 10 * 60_000,
+    queryFn: async () => {
+      const { data, error } = (await supabase.rpc('hr_my_staff_id' as any)) as unknown as {
+        data: string | null;
+        error: { message: string } | null;
+      };
+      if (error) return null;
+      return data ?? null;
+    },
+  });
+
   const {
     data: rows = [],
     isLoading,
     error,
   } = useQuery<PsoRow[]>({
-    queryKey: ['pso-daily-series', todayStr, from, to],
-    queryFn: () => fetchPsoSeries(from, to),
+    queryKey: ['pso-daily-series', myStaffId, todayStr, from, to],
+    enabled: staffIdReady,
+    queryFn: () => fetchPsoSeries(from, to, myStaffId),
     refetchInterval: 60000,
     refetchOnWindowFocus: true,
     refetchIntervalInBackground: false,
@@ -187,8 +203,9 @@ export default function MyPerformancePage() {
     data: rollingRows = [],
     isLoading: rollingLoading,
   } = useQuery<PsoRow[]>({
-    queryKey: ['pso-daily-series', 'rolling-7', todayStr, rollingFrom, rollingTo],
-    queryFn: () => fetchPsoSeries(rollingFrom, rollingTo),
+    queryKey: ['pso-daily-series', 'rolling-7', myStaffId, todayStr, rollingFrom, rollingTo],
+    enabled: staffIdReady,
+    queryFn: () => fetchPsoSeries(rollingFrom, rollingTo, myStaffId),
     refetchInterval: 60000,
     refetchOnWindowFocus: true,
     refetchIntervalInBackground: false,
@@ -215,11 +232,13 @@ export default function MyPerformancePage() {
   }, [rows, rollingRows, todayStr]);
 
   const { data: fundedSummary = null } = useQuery<PsoFundedSummary | null>({
-    queryKey: ['pso-funded-summary', todayStr, from, to],
+    queryKey: ['pso-funded-summary', myStaffId, todayStr, from, to],
+    enabled: staffIdReady,
     queryFn: async () => {
       const { data, error } = (await supabase.rpc('pso_funded_summary' as any, {
         p_from: from,
         p_to: to,
+        ...(myStaffId ? { p_staff_id: myStaffId } : {}),
       })) as unknown as { data: PsoFundedSummary[] | null; error: { message: string } | null };
       if (error) throw new Error(error.message);
       return data?.[0] ?? null;
@@ -254,6 +273,63 @@ export default function MyPerformancePage() {
       return { ...row, rank };
     });
   }, [cohortRows]);
+
+  // Team leads also see their officers' report (no commission). Server decides.
+  const { data: isTeamLead = false } = useQuery<boolean>({
+    queryKey: ['pso-is-team-lead'],
+    staleTime: 10 * 60_000,
+    queryFn: async () => {
+      const { data, error } = (await supabase.rpc('pso_is_team_lead' as any)) as unknown as {
+        data: boolean | null;
+        error: { message: string } | null;
+      };
+      if (error) return false;
+      return data === true;
+    },
+  });
+
+  // PSO head only: staff_ref -> full name for the leaderboard.
+  const { data: officerNames = {} } = useQuery<Record<string, string>>({
+    queryKey: ['pso-officer-names'],
+    enabled: isTeamLead,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data, error } = (await supabase.rpc('pso_officer_names' as any)) as unknown as {
+        data: { staff_id: string; full_name: string | null }[] | null;
+        error: { message: string } | null;
+      };
+      if (error) return {};
+      const m: Record<string, string> = {};
+      for (const r of data ?? []) if (r.full_name) m[r.staff_id] = r.full_name;
+      return m;
+    },
+  });
+
+  const { data: staffRefToId = {} } = useQuery<Record<string, string>>({
+    queryKey: ['pso-promise-summary-refs', from, to],
+    enabled: isTeamLead,
+    staleTime: 5 * 60_000,
+    queryFn: async () => {
+      const { data, error } = (await supabase.rpc('pso_promise_summary' as any, {
+        p_from: from,
+        p_to: to,
+      })) as unknown as {
+        data: { staff_id: string; staff_ref: string }[] | null;
+        error: { message: string } | null;
+      };
+      if (error) return {};
+      const m: Record<string, string> = {};
+      for (const r of data ?? []) if (r.staff_ref && r.staff_id) m[r.staff_ref] = r.staff_id;
+      return m;
+    },
+  });
+
+  const leaderLabel = (ref: string): string => {
+    if (!isTeamLead) return ref;
+    const id = staffRefToId[ref];
+    return (id && officerNames[id]) || ref;
+  };
+
 
   if (error && error.message.toLowerCase().includes('not permitted')) {
     return (
@@ -509,7 +585,7 @@ export default function MyPerformancePage() {
               LEADERBOARD · PROMISSORY NOTES
             </h2>
             <p className="mb-3 text-xs text-muted-foreground">
-              ranked by net notes, highest first · every officer sees this list · staff codes only, no names · no money and no commission appear here
+              ranked by net notes, highest first · every officer sees this list · {isTeamLead ? 'names shown for the PSO head' : 'staff codes only, no names'} · no money and no commission appear here
             </p>
             {cohortLoading ? (
               <div className="h-24 animate-pulse rounded-2xl bg-muted" />
@@ -531,7 +607,7 @@ export default function MyPerformancePage() {
                               #{row.rank}
                             </span>
                             <div className="text-sm font-semibold">
-                              {row.staff_ref}
+                              {leaderLabel(row.staff_ref)}
                               {row.is_me && (
                                 <span className="ml-2 text-[10px] uppercase tracking-wide text-muted-foreground">
                                   you
@@ -593,7 +669,7 @@ export default function MyPerformancePage() {
                         <tr key={row.staff_ref} className={cn(row.is_me && 'bg-muted/40')}>
                           <td className="px-4 py-2.5 tabular-nums">{row.rank}</td>
                           <td className="px-4 py-2.5">
-                            <span className="font-medium">{row.staff_ref}</span>
+                            <span className="font-medium">{leaderLabel(row.staff_ref)}</span>
                             {row.is_me && (
                               <span className="ml-2 text-xs text-muted-foreground">you</span>
                             )}
@@ -615,6 +691,13 @@ export default function MyPerformancePage() {
             )}
 
           </div>
+        )}
+
+        {isTeamLead && (
+          <section className="space-y-3 border-t pt-4">
+            <h2 className="text-sm font-semibold text-foreground">My team — Platform Sales Officers</h2>
+            <PlatformSalesOfficersPage embedded hideCommission />
+          </section>
         )}
       </div>
     </PersonalLayout>

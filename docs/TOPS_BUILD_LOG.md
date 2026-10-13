@@ -1038,3 +1038,59 @@ No code change. User reported the "Workspace" tab wasn't visible in the Tenant O
 **Screens:** the agent's send-back dialog shows "Float returned. You can now edit the Rent Plan." on an automatic return (and the old "Sent to CFO" message otherwise; the explanatory line no longer says the CFO must always approve). The CFO "Allocated-Float Return Approvals" panel keeps Pending and Decided as before and adds a read-only Automatic tab (system note, no approve or reject buttons).
 
 **Verified live (rolled-back blocks, `supabase/tests/agent_allocation_return_auto_approve.sql`):** automatic success (row, ledger pair, float, statuses, audit, event, notice, login restored); a payout already started (an existing one, and a freshly inserted `otp_verified` one) falls back to the CFO with nothing moved; double tap is refused with exactly one reversal (2 ledger legs) and one request row; the CFO approve path still posts through the helper; the sending agent is refused on Tenant Ops, Landlord Ops and Agent Ops review stamps; the amount edit lands the plan on `pending`, the agent cannot approve it back, and a second edit is refused. `npm run guard:all`. Rollback `supabase/rollbacks/20261008170000_agent_allocation_return_auto_approve.rollback.sql`.
+
+## 2026-10-12 — `20261012100000`: Agent Monitoring plan clock starts the day after the LAST landlord payout (backend only, additive, read-only)
+
+**What:** two new functions, no existing object touched, no `rent_requests` / `landlord_payouts` row written, no ledger. Both are `SECURITY DEFINER`, `STABLE`, `search_path = public`, EXECUTE for `authenticated` only (revoked from PUBLIC, anon and service_role), and refuse anyone without `tenant_ops` / `coo` / `ceo` / `cfo` / `super_admin` / `manager`; at most 10,000 plans per call. Rollback `supabase/rollbacks/20261012100000_am_plan_clock_and_arrears.rollback.sql`; rolled-back test `supabase/tests/am_plan_clock.sql`.
+- `am_plan_clock(uuid[])`: per plan `bucket` (`counting` | `tenant_paying_no_landlord` | `awaiting_landlord` | `outstanding_balance`), `landlord_paid_count`, `landlord_paid_total`, `landlord_paid_dates_estimated`, first / last payout day, `clock_start`, `clock_end` (start + `duration_days` - 1), `current_start` (the stored `repayment_starts_on`) and `shift_days`. A payout counts when its status is `awaiting_agent_receipt` or `completed`; its day is the Kampala date of `COALESCE(finops_disbursed_at, disbursed_at)`. `counting` plans start the day after the LAST payout (split payouts: after the final one); `outstanding_balance` keeps `repayment_starts_on`; with no landlord payout there is no clock (`tenant_paying_no_landlord` when `amount_repaid > 0` or a non-reversed collection exists, otherwise `awaiting_landlord`).
+- `am_plan_arrears(uuid[], date)`: `expected_to_date`, `paid_to_date`, `arrears`, `days_behind`, `days_ahead` (plus `cadence`, `unit`, `periods_behind`, `periods_ahead`, `clock_start`, `bucket`), mirroring `src/lib/agentMonitoringSchedule.ts` (weekly = `daily_repayment` x 7, periods due capped at ceil(total / period)); days for a weekly plan are whole weeks x 7. Paid = non-reversed `agent_collections` plus `repayments` that do not mirror a collection (same plan, same amount, under 5 minutes: `src/lib/rentReceipts.ts`), up to the as-at day (Kampala). No clock => zero expected, zero arrears.
+
+**One deliberate departure from the brief:** 17 old (July) payouts are `awaiting_agent_receipt` with neither `finops_disbursed_at` nor `disbursed_at`, which would leave their plans without a clock (two are still repaying). For those only, `otp_verified_at` (the same day as the payout was created) is used, and they are counted in `landlord_paid_dates_estimated`. Without this fallback the live count of plans with `shift_days > 0` is 11; with it, 12 (plan `9f8f14a9-a2eb-4a7e-ad64-04cb3a32e0de`, +2 days).
+
+**Live counts (active plans = funded / disbursed / repaying, 939):** counting 747, outstanding_balance 108, tenant_paying_no_landlord 59, awaiting_landlord 25; 12 with `shift_days > 0`, 4 with `shift_days < 0` (clock earlier than the stored start by 1, 1, 13 and 14 days), 1 split payout. All plans (6,467): counting 1,219, awaiting 4,794, outstanding 314, tenant paying 140. `paid_to_date` equals `rent_requests.amount_repaid` for 848 of 939 active plans and differs for 91 (the page's current arrears use `amount_repaid`).
+
+**Verified (rolled back):** single payout, split payout (day after the LAST), failed / pending / disbursing payouts ignored, outstanding_balance kept, tenant paying without a landlord payout, awaiting landlord, daily and weekly arrears, ahead-of-schedule, a duplicate repayment counted once, a reversed collection ignored, payments after the as-at day not counted, `paid_to_date` equal to an independent sum for all 939 active plans, signed-out / role-less callers refused, 10,001 ids refused. `npm run guard:all`.
+
+## 2026-10-12 — Agent Monitoring figures now count from the landlord-payout clock (page only)
+
+**What:** `src/components/executive/tenant-ops/AgentMonitoring.tsx` now reads each Rent Plan's start from `am_plan_clock` / `am_plan_arrears` (migration `20261012100000`) instead of `repayment_starts_on` / `created_at`. New files only besides the page: `src/hooks/useAgentMonitoringClock.ts` (one batched read: plan ids chunked at 500, three chunks in flight, React Query `staleTime` 60 s, keyed by day and a hash of the plan ids; no per-plan calls) and `src/lib/agentMonitoringClockSchedule.ts` (maps the server rows onto the existing `PlanSchedule`, reusing `describePlanSchedule` unchanged). `src/lib/agentMonitoringSchedule.ts` and every shared hook / view are untouched, so other pages behave exactly as before.
+
+**On the page:** Expected, Due this day, Schedule met, Paid ahead, the weekly due day, Status (On target / Partial / Critical / Nothing due), Total arrears and days behind are all counted from `clock_start`, on the agent table, the cards and the agent detail dialog (the dialog also says "Counted from <date>" per Rent Plan). Only buckets `counting` and `outstanding_balance` feed the main tab; `tenant_paying_no_landlord` and `awaiting_landlord` are left out of every figure and list there. Collected today is computed exactly as before (same receipts, same rule). "% of plan paid" and "Outstanding plan" still use the plan's own `amount_repaid`; only "Schedule met" and arrears use the clock's paid-to-date. A note under the title reads "Counted from the day after the landlord was paid". While the clock is loading the cards show their loading state, and if it fails they show the error state (the page never silently falls back to the old start date).
+
+**Live comparison, 12 Oct 2026, same signed-in session, 380 px and 1280 px (no horizontal overflow at either width):**
+
+| Card | Before | After |
+|---|---|---|
+| Agents monitored | 105 | 98 |
+| Due this day | 861 of 858 tenants | 799 of 804 tenants |
+| Collected today | UGX 1,401,922 of UGX 23,632,017 expected | UGX 1,401,922 of UGX 22,473,610 expected |
+| Total arrears | UGX 230,460,592 (861 tenants behind) | UGX 216,490,443 (799 tenants behind) |
+| Paid ahead | 4 | 7 |
+| Daily / weekly | 836 / 30 | 778 / 30 |
+
+Collected today did not change: none of the 58 plans taken off the page had a receipt today.
+
+**Verified:** unit tests for the schedule mapping and the batched hook (`src/lib/agentMonitoringClockSchedule.test.ts`, `src/hooks/useAgentMonitoringClock.test.tsx`); in the browser a day change made 2 `am_plan_clock` and 2 `am_plan_arrears` calls (two chunks), all 200, no failed requests.
+
+## 2026-10-12 — Agent Monitoring: two lists for Rent Plans the payout clock does not cover (page only)
+
+**What:** two new tabs beside All agents / After 1 Sep / Before 1 Sep / Expected vs paid / Rent Analysis, and an "Outstanding balance" marker on the main tab. Read-only; no database change (uses `am_plan_clock` plus reads of profiles, landlord payouts and float allocations).
+- **Tenant paying, landlord not paid** (bucket `tenant_paying_no_landlord`) and **Awaiting landlord payment** (bucket `awaiting_landlord`): tenant, phone, agent, Rent Plan amount funded, days since funding (days waiting on the second list), landlord payout (No payout / Payout pending / Payout failed / Part-paid with amount / "Float paid ..., no payout record"), pipeline status; the first list also shows repaid so far and still owed. Summary cards (plans, total repaid, still owed; plans, total funded, longest wait), search on tenant / phone digits / agent, agent filter, sort, 25 per page. Cards on phones, a table from md up. The only link opens the existing tenant profile drawer; no action changes data.
+- Population: every active Rent Plan (funded / disbursed / repaying), the same set the bucket counts were taken on, not only the eligibility-filtered set the main tab uses.
+- Main tab: agents with plans that keep their existing start show "N outstanding balance" in the table and cards; each such Rent Plan in the agent dialog carries an "Outstanding balance" badge.
+- PDF: both lists are added as separate sections (summary line, table, empty-list line) before the definitions, plus a definition of the payout-clock counting. The export fails with a message rather than silently leaving them out if the lists cannot be loaded.
+- New files: `src/components/executive/tenant-ops/UncoveredPlansTab.tsx`, `src/hooks/useAgentMonitoringUncovered.ts`, `src/lib/agentMonitoringUncovered.ts` (+ tests, and a PDF test). Edited: `AgentMonitoring.tsx` (tab list, badge, PDF data) and `agentMonitoringReportPdf.ts`.
+
+**Live check (12 Oct 2026):** Tenant paying list 59 plans, UGX 13,395,793 repaid, UGX 26,739,562 still owed; Awaiting list 25 plans, UGX 4,300,001 funded, longest wait 150 days; all equal to the same sums taken in SQL. The PDF built with 9 pages and both sections. No horizontal overflow at 380 px.
+
+**Known limits:** float allocations are readable only by manager / super admin / CFO / COO / operations, so for a `tenant_ops` viewer the Part-paid / "no payout record" wording cannot show (it reads "No payout"). Two awaiting plans have a fully paid float allocation (UGX 450,000 in total) but no payout record, which is why they sit on the no-clock list; some plans carry a Rent Plan amount of UGX 0 or UGX 1.
+
+## 2026-10-12 — `20261012150000`: every Agent Monitoring tab and the PDF on the payout clock, then reconciled
+
+**What:** the remaining Agent Monitoring tabs now count from `clock_start` and use only the `counting` and `outstanding_balance` buckets; the full old-vs-new reconciliation is in `docs/agent-monitoring-reconciliation.md`.
+- **Expected vs paid** reads new `am_plan_positions(p_from, p_to, p_include_self_payments)`: the same columns, instalment shape, payment de-duplication and bands as `get_agent_monitoring_positions`, started on the clock. Frozen historical day expectations are not used (24 of 1,384 unmoved plans differ for that reason). Test: `supabase/tests/am_plan_positions.sql`; rollback restores `am_plan_clock` / `am_plan_arrears` exactly.
+- **Rent Analysis** takes each plan's schedule from the clock (`buildTenantRows` got an optional `scheduleFor`; default is the old behaviour) and leaves out plans with no clock.
+- **After / Before 1 Sep** split Rent Plans by `clock_start` (they used to split agents by profile creation date). After + Before = All exactly.
+- **Requests submitted** excludes rejected, cancelled and deleted_by_agent; all-time is the secondary line; Live plans is its own column.
+- **PDF** prints the same figures, the "Counted from the day after the landlord was paid" note, the new request columns and the two uncovered-plan sections.
+- **Access:** `am_plan_clock`, `am_plan_arrears` and `am_plan_positions` share one gate, `_am_staff_ok()` (manager, super_admin, coo, ceo, cto, cfo, operations, tenant_ops, agent_ops, financial_ops), so roles that could open the page before are not refused.

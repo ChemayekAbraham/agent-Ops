@@ -1,4 +1,4 @@
-import { Home, Wallet, Users, TrendingUp, Store, Sparkles } from 'lucide-react';
+import { Home, Store, Sparkles, Menu } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { hapticTap } from '@/lib/haptics';
 import {
@@ -18,17 +18,16 @@ interface AgentHubTabsProps {
   restricted?: boolean;
   /** Optional callback for the Proxy Agents shortcut rendered below Service Center. */
   onProxyAgentsClick?: () => void;
+  /** Opens the full agent menu (Money, My Tenant Hub, Grow & Earn, ...). */
+  onMenuClick?: () => void;
 }
 
 const tabs: { id: AgentHubTab; icon: typeof Home; label: string }[] = [
   { id: 'home', icon: Home, label: 'Home' },
-  { id: 'money', icon: Wallet, label: 'Money' },
-  { id: 'tenants', icon: Users, label: 'Tenants' },
-  { id: 'grow', icon: TrendingUp, label: 'More' },
   { id: 'subagents', icon: Store, label: 'Service Center' },
 ];
 
-export function AgentHubTabs({ active, onChange, restricted = false, onProxyAgentsClick }: AgentHubTabsProps) {
+export function AgentHubTabs({ active, onChange, restricted = false, onProxyAgentsClick, onMenuClick }: AgentHubTabsProps) {
   // Merchant Agents are locked to the Home tab only — all operational tabs are hidden.
   const visibleTabs = restricted ? tabs.filter((t) => t.id === 'home') : tabs;
   const mainTabs = visibleTabs.filter((t) => t.id !== 'subagents');
@@ -116,6 +115,17 @@ export function AgentHubTabs({ active, onChange, restricted = false, onProxyAgen
               </button>
             );
             })}
+            {onMenuClick && !restricted && (
+              <button
+                aria-label="More Actions"
+                onClick={() => { hapticTap(); onMenuClick(); }}
+                className={cn(FLOATING_NAV_ITEM, 'text-muted-foreground')}
+                style={{ WebkitTapHighlightColor: 'transparent' }}
+              >
+                <Menu className="h-5 w-5" strokeWidth={2} />
+                <span className={FLOATING_NAV_LABEL}>More Actions</span>
+              </button>
+            )}
           </FloatingNavRow>
         </div>
       </div>

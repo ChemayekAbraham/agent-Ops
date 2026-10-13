@@ -154,8 +154,8 @@ export default function AgentServiceCenter() {
 
   return (
     <div className="min-h-[100dvh] bg-background">
-      {/* Sticky top bar with back navigation to /dashboard/agent */}
-      <div className="sticky top-0 z-30 border-b border-border/60 bg-background/95 backdrop-blur-md px-3 sm:px-4 py-2">
+      {/* Top bar with back navigation to /dashboard/agent (scrolls with page) */}
+      <div className="border-b border-border/60 bg-background px-3 sm:px-4 py-2">
         <div className="mx-auto flex max-w-3xl items-center justify-between gap-2">
           <Button
             variant="ghost"
