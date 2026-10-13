@@ -12,6 +12,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { CheckCircle, XCircle, Clock, Loader2, TrendingUp, CalendarIcon, X } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 import { TreasuryImpactBanner } from './TreasuryImpactBanner';
 import { format } from 'date-fns';
 import { CfoApprovalGate } from '@/components/cfo/CfoApprovalGate';
