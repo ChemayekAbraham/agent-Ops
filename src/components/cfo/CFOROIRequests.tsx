@@ -43,6 +43,7 @@ export function CFOROIRequests() {
   const [rejectionReasons, setRejectionReasons] = useState<Record<string, string>>({});
   const [filter, setFilter] = useState<'coo_approved' | 'approved' | 'rejected' | 'all'>('coo_approved');
   const [search, setSearch] = useState('');
+  const [dateFilter, setDateFilter] = useState<Date | undefined>(undefined);
 
   const { data: operations = [], isLoading } = useQuery({
     queryKey: ['cfo-roi-requests', filter],
