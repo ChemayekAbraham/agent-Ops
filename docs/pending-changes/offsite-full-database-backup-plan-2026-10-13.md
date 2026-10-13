@@ -18,7 +18,7 @@ an additional safeguard; if not, it is the primary one.
 ## Step 2 — Off-platform encrypted dump (only after the decisions below)
 
 ### Decisions needed from Josh / CEO (code cannot make these)
-1. **Destination — DECIDED 2026-10-13 (Josh): the separate Supabase project `fqvgfkqxykaxzndhbaps`** (private Storage bucket).
+1. **Destination — DECIDED 2026-10-13 (Josh): the separate Supabase project `fqvgfkqxykaxzndhbaps` (named "rentflowinsight", an EXISTING project with its own tables — not a clean destination until its purpose and data are known; prefer a new dedicated project)** (private Storage bucket).
    CONFIRMED by Josh 2026-10-13: owner `weliletenants@gmail.com` (SAME login as production — fails requirement (a); one compromised
    login reaches both copies, so move ownership to a separate account or add a different owner before any data goes in),
    region eu-west-1 (Ireland), project already has tables (contents unknown — inspect before use), public sign-up was open
