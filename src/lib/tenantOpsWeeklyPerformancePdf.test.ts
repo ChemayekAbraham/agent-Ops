@@ -18,7 +18,7 @@ vi.mock('jspdf', async (importOriginal) => {
   return { ...mod, default: Recording, jsPDF: Recording };
 });
 
-import { generateWeeklyPerformancePdf } from './tenantOpsWeeklyPerformancePdf';
+import { generateNoPaymentPdfForDays, generateWeeklyPerformancePdf } from './tenantOpsWeeklyPerformancePdf';
 import type { TenantOpsWeeklyHistoryRow, TenantOpsWeeklyPerformance } from '@/hooks/useTenantOpsWeeklyPerformance';
 
 const m = {
@@ -56,5 +56,34 @@ describe('generateWeeklyPerformancePdf', () => {
   it('does not print the counting-changed marker for any other week', () => {
     generateWeeklyPerformancePdf(data(false), [row('2026-09-30', false)]);
     expect(rec.texts.join('\n')).not.toContain('Counting changed this week');
+  });
+});
+
+const noPay = (n: number, tenants: unknown[]) => ({
+  as_of: '2026-10-13', min_days: n, total_min_days: tenants.length, tenants,
+  agent_summary: [{ agent_id: 'a1', label: 'Agent One', gte_min: 5, gte_min_10: 3, gte_min_20: 1 }],
+}) as never;
+const dormantTenant = { tenant_id: 't1', tenant_name: 'Nakato Ann', tenant_account_number: '0700', agent_id: 'a1', agent_name: 'Agent One', date_of_last_payment: '2026-09-01', days_since_last_payment: 42, expected_daily_payment: 10000, outstanding_balance: 200000, total_amount_paid: 100000, progress_pct: 33.3, tenant_status: 'repaying' };
+
+describe('generateNoPaymentPdfForDays', () => {
+  beforeEach(() => { rec.texts.length = 0; });
+
+  it('titles the report, the cards and the bands with the chosen number', () => {
+    generateNoPaymentPdfForDays(noPay(30, [dormantTenant]), null);
+    const all = rec.texts.join('\n');
+    expect(all).toContain('30+ Days No Payment');
+    expect(all).toContain('30+ days');
+    expect(all).toContain('40+ days');
+    expect(all).toContain('50+ days');
+    expect(all).toContain('between 30 and 39 days');
+    expect(all).toContain('between 40 and 49 days');
+    expect(all).not.toContain('20+ Days No Payment');
+  });
+
+  it('says so, with the number, when nobody is on the list', () => {
+    generateNoPaymentPdfForDays(noPay(60, []), 'Agent One');
+    const all = rec.texts.join('\n');
+    expect(all).toContain('No tenants have gone 60+ days without payment.');
+    expect(all).toContain('Filtered to Agent One');
   });
 });

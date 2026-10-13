@@ -1,6 +1,6 @@
 # 206 — CTO auth metrics + 7-day forecast (2026-10-08)
 
-**BUILT 2026-10-08. Migration `20261008120000` not applied; not yet run against live data.**
+**APPLIED 2026-10-13 (see doc 222). Verified against daily-cto-report for 10-12.**
 
 Source: 2026-10-07 all-hands action item "Report CTO metrics — successful logins and OTPs, plus a 7-day system-performance forecast."
 

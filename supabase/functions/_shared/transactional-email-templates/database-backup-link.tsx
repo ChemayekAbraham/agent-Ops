@@ -18,7 +18,7 @@ export function DatabaseBackupLinkEmail({
   fileName = 'welile_export.sql',
   sizeMb = '0.00',
   generatedAt = new Date().toISOString(),
-  expiresInHours = 168,
+  expiresInHours = 24,
   note,
 }: DatabaseBackupLinkProps) {
   return (
@@ -69,7 +69,7 @@ export const template = {
     fileName: 'welile_export_2026-05-05.sql',
     sizeMb: '12.34',
     generatedAt: new Date().toISOString(),
-    expiresInHours: 168,
+    expiresInHours: 24,
     note: 'Re-sent after a delivery issue was reported.',
   },
 } satisfies TemplateEntry

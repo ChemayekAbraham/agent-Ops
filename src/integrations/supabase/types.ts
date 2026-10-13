@@ -44948,6 +44948,36 @@ export type Database = {
         }
         Relationships: []
       }
+      sms_balance_alerts: {
+        Row: {
+          balance_credits: number
+          created_at: string
+          credits_24h: number
+          emailed: boolean
+          id: string
+          level: string
+          runway_hours: number | null
+        }
+        Insert: {
+          balance_credits: number
+          created_at?: string
+          credits_24h: number
+          emailed?: boolean
+          id?: string
+          level: string
+          runway_hours?: number | null
+        }
+        Update: {
+          balance_credits?: number
+          created_at?: string
+          credits_24h?: number
+          emailed?: boolean
+          id?: string
+          level?: string
+          runway_hours?: number | null
+        }
+        Relationships: []
+      }
       sms_broadcast_campaigns: {
         Row: {
           audiences: string[]
@@ -60722,6 +60752,19 @@ export type Database = {
         Args: { p_month: number; p_start: string }
         Returns: number
       }
+      _tenant_ops_dormant_days_amclock: {
+        Args: never
+        Returns: {
+          agent_id: string
+          bucket: string
+          clock_start: string
+          counted: boolean
+          days_since: number
+          last_pay_day: string
+          rent_request_id: string
+          tenant_id: string
+        }[]
+      }
       _tenant_ops_weekly_amclock_first_week: { Args: never; Returns: string }
       _tenant_ops_weekly_amclock_plans: {
         Args: { p_week_end: string; p_week_start: string }
@@ -60818,6 +60861,29 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      _tops_tenant_classification_core: {
+        Args: never
+        Returns: {
+          as_of: string
+          category: string
+          completed_on: string
+          completed_plans: number
+          days_since_completion: number
+          district: string
+          latest_agent_name: string
+          latest_request_at: string
+          latest_status: string
+          needs_review: boolean
+          outstanding_ugx: number
+          review_reasons: string
+          running_plans: number
+          sub_label: string
+          tenant_id: string
+          tenant_name: string
+          tenant_phone: string
+          total_requests: number
+        }[]
       }
       accept_proxy_agreement:
         | { Args: { p_code: string; p_nin?: string }; Returns: Json }
@@ -64169,6 +64235,10 @@ export type Database = {
         Args: { p_sale_id: string }
         Returns: string
       }
+      coo_approve_rent_request: {
+        Args: { p_comment?: string; p_request_id: string }
+        Returns: Json
+      }
       coo_approve_smartphone_order: {
         Args: {
           p_daily_deduction?: number
@@ -64177,6 +64247,10 @@ export type Database = {
           p_sale_id: string
           p_total_amount?: number
         }
+        Returns: Json
+      }
+      coo_return_rent_request: {
+        Args: { p_reason: string; p_request_id: string }
         Returns: Json
       }
       correct_tenant_location: {
@@ -68848,6 +68922,7 @@ export type Database = {
         Args: { p_sale_id: string }
         Returns: Json
       }
+      get_sms_balance_runway: { Args: never; Returns: Json }
       get_sms_broadcast_status: {
         Args: never
         Returns: {
@@ -69158,6 +69233,10 @@ export type Database = {
         Returns: Json
       }
       get_tenant_ops_agent_360: { Args: { p_agent_id: string }; Returns: Json }
+      get_tenant_ops_dormant_amclock: {
+        Args: { p_min_days?: number }
+        Returns: Json
+      }
       get_tenant_ops_geo_metrics: {
         Args: {
           p_continent?: string
@@ -69220,6 +69299,10 @@ export type Database = {
       }
       get_tenant_ops_no_payment_report: {
         Args: { p_agent_id?: string }
+        Returns: Json
+      }
+      get_tenant_ops_no_payment_report_v2: {
+        Args: { p_agent_id?: string; p_min_days?: number }
         Returns: Json
       }
       get_tenant_ops_pipeline_trend: {
@@ -77430,6 +77513,37 @@ export type Database = {
         Args: { p_new_sla_due_at: string; p_work_item_id: string }
         Returns: undefined
       }
+      tops_tenant_classification_list: {
+        Args: {
+          p_category?: string
+          p_limit?: number
+          p_needs_review?: boolean
+          p_offset?: number
+          p_search?: string
+          p_sub?: string
+        }
+        Returns: {
+          category: string
+          completed_on: string
+          completed_plans: number
+          days_since_completion: number
+          district: string
+          latest_agent_name: string
+          latest_request_at: string
+          latest_status: string
+          needs_review: boolean
+          outstanding_ugx: number
+          review_reasons: string
+          running_plans: number
+          sub_label: string
+          tenant_id: string
+          tenant_name: string
+          tenant_phone: string
+          total_requests: number
+          total_rows: number
+        }[]
+      }
+      tops_tenant_classification_summary: { Args: never; Returns: Json }
       tops_unknown_cadence_plans: {
         Args: { p_limit?: number; p_offset?: number }
         Returns: Json
