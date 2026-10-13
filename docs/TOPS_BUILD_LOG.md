@@ -1122,3 +1122,29 @@ Why the jump: 713 of 719 live clock rows had cadence "unknown" and no settlement
 **Not switched, by decision:** `get_tenant_topup_eligibility` (an eligibility and money decision shared with other screens), `tops_unknown_cadence_plans`, `tops_blocked_items`, and the `tppo_*` reads. The plan position card still says "cadence not confirmed" for landlord-unpaid plans (copy follow-up).
 
 **Follow-up for Operations:** the 6 plans the old Workspace counted as owing although no payout ever succeeded are in `docs/workspace-landlord-not-paid-check.md`.
+
+## 2026-10-13 — `20261013160000`: Weekly Performance on the shared payout clock
+
+**What:** Tenant Ops Weekly Performance (Wednesday-Tuesday weeks) now counts each Rent Plan only from its `am_plan_clock` start, the same start Agent Monitoring uses. Read-only; new functions, one new table and one new cron job. `v_rent_plan_schedule` (top-up eligibility shares it), `v_tenant_ops_tenant_base`, `_tenant_ops_weekly_metrics_raw`, `get_tenant_ops_weekly_performance`, `get_tenant_ops_weekly_history`, `pin_tenant_ops_weekly_metrics(_catchup)`, `tenant_ops_weekly_metrics` and the existing cron job are untouched. Rollback: `supabase/rollbacks/20261013160000_tenant_ops_weekly_amclock.rollback.sql` (keeps the new snapshot table so frozen weeks are not lost).
+- New: `_tenant_ops_weekly_amclock_plans` (one row per live plan), `_tenant_ops_weekly_metrics_raw_amclock` (same columns as the old raw plus `landlord_not_paid_count`), `get_tenant_ops_weekly_performance_amclock`, `get_tenant_ops_weekly_history_amclock`, `pin_tenant_ops_weekly_metrics_amclock(_catchup)`, table `tenant_ops_weekly_metrics_amclock`, cron `pin-tenant-ops-weekly-metrics-amclock-eat-wed` (Tue 21:10 UTC, same time as the old job).
+- Rules: active = the tenant's latest live plan with bucket counting / outstanding_balance and clock_start up to today; paying = counted plans with a non-reversed collection or repayment in the week dated on or after the clock_start; non-paying = active - paying; 20+ days = counted plans with a balance whose last payment (or the clock_start) is 20+ days ago; plans in tenant_paying_no_landlord / awaiting_landlord appear only as `landlord_not_paid_count`. New tenants and self-payment are unchanged.
+- Weeks: 7 Oct 2026 (the week open when this was applied) is the first week counted the new way. Every earlier week is read from the old snapshot table exactly as recorded (md5 checked) and marked `old`. The first new week carries "Counting changed this week - earlier weeks used the old start date" on the page, the history list and the PDF. The old cron keeps writing its own row for 7 Oct into the old table; the new functions ignore it.
+- Switched: `useTenantOpsWeeklyPerformance` / `useTenantOpsWeeklyHistory` (so the Weekly Performance tab, the Workspace Weekly section and the PDF). Top-up eligibility and the other users of the old views are unchanged. `weekly-tenant-ops-report` (email) reads `ops_tenant_ops_weekly_bundle` and is unchanged.
+
+**This week (Wed 7 - Tue 13 Oct 2026), old vs new:**
+
+| Figure | Old | New | Why it moved |
+|---|---|---|---|
+| Active tenants | 887 | 789 | 98 live plans have no counted landlord payout; they are no longer active |
+| Paying tenants | 417 | 409 | 5 paying tenants sit on landlord-unpaid plans; 3 only paid before their plan's clock start |
+| Non-paying tenants | 470 | 380 | 93 of the 98 unpaid-landlord plans were counted as non-paying and drop out; 3 counted plans lose their payment (paid before the clock start) |
+| Payment rate | 47.0% | 51.8% | the same payers over a smaller, correct base |
+| New tenants | 69 | 69 | unchanged |
+| Self-paying tenants | 31 | 31 | unchanged |
+| 20+ days no payment | 161 | 208 | 160 of the old 161 stay; 1 drops out; 48 plans carried over with a balance (outstanding_balance) are now counted, which the old payout-evidence filter skipped |
+| Landlord not paid yet | not shown | 98 (55 tenant paying, 43 awaiting landlord) | new field, not counted as owing |
+
+The week-on-week change for 7 Oct compares the new count with last week's old frozen figures (the page says last week was counted the old way).
+
+**Verified:** `supabase/tests/tenant_ops_weekly_amclock.sql` (rolled back, 18 steps pass): a landlord-unpaid plan is never active, paying, non-paying or 20+ days; for the same day the plans, buckets and clock starts equal `am_plan_clock` / `am_plan_arrears`, active + landlord-not-paid = every live plan, and paying rebuilds exactly from the payment tables; the old snapshot table is byte-for-byte unchanged; the new functions write nothing to it; pinning refuses old and open weeks.
+**Follow-ups for the owner:** `tenant_ops_weekly_metrics` for 7 Oct will be written by the old cron tonight with the old counting; it is not used by the new functions. Reversed collections are now excluded from "paying" (Agent Monitoring does the same; the old count included them).

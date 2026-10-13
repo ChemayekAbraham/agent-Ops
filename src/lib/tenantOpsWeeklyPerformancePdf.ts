@@ -8,6 +8,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 import type { TenantOpsWeeklyHistoryRow, TenantOpsWeeklyPerformance } from '@/hooks/useTenantOpsWeeklyPerformance';
+import { WEEKLY_CLOCK_NOTE, WEEKLY_COUNTING_CHANGED_NOTE, landlordNotPaidLine } from '@/lib/tenantOpsWeeklyNotes';
 import type { TenantOpsNoPaymentReport } from '@/hooks/useTenantOpsNoPaymentReport';
 
 type RGB = [number, number, number];
@@ -224,6 +225,9 @@ export function generateWeeklyPerformancePdf(
     BLUE,
     [...generatedMeta(preparedBy), 'Reporting week runs Wednesday to Tuesday'],
   );
+  r.note(WEEKLY_CLOCK_NOTE);
+  if (c.landlord_not_paid_count != null) r.note(landlordNotPaidLine(c.landlord_not_paid_count));
+  if (data.counting_changed_this_week) r.note(WEEKLY_COUNTING_CHANGED_NOTE);
 
   r.heading('Management Summary', 'This week compared with the week before');
   r.cards([
@@ -279,9 +283,10 @@ export function generateWeeklyPerformancePdf(
     r.heading('Historical Weekly Records', 'Frozen once each week closes on Tuesday night');
     r.table(
       ['Week', 'Active', 'Paying', 'Payment rate', 'New', '20+ days no payment', 'Self-paid via merchant'],
-      history.map((w) => [`${short(w.week_start)} - ${short(w.week_end)}`, num(w.total_active_tenants), num(w.paying_tenants), `${w.payment_rate_pct}%`, num(w.new_tenants_added), num(w.dormant_20_plus_count), num(w.self_payment_tenants)]),
+      history.map((w) => [`${short(w.week_start)} - ${short(w.week_end)}${w.counting_changed ? ' *' : ''}`, num(w.total_active_tenants), num(w.paying_tenants), `${w.payment_rate_pct}%`, num(w.new_tenants_added), num(w.dormant_20_plus_count), num(w.self_payment_tenants)]),
       { align: ['left', 'right', 'right', 'right', 'right', 'right', 'right'] },
     );
+    if (history.some((w) => w.counting_changed)) r.note(`* ${WEEKLY_COUNTING_CHANGED_NOTE}`);
   } else {
     r.note('No closed weeks recorded yet. A week\'s figures are frozen once it closes on Tuesday night.');
   }

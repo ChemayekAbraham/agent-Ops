@@ -33,6 +33,9 @@ import { WorkspaceEmptyState } from '@/components/executive/tenant-ops/workspace
 import { WorkspaceMobileRow } from '@/components/executive/tenant-ops/workspace/WorkspaceMobileRow';
 import { TenantSelfPaymentWeeklyTrend } from '@/components/executive/tenant-ops/workspace/TenantSelfPaymentWeeklyTrend';
 import {
+  WEEKLY_CLOCK_NOTE,
+  WEEKLY_COUNTING_CHANGED_NOTE,
+  landlordNotPaidLine,
   useTenantOpsWeeklyHistory,
   useTenantOpsWeeklyPerformance,
 } from '@/hooks/useTenantOpsWeeklyPerformance';
@@ -155,6 +158,17 @@ export function WeeklyPerformanceTab() {
             </span>{' '}
             ({is_current_week_open ? 'in progress' : 'closed'}), compared with the week before.
           </p>
+          <div className="space-y-0.5 text-[11px] text-muted-foreground" data-testid="weekly-clock-note">
+            <p>{WEEKLY_CLOCK_NOTE}</p>
+            {current.landlord_not_paid_count != null && (
+              <p data-testid="weekly-landlord-not-paid">{landlordNotPaidLine(current.landlord_not_paid_count)}</p>
+            )}
+            {data.counting_changed_this_week && (
+              <p className="font-medium text-warning" data-testid="weekly-counting-changed">
+                {WEEKLY_COUNTING_CHANGED_NOTE}
+              </p>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="grid grid-cols-2 gap-2 px-3 sm:px-4 md:grid-cols-3 lg:grid-cols-5">
           <WeeklySummaryStat
@@ -233,7 +247,7 @@ export function WeeklyPerformanceTab() {
                 {history.map((w) => (
                   <WorkspaceMobileRow
                     key={w.week_start}
-                    title={`${dayLabel(w.week_start)} – ${dayLabel(w.week_end)}`}
+                    title={`${dayLabel(w.week_start)} – ${dayLabel(w.week_end)}${w.counting_changed ? ` · ${WEEKLY_COUNTING_CHANGED_NOTE}` : ''}`}
                     fields={[
                       { label: 'Active', value: w.total_active_tenants },
                       { label: 'Paying', value: w.paying_tenants },
@@ -262,8 +276,15 @@ export function WeeklyPerformanceTab() {
                   <TableBody>
                     {history.map((w) => (
                       <TableRow key={w.week_start}>
-                        <TableCell className="whitespace-nowrap text-xs font-medium">
-                          {dayLabel(w.week_start)} – {dayLabel(w.week_end)}
+                        <TableCell className="text-xs font-medium">
+                          <span className="whitespace-nowrap">
+                            {dayLabel(w.week_start)} – {dayLabel(w.week_end)}
+                          </span>
+                          {w.counting_changed && (
+                            <span className="mt-0.5 block text-[11px] font-normal text-warning" data-testid="history-counting-changed">
+                              {WEEKLY_COUNTING_CHANGED_NOTE}
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell className="text-xs">{w.total_active_tenants}</TableCell>
                         <TableCell className="text-xs">{w.paying_tenants}</TableCell>

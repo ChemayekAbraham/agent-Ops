@@ -15,7 +15,13 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { formatUGX } from '@/lib/rentCalculations';
-import { useTenantOpsWeeklyPerformance, useTenantOpsWeeklyHistory } from '@/hooks/useTenantOpsWeeklyPerformance';
+import {
+  WEEKLY_CLOCK_NOTE,
+  WEEKLY_COUNTING_CHANGED_NOTE,
+  landlordNotPaidLine,
+  useTenantOpsWeeklyPerformance,
+  useTenantOpsWeeklyHistory,
+} from '@/hooks/useTenantOpsWeeklyPerformance';
 import { usePortfolioQuality } from '@/hooks/tenantOpsWorkspace/usePortfolioQuality';
 
 const pct = (v: number | null) => (v == null ? '—' : `${Math.round(v * 1000) / 10}%`);
@@ -33,8 +39,19 @@ export default function WeeklySection() {
           <CardTitle className="text-sm font-semibold">This week</CardTitle>
           {weekly.error && (
             <p className="text-[11px] text-destructive">
-              Could not load — this card needs the operations/coo/ceo/super_admin role on the existing weekly RPC.
+              Could not load — this card needs the operations/coo/ceo/super_admin role on the weekly RPC.
             </p>
+          )}
+          {weekly.data && (
+            <div className="space-y-0.5 text-[11px] text-muted-foreground" data-testid="weekly-section-clock-note">
+              <p>{WEEKLY_CLOCK_NOTE}</p>
+              {weekly.data.current.landlord_not_paid_count != null && (
+                <p>{landlordNotPaidLine(weekly.data.current.landlord_not_paid_count)}</p>
+              )}
+              {weekly.data.counting_changed_this_week && (
+                <p className="font-medium text-warning">{WEEKLY_COUNTING_CHANGED_NOTE}</p>
+              )}
+            </div>
           )}
         </CardHeader>
         <CardContent>
@@ -80,7 +97,12 @@ export default function WeeklySection() {
               <TableBody>
                 {(history.data ?? []).map((row) => (
                   <TableRow key={row.week_start}>
-                    <TableCell className="text-xs">{row.week_start}</TableCell>
+                    <TableCell className="text-xs">
+                      {row.week_start}
+                      {row.counting_changed && (
+                        <span className="block text-[11px] text-warning">{WEEKLY_COUNTING_CHANGED_NOTE}</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-xs">{row.total_active_tenants}</TableCell>
                     <TableCell className="text-xs">{row.paying_tenants}</TableCell>
                     <TableCell className="text-xs">{row.payment_rate_pct}%</TableCell>
