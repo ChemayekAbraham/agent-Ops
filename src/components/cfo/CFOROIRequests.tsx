@@ -280,6 +280,7 @@ export function CFOROIRequests() {
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/40">
+                <TableHead className="w-10 text-right">#</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Partner</TableHead>
                 <TableHead>Paid to</TableHead>
