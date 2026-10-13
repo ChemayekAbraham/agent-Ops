@@ -21,6 +21,8 @@ import { useAuthForm } from '@/hooks/useAuthForm';
 import { SIGNUP_PAUSED } from '@/components/SignupPauseBanner';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { cn } from '@/lib/utils';
+import authStyles from './Auth.module.css';
+import authLogoAsset from '@/assets/welcome-new/welile-logo.png.asset.json';
 import { useOtpVerification } from '@/hooks/useOtpVerification';
 import { setDeviceTrust } from '@/lib/deviceTrust';
 import { useToast } from '@/hooks/use-toast';
