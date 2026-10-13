@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
 import { loadMockTenantPage, MOCK_TENANTS, MOCK_TOTALS, type MockTenant } from './agentsMockData';
-import agentArt from '@/assets/welcome-new/agent.png.asset.json';
+import agentAvatar from '@/assets/agents-mock-avatar.jpg';
 
 type Filter = 'All' | 'Due' | 'Partial' | 'Paid';
 const statusOf = (tenant: MockTenant): Filter => tenant.collected >= tenant.expected ? 'Paid' : tenant.collected > 0 ? 'Partial' : 'Due';
@@ -55,7 +55,7 @@ export default function AgentsMock() {
         <header className="flex items-center justify-between gap-3 pt-7 pb-7 sm:pt-10 sm:pb-9">
           <div className="flex min-w-0 items-center gap-3 sm:gap-4">
             <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-primary/15 bg-primary/10 text-primary font-bold">
-              {imageFailed ? 'AM' : <img src={agentArt.url} alt="Agent avatar" className="h-full w-full object-cover" onError={() => setImageFailed(true)} />}
+              {imageFailed ? 'AM' : <img src={agentAvatar} width={56} height={56} alt="Sample agent avatar" className="h-full w-full object-cover" onError={() => setImageFailed(true)} />}
             </div>
             <div className="min-w-0"><p className="flex items-center gap-1.5 text-xs sm:text-sm text-muted-foreground"><Sun className="h-4 w-4 text-warning" />{greeting},</p><h1 className="mt-1 text-xl sm:text-2xl font-bold">Alex Mugisha</h1></div>
           </div>
@@ -64,14 +64,14 @@ export default function AgentsMock() {
 
         <section aria-labelledby="today-heading" className="overflow-hidden rounded-lg border border-border bg-card shadow-card">
           <div className="flex items-center justify-between gap-2 border-b border-border px-5 py-4 sm:px-7"><h2 id="today-heading" className="text-sm font-semibold">Today's collections</h2><span className="text-[11px] sm:text-xs text-muted-foreground">{date}</span></div>
-          <div className="grid grid-cols-1 sm:grid-cols-2">
-            <div className="px-5 pt-6 pb-5 sm:p-7">
+          <div className="grid grid-cols-2">
+            <div className="px-4 py-5 sm:p-7">
               <div className="flex items-center gap-2 text-sm text-muted-foreground"><span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary"><Banknote className="h-4 w-4" /></span>Expected today</div>
-              <p className="mt-3 text-3xl font-bold tabular-nums">{formatUGX(MOCK_TOTALS.expected)}</p><p className="mt-2 text-xs text-muted-foreground">Rent due from {MOCK_TENANTS.length} tenants</p>
+              <p className="mt-3 text-lg sm:text-3xl font-bold tabular-nums">{formatUGX(MOCK_TOTALS.expected)}</p><p className="mt-2 text-xs text-muted-foreground">Rent due from {MOCK_TENANTS.length} tenants</p>
             </div>
-            <div className="border-t border-border bg-success/5 px-5 pt-5 pb-6 sm:border-t-0 sm:border-l sm:p-7">
+            <div className="border-l border-border bg-success/5 px-4 py-5 sm:p-7">
               <div className="flex items-center gap-2 text-sm text-muted-foreground"><span className="flex h-8 w-8 items-center justify-center rounded-full bg-success/10 text-success"><ArrowDownLeft className="h-4 w-4" /></span>Collected today</div>
-              <p className="mt-3 text-3xl font-bold tabular-nums text-success">{formatUGX(MOCK_TOTALS.collected)}</p><p className="mt-2 text-xs text-muted-foreground"><span className="font-semibold text-foreground">{formatUGX(MOCK_TOTALS.expected - MOCK_TOTALS.collected)}</span> left to collect</p>
+              <p className="mt-3 text-lg sm:text-3xl font-bold tabular-nums text-success">{formatUGX(MOCK_TOTALS.collected)}</p><p className="mt-2 text-xs text-muted-foreground"><span className="font-semibold text-foreground">{formatUGX(MOCK_TOTALS.expected - MOCK_TOTALS.collected)}</span> left to collect</p>
             </div>
           </div>
           <div className="border-t border-border px-5 py-4 sm:px-7"><div className="mb-2 flex justify-between text-xs"><span className="text-muted-foreground">Today's progress</span><span className="font-semibold">{progress}% collected</span></div><progress aria-label="Today's collection progress" value={progress} max={100} className="agents-mock-progress block h-2 w-full overflow-hidden rounded-full" /></div>

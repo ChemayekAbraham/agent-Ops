@@ -1,5 +1,5 @@
 # Tasks
-- [ ] Create and verify design-only /dashboard/agents-mock with ten-at-a-time sample tenants; keep the existing agent dashboard and payment rules unchanged.
+- [x] Create and verify design-only /dashboard/agents-mock with ten-at-a-time sample tenants; existing agent dashboard and payment rules unchanged. Browser checked loading 10/20/24, detail, post preview and mobile filtering; build clean.
 - [x] Diagnose and fix Service Centre tenant-request Claim failures; four tests pass and signed-in location/server errors verified without claiming real requests or moving money.
 - [x] Update Landlord Ops principal recovery with disbursed-float comparison, three KPIs, fee breakdown dialog and table; verified signed-in live figures, Today/All time, dialog, phone-width graph, guards and three accounting tests; no money moved.
 - [x] Add and verify repayment progress and today's expected-versus-collected rent in the selected Agent Ops product profile; checked Joel's live figures and charts without moving money.
