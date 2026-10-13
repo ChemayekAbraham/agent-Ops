@@ -49517,6 +49517,48 @@ export type Database = {
         }
         Relationships: []
       }
+      tenant_ops_weekly_metrics_amclock: {
+        Row: {
+          captured_at: string
+          dormant_20_plus_count: number
+          landlord_not_paid_count: number
+          new_tenants_added: number
+          non_paying_tenants: number
+          paying_tenants: number
+          payment_rate_pct: number
+          self_payment_tenants: number
+          total_active_tenants: number
+          week_end: string
+          week_start: string
+        }
+        Insert: {
+          captured_at?: string
+          dormant_20_plus_count: number
+          landlord_not_paid_count: number
+          new_tenants_added: number
+          non_paying_tenants: number
+          paying_tenants: number
+          payment_rate_pct: number
+          self_payment_tenants: number
+          total_active_tenants: number
+          week_end: string
+          week_start: string
+        }
+        Update: {
+          captured_at?: string
+          dormant_20_plus_count?: number
+          landlord_not_paid_count?: number
+          new_tenants_added?: number
+          non_paying_tenants?: number
+          paying_tenants?: number
+          payment_rate_pct?: number
+          self_payment_tenants?: number
+          total_active_tenants?: number
+          week_end?: string
+          week_start?: string
+        }
+        Relationships: []
+      }
       tenant_phone_duplicate_alerts: {
         Row: {
           created_at: string
@@ -60553,10 +60595,51 @@ export type Database = {
         Args: { p_month: number; p_start: string }
         Returns: number
       }
+      _tenant_ops_weekly_amclock_first_week: { Args: never; Returns: string }
+      _tenant_ops_weekly_amclock_plans: {
+        Args: { p_week_end: string; p_week_start: string }
+        Returns: {
+          bucket: string
+          clock_start: string
+          counted: boolean
+          dormant: boolean
+          landlord_not_paid: boolean
+          paying: boolean
+          rent_request_id: string
+          tenant_id: string
+        }[]
+      }
+      _tenant_ops_weekly_amclock_week: {
+        Args: { p_week_end: string; p_week_start: string }
+        Returns: {
+          counting: string
+          dormant_20_plus_count: number
+          landlord_not_paid_count: number
+          new_tenants_added: number
+          non_paying_tenants: number
+          paying_tenants: number
+          payment_rate_pct: number
+          self_payment_tenants: number
+          total_active_tenants: number
+        }[]
+      }
       _tenant_ops_weekly_metrics_raw: {
         Args: { p_week_end: string; p_week_start: string }
         Returns: {
           dormant_20_plus_count: number
+          new_tenants_added: number
+          non_paying_tenants: number
+          paying_tenants: number
+          payment_rate_pct: number
+          self_payment_tenants: number
+          total_active_tenants: number
+        }[]
+      }
+      _tenant_ops_weekly_metrics_raw_amclock: {
+        Args: { p_week_end: string; p_week_start: string }
+        Returns: {
+          dormant_20_plus_count: number
+          landlord_not_paid_count: number
           new_tenants_added: number
           non_paying_tenants: number
           paying_tenants: number
@@ -69029,7 +69112,29 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_tenant_ops_weekly_history_amclock: {
+        Args: { p_limit?: number }
+        Returns: {
+          captured_at: string
+          counting: string
+          counting_changed: boolean
+          dormant_20_plus_count: number
+          landlord_not_paid_count: number
+          new_tenants_added: number
+          non_paying_tenants: number
+          paying_tenants: number
+          payment_rate_pct: number
+          self_payment_tenants: number
+          total_active_tenants: number
+          week_end: string
+          week_start: string
+        }[]
+      }
       get_tenant_ops_weekly_performance: {
+        Args: { p_anchor?: string }
+        Returns: Json
+      }
+      get_tenant_ops_weekly_performance_amclock: {
         Args: { p_anchor?: string }
         Returns: Json
       }
@@ -72633,6 +72738,14 @@ export type Database = {
       pin_tenant_ops_weekly_metrics: {
         Args: { p_anchor?: string }
         Returns: number
+      }
+      pin_tenant_ops_weekly_metrics_amclock: {
+        Args: { p_anchor?: string }
+        Returns: number
+      }
+      pin_tenant_ops_weekly_metrics_amclock_catchup: {
+        Args: { p_lookback_weeks?: number }
+        Returns: Json
       }
       pin_tenant_ops_weekly_metrics_catchup: {
         Args: { p_lookback_weeks?: number }
