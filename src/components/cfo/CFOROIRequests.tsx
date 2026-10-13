@@ -344,6 +344,7 @@ export function CFOROIRequests() {
                     {op.status === 'coo_approved' && (
                       <TableRow key={op.id + '-actions'} className="bg-muted/20 hover:bg-muted/20">
                         <TableCell colSpan={10}>
+                          <CfoApprovalGate>
                             <div className="space-y-2">
                               <TreasuryImpactBanner payoutAmount={op.amount} />
                               <div className="flex items-end gap-2 flex-wrap">
