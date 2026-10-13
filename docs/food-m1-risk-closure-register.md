@@ -300,3 +300,57 @@ The earlier "Decision required for B" is resolved by decision 1.
 - The four extra failures are timing failures under machine load (a 5 s timeout, a debounce, a perf budget). They vary between runs, and `AuthSignupName` passes 3/3 when run alone.
 - `import_reach.py`: 24 of 25 failing files cannot reach any changed file. The 25th, `SettingsName.test.tsx`, reaches `transactionsFeed.ts` (changed in `9e6ea7a6d1`) and was already in the previous baseline with the same failure.
 - None is Food. **No new failures attributable to this branch.**
+
+
+## Advance-recovery integration (2026-10-13, after fecfd04af9)
+
+**Confirmed business rule (owner, 2026-10-13):**
+- Keep the existing Agent Advance recovery exactly as it is.
+- A Food Coordinator who is an agent in arrears stays subject to the same recovery rules as any agent.
+- No Food-specific exemption, protection or recovery logic.
+- No change to advance balances, recovery calculations, repayment logic, wallet behaviour or ledger posting.
+
+Evidence below is from the repo and local disposable databases only (PostgreSQL 17.10 and 18.6). Production was not read or changed.
+
+**How recovery decides what it may take (repo).**
+- `process-agent-advance-deductions` and the deployed waterfall paths (`20260927270000`, `20260927280000`) get the recoverable amount from `get_agent_sweepable_withdrawable` (`20260719161607`).
+- That function returns the canonical spendable balance minus any `wallet_transfer` cash_in received since the agent's oldest active advance, less later spending.
+- A Food payment credits the coordinator as an ordinary `wallet_transfer`. The existing generic rule therefore applies to it exactly as to any peer transfer: protected while unspent, recoverable once that protection is used up. Nothing in it depends on the Food role.
+- No advance code references Food, and no Food function references advance objects (ADV-21).
+
+**Bypass found and fixed (Food side only).** `food_pay_order` posted through the ledger without applying three gates that the standard transfer path (`wallet-transfer`) applies:
+1. the Wallet Ops controls (`maintenance_mode` / `maintenance_until`, `withdrawals_paused`);
+2. the canonical spendable figure `get_user_available_balance`, which subtracts funder holds and, while `advance_withdrawals_paused` is on, the advance-locked amount;
+3. the shared recipient eligibility check.
+
+Without gates 1 and 2, an agent could have spent advance-locked money on food during an advance-withdrawal pause.
+
+`food_pay_order` (`20261013128000`) now applies gates 1 and 2 unchanged, before posting:
+- A frozen wallet raises 55000, and nothing is posted.
+- An insufficient spendable figure returns `failed / insufficient_funds`, and nothing is posted.
+- The ledger's own balance check remains the final safeguard.
+- No shared function was modified.
+
+| Test | Proves | PG17 | PG18 |
+|---|---|---|---|
+| ADV-01…05 | Paused withdrawals and maintenance stop a Food payment; an unreadable end time keeps the freeze; nothing posted; payment resumes after the window | pass | pass |
+| ADV-06…09 | Funder holds and advance-locked money (while paused) cannot pay for food; the lock does not apply when the pause is off (existing rule) | pass | pass |
+| ADV-10, 11 | If the spendable figure reads high, the ledger still refuses; nothing posted | pass | pass |
+| ADV-12…16 | Using the **repo** sweep function, loaded verbatim: the coordinator receives the full payment; the receipt is protected only as any peer transfer is; the coordinator's other money stays fully recoverable; a coordinator and an ordinary agent receiving the same transfer are treated identically; once spent, the protection is gone for both | pass | pass |
+| ADV-17, 18 | Food never changes advance balances or status, and posts only ordinary `wallet_transfer` legs | pass | pass |
+| ADV-19 | A coordinator with no advance: the receipt is ordinary withdrawable money | pass | pass |
+| ADV-20 | A payer in arrears: the food payment counts as ordinary spending under the existing rule | pass | pass |
+| ADV-21 | No `food_*` function references advance recovery objects | pass | pass |
+
+Full re-run after the change:
+- run 265/265, race 14/14, matrix 31/31, isolation 10/10 and dry run 15/15, all on both PG17 and PG18;
+- R2–R4 16/16; Food vitest 247 passed; guard:all passed.
+
+**Still requires production confirmation (read-only):**
+- C-P1: the production definitions of `get_agent_sweepable_withdrawable`, `get_user_available_balance` and `get_advance_locked_withdrawable`. The repo is known to drift from production, and the tests prove the repo rule only.
+- C-P2: `check_transfer_recipient_eligibility` (gate 3), which exists only in production. It checks that the receiver's account is live, not frozen, not deleted and not the sender. Food's own checks cover live staff and not the payer, but not "frozen". It was not guessed or replaced.
+- C-P3: any production-only gate inside `create_ledger_transaction` (for example the TID-backed float gate, which lives only in production).
+
+**Status:**
+- Integration with existing recovery: **FIXED AND VERIFIED (local, repo definitions)**.
+- Production equivalence: **BLOCKED — ACTION REQUIRED** (C-P1…C-P3).

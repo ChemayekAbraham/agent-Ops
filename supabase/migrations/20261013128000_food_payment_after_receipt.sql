@@ -39,6 +39,16 @@
 -- skip_balance_check), general_ledger (read only) and wallets_physical (read
 -- only). No shared object is changed.
 --
+-- Before posting, food_pay_order applies the same wallet gates the
+-- wallet-transfer edge function applies, unchanged: the Wallet Ops controls
+-- (maintenance_mode / maintenance_until, withdrawals_paused; the "debit" scope
+-- of checkTreasuryGuard) and the canonical spendable figure
+-- get_user_available_balance (withdrawable less funder holds and, while
+-- advance_withdrawals_paused is on, the advance-locked amount). Agent Advance
+-- recovery is untouched: the payee's credit is an ordinary wallet_transfer,
+-- so get_agent_sweepable_withdrawable treats it exactly as any peer transfer,
+-- and a Food Coordinator gets no treatment of their own.
+--
 -- ROLLBACK: DROP FUNCTION food_confirm_receipt(uuid), food_verify_payment(uuid);
 -- re-run food_pay_order from 20261012120000; DROP the columns received_at,
 -- received_by, payee_id, payment_verified_at and the two constraints; restore
@@ -112,6 +122,7 @@ RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_tem
 DECLARE
   v_uid uuid := auth.uid(); v_o public.food_orders%ROWTYPE;
   v_ref text; v_key text; v_group uuid; v_ok boolean;
+  v_maint boolean; v_until text; v_wpaused boolean; v_short boolean := false;
 BEGIN
   IF v_uid IS NULL THEN RAISE EXCEPTION 'Authentication required' USING ERRCODE='28000'; END IF;
   SELECT * INTO v_o FROM public.food_orders WHERE id = p_order_id FOR UPDATE;
@@ -143,9 +154,29 @@ BEGIN
   IF v_o.total_ugx IS NULL OR v_o.total_ugx <= 0 THEN
     RAISE EXCEPTION 'Nothing to pay on this order' USING ERRCODE='22023'; END IF;
 
+  -- Wallet Ops controls, read as other SQL money paths read them. An
+  -- unreadable maintenance_until keeps the freeze on (fails closed).
+  SELECT coalesce(bool_or(c.enabled) FILTER (WHERE c.control_key = 'maintenance_mode'), false),
+         max(c.value) FILTER (WHERE c.control_key = 'maintenance_until'),
+         coalesce(bool_or(c.enabled) FILTER (WHERE c.control_key = 'withdrawals_paused'), false)
+    INTO v_maint, v_until, v_wpaused
+    FROM public.treasury_controls c
+   WHERE c.control_key IN ('maintenance_mode', 'maintenance_until', 'withdrawals_paused');
+  IF v_maint AND v_until IS NOT NULL THEN
+    BEGIN v_maint := v_until::timestamptz > now();
+    EXCEPTION WHEN others THEN v_maint := true; END;
+  END IF;
+  IF v_maint OR v_wpaused THEN
+    RAISE EXCEPTION 'Wallet payments are temporarily paused. Nothing was charged; try again later.'
+      USING ERRCODE = '55000'; END IF;
+
   v_ref := 'FOODPAY-' || v_o.order_reference;
   v_key := 'food_order_payment:' || v_o.id::text;
 
+  -- the spendable figure wallet-transfer gates on; Food adds no rule of its own
+  v_short := COALESCE(public.get_user_available_balance(v_uid), 0) < v_o.total_ugx;
+
+  IF NOT v_short THEN
   BEGIN
     v_group := public.create_ledger_transaction(
       entries => jsonb_build_array(
@@ -161,16 +192,19 @@ BEGIN
           'description', 'Canteen order ' || v_o.order_reference, 'currency', 'UGX')),
       idempotency_key => v_key);
   EXCEPTION WHEN raise_exception THEN
-    IF SQLERRM ILIKE 'Insufficient%balance%' THEN
-      -- nothing was posted (the block rolled back); record the attempt only
-      INSERT INTO public.food_order_events (order_id, event_type, from_status, to_status, note, actor_id)
-      VALUES (v_o.id, 'payment_failed', v_o.payment_status, v_o.payment_status, 'insufficient_funds', v_uid);
-      PERFORM public.food_audit_write('order', v_o.id, 'payment_failed', NULL,
-        jsonb_build_object('reason','insufficient_funds'), NULL, v_uid);
-      RETURN jsonb_build_object('status','failed','order_id',v_o.id,'reason','insufficient_funds');
-    END IF;
-    RAISE;
+    -- the ledger's own balance check remains the final word
+    IF SQLERRM ILIKE 'Insufficient%balance%' THEN v_short := true; ELSE RAISE; END IF;
   END;
+  END IF;
+
+  IF v_short THEN
+    -- nothing was posted (the block rolled back, or never ran); record the attempt only
+    INSERT INTO public.food_order_events (order_id, event_type, from_status, to_status, note, actor_id)
+    VALUES (v_o.id, 'payment_failed', v_o.payment_status, v_o.payment_status, 'insufficient_funds', v_uid);
+    PERFORM public.food_audit_write('order', v_o.id, 'payment_failed', NULL,
+      jsonb_build_object('reason','insufficient_funds'), NULL, v_uid);
+    RETURN jsonb_build_object('status','failed','order_id',v_o.id,'reason','insufficient_funds');
+  END IF;
 
   -- independent verification: what the ledger actually holds for this group
   SELECT count(*) = 2

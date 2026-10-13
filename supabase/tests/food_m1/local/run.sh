@@ -25,6 +25,10 @@ for m in "$root"/supabase/migrations/2026100912*food*.sql "$root"/supabase/migra
 done
 # Local stand-in for the shared ledger objects the payment path uses.
 P -d "$db" -f "$here/05_ledger_standin.sql" >/dev/null
+# The REPO definition of the Agent Advance sweep gate, loaded verbatim from its
+# migration (that file also holds a sweep job later superseded; only this
+# statement is taken). Proves Food payments meet the existing rule unchanged.
+sed -n '/^CREATE OR REPLACE FUNCTION public.get_agent_sweepable_withdrawable/,/^\$\$;/p'   "$root"/supabase/migrations/20260719161607_12e3ac27-7b55-4c8b-8d98-f9b7ba2794b6.sql | P -d "$db" >/dev/null
 # One session for all suites: later files reuse 10_behaviour.sql's helpers.
 # 20_* only applies once the release-corrections migration is present.
 suites=("$here/10_behaviour.sql")
@@ -33,7 +37,7 @@ ls "$root"/supabase/migrations/20261012120000_food_m1_release_corrections.sql >/
 ls "$root"/supabase/migrations/20261013120001_food_meal_images.sql >/dev/null 2>&1   && suites+=("$here/45_meal_images.sql")
 ls "$root"/supabase/migrations/20261013125000_food_staff_includes_pso.sql >/dev/null 2>&1 && suites+=("$here/46_staff_pso.sql")
 ls "$root"/supabase/migrations/20261013127000_food_exception_self_resolution.sql >/dev/null 2>&1 && suites+=("$here/47_exception_controls.sql")
-ls "$root"/supabase/migrations/20261013128000_food_payment_after_receipt.sql >/dev/null 2>&1 && suites+=("$here/48_payment.sql")
+ls "$root"/supabase/migrations/20261013128000_food_payment_after_receipt.sql >/dev/null 2>&1 && suites+=("$here/48_payment.sql" "$here/49_advance_integration.sql")
 out="$(cat "${suites[@]}" | P -d "$db" 2>&1 || true)"
 # Count only real psql errors ("ERROR:  ..."), never a result value that
 # happens to contain the word (e.g. the ORDER_ERROR exception kind).

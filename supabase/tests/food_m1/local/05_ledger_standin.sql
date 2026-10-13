@@ -71,3 +71,36 @@ END $$;
 -- as the production boundary (20261013126000) leaves it: not callable by users
 REVOKE ALL ON FUNCTION public.create_ledger_transaction(jsonb, text, boolean) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.create_ledger_transaction(jsonb, text, boolean) TO service_role;
+
+-- ── wallet gates and Agent Advance objects (stand-ins; see 49_advance_integration.sql) ──
+-- treasury_controls: the repo columns food_pay_order reads (20260409135413 + value text)
+CREATE TABLE public.treasury_controls (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), control_key text NOT NULL UNIQUE,
+  enabled boolean NOT NULL DEFAULT false, value text);
+-- agent_advances: the columns get_agent_sweepable_withdrawable (20260719161607) reads
+CREATE TABLE public.agent_advances (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), agent_id uuid NOT NULL,
+  status text NOT NULL, outstanding_balance numeric NOT NULL, issued_at timestamptz NOT NULL DEFAULT now());
+-- test inputs for the canonical spendable figure
+CREATE TABLE ledger_test.hold (user_id uuid PRIMARY KEY, amount numeric NOT NULL);           -- funder_pending_hold
+CREATE TABLE ledger_test.advance_locked (user_id uuid PRIMARY KEY, amount numeric NOT NULL); -- get_advance_locked_withdrawable
+CREATE TABLE ledger_test.avail_bonus (user_id uuid PRIMARY KEY, amount numeric NOT NULL);    -- a stale-high projection
+GRANT ALL ON ALL TABLES IN SCHEMA ledger_test TO authenticated, service_role;
+
+-- get_user_available_balance, same shape as the repo (20260824072654):
+-- GREATEST(0, withdrawable - funder_pending_hold - CASE advance_withdrawals_paused
+-- THEN get_advance_locked_withdrawable END). Withdrawable here is the stand-in ledger.
+CREATE FUNCTION public.get_user_available_balance(p_user_id uuid)
+RETURNS numeric LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
+  SELECT GREATEST(0::numeric,
+      coalesce((SELECT amount FROM ledger_test.opening WHERE user_id = p_user_id), 0)
+    + coalesce((SELECT sum(CASE WHEN direction = 'cash_in' THEN amount ELSE -amount END)
+                  FROM public.general_ledger WHERE user_id = p_user_id AND ledger_scope = 'wallet'), 0)
+    + coalesce((SELECT amount FROM ledger_test.avail_bonus WHERE user_id = p_user_id), 0)
+    - coalesce((SELECT amount FROM ledger_test.hold WHERE user_id = p_user_id), 0)
+    - CASE WHEN coalesce((SELECT enabled FROM public.treasury_controls
+                           WHERE control_key = 'advance_withdrawals_paused'), false)
+           THEN coalesce((SELECT amount FROM ledger_test.advance_locked WHERE user_id = p_user_id), 0)
+           ELSE 0 END);
+$$;
+REVOKE ALL ON FUNCTION public.get_user_available_balance(uuid) FROM PUBLIC, anon, authenticated;
