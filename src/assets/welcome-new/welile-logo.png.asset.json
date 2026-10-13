@@ -1,11 +1,11 @@
 {
   "version": 1,
-  "asset_id": "304cd5a7-a363-48fd-962d-642e1e0efe63",
+  "asset_id": "1398df8d-f7a5-4083-934b-ca717511ef4c",
   "project_id": "43e6c2e1-18a6-4503-badb-5bb6c23491cc",
-  "url": "/__l5e/assets-v1/304cd5a7-a363-48fd-962d-642e1e0efe63/welile-logo.png",
-  "r2_key": "a/v1/43e6c2e1-18a6-4503-badb-5bb6c23491cc/304cd5a7-a363-48fd-962d-642e1e0efe63/welile-logo.png",
-  "original_filename": "welile-logo.png",
-  "size": 6014,
-  "content_type": "image/png",
-  "created_at": "2026-10-13T08:48:38Z"
+  "url": "/__l5e/assets-v1/1398df8d-f7a5-4083-934b-ca717511ef4c/welile-logo.webp",
+  "r2_key": "a/v1/43e6c2e1-18a6-4503-badb-5bb6c23491cc/1398df8d-f7a5-4083-934b-ca717511ef4c/welile-logo.webp",
+  "original_filename": "welile-logo.webp",
+  "size": 3684,
+  "content_type": "image/webp",
+  "created_at": "2026-10-13T10:24:16Z"
 }
