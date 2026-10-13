@@ -120,8 +120,30 @@ if (existsSync(MIGRATIONS_DIR)) {
   const GATE_HELPERS = new Set(['assistant_is_agent', 'assistant_require_agent']);
   const defined = new Map(); // name -> { file, def }
 
+  // Columns that must never leave the database through the assistant: credentials, login and
+  // activity data, avatars and photos, government ids, payout destinations, device data, GPS,
+  // funder identities, and staff notes/comments/reasons. The assistant sends tool output to a
+  // third-party model, so the whitelist is the control; this keeps a later edit from widening it.
+  const FORBIDDEN_COLUMNS = new RegExp(
+    '\\b(' + [
+      'national_id\\w*', 'avatar\\w*', 'last_active\\w*', 'last_login\\w*', 'last_sign_in\\w*', 'dashboard_\\w+',
+      'password\\w*', 'must_change_password', 'signup_device\\w*', 'device_fp', 'ops_note', 'mobile_money\\w*',
+      'account_number', 'bank_\\w+', 'supporter_id', 'funder\\w*', 'residence_l(?:at|ng)', 'latitude', 'longitude',
+      'selfie\\w*', 'id_image_hash', 'nin_photo\\w*', 'approval_comment', 'tenant_ops_comment', 'landlord_ops_comment',
+      'agent_ops_comment', 'service_center_comment', 'rejected_reason', 'frozen_reason', 'deletion_reason',
+      'payout_transaction_reference', 'fund_recipient\\w*', 'verification_pin\\w*', 'momo_\\w+', 'partial_reason',
+      'caretaker\\w*', 'routing_preferences',
+    ].join('|') + ')\\b',
+    'i',
+  );
+  const FORBIDDEN_FIELD_NOTES = /\b[a-z0-9_]+\.notes\b/i;
+
   for (const file of files) {
     const body = stripComments(readFileSync(join(MIGRATIONS_DIR, file), 'utf8'));
+    for (const m of body.matchAll(/create\s+(?:or\s+replace\s+)?function\s+(?:public\.)?(assistant_[a-z_]+)\s*\([\s\S]*?\bas\s+(\$[a-z_]*\$)([\s\S]*?)\2/gi)) {
+      const hit = m[3].match(FORBIDDEN_COLUMNS) || m[3].match(FORBIDDEN_FIELD_NOTES);
+      if (hit) fail(`${file}: ${m[1]}() references "${hit[0]}", a field that must never leave the database through the assistant (it is sent to a third-party model).`);
+    }
     const re = /create\s+(?:or\s+replace\s+)?function\s+(?:public\.)?(assistant_[a-z_]+)\s*\(([\s\S]*?)\)\s*returns\s+[\s\S]*?\bas\s+\$[a-z_]*\$/gi;
     for (const m of body.matchAll(re)) {
       const name = m[1];

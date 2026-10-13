@@ -409,22 +409,6 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
 
 
 
-          {/* Wallet hero card — replaces the previous bread hero on tenant dashboard */}
-          <div id="tenant-wallet-hero">
-            <UnifiedWalletHeroCard
-              balance={wallet?.balance ?? 0}
-              role="tenant"
-              onOpenWallet={() => setShowWallet(true)}
-              quickActions={
-                <FunderQuickActions
-                  variant="hero"
-                  availableBalance={wallet?.balance ?? 0}
-                  onChanged={() => { refreshWallet(); }}
-                />
-              }
-            />
-          </div>
-
           <WidgetErrorBoundary label="My loan requests">
             <MyLoanRequestsCard userId={uid} />
           </WidgetErrorBoundary>
@@ -434,13 +418,13 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
             <SubscriptionStatusCard userId={uid} />
           </WidgetErrorBoundary>
 
-          {/* Available houses — surfaced near the top of home so tenants find them first */}
-          <div className="grid grid-cols-2 gap-3">
-            <WidgetErrorBoundary label="Find a house">
-              <FindAHouseCTA onClick={() => { hapticTap(); navigate('/find-a-house'); }} />
-            </WidgetErrorBoundary>
+          {/* Rent actions — request rent first, then browse available houses */}
+          <div className="flex flex-col gap-3">
             <WidgetErrorBoundary label="Request rent as tenant">
               <TenantRentRequestCard userId={uid} />
+            </WidgetErrorBoundary>
+            <WidgetErrorBoundary label="Find a house">
+              <FindAHouseCTA onClick={() => { hapticTap(); navigate('/find-a-house'); }} />
             </WidgetErrorBoundary>
           </div>
 
@@ -455,14 +439,11 @@ export default function TenantDashboard({ user, signOut, currentRole, availableR
           </WidgetErrorBoundary>
 
 
-          <RentAccessGrowthBanner />
-
           <WidgetErrorBoundary label="Suggested houses">
             <SuggestedHousesCard userId={uid} onViewAll={goToAllHouses} />
           </WidgetErrorBoundary>
 
-
-
+          <RentAccessGrowthBanner />
         </main>
       </div>
 

@@ -111,6 +111,7 @@ const GlobalInstallPrompt = optionalLazyWithRetry(() => import("@/components/Glo
 import Index from "./pages/Index";
 // Landing is only needed on /welcome — lazy load it
 const Landing = lazy(() => import("./pages/Landing"));
+const WelcomeNew = lazy(() => import("./pages/WelcomeNew"));
 const TenantsOnboarding = lazy(() => import("./pages/TenantsOnboarding"));
 const Auth = lazy(() => import("./pages/Auth"));
 const OAuthFunnel = lazy(() => import("./pages/OAuthFunnel"));
@@ -493,6 +494,7 @@ function AppRoutes() {
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/welcome" element={<Landing />} />
+          <Route path="/welcome-new" element={<WelcomeNew />} />
            <Route path="/internship" element={<Internship />} />
            <Route path="/careers" element={<Careers />} />
            <Route path="/auth" element={<Auth />} />
@@ -541,6 +543,8 @@ function AppRoutes() {
           <Route path="/dashboard" element={<DashboardRedirect />} />
           <Route path="/dashboard/tenant" element={<Dashboard />} />
           <Route path="/dashboard/agent" element={<Dashboard />} />
+          {/* Frozen copy of the agent dashboard from before the 12 Oct 2026 rework. */}
+          <Route path="/dashboard/agent-bk" element={<Dashboard variant="agent-bk" />} />
           <Route path="/dashboard/agent/proxy" element={<ProxyAgentGuard><ProxyPerformanceDashboard /></ProxyAgentGuard>} />
           <Route path="/dashboard/agent/proxy/:section" element={<ProxyAgentGuard><ProxyPerformanceDashboard /></ProxyAgentGuard>} />
           <Route path="/dashboard/landlord" element={<Dashboard />} />

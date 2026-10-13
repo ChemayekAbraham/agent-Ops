@@ -43,6 +43,7 @@ const PARTNER_FUNDER_TEMPLATES = new Set<string>([
   'portfolio-renewal-days-remaining',
   'portfolio-maturity',
   'portfolio-redemption',
+  'redemption-notice-started',
   'partnership-maturity-notice',
   'partner-self-managed-cycle-ended',
   'partner-self-managed-deployment',

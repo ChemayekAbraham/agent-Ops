@@ -43,8 +43,10 @@ const MAX_BODY_BYTES = 8 * 1024;
 const MAX_MODEL_ROUNDS = 4;
 const MAX_CALLS_PER_ROUND = 3;
 const MAX_TOOL_CALLS = 6;
-const MAX_TOOL_RESULT_CHARS = 6000;
-const MAX_ANSWER_CHARS = 1200;
+// Sized for the largest tool result (25 tenants, or a 3-way name match with 5 Rent Plans each),
+// so a result is never cut off mid-record. The RPCs themselves cap rows and fields.
+const MAX_TOOL_RESULT_CHARS = 16000;
+const MAX_ANSWER_CHARS = 1800;
 /** Without any tool result, an answer can only be a short greeting or refusal. */
 const MAX_UNGROUNDED_CHARS = 300;
 

@@ -297,7 +297,7 @@ against the same allocation; leave `status` and `repayment_starts_on` alone.
 | A1 | CFO disburses landlord float | **SMS** (new) + email + in-app | float has arrived; pay the landlord; deadline stated |
 | A2 | 6 hours after funding, if no payout dispatched | **SMS** (new) | reminder |
 | A3 | 18 hours after funding, if no payout dispatched | **SMS** (new) | warning — 6 hours left |
-| AP | Agent pays the landlord | **SMS** | confirmation + receipt number + commission + upload the receipt |
+| AP | Agent pays the landlord | **SMS** + email | confirmation + receipt number and code + commission + upload the receipt |
 | A4 | 24 hours, no payout ever dispatched | **SMS** (new) + in-app | float returned, plan cancelled |
 | A5 | Payout fails after dispatch | in-app + FinOps alert | retry required — **no penalty** |
 
@@ -328,20 +328,59 @@ returned and {tenant_name}'s Rent Plan is cancelled. Ref {ref}.
 
 **AP** — the success exit. This is what the agent gets instead of A4.
 ```
-UGX {rent_amount} has been paid to landlord {landlord_name}. Receipt No {receipt_number}.
+UGX {rent_amount} has been paid to landlord {landlord_name}. Receipt No: {receipt_number} (Code: {receipt_code}).
 
 {tenant_first_name} starts repaying TOMORROW, {repayment_starts_on}: UGX {instalment} {per day|per week}.
 
 You earned UGX {commission_ugx} commission.
 
+View receipt: https://welileapp.com/r/{receipt_code}
+
 Please upload the receipt.
 ```
 
-Two parts are conditional, and the message is built WITHOUT them rather than
-with an empty placeholder. `Receipt No {receipt_number}.` appears only once the
-landlord receipt has been issued. The commission paragraph appears only when the
-commission leg actually exists in `general_ledger` — an agent is never told they
-earned money that was not posted.
+The receipt line is written exactly like the one the landlord is sent
+(`Receipt No: WLR-xxxxxx (Code: xxxxxxxxxx)`), so the agent and the landlord can
+read the same two identifiers to each other over the phone.
+
+Three parts are conditional, and the message is built WITHOUT them rather than
+with an empty placeholder. `Receipt No: {receipt_number} (Code: {receipt_code}).`
+and the `View receipt:` line appear only once the landlord receipt has been
+issued. The commission paragraph appears only when the commission leg actually
+exists in `general_ledger` — an agent is never told they earned money that was
+not posted.
+
+The receipt is issued a moment after the payout is confirmed, so AP is held back
+until it exists. If it has still not been issued 15 minutes after the payout, AP
+is sent without the receipt lines rather than leaving the agent with no
+confirmation at all. A reversed receipt is never quoted.
+
+**AP — email.** The same event, to the agent's email address, for agents who have
+a real one. It says what the SMS says, laid out for reading: the amount and the
+landlord, the receipt number and code with a button to the public receipt, the
+date the tenant starts repaying and the instalment, the commission when it was
+posted, and the reminder to upload the receipt.
+
+```
+Subject: Receipt {receipt_number}: UGX {rent_amount} paid to {landlord_name}
+```
+
+Rules, because an email can go astray in ways an SMS cannot:
+
+- **Only to an address that provably belongs to the agent.** Resolved by
+  `resolve_owned_notification_email`: their login address, or their profile
+  address only when no other account shares it. Phone-only accounts carry a
+  placeholder (`…@welile.user`, `…@welile.agent`) and agents often register
+  tenants under their own gmail, so those are never mailed. No usable address
+  means no email and no error — the SMS still goes.
+- **Only once the receipt exists.** The code is the point of the email, so unlike
+  the SMS it does not fall back to a receipt-less version.
+- **Once per plan.** De-duplicated on the plan in `email_send_log`, so a retried
+  run cannot send it twice.
+- **Fresh only.** Considered for six hours after the payout, so turning this on
+  does not email agents about payouts from last week.
+- **Independent of the SMS.** An SMS failure does not stop the email and the
+  other way round.
 
 **A4**
 ```
