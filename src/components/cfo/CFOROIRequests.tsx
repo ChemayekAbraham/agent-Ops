@@ -43,7 +43,7 @@ export function CFOROIRequests() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [rejectionReasons, setRejectionReasons] = useState<Record<string, string>>({});
-  const [filter, setFilter] = useState<'coo_approved' | 'approved' | 'rejected' | 'all'>('coo_approved');
+  const [filter, setFilter] = useState<'coo_approved' | 'approved' | 'rejected'>('coo_approved');
   const [search, setSearch] = useState('');
   const [dateFilter, setDateFilter] = useState<Date | undefined>(undefined);
   const [rangeFilter, setRangeFilter] = useState<'today' | 'yesterday' | 'last_week' | 'this_month' | null>(null);
@@ -76,9 +76,7 @@ export function CFOROIRequests() {
         .order('created_at', { ascending: false })
         .limit(rangeFilter === 'this_month' || rangeFilter === 'last_week' ? 500 : 100);
 
-      if (filter !== 'all') {
-        query = query.eq('status', filter);
-      }
+      query = query.eq('status', filter);
 
       const { data, error } = await query;
       if (error) throw error;
@@ -327,7 +325,7 @@ export function CFOROIRequests() {
       </div>
 
       <div className="flex gap-2 flex-wrap">
-        {(['coo_approved', 'approved', 'rejected', 'all'] as const).map(f => (
+        {(['coo_approved', 'approved', 'rejected'] as const).map(f => (
           <Button
             key={f}
             variant={filter === f ? 'default' : 'outline'}
@@ -391,7 +389,7 @@ export function CFOROIRequests() {
       {isLoading ? (
         <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
       ) : filtered.length === 0 ? (
-        <Card><CardContent className="py-8 text-center text-muted-foreground">No {filter !== 'all' ? filter : ''} ROI requests found.</CardContent></Card>
+        <Card><CardContent className="py-8 text-center text-muted-foreground">No {filter === 'coo_approved' ? 'pending' : filter} ROI requests found.</CardContent></Card>
       ) : (
         <div className="rounded-lg border bg-card overflow-x-auto">
           <Table>
