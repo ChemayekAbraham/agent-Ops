@@ -32,6 +32,8 @@ type Req = {
   redemption_amount?: number | null;
   remaining_principal?: number | null;
   processing_note?: string | null;
+  processing_started_at?: string | null;
+  notice_ends_on?: string | null;
   portfolio?: {
     duration_months: number | null;
     payout_day: number | null;
@@ -501,6 +503,12 @@ export function MaturityRequestsQueue() {
                       <Clock className="h-3 w-3 shrink-0" />
                       Sent {format(new Date(req.created_at), 'd MMM, HH:mm')}
                     </span>
+                    {!isRenewal && req.status === 'processing' && req.notice_ends_on && (
+                      <span className="col-span-2 flex items-center gap-1.5 font-medium text-foreground">
+                        <CalendarClock className="h-3 w-3 shrink-0" />
+                        90-day notice started {req.processing_started_at ? format(new Date(req.processing_started_at), 'd MMM yyyy') : ''} · ends {format(new Date(req.notice_ends_on), 'd MMM yyyy')} ({Math.max(0, Math.ceil((new Date(req.notice_ends_on).getTime() - Date.now()) / 86400000))} days left)
+                      </span>
+                    )}
                   </div>
 
                   {req.message && (
