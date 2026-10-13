@@ -7,9 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
-import { CheckCircle, XCircle, Clock, Loader2, TrendingUp } from 'lucide-react';
+import { CheckCircle, XCircle, Clock, Loader2, TrendingUp, CalendarIcon, X } from 'lucide-react';
+import { Textarea } from '@/components/ui/textarea';
 import { TreasuryImpactBanner } from './TreasuryImpactBanner';
 import { format } from 'date-fns';
 import { CfoApprovalGate } from '@/components/cfo/CfoApprovalGate';
@@ -40,6 +43,7 @@ export function CFOROIRequests() {
   const [rejectionReasons, setRejectionReasons] = useState<Record<string, string>>({});
   const [filter, setFilter] = useState<'coo_approved' | 'approved' | 'rejected' | 'all'>('coo_approved');
   const [search, setSearch] = useState('');
+  const [dateFilter, setDateFilter] = useState<Date | undefined>(undefined);
 
   const { data: operations = [], isLoading } = useQuery({
     queryKey: ['cfo-roi-requests', filter],
@@ -184,6 +188,13 @@ export function CFOROIRequests() {
   });
 
   const filtered = operations.filter(op => {
+    if (dateFilter) {
+      const created = new Date(op.created_at);
+      const sameDay = created.getFullYear() === dateFilter.getFullYear() &&
+        created.getMonth() === dateFilter.getMonth() &&
+        created.getDate() === dateFilter.getDate();
+      if (!sameDay) return false;
+    }
     if (!search) return true;
     const s = search.toLowerCase();
     const meta = op.metadata as Record<string, any> | null;
@@ -230,6 +241,34 @@ export function CFOROIRequests() {
             {f === 'coo_approved' ? 'Pending' : f.charAt(0).toUpperCase() + f.slice(1)}
           </Button>
         ))}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant={dateFilter ? 'default' : 'outline'}
+              size="sm"
+              className={cn(!dateFilter && 'text-muted-foreground font-normal')}
+            >
+              <CalendarIcon className="h-3.5 w-3.5 mr-1" />
+              {dateFilter ? format(dateFilter, 'dd MMM yyyy') : 'Filter by date'}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="single"
+              selected={dateFilter}
+              onSelect={setDateFilter}
+              initialFocus
+              className="p-3 pointer-events-auto"
+            />
+            {dateFilter && (
+              <div className="border-t p-2 flex justify-end">
+                <Button size="sm" variant="ghost" onClick={() => setDateFilter(undefined)}>
+                  <X className="h-3.5 w-3.5 mr-1" /> Clear date
+                </Button>
+              </div>
+            )}
+          </PopoverContent>
+        </Popover>
       </div>
 
       {isLoading ? (
@@ -241,6 +280,7 @@ export function CFOROIRequests() {
           <Table>
             <TableHeader>
               <TableRow className="bg-muted/40">
+                <TableHead className="w-10 text-right">#</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Partner</TableHead>
                 <TableHead>Paid to</TableHead>
@@ -253,7 +293,7 @@ export function CFOROIRequests() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map(op => {
+              {filtered.map((op, index) => {
                 const meta = op.metadata as Record<string, any> | null;
                 const isAltWallet = op.operation_type === 'roi_split_alt_wallet';
                 const isProxy = !!op.target_wallet_user_id && !isAltWallet;
@@ -265,6 +305,7 @@ export function CFOROIRequests() {
                 return (
                   <Fragment key={op.id}>
                     <TableRow className="align-top">
+                      <TableCell className="text-right text-xs text-muted-foreground tabular-nums align-top">{index + 1}</TableCell>
                       <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
                         {format(new Date(op.created_at), 'dd MMM yyyy')}<br />{format(new Date(op.created_at), 'HH:mm')}
                       </TableCell>
@@ -302,7 +343,7 @@ export function CFOROIRequests() {
                     </TableRow>
                     {op.status === 'coo_approved' && (
                       <TableRow key={op.id + '-actions'} className="bg-muted/20 hover:bg-muted/20">
-                        <TableCell colSpan={9}>
+                        <TableCell colSpan={10}>
                           <CfoApprovalGate>
                             <div className="space-y-2">
                               <TreasuryImpactBanner payoutAmount={op.amount} />
@@ -331,7 +372,7 @@ export function CFOROIRequests() {
                     )}
                     {op.status === 'rejected' && op.rejection_reason && (
                       <TableRow key={op.id + '-rej'} className="hover:bg-transparent">
-                        <TableCell colSpan={9} className="text-xs text-destructive py-2">Reason: {op.rejection_reason}</TableCell>
+                        <TableCell colSpan={10} className="text-xs text-destructive py-2">Reason: {op.rejection_reason}</TableCell>
                       </TableRow>
                     )}
                   </Fragment>
