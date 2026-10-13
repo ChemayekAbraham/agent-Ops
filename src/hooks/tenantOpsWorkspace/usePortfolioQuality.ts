@@ -33,7 +33,7 @@ export interface PortfolioQuality {
 }
 
 async function fetchPortfolioQuality(asAt: string | null): Promise<PortfolioQuality> {
-  const { data, error } = await anyDb.rpc('tops_portfolio_quality', { p_as_at: asAt });
+  const { data, error } = await anyDb.rpc('tops_portfolio_quality_amclock', { p_as_at: asAt });
   if (error) throw error;
   return data as PortfolioQuality;
 }

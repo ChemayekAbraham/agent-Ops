@@ -29,10 +29,18 @@ import { CalendarClock, ClipboardList, FileDown, History, LucideIcon, TrendingUp
 import { Button } from '@/components/ui/button';
 import { downloadPdf, generateWeeklyPerformancePdf } from '@/lib/tenantOpsWeeklyPerformancePdf';
 import { cn } from '@/lib/utils';
+import { PAYOUT_CLOCK_EXPLAINER } from '@/lib/payoutClockExplainer';
+import { NO_PAYMENT_DEFAULT_DAYS } from '@/lib/noPaymentDays';
+import { useNoPaymentDays } from '@/hooks/useNoPaymentDays';
+import { useTenantOpsDormantNow } from '@/hooks/useTenantOpsDormantNow';
+import { DaysWithoutPaymentControl } from '@/components/executive/tenant-ops/workspace/DaysWithoutPaymentControl';
 import { WorkspaceEmptyState } from '@/components/executive/tenant-ops/workspace/WorkspaceEmptyState';
 import { WorkspaceMobileRow } from '@/components/executive/tenant-ops/workspace/WorkspaceMobileRow';
 import { TenantSelfPaymentWeeklyTrend } from '@/components/executive/tenant-ops/workspace/TenantSelfPaymentWeeklyTrend';
 import {
+  WEEKLY_CLOCK_NOTE,
+  WEEKLY_COUNTING_CHANGED_NOTE,
+  landlordNotPaidLine,
   useTenantOpsWeeklyHistory,
   useTenantOpsWeeklyPerformance,
 } from '@/hooks/useTenantOpsWeeklyPerformance';
@@ -99,6 +107,11 @@ function WeeklySummaryStat({
 export function WeeklyPerformanceTab() {
   const { data, isLoading } = useTenantOpsWeeklyPerformance();
   const { data: history, isLoading: historyLoading } = useTenantOpsWeeklyHistory(12);
+  // The frozen "20+ Days No Payment" card below never changes. When staff pick another number, an extra card
+  // shows that number calculated now; it is not part of the frozen weekly record.
+  const [chosenDays, setChosenDays] = useNoPaymentDays();
+  const otherDays = chosenDays !== NO_PAYMENT_DEFAULT_DAYS;
+  const dormantNow = useTenantOpsDormantNow(chosenDays, otherDays);
 
   const chartData = useMemo(
     () =>
@@ -155,6 +168,18 @@ export function WeeklyPerformanceTab() {
             </span>{' '}
             ({is_current_week_open ? 'in progress' : 'closed'}), compared with the week before.
           </p>
+          <div className="space-y-0.5 text-[11px] text-muted-foreground" data-testid="weekly-clock-note">
+            <p>{WEEKLY_CLOCK_NOTE}</p>
+            <p data-testid="payout-clock-explainer">{PAYOUT_CLOCK_EXPLAINER}</p>
+            {current.landlord_not_paid_count != null && (
+              <p data-testid="weekly-landlord-not-paid">{landlordNotPaidLine(current.landlord_not_paid_count)}</p>
+            )}
+            {data.counting_changed_this_week && (
+              <p className="font-medium text-warning" data-testid="weekly-counting-changed">
+                {WEEKLY_COUNTING_CHANGED_NOTE}
+              </p>
+            )}
+          </div>
         </CardHeader>
         <CardContent className="grid grid-cols-2 gap-2 px-3 sm:px-4 md:grid-cols-3 lg:grid-cols-5">
           <WeeklySummaryStat
@@ -196,6 +221,25 @@ export function WeeklyPerformanceTab() {
         </CardContent>
       </Card>
 
+      <Card className="border shadow-sm" data-testid="weekly-days-now">
+        <CardContent className="space-y-3 px-3 py-3 sm:px-4">
+          <DaysWithoutPaymentControl days={chosenDays} onChange={setChosenDays} idPrefix="weekly-days" />
+          {otherDays && (
+            <div className="flex w-full min-w-0 flex-col gap-2 rounded-2xl border border-border bg-card p-3 sm:max-w-sm sm:p-4" data-testid="weekly-days-now-card">
+              <p className="min-w-0 break-words text-xs font-medium leading-tight text-muted-foreground">
+                {chosenDays}+ days (calculated now — not part of the frozen weekly record)
+              </p>
+              <p className="text-xl font-bold leading-tight tracking-tight tabular-nums sm:text-2xl">
+                {dormantNow.data ? dormantNow.data.count.toLocaleString('en-US') : dormantNow.isError ? '—' : '…'}
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                Same counting as the 20+ days card above, as at {dormantNow.data?.as_of ?? 'today'}. The frozen weekly record and the history below are unchanged.
+              </p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <TenantSelfPaymentWeeklyTrend />
 
       <Card className="border shadow-sm">
@@ -233,7 +277,7 @@ export function WeeklyPerformanceTab() {
                 {history.map((w) => (
                   <WorkspaceMobileRow
                     key={w.week_start}
-                    title={`${dayLabel(w.week_start)} – ${dayLabel(w.week_end)}`}
+                    title={`${dayLabel(w.week_start)} – ${dayLabel(w.week_end)}${w.counting_changed ? ` · ${WEEKLY_COUNTING_CHANGED_NOTE}` : ''}`}
                     fields={[
                       { label: 'Active', value: w.total_active_tenants },
                       { label: 'Paying', value: w.paying_tenants },
@@ -262,8 +306,15 @@ export function WeeklyPerformanceTab() {
                   <TableBody>
                     {history.map((w) => (
                       <TableRow key={w.week_start}>
-                        <TableCell className="whitespace-nowrap text-xs font-medium">
-                          {dayLabel(w.week_start)} – {dayLabel(w.week_end)}
+                        <TableCell className="text-xs font-medium">
+                          <span className="whitespace-nowrap">
+                            {dayLabel(w.week_start)} – {dayLabel(w.week_end)}
+                          </span>
+                          {w.counting_changed && (
+                            <span className="mt-0.5 block text-[11px] font-normal text-warning" data-testid="history-counting-changed">
+                              {WEEKLY_COUNTING_CHANGED_NOTE}
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell className="text-xs">{w.total_active_tenants}</TableCell>
                         <TableCell className="text-xs">{w.paying_tenants}</TableCell>

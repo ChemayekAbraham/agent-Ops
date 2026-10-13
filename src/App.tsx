@@ -6,7 +6,7 @@ import { Suspense, memo, useEffect, useState, Component, type ReactNode } from "
 import { HelmetProvider } from "react-helmet-async";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { GlobalOverdueVettingDialog } from "@/components/service-center/GlobalOverdueVettingDialog";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useSearchParams } from "react-router-dom";
 import { LANDLORD_OPS_ROUTES } from "./pages/landlord-ops/routes";
 import { ThemeProvider } from "next-themes";
 import { ThemeColorSync } from "@/components/ThemeColorSync";
@@ -68,7 +68,6 @@ const RejectionAlertGate = optionalLazyWithRetry(() => import("@/components/noti
 const SubAgentInviteGate = optionalLazyWithRetry(() => import("@/components/agent/SubAgentInviteGate"), "SubAgentInviteGate");
 const MerchantAgentReferralGate = optionalLazyWithRetry(() => import("@/components/merchant/MerchantAgentReferralGate"), "MerchantAgentReferralGate");
 const ForceResetPasswordGate = optionalLazyWithRetry(() => import("@/components/auth/ForceResetPasswordGate"), "ForceResetPasswordGate");
-const UserLocationCorrectionGate = optionalLazyWithRetry(() => import("@/components/location/UserLocationCorrectionGate"), "UserLocationCorrectionGate");
 const RequisitionUsageReportGate = optionalLazyWithRetry(() => import("@/components/requisitions/RequisitionUsageReportGate"), "RequisitionUsageReportGate");
 const NationalIdLinkGate = optionalLazyWithRetry(() => import("@/components/notifications/NationalIdLinkGate"), "NationalIdLinkGate");
 const ConcernAssignmentGate = optionalLazyWithRetry(() => import("@/components/notifications/ConcernAssignmentGate"), "ConcernAssignmentGate");
@@ -109,13 +108,22 @@ const GlobalInstallPrompt = optionalLazyWithRetry(() => import("@/components/Glo
 // Index is the entry router — must be eager for instant redirect
 
 import Index from "./pages/Index";
-// Landing is only needed on /welcome — lazy load it
+// The new welcome screens own / and /welcome — lazy load them.
 const Landing = lazy(() => import("./pages/Landing"));
+const WelcomeNew = lazy(() => import("./pages/WelcomeNew"));
+
+// Old /welcome-new links forward to /welcome, keeping any query params.
+function WelcomeNewRedirect() {
+  const [params] = useSearchParams();
+  const qs = params.toString();
+  return <Navigate to={qs ? `/welcome?${qs}` : "/welcome"} replace />;
+}
 const TenantsOnboarding = lazy(() => import("./pages/TenantsOnboarding"));
 const Auth = lazy(() => import("./pages/Auth"));
 const OAuthFunnel = lazy(() => import("./pages/OAuthFunnel"));
 const OAuthConsent = lazy(() => import("./pages/OAuthConsent"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
+const AgentsMock = lazy(() => import("./pages/AgentsMock"));
 const FunderDashboardNew = lazy(() => import("./pages/FunderDashboardNew"));
 // Frozen snapshot of the funder dashboard — see SupporterDashboard.backup.tsx.
 const FunderDashboardBackup = lazy(() => import("./pages/FunderDashboardBackup"));
@@ -428,6 +436,7 @@ PageLoader.displayName = 'PageLoader';
 // receipt from an SMS/QR link see a clean, distraction-free page.
 function GlobalFloatingWidgets() {
   const location = useLocation();
+  if (location.pathname === '/dashboard/agents-mock') return null;
   const isReceiptRoute =
     location.pathname.startsWith('/r/') ||
     location.pathname.startsWith('/receipt/') ||
@@ -462,7 +471,6 @@ function GlobalOnboardingGates() {
       <RejectionAlertGate />
       <SubAgentInviteGate />
       <MerchantAgentReferralGate />
-      <UserLocationCorrectionGate />
       <RequisitionUsageReportGate />
       <NationalIdLinkGate />
       <ConcernAssignmentGate />
@@ -495,7 +503,9 @@ function AppRoutes() {
       <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/" element={<Index />} />
-          <Route path="/welcome" element={<Landing />} />
+          <Route path="/welcome" element={<WelcomeNew />} />
+          <Route path="/welcome-new" element={<WelcomeNewRedirect />} />
+          <Route path="/welcome-classic" element={<Landing />} />
            <Route path="/internship" element={<Internship />} />
            <Route path="/careers" element={<Careers />} />
            <Route path="/auth" element={<Auth />} />
@@ -544,6 +554,9 @@ function AppRoutes() {
           <Route path="/dashboard" element={<DashboardRedirect />} />
           <Route path="/dashboard/tenant" element={<Dashboard />} />
           <Route path="/dashboard/agent" element={<Dashboard />} />
+          <Route path="/dashboard/agents-mock" element={<AgentsMock />} />
+          {/* Frozen copy of the agent dashboard from before the 12 Oct 2026 rework. */}
+          <Route path="/dashboard/agent-bk" element={<Dashboard variant="agent-bk" />} />
           <Route path="/dashboard/agent/proxy" element={<ProxyAgentGuard><ProxyPerformanceDashboard /></ProxyAgentGuard>} />
           <Route path="/dashboard/agent/proxy/:section" element={<ProxyAgentGuard><ProxyPerformanceDashboard /></ProxyAgentGuard>} />
           <Route path="/dashboard/landlord" element={<Dashboard />} />

@@ -28,7 +28,7 @@ export interface NeverBilledParams {
 }
 
 async function fetchNeverBilled(params: NeverBilledParams): Promise<NeverBilledResult> {
-  const { data, error } = await anyDb.rpc('tops_never_billed', {
+  const { data, error } = await anyDb.rpc('tops_never_billed_amclock', {
     p_as_at: params.asAt ?? null,
     p_limit: params.limit ?? 50,
     p_offset: params.offset ?? 0,

@@ -41,7 +41,7 @@ import { AgentCommissionPayoutsManager } from '@/components/manager/AgentCommiss
 import { WithdrawalRequestsManager } from '@/components/manager/WithdrawalRequestsManager';
 import { GeneralLedger } from '@/components/manager/GeneralLedger';
 import { CFOPartnerPayoutProcessing } from '@/components/cfo/CFOPartnerPayoutProcessing';
-import { RentDisbursementQueue } from '@/components/cfo/RentDisbursementQueue';
+import { CFOApprovedRentPayouts } from '@/components/cfo/CFOApprovedRentPayouts';
 import { PromissoryBookingsPanel } from '@/components/cfo/PromissoryBookingsPanel';
 import { BatchPayoutProcessor } from '@/components/cfo/BatchPayoutProcessor';
 import { LandlordFloatAllocationsPanel } from '@/components/cfo/LandlordFloatAllocationsPanel';
@@ -264,6 +264,8 @@ export default function CFODashboardPage() {
             <StandingOrdersPanel />
           </div>
         );
+      case 'approved-rent-payouts':
+        return <CFOApprovedRentPayouts />;
       case 'roi-requests':
         return <CFOROIRequests />;
       case 'rent-payouts':
@@ -385,7 +387,6 @@ export default function CFODashboardPage() {
             <CFOTenantBalanceApprovals />
             <LandlordFloatIdleQueue />
             <CFOAllocationReturnApprovals />
-            <RentDisbursementQueue locationProvisionsOnly />
             <PromissoryBookingsPanel />
             <BatchPayoutProcessor />
             <LandlordFloatAllocationsPanel />

@@ -153,6 +153,93 @@ Deno.test("tools: no tool exposes an identity parameter", () => {
   }
 });
 
+Deno.test("tools: the directory tools are registered and map to assistant_agent_* functions", () => {
+  const expected: Record<string, string> = {
+    get_my_profile: "assistant_agent_my_profile",
+    find_tenants: "assistant_agent_find_tenants",
+    get_tenant_detail: "assistant_agent_tenant_detail",
+    get_landlords: "assistant_agent_landlords",
+    get_subagents: "assistant_agent_subagents",
+    get_subagent_detail: "assistant_agent_subagent_detail",
+  };
+  for (const [name, rpc] of Object.entries(expected)) assertEquals(findTool(name)?.rpc, rpc, name);
+});
+
+Deno.test("tools: search strings are restricted to letters, digits, space . ' + -", () => {
+  const t = findTool("find_tenants")!;
+  for (const ok of ["betty", "Betty Nabirye", "o'brien", "0701 355 246", "+256701355246", "Nakato-Namutebi", "Müller"]) {
+    assert(t.schema.safeParse({ search: ok }).success, ok);
+  }
+  for (const bad of ["%", "_", "a;b", "' or 1=1 --", "<b>", "a\\b", "x\"y", "", "   ", "a".repeat(41), "{ignore}"]) {
+    assert(!t.schema.safeParse({ search: bad }).success, JSON.stringify(bad));
+  }
+});
+
+Deno.test("tools: detail tools require a search; list tools do not", () => {
+  assert(!findTool("get_tenant_detail")!.schema.safeParse({}).success);
+  assert(!findTool("get_subagent_detail")!.schema.safeParse({}).success);
+  assert(findTool("find_tenants")!.schema.safeParse({}).success);
+  assert(findTool("get_subagents")!.schema.safeParse({}).success);
+  assert(findTool("get_landlords")!.schema.safeParse({}).success);
+});
+
+Deno.test("tools: directory tools reject identity-looking and unknown arguments", () => {
+  for (const name of ["find_tenants", "get_tenant_detail", "get_landlords", "get_subagents", "get_subagent_detail", "get_my_profile"]) {
+    const t = findTool(name)!;
+    for (const extra of [{ tenant_id: "x" }, { agent_id: "x" }, { user_id: "x" }, { id: "x" }, { sub_agent_id: "x" }]) {
+      assert(!t.schema.safeParse({ search: "betty", ...extra }).success, `${name} accepted ${Object.keys(extra)[0]}`);
+    }
+  }
+});
+
+Deno.test("tools: directory tool arguments map to the RPC's named parameters", () => {
+  const find = findTool("find_tenants")!;
+  const a = find.toRpcArgs({ search: "betty", plan: "active", period: "yesterday", limit: 10 });
+  assertEquals(a, { p_search: "betty", p_plan: "active", p_from: resolvePeriod("yesterday").from, p_to: resolvePeriod("yesterday").to, p_limit: 10, p_email: "any" });
+  const d = find.toRpcArgs({});
+  assertEquals(d.p_search, null);
+  assertEquals(d.p_plan, "all");
+  assertEquals(d.p_limit, 15);
+  assertEquals(d.p_email, "any");
+  assertEquals(find.toRpcArgs({ email: "missing" }).p_email, "missing");
+  assertEquals(findTool("get_subagents")!.toRpcArgs({}).p_email, "any");
+  assertEquals(findTool("get_subagents")!.toRpcArgs({ email: "present" }).p_email, "present");
+  assertEquals(d.p_from, resolvePeriod("last_30_days").from);
+  const det = findTool("get_tenant_detail")!.toRpcArgs({ search: "betty", from: "2026-10-01", to: "2026-10-05" });
+  assertEquals(det, { p_search: "betty", p_from: "2026-10-01", p_to: "2026-10-05" });
+  assertEquals(findTool("get_subagents")!.toRpcArgs({ search: "sam", limit: 5 }).p_limit, 5);
+  assertEquals(findTool("get_landlords")!.toRpcArgs({}), { p_search: null, p_limit: 15 });
+  assertEquals(findTool("get_my_profile")!.toRpcArgs({}), {});
+});
+
+Deno.test("tools: the email filter only accepts any / missing / present", () => {
+  for (const name of ["find_tenants", "get_subagents"]) {
+    const t = findTool(name)!;
+    for (const ok of ["any", "missing", "present"]) assert(t.schema.safeParse({ email: ok }).success, `${name} ${ok}`);
+    for (const bad of ["all", "none", "yes", "", "a@b.com", "%"]) assert(!t.schema.safeParse({ email: bad }).success, `${name} ${bad}`);
+  }
+  // the detail tools have no email filter: they return everyone found, with or without an email
+  assert(!findTool("get_tenant_detail")!.schema.safeParse({ search: "a", email: "missing" }).success);
+});
+
+Deno.test("tools: a limit above 25 or a period together with dates is rejected", () => {
+  assert(!findTool("find_tenants")!.schema.safeParse({ limit: 26 }).success);
+  assert(!findTool("get_subagents")!.schema.safeParse({ period: "today", from: "2026-10-01" }).success);
+  assert(!findTool("get_tenant_detail")!.schema.safeParse({ search: "a", period: "today", to: "2026-10-01" }).success);
+});
+
+Deno.test("guard: a phone number returned by a tool may be repeated, others may not", () => {
+  const tool = JSON.stringify({ tenants: [{ name: "Betty Nabirye", phone: "+256701111222" }] });
+  assert(checkAnswer("Betty's number is +256701111222.", [tool], "betty phone").ok);
+  assert(checkAnswer("Betty's number is 0701 111 222.", [tool], "betty phone").ok);
+  assert(checkAnswer("Betty's number is 0701111222.", [tool], "betty phone").ok);
+  assert(checkAnswer("Betty's number is 256701111222.", [tool], "betty phone").ok);
+  assertEquals(checkAnswer("Call her on +256709999999.", [tool], "betty phone"), { ok: false, reason: "phone" });
+  assertEquals(checkAnswer("Call her on 0709999999.", [tool], "betty phone"), { ok: false, reason: "phone" });
+  // a phone number is not a money figure, and a money figure is still checked next to one
+  assertEquals(checkAnswer("Betty (0701111222) paid UGX 250,000.", [tool], "x"), { ok: false, reason: "figure" });
+});
+
 Deno.test("tools: unknown tool names are not found", () => {
   assertEquals(findTool("run_sql"), undefined);
   assertEquals(findTool("get_wallet")?.rpc, "assistant_agent_wallet");

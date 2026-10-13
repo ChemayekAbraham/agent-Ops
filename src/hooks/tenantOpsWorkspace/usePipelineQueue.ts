@@ -20,7 +20,7 @@ export interface PipelineQueueRow {
 }
 
 async function fetchPipelineQueue(gapLabel: string | null, ownerId: string | null): Promise<PipelineQueueRow[]> {
-  const { data, error } = await anyDb.rpc('tops_pipeline_queue', { p_gap_label: gapLabel, p_owner_id: ownerId });
+  const { data, error } = await anyDb.rpc('tops_pipeline_queue_amclock', { p_gap_label: gapLabel, p_owner_id: ownerId });
   if (error) throw error;
   return (data ?? []) as PipelineQueueRow[];
 }
@@ -34,7 +34,7 @@ export function usePipelineQueue(gapLabel: string | null, ownerId: string | null
 }
 
 async function fetchPipelineGapCounts(): Promise<Record<string, number>> {
-  const { data, error } = await anyDb.rpc('tops_pipeline_queue_gap_counts');
+  const { data, error } = await anyDb.rpc('tops_pipeline_queue_gap_counts_amclock');
   if (error) throw error;
   const out: Record<string, number> = {};
   for (const r of (data ?? []) as { gap_label: string; cnt: number }[]) out[r.gap_label] = Number(r.cnt);

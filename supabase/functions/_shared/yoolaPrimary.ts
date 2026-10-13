@@ -13,6 +13,12 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import { appendSupportFooter } from "./smsFooter.ts";
+import {
+  isYoolaOutOfCredit,
+  resetYoolaCircuit,
+  tripYoolaCircuit,
+  yoolaCircuitOpen,
+} from "./yoolaCircuit.ts";
 
 export function formatPhoneInternational(phone: string): string {
   const digits = (phone || "").replace(/[^0-9]/g, "");
@@ -80,6 +86,9 @@ export async function attemptYoolaPrimary(
   const apiKey = Deno.env.get("YOOLA_SMS_API_KEY")?.trim();
   if (!apiKey) return false; // Yoola unconfigured -> let caller fall back
   if (!isUgandanPhone(phone)) return false; // let caller's own validation log it
+  // Yoola is out of credit: skip the doomed call (and its noisy failed row) and
+  // let the caller fall straight through to Africa's Talking.
+  if (yoolaCircuitOpen()) return false;
 
   // Central support footer — applied here so every Yoola-primary caller sends
   // the standardized message body without having to compose it themselves.
@@ -101,9 +110,11 @@ export async function attemptYoolaPrimary(
     const messageId = data?.message_id ? String(data.message_id) : (per?.reference ? String(per.reference) : null);
     const cost = per?.cost ?? data?.amount_charged ?? null;
     if (ok) {
+      resetYoolaCircuit();
       await logYoola("sent", phone, message, meta, data ?? raw?.slice(0, 300), null, messageId, cost);
       return true;
     }
+    if (isYoolaOutOfCredit(res.status, data, raw)) tripYoolaCircuit();
     await logYoola("failed", phone, message, meta, data ?? raw?.slice(0, 300),
       `Yoola rejected (HTTP ${res.status} ${status || "no-status"})`, messageId, cost);
     return false;

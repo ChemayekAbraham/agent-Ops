@@ -57,6 +57,8 @@ import { describePlanScheduleFromClock, inClockCohort, isMonitoredReading } from
 import { useAgentMonitoringClock } from '@/hooks/useAgentMonitoringClock';
 import { UNCOVERED_QUERY_KEY, fetchUncoveredPlans } from '@/hooks/useAgentMonitoringUncovered';
 import { UncoveredPlansTab } from './UncoveredPlansTab';
+import { ClockDriftLine } from './ClockDriftLine';
+import { PAYOUT_CLOCK_EXPLAINER } from '@/lib/payoutClockExplainer';
 
 
 interface ActiveRentRequest {
@@ -1003,6 +1005,8 @@ export function AgentMonitoring() {
             <h1 className="truncate text-lg font-bold leading-tight tracking-tight sm:text-xl">Agent Monitoring</h1>
             <p className="truncate text-xs text-muted-foreground">Daily expected collections and field performance</p>
             <p className="break-words text-[11px] leading-snug text-muted-foreground">Counted from the day after the landlord was paid</p>
+            <p className="break-words text-[11px] leading-snug text-muted-foreground" data-testid="payout-clock-explainer">{PAYOUT_CLOCK_EXPLAINER}</p>
+            <ClockDriftLine />
           </div>
         </div>
         <div className="flex w-full items-center gap-1 rounded-xl border bg-muted/40 p-1 sm:w-auto">

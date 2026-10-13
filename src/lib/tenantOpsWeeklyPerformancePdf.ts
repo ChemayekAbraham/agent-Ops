@@ -8,7 +8,10 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { format } from 'date-fns';
 import type { TenantOpsWeeklyHistoryRow, TenantOpsWeeklyPerformance } from '@/hooks/useTenantOpsWeeklyPerformance';
+import { WEEKLY_CLOCK_NOTE, WEEKLY_COUNTING_CHANGED_NOTE, landlordNotPaidLine } from '@/lib/tenantOpsWeeklyNotes';
 import type { TenantOpsNoPaymentReport } from '@/hooks/useTenantOpsNoPaymentReport';
+import type { TenantOpsNoPaymentReportV2 } from '@/hooks/useTenantOpsNoPaymentReportV2';
+import { noPaymentBands, noPaymentTitle, withoutPaymentText } from '@/lib/noPaymentDays';
 
 type RGB = [number, number, number];
 const INK: RGB = [15, 23, 42];
@@ -224,6 +227,9 @@ export function generateWeeklyPerformancePdf(
     BLUE,
     [...generatedMeta(preparedBy), 'Reporting week runs Wednesday to Tuesday'],
   );
+  r.note(WEEKLY_CLOCK_NOTE);
+  if (c.landlord_not_paid_count != null) r.note(landlordNotPaidLine(c.landlord_not_paid_count));
+  if (data.counting_changed_this_week) r.note(WEEKLY_COUNTING_CHANGED_NOTE);
 
   r.heading('Management Summary', 'This week compared with the week before');
   r.cards([
@@ -279,9 +285,10 @@ export function generateWeeklyPerformancePdf(
     r.heading('Historical Weekly Records', 'Frozen once each week closes on Tuesday night');
     r.table(
       ['Week', 'Active', 'Paying', 'Payment rate', 'New', '20+ days no payment', 'Self-paid via merchant'],
-      history.map((w) => [`${short(w.week_start)} - ${short(w.week_end)}`, num(w.total_active_tenants), num(w.paying_tenants), `${w.payment_rate_pct}%`, num(w.new_tenants_added), num(w.dormant_20_plus_count), num(w.self_payment_tenants)]),
+      history.map((w) => [`${short(w.week_start)} - ${short(w.week_end)}${w.counting_changed ? ' *' : ''}`, num(w.total_active_tenants), num(w.paying_tenants), `${w.payment_rate_pct}%`, num(w.new_tenants_added), num(w.dormant_20_plus_count), num(w.self_payment_tenants)]),
       { align: ['left', 'right', 'right', 'right', 'right', 'right', 'right'] },
     );
+    if (history.some((w) => w.counting_changed)) r.note(`* ${WEEKLY_COUNTING_CHANGED_NOTE}`);
   } else {
     r.note('No closed weeks recorded yet. A week\'s figures are frozen once it closes on Tuesday night.');
   }
@@ -352,6 +359,77 @@ export function generateNoPaymentPdf(report: TenantOpsNoPaymentReport, agentLabe
     );
   }
   return r.finish('20+ Days No Payment');
+}
+
+/**
+ * The same report for any N (the v2 report): titles, bands and notes carry the chosen number. With N = 20 the
+ * figures are those of generateNoPaymentPdf. The original above is left as it was.
+ */
+export function generateNoPaymentPdfForDays(report: TenantOpsNoPaymentReportV2, agentLabel: string | null, preparedBy?: string): Blob {
+  const n = report.min_days;
+  const [b1, b2, b3] = noPaymentBands(n);
+  const agents = report.agent_summary ?? [];
+  const tenants = report.tenants ?? [];
+  const t1 = agents.reduce((s, a) => s + a.gte_min, 0);
+  const t2 = agents.reduce((s, a) => s + a.gte_min_10, 0);
+  const t3 = agents.reduce((s, a) => s + a.gte_min_20, 0);
+  const outstanding = tenants.reduce((s, t) => s + (Number(t.outstanding_balance) || 0), 0);
+  const dailyAtRisk = tenants.reduce((s, t) => s + (Number(t.expected_daily_payment) || 0), 0);
+
+  const r = createReport(
+    noPaymentTitle(n),
+    `As of ${d(report.as_of ?? new Date().toISOString())}`,
+    AMBER,
+    [...generatedMeta(preparedBy), `Agent filter: ${agentLabel ?? 'All agents'}`],
+  );
+
+  r.heading('Dormancy Overview', `Live, landlord-funded Rent Plans with no payment in ${b1}+ days`);
+  r.cards([
+    { label: `${b1}+ days`, value: num(t1), sub: `${num(t1 - t2)} between ${b1} and ${b2 - 1} days`, color: AMBER },
+    { label: `${b2}+ days`, value: num(t2), sub: `${num(t2 - t3)} between ${b2} and ${b3 - 1} days`, color: RED },
+    { label: `${b3}+ days`, value: num(t3), sub: 'Most urgent follow-up', subColor: RED, color: RED },
+    { label: 'Outstanding (listed)', value: ugx(outstanding), sub: `${num(tenants.length)} tenants in this report`, color: BLUE },
+    { label: 'Daily payments missed', value: ugx(dailyAtRisk), sub: 'Sum of expected daily payments', color: PURPLE },
+  ]);
+
+  r.heading('How Long Tenants Have Gone Quiet');
+  r.hbars([
+    { label: `${b1} - ${b2 - 1} days`, value: t1 - t2, display: num(t1 - t2), color: AMBER },
+    { label: `${b2} - ${b3 - 1} days`, value: t2 - t3, display: num(t2 - t3), color: [234, 88, 12] },
+    { label: `${b3}+ days`, value: t3, display: num(t3), color: RED },
+  ], 8);
+
+  const top = agents.slice().sort((a, b) => b.gte_min - a.gte_min).slice(0, 10).filter((a) => a.gte_min > 0);
+  if (top.length) {
+    r.heading('Agents With The Most Dormant Tenants', `Top 10 by ${b1}+ days count`);
+    r.hbars(top.map((a) => ({ label: a.label, value: a.gte_min, display: `${a.gte_min}  (${b2}+: ${a.gte_min_10}, ${b3}+: ${a.gte_min_20})`, color: a.gte_min_20 > 0 ? RED : AMBER })));
+  }
+
+  if (agents.length) {
+    r.heading('Agent Accountability', 'Every agent with at least one dormant tenant');
+    const sorted = agents.slice().sort((a, b) => b.gte_min - a.gte_min);
+    r.table(
+      ['Agent', `${b1}+ days`, `${b2}+ days`, `${b3}+ days`],
+      sorted.map((a) => [a.label, a.gte_min, a.gte_min_10, a.gte_min_20]),
+      { align: ['left', 'right', 'right', 'right'], foot: ['All agents', t1, t2, t3], colors: sorted.map((a) => [null, null, a.gte_min_10 > 0 ? AMBER : null, a.gte_min_20 > 0 ? RED : null]) },
+    );
+  }
+
+  r.heading('Tenant List', agentLabel ? `Filtered to ${agentLabel}` : 'All agents, longest dormant first');
+  if (!tenants.length) {
+    r.note(`No tenants have gone ${withoutPaymentText(n)}.`);
+  } else {
+    const list = tenants.slice().sort((a, b) => b.days_since_last_payment - a.days_since_last_payment);
+    r.table(
+      ['Tenant', 'Account No.', 'Agent', 'Last payment', 'Days', 'Daily payment', 'Outstanding', 'Total paid', 'Progress', 'Status'],
+      list.map((t) => [t.tenant_name ?? 'Unnamed tenant', t.tenant_account_number ?? '-', t.agent_name, d(t.date_of_last_payment), `${t.days_since_last_payment}d`, ugx(t.expected_daily_payment), ugx(t.outstanding_balance), ugx(t.total_amount_paid), `${t.progress_pct}%`, t.tenant_status.replace(/_/g, ' ')]),
+      {
+        align: ['left', 'left', 'left', 'left', 'right', 'right', 'right', 'right', 'right', 'left'],
+        colors: list.map((t) => [null, null, null, null, t.days_since_last_payment >= b3 ? RED : t.days_since_last_payment >= b2 ? AMBER : null, null, null, null, null, null]),
+      },
+    );
+  }
+  return r.finish(noPaymentTitle(n));
 }
 
 // ---------------------------------------------------------------- Promo

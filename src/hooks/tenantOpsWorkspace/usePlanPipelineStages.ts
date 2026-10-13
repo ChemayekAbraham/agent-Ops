@@ -14,7 +14,7 @@ export interface PlanPipelineStage {
 }
 
 async function fetchPlanPipelineStages(rentRequestId: string): Promise<PlanPipelineStage[]> {
-  const { data, error } = await anyDb.rpc('tops_plan_pipeline_stages', { p_rent_request_id: rentRequestId });
+  const { data, error } = await anyDb.rpc('tops_plan_pipeline_stages_amclock', { p_rent_request_id: rentRequestId });
   if (error) throw error;
   return (data ?? []) as PlanPipelineStage[];
 }

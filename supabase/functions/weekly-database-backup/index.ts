@@ -5,8 +5,10 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const RECIPIENTS = ["joshwanda17@gmail.com", "weliletechnologies@gmail.com", "ssenkaali.pius@welile.com"];
-const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
+import { BACKUP_LINK_TTL_HOURS, BACKUP_LINK_TTL_SECONDS, DEFAULT_BACKUP_RECIPIENTS } from "../_shared/backupDelivery.ts";
+
+const RECIPIENTS = DEFAULT_BACKUP_RECIPIENTS;
+const SIGNED_URL_TTL_SECONDS = BACKUP_LINK_TTL_SECONDS;
 // Previously this function built every INSERT statement row-by-row in JS, which
 // burned the worker CPU budget (546 WORKER_RESOURCE_LIMIT) and forced a 20s soft
 // deadline that truncated the dump to ~39 tables. We now stream CSV straight from
@@ -216,7 +218,7 @@ Deno.serve(async (req) => {
               tableCount: tablesProcessed,
               rowCount: totalRows,
               generatedAt: startedAt.toISOString(),
-              expiresInHours: 168,
+              expiresInHours: BACKUP_LINK_TTL_HOURS,
             actorName,
             actorTimestamp,
             actorUserAgent,

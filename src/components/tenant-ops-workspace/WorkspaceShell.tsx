@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Drawer, DrawerContent } from '@/components/ui/drawer';
 import { formatUGX } from '@/lib/rentCalculations';
 import { WORKSPACE_NAV_SECTIONS, type WorkspaceSectionId } from './workspaceNav';
+import WorkspaceClockNote from './WorkspaceClockNote';
 
 const SECTION_COMPONENTS: Record<WorkspaceSectionId, ComponentType> = {
   today: lazy(() => import('./sections/TodaySection')),
@@ -119,6 +120,7 @@ export default function WorkspaceShell({ moneyAtRiskBySection, embedded = false 
       </div>
 
       <main className="min-w-0 flex-1 p-3 sm:p-4">
+        <WorkspaceClockNote />
         <Suspense
           key={activeSection}
           fallback={<div className="animate-pulse text-sm text-muted-foreground">Loading…</div>}

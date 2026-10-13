@@ -117,13 +117,13 @@ export function AgentHubTabs({ active, onChange, restricted = false, onProxyAgen
             })}
             {onMenuClick && !restricted && (
               <button
-                aria-label="Menu"
+                aria-label="More Actions"
                 onClick={() => { hapticTap(); onMenuClick(); }}
                 className={cn(FLOATING_NAV_ITEM, 'text-muted-foreground')}
                 style={{ WebkitTapHighlightColor: 'transparent' }}
               >
                 <Menu className="h-5 w-5" strokeWidth={2} />
-                <span className={FLOATING_NAV_LABEL}>Menu</span>
+                <span className={FLOATING_NAV_LABEL}>More Actions</span>
               </button>
             )}
           </FloatingNavRow>

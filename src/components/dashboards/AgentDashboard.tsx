@@ -162,6 +162,7 @@ import { AgentTenantRentRequestsList } from '@/components/agent/AgentTenantRentR
 import { ShareRentRecorderCard } from '@/components/agent/ShareRentRecorderCard';
 import { TodayCollectionsCard } from '@/components/agent/TodayCollectionsCard';
 import { AgentPriorityGrid } from '@/components/agent/AgentPriorityGrid';
+import { AgentPostRentRequestCard } from '@/components/agent/AgentPostRentRequestCard';
 import { MERCHANT_RESTRICTION_MESSAGE, useIsMerchantAgent } from '@/hooks/useIsMerchantAgent';
 import { MerchantDashboardHome } from '@/components/agent/MerchantDashboardHome';
 import { AgentTenantInlineList } from '@/components/agent/AgentTenantInlineList';
@@ -207,11 +208,9 @@ const AgentMyRentRequestsSheet = lazyNamed(() => import('@/components/agent/Agen
 const AgentTenantsSheet = lazyNamed(() => import('@/components/agent/AgentTenantsSheet'), 'AgentTenantsSheet');
 const FieldCollectReconciliationSheet = lazyNamed(() => import('@/components/agent/FieldCollectReconciliationSheet'), 'FieldCollectReconciliationSheet');
 const AgentManagedUsersSheet = lazyNamed(() => import('@/components/agent/AgentManagedUsersSheet'), 'AgentManagedUsersSheet');
-const AgentTopUpTenantDialog = lazyNamed(() => import('@/components/agent/AgentTopUpTenantDialog'), 'AgentTopUpTenantDialog');
 const AgentInvestForPartnerDialog = lazyNamed(() => import('@/components/agent/AgentInvestForPartnerDialog'), 'AgentInvestForPartnerDialog');
 const ProxyInvestmentHistorySheet = lazyNamed(() => import('@/components/agent/ProxyInvestmentHistorySheet'), 'ProxyInvestmentHistorySheet');
 const AgentReceiptDialog = lazyNamed(() => import('@/components/agent/AgentReceiptDialog'), 'AgentReceiptDialog');
-const AgentLandlordMapSheet = lazyNamed(() => import('@/components/agent/AgentLandlordMapSheet'), 'AgentLandlordMapSheet');
 const RentalFinderSheet = lazyNamed(() => import('@/components/agent/RentalFinderSheet'), 'RentalFinderSheet');
 const ListEmptyHouseDialog = lazyNamed(() => import('@/components/agent/ListEmptyHouseDialog'), 'ListEmptyHouseDialog');
 const AgentListingsSheet = lazyNamed(() => import('@/components/agent/AgentListingsSheet'), 'AgentListingsSheet');
@@ -410,7 +409,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   const [payoutProperty, setPayoutProperty] = useState<any>(null);
   const [myRentRequestsOpen, setMyRentRequestsOpen] = useState(false);
   
-  const [topUpTenantOpen, setTopUpTenantOpen] = useState(false);
   const [businessAdvanceOpen, setBusinessAdvanceOpen] = useState(false);
   const { event: commissionEvent, dismiss: dismissCommission } = useBusinessAdvanceCommissionListener();
   // Agent's personal advance credit limit — drives the prominent Money-tab promo.
@@ -495,7 +493,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
   const [investForPartnerOpen, setInvestForPartnerOpen] = useState(false);
   const [proxyHistoryOpen, setProxyHistoryOpen] = useState(false);
   const [receiptOpen, setReceiptOpen] = useState(false);
-  const [landlordMapOpen, setLandlordMapOpen] = useState(false);
   const [rentalFinderOpen, setRentalFinderOpen] = useState(false);
   const [listHouseOpen, setListHouseOpen] = useState(false);
   const [listHouseFromPromo, setListHouseFromPromo] = useState(false);
@@ -1082,6 +1079,12 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         {/* Live cash-with-agent deposit codes targeting this agent */}
         <AgentCashDepositCodesPanel />
 
+        {/* Major action — sits directly above the Service Center button */}
+        <AgentPostRentRequestCard
+          restricted={isMerchant}
+          onOpen={() => { if (guardMerchant()) return; setRentRequestOpen(true); }}
+        />
+
         {/* Tab Navigation — scrolls with the dashboard so the Service Center / Proxy Agents buttons never float */}
         <div className="-mx-4 px-4 py-2 bg-background border-b border-border/40 overflow-x-auto overflow-y-hidden scrollbar-hide">
           <AgentHubTabs
@@ -1218,7 +1221,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
             <AgentPriorityGrid
               agentId={user.id}
               restricted={isMerchant}
-              onOpenNewTenant={() => { if (guardMerchant()) return; setRentRequestOpen(true); }}
               onOpenListHouse={() => {
                 if (guardMerchant()) return;
                 if (!guardListingHours()) return;
@@ -1855,17 +1857,12 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         onOpenChange={setMenuOpen}
         restricted={isMerchant}
         onDeposit={handleDeposit}
-        onPostRentRequest={() => setRentRequestOpen(true)}
         onInviteSubAgent={handleInviteSubAgent}
         onInviteTenant={() => { setMenuOpen(false); setTenantInviteOpen(true); }}
         onOpenEarningsRank={() => setEarningsRankOpen(true)}
         onManageProperty={() => { setMenuOpen(false); setManagedPropertyOpen(true); }}
         onViewManagedProperties={() => { setMenuOpen(false); setManagedPropertiesSheetOpen(true); }}
         onViewMyRentRequests={() => { setMenuOpen(false); setMyRentRequestsOpen(true); }}
-        onTopUpTenant={() => {
-          // Disabled — Pay Rent / Collect Rent flow removed.
-          setMenuOpen(false);
-        }}
         onViewTenants={() => { setMenuOpen(false); setTenantsSheetOpen(true); }}
         onViewCreditAccess={() => { setMenuOpen(false); setCreditOpen(true); }}
         onViewMoney={() => { setMenuOpen(false); setSlideDirection(null); setActiveTab('money'); }}
@@ -1874,7 +1871,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
         onFundPartner={() => { setMenuOpen(false); setInvestForPartnerOpen(true); }}
         onViewProxyHistory={() => { setMenuOpen(false); setProxyHistoryOpen(true); }}
         onIssueReceipt={() => { setMenuOpen(false); setReceiptOpen(true); }}
-        onViewLandlordMap={() => { setMenuOpen(false); setLandlordMapOpen(true); }}
         onFindRentals={() => { setMenuOpen(false); setRentalFinderOpen(true); }}
         onListEmptyHouse={() => {
           setMenuOpen(false);
@@ -2125,9 +2121,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
       <LazyModal when={managedUsersOpen}>
       <AgentManagedUsersSheet open={managedUsersOpen} onOpenChange={setManagedUsersOpen} agentId={user.id} />
       </LazyModal>
-      <LazyModal when={topUpTenantOpen}>
-      <AgentTopUpTenantDialog open={topUpTenantOpen} onOpenChange={setTopUpTenantOpen} onSuccess={refreshOfflineData} />
-      </LazyModal>
       <LazyModal when={investForPartnerOpen}>
       <AgentInvestForPartnerDialog open={investForPartnerOpen} onOpenChange={setInvestForPartnerOpen} onSuccess={() => { refreshOfflineData(); refreshWallet(); }} />
       </LazyModal>
@@ -2136,9 +2129,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
       </LazyModal>
       <LazyModal when={receiptOpen}>
       <AgentReceiptDialog open={receiptOpen} onOpenChange={setReceiptOpen} />
-      </LazyModal>
-      <LazyModal when={landlordMapOpen}>
-      <AgentLandlordMapSheet open={landlordMapOpen} onOpenChange={setLandlordMapOpen} />
       </LazyModal>
       <LazyModal when={rentalFinderOpen}>
       <RentalFinderSheet open={rentalFinderOpen} onOpenChange={setRentalFinderOpen} />

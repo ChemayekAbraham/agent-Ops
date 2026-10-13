@@ -23,7 +23,7 @@ export interface AgentArrearsBook {
 }
 
 async function fetchAgentArrearsBook(asAt: string | null): Promise<AgentArrearsBookRow[]> {
-  const { data, error } = await anyDb.rpc('tops_agent_arrears_book', { p_as_at: asAt });
+  const { data, error } = await anyDb.rpc('tops_agent_arrears_book_amclock', { p_as_at: asAt });
   if (error) throw error;
   return ((data ?? []) as Record<string, any>[]).map((r) => ({
     agent_id: r.agent_id,

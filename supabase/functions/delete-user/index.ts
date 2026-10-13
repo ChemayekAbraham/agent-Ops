@@ -225,22 +225,89 @@ Deno.serve(async (req) => {
 
 
 
-    // PERMANENT DELETE GUARD: refuse any account with financial history.
-    // Permanent deletion removes wallets, advances and portfolios, including ones
-    // this person issued or managed for others. Accounts with money history may
-    // only be soft deleted or archived. Fails closed if the check itself errors.
+    // PERMANENT DELETE, two shapes depending on money history. A hard delete would
+    // remove wallets, advances and portfolios (some issued or managed for other
+    // people) and the ledger cannot be edited, so an account WITH history is erased
+    // in place instead: the person and login go, every money record stays.
+    // Fails closed if the history check itself errors.
     {
       const { data: history, error: historyErr } = await supabaseAdmin.rpc(
         'account_financial_history',
         { p_user_id: user_id },
       );
-      if (historyErr || !history || history.has_history !== false) {
+      if (historyErr || !history) {
         return new Response(JSON.stringify({
-          error: historyErr
-            ? 'Could not confirm this account has no financial history, so it was not deleted.'
-            : 'This account has financial history and cannot be permanently deleted. Use soft delete instead.',
-          financial_history: history ?? null,
+          error: 'Could not confirm whether this account has financial history, so it was not deleted.',
         }), { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      if (history.has_history !== false) {
+        const anonKey = Deno.env.get('SUPABASE_ANON_KEY') ?? Deno.env.get('SUPABASE_PUBLISHABLE_KEY') ?? '';
+        const callerClient = createClient(supabaseUrl, anonKey, {
+          global: { headers: { Authorization: authHeader } },
+        });
+
+        const { data: erased, error: eraseError } = await callerClient.rpc(
+          'admin_purge_deleted_account_keep_books',
+          { p_user_id: user_id, p_reason: auditReason },
+        );
+        if (eraseError) {
+          console.error('Keep-books purge failed:', eraseError);
+          const raw = eraseError.message ?? 'Failed to remove account';
+          const known = raw.startsWith('WALLET_NOT_EMPTY') || raw.startsWith('ACCOUNT_NOT_SOFT_DELETED');
+          return new Response(JSON.stringify({ error: raw.replace(/^[A-Z_]+: /, '') }), {
+            status: known ? 409 : 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // The database side is committed. Everything below is best effort and is
+        // reported back so a partial cleanup is visible rather than silent.
+        const photoPaths: string[] = Array.isArray(erased?.identity_photo_paths) ? erased.identity_photo_paths : [];
+        let identityFilesRemoved = photoPaths.length === 0;
+        if (photoPaths.length > 0) {
+          const { error: removeErr } = await supabaseAdmin.storage.from('identity-verification').remove(photoPaths);
+          identityFilesRemoved = !removeErr;
+          if (removeErr) console.error('Identity file removal failed:', removeErr);
+        }
+
+        let avatarRemoved = true;
+        const avatarUrl: string | null = typeof erased?.avatar_url === 'string' ? erased.avatar_url : null;
+        const avatarMarker = '/avatars/';
+        if (avatarUrl && avatarUrl.includes(avatarMarker)) {
+          const avatarPath = decodeURIComponent(avatarUrl.split(avatarMarker)[1].split('?')[0]);
+          const { error: avatarErr } = await supabaseAdmin.storage.from('avatars').remove([avatarPath]);
+          avatarRemoved = !avatarErr;
+          if (avatarErr) console.error('Avatar removal failed:', avatarErr);
+        }
+
+        // The login row cannot be deleted (profiles.id cascades from it and the
+        // finance tables still reference the profile), so keep it banned and empty.
+        const { error: authScrubError } = await supabaseAdmin.auth.admin.updateUserById(user_id, {
+          email: `deleted+${user_id}@deleted.invalid`,
+          phone: '',
+          ban_duration: '876000h',
+          email_confirm: true,
+          user_metadata: {},
+          app_metadata: { soft_deleted: true, erased: true, erased_at: new Date().toISOString() },
+        });
+        if (authScrubError) console.error('Auth scrub failed:', authScrubError);
+
+        fetch(`${supabaseUrl}/functions/v1/notify-managers`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${supabaseServiceKey}` },
+          body: JSON.stringify({ title: "🗑️ User Deleted", body: "Activity: user permanently removed", url: "/dashboard/manager" }),
+        }).catch(() => {});
+
+        return new Response(JSON.stringify({
+          success: true,
+          erased_keeping_financial_records: true,
+          financial_records_retained: erased?.financial_records_retained ?? null,
+          identity_files_removed: identityFilesRemoved,
+          avatar_removed: avatarRemoved,
+          auth_scrubbed: !authScrubError,
+          message: 'Account permanently removed. Money records were kept without the person\'s details.',
+        }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
     }
 

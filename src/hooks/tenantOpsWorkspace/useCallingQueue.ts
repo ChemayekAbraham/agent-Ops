@@ -60,7 +60,7 @@ async function fetchQueuePage(state: CcRowState, search: string, page: number): 
   const tenantIds = list.map((r) => String(r.subject_id));
   let riskByTenant = new Map<string, { rentRequestId: string | null; moneyAtRiskUgx: number | null }>();
   if (tenantIds.length > 0) {
-    const { data: risk, error: riskError } = await anyDb.rpc('tops_calling_money_at_risk', { p_tenant_ids: tenantIds });
+    const { data: risk, error: riskError } = await anyDb.rpc('tops_calling_money_at_risk_amclock', { p_tenant_ids: tenantIds });
     if (riskError) throw riskError;
     riskByTenant = new Map(
       (risk ?? []).map((r: any) => [

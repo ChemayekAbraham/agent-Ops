@@ -111,17 +111,13 @@ export function DeletedAccountsPanel() {
           body: { user_id: target.user_id, reason: trimmed, mode: 'permanent' },
         });
         if (error) {
-          // The server refuses (409) when the account has money history; read its reason.
+          // The server refuses (409) when a wallet still holds money; read its reason.
           let serverMsg: string | null = null;
           const ctx = (error as { context?: Response }).context;
           if (ctx && typeof ctx.json === 'function') {
             try {
               const body = await ctx.json();
-              if (body?.financial_history?.has_history) {
-                serverMsg = 'This account has money history, so it stays deleted (recoverable) to keep the books correct. It cannot be permanently removed.';
-              } else if (body?.error) {
-                serverMsg = String(body.error);
-              }
+              if (body?.error) serverMsg = String(body.error);
             } catch { /* fall through */ }
           }
           throw new Error(serverMsg ?? error.message);

@@ -1193,7 +1193,8 @@ export default function COOPartnersPage({ readOnly = false }: { readOnly?: boole
             .select('portfolio_id')
             .in('portfolio_id', portfolioIds)
             .eq('request_type', 'REDEMPTION_REQUEST')
-            .in('status', ['pending', 'processing']),
+            // Only a redemption Partner Ops has started processing locks the portfolio.
+            .eq('status', 'processing'),
         ]);
         const counts: Record<string, number> = {};
         const latestRenewal: Record<string, string> = {};
