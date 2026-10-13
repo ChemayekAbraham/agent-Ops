@@ -958,8 +958,8 @@ export default function Auth() {
                 </div>
 
                 <div>
-                  <p className="text-base font-semibold text-foreground">
-                    {resetStep === 'phone' ? '🔑 Reset Your Password' : resetStep === 'otp' ? '📱 Enter SMS Code' : '🔒 Create New Password'}
+                  <p className="text-base font-semibold text-foreground flex items-center gap-2">
+                    {resetStep === 'phone' ? (<><Key className="h-4 w-4 text-primary" /> Reset Your Password</>) : resetStep === 'otp' ? (<><Smartphone className="h-4 w-4 text-primary" /> Enter SMS Code</>) : (<><Lock className="h-4 w-4 text-primary" /> Create New Password</>)}
                   </p>
                   <p className="text-sm text-muted-foreground mt-1">
                     {resetStep === 'phone' ? (resetMethod === 'email' ? 'Enter your email and we\'ll send you a reset link' : 'Enter your phone number and we\'ll send you a code via SMS') : resetStep === 'otp' ? `We sent a 6-digit code to ${resetPhone || 'your phone'}` : 'Choose a strong password you\'ll remember'}
@@ -970,8 +970,8 @@ export default function Auth() {
                   {resetStep === 'phone' && (
                     <>
                       <div className="grid grid-cols-2 gap-2">
-                        <button type="button" onClick={() => { setResetMethod('sms'); setEmail(''); }} className={cn("h-12 rounded-xl border-2 text-sm font-semibold", resetMethod === 'sms' ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground")}>📲 Phone (SMS)</button>
-                        <button type="button" onClick={() => setResetMethod('email')} className={cn("h-12 rounded-xl border-2 text-sm font-semibold", resetMethod === 'email' ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground")}>📧 Email</button>
+                        <button type="button" onClick={() => { setResetMethod('sms'); setEmail(''); }} className={cn("h-12 rounded-xl border-2 text-sm font-semibold flex items-center justify-center gap-2", resetMethod === 'sms' ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground")}><Smartphone className="h-4 w-4" /> Phone (SMS)</button>
+                        <button type="button" onClick={() => setResetMethod('email')} className={cn("h-12 rounded-xl border-2 text-sm font-semibold flex items-center justify-center gap-2", resetMethod === 'email' ? "border-primary bg-primary/10 text-primary" : "border-border text-muted-foreground")}><Mail className="h-4 w-4" /> Email</button>
                       </div>
                       {resetMethod === 'sms' ? (
                       <div className="relative">
@@ -1027,7 +1027,11 @@ export default function Auth() {
                   )}
 
                   <Button type="submit" className="w-full h-14 text-base rounded-xl font-bold touch-manipulation active:scale-[0.98] shadow-md" disabled={isLoading} style={{ fontSize: '16px' }}>
-                    {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : resetStep === 'phone' ? (resetMethod === 'email' ? '📧 Send Reset Link' : '📲 Send SMS Code') : resetStep === 'otp' ? '✅ Verify Code' : '🔐 Reset Password'}
+                    {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : (
+                      <span className="flex items-center justify-center gap-2">
+                        {resetStep === 'phone' ? (resetMethod === 'email' ? (<><Mail className="h-4 w-4" /> Send Reset Link</>) : (<><Smartphone className="h-4 w-4" /> Send SMS Code</>)) : resetStep === 'otp' ? (<><Key className="h-4 w-4" /> Verify Code</>) : (<><Lock className="h-4 w-4" /> Reset Password</>)}
+                      </span>
+                    )}
                   </Button>
                 </form>
 
