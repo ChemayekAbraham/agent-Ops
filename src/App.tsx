@@ -6,7 +6,7 @@ import { Suspense, memo, useEffect, useState, Component, type ReactNode } from "
 import { HelmetProvider } from "react-helmet-async";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { GlobalOverdueVettingDialog } from "@/components/service-center/GlobalOverdueVettingDialog";
-import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useSearchParams } from "react-router-dom";
 import { LANDLORD_OPS_ROUTES } from "./pages/landlord-ops/routes";
 import { ThemeProvider } from "next-themes";
 import { ThemeColorSync } from "@/components/ThemeColorSync";
@@ -500,8 +500,9 @@ function AppRoutes() {
       <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/" element={<Index />} />
-          <Route path="/welcome" element={<Landing />} />
-          <Route path="/welcome-new" element={<WelcomeNew />} />
+          <Route path="/welcome" element={<WelcomeNew />} />
+          <Route path="/welcome-new" element={<WelcomeNewRedirect />} />
+          <Route path="/welcome-classic" element={<Landing />} />
            <Route path="/internship" element={<Internship />} />
            <Route path="/careers" element={<Careers />} />
            <Route path="/auth" element={<Auth />} />
