@@ -231,6 +231,9 @@ export function CFOROIRequests() {
 
   const pendingCount = operations.filter(o => o.status === 'coo_approved').length;
 
+  // jsPDF's built-in fonts render only Latin-1; strip anything else to avoid mojibake
+  const latin = (s: string) => s.normalize('NFKD').replace(/[^\u0000-\u00FF]/g, '').trim();
+
   const downloadPdf = () => {
     const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
     const pageWidth = doc.internal.pageSize.getWidth();
