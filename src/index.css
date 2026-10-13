@@ -2,6 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Accessible native progress for the separate design preview. */
+.agents-mock-progress { appearance: none; background: hsl(var(--muted)); }
+.agents-mock-progress::-webkit-progress-bar { background: hsl(var(--muted)); border-radius: 999px; }
+.agents-mock-progress::-webkit-progress-value { background: hsl(var(--success)); border-radius: 999px; }
+.agents-mock-progress::-moz-progress-bar { background: hsl(var(--success)); border-radius: 999px; }
+.agents-mock-summary { background: linear-gradient(125deg, hsl(var(--gradient-start)), hsl(var(--gradient-end))); color: hsl(var(--header-foreground)); }
+.agents-mock-summary .agents-mock-progress { background: hsl(var(--header-foreground) / 0.2); }
+.agents-mock-summary .agents-mock-progress::-webkit-progress-bar { background: hsl(var(--header-foreground) / 0.2); }
+.agents-mock-summary .agents-mock-progress::-webkit-progress-value { background: hsl(var(--header-foreground)); }
+.agents-mock-summary .agents-mock-progress::-moz-progress-bar { background: hsl(var(--header-foreground)); }
+.agents-mock-exact { --mock-surface: 220 20% 97%; --mock-wallet-start: 275 80% 48%; --mock-wallet-end: 277 90% 26%; background: hsl(var(--mock-surface)); }
+.dark .agents-mock-exact { --mock-surface: 222 47% 8%; }
+.agents-mock-wallet { background: linear-gradient(120deg, hsl(var(--mock-wallet-start)), hsl(var(--mock-wallet-end))); color: hsl(var(--header-foreground)); }
+.agents-mock-wallet::before, .agents-mock-wallet::after { content: ''; position: absolute; border-radius: 50%; background: hsl(var(--header-foreground) / .06); pointer-events: none; }
+.agents-mock-wallet::before { width: 130px; height: 130px; right: -30px; top: -30px; }
+.agents-mock-wallet::after { width: 150px; height: 150px; left: -40px; bottom: -120px; }
+
 /* Sonner toaster — prevent phantom right gutter on mobile */
 /* Hide the sonner notifications section entirely when no toasts are active.
    It re-appears automatically when a toast is rendered inside it. */

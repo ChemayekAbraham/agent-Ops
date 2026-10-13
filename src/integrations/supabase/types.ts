@@ -6841,6 +6841,116 @@ export type Database = {
         }
         Relationships: []
       }
+      am_clock_drift_daily: {
+        Row: {
+          am_arrears_ugx: number | null
+          am_bucket: string | null
+          am_clock_start: string | null
+          am_due_ugx: number | null
+          arrears_diff_ugx: number | null
+          created_at: string
+          due_diff_ugx: number | null
+          explained: boolean
+          id: number
+          page: string
+          page_arrears_ugx: number | null
+          page_bucket: string | null
+          page_clock_start: string | null
+          page_due_ugx: number | null
+          reason: string
+          rent_request_id: string
+          run_date: string
+          run_id: number
+        }
+        Insert: {
+          am_arrears_ugx?: number | null
+          am_bucket?: string | null
+          am_clock_start?: string | null
+          am_due_ugx?: number | null
+          arrears_diff_ugx?: number | null
+          created_at?: string
+          due_diff_ugx?: number | null
+          explained?: boolean
+          id?: never
+          page: string
+          page_arrears_ugx?: number | null
+          page_bucket?: string | null
+          page_clock_start?: string | null
+          page_due_ugx?: number | null
+          reason: string
+          rent_request_id: string
+          run_date: string
+          run_id: number
+        }
+        Update: {
+          am_arrears_ugx?: number | null
+          am_bucket?: string | null
+          am_clock_start?: string | null
+          am_due_ugx?: number | null
+          arrears_diff_ugx?: number | null
+          created_at?: string
+          due_diff_ugx?: number | null
+          explained?: boolean
+          id?: never
+          page?: string
+          page_arrears_ugx?: number | null
+          page_bucket?: string | null
+          page_clock_start?: string | null
+          page_due_ugx?: number | null
+          reason?: string
+          rent_request_id?: string
+          run_date?: string
+          run_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "am_clock_drift_daily_run_id_fkey"
+            columns: ["run_id"]
+            isOneToOne: false
+            referencedRelation: "am_clock_drift_runs"
+            referencedColumns: ["run_id"]
+          },
+        ]
+      }
+      am_clock_drift_runs: {
+        Row: {
+          arrears_diff_ugx: number
+          as_at: string
+          due_diff_ugx: number
+          event_emitted: boolean
+          plans_checked: number
+          plans_differ: number
+          plans_explained: number
+          run_at: string
+          run_date: string
+          run_id: number
+        }
+        Insert: {
+          arrears_diff_ugx?: number
+          as_at: string
+          due_diff_ugx?: number
+          event_emitted?: boolean
+          plans_checked: number
+          plans_differ: number
+          plans_explained: number
+          run_at?: string
+          run_date: string
+          run_id?: never
+        }
+        Update: {
+          arrears_diff_ugx?: number
+          as_at?: string
+          due_diff_ugx?: number
+          event_emitted?: boolean
+          plans_checked?: number
+          plans_differ?: number
+          plans_explained?: number
+          run_at?: string
+          run_date?: string
+          run_id?: never
+        }
+        Relationships: []
+      }
       analytics_export_jobs: {
         Row: {
           completed_at: string | null
@@ -12745,6 +12855,54 @@ export type Database = {
           period_month?: string
           posted_by_name?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      db_rollback_burst_evidence: {
+        Row: {
+          by_backend: Json | null
+          captured_at: string
+          delta_rollback: number
+          running_cron: Json | null
+          running_queries: Json | null
+        }
+        Insert: {
+          by_backend?: Json | null
+          captured_at: string
+          delta_rollback: number
+          running_cron?: Json | null
+          running_queries?: Json | null
+        }
+        Update: {
+          by_backend?: Json | null
+          captured_at?: string
+          delta_rollback?: number
+          running_cron?: Json | null
+          running_queries?: Json | null
+        }
+        Relationships: []
+      }
+      db_rollback_minute: {
+        Row: {
+          captured_at: string
+          delta_commit: number | null
+          delta_rollback: number | null
+          xact_commit: number
+          xact_rollback: number
+        }
+        Insert: {
+          captured_at: string
+          delta_commit?: number | null
+          delta_rollback?: number | null
+          xact_commit: number
+          xact_rollback: number
+        }
+        Update: {
+          captured_at?: string
+          delta_commit?: number | null
+          delta_rollback?: number | null
+          xact_commit?: number
+          xact_rollback?: number
         }
         Relationships: []
       }
@@ -35507,6 +35665,7 @@ export type Database = {
           id: string
           maturity_date: string | null
           message: string | null
+          notice_ends_on: string | null
           partner_email: string | null
           partner_id: string
           partner_name: string | null
@@ -35517,6 +35676,7 @@ export type Database = {
           processed_at: string | null
           processed_by: string | null
           processing_note: string | null
+          processing_started_at: string | null
           redemption_amount: number | null
           redemption_scope: string | null
           remaining_principal: number | null
@@ -35530,6 +35690,7 @@ export type Database = {
           id?: string
           maturity_date?: string | null
           message?: string | null
+          notice_ends_on?: string | null
           partner_email?: string | null
           partner_id: string
           partner_name?: string | null
@@ -35540,6 +35701,7 @@ export type Database = {
           processed_at?: string | null
           processed_by?: string | null
           processing_note?: string | null
+          processing_started_at?: string | null
           redemption_amount?: number | null
           redemption_scope?: string | null
           remaining_principal?: number | null
@@ -35553,6 +35715,7 @@ export type Database = {
           id?: string
           maturity_date?: string | null
           message?: string | null
+          notice_ends_on?: string | null
           partner_email?: string | null
           partner_id?: string
           partner_name?: string | null
@@ -35563,6 +35726,7 @@ export type Database = {
           processed_at?: string | null
           processed_by?: string | null
           processing_note?: string | null
+          processing_started_at?: string | null
           redemption_amount?: number | null
           redemption_scope?: string | null
           remaining_principal?: number | null
@@ -49463,6 +49627,48 @@ export type Database = {
         }
         Relationships: []
       }
+      tenant_ops_weekly_metrics_amclock: {
+        Row: {
+          captured_at: string
+          dormant_20_plus_count: number
+          landlord_not_paid_count: number
+          new_tenants_added: number
+          non_paying_tenants: number
+          paying_tenants: number
+          payment_rate_pct: number
+          self_payment_tenants: number
+          total_active_tenants: number
+          week_end: string
+          week_start: string
+        }
+        Insert: {
+          captured_at?: string
+          dormant_20_plus_count: number
+          landlord_not_paid_count: number
+          new_tenants_added: number
+          non_paying_tenants: number
+          paying_tenants: number
+          payment_rate_pct: number
+          self_payment_tenants: number
+          total_active_tenants: number
+          week_end: string
+          week_start: string
+        }
+        Update: {
+          captured_at?: string
+          dormant_20_plus_count?: number
+          landlord_not_paid_count?: number
+          new_tenants_added?: number
+          non_paying_tenants?: number
+          paying_tenants?: number
+          payment_rate_pct?: number
+          self_payment_tenants?: number
+          total_active_tenants?: number
+          week_end?: string
+          week_start?: string
+        }
+        Relationships: []
+      }
       tenant_phone_duplicate_alerts: {
         Row: {
           created_at: string
@@ -60238,6 +60444,23 @@ export type Database = {
         Args: { p_agent: string; p_week_start: string }
         Returns: number
       }
+      _am_plan_arrears_core: {
+        Args: { p_as_at: string; p_rent_request_ids: string[] }
+        Returns: {
+          arrears: number
+          bucket: string
+          cadence: string
+          clock_start: string
+          days_ahead: number
+          days_behind: number
+          expected_to_date: number
+          paid_to_date: number
+          periods_ahead: number
+          periods_behind: number
+          rent_request_id: string
+          unit: string
+        }[]
+      }
       _am_plan_clock_core: {
         Args: { p_rent_request_ids: string[] }
         Returns: {
@@ -60499,10 +60722,51 @@ export type Database = {
         Args: { p_month: number; p_start: string }
         Returns: number
       }
+      _tenant_ops_weekly_amclock_first_week: { Args: never; Returns: string }
+      _tenant_ops_weekly_amclock_plans: {
+        Args: { p_week_end: string; p_week_start: string }
+        Returns: {
+          bucket: string
+          clock_start: string
+          counted: boolean
+          dormant: boolean
+          landlord_not_paid: boolean
+          paying: boolean
+          rent_request_id: string
+          tenant_id: string
+        }[]
+      }
+      _tenant_ops_weekly_amclock_week: {
+        Args: { p_week_end: string; p_week_start: string }
+        Returns: {
+          counting: string
+          dormant_20_plus_count: number
+          landlord_not_paid_count: number
+          new_tenants_added: number
+          non_paying_tenants: number
+          paying_tenants: number
+          payment_rate_pct: number
+          self_payment_tenants: number
+          total_active_tenants: number
+        }[]
+      }
       _tenant_ops_weekly_metrics_raw: {
         Args: { p_week_end: string; p_week_start: string }
         Returns: {
           dormant_20_plus_count: number
+          new_tenants_added: number
+          non_paying_tenants: number
+          paying_tenants: number
+          payment_rate_pct: number
+          self_payment_tenants: number
+          total_active_tenants: number
+        }[]
+      }
+      _tenant_ops_weekly_metrics_raw_amclock: {
+        Args: { p_week_end: string; p_week_start: string }
+        Returns: {
+          dormant_20_plus_count: number
+          landlord_not_paid_count: number
           new_tenants_added: number
           non_paying_tenants: number
           paying_tenants: number
@@ -60603,6 +60867,10 @@ export type Database = {
         Returns: Json
       }
       admin_mark_account_purged: {
+        Args: { p_reason: string; p_user_id: string }
+        Returns: Json
+      }
+      admin_purge_deleted_account_keep_books: {
         Args: { p_reason: string; p_user_id: string }
         Returns: Json
       }
@@ -61547,6 +61815,7 @@ export type Database = {
           registration_fee_component: number
         }[]
       }
+      am_detect_clock_drift: { Args: { p_as_at?: string }; Returns: Json }
       am_plan_arrears: {
         Args: { p_as_at?: string; p_rent_request_ids: string[] }
         Returns: {
@@ -61609,6 +61878,29 @@ export type Database = {
           term_end: string
           term_start: string
           total_repayment: number
+        }[]
+      }
+      am_uncovered_plans: {
+        Args: { p_as_at?: string; p_limit?: number; p_offset?: number }
+        Returns: {
+          agent_id: string
+          agent_name: string
+          bucket: string
+          days_since_funding: number
+          funded_amount: number
+          funded_on: string
+          payout_allocated_amount: number
+          payout_kind: string
+          payout_paid_amount: number
+          pipeline_status: string
+          rent_request_id: string
+          repaid: number
+          still_owed: number
+          tenant_id: string
+          tenant_name: string
+          tenant_phone: string
+          total_repayment: number
+          total_rows: number
         }[]
       }
       apply_advance_topup: {
@@ -61831,6 +62123,40 @@ export type Database = {
         Args: { p_from?: string; p_to?: string }
         Returns: Json
       }
+      assistant_agent_find_tenants: {
+        Args: {
+          p_email?: string
+          p_from?: string
+          p_limit?: number
+          p_plan?: string
+          p_search?: string
+          p_to?: string
+        }
+        Returns: Json
+      }
+      assistant_agent_landlords: {
+        Args: { p_limit?: number; p_search?: string }
+        Returns: Json
+      }
+      assistant_agent_my_profile: { Args: never; Returns: Json }
+      assistant_agent_subagent_detail: {
+        Args: { p_from?: string; p_search: string; p_to?: string }
+        Returns: Json
+      }
+      assistant_agent_subagents: {
+        Args: {
+          p_email?: string
+          p_from?: string
+          p_limit?: number
+          p_search?: string
+          p_to?: string
+        }
+        Returns: Json
+      }
+      assistant_agent_tenant_detail: {
+        Args: { p_from?: string; p_search: string; p_to?: string }
+        Returns: Json
+      }
       assistant_agent_tenants: { Args: never; Returns: Json }
       assistant_agent_wallet: { Args: never; Returns: Json }
       assistant_agent_wallet_transactions: {
@@ -61842,8 +62168,14 @@ export type Database = {
         }
         Returns: Json
       }
+      assistant_clean_phone: { Args: { p_phone: string }; Returns: string }
+      assistant_clean_text: {
+        Args: { p_address?: boolean; p_max?: number; p_text: string }
+        Returns: string
+      }
       assistant_has_access: { Args: never; Returns: boolean }
       assistant_is_agent: { Args: never; Returns: boolean }
+      assistant_real_email: { Args: { p_email: string }; Returns: string }
       assistant_require_agent: { Args: never; Returns: undefined }
       attach_campaign_registration: {
         Args: { p_short_code: string; p_visitor_id?: string }
@@ -62596,6 +62928,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      capture_rollback_minute: { Args: never; Returns: Json }
       capture_trust_signal: {
         Args: {
           p_accuracy?: number
@@ -66403,6 +66736,18 @@ export type Database = {
           paid_out_total: number
         }[]
       }
+      get_am_clock_drift_status: {
+        Args: never
+        Returns: {
+          arrears_diff_ugx: number
+          due_diff_ugx: number
+          plans_checked: number
+          plans_differ: number
+          plans_explained: number
+          run_at: string
+          run_date: string
+        }[]
+      }
       get_approximate_user_count: { Args: never; Returns: number }
       get_authoritative_wallet: { Args: { p_user_id: string }; Returns: Json }
       get_awareness_calls_for_request: {
@@ -67025,6 +67370,10 @@ export type Database = {
           total: number
           verified: number
         }[]
+      }
+      get_cto_auth_metrics_forecast: {
+        Args: { p_history_days?: number }
+        Returns: Json
       }
       get_cto_daily_addendum: { Args: { p_date?: string }; Returns: Json }
       get_cto_daily_report: { Args: { p_date?: string }; Returns: Json }
@@ -68930,7 +69279,29 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      get_tenant_ops_weekly_history_amclock: {
+        Args: { p_limit?: number }
+        Returns: {
+          captured_at: string
+          counting: string
+          counting_changed: boolean
+          dormant_20_plus_count: number
+          landlord_not_paid_count: number
+          new_tenants_added: number
+          non_paying_tenants: number
+          paying_tenants: number
+          payment_rate_pct: number
+          self_payment_tenants: number
+          total_active_tenants: number
+          week_end: string
+          week_start: string
+        }[]
+      }
       get_tenant_ops_weekly_performance: {
+        Args: { p_anchor?: string }
+        Returns: Json
+      }
+      get_tenant_ops_weekly_performance_amclock: {
         Args: { p_anchor?: string }
         Returns: Json
       }
@@ -72535,6 +72906,14 @@ export type Database = {
         Args: { p_anchor?: string }
         Returns: number
       }
+      pin_tenant_ops_weekly_metrics_amclock: {
+        Args: { p_anchor?: string }
+        Returns: number
+      }
+      pin_tenant_ops_weekly_metrics_amclock_catchup: {
+        Args: { p_lookback_weeks?: number }
+        Returns: Json
+      }
       pin_tenant_ops_weekly_metrics_catchup: {
         Args: { p_lookback_weeks?: number }
         Returns: Json
@@ -74898,6 +75277,14 @@ export type Database = {
       sms_forwarder_shadow_coverage: {
         Args: { p_hours?: number }
         Returns: Json
+      }
+      sms_row_invalid_destination: {
+        Args: { p_error: string }
+        Returns: boolean
+      }
+      sms_row_is_recovered: {
+        Args: { p_at: string; p_phone: string; p_status: string }
+        Returns: boolean
       }
       sms_segment_count: { Args: { p_message: string }; Returns: number }
       snapshot_agent_daily_eligibility: {

@@ -159,8 +159,10 @@ export const AGENT_TOOLS: ToolDef[] = [
   {
     name: "get_tenants",
     description:
-      "Counts only of the agent's tenants: tenants_linked (all), active_rent_plans, tenants_on_active_plans, " +
-      "tenants_billed_today. For names, phones or Rent Plan details use find_tenants / get_tenant_detail.",
+      "Counts only of the agent's tenants whose accounts still exist: tenants_linked, active_rent_plans, tenants_on_active_plans, " +
+      "tenants_billed_today, and removed_accounts (linked tenants whose account was deleted, so they are not counted or listed). " +
+      "tenants_billed_today comes from the daily bill and can include tenants not counted in tenants_linked. " +
+      "For names, phones or Rent Plan details use find_tenants / get_tenant_detail.",
     parameters: { type: "object", properties: {}, additionalProperties: false },
     schema: z.object({}).strict(),
     rpc: "assistant_agent_tenants",

@@ -13,12 +13,22 @@
 export const SHORTFALL_USE_AGE_FALLBACK = true;
 export const SHORTFALL_USE_FOLLOWUPS = true;
 
+/**
+ * The Workspace counts every Rent Plan from the shared payout clock (the day after the landlord
+ * was paid, the same start Agent Monitoring uses). The v2 breakdown and v3 detail functions have
+ * *_amclock versions with identical arguments and return shape; set SHORTFALL_USE_AMCLOCK to false
+ * to read the saved-clock functions again. (The older v1 / v2-detail fallbacks have no clock version.)
+ */
+export const SHORTFALL_USE_AMCLOCK = true;
+const clockName = (name: string, hasClockVersion: boolean) =>
+  SHORTFALL_USE_AMCLOCK && hasClockVersion ? `${name}_amclock` : name;
+
 export const SHORTFALL_BREAKDOWN_RPC = SHORTFALL_USE_AGE_FALLBACK
-  ? 'tops_shortfall_breakdown_v2'
+  ? clockName('tops_shortfall_breakdown_v2', true)
   : 'tops_shortfall_breakdown';
 
 export const SHORTFALL_DETAIL_RPC = SHORTFALL_USE_FOLLOWUPS
-  ? 'tops_shortfall_detail_v3'
+  ? clockName('tops_shortfall_detail_v3', true)
   : SHORTFALL_USE_AGE_FALLBACK
     ? 'tops_shortfall_detail_v2'
     : 'tops_shortfall_detail';

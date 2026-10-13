@@ -1,7 +1,7 @@
 import { AlertTriangle, CheckCircle2, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
-  HOME_CHECK_FILTERED_TEXT, HOME_CHECK_MATCH_TEXT, HOME_CHECK_PLACE_FILTER_TEXT, HOME_CHECK_TOLERANCE_PCT, HOME_CHECK_TOLERANCE_UGX,
+  HOME_CHECK_CLOCK_TEXT, HOME_CHECK_FILTERED_TEXT, HOME_CHECK_MATCH_TEXT, HOME_CHECK_PLACE_FILTER_TEXT, HOME_CHECK_TOLERANCE_PCT, HOME_CHECK_TOLERANCE_UGX,
 } from '@/lib/paymentBehaviorHomeCheck';
 import type { HomeCheckState } from '@/hooks/tenantOpsWorkspace/usePaymentBehaviorHomeCheck';
 import type { HomeCheck } from '@/lib/paymentBehaviorHomeCheck';
@@ -21,6 +21,14 @@ export function HomeCheckStrip({
         <p className="flex items-start gap-2"><Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />{HOME_CHECK_FILTERED_TEXT}</p>
         {placeFilterOn && <p className="pl-[22px]">{HOME_CHECK_PLACE_FILTER_TEXT}</p>}
       </div>
+    );
+  }
+
+  if (state === 'clock') {
+    return (
+      <p className="flex items-start gap-2 px-1 text-xs leading-relaxed text-muted-foreground" data-testid="home-check" data-state="clock">
+        <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />{HOME_CHECK_CLOCK_TEXT}
+      </p>
     );
   }
 

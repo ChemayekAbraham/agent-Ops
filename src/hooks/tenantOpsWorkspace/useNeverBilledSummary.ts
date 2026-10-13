@@ -12,7 +12,7 @@ export interface NeverBilledSummary {
 }
 
 async function fetchNeverBilledSummary(asAt: string | null): Promise<NeverBilledSummary> {
-  const { data, error } = await anyDb.rpc('tops_never_billed_summary', { p_as_at: asAt });
+  const { data, error } = await anyDb.rpc('tops_never_billed_summary_amclock', { p_as_at: asAt });
   if (error) throw error;
   return data as NeverBilledSummary;
 }

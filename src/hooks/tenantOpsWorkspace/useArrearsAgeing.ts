@@ -32,7 +32,7 @@ export interface ArrearsAgeingParams {
 }
 
 async function fetchArrearsAgeing(params: ArrearsAgeingParams): Promise<ArrearsAgeingResult> {
-  const { data, error } = await anyDb.rpc('tops_arrears_ageing', {
+  const { data, error } = await anyDb.rpc('tops_arrears_ageing_amclock', {
     p_as_at: params.asAt ?? null,
     p_bucket: params.bucket ?? null,
     p_limit: params.limit ?? 50,

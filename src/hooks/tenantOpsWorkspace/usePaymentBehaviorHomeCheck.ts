@@ -4,7 +4,8 @@
  * drift between the two is shown on screen, in the console and in the PDF. Read-only; the Home hook is
  * used as it is.
  *
- * States: `filtered` (a filter is on, so Home cannot be compared), `checking` (either side still loading,
+ * States: `filtered` (a filter is on, so Home cannot be compared), `clock` (the tab counts from the
+ * shared payout clock, which Home does not, so Home is not read at all), `checking` (either side still loading,
  * or a difference was just seen and both are being re-read once to rule out a payment landing between the
  * two reads), `match`, `differ`, `unavailable` (Home could not be read).
  */
@@ -13,7 +14,7 @@ import { useTenantOpsHomeRange } from '@/hooks/useTenantOpsHomeRange';
 import { formatUGX } from '@/lib/rentCalculations';
 import { compareWithHome, homeDifferenceMessage, type HomeCheck, type TabSummaryForCheck } from '@/lib/paymentBehaviorHomeCheck';
 
-export type HomeCheckState = 'filtered' | 'checking' | 'match' | 'differ' | 'unavailable';
+export type HomeCheckState = 'filtered' | 'clock' | 'checking' | 'match' | 'differ' | 'unavailable';
 
 interface OverviewQueryLike {
   data?: { summary: TabSummaryForCheck } | undefined;
@@ -27,13 +28,14 @@ export function usePaymentBehaviorHomeCheck(
   endIso: string,
   filtered: boolean,
   overview: OverviewQueryLike,
+  clock = false,
 ) {
-  const home = useTenantOpsHomeRange(startIso, endIso, !filtered);
+  const home = useTenantOpsHomeRange(startIso, endIso, !filtered && !clock);
   const retried = useRef<string | null>(null);
   const warned = useRef<string | null>(null);
 
   const summary = overview.data?.summary;
-  const homeReady = !filtered && home.isSuccess && !home.isPlaceholderData;
+  const homeReady = !filtered && !clock && home.isSuccess && !home.isPlaceholderData;
   const tabReady = !!summary && !overview.isPlaceholderData;
   const check: HomeCheck | null = homeReady && tabReady && home.data ? compareWithHome(home.data, summary!) : null;
   const fetching = home.isFetching || overview.isFetching;
@@ -71,6 +73,7 @@ export function usePaymentBehaviorHomeCheck(
 
   let state: HomeCheckState;
   if (filtered) state = 'filtered';
+  else if (clock) state = 'clock';
   else if (home.isError && !home.data) state = 'unavailable';
   else if (!check) state = 'checking';
   else if (check.status === 'match') state = 'match';
@@ -78,10 +81,10 @@ export function usePaymentBehaviorHomeCheck(
 
   /** For the PDF: re-read Home now and compare it with the report's own summary. */
   const checkAgainst = useCallback(async (reportSummary: TabSummaryForCheck): Promise<HomeCheck | null> => {
-    if (filtered) return null;
+    if (filtered || clock) return null;
     const fresh = await refetchHome();
     return fresh.data ? compareWithHome(fresh.data, reportSummary) : null;
-  }, [filtered, refetchHome]);
+  }, [filtered, clock, refetchHome]);
 
   return {
     state,

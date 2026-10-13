@@ -29,7 +29,7 @@ export interface OvernightChanges {
 }
 
 async function fetchOvernightChanges(asAt?: string): Promise<OvernightChanges> {
-  const { data, error } = await anyDb.rpc('tops_overnight_changes', { p_as_at: asAt ?? null });
+  const { data, error } = await anyDb.rpc('tops_overnight_changes_amclock', { p_as_at: asAt ?? null });
   if (error) throw error;
   return data as OvernightChanges;
 }
