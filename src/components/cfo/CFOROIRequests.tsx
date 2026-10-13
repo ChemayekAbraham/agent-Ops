@@ -261,12 +261,30 @@ export function CFOROIRequests() {
             {f === 'coo_approved' ? 'Pending' : f.charAt(0).toUpperCase() + f.slice(1)}
           </Button>
         ))}
+        <span className="w-px self-stretch bg-border mx-1" aria-hidden />
+        {(['today', 'yesterday', 'last_week', 'this_month'] as const).map(r => (
+          <Button
+            key={r}
+            variant={rangeFilter === r ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => {
+              setRangeFilter(prev => (prev === r ? null : r));
+              setDateFilter(undefined);
+            }}
+          >
+            {r === 'today' && 'Today'}
+            {r === 'yesterday' && 'Yesterday'}
+            {r === 'last_week' && 'Last week'}
+            {r === 'this_month' && 'This month'}
+          </Button>
+        ))}
         <Popover>
           <PopoverTrigger asChild>
             <Button
               variant={dateFilter ? 'default' : 'outline'}
               size="sm"
               className={cn(!dateFilter && 'text-muted-foreground font-normal')}
+              onClick={() => setRangeFilter(null)}
             >
               <CalendarIcon className="h-3.5 w-3.5 mr-1" />
               {dateFilter ? format(dateFilter, 'dd MMM yyyy') : 'Filter by date'}
