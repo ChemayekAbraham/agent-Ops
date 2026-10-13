@@ -1,6 +1,6 @@
 # 219 — CTO report counted Yoola attempts that Africa's Talking rescued as SMS failures (2026-10-13)
 
-**Status: BUILT, migration `20261013100000` not applied.**
+**Status: APPLIED to production 2026-10-13 by hand (same SQL as the migration file). Verified: sms.failure_rate 8.6, failover_recovered_30d 4,951, invalid_destination 521.**
 
 ## Finding
 Every send path tries Yoola, then Africa's Talking, then Lana, so a Yoola out-of-credit (402) should never leave a user without an SMS. It does not. But `attemptYoolaPrimary` (`_shared/yoolaPrimary.ts`) and ~24 inline senders write one `sms_delivery_log` row **per attempt**, so each Yoola 402 leaves a `status='failed'` row even when AT delivered the same message seconds later. `get_cto_daily_report` counted those rows as failures.
