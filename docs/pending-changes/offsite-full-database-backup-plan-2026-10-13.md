@@ -1,3 +1,8 @@
+> **DECISION 2026-10-13 (Josh): Option A is NOT being pursued. Full recovery relies on Supabase's managed backups for the production project.
+> This plan is kept for reference only; Step 1 (read and record the managed-backup settings) is still required before the PDPO form says anything about it.
+> Consequences to state honestly: backups live in the same provider and account as production, Storage files are not in database backups,
+> and `weekly-database-backup` is a partial export (doc 224's `full-table-backup` is an additional, not-yet-run export).**
+
 # PLAN (nothing built, nothing run): off-platform full database backup — 2026-10-13
 
 Why: the weekly `weekly-database-backup` is a partial export (91 of 857 tables, ≤~1,000 rows each, no auth users, no files;
