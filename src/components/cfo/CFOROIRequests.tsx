@@ -241,6 +241,34 @@ export function CFOROIRequests() {
             {f === 'coo_approved' ? 'Pending' : f.charAt(0).toUpperCase() + f.slice(1)}
           </Button>
         ))}
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant={dateFilter ? 'default' : 'outline'}
+              size="sm"
+              className={cn(!dateFilter && 'text-muted-foreground font-normal')}
+            >
+              <CalendarIcon className="h-3.5 w-3.5 mr-1" />
+              {dateFilter ? format(dateFilter, 'dd MMM yyyy') : 'Filter by date'}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <Calendar
+              mode="single"
+              selected={dateFilter}
+              onSelect={setDateFilter}
+              initialFocus
+              className="p-3 pointer-events-auto"
+            />
+            {dateFilter && (
+              <div className="border-t p-2 flex justify-end">
+                <Button size="sm" variant="ghost" onClick={() => setDateFilter(undefined)}>
+                  <X className="h-3.5 w-3.5 mr-1" /> Clear date
+                </Button>
+              </div>
+            )}
+          </PopoverContent>
+        </Popover>
       </div>
 
       {isLoading ? (
