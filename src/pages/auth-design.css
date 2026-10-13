@@ -1,0 +1,323 @@
+/* /auth sign-in screen — ported from the Welile onboarding design (styles.css, screen 9).
+   Everything is scoped under .welile-auth so nothing leaks into the rest of the app. */
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+.welile-auth {
+  --welile-purple: #7a38e8;
+  --welile-purple-dark: #6422d6;
+  --welile-purple-soft: #f4effe;
+  --welile-purple-tint: #ede7fb;
+  --welile-purple-glow: rgba(122, 56, 232, 0.3);
+  --color-subtle: #f8fafc;
+  --color-text-main: #0f172a;
+  --color-text-muted: #64748b;
+  --color-text-light: #6b7280;
+  --color-border: #e2e8f0;
+  --color-border-subtle: #f1f5f9;
+  --font-body: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-heading: 'Outfit', 'Plus Jakarta Sans', sans-serif;
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  --safe-top: calc(env(safe-area-inset-top, 0px) + 12px);
+  --safe-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+
+  /* app theme tokens, so the remaining shadcn parts (sign-up, reset) match */
+  --primary: 263 79% 56%;
+  --primary-foreground: 0 0% 100%;
+  --ring: 263 79% 56%;
+  --background: 0 0% 100%;
+  --foreground: 222 47% 11%;
+  --muted-foreground: 215 16% 47%;
+  --border: 214 32% 91%;
+  --input: 214 32% 91%;
+  --card: 0 0% 100%;
+
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  background: #ffffff;
+  color: var(--color-text-main);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+.welile-auth *, .welile-auth *::before, .welile-auth *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+.welile-auth .app-container {
+  position: relative;
+  width: 100%;
+  max-width: 440px;
+  height: 100dvh;
+  margin: 0 auto;
+  background: #ffffff;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.04);
+}
+
+.welile-auth .screen-layout {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.welile-auth .screen-account-layout {
+  padding-top: var(--safe-top);
+  padding-bottom: var(--safe-bottom);
+  background: #ffffff;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.welile-auth .screen-account-layout::-webkit-scrollbar { display: none; }
+
+/* header */
+.welile-auth .screen-top-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 4px 18px 8px;
+}
+.welile-auth .btn-circle-nav {
+  width: 32px; height: 32px; border-radius: 50%; border: none; background: transparent;
+  color: var(--color-text-main); display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: all 0.2s ease; padding: 0;
+}
+.welile-auth .btn-circle-nav svg { width: 20px; height: 20px; }
+.welile-auth .btn-circle-nav:hover { background: rgba(0, 0, 0, 0.05); transform: translateX(-2px); }
+
+.welile-auth .auth-brand { display: flex; justify-content: center; padding: 8px 0 18px; }
+.welile-auth .auth-logo { height: 56px; width: auto; }
+
+.welile-auth .auth-step {
+  display: flex;
+  flex-direction: column;
+  padding: 0 18px;
+  animation: waStepIn 0.3s var(--ease-spring);
+}
+@keyframes waStepIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+.welile-auth .auth-title {
+  font-family: var(--font-heading); font-size: 23.68px; font-weight: 800;
+  color: var(--color-text-main); line-height: 1.2; text-align: center; margin: 0;
+}
+.welile-auth .auth-subtitle {
+  font-size: 13.76px; color: var(--color-text-muted); line-height: 1.4; text-align: center; margin: 4px 0 20px;
+}
+.welile-auth .auth-subtitle strong { color: var(--color-text-main); white-space: nowrap; }
+
+/* buttons */
+.welile-auth .btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
+  padding: 14px 22px; border-radius: 999px; font-family: var(--font-body); font-size: 15.68px;
+  font-weight: 700; border: none; cursor: pointer; transition: all 0.2s var(--ease-smooth); text-decoration: none;
+}
+.welile-auth .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+.welile-auth .btn-primary { background: var(--welile-purple); color: #ffffff; box-shadow: 0 6px 20px var(--welile-purple-glow); }
+.welile-auth .btn-primary:hover:not(:disabled) { background: var(--welile-purple-dark); transform: translateY(-1px); }
+.welile-auth .btn-primary:active:not(:disabled) { transform: scale(0.98); }
+.welile-auth .btn-google { background: #ffffff; color: var(--color-text-main); border: 1.5px solid var(--color-border); }
+.welile-auth .btn-google:hover:not(:disabled) { background: var(--color-subtle); border-color: #cbd5e1; }
+.welile-auth .btn-apple { background: #000; color: #fff; }
+.welile-auth .btn-apple:hover:not(:disabled) { background: #1f1f1f; }
+.welile-auth .google-icon { width: 20px; height: 20px; flex-shrink: 0; }
+.welile-auth .btn-link-muted {
+  background: transparent; border: none; font-family: var(--font-body); font-size: 14.4px; font-weight: 600;
+  color: var(--color-text-muted); cursor: pointer; padding: 6px; min-height: 44px; width: 100%;
+}
+.welile-auth .btn-link-muted:hover { color: var(--color-text-main); }
+.welile-auth .btn-spin { width: 16px; height: 16px; animation: waSpin 0.7s linear infinite; }
+@keyframes waSpin { to { transform: rotate(360deg); } }
+
+/* separator */
+.welile-auth .or-separator { display: flex; align-items: center; gap: 10px; padding: 16px 0 12px; }
+.welile-auth .sep-line { flex: 1; height: 1px; background: var(--color-border); }
+.welile-auth .sep-text { font-size: 11.84px; color: var(--color-text-light); }
+
+/* tabs */
+.welile-auth .auth-tabs {
+  display: flex; gap: 4px; padding: 4px; margin-bottom: 14px; background: var(--color-subtle);
+  border: 1px solid var(--color-border-subtle); border-radius: 12px;
+}
+.welile-auth .auth-tab {
+  flex: 1; padding: 8px 6px; border: none; border-radius: 9px; background: transparent;
+  font-family: var(--font-body); font-size: 12.8px; font-weight: 700; color: var(--color-text-muted); white-space: nowrap;
+  cursor: pointer; transition: all 0.2s ease;
+}
+.welile-auth .auth-tab:hover { color: var(--welile-purple); }
+.welile-auth .auth-tab.active { background: #ffffff; color: var(--welile-purple-dark); box-shadow: 0 1px 4px rgba(15, 23, 42, 0.08); }
+
+/* forms */
+.welile-auth .auth-form { display: flex; flex-direction: column; gap: 10px; }
+.welile-auth .form-row { display: flex; flex-direction: column; gap: 4px; position: relative; }
+.welile-auth .input-label { font-size: 12.8px; font-weight: 700; color: var(--color-text-main); }
+.welile-auth .text-input-field,
+.welile-auth .phone-number-field {
+  width: 100%; height: 44px; padding: 0 14px; font-family: var(--font-body); font-size: 14.72px;
+  color: var(--color-text-main); background: #ffffff; border: 1.5px solid var(--color-border);
+  border-radius: 12px; outline: none; transition: all 0.2s ease;
+}
+.welile-auth .phone-number-field { padding-left: 112px; font-weight: 600; letter-spacing: 0.4px; }
+.welile-auth .text-input-field::placeholder,
+.welile-auth .phone-number-field::placeholder { color: #94a3b8; font-weight: 400; }
+.welile-auth .text-input-field:focus,
+.welile-auth .phone-number-field:focus { border-color: var(--welile-purple); box-shadow: 0 0 0 3px rgba(122, 56, 232, 0.12); }
+.welile-auth .text-input-field[aria-invalid="true"],
+.welile-auth .phone-number-field[aria-invalid="true"] { border-color: #dc2626; }
+@media (max-width: 767px) {
+  /* stop iOS zooming into fields */
+  .welile-auth .text-input-field, .welile-auth .phone-number-field { font-size: 16px; }
+}
+
+.welile-auth .phone-input-combo { position: relative; display: flex; align-items: center; }
+.welile-auth .country-trigger {
+  position: absolute; left: 6px; display: flex; align-items: center; gap: 4px; padding: 5px 8px;
+  background: #f1f5f9; border-radius: 8px; cursor: pointer; z-index: 5; user-select: none;
+}
+.welile-auth .country-trigger:hover,
+.welile-auth .country-trigger:focus-within { background: #e2e8f0; }
+.welile-auth .country-trigger:focus-within { box-shadow: 0 0 0 3px rgba(122, 56, 232, 0.18); }
+.welile-auth .country-select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; font-size: 16px; }
+.welile-auth .country-dial-code { font-size: 13.12px; font-weight: 700; color: var(--color-text-main); }
+.welile-auth .chevron-svg { width: 12px; height: 12px; color: var(--color-text-muted); }
+
+.welile-auth .password-field { position: relative; }
+.welile-auth .password-field .password-input { padding-right: 46px; }
+.welile-auth .password-toggle {
+  position: absolute; top: 50%; right: 6px; transform: translateY(-50%); width: 34px; height: 34px;
+  display: flex; align-items: center; justify-content: center; border: none; border-radius: 8px;
+  background: transparent; color: var(--color-text-muted); cursor: pointer; padding: 0;
+}
+.welile-auth .password-toggle:hover,
+.welile-auth .password-toggle:focus-visible { color: var(--welile-purple); background: var(--welile-purple-soft); outline: none; }
+.welile-auth .password-toggle svg { width: 20px; height: 20px; }
+.welile-auth .password-input::-ms-reveal, .welile-auth .password-input::-ms-clear { display: none; }
+
+.welile-auth .form-error { font-size: 12.8px; font-weight: 600; color: #dc2626; line-height: 1.35; margin: 0; }
+.welile-auth .field-hint { font-size: 11.84px; color: var(--color-text-muted); line-height: 1.3; }
+
+.welile-auth .form-options-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12.8px; color: var(--color-text-muted); }
+.welile-auth .form-options-row label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.welile-auth .link-purple { background: transparent; border: none; font-weight: 700; color: var(--welile-purple); cursor: pointer; font-size: 12.8px; padding: 4px 0; }
+.welile-auth .link-purple:hover { text-decoration: underline; }
+
+/* OTP */
+.welile-auth .otp-boxes-group { display: flex; justify-content: center; margin-bottom: 6px; }
+.welile-auth .otp-cell {
+  width: 44px !important; height: 52px !important; border-radius: 12px !important;
+  border: 1.8px solid var(--color-border) !important; font-family: var(--font-heading);
+  font-size: 22.4px !important; font-weight: 700; color: var(--welile-purple-dark); background: #fff;
+}
+.welile-auth .otp-resend-bar {
+  display: flex; align-items: center; justify-content: space-between; font-size: 12.48px;
+  color: var(--color-text-muted); margin-bottom: 4px; padding: 0 4px;
+}
+.welile-auth .resend-trigger-btn {
+  background: transparent; border: none; font-family: var(--font-body); font-size: 12.48px; font-weight: 700;
+  color: var(--welile-purple); cursor: pointer; margin-left: auto; min-height: 24px; padding: 4px 6px;
+}
+.welile-auth .resend-trigger-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* switch + legal */
+.welile-auth .signin-redirect-row {
+  display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 13.44px;
+  color: var(--color-text-muted); margin-top: auto; padding: 20px 0 8px;
+}
+.welile-auth .signin-highlight-btn {
+  background: transparent; border: none; font-family: var(--font-body); font-size: 13.44px;
+  font-weight: 700; color: var(--welile-purple); cursor: pointer; min-height: 24px; padding: 4px 6px;
+}
+.welile-auth .signin-highlight-btn:hover { text-decoration: underline; }
+.welile-auth .legal-footer {
+  display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 11.52px;
+  color: var(--color-text-light); padding-top: 10px;
+}
+.welile-auth .legal-action {
+  text-decoration: none; background: transparent; border: none; font-family: var(--font-body);
+  font-size: 11.52px; color: var(--color-text-light); cursor: pointer; min-height: 24px; padding: 4px 6px;
+  display: inline-flex; align-items: center;
+}
+.welile-auth .legal-action:hover { color: var(--welile-purple); text-decoration: underline; }
+.welile-auth .legal-divider { color: #cbd5e1; }
+.welile-auth .auth-spacer { flex: 1 1 auto; }
+
+/* accessibility */
+.welile-auth :focus-visible { outline: 3px solid var(--welile-purple); outline-offset: 2px; }
+.welile-auth .text-input-field:focus-visible,
+.welile-auth .phone-number-field:focus-visible,
+.welile-auth .country-select:focus-visible { outline: none; }
+.welile-auth h1[tabindex="-1"]:focus { outline: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .welile-auth *, .welile-auth *::before, .welile-auth *::after {
+    animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important;
+  }
+}
+
+/* small phones */
+@media (max-width: 360px) {
+  .welile-auth .auth-title { font-size: 20.8px; }
+  .welile-auth .otp-cell { width: 38px !important; height: 46px !important; font-size: 19.2px !important; }
+  .welile-auth .auth-tab { font-size: 11.52px; padding: 8px 2px; white-space: nowrap; }
+}
+/* short screens */
+@media (max-height: 700px) {
+  .welile-auth .auth-brand { padding: 0 0 10px; }
+  .welile-auth .auth-logo { height: 44px; }
+  .welile-auth .auth-subtitle { margin-bottom: 14px; }
+}
+
+/* tablets: app shown as a centred card on a branded page */
+@media (min-width: 600px) and (max-width: 1023px) and (min-height: 640px) {
+  .welile-auth {
+    align-items: center;
+    padding: 32px 16px;
+    background:
+      radial-gradient(circle at 15% 20%, rgba(122, 56, 232, 0.14), transparent 45%),
+      radial-gradient(circle at 85% 80%, rgba(236, 72, 153, 0.10), transparent 45%),
+      #f7f4fe;
+  }
+  .welile-auth .app-container {
+    max-width: 430px;
+    height: min(900px, calc(100dvh - 64px));
+    border-radius: 32px;
+    box-shadow: 0 30px 80px rgba(76, 29, 149, 0.18), 0 0 0 1px rgba(122, 56, 232, 0.08);
+  }
+}
+
+/* desktop: artwork panel left, scrolling form column right */
+@media (min-width: 1024px) {
+  .welile-auth {
+    --safe-top: 28px;
+    --safe-bottom: 28px;
+    --desktop-col-pad: max(48px, calc((50% - 460px) / 2));
+  }
+  .welile-auth .app-container { max-width: none; height: 100dvh; box-shadow: none; transform: translateX(0); }
+  .welile-auth .screen-account-layout {
+    padding-left: calc(50% + var(--desktop-col-pad));
+    padding-right: var(--desktop-col-pad);
+    padding-top: 40px;
+    padding-bottom: var(--safe-bottom);
+  }
+  .welile-auth .screen-account-layout::before {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: 50%;
+    background:
+      linear-gradient(180deg, rgba(122, 56, 232, 0) 55%, rgba(76, 29, 149, 0.35) 100%),
+      var(--desktop-art) center / cover no-repeat;
+    border-radius: 0 32px 32px 0;
+    z-index: 0;
+  }
+  .welile-auth .screen-top-header { padding: 0 0 12px; }
+  .welile-auth .auth-step { padding-left: 0; padding-right: 0; }
+  .welile-auth .auth-title { font-size: 32px; }
+  .welile-auth .auth-brand { padding: 8px 0 24px; }
+  .welile-auth .auth-logo { height: 64px; }
+  .welile-auth .otp-cell { width: 52px !important; height: 60px !important; }
+  .welile-auth .btn { padding: 16px 24px; font-size: 16.32px; }
+}
