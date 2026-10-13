@@ -60819,6 +60819,29 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      _tops_tenant_classification_core: {
+        Args: never
+        Returns: {
+          as_of: string
+          category: string
+          completed_on: string
+          completed_plans: number
+          days_since_completion: number
+          district: string
+          latest_agent_name: string
+          latest_request_at: string
+          latest_status: string
+          needs_review: boolean
+          outstanding_ugx: number
+          review_reasons: string
+          running_plans: number
+          sub_label: string
+          tenant_id: string
+          tenant_name: string
+          tenant_phone: string
+          total_requests: number
+        }[]
+      }
       accept_proxy_agreement:
         | { Args: { p_code: string; p_nin?: string }; Returns: Json }
         | {
@@ -77430,6 +77453,37 @@ export type Database = {
         Args: { p_new_sla_due_at: string; p_work_item_id: string }
         Returns: undefined
       }
+      tops_tenant_classification_list: {
+        Args: {
+          p_category?: string
+          p_limit?: number
+          p_needs_review?: boolean
+          p_offset?: number
+          p_search?: string
+          p_sub?: string
+        }
+        Returns: {
+          category: string
+          completed_on: string
+          completed_plans: number
+          days_since_completion: number
+          district: string
+          latest_agent_name: string
+          latest_request_at: string
+          latest_status: string
+          needs_review: boolean
+          outstanding_ugx: number
+          review_reasons: string
+          running_plans: number
+          sub_label: string
+          tenant_id: string
+          tenant_name: string
+          tenant_phone: string
+          total_requests: number
+          total_rows: number
+        }[]
+      }
+      tops_tenant_classification_summary: { Args: never; Returns: Json }
       tops_unknown_cadence_plans: {
         Args: { p_limit?: number; p_offset?: number }
         Returns: Json
