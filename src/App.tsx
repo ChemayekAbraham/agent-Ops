@@ -112,6 +112,7 @@ import Index from "./pages/Index";
 // Landing is only needed on /welcome — lazy load it
 const Landing = lazy(() => import("./pages/Landing"));
 const WelcomeNew = lazy(() => import("./pages/WelcomeNew"));
+function WelcomeNewRedirect() { const l = useLocation(); return <Navigate to={`/welcome${l.search}${l.hash}`} replace />; }
 const TenantsOnboarding = lazy(() => import("./pages/TenantsOnboarding"));
 const Auth = lazy(() => import("./pages/Auth"));
 const OAuthFunnel = lazy(() => import("./pages/OAuthFunnel"));
@@ -493,8 +494,8 @@ function AppRoutes() {
       <Suspense fallback={<PageLoader />}>
         <Routes>
           <Route path="/" element={<Index />} />
-          <Route path="/welcome" element={<Landing />} />
-          <Route path="/welcome-new" element={<WelcomeNew />} />
+          <Route path="/welcome" element={<WelcomeNew />} />
+          <Route path="/welcome-new" element={<WelcomeNewRedirect />} />
            <Route path="/internship" element={<Internship />} />
            <Route path="/careers" element={<Careers />} />
            <Route path="/auth" element={<Auth />} />
