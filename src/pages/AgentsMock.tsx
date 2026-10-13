@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
+import { useProfile } from '@/hooks/useProfile';
 
 // Design-only sample figures: expected today is the agent's daily target, collected today is what has been banked so far.
 const EXPECTED_TODAY = 250000;
@@ -22,6 +23,9 @@ const SHORTCUTS: { label: string; Icon: LucideIcon; color: string; to?: string }
 ];
 
 export default function AgentsMock() {
+  const { profile } = useProfile();
+  const initials = (profile?.full_name || '').trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('') || 'SP';
+  const [brokenAvatar, setBrokenAvatar] = useState<string | null>(null);
   const [hidden, setHidden] = useState(false);
   const [activeNav, setActiveNav] = useState('Home');
   const [notice, setNotice] = useState<string | null>(null);
@@ -39,7 +43,7 @@ export default function AgentsMock() {
       <div className="mx-auto min-h-screen max-w-[400px] border-x border-border/40">
         <header className="flex h-[60px] items-center justify-between bg-card px-4">
           <p className="flex items-center gap-1 text-[11px] text-muted-foreground"><Hand className="h-3 w-3 text-warning" />Welcome Back, <strong className="text-foreground">SSENKAALI</strong></p>
-          <div className="flex items-center gap-2"><Button variant="ghost" size="icon-sm" aria-label="Notifications" className="text-primary" onClick={() => setNotice('Notifications')}><Bell className="!h-4 !w-4" /></Button><Button variant="outline" size="icon-sm" aria-label="Your profile" onClick={() => setNotice('Your profile')} className="relative rounded-full border-primary text-[11px] text-primary">SP<span className="absolute right-0 top-0 h-2 w-2 rounded-full border border-card bg-primary" /></Button></div>
+          <div className="flex items-center gap-2"><Button variant="ghost" size="icon-sm" aria-label="Notifications" className="text-primary" onClick={() => setNotice('Notifications')}><Bell className="!h-4 !w-4" /></Button><Button variant="outline" size="icon-sm" aria-label="Your profile" onClick={() => setNotice('Your profile')} className="relative rounded-full border-primary p-0 text-[11px] text-primary">{profile?.avatar_url && brokenAvatar !== profile.avatar_url ? <img src={profile.avatar_url} alt="" onError={() => setBrokenAvatar(profile.avatar_url)} className="h-full w-full rounded-full object-cover" /> : initials}<span className="absolute right-0 top-0 h-2 w-2 rounded-full border border-card bg-primary" /></Button></div>
         </header>
         <main className="space-y-4 px-4 pt-4">
           <section aria-label="Rent due and collected today" className="agents-mock-wallet relative overflow-hidden rounded-[18px] p-[18px]">

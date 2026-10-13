@@ -29,3 +29,4 @@
 - [ ] Flagged agent wallets: lift only after ID + fraud checks — waiting for which agents, and who approved
 - [ ] Agent dashboard: move direct table writes to secure server procedures — waiting for the user to choose where to start
 - [x] Remove the duplicate "Schedules" card from the agent menu People section; verified signed-in that it is gone and the other People cards remain.
+- [x] Agent dashboard preview: header profile circle now shows the signed-in user's photo, with initials fallback when no photo or the saved photo link is dead; verified signed-in.
