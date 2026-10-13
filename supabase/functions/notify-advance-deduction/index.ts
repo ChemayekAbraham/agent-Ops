@@ -1,5 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { attemptYoolaPrimary } from '../_shared/yoolaPrimary.ts';
+import { sendSMS } from '../_shared/sendSmsMultiProvider.ts';
 import { requireServiceRole } from '../_shared/requireServiceRole.ts';
 
 const corsHeaders = {
@@ -60,12 +60,17 @@ Deno.serve(async (req) => {
       : mode === 'daily_summary'
       ? `WELILE: ${fmtUGX(amount)} was deducted from your wallet in ${n} payment${n === 1 ? '' : 's'} in the last 24 hours toward your Agent Advance. ${left > 0 ? `Remaining balance ${fmtUGX(left)}.` : 'Your advance is now fully repaid.'} See your app for each deduction.`
       : `WELILE: ${fmtUGX(amount)} was auto-recovered from your wallet toward your advance today. Outstanding ${fmtUGX(outstanding)}.`;
-    await attemptYoolaPrimary(prof.phone, message, {
+    // Yoola first, then Africa's Talking, then Lana. This used to be a bare
+    // Yoola attempt with its result discarded, so while Yoola was out of credit
+    // (402 insufficient_fund, from 2026-10-09) every per-deduction alert was
+    // dropped with no fallback — 53 agents were charged with no text.
+    const delivered = await sendSMS(prof.phone, message, {
+      admin: supabase,
       source: source || 'advance_sweep_deduction',
-      recipientUserId: agent_id,
-      recipientName: prof.full_name ?? undefined,
+      recipient_user_id: agent_id,
+      recipient_name: prof.full_name ?? undefined,
     });
-    return new Response(JSON.stringify({ ok: true }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    return new Response(JSON.stringify({ ok: true, delivered }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return new Response(JSON.stringify({ error: message }), { status: 500, headers: corsHeaders });

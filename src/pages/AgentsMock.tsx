@@ -3,10 +3,11 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { Bell, Building2, Calculator, CheckCircle2, ChevronLeft, ChevronRight, Eye, EyeOff, FileText, Hand, Home, Menu, Store, Trophy, Users, Wallet, type LucideIcon } from 'lucide-react';
+import { ArrowRight, Bell, Building2, Calculator, CheckCircle2, ChevronLeft, ChevronRight, FileText, Hand, Home, Menu, Store, Trophy, Users, Wallet, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import RentCalculatorDialog from '@/components/agent/RentCalculatorDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
-import { formatUGX } from '@/lib/rentCalculations';
+import { COMMISSION_RATE, LANDLORD_PAYOUT_COMMISSION_RATE, formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
@@ -14,11 +15,28 @@ import { useAgentCapacityMap } from '@/hooks/useAgentCapacityMap';
 import { useAgentArrears } from '@/hooks/useAgentArrears';
 
 const SHORTCUTS: { label: string; Icon: LucideIcon; color: string; to?: string }[] = [
-  { label: 'Calculator', Icon: Calculator, color: 'text-primary', to: '/rent-calculator' },
+  { label: 'Calculator', Icon: Calculator, color: 'text-primary', },
   { label: 'Service Center', Icon: Store, color: 'text-info', to: '/agent/service-center' },
   { label: 'Leaderboard', Icon: Trophy, color: 'text-success', to: '/dashboard/agents/leaderboard' },
   { label: 'Landlord Float', Icon: Building2, color: 'text-warning' },
 ];
+
+/**
+ * The three moments an agent is paid for a Rent Plan they posted. The two
+ * percentages are read from the same constants the payout paths use, so this
+ * card can't drift from what the backend actually pays.
+ */
+const POST_EARNINGS: { label: string; when: string; tone: 'primary' | 'warning' | 'success' }[] = [
+  { label: 'UGX 5,000', when: 'when you post the request', tone: 'primary' },
+  { label: `${Math.round(LANDLORD_PAYOUT_COMMISSION_RATE * 100)}%`, when: 'when the landlord is paid', tone: 'warning' },
+  { label: `${Math.round(COMMISSION_RATE * 100)}%`, when: 'when the tenant starts to pay', tone: 'success' },
+];
+
+const EARN_TONES = {
+  primary: { chip: 'bg-primary/10 text-primary', text: 'text-primary' },
+  warning: { chip: 'bg-warning/10 text-warning', text: 'text-warning' },
+  success: { chip: 'bg-success/10 text-success', text: 'text-success' },
+} as const;
 
 export default function AgentsMock() {
   const { profile } = useProfile();
@@ -27,9 +45,7 @@ export default function AgentsMock() {
   const { data: capMap } = useAgentCapacityMap(ids);
   const cap = user?.id ? capMap?.get(user.id) : undefined;
   const EXPECTED_TODAY = Math.max(0, cap?.expected_daily ?? 0);
-  const COLLECTED_TODAY = Math.max(0, cap?.paid_today ?? 0);
   const TENANTS_TOTAL = cap?.tenants_due ?? 0;
-  const CAPACITY_PCT = EXPECTED_TODAY > 0 ? Math.min(100, Math.round((COLLECTED_TODAY / EXPECTED_TODAY) * 100)) : 0;
   // Today's collection list comes from the same server read the Collect dialog
   // uses (`agent_arrears_overview`), so the names and amounts here are the
   // tenant's own open days — never a placeholder.
@@ -60,9 +76,9 @@ export default function AgentsMock() {
     },
   });
   const avatarSrc = signedAvatar ?? (avatarPath ? null : profile?.avatar_url ?? null);
-  const [hidden, setHidden] = useState(false);
   const [activeNav, setActiveNav] = useState('Home');
   const [notice, setNotice] = useState<string | null>(null);
+  const [calcOpen, setCalcOpen] = useState(false);
   const navigate = useNavigate();
   const [month, setMonth] = useState(new Date(2026, 9, 1));
   const [day, setDay] = useState(13);
@@ -138,7 +154,6 @@ export default function AgentsMock() {
     missed: 'bg-destructive text-destructive-foreground',
   };
   const selected = byDay.get(day);
-  const amount = (value: number) => hidden ? '••••••' : formatUGX(value);
   return (
     <div className="agents-mock-exact min-h-screen pb-20 font-sans text-foreground tracking-normal">
       <Helmet><title>Agent dashboard preview · Welile</title><meta name="robots" content="noindex,nofollow" /></Helmet>
@@ -148,24 +163,41 @@ export default function AgentsMock() {
           <div className="flex items-center gap-2"><Button variant="ghost" size="icon-sm" aria-label="Notifications" className="text-primary" onClick={() => setNotice('Notifications')}><Bell className="!h-4 !w-4" /></Button><Button variant="outline" size="icon-sm" aria-label="Your profile" onClick={() => setNotice('Your profile')} className="relative rounded-full border-primary p-0 text-[11px] text-primary">{avatarSrc && brokenAvatar !== avatarSrc ? <img src={avatarSrc} alt="" onError={() => setBrokenAvatar(avatarSrc)} className="h-full w-full rounded-full object-cover" /> : initials}<span className="absolute right-0 top-0 h-2 w-2 rounded-full border border-card bg-primary" /></Button></div>
         </header>
         <main className="space-y-4 px-4 pt-4">
-          <section aria-label="Rent due and collected today" className="agents-mock-wallet relative overflow-hidden rounded-[18px] p-[18px]">
-            <div className="relative flex items-center justify-between"><span className="text-[10px] font-semibold uppercase tracking-wide opacity-80">Today's rent</span><Button variant="ghost" size="icon-sm" aria-label={hidden ? 'Show amounts' : 'Hide amounts'} onClick={() => setHidden(!hidden)} className="text-inherit hover:bg-primary/20">{hidden ? <EyeOff className="!h-4 !w-4" /> : <Eye className="!h-4 !w-4" />}</Button></div>
-            <div className="relative mt-2 flex items-center gap-4">
-              <div className="relative h-[84px] w-[84px] shrink-0 rounded-full" style={{ background: `conic-gradient(hsl(var(--header-foreground)) ${CAPACITY_PCT * 3.6}deg, hsl(var(--header-foreground) / .2) 0deg)` }}>
-                <div className="absolute inset-[7px] flex flex-col items-center justify-center rounded-full bg-[hsl(var(--mock-wallet-end))]"><span className="text-lg font-bold leading-5">{CAPACITY_PCT}%</span><span className="text-[8px] opacity-70">collected</span></div>
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[9px] uppercase opacity-70">Rent due to collect</p>
-                <p className="text-[22px] font-bold leading-6">{amount(EXPECTED_TODAY)}</p>
-                <p className="mt-1 text-[9px] opacity-70">expected today · {TENANTS_TOTAL} tenant{TENANTS_TOTAL === 1 ? '' : 's'}</p>
-              </div>
+          <section aria-label="Rent due today" className="agents-mock-wallet relative overflow-hidden rounded-[18px] p-[18px]">
+            <div className="relative mt-1">
+              <p className="text-[9px] uppercase opacity-70">Rent due to collect</p>
+              <p className="text-[22px] font-bold leading-6">{formatUGX(EXPECTED_TODAY)}</p>
+              <p className="mt-1 text-[9px] opacity-70">expected today · {TENANTS_TOTAL} tenant{TENANTS_TOTAL === 1 ? '' : 's'}</p>
             </div>
           </section>
+          <section aria-labelledby="post-cta-heading" className="relative overflow-hidden rounded-[18px] border border-primary/25 bg-card p-4">
+            <span aria-hidden className="absolute inset-x-0 top-0 h-[3px] bg-gradient-to-r from-primary via-warning to-success" />
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h2 id="post-cta-heading" className="text-xs font-semibold">Post a rent request</h2>
+                <p className="mt-1 text-[10px] leading-3 text-muted-foreground">For your tenant — and you earn at three points.</p>
+              </div>
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><FileText className="!h-4 !w-4" /></span>
+            </div>
+            <ol className="mt-3 space-y-1.5">
+              {POST_EARNINGS.map((e, i) => (
+                <li key={e.when} className="flex items-center gap-2.5 rounded-xl bg-background/70 px-2.5 py-2">
+                  <span className={cn('flex h-5 w-5 shrink-0 items-center justify-center rounded-md text-[9px] font-bold', EARN_TONES[e.tone].chip)}>{i + 1}</span>
+                  <span className={cn('shrink-0 text-[12px] font-bold leading-none', EARN_TONES[e.tone].text)}>{e.label}</span>
+                  <span className="ml-auto text-right text-[9px] leading-3 text-muted-foreground">{e.when}</span>
+                </li>
+              ))}
+            </ol>
+            <Button onClick={() => navigate('/dashboard/agent?action=post-rent-request')} className="mt-3 h-11 w-full gap-2 rounded-xl bg-primary text-[12px] font-bold text-primary-foreground">
+              Post rent request here
+              <ArrowRight className="!h-4 !w-4" />
+            </Button>
+          </section>
           <div className="grid grid-cols-4 gap-1" aria-label="Agent shortcuts">
-            {SHORTCUTS.map(({ label, Icon, color, to }) => <Button key={label} variant="ghost" onClick={() => (to ? navigate(to) : setNotice(label))} className="h-[64px] flex-col gap-1 px-0 text-[10px]"><span className={cn('flex h-8 w-8 items-center justify-center rounded-full bg-card', color)}><Icon className="!h-4 !w-4" /></span>{label}</Button>)}
+            {SHORTCUTS.map(({ label, Icon, color, to }) => <Button key={label} variant="ghost" onClick={() => (to ? navigate(to) : label === 'Calculator' ? setCalcOpen(true) : setNotice(label))} className="h-[64px] flex-col gap-1 px-0 text-[10px]"><span className={cn('flex h-8 w-8 items-center justify-center rounded-full bg-card', color)}><Icon className="!h-4 !w-4" /></span>{label}</Button>)}
           </div>
           <section aria-labelledby="due-heading" className="rounded-[16px] bg-card p-4">
-            <div className="flex items-center justify-between"><h2 id="due-heading" className="text-xs font-semibold">Collections due today</h2><span className="text-[11px] font-bold text-primary">{arrearsFailed ? 'Unavailable' : amount(DUE_TOTAL)}</span></div>
+            <div className="flex items-center justify-between"><h2 id="due-heading" className="text-xs font-semibold">Collections due today</h2><span className="text-[11px] font-bold text-primary">{arrearsFailed ? 'Unavailable' : formatUGX(DUE_TOTAL)}</span></div>
             {arrearsLoading && !arrears ? (
               <p className="mt-3 text-[10px] text-muted-foreground">Loading today's list…</p>
             ) : arrearsFailed ? (
@@ -187,7 +219,7 @@ export default function AgentsMock() {
                         <p className="truncate text-[11px] font-medium">{t.tenant_name || 'Tenant'}</p>
                         <p className="text-[9px] text-muted-foreground">{Number(t.days_behind) > 0 ? `${t.days_behind} day${Number(t.days_behind) === 1 ? '' : 's'} behind` : 'Due today'}</p>
                       </div>
-                      <span className="shrink-0 text-[11px] font-bold text-primary">{amount(Number(t.due_today_ugx) || 0)}</span>
+                      <span className="shrink-0 text-[11px] font-bold text-primary">{formatUGX(Number(t.due_today_ugx) || 0)}</span>
                     </li>
                   ))}
                 </ul>
@@ -201,14 +233,15 @@ export default function AgentsMock() {
             <h2 id="calendar-heading" className="mb-3 text-xs font-semibold">Collection Calendar</h2>
             <div className="rounded-[16px] bg-card p-4">
               <div className="mb-3 flex items-center justify-between"><Button variant="ghost" size="icon-sm" aria-label="Previous month" onClick={() => moveMonth(-1)}><ChevronLeft className="!h-3 !w-3" /></Button><h3 className="text-[11px] font-semibold">{monthLabel}</h3><Button variant="ghost" size="icon-sm" aria-label="Next month" onClick={() => moveMonth(1)}><ChevronRight className="!h-3 !w-3" /></Button></div>
-              <div className="grid grid-cols-7 text-center">{['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(label => <span key={label} className="pb-2 text-[9px] text-muted-foreground">{label}</span>)}{Array.from({ length: offset }, (_, i) => <span key={`blank-${i}`} />)}{Array.from({ length: days }, (_, i) => { const st = dayStatus(i + 1); const isToday = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}-${String(i + 1).padStart(2, '0')}` === todayKey; return <Button key={i} variant="ghost" aria-label={`${monthLabel} ${i + 1}${st ? ` · ${st}` : ''}`} aria-pressed={day === i + 1} onClick={() => setDay(i + 1)} className="h-9 rounded-none p-0 text-[10px]"><span className={cn('flex h-7 w-7 items-center justify-center rounded-lg font-semibold', st && DAY_STYLES[st], isToday && 'border border-primary', day === i + 1 && 'ring-2 ring-primary ring-offset-1 ring-offset-card')}>{i + 1}</span></Button>; })}</div>
+              <div className="grid grid-cols-7 text-center">{['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(label => <span key={label} className="pb-2 text-[9px] text-muted-foreground">{label}</span>)}{Array.from({ length: offset }, (_, i) => <span key={`blank-${i}`} />)}{Array.from({ length: days }, (_, i) => { const st = dayStatus(i + 1); const isToday = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}-${String(i + 1).padStart(2, '0')}` === todayKey; return <Button key={i} variant="ghost" aria-label={`${monthLabel} ${i + 1}${st ? ` · ${st}` : ''}`} aria-pressed={day === i + 1} onClick={() => setDay(i + 1)} className="h-9 rounded-none p-0 text-[10px]"><span className={cn('flex h-7 w-7 items-center justify-center rounded-[3px] font-semibold', st && DAY_STYLES[st], isToday && 'border border-primary', day === i + 1 && 'ring-2 ring-primary ring-offset-1 ring-offset-card')}>{i + 1}</span></Button>; })}</div>
               <div className="mt-4 flex justify-center gap-3 border-t border-border pt-3 text-[9px] text-muted-foreground">{[{ name: 'Paid', color: 'bg-success' }, { name: 'Partial', color: 'bg-success/35' }, { name: 'Missed', color: 'bg-destructive' }].map(item => <span key={item.name} className="flex items-center gap-1"><span className={cn('h-2 w-2 rounded-full', item.color)} />{item.name}</span>)}</div>
             </div>
-            <div className="mt-3 rounded-[16px] bg-card p-4"><h3 className="text-[10px] font-semibold">{new Date(month.getFullYear(), month.getMonth(), day).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</h3>{selected ? <p className="mt-1 text-[10px] text-muted-foreground">{selected.count} collection{selected.count === 1 ? '' : 's'} · <strong className="text-primary">{amount(selected.total)}</strong>{selected.partial ? ' (includes partial)' : ''}</p> : <p className="mt-1 text-[10px] italic text-muted-foreground">{dayStatus(day) === 'missed' ? 'Nothing was collected this day — missed.' : 'No collections recorded.'}</p>}</div>
+            <div className="mt-3 rounded-[16px] bg-card p-4"><h3 className="text-[10px] font-semibold">{new Date(month.getFullYear(), month.getMonth(), day).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</h3>{selected ? <p className="mt-1 text-[10px] text-muted-foreground">{selected.count} collection{selected.count === 1 ? '' : 's'} · <strong className="text-primary">{formatUGX(selected.total)}</strong>{selected.partial ? ' (includes partial)' : ''}</p> : <p className="mt-1 text-[10px] italic text-muted-foreground">{dayStatus(day) === 'missed' ? 'Nothing was collected this day — missed.' : 'No collections recorded.'}</p>}</div>
           </section>
         </main>
       </div>
       <nav aria-label="Agent navigation" className="fixed inset-x-0 bottom-0 z-40 bg-card pb-safe"><div className="mx-auto grid max-w-[400px] grid-cols-5 px-2 py-1">{[{ label: 'Home', Icon: Home }, { label: 'Tenants', Icon: Users }, { label: 'Collect', Icon: Wallet }, { label: 'Post Rent', Icon: FileText }, { label: 'More', Icon: Menu }].map(({ label, Icon }) => <Button key={label} variant="ghost" aria-current={activeNav === label ? 'page' : undefined} onClick={() => { setActiveNav(label); if (label === 'Home') window.scrollTo({ top: 0, behavior: 'smooth' }); else setNotice(label); }} className="h-[50px] flex-col gap-0.5 rounded-lg px-0 text-foreground"><span className={cn('flex h-7 w-7 items-center justify-center rounded-full text-primary', activeNav === label && 'bg-primary/10')}><Icon className="!h-4 !w-4" strokeWidth={1.8} /></span><span className="text-[8px] font-medium">{label}</span></Button>)}</div></nav>
+      <RentCalculatorDialog open={calcOpen} onOpenChange={setCalcOpen} />
       <Dialog open={notice !== null} onOpenChange={open => { if (!open) setNotice(null); }}><DialogContent><DialogHeader><DialogTitle>{notice}</DialogTitle><DialogDescription>Design preview only. No transactions will be made.</DialogDescription></DialogHeader></DialogContent></Dialog>
     </div>
   );

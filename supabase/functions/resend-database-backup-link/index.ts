@@ -5,7 +5,9 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 7;
+import { BACKUP_LINK_TTL_HOURS, BACKUP_LINK_TTL_SECONDS, DEFAULT_BACKUP_RECIPIENTS, splitCompanyRecipients } from "../_shared/backupDelivery.ts";
+
+const SIGNED_URL_TTL_SECONDS = BACKUP_LINK_TTL_SECONDS;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -35,9 +37,16 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json().catch(() => ({}));
-    const recipients: string[] = Array.isArray(body.recipients) && body.recipients.length
+    // Company mailboxes only: a backup link is a bearer credential for personal data.
+    const requested: unknown[] = Array.isArray(body.recipients) && body.recipients.length
       ? body.recipients
-      : ["joshwanda17@gmail.com", "weliletechnologies@gmail.com"];
+      : DEFAULT_BACKUP_RECIPIENTS;
+    const { allowed: recipients, rejected } = splitCompanyRecipients(requested);
+    if (!recipients.length) {
+      return new Response(JSON.stringify({ error: "recipients must be company (@welile.com) addresses", rejected }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const note: string | undefined = typeof body.note === "string" ? body.note : "Re-sent after a delivery issue was reported.";
     let storagePath: string | undefined = body.storagePath;
 
@@ -95,7 +104,7 @@ Deno.serve(async (req) => {
               fileName,
               sizeMb,
               generatedAt,
-              expiresInHours: 168,
+              expiresInHours: BACKUP_LINK_TTL_HOURS,
               note,
             },
           },
@@ -113,6 +122,7 @@ Deno.serve(async (req) => {
       fileName,
       signedUrl: signed.signedUrl,
       sent,
+      rejected,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

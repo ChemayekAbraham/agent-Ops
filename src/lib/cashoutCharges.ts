@@ -10,16 +10,32 @@ export const TELECOM_CHARGE_TIERS: { min: number; max: number; charge: number }[
   { min: 1_000_001, max: 5_000_000, charge: 2_000 },
 ];
 
-// Sending charge levied by the telecom house for a given amount.
-export function getTelecomSendingCharge(amount: number): number {
+// Wallet-to-bank charge tiers (MTN MoMo schedule; Airtel is identical above
+// UGX 125,000 and cheaper below it). MUST stay in sync with the copy in
+// `supabase/functions/approve-withdrawal/index.ts`. MTN does not allow bank
+// transfers under UGX 2,501; smaller amounts take the 1,500 floor.
+export const BANK_CHARGE_TIERS: { min: number; max: number; charge: number }[] = [
+  { min: 0, max: 125_000, charge: 1_500 },
+  { min: 125_001, max: 250_000, charge: 2_250 },
+  { min: 250_001, max: 500_000, charge: 4_100 },
+  { min: 500_001, max: 1_000_000, charge: 6_150 },
+  { min: 1_000_001, max: 2_000_000, charge: 9_250 },
+  { min: 2_000_001, max: 5_000_000, charge: 11_300 },
+];
+
+// Sending charge levied by the telecom house for a given amount. Bank payouts
+// (`payoutMethod === 'bank_transfer'`) use the wallet-to-bank schedule; every
+// other method keeps the mobile-money person-to-person schedule.
+export function getTelecomSendingCharge(amount: number, payoutMethod?: string | null): number {
   const amt = Number(amount || 0);
   if (amt <= 0) return 0;
-  for (const t of TELECOM_CHARGE_TIERS) {
+  const tiers = payoutMethod === 'bank_transfer' ? BANK_CHARGE_TIERS : TELECOM_CHARGE_TIERS;
+  for (const t of tiers) {
     if (amt >= t.min && amt <= t.max) return t.charge;
   }
   // Above the top published tier — apply the highest published charge.
-  if (amt > TELECOM_CHARGE_TIERS[TELECOM_CHARGE_TIERS.length - 1].max) {
-    return TELECOM_CHARGE_TIERS[TELECOM_CHARGE_TIERS.length - 1].charge;
+  if (amt > tiers[tiers.length - 1].max) {
+    return tiers[tiers.length - 1].charge;
   }
   return 0;
 }

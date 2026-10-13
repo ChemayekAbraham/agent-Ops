@@ -60722,6 +60722,19 @@ export type Database = {
         Args: { p_month: number; p_start: string }
         Returns: number
       }
+      _tenant_ops_dormant_days_amclock: {
+        Args: never
+        Returns: {
+          agent_id: string
+          bucket: string
+          clock_start: string
+          counted: boolean
+          days_since: number
+          last_pay_day: string
+          rent_request_id: string
+          tenant_id: string
+        }[]
+      }
       _tenant_ops_weekly_amclock_first_week: { Args: never; Returns: string }
       _tenant_ops_weekly_amclock_plans: {
         Args: { p_week_end: string; p_week_start: string }
@@ -69181,6 +69194,10 @@ export type Database = {
         Returns: Json
       }
       get_tenant_ops_agent_360: { Args: { p_agent_id: string }; Returns: Json }
+      get_tenant_ops_dormant_amclock: {
+        Args: { p_min_days?: number }
+        Returns: Json
+      }
       get_tenant_ops_geo_metrics: {
         Args: {
           p_continent?: string
@@ -69243,6 +69260,10 @@ export type Database = {
       }
       get_tenant_ops_no_payment_report: {
         Args: { p_agent_id?: string }
+        Returns: Json
+      }
+      get_tenant_ops_no_payment_report_v2: {
+        Args: { p_agent_id?: string; p_min_days?: number }
         Returns: Json
       }
       get_tenant_ops_pipeline_trend: {
