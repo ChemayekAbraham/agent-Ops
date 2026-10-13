@@ -38,16 +38,22 @@ SELECT current_database() AS db, current_user AS role, session_user AS login_rol
        current_setting('default_transaction_read_only') AS default_read_only, version();
 
 -- E0b. Proof that writes are rejected in this session.
---   Expected output: ERROR  25006  cannot execute CREATE TABLE in a read-only transaction.
---   The block ALWAYS ends in an exception, so even if read-only were somehow
---   not in force, everything it did is rolled back: it can never leave an
---   object behind. If the output is instead 'READ_ONLY_NOT_ENFORCED', stop and
---   report it: the session is not read-only and nothing further should run.
+--   Expected: NO error and no output (a NOTICE 'READ_ONLY_CONFIRMED' where the
+--   client shows notices); E0 above must show read_only = on.
+--   If instead the error 'READ_ONLY_NOT_ENFORCED' appears, STOP: the session is
+--   not read-only. Even then nothing is kept: that error aborts the block and
+--   rolls back the probe table. The block never errors when read-only is in
+--   force, so clients that stop at the first error (the Supabase SQL editor)
+--   still run every later section.
 --   PROVES: this session cannot write.  CANNOT PROVE: anything about objects.
 DO $probe$
 BEGIN
-  CREATE TABLE public.food_m1_readonly_probe_do_not_create (x int);
-  RAISE EXCEPTION 'READ_ONLY_NOT_ENFORCED (rolled back; nothing was kept)';
+  BEGIN
+    CREATE TABLE public.food_m1_readonly_probe_do_not_create (x int);
+    RAISE EXCEPTION 'READ_ONLY_NOT_ENFORCED (rolled back; nothing was kept)';
+  EXCEPTION WHEN read_only_sql_transaction THEN
+    RAISE NOTICE 'READ_ONLY_CONFIRMED';
+  END;
 END
 $probe$;
 

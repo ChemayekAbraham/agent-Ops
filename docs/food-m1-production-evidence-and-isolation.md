@@ -190,3 +190,51 @@ All of these are defined at the local `origin/lovable` tip `2b3a0f0144` (reposit
   - **released:** the original payee can be paid again; the payee is unchanged and is never displaced; or
   - **reassigned:** the original payee still cannot be paid; the resolver becomes the payee. This is refused if the resolver has no wallet or is frozen, closed or not staff.
 - Both outcomes are audited, with the reason (and, when reassigned, both payees). Neither makes a payment: the employee pays again themselves.
+
+## 9. Operator instructions: collecting the production evidence (read-only)
+
+**Who.** An authorised production operator designated by the owner or Josh, with access to the Welile Lovable Cloud project. The repository names no operator. Past production verifications (handover docs 06, 39, 53) were run in the **Lovable Cloud → Supabase SQL editor** or through the Lovable agent.
+
+**What to run.** `supabase/tests/food_m1/production_readonly_evidence.sql` exactly as committed on `release/food-m1-v2` (commit `34d622426b` or later). Do not edit it.
+- It reads the catalogue, plus a few aggregate counts and the treasury-control flags.
+- It reads **no personal data** and changes nothing.
+- E0b proves the session cannot write. It is silent when read-only holds, and raises `READ_ONLY_NOT_ENFORCED` (with nothing kept) if it does not. **If that error appears, stop.**
+
+**Option A, preferred (captures everything in one file).** From a machine with `psql` and the production connection string; credentials are entered by the operator, never shared:
+
+```
+psql "<production connection string>" -X -v ON_ERROR_STOP=1 \
+     -f supabase/tests/food_m1/production_readonly_evidence.sql \
+     -o food-m1-evidence-output.txt  2> food-m1-evidence-messages.txt
+```
+
+**Option B: the Supabase SQL editor.**
+- The editor shows only the **last** result of each run, and may start a new session per run.
+- So run the pack **one query at a time**, each time with these two lines first:
+
+```
+SET default_transaction_read_only = on;
+SET statement_timeout = '60s';
+```
+
+- Run E0 first and confirm `read_only = on` before anything else.
+- Export or copy every result, labelled with its section (E0, E0b, E1, E1c, E2, E2b, E3, E4, E4b, E4c, E5, E5b, E5c, E6, E6b, E6c).
+
+**E7 (not SQL).** Send the Lovable agent the read-only export request in section 1. It covers the deployed `wallet-transfer`, `_shared/treasuryGuard.ts`, `run-wallet-transfer-schedules` and `process-agent-advance-deductions`.
+
+**Return.** Put the output files (and the E7 export) in `C:\Users\USER\food-m1-audits\production-evidence\`, outside the repository, and say they are there. Do not paste credentials.
+
+**What each section is expected to show** (repository expectation; any difference is a finding to review, not an error):
+
+| Section | Expected if production matches the repository and Food is not yet released |
+|---|---|
+| E0 | `read_only = on`; the production database; the role used |
+| E0b | No error |
+| E1 | `check_transfer_recipient_eligibility(uuid, text, uuid)` returning `(eligible, reason, display_name, has_wallet)`, SECURITY DEFINER, EXECUTE for `authenticated`/`service_role`; body checks self, account, closed, frozen and sign-in. `profiles.is_frozen` and `deleted_at` present |
+| E1c | `wallets` is a view whose `id` is `wallets_physical.id`; `wallets_physical` UNIQUE(`user_id`); `general_ledger.wallet_id` present |
+| E2 | **No** Food version recorded (`…120001`, `…130001`, `…160000`, `…170000`, `20261012120000`, `…120001`, `…125000`, `…126000`, `…127000`, `…128000`, `…128500`, `…129000`); `20261009120000`/`…130000`/`20261013120000` present (they are lovable's); no `food_%` table or function; no `post_portfolio_roi_ledger` |
+| E2b | 0 existing `food_guard_payment_reversal` triggers; 0 ledger rows with a `FOODPAY-` reference |
+| E3 | Bodies match the repository: available balance = projection withdrawable − funder hold − (advance-locked while paused); sweepable shields `wallet_transfer` credits; the arrears intercept fires on commission categories only; `treasury_controls` has `value` |
+| E4 | The canonical `create_ledger_transaction(jsonb, text, boolean)` resolves `wallet_id` from `wallets`, checks the withdrawable balance and has an idempotency replay; record every overload and trigger (any production-only gate is a finding) |
+| E5 | `reverse_wallet_transfer` writes `<ref>-REV` with key `reversal:<ref>` (as in drizzle 0451); E5b counts consistent with that; E5c lists any other function writing `-REV` |
+| E6 / E6b / E6c | Today `authenticated` likely has EXECUTE on `create_ledger_transaction` (the exposure `129000` removes); E6 invoker list empty; E6b `keeps_execute_without_public = true` for every caller owner |
