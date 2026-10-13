@@ -73,7 +73,7 @@ SELECT 'P-4b seed profile holds an enabled employee role',
                    AND role::text = 'employee' AND coalesce(enabled, true)))::text,
        'true expected (handover eligibility rules apply to successors)'
 UNION ALL
--- meal photos (20261013120000): the bucket and policy names must be free, and
+-- meal photos (20261013120001): the bucket and policy names must be free, and
 -- the storage tables must have the columns the migration uses
 SELECT 'P-6a storage.buckets / storage.objects exist',
        (to_regclass('storage.buckets') IS NOT NULL AND to_regclass('storage.objects') IS NOT NULL)::text,

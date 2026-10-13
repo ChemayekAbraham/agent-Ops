@@ -158,9 +158,9 @@ SELECT food_test.ok((SELECT count(*) FROM public.food_orders) = 0, 'ORD-20 emplo
 SELECT food_test.ok((SELECT count(*) FROM public.food_order_items) = 0, 'ORD-21 employee B cannot see A order lines');
 SELECT food_test.raises(format($$SELECT public.food_place_order(jsonb_build_array(jsonb_build_object('menu_item_id', %L,'quantity',1)),'k-a-1','cash')$$, pg_temp.v('mi')), '22023', 'ORD-22 another employee key is refused, not replayed');
 SELECT food_test.raises(format($$SELECT public.food_cancel_my_order(%L)$$, (SELECT (r->>'order_id')::uuid FROM t_res)), '42501', 'ORD-23 cannot cancel another employee order');
--- payment stays shut
+-- no payment before the order is handed over and its receipt confirmed (20261013128000)
 SELECT food_test.act_as(food_test.id('emp_a'));
-SELECT food_test.raises(format($$SELECT public.food_pay_order(%L)$$, (SELECT (r->>'order_id')::uuid FROM t_res)), '0A000', 'PAY-01 food_pay_order refuses');
+SELECT food_test.raises(format($$SELECT public.food_pay_order(%L)$$, (SELECT (r->>'order_id')::uuid FROM t_res)), '22023', 'PAY-01 food_pay_order refuses before receipt confirmation');
 SELECT food_test.ok((SELECT payment_status FROM public.food_orders WHERE id=(SELECT (r->>'order_id')::uuid FROM t_res))='pending_payment', 'PAY-02 still unpaid after a pay attempt');
 -- employee withdraws: stock released exactly once
 SELECT public.food_cancel_my_order((SELECT (r->>'order_id')::uuid FROM t_res), 'test');
@@ -218,8 +218,11 @@ SELECT food_test.raises($$DELETE FROM public.food_audit$$, 'P0001', 'INT-01 audi
 SELECT food_test.ok(NOT EXISTS (
   SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
    WHERE n.nspname='public' AND (p.proname LIKE 'food\_%' OR p.proname LIKE '%food\_coordinator%')
+       -- the payment path (20261013128000) is the ONLY Food code allowed to
+       -- reach the ledger; its own contract is tested in 48_payment.sql
+       AND p.proname NOT IN ('food_pay_order', 'food_verify_payment')
      -- statements that would touch money; comments and messages mention
      -- "wallet" deliberately and are not matched
      AND p.prosrc ~* '(from|join|into|update)\s+(public\.)?(general_ledger|wallets?|wallet_\w+|ledger_\w+|agent_\w+)\b|create_ledger_transaction\s*\('),
-  'INT-02 no food function reads or writes the ledger or wallets');
+  'INT-02 no food function except the payment path reads or writes the ledger or wallets');
 ROLLBACK;

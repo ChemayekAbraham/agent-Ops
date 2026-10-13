@@ -234,3 +234,69 @@ All evidence below is **local**: disposable PostgreSQL 17.10 and 18.6 on 127.0.0
 - This brief: "the order becomes eligible for fulfilment only after confirmed payment".
 
 They describe opposite orders: pay after the meal is received, versus pay before the meal is prepared. "Receipt" is used for both a payment receipt and a meal receipt. Food fulfilment is currently **not** gated on payment (D2). Payment is not implemented, so no order can be paid, and Food stays unavailable to employees.
+
+
+## Blocker-closure pass (2026-10-13, after af745b3ff2)
+
+The evidence for this pass is **local only**: disposable PostgreSQL 17.10 (127.0.0.1:55433) and 18.6 (:55432), plus jsdom. No production object, permission, migration, ledger row or wallet was touched. `nykdsrixasxokqtfvvgw` was **not** used. Nothing was merged or pushed to `lovable`.
+
+Owner decisions applied:
+1. The employee confirms delivery first, and payment becomes available only afterwards. The order is marked paid only after independent verification.
+2. Another active Food Coordinator handles a complaint after an authorised handover.
+3. Prepare the merge but do not perform it.
+4. Production stays unchanged.
+
+The earlier "Decision required for B" is resolved by decision 1.
+
+| ID | Item | Change | Evidence (local, PG17 and PG18) | Status |
+|---|---|---|---|---|
+| **A / PAY-W1** | Wallet payment after receipt confirmation | See "A — payment detail" below | `48_payment.sql` PAYS-01…36; RACE-PAY-0…3; `foodPaymentClient.test.tsx` 5/5; fixture tests 3/3; the earlier PAY-01, REL-D2c, ISO-08 and DRY-08/09/11 now expect the new refusals | **FIXED AND VERIFIED (local)**. Reversal *detection* only (see "Reversal" below). Not applied to production |
+| **B** Exception handover | No new migration needed: `20261013127000` plus the existing role model already enforce it. Tests added | SELF-08 employee, SELF-09 anon, SELF-10 backup (inactive) coordinator, SELF-11 new active coordinator after handover, SELF-12 duplicate, SELF-13 blank reason, SELF-14 revoked coordinator; RACE-EXC (concurrent resolution, exactly one wins); PAYS: an open exception blocks payment (unresolved payment exception) | **FIXED AND VERIFIED (local)** |
+| **C** Advance recovery | None | Food payments are now `wallet_transfer` cash_in to the coordinator. The advance shield (`20260719161607` plus `process-agent-advance-deductions`) treats those as peer receipts. Whether a coordinator who holds an Agent Advance would have the receipt swept depends on the **production** shield definition, which has not been read | **BLOCKED — ACTION REQUIRED**: a read-only export of the production shield definition |
+| **D** Test project | Local disposable clusters only | Runners refuse non-local hosts and the production ref | **BLOCKED — ACTION REQUIRED**: owner's written confirmation that `nykdsrixasxokqtfvvgw` is isolated |
+| **E / A2** 21 flagged ledger functions | None (shared, non-Food accounting functions; repo is known to drift from production) | Repo-only review, see "E" below: 9 genuine, 9 limited, 3 not exposed, 1 likely broken (22 signatures: the two `credit_recruiter_override` overloads count separately) | **BLOCKED — ACTION REQUIRED**: production `proacl` read, then an approved permission change |
+| **F** Merge preparation | Three Food migrations **renumbered** (see DEP-2). No merge performed | `git merge-tree` against `origin/lovable` `1d01bdee53` (321 commits ahead of the base, 9 ours) | **BLOCKED — ACTION REQUIRED**: permission to merge (see "F") |
+| **DEP-2** Migration version collisions (new, found here) | `20261009120000_food_service_schema_and_coordinator` → `…120001`; `20261009130000_food_service_operations_rpcs` → `…130001`; `20261013120000_food_meal_images` → `…120001`. The previous names collided with `lovable`'s Apophia, Emma and CTO-report migrations, which are already applied. Supabase records migrations by version, so the Food file of each pair would have been skipped or rejected. Executable references were updated; `migration_matrix.sh:60-61` keeps the old names because it reads an old commit | Full re-run after the rename: run 244/244, race 14/14, matrix 31/31, isolation 10/10, dry run 15/15 (all PG17 and PG18); R2–R4 16/16 | **FIXED AND VERIFIED (local)** |
+| **G** Regression | tsc found two `Record<FoodPaymentStatus,…>` maps missing `payment_reversed`: added the label (`foodService.ts`) and a tone that reuses the `payment_failed` style (`FoodStatusBadges.tsx`; restyling is Gemini's) | tsc 0 errors; guard:all passed; eslint clean on changed files; Food vitest 247 passed / 16 skipped; ledger boundary 31/31; MCP files untouched | **FIXED AND VERIFIED (local)** |
+
+### A — payment detail (`20261013128000_food_payment_after_receipt.sql`)
+- `food_confirm_receipt(order)`: only the ordering employee, only once the order is `delivered` or `collected`. Idempotent (`already_confirmed`). It snapshots the active coordinator as `payee_id` and refuses if there is none. Event and audit entry.
+- `food_pay_order(order)`: only the ordering employee, and only after receipt is confirmed. Refused while any exception is open, when payee = payer, or when the payee is not staff. Both wallets must already exist (none are created). The server alone decides the amount and recipient: the client sends the order id only. A single ledger transaction with a fixed idempotency key (`food_order_payment:<id>`) posts two `wallet_transfer` legs, payer cash_out and payee cash_in, both withdrawable, both with `source_table='food_orders'`.
+- **Independent verification before "paid":** after posting, the general-ledger legs are re-read and checked (count, direction, amount, category, scope, source and reference). On any mismatch the whole transaction aborts (XX000) and nothing is marked paid.
+- **Insufficient funds:** `{status:'failed'}`, nothing posted, the order stays `pending_payment`, the attempt is recorded and audited.
+- **Retries and races:** a retry returns the same payment (`replayed:true`). Two concurrent sessions produce exactly one posting (RACE-PAY-3: two legs, one transaction).
+- Screenshots, client flags and statuses can't count as paid: no client-writable path sets `payment_status`, and the hooks send only the order id. The fixture can never take a payment: every call fails with the `FOOD_CHECKOUT_DISABLED` marker.
+- **Reversal:** `food_verify_payment(order)` (employee or active coordinator) re-checks a paid order. If the legs no longer match, or a ledger row with reference `FOODPAY-<ref>-REV…` exists, it sets `payment_reversed`. That status is never treated as paid. **`reverse_wallet_transfer` and `wallet_transfer_reversal_status` exist only in production and were not read or replaced.** The `-REV` suffix is the UI convention (`TransactionDetailDrawer`), so it must be confirmed against the production function before release.
+- **Ledger in tests:** `05_ledger_standin.sql` is a local stand-in with the repo semantics of `create_ledger_transaction` (advisory lock, idempotent key, balance check on withdrawable cash_out). The production definition still needs to be confirmed.
+
+### E — classification of the 21 functions (repo evidence only; production grants unverified)
+- **Genuine, signed-in (and per repo also anon) callers can move money or fabricate accounting:**
+  - `reverse_phantom_auto_debit_obligation` and `reverse_all_phantom_auto_debits`: credit the debtor's withdrawable wallet and void any open obligation;
+  - `credit_agent_event_bonus`: bonuses that can be repeated without limit;
+  - `credit_recruiter_override` (5-argument): repeatable;
+  - `welile_home_record_collection`: debits another user's wallet;
+  - `recover_merchandise_from_wallets`: hourly idempotency key;
+  - `post_rent_fee_collection` and `post_instalment_waterfall`: the caller chooses amounts and sources;
+  - `pay_proxy_commission_queue_item`: skips Partner Ops approval;
+  - `welile_home_run_landlord_payouts`: future date, no row lock.
+- **Limited:** `ensure_merchant_payout_float_debit`, `merge_paidout_topups`, `pay_partner_self_cycles`, `post_treasury_fee_cash_transfer` (harmful only when chained), `recognise_funding_treasury` (no check that the plan was funded), `recognise_partner_receivable`, `recognise_landlord_receivable`, `settle_tenant_rent_from_deposit`, `try_credit_qualified_referrals`.
+- **Not exposed:** `apply_roi_advance_recovery`, `credit_promissory_agent_commission`, `record_merchant_float_delivery`.
+- **Likely broken:** the 3-argument `credit_recruiter_override`.
+- **Not fixed here, deliberately.** These are non-Food shared accounting functions. The repo is known to drift from production, and the brief forbids production permission changes. A migration file added to this branch would reach production on merge, which counts as a permission change.
+- **Proposed next step (needs approval):**
+  1. Read `SELECT p.oid::regprocedure, p.proacl FROM pg_proc p WHERE p.proname IN (…)` read-only in production.
+  2. For the confirmed functions, a migration that `REVOKE`s EXECUTE from `PUBLIC, anon, authenticated` and grants it to `service_role`.
+  3. Where a frontend caller exists, add a role-checked wrapper: `ServiceCentrePayoutApproval.tsx` (bonus), `AgentWelileHomesSheet.tsx` (collection) and `WelileHomesAdminPanel.tsx` (payouts).
+- **Separate regression observed (repo only):** the latest `merge_paidout_topups` (`20261002130000`) no longer sets `welile.proxy_commission_merge_in_progress`. The previous version (`20260924120000:227`) set it to prevent a double 1% proxy top-up commission. Production must be checked. **Nothing was posted or corrected.**
+
+### F — merge preparation (read-only `git merge-tree`; no refs or worktree changed)
+- `src/App.tsx`, `package.json` and `src/components/coo/COOPartnersPage.tsx` auto-merge. The merged `COOPartnersPage.tsx` keeps all three calls through `post_portfolio_roi_ledger`, and merged `src` has no direct `create_ledger_transaction` call.
+- **One textual conflict: `package-lock.json`.** On our side the cause is the two portability commits (`79d9e07dba` pdfjs-dist sync, `716a115a88` public-registry URLs). Our `package.json` adds only the `test:food-db` script. Suggested resolution: take `lovable`'s lockfile, then re-apply only the portability fix if Lovable's install needs it.
+- None of the 15 upstream migrations since the base touch ledger grants, Food or `post_portfolio_roi_ledger`. After DEP-2 the merge introduces no duplicate migration versions. Upstream's latest migrations (`20261013201000`, `20261013220000`) sort after ours, so DEP-1 still holds: apply the Food files explicitly and in order.
+- **Exact permission needed:** "Merge `origin/lovable` into `release/food-m1-v2` (merge commit, no rebase), resolve `package-lock.json`, rerun the suites, push `release/food-m1-v2`." A later, separate approval is needed (Lovable's agent idle, plus Josh's go-ahead) to fast-forward `lovable`.
+
+### Full-suite classification (jsdom, run during this pass)
+- Result: 25 failed files / 50 tests, against the previous 24 / 46.
+- The four extra failures are timing failures under machine load (a 5 s timeout, a debounce, a perf budget). They vary between runs, and `AuthSignupName` passes 3/3 when run alone.
+- `import_reach.py`: 24 of 25 failing files cannot reach any changed file. The 25th, `SettingsName.test.tsx`, reaches `transactionsFeed.ts` (changed in `9e6ea7a6d1`) and was already in the previous baseline with the same failure.
+- None is Food. **No new failures attributable to this branch.**

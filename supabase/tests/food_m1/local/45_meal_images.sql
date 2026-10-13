@@ -1,4 +1,4 @@
--- Meal photos (20261013120000). Runs in the same session as 10_behaviour.sql.
+-- Meal photos (20261013120001). Runs in the same session as 10_behaviour.sql.
 -- Uploads and reads are exercised as the real authenticated role against the
 -- storage stand-in with RLS on, exactly as Supabase's storage API runs them.
 -- A SELECT that a policy admits is what Storage requires before it issues a

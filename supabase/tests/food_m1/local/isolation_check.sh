@@ -30,9 +30,9 @@ inv() {  # fails the whole check if the inventory errors or is implausibly small
 before=$(inv) || exit 1; gl_before=$(Q -d "$db" -c "select count(*)||':'||sum(amount) from general_ledger")
 wt_before=$(Q -d "$db" -c "select count(*)||':'||sum(amount) from wallet_transactions")
 
-for m in 20261009120000_food_service_schema_and_coordinator 20261009130000_food_service_operations_rpcs \
+for m in 20261009120001_food_service_schema_and_coordinator 20261009130001_food_service_operations_rpcs \
          20261009160000_food_coordinator_candidates 20261009170000_food_exception_resolution \
-         20261012120000_food_m1_release_corrections 20261013120000_food_meal_images 20261013125000_food_staff_includes_pso 20261013127000_food_exception_self_resolution; do
+         20261012120000_food_m1_release_corrections 20261013120001_food_meal_images 20261013125000_food_staff_includes_pso 20261013127000_food_exception_self_resolution 20261013128000_food_payment_after_receipt; do
   P -d "$db" -1 -f "$M/$m.sql" >/dev/null || { echo "FAIL apply $m"; result=1; }
 done
 after=$(inv) || exit 1
@@ -78,8 +78,8 @@ check "ISO-05 wallet balance source unchanged" "$(Q -d "$db" -c "select count(*)
 check "ISO-06 delivered order is still unpaid, with no transaction" \
   "$(Q -d "$db" -c "select payment_status||'/'||coalesce(transaction_group_id::text,'none')||'/'||coalesce(paid_at::text,'none') from food_orders where fulfilment_status='delivered'")" "pending_payment/none/none"
 check "ISO-07 no Food order is paid, whatever its mode" "$(Q -d "$db" -c "select count(*) from food_orders where payment_status<>'pending_payment' or paid_at is not null or transaction_group_id is not null")" "0"
-check "ISO-08 food_pay_order still refuses (0A000)" \
-  "$(Q -d "$db" -c "do \$\$ begin perform set_config('request.jwt.claims','{\"sub\":\"f0000000-0000-4000-8000-0000000000a1\"}',true); set local role authenticated; perform food_pay_order((select id from food_orders limit 1)); raise notice 'PAID'; exception when sqlstate '0A000' then raise notice 'REFUSED'; end \$\$;" 2>&1 | grep -o -E 'REFUSED|PAID')" "REFUSED"
+check "ISO-08 food_pay_order refuses an order whose receipt is not confirmed" \
+  "$(Q -d "$db" -c "do \$\$ begin perform set_config('request.jwt.claims','{\"sub\":\"f0000000-0000-4000-8000-0000000000a1\"}',true); set local role authenticated; perform food_pay_order((select id from food_orders limit 1)); raise notice 'PAID'; exception when sqlstate '22023' then raise notice 'REFUSED'; end \$\$;" 2>&1 | grep -o -E 'REFUSED|PAID')" "REFUSED"
 final=$(inv) || exit 1
 check "ISO-09 non-Food objects still identical after the lifecycle" "$( [ "$before" = "$final" ] && echo same || echo changed)" "same"
 # positive control: the canary counter really does see a ledger write

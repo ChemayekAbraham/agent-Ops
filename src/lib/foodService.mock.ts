@@ -429,8 +429,36 @@ const RPC: Record<string, (a: Args) => unknown> = {
       payment_status: 'pending_payment', payment_mode: mode, replayed: false };
   },
 
-  food_pay_order: () => {
-    fail(`${FOOD_CHECKOUT_DISABLED}: paying for a meal is not enabled yet. Payment is made after delivery, through a process that has not been approved.`);
+  // Mirrors food_confirm_receipt (20261013128000): the ordering employee only,
+  // after hand-over; the active coordinator is snapshotted as the payee.
+  food_confirm_receipt: (a) => {
+    const o = S.orders.find((x) => x.id === a.p_order_id);
+    if (!o) fail('Order not found');
+    if (o.employee_id !== currentUser) fail('Only the person who placed this order can confirm receiving it');
+    if (o.received_at) return { status: 'already_confirmed', order_id: o.id, payee_id: o.payee_id, amount_due: o.total_ugx };
+    if (!['delivered', 'collected'].includes(String(o.fulfilment_status))) fail('This order has not been handed over yet');
+    const active = S.assignments.find((c) => !c.revoked_at && c.access_level === 'active');
+    if (!active) fail('There is no active Food Coordinator to pay; try again later');
+    o.received_at = new Date().toISOString();
+    o.received_by = currentUser;
+    o.payee_id = active.coordinator_id;
+    S.events.push({ id: uid(), order_id: o.id, event_type: 'receipt_confirmed', from_status: o.fulfilment_status,
+      to_status: o.fulfilment_status, note: 'Employee confirmed receipt; payment now available', actor_id: currentUser,
+      created_at: new Date().toISOString() });
+    return { status: 'confirmed', order_id: o.id, payee_id: o.payee_id, amount_due: o.total_ugx };
+  },
+
+  // The fixture has no wallets or ledger, so it can never take a payment. It
+  // applies the same preconditions as the server, then refuses.
+  // Every call carries the FOOD_CHECKOUT_DISABLED marker, whatever the order,
+  // so no fixture path can ever look like a settled payment.
+  food_pay_order: (a) => {
+    const o = S.orders.find((x) => x.id === a.p_order_id);
+    const why = !o ? 'order not found'
+      : o.employee_id !== currentUser ? 'only the person who placed this order can pay for it'
+      : !o.received_at ? 'confirm that you received your order before paying'
+      : 'wallet payment is not available in the development fixture';
+    fail(`${FOOD_CHECKOUT_DISABLED}: ${why}.`);
   },
 
   food_cancel_my_order: (a) => {
@@ -543,7 +571,7 @@ const RPC: Record<string, (a: Args) => unknown> = {
 
   food_upsert_meal: (a) => {
     const actor = requireActiveCoordinator();
-    // mirrors 20261013120000: photos only through food_set_meal_image
+    // mirrors 20261013120001: photos only through food_set_meal_image
     if (a.p_image_path !== undefined && a.p_image_path !== null) {
       fail('Meal photos are set with food_set_meal_image, not here');
     }

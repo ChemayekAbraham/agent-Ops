@@ -24,6 +24,8 @@ for m in "$root"/supabase/migrations/2026100912*food*.sql "$root"/supabase/migra
   P -d "$db" -1 -f "$m" >/dev/null
 done
 P -d "$db" -f "$here/30_race_setup.sql" >/dev/null
+# local stand-in for the shared ledger objects the payment path uses
+P -d "$db" -f "$here/05_ledger_standin.sql" >/dev/null
 
 A=f0000000-0000-4000-8000-0000000000a1; B=f0000000-0000-4000-8000-0000000000b1
 # session(user, menu_item, key, hold_seconds) -> prints OK or the SQLSTATE
@@ -91,5 +93,45 @@ check "RACE-EXC-1 first resolution accepted" "$r1" "OK"
 check "RACE-EXC-2 the concurrent second resolution is refused with 22023 after waiting" "$r2" "ERROR:  22023"
 kept=$(P -At -d "$db" -c "select resolution_reason||'/'||(select count(*) from food_audit where entity='exception' and entity_id='$X' and action='resolved') from food_exceptions where id='$X'")
 check "RACE-EXC-3 the first reason is kept and audited exactly once" "$kept" "first resolution reason/1"
+# ── RACE-PAY: the employee pays the same received order from two sessions. ──
+C=29a0cfa8-1eaf-453c-874c-0fc72fa4f74b
+P -d "$db" -c "insert into wallets_physical (user_id) values ('$B'), ('$C') on conflict do nothing" >/dev/null
+P -d "$db" -c "insert into ledger_test.opening values ('$B', 100000) on conflict do nothing" >/dev/null
+ORD=$(psql -X -q -At -d "$db" -v ON_ERROR_STOP=1 <<SQL | grep -E '^[0-9a-f-]{36}$' | tail -1
+BEGIN;
+SELECT set_config('request.jwt.claims', '{"sub":"$B","role":"authenticated"}', true);
+SET LOCAL ROLE authenticated;
+CREATE TEMP TABLE ro AS SELECT (public.food_place_order(jsonb_build_array(jsonb_build_object('menu_item_id','f0000000-0000-4000-8000-00000000ed02','quantity',1)),'race-pay-1','wallet')->>'order_id')::uuid AS id;
+SELECT set_config('request.jwt.claims', '{"sub":"$C","role":"authenticated"}', true);
+SELECT public.food_set_fulfilment((SELECT id FROM ro), 'preparing');
+SELECT public.food_set_fulfilment((SELECT id FROM ro), 'ready');
+SELECT public.food_set_fulfilment((SELECT id FROM ro), 'delivered');
+SELECT set_config('request.jwt.claims', '{"sub":"$B","role":"authenticated"}', true);
+SELECT public.food_confirm_receipt((SELECT id FROM ro));
+SELECT id FROM ro;
+COMMIT;
+SQL
+)
+pay() {
+  psql -X -q -At -d "$db" -v ON_ERROR_STOP=1 2>&1 <<SQL | grep -E '^(OK|ERROR)' | head -1
+BEGIN;
+SELECT set_config('request.jwt.claims', '{"sub":"$B","role":"authenticated"}', true);
+SET LOCAL ROLE authenticated;
+SET LOCAL lock_timeout = '10s';
+\set VERBOSITY sqlstate
+SELECT 'OK ' || (r->>'status') || ' replayed=' || (r->>'replayed') FROM (SELECT public.food_pay_order('$ORD') AS r) x;
+SELECT pg_sleep($1);
+COMMIT;
+SQL
+}
+pay 2 >"$s1" &
+sleep 0.5
+pay 0 >"$s2" &
+wait
+check "RACE-PAY-0 a received order was prepared for the race" "$([ -n "$ORD" ] && echo yes)" "yes"
+check "RACE-PAY-1 the first session pays (not a replay)" "$(cat "$s1")" "OK paid replayed=false"
+check "RACE-PAY-2 the second session waits, then gets the same payment back" "$(cat "$s2")" "OK paid replayed=true"
+legs=$(P -At -d "$db" -c "select count(*)||'/'||count(distinct transaction_group_id) from general_ledger where source_id='$ORD'")
+check "RACE-PAY-3 exactly one posting: two legs, one transaction" "$legs" "2/1"
 rm -f "$s1" "$s2"
 exit $result

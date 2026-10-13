@@ -30,6 +30,8 @@ const PAYMENT_TONE: Record<FoodPaymentStatus, string> = {
   payment_failed: 'border-destructive/30 bg-destructive/10 text-destructive',
   refund_pending: 'border-border bg-muted text-muted-foreground',
   refunded: 'border-border bg-muted text-muted-foreground',
+  // type completeness only (20261013128000); reuses the payment_failed tone. Styling: Gemini.
+  payment_reversed: 'border-destructive/30 bg-destructive/10 text-destructive',
 };
 
 export function FulfilmentBadge({

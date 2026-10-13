@@ -1,6 +1,6 @@
 -- Food M1 — staff eligibility includes Platform Sales Officers.
 --
--- NOT APPLIED TO PRODUCTION. Applies after 20261013120000.
+-- NOT APPLIED TO PRODUCTION. Applies after 20261013120001.
 --
 -- PROBLEM. Every Food staff check required an enabled `employee` role:
 -- canteen access (food_is_canteen_user), the coordinator successor lookup
@@ -15,13 +15,13 @@
 -- `employee` role OR a current PSO officer). The four functions use it, so the
 -- picker and the server-side checks can never disagree about who is staff.
 -- Bodies are otherwise unchanged from 20261012120000 / 20261009160000 /
--- 20261009130000; grants are kept by CREATE OR REPLACE.
+-- 20261009130001; grants are kept by CREATE OR REPLACE.
 --
 -- Nothing here touches money, wallets, the ledger, payment status or any
 -- non-Food object. v_pso_officers is only read.
 --
 -- ROLLBACK: re-run the four definitions from 20261012120000 (canteen user,
--- bootstrap), 20261009160000 (candidates) and 20261009130000 (handover), then
+-- bootstrap), 20261009160000 (candidates) and 20261009130001 (handover), then
 -- their ALTER ... SET search_path = public, pg_temp from 20261012120000, then
 -- DROP FUNCTION public.food_is_staff(uuid).
 

@@ -21,7 +21,7 @@
 --   into statement 1.
 --
 -- M1-ONLY VERIFIER. The expectations below describe
---   supabase/migrations/20261009120000_food_service_schema_and_coordinator.sql
+--   supabase/migrations/20261009120001_food_service_schema_and_coordinator.sql
 -- and NOTHING ELSE. A database carrying M2 (…130000 operations RPCs), M3
 -- (…160000 coordinator candidates) or M4 (…170000 exception resolution) will
 -- NOT match: M4 adds food_exceptions.resolution_reason (98 columns, not 97) and

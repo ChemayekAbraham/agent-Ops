@@ -38,7 +38,9 @@ SELECT public.food_set_fulfilment((SELECT id FROM t_u), 'delivered');
 SELECT food_test.ok((SELECT fulfilment_status='delivered' AND payment_status='pending_payment' AND paid_at IS NULL AND transaction_group_id IS NULL
                        FROM public.food_orders WHERE id=(SELECT id FROM t_u)), 'REL-D2a unpaid order delivered; still unpaid, no transaction');
 SELECT food_test.ok((public.food_coordinator_overview()->>'unpaid_handed_over')::int = 1, 'REL-D2b overview counts delivered-but-unpaid');
-SELECT food_test.raises(format($$SELECT public.food_pay_order(%L)$$, (SELECT id FROM t_u)), '0A000', 'REL-D2c settlement stays disabled after delivery');
+SELECT food_test.act_as((SELECT employee_id FROM public.food_orders WHERE id = (SELECT id FROM t_u)));
+SELECT food_test.raises(format($$SELECT public.food_pay_order(%L)$$, (SELECT id FROM t_u)), '22023', 'REL-D2c delivery alone does not make payment available (receipt confirmation required)');
+SELECT food_test.act_as(food_test.id('coord'));
 SELECT food_test.raises(format($$SELECT public.food_set_fulfilment(%L,'cancelled')$$, (SELECT id FROM t_u)), '22023', 'REL-D2d delivered order cannot be cancelled');
 ROLLBACK;
 

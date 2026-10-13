@@ -1001,3 +1001,50 @@ describe('the fixture accepts exactly the nine approved kinds', () => {
     await expect(foodMockRpc('food_raise_exception', { p_kind: kind, p_note: 'x' })).rejects.toThrow(/unknown/i);
   });
 });
+
+describe('receipt confirmation and payment in the fixture (20261013128000)', () => {
+  async function deliveredOrder(key: string) {
+    setFoodMockUser(MOCK_EMPLOYEE);
+    const p = await openPeriod();
+    const res = await foodMockRpc<{ order_id: string }>('food_place_order', {
+      p_items: [{ menu_item_id: p.meals[0].menu_item_id, quantity: 1 }], p_payment_mode: 'wallet', p_idempotency_key: key,
+    });
+    actAsFoodCoordinator(true);
+    for (const to of ['preparing', 'ready', 'delivered']) {
+      await foodMockRpc('food_set_fulfilment', { p_order_id: res.order_id, p_to_status: to });
+    }
+    setFoodMockUser(MOCK_EMPLOYEE);
+    return res.order_id;
+  }
+
+  it('receipt cannot be confirmed before hand-over, nor by someone else', async () => {
+    setFoodMockUser(MOCK_EMPLOYEE);
+    const p = await openPeriod();
+    const res = await foodMockRpc<{ order_id: string }>('food_place_order', {
+      p_items: [{ menu_item_id: p.meals[0].menu_item_id, quantity: 1 }], p_payment_mode: 'wallet', p_idempotency_key: 'rcpt-early',
+    });
+    await expect(foodMockRpc('food_confirm_receipt', { p_order_id: res.order_id })).rejects.toThrow(/not been handed over/i);
+    const id = await deliveredOrder('rcpt-other');
+    actAsFoodCoordinator(true);
+    await expect(foodMockRpc('food_confirm_receipt', { p_order_id: id })).rejects.toThrow(/only the person who placed/i);
+  });
+
+  it('the employee confirms receipt; the active coordinator is the payee; confirming again changes nothing', async () => {
+    const id = await deliveredOrder('rcpt-ok');
+    const first = await foodMockRpc<{ status: string; payee_id: string }>('food_confirm_receipt', { p_order_id: id });
+    expect(first.status).toBe('confirmed');
+    expect(first.payee_id).toBe(MOCK_COORDINATOR);
+    const again = await foodMockRpc<{ status: string }>('food_confirm_receipt', { p_order_id: id });
+    expect(again.status).toBe('already_confirmed');
+  });
+
+  it('payment is unavailable before receipt and is never taken by the fixture', async () => {
+    const id = await deliveredOrder('pay-fixture');
+    await expect(foodMockRpc('food_pay_order', { p_order_id: id })).rejects.toThrow(/confirm that you received/i);
+    await foodMockRpc('food_confirm_receipt', { p_order_id: id });
+    await expect(foodMockRpc('food_pay_order', { p_order_id: id })).rejects.toThrow(/not available in the development fixture/i);
+    const after = (await foodMockSelect<FoodOrderDetail[]>('food_orders', {})).find((o) => o.id === id)!;
+    expect(after.payment_status).toBe('pending_payment');
+    expect(after.transaction_group_id ?? null).toBeNull();
+  });
+});

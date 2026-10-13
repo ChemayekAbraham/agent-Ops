@@ -15,10 +15,11 @@ case "${PGHOST:-} ${PGDATABASE:-} ${PGUSER:-}" in *wirntoujqoyjobfhyelc*) echo "
 here="$(cd "$(dirname "$0")" && pwd)"; root="$(cd "$here/../../../.." && pwd)"
 old_ref="${1:-8c437912daed55ca3c7fa1e161ed32012ea8ebea}"
 M="$root/supabase/migrations"
-CHAIN=(20261009120000_food_service_schema_and_coordinator 20261009130000_food_service_operations_rpcs
+CHAIN=(20261009120001_food_service_schema_and_coordinator 20261009130001_food_service_operations_rpcs
        20261009160000_food_coordinator_candidates 20261009170000_food_exception_resolution
-       20261012120000_food_m1_release_corrections 20261013120000_food_meal_images
-       20261013125000_food_staff_includes_pso 20261013127000_food_exception_self_resolution)
+       20261012120000_food_m1_release_corrections 20261013120001_food_meal_images
+       20261013125000_food_staff_includes_pso 20261013127000_food_exception_self_resolution
+       20261013128000_food_payment_after_receipt)
 P() { psql -X -q -v ON_ERROR_STOP=1 "$@"; }
 Q() { psql -X -q -At -v ON_ERROR_STOP=1 "$@"; }
 result=0
@@ -75,6 +76,8 @@ apply mm_upgrade "$M/${CHAIN[6]}.sql" >/dev/null; rc=$?
 check "MIG-C2c staff/PSO migration applies after the meal-photo migration" "$rc" "0"
 apply mm_upgrade "$M/${CHAIN[7]}.sql" >/dev/null; rc=$?
 check "MIG-C2d exception self-resolution migration applies" "$rc" "0"
+apply mm_upgrade "$M/${CHAIN[8]}.sql" >/dev/null; rc=$?
+check "MIG-C2e payment-after-receipt migration applies over legacy orders" "$rc" "0"
 check "MIG-C3 legacy order kept, payment_mode NULL, still unpaid" \
   "$(Q -d mm_upgrade -c "select payment_mode is null and payment_status='pending_payment' from food_orders where order_reference='FO-LEGACY'")" "t"
 check "MIG-C4 legacy exception kind kept (constraint is NOT VALID for old rows)" \

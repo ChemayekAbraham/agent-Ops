@@ -106,7 +106,10 @@ export type FoodFulfilmentStatus =
   | 'confirmed' | 'preparing' | 'ready' | 'collected' | 'delivered' | 'cancelled';
 
 export type FoodPaymentStatus =
-  | 'pending_payment' | 'paid' | 'payment_failed' | 'refund_pending' | 'refunded';
+  | 'pending_payment' | 'paid' | 'payment_failed' | 'refund_pending' | 'refunded'
+  // a paid order whose ledger legs no longer match, or that was reversed
+  // (food_verify_payment, 20261013128000): never treated as paid again
+  | 'payment_reversed';
 
 export interface FoodOrder {
   id: string;
@@ -120,17 +123,20 @@ export interface FoodOrder {
   payment_mode: FoodPaymentMode | null;
   fulfilment_status: FoodFulfilmentStatus;
   /**
-   * The ledger transaction group a settlement would record against this order.
-   * A real column (M1:101), returned by the `select('*')` both read paths use.
-   *
-   * NULL ON EVERY GENUINE ORDER TODAY. Checkout is disabled - food_pay_order
-   * raises FOOD_CHECKOUT_DISABLED - so nothing ever sets it, and the schema's
-   * food_orders_paid_needs_txn CHECK (M1:108-109) only requires it to be
-   * non-null once payment_status is 'paid'. The fixture's simulated-paid rows
-   * carry the SIMULATED_PAYMENT_TXN sentinel so they can never be mistaken for
-   * settled orders; that is what isSimulatedPayment() reads.
+   * The ledger transaction group of the order's wallet payment (M1:101).
+   * Set only by food_pay_order (20261013128000), in the same database
+   * transaction as the verified ledger legs, after the employee confirmed
+   * receipt. The fixture's simulated-paid rows carry the SIMULATED_PAYMENT_TXN
+   * sentinel so they can never be mistaken for settled orders; that is what
+   * isSimulatedPayment() reads.
    */
   transaction_group_id: string | null;
+  /** When the ordering employee confirmed receiving the order (payment becomes available). */
+  received_at?: string | null;
+  /** The Food Coordinator snapshotted at receipt confirmation: the payment's recipient. */
+  payee_id?: string | null;
+  /** Last time the payment was re-checked against the ledger. */
+  payment_verified_at?: string | null;
   special_instructions: string | null;
   placed_at: string;
   paid_at: string | null;
@@ -176,7 +182,7 @@ export type FoodHandoverMode = 'full_transfer' | 'transfer_with_backup';
 /**
  * The only transitions `food_set_fulfilment` accepts. Everything else raises
  * 22023. Mirrors the CASE expression in
- * 20261009130000_food_service_operations_rpcs.sql.
+ * 20261009130001_food_service_operations_rpcs.sql.
  */
 export const FOOD_ALLOWED_TRANSITIONS: Record<FoodFulfilmentStatus, FoodFulfilmentStatus[]> = {
   confirmed: ['preparing', 'cancelled'],
@@ -323,6 +329,7 @@ export const FOOD_PAYMENT_LABEL: Record<FoodPaymentStatus, string> = {
   payment_failed: 'Payment failed',
   refund_pending: 'Refund pending',
   refunded: 'Refunded',
+  payment_reversed: 'Payment reversed',
 };
 
 /** Formats a UGX amount the way the rest of the product does. */
@@ -419,7 +426,7 @@ export function isFoodAllDayWindow(opensAt: string, closesAt: string): boolean {
   return opensAt.slice(0, 5) === '00:00' && closesAt.slice(0, 5) === '23:59';
 }
 
-// ─────────── meal photos (20261013120000) ───────────
+// ─────────── meal photos (20261013120001) ───────────
 
 /**
  * Storage bucket for meal photos. PRIVATE: photos are shown through short-lived

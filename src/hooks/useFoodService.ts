@@ -48,7 +48,7 @@ import type {
  * never serve fixture data.
  */
 
-// The food_* RPCs live in migrations 20261009120000 / 20261009130000, which are
+// The food_* RPCs live in migrations 20261009120001 / 20261009130001, which are
 // not applied yet, so they are absent from the generated Supabase types. This
 // cast keeps the file compiling; regenerate types after the migrations land.
 type RpcResult<T> = Promise<{ data: T | null; error: { message: string } | null }>;
@@ -715,14 +715,56 @@ export function usePlaceFoodOrder() {
 }
 
 /**
- * Settlement. The server refuses every call with FOOD_CHECKOUT_DISABLED. Wired
- * so the screen exists, but no pay affordance should be enabled: bind it to
- * `checkout_enabled` from useFoodMenu, which is false.
+ * The ordering employee confirms they received their order. Only then does
+ * payment become available; the active Food Coordinator at this moment is the
+ * payment's recipient (20261013128000). Sends the order id and nothing else.
  */
-export function usePayFoodOrder() {
+export function useConfirmFoodReceipt() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: (v: { orderId: string }) =>
-      call<unknown>('food_pay_order', { p_order_id: v.orderId }),
+      call<{ status: 'confirmed' | 'already_confirmed'; order_id: string; payee_id: string; amount_due: number }>(
+        'food_confirm_receipt', { p_order_id: v.orderId }),
+    onSuccess: () => {
+      invalidateFood(qc);
+      toast.success('Thanks for confirming. You can now pay from your wallet.');
+    },
+    onError,
+  });
+}
+
+export type FoodPayResult =
+  | { status: 'paid'; order_id: string; transaction_group_id: string; amount?: number; replayed: boolean }
+  | { status: 'failed'; order_id: string; reason: 'insufficient_funds' };
+
+/**
+ * Pay for a received order from the employee's own Welile wallet. The server
+ * decides the amount and the recipient, posts once (a retry returns the same
+ * payment) and verifies the ledger before marking the order paid. A result of
+ * 'failed' means nothing was charged.
+ */
+export function usePayFoodOrder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { orderId: string }) =>
+      call<FoodPayResult>('food_pay_order', { p_order_id: v.orderId }),
+    onSuccess: (r) => {
+      invalidateFood(qc);
+      if (r.status === 'paid') toast.success(r.replayed ? 'This order is already paid' : 'Paid from your wallet');
+      else toast.error('Not enough in your wallet to pay. Nothing was charged; top up and try again.');
+    },
+    onError,
+  });
+}
+
+/** Re-check a paid order against the ledger (active coordinator, or the employee for their own order). */
+export function useVerifyFoodPayment() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { orderId: string }) =>
+      call<{ status: FoodPaymentStatus; order_id: string; verified?: boolean; reason?: string }>(
+        'food_verify_payment', { p_order_id: v.orderId }),
+    onSuccess: () => invalidateFood(qc),
     onError,
   });
 }

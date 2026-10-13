@@ -29,7 +29,7 @@
 -- ROLLBACK: DROP FUNCTION food_set_meal_image(uuid,text,text) and
 -- food_meal_photo_readable(text); DROP the food_meal_images_* policies on
 -- storage.objects; DROP CONSTRAINT food_meals_image_path_shape; re-run the
--- food_upsert_meal definition from 20261009130000 followed by its ALTER ...
+-- food_upsert_meal definition from 20261009130001 followed by its ALTER ...
 -- SET search_path from 20261012120000. The bucket and any uploaded files can
 -- then be removed by an administrator. food_meals.image_path values survive and
 -- simply stop resolving.
@@ -128,7 +128,7 @@ GRANT EXECUTE ON FUNCTION public.food_set_meal_image(uuid,text,text) TO authenti
 
 -- ═══════════════ food_upsert_meal no longer takes a photo ═══════════════
 -- Same signature and grants (CREATE OR REPLACE keeps them). The body is the
--- 20261009130000 definition with one change: p_image_path must be NULL, so the
+-- 20261009130001 definition with one change: p_image_path must be NULL, so the
 -- name, existence and audit checks of food_set_meal_image cannot be bypassed.
 -- An update leaves the stored photo exactly as it was.
 CREATE OR REPLACE FUNCTION public.food_upsert_meal(

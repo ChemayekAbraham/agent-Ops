@@ -1,6 +1,6 @@
 -- Food M1 — release corrections.
 --
--- NOT APPLIED TO PRODUCTION. Applies on top of 20261009120000, 20261009130000,
+-- NOT APPLIED TO PRODUCTION. Applies on top of 20261009120001, 20261009130001,
 -- 20261009160000 and 20261009170000, in that order.
 --
 -- NO MONEY MOVES IN THIS MIGRATION OR ANYTHING IT DEFINES. No wallet, balance,
@@ -40,7 +40,7 @@
 --          read the canteen menu and place orders. Now staff (an enabled
 --          'employee' role) and Food Coordinators only. food_can_use_canteen()
 --          tells the client (self only) whether to offer the canteen.
---   FM-17  20261009120000 required a specific production profile to exist.
+--   FM-17  20261009120001 required a specific production profile to exist.
 --          Its seed is now conditional; food_bootstrap_coordinator() (service
 --          role only) appoints the first coordinator where nobody is seated.
 --   FM-21  Nothing could create a food exception. food_raise_exception():
@@ -57,8 +57,8 @@
 --      INDEX food_exceptions_one_open_employee_report and
 --      food_exceptions_open_idx, the two food_exceptions constraints and the
 --      raised_by / raised_via columns (raised exceptions themselves remain);
---   2. re-apply 20261009120000's two is_*_food_coordinator definitions and
---      all of 20261009130000 (restores the three-argument food_place_order and
+--   2. re-apply 20261009120001's two is_*_food_coordinator definitions and
+--      all of 20261009130001 (restores the three-argument food_place_order and
 --      every replaced function with its grants);
 --   3. re-apply 20261009160000 and 20261009170000 (restores their search_path);
 --   4. DROP the payment_mode constraints and column, and recreate
@@ -277,7 +277,7 @@ BEGIN
   -- Per-employee cap across everything they already hold for this period.
   -- Serialised per (employee, service period) by a transaction advisory lock,
   -- taken AFTER the menu-row locks above and never before them, so no lock
-  -- cycle can form. Rationale unchanged from 20261009130000.
+  -- cycle can form. Rationale unchanged from 20261009130001.
   IF v_max IS NOT NULL THEN
     PERFORM pg_advisory_xact_lock(
       hashtext('food_place_order_cap'),
@@ -304,7 +304,7 @@ BEGIN
   -- CONCURRENT REPLAY: two simultaneous submissions of one key both miss the
   -- unlocked read above; the unique index lets one INSERT win, and the loser
   -- re-reads and replays (READ COMMITTED) or gets 40001 (snapshot isolation).
-  -- Behaviour and rationale unchanged from 20261009130000; verified by the R3
+  -- Behaviour and rationale unchanged from 20261009130001; verified by the R3
   -- two-session suite.
   BEGIN
     INSERT INTO public.food_orders (id, order_reference, employee_id, service_date, period_id,
@@ -592,7 +592,7 @@ RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, p
 $$;
 
 -- ═══════════════ FM-17: appointing the first coordinator ═══════════════
--- 20261009120000 now seeds its coordinator only when that profile exists. On a
+-- 20261009120001 now seeds its coordinator only when that profile exists. On a
 -- database where it does not, nobody is seated and the feature cannot be
 -- managed. This appoints the FIRST coordinator, server-side only:
 --   * EXECUTE for service_role only — never for a signed-in user, so nobody
@@ -741,7 +741,7 @@ ALTER FUNCTION public.food_resolve_exception(uuid,text)                         
 -- Supabase default privileges grant EXECUTE on every new function to anon and
 -- authenticated, so each NEW function is revoked from all three and granted
 -- back to authenticated only. CREATE OR REPLACE keeps existing ACLs, so the
--- replaced functions retain the grants 20261009120000/130000 gave them; they
+-- replaced functions retain the grants 20261009120001/130000 gave them; they
 -- are restated here so this file is self-evidently least-privilege.
 REVOKE ALL ON FUNCTION
   public.food_place_order(jsonb,text,text,text),

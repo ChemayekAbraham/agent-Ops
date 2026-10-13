@@ -12,7 +12,7 @@ import {
  * These pin the client's copy of the fulfilment rules to the server's.
  *
  * `food_set_fulfilment` is the only way an order changes state, and it decides
- * with a CASE expression in 20261009130000_food_service_operations_rpcs.sql.
+ * with a CASE expression in 20261009130001_food_service_operations_rpcs.sql.
  * The map here exists so the UI can grey out buttons rather than let the
  * coordinator click into a guaranteed error — which means the two can drift.
  * Each case below was executed against the real function in the sandbox on

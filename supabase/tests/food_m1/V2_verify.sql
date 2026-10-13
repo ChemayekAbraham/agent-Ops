@@ -7,7 +7,7 @@
 -- no profile creation, nothing that changes any row.
 --
 -- M1-ONLY VERIFIER. Expectations describe
---   supabase/migrations/20261009120000_food_service_schema_and_coordinator.sql
+--   supabase/migrations/20261009120001_food_service_schema_and_coordinator.sql
 -- and nothing else. Against a database that also carries M2/M3/M4 this script
 -- WILL fail, correctly: M4 adds food_exceptions.resolution_reason (a 98th
 -- column) and M2–M4 add 20 functions. Do not "fix" those failures by relaxing
@@ -1013,14 +1013,14 @@ SELECT 'V2.11 coordinator' AS section,
 --    and by the repo's own conventions. It lives under
 --    supabase/tests/food_m1/fixtures/, and it is named for the shipping
 --    migration with a .test.sql suffix:
---      20261009120000_food_service_schema_and_coordinator.test.sql
+--      20261009120001_food_service_schema_and_coordinator.test.sql
 --    THAT FILE IS A TEST FIXTURE, NOT THE SHIPPING MIGRATION. The two names
 --    differ only by the .test.sql suffix and the fixtures/ directory, which
 --    makes the pairing obvious but also makes them easy to confuse. Never
 --    drop the suffix, never move the copy into supabase/migrations/, and
 --    never let it replace the shipping migration.
 -- 2. IT NEVER REPLACES THE SHIPPING MIGRATION. The original
---    supabase/migrations/20261009120000_food_service_schema_and_coordinator.sql
+--    supabase/migrations/20261009120001_food_service_schema_and_coordinator.sql
 --    is not edited, moved, renamed or regenerated from the copy. The copy is
 --    throwaway and is not applied to any environment but the disposable one.
 --    An edit made to the shipping file for its own reasons - the SEC-01a
