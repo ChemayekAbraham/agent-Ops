@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { ArrowLeftRight, Bell, Building2, Calculator, CalendarDays, ChevronLeft, ChevronRight, Eye, EyeOff, FileText, Hand, Home, Menu, Store, Trophy, Users, Wallet, type LucideIcon } from 'lucide-react';
+import { Bell, Building2, Calculator, CalendarDays, ChevronLeft, ChevronRight, Eye, EyeOff, FileText, Hand, Home, Menu, Store, Trophy, Users, Wallet, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -23,7 +23,6 @@ const SHORTCUTS: { label: string; Icon: LucideIcon; color: string; to?: string }
 
 export default function AgentsMock() {
   const [hidden, setHidden] = useState(false);
-  const [bucket, setBucket] = useState<'Float' | 'Withdrawable'>('Float');
   const [activeNav, setActiveNav] = useState('Home');
   const [notice, setNotice] = useState<string | null>(null);
   const navigate = useNavigate();
