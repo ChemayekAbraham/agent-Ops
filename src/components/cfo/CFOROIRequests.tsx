@@ -188,6 +188,13 @@ export function CFOROIRequests() {
   });
 
   const filtered = operations.filter(op => {
+    if (dateFilter) {
+      const created = new Date(op.created_at);
+      const sameDay = created.getFullYear() === dateFilter.getFullYear() &&
+        created.getMonth() === dateFilter.getMonth() &&
+        created.getDate() === dateFilter.getDate();
+      if (!sameDay) return false;
+    }
     if (!search) return true;
     const s = search.toLowerCase();
     const meta = op.metadata as Record<string, any> | null;
