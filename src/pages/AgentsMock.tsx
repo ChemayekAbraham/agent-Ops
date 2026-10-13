@@ -41,6 +41,25 @@ export default function AgentsMock() {
   const firstLetter = (name?: string | null) => (name || 'T').trim().charAt(0).toUpperCase() || 'T';
   const initials = (profile?.full_name || '').trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('') || 'SP';
   const [brokenAvatar, setBrokenAvatar] = useState<string | null>(null);
+  // The photos folder is private, so the saved "public" link 404s. Turn the
+  // saved link into a short-lived signed link for the same file instead.
+  const avatarPath = useMemo(() => {
+    const raw = profile?.avatar_url;
+    if (!raw) return null;
+    const m = raw.match(/\/avatars\/([^?]+)/);
+    return m ? decodeURIComponent(m[1]) : null;
+  }, [profile?.avatar_url]);
+  const { data: signedAvatar } = useQuery({
+    queryKey: ['agents-mock-avatar', avatarPath],
+    enabled: !!avatarPath,
+    staleTime: 50 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.storage.from('avatars').createSignedUrl(avatarPath!, 3600);
+      if (error) throw error;
+      return data.signedUrl;
+    },
+  });
+  const avatarSrc = signedAvatar ?? (avatarPath ? null : profile?.avatar_url ?? null);
   const [hidden, setHidden] = useState(false);
   const [activeNav, setActiveNav] = useState('Home');
   const [notice, setNotice] = useState<string | null>(null);
