@@ -33,6 +33,8 @@ import { setCriticalFlowActive } from '@/lib/criticalFlowGuard';
 import { captureOAuthRedirectError } from '@/lib/oauthErrorLog';
 import { getStoredAttributionToken, restoreAttributionFromToken } from '@/lib/campaignAttribution';
 import ScreenLoader from '@/components/common/ScreenLoader';
+import roleHouseAsset from '@/assets/welcome-new/role-landlord-house.png.asset.json';
+import roleHeartAsset from '@/assets/welcome-new/role-supporter-heart.png.asset.json';
 import PersonNameFields from '@/components/shared/PersonNameFields';
 
 const VALID_SIGNUP_ROLES = ['tenant', 'agent', 'landlord', 'supporter'] as const;
@@ -42,6 +44,13 @@ const ROLE_OPTIONS = [
   { role: 'supporter' as const, emoji: '💰', label: 'I want to earn', desc: '15% monthly returns', gradient: 'from-emerald-500 to-teal-600' },
   { role: 'agent' as const, emoji: '⚡', label: 'I want to earn and learn', desc: 'Register & earn cash', gradient: 'from-amber-500 to-orange-600' },
   { role: 'landlord' as const, emoji: '🏢', label: 'Guaranteed rent', desc: 'Never chase tenants', gradient: 'from-purple-500 to-violet-600' },
+];
+
+const DESIGN_ROLES: { role: string; label: string; desc: string; img?: string; path?: string }[] = [
+  { role: 'tenant', label: 'Tenant', desc: 'Find a home, pay rent and access support', path: 'M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z' },
+  { role: 'landlord', label: 'Landlord', desc: 'List properties, manage tenants and grow your income', img: roleHouseAsset.url },
+  { role: 'agent', label: 'Agent', desc: 'Connect people, manage listings and close deals', path: 'M16 11c1.66 0 2.99-1.34 2.99-3S17.66 5 16 5c-1.66 0-3 1.34-3 3s1.34 3 3 3zm-8 0c1.66 0 2.99-1.34 2.99-3S9.66 5 8 5C6.34 5 5 6.34 5 8s1.34 3 3 3zm0 2c-2.33 0-7 1.17-7 3.5V19h14v-2.5c0-2.33-4.67-3.5-7-3.5zm8 0c-.29 0-.62.02-.97.05 1.16.84 1.97 1.97 1.97 3.45V19h6v-2.5c0-2.33-4.67-3.5-7-3.5z' },
+  { role: 'supporter', label: 'Supporter', desc: 'Support tenants and communities through funding and services', img: roleHeartAsset.url },
 ];
 
 export default function Auth() {
@@ -155,6 +164,7 @@ export default function Auth() {
 
   const hasValidRole = !!preSelectedRole && VALID_SIGNUP_ROLES.includes(preSelectedRole as any);
   const needsRoleSelection = isSignUp && !hasValidRole;
+  const [pendingRole, setPendingRole] = useState<string>('tenant');
 
   const handleSelectRole = (role: string) => {
     const newParams = new URLSearchParams(searchParams);
@@ -461,7 +471,7 @@ export default function Auth() {
             <p className="auth-subtitle">Sign in to your Welile account</p>
           </>
         )}
-        {isSignUp && (
+        {isSignUp && !needsRoleSelection && (
           <>
             <h1 className="auth-title" tabIndex={-1}>Create your account</h1>
             <p className="auth-subtitle">Join Welile in a few quick steps</p>
@@ -520,32 +530,54 @@ export default function Auth() {
           </div>
         )}
 
-        {/* Inline role selector for signup without role */}
+        {/* Role selection step (design screen 7) — shown after "Create account" */}
         {needsRoleSelection && (
-          <div className="space-y-2 mb-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-            <p className="text-sm font-medium text-foreground mb-3">What do you need?</p>
-            {ROLE_OPTIONS.map((opt) => (
-              <button
-                key={opt.role}
-                type="button"
-                onClick={() => handleSelectRole(opt.role)}
-                className={cn(
-                  "w-full flex items-center gap-3 p-3 rounded-xl text-left transition-all duration-150",
-                  "bg-card border border-border/50 shadow-sm",
-                  "hover:shadow-md hover:scale-[1.01] active:scale-[0.98]",
-                  "touch-manipulation"
-                )}
-              >
-                <div className={cn("w-10 h-10 rounded-lg flex items-center justify-center text-xl shrink-0 bg-gradient-to-br", opt.gradient)}>
-                  <span>{opt.emoji}</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-foreground text-sm">{opt.label}</p>
-                  <p className="text-xs text-muted-foreground">{opt.desc}</p>
-                </div>
-                <ArrowRight className="h-4 w-4 text-muted-foreground/40 shrink-0" />
+          <div className="flex flex-col" role="group" aria-label="Role selection">
+            <div className="roles-intro-block">
+              <h2 className="roles-main-title">How will you use Welile?</h2>
+              <p className="roles-sub-title">Your role helps personalize your experience.</p>
+            </div>
+            <div className="role-cards-stack" role="radiogroup" aria-label="Choose your role">
+              {DESIGN_ROLES.map((r) => {
+                const active = pendingRole === r.role;
+                return (
+                  <div
+                    key={r.role}
+                    className={cn('role-item', active && 'active')}
+                    role="radio"
+                    aria-checked={active}
+                    tabIndex={0}
+                    onClick={() => setPendingRole(r.role)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPendingRole(r.role); }
+                    }}
+                  >
+                    <div className={cn('role-circle-badge', `role-badge-${r.role}`)}>
+                      {r.img ? (
+                        <img src={r.img} alt="" className="role-asset-icon" />
+                      ) : (
+                        <svg className="role-badge-svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d={r.path} /></svg>
+                      )}
+                    </div>
+                    <div className="role-info">
+                      <h3 className="role-name">{r.label}</h3>
+                      <p className="role-desc">{r.desc}</p>
+                    </div>
+                    <div className="role-radio-mark"><span className="radio-core" /></div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="roles-dots-row" aria-hidden="true">
+              <span className="dot" /><span className="dot" /><span className="dot" /><span className="dot active" />
+            </div>
+            <div className="roles-btn-stack">
+              <button type="button" className="btn btn-primary" onClick={() => handleSelectRole(pendingRole)}>
+                <span>Continue</span>
+                <ArrowRight className="h-4 w-4" />
               </button>
-            ))}
+              <button type="button" className="btn-link-muted" onClick={() => setIsSignUp(false)}>Back</button>
+            </div>
           </div>
         )}
 
@@ -1266,7 +1298,14 @@ export default function Auth() {
             <span>{isSignUp ? 'Already have an account?' : 'New to Welile?'}</span>
             <button
               type="button"
-              onClick={() => setIsSignUp(!isSignUp)}
+              onClick={() => {
+                if (!isSignUp) {
+                  const p = new URLSearchParams(searchParams);
+                  p.delete('role');
+                  setSearchParams(p, { replace: true });
+                }
+                setIsSignUp(!isSignUp);
+              }}
               className="signin-highlight-btn"
             >
               {isSignUp ? 'Sign in' : 'Create account'}
