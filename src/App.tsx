@@ -109,7 +109,7 @@ const GlobalInstallPrompt = optionalLazyWithRetry(() => import("@/components/Glo
 // Index is the entry router — must be eager for instant redirect
 
 import Index from "./pages/Index";
-// Landing is only needed on /welcome — lazy load it
+// Old Landing page kept for reference; /welcome now shows WelcomeNew
 const Landing = lazy(() => import("./pages/Landing"));
 const WelcomeNew = lazy(() => import("./pages/WelcomeNew"));
 function WelcomeNewRedirect() { const l = useLocation(); return <Navigate to={`/welcome${l.search}${l.hash}`} replace />; }
