@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { Bell, Building2, Calculator, CheckCircle2, ChevronLeft, ChevronRight, Eye, EyeOff, FileText, Hand, Home, Menu, Store, Trophy, Users, Wallet, type LucideIcon } from 'lucide-react';
+import { Bell, Building2, Calculator, CheckCircle2, ChevronLeft, ChevronRight, FileText, Hand, Home, Menu, Store, Trophy, Users, Wallet, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -27,9 +27,7 @@ export default function AgentsMock() {
   const { data: capMap } = useAgentCapacityMap(ids);
   const cap = user?.id ? capMap?.get(user.id) : undefined;
   const EXPECTED_TODAY = Math.max(0, cap?.expected_daily ?? 0);
-  const COLLECTED_TODAY = Math.max(0, cap?.paid_today ?? 0);
   const TENANTS_TOTAL = cap?.tenants_due ?? 0;
-  const CAPACITY_PCT = EXPECTED_TODAY > 0 ? Math.min(100, Math.round((COLLECTED_TODAY / EXPECTED_TODAY) * 100)) : 0;
   // Today's collection list comes from the same server read the Collect dialog
   // uses (`agent_arrears_overview`), so the names and amounts here are the
   // tenant's own open days — never a placeholder.
@@ -60,7 +58,6 @@ export default function AgentsMock() {
     },
   });
   const avatarSrc = signedAvatar ?? (avatarPath ? null : profile?.avatar_url ?? null);
-  const [hidden, setHidden] = useState(false);
   const [activeNav, setActiveNav] = useState('Home');
   const [notice, setNotice] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -138,7 +135,6 @@ export default function AgentsMock() {
     missed: 'bg-destructive text-destructive-foreground',
   };
   const selected = byDay.get(day);
-  const amount = (value: number) => hidden ? '••••••' : formatUGX(value);
   return (
     <div className="agents-mock-exact min-h-screen pb-20 font-sans text-foreground tracking-normal">
       <Helmet><title>Agent dashboard preview · Welile</title><meta name="robots" content="noindex,nofollow" /></Helmet>
