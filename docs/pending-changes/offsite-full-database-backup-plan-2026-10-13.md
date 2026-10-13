@@ -1,3 +1,7 @@
+> **DECISION 2026-10-13 (Josh): the NEW clean backup project will be owned by `weliletenants@gmail.com` (the company login given by the CEO), the same login that owns production.
+> Residual risk to state on the PDPO form, not hide: one compromised or lost login reaches both production and the backup. Mitigations to do and then verify: (1) 2-step verification ON for that Gmail,
+> (2) a second named owner added to the Supabase org for BOTH projects, (3) the encryption key held by two people who are NOT stored in that mailbox, so a mailbox compromise alone cannot read the backups.**
+>
 > **UPDATE 2026-10-13 (later): the premise failed — Lovable Cloud shows no backup option for production, so managed backups are unconfirmed. Revisit this plan; the destination must be a NEW dedicated project/account, not rentflowinsight (which the live app does not use).**
 >
 > **DECISION 2026-10-13 (Josh): Option A is NOT being pursued. Full recovery relies on Supabase's managed backups for the production project.
