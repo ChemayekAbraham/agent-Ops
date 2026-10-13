@@ -1,6 +1,7 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { ArrowLeftRight, Bell, Building2, Calculator, CalendarDays, ChevronLeft, ChevronRight, Eye, EyeOff, FileText, Hand, Home, Menu, Users, Wallet } from 'lucide-react';
+import { ArrowLeftRight, Bell, Building2, Calculator, CalendarDays, ChevronLeft, ChevronRight, Eye, EyeOff, FileText, Hand, Home, Menu, Store, Users, Wallet, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -13,11 +14,19 @@ const TENANTS_DONE = 0;
 const TENANTS_TOTAL = 8;
 const CAPACITY_PCT = EXPECTED_TODAY > 0 ? Math.round((COLLECTED_TODAY / EXPECTED_TODAY) * 100) : 0;
 
+const SHORTCUTS: { label: string; Icon: LucideIcon; color: string; to?: string }[] = [
+  { label: 'Calculator', Icon: Calculator, color: 'text-primary' },
+  { label: 'Service Center', Icon: Store, color: 'text-info', to: '/agent/service-center' },
+  { label: 'Transactions', Icon: ArrowLeftRight, color: 'text-success' },
+  { label: 'Landlord Float', Icon: Building2, color: 'text-warning' },
+];
+
 export default function AgentsMock() {
   const [hidden, setHidden] = useState(false);
   const [bucket, setBucket] = useState<'Float' | 'Withdrawable'>('Float');
   const [activeNav, setActiveNav] = useState('Home');
   const [notice, setNotice] = useState<string | null>(null);
+  const navigate = useNavigate();
   const [month, setMonth] = useState(new Date(2026, 9, 1));
   const [day, setDay] = useState(13);
   const monthLabel = month.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
@@ -41,7 +50,7 @@ export default function AgentsMock() {
             <div className="mt-5 flex items-end justify-between"><div><p className="text-[8px] uppercase opacity-70">{bucket === 'Float' ? 'Withdrawable' : 'Float'} balance</p><p className="text-sm font-semibold">{amount(bucket === 'Float' ? 210000 : 250000)}</p></div><span className="mb-1 text-[8px] opacity-60">Last updated just now</span></div>
           </section>
           <div className="grid grid-cols-4 gap-1" aria-label="Agent shortcuts">
-            {[{ label: 'Calculator', Icon: Calculator, color: 'text-primary' }, { label: 'Sub-Agents', Icon: Users, color: 'text-info' }, { label: 'Transactions', Icon: ArrowLeftRight, color: 'text-success' }, { label: 'Landlord Float', Icon: Building2, color: 'text-warning' }].map(({ label, Icon, color }) => <Button key={label} variant="ghost" onClick={() => setNotice(label)} className="h-[64px] flex-col gap-1 px-0 text-[10px]"><span className={cn('flex h-8 w-8 items-center justify-center rounded-full bg-card', color)}><Icon className="!h-4 !w-4" /></span>{label}</Button>)}
+            {SHORTCUTS.map(({ label, Icon, color, to }) => <Button key={label} variant="ghost" onClick={() => (to ? navigate(to) : setNotice(label))} className="h-[64px] flex-col gap-1 px-0 text-[10px]"><span className={cn('flex h-8 w-8 items-center justify-center rounded-full bg-card', color)}><Icon className="!h-4 !w-4" /></span>{label}</Button>)}
           </div>
           <section aria-labelledby="capacity-heading" className="rounded-[14px] border border-primary/25 bg-card p-4">
             <div className="flex items-center justify-between"><h1 id="capacity-heading" className="text-xs font-semibold">Today's Capacity</h1><span className="text-xs font-bold text-primary">{CAPACITY_PCT}%</span></div>
