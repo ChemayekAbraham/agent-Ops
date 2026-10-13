@@ -101,18 +101,18 @@
 @keyframes waStepIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 
 .welile-auth .auth-title {
-  font-family: var(--font-heading); font-size: 1.48rem; font-weight: 800;
+  font-family: var(--font-heading); font-size: 23.68px; font-weight: 800;
   color: var(--color-text-main); line-height: 1.2; text-align: center; margin: 0;
 }
 .welile-auth .auth-subtitle {
-  font-size: 0.86rem; color: var(--color-text-muted); line-height: 1.4; text-align: center; margin: 4px 0 20px;
+  font-size: 13.76px; color: var(--color-text-muted); line-height: 1.4; text-align: center; margin: 4px 0 20px;
 }
 .welile-auth .auth-subtitle strong { color: var(--color-text-main); white-space: nowrap; }
 
 /* buttons */
 .welile-auth .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
-  padding: 14px 22px; border-radius: 999px; font-family: var(--font-body); font-size: 0.98rem;
+  padding: 14px 22px; border-radius: 999px; font-family: var(--font-body); font-size: 15.68px;
   font-weight: 700; border: none; cursor: pointer; transition: all 0.2s var(--ease-smooth); text-decoration: none;
 }
 .welile-auth .btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
@@ -125,7 +125,7 @@
 .welile-auth .btn-apple:hover:not(:disabled) { background: #1f1f1f; }
 .welile-auth .google-icon { width: 20px; height: 20px; flex-shrink: 0; }
 .welile-auth .btn-link-muted {
-  background: transparent; border: none; font-family: var(--font-body); font-size: 0.9rem; font-weight: 600;
+  background: transparent; border: none; font-family: var(--font-body); font-size: 14.4px; font-weight: 600;
   color: var(--color-text-muted); cursor: pointer; padding: 6px; min-height: 44px; width: 100%;
 }
 .welile-auth .btn-link-muted:hover { color: var(--color-text-main); }
@@ -135,7 +135,7 @@
 /* separator */
 .welile-auth .or-separator { display: flex; align-items: center; gap: 10px; padding: 16px 0 12px; }
 .welile-auth .sep-line { flex: 1; height: 1px; background: var(--color-border); }
-.welile-auth .sep-text { font-size: 0.74rem; color: var(--color-text-light); }
+.welile-auth .sep-text { font-size: 11.84px; color: var(--color-text-light); }
 
 /* tabs */
 .welile-auth .auth-tabs {
@@ -144,7 +144,7 @@
 }
 .welile-auth .auth-tab {
   flex: 1; padding: 8px 6px; border: none; border-radius: 9px; background: transparent;
-  font-family: var(--font-body); font-size: 0.8rem; font-weight: 700; color: var(--color-text-muted); white-space: nowrap;
+  font-family: var(--font-body); font-size: 12.8px; font-weight: 700; color: var(--color-text-muted); white-space: nowrap;
   cursor: pointer; transition: all 0.2s ease;
 }
 .welile-auth .auth-tab:hover { color: var(--welile-purple); }
@@ -153,10 +153,10 @@
 /* forms */
 .welile-auth .auth-form { display: flex; flex-direction: column; gap: 10px; }
 .welile-auth .form-row { display: flex; flex-direction: column; gap: 4px; position: relative; }
-.welile-auth .input-label { font-size: 0.8rem; font-weight: 700; color: var(--color-text-main); }
+.welile-auth .input-label { font-size: 12.8px; font-weight: 700; color: var(--color-text-main); }
 .welile-auth .text-input-field,
 .welile-auth .phone-number-field {
-  width: 100%; height: 44px; padding: 0 14px; font-family: var(--font-body); font-size: 0.92rem;
+  width: 100%; height: 44px; padding: 0 14px; font-family: var(--font-body); font-size: 14.72px;
   color: var(--color-text-main); background: #ffffff; border: 1.5px solid var(--color-border);
   border-radius: 12px; outline: none; transition: all 0.2s ease;
 }
@@ -181,7 +181,7 @@
 .welile-auth .country-trigger:focus-within { background: #e2e8f0; }
 .welile-auth .country-trigger:focus-within { box-shadow: 0 0 0 3px rgba(122, 56, 232, 0.18); }
 .welile-auth .country-select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; font-size: 16px; }
-.welile-auth .country-dial-code { font-size: 0.82rem; font-weight: 700; color: var(--color-text-main); }
+.welile-auth .country-dial-code { font-size: 13.12px; font-weight: 700; color: var(--color-text-main); }
 .welile-auth .chevron-svg { width: 12px; height: 12px; color: var(--color-text-muted); }
 
 .welile-auth .password-field { position: relative; }
@@ -196,12 +196,12 @@
 .welile-auth .password-toggle svg { width: 20px; height: 20px; }
 .welile-auth .password-input::-ms-reveal, .welile-auth .password-input::-ms-clear { display: none; }
 
-.welile-auth .form-error { font-size: 0.8rem; font-weight: 600; color: #dc2626; line-height: 1.35; margin: 0; }
-.welile-auth .field-hint { font-size: 0.74rem; color: var(--color-text-muted); line-height: 1.3; }
+.welile-auth .form-error { font-size: 12.8px; font-weight: 600; color: #dc2626; line-height: 1.35; margin: 0; }
+.welile-auth .field-hint { font-size: 11.84px; color: var(--color-text-muted); line-height: 1.3; }
 
-.welile-auth .form-options-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 0.8rem; color: var(--color-text-muted); }
+.welile-auth .form-options-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12.8px; color: var(--color-text-muted); }
 .welile-auth .form-options-row label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
-.welile-auth .link-purple { background: transparent; border: none; font-weight: 700; color: var(--welile-purple); cursor: pointer; font-size: 0.8rem; padding: 4px 0; }
+.welile-auth .link-purple { background: transparent; border: none; font-weight: 700; color: var(--welile-purple); cursor: pointer; font-size: 12.8px; padding: 4px 0; }
 .welile-auth .link-purple:hover { text-decoration: underline; }
 
 /* OTP */
@@ -209,35 +209,35 @@
 .welile-auth .otp-cell {
   width: 44px !important; height: 52px !important; border-radius: 12px !important;
   border: 1.8px solid var(--color-border) !important; font-family: var(--font-heading);
-  font-size: 1.4rem !important; font-weight: 700; color: var(--welile-purple-dark); background: #fff;
+  font-size: 22.4px !important; font-weight: 700; color: var(--welile-purple-dark); background: #fff;
 }
 .welile-auth .otp-resend-bar {
-  display: flex; align-items: center; justify-content: space-between; font-size: 0.78rem;
+  display: flex; align-items: center; justify-content: space-between; font-size: 12.48px;
   color: var(--color-text-muted); margin-bottom: 4px; padding: 0 4px;
 }
 .welile-auth .resend-trigger-btn {
-  background: transparent; border: none; font-family: var(--font-body); font-size: 0.78rem; font-weight: 700;
+  background: transparent; border: none; font-family: var(--font-body); font-size: 12.48px; font-weight: 700;
   color: var(--welile-purple); cursor: pointer; margin-left: auto; min-height: 24px; padding: 4px 6px;
 }
 .welile-auth .resend-trigger-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* switch + legal */
 .welile-auth .signin-redirect-row {
-  display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 0.84rem;
+  display: flex; align-items: center; justify-content: center; gap: 5px; font-size: 13.44px;
   color: var(--color-text-muted); margin-top: auto; padding: 20px 0 8px;
 }
 .welile-auth .signin-highlight-btn {
-  background: transparent; border: none; font-family: var(--font-body); font-size: 0.84rem;
+  background: transparent; border: none; font-family: var(--font-body); font-size: 13.44px;
   font-weight: 700; color: var(--welile-purple); cursor: pointer; min-height: 24px; padding: 4px 6px;
 }
 .welile-auth .signin-highlight-btn:hover { text-decoration: underline; }
 .welile-auth .legal-footer {
-  display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 0.72rem;
+  display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 11.52px;
   color: var(--color-text-light); padding-top: 10px;
 }
 .welile-auth .legal-action {
   text-decoration: none; background: transparent; border: none; font-family: var(--font-body);
-  font-size: 0.72rem; color: var(--color-text-light); cursor: pointer; min-height: 24px; padding: 4px 6px;
+  font-size: 11.52px; color: var(--color-text-light); cursor: pointer; min-height: 24px; padding: 4px 6px;
   display: inline-flex; align-items: center;
 }
 .welile-auth .legal-action:hover { color: var(--welile-purple); text-decoration: underline; }
@@ -259,9 +259,9 @@
 
 /* small phones */
 @media (max-width: 360px) {
-  .welile-auth .auth-title { font-size: 1.3rem; }
-  .welile-auth .otp-cell { width: 38px !important; height: 46px !important; font-size: 1.2rem !important; }
-  .welile-auth .auth-tab { font-size: 0.72rem; padding: 8px 2px; white-space: nowrap; }
+  .welile-auth .auth-title { font-size: 20.8px; }
+  .welile-auth .otp-cell { width: 38px !important; height: 46px !important; font-size: 19.2px !important; }
+  .welile-auth .auth-tab { font-size: 11.52px; padding: 8px 2px; white-space: nowrap; }
 }
 /* short screens */
 @media (max-height: 700px) {
@@ -315,9 +315,9 @@
   }
   .welile-auth .screen-top-header { padding: 0 0 12px; }
   .welile-auth .auth-step { padding-left: 0; padding-right: 0; }
-  .welile-auth .auth-title { font-size: 2rem; }
+  .welile-auth .auth-title { font-size: 32px; }
   .welile-auth .auth-brand { padding: 8px 0 24px; }
   .welile-auth .auth-logo { height: 64px; }
   .welile-auth .otp-cell { width: 52px !important; height: 60px !important; }
-  .welile-auth .btn { padding: 16px 24px; font-size: 1.02rem; }
+  .welile-auth .btn { padding: 16px 24px; font-size: 16.32px; }
 }
