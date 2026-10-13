@@ -322,18 +322,33 @@
   .welile-auth .btn { padding: 16px 24px; font-size: 16.32px; }
 }
 
-/* ---- Create account (design screen 8) ---- */
-.welile-auth .account-profile-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 2px 0 10px; }
-.welile-auth .account-title { font-family: var(--font-heading); font-size: 1.48rem; font-weight: 800; color: var(--color-text-main); line-height: 1.2; margin: 0; outline: none; }
-.welile-auth .account-role-label { font-size: 0.86rem; font-weight: 700; color: var(--welile-purple); margin: 0; }
-.welile-auth .account-avatar-wrapper { width: 48px; height: 48px; border-radius: 50%; overflow: hidden; border: 2px solid var(--welile-purple-tint); background: var(--welile-purple-soft); flex-shrink: 0; }
-.welile-auth .account-avatar-img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.welile-auth .account-value-box { margin: 0 0 12px; padding: 10px 14px; background: var(--color-subtle); border-radius: 12px; border: 1px solid var(--color-border-subtle); }
-.welile-auth .value-box-text { font-size: 0.8rem; color: var(--color-text-muted); line-height: 1.35; margin: 0; }
-.welile-auth .account-creation-form { display: flex; flex-direction: column; gap: 10px; }
-.welile-auth .form-row-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-@media (max-width: 340px) { .welile-auth .form-row-pair { grid-template-columns: 1fr; } }
-.welile-auth .security-guarantee-card { display: flex; align-items: center; gap: 10px; margin: 10px 0 0; padding: 10px 12px; background: var(--color-subtle); border-radius: 12px; border: 1px solid var(--color-border-subtle); }
-.welile-auth .security-shield-icon { width: 32px; height: 32px; flex-shrink: 0; }
-.welile-auth .security-heading { font-family: var(--font-heading); font-size: 0.84rem; font-weight: 700; color: var(--color-text-main); margin: 0; }
-.welile-auth .security-text { font-size: 0.72rem; color: var(--color-text-muted); line-height: 1.25; margin: 0; }
+/* Role selection step (design screen 7) — shown after "Create account" */
+.welile-auth .roles-intro-block { padding: 4px 0 14px; }
+.welile-auth .roles-main-title { font-family: var(--font-heading); font-size: 1.48rem; font-weight: 800; color: var(--color-text-main); letter-spacing: -0.3px; line-height: 1.2; margin: 0 0 3px; }
+.welile-auth .roles-sub-title { font-size: 0.84rem; color: var(--color-text-muted); margin: 0; }
+.welile-auth .role-cards-stack { display: flex; flex-direction: column; gap: 9px; padding-bottom: 14px; }
+.welile-auth .role-item { display: flex; align-items: center; gap: 12px; padding: 12px 14px; background: #ffffff; border: 1.8px solid var(--color-border); border-radius: 16px; cursor: pointer; transition: all 0.22s var(--ease-spring); outline: none; text-align: left; width: 100%; }
+.welile-auth .role-item:hover { border-color: #cbd5e1; transform: translateY(-1px); }
+.welile-auth .role-item:focus-visible { outline: 3px solid var(--welile-purple); outline-offset: 2px; }
+.welile-auth .role-item.active { border-color: var(--welile-purple); background: #faf8ff; box-shadow: 0 4px 14px rgba(122, 56, 232, 0.12); }
+.welile-auth .role-circle-badge { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: transform 0.2s var(--ease-spring); }
+.welile-auth .role-item.active .role-circle-badge { transform: scale(1.06); }
+.welile-auth .role-badge-tenant { background: #f4effe; color: #7a38e8; }
+.welile-auth .role-badge-landlord { background: #fef3c7; }
+.welile-auth .role-badge-agent { background: #eff6ff; color: #2563eb; }
+.welile-auth .role-badge-supporter { background: #fdf2f8; }
+.welile-auth .role-badge-svg { width: 20px; height: 20px; }
+.welile-auth .role-asset-icon { width: 26px; height: 26px; object-fit: contain; }
+.welile-auth .role-info { flex: 1; min-width: 0; }
+.welile-auth .role-name { font-family: var(--font-heading); font-size: 0.98rem; font-weight: 700; color: var(--color-text-main); margin: 0 0 2px; }
+.welile-auth .role-desc { font-size: 0.76rem; color: var(--color-text-muted); line-height: 1.3; margin: 0; }
+.welile-auth .role-radio-mark { width: 20px; height: 20px; border-radius: 50%; border: 1.8px solid #cbd5e1; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.2s ease; }
+.welile-auth .radio-core { width: 9px; height: 9px; border-radius: 50%; background: transparent; transition: all 0.2s ease; }
+.welile-auth .role-item.active .role-radio-mark { border-color: var(--welile-purple); }
+.welile-auth .role-item.active .radio-core { background: var(--welile-purple); }
+.welile-auth .roles-dots-row { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 12px; }
+.welile-auth .roles-dots-row .dot { width: 7px; height: 7px; border-radius: 50%; background: #cbd5e1; }
+.welile-auth .roles-dots-row .dot.active { width: 18px; border-radius: 999px; background: var(--welile-purple); }
+.welile-auth .roles-btn-stack { display: flex; flex-direction: column; gap: 4px; }
+.welile-auth .btn-link-muted { background: transparent; border: none; font-family: var(--font-body); font-size: 0.9rem; font-weight: 600; color: var(--color-text-muted); cursor: pointer; padding: 6px; }
+.welile-auth .btn-link-muted:hover { color: var(--color-text-main); }

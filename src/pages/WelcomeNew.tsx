@@ -14,14 +14,7 @@ import heartA from '@/assets/welcome-new/role-supporter-heart.png.asset.json';
 
 // Existing auth routes in this app.
 const SIGN_IN = '/auth';
-// Carry referral/campaign params from the current URL through to sign-up.
-const signUp = (role: string) => {
-  const p = new URLSearchParams(window.location.search);
-  p.delete('step');
-  p.set('signup', '1');
-  p.set('role', role);
-  return `/auth?${p.toString()}`;
-};
+const signUp = (role: string) => `/auth?signup=1&role=${role}`;
 
 type Slide = { img: string; alt: string; heading: string; sub: string; contain?: boolean };
 const SLIDES: Slide[] = [
