@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type KeyboardEvent as RKE, type ReactNode } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { ArrowLeft, ArrowRight, User, Users, X } from 'lucide-react';
 import s from './WelcomeNew.module.css';
 import logoA from '@/assets/welcome-new/welile-logo.png.asset.json';
@@ -158,7 +159,18 @@ export default function WelcomeNew() {
   );
 
   return (
-    <div
+    <>
+      <Helmet>
+        <title>Welile — Housing &amp; Funding for Everyone</title>
+        <meta name="description" content="Meet the four Welile roles — Tenant, Funder, Agent, Landlord — and pick the one that fits you." />
+        <link rel="canonical" href="https://welileapp.com/welcome" />
+        <meta property="og:title" content="Welile — Housing &amp; Funding for Everyone" />
+        <meta property="og:description" content="Meet the four Welile roles — Tenant, Funder, Agent, Landlord — and pick the one that fits you." />
+        <meta property="og:type" content="website" />
+        <meta property="og:url" content="https://welileapp.com/welcome" />
+        <meta name="twitter:card" content="summary" />
+      </Helmet>
+      <div
       className={s.root}
       onTouchStart={(e) => { touchX.current = e.touches[0].clientX; }}
       onTouchEnd={(e) => {
