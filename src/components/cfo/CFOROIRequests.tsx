@@ -309,12 +309,18 @@ export function CFOROIRequests() {
             <Badge variant="destructive" className="ml-2">{pendingCount} pending</Badge>
           )}
         </h1>
-        <Input
-          placeholder="Search partner, agent, ref..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          className="w-60"
-        />
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={downloadPdf} disabled={filtered.length === 0}>
+            <Download className="h-3.5 w-3.5 mr-1" />
+            Download PDF
+          </Button>
+          <Input
+            placeholder="Search partner, agent, ref..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="w-60"
+          />
+        </div>
       </div>
 
       <div className="flex gap-2 flex-wrap">
