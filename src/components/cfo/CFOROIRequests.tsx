@@ -10,6 +10,8 @@ import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import { toast } from 'sonner';
 import { CheckCircle, XCircle, Clock, Loader2, TrendingUp, CalendarIcon, X } from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
