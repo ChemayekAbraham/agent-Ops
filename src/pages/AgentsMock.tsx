@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Helmet } from 'react-helmet-async';
-import { ArrowDownToLine, ArrowUpFromLine, ArrowLeftRight, Bell, Building2, Calculator, CalendarDays, ChevronLeft, ChevronRight, Eye, EyeOff, FileText, Hand, Home, Menu, Users, Wallet } from 'lucide-react';
+import { ArrowLeftRight, Bell, Building2, Calculator, CalendarDays, ChevronLeft, ChevronRight, Eye, EyeOff, FileText, Hand, Home, Menu, Users, Wallet } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -33,9 +33,6 @@ export default function AgentsMock() {
             <p className="text-[22px] leading-6 font-bold">{amount(bucket === 'Float' ? 250000 : 210000)}</p>
             <div className="mt-5 flex items-end justify-between"><div><p className="text-[8px] uppercase opacity-70">{bucket === 'Float' ? 'Withdrawable' : 'Float'} balance</p><p className="text-sm font-semibold">{amount(bucket === 'Float' ? 210000 : 250000)}</p></div><span className="mb-1 text-[8px] opacity-60">Last updated just now</span></div>
           </section>
-          <div className="grid h-[72px] grid-cols-3 divide-x divide-border/50 rounded-[16px] bg-card py-2" aria-label="Wallet actions">
-            {[{ label: 'Deposit', Icon: ArrowDownToLine }, { label: 'Withdraw', Icon: ArrowUpFromLine }, { label: 'Transfer', Icon: ArrowLeftRight }].map(({ label, Icon }) => <Button key={label} variant="ghost" onClick={() => setNotice(label)} className="h-full flex-col gap-1 rounded-none px-0 text-[10px]"><span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-primary"><Icon className="!h-4 !w-4" /></span>{label}</Button>)}
-          </div>
           <div className="grid grid-cols-4 gap-1" aria-label="Agent shortcuts">
             {[{ label: 'Calculator', Icon: Calculator, color: 'text-primary' }, { label: 'Sub-Agents', Icon: Users, color: 'text-info' }, { label: 'Transactions', Icon: ArrowLeftRight, color: 'text-success' }, { label: 'Landlord Float', Icon: Building2, color: 'text-warning' }].map(({ label, Icon, color }) => <Button key={label} variant="ghost" onClick={() => setNotice(label)} className="h-[64px] flex-col gap-1 px-0 text-[10px]"><span className={cn('flex h-8 w-8 items-center justify-center rounded-full bg-card', color)}><Icon className="!h-4 !w-4" /></span>{label}</Button>)}
           </div>
