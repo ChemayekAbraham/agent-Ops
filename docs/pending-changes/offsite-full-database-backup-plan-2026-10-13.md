@@ -1,3 +1,5 @@
+> **UPDATE 2026-10-13 (later): the premise failed — Lovable Cloud shows no backup option for production, so managed backups are unconfirmed. Revisit this plan; the destination must be a NEW dedicated project/account, not rentflowinsight (which the live app does not use).**
+>
 > **DECISION 2026-10-13 (Josh): Option A is NOT being pursued. Full recovery relies on Supabase's managed backups for the production project.
 > This plan is kept for reference only; Step 1 (read and record the managed-backup settings) is still required before the PDPO form says anything about it.
 > Consequences to state honestly: backups live in the same provider and account as production, Storage files are not in database backups,
