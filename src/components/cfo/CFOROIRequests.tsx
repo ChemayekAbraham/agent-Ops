@@ -231,6 +231,74 @@ export function CFOROIRequests() {
 
   const pendingCount = operations.filter(o => o.status === 'coo_approved').length;
 
+  const downloadPdf = () => {
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+    const pageWidth = doc.internal.pageSize.getWidth();
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.text('ROI Payout — Expense', 40, 40);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    const filterLabel = filter === 'coo_approved' ? 'Pending (CFO)' : filter.charAt(0).toUpperCase() + filter.slice(1);
+    const rangeLabel = rangeFilter === 'today' ? 'Today'
+      : rangeFilter === 'yesterday' ? 'Yesterday'
+      : rangeFilter === 'last_week' ? 'Last week'
+      : rangeFilter === 'this_month' ? 'This month'
+      : dateFilter ? format(dateFilter, 'dd MMM yyyy')
+      : 'All dates';
+    doc.text(`Status: ${filterLabel}   ·   Period: ${rangeLabel}   ·   ${filtered.length} payout${filtered.length === 1 ? '' : 's'}   ·   Generated: ${format(new Date(), 'dd MMM yyyy, HH:mm')}`, 40, 56);
+
+    const rows = filtered.map((op, index) => {
+      const meta = op.metadata as Record<string, any> | null;
+      const isAltWallet = op.operation_type === 'roi_split_alt_wallet';
+      const isProxy = !!op.target_wallet_user_id && !isAltWallet;
+      const reasonMatch = op.description?.match(/Reason:\s*(.*)$/i);
+      const reason = reasonMatch ? reasonMatch[1].trim() : '—';
+      const settledAt = settlementMap.get(op.id);
+      const payment = paymentStatus(op, isProxy, settledAt);
+      return [
+        String(index + 1),
+        format(new Date(op.created_at), 'dd MMM yyyy HH:mm'),
+        meta?.partner_name || getName(op.user_id),
+        isProxy ? (meta?.target_agent_name || getName(op.target_wallet_user_id))
+          : isAltWallet ? (meta?.alt_recipient_name || getName(op.target_wallet_user_id))
+          : 'Partner wallet',
+        op.source_id?.slice(0, 8) || '—',
+        reason,
+        formatUGX(op.amount),
+        op.reference_id || '—',
+        op.status === 'coo_approved' ? 'Awaiting CFO' : op.status === 'approved' ? 'Approved' : op.status === 'rejected' ? 'Rejected' : op.status,
+        payment === 'paid' ? 'Paid' : payment === 'pending' ? 'Pending' : '—',
+      ];
+    });
+
+    autoTable(doc, {
+      startY: 70,
+      head: [['#', 'Date', 'Partner', 'Paid to', 'Portfolio', 'Reason', 'Amount', 'Reference', 'CFO', 'Payment']],
+      body: rows,
+      styles: { fontSize: 8, cellPadding: 4 },
+      headStyles: { fillColor: [76, 29, 149], textColor: 255, fontStyle: 'bold' },
+      columnStyles: {
+        0: { cellWidth: 24, halign: 'right' },
+        1: { cellWidth: 90 },
+        5: { cellWidth: 110 },
+        6: { cellWidth: 80, halign: 'right' },
+        7: { cellWidth: 100 },
+      },
+      didDrawPage: () => {
+        doc.setFontSize(8);
+        doc.setTextColor(120);
+        doc.text(`Welile · ROI Payout list · Page ${doc.getNumberOfPages()}`, pageWidth - 40, doc.internal.pageSize.getHeight() - 16, { align: 'right' });
+        doc.setTextColor(0);
+      },
+    });
+
+    doc.save(`roi-payouts-${format(new Date(), 'yyyy-MM-dd-HHmm')}.pdf`);
+    toast.success(`PDF downloaded — ${filtered.length} payout${filtered.length === 1 ? '' : 's'}`);
+  };
+
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between flex-wrap gap-2">
