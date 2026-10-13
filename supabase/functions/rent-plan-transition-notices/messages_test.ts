@@ -25,6 +25,7 @@ import {
   agentMessage,
   agentNudgeMessage,
   agentPaidMessage,
+  agentPaidEmailData,
   agentCancelledMessage,
   tenantMessage,
   tenantCancelledMessage,
@@ -151,29 +152,31 @@ Deno.test('AP matches the document', () => {
     tenant_first_name: 'SSEMANDO', rent_amount: 100000,
     instalment: 4767, period_label: 'per day',
     repayment_starts_on: '2026-09-30',
-    receipt_number: 'WLR-100336', commission_ugx: 1000,
+    receipt_number: 'WLR-100336', receipt_code: '5NKSV5RMGB', commission_ugx: 1000,
   });
 
-  same('AP', actual, `UGX 100,000 has been paid to landlord DEMO. Receipt No WLR-100336.
+  same('AP', actual, `UGX 100,000 has been paid to landlord DEMO. Receipt No: WLR-100336 (Code: 5NKSV5RMGB).
 
 SSEMANDO starts repaying TOMORROW, Wednesday 30 September: UGX 4,767 per day.
 
 You earned UGX 1,000 commission.
 
+View receipt: https://welileapp.com/r/5NKSV5RMGB
+
 Please upload the receipt.`);
 });
 
-// The two conditional parts, also from the document: built WITHOUT them, not
-// with an empty placeholder. This is the A1 mistake in miniature - a receipt
-// number that is not there must not leave 'Receipt No .' in a live SMS.
-Deno.test('AP drops the receipt line and the commission when neither exists', () => {
+// The conditional parts, also from the document: built WITHOUT them, not with
+// an empty placeholder. This is the A1 mistake in miniature - a receipt that is
+// not there must not leave 'Receipt No: .' or a dead link in a live SMS.
+Deno.test('AP drops the receipt lines and the commission when neither exists', () => {
   const actual = agentPaidMessage({
     rent_request_id: 'r1', agent_id: 'a1', agent_phone: '+256700000000',
     agent_name: 'PIUSLUBEGA SSENKALI', landlord_name: 'DEMO',
     tenant_first_name: 'SSEMANDO', rent_amount: 100000,
     instalment: 4767, period_label: 'per day',
     repayment_starts_on: '2026-09-30',
-    receipt_number: null, commission_ugx: null,
+    receipt_number: null, receipt_code: null, commission_ugx: null,
   });
 
   same('AP (no receipt, no commission)', actual, `UGX 100,000 has been paid to landlord DEMO.
@@ -181,4 +184,66 @@ Deno.test('AP drops the receipt line and the commission when neither exists', ()
 SSEMANDO starts repaying TOMORROW, Wednesday 30 September: UGX 4,767 per day.
 
 Please upload the receipt.`);
+});
+
+// The number and the code are one receipt. Quoting one without the other would
+// give the agent something they cannot look up, so a half-present receipt is
+// treated as no receipt at all.
+Deno.test('AP does not quote a receipt number that has no code', () => {
+  const actual = agentPaidMessage({
+    rent_request_id: 'r1', agent_id: 'a1', agent_phone: '+256700000000',
+    agent_name: 'PIUSLUBEGA SSENKALI', landlord_name: 'DEMO',
+    tenant_first_name: 'SSEMANDO', rent_amount: 100000,
+    instalment: 4767, period_label: 'per day',
+    repayment_starts_on: '2026-09-30',
+    receipt_number: 'WLR-100336', receipt_code: null, commission_ugx: null,
+  });
+
+  same('AP (number only)', actual, `UGX 100,000 has been paid to landlord DEMO.
+
+SSEMANDO starts repaying TOMORROW, Wednesday 30 September: UGX 4,767 per day.
+
+Please upload the receipt.`);
+});
+
+/* ------------------------------------------------------------------ *
+ * AP by email - the data the template is rendered from
+ * ------------------------------------------------------------------ */
+
+const emailNotice = {
+  rent_request_id: '2d6e0c1a-0000-4000-8000-000000000001',
+  agent_id: 'a1', agent_email: 'agent@example.com',
+  agent_name: 'PIUSLUBEGA SSENKALI', landlord_name: 'Don Adrew kagwa',
+  tenant_name: 'Susan Sandra Namiilo', rent_amount: 800000,
+  instalment: 36000, period_label: 'per day',
+  repayment_starts_on: '2026-10-13',
+  receipt_number: 'WLR-101212', receipt_code: '4N2X3GDHAE',
+  paid_at: '2026-10-09T07:42:46.263+00:00',
+  commission_ugx: 8000, ref: '2D6E0C1A',
+};
+
+Deno.test('AP email data quotes the same receipt the SMS does', () => {
+  const d = agentPaidEmailData(emailNotice);
+  assertEquals(d.receipt_number, 'WLR-101212');
+  assertEquals(d.receipt_code, '4N2X3GDHAE');
+  assertEquals(d.receipt_url, 'https://welileapp.com/r/4N2X3GDHAE');
+  assertEquals(d.amount, 800000);
+  assertEquals(d.agent_name, 'PIUSLUBEGA');
+  assertEquals(d.commission, 8000);
+});
+
+// email_send_log is the only record that this plan has been emailed, and it
+// stores the template data, so the plan id has to be in it.
+Deno.test('AP email data carries the plan id used to de-duplicate', () => {
+  assertEquals(agentPaidEmailData(emailNotice).rent_request_id, emailNotice.rent_request_id);
+});
+
+// 07:42 UTC is 10:42 in Kampala. Printing UTC here would tell the agent they
+// were paid three hours before they were.
+Deno.test('AP email shows the payout time in Kampala time', () => {
+  assertEquals(agentPaidEmailData(emailNotice).paid_on, '09 Oct 2026, 10:42');
+});
+
+Deno.test('AP email data leaves the commission empty when none was posted', () => {
+  assertEquals(agentPaidEmailData({ ...emailNotice, commission_ugx: null }).commission, '');
 });

@@ -32,6 +32,14 @@ function digitsOnly(s: string): string {
   return s.replace(/\D/g, "");
 }
 
+/**
+ * The significant digits of a Ugandan number: +256701111222, 256701111222 and 0701 111 222 are the
+ * same person, so all compare as 701111222. Lets the assistant restate a number in the local format.
+ */
+function nationalDigits(s: string): string {
+  return digitsOnly(s).replace(/^256/, "").replace(/^0/, "");
+}
+
 export function checkAnswer(answer: string, toolOutputs: string[], userMessage: string): GuardResult {
   if (BANNED_TERMS.test(answer)) return { ok: false, reason: "terminology" };
 
@@ -44,11 +52,12 @@ export function checkAnswer(answer: string, toolOutputs: string[], userMessage: 
 
   const sourceDigits = digitsOnly(sources.join(" "));
   for (const m of answer.matchAll(PHONE)) {
-    if (!sourceDigits.includes(digitsOnly(m[0]).replace(/^256/, ""))) return { ok: false, reason: "phone" };
+    if (!sourceDigits.includes(nationalDigits(m[0]))) return { ok: false, reason: "phone" };
   }
 
+  // Phone numbers were just verified above; they are not money, so keep them out of the figure check.
   const known = numericSet(sources);
-  for (const m of answer.replace(ISO_DATE_G, " ").replace(UUID, " ").matchAll(NUMBER)) {
+  for (const m of answer.replace(PHONE, " ").replace(ISO_DATE_G, " ").replace(UUID, " ").matchAll(NUMBER)) {
     const raw = m[0];
     const n = Number(raw.replace(/,/g, ""));
     if (!Number.isFinite(n) || n < 1000) continue;

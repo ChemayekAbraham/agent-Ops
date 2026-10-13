@@ -11,14 +11,13 @@
 // failure never affects the payout itself — staff can resend.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.57.4";
 import { sendSMS, formatPhoneInternational, isUgandanPhone } from "../_shared/sendSmsMultiProvider.ts";
+import { receiptUrl as publicReceiptUrl, formatReceiptDateTime } from "../_shared/landlordReceipt.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
-
-const RECEIPT_BASE_URL = "https://welileapp.com/r";
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -29,18 +28,6 @@ function json(body: unknown, status = 200) {
 
 function formatUGX(amount: number) {
   return `UGX ${Math.round(Number(amount) || 0).toLocaleString("en-US")}`;
-}
-
-function formatDateTime(iso: string | null) {
-  const d = iso ? new Date(iso) : new Date();
-  return d.toLocaleString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "Africa/Kampala",
-  });
 }
 
 Deno.serve(async (req) => {
@@ -91,7 +78,7 @@ Deno.serve(async (req) => {
     }
 
     const receiptCode: string = result.receipt_code;
-    const receiptUrl = `${RECEIPT_BASE_URL}/${receiptCode}`;
+    const receiptUrl = publicReceiptUrl(receiptCode);
     const snapshot = (result.snapshot ?? {}) as Record<string, any>;
     const landlordPhone: string | null = result.landlord_phone ?? null;
     const alreadySent: string | null = result.sms_sent_at ?? null;
@@ -117,7 +104,7 @@ Deno.serve(async (req) => {
     const message =
       `Welile: Dear ${snapshot.landlord_name ?? "Landlord"}, you have received ` +
       `${formatUGX(snapshot.amount)} as rent for ${snapshot.tenant_name ?? "your tenant"}. ` +
-      `Processed by ${snapshot.processed_by_name ?? "Welile"} on ${formatDateTime(snapshot.paid_at ?? null)}. ` +
+      `Processed by ${snapshot.processed_by_name ?? "Welile"} on ${formatReceiptDateTime(snapshot.paid_at ?? null)}. ` +
       (receiptNo ? `Receipt No: ${receiptNo} (Code: ${receiptCode}). ` : "") +
       `View your receipt: ${receiptUrl}`;
 
