@@ -3837,6 +3837,13 @@
       "when": 1791877275128,
       "tag": "0547_redemption_notice_countdown",
       "breakpoints": true
+    },
+    {
+      "idx": 548,
+      "version": "7",
+      "when": 1791878364723,
+      "tag": "0548_unlock_portfolio_allow_partner_ops",
+      "breakpoints": true
     }
   ]
 }
