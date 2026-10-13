@@ -44948,6 +44948,36 @@ export type Database = {
         }
         Relationships: []
       }
+      sms_balance_alerts: {
+        Row: {
+          balance_credits: number
+          created_at: string
+          credits_24h: number
+          emailed: boolean
+          id: string
+          level: string
+          runway_hours: number | null
+        }
+        Insert: {
+          balance_credits: number
+          created_at?: string
+          credits_24h: number
+          emailed?: boolean
+          id?: string
+          level: string
+          runway_hours?: number | null
+        }
+        Update: {
+          balance_credits?: number
+          created_at?: string
+          credits_24h?: number
+          emailed?: boolean
+          id?: string
+          level?: string
+          runway_hours?: number | null
+        }
+        Relationships: []
+      }
       sms_broadcast_campaigns: {
         Row: {
           audiences: string[]
@@ -64205,6 +64235,10 @@ export type Database = {
         Args: { p_sale_id: string }
         Returns: string
       }
+      coo_approve_rent_request: {
+        Args: { p_comment?: string; p_request_id: string }
+        Returns: Json
+      }
       coo_approve_smartphone_order: {
         Args: {
           p_daily_deduction?: number
@@ -64213,6 +64247,10 @@ export type Database = {
           p_sale_id: string
           p_total_amount?: number
         }
+        Returns: Json
+      }
+      coo_return_rent_request: {
+        Args: { p_reason: string; p_request_id: string }
         Returns: Json
       }
       correct_tenant_location: {
@@ -68884,6 +68922,7 @@ export type Database = {
         Args: { p_sale_id: string }
         Returns: Json
       }
+      get_sms_balance_runway: { Args: never; Returns: Json }
       get_sms_broadcast_status: {
         Args: never
         Returns: {
