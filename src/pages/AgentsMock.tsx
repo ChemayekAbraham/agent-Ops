@@ -80,6 +80,46 @@ export default function AgentsMock() {
     });
     return m;
   }, [monthRows]);
+  // What the agent was expected to collect each day: the nightly eligibility
+  // history (agent_daily_eligibility_history) holds expected_daily per day.
+  const monthStart = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}-01`;
+  const monthEndKey = `${month.getMonth() + 1 === 12 ? month.getFullYear() + 1 : month.getFullYear()}-${String(month.getMonth() + 2 > 12 ? 1 : month.getMonth() + 2).padStart(2, '0')}-01`;
+  const { data: historyRows } = useQuery({
+    queryKey: ['agents-mock-month-expected', user?.id, monthKey],
+    enabled: !!user?.id,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('agent_daily_eligibility_history')
+        .select('day, expected_daily, paid')
+        .eq('agent_id', user!.id)
+        .gte('day', monthStart).lt('day', monthEndKey).limit(500);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const expectedByDay = useMemo(() => {
+    const m = new Map<string, number>();
+    (historyRows ?? []).forEach(r => m.set(String(r.day), Number(r.expected_daily) || 0));
+    return m;
+  }, [historyRows]);
+  // Kampala "today" — the same +3h day boundary the collections query uses.
+  const todayKey = new Date(Date.now() + 3 * 3600_000).toISOString().slice(0, 10);
+  const dayStatus = (dayNum: number): 'paid' | 'partial' | 'missed' | null => {
+    const dateKey = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}-${String(dayNum).padStart(2, '0')}`;
+    const expected = dateKey === todayKey ? EXPECTED_TODAY : (expectedByDay.get(dateKey) ?? 0);
+    if (expected <= 0) return null;
+    const collected = byDay.get(dayNum)?.total ?? 0;
+    if (collected >= expected) return 'paid';
+    if (collected > 0) return 'partial';
+    // Nothing collected on a day that had an expectation. Today isn't a miss
+    // until it ends; only finished days are marked.
+    return dateKey < todayKey ? 'missed' : null;
+  };
+  const DAY_STYLES: Record<'paid' | 'partial' | 'missed', string> = {
+    paid: 'bg-success text-success-foreground',
+    partial: 'bg-success/35 text-foreground',
+    missed: 'bg-destructive text-destructive-foreground',
+  };
   const selected = byDay.get(day);
   const amount = (value: number) => hidden ? '••••••' : formatUGX(value);
   return (
@@ -150,10 +190,10 @@ export default function AgentsMock() {
             <h2 id="calendar-heading" className="mb-3 text-xs font-semibold">Collection Calendar</h2>
             <div className="rounded-[16px] bg-card p-4">
               <div className="mb-3 flex items-center justify-between"><Button variant="ghost" size="icon-sm" aria-label="Previous month" onClick={() => moveMonth(-1)}><ChevronLeft className="!h-3 !w-3" /></Button><h3 className="text-[11px] font-semibold">{monthLabel}</h3><Button variant="ghost" size="icon-sm" aria-label="Next month" onClick={() => moveMonth(1)}><ChevronRight className="!h-3 !w-3" /></Button></div>
-              <div className="grid grid-cols-7 text-center">{['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(label => <span key={label} className="pb-2 text-[9px] text-muted-foreground">{label}</span>)}{Array.from({ length: offset }, (_, i) => <span key={`blank-${i}`} />)}{Array.from({ length: days }, (_, i) => <Button key={i} variant="ghost" aria-label={`${monthLabel} ${i + 1}`} aria-pressed={day === i + 1} onClick={() => setDay(i + 1)} className="h-9 rounded-none p-0 text-[10px]"><span className={cn('relative flex h-7 w-7 items-center justify-center rounded-lg', day === i + 1 && 'border-2 border-primary text-primary')}>{i + 1}{byDay.has(i + 1) && <span className={cn('absolute bottom-0 h-1.5 w-1.5 rounded-full', byDay.get(i + 1)!.partial ? 'bg-warning/60' : 'bg-success')} />}</span></Button>)}</div>
-              <div className="mt-4 flex justify-center gap-3 border-t border-border pt-3 text-[9px] text-muted-foreground">{[{ name: 'Collected', color: 'bg-success' }, { name: 'Partial', color: 'bg-warning/60' }].map(item => <span key={item.name} className="flex items-center gap-1"><span className={cn('h-2 w-2 rounded-full', item.color)} />{item.name}</span>)}</div>
+              <div className="grid grid-cols-7 text-center">{['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(label => <span key={label} className="pb-2 text-[9px] text-muted-foreground">{label}</span>)}{Array.from({ length: offset }, (_, i) => <span key={`blank-${i}`} />)}{Array.from({ length: days }, (_, i) => { const st = dayStatus(i + 1); return <Button key={i} variant="ghost" aria-label={`${monthLabel} ${i + 1}${st ? ` · ${st}` : ''}`} aria-pressed={day === i + 1} onClick={() => setDay(i + 1)} className="h-9 rounded-none p-0 text-[10px]"><span className={cn('flex h-7 w-7 items-center justify-center rounded-lg font-semibold', st && DAY_STYLES[st], day === i + 1 && 'ring-2 ring-primary ring-offset-1 ring-offset-card')}>{i + 1}</span></Button>; })}</div>
+              <div className="mt-4 flex justify-center gap-3 border-t border-border pt-3 text-[9px] text-muted-foreground">{[{ name: 'Paid', color: 'bg-success' }, { name: 'Partial', color: 'bg-success/35' }, { name: 'Missed', color: 'bg-destructive' }].map(item => <span key={item.name} className="flex items-center gap-1"><span className={cn('h-2 w-2 rounded-full', item.color)} />{item.name}</span>)}</div>
             </div>
-            <div className="mt-3 rounded-[16px] bg-card p-4"><h3 className="text-[10px] font-semibold">{new Date(month.getFullYear(), month.getMonth(), day).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</h3>{selected ? <p className="mt-1 text-[10px] text-muted-foreground">{selected.count} collection{selected.count === 1 ? '' : 's'} · <strong className="text-primary">{amount(selected.total)}</strong>{selected.partial ? ' (includes partial)' : ''}</p> : <p className="mt-1 text-[10px] italic text-muted-foreground">No collections recorded.</p>}</div>
+            <div className="mt-3 rounded-[16px] bg-card p-4"><h3 className="text-[10px] font-semibold">{new Date(month.getFullYear(), month.getMonth(), day).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</h3>{selected ? <p className="mt-1 text-[10px] text-muted-foreground">{selected.count} collection{selected.count === 1 ? '' : 's'} · <strong className="text-primary">{amount(selected.total)}</strong>{selected.partial ? ' (includes partial)' : ''}</p> : <p className="mt-1 text-[10px] italic text-muted-foreground">{dayStatus(day) === 'missed' ? 'Nothing was collected this day — missed.' : 'No collections recorded.'}</p>}</div>
           </section>
         </main>
       </div>
