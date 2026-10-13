@@ -41,6 +41,25 @@ export default function AgentsMock() {
   const firstLetter = (name?: string | null) => (name || 'T').trim().charAt(0).toUpperCase() || 'T';
   const initials = (profile?.full_name || '').trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('') || 'SP';
   const [brokenAvatar, setBrokenAvatar] = useState<string | null>(null);
+  // The photos folder is private, so the saved "public" link 404s. Turn the
+  // saved link into a short-lived signed link for the same file instead.
+  const avatarPath = useMemo(() => {
+    const raw = profile?.avatar_url;
+    if (!raw) return null;
+    const m = raw.match(/\/avatars\/([^?]+)/);
+    return m ? decodeURIComponent(m[1]) : null;
+  }, [profile?.avatar_url]);
+  const { data: signedAvatar } = useQuery({
+    queryKey: ['agents-mock-avatar', avatarPath],
+    enabled: !!avatarPath,
+    staleTime: 50 * 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.storage.from('avatars').createSignedUrl(avatarPath!, 3600);
+      if (error) throw error;
+      return data.signedUrl;
+    },
+  });
+  const avatarSrc = signedAvatar ?? (avatarPath ? null : profile?.avatar_url ?? null);
   const [hidden, setHidden] = useState(false);
   const [activeNav, setActiveNav] = useState('Home');
   const [notice, setNotice] = useState<string | null>(null);
@@ -126,7 +145,7 @@ export default function AgentsMock() {
       <div className="mx-auto min-h-screen max-w-[400px] border-x border-border/40">
         <header className="flex h-[60px] items-center justify-between bg-card px-4">
           <p className="flex items-center gap-1 text-[11px] text-muted-foreground"><Hand className="h-3 w-3 text-warning" />Welcome Back, <strong className="text-foreground">SSENKAALI</strong></p>
-          <div className="flex items-center gap-2"><Button variant="ghost" size="icon-sm" aria-label="Notifications" className="text-primary" onClick={() => setNotice('Notifications')}><Bell className="!h-4 !w-4" /></Button><Button variant="outline" size="icon-sm" aria-label="Your profile" onClick={() => setNotice('Your profile')} className="relative rounded-full border-primary p-0 text-[11px] text-primary">{profile?.avatar_url && brokenAvatar !== profile.avatar_url ? <img src={profile.avatar_url} alt="" onError={() => setBrokenAvatar(profile.avatar_url)} className="h-full w-full rounded-full object-cover" /> : initials}<span className="absolute right-0 top-0 h-2 w-2 rounded-full border border-card bg-primary" /></Button></div>
+          <div className="flex items-center gap-2"><Button variant="ghost" size="icon-sm" aria-label="Notifications" className="text-primary" onClick={() => setNotice('Notifications')}><Bell className="!h-4 !w-4" /></Button><Button variant="outline" size="icon-sm" aria-label="Your profile" onClick={() => setNotice('Your profile')} className="relative rounded-full border-primary p-0 text-[11px] text-primary">{avatarSrc && brokenAvatar !== avatarSrc ? <img src={avatarSrc} alt="" onError={() => setBrokenAvatar(avatarSrc)} className="h-full w-full rounded-full object-cover" /> : initials}<span className="absolute right-0 top-0 h-2 w-2 rounded-full border border-card bg-primary" /></Button></div>
         </header>
         <main className="space-y-4 px-4 pt-4">
           <section aria-label="Rent due and collected today" className="agents-mock-wallet relative overflow-hidden rounded-[18px] p-[18px]">
