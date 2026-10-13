@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { Bell, Building2, Calculator, CalendarDays, ChevronLeft, ChevronRight, Eye, EyeOff, FileText, Hand, Home, Menu, Store, Trophy, Users, Wallet, type LucideIcon } from 'lucide-react';
+import { Bell, Building2, Calculator, CheckCircle2, ChevronLeft, ChevronRight, Eye, EyeOff, FileText, Hand, Home, Menu, Store, Trophy, Users, Wallet, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { formatUGX } from '@/lib/rentCalculations';
@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
 import { useAgentCapacityMap } from '@/hooks/useAgentCapacityMap';
+import { useAgentArrears } from '@/hooks/useAgentArrears';
 
 const SHORTCUTS: { label: string; Icon: LucideIcon; color: string; to?: string }[] = [
   { label: 'Calculator', Icon: Calculator, color: 'text-primary' },
@@ -29,6 +30,15 @@ export default function AgentsMock() {
   const TENANTS_TOTAL = cap?.tenants_due ?? 0;
   const CAPACITY_PCT = EXPECTED_TODAY > 0 ? Math.min(100, Math.round((COLLECTED_TODAY / EXPECTED_TODAY) * 100)) : 0;
   const LEFT_TODAY = Math.max(0, EXPECTED_TODAY - COLLECTED_TODAY);
+  // Today's collection list comes from the same server read the Collect dialog
+  // uses (`agent_arrears_overview`), so the names and amounts here are the
+  // tenant's own open days — never a placeholder.
+  const { data: arrears, isLoading: arrearsLoading, isError: arrearsFailed } = useAgentArrears(user?.id);
+  const DUE_LIST = useMemo(() => arrears?.tenants ?? [], [arrears]);
+  const DUE_TOTAL = DUE_LIST.reduce((s, t) => s + (Number(t.due_today_ugx) || 0), 0);
+  const [showAllDue, setShowAllDue] = useState(false);
+  const VISIBLE_DUE = showAllDue ? DUE_LIST : DUE_LIST.slice(0, 10);
+  const firstLetter = (name?: string | null) => (name || 'T').trim().charAt(0).toUpperCase() || 'T';
   const initials = (profile?.full_name || '').trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() ?? '').join('') || 'SP';
   const [brokenAvatar, setBrokenAvatar] = useState<string | null>(null);
   const [hidden, setHidden] = useState(false);
@@ -60,7 +70,7 @@ export default function AgentsMock() {
               <div className="min-w-0 flex-1">
                 <p className="text-[9px] uppercase opacity-70">Rent due to collect</p>
                 <p className="text-[22px] font-bold leading-6">{amount(EXPECTED_TODAY)}</p>
-                <p className="mt-1 text-[9px] opacity-70">expected today · {TENANTS_TOTAL} tenants</p>
+                <p className="mt-1 text-[9px] opacity-70">expected today · {TENANTS_TOTAL} tenant{TENANTS_TOTAL === 1 ? '' : 's'}</p>
               </div>
             </div>
           </section>
@@ -73,8 +83,38 @@ export default function AgentsMock() {
             <progress aria-label="Today's capacity progress" value={CAPACITY_PCT} max={100} className="agents-mock-progress mt-3 block h-1.5 w-full rounded-full" />
             <div className="mt-3 flex justify-between text-[10px]"><span className="text-muted-foreground">{TENANTS_DONE} of {TENANTS_TOTAL} tenants completed</span><span className="font-semibold text-primary">{capLoading && !cap ? 'Loading…' : `${formatUGX(LEFT_TODAY)} left`}</span></div>
           </section>
-          <section className="flex h-[142px] flex-col items-center justify-center rounded-[16px] bg-card text-center" aria-label="Today's scheduled collections">
-            <span className="mb-2 flex h-9 w-9 items-center justify-center rounded-full bg-background text-muted-foreground"><CalendarDays className="h-4 w-4" /></span><h2 className="text-[11px] font-semibold">No collections scheduled</h2><p className="mt-1 max-w-[180px] text-[10px] leading-3 text-muted-foreground">There are no rent repayments due for collection today.</p>
+          <section aria-labelledby="due-heading" className="rounded-[16px] bg-card p-4">
+            <div className="flex items-center justify-between"><h2 id="due-heading" className="text-xs font-semibold">Collections due today</h2><span className="text-[11px] font-bold text-primary">{arrearsFailed ? 'Unavailable' : amount(DUE_TOTAL)}</span></div>
+            {arrearsLoading && !arrears ? (
+              <p className="mt-3 text-[10px] text-muted-foreground">Loading today's list…</p>
+            ) : arrearsFailed ? (
+              <p className="mt-3 text-[10px] text-muted-foreground">Couldn't load today's list. Pull down to refresh.</p>
+            ) : DUE_LIST.length === 0 ? (
+              <div className="mt-2 flex flex-col items-center py-3 text-center">
+                <span className="mb-2 flex h-9 w-9 items-center justify-center rounded-full bg-background text-success"><CheckCircle2 className="h-4 w-4" /></span>
+                <h3 className="text-[11px] font-semibold">{TENANTS_TOTAL > 0 ? 'All due collections are in' : 'Nothing due today'}</h3>
+                <p className="mt-1 max-w-[200px] text-[10px] leading-3 text-muted-foreground">{TENANTS_TOTAL > 0 ? 'Every tenant scheduled to pay today has already paid.' : 'You have no Rent Plans scheduled for collection today.'}</p>
+              </div>
+            ) : (
+              <>
+                <p className="mt-0.5 text-[10px] text-muted-foreground">{DUE_LIST.length} tenant{DUE_LIST.length === 1 ? '' : 's'} still to pay</p>
+                <ul className="mt-2 space-y-1.5">
+                  {VISIBLE_DUE.map(t => (
+                    <li key={t.rent_request_id} className="flex items-center gap-2 rounded-xl bg-background/60 px-2.5 py-2">
+                      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-[11px] font-bold text-primary">{firstLetter(t.tenant_name)}</span>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[11px] font-medium">{t.tenant_name || 'Tenant'}</p>
+                        <p className="text-[9px] text-muted-foreground">{Number(t.days_behind) > 0 ? `${t.days_behind} day${Number(t.days_behind) === 1 ? '' : 's'} behind` : 'Due today'}</p>
+                      </div>
+                      <span className="shrink-0 text-[11px] font-bold text-primary">{amount(Number(t.due_today_ugx) || 0)}</span>
+                    </li>
+                  ))}
+                </ul>
+                {DUE_LIST.length > 10 && (
+                  <Button variant="ghost" className="mt-2 h-8 w-full text-[10px] text-primary" onClick={() => setShowAllDue(v => !v)}>{showAllDue ? 'Show less' : `Show ${DUE_LIST.length - 10} more`}</Button>
+                )}
+              </>
+            )}
           </section>
           <section aria-labelledby="calendar-heading" className="pt-1">
             <h2 id="calendar-heading" className="mb-3 text-xs font-semibold">Collection Calendar</h2>
