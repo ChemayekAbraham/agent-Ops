@@ -109,3 +109,15 @@ REVOKE ALL ON FUNCTION public.get_user_available_balance(uuid) FROM PUBLIC, anon
 -- verbatim by run.sh and race.sh) reads: profiles.is_frozen and public.wallets ──
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_frozen boolean DEFAULT false;
 CREATE VIEW public.wallets AS SELECT user_id FROM public.wallets_physical;
+
+-- ── what the standard reversal (drizzle/migrations/0451 reverse_wallet_transfer,
+-- 0453 wallet_transfer_reversal_status; loaded verbatim by run.sh) writes or reads ──
+CREATE TABLE public.system_events (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), event_type text, user_id uuid, related_entity_type text,
+  metadata jsonb, actor_id uuid, subject_id uuid, source text, created_at timestamptz DEFAULT now());
+CREATE TABLE public.notifications (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid, title text, message text, type text,
+  metadata jsonb, event_key text, link_path text, created_at timestamptz DEFAULT now());
+CREATE TABLE public.withdrawal_requests (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid NOT NULL, amount numeric,
+  status text, created_at timestamptz NOT NULL DEFAULT now());

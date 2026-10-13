@@ -30,10 +30,18 @@
 --
 -- food_verify_payment re-checks a PAID order against the ledger. If its legs
 -- no longer match, or a reversal posting exists for its reference, the order
--- becomes payment_reversed and is never again treated as paid. The reversal
--- marker '<reference>-REV' is the convention the app's own reversal screen
--- uses (TransactionDetailDrawer); the production reversal function has not
--- been read, so this detection must be confirmed against it before release.
+-- becomes payment_reversed and is never again treated as paid.
+--
+-- Reversals. A Food payment is an ordinary wallet_transfer, so the sender (the
+-- employee) can reverse it with the standard reverse_wallet_transfer while the
+-- coordinator has not withdrawn (drizzle/migrations/0451 and 0453; the
+-- statement shows a Reverse button for it). That mechanism writes exactly two
+-- signals, reference '<reference>-REV' and idempotency key
+-- 'reversal:<reference>'; food_payment_problem reads both, exactly. A
+-- reversal is detected (1) by food_verify_payment, (2) when food_pay_order is
+-- retried on a paid order, and (3) by food_reconcile_payments, a capped batch
+-- for the active coordinator or a scheduler. The live reversal functions have
+-- not been read in production; the repo definitions are the evidence.
 --
 -- Uses the ledger as it exists: create_ledger_transaction (never with
 -- skip_balance_check), general_ledger (read only) and wallets_physical (read
@@ -55,7 +63,9 @@
 -- so get_agent_sweepable_withdrawable treats it exactly as any peer transfer,
 -- and a Food Coordinator gets no treatment of their own.
 --
--- ROLLBACK: DROP FUNCTION food_confirm_receipt(uuid), food_verify_payment(uuid);
+-- ROLLBACK: DROP FUNCTION food_reconcile_payments(integer), food_confirm_receipt(uuid),
+-- food_verify_payment(uuid), food_mark_payment_reversed(uuid, text, uuid),
+-- food_payment_problem(food_orders);
 -- re-run food_pay_order from 20261012120000; DROP the columns received_at,
 -- received_by, payee_id, payment_verified_at and the two constraints; restore
 -- the payment_status CHECK without 'payment_reversed'.
@@ -122,6 +132,43 @@ BEGIN
                             'payee_id',v_payee,'amount_due',v_o.total_ugx);
 END $$;
 
+-- ═══════════════ payment integrity helpers (internal) ═══════════════
+-- NULL when a paid order's payment is intact, else why it is not.
+CREATE FUNCTION public.food_payment_problem(p_order public.food_orders)
+RETURNS text LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, pg_temp AS $$
+DECLARE v_ref text := 'FOODPAY-' || p_order.order_reference; v_ok boolean;
+BEGIN
+  SELECT count(*) = 2
+     AND count(*) FILTER (WHERE g.user_id = p_order.employee_id AND g.direction = 'cash_out') = 1
+     AND count(*) FILTER (WHERE g.user_id = p_order.payee_id AND g.direction = 'cash_in') = 1
+     AND bool_and(g.amount = p_order.total_ugx AND g.category = 'wallet_transfer' AND g.ledger_scope = 'wallet')
+    INTO v_ok
+    FROM public.general_ledger g WHERE g.transaction_group_id = p_order.transaction_group_id;
+  IF NOT coalesce(v_ok, false) THEN RETURN 'ledger_legs_do_not_match'; END IF;
+  -- the two signals reverse_wallet_transfer writes; any amount, full or partial
+  IF EXISTS (SELECT 1 FROM public.general_ledger g
+              WHERE g.idempotency_key = 'reversal:' || v_ref OR g.reference_id = v_ref || '-REV') THEN
+    RETURN 'reversal_posted';
+  END IF;
+  RETURN NULL;
+END $$;
+
+-- paid -> payment_reversed, recorded; the caller holds the order row lock
+CREATE FUNCTION public.food_mark_payment_reversed(p_order_id uuid, p_reason text, p_actor uuid)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+BEGIN
+  UPDATE public.food_orders SET payment_status = 'payment_reversed'
+   WHERE id = p_order_id AND payment_status = 'paid';
+  IF NOT FOUND THEN RETURN; END IF;
+  INSERT INTO public.food_order_events (order_id, event_type, from_status, to_status, note, actor_id)
+  VALUES (p_order_id, 'payment_reversed', 'paid', 'payment_reversed', p_reason, p_actor);
+  PERFORM public.food_audit_write('order', p_order_id, 'payment_reversed',
+    jsonb_build_object('payment_status','paid'),
+    jsonb_build_object('payment_status','payment_reversed','reason',p_reason), NULL, p_actor);
+END $$;
+REVOKE ALL ON FUNCTION public.food_payment_problem(public.food_orders), public.food_mark_payment_reversed(uuid, text, uuid)
+  FROM PUBLIC, anon, authenticated;
+
 -- ═══════════════ 2-4. pay, verify, mark paid ═══════════════
 CREATE OR REPLACE FUNCTION public.food_pay_order(p_order_id uuid)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
@@ -129,7 +176,7 @@ DECLARE
   v_uid uuid := auth.uid(); v_o public.food_orders%ROWTYPE;
   v_ref text; v_key text; v_group uuid; v_ok boolean;
   v_maint boolean; v_until text; v_wpaused boolean; v_short boolean := false;
-  v_elig boolean; v_elig_reason text;
+  v_elig boolean; v_elig_reason text; v_problem text;
 BEGIN
   IF v_uid IS NULL THEN RAISE EXCEPTION 'Authentication required' USING ERRCODE='28000'; END IF;
   SELECT * INTO v_o FROM public.food_orders WHERE id = p_order_id FOR UPDATE;
@@ -137,8 +184,14 @@ BEGIN
   IF v_o.employee_id <> v_uid THEN
     RAISE EXCEPTION 'Only the person who placed this order can pay for it' USING ERRCODE='42501'; END IF;
 
-  -- retry or second tab: the first payment stands, nothing is posted twice
+  -- retry or second tab: the first payment stands, nothing is posted twice;
+  -- but a payment reversed since then is reported as such, never as paid
   IF v_o.payment_status = 'paid' THEN
+    v_problem := public.food_payment_problem(v_o);
+    IF v_problem IS NOT NULL THEN
+      PERFORM public.food_mark_payment_reversed(v_o.id, v_problem, v_uid);
+      RETURN jsonb_build_object('status','payment_reversed','order_id',v_o.id,'reason',v_problem);
+    END IF;
     RETURN jsonb_build_object('status','paid','order_id',v_o.id,
                               'transaction_group_id',v_o.transaction_group_id,'replayed',true);
   END IF;
@@ -230,6 +283,11 @@ BEGIN
                   AND g.source_id::text = v_o.id::text AND g.reference_id = v_ref)
     INTO v_ok
     FROM public.general_ledger g WHERE g.transaction_group_id = v_group;
+  -- an existing group returned for the fixed key must not already be reversed
+  IF coalesce(v_ok, false) AND EXISTS (SELECT 1 FROM public.general_ledger g
+       WHERE g.idempotency_key = 'reversal:' || v_ref OR g.reference_id = v_ref || '-REV') THEN
+    v_ok := false;
+  END IF;
   IF NOT coalesce(v_ok, false) THEN
     RAISE EXCEPTION 'The payment could not be verified in the ledger; nothing was charged'
       USING ERRCODE='XX000';
@@ -254,7 +312,7 @@ END $$;
 -- Callable by the active coordinator, or by the employee for their own order.
 CREATE FUNCTION public.food_verify_payment(p_order_id uuid)
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
-DECLARE v_uid uuid := auth.uid(); v_o public.food_orders%ROWTYPE; v_ref text; v_ok boolean; v_reason text;
+DECLARE v_uid uuid := auth.uid(); v_o public.food_orders%ROWTYPE; v_reason text;
 BEGIN
   IF v_uid IS NULL THEN RAISE EXCEPTION 'Authentication required' USING ERRCODE='28000'; END IF;
   SELECT * INTO v_o FROM public.food_orders WHERE id = p_order_id FOR UPDATE;
@@ -265,32 +323,46 @@ BEGIN
     RETURN jsonb_build_object('status', v_o.payment_status, 'order_id', v_o.id);
   END IF;
 
-  v_ref := 'FOODPAY-' || v_o.order_reference;
-  SELECT count(*) = 2
-     AND count(*) FILTER (WHERE g.user_id = v_o.employee_id AND g.direction = 'cash_out') = 1
-     AND count(*) FILTER (WHERE g.user_id = v_o.payee_id AND g.direction = 'cash_in') = 1
-     AND bool_and(g.amount = v_o.total_ugx AND g.category = 'wallet_transfer' AND g.ledger_scope = 'wallet')
-    INTO v_ok
-    FROM public.general_ledger g WHERE g.transaction_group_id = v_o.transaction_group_id;
-  IF NOT coalesce(v_ok, false) THEN
-    v_reason := 'ledger_legs_do_not_match';
-  ELSIF EXISTS (SELECT 1 FROM public.general_ledger g WHERE g.reference_id LIKE v_ref || '-REV%') THEN
-    v_reason := 'reversal_posted';
-  END IF;
-
+  v_reason := public.food_payment_problem(v_o);
   IF v_reason IS NULL THEN
     UPDATE public.food_orders SET payment_verified_at = now() WHERE id = v_o.id;
     RETURN jsonb_build_object('status','paid','order_id',v_o.id,'verified',true);
   END IF;
-
-  UPDATE public.food_orders SET payment_status = 'payment_reversed' WHERE id = v_o.id;
-  INSERT INTO public.food_order_events (order_id, event_type, from_status, to_status, note, actor_id)
-  VALUES (v_o.id, 'payment_reversed', 'paid', 'payment_reversed', v_reason, v_uid);
-  PERFORM public.food_audit_write('order', v_o.id, 'payment_reversed',
-    jsonb_build_object('payment_status','paid'),
-    jsonb_build_object('payment_status','payment_reversed','reason',v_reason), NULL, v_uid);
+  PERFORM public.food_mark_payment_reversed(v_o.id, v_reason, v_uid);
   RETURN jsonb_build_object('status','payment_reversed','order_id',v_o.id,'reason',v_reason);
 END $$;
+
+-- Batch re-check of paid orders, least recently verified first. Explicit cap
+-- (1..500, default 100) so a backlog is visible, never unbounded. For the
+-- active coordinator, or a scheduler running as service_role (scheduling it
+-- is an owner decision; nothing schedules it here). Locked rows are skipped.
+CREATE FUNCTION public.food_reconcile_payments(p_limit integer DEFAULT 100)
+RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp AS $$
+DECLARE v_uid uuid := auth.uid(); v_o public.food_orders%ROWTYPE; v_reason text;
+        v_checked int := 0; v_reversed int := 0;
+BEGIN
+  IF NOT (public.is_active_food_coordinator(v_uid)
+          OR coalesce(current_setting('request.jwt.claims', true)::jsonb->>'role', '') = 'service_role') THEN
+    RAISE EXCEPTION 'Only the active Food Coordinator can reconcile payments' USING ERRCODE='42501'; END IF;
+  IF p_limit IS NULL OR p_limit < 1 OR p_limit > 500 THEN
+    RAISE EXCEPTION 'Batch size must be between 1 and 500' USING ERRCODE='22023'; END IF;
+  FOR v_o IN SELECT * FROM public.food_orders WHERE payment_status = 'paid'
+              ORDER BY payment_verified_at NULLS FIRST, paid_at LIMIT p_limit
+              FOR UPDATE SKIP LOCKED LOOP
+    v_checked := v_checked + 1;
+    v_reason := public.food_payment_problem(v_o);
+    IF v_reason IS NULL THEN
+      UPDATE public.food_orders SET payment_verified_at = now() WHERE id = v_o.id;
+    ELSE
+      PERFORM public.food_mark_payment_reversed(v_o.id, v_reason, v_uid);
+      v_reversed := v_reversed + 1;
+    END IF;
+  END LOOP;
+  RETURN jsonb_build_object('checked', v_checked, 'reversed', v_reversed, 'limit', p_limit,
+                            'more_pending', v_checked = p_limit);
+END $$;
+REVOKE ALL ON FUNCTION public.food_reconcile_payments(integer) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.food_reconcile_payments(integer) TO authenticated, service_role;
 
 REVOKE ALL ON FUNCTION public.food_confirm_receipt(uuid), public.food_verify_payment(uuid)
   FROM PUBLIC, anon, authenticated;

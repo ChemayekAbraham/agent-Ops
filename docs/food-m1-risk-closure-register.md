@@ -384,3 +384,69 @@ Full re-run after the change:
 - Food-side fix: **FIXED AND VERIFIED (local only)**.
 - Equivalence with the live function (body, signature, grants, owner): **UNVERIFIED**. This needs Q2 from `food-m1-production-safety-verification-2026-10-13.md`. Local tests do not prove production behaviour.
 - PAYEE-1 is unchanged: the payee is the coordinator snapshotted at receipt. The owner must confirm this rule. Eligibility is now re-checked at payment time.
+
+
+## Reversal handling and production evidence pack (2026-10-13, after a3f41d3cdc)
+
+### Reversal path traced (repository evidence; the live functions are unread)
+- The standard sender reversal is `reverse_wallet_transfer(p_reference text)`. Its latest definition is `drizzle/migrations/0451:48`; the status check is `wallet_transfer_reversal_status`, latest `0453:11`. Both are granted to `authenticated`.
+- **How it works:**
+  - Only the sender can reverse.
+  - It is refused once the recipient has a non-rejected withdrawal after the transfer, and refused when the recipient has nothing left.
+  - Otherwise it reverses `least(sent, recipient's available)`, so a reversal **can be partial**. There is no time limit.
+  - It posts two `wallet_transfer` legs with `reference_id = <ref>||'-REV'` and `idempotency_key = 'reversal:'||<ref>`, `source_table='wallet_transactions'`.
+- The statement UI (`TransactionDetailDrawer.tsx:82-86`, `TransactionsFeed.tsx:417-423`) offers **Reverse** on any `wallet_transfer` cash_out row that does not end in `-REV`.
+- **Confirmed failure modes before this fix** (local tests run the 0451 and 0453 definitions verbatim):
+  1. An employee can reverse their Food payment with the standard feature (REVX-01…03).
+  2. The order then still reads `paid` until a Food check runs (REVX-04). Nothing ran a check automatically.
+  3. Retrying pay on that order answered "already paid" (REVX-05 fails on the old code).
+  4. If any path ever put a reversed order back to unpaid, re-paying with the fixed key would return the **reversed** transaction and mark the order paid **without new money** (REVX-15 fails on the old code).
+- **Is the `-REV` convention reliable?** In the repo, yes: it is written by the one standard reversal function, together with the `reversal:` key. Food references use only `[A-Z0-9-]`, so the earlier `LIKE '-REV%'` match could not be fooled. It now matches exactly what the mechanism writes. Whether production has other functions that write `-REV`, and whether the live bodies match, is checked by evidence pack E5.
+
+### Fix (Food only; no shared function changed)
+`20261013128000`:
+- `food_payment_problem` reads both reversal signals exactly and is used by every check.
+- A pay retry on a reversed order marks it `payment_reversed` and returns that status, never "paid".
+- After posting, the check also refuses a transaction that has already been reversed.
+- New `food_reconcile_payments(p_limit)`:
+  - for the active coordinator or `service_role`;
+  - **explicit batch cap 1..500 (default 100)**; least-recently-verified orders first; skips locked rows;
+  - returns `more_pending`.
+
+Client: the pay result type handles `payment_reversed` and never reports it as paid; `useReconcileFoodPayments` added; the fixture mirrors the caller rule and the cap.
+
+Tests (`52_reversal.sql`, REVX-01…23):
+- REVX-09, 10: partial reversal.
+- REVX-11: no false positive across orders.
+- REVX-12: the coordinator cannot reverse.
+- REVX-13, 14: after a withdrawal the order stays paid.
+- REVX-17…22: reconcile authorisation, cap and accuracy.
+- REVX-23: the internal helpers are not callable by users.
+- Two new client tests.
+- Negative control: with the previous `food_pay_order`, 5 tests fail.
+
+Results:
+- PostgreSQL 17 and 18: run 313/313, race 14/14, matrix 31/31, isolation 10/10, dry run 15/15.
+- R2–R4 16/16; ledger boundary 31/31; Food vitest 250 passed.
+- tsc 0 errors; eslint clean on changed files; guard:all passed; MCP files untouched.
+
+**Owner decisions required (not made here):**
+- **REV-D1.** Should employees be able to reverse a Food payment at all? Today the standard feature allows it until the coordinator withdraws. Blocking it would change the shared reversal function or UI, which is outside Food scope.
+- **REV-D2.** What happens to a `payment_reversed` order? It cannot be paid again: the employee owes and the coordinator is out of pocket. Settling it needs a defined process. Re-payment, if wanted, needs a new idempotency key per attempt.
+- **REV-D3.** Should `food_reconcile_payments` be scheduled (for example a cron running as `service_role`, with the cap)? Scheduling is a production configuration change.
+
+### Production evidence pack
+`supabase/tests/food_m1/production_readonly_evidence.sql`, sections E0–E7:
+- **E1:** recipient eligibility.
+- **E2:** Food presence and migration versions.
+- **E3:** balance, holds, advance lock and recovery.
+- **E4:** every ledger overload and trigger, the TID gate, role and database settings.
+- **E5:** the reversal functions, plus aggregate counts of how reversal legs are recorded.
+- **E6:** the permission impact of `20261013126000` (who can execute; invoker functions that would break).
+- **E7:** the deployed edge-function source (not SQL).
+
+How it is safe and what it reads:
+- Each query says what it proves and what it cannot prove.
+- The session is `default_transaction_read_only`: it was checked locally that writes are refused there, and that every statement parses and runs.
+- Catalogue reads plus three aggregate counts only; no personal records.
+- **Its output, once an authorised operator supplies it, is the only production evidence. Nothing in this register is production-verified.**

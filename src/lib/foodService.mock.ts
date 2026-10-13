@@ -452,6 +452,15 @@ const RPC: Record<string, (a: Args) => unknown> = {
   // applies the same preconditions as the server, then refuses.
   // Every call carries the FOOD_CHECKOUT_DISABLED marker, whatever the order,
   // so no fixture path can ever look like a settled payment.
+  // The fixture never takes a payment, so there is nothing to reconcile; the
+  // same caller rule and cap as the server apply.
+  food_reconcile_payments: (a) => {
+    requireActiveCoordinator();
+    const limit = a.p_limit === undefined ? 100 : Number(a.p_limit);
+    if (!Number.isInteger(limit) || limit < 1 || limit > 500) fail('Batch size must be between 1 and 500');
+    return { checked: 0, reversed: 0, limit, more_pending: false };
+  },
+
   food_pay_order: (a) => {
     const o = S.orders.find((x) => x.id === a.p_order_id);
     const why = !o ? 'order not found'

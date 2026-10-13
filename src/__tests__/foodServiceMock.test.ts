@@ -1048,3 +1048,14 @@ describe('receipt confirmation and payment in the fixture (20261013128000)', () 
     expect(after.transaction_group_id ?? null).toBeNull();
   });
 });
+
+describe('payment reconciliation in the fixture', () => {
+  it('is for the active coordinator only, capped, and finds nothing to reverse', async () => {
+    setFoodMockUser(MOCK_EMPLOYEE);
+    await expect(foodMockRpc('food_reconcile_payments', { p_limit: 10 })).rejects.toThrow(/active Food Coordinator/i);
+    actAsFoodCoordinator(true);
+    await expect(foodMockRpc('food_reconcile_payments', { p_limit: 501 })).rejects.toThrow(/between 1 and 500/i);
+    expect(await foodMockRpc('food_reconcile_payments', { p_limit: 10 }))
+      .toEqual({ checked: 0, reversed: 0, limit: 10, more_pending: false });
+  });
+});

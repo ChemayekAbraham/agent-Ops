@@ -21,6 +21,7 @@ vi.mock('@/integrations/supabase/client', () => ({
       rpcCalls.push([fn, args]);
       if (fn === 'food_confirm_receipt') return Promise.resolve({ data: { status: 'confirmed', order_id: args.p_order_id, payee_id: 'c', amount_due: 5000 }, error: null });
       if (fn === 'food_pay_order') return Promise.resolve({ data: payResult, error: null });
+      if (fn === 'food_reconcile_payments') return Promise.resolve({ data: { checked: 0, reversed: 0, limit: args.p_limit, more_pending: false }, error: null });
       if (fn === 'food_verify_payment') return Promise.resolve({ data: { status: 'paid', order_id: args.p_order_id, verified: true }, error: null });
       return Promise.resolve({ data: null, error: null });
     },
@@ -30,7 +31,7 @@ vi.mock('@/integrations/supabase/client', () => ({
 vi.mock('sonner', () => ({ toast: { success: (...a: unknown[]) => toastSuccess(...a), error: (...a: unknown[]) => toastError(...a) } }));
 vi.stubEnv('VITE_FOOD_SERVICE_MOCK', '');
 
-import { useConfirmFoodReceipt, usePayFoodOrder, useVerifyFoodPayment } from '@/hooks/useFoodService';
+import { useConfirmFoodReceipt, usePayFoodOrder, useVerifyFoodPayment, useReconcileFoodPayments } from '@/hooks/useFoodService';
 
 function wrapper({ children }: { children: ReactNode }) {
   const qc = new QueryClient({ defaultOptions: { mutations: { retry: false } } });
@@ -81,5 +82,21 @@ describe('verify', () => {
     const { result } = renderHook(() => useVerifyFoodPayment(), { wrapper });
     await act(async () => { await result.current.mutateAsync({ orderId: ORDER }); });
     expect(rpcCalls).toEqual([['food_verify_payment', { p_order_id: ORDER }]]);
+  });
+});
+
+describe('reversal', () => {
+  it('a retry that finds the payment reversed is never reported as paid', async () => {
+    payResult = { status: 'payment_reversed', order_id: ORDER, reason: 'reversal_posted' };
+    const { result } = renderHook(() => usePayFoodOrder(), { wrapper });
+    await act(async () => { await result.current.mutateAsync({ orderId: ORDER }); });
+    expect(toastSuccess).not.toHaveBeenCalled();
+    expect(toastError.mock.calls[0][0]).toMatch(/reversed/i);
+  });
+
+  it('reconciliation sends only the batch size, defaulting to 100', async () => {
+    const { result } = renderHook(() => useReconcileFoodPayments(), { wrapper });
+    await act(async () => { await result.current.mutateAsync({}); });
+    expect(rpcCalls).toEqual([['food_reconcile_payments', { p_limit: 100 }]]);
   });
 });

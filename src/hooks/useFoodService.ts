@@ -735,7 +735,10 @@ export function useConfirmFoodReceipt() {
 
 export type FoodPayResult =
   | { status: 'paid'; order_id: string; transaction_group_id: string; amount?: number; replayed: boolean }
-  | { status: 'failed'; order_id: string; reason: 'insufficient_funds' };
+  | { status: 'failed'; order_id: string; reason: 'insufficient_funds' }
+  // a retry found the earlier payment reversed (standard sender reversal);
+  // the order is no longer paid (20261013128000)
+  | { status: 'payment_reversed'; order_id: string; reason: string };
 
 /**
  * Pay for a received order from the employee's own Welile wallet. The server
@@ -751,6 +754,7 @@ export function usePayFoodOrder() {
     onSuccess: (r) => {
       invalidateFood(qc);
       if (r.status === 'paid') toast.success(r.replayed ? 'This order is already paid' : 'Paid from your wallet');
+      else if (r.status === 'payment_reversed') toast.error('This payment was reversed, so the order is no longer paid.');
       else toast.error('Not enough in your wallet to pay. Nothing was charged; top up and try again.');
     },
     onError,
@@ -764,6 +768,21 @@ export function useVerifyFoodPayment() {
     mutationFn: (v: { orderId: string }) =>
       call<{ status: FoodPaymentStatus; order_id: string; verified?: boolean; reason?: string }>(
         'food_verify_payment', { p_order_id: v.orderId }),
+    onSuccess: () => invalidateFood(qc),
+    onError,
+  });
+}
+
+/**
+ * Active coordinator: re-check paid orders against the ledger in one capped
+ * batch (1..500), marking any reversed payment. `more_pending` means run again.
+ */
+export function useReconcileFoodPayments() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { limit?: number } = {}) =>
+      call<{ checked: number; reversed: number; limit: number; more_pending: boolean }>(
+        'food_reconcile_payments', { p_limit: v.limit ?? 100 }),
     onSuccess: () => invalidateFood(qc),
     onError,
   });
