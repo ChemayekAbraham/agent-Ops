@@ -241,7 +241,7 @@ export function CFOROIRequests() {
     doc.text('ROI Payout — Expense', 40, 40);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
-    const filterLabel = filter === 'coo_approved' ? 'Pending (CFO)' : filter.charAt(0).toUpperCase() + filter.slice(1);
+    const filterLabel = filter === 'coo_approved' ? 'Pending (CFO)' : filter === 'approved' ? 'All Approved' : 'Rejected';
     const rangeLabel = rangeFilter === 'today' ? 'Today'
       : rangeFilter === 'yesterday' ? 'Yesterday'
       : rangeFilter === 'last_week' ? 'Last week'
@@ -335,7 +335,7 @@ export function CFOROIRequests() {
             {f === 'coo_approved' && <Clock className="h-3.5 w-3.5 mr-1" />}
             {f === 'approved' && <CheckCircle className="h-3.5 w-3.5 mr-1" />}
             {f === 'rejected' && <XCircle className="h-3.5 w-3.5 mr-1" />}
-            {f === 'coo_approved' ? 'Pending' : f.charAt(0).toUpperCase() + f.slice(1)}
+            {f === 'coo_approved' ? 'Pending' : f === 'approved' ? 'All Approved' : 'Rejected'}
           </Button>
         ))}
         <span className="w-px self-stretch bg-border mx-1" aria-hidden />
