@@ -86,6 +86,23 @@ Deno.serve(async (req) => {
   }
 
   const body = await req.json().catch(() => ({}));
+
+  // Progress poll for the dashboard. backup_runs is readable by `manager` only, but this function
+  // also admits `cto`, so the status read goes through here (already authorised above).
+  if (body?.action === "status") {
+    const folder = typeof body?.folder === "string" ? body.folder : "";
+    if (!/^full_tables\/\d{4}\/[0-9TZ-]+$/.test(folder)) return json({ error: "bad folder" }, 400);
+    const { data: run } = await supabase
+      .from("backup_runs")
+      .select("status,table_count,row_count,size_bytes,error_message,created_at")
+      .eq("backup_kind", "full_tables")
+      .eq("storage_path", folder)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return json({ finished: !!run, run: run ?? null });
+  }
+
   let state: RunState;
 
   if (body?.action === "continue" && body?.state) {
