@@ -44,7 +44,13 @@
 -- (maintenance_mode / maintenance_until, withdrawals_paused; the "debit" scope
 -- of checkTreasuryGuard) and the canonical spendable figure
 -- get_user_available_balance (withdrawable less funder holds and, while
--- advance_withdrawals_paused is on, the advance-locked amount). Agent Advance
+-- advance_withdrawals_paused is on, the advance-locked amount), and the shared
+-- recipient gate check_transfer_recipient_eligibility, called exactly as
+-- wallet-transfer calls it (item NULL, sender = payer). Its contract,
+-- (p_recipient_id uuid, p_item text, p_sender_id uuid) RETURNS TABLE(eligible,
+-- reason, display_name, has_wallet), is taken from drizzle/migrations/0045 and
+-- the generated types; it is called by name, never re-implemented, so a
+-- different live signature fails the payment closed. Agent Advance
 -- recovery is untouched: the payee's credit is an ordinary wallet_transfer,
 -- so get_agent_sweepable_withdrawable treats it exactly as any peer transfer,
 -- and a Food Coordinator gets no treatment of their own.
@@ -123,6 +129,7 @@ DECLARE
   v_uid uuid := auth.uid(); v_o public.food_orders%ROWTYPE;
   v_ref text; v_key text; v_group uuid; v_ok boolean;
   v_maint boolean; v_until text; v_wpaused boolean; v_short boolean := false;
+  v_elig boolean; v_elig_reason text;
 BEGIN
   IF v_uid IS NULL THEN RAISE EXCEPTION 'Authentication required' USING ERRCODE='28000'; END IF;
   SELECT * INTO v_o FROM public.food_orders WHERE id = p_order_id FOR UPDATE;
@@ -146,6 +153,14 @@ BEGIN
     RAISE EXCEPTION 'A Food Coordinator cannot pay themselves for their own order' USING ERRCODE='42501'; END IF;
   IF NOT public.food_is_staff(v_o.payee_id) THEN
     RAISE EXCEPTION 'The Food Coordinator for this order can no longer receive payment' USING ERRCODE='P0002'; END IF;
+  -- the recipient gate every wallet transfer passes (frozen, closed, no
+  -- account, self); refused before anything is posted
+  SELECT e.eligible, e.reason INTO v_elig, v_elig_reason
+    FROM public.check_transfer_recipient_eligibility(
+           p_recipient_id => v_o.payee_id, p_item => NULL::text, p_sender_id => v_uid) e;
+  IF NOT COALESCE(v_elig, false) THEN
+    RAISE EXCEPTION 'The Food Coordinator for this order cannot receive payment: %',
+      COALESCE(v_elig_reason, 'not eligible') USING ERRCODE='P0002'; END IF;
   IF NOT EXISTS (SELECT 1 FROM public.wallets_physical w WHERE w.user_id = v_uid) THEN
     RAISE EXCEPTION 'You do not have a Welile wallet' USING ERRCODE='P0002'; END IF;
   IF NOT EXISTS (SELECT 1 FROM public.wallets_physical w WHERE w.user_id = v_o.payee_id) THEN

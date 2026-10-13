@@ -354,3 +354,33 @@ Full re-run after the change:
 **Status:**
 - Integration with existing recovery: **FIXED AND VERIFIED (local, repo definitions)**.
 - Production equivalence: **BLOCKED — ACTION REQUIRED** (C-P1…C-P3).
+
+
+## Recipient eligibility on the Food payment path (2026-10-13, after b5bac8d1d3)
+
+**Defect closed (C-P2).** `food_pay_order` did not apply the recipient gate that `wallet-transfer` applies. It now calls the shared `check_transfer_recipient_eligibility` before anything is posted, exactly as `wallet-transfer` calls it: recipient = the order's payee, item NULL, sender = payer. Named arguments are used, so the call is bound to the contract below. If the function is missing or its signature differs, the payment is refused with nothing posted (ELIG-22). Refusals raise P0002 with the gate's own reason. No shared function was changed, and the function was not re-implemented.
+
+**Contract evidence (repository, not production):**
+- `drizzle/migrations/0045_transfer_recipient_eligibility.sql:19-105` defines `check_transfer_recipient_eligibility(p_recipient_id uuid, p_item text DEFAULT NULL, p_sender_id uuid DEFAULT NULL) RETURNS TABLE(eligible boolean, reason text, display_name text, has_wallet boolean)`, SECURITY DEFINER, with EXECUTE granted to `authenticated` and `service_role`. It refuses: not authenticated; a sender other than the caller; self-transfer; no profile; a closed account (`deleted_at`); a frozen account (`is_frozen`); a missing `auth.users` row; and an item outside the Welile list. The earlier searches missed it because they looked only in `supabase/migrations`.
+- `src/integrations/supabase/types.ts:63555` (generated from the schema) has the same argument names and result columns.
+- `docs/HANDOVER/169-…md:11` (2026-09-30): "live body verified: receiver checks only".
+- Fraud blocking: `fraud_block_user_identifiers` (latest body `20260706131556:143`) sets `profiles.is_frozen = TRUE`, so the shared gate refuses a user blocked through the standard tool. An identifier block that did not freeze the profile is **not** part of the standard gate. That is the existing standard behaviour on both paths; no Food-specific rule was added.
+
+**Tests** (`51_recipient_eligibility.sql`, ELIG-01…24; 0045 loaded verbatim):
+- ELIG-01, 02: an eligible coordinator is paid; employee debited, coordinator credited, two legs.
+- ELIG-03…10: frozen and fraud-blocked coordinators are refused, including on repeat; no legs, no paid event, both wallets unchanged; after unfreezing the order pays exactly once and a repeat is a replay.
+- ELIG-11…13: a closed account is refused, and the shared gate agrees.
+- ELIG-14…16: self-transfer refused.
+- ELIG-17…19: a disabled staff role, or no longer staff: refused.
+- ELIG-20, 21: after a handover, a payee who has become ineligible is not paid.
+- ELIG-22…24: fail closed without the gate; the call shape is pinned.
+
+**Results:**
+- PostgreSQL 17 and 18: run 290/290, race 14/14, matrix 31/31, isolation 10/10, dry run 15/15.
+- R2–R4 16/16; ledger boundary 31/31; Food vitest 247 passed; guard:all passed.
+- **Negative control:** with the gate removed from a scratch copy, 12 ELIG tests fail.
+
+**Status:**
+- Food-side fix: **FIXED AND VERIFIED (local only)**.
+- Equivalence with the live function (body, signature, grants, owner): **UNVERIFIED**. This needs Q2 from `food-m1-production-safety-verification-2026-10-13.md`. Local tests do not prove production behaviour.
+- PAYEE-1 is unchanged: the payee is the coordinator snapshotted at receipt. The owner must confirm this rule. Eligibility is now re-checked at payment time.

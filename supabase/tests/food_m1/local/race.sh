@@ -26,6 +26,10 @@ done
 P -d "$db" -f "$here/30_race_setup.sql" >/dev/null
 # local stand-in for the shared ledger objects the payment path uses
 P -d "$db" -f "$here/05_ledger_standin.sql" >/dev/null
+# The shared recipient gate, loaded verbatim from drizzle/migrations/0045 (only
+# welile_transfer_items and check_transfer_recipient_eligibility; the schedule
+# function in that file needs tables the scaffold does not have).
+sed -n '/^CREATE OR REPLACE FUNCTION public.welile_transfer_items/,/^GRANT EXECUTE ON FUNCTION public.check_transfer_recipient_eligibility/p'   "$root"/drizzle/migrations/0045_transfer_recipient_eligibility.sql | P -d "$db" >/dev/null
 
 A=f0000000-0000-4000-8000-0000000000a1; B=f0000000-0000-4000-8000-0000000000b1
 # session(user, menu_item, key, hold_seconds) -> prints OK or the SQLSTATE

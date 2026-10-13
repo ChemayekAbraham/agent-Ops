@@ -25,6 +25,10 @@ for m in "$root"/supabase/migrations/2026100912*food*.sql "$root"/supabase/migra
 done
 # Local stand-in for the shared ledger objects the payment path uses.
 P -d "$db" -f "$here/05_ledger_standin.sql" >/dev/null
+# The shared recipient gate, loaded verbatim from drizzle/migrations/0045 (only
+# welile_transfer_items and check_transfer_recipient_eligibility; the schedule
+# function in that file needs tables the scaffold does not have).
+sed -n '/^CREATE OR REPLACE FUNCTION public.welile_transfer_items/,/^GRANT EXECUTE ON FUNCTION public.check_transfer_recipient_eligibility/p'   "$root"/drizzle/migrations/0045_transfer_recipient_eligibility.sql | P -d "$db" >/dev/null
 # The REPO definition of the Agent Advance sweep gate, loaded verbatim from its
 # migration (that file also holds a sweep job later superseded; only this
 # statement is taken). Proves Food payments meet the existing rule unchanged.
@@ -37,7 +41,7 @@ ls "$root"/supabase/migrations/20261012120000_food_m1_release_corrections.sql >/
 ls "$root"/supabase/migrations/20261013120001_food_meal_images.sql >/dev/null 2>&1   && suites+=("$here/45_meal_images.sql")
 ls "$root"/supabase/migrations/20261013125000_food_staff_includes_pso.sql >/dev/null 2>&1 && suites+=("$here/46_staff_pso.sql")
 ls "$root"/supabase/migrations/20261013127000_food_exception_self_resolution.sql >/dev/null 2>&1 && suites+=("$here/47_exception_controls.sql")
-ls "$root"/supabase/migrations/20261013128000_food_payment_after_receipt.sql >/dev/null 2>&1 && suites+=("$here/48_payment.sql" "$here/49_advance_integration.sql")
+ls "$root"/supabase/migrations/20261013128000_food_payment_after_receipt.sql >/dev/null 2>&1 && suites+=("$here/48_payment.sql" "$here/49_advance_integration.sql" "$here/51_recipient_eligibility.sql")
 out="$(cat "${suites[@]}" | P -d "$db" 2>&1 || true)"
 # Count only real psql errors ("ERROR:  ..."), never a result value that
 # happens to contain the word (e.g. the ORDER_ERROR exception kind).

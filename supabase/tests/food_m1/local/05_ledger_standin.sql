@@ -104,3 +104,8 @@ RETURNS numeric LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS
            ELSE 0 END);
 $$;
 REVOKE ALL ON FUNCTION public.get_user_available_balance(uuid) FROM PUBLIC, anon, authenticated;
+
+-- ── what check_transfer_recipient_eligibility (drizzle/migrations/0045, loaded
+-- verbatim by run.sh and race.sh) reads: profiles.is_frozen and public.wallets ──
+ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_frozen boolean DEFAULT false;
+CREATE VIEW public.wallets AS SELECT user_id FROM public.wallets_physical;
