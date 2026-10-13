@@ -44,6 +44,25 @@ export function CFOROIRequests() {
   const [filter, setFilter] = useState<'coo_approved' | 'approved' | 'rejected' | 'all'>('coo_approved');
   const [search, setSearch] = useState('');
   const [dateFilter, setDateFilter] = useState<Date | undefined>(undefined);
+  const [rangeFilter, setRangeFilter] = useState<'today' | 'yesterday' | 'last_week' | 'this_month' | null>(null);
+
+  // Kampala (UTC+3) day boundaries — the platform's canonical day, used everywhere else
+  const kampalaDayStartUtc = (d: Date) => {
+    const k = new Date(d.getTime() + 3 * 3600 * 1000);
+    return new Date(Date.UTC(k.getUTCFullYear(), k.getUTCMonth(), k.getUTCDate()) - 3 * 3600 * 1000);
+  };
+  const rangeBounds = useMemo((): [Date, Date] | null => {
+    if (!rangeFilter) return null;
+    const now = new Date();
+    const todayStart = kampalaDayStartUtc(now);
+    if (rangeFilter === 'today') return [todayStart, new Date(todayStart.getTime() + 24 * 3600 * 1000)];
+    if (rangeFilter === 'yesterday') return [new Date(todayStart.getTime() - 24 * 3600 * 1000), todayStart];
+    if (rangeFilter === 'last_week') return [new Date(todayStart.getTime() - 6 * 24 * 3600 * 1000), new Date(todayStart.getTime() + 24 * 3600 * 1000)];
+    // this month: first day of the Kampala month through its end
+    const k = new Date(now.getTime() + 3 * 3600 * 1000);
+    const monthStartUtc = new Date(Date.UTC(k.getUTCFullYear(), k.getUTCMonth(), 1) - 3 * 3600 * 1000);
+    return [monthStartUtc, new Date(Date.UTC(k.getUTCFullYear(), k.getUTCMonth() + 1, 1) - 3 * 3600 * 1000)];
+  }, [rangeFilter]);
 
   const { data: operations = [], isLoading } = useQuery({
     queryKey: ['cfo-roi-requests', filter],
