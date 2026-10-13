@@ -26,9 +26,13 @@ const corsHeaders = {
 
 const BUCKET = "db-backups";
 const PAGE_CAP = 1000; // PostgREST max rows per response
-const PREFETCH = 4; // pages fetched concurrently
-const PART_MAX_BYTES = 40 * 1024 * 1024; // keep each storage object well under limits
-const DEADLINE_MS = 100_000; // per invocation, then chain
+// 2026-10-13 first production run died silently inside general_ledger (221/860 tables, no manifest).
+// Cause unconfirmed (logs unreachable); a 40 MB part buffered twice plus 4 concurrent pages is the
+// prime suspect for the edge memory limit, so parts are small and state is saved after every part.
+const PREFETCH = 2; // pages fetched concurrently
+const PART_MAX_BYTES = 8 * 1024 * 1024; // small parts: low peak memory, cheap to redo after a kill
+const DEADLINE_MS = 70_000; // per invocation, then chain (margin under the hard wall-clock limit)
+const STALE_MS = 180_000; // no state write for this long = the chain is dead; resume is allowed
 const JSON_HEADERS = { ...corsHeaders, "Content-Type": "application/json" };
 
 type TableResult = {
@@ -60,7 +64,30 @@ type RunState = {
   cur: Current | null;
   results: TableResult[];
   invocations: number;
+  updatedAt?: string; // set on every state save; drives stall detection
 };
+
+async function readState(supabaseUrl: string, serviceKey: string, folder: string): Promise<RunState | null> {
+  const resp = await fetch(`${supabaseUrl}/storage/v1/object/${BUCKET}/${folder}/_state.json`, {
+    headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Cache-Control": "no-cache" },
+  });
+  if (!resp.ok) { await resp.text().catch(() => ""); return null; }
+  return (await resp.json().catch(() => null)) as RunState | null;
+}
+
+async function saveState(supabaseUrl: string, serviceKey: string, state: RunState) {
+  state.updatedAt = new Date().toISOString();
+  try {
+    const resp = await fetch(`${supabaseUrl}/storage/v1/object/${BUCKET}/${state.folder}/_state.json`, {
+      method: "POST",
+      headers: { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "Content-Type": "application/json", "x-upsert": "true" },
+      body: JSON.stringify(state),
+    });
+    await resp.text().catch(() => "");
+  } catch (e) {
+    console.error("[full-table-backup] state save failed (run continues, resume may lose last part):", e);
+  }
+}
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: JSON_HEADERS });
@@ -100,12 +127,43 @@ Deno.serve(async (req) => {
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    return json({ finished: !!run, run: run ?? null });
+    if (run) return json({ finished: true, run });
+    // Still running, or dead: the per-part checkpoint says which. A run with no checkpoint update
+    // for STALE_MS has lost its chain (killed invocation); the dashboard offers `resume`.
+    const saved = await readState(supabaseUrl, serviceKey, folder);
+    if (!saved) return json({ finished: false, stalled: false, progress: null });
+    const ageMs = Date.now() - Date.parse(saved.updatedAt ?? saved.startedAt);
+    return json({
+      finished: false,
+      stalled: ageMs > STALE_MS,
+      progress: {
+        tablesDone: saved.results.length,
+        tablesLeft: saved.queue.length + (saved.cur ? 1 : 0),
+        current: saved.cur?.table ?? null,
+        ageSeconds: Math.round(ageMs / 1000),
+      },
+    });
   }
 
   let state: RunState;
 
-  if (body?.action === "continue" && body?.state) {
+  // Restart a run whose chain died, from its last saved part. Refused while the chain looks alive,
+  // so two chains never write the same folder.
+  let resumed: RunState | null = null;
+  if (body?.action === "resume") {
+    const folder = typeof body?.folder === "string" ? body.folder : "";
+    if (!/^full_tables\/\d{4}\/[0-9TZ-]+$/.test(folder)) return json({ error: "bad folder" }, 400);
+    resumed = await readState(supabaseUrl, serviceKey, folder);
+    if (!resumed) return json({ error: "no saved state for this run (started before checkpointing)" }, 404);
+    const ageMs = Date.now() - Date.parse(resumed.updatedAt ?? resumed.startedAt);
+    if (ageMs <= STALE_MS) return json({ error: "run still active", ageSeconds: Math.round(ageMs / 1000) }, 409);
+    const { data: done } = await supabase.from("backup_runs").select("id").eq("backup_kind", "full_tables").eq("storage_path", folder).limit(1);
+    if (done?.length) return json({ error: "run already finished" }, 409);
+  }
+
+  if (resumed) {
+    state = resumed;
+  } else if (body?.action === "continue" && body?.state) {
     state = body.state as RunState;
   } else {
     const startedAt = new Date();
@@ -143,6 +201,7 @@ async function work(
 ) {
   const t0 = Date.now();
   state.invocations++;
+  await saveState(supabaseUrl, serviceKey, state); // first checkpoint, so a run that dies early is still visible
   const specByName = new Map(parseTableSpec().map((t) => [t.name, t]));
   const restHeaders = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}` };
 
@@ -289,6 +348,9 @@ async function work(
         });
         state.cur = null;
       }
+
+      // Checkpoint after every part: this is what makes a killed run resumable and detectable.
+      await saveState(supabaseUrl, serviceKey, state);
 
       if (Date.now() - t0 > DEADLINE_MS && (state.cur || state.queue.length)) {
         // Hand the rest to a fresh invocation.

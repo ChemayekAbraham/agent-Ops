@@ -44,10 +44,17 @@ export default function RunBackupNowButton() {
     void backup.start();
   };
 
+  const { resume } = backup;
   useEffect(() => {
     if (backup.phase === 'finished') toast.success('Full backup completed');
     if (backup.phase === 'error') toast.error(backup.error || 'Backup failed');
-  }, [backup.phase, backup.error]);
+    if (backup.phase === 'stalled') {
+      toast.warning(backup.error || 'Backup stalled', {
+        duration: Infinity,
+        action: { label: 'Resume', onClick: () => void resume() },
+      });
+    }
+  }, [backup.phase, backup.error, resume]);
 
   const handleResend = async () => {
     const list = recipients.split(/[,\s]+/).map(s => s.trim()).filter(Boolean);

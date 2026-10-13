@@ -32,3 +32,20 @@ the first ~1,000 rows of each (PostgREST row cap).
 ## Verified
 `npm run guard:all` passes. ESLint on the touched files: only pre-existing `no-explicit-any` errors in `handleResend`.
 `tsc` cannot complete locally (OOM), so types are unchecked beyond lint.
+
+## First production run died (2026-10-13) and the hardening that followed
+Deployed ~15:00 UTC; Josh clicked "Run backup now" (full run). Measured live at 16:29 UTC: ONE run folder
+`full_tables/2026/2026-10-13T15-00-57-285Z`, 238 files, 221 of 860 tables, 955 MB, last write 15:07:56 while on
+`general_ledger` (3 parts of ~41 MB written, part 4 never landed). No `manifest.json`, no `backup_runs` row: the process was
+killed outright (a caught error would have written a `failed` row). The dashboard kept spinning (it had nothing to poll for).
+No repeat runs were started (checked 16:43). **Cause not confirmed**: Lovable could not read the 14:55-15:15 logs (oldest
+visible 16:25). Prime suspect: a 40 MB part buffered twice (chunks + copy) with 4 concurrent pages against the edge memory limit.
+That folder has no checkpoint and cannot be resumed; it is just 955 MB of partial data.
+
+Changes (built, NOT deployed): parts 40 -> 8 MB, prefetch 4 -> 2, hand-off deadline 100 -> 70 s; run state saved to
+`<folder>/_state.json` after every part; new `{action:"resume", folder}` (refused with 409 while the checkpoint is < 3 min old,
+or when the run already has a `backup_runs` row); `status` now returns `progress` (tablesDone, tablesLeft, current table) and
+`stalled` (no checkpoint for 3 min). Hook exposes `progress`, phase `stalled`, and `resume()`; the button shows a persistent
+toast with a Resume action. UI copy/progress display is still a Gemini job.
+Not verified: no Deno here, so the function is syntax-checked (esbuild) but not type-checked or run. The first test must be a
+subset, then a full run watched via `progress`. Still open: deep `offset` paging on big tables gets slower (keyset paging would fix it).
