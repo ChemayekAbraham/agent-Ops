@@ -1,6 +1,6 @@
 # 218 — Rollback rate 22.2%: one nightly burst, not a steady fault (2026-10-12)
 
-**Status: BUILT, migration `20261012130000` not applied. Root cause not yet identified.**
+**Status: APPLIED 2026-10-13 (cron jobid 42736). Root cause not yet identified; read db_rollback_burst_evidence after the next burst.**
 
 ## Finding
 CTO report 10-11 shows 22.2% rollbacks (309,200 / 1,394,574). That is a true 24h delta, but it comes from a single hour, not from the day.
