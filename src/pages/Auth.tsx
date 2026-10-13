@@ -890,68 +890,50 @@ export default function Auth() {
               )
             )}
 
-            {/* ===== FORGOT PASSWORD ===== */}
+            {/* ===== FORGOT PASSWORD (design styling, logic unchanged) ===== */}
             {isForgotPassword && (
-              <div className="space-y-4 animate-in fade-in duration-200">
-                {/* Step indicator */}
-                <div className="flex items-center gap-2 mb-2">
-                  {['phone', 'otp', 'new-password'].map((step, i) => (
-                    <div key={step} className="flex items-center gap-2">
-                      <div className={cn(
-                        "h-8 w-8 rounded-full flex items-center justify-center text-xs font-bold transition-colors",
-                        resetStep === step ? "bg-primary text-primary-foreground" :
-                        ['phone', 'otp', 'new-password'].indexOf(resetStep) > i ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"
-                      )}>
-                        {i + 1}
-                      </div>
-                      {i < 2 && <div className={cn("w-6 h-0.5", ['phone', 'otp', 'new-password'].indexOf(resetStep) > i ? "bg-primary/40" : "bg-muted")} />}
-                    </div>
-                  ))}
-                </div>
+              <div className="auth-form">
+                <h1 className="auth-title" tabIndex={-1}>
+                  {resetStep === 'phone' ? 'Reset your password' : resetStep === 'otp' ? 'Enter the SMS code' : 'Create a new password'}
+                </h1>
+                <p className="auth-subtitle">
+                  {resetStep === 'phone' ? "Enter your phone number and we'll send you a code by SMS" : resetStep === 'otp' ? `We sent a 6-digit code to ${resetPhone || 'your phone'}` : "Choose a strong password you'll remember"}
+                </p>
 
-                <div>
-                  <p className="text-base font-semibold text-foreground">
-                    {resetStep === 'phone' ? '🔑 Reset Your Password' : resetStep === 'otp' ? '📱 Enter SMS Code' : '🔒 Create New Password'}
-                  </p>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {resetStep === 'phone' ? 'Enter your phone number and we\'ll send you a code via SMS' : resetStep === 'otp' ? `We sent a 6-digit code to ${resetPhone || 'your phone'}` : 'Choose a strong password you\'ll remember'}
-                  </p>
-                </div>
-
-                <form onSubmit={wrappedHandleSubmit} className="space-y-3">
+                <form onSubmit={wrappedHandleSubmit} className="auth-form" noValidate>
                   {resetStep === 'phone' && (
                     <>
-                      <div className="relative">
-                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                        <Input type="tel" inputMode="tel" value={resetPhone} onChange={(e) => setResetPhone(e.target.value)} placeholder="Enter your phone number e.g. 0700123456" className="pl-11 h-14 text-base rounded-xl border-2 focus:border-primary" style={{ fontSize: '16px' }} autoFocus />
+                      <div className="form-row">
+                        <label className="input-label" htmlFor="reset-phone">Phone number</label>
+                        <input id="reset-phone" type="tel" inputMode="tel" className="text-input-field" value={resetPhone} onChange={(e) => setResetPhone(e.target.value)} placeholder="e.g. 0700123456" autoFocus />
                       </div>
-                      <div className="relative flex items-center">
-                        <div className="flex-1 border-t border-border/40" />
-                        <span className="px-3 text-xs text-muted-foreground">or use email</span>
-                        <div className="flex-1 border-t border-border/40" />
+                      <div className="or-separator">
+                        <span className="sep-line" /><span className="sep-text">or use email</span><span className="sep-line" />
                       </div>
-                      <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                        <Input type="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="pl-11 h-14 text-base rounded-xl border-2 focus:border-primary" style={{ fontSize: '16px' }} />
+                      <div className="form-row">
+                        <label className="input-label" htmlFor="reset-email">Email</label>
+                        <input id="reset-email" type="email" inputMode="email" className="text-input-field" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
                       </div>
                     </>
                   )}
 
                   {resetStep === 'otp' && (
                     <>
-                      <Input type="text" inputMode="numeric" maxLength={6} value={resetOtpCode} onChange={(e) => setResetOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="000000" className="h-16 text-center text-3xl tracking-[0.5em] rounded-xl font-mono border-2 focus:border-primary" style={{ fontSize: '28px' }} required autoFocus />
+                      <div className="form-row">
+                        <label className="input-label" htmlFor="reset-code">6-digit code</label>
+                        <input id="reset-code" type="text" inputMode="numeric" maxLength={6} className="text-input-field" style={{ textAlign: 'center', letterSpacing: '0.5em', fontSize: '1.4rem' }} value={resetOtpCode} onChange={(e) => setResetOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="000000" required autoFocus />
+                      </div>
                       <button
                         type="button"
+                        className="btn-link-muted"
                         onClick={() => {
                           setResetOtpCode('');
                           setResetStep('phone');
-                          // Re-trigger send
                           setTimeout(() => {
                             const form = document.querySelector('form');
                             if (form) form.requestSubmit();
                           }, 100);
                         }}
-                        className="w-full text-sm text-primary hover:underline text-center"
                       >
                         Didn't get the code? Resend SMS
                       </button>
@@ -960,29 +942,28 @@ export default function Auth() {
 
                   {resetStep === 'new-password' && (
                     <>
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                        <Input type={showPassword ? "text" : "password"} value={resetNewPassword} onChange={(e) => setResetNewPassword(e.target.value)} placeholder="New password (min 6 chars)" className="pl-11 h-14 text-base rounded-xl border-2 focus:border-primary" style={{ fontSize: '16px' }} required autoFocus />
-                        <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground">{showPassword ? 'Hide' : 'Show'}</button>
+                      <div className="form-row">
+                        <label className="input-label" htmlFor="reset-new-password">New password</label>
+                        <DesignPasswordInput id="reset-new-password" autoComplete="new-password" placeholder="New password (min 6 chars)" value={resetNewPassword} onChange={setResetNewPassword} shown={showPassword} onToggle={() => setShowPassword(!showPassword)} />
                       </div>
-                      <PasswordStrengthIndicator password={resetNewPassword} />
-                      <div className="relative">
-                        <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-                        <Input type={showPassword ? "text" : "password"} value={resetConfirmPassword} onChange={(e) => setResetConfirmPassword(e.target.value)} placeholder="Confirm new password" className={cn("pl-11 h-14 text-base rounded-xl border-2 focus:border-primary", resetConfirmPassword && resetNewPassword !== resetConfirmPassword && 'border-destructive')} style={{ fontSize: '16px' }} required />
+                      <div className="form-row">
+                        <label className="input-label" htmlFor="reset-confirm-password">Confirm new password</label>
+                        <DesignPasswordInput id="reset-confirm-password" autoComplete="new-password" placeholder="Re-enter your new password" value={resetConfirmPassword} onChange={setResetConfirmPassword} shown={showPassword} onToggle={() => setShowPassword(!showPassword)} />
                       </div>
                       {resetConfirmPassword && resetNewPassword !== resetConfirmPassword && (
-                        <p className="text-xs text-destructive flex items-center gap-1"><AlertCircle className="h-3 w-3" /> Passwords don't match</p>
+                        <p className="form-error" role="alert">Passwords don't match.</p>
                       )}
                     </>
                   )}
 
-                  <Button type="submit" className="w-full h-14 text-base rounded-xl font-bold touch-manipulation active:scale-[0.98] shadow-md" disabled={isLoading} style={{ fontSize: '16px' }}>
-                    {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : resetStep === 'phone' ? (email ? '📧 Send Reset Link' : '📲 Send SMS Code') : resetStep === 'otp' ? '✅ Verify Code' : '🔐 Reset Password'}
-                  </Button>
+                  <button type="submit" className="btn btn-primary" disabled={isLoading}>
+                    {isLoading ? <Loader2 className="btn-spin" /> : <span>{resetStep === 'phone' ? (email ? 'Send reset link' : 'Send SMS code') : resetStep === 'otp' ? 'Verify code' : 'Reset password'}</span>}
+                  </button>
                 </form>
 
                 <button
                   type="button"
+                  className="btn-link-muted"
                   onClick={() => {
                     if (resetStep !== 'phone') {
                       setResetStep(resetStep === 'new-password' ? 'otp' : 'phone');
@@ -995,38 +976,31 @@ export default function Auth() {
                       setResetConfirmPassword('');
                     }
                   }}
-                  className="w-full text-sm text-muted-foreground hover:text-primary text-center flex items-center justify-center gap-1 py-2"
                 >
-                  <ArrowLeft className="h-4 w-4" />
-                  {resetStep !== 'phone' ? 'Go Back' : 'Back to Sign In'}
+                  {resetStep !== 'phone' ? 'Go back' : 'Back to sign in'}
                 </button>
               </div>
             )}
 
             {/* ===== FORGOT PHONE (email login) ===== */}
             {isForgotPhone && (
-              <div className="space-y-3 animate-in fade-in duration-200">
-                <p className="text-sm font-medium text-foreground">Sign In with Email</p>
-                <form onSubmit={wrappedHandleSubmit} className="space-y-3">
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input type="email" inputMode="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="pl-10 h-12 text-base rounded-xl" style={{ fontSize: '16px' }} required />
+              <div className="auth-form">
+                <h1 className="auth-title" tabIndex={-1}>Sign in with email</h1>
+                <form onSubmit={wrappedHandleSubmit} className="auth-form" noValidate>
+                  <div className="form-row">
+                    <label className="input-label" htmlFor="fp-email">Email</label>
+                    <input id="fp-email" type="email" inputMode="email" autoComplete="email" className="text-input-field" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" required />
                   </div>
-                  <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input type={showPassword ? "text" : "password"} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Password" className="pl-10 h-12 text-base rounded-xl" style={{ fontSize: '16px' }} required />
+                  <div className="form-row">
+                    <label className="input-label" htmlFor="fp-password">Password</label>
+                    <DesignPasswordInput id="fp-password" value={password} onChange={setPassword} shown={showPassword} onToggle={() => setShowPassword(!showPassword)} />
                   </div>
-                  <Button type="submit" className="w-full h-12 text-base rounded-xl font-semibold touch-manipulation active:scale-[0.98]" disabled={isLoading} style={{ fontSize: '16px' }}>
-                    {isLoading ? (
-                      <span className="flex items-center justify-center gap-2">
-                        <Loader2 className="h-5 w-5 animate-spin" />
-                        <span className="text-sm font-medium truncate">{stageText}</span>
-                      </span>
-                    ) : 'Sign In'}
-                  </Button>
+                  <button type="submit" className="btn btn-primary" disabled={isLoading}>
+                    {isLoading ? <><Loader2 className="btn-spin" /> <span>{stageText}</span></> : <span>Sign in</span>}
+                  </button>
                 </form>
-                <button type="button" onClick={() => { setIsForgotPhone(false); setEmail(''); }} className="w-full text-xs text-muted-foreground hover:text-primary text-center flex items-center justify-center gap-1">
-                  <ArrowLeft className="h-3 w-3" /> Back to sign in
+                <button type="button" className="btn-link-muted" onClick={() => { setIsForgotPhone(false); setEmail(''); }}>
+                  Back to sign in
                 </button>
               </div>
             )}
