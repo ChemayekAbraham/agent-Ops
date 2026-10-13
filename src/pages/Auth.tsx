@@ -567,7 +567,7 @@ export default function Auth() {
                 <OAuthEnvironmentHint />
                 <OAuthErrorCard />
 
-                <div className="flex w-full flex-col gap-3">
+                <div className={cn("flex w-full flex-col gap-3", authStyles.oauthStack)}>
                   <GoogleSignInButton
                     onClick={wrappedHandleGoogleSignIn}
                     disabled={isGoogleLoading || isAppleLoading || isLoading}

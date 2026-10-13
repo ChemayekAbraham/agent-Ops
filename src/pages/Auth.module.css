@@ -66,3 +66,6 @@
 @media (prefers-reduced-motion: reduce) {
   .root *, .root *::before, .root *::after { animation: none !important; transition: none !important; }
 }
+
+/* the shared Google button brings its own "or" divider; this page has its own below */
+.oauthStack > div:first-child { display: none; }
