@@ -60870,6 +60870,10 @@ export type Database = {
         Args: { p_reason: string; p_user_id: string }
         Returns: Json
       }
+      admin_purge_deleted_account_keep_books: {
+        Args: { p_reason: string; p_user_id: string }
+        Returns: Json
+      }
       admin_purge_table_refs: {
         Args: { p_parent_pk_values: string[]; p_parent_table: string }
         Returns: number

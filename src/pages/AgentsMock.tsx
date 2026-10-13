@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import { Bell, Building2, Calculator, CheckCircle2, ChevronLeft, ChevronRight, Eye, EyeOff, FileText, Hand, Home, Menu, Store, Trophy, Users, Wallet, type LucideIcon } from 'lucide-react';
@@ -51,6 +53,34 @@ export default function AgentsMock() {
   const days = new Date(month.getFullYear(), month.getMonth() + 1, 0).getDate();
   const offset = month.getDay();
   const moveMonth = (delta: number) => { setMonth(new Date(month.getFullYear(), month.getMonth() + delta, 1)); setDay(1); };
+  // Real collections for the visible month (Kampala days), non-reversed only.
+  const monthKey = `${month.getFullYear()}-${month.getMonth()}`;
+  const { data: monthRows } = useQuery({
+    queryKey: ['agents-mock-month-collections', user?.id, monthKey],
+    enabled: !!user?.id,
+    staleTime: 60_000,
+    queryFn: async () => {
+      const from = new Date(Date.UTC(month.getFullYear(), month.getMonth(), 1) - 3 * 3600_000).toISOString();
+      const to = new Date(Date.UTC(month.getFullYear(), month.getMonth() + 1, 1) - 3 * 3600_000).toISOString();
+      const { data, error } = await supabase.from('agent_collections')
+        .select('amount, is_partial, created_at, momo_payer_name')
+        .eq('agent_id', user!.id).is('reversed_at', null)
+        .gte('created_at', from).lt('created_at', to).limit(5000);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const byDay = useMemo(() => {
+    const m = new Map<number, { total: number; count: number; partial: boolean }>();
+    (monthRows ?? []).forEach(r => {
+      const d = new Date(new Date(r.created_at).getTime() + 3 * 3600_000).getUTCDate();
+      const e = m.get(d) ?? { total: 0, count: 0, partial: false };
+      e.total += Number(r.amount) || 0; e.count += 1; e.partial = e.partial || !!r.is_partial;
+      m.set(d, e);
+    });
+    return m;
+  }, [monthRows]);
+  const selected = byDay.get(day);
   const amount = (value: number) => hidden ? '••••••' : formatUGX(value);
   return (
     <div className="agents-mock-exact min-h-screen pb-20 font-sans text-foreground tracking-normal">
@@ -120,10 +150,10 @@ export default function AgentsMock() {
             <h2 id="calendar-heading" className="mb-3 text-xs font-semibold">Collection Calendar</h2>
             <div className="rounded-[16px] bg-card p-4">
               <div className="mb-3 flex items-center justify-between"><Button variant="ghost" size="icon-sm" aria-label="Previous month" onClick={() => moveMonth(-1)}><ChevronLeft className="!h-3 !w-3" /></Button><h3 className="text-[11px] font-semibold">{monthLabel}</h3><Button variant="ghost" size="icon-sm" aria-label="Next month" onClick={() => moveMonth(1)}><ChevronRight className="!h-3 !w-3" /></Button></div>
-              <div className="grid grid-cols-7 text-center">{['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(label => <span key={label} className="pb-2 text-[9px] text-muted-foreground">{label}</span>)}{Array.from({ length: offset }, (_, i) => <span key={`blank-${i}`} />)}{Array.from({ length: days }, (_, i) => <Button key={i} variant="ghost" aria-label={`${monthLabel} ${i + 1}`} aria-pressed={day === i + 1} onClick={() => setDay(i + 1)} className="h-9 rounded-none p-0 text-[10px]"><span className={cn('flex h-7 w-7 items-center justify-center rounded-lg', day === i + 1 && 'border-2 border-primary text-primary')}>{i + 1}</span></Button>)}</div>
-              <div className="mt-4 flex justify-center gap-3 border-t border-border pt-3 text-[9px] text-muted-foreground">{[{ name: 'Collected', color: 'bg-success' }, { name: 'Partial', color: 'bg-warning/60' }, { name: 'Missed', color: 'bg-destructive' }].map(item => <span key={item.name} className="flex items-center gap-1"><span className={cn('h-2 w-2 rounded-full', item.color)} />{item.name}</span>)}</div>
+              <div className="grid grid-cols-7 text-center">{['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(label => <span key={label} className="pb-2 text-[9px] text-muted-foreground">{label}</span>)}{Array.from({ length: offset }, (_, i) => <span key={`blank-${i}`} />)}{Array.from({ length: days }, (_, i) => <Button key={i} variant="ghost" aria-label={`${monthLabel} ${i + 1}`} aria-pressed={day === i + 1} onClick={() => setDay(i + 1)} className="h-9 rounded-none p-0 text-[10px]"><span className={cn('relative flex h-7 w-7 items-center justify-center rounded-lg', day === i + 1 && 'border-2 border-primary text-primary')}>{i + 1}{byDay.has(i + 1) && <span className={cn('absolute bottom-0 h-1.5 w-1.5 rounded-full', byDay.get(i + 1)!.partial ? 'bg-warning/60' : 'bg-success')} />}</span></Button>)}</div>
+              <div className="mt-4 flex justify-center gap-3 border-t border-border pt-3 text-[9px] text-muted-foreground">{[{ name: 'Collected', color: 'bg-success' }, { name: 'Partial', color: 'bg-warning/60' }].map(item => <span key={item.name} className="flex items-center gap-1"><span className={cn('h-2 w-2 rounded-full', item.color)} />{item.name}</span>)}</div>
             </div>
-            <div className="mt-3 rounded-[16px] bg-card p-4"><h3 className="text-[10px] font-semibold">{new Date(month.getFullYear(), month.getMonth(), day).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</h3><p className="mt-1 text-[10px] italic text-muted-foreground">No collections scheduled.</p></div>
+            <div className="mt-3 rounded-[16px] bg-card p-4"><h3 className="text-[10px] font-semibold">{new Date(month.getFullYear(), month.getMonth(), day).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</h3>{selected ? <p className="mt-1 text-[10px] text-muted-foreground">{selected.count} collection{selected.count === 1 ? '' : 's'} · <strong className="text-primary">{amount(selected.total)}</strong>{selected.partial ? ' (includes partial)' : ''}</p> : <p className="mt-1 text-[10px] italic text-muted-foreground">No collections recorded.</p>}</div>
           </section>
         </main>
       </div>
