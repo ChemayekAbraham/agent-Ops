@@ -1,0 +1,71 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+
+/* Scoped re-skin of /auth to match the Welile onboarding design.
+   Overrides theme tokens inside this page only so shadcn parts pick up the look. */
+.root {
+  --primary: 263 79% 56%;
+  --primary-foreground: 0 0% 100%;
+  --ring: 263 79% 56%;
+  --background: 0 0% 100%;
+  --foreground: 222 47% 11%;
+  --muted-foreground: 215 16% 47%;
+  --border: 214 32% 91%;
+  --input: 214 32% 91%;
+  --card: 0 0% 100%;
+  --accent: 258 89% 97%;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  min-height: 100dvh;
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  padding: max(16px, env(safe-area-inset-top)) 20px max(24px, env(safe-area-inset-bottom));
+  display: flex;
+  justify-content: center;
+}
+.root :focus-visible { outline: 3px solid hsl(263 79% 56%); outline-offset: 2px; }
+
+.inner { width: 100%; max-width: 420px; position: relative; z-index: 10; }
+
+.topBar { display: flex; align-items: center; height: 48px; margin-bottom: 4px; }
+.backBtn {
+  width: 44px; height: 44px; border-radius: 9999px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: hsl(258 89% 97%); color: hsl(263 79% 56%);
+  border: none; cursor: pointer; transition: transform .15s ease, background .15s ease;
+}
+.backBtn:hover { background: hsl(258 70% 93%); }
+.backBtn:active { transform: scale(.95); }
+
+.brand { display: flex; justify-content: center; margin: 4px 0 18px; }
+.logo { height: 44px; width: auto; }
+
+.title {
+  font-family: 'Outfit', system-ui, sans-serif;
+  font-size: 30px; font-weight: 800; letter-spacing: -0.02em;
+  text-align: center; margin: 0; line-height: 1.15;
+}
+.subtitle { text-align: center; color: hsl(var(--muted-foreground)); font-size: 15px; margin: 6px 0 22px; }
+
+/* the main panel: flat, no heavy card on phones */
+.panel { background: transparent; }
+@media (min-width: 640px) {
+  .root { align-items: center; background: hsl(258 60% 98%); }
+  .panel { background: #fff; border-radius: 24px; padding: 28px; box-shadow: 0 20px 50px -20px hsl(263 79% 40% / .25); }
+}
+
+/* inputs & buttons inside get the rounded, roomy look */
+.panel :global(input) { border-radius: 14px; }
+.panel :global(button[type="submit"]) {
+  border-radius: 9999px; font-weight: 700;
+  box-shadow: 0 10px 24px -10px hsl(263 79% 56% / .6);
+}
+
+.separator { display: flex; align-items: center; gap: 12px; padding: 2px 0; }
+.sepLine { flex: 1; height: 1px; background: hsl(var(--border)); }
+.sepText { font-size: 13px; color: hsl(var(--muted-foreground)); white-space: nowrap; }
+
+@media (prefers-reduced-motion: reduce) {
+  .root *, .root *::before, .root *::after { animation: none !important; transition: none !important; }
+}
+
+/* the shared Google button brings its own "or" divider; this page has its own below */
+.oauthStack > div:first-child { display: none; }
