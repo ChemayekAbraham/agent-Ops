@@ -48,6 +48,20 @@ export const PERSONAL_NAV: PersonalNavItem[] = [
   { to: '/me/performance', icon: TrendingUp, title: 'My performance', description: 'Your notes, your cohort', requiresPsoOfficer: true },
   { to: '/me/tickets', icon: Ticket, title: 'Tickets', description: 'Raise a fault or pick one up' },
   {
+    to: '/me/requisitions',
+    icon: Wallet,
+    title: 'Make a requisition',
+    description: 'Ask for funds — reviewed by your head, COO, then CFO',
+  },
+  { to: '/notifications', icon: Bell, title: 'Notifications', description: 'Messages and alerts' },
+  {
+    to: '/me/documents',
+    icon: FolderOpen,
+    title: 'My documents',
+    description: 'Your contracts, letters and certificates',
+  },
+  // Food entries go last so every existing item keeps its position.
+  {
     to: '/me/food',
     icon: UtensilsCrossed,
     title: 'Canteen',
@@ -60,18 +74,5 @@ export const PERSONAL_NAV: PersonalNavItem[] = [
     title: 'Food Management',
     description: 'Menu, orders and service — Food Coordinator only',
     requiresFoodCoordinator: true,
-  },
-  {
-    to: '/me/requisitions',
-    icon: Wallet,
-    title: 'Make a requisition',
-    description: 'Ask for funds — reviewed by your head, COO, then CFO',
-  },
-  { to: '/notifications', icon: Bell, title: 'Notifications', description: 'Messages and alerts' },
-  {
-    to: '/me/documents',
-    icon: FolderOpen,
-    title: 'My documents',
-    description: 'Your contracts, letters and certificates',
   },
 ];

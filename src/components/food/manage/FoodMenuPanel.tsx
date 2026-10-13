@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import FoodLoadError from '@/components/food/FoodLoadError';
-import { Plus, Tags, UtensilsCrossed } from 'lucide-react';
+import { ImagePlus, Plus, Tags, UtensilsCrossed, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -16,9 +16,10 @@ import {
 import {
   useFoodMeals, useFoodCategories, useFoodServicePeriods, useFoodMenu,
   useUpsertFoodMeal, useSetFoodMealStatus, useScheduleFoodMeal, useSetFoodSoldOut,
-  useUpsertFoodCategory, useArchiveFoodCategory, formatUgx, foodToday,
+  useUpsertFoodCategory, useArchiveFoodCategory, useSetFoodMealPhoto, formatUgx, foodToday,
   type FoodMeal,
 } from '@/hooks/useFoodService';
+import { FOOD_MEAL_IMAGE_TYPES, foodMealImageProblem } from '@/lib/foodService';
 
 const STATUS_TONE: Record<string, string> = {
   published: 'border-success/30 bg-success/10 text-success',
@@ -32,9 +33,18 @@ interface MealForm {
   description: string;
   categoryId: string;
   price: string;
+  /** The photo the meal has now (a displayable URL), if any. */
+  currentPhoto: string | null;
+  /** keep = leave the photo alone; set = upload `photoFile`; remove = clear it. */
+  photoChange: 'keep' | 'set' | 'remove';
+  photoFile: File | null;
 }
 
-const EMPTY: MealForm = { id: null, name: '', description: '', categoryId: '', price: '' };
+const EMPTY: MealForm = {
+  id: null, name: '', description: '', categoryId: '', price: '',
+  currentPhoto: null, photoChange: 'keep', photoFile: null,
+};
+const PHOTO_ACCEPT = Object.keys(FOOD_MEAL_IMAGE_TYPES).join(',');
 const NO_CATEGORY = '__none__';
 
 export default function FoodMenuPanel({ canAuthor }: { canAuthor: boolean }) {
@@ -53,8 +63,21 @@ export default function FoodMenuPanel({ canAuthor }: { canAuthor: boolean }) {
   const setSoldOut = useSetFoodSoldOut();
   const upsertCategory = useUpsertFoodCategory();
   const archiveCategory = useArchiveFoodCategory();
+  const setPhoto = useSetFoodMealPhoto();
 
   const [form, setForm] = useState<MealForm>(EMPTY);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const photoInput = useRef<HTMLInputElement>(null);
+  // A local preview of the chosen file; released when it changes or on close.
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  useEffect(() => {
+    if (!form.photoFile) { setPhotoPreview(null); return; }
+    const url = URL.createObjectURL(form.photoFile);
+    setPhotoPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [form.photoFile]);
+  const shownPhoto = form.photoChange === 'set' ? photoPreview
+    : form.photoChange === 'remove' ? null : form.currentPhoto;
   const [mealOpen, setMealOpen] = useState(false);
   const [categoryName, setCategoryName] = useState('');
 
@@ -73,17 +96,43 @@ export default function FoodMenuPanel({ canAuthor }: { canAuthor: boolean }) {
     && Number.isFinite(priceNumber)
     && priceNumber >= 0;
 
-  const openNew = () => { setForm(EMPTY); setMealOpen(true); };
+  const openNew = () => { setForm(EMPTY); setPhotoError(null); setMealOpen(true); };
   const openEdit = (m: FoodMeal) => {
     setForm({
       id: m.id, name: m.name, description: m.description ?? '',
       categoryId: m.category_id ?? '', price: String(m.price_ugx),
+      currentPhoto: m.image_path ?? null, photoChange: 'keep', photoFile: null,
     });
+    setPhotoError(null);
     setMealOpen(true);
   };
 
+  const choosePhoto = (file: File | undefined) => {
+    if (photoInput.current) photoInput.current.value = '';   // allow re-picking the same file
+    if (!file) return;
+    const problem = foodMealImageProblem(file);
+    setPhotoError(problem);
+    if (problem) return;
+    setForm((f) => ({ ...f, photoChange: 'set', photoFile: file }));
+  };
+  const removePhoto = () => {
+    setPhotoError(null);
+    setForm((f) => ({
+      ...f, photoFile: null,
+      // a new meal, or an unsaved pick, simply goes back to "no change"
+      photoChange: f.currentPhoto ? 'remove' : 'keep',
+    }));
+  };
+
+  const closeMeal = () => { setMealOpen(false); setForm(EMPTY); setPhotoError(null); };
+
+  // The meal is saved first; the photo is attached to the returned meal id. If
+  // the photo step fails the meal is already saved, so the dialog stays open as
+  // an edit of that meal and a retry never creates a duplicate.
   const saveMeal = () => {
     if (!mealValid) return;
+    const photoChange = form.photoChange;
+    const photoFile = form.photoFile;
     upsertMeal.mutate(
       {
         mealId: form.id,
@@ -92,9 +141,19 @@ export default function FoodMenuPanel({ canAuthor }: { canAuthor: boolean }) {
         categoryId: form.categoryId || null,
         priceUgx: priceNumber,
       },
-      { onSuccess: () => { setMealOpen(false); setForm(EMPTY); } },
+      {
+        onSuccess: (mealId) => {
+          if (photoChange === 'keep') { closeMeal(); return; }
+          setForm((f) => ({ ...f, id: mealId }));
+          setPhoto.mutate(
+            { mealId, file: photoChange === 'set' ? photoFile : null },
+            { onSuccess: closeMeal },
+          );
+        },
+      },
     );
   };
+  const saving = upsertMeal.isPending || setPhoto.isPending;
 
   const published = (meals ?? []).filter((m) => m.status === 'published');
   const todaysItems = (menu?.periods ?? []).flatMap((p) =>
@@ -346,7 +405,7 @@ export default function FoodMenuPanel({ canAuthor }: { canAuthor: boolean }) {
       </section>
 
       {/* ── meal dialog ─────────────────────────────────────── */}
-      <Dialog open={mealOpen} onOpenChange={setMealOpen}>
+      <Dialog open={mealOpen} onOpenChange={(o) => { if (!o) closeMeal(); }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>{form.id ? 'Edit meal' : 'Add meal'}</DialogTitle>
@@ -405,11 +464,56 @@ export default function FoodMenuPanel({ canAuthor }: { canAuthor: boolean }) {
                 </SelectContent>
               </Select>
             </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="meal-photo">Photo (optional)</Label>
+              {shownPhoto ? (
+                <div className="relative overflow-hidden rounded-lg border border-border/70">
+                  <img src={shownPhoto} alt="Meal photo preview" className="h-36 w-full object-cover" />
+                  <Button
+                    type="button" size="icon" variant="secondary"
+                    className="absolute right-2 top-2 h-7 w-7"
+                    aria-label="Remove photo" disabled={saving}
+                    onClick={removePhoto}
+                  >
+                    <X className="h-4 w-4" aria-hidden="true" />
+                  </Button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="flex h-24 w-full flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-border/70 text-xs text-muted-foreground hover:bg-muted/50"
+                  disabled={saving}
+                  onClick={() => photoInput.current?.click()}
+                >
+                  <ImagePlus className="h-5 w-5" aria-hidden="true" />
+                  Upload a photo
+                </button>
+              )}
+              <input
+                ref={photoInput} id="meal-photo" type="file" accept={PHOTO_ACCEPT}
+                className="sr-only" disabled={saving}
+                onChange={(e) => choosePhoto(e.target.files?.[0])}
+              />
+              {shownPhoto && (
+                <Button
+                  type="button" size="sm" variant="ghost" className="h-7 px-2 text-xs"
+                  disabled={saving} onClick={() => photoInput.current?.click()}
+                >
+                  Change photo
+                </Button>
+              )}
+              {photoError ? (
+                <p className="text-[11px] text-destructive" role="alert">{photoError}</p>
+              ) : (
+                <p className="text-[11px] text-muted-foreground">JPEG, PNG or WebP, up to 2 MB.</p>
+              )}
+            </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setMealOpen(false)}>Cancel</Button>
-            <Button disabled={!mealValid || upsertMeal.isPending} onClick={saveMeal}>
+            <Button variant="outline" onClick={closeMeal}>Cancel</Button>
+            <Button disabled={!mealValid || saving} onClick={saveMeal}>
               {form.id ? 'Save changes' : 'Add meal'}
             </Button>
           </DialogFooter>

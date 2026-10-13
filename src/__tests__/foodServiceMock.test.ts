@@ -23,10 +23,14 @@ async function menu(): Promise<FoodMenuDay> {
   return foodMockRpc<FoodMenuDay>('food_menu_for_day', {});
 }
 
-/** The seeded Lunch period runs 08:00–23:59 so a window is open during tests. */
+/**
+ * The seeded Lunch period (limit 5 per person), which these tests were written
+ * against. Every seeded period now takes orders all day, so "the first open
+ * one" would be Breakfast (limit 2); pick Lunch by name.
+ */
 async function openPeriod() {
   const m = await menu();
-  const p = m.periods.find((x) => x.ordering_open);
+  const p = m.periods.find((x) => x.name === 'Lunch' && x.ordering_open);
   if (!p) throw new Error('fixture has no open ordering window');
   return p;
 }
@@ -357,6 +361,21 @@ describe('coordinator operations', () => {
     const after = await foodMockSelect<Array<{ action: string }>>('food_audit', { entity: 'meal' });
     expect(after.length).toBe(before + 1);
     expect(after.some((r) => r.action === 'created')).toBe(true);
+  });
+
+  it('refuses a photo through food_upsert_meal, as the server does (P-2)', async () => {
+    await expect(foodMockRpc('food_upsert_meal', { p_name: 'Rogue', p_price_ugx: 1, p_image_path: 'https://evil.example/x.png' }))
+      .rejects.toThrow(/food_set_meal_image/);
+    const meals = await foodMockSelect<Array<{ id: string; name: string; image_path: string | null }>>('food_meals', {});
+    const withPhoto = meals.find((m) => m.image_path)!;
+    await expect(foodMockRpc('food_upsert_meal', {
+      p_meal_id: withPhoto.id, p_name: withPhoto.name, p_price_ugx: 1, p_image_path: 'data:image/png;base64,AAAA',
+    })).rejects.toThrow(/food_set_meal_image/);
+    // an ordinary edit keeps the photo it had
+    await foodMockRpc('food_upsert_meal', { p_meal_id: withPhoto.id, p_name: withPhoto.name, p_price_ugx: 1 });
+    const after = (await foodMockSelect<Array<{ id: string; image_path: string | null }>>('food_meals', {}))
+      .find((m) => m.id === withPhoto.id)!;
+    expect(after.image_path).toBe(withPhoto.image_path);
   });
 
   it('will not archive a category that still holds live meals', async () => {

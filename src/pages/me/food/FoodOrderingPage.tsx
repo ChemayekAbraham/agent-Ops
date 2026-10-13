@@ -1,12 +1,15 @@
 import { useMemo, useState, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertCircle, CalendarOff, ClipboardList, Clock, ShoppingBag, UtensilsCrossed } from 'lucide-react';
+import {
+  AlertCircle, CalendarOff, ClipboardList, Clock, Info, Moon, ShoppingBag, Sun, Sunrise,
+  UtensilsCrossed,
+} from 'lucide-react';
 import PersonalLayout from '@/components/layout/PersonalLayout';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Badge } from '@/components/ui/badge';
 import FoodMealCard from '@/components/food/FoodMealCard';
 import FoodCartSheet, { type CartLine } from '@/components/food/FoodCartSheet';
+import { isFoodAllDayWindow } from '@/lib/foodService';
 import {
   useFoodMenu, useFoodSession, usePlaceFoodOrder, useMyFoodOrders,
   formatUgx, FOOD_PAYMENT_MODES, FOOD_MAX_QTY_PER_LINE, FOOD_MAX_INSTRUCTIONS,
@@ -20,6 +23,16 @@ function clock(t: string): string {
   const suffix = hour >= 12 ? 'pm' : 'am';
   const twelve = hour % 12 === 0 ? 12 : hour % 12;
   return `${twelve}:${m}${suffix === 'am' ? ' am' : ' pm'}`;
+}
+
+/** Decorative icon for a service period, chosen from its name. */
+function PeriodIcon({ name }: { name: string }) {
+  const n = name.toLowerCase();
+  const Icon = n.includes('breakfast') || n.includes('morning') ? Sunrise
+    : n.includes('supper') || n.includes('dinner') || n.includes('evening') ? Moon
+      : n.includes('lunch') ? Sun
+        : Clock;
+  return <Icon className="h-5 w-5" aria-hidden="true" />;
 }
 
 export default function FoodOrderingPage() {
@@ -122,8 +135,8 @@ export default function FoodOrderingPage() {
       <div className="mx-auto w-full max-w-5xl space-y-5 p-4 sm:p-6">
         <header className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-lg font-semibold sm:text-xl">Today&rsquo;s menu</h1>
-            <p className="text-sm text-muted-foreground">
+            <h2 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">Today&rsquo;s menu</h2>
+            <p className="mt-0.5 text-sm text-muted-foreground sm:text-base">
               {menu?.service_date
                 ? new Date(`${menu.service_date}T00:00:00`).toLocaleDateString('en-GB', {
                     weekday: 'long', day: 'numeric', month: 'long',
@@ -131,7 +144,10 @@ export default function FoodOrderingPage() {
                 : 'Loading…'}
             </p>
           </div>
-          <Button asChild variant="outline" size="sm">
+          <Button
+            asChild
+            className="h-11 rounded-xl bg-primary px-4 font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
+          >
             <Link to="/me/food/orders">
               <ClipboardList className="mr-2 h-4 w-4" aria-hidden="true" />
               My orders
@@ -140,7 +156,7 @@ export default function FoodOrderingPage() {
         </header>
 
         {isLoading && (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2">
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="overflow-hidden rounded-xl border border-border/70">
                 <Skeleton className="aspect-[4/3] w-full rounded-none" />
@@ -187,40 +203,48 @@ export default function FoodOrderingPage() {
 
         {!menu?.closed && periods.map((period) => {
           return (
-            <section key={period.period_id} className="space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-2">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-base font-semibold">{period.name}</h2>
-                  <Badge
-                    variant="outline"
-                    className={period.ordering_open
-                      ? 'border-success/30 bg-success/10 text-success'
-                      : 'border-border bg-muted text-muted-foreground'}
-                  >
-                    <Clock className="mr-1 h-3 w-3" aria-hidden="true" />
-                    {period.ordering_open ? 'Ordering open' : 'Ordering closed'}
-                  </Badge>
+            <section key={period.period_id} className="space-y-4">
+              {/* service-period panel: icon, name, status, window and limit, collection note */}
+              <div className="rounded-2xl border border-amber-200/60 bg-amber-50/60 px-4 py-3 dark:border-amber-500/15 dark:bg-amber-500/5 sm:px-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+                      <PeriodIcon name={period.name} />
+                    </span>
+                    <h3 className="text-base font-bold text-foreground sm:text-lg">{period.name}</h3>
+                    <span
+                      className={period.ordering_open
+                        ? 'inline-flex items-center gap-1.5 rounded-full bg-success/10 px-3 py-1 text-xs font-semibold text-success'
+                        : 'inline-flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs font-semibold text-muted-foreground'}
+                    >
+                      <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                      {period.ordering_open ? 'Ordering open' : 'Ordering closed'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground sm:text-sm">
+                    {isFoodAllDayWindow(period.ordering_opens_at, period.ordering_closes_at)
+                      ? 'Orders open all day'
+                      : <>Orders {clock(period.ordering_opens_at)} – {clock(period.ordering_closes_at)}</>}
+                    {period.max_qty_per_employee !== null && (
+                      <> &middot; up to {period.max_qty_per_employee} per person</>
+                    )}
+                  </p>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Orders {clock(period.ordering_opens_at)} – {clock(period.ordering_closes_at)}
-                  {period.max_qty_per_employee !== null && (
-                    <> &middot; up to {period.max_qty_per_employee} per person</>
-                  )}
-                </p>
+
+                {period.collection_instructions && (
+                  <p className="mt-3 flex items-start gap-2 border-t border-amber-200/60 pt-3 text-xs leading-relaxed text-muted-foreground dark:border-amber-500/15 sm:text-sm">
+                    <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+                    <span>{period.collection_instructions}</span>
+                  </p>
+                )}
               </div>
 
-              {period.collection_instructions && (
-                <p className="rounded-lg bg-muted/60 p-3 text-xs leading-relaxed text-muted-foreground">
-                  {period.collection_instructions}
-                </p>
-              )}
-
               {period.meals.length === 0 ? (
-                <p className="rounded-lg border border-dashed border-border/70 p-6 text-center text-xs text-muted-foreground">
+                <p className="rounded-xl border border-dashed border-border/70 p-6 text-center text-xs text-muted-foreground">
                   Nothing on the menu for {period.name.toLowerCase()} today.
                 </p>
               ) : (
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-2">
                   {period.meals.map((meal) => (
                     <FoodMealCard
                       key={meal.menu_item_id}

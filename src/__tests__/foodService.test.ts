@@ -164,3 +164,17 @@ describe('food exception kinds — the nine approved codes', () => {
     for (const k of FOOD_EXCEPTION_KINDS) expect(FOOD_EXCEPTION_KIND_LABEL[k].length).toBeGreaterThan(0);
   });
 });
+
+import { isFoodAllDayWindow, FOOD_ALL_DAY_OPENS, FOOD_ALL_DAY_CLOSES } from '@/lib/foodService';
+
+describe('all-day ordering window', () => {
+  it('the all-day constants satisfy the server rule (closing after opening)', () => {
+    expect(FOOD_ALL_DAY_CLOSES > FOOD_ALL_DAY_OPENS).toBe(true);
+    expect(isFoodAllDayWindow(FOOD_ALL_DAY_OPENS, FOOD_ALL_DAY_CLOSES)).toBe(true);
+  });
+  it('recognises all-day windows at minute precision, and only those', () => {
+    expect(isFoodAllDayWindow('00:00', '23:59')).toBe(true);
+    expect(isFoodAllDayWindow('06:30:00', '09:00:00')).toBe(false);
+    expect(isFoodAllDayWindow('00:00:00', '22:00:00')).toBe(false);
+  });
+});

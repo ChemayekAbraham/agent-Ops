@@ -175,9 +175,9 @@ function seed() {
     };
     S.periods.push(row); return row.id as string;
   };
-  const pBreakfast = period('Breakfast', '06:30', '09:00', 'Collect at the canteen counter from 07:30.', 2);
-  // deliberately spans the working day so the preview always has an open window
-  const pLunch = period('Lunch', '08:00', '23:59', 'Collect at the canteen counter from 12:30. Bring your staff card.', 5);
+  // Both periods take orders all day (CFO 2026-10-13: no stopping time).
+  const pBreakfast = period('Breakfast', '00:00:00', '23:59:59', 'Collect at the canteen counter from 07:30.', 2);
+  const pLunch = period('Lunch', '00:00:00', '23:59:59', 'Collect at the canteen counter from 12:30. Bring your staff card.', 5);
 
   const schedule = (mealId: string, periodId: string, price: number,
                     total: number | null, soldOut = false) => {
@@ -543,13 +543,17 @@ const RPC: Record<string, (a: Args) => unknown> = {
 
   food_upsert_meal: (a) => {
     const actor = requireActiveCoordinator();
+    // mirrors 20261013120000: photos only through food_set_meal_image
+    if (a.p_image_path !== undefined && a.p_image_path !== null) {
+      fail('Meal photos are set with food_set_meal_image, not here');
+    }
     const name = String(a.p_name ?? '').trim();
     if (!name) fail('Meal name is required');
     const price = Number(a.p_price_ugx);
     if (!(price >= 0)) fail('Price must be zero or more');
     if (!a.p_meal_id) {
       const row = {
-        id: uid(), name, description: a.p_description ?? null, image_path: a.p_image_path ?? null,
+        id: uid(), name, description: a.p_description ?? null, image_path: null,
         category_id: a.p_category_id ?? null, price_ugx: price, status: 'draft',
         archived_at: null, created_by: actor, created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
@@ -564,7 +568,7 @@ const RPC: Record<string, (a: Args) => unknown> = {
     const before = { ...m };
     Object.assign(m, {
       name, description: a.p_description ?? null, category_id: a.p_category_id ?? null,
-      price_ugx: price, image_path: a.p_image_path ?? m.image_path,
+      price_ugx: price,
       updated_at: new Date().toISOString(),
     });
     audit('meal', String(m.id), 'updated', a.p_reason as string, before, { ...m });
@@ -581,6 +585,21 @@ const RPC: Record<string, (a: Args) => unknown> = {
     m.status = status;
     m.archived_at = status === 'archived' ? new Date().toISOString() : null;
     audit('meal', String(m.id), `status_${status}`, a.p_reason as string, before, { ...m });
+  },
+
+  // Mirrors food_set_meal_image(): active coordinator only, not on an archived
+  // meal, NULL removes the photo, every change audited. The fixture stores a
+  // local preview URL in place of a storage object name.
+  food_set_meal_image: (a) => {
+    requireActiveCoordinator();
+    const m = S.meals.find((x) => x.id === a.p_meal_id);
+    if (!m) fail('Meal not found');
+    if (m.status === 'archived') fail('Archived meals cannot be edited');
+    const path = (a.p_image_path as string | null) || null;
+    const before = { ...m };
+    m.image_path = path;
+    audit('meal', String(m.id), path ? 'photo_set' : 'photo_removed', a.p_reason as string, before, { ...m });
+    return { meal_id: m.id, image_path: path };
   },
 
   food_schedule_meal: (a) => {

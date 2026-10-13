@@ -5,6 +5,8 @@ import { toast } from 'sonner';
 import {
   foodErrorMessage, isFoodCheckoutDisabled, canStartPreparing, isFoodMockMode, foodToday,
   FULFILMENT_REQUIRES_PAYMENT,
+  FOOD_MEAL_IMAGE_BUCKET, FOOD_MEAL_IMAGE_NAME, FOOD_MEAL_PHOTO_URL_TTL_SECONDS,
+  FOOD_MEAL_PHOTO_URL_REFRESH_MARGIN_MS, foodMealImageProblem, foodMealImagePath,
   type FoodPaymentStatus, type FoodPaymentMode, type FoodExceptionKind,
 } from '@/lib/foodService';
 
@@ -238,10 +240,92 @@ export function useFoodSession() {
 // ─────────────────────────── reads ───────────────────────────
 
 /** The employee-facing menu for a day. Pass nothing for today (Kampala). */
+// ───────────── meal photos: short-lived signed URLs ─────────────
+//
+// The bucket is private. A stored photo (meals/<uuid>.<ext>) is shown through a
+// signed URL, which Storage issues only when its SELECT policy admits the caller
+// (food_meal_photo_readable: the active coordinator, or a canteen user for a
+// PUBLISHED meal's photo). A signed URL is a bearer link: anyone holding it can
+// fetch the file until it expires, so the lifetime is kept short.
+//
+// The menu refetches every minute. Signed URLs are cached per object name and
+// reused until shortly before they expire, so a refetch neither re-signs every
+// photo nor makes the <img> reload.
+
+const signedPhotoCache = new Map<string, { url: string; expiresAt: number }>();
+
+/** Forget every cached signed URL (tests; sign-out). */
+export function resetFoodMealPhotoCache(): void { signedPhotoCache.clear(); }
+
+/**
+ * Drop a signed URL that failed to load (expired, revoked or missing), so the
+ * next menu refetch asks Storage again instead of reusing it.
+ */
+export function forgetFoodMealPhotoUrl(url: string | null | undefined): void {
+  if (!url) return;
+  for (const [name, entry] of signedPhotoCache) if (entry.url === url) signedPhotoCache.delete(name);
+}
+
+/**
+ * Signed, displayable URLs for meal photos, in ONE Storage request for every
+ * name not already cached. Anything that is not a server-shaped object name
+ * (an external URL, data URL, absolute or relative path) is never sent to
+ * Storage and never displayed: it maps to null, and the card shows its icon.
+ * A photo Storage will not sign (missing object, not readable by this user, or
+ * the request failing) also maps to null rather than failing the menu.
+ */
+export async function signFoodMealPhotos(
+  names: Array<string | null | undefined>,
+): Promise<Map<string, string | null>> {
+  const out = new Map<string, string | null>();
+  const wanted = [...new Set(names.filter((n): n is string => Boolean(n)))];
+  if (import.meta.env.DEV && isFoodMockMode()) {
+    // the development fixture stores local previews, never storage names
+    for (const n of wanted) out.set(n, n);
+    return out;
+  }
+  const now = Date.now();
+  const toSign: string[] = [];
+  for (const n of wanted) {
+    if (!FOOD_MEAL_IMAGE_NAME.test(n)) { out.set(n, null); continue; }
+    const hit = signedPhotoCache.get(n);
+    if (hit && hit.expiresAt - now > FOOD_MEAL_PHOTO_URL_REFRESH_MARGIN_MS) out.set(n, hit.url);
+    else toSign.push(n);
+  }
+  if (toSign.length === 0) return out;
+  for (const n of toSign) out.set(n, null);
+  try {
+    const { data, error } = await supabase.storage.from(FOOD_MEAL_IMAGE_BUCKET)
+      .createSignedUrls(toSign, FOOD_MEAL_PHOTO_URL_TTL_SECONDS);
+    if (error || !data) return out;
+    const expiresAt = now + FOOD_MEAL_PHOTO_URL_TTL_SECONDS * 1000;
+    for (const item of data) {
+      if (!item.path || item.error || !item.signedUrl) continue;
+      signedPhotoCache.set(item.path, { url: item.signedUrl, expiresAt });
+      out.set(item.path, item.signedUrl);
+    }
+  } catch {
+    // photos are optional: the menu still loads, showing icons
+  }
+  return out;
+}
+
 export function useFoodMenu(serviceDate?: string) {
   return useQuery({
     queryKey: keys.menu(serviceDate),
-    queryFn: () => call<FoodMenuDay>('food_menu_for_day', { p_service_date: serviceDate ?? null }),
+    queryFn: async () => {
+      const day = await call<FoodMenuDay>('food_menu_for_day', { p_service_date: serviceDate ?? null });
+      const periods = day?.periods ?? [];
+      // the server returns published meals only, so only their photos are signed
+      const urls = await signFoodMealPhotos(periods.flatMap((p) => p.meals.map((m) => m.image_path)));
+      return {
+        ...day,
+        periods: periods.map((p) => ({
+          ...p,
+          meals: p.meals.map((m) => ({ ...m, image_path: m.image_path ? urls.get(m.image_path) ?? null : null })),
+        })),
+      };
+    },
     // the ordering window closes on a clock, so do not serve a stale "open"
     refetchInterval: 60_000,
   });
@@ -396,7 +480,11 @@ export function useFoodMeals(enabled = true) {
   return useQuery({
     queryKey: ['food', 'meals'] as const,
     enabled,
-    queryFn: () => selectRows<FoodMeal>('food_meals'),
+    queryFn: async () => {
+      const rows = await selectRows<FoodMeal>('food_meals');
+      const urls = await signFoodMealPhotos(rows.map((m) => m.image_path));
+      return rows.map((m) => ({ ...m, image_path: m.image_path ? urls.get(m.image_path) ?? null : null }));
+    },
   });
 }
 
@@ -438,7 +526,7 @@ export interface UpsertMealInput {
   description?: string | null;
   categoryId?: string | null;
   priceUgx: number;
-  imagePath?: string | null;
+  // No photo here: food_upsert_meal refuses one. Use useSetFoodMealPhoto.
   reason?: string | null;
 }
 
@@ -451,12 +539,46 @@ export function useUpsertFoodMeal() {
       p_description: input.description ?? null,
       p_category_id: input.categoryId ?? null,
       p_price_ugx: input.priceUgx,
-      p_image_path: input.imagePath ?? null,
       p_reason: input.reason ?? null,
     }),
     onSuccess: (_d, v) => {
       invalidateFood(qc);
       toast.success(v.mealId ? 'Meal updated' : 'Meal added as a draft');
+    },
+    onError,
+  });
+}
+
+/**
+ * Set or remove a meal's photo. Active Food Coordinator only — the bucket's
+ * storage policy and food_set_meal_image both decide that on the server.
+ * A new photo is uploaded under a fresh server-shaped name (uploads are never
+ * overwritten), then attached to the meal; `file: null` removes the photo.
+ */
+export function useSetFoodMealPhoto() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (v: { mealId: string; file: File | null; reason?: string }) => {
+      let path: string | null = null;
+      if (v.file) {
+        const problem = foodMealImageProblem(v.file);
+        if (problem) throw new Error(problem);
+        if (import.meta.env.DEV && isFoodMockMode()) {
+          path = URL.createObjectURL(v.file);          // fixture: a local preview only
+        } else {
+          path = foodMealImagePath(v.file.type);
+          const { error } = await supabase.storage.from(FOOD_MEAL_IMAGE_BUCKET)
+            .upload(path, v.file, { contentType: v.file.type, upsert: false, cacheControl: '3600' });
+          if (error) throw new Error(error.message);
+        }
+      }
+      return call<{ meal_id: string; image_path: string | null }>('food_set_meal_image', {
+        p_meal_id: v.mealId, p_image_path: path, p_reason: v.reason ?? null,
+      });
+    },
+    onSuccess: (_d, v) => {
+      invalidateFood(qc);
+      toast.success(v.file ? 'Photo saved' : 'Photo removed');
     },
     onError,
   });

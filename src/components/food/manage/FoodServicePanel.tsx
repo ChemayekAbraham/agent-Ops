@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Checkbox } from '@/components/ui/checkbox';
+import { FOOD_ALL_DAY_OPENS, FOOD_ALL_DAY_CLOSES, isFoodAllDayWindow } from '@/lib/foodService';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   useFoodServicePeriods, useFoodClosures, useUpsertFoodServicePeriod, useSetFoodClosure,
@@ -26,6 +28,7 @@ export default function FoodServicePanel({ canAuthor }: { canAuthor: boolean }) 
 
   // mirrors the server: ordering must close after it opens
   const timesValid = p.opensAt !== '' && p.closesAt !== '' && p.closesAt > p.opensAt;
+  const allDay = isFoodAllDayWindow(p.opensAt, p.closesAt);
   const maxValid = p.maxQty === '' || Number(p.maxQty) > 0;
   const periodValid = p.name.trim().length > 0 && timesValid && maxValid;
 
@@ -65,7 +68,9 @@ export default function FoodServicePanel({ canAuthor }: { canAuthor: boolean }) 
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      {period.ordering_opens_at} – {period.ordering_closes_at}
+                      {isFoodAllDayWindow(period.ordering_opens_at, period.ordering_closes_at)
+                        ? 'Ordering all day'
+                        : <>{period.ordering_opens_at} – {period.ordering_closes_at}</>}
                       {period.max_qty_per_employee !== null && (
                         <> &middot; max {period.max_qty_per_employee} per person</>
                       )}
@@ -104,14 +109,14 @@ export default function FoodServicePanel({ canAuthor }: { canAuthor: boolean }) 
           <div className="space-y-1">
             <Label htmlFor="opens" className="sr-only">Opens</Label>
             <Input
-              id="opens" type="time" value={p.opensAt} disabled={!canAuthor}
+              id="opens" type="time" value={p.opensAt} disabled={!canAuthor || allDay}
               onChange={(e) => setP((s) => ({ ...s, opensAt: e.target.value }))}
             />
           </div>
           <div className="space-y-1">
             <Label htmlFor="closes" className="sr-only">Closes</Label>
             <Input
-              id="closes" type="time" value={p.closesAt} disabled={!canAuthor}
+              id="closes" type="time" value={p.closesAt} disabled={!canAuthor || allDay}
               onChange={(e) => setP((s) => ({ ...s, closesAt: e.target.value }))}
             />
           </div>
@@ -134,6 +139,15 @@ export default function FoodServicePanel({ canAuthor }: { canAuthor: boolean }) 
           >
             Add period
           </Button>
+          <label className="flex items-center gap-2 text-xs sm:col-span-5">
+            <Checkbox
+              checked={allDay} disabled={!canAuthor}
+              onCheckedChange={(on) => setP((s) => (on === true
+                ? { ...s, opensAt: FOOD_ALL_DAY_OPENS, closesAt: FOOD_ALL_DAY_CLOSES }
+                : { ...s, opensAt: '', closesAt: '' }))}
+            />
+            Take orders all day (no closing time)
+          </label>
           <Input
             className="sm:col-span-5"
             placeholder="Collection instructions (optional)"

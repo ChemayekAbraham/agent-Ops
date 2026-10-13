@@ -19,7 +19,7 @@ trap 'P -d postgres -c "drop database if exists $db with (force)" >/dev/null' EX
 P -d "$db" -f "$here/00_supabase_scaffold.sql" >/dev/null
 for m in "$root"/supabase/migrations/2026100912*food*.sql "$root"/supabase/migrations/2026100913*food*.sql \
          "$root"/supabase/migrations/2026100916*food*.sql "$root"/supabase/migrations/2026100917*food*.sql \
-         "$root"/supabase/migrations/202610121*food*.sql "$@"; do
+         "$root"/supabase/migrations/202610121*food*.sql "$root"/supabase/migrations/202610131*food*.sql "$@"; do
   [ -e "$m" ] || continue
   P -d "$db" -1 -f "$m" >/dev/null && echo "applied $(basename "$m")"
 done
@@ -28,6 +28,8 @@ done
 suites=("$here/10_behaviour.sql")
 ls "$root"/supabase/migrations/20261012120000_food_m1_release_corrections.sql >/dev/null 2>&1 \
   && suites+=("$here/20_release_corrections.sql" "$here/25_canteen_access.sql" "$here/40_completion.sql")
+ls "$root"/supabase/migrations/20261013120000_food_meal_images.sql >/dev/null 2>&1   && suites+=("$here/45_meal_images.sql")
+ls "$root"/supabase/migrations/20261013125000_food_staff_includes_pso.sql >/dev/null 2>&1 && suites+=("$here/46_staff_pso.sql")
 out="$(cat "${suites[@]}" | P -d "$db" 2>&1 || true)"
 # Count only real psql errors ("ERROR:  ..."), never a result value that
 # happens to contain the word (e.g. the ORDER_ERROR exception kind).

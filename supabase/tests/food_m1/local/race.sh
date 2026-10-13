@@ -20,7 +20,7 @@ trap 'P -d postgres -c "drop database if exists $db with (force)" >/dev/null' EX
 P -d "$db" -f "$here/00_supabase_scaffold.sql" >/dev/null
 for m in "$root"/supabase/migrations/2026100912*food*.sql "$root"/supabase/migrations/2026100913*food*.sql \
          "$root"/supabase/migrations/2026100916*food*.sql "$root"/supabase/migrations/2026100917*food*.sql \
-         "$root"/supabase/migrations/202610121*food*.sql; do
+         "$root"/supabase/migrations/202610121*food*.sql "$root"/supabase/migrations/202610131*food*.sql; do
   P -d "$db" -1 -f "$m" >/dev/null
 done
 P -d "$db" -f "$here/30_race_setup.sql" >/dev/null

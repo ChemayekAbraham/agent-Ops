@@ -17,7 +17,8 @@ old_ref="${1:-8c437912daed55ca3c7fa1e161ed32012ea8ebea}"
 M="$root/supabase/migrations"
 CHAIN=(20261009120000_food_service_schema_and_coordinator 20261009130000_food_service_operations_rpcs
        20261009160000_food_coordinator_candidates 20261009170000_food_exception_resolution
-       20261012120000_food_m1_release_corrections)
+       20261012120000_food_m1_release_corrections 20261013120000_food_meal_images
+       20261013125000_food_staff_includes_pso)
 P() { psql -X -q -v ON_ERROR_STOP=1 "$@"; }
 Q() { psql -X -q -At -v ON_ERROR_STOP=1 "$@"; }
 result=0
@@ -68,6 +69,10 @@ Q -d mm_upgrade -c "
   insert into food_exceptions(kind,detail) values ('legacy_kind','{\"note\":\"legacy\"}');" >/dev/null
 out=$(apply mm_upgrade "$M/${CHAIN[4]}.sql"); rc=$?
 check "MIG-C2 corrections apply on top of a database with legacy rows" "$rc" "0"
+apply mm_upgrade "$M/${CHAIN[5]}.sql" >/dev/null; rc=$?
+check "MIG-C2b meal-photo migration applies after the corrections" "$rc" "0"
+apply mm_upgrade "$M/${CHAIN[6]}.sql" >/dev/null; rc=$?
+check "MIG-C2c staff/PSO migration applies after the meal-photo migration" "$rc" "0"
 check "MIG-C3 legacy order kept, payment_mode NULL, still unpaid" \
   "$(Q -d mm_upgrade -c "select payment_mode is null and payment_status='pending_payment' from food_orders where order_reference='FO-LEGACY'")" "t"
 check "MIG-C4 legacy exception kind kept (constraint is NOT VALID for old rows)" \
@@ -81,6 +86,22 @@ before=$(inventory mm_upgrade)
 apply mm_upgrade "$M/${CHAIN[4]}.sql" >/dev/null 2>&1; rc=$?
 check "MIG-D1 a second application is refused (one-shot migration)" "$([ $rc -ne 0 ] && echo refused)" "refused"
 check "MIG-D2 ...and leaves no partial change" "$(inventory mm_upgrade)" "$before"
+apply mm_upgrade "$M/${CHAIN[5]}.sql" >/dev/null 2>&1; rc=$?
+check "MIG-D3 re-applying the meal-photo migration is refused" "$([ $rc -ne 0 ] && echo refused)" "refused"
+check "MIG-D4 ...and leaves no partial change" "$(inventory mm_upgrade)" "$before"
+apply mm_upgrade "$M/${CHAIN[6]}.sql" >/dev/null 2>&1; rc=$?
+check "MIG-D8 re-applying the staff/PSO migration is refused" "$([ $rc -ne 0 ] && echo refused)" "refused"
+check "MIG-D9 ...and leaves no partial change" "$(inventory mm_upgrade)" "$before"
+check "MIG-D5 the meal-photo bucket is private"   "$(Q -d mm_upgrade -c "select public from storage.buckets where id='food-meal-images'")" "f"
+# A database that already holds a PUBLIC bucket of this name (an earlier draft of
+# this migration) must be refused, not silently left public.
+mkdb mm_publicbucket
+for i in 0 1 2 3 4; do apply mm_publicbucket "$M/${CHAIN[$i]}.sql" >/dev/null; done
+Q -d mm_publicbucket -c "insert into storage.buckets (id,name,public,file_size_limit,allowed_mime_types) values ('food-meal-images','food-meal-images',true,2097152,array['image/jpeg','image/png','image/webp'])" >/dev/null
+apply mm_publicbucket "$M/${CHAIN[5]}.sql" >/dev/null 2>&1; rc=$?
+check "MIG-D6 an existing PUBLIC food-meal-images bucket makes the migration fail closed" "$([ $rc -ne 0 ] && echo refused)" "refused"
+check "MIG-D7 ...with no partial change (no photo policy, no read check)"   "$(Q -d mm_publicbucket -c "select (select count(*) from pg_policies where policyname like 'food\_meal\_images%') + (select count(*) from pg_proc where proname='food_meal_photo_readable')")" "0"
+P -d postgres -c "drop database if exists mm_publicbucket with (force)" >/dev/null
 
 # ── E. a missing prerequisite fails cleanly ──
 mkdb mm_noprereq

@@ -406,3 +406,51 @@ export function foodKampalaNow(): { date: string; time: string } {
 }
 /** Today's business date (Africa/Kampala), as the server computes it. */
 export function foodToday(): string { return foodKampalaNow().date; }
+
+// ─────────── all-day ordering ───────────
+// The server takes an order while Kampala time is BETWEEN the period's opening
+// and closing times (inclusive), and requires closing > opening. So the whole
+// day is 00:00:00 – 23:59:59; no schema or RPC change is needed for it.
+export const FOOD_ALL_DAY_OPENS = '00:00:00';
+export const FOOD_ALL_DAY_CLOSES = '23:59:59';
+
+/** True when a period's window covers the whole day (minute precision). */
+export function isFoodAllDayWindow(opensAt: string, closesAt: string): boolean {
+  return opensAt.slice(0, 5) === '00:00' && closesAt.slice(0, 5) === '23:59';
+}
+
+// ─────────── meal photos (20261013120000) ───────────
+
+/**
+ * Storage bucket for meal photos. PRIVATE: photos are shown through short-lived
+ * signed URLs, which Storage issues only to the active coordinator and, for a
+ * published meal's photo, to canteen users. Upload: active coordinator only.
+ */
+export const FOOD_MEAL_IMAGE_BUCKET = 'food-meal-images';
+/** The only stored value the server accepts for a meal photo (food_meals CHECK). */
+export const FOOD_MEAL_IMAGE_NAME = /^meals\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|jpeg|png|webp)$/;
+/** Lifetime of a signed photo URL, and how long before expiry it is replaced. */
+export const FOOD_MEAL_PHOTO_URL_TTL_SECONDS = 60 * 60;
+export const FOOD_MEAL_PHOTO_URL_REFRESH_MARGIN_MS = 10 * 60 * 1000;
+/** The bucket accepts exactly these types, and at most this size. */
+export const FOOD_MEAL_IMAGE_TYPES: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+};
+export const FOOD_MEAL_IMAGE_MAX_BYTES = 2 * 1024 * 1024;
+
+/** Why a file cannot be used as a meal photo, or null when it can. */
+export function foodMealImageProblem(file: { type: string; size: number }): string | null {
+  if (!FOOD_MEAL_IMAGE_TYPES[file.type]) return 'Use a JPEG, PNG or WebP image.';
+  if (file.size > FOOD_MEAL_IMAGE_MAX_BYTES) return 'The photo must be 2 MB or smaller.';
+  if (file.size === 0) return 'That file is empty.';
+  return null;
+}
+
+/** The server-shaped object name for a new upload: meals/<uuid>.<ext>. */
+export function foodMealImagePath(type: string, id: string = crypto.randomUUID()): string {
+  const ext = FOOD_MEAL_IMAGE_TYPES[type];
+  if (!ext) throw new Error('Use a JPEG, PNG or WebP image.');
+  return `meals/${id}.${ext}`;
+}

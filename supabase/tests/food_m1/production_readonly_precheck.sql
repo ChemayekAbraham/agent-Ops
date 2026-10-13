@@ -73,6 +73,42 @@ SELECT 'P-4b seed profile holds an enabled employee role',
                    AND role::text = 'employee' AND coalesce(enabled, true)))::text,
        'true expected (handover eligibility rules apply to successors)'
 UNION ALL
+-- meal photos (20261013120000): the bucket and policy names must be free, and
+-- the storage tables must have the columns the migration uses
+SELECT 'P-6a storage.buckets / storage.objects exist',
+       (to_regclass('storage.buckets') IS NOT NULL AND to_regclass('storage.objects') IS NOT NULL)::text,
+       'true'
+UNION ALL
+SELECT 'P-6b bucket food-meal-images not yet present',
+       (NOT EXISTS (SELECT 1 FROM storage.buckets WHERE id = 'food-meal-images'))::text,
+       'true (if false, the migration fails closed unless settings already match)'
+UNION ALL
+SELECT 'P-6c buckets has file_size_limit and allowed_mime_types',
+       ((SELECT count(*) FROM information_schema.columns
+          WHERE table_schema = 'storage' AND table_name = 'buckets'
+            AND column_name IN ('file_size_limit', 'allowed_mime_types')) = 2)::text,
+       'true'
+UNION ALL
+SELECT 'P-6d no storage policy named food_meal_images_*',
+       (SELECT count(*) FROM pg_policies
+         WHERE schemaname = 'storage' AND policyname LIKE 'food\_meal\_images\_%')::text,
+       '0'
+UNION ALL
+-- Supabase ORs storage policies together: one policy that does not name a bucket
+-- would also open the PRIVATE food-meal-images bucket. Names only, no data.
+SELECT 'P-6e storage.objects policies that do not restrict bucket_id',
+       (SELECT count(*) FROM pg_policies
+         WHERE schemaname = 'storage' AND tablename = 'objects'
+           AND coalesce(qual, '') NOT LIKE '%bucket_id%'
+           AND coalesce(with_check, '') NOT LIKE '%bucket_id%')::text,
+       '0 (otherwise list them by name and review before release)'
+UNION ALL
+-- 20261013125000 reads Platform Sales Officers from this view (fails cleanly
+-- without it); counts only, no staff identities
+SELECT 'P-7a public.v_pso_officers exists',
+       (to_regclass('public.v_pso_officers') IS NOT NULL)::text,
+       'true'
+UNION ALL
 SELECT 'P-5 transaction is read-only',
        current_setting('transaction_read_only'),
        'on';

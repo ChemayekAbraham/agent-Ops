@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll, afterEach } from 'vitest';
+import { render, screen, waitFor, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { MemoryRouter } from 'react-router-dom';
@@ -48,7 +48,7 @@ import FoodOrderingPage from '@/pages/me/food/FoodOrderingPage';
 import MyFoodOrdersPage from '@/pages/me/food/MyFoodOrdersPage';
 import FoodManagementPage from '@/pages/me/food/FoodManagementPage';
 import {
-  resetFoodMock, setFoodMockUser, foodMockRpc, MOCK_COORDINATOR, MOCK_EMPLOYEE, foodToday,
+  resetFoodMock, setFoodMockUser, foodMockRpc, foodMockSelect, MOCK_COORDINATOR, MOCK_EMPLOYEE, foodToday,
 } from '@/lib/foodService.mock';
 import type { FoodMenuMeal } from '@/lib/foodService';
 
@@ -66,8 +66,8 @@ function renderWithProviders(ui: ReactNode) {
 const asEmployee = () => { authState.userId = MOCK_EMPLOYEE; setFoodMockUser(MOCK_EMPLOYEE); };
 const asCoordinator = () => { authState.userId = MOCK_COORDINATOR; setFoodMockUser(MOCK_COORDINATOR); };
 
-// The fixture's service windows are wall-clock based (Breakfast 06:30-09:00,
-// Lunch 08:00-23:59, Africa/Kampala). Without a fixed clock these tests passed
+// The fixture's service windows are wall-clock based (both periods now take
+// orders all day, Africa/Kampala). Without a fixed clock these tests passed
 // or failed depending on the hour they ran (master register FM-35). Pin only
 // Date, to a Kampala noon, so testing-library's own timers stay real.
 beforeAll(() => {
@@ -113,6 +113,20 @@ describe('FoodMealCard', () => {
     return onChange;
   };
 
+  it('an expired or refused photo link falls back to the icon', () => {
+    card({ image_path: 'https://storage.test/sign/food-meal-images/meals/x.jpg?token=expired' });
+    const img = document.querySelector('article img') as HTMLImageElement;
+    expect(img).not.toBeNull();
+    fireEvent.error(img);
+    expect(document.querySelector('article img')).toBeNull();
+    expect(document.querySelector('article svg')).not.toBeNull();
+  });
+
+  it('a meal without a photo shows the icon, never a broken image', () => {
+    card({ image_path: null });
+    expect(document.querySelector('article img')).toBeNull();
+  });
+
   it('shows the name, price, category and description', () => {
     card({});
     expect(screen.getByText('Matoke with Beef Stew')).toBeInTheDocument();
@@ -142,28 +156,36 @@ describe('FoodMealCard', () => {
     expect(screen.queryByText(/left/i)).not.toBeInTheDocument();
   });
 
-  it('adds one on the first click', async () => {
+  it('adds one by default', async () => {
     const onChange = card({});
-    await userEvent.click(screen.getByRole('button', { name: /^add$/i }));
+    await userEvent.click(screen.getByRole('button', { name: /add to order/i }));
     expect(onChange).toHaveBeenCalledWith(1);
   });
 
-  it('steps the quantity up and down', async () => {
+  it('adds the amount picked on the stepper to what is already in the order', async () => {
     const onChange = card({}, { quantity: 2 });
-    await userEvent.click(screen.getByRole('button', { name: /add one/i }));
-    expect(onChange).toHaveBeenCalledWith(3);
-    await userEvent.click(screen.getByRole('button', { name: /remove one/i }));
-    expect(onChange).toHaveBeenCalledWith(1);
+    await userEvent.click(screen.getByRole('button', { name: /one more/i }));
+    await userEvent.click(screen.getByRole('button', { name: /one more/i }));
+    await userEvent.click(screen.getByRole('button', { name: /one fewer/i }));
+    await userEvent.click(screen.getByRole('button', { name: /add to order/i }));
+    expect(onChange).toHaveBeenCalledWith(4);           // 2 already + 2 picked
+  });
+
+  it('cannot pick past the stock that is left', async () => {
+    card({ servings_remaining: 3 }, { quantity: 1 });    // room for 2 more
+    await userEvent.click(screen.getByRole('button', { name: /one more/i }));
+    expect(screen.getByRole('button', { name: /one more/i })).toBeDisabled();
   });
 
   it('stops at the stock ceiling', () => {
     card({ servings_remaining: 2 }, { quantity: 2 });
-    expect(screen.getByRole('button', { name: /add one/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /add to order/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /one more/i })).toBeDisabled();
   });
 
   it('stops at the per-person allowance and explains why', () => {
     card({}, { quantity: 3, remainingAllowance: 3 });
-    expect(screen.getByRole('button', { name: /add one/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /add to order/i })).toBeDisabled();
     expect(screen.getByText(/your limit for this service period/i)).toBeInTheDocument();
   });
 
@@ -209,7 +231,7 @@ describe('Food ordering page', () => {
     await screen.findByText('Lunch');
 
     const pilau = screen.getByText('Chicken Pilau').closest('article')!;
-    await user.click(within(pilau).getByRole('button', { name: /^add$/i }));
+    await user.click(within(pilau).getByRole('button', { name: /add to order/i }));
 
     await user.click(await screen.findByRole('button', { name: /review order/i }));
 
@@ -237,13 +259,15 @@ describe('Food ordering page', () => {
     renderWithProviders(<FoodOrderingPage />);
     await screen.findByText('Lunch');
     const pilau = screen.getByText('Chicken Pilau').closest('article')!;
-    await user.click(within(pilau).getByRole('button', { name: /^add$/i }));
-    const more = () => within(pilau).getByRole('button', { name: /add one chicken pilau/i });
+    const more = () => within(pilau).getByRole('button', { name: /one more chicken pilau/i });
     expect(more()).toBeEnabled();
-    await user.click(more());
+    await user.click(more());                 // 2
     expect(more()).toBeEnabled();
-    await user.click(more());
+    await user.click(more());                 // 3 - the whole remaining allowance
     expect(more()).toBeDisabled();
+    await user.click(within(pilau).getByRole('button', { name: /add to order/i }));
+    expect(await within(pilau).findByText(/3 in your order/i)).toBeInTheDocument();
+    expect(within(pilau).getByRole('button', { name: /add to order/i })).toBeDisabled();
   });
 
   it('keeps the submit button out of reach while the cart is empty', async () => {
@@ -253,7 +277,7 @@ describe('Food ordering page', () => {
     // no cart bar at all until something is added
     expect(screen.queryByRole('button', { name: /review order/i })).not.toBeInTheDocument();
     const pilau = screen.getByText('Chicken Pilau').closest('article')!;
-    await user.click(within(pilau).getByRole('button', { name: /^add$/i }));
+    await user.click(within(pilau).getByRole('button', { name: /add to order/i }));
     expect(await screen.findByRole('button', { name: /review order/i })).toBeInTheDocument();
   });
 });
@@ -282,7 +306,7 @@ describe('My orders page', () => {
     renderWithProviders(<FoodOrderingPage />);
     await screen.findByText('Lunch');
     const posho = screen.getByText('Posho and Beans').closest('article')!;
-    await user.click(within(posho).getByRole('button', { name: /^add$/i }));
+    await user.click(within(posho).getByRole('button', { name: /add to order/i }));
     await user.click(await screen.findByRole('button', { name: /review order/i }));
     await user.click(screen.getByRole('radio', { name: /^cash$/i }));
     await user.click(screen.getByRole('button', { name: /place order/i }));
@@ -642,6 +666,163 @@ describe('Menu scheduling validates its inputs (FM-26)', () => {
   });
 });
 
+describe('Meal photos', () => {
+  // jsdom has no object URLs; the dialog preview and the fixture both use them.
+  let n = 0;
+  beforeAll(() => {
+    URL.createObjectURL = vi.fn(() => `blob:meal-photo-${++n}`);
+    URL.revokeObjectURL = vi.fn();
+  });
+
+  type MealRow = { id: string; name: string; image_path: string | null };
+  type AuditRow = { entity_id: string; action: string };
+  const png = (bytes = 10) => new File([new Uint8Array(bytes)], 'meal.png', { type: 'image/png' });
+  const mealNamed = async (name: string) =>
+    (await foodMockSelect<MealRow[]>('food_meals')).find((m) => m.name === name);
+
+  async function openMenuTab(user: ReturnType<typeof userEvent.setup>) {
+    renderWithProviders(<FoodManagementPage />);
+    await user.click(await screen.findByRole('tab', { name: /^menu$/i }));
+  }
+
+  it('the Add meal form has a photo field (JPEG, PNG or WebP)', async () => {
+    asCoordinator();
+    const user = userEvent.setup();
+    await openMenuTab(user);
+    await user.click(await screen.findByRole('button', { name: /^add meal$/i }));
+    const input = within(await screen.findByRole('dialog')).getByLabelText(/photo/i);
+    expect(input).toHaveAttribute('type', 'file');
+    expect(input).toHaveAttribute('accept', 'image/jpeg,image/png,image/webp');
+  });
+
+  it('adds a meal with a photo: the photo is attached to that meal and audited', async () => {
+    asCoordinator();
+    const user = userEvent.setup();
+    await openMenuTab(user);
+    await user.click(await screen.findByRole('button', { name: /^add meal$/i }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText(/^name$/i), 'Photo Pilau');
+    await user.type(within(dialog).getByLabelText(/price/i), '7000');
+    await user.upload(within(dialog).getByLabelText(/photo/i), png());
+    expect(within(dialog).getByRole('img', { name: /meal photo preview/i })).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: /^add meal$/i }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+
+    const meal = await mealNamed('Photo Pilau');
+    expect(meal?.image_path).toMatch(/^blob:meal-photo-/);
+    const audit = await foodMockSelect<AuditRow[]>('food_audit', { entity: 'meal', entityId: meal!.id });
+    expect(audit.map((r) => r.action)).toContain('photo_set');
+  });
+
+  it('a meal saved without a photo makes no photo change', async () => {
+    asCoordinator();
+    const user = userEvent.setup();
+    await openMenuTab(user);
+    await user.click(await screen.findByRole('button', { name: /^add meal$/i }));
+    const dialog = await screen.findByRole('dialog');
+    await user.type(within(dialog).getByLabelText(/^name$/i), 'Plain Posho');
+    await user.type(within(dialog).getByLabelText(/price/i), '3000');
+    await user.click(within(dialog).getByRole('button', { name: /^add meal$/i }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    const meal = await mealNamed('Plain Posho');
+    expect(meal?.image_path ?? null).toBeNull();
+    const audit = await foodMockSelect<AuditRow[]>('food_audit', { entity: 'meal', entityId: meal!.id });
+    expect(audit.some((r) => r.action.startsWith('photo_'))).toBe(false);
+  });
+
+  it('refuses a non-image file and an oversized photo before any upload', async () => {
+    asCoordinator();
+    const user = userEvent.setup({ applyAccept: false });
+    await openMenuTab(user);
+    await user.click(await screen.findByRole('button', { name: /^add meal$/i }));
+    const dialog = await screen.findByRole('dialog');
+    const input = within(dialog).getByLabelText(/photo/i);
+    await user.upload(input, new File(['x'], 'meal.gif', { type: 'image/gif' }));
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(/jpeg, png or webp/i);
+    await user.upload(input, png(2 * 1024 * 1024 + 1));
+    expect(await within(dialog).findByRole('alert')).toHaveTextContent(/2 mb or smaller/i);
+    expect(within(dialog).queryByRole('img')).not.toBeInTheDocument();
+  });
+
+  it('removes an existing photo from a meal', async () => {
+    asCoordinator();
+    const user = userEvent.setup();
+    const target = (await foodMockSelect<MealRow[]>('food_meals'))[0];
+    await foodMockRpc('food_set_meal_image', { p_meal_id: target.id, p_image_path: 'blob:existing' });
+    await openMenuTab(user);
+    // the name is listed under Meals and under Today's menu; only the former has Edit
+    const row = (await screen.findAllByText(target.name))
+      .map((el) => el.closest('li') as HTMLElement)
+      .find((li) => li && within(li).queryByRole('button', { name: /^edit$/i }))!;
+    await user.click(within(row).getByRole('button', { name: /^edit$/i }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('img', { name: /meal photo preview/i })).toHaveAttribute('src', 'blob:existing');
+    await user.click(within(dialog).getByRole('button', { name: /remove photo/i }));
+    await user.click(within(dialog).getByRole('button', { name: /save changes/i }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect((await mealNamed(target.name))?.image_path ?? null).toBeNull();
+  });
+
+  it('an employee cannot set a meal photo (fixture mirrors the server rule)', async () => {
+    asEmployee();
+    const target = (await foodMockSelect<MealRow[]>('food_meals'))[0];
+    await expect(foodMockRpc('food_set_meal_image', { p_meal_id: target.id, p_image_path: 'blob:x' }))
+      .rejects.toThrow();
+  });
+});
+
+describe('Ordering runs all day (CFO 2026-10-13)', () => {
+  // restore the suite's pinned Kampala noon after each clock change
+  afterEach(() => { vi.setSystemTime(new Date('2026-10-12T09:00:00Z')); });
+
+  for (const [label, iso] of [['5:00 am', '2026-10-12T02:00:00Z'], ['11:30 pm', '2026-10-12T20:30:00Z']] as const) {
+    it(`Breakfast and Lunch both take orders at ${label} Kampala time`, async () => {
+      vi.setSystemTime(new Date(iso));
+      resetFoodMock();
+      asEmployee();
+      renderWithProviders(<FoodOrderingPage />);
+      await screen.findByText('Breakfast');
+      expect(screen.getAllByText('Ordering open')).toHaveLength(2);
+      expect(screen.queryByText('Ordering closed')).not.toBeInTheDocument();
+      expect(screen.getAllByText(/orders open all day/i)).toHaveLength(2);
+    });
+  }
+
+  it('the fixture accepts a Breakfast order late in the evening', async () => {
+    vi.setSystemTime(new Date('2026-10-12T20:30:00Z'));   // 23:30 Kampala
+    resetFoodMock();
+    asEmployee();
+    type Menu = { periods: Array<{ name: string; ordering_open: boolean; meals: Array<{ menu_item_id: string; sold_out: boolean }> }> };
+    const menu = await foodMockRpc<Menu>('food_menu_for_day', { p_service_date: null });
+    const breakfast = menu.periods.find((p) => p.name === 'Breakfast')!;
+    expect(breakfast.ordering_open).toBe(true);
+    const item = breakfast.meals.find((m) => !m.sold_out)!;
+    await expect(foodMockRpc('food_place_order', {
+      p_items: [{ menu_item_id: item.menu_item_id, quantity: 1 }],
+      p_idempotency_key: 'late-breakfast', p_payment_mode: 'cash',
+    })).resolves.toBeTruthy();
+  });
+
+  it('the coordinator can set a period to take orders all day', async () => {
+    asCoordinator();
+    const user = userEvent.setup();
+    renderWithProviders(<FoodManagementPage />);
+    await user.click(await screen.findByRole('tab', { name: /^service$/i }));
+    const allDay = await screen.findByRole('checkbox', { name: /all day/i });
+    await user.click(allDay);
+    expect(screen.getByLabelText(/^opens$/i)).toHaveValue('00:00:00');
+    expect(screen.getByLabelText(/^closes$/i)).toHaveValue('23:59:59');
+    expect(screen.getByLabelText(/^opens$/i)).toBeDisabled();
+    await user.type(screen.getByPlaceholderText('Name'), 'Supper');
+    await user.click(screen.getByRole('button', { name: /add period/i }));
+    await waitFor(async () => {
+      const periods = await foodMockSelect<Array<{ name: string; ordering_opens_at: string; ordering_closes_at: string }>>('food_service_periods');
+      const supper = periods.find((p) => p.name === 'Supper');
+      expect(supper).toMatchObject({ ordering_opens_at: '00:00:00', ordering_closes_at: '23:59:59' });
+    });
+  });
+});
+
 describe('Exception pickers offer the nine approved kinds', () => {
   const NINE = ['Missing item', 'Wrong item', 'Quality issue', 'Late delivery', 'Not delivered',
     'Damaged order', 'Stock unavailable', 'Order error', 'Other'];
@@ -674,7 +855,7 @@ describe('Keyboard use (UI acceptance)', () => {
     renderWithProviders(<FoodOrderingPage />);
     await screen.findByText('Lunch');
     const pilau = screen.getByText('Chicken Pilau').closest('article')!;
-    within(pilau).getByRole('button', { name: /^add$/i }).focus();
+    within(pilau).getByRole('button', { name: /add to order/i }).focus();
     await user.keyboard('{Enter}');
     const review = await screen.findByRole('button', { name: /review order/i });
     review.focus();

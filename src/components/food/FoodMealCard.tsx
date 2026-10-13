@@ -1,16 +1,16 @@
 import { useState } from 'react';
-import { Minus, Plus, UtensilsCrossed } from 'lucide-react';
+import { CupSoda, Minus, Plus, ShoppingCart, UtensilsCrossed } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import { formatUgx, type FoodMenuMeal } from '@/hooks/useFoodService';
+import { formatUgx, forgetFoodMealPhotoUrl, type FoodMenuMeal } from '@/hooks/useFoodService';
 
 interface FoodMealCardProps {
   meal: FoodMenuMeal;
+  /** how many of this meal are already in the cart */
   quantity: number;
   /** false once the ordering window has closed or the day is shut */
   orderingOpen: boolean;
-  /** null when the service period sets no per-employee limit */
+  /** the most of this meal the cart may hold (null when the period sets no limit) */
   remainingAllowance: number | null;
   onChange: (quantity: number) => void;
 }
@@ -18,37 +18,57 @@ interface FoodMealCardProps {
 /** How tight stock has to get before the card says so. */
 const LOW_STOCK_AT = 3;
 
+/** Decorative category icon: drinks get a cup, everything else a plate. */
+function CategoryIcon({ category }: { category: string }) {
+  const Icon = /drink|beverage|juice|soda|tea|coffee/i.test(category) ? CupSoda : UtensilsCrossed;
+  return <Icon className="h-3.5 w-3.5" aria-hidden="true" />;
+}
+
 export default function FoodMealCard({
   meal, quantity, orderingOpen, remainingAllowance, onChange,
 }: FoodMealCardProps) {
-  // A meal photo is optional, and a stored path can rot. Either way the card
-  // falls back to the icon rather than showing a broken image.
-  const [imageFailed, setImageFailed] = useState(false);
-  const showImage = Boolean(meal.image_path) && !imageFailed;
+  // A meal photo is optional, and a signed link can expire or be refused.
+  // Either way the card falls back to the icon rather than a broken image; the
+  // failed link is forgotten so the next menu refresh signs a new one, and a
+  // new link gets a fresh attempt.
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const showImage = Boolean(meal.image_path) && meal.image_path !== failedUrl;
 
   const left = meal.servings_remaining;
   const unavailable = meal.sold_out || !orderingOpen;
 
-  // the server is the authority on all of this; these only stop a pointless click
-  const atStockLimit = left !== null && quantity >= left;
+  // How many more of this meal may go into the cart: the same stock and
+  // allowance limits as before, now applied to the amount being added. The
+  // server remains the authority; these only stop a pointless click.
+  const room = Math.min(
+    left === null ? Infinity : left - quantity,
+    remainingAllowance === null ? Infinity : remainingAllowance - quantity,
+  );
+  const canAdd = !unavailable && room >= 1;
   const atAllowance = remainingAllowance !== null && quantity >= remainingAllowance;
-  const canAdd = !unavailable && !atStockLimit && !atAllowance;
+
+  // the amount picked on the stepper, added to the cart by "Add to order"
+  const [pick, setPick] = useState(1);
+  const picked = Math.max(1, Math.min(pick, Number.isFinite(room) ? Math.max(room, 1) : pick));
 
   return (
     <article
       className={cn(
-        'flex flex-col overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm transition-colors',
+        'flex flex-col rounded-2xl border border-border/70 bg-card p-2.5 shadow-sm transition-colors',
         unavailable && 'opacity-60',
       )}
     >
-      <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted">
+      <div className="relative aspect-[16/7] w-full overflow-hidden rounded-xl bg-muted">
         {showImage ? (
           <img
             src={meal.image_path as string}
             alt=""
             loading="lazy"
             className="h-full w-full object-cover"
-            onError={() => setImageFailed(true)}
+            onError={() => {
+              forgetFoodMealPhotoUrl(meal.image_path);
+              setFailedUrl(meal.image_path);
+            }}
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-muted-foreground/40">
@@ -57,84 +77,95 @@ export default function FoodMealCard({
         )}
         {meal.sold_out && (
           <div className="absolute inset-0 flex items-center justify-center bg-background/70">
-            <Badge variant="outline" className="border-destructive/30 bg-destructive/10 text-destructive">
+            <span className="rounded-full border border-destructive/30 bg-destructive/10 px-3 py-1 text-xs font-semibold text-destructive">
               Sold out
-            </Badge>
+            </span>
           </div>
         )}
       </div>
 
-      <div className="flex flex-1 flex-col gap-2 p-4">
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="text-sm font-semibold leading-snug text-card-foreground sm:text-base">
-            {meal.name}
-          </h3>
-          <span className="shrink-0 text-sm font-semibold text-primary">
-            {formatUgx(meal.price_ugx)}
-          </span>
-        </div>
-
-        {meal.category && (
-          <span className="w-fit rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-            {meal.category}
-          </span>
+      <div className="flex flex-1 flex-col gap-2 px-2 pb-1.5 pt-3">
+        {(meal.category || (!meal.sold_out && left !== null && left <= LOW_STOCK_AT) || quantity > 0) && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {meal.category && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-[11px] font-medium text-primary">
+                <CategoryIcon category={meal.category} />
+                {meal.category}
+              </span>
+            )}
+            {!meal.sold_out && left !== null && left <= LOW_STOCK_AT && (
+              <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-medium text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
+                Only {left} left
+              </span>
+            )}
+            {quantity > 0 && (
+              <span className="inline-flex items-center rounded-full bg-success/10 px-2.5 py-1 text-[11px] font-medium text-success">
+                {quantity} in your order
+              </span>
+            )}
+          </div>
         )}
 
-        {meal.description && (
-          <p className="text-xs leading-relaxed text-muted-foreground sm:text-sm">
-            {meal.description}
-          </p>
-        )}
+        <div className="mt-auto flex flex-wrap items-end justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="text-base font-bold leading-snug text-card-foreground sm:text-lg" title={meal.description ?? undefined}>
+              {meal.name}
+            </h3>
+            {meal.description && <p className="sr-only">{meal.description}</p>}
+            <p className="text-base font-bold text-primary sm:text-lg">{formatUgx(meal.price_ugx)}</p>
+          </div>
 
-        {!meal.sold_out && left !== null && left <= LOW_STOCK_AT && (
-          <p className="text-xs font-medium text-warning-foreground dark:text-warning">
-            Only {left} left
-          </p>
-        )}
-
-        <div className="mt-auto pt-3">
-          {quantity === 0 ? (
-            <Button
-              size="sm"
-              variant="outline"
-              className="w-full"
-              disabled={!canAdd}
-              onClick={() => onChange(1)}
+          <div className="flex items-center gap-2">
+            <div
+              className={cn(
+                'flex h-9 items-center rounded-lg border border-border/80',
+                !canAdd && 'opacity-50',
+              )}
             >
-              {meal.sold_out ? 'Sold out' : !orderingOpen ? 'Ordering closed' : 'Add'}
-            </Button>
-          ) : (
-            <div className="flex items-center justify-between gap-2">
-              <Button
-                size="icon"
-                variant="outline"
-                className="h-8 w-8"
-                aria-label={`Remove one ${meal.name}`}
-                onClick={() => onChange(quantity - 1)}
+              <button
+                type="button"
+                className="flex h-full w-9 items-center justify-center rounded-l-lg text-foreground transition-colors hover:bg-muted disabled:pointer-events-none"
+                aria-label={`One fewer ${meal.name}`}
+                disabled={!canAdd || picked <= 1}
+                onClick={() => setPick(picked - 1)}
               >
                 <Minus className="h-3.5 w-3.5" />
-              </Button>
-              <span className="text-sm font-semibold tabular-nums" aria-live="polite">
-                {quantity}
+              </button>
+              <span
+                className="w-8 border-x border-border/80 text-center text-sm font-semibold tabular-nums"
+                aria-live="polite"
+                aria-label={`${picked} to add`}
+              >
+                {picked}
               </span>
-              <Button
-                size="icon"
-                variant="outline"
-                className="h-8 w-8"
-                aria-label={`Add one ${meal.name}`}
-                disabled={!canAdd}
-                onClick={() => onChange(quantity + 1)}
+              <button
+                type="button"
+                className="flex h-full w-9 items-center justify-center rounded-r-lg text-foreground transition-colors hover:bg-muted disabled:pointer-events-none"
+                aria-label={`One more ${meal.name}`}
+                disabled={!canAdd || picked >= room}
+                onClick={() => setPick(picked + 1)}
               >
                 <Plus className="h-3.5 w-3.5" />
-              </Button>
+              </button>
             </div>
-          )}
-          {quantity > 0 && atAllowance && (
-            <p className="mt-2 text-[11px] text-muted-foreground">
-              That is your limit for this service period.
-            </p>
-          )}
+
+            <Button
+              size="sm"
+              className="h-9 rounded-lg px-3 font-semibold"
+              disabled={!canAdd}
+              onClick={() => { onChange(quantity + picked); setPick(1); }}
+            >
+              <ShoppingCart className="mr-1.5 h-4 w-4" aria-hidden="true" />
+              {meal.sold_out ? 'Sold out' : !orderingOpen ? 'Ordering closed' : 'Add to order'}
+            </Button>
+          </div>
         </div>
+
+        {quantity > 0 && atAllowance && (
+          <p className="text-[11px] text-muted-foreground">
+            That is your limit for this service period.
+          </p>
+        )}
       </div>
     </article>
   );
