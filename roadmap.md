@@ -1,5 +1,5 @@
 # Tasks
-- [ ] Match agents-mock to the exact latest screenshot, including wallet, shortcuts, empty collections and calendar; verify design-only interactions.
+- [x] Match agents-mock to the latest screenshot, including wallet, shortcuts, empty collections and calendar; wallet visibility, calendar navigation, safe action dialogs and phone-width overflow checked; build clean.
 - [x] Restyle agents-mock using the latest compact reference: purple collection card, earnings inside rent-request CTA, compact tenant rows and slim bottom navigation; browser verified 10/20/24 sample loading, buttons, filtering and phone layout without page errors.
 - [x] Create and verify design-only /dashboard/agents-mock with ten-at-a-time sample tenants; existing agent dashboard and payment rules unchanged. Browser checked loading 10/20/24, detail, post preview and mobile filtering; build clean.
 - [x] Diagnose and fix Service Centre tenant-request Claim failures; four tests pass and signed-in location/server errors verified without claiming real requests or moving money.
