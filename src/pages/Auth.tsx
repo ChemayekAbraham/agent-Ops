@@ -22,7 +22,7 @@ import { SIGNUP_PAUSED } from '@/components/SignupPauseBanner';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { cn } from '@/lib/utils';
 import './auth-design.css';
-import authArtAsset from '@/assets/welcome-new/tenant.png.asset.json';
+import authArtAsset from '@/assets/auth/sign-in-panel.png.asset.json';
 import authLogoAsset from '@/assets/welcome-new/welile-logo.png.asset.json';
 import { useOtpVerification } from '@/hooks/useOtpVerification';
 import { setDeviceTrust } from '@/lib/deviceTrust';
