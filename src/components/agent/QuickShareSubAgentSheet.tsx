@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useShortLink } from '@/hooks/useShortLink';
-import { Copy, Check, Share2, Link2, Loader2 } from 'lucide-react';
+import { Copy, Check, Share2, Link2, Loader2, ArrowLeft } from 'lucide-react';
 
 interface QuickShareSubAgentSheetProps {
   open: boolean;
@@ -65,15 +65,21 @@ Let's grow together! 🤝`;
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="rounded-t-2xl pb-8">
-        <SheetHeader className="pb-4">
+      <SheetContent
+        side="right"
+        className="w-full max-w-full sm:max-w-full h-[100dvh] p-0 flex flex-col overflow-y-auto [&>button]:hidden"
+      >
+        <SheetHeader className="sticky top-0 z-10 flex-row items-center gap-2 space-y-0 border-b border-border bg-background px-3 py-3">
+          <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)} aria-label="Back" className="h-9 w-9">
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
           <SheetTitle className="flex items-center gap-2 text-lg">
             <Share2 className="h-5 w-5 text-warning" />
             Share Your Signup Link
           </SheetTitle>
         </SheetHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 px-4 py-5 max-w-lg w-full mx-auto">
           {/* How it works */}
           <div className="space-y-2">
             {[
