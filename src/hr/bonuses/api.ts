@@ -20,14 +20,17 @@ export interface StaffOption {
   staff_id: string; staff_ref: string | null; full_name: string | null; department: string | null; position: string | null;
 }
 export interface BonusPending {
-  pool_id: string; kind: 'approve' | 'pay' | 'rework'; title: string; pool_amount: number;
+  pool_id: string; kind: 'approve' | 'pay' | 'rework' | 'notice'; title: string; pool_amount: number;
   allocated: number; people: number; return_note: string | null; prepared_by_name: string | null;
+  notice_id: string | null; notice_kind: 'approved' | 'paid' | 'cancelled' | null;
+  actor_name: string | null; raised_at: string | null;
 }
 
 export const listPools = () => call<BonusPool[]>('hr_pay_bonus_list').then((r) => r ?? []);
 export const poolDetail = (id: string) => call<BonusDetailRow[]>('hr_pay_bonus_detail', { _pool_id: id }).then((r) => r ?? []);
 export const staffOptions = () => call<StaffOption[]>('hr_pay_bonus_staff_options').then((r) => r ?? []);
 export const pendingForMe = () => call<BonusPending[]>('hr_pay_bonus_pending_for_me').then((r) => r ?? []);
+export const ackNotice = (id: string) => call<void>('hr_pay_bonus_ack', { _notice_id: id });
 
 export const savePool = (a: {
   id: string | null; title: string; amount: number; notes: string;
