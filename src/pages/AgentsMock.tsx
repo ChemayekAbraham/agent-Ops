@@ -20,6 +20,7 @@ import { roleToSlug } from '@/lib/roleRoutes';
 import { useAgentCapacityMap } from '@/hooks/useAgentCapacityMap';
 import { useAgentArrears } from '@/hooks/useAgentArrears';
 import { TenantProfileView } from '@/components/agent/TenantProfileView';
+import welileLogoAsset from '@/assets/welcome-new/welile-logo.png.asset.json';
 
 const SHORTCUTS: { label: string; Icon: LucideIcon; color: string; to?: string }[] = [
   { label: 'Rent Calculator', Icon: Calculator, color: 'text-primary', },
@@ -287,7 +288,7 @@ export default function AgentsMock() {
       <Helmet><title>Agent dashboard · Welile</title><meta name="robots" content="noindex,nofollow" /></Helmet>
       <div className="mx-auto max-w-6xl">
         <header className="flex items-center justify-between gap-3 rounded-none border-0 shadow-none bg-[var(--mock-header)] px-4 pb-4 pt-5 text-primary-foreground sm:px-6">
-          <div className="min-w-0"><p className="text-xs font-medium text-primary-foreground/80">Welcome back</p><h1 className="truncate text-xl font-semibold text-primary-foreground">{profile?.full_name?.split(' ')[0] || 'Your dashboard'}</h1></div>
+          <h1 className="min-w-0"><img src={welileLogoAsset.url} alt="Welile" className="h-8 w-auto brightness-0 invert" /></h1>
           <div className="flex gap-2"><Button variant="ghost" size="icon" aria-label="Notifications" onClick={() => setNotice('Notifications')} className="text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground"><Bell className="h-5 w-5" /></Button><Popover open={profileOpen} onOpenChange={open => { setProfileOpen(open); if (!open) setRolePickerOpen(false); }}><PopoverTrigger asChild><Button variant="outline" size="icon" aria-label="Your profile" className="overflow-hidden rounded-full border-primary-foreground/40 bg-primary-foreground/10 text-primary-foreground">{avatarSrc && brokenAvatar !== avatarSrc ? <img src={avatarSrc} alt="" onError={() => setBrokenAvatar(avatarSrc)} className="h-full w-full object-cover" /> : initials}</Button></PopoverTrigger><PopoverContent align="end" sideOffset={10} className="relative w-56 rounded-xl p-1.5"><span aria-hidden className="absolute -top-1.5 right-5 h-3 w-3 rotate-45 border-l border-t border-border bg-popover" />
             {rolePickerOpen ? <>
               <Button variant="ghost" onClick={() => setRolePickerOpen(false)} className="h-11 w-full justify-start gap-2.5 rounded-lg px-2 text-sm font-medium"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted/60"><ChevronLeft className="h-4 w-4" /></span>Switch role</Button>
