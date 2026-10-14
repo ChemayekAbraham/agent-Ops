@@ -10,6 +10,43 @@ html:not(.dark) .agents-mock-exact .bg-card { background-color: var(--mock-card)
 .agents-mock-exact h1, .agents-mock-exact h2, .agents-mock-exact h3, .agents-mock-exact button, .agents-mock-exact input { font-family: inherit; letter-spacing: 0; }
 .agents-mock-wallet { background: linear-gradient(120deg, hsl(var(--mock-wallet-start)), hsl(var(--mock-wallet-end))); color: hsl(var(--header-foreground)); }
 
+/* Agents Mock — "bubble" motion. Blocks blow in once on load (mock-bubble-in,
+   staggered by the caller's inline animation-delay), a figure that arrives from
+   a load replays mock-bubble-pop, and the filled collections bar keeps a soft
+   bubble of light drifting along it (mock-progress-bubble). Deliberately
+   page-scoped, and zeroed by the in-app reduce-motion choice and lite mode. */
+@keyframes mock-bubble-in {
+  0% { opacity: 0; transform: translateY(12px) scale(0.92); }
+  60% { opacity: 1; transform: translateY(0) scale(1.015); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes mock-bubble-pop {
+  0% { opacity: 0; transform: scale(0.72); }
+  70% { opacity: 1; transform: scale(1.06); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes mock-bubble-drift {
+  0% { transform: translateX(-130%); opacity: 0; }
+  18% { opacity: 0.85; }
+  82% { opacity: 0.85; }
+  100% { transform: translateX(320%); opacity: 0; }
+}
+.mock-bubble-in { animation: mock-bubble-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.mock-bubble-pop { animation: mock-bubble-pop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
+.mock-progress-bubble {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 38%;
+  border-radius: 9999px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+  animation: mock-bubble-drift 3.4s ease-in-out 1s infinite;
+}
+html.lite-mode .mock-bubble-in,
+html.lite-mode .mock-bubble-pop,
+html.lite-mode .mock-progress-bubble { animation: none !important; }
+
 /* Sonner toaster — prevent phantom right gutter on mobile */
 /* Hide the sonner notifications section entirely when no toasts are active.
    It re-appears automatically when a toast is rendered inside it. */
