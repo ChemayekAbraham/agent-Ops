@@ -214,9 +214,14 @@ export default function AgentsMock() {
           <div className="flex gap-2"><Button variant="ghost" size="icon" aria-label="Notifications" onClick={() => setNotice('Notifications')}><Bell className="h-5 w-5" /></Button><Button variant="outline" size="icon" aria-label="Your profile" onClick={() => setNotice('Your profile')} className="overflow-hidden rounded-full">{avatarSrc && brokenAvatar !== avatarSrc ? <img src={avatarSrc} alt="" onError={() => setBrokenAvatar(avatarSrc)} className="h-full w-full object-cover" /> : initials}</Button></div>
         </header>
         <main className="space-y-4 px-4 sm:px-6">
-          <section aria-labelledby="post-cta-heading" className="flex flex-wrap items-center justify-between gap-4 border-y border-border bg-primary/5 px-4 py-4">
-            <div className="min-w-0"><h2 id="post-cta-heading" className="text-base font-semibold">A new Rent Plan for your tenant</h2><div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground"><span><strong className="font-semibold text-primary">UGX 5,000</strong> on posting</span><span><strong className="font-semibold text-warning">1%</strong> landlord paid</span><span><strong className="font-semibold text-success">10%</strong> on repayments</span></div></div>
-            <Button onClick={openRequest} className="h-11 w-full gap-2 rounded-lg px-4 text-sm font-semibold sm:w-auto"><Plus className="h-4 w-4" />Post Rent Request<ArrowRight className="h-4 w-4" /></Button>
+          <section aria-labelledby="post-cta-heading" className="rounded-xl border border-primary/20 bg-primary/5 p-4 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3 lg:flex-nowrap">
+              <div className="min-w-0"><p className="text-[11px] font-semibold uppercase tracking-wide text-primary">Grow your earnings</p><h2 id="post-cta-heading" className="mt-0.5 text-lg font-bold leading-tight">Post a Rent Request, earn at every step</h2></div>
+              <Button onClick={openRequest} className="h-12 w-full gap-2 rounded-lg px-5 text-sm font-semibold shadow-sm sm:w-auto"><Plus className="h-4 w-4" />Post Rent Request<ArrowRight className="h-4 w-4" /></Button>
+            </div>
+            <ol className="mt-3 grid grid-cols-3 gap-2" aria-label="How you earn">
+              {[{ step: '1', value: 'UGX 5,000', note: 'when you post', color: 'text-primary' }, { step: '2', value: '1%', note: 'when landlord is paid', color: 'text-warning' }, { step: '3', value: '10%', note: 'on every repayment', color: 'text-success' }].map(e => <li key={e.step} className="rounded-lg border border-border bg-card px-2.5 py-2"><span className="text-[10px] font-medium text-muted-foreground">Step {e.step}</span><span className={cn('block text-sm font-bold tabular-nums sm:text-base', e.color)}>{e.value}</span><span className="block text-[11px] leading-tight text-muted-foreground">{e.note}</span></li>)}
+            </ol>
           </section>
           <section aria-label="Collection summary" className="border-b border-border bg-card pb-4 pt-1">
             <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold">Collections</h2><div className="flex rounded-lg bg-muted p-1" aria-label="Collection period">{(['today', 'month'] as const).map(p => <Button key={p} variant="ghost" aria-pressed={period === p} onClick={() => setPeriod(p)} className={cn('h-10 rounded-md px-3 text-xs', period === p && 'bg-card shadow-sm')}>{p === 'today' ? 'Today' : 'This Month'}</Button>)}</div></div>
