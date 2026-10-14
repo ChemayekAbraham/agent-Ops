@@ -5,7 +5,10 @@
  * Nothing here recomputes a start date or an amount.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, FileText, Hourglass, Loader2, Moon, Sheet as SheetIcon, UserX } from 'lucide-react';
+import type { DateRange } from 'react-day-picker';
+import { useSearchParams } from 'react-router-dom';
+import { format, isValid, parseISO } from 'date-fns';
+import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, ClipboardCheck, FileText, Hourglass, Loader2, Moon, Sheet as SheetIcon, Smartphone, UserPlus, UserX } from 'lucide-react';
 import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -39,10 +42,33 @@ import {
   exportTenantClassificationXlsx,
   generateTenantClassificationPdf,
 } from '@/lib/tenantOpsClassificationReport';
+import {
+  OpsDateRangeFilter, PRESETS, rangePhrase, resolveRange, type PresetKey,
+} from '@/components/executive/shared/OpsDateRangeFilter';
+import { useTenantSmartphoneUsage } from '@/hooks/useTenantSmartphoneUsage';
+import { fmtTenants, joinedWindowHint, recordedSmartphoneHint, windowChecksHint } from '@/lib/tenantSmartphoneUsage';
+import { kampalaYmd } from '@/lib/kampalaDays';
 
 const ALL = 'all';
 
 const fmtDay = (iso: string | null) => (iso ? iso.slice(0, 10) : '');
+
+// The window travels in the URL (tc_range, plus tc_from / tc_to for a custom range) the same way the
+// Payment Behaviour and Collection Shortfall tabs carry theirs, so a link can open this tab on a period.
+const RANGE_PARAMS = ['tc_range', 'tc_from', 'tc_to'] as const;
+
+function readRange(params: URLSearchParams): { preset: PresetKey; custom?: DateRange } {
+  const range = params.get('tc_range');
+  if (range === 'custom') {
+    const fromRaw = params.get('tc_from');
+    const toRaw = params.get('tc_to');
+    const from = fromRaw ? parseISO(fromRaw) : null;
+    const to = toRaw ? parseISO(toRaw) : null;
+    if (from && isValid(from)) return { preset: 'custom', custom: { from, to: to && isValid(to) ? to : from } };
+  }
+  if (range && PRESETS.some((p) => p.key === range && p.key !== 'custom')) return { preset: range as PresetKey };
+  return { preset: 'month' };
+}
 
 export default function TenantClassificationTab() {
   const [category, setCategory] = useState<TenantCategory | null>(null);
@@ -52,6 +78,31 @@ export default function TenantClassificationTab() {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(0);
   const [exporting, setExporting] = useState<'pdf' | 'xlsx' | null>(null);
+
+  // The smartphone window: the same presets Tenant Ops Home and Payment Behaviour use, kept in the URL.
+  const [params, setParams] = useSearchParams();
+  const [initialRange] = useState(() => readRange(params));
+  const [preset, setPreset] = useState<PresetKey>(initialRange.preset);
+  const [custom, setCustom] = useState<DateRange | undefined>(initialRange.custom);
+  const { start, end } = useMemo(() => resolveRange(preset, custom), [preset, custom]);
+  const phrase = useMemo(() => rangePhrase(preset, start, end), [preset, start, end]);
+  const fromDay = kampalaYmd(start) ?? '';
+  const toDay = kampalaYmd(end) ?? '';
+
+  const writeRange = (nextPreset: PresetKey, nextCustom: DateRange | undefined) => {
+    setParams((prev) => {
+      const next = new URLSearchParams(prev);
+      RANGE_PARAMS.forEach((k) => next.delete(k));
+      next.set('tc_range', nextPreset);
+      if (nextPreset === 'custom' && nextCustom?.from) {
+        next.set('tc_from', format(nextCustom.from, 'yyyy-MM-dd'));
+        next.set('tc_to', format(nextCustom.to ?? nextCustom.from, 'yyyy-MM-dd'));
+      }
+      return next;
+    }, { replace: true });
+  };
+  const changePreset = (p: PresetKey) => { setPreset(p); writeRange(p, custom); };
+  const changeCustom = (c: DateRange | undefined) => { setCustom(c); writeRange(preset, c); };
 
   // The search box waits for a pause in typing before it asks the server.
   useEffect(() => {
@@ -65,6 +116,7 @@ export default function TenantClassificationTab() {
   );
   const summary = useTenantClassificationSummary();
   const list = useTenantClassificationList(filters, page);
+  const usage = useTenantSmartphoneUsage(fromDay, toDay);
 
   const pickCategory = (next: TenantCategory | null) => {
     setCategory(next);
@@ -77,6 +129,7 @@ export default function TenantClassificationTab() {
   const totalPages = Math.max(1, Math.ceil(total / CLASSIFICATION_PAGE_SIZE));
   const subOptions = category ? SUB_LABELS_BY_CATEGORY[category] : [];
   const s = summary.data;
+  const u = usage.data;
   const fmtCount = (n: number | undefined) => (n == null ? '' : n.toLocaleString('en-US'));
 
   const runExport = async (kind: 'pdf' | 'xlsx') => {
