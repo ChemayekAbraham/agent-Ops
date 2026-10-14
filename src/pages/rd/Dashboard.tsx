@@ -14,16 +14,17 @@ import IdeaCanvasBoard from './IdeaCanvasBoard';
 import { Download } from 'lucide-react';
 import { downloadRdGeneralReport } from '@/lib/rdGeneralReportPdf';
 import { rdProjectCashValue, type RdCashField } from '@/lib/rdProjectCash';
+import { kampalaTodayYmd } from '@/lib/kampalaDays';
+import { loadRdUpdates, RD_UPDATES_KEY, rdDateOffset, rdWeeklyUpdates, type RdUpdate, type RdWeekPeriod } from '@/lib/rdWeeklyUpdates';
 
 type Metric = { icon: LucideIcon; value: string; label: string; cashField?: RdCashField };
 type Project = {
   cashId: string; name: string; tagline: string; icon: LucideIcon; stage: string; progress: number;
   objective: string; progressItems: string[]; metrics: Metric[];
   challenges: string[]; nextSteps: string[];
-  week: { last: string[]; today: string[]; next: string[] };
 };
 
-// R&D weekly report content, as supplied by R&D. Update here each week.
+// Project presentation; report evidence comes only from recorded updates.
 const PROJECTS: Project[] = [
   {
     cashId: 'car', name: 'Welile Car', tagline: 'Affordable vehicle ownership for a better tomorrow.', icon: Car,
@@ -38,11 +39,6 @@ const PROJECTS: Project[] = [
     ],
     challenges: ['Bank approval process', 'Customer documentation'],
     nextSteps: ['Meet Salaam Bank', 'Finalize agreements', 'Recruit more customers'],
-    week: {
-      last: ['Signed 2 new customer agreements', 'Followed up with bank partner'],
-      today: ['Reviewing bank documents', 'Onboarded 3 new customers'],
-      next: ['Meet with Salaam Bank', 'Finalize partnership agreement'],
-    },
   },
   {
     cashId: 'dowry', name: 'Welile Dowry', tagline: 'Plan today. Celebrate tomorrow.', icon: Gem,
@@ -57,11 +53,6 @@ const PROJECTS: Project[] = [
     ],
     challenges: ['Market awareness', 'Partner recruitment'],
     nextSteps: ['Launch pilot program', 'Marketing campaign', 'Customer registration'],
-    week: {
-      last: ['Completed business model draft', 'Collected customer feedback'],
-      today: ['Preparing pilot program plan', 'Engaging potential partners'],
-      next: ['Begin marketing campaign', 'Start customer registration'],
-    },
   },
   {
     cashId: 'ai', name: 'Welile School of AI', tagline: "Skilling today for tomorrow's opportunities.", icon: Cpu,
@@ -77,11 +68,6 @@ const PROJECTS: Project[] = [
     ],
     challenges: ['Equipment & tools', 'Training venue'],
     nextSteps: ['Launch first cohort', 'Marketing campaign', 'Partner outreach'],
-    week: {
-      last: ['Finalized course outline', 'Met with training partners'],
-      today: ['Finalizing training materials', 'Budget review'],
-      next: ['Launch first cohort (target)', 'Partner outreach & event planning'],
-    },
   },
 ];
 
@@ -115,34 +101,9 @@ function SectionTitle({ icon: Icon, children }: { icon: LucideIcon; children: Re
   return <p className="flex items-center gap-2 text-sm font-semibold text-foreground"><Icon className="h-4 w-4 text-primary" />{children}</p>;
 }
 
-function Bullets({ items }: { items: string[] }) {
-  return <ul className="mt-1.5 list-disc space-y-1 pl-5 text-xs text-muted-foreground">{items.map((t) => <li key={t}>{t}</li>)}</ul>;
-}
-
-// Editable dated updates, saved per project on this device.
-type IdeaUpdate = { id: string; date: string; text: string };
-const UPDATES_KEY = 'rd-project-updates-v1';
-function loadUpdates(name: string): IdeaUpdate[] {
-  try {
-    const all = JSON.parse(localStorage.getItem(UPDATES_KEY) || '{}');
-    if (Array.isArray(all[name])) return all[name];
-  } catch { /* ignore */ }
-  return [];
-}
-function saveUpdates(name: string, updates: IdeaUpdate[]) {
-  try {
-    const all = JSON.parse(localStorage.getItem(UPDATES_KEY) || '{}');
-    all[name] = updates;
-    localStorage.setItem(UPDATES_KEY, JSON.stringify(all));
-  } catch { /* ignore */ }
-}
-const today = () => new Date().toISOString().slice(0, 10);
-
-function ProjectCard({ p, cashRows }: { p: Project; cashRows: IdeaRow[] }) {
+function ProjectCard({ p, cashRows, updates, onUpdates }: { p: Project; cashRows: IdeaRow[]; updates: RdUpdate[]; onUpdates: (updates: RdUpdate[]) => void }) {
   const Icon = p.icon;
-  const [updates, setUpdates] = useState<IdeaUpdate[]>(() => loadUpdates(p.name));
-  useEffect(() => { saveUpdates(p.name, updates); }, [p.name, updates]);
-  const upd = (id: string, patch: Partial<IdeaUpdate>) => setUpdates((u) => u.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+  const upd = (id: string, patch: Partial<RdUpdate>) => onUpdates(updates.map((x) => (x.id === id ? { ...x, ...patch } : x)));
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
       <div className="flex items-start gap-3 bg-primary/5 p-4">
@@ -182,7 +143,7 @@ function ProjectCard({ p, cashRows }: { p: Project; cashRows: IdeaRow[] }) {
           <div className="flex items-center justify-between gap-2">
             <SectionTitle icon={ClipboardList}>Updates</SectionTitle>
             <Button size="sm" variant="outline" className="h-7 gap-1 px-2 text-xs"
-              onClick={() => setUpdates((u) => [...u, { id: safeUUID(), date: today(), text: '' }])}>
+              onClick={() => onUpdates([...updates, { id: safeUUID(), date: kampalaTodayYmd(), text: '' }])}>
               <Plus className="h-3 w-3" />Add update
             </Button>
           </div>
@@ -197,7 +158,7 @@ function ProjectCard({ p, cashRows }: { p: Project; cashRows: IdeaRow[] }) {
                 <Input className="h-8 min-w-0 flex-1 text-xs" placeholder="Record an update…" value={u.text}
                   onChange={(e) => upd(u.id, { text: e.target.value })} />
                 <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" aria-label="Remove update"
-                  onClick={() => setUpdates((list) => list.filter((x) => x.id !== u.id))}>
+                  onClick={() => onUpdates(updates.filter((x) => x.id !== u.id))}>
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </div>
@@ -286,7 +247,7 @@ const SUMMARY: Metric[] = [
 ];
 const SUMMARY_KEY = 'rd-summary-v1';
 
-const WEEK_COLS: { key: keyof Project['week']; title: string; icon: LucideIcon }[] = [
+const WEEK_COLS: { key: RdWeekPeriod; title: string; icon: LucideIcon }[] = [
   { key: 'last', title: 'Last 7 days', icon: CalendarDays },
   { key: 'today', title: 'Today', icon: MapPin },
   { key: 'next', title: 'Next 7 days', icon: ArrowRight },
@@ -294,6 +255,17 @@ const WEEK_COLS: { key: keyof Project['week']; title: string; icon: LucideIcon }
 
 export default function RDDashboard() {
   const navigate = useNavigate();
+  const [projectUpdates, setProjectUpdates] = useState(loadRdUpdates);
+  const [updateError, setUpdateError] = useState('');
+  const editUpdates = (name: string, updates: RdUpdate[]) => {
+    const next = { ...projectUpdates, [name]: updates };
+    try {
+      localStorage.setItem(RD_UPDATES_KEY, JSON.stringify(next));
+      setProjectUpdates(next);
+      setUpdateError('');
+    } catch { setUpdateError('The update could not be saved on this device. Please try again.'); }
+  };
+  const reportDay = kampalaTodayYmd();
   const [ideaRows, setIdeaRows] = useState<IdeaRow[]>(() => {
     try { const v = localStorage.getItem(IDEAS_KEY); if (v) return JSON.parse(v); } catch { /* ignore */ }
     return DEFAULT_IDEAS;
@@ -319,7 +291,7 @@ export default function RDDashboard() {
     setExporting(true);
     try {
       await downloadRdGeneralReport({
-        projects: PROJECTS.map((p) => ({ name: p.name, updates: loadUpdates(p.name) })),
+        projects: PROJECTS.map((p) => ({ name: p.name, updates: projectUpdates[p.name] ?? [] })),
         ideas: ideaRows,
       });
     } finally { setExporting(false); }
@@ -366,8 +338,9 @@ export default function RDDashboard() {
         <IdeaCanvasBoard />
 
         <div className="grid gap-4 lg:grid-cols-3">
-          {PROJECTS.map((p) => <ProjectCard key={p.name} p={p} cashRows={ideaRows} />)}
+          {PROJECTS.map((p) => <ProjectCard key={p.name} p={p} cashRows={ideaRows} updates={projectUpdates[p.name] ?? []} onUpdates={(updates) => editUpdates(p.name, updates)} />)}
         </div>
+        {updateError && <p role="alert" className="text-sm text-destructive">{updateError}</p>}
 
         <div className="grid gap-4 lg:grid-cols-3">
           <div className="rounded-2xl border border-border bg-card p-4 shadow-sm lg:col-span-2">
@@ -385,7 +358,28 @@ export default function RDDashboard() {
                     {PROJECTS.map((p) => (
                       <div key={p.name} className="flex gap-2">
                         <p.icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                        <div><p className="text-xs font-semibold text-foreground">{p.name}</p><Bullets items={p.week[col.key]} /></div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-semibold text-foreground">{p.name}</p>
+                          <div className="mt-1.5 space-y-2">
+                            {rdWeeklyUpdates(projectUpdates[p.name] ?? [], col.key, reportDay).map((u) => (
+                              <div key={u.id} className="space-y-1">
+                                <Input type="date" aria-label={`${p.name} ${col.title} update date`} className="h-8 w-full text-xs" value={u.date}
+                                  onChange={(e) => editUpdates(p.name, (projectUpdates[p.name] ?? []).map((x) => x.id === u.id ? { ...x, date: e.target.value } : x))} />
+                                <div className="flex items-center gap-1">
+                                  <Input aria-label={`${p.name} ${col.title} update text`} className="h-8 min-w-0 flex-1 text-xs" placeholder="Record an update…" value={u.text}
+                                    onChange={(e) => editUpdates(p.name, (projectUpdates[p.name] ?? []).map((x) => x.id === u.id ? { ...x, text: e.target.value } : x))} />
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" aria-label={`Remove ${p.name} ${col.title} update`}
+                                    onClick={() => editUpdates(p.name, (projectUpdates[p.name] ?? []).filter((x) => x.id !== u.id))}><Trash2 className="h-3.5 w-3.5" /></Button>
+                                </div>
+                              </div>
+                            ))}
+                            {rdWeeklyUpdates(projectUpdates[p.name] ?? [], col.key, reportDay).length === 0 && <p className="text-xs text-muted-foreground">No updates recorded</p>}
+                            <Button size="sm" variant="outline" className="h-7 gap-1 px-2 text-xs" aria-label={`Add ${p.name} ${col.title} update`}
+                              onClick={() => editUpdates(p.name, [...(projectUpdates[p.name] ?? []), { id: safeUUID(), date: rdDateOffset(reportDay, col.key === 'last' ? -1 : col.key === 'next' ? 1 : 0), text: '' }])}>
+                              <Plus className="h-3 w-3" />Add update
+                            </Button>
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
