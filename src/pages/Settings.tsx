@@ -376,11 +376,12 @@ export default function Settings() {
 
   const handleSave = async () => {
     if (!user || !profile) return;
+    const fail = (message: string) => setResultDialog({ ok: false, title: "Couldn't save", message });
     const nameCheck = validatePersonNameParts(nameParts);
-    if (!nameCheck.valid) { toast.error(nameCheck.error || 'Full name is required'); return; }
-    if (!phone.trim()) { toast.error('Phone number is required'); return; }
+    if (!nameCheck.valid) { fail(nameCheck.error || 'Full name is required'); return; }
+    if (!phone.trim()) { fail('Phone number is required'); return; }
     if (normalizeE164OrNull(phone) === null) {
-      toast.error('Please enter a valid phone number (e.g. 0771234567 or +256771234567)');
+      fail('Please enter a valid phone number (e.g. 0771234567 or +256771234567)');
       return;
     }
     setSaving(true);
@@ -388,23 +389,24 @@ export default function Settings() {
     const trimmedPhone = phone.trim();
     const phoneChanged = trimmedPhone !== (profile.phone ?? '').trim();
     if (phoneChanged && !otp.otpVerified) {
-      toast.error('Please verify the new phone number with the SMS code first');
+      fail('Please verify the new phone number with the SMS code first');
       setSaving(false);
       return;
     }
     if (phoneChanged && (profile.phone ?? '').trim() && !/^\d{6}$/.test(oldPhoneCode.trim())) {
-      toast.error('Enter the 6-digit code sent to your current phone number');
+      fail('Enter the 6-digit code sent to your current phone number');
       setSaving(false);
       return;
     }
+    let nameSaved = false;
     try {
-      // Always update full_name via profiles
       if (trimmedName !== (profile.full_name ?? '').trim()) {
         const { error } = await supabase.from('profiles').update({ full_name: trimmedName }).eq('id', user.id);
         if (error) throw error;
+        nameSaved = true;
+        setProfile(p => p ? { ...p, full_name: trimmedName } : p);
       }
-      // Phone changes go through edge function to keep auth.users + profiles in sync
-      let savedPhone = trimmedPhone;
+      let savedPhone = (profile.phone ?? '').trim();
       if (phoneChanged) {
         const { data, error } = await invokeEdgeFunction<{ phone?: string; error?: string }>(
           'self-update-phone',
@@ -416,12 +418,22 @@ export default function Settings() {
         setOldPhoneCode('');
         setOldPhoneMasked(null);
       }
-      toast.success('Profile updated successfully');
-      setProfile({ ...profile, full_name: trimmedName, phone: savedPhone });
+      setProfile(p => p ? { ...p, full_name: trimmedName, phone: savedPhone } : p);
       setPhone(savedPhone);
       queryClient.invalidateQueries({ queryKey: ['name-completion-status'] });
+      queryClient.invalidateQueries({ queryKey: ['your-profile'] });
+      setResultDialog({
+        ok: true,
+        title: phoneChanged ? 'Phone number changed' : 'Profile saved',
+        message: phoneChanged
+          ? `Your login phone is now ${savedPhone}. Use it the next time you sign in.`
+          : 'Your changes have been saved.',
+      });
     } catch (e: any) {
-      toast.error(e?.message || 'Failed to update profile');
+      // Put the number on file back so the screen matches what is saved.
+      if (phoneChanged) cancelPhoneChange();
+      if (nameSaved) queryClient.invalidateQueries({ queryKey: ['your-profile'] });
+      fail(`${phoneChanged ? 'Your phone number was not changed. ' : ''}${e?.message || 'Failed to update profile'}`);
     } finally {
       setSaving(false);
     }
