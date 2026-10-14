@@ -46,8 +46,7 @@ import {
   OpsDateRangeFilter, PRESETS, rangePhrase, resolveRange, type PresetKey,
 } from '@/components/executive/shared/OpsDateRangeFilter';
 import { useTenantSmartphoneUsage } from '@/hooks/useTenantSmartphoneUsage';
-import { fmtTenants, joinedWindowHint, recordedSmartphoneHint, windowChecksHint } from '@/lib/tenantSmartphoneUsage';
-import { kampalaYmd } from '@/lib/kampalaDays';
+import { fmtTenants, joinedWindowHint, kampalaWindow, recordedSmartphoneHint, windowChecksHint } from '@/lib/tenantSmartphoneUsage';
 
 const ALL = 'all';
 
@@ -86,8 +85,7 @@ export default function TenantClassificationTab() {
   const [custom, setCustom] = useState<DateRange | undefined>(initialRange.custom);
   const { start, end } = useMemo(() => resolveRange(preset, custom), [preset, custom]);
   const phrase = useMemo(() => rangePhrase(preset, start, end), [preset, start, end]);
-  const fromDay = kampalaYmd(start) ?? '';
-  const toDay = kampalaYmd(end) ?? '';
+  const { fromDay, toDay } = useMemo(() => kampalaWindow(start, end), [start, end]);
 
   const writeRange = (nextPreset: PresetKey, nextCustom: DateRange | undefined) => {
     setParams((prev) => {

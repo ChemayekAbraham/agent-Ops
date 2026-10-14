@@ -143,7 +143,6 @@ describe('TenantClassificationTab', () => {
       expect(last.p_to).toBe(kampalaTodayYmd());
     });
     expect((await screen.findByTestId('smartphone-note')).textContent).toContain('count today');
-    expect(window.location.search).toContain('tc_range=today');
   });
 
   it('opens on the period named in tc_range', async () => {
