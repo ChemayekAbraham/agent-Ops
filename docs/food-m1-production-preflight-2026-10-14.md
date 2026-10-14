@@ -104,6 +104,6 @@ Raw output (verbatim): `/mnt/documents/food-m1-preflight-2026-10-14/evidence.out
 5. Shopping Advance counting of canteen payments (earlier finding) — unresolved.
 
 ## 10. Proposed sequence (for separate approval only)
-120001 → 130001 → 160000 → 170000 → 12120000 → 13120001 → 125000 → 126000 → 127000 → 128000 → 128500.
+120001 → 130001 → 160000 → 170000 → 20261012120000 → 20261013120001 → 125000 → 126000 → 127000 → 128000 → 128500.
 Stop if: any statement errors; a Food object appears before its migration; the seed NOTICE differs
 from the approved decision; any E-check differs from §3. 129000 not included. Nothing applied.
