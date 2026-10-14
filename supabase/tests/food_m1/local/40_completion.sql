@@ -63,7 +63,7 @@ SELECT food_test.raises(format($$SELECT public.food_bootstrap_coordinator(%L, 's
 SELECT food_test.ok((public.food_bootstrap_coordinator(food_test.id('emp_ok'), 'first coordinator appointment')->>'status') = 'appointed', 'BOOT-05 service role appoints an eligible employee');
 SELECT food_test.raises(format($$SELECT public.food_bootstrap_coordinator(%L, 'second appointment attempt')$$, food_test.id('emp_a')), '22023', 'BOOT-06 only one bootstrap');
 RESET ROLE;
-SELECT food_test.ok((SELECT count(*) FROM public.food_audit WHERE action='bootstrap_appointed') = 1, 'BOOT-07 bootstrap is audited');
+SELECT food_test.ok((SELECT count(*) FROM public.food_audit WHERE action='bootstrap_appointed' AND entity_id = food_test.id('emp_ok')) = 1, 'BOOT-07 bootstrap is audited');
 ROLLBACK;
 
 -- ─────────── FM-23: no session temp table ───────────
