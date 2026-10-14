@@ -16,6 +16,8 @@ import { downloadRdGeneralReport } from '@/lib/rdGeneralReportPdf';
 import { rdProjectCashValue, type RdCashField } from '@/lib/rdProjectCash';
 import { kampalaTodayYmd } from '@/lib/kampalaDays';
 import { loadRdUpdates, RD_UPDATES_KEY, rdDateOffset, rdWeeklyUpdates, type RdUpdate, type RdWeekPeriod } from '@/lib/rdWeeklyUpdates';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
 type Metric = { icon: LucideIcon; value: string; label: string; cashField?: RdCashField };
 type Project = {
@@ -255,6 +257,7 @@ const WEEK_COLS: { key: RdWeekPeriod; title: string; icon: LucideIcon }[] = [
 
 export default function RDDashboard() {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [projectUpdates, setProjectUpdates] = useState(loadRdUpdates);
   const [updateError, setUpdateError] = useState('');
   const editUpdates = (name: string, updates: RdUpdate[]) => {
@@ -290,10 +293,20 @@ export default function RDDashboard() {
   const exportReport = async () => {
     setExporting(true);
     try {
+      const { data: savedIdeas, error } = await supabase.from('rd_ideas')
+        .select('title,owner,idea_date,summary,canvas').order('created_at', { ascending: false });
+      if (error) throw error;
       await downloadRdGeneralReport({
         projects: PROJECTS.map((p) => ({ name: p.name, updates: projectUpdates[p.name] ?? [] })),
         ideas: ideaRows,
+        recordedIdeas: (savedIdeas ?? []).map((idea) => ({
+          title: idea.title, owner: idea.owner, date: idea.idea_date, summary: idea.summary,
+          canvas: idea.canvas && typeof idea.canvas === 'object' && !Array.isArray(idea.canvas)
+            ? idea.canvas as Record<string, unknown> : {},
+        })),
       });
+    } catch {
+      toast({ title: 'Could not prepare the general report', description: 'The saved ideas could not be included. Please try again.', variant: 'destructive' });
     } finally { setExporting(false); }
   };
 
