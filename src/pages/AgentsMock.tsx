@@ -278,6 +278,7 @@ export default function AgentsMock() {
             {tenantsLoading ? <p className="py-5 text-sm text-muted-foreground">Loading tenants…</p> : tenantsFailed ? <p className="py-5 text-sm text-destructive">Tenant records could not be loaded.</p> : <>
               <ul className="space-y-3">{displayTenants.slice(tenantPage * 10, tenantPage * 10 + 10).map(t => {
                 const pct = t.total_repayment > 0 ? Math.min(100, Math.round(t.amount_repaid / t.total_repayment * 100)) : null;
+                const paidToday = Number(t.today_paid_amount ?? 0);
                 const balance = Number(t.balance ?? 0);
                 const unfunded = Number(t.unfunded_balance ?? 0);
                 const state = balance <= 0 && unfunded > 0
