@@ -3970,6 +3970,13 @@
       "when": 1791973477543,
       "tag": "0566_tops_smartphone_usage",
       "breakpoints": true
+    },
+    {
+      "idx": 567,
+      "version": "7",
+      "when": 1791974821401,
+      "tag": "0567_cfo_approved_requisitions_payout_status",
+      "breakpoints": true
     }
   ]
 }
