@@ -219,7 +219,7 @@ export function ApprovedRequisitionsPayoutPanel() {
                     <TableHead>Approved</TableHead>
                     <TableHead>In wallet</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead />
+                    <TableHead className="w-0" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -228,10 +228,10 @@ export function ApprovedRequisitionsPayoutPanel() {
                     return (
                       <TableRow key={`${r.source_table}:${r.requisition_id}`}>
                         <TableCell className="text-muted-foreground">{i + 1}</TableCell>
-                        <TableCell className="font-mono text-xs">{r.requisition_code}<div className="text-muted-foreground">{SOURCE[r.source_table]}</div></TableCell>
-                        <TableCell className="font-medium">{r.receiver_name ?? '—'}</TableCell>
-                        <TableCell className="max-w-[220px] truncate" title={r.title ?? ''}>{r.title ?? '—'}</TableCell>
-                        <TableCell className="text-right font-semibold tabular-nums">{formatUGX(Number(r.amount))}</TableCell>
+                        <TableCell className="whitespace-nowrap font-mono text-xs">{r.requisition_code}<div className="text-muted-foreground">{SOURCE[r.source_table]}</div></TableCell>
+                        <TableCell className="max-w-[130px] truncate font-medium" title={r.receiver_name ?? ''}>{r.receiver_name ?? '—'}</TableCell>
+                        <TableCell className="max-w-[170px] truncate" title={r.title ?? ''}>{r.title ?? '—'}</TableCell>
+                        <TableCell className="whitespace-nowrap text-right font-semibold tabular-nums">{formatUGX(Number(r.amount))}</TableCell>
                         <TableCell className="whitespace-nowrap text-xs">{dt(r.approved_at)}</TableCell>
                         <TableCell className="whitespace-nowrap text-xs">{dt(r.credited_at)}</TableCell>
                         <TableCell>
@@ -240,7 +240,7 @@ export function ApprovedRequisitionsPayoutPanel() {
                             <div className="mt-1 max-w-[200px] text-xs text-muted-foreground">{dt(r.reversed_at)} · {r.reversal_reason}</div>
                           )}
                         </TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="whitespace-nowrap text-right">
                           {r.payout_status === 'paid' && isCfo && (
                             <Button size="sm" variant="destructive" onClick={() => { setTarget(r); setReason(''); }}>
                               <Undo2 className="mr-1 h-3.5 w-3.5" /> Reverse
