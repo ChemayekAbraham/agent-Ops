@@ -67061,6 +67061,114 @@ export type Database = {
               user_id: string
             }[]
           }
+      food_archive_category: {
+        Args: { p_category_id: string; p_reason?: string }
+        Returns: undefined
+      }
+      food_audit_write: {
+        Args: {
+          p_action: string
+          p_actor: string
+          p_after: Json
+          p_before: Json
+          p_entity: string
+          p_entity_id: string
+          p_reason: string
+        }
+        Returns: undefined
+      }
+      food_cancel_my_order: {
+        Args: { p_order_id: string; p_reason?: string }
+        Returns: Json
+      }
+      food_coordinator_overview: {
+        Args: { p_service_date?: string }
+        Returns: Json
+      }
+      food_menu_for_day: { Args: { p_service_date?: string }; Returns: Json }
+      food_pay_order: { Args: { p_order_id: string }; Returns: Json }
+      food_place_order: {
+        Args: {
+          p_idempotency_key: string
+          p_items: Json
+          p_special_instructions?: string
+        }
+        Returns: Json
+      }
+      food_preparation_list: {
+        Args: { p_period_id?: string; p_service_date?: string }
+        Returns: {
+          meal_name: string
+          order_count: number
+          total_quantity: number
+        }[]
+      }
+      food_require_active_coordinator: { Args: never; Returns: string }
+      food_schedule_meal: {
+        Args: {
+          p_meal_id: string
+          p_period_id: string
+          p_price_ugx?: number
+          p_publish?: boolean
+          p_service_date: string
+          p_servings_total?: number
+        }
+        Returns: string
+      }
+      food_set_closure: {
+        Args: { p_closed: boolean; p_closure_date: string; p_reason?: string }
+        Returns: undefined
+      }
+      food_set_fulfilment: {
+        Args: { p_note?: string; p_order_id: string; p_to_status: string }
+        Returns: Json
+      }
+      food_set_meal_status: {
+        Args: { p_meal_id: string; p_reason?: string; p_status: string }
+        Returns: undefined
+      }
+      food_set_sold_out: {
+        Args: { p_menu_item_id: string; p_reason?: string; p_sold_out: boolean }
+        Returns: undefined
+      }
+      food_transfer_coordinator: {
+        Args: { p_mode: string; p_reason: string; p_to_user_id: string }
+        Returns: Json
+      }
+      food_upsert_category: {
+        Args: {
+          p_category_id: string
+          p_name: string
+          p_reason?: string
+          p_sort_order?: number
+        }
+        Returns: string
+      }
+      food_upsert_meal: {
+        Args: {
+          p_category_id: string
+          p_description: string
+          p_image_path?: string
+          p_meal_id: string
+          p_name: string
+          p_price_ugx: number
+          p_reason?: string
+        }
+        Returns: string
+      }
+      food_upsert_service_period: {
+        Args: {
+          p_active?: boolean
+          p_closes_at: string
+          p_collection_instructions?: string
+          p_max_qty_per_employee?: number
+          p_name: string
+          p_opens_at: string
+          p_period_id: string
+          p_reason?: string
+        }
+        Returns: string
+      }
       force_approve_rejected_rent_request: {
         Args: { p_payout_ref?: string; p_reason: string; p_request_id: string }
         Returns: string
