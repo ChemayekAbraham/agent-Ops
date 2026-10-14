@@ -67166,6 +67166,7 @@ export type Database = {
         Returns: Json
       }
       food_is_canteen_user: { Args: { _user_id: string }; Returns: boolean }
+      food_meal_photo_readable: { Args: { p_name: string }; Returns: boolean }
       food_menu_for_day: { Args: { p_service_date?: string }; Returns: Json }
       food_pay_order: { Args: { p_order_id: string }; Returns: Json }
       food_people_names: {
@@ -67219,6 +67220,10 @@ export type Database = {
       }
       food_set_fulfilment: {
         Args: { p_note?: string; p_order_id: string; p_to_status: string }
+        Returns: Json
+      }
+      food_set_meal_image: {
+        Args: { p_image_path: string; p_meal_id: string; p_reason?: string }
         Returns: Json
       }
       food_set_meal_status: {
