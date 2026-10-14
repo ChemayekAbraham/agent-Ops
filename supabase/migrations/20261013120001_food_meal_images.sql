@@ -11,7 +11,7 @@
 --   * READ: the active Food Coordinator (any photo), and a canteen user only
 --     for the photo of a PUBLISHED meal (food_meal_photo_readable). A draft or
 --     archived meal's photo is not readable by employees even by exact name;
---   * files: JPEG, PNG or WebP only, at most 2 MB (enforced by the bucket);
+--   * files: at most 2 MB (bucket limit); JPEG, PNG or WebP names only (upload policy);
 --   * WRITE: the ACTIVE Food Coordinator only (a backup holder cannot), and only
 --     under a server-shaped name `meals/<uuid>.<ext>`. Uploads are never
 --     overwritten or deleted through the API: a new photo is a new file, so a
@@ -35,21 +35,25 @@
 -- simply stop resolving.
 
 -- ═══════════════ bucket ═══════════════
-INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-VALUES ('food-meal-images', 'food-meal-images', false, 2097152,
-        ARRAY['image/jpeg', 'image/png', 'image/webp'])
-ON CONFLICT (id) DO NOTHING;
-
--- Fail closed if a bucket of this name already existed with other settings
--- (in particular, if it is public).
+-- The bucket is NOT created here. Lovable Cloud creates buckets only through its
+-- storage tool, which rejects SQL writes to storage.buckets. Before this file
+-- runs, create it with that tool: name `food-meal-images`, public = false,
+-- file_size_limit = 2MB. This file then refuses to apply (rolling back
+-- entirely) unless that bucket exists, is PRIVATE and caps files at 2 MB or
+-- less. File types are enforced by the upload policy below (server-shaped
+-- .jpg/.jpeg/.png/.webp name only); if the bucket also restricts MIME types,
+-- it may allow only JPEG, PNG and WebP.
 DO $chk$
 BEGIN
+  IF NOT EXISTS (SELECT 1 FROM storage.buckets WHERE id = 'food-meal-images') THEN
+    RAISE EXCEPTION 'food: create the private bucket food-meal-images (2MB limit) with the storage tool before this migration';
+  END IF;
   IF NOT EXISTS (SELECT 1 FROM storage.buckets
-                  WHERE id = 'food-meal-images' AND NOT public
-                    AND file_size_limit = 2097152
-                    AND allowed_mime_types @> ARRAY['image/jpeg', 'image/png', 'image/webp']
-                    AND allowed_mime_types <@ ARRAY['image/jpeg', 'image/png', 'image/webp']) THEN
-    RAISE EXCEPTION 'food: bucket food-meal-images exists with unexpected settings; resolve by hand';
+                  WHERE id = 'food-meal-images' AND public IS FALSE
+                    AND file_size_limit IS NOT NULL AND file_size_limit BETWEEN 1 AND 2097152
+                    AND (allowed_mime_types IS NULL
+                         OR allowed_mime_types <@ ARRAY['image/jpeg', 'image/png', 'image/webp'])) THEN
+    RAISE EXCEPTION 'food: bucket food-meal-images must be private with a file size limit of at most 2MB; resolve with the storage tool';
   END IF;
 END
 $chk$;
