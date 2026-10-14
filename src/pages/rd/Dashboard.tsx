@@ -13,10 +13,11 @@ import { Plus, Trash2 } from 'lucide-react';
 import IdeaCanvasBoard from './IdeaCanvasBoard';
 import { Download } from 'lucide-react';
 import { downloadRdGeneralReport } from '@/lib/rdGeneralReportPdf';
+import { rdProjectCashValue, type RdCashField } from '@/lib/rdProjectCash';
 
-type Metric = { icon: LucideIcon; value: string; label: string };
+type Metric = { icon: LucideIcon; value: string; label: string; cashField?: RdCashField };
 type Project = {
-  name: string; tagline: string; icon: LucideIcon; stage: string; progress: number;
+  cashId: string; name: string; tagline: string; icon: LucideIcon; stage: string; progress: number;
   objective: string; progressItems: string[]; metrics: Metric[];
   challenges: string[]; nextSteps: string[];
   week: { last: string[]; today: string[]; next: string[] };
@@ -25,14 +26,14 @@ type Project = {
 // R&D weekly report content, as supplied by R&D. Update here each week.
 const PROJECTS: Project[] = [
   {
-    name: 'Welile Car', tagline: 'Affordable vehicle ownership for a better tomorrow.', icon: Car,
+    cashId: 'car', name: 'Welile Car', tagline: 'Affordable vehicle ownership for a better tomorrow.', icon: Car,
     stage: 'Pilot', progress: 65,
     objective: 'Make vehicle ownership affordable through flexible financing.',
     progressItems: ['Customers saving for cars', 'Bank partnership in progress (Salaam Bank)', 'Contracts prepared (tenants/customers, directors)', 'New customers engaged'],
     metrics: [
-      { icon: Users, value: '2', label: 'Customers saving for car' },
-      { icon: Wallet, value: 'UGX 4M', label: 'Cash in' },
-      { icon: Car, value: 'UGX 40K', label: 'Cash out' },
+      { icon: Users, value: '', label: 'Customers saving for car', cashField: 'customers' },
+      { icon: Wallet, value: '', label: 'Cash in', cashField: 'cashIn' },
+      { icon: Car, value: '', label: 'Cash out', cashField: 'cashOut' },
       { icon: Handshake, value: '1', label: 'Partner (working on bank account)' },
     ],
     challenges: ['Bank approval process', 'Customer documentation'],
@@ -44,13 +45,14 @@ const PROJECTS: Project[] = [
     },
   },
   {
-    name: 'Welile Dowry', tagline: 'Plan today. Celebrate tomorrow.', icon: Gem,
+    cashId: 'dowry', name: 'Welile Dowry', tagline: 'Plan today. Celebrate tomorrow.', icon: Gem,
     stage: 'Development', progress: 40,
     objective: 'Help families prepare for dowry expenses through structured financing.',
     progressItems: ['Business model finalized', 'Partnership discussions ongoing', 'Early customer interest and inquiries'],
     metrics: [
-      { icon: Users, value: '15', label: 'Registered customers' },
-      { icon: Wallet, value: 'UGX 2.3M', label: 'Savings collected' },
+      { icon: Users, value: '', label: 'Registered customers', cashField: 'customers' },
+      { icon: Wallet, value: '', label: 'Savings collected', cashField: 'cashIn' },
+      { icon: Wallet, value: '', label: 'Cash out', cashField: 'cashOut' },
       { icon: FileText, value: '8', label: 'Applications received' },
     ],
     challenges: ['Market awareness', 'Partner recruitment'],
@@ -62,12 +64,14 @@ const PROJECTS: Project[] = [
     },
   },
   {
-    name: 'Welile School of AI', tagline: "Skilling today for tomorrow's opportunities.", icon: Cpu,
+    cashId: 'ai', name: 'Welile School of AI', tagline: "Skilling today for tomorrow's opportunities.", icon: Cpu,
     stage: 'Planning', progress: 25,
     objective: 'Train young people in Artificial Intelligence and digital skills.',
     progressItems: ['Curriculum development', 'Training materials preparation', 'Partnership outreach'],
     metrics: [
-      { icon: Users, value: '0', label: 'Students enrolled' },
+      { icon: Users, value: '', label: 'Students enrolled', cashField: 'customers' },
+      { icon: Wallet, value: '', label: 'Cash in', cashField: 'cashIn' },
+      { icon: Wallet, value: '', label: 'Cash out', cashField: 'cashOut' },
       { icon: BookOpen, value: '5', label: 'Courses drafted' },
       { icon: Users, value: '3', label: 'Potential trainers' },
     ],
@@ -134,7 +138,7 @@ function saveUpdates(name: string, updates: IdeaUpdate[]) {
 }
 const today = () => new Date().toISOString().slice(0, 10);
 
-function ProjectCard({ p }: { p: Project }) {
+function ProjectCard({ p, cashRows }: { p: Project; cashRows: IdeaRow[] }) {
   const Icon = p.icon;
   const [updates, setUpdates] = useState<IdeaUpdate[]>(() => loadUpdates(p.name));
   useEffect(() => { saveUpdates(p.name, updates); }, [p.name, updates]);
@@ -168,7 +172,7 @@ function ProjectCard({ p }: { p: Project }) {
             {p.metrics.map((m) => (
               <div key={m.label} className="flex flex-col items-center text-center">
                 <m.icon className="h-4 w-4 text-primary" />
-                <span className="mt-1 text-sm font-bold text-foreground">{m.value}</span>
+                <span className="mt-1 text-sm font-bold text-foreground">{m.cashField ? rdProjectCashValue(cashRows, p.cashId, m.cashField) : m.value}</span>
                 <span className="text-[10px] leading-tight text-muted-foreground">{m.label}</span>
               </div>
             ))}
@@ -362,7 +366,7 @@ export default function RDDashboard() {
         <IdeaCanvasBoard />
 
         <div className="grid gap-4 lg:grid-cols-3">
-          {PROJECTS.map((p) => <ProjectCard key={p.name} p={p} />)}
+          {PROJECTS.map((p) => <ProjectCard key={p.name} p={p} cashRows={ideaRows} />)}
         </div>
 
         <div className="grid gap-4 lg:grid-cols-3">
