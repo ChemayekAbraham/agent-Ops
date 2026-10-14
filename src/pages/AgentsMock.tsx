@@ -218,8 +218,36 @@ export default function AgentsMock() {
   const collectedTodayByTenant = new Map<string, number>();
   todayCollections.forEach(r => collectedTodayByTenant.set(r.tenant_id, (collectedTodayByTenant.get(r.tenant_id) ?? 0) + (Number(r.amount) || 0)));
   const paidTodayOf = (t: { id: string; today_paid_amount?: number | null }) => Math.max(Number(t.today_paid_amount ?? 0), collectedTodayByTenant.get(t.id) ?? 0);
+  // Weekly-plan tenants clear for the week once the last 7 days (today included)
+  // cover 7 daily amounts; daily-plan tenants clear for the day.
+  const payingIds = payingTenants.map(t => t.id);
+  const { data: weeklyInfo } = useQuery({
+    queryKey: ['agents-mock-weekly-cleared', user?.id, todayKey, payingIds.join(',')],
+    enabled: Boolean(user?.id) && payingIds.length > 0,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const ids = payingIds.slice(0, 1000);
+      const weekStart = new Date(new Date(`${todayKey}T00:00:00+03:00`).getTime() - 6 * 86400_000).toISOString();
+      const [plans, cols] = await Promise.all([
+        supabase.from('rent_requests').select('tenant_id').in('tenant_id', ids).eq('repayment_frequency', 'weekly').in('status', ['repaying', 'funded', 'disbursed']),
+        supabase.from('agent_collections').select('tenant_id, amount').eq('agent_id', user?.id ?? '').is('reversed_at', null).in('tenant_id', ids).gte('created_at', weekStart).limit(5000),
+      ]);
+      if (plans.error) throw plans.error;
+      if (cols.error) throw cols.error;
+      const weekPaid: Record<string, number> = {};
+      (cols.data ?? []).forEach(r => { weekPaid[r.tenant_id] = (weekPaid[r.tenant_id] ?? 0) + (Number(r.amount) || 0); });
+      return { weekly: new Set((plans.data ?? []).map(r => r.tenant_id)), weekPaid };
+    },
+  });
+  const isCleared = (t: { id: string; daily?: number | null; today_paid_amount?: number | null }) => {
+    const daily = Number(t.daily) || 0;
+    if (daily <= 0) return false;
+    if (weeklyInfo?.weekly.has(t.id)) return Math.max(weeklyInfo.weekPaid[t.id] ?? 0, paidTodayOf(t)) >= daily * 7;
+    return paidTodayOf(t) >= daily;
+  };
   const paidTenants = payingTenants.filter(t => paidTodayOf(t) > 0);
-  const displayTenants = tenantFilter === 'paid' ? paidTenants : payingTenants;
+  const collectingTenants = payingTenants.filter(t => !isCleared(t));
+  const displayTenants = tenantFilter === 'paid' ? paidTenants : collectingTenants;
   const tenantIds = tenantRows.map(t => t.id);
   // A tenant's photo comes from the profile, and falls back to the passport
   // photo captured with their Rent Request (the same fallback the server-side
@@ -354,9 +382,10 @@ export default function AgentsMock() {
               return <>
                 <div className="mt-4 flex items-end justify-between gap-3">
                   <div className="min-w-0"><p className="text-xs text-muted-foreground">Collected</p><p key={`collected-${loadingCol ? 'loading' : collected}`} className={cn('mt-0.5 break-words text-2xl font-bold leading-tight tabular-nums', low ? 'text-destructive' : 'text-success', !loadingCol && 'mock-bubble-pop')}>{loadingCol ? (collectionsFailed ? 'Unavailable' : 'Loading…') : formatUGX(collected)}</p></div>
+                  {cap && <span className="flex max-w-[62%] shrink-0 justify-end">{deriveAgentBadges(cap).slice(0, 1).map(b => <span key={b.id} className={cn('inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold mock-bubble-pop', BADGE_CLASS[b.tone])}><span aria-hidden>{b.icon}</span>{b.label}</span>)}</span>}
                 </div>
                 <div className="mt-3 h-3.5 w-full overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label="Collected versus expected"><div className={cn('relative h-full overflow-hidden rounded-full transition-[width] duration-700 ease-out', low ? 'bg-destructive' : 'bg-success')} style={{ width: `${fillPct}%` }}>{fillPct > 0 && <><span aria-hidden className="mock-progress-bubble" /><span aria-hidden className="mock-progress-bubble mock-progress-bubble--b" /></>}</div></div>
-                <div className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground"><span>of <strong className="font-semibold text-foreground tabular-nums">{loadingExp ? (historyFailed ? 'Unavailable' : 'Loading…') : formatUGX(expected)}</strong> expected</span>{cap && <span className="flex shrink-0 flex-wrap justify-end gap-1.5">{deriveAgentBadges(cap).slice(0, 2).map(b => <span key={b.id} className={cn('inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold mock-bubble-pop', BADGE_CLASS[b.tone])}><span aria-hidden>{b.icon}</span>{b.label}</span>)}</span>}</div>
+                <div className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground"><span>of <strong className="font-semibold text-foreground tabular-nums">{loadingExp ? (historyFailed ? 'Unavailable' : 'Loading…') : formatUGX(expected)}</strong> expected</span>{cap && deriveAgentBadges(cap).slice(1, 2).map(b => <span key={b.id} className={cn('inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold mock-bubble-pop', BADGE_CLASS[b.tone])}><span aria-hidden>{b.icon}</span>{b.label}</span>)}</div>
                 <div className="mt-3 flex items-center gap-2 border-t border-border pt-3 text-xs"><Users className="h-4 w-4 text-primary" /><span><strong>{tenantCount}</strong> {period === 'today' ? 'tenants to collect for' : 'tenants collected for'}</span>{period === 'today' && <span className="ml-auto rounded-full bg-success/10 px-2 py-0.5 font-semibold text-success">{todayPaidCount} paid</span>}</div>
               </>;
             })()}
@@ -365,8 +394,8 @@ export default function AgentsMock() {
           <section aria-label="Agent shortcuts" className="mock-bubble-in grid grid-cols-2 gap-2 sm:grid-cols-4" style={{ animationDelay: '240ms' }}>{SHORTCUTS.map(({ label, Icon, color, to }) => <Button key={label} variant="ghost" onClick={() => to ? navigate(to) : label === 'Rent Calculator' ? setCalcOpen(true) : label === 'Invite' ? setInviteOpen(true) : setNotice(label)} className="h-12 justify-start gap-2 rounded-lg border border-border whitespace-normal px-3 text-left text-xs"><span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted/50', color)}><Icon className="!h-5 !w-5" /></span>{label}</Button>)}</section>
           <div className="mock-bubble-in grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_360px]" style={{ animationDelay: '310ms' }}>
           <section aria-labelledby="due-heading" className="min-w-0">
-            <div className="flex items-center justify-between gap-2"><h2 id="due-heading" className="text-base font-semibold">Today's tenants</h2><span className="text-xs text-muted-foreground">{payingTenants.length} repaying</span></div>
-            <div className="mt-2 inline-flex items-center gap-1 rounded-full border border-border/12 bg-muted p-1" role="group" aria-label="Tenant filter">{(['repaying', 'paid'] as const).map(f => { const n = f === 'repaying' ? payingTenants.length : paidTenants.length; const on = tenantFilter === f; return <Button key={f} variant="ghost" aria-pressed={on} onClick={() => { setTenantFilter(f); setTenantPage(0); }} className={cn('!h-auto !min-h-0 rounded-full px-4 py-1.5 text-[11px] leading-none transition-colors', on ? 'bg-primary text-primary-foreground hover:bg-primary' : 'text-muted-foreground hover:text-foreground')}>{f === 'repaying' ? 'Collecting' : 'Paid'}<span className={cn('ml-1.5 inline-flex h-[15px] min-w-[15px] items-center justify-center rounded-full px-1 text-[9px] font-semibold tabular-nums', on ? 'bg-primary-foreground text-primary' : 'border border-primary/30 bg-primary/20 text-primary')}>{n}</span></Button>; })}</div>
+            <div className="flex items-center justify-between gap-2"><h2 id="due-heading" className="text-base font-semibold">Today's tenants</h2><span className="text-xs text-muted-foreground">{collectingTenants.length} to collect</span></div>
+            <div className="mt-2 inline-flex items-center gap-1 rounded-full border border-border/12 bg-muted p-1" role="group" aria-label="Tenant filter">{(['repaying', 'paid'] as const).map(f => { const n = f === 'repaying' ? collectingTenants.length : paidTenants.length; const on = tenantFilter === f; return <Button key={f} variant="ghost" aria-pressed={on} onClick={() => { setTenantFilter(f); setTenantPage(0); }} className={cn('!h-auto !min-h-0 rounded-full px-4 py-1.5 text-[11px] leading-none transition-colors', on ? 'bg-primary text-primary-foreground hover:bg-primary' : 'text-muted-foreground hover:text-foreground')}>{f === 'repaying' ? 'Collecting' : 'Paid'}<span className={cn('ml-1.5 inline-flex h-[15px] min-w-[15px] items-center justify-center rounded-full px-1 text-[9px] font-semibold tabular-nums', on ? 'bg-primary-foreground text-primary' : 'border border-primary/30 bg-primary/20 text-primary')}>{n}</span></Button>; })}</div>
             {tenantsLoading ? <p className="py-5 text-sm text-muted-foreground">Loading tenants…</p> : tenantsFailed ? <p className="py-5 text-sm text-destructive">Tenant records could not be loaded.</p> : <>
               <ul className="mt-4 space-y-3">{displayTenants.slice(tenantPage * 10, tenantPage * 10 + 10).map(t => {
                 const pct = t.total_repayment > 0 ? Math.min(100, Math.round(t.amount_repaid / t.total_repayment * 100)) : null;
@@ -382,12 +411,12 @@ export default function AgentsMock() {
                   <Button variant="ghost" onClick={() => setSelectedTenantId(t.id)} className="h-auto min-h-[72px] w-full justify-start gap-2.5 rounded-2xl border-2 border-border/60 bg-card px-3 py-3 text-left transition-all hover:bg-card active:scale-[0.97] sm:gap-3">
                     <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-bold sm:h-11 sm:w-11 sm:text-base', state.chip)}>{tenantPhotos[t.id] ? <img src={tenantPhotos[t.id]} alt="" className="h-full w-full object-cover" onError={e => { const el = e.currentTarget; el.style.display = 'none'; if (el.parentElement) el.parentElement.textContent = firstLetter(t.full_name); }} /> : firstLetter(t.full_name)}</span>
                     <span className="min-w-0 flex-1 whitespace-normal text-left"><span className="block truncate text-[13px] font-bold sm:text-sm">{t.full_name}</span><span className="mt-1 flex items-center gap-1 truncate text-[11px] text-muted-foreground sm:text-xs">{t.phone || 'Phone not recorded'}</span></span>
-                    <span className="flex shrink-0 flex-col items-end text-right"><span className={cn('text-[11px] font-bold tabular-nums sm:text-sm', paidToday > 0 ? 'text-success' : 'text-muted-foreground')}>{formatUGX(paidToday)}</span><span className="mt-0.5 whitespace-nowrap text-[10px] font-semibold tabular-nums text-muted-foreground sm:text-xs">{pct === null ? '—' : `${pct}% of plan`}</span></span>
+                    <span className="flex shrink-0 flex-col items-end text-right"><span className={cn('text-[11px] font-bold tabular-nums sm:text-sm', paidToday > 0 ? 'text-success' : 'text-muted-foreground')}>{formatUGX(paidToday)}</span><span className="mt-0.5 whitespace-nowrap text-[10px] font-semibold tabular-nums text-muted-foreground sm:text-xs">{Number(t.daily) > 0 ? `${Math.round(paidToday / Number(t.daily) * 100)}% of today` : '—'}</span></span>
                   </Button>
                 </li>;
               })}</ul>
-              {displayTenants.length === 0 && <p className="py-5 text-sm text-muted-foreground">{tenantFilter === 'paid' ? 'No tenant payments recorded today.' : 'No repaying tenants found.'}</p>}
-              {payingTenants.length > 0 && paidTenants.length === payingTenants.length && <div className="mt-3 w-full text-center"><p className="text-sm font-semibold">That's everyone for today — great work! 🎉</p><p className="mt-1 text-xs text-muted-foreground">Got room for one more? Add a new tenant and keep earning.</p><Button onClick={openRequest} className="mt-3 h-10 gap-2 rounded-lg px-5 text-sm font-semibold"><Plus className="h-4 w-4" />Add a new tenant</Button></div>}
+              {displayTenants.length === 0 && <p className="py-5 text-sm text-muted-foreground">{tenantFilter === 'paid' ? 'No tenant payments recorded today.' : payingTenants.length > 0 ? 'Everyone is cleared for now.' : 'No repaying tenants found.'}</p>}
+              {tenantFilter === 'repaying' && payingTenants.length > 0 && collectingTenants.length === 0 && <div className="mt-3 w-full text-center"><p className="text-sm font-semibold">That's everyone for today, great work! 🎉</p><p className="mt-1 text-xs text-muted-foreground">Got room for one more? Add a new tenant and keep earning.</p><Button onClick={openRequest} className="mt-3 h-10 gap-2 rounded-lg px-5 text-sm font-semibold"><Plus className="h-4 w-4" />Add a new tenant</Button></div>}
               {displayTenants.length > 10 && <div className="flex items-center justify-between gap-2 border-t border-border py-3"><span className="text-xs text-muted-foreground">{tenantPage * 10 + 1}–{Math.min(tenantPage * 10 + 10, displayTenants.length)} of {displayTenants.length} tenants</span><div className="flex gap-1"><Button variant="outline" size="icon" aria-label="Previous tenants" disabled={tenantPage === 0} onClick={() => setTenantPage(p => p - 1)}><ChevronLeft className="h-4 w-4" /></Button><Button variant="outline" size="icon" aria-label="Next tenants" disabled={(tenantPage + 1) * 10 >= displayTenants.length} onClick={() => setTenantPage(p => p + 1)}><ChevronRight className="h-4 w-4" /></Button></div></div>}
             </>}
           </section>
