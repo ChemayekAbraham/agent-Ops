@@ -18458,6 +18458,8 @@ export type Database = {
           id: string
           kind: string
           order_id: string | null
+          raised_by: string | null
+          raised_via: string | null
           resolution_reason: string | null
           resolved_at: string | null
           resolved_by: string | null
@@ -18468,6 +18470,8 @@ export type Database = {
           id?: string
           kind: string
           order_id?: string | null
+          raised_by?: string | null
+          raised_via?: string | null
           resolution_reason?: string | null
           resolved_at?: string | null
           resolved_by?: string | null
@@ -18478,6 +18482,8 @@ export type Database = {
           id?: string
           kind?: string
           order_id?: string | null
+          raised_by?: string | null
+          raised_via?: string | null
           resolution_reason?: string | null
           resolved_at?: string | null
           resolved_by?: string | null
@@ -18489,6 +18495,62 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "food_orders"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_exceptions_raised_by_fkey"
+            columns: ["raised_by"]
+            isOneToOne: false
+            referencedRelation: "manager_profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "food_exceptions_raised_by_fkey"
+            columns: ["raised_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_exceptions_raised_by_fkey"
+            columns: ["raised_by"]
+            isOneToOne: false
+            referencedRelation: "referral_leaderboard"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "food_exceptions_raised_by_fkey"
+            columns: ["raised_by"]
+            isOneToOne: false
+            referencedRelation: "v_accounts_no_verified_phone"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "food_exceptions_raised_by_fkey"
+            columns: ["raised_by"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_location_pivot"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_exceptions_raised_by_fkey"
+            columns: ["raised_by"]
+            isOneToOne: false
+            referencedRelation: "v_tenant_ops_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_exceptions_raised_by_fkey"
+            columns: ["raised_by"]
+            isOneToOne: false
+            referencedRelation: "v_tlb_tenant_base"
+            referencedColumns: ["tenant_id"]
+          },
+          {
+            foreignKeyName: "food_exceptions_raised_by_fkey"
+            columns: ["raised_by"]
+            isOneToOne: false
+            referencedRelation: "vw_agent_ops_directory"
+            referencedColumns: ["agent_id"]
           },
           {
             foreignKeyName: "food_exceptions_resolved_by_fkey"
@@ -18931,6 +18993,7 @@ export type Database = {
           idempotency_key: string
           order_reference: string
           paid_at: string | null
+          payment_mode: string | null
           payment_status: string
           period_id: string
           placed_at: string
@@ -18948,6 +19011,7 @@ export type Database = {
           idempotency_key: string
           order_reference: string
           paid_at?: string | null
+          payment_mode?: string | null
           payment_status?: string
           period_id: string
           placed_at?: string
@@ -18965,6 +19029,7 @@ export type Database = {
           idempotency_key?: string
           order_reference?: string
           paid_at?: string | null
+          payment_mode?: string | null
           payment_status?: string
           period_id?: string
           placed_at?: string
@@ -67080,6 +67145,11 @@ export type Database = {
         }
         Returns: undefined
       }
+      food_bootstrap_coordinator: {
+        Args: { p_reason: string; p_user_id: string }
+        Returns: Json
+      }
+      food_can_use_canteen: { Args: never; Returns: boolean }
       food_cancel_my_order: {
         Args: { p_order_id: string; p_reason?: string }
         Returns: Json
@@ -67095,12 +67165,21 @@ export type Database = {
         Args: { p_service_date?: string }
         Returns: Json
       }
+      food_is_canteen_user: { Args: { _user_id: string }; Returns: boolean }
       food_menu_for_day: { Args: { p_service_date?: string }; Returns: Json }
       food_pay_order: { Args: { p_order_id: string }; Returns: Json }
+      food_people_names: {
+        Args: { p_ids: string[] }
+        Returns: {
+          full_name: string
+          user_id: string
+        }[]
+      }
       food_place_order: {
         Args: {
           p_idempotency_key: string
           p_items: Json
+          p_payment_mode: string
           p_special_instructions?: string
         }
         Returns: Json
@@ -67113,7 +67192,12 @@ export type Database = {
           total_quantity: number
         }[]
       }
+      food_raise_exception: {
+        Args: { p_kind: string; p_note: string; p_order_id?: string }
+        Returns: Json
+      }
       food_require_active_coordinator: { Args: never; Returns: string }
+      food_require_canteen_user: { Args: never; Returns: string }
       food_resolve_exception: {
         Args: { p_exception_id: string; p_reason: string }
         Returns: Json
