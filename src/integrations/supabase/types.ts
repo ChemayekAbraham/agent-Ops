@@ -61933,6 +61933,21 @@ export type Database = {
         }[]
       }
       am_detect_clock_drift: { Args: { p_as_at?: string }; Returns: Json }
+      am_new_tenant_first7: {
+        Args: { p_paid_on?: string }
+        Returns: {
+          agent_name: string
+          clock_start: string
+          daily_due: number
+          day_paid: number[]
+          landlord_paid_on: string
+          paid_7d: number
+          rent_request_id: string
+          tenant_name: string
+          tenant_phone: string
+          total_repayment: number
+        }[]
+      }
       am_plan_arrears: {
         Args: { p_as_at?: string; p_rent_request_ids: string[] }
         Returns: {

@@ -16,6 +16,7 @@ import {
   PERIOD_LABELS,
   type CollectionsPeriod,
 } from '@/hooks/useAgentDailyCollections';
+import { NewTenantFirst7Tracker } from './NewTenantFirst7Tracker';
 
 const PERIODS: CollectionsPeriod[] = ['today', 'tomorrow', '5d', '7d', 'month', 'year'];
 
@@ -129,6 +130,7 @@ export function AgentDailyCollectionsView() {
 
   return (
     <div className="space-y-4 min-w-0">
+      <NewTenantFirst7Tracker />
       {/* Universal period filter */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap gap-1.5">
