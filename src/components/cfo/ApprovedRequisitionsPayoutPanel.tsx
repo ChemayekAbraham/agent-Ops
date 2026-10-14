@@ -45,7 +45,6 @@ const SOURCE: Record<string, string> = {
 };
 
 const dt = (s: string | null) => (s ? new Date(s).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : '—');
-const firstOfMonth = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`; };
 const today = () => new Date().toISOString().slice(0, 10);
 
 /**
