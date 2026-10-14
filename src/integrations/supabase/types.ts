@@ -22104,6 +22104,138 @@ export type Database = {
           },
         ]
       }
+      hr_pay_bonus_allocations: {
+        Row: {
+          amount: number
+          created_at: string
+          id: string
+          ledger_group_id: string | null
+          paid_at: string | null
+          percentage: number
+          pool_id: string
+          staff_id: string
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          id?: string
+          ledger_group_id?: string | null
+          paid_at?: string | null
+          percentage: number
+          pool_id: string
+          staff_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          id?: string
+          ledger_group_id?: string | null
+          paid_at?: string | null
+          percentage?: number
+          pool_id?: string
+          staff_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_pay_bonus_allocations_pool_id_fkey"
+            columns: ["pool_id"]
+            isOneToOne: false
+            referencedRelation: "hr_pay_bonus_pools"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_pay_bonus_allocations_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "hr_staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "hr_pay_bonus_allocations_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_conversions"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "hr_pay_bonus_allocations_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_note_events"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "hr_pay_bonus_allocations_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "v_pso_officers"
+            referencedColumns: ["staff_id"]
+          },
+        ]
+      }
+      hr_pay_bonus_pools: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          paid_at: string | null
+          paid_by: string | null
+          pool_amount: number
+          prepared_by: string
+          return_note: string | null
+          returned_at: string | null
+          returned_by: string | null
+          status: string
+          submitted_at: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          paid_at?: string | null
+          paid_by?: string | null
+          pool_amount: number
+          prepared_by: string
+          return_note?: string | null
+          returned_at?: string | null
+          returned_by?: string | null
+          status?: string
+          submitted_at?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          paid_at?: string | null
+          paid_by?: string | null
+          pool_amount?: number
+          prepared_by?: string
+          return_note?: string | null
+          returned_at?: string | null
+          returned_by?: string | null
+          status?: string
+          submitted_at?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       hr_pay_compensation: {
         Row: {
           amount: number
@@ -62372,6 +62504,7 @@ export type Database = {
         Args: { p_roles: string[]; p_user: string }
         Returns: boolean
       }
+      _hr_pay_bonus_read_ok: { Args: never; Returns: boolean }
       _landlord_pool_legacy_snapshot: { Args: never; Returns: Json }
       _landlord_pool_post: {
         Args: {
@@ -72086,6 +72219,81 @@ export type Database = {
         }[]
       }
       hr_pay_authority_user_ids: { Args: { _fn: string }; Returns: string[] }
+      hr_pay_bonus_approve: { Args: { _pool_id: string }; Returns: undefined }
+      hr_pay_bonus_cancel: { Args: { _pool_id: string }; Returns: undefined }
+      hr_pay_bonus_detail: {
+        Args: { _pool_id: string }
+        Returns: {
+          amount: number
+          department: string
+          full_name: string
+          paid_at: string
+          percentage: number
+          position: string
+          staff_id: string
+          staff_ref: string
+        }[]
+      }
+      hr_pay_bonus_list: {
+        Args: never
+        Returns: {
+          allocated: number
+          approved_at: string
+          approved_by_name: string
+          notes: string
+          paid_at: string
+          paid_by_name: string
+          people: number
+          pool_amount: number
+          pool_id: string
+          prepared_by_name: string
+          return_note: string
+          status: string
+          submitted_at: string
+          title: string
+          total_pct: number
+        }[]
+      }
+      hr_pay_bonus_pay: { Args: { _pool_id: string }; Returns: Json }
+      hr_pay_bonus_pending_for_me: {
+        Args: never
+        Returns: {
+          allocated: number
+          kind: string
+          people: number
+          pool_amount: number
+          pool_id: string
+          prepared_by_name: string
+          return_note: string
+          title: string
+        }[]
+      }
+      hr_pay_bonus_recompute: { Args: { _pool_id: string }; Returns: undefined }
+      hr_pay_bonus_return: {
+        Args: { _note: string; _pool_id: string }
+        Returns: undefined
+      }
+      hr_pay_bonus_save: {
+        Args: {
+          _allocations: Json
+          _notes: string
+          _pool_amount: number
+          _pool_id: string
+          _title: string
+        }
+        Returns: string
+      }
+      hr_pay_bonus_staff_options: {
+        Args: never
+        Returns: {
+          department: string
+          full_name: string
+          position: string
+          staff_id: string
+          staff_ref: string
+        }[]
+      }
+      hr_pay_bonus_submit: { Args: { _pool_id: string }; Returns: undefined }
       hr_pay_correct_compensation: {
         Args: {
           _amount: number

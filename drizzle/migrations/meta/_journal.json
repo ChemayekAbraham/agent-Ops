@@ -3991,6 +3991,13 @@
       "when": 1791975941536,
       "tag": "0569_fix_cfo_approved_requisitions_employee_id_cast",
       "breakpoints": true
+    },
+    {
+      "idx": 570,
+      "version": "7",
+      "when": 1792005467207,
+      "tag": "0570_hr_pay_bonus_pools",
+      "breakpoints": true
     }
   ]
 }
