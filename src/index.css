@@ -27,13 +27,13 @@ html:not(.dark) .agents-mock-exact .bg-card { background-color: var(--mock-card)
   100% { opacity: 1; transform: scale(1); }
 }
 /* A bubble is sized from the bar's height (aspect-ratio keeps it round) and
-   falls from just above the bar to just below it, so it reads as dropping
+   drops from the bar's top edge to its bottom edge, so it reads as falling
    through the fill rather than sliding along it. */
 @keyframes mock-bubble-fall {
-  0% { transform: translateY(-160%) scale(0.55); opacity: 0; }
-  16% { opacity: 0.95; }
-  74% { opacity: 0.8; }
-  100% { transform: translateY(270%) scale(1); opacity: 0; }
+  0% { transform: translateY(-100%) scale(0.7); opacity: 0; }
+  18% { opacity: 0.95; }
+  78% { opacity: 0.85; }
+  100% { transform: translateY(100%) scale(1); opacity: 0; }
 }
 .mock-bubble-in { animation: mock-bubble-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
 .mock-bubble-pop { animation: mock-bubble-pop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) both; }
