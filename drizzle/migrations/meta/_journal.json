@@ -3984,6 +3984,13 @@
       "when": 1791975302293,
       "tag": "0568_allow_resubmit_agent_cancelled_rent_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 569,
+      "version": "7",
+      "when": 1791975941536,
+      "tag": "0569_fix_cfo_approved_requisitions_employee_id_cast",
+      "breakpoints": true
     }
   ]
 }
