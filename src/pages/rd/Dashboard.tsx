@@ -11,71 +11,65 @@ import { useEffect, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Plus, Trash2 } from 'lucide-react';
 import IdeaCanvasBoard from './IdeaCanvasBoard';
+import { Download } from 'lucide-react';
+import { downloadRdGeneralReport } from '@/lib/rdGeneralReportPdf';
+import { rdProjectCashValue, type RdCashField } from '@/lib/rdProjectCash';
+import { kampalaTodayYmd } from '@/lib/kampalaDays';
+import { loadRdUpdates, RD_UPDATES_KEY, rdDateOffset, rdWeeklyUpdates, type RdUpdate, type RdWeekPeriod } from '@/lib/rdWeeklyUpdates';
+import { supabase } from '@/integrations/supabase/client';
+import { useToast } from '@/hooks/use-toast';
 
-type Metric = { icon: LucideIcon; value: string; label: string };
+type Metric = { icon: LucideIcon; value: string; label: string; cashField?: RdCashField };
 type Project = {
-  name: string; tagline: string; icon: LucideIcon; stage: string; progress: number;
+  cashId: string; name: string; tagline: string; icon: LucideIcon; stage: string; progress: number;
   objective: string; progressItems: string[]; metrics: Metric[];
   challenges: string[]; nextSteps: string[];
-  week: { last: string[]; today: string[]; next: string[] };
 };
 
-// R&D weekly report content, as supplied by R&D. Update here each week.
+// Project presentation; report evidence comes only from recorded updates.
 const PROJECTS: Project[] = [
   {
-    name: 'Welile Car', tagline: 'Affordable vehicle ownership for a better tomorrow.', icon: Car,
+    cashId: 'car', name: 'Welile Car', tagline: 'Affordable vehicle ownership for a better tomorrow.', icon: Car,
     stage: 'Pilot', progress: 65,
     objective: 'Make vehicle ownership affordable through flexible financing.',
     progressItems: ['Customers saving for cars', 'Bank partnership in progress (Salaam Bank)', 'Contracts prepared (tenants/customers, directors)', 'New customers engaged'],
     metrics: [
-      { icon: Users, value: '2', label: 'Customers saving for car' },
-      { icon: Wallet, value: 'UGX 4M', label: 'Cash in' },
-      { icon: Car, value: 'UGX 40K', label: 'Cash out' },
+      { icon: Users, value: '', label: 'Customers saving for car', cashField: 'customers' },
+      { icon: Wallet, value: '', label: 'Cash in', cashField: 'cashIn' },
+      { icon: Car, value: '', label: 'Cash out', cashField: 'cashOut' },
       { icon: Handshake, value: '1', label: 'Partner (working on bank account)' },
     ],
     challenges: ['Bank approval process', 'Customer documentation'],
     nextSteps: ['Meet Salaam Bank', 'Finalize agreements', 'Recruit more customers'],
-    week: {
-      last: ['Signed 2 new customer agreements', 'Followed up with bank partner'],
-      today: ['Reviewing bank documents', 'Onboarded 3 new customers'],
-      next: ['Meet with Salaam Bank', 'Finalize partnership agreement'],
-    },
   },
   {
-    name: 'Welile Dowry', tagline: 'Plan today. Celebrate tomorrow.', icon: Gem,
+    cashId: 'dowry', name: 'Welile Dowry', tagline: 'Plan today. Celebrate tomorrow.', icon: Gem,
     stage: 'Development', progress: 40,
     objective: 'Help families prepare for dowry expenses through structured financing.',
     progressItems: ['Business model finalized', 'Partnership discussions ongoing', 'Early customer interest and inquiries'],
     metrics: [
-      { icon: Users, value: '15', label: 'Registered customers' },
-      { icon: Wallet, value: 'UGX 2.3M', label: 'Savings collected' },
+      { icon: Users, value: '', label: 'Registered customers', cashField: 'customers' },
+      { icon: Wallet, value: '', label: 'Savings collected', cashField: 'cashIn' },
+      { icon: Wallet, value: '', label: 'Cash out', cashField: 'cashOut' },
       { icon: FileText, value: '8', label: 'Applications received' },
     ],
     challenges: ['Market awareness', 'Partner recruitment'],
     nextSteps: ['Launch pilot program', 'Marketing campaign', 'Customer registration'],
-    week: {
-      last: ['Completed business model draft', 'Collected customer feedback'],
-      today: ['Preparing pilot program plan', 'Engaging potential partners'],
-      next: ['Begin marketing campaign', 'Start customer registration'],
-    },
   },
   {
-    name: 'Welile School of AI', tagline: "Skilling today for tomorrow's opportunities.", icon: Cpu,
+    cashId: 'ai', name: 'Welile School of AI', tagline: "Skilling today for tomorrow's opportunities.", icon: Cpu,
     stage: 'Planning', progress: 25,
     objective: 'Train young people in Artificial Intelligence and digital skills.',
     progressItems: ['Curriculum development', 'Training materials preparation', 'Partnership outreach'],
     metrics: [
-      { icon: Users, value: '0', label: 'Students enrolled' },
+      { icon: Users, value: '', label: 'Students enrolled', cashField: 'customers' },
+      { icon: Wallet, value: '', label: 'Cash in', cashField: 'cashIn' },
+      { icon: Wallet, value: '', label: 'Cash out', cashField: 'cashOut' },
       { icon: BookOpen, value: '5', label: 'Courses drafted' },
       { icon: Users, value: '3', label: 'Potential trainers' },
     ],
     challenges: ['Equipment & tools', 'Training venue'],
     nextSteps: ['Launch first cohort', 'Marketing campaign', 'Partner outreach'],
-    week: {
-      last: ['Finalized course outline', 'Met with training partners'],
-      today: ['Finalizing training materials', 'Budget review'],
-      next: ['Launch first cohort (target)', 'Partner outreach & event planning'],
-    },
   },
 ];
 
@@ -109,34 +103,9 @@ function SectionTitle({ icon: Icon, children }: { icon: LucideIcon; children: Re
   return <p className="flex items-center gap-2 text-sm font-semibold text-foreground"><Icon className="h-4 w-4 text-primary" />{children}</p>;
 }
 
-function Bullets({ items }: { items: string[] }) {
-  return <ul className="mt-1.5 list-disc space-y-1 pl-5 text-xs text-muted-foreground">{items.map((t) => <li key={t}>{t}</li>)}</ul>;
-}
-
-// Editable dated updates, saved per project on this device.
-type IdeaUpdate = { id: string; date: string; text: string };
-const UPDATES_KEY = 'rd-project-updates-v1';
-function loadUpdates(name: string): IdeaUpdate[] {
-  try {
-    const all = JSON.parse(localStorage.getItem(UPDATES_KEY) || '{}');
-    if (Array.isArray(all[name])) return all[name];
-  } catch { /* ignore */ }
-  return [];
-}
-function saveUpdates(name: string, updates: IdeaUpdate[]) {
-  try {
-    const all = JSON.parse(localStorage.getItem(UPDATES_KEY) || '{}');
-    all[name] = updates;
-    localStorage.setItem(UPDATES_KEY, JSON.stringify(all));
-  } catch { /* ignore */ }
-}
-const today = () => new Date().toISOString().slice(0, 10);
-
-function ProjectCard({ p }: { p: Project }) {
+function ProjectCard({ p, cashRows, updates, onUpdates }: { p: Project; cashRows: IdeaRow[]; updates: RdUpdate[]; onUpdates: (updates: RdUpdate[]) => void }) {
   const Icon = p.icon;
-  const [updates, setUpdates] = useState<IdeaUpdate[]>(() => loadUpdates(p.name));
-  useEffect(() => { saveUpdates(p.name, updates); }, [p.name, updates]);
-  const upd = (id: string, patch: Partial<IdeaUpdate>) => setUpdates((u) => u.map((x) => (x.id === id ? { ...x, ...patch } : x)));
+  const upd = (id: string, patch: Partial<RdUpdate>) => onUpdates(updates.map((x) => (x.id === id ? { ...x, ...patch } : x)));
   return (
     <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
       <div className="flex items-start gap-3 bg-primary/5 p-4">
@@ -166,7 +135,7 @@ function ProjectCard({ p }: { p: Project }) {
             {p.metrics.map((m) => (
               <div key={m.label} className="flex flex-col items-center text-center">
                 <m.icon className="h-4 w-4 text-primary" />
-                <span className="mt-1 text-sm font-bold text-foreground">{m.value}</span>
+                <span className="mt-1 text-sm font-bold text-foreground">{m.cashField ? rdProjectCashValue(cashRows, p.cashId, m.cashField) : m.value}</span>
                 <span className="text-[10px] leading-tight text-muted-foreground">{m.label}</span>
               </div>
             ))}
@@ -176,7 +145,7 @@ function ProjectCard({ p }: { p: Project }) {
           <div className="flex items-center justify-between gap-2">
             <SectionTitle icon={ClipboardList}>Updates</SectionTitle>
             <Button size="sm" variant="outline" className="h-7 gap-1 px-2 text-xs"
-              onClick={() => setUpdates((u) => [...u, { id: safeUUID(), date: today(), text: '' }])}>
+              onClick={() => onUpdates([...updates, { id: safeUUID(), date: kampalaTodayYmd(), text: '' }])}>
               <Plus className="h-3 w-3" />Add update
             </Button>
           </div>
@@ -191,7 +160,7 @@ function ProjectCard({ p }: { p: Project }) {
                 <Input className="h-8 min-w-0 flex-1 text-xs" placeholder="Record an update…" value={u.text}
                   onChange={(e) => upd(u.id, { text: e.target.value })} />
                 <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" aria-label="Remove update"
-                  onClick={() => setUpdates((list) => list.filter((x) => x.id !== u.id))}>
+                  onClick={() => onUpdates(updates.filter((x) => x.id !== u.id))}>
                   <Trash2 className="h-3.5 w-3.5" />
                 </Button>
               </div>
@@ -214,7 +183,6 @@ const DEFAULT_IDEAS: IdeaRow[] = [
 const fmt = (n: number) => `UGX ${n.toLocaleString('en-US')}`;
 
 function BusinessIdeasCashTable({ rows, setRows }: { rows: IdeaRow[]; setRows: React.Dispatch<React.SetStateAction<IdeaRow[]>> }) {
-  useEffect(() => { try { localStorage.setItem(IDEAS_KEY, JSON.stringify(rows)); } catch { /* ignore */ } }, [rows]);
   const upd = (id: string, patch: Partial<IdeaRow>) => setRows((r) => r.map((x) => (x.id === id ? { ...x, ...patch } : x)));
   const num = (v: string) => Math.max(0, Number(v.replace(/[^0-9]/g, '')) || 0);
   const tot = rows.reduce((a, r) => ({ c: a.c + r.customers, i: a.i + r.cashIn, o: a.o + r.cashOut }), { c: 0, i: 0, o: 0 });
@@ -281,7 +249,7 @@ const SUMMARY: Metric[] = [
 ];
 const SUMMARY_KEY = 'rd-summary-v1';
 
-const WEEK_COLS: { key: keyof Project['week']; title: string; icon: LucideIcon }[] = [
+const WEEK_COLS: { key: RdWeekPeriod; title: string; icon: LucideIcon }[] = [
   { key: 'last', title: 'Last 7 days', icon: CalendarDays },
   { key: 'today', title: 'Today', icon: MapPin },
   { key: 'next', title: 'Next 7 days', icon: ArrowRight },
@@ -289,10 +257,29 @@ const WEEK_COLS: { key: keyof Project['week']; title: string; icon: LucideIcon }
 
 export default function RDDashboard() {
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [projectUpdates, setProjectUpdates] = useState(loadRdUpdates);
+  const [updateError, setUpdateError] = useState('');
+  const editUpdates = (name: string, updates: RdUpdate[]) => {
+    const next = { ...projectUpdates, [name]: updates };
+    try {
+      localStorage.setItem(RD_UPDATES_KEY, JSON.stringify(next));
+      setProjectUpdates(next);
+      setUpdateError('');
+    } catch { setUpdateError('The update could not be saved on this device. Please try again.'); }
+  };
+  const reportDay = kampalaTodayYmd();
   const [ideaRows, setIdeaRows] = useState<IdeaRow[]>(() => {
     try { const v = localStorage.getItem(IDEAS_KEY); if (v) return JSON.parse(v); } catch { /* ignore */ }
     return DEFAULT_IDEAS;
   });
+  const editIdeaRows: React.Dispatch<React.SetStateAction<IdeaRow[]>> = (edit) => {
+    setIdeaRows((previous) => {
+      const next = typeof edit === 'function' ? edit(previous) : edit;
+      try { localStorage.setItem(IDEAS_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  };
   const OVERVIEW = overviewMetrics(ideaRows);
   const [summaryText, setSummaryText] = useState<{ value: string; label: string }[]>(() => {
     try { const v = localStorage.getItem(SUMMARY_KEY); if (v) return JSON.parse(v); } catch { /* ignore */ }
@@ -302,6 +289,26 @@ export default function RDDashboard() {
   const summary = SUMMARY.map((s, i) => ({ ...s, ...(summaryText[i] ?? {}) }));
   const editSummary = (i: number, patch: Partial<{ value: string; label: string }>) =>
     setSummaryText(() => summary.map((s, j) => ({ value: s.value, label: s.label, ...(j === i ? patch : {}) })));
+  const [exporting, setExporting] = useState(false);
+  const exportReport = async () => {
+    setExporting(true);
+    try {
+      const { data: savedIdeas, error } = await supabase.from('rd_ideas')
+        .select('title,owner,idea_date,summary,canvas').order('created_at', { ascending: false });
+      if (error) throw error;
+      await downloadRdGeneralReport({
+        projects: PROJECTS.map((p) => ({ name: p.name, updates: projectUpdates[p.name] ?? [] })),
+        ideas: ideaRows,
+        recordedIdeas: (savedIdeas ?? []).map((idea) => ({
+          title: idea.title, owner: idea.owner, date: idea.idea_date, summary: idea.summary,
+          canvas: idea.canvas && typeof idea.canvas === 'object' && !Array.isArray(idea.canvas)
+            ? idea.canvas as Record<string, unknown> : {},
+        })),
+      });
+    } catch {
+      toast({ title: 'Could not prepare the general report', description: 'The saved ideas could not be included. Please try again.', variant: 'destructive' });
+    } finally { setExporting(false); }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -311,7 +318,10 @@ export default function RDDashboard() {
             <ArrowLeft className="h-4 w-4" />
             Back to dashboards
           </Button>
-          <WelileLogo showText={false} size="sm" linkToHome={false} className="ml-auto" />
+          <Button size="sm" className="ml-auto gap-1.5" disabled={exporting} onClick={exportReport}>
+            <Download className="h-4 w-4" />{exporting ? 'Preparing…' : 'General report'}
+          </Button>
+          <WelileLogo showText={false} size="sm" linkToHome={false} />
         </div>
       </header>
       <main className="mx-auto max-w-7xl space-y-4 px-4 py-5">
@@ -336,13 +346,14 @@ export default function RDDashboard() {
           ))}
         </div>
 
-        <BusinessIdeasCashTable rows={ideaRows} setRows={setIdeaRows} />
+        <BusinessIdeasCashTable rows={ideaRows} setRows={editIdeaRows} />
 
         <IdeaCanvasBoard />
 
         <div className="grid gap-4 lg:grid-cols-3">
-          {PROJECTS.map((p) => <ProjectCard key={p.name} p={p} />)}
+          {PROJECTS.map((p) => <ProjectCard key={p.name} p={p} cashRows={ideaRows} updates={projectUpdates[p.name] ?? []} onUpdates={(updates) => editUpdates(p.name, updates)} />)}
         </div>
+        {updateError && <p role="alert" className="text-sm text-destructive">{updateError}</p>}
 
         <div className="grid gap-4 lg:grid-cols-3">
           <div className="rounded-2xl border border-border bg-card p-4 shadow-sm lg:col-span-2">
@@ -360,7 +371,28 @@ export default function RDDashboard() {
                     {PROJECTS.map((p) => (
                       <div key={p.name} className="flex gap-2">
                         <p.icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                        <div><p className="text-xs font-semibold text-foreground">{p.name}</p><Bullets items={p.week[col.key]} /></div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-semibold text-foreground">{p.name}</p>
+                          <div className="mt-1.5 space-y-2">
+                            {rdWeeklyUpdates(projectUpdates[p.name] ?? [], col.key, reportDay).map((u) => (
+                              <div key={u.id} className="space-y-1">
+                                <Input type="date" aria-label={`${p.name} ${col.title} update date`} className="h-8 w-full text-xs" value={u.date}
+                                  onChange={(e) => editUpdates(p.name, (projectUpdates[p.name] ?? []).map((x) => x.id === u.id ? { ...x, date: e.target.value } : x))} />
+                                <div className="flex items-center gap-1">
+                                  <Input aria-label={`${p.name} ${col.title} update text`} className="h-8 min-w-0 flex-1 text-xs" placeholder="Record an update…" value={u.text}
+                                    onChange={(e) => editUpdates(p.name, (projectUpdates[p.name] ?? []).map((x) => x.id === u.id ? { ...x, text: e.target.value } : x))} />
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" aria-label={`Remove ${p.name} ${col.title} update`}
+                                    onClick={() => editUpdates(p.name, (projectUpdates[p.name] ?? []).filter((x) => x.id !== u.id))}><Trash2 className="h-3.5 w-3.5" /></Button>
+                                </div>
+                              </div>
+                            ))}
+                            {rdWeeklyUpdates(projectUpdates[p.name] ?? [], col.key, reportDay).length === 0 && <p className="text-xs text-muted-foreground">No updates recorded</p>}
+                            <Button size="sm" variant="outline" className="h-7 gap-1 px-2 text-xs" aria-label={`Add ${p.name} ${col.title} update`}
+                              onClick={() => editUpdates(p.name, [...(projectUpdates[p.name] ?? []), { id: safeUUID(), date: rdDateOffset(reportDay, col.key === 'last' ? -1 : col.key === 'next' ? 1 : 0), text: '' }])}>
+                              <Plus className="h-3 w-3" />Add update
+                            </Button>
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
