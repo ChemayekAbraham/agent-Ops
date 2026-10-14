@@ -62,6 +62,7 @@ import { AgentListingCampaignPanel } from './AgentListingCampaignPanel';
 import { DailyRentReport } from '@/components/reports/DailyRentReport';
 import { TenantSelfRepaymentsPanel } from '@/components/reporting/TenantSelfRepaymentsPanel';
 import { AgentDailyCollectionsView } from '@/components/executive/agent-ops/AgentDailyCollectionsView';
+import { NewTenantFirst7Tracker } from '@/components/executive/agent-ops/NewTenantFirst7Tracker';
 import { AgentOpsComprehensiveReport } from '@/components/executive/agent-ops/AgentOpsComprehensiveReport';
 import { AgentOpsReportWindow } from '@/components/executive/agent-ops/AgentOpsReportWindow';
 import { ReportsOverview } from '@/components/executive/agent-ops-v2/ReportsOverview';
@@ -84,7 +85,7 @@ import {
   ChevronLeft, Briefcase, TrendingUp, TrendingDown, UsersRound, PiggyBank, HandCoins, ShieldCheck, FileBarChart,
   LayoutGrid, ChevronDown, ToggleRight, Layers, Gauge, Target, Activity, Clock3
   , Coins, Megaphone, Lock, Store, MapPinned, Workflow, Package,
-  Bike, ShoppingBag, Signpost, Smartphone, PhoneCall, Loader2, Sparkles, X, ChevronRight
+  Bike, ShoppingBag, Signpost, Smartphone, PhoneCall, Loader2, Sparkles, X, ChevronRight, Sprout
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -97,7 +98,7 @@ import {
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 
-type ActiveView = null | 'general-activities' | 'agents-rent' | 'agents-bikes' | 'welile-merchandise' | 'shopping-advance' | 'business-advance' | 'agent-marketplace' | 'welile-homes' | 'agents-hope' | 'agents-space' | 'agent-ops-report' | 'comprehensive-report' | 'products-services-report' | 'sc-products' | 'pipeline' | 'directory' | 'rent-capacity' | 'connector' | 'performance' | 'lifecycle' | 'tasks' | 'escalations' | 'service-centres' | 'sc-overview' | 'sc-directory' | 'sc-payouts' | 'sc-requests' | 'sc-operating-model' | 'sub-agents' | 'promote-tenant' | 'float-payouts' | 'leaderboard' | 'earnings' | 'transfers' | 'locked-transfers' | 'advances-analytics' | 'advance-requests' | 'active-advances' | 'advance-potential' | 'advance-limits' | 'advance-repayments' | 'balances' | 'lending-agents' | 'trust-capture' | 'feature-flags' | 'bulk-ops' | 'listing-campaign' | 'daily-collections-report' | 'advance-activity-correlation' | 'agent-service-centres' | 'agent-products-services' | 'guarantor-float' | 'rent-behaviour' | 'subagent-commission-whitelist' | 'partial-collections' | 'calling-hub' | 'portfolio-performance' | 'collect-rent' | 'agent-allocations' | 'approval-history' | 'tenant-self-repayments' | 'reports-overview';
+type ActiveView = null | 'general-activities' | 'agents-rent' | 'agents-bikes' | 'welile-merchandise' | 'shopping-advance' | 'business-advance' | 'agent-marketplace' | 'welile-homes' | 'agents-hope' | 'agents-space' | 'agent-ops-report' | 'comprehensive-report' | 'products-services-report' | 'sc-products' | 'pipeline' | 'directory' | 'rent-capacity' | 'connector' | 'performance' | 'lifecycle' | 'tasks' | 'escalations' | 'service-centres' | 'sc-overview' | 'sc-directory' | 'sc-payouts' | 'sc-requests' | 'sc-operating-model' | 'sub-agents' | 'promote-tenant' | 'float-payouts' | 'leaderboard' | 'earnings' | 'transfers' | 'locked-transfers' | 'advances-analytics' | 'advance-requests' | 'active-advances' | 'advance-potential' | 'advance-limits' | 'advance-repayments' | 'balances' | 'lending-agents' | 'trust-capture' | 'feature-flags' | 'bulk-ops' | 'listing-campaign' | 'daily-collections-report' | 'first7-tracker' | 'advance-activity-correlation' | 'agent-service-centres' | 'agent-products-services' | 'guarantor-float' | 'rent-behaviour' | 'subagent-commission-whitelist' | 'partial-collections' | 'calling-hub' | 'portfolio-performance' | 'collect-rent' | 'agent-allocations' | 'approval-history' | 'tenant-self-repayments' | 'reports-overview';
 
 const NAV_ITEMS: { key: ActiveView; icon: any; label: string; color: string; priority?: boolean }[] = [
   { key: 'general-activities', icon: Activity, label: 'General Agents Activities', color: 'bg-primary' },
@@ -120,6 +121,7 @@ const NAV_ITEMS: { key: ActiveView; icon: any; label: string; color: string; pri
   { key: 'advance-potential', icon: Target, label: 'Advance Potential', color: 'bg-purple-700', priority: true },
   { key: 'advance-activity-correlation', icon: BarChart3, label: 'Advance vs Activity', color: 'bg-purple-600', priority: true },
   { key: 'daily-collections-report', icon: FileBarChart, label: 'Daily Rent Collections', color: 'bg-emerald-700', priority: true },
+  { key: 'first7-tracker', icon: Sprout, label: 'First 7 Days Tracker', color: 'bg-emerald-700', priority: true },
   { key: 'partial-collections', icon: AlertTriangle, label: 'Partial Collections', color: 'bg-amber-800', priority: true },
   { key: 'advance-limits', icon: Coins, label: 'Advance Limits', color: 'bg-emerald-800', priority: true },
   { key: 'advance-repayments', icon: TrendingDown, label: 'Repayments', color: 'bg-emerald-700', priority: true },
@@ -515,6 +517,12 @@ export function AgentOpsDashboard() {
           </details>
         </div>
       );
+      case 'first7-tracker':
+        return (
+          <div className="space-y-4">
+            <NewTenantFirst7Tracker />
+          </div>
+        );
       case 'agents-space': return <AgentsSpacePanel mode="ops" onBack={() => setActiveView(null)} />;
       case 'general-activities': return <AgentOpsOverview onOpenSection={handleOpenSection} />;
       case 'agents-rent': return <AgentCollectionsCommandCenter />;
@@ -687,7 +695,7 @@ export function AgentOpsDashboard() {
   const MORE_GROUPS: { title: string; keys: ActiveView[] }[] = [
     { title: "Agents' Space", keys: ['agents-space'] },
     { title: 'Agents', keys: ['directory', 'performance', 'sub-agents', 'subagent-commission-whitelist', 'bulk-ops', 'trust-capture', 'feature-flags'] },
-    { title: 'Field Operations', keys: ['pipeline', 'rent-capacity', 'rent-behaviour', 'daily-collections-report', 'calling-hub', 'tasks', 'escalations', 'connector'] },
+    { title: 'Field Operations', keys: ['pipeline', 'rent-capacity', 'rent-behaviour', 'daily-collections-report', 'first7-tracker', 'calling-hub', 'tasks', 'escalations', 'connector'] },
     { title: 'Service Centers', keys: ['sc-overview', 'service-centres', 'sc-directory', 'sc-payouts', 'sc-requests', 'sc-operating-model', 'sc-products'] },
     { title: 'Agent Products & Services', keys: ['agent-products-services'] },
     { title: 'Financials', keys: ['balances', 'float-payouts', 'earnings', 'locked-transfers'] },
@@ -1166,7 +1174,7 @@ function AgentOpsSideNav({
   const SIDE_GROUPS: { title: string; keys: ActiveView[]; pinned?: boolean; defaultOpen?: boolean }[] = [
     { title: "Agents' Space", defaultOpen: true, keys: ['agents-space'] },
     { title: 'Agents', defaultOpen: false, keys: ['directory', 'performance', 'sub-agents', 'subagent-commission-whitelist', 'bulk-ops', 'trust-capture', 'feature-flags'] },
-    { title: 'Field Operations', defaultOpen: false, keys: ['pipeline', 'rent-capacity', 'rent-behaviour', 'daily-collections-report', 'partial-collections', 'tasks', 'escalations', 'connector', 'guarantor-float'] },
+    { title: 'Field Operations', defaultOpen: false, keys: ['pipeline', 'rent-capacity', 'rent-behaviour', 'daily-collections-report', 'first7-tracker', 'partial-collections', 'tasks', 'escalations', 'connector', 'guarantor-float'] },
     { title: 'Service Centers', keys: ['sc-overview', 'service-centres', 'sc-directory', 'sc-payouts', 'sc-requests', 'sc-operating-model', 'sc-products'] },
     { title: 'Agent Products & Services', keys: ['agent-products-services'] },
     { title: 'Financials', keys: ['balances', 'float-payouts', 'earnings', 'locked-transfers'] },
