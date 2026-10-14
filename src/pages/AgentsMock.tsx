@@ -192,20 +192,41 @@ export default function AgentsMock() {
   const paidTenants = payingTenants.filter(t => Number(t.today_paid_amount) > 0);
   const displayTenants = tenantFilter === 'paid' ? paidTenants : payingTenants;
   const tenantIds = tenantRows.map(t => t.id);
+  // A tenant's photo comes from the profile, and falls back to the passport
+  // photo captured with their Rent Request (the same fallback the server-side
+  // tenant views use) — many tenants only have the request photo.
   const { data: tenantPhotos = {} } = useQuery({
     queryKey: ['agents-mock-tenant-photos', user?.id, tenantIds.join(',')],
     enabled: tenantIds.length > 0,
     staleTime: 50 * 60_000,
     queryFn: async () => {
-      const { data } = await supabase.from('profiles').select('id, avatar_url').in('id', tenantIds);
-      const photos: Record<string, string> = {};
-      await Promise.all((data ?? []).map(async row => {
-        if (!row.avatar_url) return;
-        const match = row.avatar_url.match(/\/avatars\/([^?]+)/);
+      const [profRes, reqRes] = await Promise.all([
+        supabase.from('profiles').select('id, avatar_url').in('id', tenantIds),
+        supabase.from('rent_requests')
+          .select('tenant_id, tenant_photo_url, created_at')
+          .in('tenant_id', tenantIds)
+          .not('status', 'in', '("rejected","deleted_by_agent")')
+          .not('tenant_photo_url', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(2000),
+      ]);
+      const fallback = new Map<string, string>();
+      (reqRes.data ?? []).forEach(r => {
+        if (r.tenant_photo_url && !fallback.has(r.tenant_id)) fallback.set(r.tenant_id, r.tenant_photo_url);
+      });
+      const resolve = async (id: string, raw: string) => {
+        const match = raw.match(/\/avatars\/([^?]+)/);
         if (match?.[1]) {
           const { data: signed } = await supabase.storage.from('avatars').createSignedUrl(decodeURIComponent(match[1]), 3600);
-          if (signed?.signedUrl) photos[row.id] = signed.signedUrl;
-        } else photos[row.id] = row.avatar_url;
+          if (signed?.signedUrl) photos[id] = signed.signedUrl;
+        } else photos[id] = raw;
+      };
+      const photos: Record<string, string> = {};
+      const profById = new Map((profRes.data ?? []).map(row => [row.id, row.avatar_url]));
+      const ids = new Set<string>([...profById.keys(), ...fallback.keys()]);
+      await Promise.all(Array.from(ids).map(async id => {
+        const raw = profById.get(id) || fallback.get(id);
+        if (raw) await resolve(id, raw);
       }));
       return photos;
     },
@@ -288,7 +309,7 @@ export default function AgentsMock() {
                     : { label: 'Paid up', chip: 'bg-success/10 text-success' };
                 return <li key={t.id}>
                   <Button variant="ghost" onClick={() => setSelectedTenantId(t.id)} className="h-auto min-h-[72px] w-full justify-start gap-2.5 rounded-2xl border-2 border-border/60 bg-card px-3 py-3 text-left transition-all hover:bg-card active:scale-[0.97] sm:gap-3">
-                    <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-bold sm:h-11 sm:w-11 sm:text-base', state.chip)}>{tenantPhotos[t.id] ? <img src={tenantPhotos[t.id]} alt="" className="h-full w-full object-cover" onError={e => { e.currentTarget.style.display = 'none'; }} /> : firstLetter(t.full_name)}</span>
+                    <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-bold sm:h-11 sm:w-11 sm:text-base', state.chip)}>{tenantPhotos[t.id] ? <img src={tenantPhotos[t.id]} alt="" className="h-full w-full object-cover" onError={e => { const el = e.currentTarget; el.style.display = 'none'; if (el.parentElement) el.parentElement.textContent = firstLetter(t.full_name); }} /> : firstLetter(t.full_name)}</span>
                     <span className="min-w-0 flex-1 whitespace-normal text-left"><span className="block truncate text-[13px] font-bold sm:text-sm">{t.full_name}</span><span className="mt-1 flex items-center gap-1 truncate text-[11px] text-muted-foreground sm:text-xs"><Phone className="h-3 w-3 shrink-0" />{t.phone || 'Phone not recorded'}</span></span>
                     <span className="flex shrink-0 flex-col items-end text-right"><span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground sm:text-[10px]">Repaid today</span><span className={cn('mt-0.5 text-[11px] font-bold tabular-nums sm:text-sm', paidToday > 0 ? 'text-success' : 'text-muted-foreground')}>{formatUGX(paidToday)}</span><span className={cn('mt-0.5 text-[10px] font-semibold tabular-nums text-muted-foreground sm:text-xs', pct !== null && pct < 50 && 'text-destructive')}>{pct === null ? '—' : `${pct}%`}</span></span>
                   </Button>
@@ -307,7 +328,7 @@ export default function AgentsMock() {
             </section>
             <div className="mt-3 flex flex-wrap gap-3 text-[11px] text-muted-foreground">{[{ name: 'Paid', color: 'bg-success' }, { name: 'Partial', color: 'bg-success/35' }, { name: 'Missed', color: 'bg-destructive' }].map(item => <span key={item.name} className="flex items-center gap-2"><span className={cn('h-2.5 w-2.5 rounded-full', item.color)} />{item.name}</span>)}</div>
             <div aria-live="polite" className="mt-3 rounded-2xl bg-muted p-4"><div className="flex flex-wrap justify-between gap-2"><h3 className="text-sm font-semibold">{dateLabel}</h3><span className="text-sm font-semibold text-success">{formatUGX(selected?.total ?? 0)}</span></div>
-              {detailRows.length ? <ul className="mt-3 divide-y divide-border">{detailRows.map(row => <li key={row.id} className="flex items-center gap-3 py-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">{firstLetter(tenantRows.find(t => t.id === row.tenant_id)?.full_name)}</span><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{tenantRows.find(t => t.id === row.tenant_id)?.full_name || 'Tenant details unavailable'}</p><p className="text-xs text-muted-foreground">{tenantRows.find(t => t.id === row.tenant_id)?.phone || 'Phone not recorded'}</p></div><div className="text-right"><p className="text-sm font-semibold tabular-nums">{formatUGX(row.amount)}</p><p className="text-xs text-muted-foreground">{row.is_partial ? 'Partial payment' : 'Payment recorded'}</p></div></li>)}</ul> : <p className="py-5 text-sm text-muted-foreground">{collectionsLoading ? 'Loading collections…' : collectionsFailed ? 'Collections unavailable.' : dayStatus(day) === 'missed' ? 'No payments recorded. Individual missed-tenant details are not available for this date.' : 'No collections recorded for this date.'}</p>}
+              {detailRows.length ? <ul className="mt-3 divide-y divide-border">{detailRows.map(row => <li key={row.id} className="flex items-center gap-3 py-3">{(() => { const t = tenantRows.find(x => x.id === row.tenant_id); const photo = tenantPhotos[row.tenant_id]; return <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-sm font-semibold text-primary">{photo ? <img src={photo} alt="" className="h-full w-full object-cover" onError={e => { const el = e.currentTarget; el.style.display = 'none'; if (el.parentElement) el.parentElement.textContent = firstLetter(t?.full_name); }} /> : firstLetter(t?.full_name)}</span>; })()}<div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{tenantRows.find(t => t.id === row.tenant_id)?.full_name || 'Tenant details unavailable'}</p><p className="text-xs text-muted-foreground">{tenantRows.find(t => t.id === row.tenant_id)?.phone || 'Phone not recorded'}</p></div><div className="text-right"><p className="text-sm font-semibold tabular-nums">{formatUGX(row.amount)}</p><p className="text-xs text-muted-foreground">{row.is_partial ? 'Partial payment' : 'Payment recorded'}</p></div></li>)}</ul> : <p className="py-5 text-sm text-muted-foreground">{collectionsLoading ? 'Loading collections…' : collectionsFailed ? 'Collections unavailable.' : dayStatus(day) === 'missed' ? 'No payments recorded. Individual missed-tenant details are not available for this date.' : 'No collections recorded for this date.'}</p>}
               {selectedRows.length > 0 && <div className="mt-3 flex flex-wrap items-center justify-between gap-3"><p className="text-xs text-muted-foreground">Showing {detailPage * 10 + 1}–{Math.min((detailPage + 1) * 10, selectedRows.length)} of {selectedRows.length} collections</p><div className="flex gap-2"><Button variant="outline" size="icon" aria-label="Previous results" disabled={detailPage === 0} onClick={() => setDetailPage(p => p - 1)}><ChevronLeft className="h-4 w-4" /></Button><Button variant="outline" size="icon" aria-label="Next results" disabled={(detailPage + 1) * 10 >= selectedRows.length} onClick={() => setDetailPage(p => p + 1)}><ChevronRight className="h-4 w-4" /></Button></div></div>}
             </div>
           </div>
