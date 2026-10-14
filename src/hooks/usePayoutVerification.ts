@@ -11,6 +11,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { publishAvatarUpdate } from '@/lib/avatarSync';
+import { notifyNationalIdHolder } from '@/hooks/useNationalIdLink';
 import {
   readNationalIdBackPhotoFromPath,
   type NationalIdBackDetails,
@@ -481,12 +482,17 @@ export function useSubmitNationalId() {
         p_id_name: input.idName,
       });
       if (error) throw new Error(error.message);
-      const res = (data ?? {}) as { success?: boolean; message?: string };
+      const res = (data ?? {}) as {
+        success?: boolean; message?: string; pending_review?: boolean; link_request_id?: string | null;
+      };
       if (!res.success) throw new Error(res.message || 'Could not save your National ID.');
+      // The ID is held by another account: the holder is told, with their code.
+      if (res.pending_review) void notifyNationalIdHolder(res.link_request_id);
       return res;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['profile'] });
+      qc.invalidateQueries({ queryKey: ['my-national-id'] });
       qc.invalidateQueries({ queryKey: ['my-payout-destinations'] });
     },
   });

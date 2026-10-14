@@ -40,6 +40,9 @@ import { RentDeskControls } from '@/components/rent-desk/RentDeskControls';
 import { PaymentLabelChip } from '@/components/rent-desk/PaymentLabelChip';
 import { RENT_DESK_SORTS, RENT_DESK_SORT_LABELS, type RentDeskSort } from '@/lib/rentDeskFilters';
 import { groupPayoutRows } from '@/lib/payoutDeskGrouping';
+import { RenewalListTags, RenewalReviewPanel } from '@/components/rent/RenewalReviewPanel';
+import { AboveSuggestionToggle } from '@/components/rent/AboveSuggestionToggle';
+import { useAboveSuggestionFilter } from '@/hooks/useAboveSuggestionFilter';
 
 const fmt = (n: number) => `UGX ${Math.round(Number(n) || 0).toLocaleString('en-US')}`;
 
@@ -70,6 +73,17 @@ interface ApprovedRentItem {
   loc_village: string | null;
   loc_region: string | null;
   loc_house_category: string | null;
+  /** Renewals: what changed and why, as the agent filed it and the server advised (rent_requests.renewal_*). */
+  registration_type?: string | null;
+  duration_days?: number | null;
+  renewal_previous_rent?: number | null;
+  renewal_previous_days?: number | null;
+  renewal_advice_snapshot?: unknown;
+  renewal_above_suggestion?: boolean | null;
+  renewal_above_by?: number | null;
+  renewal_change_reason_code?: string | null;
+  renewal_change_explanation?: string | null;
+  renewal_evidence_url?: string | null;
   /**
    * Set when a partner has claimed / committed / already funded this plan
    * (self-managed funding). Such rows stay visible but can never be ticked —
@@ -159,7 +173,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
       // Get COO-approved rent requests
       const { data: requests, error } = await supabase
         .from('rent_requests')
-        .select('id, rent_amount, tenant_id, landlord_id, agent_id, assigned_agent_id, access_fee, request_fee, total_repayment, created_at, request_country, request_city, house_listing_id')
+        .select('id, rent_amount, tenant_id, landlord_id, agent_id, assigned_agent_id, access_fee, request_fee, total_repayment, created_at, request_country, request_city, house_listing_id, duration_days, registration_type, renewal_previous_rent, renewal_previous_days, renewal_advice_snapshot, renewal_above_suggestion, renewal_above_by, renewal_change_reason_code, renewal_change_explanation, renewal_evidence_url')
         .eq('status', 'coo_approved')
         .order('created_at', { ascending: true });
       if (error) throw error;
@@ -256,6 +270,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
   // first by default; newest / oldest are one click away) and says which match the paying-label and arrival filters. Display
   // order and visibility only: what can be selected and every payment step below are unchanged. Sort and filters live in the URL.
   const deskUrl = useRentDeskUrlState();
+  const { only: aboveOnly, setOnly: setAboveOnly } = useAboveSuggestionFilter();
   const itemIds = useMemo(() => items.map(i => i.id), [items]);
   const deskOrder = useRentDeskOrder(itemIds, deskUrl.sort, deskUrl.filters);
   const scoredItems = useMemo(() => withRentDeskScores(items, deskOrder.data), [items, deskOrder.data]);
@@ -299,6 +314,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
     const q = search.trim().toLowerCase();
     return filterByRentDesk(scoredItems, deskOrder.data).filter(it => {
       if (restrictSet && !restrictSet.has(it.id)) return false;
+      if (aboveOnly && !it.renewal_above_suggestion) return false;
       if (cutoff !== null && new Date(it.created_at).getTime() < cutoff) return false;
       if (districtFilter !== 'all' && ((it.request_district || '').trim() || 'Unknown') !== districtFilter) return false;
       if (cityFilter !== 'all' && ((it.request_city || '').trim() || 'Unknown') !== cityFilter) return false;
@@ -309,7 +325,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
       }
       return true;
     });
-  }, [scoredItems, deskOrder.data, dateFilter, search, restrictSet, districtFilter, cityFilter, catField, catValue]);
+  }, [scoredItems, deskOrder.data, dateFilter, search, restrictSet, districtFilter, cityFilter, catField, catValue, aboveOnly]);
 
   // Category option list for the currently chosen category type.
   const catOptions = useMemo(() => {
@@ -650,6 +666,12 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
             totalCount={deskOrder.data?.totalCount}
             error={deskOrder.isError}
           />
+          <AboveSuggestionToggle
+            className="mt-2"
+            on={aboveOnly}
+            onChange={(on) => { setAboveOnly(on); setSelected(new Set()); }}
+            count={items.filter((i) => i.renewal_above_suggestion).length}
+          />
         </div>
         {showLoading ? (
           <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
@@ -970,6 +992,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                               <div className="flex items-center gap-1.5 min-w-0">
                                 <span className={cn('truncate', isSel ? 'font-bold' : 'font-semibold')}>{item.tenant_name}</span>
                                 <PaymentLabelChip label={(item as RentDeskScoreFields).payment_label} score={(item as RentDeskScoreFields).payment_score} reason={(item as RentDeskScoreFields).payment_reason} showReason={false} />
+                                <RenewalListTags request={{ ...item, duration_days: item.duration_days ?? 0 }} />
                                 {isNew && (
                                   <Badge className="text-[9px] px-1.5 py-0 shrink-0 bg-emerald-500 text-white border-0">
                                     NEW
@@ -1170,6 +1193,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
 
               {/* Tenant status first: renewal vs new tenant, with existing payment history */}
               <TenantPaymentHistoryCard tenantId={reviewTarget.tenant_id} currentRequestId={reviewTarget.id} />
+              <RenewalReviewPanel request={{ ...reviewTarget, duration_days: reviewTarget.duration_days ?? 0 }} />
               <LandlordAgreementHistory
                 landlordId={reviewTarget.landlord_id}
                 landlordName={reviewTarget.landlord_name}

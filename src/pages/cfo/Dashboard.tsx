@@ -28,6 +28,7 @@ import RoiDisbursementReportPanel from '@/components/cfo/RoiDisbursementReportPa
 import RentDisbursementReportPanel from '@/components/cfo/RentDisbursementReportPanel';
 import MerchantFloatRequisitionReportPanel from '@/components/cfo/MerchantFloatRequisitionReportPanel';
 import EmployeeRequisitionReportPanel from '@/components/cfo/EmployeeRequisitionReportPanel';
+import ApprovedRequisitionsPayoutPanel from '@/components/cfo/ApprovedRequisitionsPayoutPanel';
 import ExpenseReportPanel from '@/components/cfo/ExpenseReportPanel';
 import SmsOtpCostsPanel from '@/components/cfo/SmsOtpCostsPanel';
 import CFOWeeklyReportPanel from '@/components/cfo/CFOWeeklyReportPanel';
@@ -616,6 +617,8 @@ export default function CFODashboardPage() {
         return <RentDisbursementReportPanel />;
       case 'merchant-requisition-report':
         return <MerchantFloatRequisitionReportPanel />;
+      case 'approved-requisitions':
+        return <ApprovedRequisitionsPayoutPanel />;
       case 'employee-requisition-report':
         return <EmployeeRequisitionReportPanel />;
       case 'expense-report':

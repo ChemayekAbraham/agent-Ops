@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { ArrowRight, Bell, UserPlus, Calculator, CheckCircle2, ChevronLeft, ChevronRight, FileText, LogOut, Plus, Home, Menu, Repeat, Settings, Store, Trophy, UserRound, Users, Wallet, type LucideIcon } from 'lucide-react';
+import { ArrowRight, Bell, UserPlus, Calculator, CheckCircle2, ChevronLeft, ChevronRight, FileText, LogOut, Plus, Home, Menu, Repeat, Settings, Store, Trophy, UserRound, Users, Wallet, Briefcase, Building2, Crown, Landmark, Megaphone, Cog, ShieldCheck, HandCoins, Headset, Code2, FlaskConical, KeyRound, HeartHandshake, ClipboardList, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import RentCalculatorDialog from '@/components/agent/RentCalculatorDialog';
 import { SubAgentInviteLinkDialog } from '@/components/agent/SubAgentInviteLinkDialog';
@@ -17,8 +17,10 @@ import type { AppRole } from '@/hooks/auth/types';
 import { roleDashboardRoutes } from '@/components/layout/executiveSidebarConfig';
 import { roleToSlug } from '@/lib/roleRoutes';
 import { useAgentCapacityMap } from '@/hooks/useAgentCapacityMap';
+import { deriveAgentBadges, BADGE_CLASS } from '@/lib/agentBadges';
 import { useAgentArrears } from '@/hooks/useAgentArrears';
 import { TenantProfileView } from '@/components/agent/TenantProfileView';
+import welileLogoAsset from '@/assets/welcome-new/welile-logo.png.asset.json';
 
 const SHORTCUTS: { label: string; Icon: LucideIcon; color: string; to?: string }[] = [
   { label: 'Rent Calculator', Icon: Calculator, color: 'text-primary', },
@@ -41,6 +43,16 @@ const ROLE_LABELS: Record<string, string> = {
   hr: 'HR', access_admin: 'Access Admin', rd: 'R&D',
   financial_ops: 'Financial Ops', agent_ops: 'Agent Ops', landlord_ops: 'Landlord Ops',
   tenant_ops: 'Tenant Ops', partner_ops: 'Partner Ops',
+};
+
+/** One icon per role so the switcher reads at a glance. */
+const ROLE_ICONS: Record<string, LucideIcon> = {
+  tenant: Home, agent: UserRound, landlord: Building2, supporter: HeartHandshake,
+  manager: Briefcase, ceo: Crown, coo: Cog, cfo: Landmark, cto: Code2, cmo: Megaphone,
+  crm: Headset, employee: Users, operations: Cog, super_admin: ShieldCheck,
+  hr: Users, access_admin: KeyRound, rd: FlaskConical,
+  financial_ops: HandCoins, agent_ops: ClipboardList, landlord_ops: Building2,
+  tenant_ops: Home, partner_ops: HeartHandshake,
 };
 
 /**
@@ -189,8 +201,53 @@ export default function AgentsMock() {
   });
   const liveTenants = tenantRows.filter(t => t.statuses?.some(status => ['repaying', 'funded', 'disbursed'].includes(status)));
   const payingTenants = liveTenants.filter(t => !t.payment_states?.length || t.payment_states.some(state => state !== 'not_paying'));
-  const paidTenants = payingTenants.filter(t => Number(t.today_paid_amount) > 0);
-  const displayTenants = tenantFilter === 'paid' ? paidTenants : payingTenants;
+  // Payments recorded through the agent's float (agent_collections) do not appear in
+  // repayments, so count today's collections as well.
+  const { data: todayCollections = [] } = useQuery({
+    queryKey: ['agents-mock-today-collections', user?.id, todayKey],
+    enabled: Boolean(user?.id),
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.from('agent_collections').select('tenant_id, amount')
+        .eq('agent_id', user?.id ?? '').is('reversed_at', null)
+        .gte('created_at', `${todayKey}T00:00:00+03:00`).limit(5000);
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
+  const collectedTodayByTenant = new Map<string, number>();
+  todayCollections.forEach(r => collectedTodayByTenant.set(r.tenant_id, (collectedTodayByTenant.get(r.tenant_id) ?? 0) + (Number(r.amount) || 0)));
+  const paidTodayOf = (t: { id: string; today_paid_amount?: number | null }) => Math.max(Number(t.today_paid_amount ?? 0), collectedTodayByTenant.get(t.id) ?? 0);
+  // Weekly-plan tenants clear for the week once the last 7 days (today included)
+  // cover 7 daily amounts; daily-plan tenants clear for the day.
+  const payingIds = payingTenants.map(t => t.id);
+  const { data: weeklyInfo } = useQuery({
+    queryKey: ['agents-mock-weekly-cleared', user?.id, todayKey, payingIds.join(',')],
+    enabled: Boolean(user?.id) && payingIds.length > 0,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const ids = payingIds.slice(0, 1000);
+      const weekStart = new Date(new Date(`${todayKey}T00:00:00+03:00`).getTime() - 6 * 86400_000).toISOString();
+      const [plans, cols] = await Promise.all([
+        supabase.from('rent_requests').select('tenant_id').in('tenant_id', ids).eq('repayment_frequency', 'weekly').in('status', ['repaying', 'funded', 'disbursed']),
+        supabase.from('agent_collections').select('tenant_id, amount').eq('agent_id', user?.id ?? '').is('reversed_at', null).in('tenant_id', ids).gte('created_at', weekStart).limit(5000),
+      ]);
+      if (plans.error) throw plans.error;
+      if (cols.error) throw cols.error;
+      const weekPaid: Record<string, number> = {};
+      (cols.data ?? []).forEach(r => { weekPaid[r.tenant_id] = (weekPaid[r.tenant_id] ?? 0) + (Number(r.amount) || 0); });
+      return { weekly: new Set((plans.data ?? []).map(r => r.tenant_id)), weekPaid };
+    },
+  });
+  const isCleared = (t: { id: string; daily?: number | null; today_paid_amount?: number | null }) => {
+    const daily = Number(t.daily) || 0;
+    if (daily <= 0) return false;
+    if (weeklyInfo?.weekly.has(t.id)) return Math.max(weeklyInfo.weekPaid[t.id] ?? 0, paidTodayOf(t)) >= daily * 7;
+    return paidTodayOf(t) >= daily;
+  };
+  const paidTenants = payingTenants.filter(t => paidTodayOf(t) > 0);
+  const collectingTenants = payingTenants.filter(t => !isCleared(t));
+  const displayTenants = tenantFilter === 'paid' ? paidTenants : collectingTenants;
   const tenantIds = tenantRows.map(t => t.id);
   // A tenant's photo comes from the profile, and falls back to the passport
   // photo captured with their Rent Request (the same fallback the server-side
@@ -247,27 +304,50 @@ export default function AgentsMock() {
     partial: 'bg-success/35 text-foreground',
     missed: 'bg-destructive text-destructive-foreground',
   };
-  const selected = byDay.get(day);
   const monthlyExpected = (historyRows ?? []).reduce((sum, row) => sum + (row.day === todayKey ? 0 : Number(row.expected_daily) || 0), 0)
     + (todayKey.startsWith(monthStart.slice(0, 7)) ? EXPECTED_TODAY : 0);
   const monthlyCollected = (monthRows ?? []).reduce((sum, row) => sum + Number(row.amount), 0);
   const expected = period === 'today' ? EXPECTED_TODAY : monthlyExpected;
   const collected = period === 'today' ? cap?.paid_today ?? 0 : monthlyCollected;
+  // The collections figure the card's bubble motion keys on: the bar grows from
+  // zero to this percentage every time a period is opened or reloaded, and the
+  // figure itself pops in when it stops loading.
+  const collectLoading = period === 'month' && (collectionsFailed || collectionsLoading || historyFailed || historyLoading);
+  const collectPct = !collectLoading && Number(expected) > 0 ? Math.min(100, Math.round(Number(collected) / Number(expected) * 100)) : 0;
+  const [fillPct, setFillPct] = useState(0);
+  useEffect(() => {
+    setFillPct(0);
+    const id = window.setTimeout(() => setFillPct(collectPct), 180);
+    return () => window.clearTimeout(id);
+  }, [collectPct, period]);
   const selectedRows = (monthRows ?? []).filter(row => new Date(new Date(row.created_at).getTime() + 3 * 3600_000).getUTCDate() === day);
   const detailRows = selectedRows.slice(detailPage * 10, detailPage * 10 + 10);
+  // Tenants still repaying who paid nothing / less than their daily amount on the selected day.
+  const selectedDateKey = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  const dayIsFuture = selectedDateKey > todayKey;
+  const paidOnDay = new Map<string, number>();
+  selectedRows.forEach(r => paidOnDay.set(r.tenant_id, (paidOnDay.get(r.tenant_id) ?? 0) + (Number(r.amount) || 0)));
+  const dayTenantStatus = dayIsFuture ? [] : payingTenants.map(t => {
+    const paid = paidOnDay.get(t.id) ?? 0; const due = Number(t.daily) || 0;
+    return { t, paid, due, state: paid <= 0 ? 'unpaid' as const : (due > 0 && paid < due) || selectedRows.some(r => r.tenant_id === t.id && r.is_partial) ? 'partial' as const : 'paid' as const };
+  }).filter(x => x.state !== 'paid');
+  // What the agent did not collect on the selected day: every tenant still
+  // repaying who paid nothing or less than their daily amount, counted short by
+  // (due - paid) -- the same rows the 'Not paid or partly paid' list shows.
+  const missedOnDay = dayTenantStatus.reduce((sum, x) => sum + Math.max(0, x.due - x.paid), 0);
   const todayPaidCount = cap?.tenants_paid_today ?? 0;
   const openRequest = () => navigate('/dashboard/agent?action=post-rent-request');
   const dateLabel = new Date(month.getFullYear(), month.getMonth(), day).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
   return (
-    <div className="agents-mock-exact min-h-screen pb-24 font-sans text-foreground tracking-normal">
+    <div className="agents-mock-exact min-h-screen overflow-x-hidden pb-24 font-sans text-foreground tracking-normal">
       <Helmet><title>Agent dashboard · Welile</title><meta name="robots" content="noindex,nofollow" /></Helmet>
       <div className="mx-auto max-w-6xl">
-        <header className="flex items-center justify-between gap-3 rounded-none border-0 shadow-none bg-[var(--mock-header)] px-4 pb-4 pt-5 text-primary-foreground sm:px-6">
-          <div className="min-w-0"><p className="text-xs font-medium text-primary-foreground/80">Welcome back</p><h1 className="truncate text-xl font-semibold text-primary-foreground">{profile?.full_name?.split(' ')[0] || 'Your dashboard'}</h1></div>
+        <header className="flex items-center justify-between gap-3 rounded-none border-0 shadow-none bg-[var(--mock-header)] px-4 py-2 text-primary-foreground sm:px-6">
+          <h1 className="min-w-0"><img src={welileLogoAsset.url} alt="Welile" className="h-8 w-auto brightness-0 invert" /></h1>
           <div className="flex gap-2"><Button variant="ghost" size="icon" aria-label="Notifications" onClick={() => setNotice('Notifications')} className="text-primary-foreground hover:bg-primary-foreground/15 hover:text-primary-foreground"><Bell className="h-5 w-5" /></Button><Popover open={profileOpen} onOpenChange={open => { setProfileOpen(open); if (!open) setRolePickerOpen(false); }}><PopoverTrigger asChild><Button variant="outline" size="icon" aria-label="Your profile" className="overflow-hidden rounded-full border-primary-foreground/40 bg-primary-foreground/10 text-primary-foreground">{avatarSrc && brokenAvatar !== avatarSrc ? <img src={avatarSrc} alt="" onError={() => setBrokenAvatar(avatarSrc)} className="h-full w-full object-cover" /> : initials}</Button></PopoverTrigger><PopoverContent align="end" sideOffset={10} className="relative w-56 rounded-xl p-1.5"><span aria-hidden className="absolute -top-1.5 right-5 h-3 w-3 rotate-45 border-l border-t border-border bg-popover" />
             {rolePickerOpen ? <>
               <Button variant="ghost" onClick={() => setRolePickerOpen(false)} className="h-11 w-full justify-start gap-2.5 rounded-lg px-2 text-sm font-medium"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted/60"><ChevronLeft className="h-4 w-4" /></span>Switch role</Button>
-              <div className="max-h-64 overflow-y-auto">{roles.map(r => { const label = ROLE_LABELS[r] ?? r; return <Button key={r} variant="ghost" disabled={r === role} onClick={() => pickRole(r)} className={cn('h-11 w-full justify-start gap-2.5 rounded-lg px-2 text-sm font-medium', r === role && 'bg-primary/10 text-primary')}><span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-[10px] font-bold', r === role ? 'bg-primary/20 text-primary' : 'bg-muted/60')}>{label.split(' ').map(w => w[0]).join('').slice(0, 2).toUpperCase()}</span>{label}{r === role && <CheckCircle2 className="ml-auto h-4 w-4 text-primary" />}</Button>; })}</div>
+              <div className="max-h-64 overflow-y-auto">{roles.map(r => { const label = ROLE_LABELS[r] ?? r; return <Button key={r} variant="ghost" disabled={r === role} onClick={() => pickRole(r)} className={cn('h-11 w-full justify-start gap-2.5 rounded-lg px-2 text-sm font-medium', r === role && 'bg-primary/10 text-primary')}><span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-md', r === role ? 'bg-primary text-primary-foreground' : 'bg-primary/10 text-primary')}>{(() => { const RI = ROLE_ICONS[r] ?? UserRound; return <RI className="h-4 w-4" />; })()}</span>{label}{r === role && <CheckCircle2 className="ml-auto h-4 w-4 text-primary" />}</Button>; })}</div>
             </> : <>
               {PROFILE_MENU.map(({ label, Icon, to }) => <Button key={label} variant="ghost" onClick={() => { setProfileOpen(false); navigate(to); }} className="h-11 w-full justify-start gap-2.5 rounded-lg px-2 text-sm font-medium"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted/60"><Icon className="h-4 w-4" /></span>{label}<ChevronRight className="ml-auto h-4 w-4 text-muted-foreground" /></Button>)}
               {roles.length > 1 && <Button variant="ghost" onClick={() => setRolePickerOpen(true)} className="h-11 w-full justify-start gap-2.5 rounded-lg px-2 text-sm font-medium"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted/60"><Repeat className="h-4 w-4" /></span>Switch role<ChevronRight className="ml-auto h-4 w-4 text-muted-foreground" /></Button>}
@@ -276,30 +356,50 @@ export default function AgentsMock() {
           </PopoverContent></Popover></div>
         </header>
         <main className="space-y-4 px-4 sm:px-6">
-          <section aria-labelledby="post-cta-heading" className="rounded-xl border border-primary/20 bg-primary/5 p-4 shadow-sm">
+          <div className="mock-bubble-in pb-2 pt-5">
+            {(() => { const h = Number(new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hour12: false, timeZone: 'Africa/Kampala' }).format(new Date())); const g = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'; const name = (profile?.full_name || '').trim().split(/\s+/)[0] || 'there'; return <h1 className="text-xl font-bold tracking-tight text-foreground">{g}, {name} <span aria-hidden>👋</span></h1>; })()}
+            <p className="mt-1 text-sm text-muted-foreground">Here's how your tenants are doing today.</p>
+          </div>
+          <section aria-labelledby="post-cta-heading" className="mock-bubble-in rounded-xl border border-primary/20 bg-primary/5 p-4 shadow-sm" style={{ animationDelay: '70ms' }}>
             <div className="flex flex-wrap items-center justify-between gap-3 lg:flex-nowrap">
               <div className="min-w-0"><p className="text-[11px] font-semibold uppercase tracking-wide text-primary">Grow your earnings</p><h2 id="post-cta-heading" className="mt-0.5 text-lg font-bold leading-tight">Add tenant, earn at every step</h2></div>
               <Button onClick={openRequest} className="h-12 w-full gap-2 rounded-lg px-5 text-sm font-semibold shadow-sm sm:w-auto"><Plus className="h-4 w-4" />Post Rent Request<ArrowRight className="h-4 w-4" /></Button>
             </div>
-            <ol className="relative mt-4 grid grid-cols-3" aria-label="How you earn">
-              <span aria-hidden className="absolute left-[16.66%] right-[16.66%] top-3 h-0.5 bg-gradient-to-r from-primary via-warning to-success opacity-60" />
-              {[{ step: '1', value: 'UGX 5,000', note: 'when you post', color: 'text-primary', dot: 'bg-primary' }, { step: '2', value: '1%', note: 'when landlord is paid', color: 'text-warning', dot: 'bg-warning' }, { step: '3', value: '10%', note: 'on every repayment', color: 'text-success', dot: 'bg-success' }].map(e => <li key={e.step} className="relative flex flex-col items-center px-1 text-center"><span className={cn('flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold text-primary-foreground ring-4 ring-background', e.dot)}>{e.step}</span><span className={cn('mt-1.5 text-sm font-bold tabular-nums sm:text-base', e.color)}>{e.value}</span><span className="text-[11px] leading-tight text-muted-foreground">{e.note}</span></li>)}
+            <ol className="mt-4 grid grid-cols-3 gap-2" aria-label="How you earn">
+              {[{ value: 'UGX 5,000', note: 'when you post', color: 'text-primary' }, { value: '1%', note: 'when landlord is paid', color: 'text-warning' }, { value: '10%', note: 'on every repayment', color: 'text-success' }].map(e => <li key={e.value} className="px-1 text-center"><span className={cn('block whitespace-nowrap text-base font-extrabold leading-none tabular-nums sm:text-lg', e.color)}>{e.value}</span><span className="mt-1 block text-[11px] leading-tight text-muted-foreground">{e.note}</span></li>)}
             </ol>
           </section>
-          <section aria-label="Collection summary" className="rounded-xl border border-primary/20 bg-primary/5 p-4 shadow-sm">
-            <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-semibold">Collections</h2><div className="flex rounded-lg bg-muted p-1" aria-label="Collection period">{(['today', 'month'] as const).map(p => <Button key={p} variant="ghost" aria-pressed={period === p} onClick={() => setPeriod(p)} className={cn('h-10 rounded-md px-3 text-xs', period === p && 'bg-card shadow-sm')}>{p === 'today' ? 'Today' : 'This Month'}</Button>)}</div></div>
-            <div className="mt-3 grid grid-cols-2 gap-4"><div><p className="text-xs text-muted-foreground">Collected</p><p className="mt-1 break-words text-xl font-bold text-success tabular-nums">{period === 'month' && (collectionsFailed || collectionsLoading) ? (collectionsFailed ? 'Unavailable' : 'Loading…') : formatUGX(collected)}</p></div><div className="border-l border-border pl-4"><p className="text-xs text-muted-foreground">Expected</p><p className="mt-1 break-words text-xl font-semibold tabular-nums">{period === 'month' && (historyFailed || historyLoading) ? (historyFailed ? 'Unavailable' : 'Loading…') : formatUGX(expected)}</p></div></div>
-            <div className="mt-3 flex items-center gap-2 text-xs"><Users className="h-4 w-4 text-primary" /><span><strong>{period === 'today' ? TENANTS_TOTAL : new Set((monthRows ?? []).map(r => r.tenant_id)).size}</strong> {period === 'today' ? 'tenants to collect for' : 'tenants collected for'}</span>{period === 'today' && <span className="ml-auto text-xs text-muted-foreground">{todayPaidCount} paid</span>}</div>
+          <section aria-label="Collection summary" className="mock-bubble-in rounded-2xl border border-border/60 bg-card p-4 shadow-sm" style={{ animationDelay: '140ms' }}>
+            <div className="flex items-center justify-between gap-3"><h2 className="font-semibold">Collections</h2><div className="inline-flex rounded-full bg-muted p-1" aria-label="Collection period">{(['today', 'month'] as const).map(p => <Button key={p} variant="ghost" aria-pressed={period === p} onClick={() => setPeriod(p)} className={cn('!h-auto !min-h-0 rounded-full px-3 py-1.5 text-[11px] leading-none', period === p ? 'bg-primary text-primary-foreground hover:bg-primary' : 'text-muted-foreground')}>{p === 'today' ? 'Today' : 'This Month'}</Button>)}</div></div>
+            {(() => {
+              const loadingCol = period === 'month' && (collectionsFailed || collectionsLoading);
+              const loadingExp = period === 'month' && (historyFailed || historyLoading);
+              const pct = collectPct;
+              // Under half of what was expected reads as a shortfall, so the
+              // collected figure, its percentage and the bar all turn red.
+              const low = !collectLoading && Number(expected) > 0 && pct < 50;
+              const tenantCount = period === 'today' ? TENANTS_TOTAL : new Set((monthRows ?? []).map(r => r.tenant_id)).size;
+              return <>
+                <div className="mt-4 flex items-end justify-between gap-3">
+                  <div className="min-w-0"><p className="text-xs text-muted-foreground">Collected</p><p key={`collected-${loadingCol ? 'loading' : collected}`} className={cn('mt-0.5 break-words text-2xl font-bold leading-tight tabular-nums', low ? 'text-destructive' : 'text-success', !loadingCol && 'mock-bubble-pop')}>{loadingCol ? (collectionsFailed ? 'Unavailable' : 'Loading…') : formatUGX(collected)}</p></div>
+                  {cap && <span className="flex max-w-[62%] shrink-0 justify-end">{deriveAgentBadges(cap).slice(0, 1).map(b => <span key={b.id} className={cn('inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold mock-bubble-pop', BADGE_CLASS[b.tone])}><span aria-hidden>{b.icon}</span>{b.label}</span>)}</span>}
+                </div>
+                <div className="mt-3 h-3.5 w-full overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label="Collected versus expected"><div className={cn('relative h-full overflow-hidden rounded-full transition-[width] duration-700 ease-out', low ? 'bg-destructive' : 'bg-success')} style={{ width: `${fillPct}%` }}>{fillPct > 0 && <><span aria-hidden className="mock-progress-bubble" /><span aria-hidden className="mock-progress-bubble mock-progress-bubble--b" /></>}</div></div>
+                <div className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground"><span>of <strong className="font-semibold text-foreground tabular-nums">{loadingExp ? (historyFailed ? 'Unavailable' : 'Loading…') : formatUGX(expected)}</strong> expected</span>{cap && deriveAgentBadges(cap).slice(1, 2).map(b => <span key={b.id} className={cn('inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-1 text-[11px] font-semibold mock-bubble-pop', BADGE_CLASS[b.tone])}><span aria-hidden>{b.icon}</span>{b.label}</span>)}</div>
+                <div className="mt-3 flex items-center gap-2 border-t border-border pt-3 text-xs"><Users className="h-4 w-4 text-primary" /><span><strong>{tenantCount}</strong> {period === 'today' ? 'tenants to collect for' : 'tenants collected for'}</span>{period === 'today' && <span className="ml-auto rounded-full bg-success/10 px-2 py-0.5 font-semibold text-success">{todayPaidCount} paid</span>}</div>
+              </>;
+            })()}
           </section>
-          <section aria-label="Agent shortcuts" className="grid grid-cols-2 gap-2 sm:grid-cols-4">{SHORTCUTS.map(({ label, Icon, color, to }) => <Button key={label} variant="ghost" onClick={() => to ? navigate(to) : label === 'Rent Calculator' ? setCalcOpen(true) : label === 'Invite' ? setInviteOpen(true) : setNotice(label)} className="h-12 justify-start gap-2 rounded-lg border border-border whitespace-normal px-3 text-left text-xs"><span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted/50', color)}><Icon className="!h-5 !w-5" /></span>{label}</Button>)}</section>
-          <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <h2 className="mock-bubble-in -mb-2 text-base font-semibold" style={{ animationDelay: '210ms' }}>Quick Actions</h2>
+          <section aria-label="Agent shortcuts" className="mock-bubble-in grid grid-cols-2 gap-2 sm:grid-cols-4" style={{ animationDelay: '240ms' }}>{SHORTCUTS.map(({ label, Icon, color, to }) => <Button key={label} variant="ghost" onClick={() => to ? navigate(to) : label === 'Rent Calculator' ? setCalcOpen(true) : label === 'Invite' ? setInviteOpen(true) : setNotice(label)} className="h-12 justify-start gap-2 rounded-lg border border-border whitespace-normal px-3 text-left text-xs"><span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted/50', color)}><Icon className="!h-5 !w-5" /></span>{label}</Button>)}</section>
+          <div className="mock-bubble-in grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_360px]" style={{ animationDelay: '310ms' }}>
           <section aria-labelledby="due-heading" className="min-w-0">
-            <div className="flex items-center justify-between gap-2"><h2 id="due-heading" className="text-base font-semibold">Today's tenants</h2><span className="text-xs text-muted-foreground">{payingTenants.length} repaying</span></div>
-            <div className="mt-3 inline-grid grid-cols-2 gap-1 self-start rounded-full border border-border/12 bg-muted p-1" role="group" aria-label="Tenant filter">{(['repaying', 'paid'] as const).map(f => { const n = f === 'repaying' ? payingTenants.length : paidTenants.length; const on = tenantFilter === f; return <Button key={f} variant="ghost" aria-pressed={on} onClick={() => { setTenantFilter(f); setTenantPage(0); }} className={cn('h-9 w-full justify-center rounded-full px-3 text-xs capitalize transition-colors', on ? 'bg-primary text-primary-foreground hover:bg-primary' : 'text-muted-foreground hover:text-foreground')}>{f}<span className={cn('ml-1.5 inline-flex h-[18px] w-[18px] items-center justify-center rounded-full text-[10px] font-semibold tabular-nums', on ? 'bg-primary-foreground text-primary' : 'border border-primary/30 bg-primary/20 text-primary')}>{n}</span></Button>; })}</div>
+            <div className="flex items-center justify-between gap-2"><h2 id="due-heading" className="text-base font-semibold">Today's tenants</h2><span className="text-xs text-muted-foreground">{collectingTenants.length} to collect</span></div>
+            <div className="mt-2 inline-flex items-center gap-1 rounded-full border border-border/12 bg-muted p-1" role="group" aria-label="Tenant filter">{(['repaying', 'paid'] as const).map(f => { const n = f === 'repaying' ? collectingTenants.length : paidTenants.length; const on = tenantFilter === f; return <Button key={f} variant="ghost" aria-pressed={on} onClick={() => { setTenantFilter(f); setTenantPage(0); }} className={cn('!h-auto !min-h-0 rounded-full px-4 py-1.5 text-[11px] leading-none transition-colors', on ? 'bg-primary text-primary-foreground hover:bg-primary' : 'text-muted-foreground hover:text-foreground')}>{f === 'repaying' ? 'Collecting' : 'Paid'}<span className={cn('ml-1.5 inline-flex h-[15px] min-w-[15px] items-center justify-center rounded-full px-1 text-[9px] font-semibold tabular-nums', on ? 'bg-primary-foreground text-primary' : 'border border-primary/30 bg-primary/20 text-primary')}>{n}</span></Button>; })}</div>
             {tenantsLoading ? <p className="py-5 text-sm text-muted-foreground">Loading tenants…</p> : tenantsFailed ? <p className="py-5 text-sm text-destructive">Tenant records could not be loaded.</p> : <>
-              <ul className="space-y-3">{displayTenants.slice(tenantPage * 10, tenantPage * 10 + 10).map(t => {
+              <ul className="mt-4 space-y-3">{displayTenants.slice(tenantPage * 10, tenantPage * 10 + 10).map(t => {
                 const pct = t.total_repayment > 0 ? Math.min(100, Math.round(t.amount_repaid / t.total_repayment * 100)) : null;
-                const paidToday = Number(t.today_paid_amount ?? 0);
+                const paidToday = paidTodayOf(t);
                 const balance = Number(t.balance ?? 0);
                 const unfunded = Number(t.unfunded_balance ?? 0);
                 const state = balance <= 0 && unfunded > 0
@@ -308,26 +408,32 @@ export default function AgentsMock() {
                     ? { label: 'Owing', chip: 'bg-destructive/10 text-destructive' }
                     : { label: 'Paid up', chip: 'bg-success/10 text-success' };
                 return <li key={t.id}>
-                  <Button variant="ghost" onClick={() => setSelectedTenantId(t.id)} className="h-auto min-h-[72px] w-full justify-start gap-2.5 rounded-2xl border-2 border-border/60 bg-card px-3 py-3 text-left transition-all hover:bg-card active:scale-[0.97] sm:gap-3">
+                  <Button variant="ghost" onClick={() => setSelectedTenantId(t.id)} className="h-auto min-h-[72px] w-full justify-start gap-2.5 rounded-2xl border-2 border-border/60 bg-card px-3 py-3 text-left transition-transform duration-150 hover:bg-card active:scale-[0.98] [-webkit-tap-highlight-color:transparent] sm:gap-3">
                     <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-bold sm:h-11 sm:w-11 sm:text-base', state.chip)}>{tenantPhotos[t.id] ? <img src={tenantPhotos[t.id]} alt="" className="h-full w-full object-cover" onError={e => { const el = e.currentTarget; el.style.display = 'none'; if (el.parentElement) el.parentElement.textContent = firstLetter(t.full_name); }} /> : firstLetter(t.full_name)}</span>
                     <span className="min-w-0 flex-1 whitespace-normal text-left"><span className="block truncate text-[13px] font-bold sm:text-sm">{t.full_name}</span><span className="mt-1 flex items-center gap-1 truncate text-[11px] text-muted-foreground sm:text-xs">{t.phone || 'Phone not recorded'}</span></span>
-                    <span className="flex shrink-0 flex-col items-end text-right"><span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground sm:text-[10px]">Repaid today</span><span className={cn('mt-0.5 text-[11px] font-bold tabular-nums sm:text-sm', paidToday > 0 ? 'text-success' : 'text-muted-foreground')}>{formatUGX(paidToday)}</span><span className={cn('mt-0.5 text-[10px] font-semibold tabular-nums text-muted-foreground sm:text-xs', pct !== null && pct < 50 && 'text-destructive')}>{pct === null ? '—' : `${pct}%`}</span></span>
+                    <span className="flex shrink-0 flex-col items-end text-right"><span className={cn('text-[11px] font-bold tabular-nums sm:text-sm', paidToday > 0 ? 'text-success' : 'text-muted-foreground')}>{formatUGX(paidToday)}</span><span className="mt-0.5 whitespace-nowrap text-[10px] font-semibold tabular-nums text-muted-foreground sm:text-xs">{Number(t.daily) > 0 ? `${Math.round(paidToday / Number(t.daily) * 100)}% of today` : '—'}</span></span>
                   </Button>
                 </li>;
               })}</ul>
-              {displayTenants.length === 0 && <p className="py-5 text-sm text-muted-foreground">{tenantFilter === 'paid' ? 'No tenant payments recorded today.' : 'No repaying tenants found.'}</p>}
+              {displayTenants.length === 0 && <p className="py-5 text-sm text-muted-foreground">{tenantFilter === 'paid' ? 'No tenant payments recorded today.' : payingTenants.length > 0 ? 'Everyone is cleared for now.' : 'No repaying tenants found.'}</p>}
+              {tenantFilter === 'repaying' && payingTenants.length > 0 && collectingTenants.length === 0 && <div className="mt-3 w-full text-center"><p className="text-sm font-semibold">That's everyone for today, great work! 🎉</p><p className="mt-1 text-xs text-muted-foreground">Got room for one more? Add a new tenant and keep earning.</p><Button onClick={openRequest} className="mt-3 h-10 gap-2 rounded-lg px-5 text-sm font-semibold"><Plus className="h-4 w-4" />Add a new tenant</Button></div>}
               {displayTenants.length > 10 && <div className="flex items-center justify-between gap-2 border-t border-border py-3"><span className="text-xs text-muted-foreground">{tenantPage * 10 + 1}–{Math.min(tenantPage * 10 + 10, displayTenants.length)} of {displayTenants.length} tenants</span><div className="flex gap-1"><Button variant="outline" size="icon" aria-label="Previous tenants" disabled={tenantPage === 0} onClick={() => setTenantPage(p => p - 1)}><ChevronLeft className="h-4 w-4" /></Button><Button variant="outline" size="icon" aria-label="Next tenants" disabled={(tenantPage + 1) * 10 >= displayTenants.length} onClick={() => setTenantPage(p => p + 1)}><ChevronRight className="h-4 w-4" /></Button></div></div>}
             </>}
           </section>
           <div className="mx-auto w-full max-w-[380px] lg:max-w-none">
           <section aria-labelledby="calendar-heading" className="rounded-xl border border-border/12 bg-[#FFFFFF] p-3 dark:bg-card">
-            <div className="flex items-center justify-between gap-2"><h2 id="calendar-heading" className="whitespace-nowrap text-sm font-semibold">Repayment calendar</h2><div className="flex items-center gap-0.5"><Button variant="ghost" size="icon" className="!h-7 !w-7 !min-h-0 !min-w-0" aria-label="Previous month" onClick={() => moveMonth(-1)}><ChevronLeft className="h-4 w-4" /></Button><span className="min-w-[5rem] whitespace-nowrap text-center text-xs font-semibold">{monthLabel}</span><Button variant="ghost" size="icon" className="!h-7 !w-7 !min-h-0 !min-w-0" aria-label="Next month" onClick={() => moveMonth(1)}><ChevronRight className="h-4 w-4" /></Button></div></div>
+            <div className="flex items-center justify-between gap-2"><h2 id="calendar-heading" className="whitespace-nowrap text-sm font-semibold">My calendar</h2><div className="flex items-center gap-0.5"><Button variant="ghost" size="icon" className="!h-7 !w-7 !min-h-0 !min-w-0" aria-label="Previous month" onClick={() => moveMonth(-1)}><ChevronLeft className="h-4 w-4" /></Button><span className="min-w-[5rem] whitespace-nowrap text-center text-xs font-semibold">{monthLabel}</span><Button variant="ghost" size="icon" className="!h-7 !w-7 !min-h-0 !min-w-0" aria-label="Next month" onClick={() => moveMonth(1)}><ChevronRight className="h-4 w-4" /></Button></div></div>
             {(collectionsFailed || historyFailed) && <p className="mb-3 text-xs text-destructive">Calendar records could not be fully loaded.</p>}
-            <div className="mt-2 grid grid-cols-7 gap-1 text-center">{['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(label => <span key={label} className="pb-0.5 text-[11px] font-medium text-muted-foreground">{label}</span>)}{Array.from({ length: offset }, (_, i) => <span key={`blank-${i}`} />)}{Array.from({ length: days }, (_, i) => { const st = dayStatus(i + 1); const isToday = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}-${String(i + 1).padStart(2, '0')}` === todayKey; return <Button key={i} variant="ghost" aria-label={`${monthLabel} ${i + 1}${st ? ` · ${st}` : ''}`} aria-pressed={day === i + 1} onClick={() => { setDay(i + 1); setDetailPage(0); }} className="!h-8 !min-h-0 w-full min-w-0 rounded-md p-0 text-xs"><span className={cn('flex h-full w-full items-center justify-center rounded-md font-medium tabular-nums', st && DAY_STYLES[st], isToday && 'border border-primary', day === i + 1 && 'border-2 border-primary')}>{i + 1}</span></Button>; })}</div>
+            <div className="mt-2 grid grid-cols-7 gap-1 text-center">{['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(label => <span key={label} className="pb-0.5 text-[11px] font-medium text-muted-foreground">{label}</span>)}{Array.from({ length: offset }, (_, i) => <span key={`blank-${i}`} />)}{Array.from({ length: days }, (_, i) => { const st = dayStatus(i + 1); const isToday = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}-${String(i + 1).padStart(2, '0')}` === todayKey; return <Button key={i} variant="ghost" aria-label={`${monthLabel} ${i + 1}${st ? ` · ${st}` : ''}`} aria-pressed={day === i + 1} onClick={() => { setDay(i + 1); setDetailPage(0); }} className="!h-10 !min-h-0 w-full min-w-0 rounded-md p-0 text-[13px]"><span className={cn('flex h-full w-full items-center justify-center rounded-md font-medium tabular-nums', st && DAY_STYLES[st], isToday && 'border border-primary', day === i + 1 && 'border-2 border-primary')}>{i + 1}</span></Button>; })}</div>
             </section>
             <div className="mt-2 flex flex-wrap gap-3 text-[11px] text-muted-foreground">{[{ name: 'Paid', color: 'bg-success' }, { name: 'Partial', color: 'bg-success/35' }, { name: 'Missed', color: 'bg-destructive' }].map(item => <span key={item.name} className="flex items-center gap-2"><span className={cn('h-2 w-2 rounded-full', item.color)} />{item.name}</span>)}</div>
-            <div aria-live="polite" className="mt-2 rounded-2xl bg-muted p-4"><div className="flex flex-wrap justify-between gap-2"><h3 className="text-sm font-semibold">{dateLabel}</h3><span className="text-sm font-semibold text-success">{formatUGX(selected?.total ?? 0)}</span></div>
-              {detailRows.length ? <ul className="mt-3 divide-y divide-border">{detailRows.map(row => <li key={row.id} className="flex items-center gap-3 py-3">{(() => { const t = tenantRows.find(x => x.id === row.tenant_id); const photo = tenantPhotos[row.tenant_id]; return <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-sm font-semibold text-primary">{photo ? <img src={photo} alt="" className="h-full w-full object-cover" onError={e => { const el = e.currentTarget; el.style.display = 'none'; if (el.parentElement) el.parentElement.textContent = firstLetter(t?.full_name); }} /> : firstLetter(t?.full_name)}</span>; })()}<div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{tenantRows.find(t => t.id === row.tenant_id)?.full_name || 'Tenant details unavailable'}</p><p className="text-xs text-muted-foreground">{tenantRows.find(t => t.id === row.tenant_id)?.phone || 'Phone not recorded'}</p></div><div className="text-right"><p className="text-sm font-semibold tabular-nums">{formatUGX(row.amount)}</p><p className="text-xs text-muted-foreground">{row.is_partial ? 'Partial payment' : 'Payment recorded'}</p></div></li>)}</ul> : <p className="py-5 text-sm text-muted-foreground">{collectionsLoading ? 'Loading collections…' : collectionsFailed ? 'Collections unavailable.' : dayStatus(day) === 'missed' ? 'No payments recorded. Individual missed-tenant details are not available for this date.' : 'No collections recorded for this date.'}</p>}
+            <div aria-live="polite" className="mock-offscreen mt-2 rounded-2xl bg-[#FFFFFF] p-4 shadow-sm dark:bg-card"><div className="flex flex-wrap justify-between gap-2"><h3 className="text-sm font-semibold">{dateLabel}</h3>{!dayIsFuture && payingTenants.length > 0 && (
+                <span className={cn('text-sm font-semibold tabular-nums', missedOnDay > 0 ? 'text-destructive' : 'text-success')}>
+                  {missedOnDay > 0 ? `Missed ${formatUGX(missedOnDay)}` : 'Nothing missed'}
+                </span>
+              )}</div>
+              {detailRows.length ? <ul className="mt-3 space-y-2">{Object.values(detailRows.reduce((acc: Record<string, any>, r: any) => { const k = r.tenant_id; if (acc[k]) { acc[k] = { ...acc[k], amount: Number(acc[k].amount) + Number(r.amount), is_partial: acc[k].is_partial && r.is_partial }; } else acc[k] = { ...r, amount: Number(r.amount) }; return acc; }, {})).map((row: any) => <li key={row.id} className="flex items-center gap-3 rounded-xl bg-[#FFFFFF] p-3 shadow-[0_1px_4px_rgba(15,23,42,0.08)] dark:bg-card">{(() => { const t = tenantRows.find(x => x.id === row.tenant_id); const photo = tenantPhotos[row.tenant_id]; return <span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-sm font-semibold text-primary">{photo ? <img src={photo} alt="" className="h-full w-full object-cover" onError={e => { const el = e.currentTarget; el.style.display = 'none'; if (el.parentElement) el.parentElement.textContent = firstLetter(t?.full_name); }} /> : firstLetter(t?.full_name)}</span>; })()}<div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{tenantRows.find(t => t.id === row.tenant_id)?.full_name || 'Tenant details unavailable'}</p><p className="text-xs text-muted-foreground">{tenantRows.find(t => t.id === row.tenant_id)?.phone || 'Phone not recorded'}</p></div><div className="text-right"><p className="text-sm font-semibold tabular-nums">{formatUGX(row.amount)}</p><p className="text-xs text-muted-foreground">Total repaid</p></div></li>)}</ul> : dayStatus(day) === 'missed' && dayTenantStatus.length > 0 ? null : <p className="py-5 text-sm text-muted-foreground">{collectionsLoading ? 'Loading collections…' : collectionsFailed ? 'Collections unavailable.' : 'No collections recorded for this date.'}</p>}
+              {dayTenantStatus.length > 0 && <div className="mt-3"><h4 className="text-xs font-semibold uppercase text-muted-foreground">{selectedDateKey === todayKey ? 'Not fully paid yet' : 'Not paid or partly paid'} · {dayTenantStatus.length}</h4><ul className="mt-2 space-y-2">{dayTenantStatus.slice(0, 30).map(({ t, paid, due, state }) => <li key={t.id} className="flex items-center gap-3 rounded-xl bg-[#FFFFFF] p-3 shadow-[0_1px_4px_rgba(15,23,42,0.08)] dark:bg-card"><span className="flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-xs font-semibold text-primary">{tenantPhotos[t.id] ? <img src={tenantPhotos[t.id]} alt="" className="h-full w-full object-cover" /> : firstLetter(t.full_name)}</span><div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{t.full_name}</p><p className="text-xs text-muted-foreground">{t.phone || 'Phone not recorded'}</p></div><div className="text-right"><p className={cn('text-xs font-semibold', state === 'unpaid' ? 'text-destructive' : 'text-foreground')}>{state === 'unpaid' ? 'Not paid' : 'Partial'}</p><p className="text-xs tabular-nums text-muted-foreground">{state === 'partial' ? `${formatUGX(paid)} of ${formatUGX(due)}` : due > 0 ? `Due ${formatUGX(due)}` : ''}</p></div></li>)}</ul><p className="mt-1 text-[11px] text-muted-foreground">Based on tenants currently repaying.</p></div>}
               {selectedRows.length > 0 && <div className="mt-3 flex flex-wrap items-center justify-between gap-3"><p className="text-xs text-muted-foreground">Showing {detailPage * 10 + 1}–{Math.min((detailPage + 1) * 10, selectedRows.length)} of {selectedRows.length} collections</p><div className="flex gap-2"><Button variant="outline" size="icon" aria-label="Previous results" disabled={detailPage === 0} onClick={() => setDetailPage(p => p - 1)}><ChevronLeft className="h-4 w-4" /></Button><Button variant="outline" size="icon" aria-label="Next results" disabled={(detailPage + 1) * 10 >= selectedRows.length} onClick={() => setDetailPage(p => p + 1)}><ChevronRight className="h-4 w-4" /></Button></div></div>}
             </div>
           </div>
@@ -335,7 +441,7 @@ export default function AgentsMock() {
         </main>
       </div>
       <nav aria-label="Agent navigation" className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card pb-safe"><div className="mx-auto grid max-w-xl grid-cols-5 px-2 py-2">{[{ label: 'Home', Icon: Home }, { label: 'Tenants', Icon: Users }, { label: 'Collect', Icon: Wallet }, { label: 'Post Rent', Icon: FileText }, { label: 'More', Icon: Menu }].map(({ label, Icon }) => <Button key={label} variant="ghost" aria-current={activeNav === label ? 'page' : undefined} onClick={() => { if (label === 'Post Rent') { openRequest(); return; } setActiveNav(label); if (label === 'Home') window.scrollTo({ top: 0, behavior: 'smooth' }); else if (label === 'Tenants') document.getElementById('due-heading')?.scrollIntoView({ behavior: 'smooth' }); else setNotice(label); }} className={cn('h-14 flex-col gap-1 rounded-lg px-0 text-xs', activeNav === label ? 'text-primary' : 'text-muted-foreground')}><Icon className="!h-5 !w-5" strokeWidth={1.8} /><span>{label}</span></Button>)}</div></nav>
-      <Dialog open={selectedTenantId !== null} onOpenChange={open => { if (!open) setSelectedTenantId(null); }}><DialogContent className="max-h-[90dvh] max-w-2xl overflow-y-auto"><DialogHeader><DialogTitle>Tenant details</DialogTitle><DialogDescription>Rent Plans and repayment history</DialogDescription></DialogHeader>{selectedTenantId && <TenantProfileView tenantId={selectedTenantId} onBack={() => setSelectedTenantId(null)} />}</DialogContent></Dialog>
+      <Dialog open={selectedTenantId !== null} onOpenChange={open => { if (!open) setSelectedTenantId(null); }}><DialogContent className="h-[100dvh] max-h-[100dvh] w-full max-w-full overflow-x-hidden overflow-y-auto rounded-none p-3 sm:h-auto sm:max-h-[90dvh] sm:max-w-2xl sm:rounded-xl sm:p-5 [&_*]:min-w-0"><DialogHeader><DialogTitle>Tenant details</DialogTitle><DialogDescription>Rent Plans and repayment history</DialogDescription></DialogHeader>{selectedTenantId && <TenantProfileView tenantId={selectedTenantId} onBack={() => setSelectedTenantId(null)} />}</DialogContent></Dialog>
       <RentCalculatorDialog open={calcOpen} onOpenChange={setCalcOpen} />
       <SubAgentInviteLinkDialog open={inviteOpen} onOpenChange={setInviteOpen} />
       <Dialog open={notice !== null} onOpenChange={open => { if (!open) setNotice(null); }}><DialogContent><DialogHeader><DialogTitle>{notice}</DialogTitle><DialogDescription>{notice?.includes('tenants') || notice === 'Tenants' ? 'Tenant details' : 'Agent dashboard'}</DialogDescription></DialogHeader>{notice === 'Paid tenants' ? <p className="text-sm text-muted-foreground">{todayPaidCount} tenants paid today. Individual paid-tenant details are not available in this view.</p> : notice?.includes('tenants') || notice === 'Tenants' ? <ul className="max-h-80 overflow-y-auto divide-y divide-border">{DUE_LIST.map(t => <li key={t.rent_request_id} className="py-3"><p className="text-sm font-medium">{t.tenant_name || 'Tenant'}</p><p className="text-sm text-muted-foreground">{t.tenant_phone || 'Phone not recorded'}</p></li>)}</ul> : <p className="text-sm text-muted-foreground">No transactions have been made.</p>}</DialogContent></Dialog>

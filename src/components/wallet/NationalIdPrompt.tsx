@@ -32,13 +32,19 @@ export function useMyNationalId() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('profiles')
-        .select('national_id, national_id_name, full_name')
+        .select('national_id, linked_national_id, national_id_name, full_name')
         .eq('id', user!.id)
         .maybeSingle();
       if (error) throw error;
-      return (data ?? null) as
-        | { national_id: string | null; national_id_name: string | null; full_name: string | null }
-        | null;
+      if (!data) return null;
+      /* An ID held by another account is saved as a linked ID and reviewed by
+         Financial Ops. It still counts as submitted, so the person is not asked
+         for it again and can carry on to the withdrawal screen. */
+      return {
+        national_id: data.national_id || data.linked_national_id || null,
+        national_id_name: data.national_id_name,
+        full_name: data.full_name,
+      } as { national_id: string | null; national_id_name: string | null; full_name: string | null };
     },
   });
 }
@@ -79,8 +85,12 @@ export default function NationalIdPrompt({
       return;
     }
     try {
-      await submit.mutateAsync({ nationalId: idCheck.value, idName: nameCheck.value });
-      toast.success('National ID saved. Financial Ops will confirm it against your payout number.');
+      const res = await submit.mutateAsync({ nationalId: idCheck.value, idName: nameCheck.value });
+      toast.success(
+        res.pending_review
+          ? 'National ID received. The person who registered it first has been asked to confirm, and Financial Ops will review it.'
+          : 'National ID saved. Financial Ops will confirm it against your payout number.',
+      );
       await refetch();
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Could not save your National ID.';

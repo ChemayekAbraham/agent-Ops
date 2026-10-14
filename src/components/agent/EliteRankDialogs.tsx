@@ -1,10 +1,7 @@
-import { useState } from 'react';
 import { Dialog, DialogContent, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Info, Eye } from 'lucide-react';
-import { toast } from 'sonner';
-import { useAuth } from '@/hooks/useAuth';
-import { CelebrationBody, RANK_PERKS } from '@/components/agent/AgentRankCelebrationDialog';
+import { Info } from 'lucide-react';
+import { RANK_PERKS } from '@/components/agent/AgentRankCelebrationDialog';
 import { EliteRankBadge } from '@/components/agent/EliteRankBadge';
 import type { EliteTier } from '@/hooks/useEliteRanks';
 
@@ -54,36 +51,6 @@ export function EliteHowItWorksDialog() {
           </p>
         </div>
       </DialogContent>
-    </Dialog>
-  );
-}
-
-/** Preview-only: shows what the rank popups look like. Nothing is saved or paid. */
-export function EliteDialogPreviewButton() {
-  const { user } = useAuth();
-  const [open, setOpen] = useState(false);
-  const [tier, setTier] = useState<EliteTier | null>(null);
-  if (!user) return null;
-  const t = TIERS.find((x) => x.tier === tier);
-  const name = (user.user_metadata?.full_name as string | undefined)?.split(' ')[0] ?? 'Agent';
-  return (
-    <Dialog open={open} onOpenChange={(value) => { setOpen(value); if (!value) setTier(null); }}>
-      <DialogTrigger asChild>
-        <Button variant="outline" className="h-auto min-h-[64px] justify-start gap-3 whitespace-normal rounded-2xl border-border/60 bg-card p-3.5 text-left">
-          <span className="shrink-0 rounded-xl bg-accent p-2 text-accent-foreground"><Eye className="h-5 w-5" /></span>
-          <span className="text-[13px] font-semibold">Preview rank popups</span>
-        </Button>
-      </DialogTrigger>
-        <DialogContent className={t ? "max-w-sm rounded-3xl border-0 p-0 overflow-hidden gap-0 max-h-[90vh] overflow-y-auto" : "max-w-sm max-h-[90vh] overflow-y-auto"}>
-          {t ? <CelebrationBody key={t.tier} tier={t.tier} position={t.pos} score={t.score} name={name} onClose={() => setTier(null)} /> : <>
-            <DialogTitle>Preview rank popups</DialogTitle>
-            <DialogDescription>Sample ranks only — your rank, benefits and wallet stay unchanged.</DialogDescription>
-            <div className="grid grid-cols-2 gap-3">
-              {TIERS.map((x) => <Button key={x.tier} variant="outline" className="h-12 capitalize" onClick={() => setTier(x.tier)}>{x.tier}</Button>)}
-            </div>
-            <Button variant="ghost" onClick={() => toast('You are no longer in the Top 4. You are back to a normal agent rate until the next refresh.')}>Drop-out message</Button>
-          </>}
-        </DialogContent>
     </Dialog>
   );
 }

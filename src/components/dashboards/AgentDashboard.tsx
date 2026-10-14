@@ -79,7 +79,6 @@ import { UserAvatar } from '@/components/UserAvatar';
 import { ProfileSummaryPopover } from '@/components/profile/ProfileSummaryPopover';
 import { useMyEliteRank } from '@/components/agent/AgentRankCelebrationDialog';
 import { RankEarningsCard } from '@/components/agent/RankEarningsCard';
-import { EliteDialogPreviewButton } from '@/components/agent/EliteRankDialogs';
 import { SubAgentsPanel } from '@/components/agent/SubAgentsPanel';
 import { MyParentAgentCard } from '@/components/agent/MyParentAgentCard';
 import NationalIdGroupCard from '@/components/agent/NationalIdGroupCard';
@@ -1789,7 +1788,6 @@ export default function AgentDashboard({ user, signOut, currentRole, availableRo
                   <span className="font-semibold text-[13px] text-foreground truncate">{a.label}</span>
                 </button>
               ))}
-              <EliteDialogPreviewButton />
             </div>
             <ShareRentRecorderCard />
           </div>

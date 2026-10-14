@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils';
 import { getPublicOrigin } from '@/lib/getPublicOrigin';
 import { TenantPaymentHistoryCard } from '@/components/executive/TenantPaymentHistoryCard';
 import { LandlordAgreementHistory } from '@/components/landlord/agreement';
+import { RenewalReviewPanel } from './RenewalReviewPanel';
 
 interface RentRequestDetailDrawerProps {
   requestId: string | null;
@@ -59,6 +60,16 @@ interface FullRequestDetail {
   house_image_urls: string[] | null;
   latest_rent_receipt_url: string | null;
   latest_rent_receipt_uploaded_at: string | null;
+  /* Renewals: what changed, the server's advice at the time, and the agent's reason (rent_requests.renewal_*) */
+  registration_type?: string | null;
+  renewal_previous_rent?: number | null;
+  renewal_previous_days?: number | null;
+  renewal_advice_snapshot?: unknown;
+  renewal_above_suggestion?: boolean | null;
+  renewal_above_by?: number | null;
+  renewal_change_reason_code?: string | null;
+  renewal_change_explanation?: string | null;
+  renewal_evidence_url?: string | null;
 }
 
 interface ProfileInfo {
@@ -260,6 +271,9 @@ export function RentRequestDetailDrawer({ requestId, open, onOpenChange }: RentR
                 </span>
               </div>
             </div>
+
+            {/* Renewal: what changed, the advice, the agent's reason, and the notes thread */}
+            <RenewalReviewPanel request={request} />
 
             {/* Request ID */}
             <button onClick={handleCopyId} className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground w-full">
