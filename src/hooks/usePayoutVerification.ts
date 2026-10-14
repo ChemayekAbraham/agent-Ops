@@ -481,12 +481,13 @@ export function useSubmitNationalId() {
         p_id_name: input.idName,
       });
       if (error) throw new Error(error.message);
-      const res = (data ?? {}) as { success?: boolean; message?: string };
+      const res = (data ?? {}) as { success?: boolean; message?: string; pending_review?: boolean };
       if (!res.success) throw new Error(res.message || 'Could not save your National ID.');
       return res;
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['profile'] });
+      qc.invalidateQueries({ queryKey: ['my-national-id'] });
       qc.invalidateQueries({ queryKey: ['my-payout-destinations'] });
     },
   });
