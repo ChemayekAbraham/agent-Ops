@@ -67081,6 +67081,13 @@ export type Database = {
         Args: { p_order_id: string; p_reason?: string }
         Returns: Json
       }
+      food_coordinator_candidates: {
+        Args: never
+        Returns: {
+          full_name: string
+          user_id: string
+        }[]
+      }
       food_coordinator_overview: {
         Args: { p_service_date?: string }
         Returns: Json
