@@ -3,11 +3,12 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { ArrowRight, Bell, UserPlus, Calculator, CheckCircle2, ChevronLeft, ChevronRight, FileText, Plus, Home, Menu, Store, Trophy, Users, Wallet, type LucideIcon } from 'lucide-react';
+import { ArrowRight, Bell, UserPlus, Calculator, CheckCircle2, ChevronLeft, ChevronRight, FileText, LogOut, Plus, Home, Menu, Settings, Store, Trophy, UserRound, Users, Wallet, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import RentCalculatorDialog from '@/components/agent/RentCalculatorDialog';
 import { SubAgentInviteLinkDialog } from '@/components/agent/SubAgentInviteLinkDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { COMMISSION_RATE, LANDLORD_PAYOUT_COMMISSION_RATE, formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
 import { useProfile } from '@/hooks/useProfile';
@@ -21,6 +22,12 @@ const SHORTCUTS: { label: string; Icon: LucideIcon; color: string; to?: string }
   { label: 'Service Center', Icon: Store, color: 'text-info', to: '/agent/service-center' },
   { label: 'Leaderboard', Icon: Trophy, color: 'text-success', to: '/dashboard/agents/leaderboard' },
   { label: 'Invite', Icon: UserPlus, color: 'text-warning' },
+];
+
+/** Where the avatar menu goes: the two pages that already exist, then sign-out. */
+const PROFILE_MENU: { label: string; Icon: LucideIcon; to: string }[] = [
+  { label: 'Profile', Icon: UserRound, to: '/your-profile' },
+  { label: 'Settings', Icon: Settings, to: '/settings' },
 ];
 
 /**
@@ -42,7 +49,7 @@ const EARN_TONES = {
 
 export default function AgentsMock() {
   const { profile } = useProfile();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const ids = useMemo(() => (user?.id ? [user.id] : []), [user?.id]);
   const { data: capMap } = useAgentCapacityMap(ids);
   const cap = user?.id ? capMap?.get(user.id) : undefined;
@@ -82,6 +89,7 @@ export default function AgentsMock() {
   const avatarSrc = signedAvatar ?? (avatarPath ? null : profile?.avatar_url ?? null);
   const [activeNav, setActiveNav] = useState('Home');
   const [notice, setNotice] = useState<string | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [calcOpen, setCalcOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const navigate = useNavigate();
