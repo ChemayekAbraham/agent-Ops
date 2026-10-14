@@ -34,11 +34,13 @@ const PROFILE_MENU: { label: string; Icon: LucideIcon; to: string }[] = [
 ];
 
 /** Plain names for the roles a signed-in user can hold, shown in the avatar menu. */
-const ROLE_LABELS: Record<AppRole, string> = {
+const ROLE_LABELS: Record<string, string> = {
   tenant: 'Tenant', agent: 'Agent', landlord: 'Landlord', supporter: 'Supporter',
   manager: 'Manager', ceo: 'CEO', coo: 'COO', cfo: 'CFO', cto: 'CTO', cmo: 'CMO',
   crm: 'CRM', employee: 'Employee', operations: 'Operations', super_admin: 'Super Admin',
   hr: 'HR', access_admin: 'Access Admin', rd: 'R&D',
+  financial_ops: 'Financial Ops', agent_ops: 'Agent Ops', landlord_ops: 'Landlord Ops',
+  tenant_ops: 'Tenant Ops', partner_ops: 'Partner Ops',
 };
 
 /**
