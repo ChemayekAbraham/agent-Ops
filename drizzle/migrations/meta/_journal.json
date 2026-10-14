@@ -3977,6 +3977,13 @@
       "when": 1791974821401,
       "tag": "0567_cfo_approved_requisitions_payout_status",
       "breakpoints": true
+    },
+    {
+      "idx": 568,
+      "version": "7",
+      "when": 1791975302293,
+      "tag": "0568_allow_resubmit_agent_cancelled_rent_requests",
+      "breakpoints": true
     }
   ]
 }
