@@ -1,4 +1,5 @@
 # Tasks
+- [ ] Redesign agents-mock with Post Rent Request first, Today/This Month totals, plain tenant phone numbers, and an accessible collection calendar with ten-row paging; verify without posting requests or payments.
 - [x] Remove the "Collected today" / "Still to collect" tiles from the agents-mock rent card; card now shows only the ring, rent due and tenant count — checked in the browser (both tile labels gone, no page errors), build clean.
 - [x] Swap the Transactions shortcut on agents-mock for Leaderboard that opens /dashboard/agents/leaderboard; click checked in the browser (real rankings load), build clean.
 - [x] Swap the Sub-Agents shortcut on agents-mock for Service Center that opens /agent/service-center; click checked in the browser (lands on the real Service Center page), build clean.
