@@ -18,6 +18,7 @@ P() { psql -X -v ON_ERROR_STOP=1 -q "$@"; }
 P -d postgres -c "create database $db" >/dev/null
 trap 'P -d postgres -c "drop database if exists $db with (force)" >/dev/null' EXIT
 P -d "$db" -f "$here/00_supabase_scaffold.sql" >/dev/null
+P -d "$db" -f "$here/07_storage_bucket.sql" >/dev/null
 # shared ledger stand-in BEFORE the Food migrations (as in production)
 P -d "$db" -f "$here/05_ledger_standin.sql" >/dev/null
 for m in "$root"/supabase/migrations/2026100912*food*.sql "$root"/supabase/migrations/2026100913*food*.sql \

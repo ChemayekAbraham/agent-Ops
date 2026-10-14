@@ -13,7 +13,10 @@ case "${PGHOST:-}" in 127.0.0.1|localhost) ;; *) echo "refusing: PGHOST must be 
 [ -z "${PGHOSTADDR:-}${PGSERVICE:-}${DATABASE_URL:-}" ] || { echo "refusing: PGHOSTADDR/PGSERVICE/DATABASE_URL set" >&2; exit 2; }
 case "${PGHOST:-} ${PGDATABASE:-} ${PGUSER:-}" in *wirntoujqoyjobfhyelc*) echo "refusing: production project" >&2; exit 2;; esac
 here="$(cd "$(dirname "$0")" && pwd)"; root="$(cd "$here/../../../.." && pwd)"
-old_ref="${1:-8c437912daed55ca3c7fa1e161ed32012ea8ebea}"
+# 8c437912da (the pre-FM-17 M1..M2) is not in this repository mirror; the
+# earliest recoverable shipped M1..M2 is 879bb7eecc (first Food M1 commit,
+# 2026-10-12), under the original 20261009120000/130000 file names.
+old_ref="${1:-879bb7eecc547b39da817018d9ab8ef6dcc555a2}"
 M="$root/supabase/migrations"
 CHAIN=(20261009120001_food_service_schema_and_coordinator 20261009130001_food_service_operations_rpcs
        20261009160000_food_coordinator_candidates 20261009170000_food_exception_resolution
@@ -24,7 +27,7 @@ P() { psql -X -q -v ON_ERROR_STOP=1 "$@"; }
 Q() { psql -X -q -At -v ON_ERROR_STOP=1 "$@"; }
 result=0
 check() { if [ "$2" = "$3" ]; then echo "PASS $1"; else echo "FAIL $1 (got: $2, expected: $3)"; result=1; fi; }
-mkdb() { P -d postgres -c "drop database if exists $1 with (force)" -c "create database $1" >/dev/null; P -d "$1" -f "$here/00_supabase_scaffold.sql" >/dev/null; P -d "$1" -f "$here/05_ledger_standin.sql" >/dev/null; }
+mkdb() { P -d postgres -c "drop database if exists $1 with (force)" -c "create database $1" >/dev/null; P -d "$1" -f "$here/00_supabase_scaffold.sql" >/dev/null; P -d "$1" -f "$here/05_ledger_standin.sql" >/dev/null; [ "${2:-}" = nobucket ] || P -d "$1" -f "$here/07_storage_bucket.sql" >/dev/null; }
 apply() { P -d "$1" -1 -f "$2" 2>&1; }   # one transaction per file, as in production
 inventory() {  # schema fingerprint of everything Food owns (see inventory.sql)
   Q -d "$1" -f "$here/inventory.sql" | md5sum | cut -c1-32; }
@@ -104,11 +107,22 @@ check "MIG-D5 the meal-photo bucket is private"   "$(Q -d mm_upgrade -c "select 
 # this migration) must be refused, not silently left public.
 mkdb mm_publicbucket
 for i in 0 1 2 3 4; do apply mm_publicbucket "$M/${CHAIN[$i]}.sql" >/dev/null; done
-Q -d mm_publicbucket -c "insert into storage.buckets (id,name,public,file_size_limit,allowed_mime_types) values ('food-meal-images','food-meal-images',true,2097152,array['image/jpeg','image/png','image/webp'])" >/dev/null
+Q -d mm_publicbucket -c "update storage.buckets set public = true where id = 'food-meal-images'" >/dev/null
 apply mm_publicbucket "$M/${CHAIN[5]}.sql" >/dev/null 2>&1; rc=$?
 check "MIG-D6 an existing PUBLIC food-meal-images bucket makes the migration fail closed" "$([ $rc -ne 0 ] && echo refused)" "refused"
 check "MIG-D7 ...with no partial change (no photo policy, no read check)"   "$(Q -d mm_publicbucket -c "select (select count(*) from pg_policies where policyname like 'food\_meal\_images%') + (select count(*) from pg_proc where proname='food_meal_photo_readable')")" "0"
 P -d postgres -c "drop database if exists mm_publicbucket with (force)" >/dev/null
+
+# ── D10-D12. the meal-photo bucket must be created by the storage tool first ──
+mkdb mm_nobucket nobucket
+for i in 0 1 2 3 4; do apply mm_nobucket "$M/${CHAIN[$i]}.sql" >/dev/null; done
+apply mm_nobucket "$M/${CHAIN[5]}.sql" >/dev/null 2>&1; rc=$?
+check "MIG-D10 no pre-created bucket: the meal-photo migration refuses" "$([ $rc -ne 0 ] && echo refused)" "refused"
+check "MIG-D11 ...creates no bucket, no photo policy, no read check" "$(Q -d mm_nobucket -c "select (select count(*) from storage.buckets where id='food-meal-images') + (select count(*) from pg_policies where policyname like 'food\_meal\_images%') + (select count(*) from pg_proc where proname='food_meal_photo_readable')")" "0"
+Q -d mm_nobucket -c "insert into storage.buckets (id,name,public,file_size_limit) values ('food-meal-images','food-meal-images',false,10485760)" >/dev/null
+apply mm_nobucket "$M/${CHAIN[5]}.sql" >/dev/null 2>&1; rc=$?
+check "MIG-D12 a private bucket with a limit above 2MB is refused" "$([ $rc -ne 0 ] && echo refused)" "refused"
+P -d postgres -c "drop database if exists mm_nobucket with (force)" >/dev/null
 
 # ── E. a missing prerequisite fails cleanly ──
 mkdb mm_noprereq

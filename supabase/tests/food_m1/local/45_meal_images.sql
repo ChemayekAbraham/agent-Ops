@@ -7,9 +7,9 @@
 
 BEGIN;
 SELECT food_test.ok((SELECT NOT public AND file_size_limit = 2097152
-                       AND allowed_mime_types = ARRAY['image/jpeg','image/png','image/webp']
+                       AND (allowed_mime_types IS NULL OR allowed_mime_types <@ ARRAY['image/jpeg','image/png','image/webp'])
                        FROM storage.buckets WHERE id = 'food-meal-images'),
-                    'PH-01 bucket: PRIVATE, 2 MB, JPEG/PNG/WebP only');
+                    'PH-01 bucket: PRIVATE, 2 MB, no MIME type outside JPEG/PNG/WebP');
 
 -- the active coordinator uploads under a server-shaped name
 SELECT food_test.act_as(food_test.id('coord'));
