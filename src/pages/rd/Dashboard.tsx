@@ -216,7 +216,6 @@ const DEFAULT_IDEAS: IdeaRow[] = [
 const fmt = (n: number) => `UGX ${n.toLocaleString('en-US')}`;
 
 function BusinessIdeasCashTable({ rows, setRows }: { rows: IdeaRow[]; setRows: React.Dispatch<React.SetStateAction<IdeaRow[]>> }) {
-  useEffect(() => { try { localStorage.setItem(IDEAS_KEY, JSON.stringify(rows)); } catch { /* ignore */ } }, [rows]);
   const upd = (id: string, patch: Partial<IdeaRow>) => setRows((r) => r.map((x) => (x.id === id ? { ...x, ...patch } : x)));
   const num = (v: string) => Math.max(0, Number(v.replace(/[^0-9]/g, '')) || 0);
   const tot = rows.reduce((a, r) => ({ c: a.c + r.customers, i: a.i + r.cashIn, o: a.o + r.cashOut }), { c: 0, i: 0, o: 0 });
@@ -295,6 +294,13 @@ export default function RDDashboard() {
     try { const v = localStorage.getItem(IDEAS_KEY); if (v) return JSON.parse(v); } catch { /* ignore */ }
     return DEFAULT_IDEAS;
   });
+  const editIdeaRows: React.Dispatch<React.SetStateAction<IdeaRow[]>> = (edit) => {
+    setIdeaRows((previous) => {
+      const next = typeof edit === 'function' ? edit(previous) : edit;
+      try { localStorage.setItem(IDEAS_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
+  };
   const OVERVIEW = overviewMetrics(ideaRows);
   const [summaryText, setSummaryText] = useState<{ value: string; label: string }[]>(() => {
     try { const v = localStorage.getItem(SUMMARY_KEY); if (v) return JSON.parse(v); } catch { /* ignore */ }
@@ -310,6 +316,7 @@ export default function RDDashboard() {
     try {
       await downloadRdGeneralReport({
         projects: PROJECTS.map((p) => ({ name: p.name, updates: loadUpdates(p.name) })),
+        ideas: ideaRows,
       });
     } finally { setExporting(false); }
   };
@@ -350,7 +357,7 @@ export default function RDDashboard() {
           ))}
         </div>
 
-        <BusinessIdeasCashTable rows={ideaRows} setRows={setIdeaRows} />
+        <BusinessIdeasCashTable rows={ideaRows} setRows={editIdeaRows} />
 
         <IdeaCanvasBoard />
 

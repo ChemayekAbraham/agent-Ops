@@ -1,4 +1,5 @@
 import { format } from 'date-fns';
+import { formatUGX } from '@/lib/rentCalculations';
 
 const PRIMARY: [number, number, number] = [108, 33, 196];
 const STRIPE: [number, number, number] = [243, 238, 252];
@@ -9,6 +10,18 @@ export interface RdReportProject {
 }
 export interface RdReportData {
   projects: RdReportProject[];
+  ideas: RdCashRow[];
+}
+
+export interface RdCashRow {
+  name: string; customers: number; cashIn: number; cashOut: number;
+}
+
+export function rdCashTotals(rows: RdCashRow[]) {
+  const totals = rows.reduce((a, r) => ({ customers: a.customers + r.customers,
+    cashIn: a.cashIn + r.cashIn, cashOut: a.cashOut + r.cashOut }),
+    { customers: 0, cashIn: 0, cashOut: 0 });
+  return { ...totals, net: totals.cashIn - totals.cashOut };
 }
 
 /** Only explicitly recorded updates may supply report content. */
@@ -19,7 +32,7 @@ export function recordedRdProjects(projects: RdReportProject[]): RdReportProject
   }));
 }
 
-/** One PDF holding recorded R&D updates, without preset claims or figures. */
+/** Recorded updates and the current cash position; never preset project claims. */
 export async function downloadRdGeneralReport(d: RdReportData, at = new Date()) {
   const { default: jsPDF } = await import('jspdf');
   const m: any = await import('jspdf-autotable');
@@ -49,7 +62,18 @@ export async function downloadRdGeneralReport(d: RdReportData, at = new Date()) 
   doc.setFont('helvetica', 'normal'); doc.setFontSize(9);
   doc.text(`Generated ${format(at, 'dd MMM yyyy, HH:mm')}`, mg, 20);
 
-  let y = 36;
+  const totals = rdCashTotals(d.ideas);
+  let y = heading('Business Ideas: Cash Position', 36);
+  table(['Business idea', 'Customers', 'Cash in', 'Cash out', 'Net position'],
+    d.ideas.map((r) => [r.name, r.customers.toLocaleString('en-US'), formatUGX(r.cashIn),
+      formatUGX(r.cashOut), formatUGX(r.cashIn - r.cashOut)]), y, {
+      foot: [['Total', totals.customers.toLocaleString('en-US'), formatUGX(totals.cashIn),
+        formatUGX(totals.cashOut), formatUGX(totals.net)]],
+      footStyles: { fillColor: STRIPE, textColor: 20, fontStyle: 'bold' },
+      columnStyles: { 0: { cellWidth: 44 }, 1: { cellWidth: 20, halign: 'right' },
+        2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' } },
+    });
+  y = lastY() + 10;
   for (const p of recordedRdProjects(d.projects)) {
     y = heading(p.name, y);
     table(['Date', 'Recorded update'], p.updates.length
