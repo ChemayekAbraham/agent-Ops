@@ -62294,6 +62294,23 @@ export type Database = {
         }
         Returns: Json
       }
+      _renewal_advice_params: { Args: never; Returns: Json }
+      _rent_access_limit_calc: {
+        Args: {
+          p_dec: number
+          p_inc: number
+          p_max: number
+          p_now: string
+          p_payment_times: string[]
+        }
+        Returns: Json
+      }
+      _rent_access_limit_core: {
+        Args: { p_now?: string; p_tenant: string }
+        Returns: Json
+      }
+      _rent_access_limit_params: { Args: never; Returns: Json }
+      _rent_days_allowed: { Args: { p_days: number }; Returns: boolean }
       _rent_fee_refuse_cancelled: {
         Args: {
           p_amount: number
@@ -76116,6 +76133,8 @@ export type Database = {
         }
         Returns: string
       }
+      rent_access_limit_server: { Args: { p_tenant: string }; Returns: Json }
+      rent_allowed_days: { Args: never; Returns: number[] }
       rent_apply_collections_to_days: {
         Args: { p_rent_request_id: string }
         Returns: Json
