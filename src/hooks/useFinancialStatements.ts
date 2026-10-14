@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { netWalletTransferOutflow } from '@/lib/custodialTransfers';
 import { startOfDay, endOfDay, subDays, subWeeks, subMonths, subYears, startOfMonth, startOfYear, startOfWeek, startOfQuarter, differenceInDays } from 'date-fns';
 import {
   REVENUE_SERVICE_FAMILIES,
@@ -1078,7 +1079,12 @@ async function generateStatementsRaw(activeFilters: StatementFilters): Promise<F
       // Custodial (wallet scope) — includes all legacy wallet categories
       const userDeposits = sumBy(walletIn, ['deposit', 'wallet_deposit', 'agent_float_deposit', 'pending_portfolio_topup']);
       const userWithdrawals = sumBy(walletOut, ['wallet_withdrawal']);
-      const userTransfers = sumBy(walletOut, ['wallet_transfer']);
+      // Both legs: a person-to-person transfer moves custodial money between
+      // users and leaves total custody unchanged, so only the NET wallet-scope
+      // outflow reduces custodial cash (a platform-funded transfer into wallets
+      // makes it negative, i.e. an inflow).
+      const userTransfers = netWalletTransferOutflow(
+        sumBy(walletOut, ['wallet_transfer']), sumBy(walletIn, ['wallet_transfer']));
       const cfWalletDeductions = sumBy(walletOut, ['wallet_deduction']);
       const roiWalletCredits = sumBy(walletIn, ['roi_wallet_credit', 'roi_payout']);
       const agentFloatUsedForRent = sumBy(walletOut, ['agent_float_used_for_rent']);
