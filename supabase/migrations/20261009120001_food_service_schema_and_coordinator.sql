@@ -324,6 +324,13 @@ CREATE TRIGGER food_audit_no_delete  BEFORE DELETE OR UPDATE ON public.food_audi
 -- refused by food_require_active_coordinator().
 DO $seed$
 BEGIN
+  -- Prerequisite kept from the removed seed: Food relies on profiles.deleted_at
+  -- (staff eligibility). Fail closed, rolling back this whole file, if it is absent.
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                  WHERE table_schema = 'public' AND table_name = 'profiles'
+                    AND column_name = 'deleted_at') THEN
+    RAISE EXCEPTION 'food: prerequisite public.profiles.deleted_at is missing';
+  END IF;
   RAISE NOTICE 'food: initial coordinator NOT seeded by design; appoint one with food_bootstrap_coordinator()';
 END
 $seed$;
