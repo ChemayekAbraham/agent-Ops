@@ -14,6 +14,12 @@ import {
   type RenewalSmsInput,
 } from '../../supabase/functions/_shared/renewalOtp';
 
+// smsFooter.ts is written for Deno; this declaration lets the app's type-check accept it when the test pulls it in.
+declare global {
+  // eslint-disable-next-line no-var
+  var Deno: { env: { get(key: string): string | undefined } };
+}
+
 // smsFooter reads SUPPORT_PHONE through Deno.env; absent here, so the default support number applies.
 beforeAll(() => {
   (globalThis as any).Deno = { env: { get: () => undefined } };
