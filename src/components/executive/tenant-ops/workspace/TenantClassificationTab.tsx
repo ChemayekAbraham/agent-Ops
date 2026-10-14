@@ -231,7 +231,7 @@ export default function TenantClassificationTab() {
       {/* Smartphone use. One card for the whole population, two for the chosen window. The categories
           above are a point-in-time snapshot and are not narrowed by the window. */}
       <div className="space-y-2" data-testid="smartphone-section">
-        <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-2">
           <div className="flex min-w-0 items-center gap-2">
             <span aria-hidden className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
               <Smartphone className="h-3.5 w-3.5" />
@@ -243,7 +243,7 @@ export default function TenantClassificationTab() {
               </span>
             </p>
           </div>
-          <OpsDateRangeFilter preset={preset} custom={custom} onPresetChange={changePreset} onCustomChange={changeCustom} className="sm:shrink-0" />
+          <OpsDateRangeFilter preset={preset} custom={custom} onPresetChange={changePreset} onCustomChange={changeCustom} className="sm:ml-auto" />
         </div>
         {usage.isLoading ? (
           <Skeleton className="h-24 w-full" />
