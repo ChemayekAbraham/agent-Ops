@@ -231,13 +231,19 @@ export default function TenantClassificationTab() {
       {/* Smartphone use. One card for the whole population, two for the chosen window. The categories
           above are a point-in-time snapshot and are not narrowed by the window. */}
       <div className="space-y-2" data-testid="smartphone-section">
-        <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <p className="min-w-0 break-words text-xs text-muted-foreground" data-testid="smartphone-note">
-            Smartphone use. Recorded at sign-up, settled by a check from an agent or the call centre, and
-            dashboard opens from a phone.
-            {u ? ` The last two cards count ${phrase}.` : ''}
-          </p>
-          <OpsDateRangeFilter preset={preset} custom={custom} onPresetChange={changePreset} onCustomChange={changeCustom} className="sm:shrink-0" />
+        <div className="flex flex-col gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <span aria-hidden className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+              <Smartphone className="h-3.5 w-3.5" />
+            </span>
+            <p className="min-w-0 break-words text-sm font-semibold leading-tight" data-testid="smartphone-note">
+              Smartphone use
+              <span className="ml-1.5 hidden font-normal text-xs text-muted-foreground sm:inline">
+                · recorded at sign-up or by a check
+              </span>
+            </p>
+          </div>
+          <OpsDateRangeFilter preset={preset} custom={custom} onPresetChange={changePreset} onCustomChange={changeCustom} className="sm:ml-auto" />
         </div>
         {usage.isLoading ? (
           <Skeleton className="h-24 w-full" />
