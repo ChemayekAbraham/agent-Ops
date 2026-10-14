@@ -311,32 +311,19 @@ CREATE TRIGGER food_audit_no_delete  BEFORE DELETE OR UPDATE ON public.food_audi
   FOR EACH ROW EXECUTE FUNCTION public.food_no_hard_delete();
 
 -- ────────────────────── initial coordinator appointment ──────────────────────
--- The holder's profile id was verified against production profiles on
--- 2026-10-09. Their name and contact details are deliberately NOT recorded here.
--- Seeded as a plain assignment row so the handover RPC can transfer it later.
+-- Installing Food M1 appoints NOBODY. There is deliberately no seed here: an
+-- earlier draft auto-appointed a named employee, which was removed (Option 2,
+-- 2026-10-14) so no one becomes Food Coordinator — and so receives Food
+-- payments — as a side effect of a migration.
 --
--- CONDITIONAL (master register FM-17). The row is inserted only when that
--- profile exists, is not soft-deleted, and no active coordinator is already
--- seated. On any other database — a fresh, preview or test project — the
--- migration still applies cleanly and simply seats nobody; the first
--- coordinator is then appointed with food_bootstrap_coordinator()
--- (20261012120000, service_role only). The NOTICE makes a skipped seed visible
--- in the migration output instead of silent.
+-- The first coordinator is appointed afterwards through the supported process,
+-- food_bootstrap_coordinator(user_id, reason) (20261012120000 / 20261013125000;
+-- service_role only, eligible employee, 10+ character reason, refused once a
+-- coordinator is seated, written to food_audit). Later changes go through
+-- food_transfer_coordinator(). Until then every coordinator-only action is
+-- refused by food_require_active_coordinator().
 DO $seed$
 BEGIN
-  IF EXISTS (SELECT 1 FROM public.profiles p
-              WHERE p.id = '29a0cfa8-1eaf-453c-874c-0fc72fa4f74b'::uuid
-                AND p.deleted_at IS NULL)
-     AND NOT EXISTS (SELECT 1 FROM public.food_coordinator_assignments a
-                      WHERE a.revoked_at IS NULL AND a.access_level = 'active') THEN
-    INSERT INTO public.food_coordinator_assignments
-      (coordinator_id, access_level, assigned_by, reason)
-    VALUES
-      ('29a0cfa8-1eaf-453c-874c-0fc72fa4f74b'::uuid, 'active',
-       '29a0cfa8-1eaf-453c-874c-0fc72fa4f74b'::uuid,
-       'Initial Food Coordinator appointment');
-  ELSE
-    RAISE NOTICE 'food: initial coordinator NOT seeded (profile absent or deleted, or a coordinator is already seated); appoint one with food_bootstrap_coordinator()';
-  END IF;
+  RAISE NOTICE 'food: initial coordinator NOT seeded by design; appoint one with food_bootstrap_coordinator()';
 END
 $seed$;

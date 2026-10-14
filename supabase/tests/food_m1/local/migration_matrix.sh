@@ -49,9 +49,9 @@ fresh_fp=$(inventory mm_fresh)
 mkdb mm_seeded
 ok=1; for m in "${CHAIN[@]}"; do apply mm_seeded "$M/$m.sql" >/dev/null || ok=0; done
 check "MIG-B1 full chain applies with the seed profile present" "$ok" "1"
-check "MIG-B2 the seed profile is the single active coordinator" \
-  "$(Q -d mm_seeded -c "select string_agg(coordinator_id::text,',') from food_coordinator_assignments where revoked_at is null and access_level='active'")" \
-  "29a0cfa8-1eaf-453c-874c-0fc72fa4f74b"
+check "MIG-B2 nobody is auto-appointed even when the formerly seeded profile exists (Option 2)" \
+  "$(Q -d mm_seeded -c "select count(*) from food_coordinator_assignments")" \
+  "0"
 check "MIG-B3 schema identical to the fresh path" "$(inventory mm_seeded)" "$fresh_fp"
 
 # ── C. PRE-EXISTING database: old M1..M4 applied and in use, then the corrections ──
