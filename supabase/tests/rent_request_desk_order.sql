@@ -1,4 +1,6 @@
--- Rolled-back verification for 20261014140000_rent_request_desk_order.sql
+-- Rolled-back verification for 20261014140000_rent_request_desk_order.sql and 20261014180000_rent_desk_filters.sql
+-- (the second replaced the function with one that also filters and counts; Blocks 1 to 3 are the ordering and access
+-- checks, now run against the new signature, Block 4 is the filters)
 --
 -- Run against the live database, one block at a time. Each block ends in RAISE EXCEPTION, so nothing is kept and the error
 -- text IS the report (steps with "pass"). Every step must pass.
@@ -18,6 +20,15 @@
 --   E  fingerprints of requests (status, tenant, agent, repaid, Service Center review), collections, ledger and wallets are
 --      identical after the calls; the function is not VOLATILE and has no INSERT / UPDATE / DELETE; no other function calls it
 --      (no status-transition or approval function is coupled to it)
+-- Block 4  filters, the server's count and the wording
+--   F  a bad label, arrival or range raises 22023; NULL / empty labels and NULL / 'any' arrival mean no filter
+--   G  for twelve filter combinations the server's match_count equals an independent count straight from rent_requests and the
+--      payment score, equals the number of rows flagged matches, and total_count is every request; no filter matches everything
+--   H  Kampala-day edges: 00:00:00 today is in, 23:59:59 yesterday is not "today" but is in the last 7 days; the 7-day window
+--      starts at 00:00:00 six days ago; a custom range includes both end days
+--   I  the rank of a request does not change with a filter; a Service Center manager can filter their own queue and the count
+--      equals an independent count
+--   J  the score reasons say "Rent Plan" and use none of the banned words
 
 -- ===== Block 1: A =====
 DO $test$
@@ -55,9 +66,9 @@ BEGIN
     r := r || jsonb_build_object('step', 'A a user with no role and no Service Center queue is refused (42501)', 'pass', v_ok);
   END IF;
   r := r || jsonb_build_object('step', 'A anon and service_role cannot call it; authenticated can',
-    'pass', NOT has_function_privilege('anon', 'public.rent_request_desk_order(uuid[],text)', 'EXECUTE')
-        AND NOT has_function_privilege('service_role', 'public.rent_request_desk_order(uuid[],text)', 'EXECUTE')
-        AND has_function_privilege('authenticated', 'public.rent_request_desk_order(uuid[],text)', 'EXECUTE'));
+    'pass', NOT has_function_privilege('anon', 'public.rent_request_desk_order(uuid[],text,text[],text,date,date)', 'EXECUTE')
+        AND NOT has_function_privilege('service_role', 'public.rent_request_desk_order(uuid[],text,text[],text,date,date)', 'EXECUTE')
+        AND has_function_privilege('authenticated', 'public.rent_request_desk_order(uuid[],text,text[],text,date,date)', 'EXECUTE'));
 
   -- a Service Center manager who holds no desk role
   SELECT rr.service_center_manager_id INTO v_scm
@@ -123,7 +134,7 @@ BEGIN
   PERFORM set_config('request.jwt.claims', json_build_object('sub', v_staff, 'role', 'authenticated')::text, true);
   SELECT array_agg(id), count(*) INTO v_ids, v_total FROM public.rent_requests;
 
-  CREATE TEMP TABLE _o (sort text, request_id uuid, tenant_id uuid, rank int, score int, label text, reason text, basis text) ON COMMIT DROP;
+  CREATE TEMP TABLE _o (sort text, request_id uuid, tenant_id uuid, rank int, score int, label text, reason text, basis text, matches boolean, match_count int, total_count int) ON COMMIT DROP;
   FOREACH s IN ARRAY ARRAY['best_payers', 'newest', 'oldest'] LOOP
     INSERT INTO _o SELECT s, * FROM public.rent_request_desk_order(v_ids, s);
   END LOOP;
@@ -263,5 +274,128 @@ BEGIN
   r := r || jsonb_build_object('step', 'E one function, one signature (no overload)', 'pass', v_n = 1, 'detail', v_n);
 
   RAISE EXCEPTION 'ROLLED BACK REPORT (block 3): %', jsonb_pretty(r);
+END
+$test$;
+
+-- ===== Block 4: F, G, H, I and J =====
+DO $test$
+DECLARE
+  r jsonb := '[]'::jsonb;
+  v_today date := (now() AT TIME ZONE 'Africa/Kampala')::date;
+  v_staff uuid; v_ids uuid[]; v_total int; v_n int; v_m int; v_ok boolean; v_k int;
+  c record; v_expected int; v_srv int; v_rows int; v_t int;
+  v_five uuid[]; v_ts timestamptz[]; v_a text; v_b text;
+  v_scm uuid; v_own uuid[];
+BEGIN
+  SELECT user_id INTO v_staff FROM public.user_roles WHERE role = 'operations' AND enabled LIMIT 1;
+  PERFORM set_config('request.jwt.claims', json_build_object('sub', v_staff, 'role', 'authenticated')::text, true);
+  SELECT array_agg(id), count(*) INTO v_ids, v_total FROM public.rent_requests;
+
+  -- F: validation
+  v_ok := false; BEGIN PERFORM * FROM public.rent_request_desk_order(ARRAY[gen_random_uuid()], 'best_payers', ARRAY['gold']); EXCEPTION WHEN OTHERS THEN v_ok := SQLSTATE = '22023'; END;
+  r := r || jsonb_build_object('step', 'F an unknown label raises 22023', 'pass', v_ok);
+  v_ok := false; BEGIN PERFORM * FROM public.rent_request_desk_order(ARRAY[gen_random_uuid()], 'best_payers', ARRAY['watch', NULL]); EXCEPTION WHEN OTHERS THEN v_ok := SQLSTATE = '22023'; END;
+  r := r || jsonb_build_object('step', 'F a NULL label raises 22023', 'pass', v_ok);
+  v_ok := false; BEGIN PERFORM * FROM public.rent_request_desk_order(ARRAY[gen_random_uuid()], 'best_payers', NULL, 'yesterday'); EXCEPTION WHEN OTHERS THEN v_ok := SQLSTATE = '22023'; END;
+  r := r || jsonb_build_object('step', 'F an unknown arrival raises 22023', 'pass', v_ok);
+  v_ok := false; BEGIN PERFORM * FROM public.rent_request_desk_order(ARRAY[gen_random_uuid()], 'best_payers', NULL, 'custom'); EXCEPTION WHEN OTHERS THEN v_ok := SQLSTATE = '22023'; END;
+  r := r || jsonb_build_object('step', 'F a custom range with no day raises 22023', 'pass', v_ok);
+  v_ok := false; BEGIN PERFORM * FROM public.rent_request_desk_order(ARRAY[gen_random_uuid()], 'best_payers', NULL, 'custom', DATE '2026-10-14', DATE '2026-10-01'); EXCEPTION WHEN OTHERS THEN v_ok := SQLSTATE = '22023'; END;
+  r := r || jsonb_build_object('step', 'F a range whose start is after its end raises 22023', 'pass', v_ok);
+  SELECT string_agg(request_id::text, ',' ORDER BY rank) INTO v_a FROM public.rent_request_desk_order(v_ids, 'best_payers');
+  SELECT string_agg(request_id::text, ',' ORDER BY rank) INTO v_b FROM public.rent_request_desk_order(v_ids, 'best_payers', ARRAY[]::text[], 'any');
+  r := r || jsonb_build_object('step', 'F empty labels and arrival "any" are the same as no filter', 'pass', v_a = v_b);
+  SELECT count(*) INTO v_n FROM public.rent_request_desk_order(v_ids, 'best_payers', ARRAY['proven_good','good_agent_pick','average','watch']) WHERE NOT matches;
+  r := r || jsonb_build_object('step', 'F with all four labels every request matches (every request has a score)', 'pass', v_n = 0, 'detail', v_n);
+
+  -- G: the server's count equals an independent count
+  CREATE TEMP TABLE _sc ON COMMIT DROP AS
+    SELECT rr.id, rr.tenant_id, (rr.created_at AT TIME ZONE 'Africa/Kampala')::date AS d, s.label
+      FROM public.rent_requests rr
+      LEFT JOIN public._tenant_payment_score_core(ARRAY(SELECT DISTINCT tenant_id FROM public.rent_requests WHERE tenant_id IS NOT NULL), v_today) s ON s.tenant_id = rr.tenant_id;
+  FOR c IN
+    SELECT * FROM (VALUES
+      (1,  ARRAY['watch'],                                  NULL,     NULL::date,       NULL::date),
+      (2,  ARRAY['proven_good','good_agent_pick'],          NULL,     NULL,             NULL),
+      (3,  ARRAY['average'],                                NULL,     NULL,             NULL),
+      (4,  ARRAY['proven_good','good_agent_pick','average','watch'], NULL, NULL,        NULL),
+      (5,  NULL::text[],                                    'today',  NULL,             NULL),
+      (6,  NULL,                                            '7d',     NULL,             NULL),
+      (7,  NULL,                                            'custom', v_today - 30,     v_today - 8),
+      (8,  NULL,                                            'custom', v_today - 14,     NULL),
+      (9,  NULL,                                            'custom', NULL,             v_today - 14),
+      (10, ARRAY['watch'],                                  '7d',     NULL,             NULL),
+      (11, ARRAY['average'],                                'custom', v_today - 60,     v_today - 20),
+      (12, ARRAY['proven_good'],                            'today',  NULL,             NULL)
+    ) AS t(n, labels, arrived, f, t2)
+  LOOP
+    SELECT count(*) INTO v_expected FROM _sc x
+     WHERE (c.labels IS NULL OR x.label = ANY (c.labels))
+       AND (c.arrived IS NULL OR (c.arrived = 'today' AND x.d = v_today)
+                              OR (c.arrived = '7d' AND x.d BETWEEN v_today - 6 AND v_today)
+                              OR (c.arrived = 'custom' AND (c.f IS NULL OR x.d >= c.f) AND (c.t2 IS NULL OR x.d <= c.t2)));
+    SELECT max(match_count), count(*) FILTER (WHERE matches), max(total_count) INTO v_srv, v_rows, v_t
+      FROM public.rent_request_desk_order(v_ids, 'best_payers', c.labels, c.arrived, c.f, c.t2);
+    r := r || jsonb_build_object('step', 'G combination ' || c.n || ': the server''s match_count equals the independent count and the rows flagged matches',
+      'pass', v_srv = v_expected AND v_rows = v_expected AND v_t = v_total,
+      'detail', jsonb_build_object('server', v_srv, 'flagged', v_rows, 'independent', v_expected, 'total', v_t));
+  END LOOP;
+  SELECT max(match_count) INTO v_n FROM public.rent_request_desk_order(v_ids);
+  r := r || jsonb_build_object('step', 'G with no filter the server''s count is every request', 'pass', v_n = v_total, 'detail', v_n);
+
+  -- H: Kampala-day edges, on five requests whose time is set (rolled back)
+  SELECT array_agg(id) INTO v_five FROM (SELECT id FROM public.rent_requests ORDER BY id LIMIT 5) q;
+  v_ts := ARRAY[
+    v_today::timestamp AT TIME ZONE 'Africa/Kampala',                                          -- today 00:00:00
+    (v_today::timestamp AT TIME ZONE 'Africa/Kampala') - interval '1 second',                  -- yesterday 23:59:59
+    (v_today - 6)::timestamp AT TIME ZONE 'Africa/Kampala',                                    -- six days ago 00:00:00
+    ((v_today - 6)::timestamp AT TIME ZONE 'Africa/Kampala') - interval '1 second',            -- seven days ago 23:59:59
+    ((v_today + 1)::timestamp AT TIME ZONE 'Africa/Kampala') - interval '1 second'];           -- today 23:59:59
+  SET LOCAL session_replication_role = replica;
+  FOR v_k IN 1..5 LOOP UPDATE public.rent_requests SET created_at = v_ts[v_k] WHERE id = v_five[v_k]; END LOOP;
+  SET LOCAL session_replication_role = origin;
+  SELECT string_agg(request_id::text, ',' ORDER BY request_id) INTO v_a FROM public.rent_request_desk_order(v_five, 'newest', NULL, 'today') WHERE matches;
+  SELECT string_agg(x::text, ',' ORDER BY x) INTO v_b FROM unnest(ARRAY[v_five[1], v_five[5]]) x;
+  r := r || jsonb_build_object('step', 'H "today" is 00:00:00 to 23:59:59 Kampala: yesterday 23:59:59 is out', 'pass', v_a = v_b);
+  SELECT string_agg(request_id::text, ',' ORDER BY request_id) INTO v_a FROM public.rent_request_desk_order(v_five, 'newest', NULL, '7d') WHERE matches;
+  SELECT string_agg(x::text, ',' ORDER BY x) INTO v_b FROM unnest(ARRAY[v_five[1], v_five[2], v_five[3], v_five[5]]) x;
+  r := r || jsonb_build_object('step', 'H the last 7 days start at 00:00:00 six days ago (seven days ago 23:59:59 is out)', 'pass', v_a = v_b);
+  SELECT string_agg(request_id::text, ',' ORDER BY request_id) INTO v_a FROM public.rent_request_desk_order(v_five, 'newest', NULL, 'custom', v_today - 6, v_today - 6) WHERE matches;
+  r := r || jsonb_build_object('step', 'H a one-day custom range holds exactly that day', 'pass', v_a = v_five[3]::text);
+  SELECT string_agg(request_id::text, ',' ORDER BY request_id) INTO v_a FROM public.rent_request_desk_order(v_five, 'newest', NULL, 'custom', v_today - 1, v_today) WHERE matches;
+  SELECT string_agg(x::text, ',' ORDER BY x) INTO v_b FROM unnest(ARRAY[v_five[1], v_five[2], v_five[5]]) x;
+  r := r || jsonb_build_object('step', 'H a custom range includes both end days', 'pass', v_a = v_b);
+
+  -- I: rank does not change with a filter
+  SELECT count(*) INTO v_n FROM public.rent_request_desk_order(v_ids, 'best_payers') u
+    JOIN public.rent_request_desk_order(v_ids, 'best_payers', ARRAY['watch'], '7d') f USING (request_id)
+   WHERE u.rank <> f.rank;
+  r := r || jsonb_build_object('step', 'I a request keeps its rank whether or not a filter is on', 'pass', v_n = 0, 'detail', v_n);
+  SELECT rr.service_center_manager_id INTO v_scm
+    FROM public.rent_requests rr
+   WHERE rr.service_center_manager_id IS NOT NULL AND rr.status = 'service_center_review'
+     AND NOT EXISTS (SELECT 1 FROM public.user_roles ur WHERE ur.user_id = rr.service_center_manager_id AND ur.enabled
+                       AND ur.role::text IN ('manager','super_admin','coo','ceo','cto','cfo','operations','tenant_ops','agent_ops','financial_ops','landlord_ops','partner_ops'))
+   GROUP BY rr.service_center_manager_id ORDER BY count(*) DESC LIMIT 1;
+  IF v_scm IS NULL THEN
+    r := r || jsonb_build_object('step', 'I Service Center manager', 'pass', NULL, 'detail', 'skipped: none without a desk role');
+  ELSE
+    SELECT array_agg(id) INTO v_own FROM public.rent_requests WHERE service_center_manager_id = v_scm AND status = 'service_center_review';
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_scm, 'role', 'authenticated')::text, true);
+    SELECT max(match_count), count(*) FILTER (WHERE matches) INTO v_srv, v_rows FROM public.rent_request_desk_order(v_own, 'best_payers', ARRAY['average','watch'], 'custom', v_today - 400, NULL);
+    SELECT count(*) INTO v_expected FROM _sc x WHERE x.id = ANY (v_own) AND x.label IN ('average','watch') AND x.d >= v_today - 400;
+    r := r || jsonb_build_object('step', 'I a Service Center manager can filter their own queue and the count equals the independent count',
+      'pass', v_srv = v_expected AND v_rows = v_expected, 'detail', jsonb_build_object('server', v_srv, 'independent', v_expected, 'queue', cardinality(v_own)));
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', v_staff, 'role', 'authenticated')::text, true);
+  END IF;
+
+  -- J: wording
+  SELECT count(*) INTO v_n FROM public.rent_request_desk_order(v_ids) o
+   WHERE regexp_replace(o.reason, 'Rent Plans?', '', 'g') ~* 'plan' OR o.reason ~* '\m(loan|lender|roi|interest)\M';
+  r := r || jsonb_build_object('step', 'J reasons say "Rent Plan" and use none of loan, lender, ROI or interest', 'pass', v_n = 0, 'detail', v_n);
+  SELECT count(*) INTO v_n FROM public.rent_request_desk_order(v_ids) o WHERE o.reason LIKE '%Rent Plan%';
+  r := r || jsonb_build_object('step', 'J at least one reason carries the Rent Plan wording (history tenants)', 'pass', v_n > 0, 'detail', v_n);
+
+  RAISE EXCEPTION 'ROLLED BACK REPORT (block 4): %', jsonb_pretty(r);
 END
 $test$;

@@ -4,12 +4,14 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import {
   DEFAULT_RENT_DESK_SORT,
+  filterByRentDesk,
   orderByRentDesk,
   useRentDeskOrder,
   withRentDeskScores,
   type RentDeskScoreFields,
   type RentDeskSort,
 } from '@/hooks/useRentDeskOrder';
+import { NO_RENT_DESK_FILTERS, type RentDeskFilters } from '@/lib/rentDeskFilters';
 
 export interface ServiceCenterQueueRequest {
   id: string;
@@ -55,16 +57,26 @@ export interface ServiceCenterRentQueue {
   recent_reviewed: ServiceCenterReviewedRequest[];
 }
 
+export interface ServiceCenterRentQueueOptions {
+  sort?: RentDeskSort;
+  filters?: RentDeskFilters;
+  /** Set false where only the counts are needed (no server order or filter call is made). Default true. */
+  ordered?: boolean;
+}
+
 /**
  * Server-authoritative vetting queue for a Service Center manager. Only rent
  * requests routed to this manager (sub-agent submissions) are returned — the
  * database decides eligibility, never the client.
  *
- * `pending` is ordered by the server (`rent_request_desk_order`): "best payers first" by default (tenant payment score
- * high to low, then oldest request first), or `newest` / `oldest`. Scores are joined on the server; the queue itself, its
- * contents and the review mutation are unchanged. If the ordering call fails the queue keeps the order it was returned in.
+ * `pending` is ordered and filtered by the server (`rent_request_desk_order`): "best payers first" by default (tenant payment
+ * score high to low, then oldest request first), or `newest` / `oldest`, narrowed by paying label and arrival day. Scores,
+ * labels and the count are the server's; `desk.matchCount` is its count of requests that match, and `pending_count` stays the
+ * size of the whole queue. The queue itself and the review mutation are unchanged. If the ordering call fails the queue keeps
+ * the order it was returned in and shows every request (`desk.error` is set).
  */
-export function useServiceCenterRentQueue(sort: RentDeskSort = DEFAULT_RENT_DESK_SORT) {
+export function useServiceCenterRentQueue(options: ServiceCenterRentQueueOptions = {}) {
+  const { sort = DEFAULT_RENT_DESK_SORT, filters = NO_RENT_DESK_FILTERS, ordered = true } = options;
   const { user } = useAuth();
   const query = useQuery({
     queryKey: ['service-center-rent-queue', user?.id],
@@ -80,16 +92,25 @@ export function useServiceCenterRentQueue(sort: RentDeskSort = DEFAULT_RENT_DESK
   });
 
   const pendingIds = useMemo(() => (query.data?.pending ?? []).map((r) => r.id), [query.data]);
-  const order = useRentDeskOrder(pendingIds, sort);
+  const order = useRentDeskOrder(pendingIds, sort, filters, { enabled: ordered });
 
   const data = useMemo<ServiceCenterRentQueue | undefined>(() => {
     if (!query.data || !order.data) return query.data;
-    return { ...query.data, pending: orderByRentDesk(withRentDeskScores(query.data.pending, order.data), order.data) };
+    const scored = withRentDeskScores(query.data.pending, order.data);
+    return { ...query.data, pending: filterByRentDesk(orderByRentDesk(scored, order.data), order.data) };
   }, [query.data, order.data]);
+
+  const desk = {
+    /** The server's count of requests that match the filters (all of them when there is no filter). */
+    matchCount: order.data ? order.data.matchCount : (query.data?.pending.length ?? 0),
+    totalCount: order.data ? order.data.totalCount : (query.data?.pending.length ?? 0),
+    filtered: !!order.data?.filtered,
+    error: order.isError,
+  };
 
   // Counts and the like are available at once; `isLoading` stays true until the order is known (or the ordering call has
   // failed), so the list never reshuffles under the reader.
-  return { ...query, data, isLoading: query.isLoading || (pendingIds.length > 0 && order.isLoading) };
+  return { ...query, data, desk, isLoading: query.isLoading || (ordered && pendingIds.length > 0 && order.isLoading) };
 }
 
 export function useServiceCenterReviewRentRequest() {

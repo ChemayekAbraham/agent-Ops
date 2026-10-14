@@ -32,6 +32,22 @@ import { useRentRequestLifecycle } from '@/hooks/useRentRequestLifecycle';
 import {
   useTenantPipelineHubData, PIPELINE_STATUS_GROUPS, STATUS_LABELS, PipelineRequestRow,
 } from '@/hooks/useTenantPipelineHubData';
+import { useRentDeskUrlState } from '@/hooks/useRentDeskUrlState';
+import { RentDeskControls } from '@/components/rent-desk/RentDeskControls';
+import { PaymentLabelChip } from '@/components/rent-desk/PaymentLabelChip';
+import { RENT_DESK_SORT_LABELS, isRentDeskSort } from '@/lib/rentDeskFilters';
+
+/** The hub's own sorts, kept in the URL beside the three server sorts (best payers, newest, oldest). */
+const HUB_EXTRA_SORTS = ['tenant_az', 'highest_rent', 'highest_outstanding', 'status'] as const;
+const HUB_SORT_OPTIONS: { value: string; label: string }[] = [
+  { value: 'best_payers', label: RENT_DESK_SORT_LABELS.best_payers },
+  { value: 'newest', label: RENT_DESK_SORT_LABELS.newest },
+  { value: 'oldest', label: RENT_DESK_SORT_LABELS.oldest },
+  { value: 'tenant_az', label: 'Tenant A–Z' },
+  { value: 'highest_rent', label: 'Highest rent' },
+  { value: 'highest_outstanding', label: 'Highest outstanding' },
+  { value: 'status', label: 'Status' },
+];
 
 /**
  * Tenant Operations → Pipeline Status Hub.
@@ -97,7 +113,15 @@ interface Props {
 }
 
 export function PipelineStatusHub({ onOpenTenant, initialStatusKey }: Props) {
-  const { data, isLoading, isFetching, refetch, error } = useTenantPipelineHubData();
+  // Sort and filters live in the URL. The server orders the requests, joins each tenant's payment score and says which match
+  // the paying-label and arrival filters (rent_request_desk_order); the hub's other sorts are applied on top of that order.
+  const deskUrl = useRentDeskUrlState(HUB_EXTRA_SORTS);
+  const { sort, filters: deskFilters, isFiltered: deskFiltered } = deskUrl;
+  const { data, isLoading, isFetching, refetch, error, desk } = useTenantPipelineHubData(
+    400,
+    isRentDeskSort(sort) ? sort : 'best_payers',
+    deskFilters,
+  );
   const { user, role } = useAuth();
 
   const [presetKey, setPresetKey] = useState('today');
@@ -113,8 +137,6 @@ export function PipelineStatusHub({ onOpenTenant, initialStatusKey }: Props) {
   const [agent, setAgent] = useState('all');
   const [amountBand, setAmountBand] = useState('all');
   const [flag, setFlag] = useState<LifecycleFlag>('all');
-  const [sortKey, setSortKey] = useState<'date' | 'tenant' | 'amount' | 'outstanding' | 'status'>('date');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(0);
   const [tab, setTab] = useState<'overview' | 'tenants' | 'financials' | 'reports'>('overview');
   const [detail, setDetail] = useState<PipelineRequestRow | null>(null);
@@ -158,6 +180,8 @@ export function PipelineStatusHub({ onOpenTenant, initialStatusKey }: Props) {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     let rows = requests.filter((r) => inRange(r[dateBasis], range.from, range.to));
+    // the server's answer to the paying-label and arrival filters (rows are never flagged if its call failed)
+    if (deskFiltered) rows = rows.filter((r) => r.desk_match !== false);
     if (statusGroup.statuses.length) rows = rows.filter((r) => statusGroup.statuses.includes(r.status));
     if (district !== 'all') rows = rows.filter((r) => r.district === district);
     if (agent !== 'all') rows = rows.filter((r) => r.agent_id === agent);
@@ -174,21 +198,18 @@ export function PipelineStatusHub({ onOpenTenant, initialStatusKey }: Props) {
     }
     if (q) rows = rows.filter((r) => r.search_text.includes(q));
 
-    const dir = sortDir === 'asc' ? 1 : -1;
-    return [...rows].sort((a, b) => {
-      switch (sortKey) {
-        case 'tenant': return a.tenant_name.localeCompare(b.tenant_name) * dir;
-        case 'amount': return (a.rent_amount - b.rent_amount) * dir;
-        case 'outstanding': return (a.outstanding - b.outstanding) * dir;
-        case 'status': return a.status.localeCompare(b.status) * dir;
-        default: {
-          const av = new Date(a[dateBasis] || 0).getTime();
-          const bv = new Date(b[dateBasis] || 0).getTime();
-          return (av - bv) * dir;
-        }
-      }
-    });
-  }, [requests, dateBasis, range, statusGroup, district, agent, flag, amountBand, search, sortKey, sortDir]);
+    // Best payers first is the server's order, kept as it came; the rest sort on top of it.
+    if (sort === 'best_payers') return rows;
+    const dateSort = (dir: number) => [...rows].sort((a, b) => (new Date(a[dateBasis] || 0).getTime() - new Date(b[dateBasis] || 0).getTime()) * dir);
+    switch (sort) {
+      case 'tenant_az': return [...rows].sort((a, b) => a.tenant_name.localeCompare(b.tenant_name));
+      case 'highest_rent': return [...rows].sort((a, b) => b.rent_amount - a.rent_amount);
+      case 'highest_outstanding': return [...rows].sort((a, b) => b.outstanding - a.outstanding);
+      case 'status': return [...rows].sort((a, b) => a.status.localeCompare(b.status));
+      case 'oldest': return dateSort(1);
+      default: return dateSort(-1); // newest
+    }
+  }, [requests, dateBasis, range, statusGroup, district, agent, flag, amountBand, search, sort, deskFiltered]);
 
   /**
    * Chip counts must obey the SAME date range and non-status filters as the
@@ -197,6 +218,7 @@ export function PipelineStatusHub({ onOpenTenant, initialStatusKey }: Props) {
   const chipBase = useMemo(() => {
     const q = search.trim().toLowerCase();
     let rows = requests.filter((r) => inRange(r[dateBasis], range.from, range.to));
+    if (deskFiltered) rows = rows.filter((r) => r.desk_match !== false);
     if (district !== 'all') rows = rows.filter((r) => r.district === district);
     if (agent !== 'all') rows = rows.filter((r) => r.agent_id === agent);
     if (flag === 'returned') rows = rows.filter((r) => !!r.returned_at);
@@ -212,7 +234,7 @@ export function PipelineStatusHub({ onOpenTenant, initialStatusKey }: Props) {
     }
     if (q) rows = rows.filter((r) => r.search_text.includes(q));
     return rows;
-  }, [requests, dateBasis, range, district, agent, flag, amountBand, search]);
+  }, [requests, dateBasis, range, district, agent, flag, amountBand, search, deskFiltered]);
 
   const pageRows = filtered.slice(page * PER_PAGE, page * PER_PAGE + PER_PAGE);
   const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
@@ -425,10 +447,10 @@ export function PipelineStatusHub({ onOpenTenant, initialStatusKey }: Props) {
   }, [filtered]);
 
   const resetFilters = () => {
-    setSearch(''); setDistrict('all'); setAgent('all'); setAmountBand('all'); setStatusKey('all'); setFlag('all'); setPage(0);
+    setSearch(''); setDistrict('all'); setAgent('all'); setAmountBand('all'); setStatusKey('all'); setFlag('all'); deskUrl.clearFilters(); setPage(0);
   };
 
-  const activeFilterCount = [search.trim() ? 1 : 0, district !== 'all' ? 1 : 0, agent !== 'all' ? 1 : 0, amountBand !== 'all' ? 1 : 0, statusKey !== 'all' ? 1 : 0, flag !== 'all' ? 1 : 0]
+  const activeFilterCount = [search.trim() ? 1 : 0, district !== 'all' ? 1 : 0, agent !== 'all' ? 1 : 0, amountBand !== 'all' ? 1 : 0, statusKey !== 'all' ? 1 : 0, flag !== 'all' ? 1 : 0, deskFiltered ? 1 : 0]
     .reduce((a, b) => a + b, 0);
 
   // ---------------------------------------------------------------- exports
@@ -847,6 +869,14 @@ export function PipelineStatusHub({ onOpenTenant, initialStatusKey }: Props) {
               )}
             </div>
           </div>
+          <RentDeskControls
+            filters={deskFilters}
+            onFiltersChange={(f) => { deskUrl.setFilters(f); setPage(0); }}
+            onClear={() => { deskUrl.clearFilters(); setPage(0); }}
+            matchCount={desk.matchCount}
+            totalCount={desk.totalCount}
+            error={desk.error}
+          />
           <p className="text-[11px] text-muted-foreground">
             {isLoading ? 'Loading…' : `${filtered.length.toLocaleString()} request${filtered.length === 1 ? '' : 's'} match the current view`}
             {activeFilterCount > 0 && ` · ${activeFilterCount} filter${activeFilterCount === 1 ? '' : 's'} active`}
@@ -991,17 +1021,14 @@ export function PipelineStatusHub({ onOpenTenant, initialStatusKey }: Props) {
                     {statusGroup.label} · {filtered.length.toLocaleString()} records
                   </p>
                   <div className="flex items-center gap-1.5">
-                    <Select value={`${sortKey}:${sortDir}`} onValueChange={(v) => { const [k, d] = v.split(':'); setSortKey(k as any); setSortDir(d as any); }}>
+                    <Select value={sort} onValueChange={(v) => { deskUrl.setSort(v as typeof sort); setPage(0); }}>
                       <SelectTrigger className="h-8 w-[168px] text-[11px]">
                         <ArrowUpDown className="h-3 w-3 mr-1" /><SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="date:desc" className="text-xs">Newest first</SelectItem>
-                        <SelectItem value="date:asc" className="text-xs">Oldest first</SelectItem>
-                        <SelectItem value="tenant:asc" className="text-xs">Tenant A–Z</SelectItem>
-                        <SelectItem value="amount:desc" className="text-xs">Highest rent</SelectItem>
-                        <SelectItem value="outstanding:desc" className="text-xs">Highest outstanding</SelectItem>
-                        <SelectItem value="status:asc" className="text-xs">Status</SelectItem>
+                        {HUB_SORT_OPTIONS.map((o) => (
+                          <SelectItem key={o.value} value={o.value} className="text-xs">{o.label}</SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                     <Button variant="outline" size="sm" className="h-8 text-[11px] gap-1" onClick={handleCsv}>
@@ -1032,6 +1059,7 @@ export function PipelineStatusHub({ onOpenTenant, initialStatusKey }: Props) {
                           <td className="p-2">
                             <p className="font-medium truncate max-w-[170px]">{r.tenant_name}</p>
                             <p className="text-[10px] text-muted-foreground">{r.tenant_phone}</p>
+                            <PaymentLabelChip label={r.payment_label} score={r.payment_score} reason={r.payment_reason} className="mt-0.5 max-w-[220px]" />
                           </td>
                           <td className="p-2"><Badge variant="secondary" className="text-[10px]">{STATUS_LABELS[r.status] || r.status}</Badge></td>
                           <td className="p-2 truncate max-w-[130px]">{r.agent_name}</td>
@@ -1058,6 +1086,7 @@ export function PipelineStatusHub({ onOpenTenant, initialStatusKey }: Props) {
                         <div className="min-w-0">
                           <p className="text-sm font-semibold truncate">{r.tenant_name}</p>
                           <p className="text-[11px] text-muted-foreground truncate">{r.tenant_phone} · {r.district}</p>
+                          <PaymentLabelChip label={r.payment_label} score={r.payment_score} reason={r.payment_reason} className="mt-0.5" />
                         </div>
                         <Badge variant="secondary" className="text-[10px] shrink-0">{STATUS_LABELS[r.status] || r.status}</Badge>
                       </div>
