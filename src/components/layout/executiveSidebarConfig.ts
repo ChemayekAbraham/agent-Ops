@@ -219,6 +219,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Returns Disbursement Report', icon: FileText, id: 'roi-disbursement-report' },
         { label: 'Rent Disbursement Report', icon: FileText, id: 'rent-disbursement-report' },
         { label: 'Merchant Requisition Report', icon: FileText, id: 'merchant-requisition-report' },
+        { label: 'Approved Requisitions', icon: FileText, id: 'approved-requisitions' },
         { label: 'Employee Requisition Report', icon: FileText, id: 'employee-requisition-report' },
         { label: 'Expense Report', icon: FileText, id: 'expense-report' },
         { label: 'SMS & OTP Costs', icon: MessageSquare, id: 'sms-otp-costs' },
