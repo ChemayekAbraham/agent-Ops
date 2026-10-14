@@ -1,5 +1,5 @@
 # Architecture Decisions
-- R&D report exports accept only project names and dated recorded updates, excluding preset dashboard details so unrecorded claims cannot enter reports.
+- R&D report exports accept project names, dated recorded updates and the current editable cash position; cash rows persist on explicit edits rather than mount effects to prevent reloads overwriting saved figures.
 - Service Centre intake actions use the live typed RPC contract and require its returned request/status before showing success; persistent row errors prevent silent failures.
 - Landlord principal comparison is a read-only enabled-role RPC: cumulative non-cancelled float allocations versus non-reversed principal; collected fee totals exclude principal and never add gross fees to their allocation breakdown, preventing double counting.
 <!-- LOVABLE:BEGIN -->
