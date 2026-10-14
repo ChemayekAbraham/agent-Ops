@@ -198,7 +198,6 @@ export default function AgentsMock() {
       return data ?? [];
     },
   });
-  const [exportingTenants, setExportingTenants] = useState(false);
   const liveTenants = tenantRows.filter(t => t.statuses?.some(status => ['repaying', 'funded', 'disbursed'].includes(status)));
   const payingTenants = liveTenants.filter(t => !t.payment_states?.length || t.payment_states.some(state => state !== 'not_paying'));
   // Payments recorded through the agent's float (agent_collections) do not appear in
