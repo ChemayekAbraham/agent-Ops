@@ -299,7 +299,7 @@ export default function AgentsMock() {
             </>}
           </section>
           <div className="mx-auto w-full max-w-[380px] lg:max-w-none">
-          <section aria-labelledby="calendar-heading" className="rounded-xl border border-border/12 bg-muted p-4">
+          <section aria-labelledby="calendar-heading" className="rounded-xl border border-border/12 bg-[#FFFFFF] p-4 dark:bg-card">
             <div className="flex items-center justify-between"><h2 id="calendar-heading" className="text-base font-semibold">Repayment calendar</h2></div>
             <div className="my-2 flex items-center justify-between"><Button variant="ghost" size="icon" aria-label="Previous month" onClick={() => moveMonth(-1)}><ChevronLeft className="h-5 w-5" /></Button><h3 className="text-sm font-semibold">{monthLabel}</h3><Button variant="ghost" size="icon" aria-label="Next month" onClick={() => moveMonth(1)}><ChevronRight className="h-5 w-5" /></Button></div>
             {(collectionsFailed || historyFailed) && <p className="mb-3 text-xs text-destructive">Calendar records could not be fully loaded.</p>}
