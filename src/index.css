@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-.agents-mock-exact { --mock-surface: 0 0% 100%; --mock-wallet-start: 275 80% 48%; --mock-wallet-end: 277 90% 26%; background: hsl(var(--mock-surface)); font-family: 'DM Sans', sans-serif; }
+.agents-mock-exact { --mock-surface: 150 0.8% 98%; --mock-wallet-start: 275 80% 48%; --mock-wallet-end: 277 90% 26%; --card: 300 0.4% 99.8%; background: hsl(var(--mock-surface)); font-family: 'DM Sans', sans-serif; }
 .dark .agents-mock-exact { --mock-surface: var(--card); }
 .agents-mock-exact h1, .agents-mock-exact h2, .agents-mock-exact h3, .agents-mock-exact button, .agents-mock-exact input { font-family: inherit; letter-spacing: 0; }
 .agents-mock-wallet { background: linear-gradient(120deg, hsl(var(--mock-wallet-start)), hsl(var(--mock-wallet-end))); color: hsl(var(--header-foreground)); }
