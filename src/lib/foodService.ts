@@ -470,3 +470,27 @@ export function foodMealImagePath(type: string, id: string = crypto.randomUUID()
   if (!ext) throw new Error('Use a JPEG, PNG or WebP image.');
   return `meals/${id}.${ext}`;
 }
+
+/**
+ * Checks the file's actual first bytes, not just its declared type: JPEG
+ * (FF D8 FF), PNG (89 50 4E 47 0D 0A 1A 0A) or WebP (RIFF....WEBP), and that
+ * they match the declared type. Browser-side only: it stops honest mistakes and
+ * renamed files, but a determined caller with storage access can bypass it.
+ */
+export function foodMealImageSignatureType(bytes: Uint8Array): string | null {
+  const b = bytes;
+  if (b.length >= 3 && b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return 'image/jpeg';
+  if (b.length >= 8 && [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a].every((v, i) => b[i] === v)) return 'image/png';
+  if (b.length >= 12 && String.fromCharCode(b[0], b[1], b[2], b[3]) === 'RIFF'
+      && String.fromCharCode(b[8], b[9], b[10], b[11]) === 'WEBP') return 'image/webp';
+  return null;
+}
+
+/** Why the file's content is not the image it claims to be, or null when it is. */
+export async function foodMealImageContentProblem(file: Blob & { type: string }): Promise<string | null> {
+  const head = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+  const actual = foodMealImageSignatureType(head);
+  if (!actual) return 'That file is not a JPEG, PNG or WebP image.';
+  if (actual !== file.type) return 'The file content does not match its image type.';
+  return null;
+}
