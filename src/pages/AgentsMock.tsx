@@ -326,7 +326,7 @@ export default function AgentsMock() {
               <Button onClick={openRequest} className="h-12 w-full gap-2 rounded-lg px-5 text-sm font-semibold shadow-sm sm:w-auto"><Plus className="h-4 w-4" />Post Rent Request<ArrowRight className="h-4 w-4" /></Button>
             </div>
             <ol className="mt-4 grid grid-cols-3 gap-2" aria-label="How you earn">
-              {[{ value: 'UGX 5,000', note: 'when you post', color: 'text-primary' }, { value: '1%', note: 'when landlord is paid', color: 'text-warning' }, { value: '10%', note: 'on every repayment', color: 'text-success' }].map(e => <li key={e.value} className="px-1 text-center"><span className={cn('block text-base font-extrabold leading-none tabular-nums sm:text-lg', e.color)}>{e.value}</span><span className="mt-1 block text-[11px] leading-tight text-muted-foreground">{e.note}</span></li>)}
+              {[{ value: 'UGX 5,000', note: 'when you post', color: 'text-primary' }, { value: '1%', note: 'when landlord is paid', color: 'text-warning' }, { value: '10%', note: 'on every repayment', color: 'text-success' }].map(e => <li key={e.value} className="px-1 text-center"><span className={cn('block whitespace-nowrap text-base font-extrabold leading-none tabular-nums sm:text-lg', e.color)}>{e.value}</span><span className="mt-1 block text-[11px] leading-tight text-muted-foreground">{e.note}</span></li>)}
             </ol>
           </section>
           <section aria-label="Collection summary" className="rounded-2xl border border-border/60 bg-card p-4 shadow-sm">
