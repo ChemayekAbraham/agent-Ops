@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
@@ -280,6 +280,17 @@ export default function AgentsMock() {
   const monthlyCollected = (monthRows ?? []).reduce((sum, row) => sum + Number(row.amount), 0);
   const expected = period === 'today' ? EXPECTED_TODAY : monthlyExpected;
   const collected = period === 'today' ? cap?.paid_today ?? 0 : monthlyCollected;
+  // The collections figure the card's bubble motion keys on: the bar grows from
+  // zero to this percentage every time a period is opened or reloaded, and the
+  // figure itself pops in when it stops loading.
+  const collectLoading = period === 'month' && (collectionsFailed || collectionsLoading || historyFailed || historyLoading);
+  const collectPct = !collectLoading && Number(expected) > 0 ? Math.min(100, Math.round(Number(collected) / Number(expected) * 100)) : 0;
+  const [fillPct, setFillPct] = useState(0);
+  useEffect(() => {
+    setFillPct(0);
+    const id = window.setTimeout(() => setFillPct(collectPct), 180);
+    return () => window.clearTimeout(id);
+  }, [collectPct, period]);
   const selectedRows = (monthRows ?? []).filter(row => new Date(new Date(row.created_at).getTime() + 3 * 3600_000).getUTCDate() === day);
   const detailRows = selectedRows.slice(detailPage * 10, detailPage * 10 + 10);
   // Tenants still repaying who paid nothing / less than their daily amount on the selected day.
@@ -316,11 +327,11 @@ export default function AgentsMock() {
           </PopoverContent></Popover></div>
         </header>
         <main className="space-y-4 px-4 sm:px-6">
-          <div className="pb-2 pt-5">
+          <div className="mock-bubble-in pb-2 pt-5">
             {(() => { const h = Number(new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hour12: false, timeZone: 'Africa/Kampala' }).format(new Date())); const g = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'; const name = (profile?.full_name || '').trim().split(/\s+/)[0] || 'there'; return <h1 className="text-xl font-bold tracking-tight text-foreground">{g}, {name} <span aria-hidden>👋</span></h1>; })()}
             <p className="mt-1 text-sm text-muted-foreground">Here's how your tenants are doing today.</p>
           </div>
-          <section aria-labelledby="post-cta-heading" className="rounded-xl border border-primary/20 bg-primary/5 p-4 shadow-sm">
+          <section aria-labelledby="post-cta-heading" className="mock-bubble-in rounded-xl border border-primary/20 bg-primary/5 p-4 shadow-sm" style={{ animationDelay: '70ms' }}>
             <div className="flex flex-wrap items-center justify-between gap-3 lg:flex-nowrap">
               <div className="min-w-0"><p className="text-[11px] font-semibold uppercase tracking-wide text-primary">Grow your earnings</p><h2 id="post-cta-heading" className="mt-0.5 text-lg font-bold leading-tight">Add tenant, earn at every step</h2></div>
               <Button onClick={openRequest} className="h-12 w-full gap-2 rounded-lg px-5 text-sm font-semibold shadow-sm sm:w-auto"><Plus className="h-4 w-4" />Post Rent Request<ArrowRight className="h-4 w-4" /></Button>
@@ -329,27 +340,27 @@ export default function AgentsMock() {
               {[{ value: 'UGX 5,000', note: 'when you post', color: 'text-primary' }, { value: '1%', note: 'when landlord is paid', color: 'text-warning' }, { value: '10%', note: 'on every repayment', color: 'text-success' }].map(e => <li key={e.value} className="px-1 text-center"><span className={cn('block whitespace-nowrap text-base font-extrabold leading-none tabular-nums sm:text-lg', e.color)}>{e.value}</span><span className="mt-1 block text-[11px] leading-tight text-muted-foreground">{e.note}</span></li>)}
             </ol>
           </section>
-          <section aria-label="Collection summary" className="rounded-2xl border border-border/60 bg-card p-4 shadow-sm">
+          <section aria-label="Collection summary" className="mock-bubble-in rounded-2xl border border-border/60 bg-card p-4 shadow-sm" style={{ animationDelay: '140ms' }}>
             <div className="flex items-center justify-between gap-3"><h2 className="font-semibold">Collections</h2><div className="inline-flex rounded-full bg-muted p-1" aria-label="Collection period">{(['today', 'month'] as const).map(p => <Button key={p} variant="ghost" aria-pressed={period === p} onClick={() => setPeriod(p)} className={cn('!h-auto !min-h-0 rounded-full px-3 py-1.5 text-[11px] leading-none', period === p ? 'bg-primary text-primary-foreground hover:bg-primary' : 'text-muted-foreground')}>{p === 'today' ? 'Today' : 'This Month'}</Button>)}</div></div>
             {(() => {
               const loadingCol = period === 'month' && (collectionsFailed || collectionsLoading);
               const loadingExp = period === 'month' && (historyFailed || historyLoading);
-              const pct = !loadingCol && !loadingExp && Number(expected) > 0 ? Math.min(100, Math.round(Number(collected) / Number(expected) * 100)) : 0;
+              const pct = collectPct;
               const tenantCount = period === 'today' ? TENANTS_TOTAL : new Set((monthRows ?? []).map(r => r.tenant_id)).size;
               return <>
                 <div className="mt-4 flex items-end justify-between gap-3">
-                  <div className="min-w-0"><p className="text-xs text-muted-foreground">Collected</p><p className="mt-0.5 break-words text-2xl font-bold leading-tight text-success tabular-nums">{loadingCol ? (collectionsFailed ? 'Unavailable' : 'Loading…') : formatUGX(collected)}</p></div>
-                  <span className="shrink-0 rounded-full bg-success/10 px-2.5 py-1 text-xs font-bold tabular-nums text-success">{pct}%</span>
+                  <div className="min-w-0"><p className="text-xs text-muted-foreground">Collected</p><p key={`collected-${loadingCol ? 'loading' : collected}`} className={cn('mt-0.5 break-words text-2xl font-bold leading-tight text-success tabular-nums', !loadingCol && 'mock-bubble-pop')}>{loadingCol ? (collectionsFailed ? 'Unavailable' : 'Loading…') : formatUGX(collected)}</p></div>
+                  <span key={`pct-${pct}`} className={cn('shrink-0 rounded-full bg-success/10 px-2.5 py-1 text-xs font-bold tabular-nums text-success', pct > 0 && 'mock-bubble-pop')}>{pct}%</span>
                 </div>
-                <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label="Collected versus expected"><div className="h-full rounded-full bg-success transition-all" style={{ width: `${pct}%` }} /></div>
+                <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label="Collected versus expected"><div className="relative h-full overflow-hidden rounded-full bg-success transition-[width] duration-700 ease-out" style={{ width: `${fillPct}%` }}>{fillPct > 0 && <span aria-hidden className="mock-progress-bubble" />}</div></div>
                 <div className="mt-2 flex items-center justify-between gap-2 text-xs text-muted-foreground"><span>of <strong className="font-semibold text-foreground tabular-nums">{loadingExp ? (historyFailed ? 'Unavailable' : 'Loading…') : formatUGX(expected)}</strong> expected</span></div>
                 <div className="mt-3 flex items-center gap-2 border-t border-border pt-3 text-xs"><Users className="h-4 w-4 text-primary" /><span><strong>{tenantCount}</strong> {period === 'today' ? 'tenants to collect for' : 'tenants collected for'}</span>{period === 'today' && <span className="ml-auto rounded-full bg-success/10 px-2 py-0.5 font-semibold text-success">{todayPaidCount} paid</span>}</div>
               </>;
             })()}
           </section>
-          <h2 className="-mb-2 text-base font-semibold">Quick Actions</h2>
-          <section aria-label="Agent shortcuts" className="grid grid-cols-2 gap-2 sm:grid-cols-4">{SHORTCUTS.map(({ label, Icon, color, to }) => <Button key={label} variant="ghost" onClick={() => to ? navigate(to) : label === 'Rent Calculator' ? setCalcOpen(true) : label === 'Invite' ? setInviteOpen(true) : setNotice(label)} className="h-12 justify-start gap-2 rounded-lg border border-border whitespace-normal px-3 text-left text-xs"><span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted/50', color)}><Icon className="!h-5 !w-5" /></span>{label}</Button>)}</section>
-          <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <h2 className="mock-bubble-in -mb-2 text-base font-semibold" style={{ animationDelay: '210ms' }}>Quick Actions</h2>
+          <section aria-label="Agent shortcuts" className="mock-bubble-in grid grid-cols-2 gap-2 sm:grid-cols-4" style={{ animationDelay: '240ms' }}>{SHORTCUTS.map(({ label, Icon, color, to }) => <Button key={label} variant="ghost" onClick={() => to ? navigate(to) : label === 'Rent Calculator' ? setCalcOpen(true) : label === 'Invite' ? setInviteOpen(true) : setNotice(label)} className="h-12 justify-start gap-2 rounded-lg border border-border whitespace-normal px-3 text-left text-xs"><span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted/50', color)}><Icon className="!h-5 !w-5" /></span>{label}</Button>)}</section>
+          <div className="mock-bubble-in grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_360px]" style={{ animationDelay: '310ms' }}>
           <section aria-labelledby="due-heading" className="min-w-0">
             <div className="flex items-center justify-between gap-2"><h2 id="due-heading" className="text-base font-semibold">Today's tenants</h2><span className="text-xs text-muted-foreground">{payingTenants.length} repaying</span></div>
             <div className="mt-2 inline-flex items-center gap-1 rounded-full border border-border/12 bg-muted p-1" role="group" aria-label="Tenant filter">{(['repaying', 'paid'] as const).map(f => { const n = f === 'repaying' ? payingTenants.length : paidTenants.length; const on = tenantFilter === f; return <Button key={f} variant="ghost" aria-pressed={on} onClick={() => { setTenantFilter(f); setTenantPage(0); }} className={cn('!h-auto !min-h-0 rounded-full px-4 py-1.5 text-[11px] leading-none transition-colors', on ? 'bg-primary text-primary-foreground hover:bg-primary' : 'text-muted-foreground hover:text-foreground')}>{f === 'repaying' ? 'Collecting' : 'Paid'}<span className={cn('ml-1.5 inline-flex h-[15px] min-w-[15px] items-center justify-center rounded-full px-1 text-[9px] font-semibold tabular-nums', on ? 'bg-primary-foreground text-primary' : 'border border-primary/30 bg-primary/20 text-primary')}>{n}</span></Button>; })}</div>
