@@ -246,7 +246,7 @@ export default function TenantClassificationTab() {
             Could not load the smartphone figures: {usage.error instanceof Error ? usage.error.message : 'unknown error'}
           </p>
         ) : u ? (
-          <div className="grid grid-cols-1 gap-2 min-[360px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-5" data-testid="smartphone-cards">
+          <div className="grid grid-cols-1 gap-2 min-[420px]:grid-cols-2 lg:grid-cols-3" data-testid="smartphone-cards">
             <KPICard title="Use a smartphone" value={fmtTenants(u.recorded_smartphone)} icon={Smartphone}
               color="bg-primary/10 text-primary" subtitle={recordedSmartphoneHint(u)} />
             <KPICard title={`Device checks ${phrase}`} value={fmtTenants(u.checks)} icon={ClipboardCheck}
