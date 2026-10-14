@@ -123,6 +123,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Payroll Approvals', icon: Banknote, id: 'cfo-pay-approvals', route: '/approvals' },
         { label: 'Staff TIN / NSSF List', icon: ClipboardList, id: 'statutory-consent-list' },
         { label: 'Salary Advances', icon: HandCoins, id: 'cfo-pay-advances', route: '/hr/pay/advances' },
+        { label: 'Bonuses', icon: HandCoins, id: 'cfo-bonuses', route: '/hr/bonuses', access: { roles: ['cfo', 'super_admin'] } },
         { label: 'Send Money', icon: Wallet, id: 'wallet-payout' },
         { label: 'Standing Orders', icon: RefreshCw, id: 'standing-orders' },
         { label: 'Wallet Activities', icon: ClipboardList, id: 'wallet-activities' },
@@ -416,6 +417,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
         { label: 'Requisitions', icon: ClipboardList, id: 'requisitions' },
         { label: 'Payroll Approvals', icon: Banknote, id: 'ceo-pay-approvals', route: '/approvals' },
         { label: 'Salary Advances', icon: HandCoins, id: 'ceo-pay-advances', route: '/hr/pay/advances' },
+        { label: 'Bonuses', icon: HandCoins, id: 'ceo-bonuses', route: '/hr/bonuses', access: { roles: ['ceo', 'super_admin'] } },
         { label: 'Platform Sales Officers', icon: Users, id: 'ceo-platform-sales-officers', route: '/hr/reports/platform-sales-officers' },
         { label: 'Staff Performance', icon: UserCheck, id: 'staff-performance' },
         { label: 'Angel Pool', icon: Layers, id: 'angel-pool' },
@@ -447,6 +449,7 @@ export const executiveSidebarConfig: Record<string, SidebarSection[]> = {
       items: [
         { label: 'Payroll Enrolment', icon: Banknote, id: 'hr-pay-enrollment', route: '/hr/pay/enrollment', access: HR_ACCESS },
         { label: 'Staff Surveys', icon: ClipboardList, id: 'hr-staff-surveys', route: '/hr/staff-surveys', access: HR_ACCESS },
+        { label: 'Bonuses', icon: Banknote, id: 'hr-bonuses', route: '/hr/bonuses', access: HR_ACCESS },
         { label: 'Pay Runs', icon: Banknote, id: 'hr-pay-runs', route: '/hr/pay/runs', access: HR_ACCESS },
         { label: 'Advances', icon: Banknote, id: 'hr-pay-advances', route: '/hr/pay/advances', access: HR_ACCESS },
         { label: 'Approvals', icon: Banknote, id: 'hr-pay-approvals', route: '/approvals', access: HR_ACCESS },

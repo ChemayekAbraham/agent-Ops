@@ -9,6 +9,7 @@ import { Loader2, Banknote } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { formatUGX } from '@/lib/creditFeeCalculations';
+import { BonusPromptGate } from '@/hr/bonuses/BonusPromptGate';
 
 /**
  * Blocking payroll prompt — for the named approver only. Modelled on
@@ -108,7 +109,7 @@ export function PayrollApprovalGate() {
     setPrompt(null);
   };
 
-  if (!prompt) return null;
+  if (!prompt) return <BonusPromptGate />;
   if (location.pathname === `/hr/pay/runs/${prompt.run_id}`) return null;
 
   const totalNet = Number(prompt.total_net);
