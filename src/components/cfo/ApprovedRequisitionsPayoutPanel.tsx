@@ -57,8 +57,8 @@ export function ApprovedRequisitionsPayoutPanel() {
   const qc = useQueryClient();
   const { roles } = useAuth() as { roles?: string[] };
   const isCfo = (roles ?? []).includes('cfo');
-  const [from, setFrom] = useState(firstOfMonth());
-  const [to, setTo] = useState(today());
+  const [day, setDay] = useState(today());
+  const from = day, to = day;
   const [filter, setFilter] = useState<'all' | 'pending' | 'paid' | 'reversed'>('all');
   const [target, setTarget] = useState<Row | null>(null);
   const [reason, setReason] = useState('');
@@ -140,8 +140,7 @@ export function ApprovedRequisitionsPayoutPanel() {
         <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <CardTitle className="flex items-center gap-2 text-base"><CheckCircle2 className="h-4 w-4" /> Approved Requisitions</CardTitle>
           <div className="flex flex-wrap items-center gap-2">
-            <Input type="date" value={from} max={to} onChange={(e) => setFrom(e.target.value)} className="h-9 w-[150px]" />
-            <Input type="date" value={to} min={from} onChange={(e) => setTo(e.target.value)} className="h-9 w-[150px]" />
+            <Input type="date" value={day} max={today()} onChange={(e) => e.target.value && setDay(e.target.value)} className="h-9 w-[160px]" aria-label="Date" />
             {(['all', 'pending', 'paid', 'reversed'] as const).map((f) => (
               <Button key={f} size="sm" variant={filter === f ? 'default' : 'outline'} onClick={() => setFilter(f)} className="capitalize">{f}</Button>
             ))}
