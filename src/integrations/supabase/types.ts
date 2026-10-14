@@ -49699,6 +49699,42 @@ export type Database = {
         }
         Relationships: []
       }
+      tenant_payment_score_daily: {
+        Row: {
+          basis: string
+          components: Json
+          created_at: string
+          id: number
+          label: string
+          reason: string
+          score: number
+          score_date: string
+          tenant_id: string
+        }
+        Insert: {
+          basis: string
+          components: Json
+          created_at?: string
+          id?: never
+          label: string
+          reason: string
+          score: number
+          score_date: string
+          tenant_id: string
+        }
+        Update: {
+          basis?: string
+          components?: Json
+          created_at?: string
+          id?: never
+          label?: string
+          reason?: string
+          score?: number
+          score_date?: string
+          tenant_id?: string
+        }
+        Relationships: []
+      }
       tenant_phone_duplicate_alerts: {
         Row: {
           created_at: string
@@ -60818,6 +60854,17 @@ export type Database = {
           total_active_tenants: number
         }[]
       }
+      _tenant_payment_score_core: {
+        Args: { p_as_at: string; p_tenant_ids: string[] }
+        Returns: {
+          basis: string
+          components: Json
+          label: string
+          reason: string
+          score: number
+          tenant_id: string
+        }[]
+      }
       _test_proxy_capability_sync: {
         Args: never
         Returns: {
@@ -60884,6 +60931,10 @@ export type Database = {
           tenant_phone: string
           total_requests: number
         }[]
+      }
+      _tps_label: {
+        Args: { p_basis: string; p_score: number }
+        Returns: string
       }
       accept_proxy_agreement:
         | { Args: { p_code: string; p_nin?: string }; Returns: Json }
@@ -76012,6 +76063,17 @@ export type Database = {
           rent_request_id: string
         }[]
       }
+      tenant_payment_score: {
+        Args: { p_tenant_ids: string[] }
+        Returns: {
+          basis: string
+          label: string
+          reason: string
+          score: number
+          tenant_id: string
+        }[]
+      }
+      tenant_payment_score_run: { Args: { p_as_at?: string }; Returns: Json }
       tenant_rent_intake_decide: {
         Args: {
           p_action: string
