@@ -346,6 +346,9 @@ export default function AgentsMock() {
               const loadingCol = period === 'month' && (collectionsFailed || collectionsLoading);
               const loadingExp = period === 'month' && (historyFailed || historyLoading);
               const pct = collectPct;
+              // Under half of what was expected reads as a shortfall, so the
+              // collected figure, its percentage and the bar all turn red.
+              const low = !collectLoading && Number(expected) > 0 && pct < 50;
               const tenantCount = period === 'today' ? TENANTS_TOTAL : new Set((monthRows ?? []).map(r => r.tenant_id)).size;
               return <>
                 <div className="mt-4 flex items-end justify-between gap-3">
