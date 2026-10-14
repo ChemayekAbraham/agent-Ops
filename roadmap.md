@@ -1,5 +1,5 @@
 # Tasks
-- [ ] Make the R&D weekly report editable and derive its periods from recorded updates; verify edits persist and report dates filter correctly.
+- [x] Make the R&D weekly report editable using shared recorded updates; signed-in add/edit/reload and PDF download verified, ten R&D tests and all guards pass.
 - [x] Refine agents-mock: compact white layout, one font, concise request action, real tenant profiles and repayment percentages, compact calendar; signed-in desktop/phone, filters and tenant-detail opening verified; guards passed and no page errors.
 - [x] Redesign agents-mock with Post Rent Request first, period toggle, plain tenant phone numbers, counts and a clearer calendar; signed-in toggle/calendar/request-form navigation verified, no page errors or phone overflow; all guards passed.
 - [ ] Historical missed-tenant details and ten-record server fetching for agents-mock — blocked on a verified read-only historical detail contract; current view pages existing records locally and does not invent missing historical details.
