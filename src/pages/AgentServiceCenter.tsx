@@ -49,7 +49,7 @@ export default function AgentServiceCenter() {
   const { data, isLoading, error } = useServiceCenterOverview();
   const { data: transfers = [] } = useServiceCenterTransfers();
   const { data: catalog = [], isLoading: loadingCatalog } = useServiceCenterCatalog();
-  const { data: vetting } = useServiceCenterRentQueue();
+  const { data: vetting } = useServiceCenterRentQueue({ ordered: false }); // counts only: no server order or filter call
   const { data: verificationQueue } = useServiceCenterVerificationQueue();
   const { data: listingQueue = [] } = useServiceCenterListingQueue();
   const { openCount: intakeOpenCount, newCount: intakeNewCount } = useTenantRentIntakeQueue();

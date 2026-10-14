@@ -34,6 +34,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { UserDrilldownDrawer } from '@/components/ops/UserDrilldownDrawer';
 import { LandlordAgreementHistory } from '@/components/landlord/agreement';
 import { CfoApprovalGate } from '@/components/cfo/CfoApprovalGate';
+import { filterByRentDesk, useRentDeskOrder, withRentDeskScores, type RentDeskScoreFields } from '@/hooks/useRentDeskOrder';
+import { useRentDeskUrlState } from '@/hooks/useRentDeskUrlState';
+import { RentDeskControls } from '@/components/rent-desk/RentDeskControls';
+import { PaymentLabelChip } from '@/components/rent-desk/PaymentLabelChip';
+import { RENT_DESK_SORTS, RENT_DESK_SORT_LABELS, type RentDeskSort } from '@/lib/rentDeskFilters';
+import { groupPayoutRows } from '@/lib/payoutDeskGrouping';
 
 const fmt = (n: number) => `UGX ${Math.round(Number(n) || 0).toLocaleString('en-US')}`;
 
@@ -246,6 +252,15 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
     staleTime: 15_000,
   });
 
+  // Good-paying tenants first for payouts: the server ranks the loaded requests by each tenant's payment score (best payers
+  // first by default; newest / oldest are one click away) and says which match the paying-label and arrival filters. Display
+  // order and visibility only: what can be selected and every payment step below are unchanged. Sort and filters live in the URL.
+  const deskUrl = useRentDeskUrlState();
+  const itemIds = useMemo(() => items.map(i => i.id), [items]);
+  const deskOrder = useRentDeskOrder(itemIds, deskUrl.sort, deskUrl.filters);
+  const scoredItems = useMemo(() => withRentDeskScores(items, deskOrder.data), [items, deskOrder.data]);
+  const showLoading = isLoading || (itemIds.length > 0 && deskOrder.isLoading);
+
   const selectedItems = useMemo(() => items.filter(i => selected.has(i.id)), [items, selected]);
 
   // Pre-tick rows handed over by the location/category recipient picker.
@@ -282,7 +297,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
       ? null
       : Date.now() - (dateFilter === '7d' ? 7 : 30) * 24 * 60 * 60 * 1000;
     const q = search.trim().toLowerCase();
-    return items.filter(it => {
+    return filterByRentDesk(scoredItems, deskOrder.data).filter(it => {
       if (restrictSet && !restrictSet.has(it.id)) return false;
       if (cutoff !== null && new Date(it.created_at).getTime() < cutoff) return false;
       if (districtFilter !== 'all' && ((it.request_district || '').trim() || 'Unknown') !== districtFilter) return false;
@@ -294,7 +309,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
       }
       return true;
     });
-  }, [items, dateFilter, search, restrictSet, districtFilter, cityFilter, catField, catValue]);
+  }, [scoredItems, deskOrder.data, dateFilter, search, restrictSet, districtFilter, cityFilter, catField, catValue]);
 
   // Category option list for the currently chosen category type.
   const catOptions = useMemo(() => {
@@ -341,25 +356,9 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
 
   // Group rows by agent so CFO can pick one tenant, a few, or all of an
   // agent's tenants at a glance.
-  const grouped = useMemo(() => {
-    const map = new Map<string, { agent_id: string; agent_name: string; rows: ApprovedRentItem[]; latest: number }>();
-    for (const it of filteredItems) {
-      const key = it.assigned_agent_id || it.agent_id || 'unassigned';
-      const ts = new Date(it.created_at).getTime();
-      const g = map.get(key) ?? { agent_id: key, agent_name: it.agent_name, rows: [], latest: 0 };
-      g.rows.push(it);
-      if (ts > g.latest) g.latest = ts;
-      map.set(key, g);
-    }
-    // Newest request first, so an agent that just posted jumps to the top.
-    // Within each agent, show their newest tenant request first too.
-    for (const g of map.values()) {
-      g.rows.sort(
-        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-      );
-    }
-    return [...map.values()].sort((a, b) => b.latest - a.latest);
-  }, [filteredItems]);
+  // Agents' tenants listed in the server's order (best payers first by default), agents by their best-ranked tenant; the previous
+  // newest-first layout while the order is loading or if it failed. See src/lib/payoutDeskGrouping.ts.
+  const grouped = useMemo(() => groupPayoutRows(filteredItems, deskOrder.data), [filteredItems, deskOrder.data]);
 
   // Country breakdown — counts + total rent per country across the filtered queue.
   const countryStats = useMemo(() => {
@@ -639,7 +638,20 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
             </button>
           </div>
         )}
-        {isLoading ? (
+        <div className="border-b border-border/70 px-5 py-3">
+          <RentDeskControls
+            filters={deskUrl.filters}
+            onFiltersChange={(f) => { deskUrl.setFilters(f); setSelected(new Set()); }}
+            onClear={() => { deskUrl.clearFilters(); setSelected(new Set()); }}
+            sort={deskUrl.sort}
+            onSortChange={(v) => deskUrl.setSort(v as RentDeskSort)}
+            sortOptions={RENT_DESK_SORTS.map((value) => ({ value, label: RENT_DESK_SORT_LABELS[value] }))}
+            matchCount={deskOrder.data?.matchCount}
+            totalCount={deskOrder.data?.totalCount}
+            error={deskOrder.isError}
+          />
+        </div>
+        {showLoading ? (
           <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
         ) : filteredItems.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
@@ -957,6 +969,7 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                             <td className="px-2 py-2.5 align-middle">
                               <div className="flex items-center gap-1.5 min-w-0">
                                 <span className={cn('truncate', isSel ? 'font-bold' : 'font-semibold')}>{item.tenant_name}</span>
+                                <PaymentLabelChip label={(item as RentDeskScoreFields).payment_label} score={(item as RentDeskScoreFields).payment_score} reason={(item as RentDeskScoreFields).payment_reason} showReason={false} />
                                 {isNew && (
                                   <Badge className="text-[9px] px-1.5 py-0 shrink-0 bg-emerald-500 text-white border-0">
                                     NEW
@@ -968,6 +981,11 @@ export function RentDisbursementQueue({ restrictToIds, autoSelectIds, locationPr
                                   </Badge>
                                 )}
                               </div>
+                              {(item as RentDeskScoreFields).payment_reason && (
+                                <p className="mt-0.5 truncate text-[10px] text-muted-foreground" title={(item as RentDeskScoreFields).payment_reason ?? undefined} data-testid="payment-label-reason">
+                                  {(item as RentDeskScoreFields).payment_reason}
+                                </p>
+                              )}
                             </td>
                             <td className="px-2 py-2.5 align-middle font-semibold text-primary truncate max-w-[10rem]">
                               {item.landlord_name}

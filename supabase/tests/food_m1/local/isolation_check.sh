@@ -21,6 +21,7 @@ check() { if [ "$2" = "$3" ]; then echo "PASS $1"; else echo "FAIL $1 (got: $2, 
 P -d postgres -c "create database $db" >/dev/null
 trap 'P -d postgres -c "drop database if exists $db with (force)" >/dev/null' EXIT
 P -d "$db" -f "$here/00_supabase_scaffold.sql" >/dev/null
+P -d "$db" -f "$here/07_storage_bucket.sql" >/dev/null
 P -d "$db" -f "$here/50_financial_canaries.sql" >/dev/null
 
 inv() {  # fails the whole check if the inventory errors or is implausibly small
@@ -36,6 +37,8 @@ for m in 20261009120001_food_service_schema_and_coordinator 20261009130001_food_
   P -d "$db" -1 -f "$M/$m.sql" >/dev/null || { echo "FAIL apply $m"; result=1; }
 done
 after=$(inv) || exit 1
+# Install seats nobody (Option 2); appoint the synthetic stand-in the supported way.
+P -d "$db" -c "set role service_role; select food_bootstrap_coordinator('29a0cfa8-1eaf-453c-874c-0fc72fa4f74b','Test appointment of synthetic stand-in')" >/dev/null
 # The ONE intended change to a non-Food object: the REV-D1 guard on general_ledger
 # (20261013128500). Anything else, or any variation of it, still fails.
 GUARD="trg general_ledger food_guard_payment_reversal CREATE TRIGGER food_guard_payment_reversal BEFORE INSERT ON public.general_ledger FOR EACH ROW WHEN (((new.reference_id ~~ 'FOODPAY-%-REV'::text) OR (new.idempotency_key ~~ 'reversal:FOODPAY-%'::text))) EXECUTE FUNCTION food_guard_payment_reversal()"

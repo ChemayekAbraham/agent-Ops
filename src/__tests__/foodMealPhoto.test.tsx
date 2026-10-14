@@ -199,7 +199,7 @@ describe('useUpsertFoodMeal cannot carry a photo', () => {
 describe('useSetFoodMealPhoto (real path)', () => {
   it('uploads under a fresh server-shaped name, never overwriting, then attaches it', async () => {
     const { result } = renderHook(() => useSetFoodMealPhoto(), { wrapper });
-    const file = new File([new Uint8Array(10)], 'pic.png', { type: 'image/png' });
+    const file = new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0])], 'pic.png', { type: 'image/png' });
     await act(async () => { await result.current.mutateAsync({ mealId: MEAL, file }); });
 
     expect(uploads).toHaveLength(1);
@@ -229,7 +229,7 @@ describe('useSetFoodMealPhoto (real path)', () => {
   it('does not attach anything when the upload fails', async () => {
     uploadError = { message: 'new row violates row-level security policy' };
     const { result } = renderHook(() => useSetFoodMealPhoto(), { wrapper });
-    const file = new File([new Uint8Array(10)], 'pic.jpg', { type: 'image/jpeg' });
+    const file = new File([new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 0, 0, 0, 0, 0, 0])], 'pic.jpg', { type: 'image/jpeg' });
     act(() => { result.current.mutate({ mealId: MEAL, file }); });
     await waitFor(() => expect(result.current.isError).toBe(true));
     expect(rpcCalls).toHaveLength(0);

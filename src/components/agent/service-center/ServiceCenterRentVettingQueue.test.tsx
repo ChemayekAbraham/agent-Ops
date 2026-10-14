@@ -3,6 +3,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { ReactNode } from 'react';
+import { MemoryRouter } from 'react-router-dom';
 
 const rpcMock = vi.fn();
 vi.mock('@/integrations/supabase/client', () => ({
@@ -20,7 +21,8 @@ const queue = {
     { id: 'rr-1', status: 'service_center_review', created_at: '2026-10-05T08:00:00Z', rent_amount: 300000, duration_days: 30, daily_repayment: 11000,
       total_repayment: 330000, house_category: null, request_city: 'Wakiso', house_image_urls: null, tenant_photo_url: null, tenant_id: 'tenant-1',
       tenant_name: 'Adam Mariam', tenant_phone: '0700111222', agent_id: 'ag-1', agent_name: 'Sub Agent One', agent_phone: '0700999888',
-      agent_avatar_url: null, landlord_name: 'Mr Okello', landlord_phone: '0700333444' },
+      agent_avatar_url: null, landlord_name: 'Mr Okello', landlord_phone: '0700333444',
+      payment_score: 88, payment_label: 'proven_good', payment_reason: 'Paid 100% of what was owed, 6 of 6 due days on time, 1 of 1 Rent Plan completed, no 20+ day gap', payment_basis: 'history' },
     { id: 'rr-2', status: 'service_center_review', created_at: '2026-10-05T09:00:00Z', rent_amount: 500000, duration_days: 30, daily_repayment: 18000,
       total_repayment: 540000, house_category: null, request_city: 'Kampala', house_image_urls: null, tenant_photo_url: null, tenant_id: 'tenant-2',
       tenant_name: 'Beth Namutebi', tenant_phone: '0700555666', agent_id: 'ag-1', agent_name: 'Sub Agent One', agent_phone: '0700999888',
@@ -28,16 +30,17 @@ const queue = {
   ],
 };
 vi.mock('@/hooks/useServiceCenterRentQueue', () => ({
-  useServiceCenterRentQueue: () => ({ data: queue, isLoading: false, error: null }),
+  useServiceCenterRentQueue: () => ({ data: queue, isLoading: false, error: null, desk: { matchCount: queue.pending.length, totalCount: queue.pending.length, filtered: false, error: false } }),
   useServiceCenterReviewRentRequest: () => ({ mutateAsync: (...a: unknown[]) => reviewMutate(...a) }),
 }));
 vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast: vi.fn() }) }));
+vi.mock('@/hooks/useOverdueVettingAlert', () => ({ useOverdueVettingAlert: () => ({ data: undefined }) }));
 
 import { ServiceCenterRentVettingQueue } from './ServiceCenterRentVettingQueue';
 
 const wrapper = ({ children }: { children: ReactNode }) => {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return <QueryClientProvider client={qc}>{children}</QueryClientProvider>;
+  return <MemoryRouter><QueryClientProvider client={qc}>{children}</QueryClientProvider></MemoryRouter>;
 };
 let statusRows: Record<string, unknown>[] = [];
 let statusError: string | null = null;
@@ -160,5 +163,18 @@ describe('ServiceCenterRentVettingQueue: awareness call panel', () => {
     expect(decline).toBeEnabled();
     await user.click(verify);
     await waitFor(() => expect(reviewMutate).toHaveBeenCalledWith({ requestId: 'rr-1', decision: 'verify', comment: 'Checked house and landlord' }));
+  });
+
+  it('shows each request\'s paying label chip with its reason, the filters and the server count, and leaves verify and decline as they were', async () => {
+    render(<ServiceCenterRentVettingQueue />, { wrapper });
+    await screen.findAllByTestId('awareness-call-section');
+    const chip = screen.getByTestId('payment-label-chip');
+    expect(chip).toHaveTextContent('Proven good');
+    expect(screen.getByTestId('payment-label-reason')).toHaveTextContent('1 of 1 Rent Plan completed');
+    expect(screen.getAllByTestId('payment-label-chip')).toHaveLength(1); // only the request the server scored
+    expect(screen.getByTestId('rent-desk-controls')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Sort' })).toHaveTextContent('Best payers first');
+    expect(screen.getAllByRole('button', { name: /^Verify/ })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: /^Decline/ })).toHaveLength(2);
   });
 });

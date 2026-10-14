@@ -1,4 +1,15 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import {
+  filterByRentDesk,
+  nextRentDeskSort,
+  orderByRentDesk,
+  RENT_DESK_SORT_LABELS,
+  useRentDeskOrder,
+  withRentDeskScores,
+} from '@/hooks/useRentDeskOrder';
+import { useRentDeskUrlState } from '@/hooks/useRentDeskUrlState';
+import { RentDeskControls } from '@/components/rent-desk/RentDeskControls';
+import { PaymentLabelChip } from '@/components/rent-desk/PaymentLabelChip';
 import { TenantOpsReportToolbar } from './TenantOpsReportToolbar';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -246,7 +257,17 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
   const [search, setSearch] = useState('');
   const [agentSearch, setAgentSearch] = useState('');
   const [landlordSearch, setLandlordSearch] = useState('');
-  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+  // Server-side order and filters (rent_request_desk_order), kept in the URL: best payers first by default, or newest / oldest;
+  // paying label and arrival day narrow the desk.
+  const {
+    sort: sortMode,
+    filters: deskFilters,
+    setSort: setSortMode,
+    setFilters: setDeskFilters,
+    clearFilters: clearDeskFilters,
+    isFiltered: deskFiltered,
+    isDefaultSort,
+  } = useRentDeskUrlState();
   const [noCallOnly, setNoCallOnly] = useState(false);
   const [hideExpired, setHideExpired] = useState(true);
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -702,7 +723,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
     }
   };
 
-  const { data: requests, isLoading } = useQuery({
+  const { data: requests, isLoading: isLoadingRequests } = useQuery({
     queryKey: ['rent-pipeline', stage, additionalStatuses.join(',')],
     queryFn: async () => {
       const statuses = [stage, ...additionalStatuses];
@@ -840,7 +861,12 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
     refetchOnWindowFocus: false,
   });
 
-  const rows = requests || [];
+  // The server ranks the requests this desk has loaded and joins each tenant's payment score (one RPC). Sorting never reloads
+  // the queue, and the queue's own limit is untouched. If the ordering call fails the rows keep their newest-first order.
+  const requestIds = useMemo(() => (requests ?? []).map((r: any) => r.id as string), [requests]);
+  const deskOrder = useRentDeskOrder(requestIds, sortMode, deskFilters);
+  const rows = useMemo(() => withRentDeskScores(requests ?? [], deskOrder.data), [requests, deskOrder.data]);
+  const isLoading = isLoadingRequests || (requestIds.length > 0 && deskOrder.isLoading);
 
   // Read-only: one batched read tells every card whether it has an awareness call at its stage. It never blocks or confirms anything;
   // if it fails the badges are simply not shown.
@@ -934,7 +960,8 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
   });
 }
 
-  const filtered = rows
+  // The server says which requests match the paying-label and arrival filters; the rest of the filters below are this desk's own.
+  const matching = filterByRentDesk(rows, deskOrder.data)
     .filter(r => {
       if (selectedTenantId !== 'all' && r.tenant_id !== selectedTenantId) return false;
       if (noCallOnly && callStatus.loaded && !hasNoCallAtStage(callStatus.byId.get(r.id))) return false;
@@ -985,12 +1012,15 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
         if (!matchesLandlord) return false;
       }
       return true;
-    })
-    .sort((a, b) => {
-      const tsA = new Date(a.created_at).getTime();
-      const tsB = new Date(b.created_at).getTime();
-      return sortOrder === 'desc' ? tsB - tsA : tsA - tsB;
     });
+
+  // Server order for the chosen sort. Until it arrives, or if it fails, fall back to the queue's own created_at order
+  // (the query returns newest first).
+  const filtered = deskOrder.data
+    ? orderByRentDesk(matching, deskOrder.data)
+    : sortMode === 'oldest'
+      ? [...matching].reverse()
+      : matching;
 
   const handleApprove = async (decision?: FunderVisibilityDecision) => {
     if (!selectedRequest || !user) return;
@@ -1460,12 +1490,12 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+            onClick={() => setSortMode(nextRentDeskSort(sortMode))}
             className="h-9 gap-1.5 text-xs shrink-0 border-border"
-            title={sortOrder === 'desc' ? 'Sorted by Date (Newest first)' : 'Sorted by Date (Oldest first)'}
+            title={`Sorted: ${RENT_DESK_SORT_LABELS[sortMode]}`}
           >
             <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
-            <span>{sortOrder === 'desc' ? 'Newest first' : 'Oldest first'}</span>
+            <span>{RENT_DESK_SORT_LABELS[sortMode]}</span>
           </Button>
           {stage === 'pending' && expiredCount > 0 && (
             <Button
@@ -1504,10 +1534,20 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
           </div>
         </div>
 
+        <RentDeskControls
+          className="mt-2"
+          filters={deskFilters}
+          onFiltersChange={setDeskFilters}
+          onClear={clearDeskFilters}
+          matchCount={deskOrder.data?.matchCount}
+          totalCount={deskOrder.data?.totalCount}
+          error={deskOrder.isError}
+        />
+
         {/* Mobile Collapsed Filter Bar */}
         <div className="sm:hidden mt-2">
           {(() => {
-            const activeFiltersCount = (selectedTenantId !== 'all' ? 1 : 0) + (search.trim() ? 1 : 0) + (agentSearch.trim() ? 1 : 0) + (landlordSearch.trim() ? 1 : 0) + (hideExpired ? 1 : 0) + (sortOrder === 'asc' ? 1 : 0);
+            const activeFiltersCount = (selectedTenantId !== 'all' ? 1 : 0) + (search.trim() ? 1 : 0) + (agentSearch.trim() ? 1 : 0) + (landlordSearch.trim() ? 1 : 0) + (hideExpired ? 1 : 0) + (!isDefaultSort ? 1 : 0) + (deskFiltered ? 1 : 0);
             return (
               <Collapsible open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
                 <CollapsibleTrigger asChild>
@@ -1603,11 +1643,11 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+                        onClick={() => setSortMode(nextRentDeskSort(sortMode))}
                         className="flex-1 h-8 gap-1.5 text-xs bg-background"
                       >
                         <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span>{sortOrder === 'desc' ? 'Newest' : 'Oldest'}</span>
+                        <span>{RENT_DESK_SORT_LABELS[sortMode]}</span>
                       </Button>
 
                       {callStatus.loaded && (
@@ -1664,7 +1704,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-8 text-sm text-muted-foreground">
-            No requests at this stage
+            {deskFiltered && !deskOrder.isError ? 'No requests match these filters' : 'No requests at this stage'}
           </div>
         ) : (
           <div className="divide-y divide-border">
@@ -1767,6 +1807,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                           </span>
                         )}
                         <AwarenessCallBadge status={callStatus.byId.get(req.id)} />
+                        <PaymentLabelChip label={req.payment_label} score={req.payment_score} reason={req.payment_reason} showReason={false} />
                         {req.funder_visible === false && (
                           <Tooltip>
                             <TooltipTrigger asChild>
@@ -1782,6 +1823,9 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                           </Tooltip>
                         )}
                       </div>
+                      {req.payment_reason && (
+                        <p className="mt-1 text-[11px] leading-snug text-muted-foreground" data-testid="payment-label-reason">{req.payment_reason}</p>
+                      )}
                       <div className="flex items-center gap-3 flex-wrap mt-1.5 text-[11px] text-muted-foreground">
                         {(req.assigned_agent_id || req.agent_id) && (
                           <span
