@@ -1046,7 +1046,7 @@ export function AgentRequestPipelineView({
                   key={r.id}
                   className="border-2 border-destructive/40 bg-destructive/5 overflow-hidden"
                 >
-                  <StatusStrip status="rejected" label={`Rejected at ${r.stage_label}`} />
+                  <StatusStrip status="rejected" label={r.cancelled_by_agent ? 'Cancelled by you' : r.returned_by_recall ? String(r.stage_label) : `Rejected at ${r.stage_label}`} />
                   <CardContent className="p-3 space-y-2">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
@@ -1054,7 +1054,7 @@ export function AgentRequestPipelineView({
                           <User className="h-4 w-4 text-primary shrink-0" />
                           <span className="font-semibold truncate text-sm">{r.tenant_name}</span>
                           <Badge variant="destructive" className="text-[10px]">
-                            Rejected at {r.stage_label}
+                            {r.cancelled_by_agent ? 'Cancelled by you' : `Rejected at ${r.stage_label}`}
                           </Badge>
                         </div>
                         <div className="text-[11px] text-muted-foreground space-y-0.5">
@@ -1089,7 +1089,7 @@ export function AgentRequestPipelineView({
                         {r.rejected_reason || 'No reason provided.'}
                       </p>
                     </div>
-                      <div className="flex justify-end pt-1">
+                      {!r.cancelled_by_agent && <div className="flex justify-end pt-1">
                         <Button
                           size="sm"
                           onClick={() => setEditing(r)}
