@@ -488,7 +488,16 @@ export function foodMealImageSignatureType(bytes: Uint8Array): string | null {
 
 /** Why the file's content is not the image it claims to be, or null when it is. */
 export async function foodMealImageContentProblem(file: Blob & { type: string }): Promise<string | null> {
-  const head = new Uint8Array(await file.slice(0, 12).arrayBuffer());
+  const part = file.slice(0, 12);
+  const buf: ArrayBuffer = typeof part.arrayBuffer === 'function'
+    ? await part.arrayBuffer()
+    : await new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload = () => resolve(r.result as ArrayBuffer);
+        r.onerror = () => reject(r.error);
+        r.readAsArrayBuffer(part);
+      });
+  const head = new Uint8Array(buf);
   const actual = foodMealImageSignatureType(head);
   if (!actual) return 'That file is not a JPEG, PNG or WebP image.';
   if (actual !== file.type) return 'The file content does not match its image type.';
