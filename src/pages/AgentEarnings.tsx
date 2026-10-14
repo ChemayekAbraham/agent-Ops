@@ -364,15 +364,6 @@ export default function AgentEarnings() {
                 </p>
               )}
             </div>
-            {availableToWithdraw > 0 && (
-              <Button
-                onClick={() => { hapticTap(); setPayoutDialogOpen(true); }}
-                className="bg-emerald-600 hover:bg-emerald-700 gap-2"
-              >
-                <Banknote className="h-4 w-4" />
-                Withdraw
-              </Button>
-            )}
           </CardContent>
         </Card>
 

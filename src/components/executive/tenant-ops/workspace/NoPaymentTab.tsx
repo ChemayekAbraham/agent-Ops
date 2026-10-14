@@ -1,9 +1,9 @@
 /**
- * Tenant Ops "20+ DAYS NO PAYMENT" tab.
+ * Tenant Ops "N+ DAYS NO PAYMENT" tab (N is staff-selectable, default 20, kept in the URL as ?days=).
  *
  * Presentation only — every figure (days since last payment, progress %, the
- * per-agent 20+/30+/40+ counts) comes from get_tenant_ops_no_payment_report()
- * via useTenantOpsNoPaymentReport. No client-side arithmetic beyond
+ * per-agent N+ / N+10 / N+20 counts) comes from get_tenant_ops_no_payment_report_v2()
+ * via useTenantOpsNoPaymentReportV2. No client-side arithmetic beyond
  * formatting and the agent selector, which just re-issues the same RPC
  * with p_agent_id set — the server does the filtering.
  *
@@ -21,10 +21,14 @@ import { Command, CommandEmpty, CommandInput, CommandItem, CommandList } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { AlertTriangle, CalendarX2, Check, ChevronsUpDown, FileDown, Users } from 'lucide-react';
-import { downloadPdf, generateNoPaymentPdf } from '@/lib/tenantOpsWeeklyPerformancePdf';
+import { AlertTriangle, CalendarX2, Check, ChevronsUpDown, FileDown, Sheet as SheetIcon, Users } from 'lucide-react';
+import { downloadPdf, generateNoPaymentPdfForDays } from '@/lib/tenantOpsWeeklyPerformancePdf';
+import { exportNoPaymentXlsx, summariseNoPayment } from '@/lib/tenantOpsNoPaymentReport';
+import { noPaymentBands, noPaymentFileStem, withoutPaymentText } from '@/lib/noPaymentDays';
 import { formatUGX } from '@/lib/rentCalculations';
-import { useTenantOpsNoPaymentReport } from '@/hooks/useTenantOpsNoPaymentReport';
+import { useNoPaymentDays } from '@/hooks/useNoPaymentDays';
+import { useTenantOpsNoPaymentReportV2 } from '@/hooks/useTenantOpsNoPaymentReportV2';
+import { DaysWithoutPaymentControl } from '@/components/executive/tenant-ops/workspace/DaysWithoutPaymentControl';
 import { useTenantNoPaymentNotesSummaries } from '@/hooks/useTenantNoPaymentNotes';
 import { KPICard } from '@/components/executive/KPICard';
 import { WorkspaceEmptyState } from '@/components/executive/tenant-ops/workspace/WorkspaceEmptyState';
@@ -34,27 +38,26 @@ import { TenantNotesPopover } from '@/components/executive/tenant-ops/workspace/
 const dayLabel = (iso: string | null) =>
   iso ? new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
-const dormancyTone = (days: number) =>
-  days >= 40 ? 'text-destructive' : days >= 30 ? 'text-warning' : 'text-foreground';
+const dormancyTone = (days: number, mid: number, high: number) =>
+  days >= high ? 'text-destructive' : days >= mid ? 'text-warning' : 'text-foreground';
 
 export default function NoPaymentTab() {
   const [agentId, setAgentId] = useState<string | null>(null);
   const [agentPickerOpen, setAgentPickerOpen] = useState(false);
-  const { data, isLoading } = useTenantOpsNoPaymentReport(agentId);
+  const [chosenDays, setChosenDays] = useNoPaymentDays();
+  const { data, isLoading, isFetching } = useTenantOpsNoPaymentReportV2(chosenDays, agentId);
   const { data: noteSummaries } = useTenantNoPaymentNotesSummaries();
+
+  // Titles, bands and figures always come from the report on screen, so they can never disagree with each other
+  // while a newly chosen number is still loading.
+  const days = data?.min_days ?? chosenDays;
+  const [band1, band2, band3] = noPaymentBands(days);
+  const updating = isFetching && data !== undefined && data.min_days !== chosenDays;
 
   const agents = data?.agent_summary ?? [];
   const totals = useMemo(
-    () =>
-      agents.reduce(
-        (acc, a) => ({
-          gte_20: acc.gte_20 + a.gte_20,
-          gte_30: acc.gte_30 + a.gte_30,
-          gte_40: acc.gte_40 + a.gte_40,
-        }),
-        { gte_20: 0, gte_30: 0, gte_40: 0 },
-      ),
-    [agents],
+    () => (data ? summariseNoPayment(data) : { min: 0, min10: 0, min20: 0, outstanding: 0, dailyAtRisk: 0 }),
+    [data],
   );
 
   const tenants = data?.tenants ?? [];
@@ -76,7 +79,9 @@ export default function NoPaymentTab() {
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end">
+      <DaysWithoutPaymentControl days={chosenDays} onChange={setChosenDays} idPrefix="no-payment-days" />
+      {updating && <p className="text-[11px] text-muted-foreground" data-testid="no-payment-updating">Updating to {chosenDays}+ days…</p>}
+      <div className="flex flex-wrap justify-end gap-1.5">
         <Button
           size="sm"
           variant="outline"
@@ -85,24 +90,33 @@ export default function NoPaymentTab() {
           onClick={() =>
             data &&
             downloadPdf(
-              generateNoPaymentPdf(data, selectedAgent?.label ?? null),
-              `Welile_TenantOps_20Plus_Days_No_Payment_${new Date().toISOString().slice(0, 10)}.pdf`,
+              generateNoPaymentPdfForDays(data, selectedAgent?.label ?? null),
+              `Welile_TenantOps_${noPaymentFileStem(data.min_days)}_${new Date().toISOString().slice(0, 10)}.pdf`,
             )
           }
         >
           <FileDown className="h-4 w-4" /> Export PDF
         </Button>
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1.5"
+          disabled={!data}
+          onClick={() => data && exportNoPaymentXlsx(data, selectedAgent?.label ?? null)}
+        >
+          <SheetIcon className="h-4 w-4" /> Export Excel
+        </Button>
       </div>
       <p className="text-sm text-muted-foreground">
-        Tenants on a live, landlord-funded Rent Plan who have gone 20 or more days without a single
+        Tenants on a live, landlord-funded Rent Plan who have gone {days} or more days without a single
         payment — the same "at risk" plans the Repayment Watchlist already tracks, grouped here by how
         long they have gone quiet.
       </p>
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <KPICard title="20+ days" value={totals.gte_20} icon={CalendarX2} color="bg-warning/10 text-warning" />
-        <KPICard title="30+ days" value={totals.gte_30} icon={AlertTriangle} color="bg-destructive/10 text-destructive" />
-        <KPICard title="40+ days" value={totals.gte_40} icon={AlertTriangle} color="bg-destructive/10 text-destructive" />
+        <KPICard title={`${band1}+ days`} value={totals.min} icon={CalendarX2} color="bg-warning/10 text-warning" />
+        <KPICard title={`${band2}+ days`} value={totals.min10} icon={AlertTriangle} color="bg-destructive/10 text-destructive" />
+        <KPICard title={`${band3}+ days`} value={totals.min20} icon={AlertTriangle} color="bg-destructive/10 text-destructive" />
       </div>
 
       <Card className="min-w-0 border shadow-sm">
@@ -116,7 +130,7 @@ export default function NoPaymentTab() {
               <Button variant="outline" role="combobox" aria-expanded={agentPickerOpen} aria-label="Filter by agent" className="flex h-auto min-h-11 w-full min-w-0 justify-between gap-3 px-3 py-2 text-left font-normal sm:max-w-sm">
                 <span className="min-w-0 whitespace-normal break-words font-medium">{selectedAgent?.label ?? 'All agents'}</span>
                 <span className="ml-auto flex shrink-0 items-center gap-2">
-                  <Badge variant="secondary" className="tabular-nums">{selectedAgent?.gte_20 ?? totals.gte_20}</Badge>
+                  <Badge variant="secondary" className="tabular-nums">{selectedAgent?.gte_min ?? totals.min}</Badge>
                   <ChevronsUpDown className="h-4 w-4 text-muted-foreground" />
                 </span>
               </Button>
@@ -129,13 +143,13 @@ export default function NoPaymentTab() {
                   <CommandItem value="All agents" onSelect={() => chooseAgent(null)} className="min-h-11 gap-2">
                     <Check className={`h-4 w-4 shrink-0 ${agentId === null ? 'opacity-100' : 'opacity-0'}`} />
                     <span className="min-w-0 flex-1 truncate">All agents</span>
-                    <Badge variant="secondary" className="shrink-0 tabular-nums">{totals.gte_20}</Badge>
+                    <Badge variant="secondary" className="shrink-0 tabular-nums">{totals.min}</Badge>
                   </CommandItem>
                   {agents.map((agent) => (
                     <CommandItem key={agent.agent_id ?? 'unassigned'} value={`${agent.label} ${agent.agent_id ?? ''}`} onSelect={() => chooseAgent(agent.agent_id)} className="min-h-11 gap-2">
                       <Check className={`h-4 w-4 shrink-0 ${agentId !== null && agentId === agent.agent_id ? 'opacity-100' : 'opacity-0'}`} />
                       <span className="min-w-0 flex-1 whitespace-normal break-words leading-snug">{agent.label}</span>
-                      <Badge variant="secondary" className="shrink-0 tabular-nums">{agent.gte_20}</Badge>
+                      <Badge variant="secondary" className="shrink-0 tabular-nums">{agent.gte_min}</Badge>
                     </CommandItem>
                   ))}
                 </CommandList>
@@ -148,7 +162,7 @@ export default function NoPaymentTab() {
       {tenants.length === 0 ? (
         <WorkspaceEmptyState
           icon={Users}
-          title="No tenants have gone 20+ days without a payment"
+          title={`No tenants have gone ${withoutPaymentText(days)}`}
           hint={agentId ? 'Nothing for this agent right now.' : 'Every live, funded Rent Plan has a recent payment on file.'}
         />
       ) : (
@@ -160,7 +174,7 @@ export default function NoPaymentTab() {
                   key={t.tenant_id}
                   title={t.tenant_name ?? 'Unnamed tenant'}
                   badge={
-                    <span className={`text-sm font-bold tabular-nums ${dormancyTone(t.days_since_last_payment)}`}>
+                    <span className={`text-sm font-bold tabular-nums ${dormancyTone(t.days_since_last_payment, band2, band3)}`}>
                       {t.days_since_last_payment}d
                     </span>
                   }
@@ -203,7 +217,7 @@ export default function NoPaymentTab() {
                       <TableCell className="text-xs">{t.tenant_account_number ?? '—'}</TableCell>
                       <TableCell className="text-xs">{t.agent_name}</TableCell>
                       <TableCell className="whitespace-nowrap text-xs">{dayLabel(t.date_of_last_payment)}</TableCell>
-                      <TableCell className={`text-xs font-semibold tabular-nums ${dormancyTone(t.days_since_last_payment)}`}>
+                      <TableCell className={`text-xs font-semibold tabular-nums ${dormancyTone(t.days_since_last_payment, band2, band3)}`}>
                         {t.days_since_last_payment}d
                       </TableCell>
                       <TableCell className="text-xs">{formatUGX(t.expected_daily_payment)}</TableCell>

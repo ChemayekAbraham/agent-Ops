@@ -32,7 +32,7 @@ export function GeneralLedgerBackupReadyEmail({
   sizeMb = '0.00',
   generatedAt = new Date().toISOString(),
   durationSec = 0,
-  expiresInHours = 168,
+  expiresInHours = 24,
   status = 'success',
   actorName = 'System (scheduled cron)',
 }: GeneralLedgerBackupReadyProps) {
@@ -104,8 +104,8 @@ export const template = {
       ? `Welile general ledger backup — ${Number(d.exportedRows || 0).toLocaleString()} rows`
       : `⚠️ INCOMPLETE Welile general ledger backup — ${Number(d.exportedRows || 0).toLocaleString()} of ${Number(d.snapshotRows || 0).toLocaleString()} rows`,
   displayName: 'General Ledger Backup Ready',
-  // The ledger backup only ever goes to Josh, whoever calls the sender.
-  to: 'joshwanda17@gmail.com',
+  // The ledger backup only ever goes to Josh, whoever calls the sender. Company mailbox only (PDPO: no personal Gmail).
+  to: 'joshua.wanda@welile.com',
   previewData: {
     parts: [{ fileName: 'general_ledger_part01.csv', url: 'https://example.com/p1', rows: 120000, sizeMb: '40.10' }],
     manifestUrl: 'https://example.com/manifest',
@@ -114,7 +114,7 @@ export const template = {
     sizeMb: '40.10',
     generatedAt: new Date().toISOString(),
     durationSec: 30,
-    expiresInHours: 168,
+    expiresInHours: 24,
     status: 'success',
   },
 } satisfies TemplateEntry

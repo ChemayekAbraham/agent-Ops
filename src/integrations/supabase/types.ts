@@ -44948,6 +44948,36 @@ export type Database = {
         }
         Relationships: []
       }
+      sms_balance_alerts: {
+        Row: {
+          balance_credits: number
+          created_at: string
+          credits_24h: number
+          emailed: boolean
+          id: string
+          level: string
+          runway_hours: number | null
+        }
+        Insert: {
+          balance_credits: number
+          created_at?: string
+          credits_24h: number
+          emailed?: boolean
+          id?: string
+          level: string
+          runway_hours?: number | null
+        }
+        Update: {
+          balance_credits?: number
+          created_at?: string
+          credits_24h?: number
+          emailed?: boolean
+          id?: string
+          level?: string
+          runway_hours?: number | null
+        }
+        Relationships: []
+      }
       sms_broadcast_campaigns: {
         Row: {
           audiences: string[]
@@ -49666,6 +49696,42 @@ export type Database = {
           total_active_tenants?: number
           week_end?: string
           week_start?: string
+        }
+        Relationships: []
+      }
+      tenant_payment_score_daily: {
+        Row: {
+          basis: string
+          components: Json
+          created_at: string
+          id: number
+          label: string
+          reason: string
+          score: number
+          score_date: string
+          tenant_id: string
+        }
+        Insert: {
+          basis: string
+          components: Json
+          created_at?: string
+          id?: never
+          label: string
+          reason: string
+          score: number
+          score_date: string
+          tenant_id: string
+        }
+        Update: {
+          basis?: string
+          components?: Json
+          created_at?: string
+          id?: never
+          label?: string
+          reason?: string
+          score?: number
+          score_date?: string
+          tenant_id?: string
         }
         Relationships: []
       }
@@ -60788,6 +60854,17 @@ export type Database = {
           total_active_tenants: number
         }[]
       }
+      _tenant_payment_score_core: {
+        Args: { p_as_at: string; p_tenant_ids: string[] }
+        Returns: {
+          basis: string
+          components: Json
+          label: string
+          reason: string
+          score: number
+          tenant_id: string
+        }[]
+      }
       _test_proxy_capability_sync: {
         Args: never
         Returns: {
@@ -60854,6 +60931,10 @@ export type Database = {
           tenant_phone: string
           total_requests: number
         }[]
+      }
+      _tps_label: {
+        Args: { p_basis: string; p_score: number }
+        Returns: string
       }
       accept_proxy_agreement:
         | { Args: { p_code: string; p_nin?: string }; Returns: Json }
@@ -64205,6 +64286,10 @@ export type Database = {
         Args: { p_sale_id: string }
         Returns: string
       }
+      coo_approve_rent_request: {
+        Args: { p_comment?: string; p_request_id: string }
+        Returns: Json
+      }
       coo_approve_smartphone_order: {
         Args: {
           p_daily_deduction?: number
@@ -64213,6 +64298,10 @@ export type Database = {
           p_sale_id: string
           p_total_amount?: number
         }
+        Returns: Json
+      }
+      coo_return_rent_request: {
+        Args: { p_reason: string; p_request_id: string }
         Returns: Json
       }
       correct_tenant_location: {
@@ -68884,6 +68973,7 @@ export type Database = {
         Args: { p_sale_id: string }
         Returns: Json
       }
+      get_sms_balance_runway: { Args: never; Returns: Json }
       get_sms_broadcast_status: {
         Args: never
         Returns: {
@@ -75973,6 +76063,17 @@ export type Database = {
           rent_request_id: string
         }[]
       }
+      tenant_payment_score: {
+        Args: { p_tenant_ids: string[] }
+        Returns: {
+          basis: string
+          label: string
+          reason: string
+          score: number
+          tenant_id: string
+        }[]
+      }
+      tenant_payment_score_run: { Args: { p_as_at?: string }; Returns: Json }
       tenant_rent_intake_decide: {
         Args: {
           p_action: string

@@ -30,6 +30,10 @@ import { Button } from '@/components/ui/button';
 import { downloadPdf, generateWeeklyPerformancePdf } from '@/lib/tenantOpsWeeklyPerformancePdf';
 import { cn } from '@/lib/utils';
 import { PAYOUT_CLOCK_EXPLAINER } from '@/lib/payoutClockExplainer';
+import { NO_PAYMENT_DEFAULT_DAYS } from '@/lib/noPaymentDays';
+import { useNoPaymentDays } from '@/hooks/useNoPaymentDays';
+import { useTenantOpsDormantNow } from '@/hooks/useTenantOpsDormantNow';
+import { DaysWithoutPaymentControl } from '@/components/executive/tenant-ops/workspace/DaysWithoutPaymentControl';
 import { WorkspaceEmptyState } from '@/components/executive/tenant-ops/workspace/WorkspaceEmptyState';
 import { WorkspaceMobileRow } from '@/components/executive/tenant-ops/workspace/WorkspaceMobileRow';
 import { TenantSelfPaymentWeeklyTrend } from '@/components/executive/tenant-ops/workspace/TenantSelfPaymentWeeklyTrend';
@@ -103,6 +107,11 @@ function WeeklySummaryStat({
 export function WeeklyPerformanceTab() {
   const { data, isLoading } = useTenantOpsWeeklyPerformance();
   const { data: history, isLoading: historyLoading } = useTenantOpsWeeklyHistory(12);
+  // The frozen "20+ Days No Payment" card below never changes. When staff pick another number, an extra card
+  // shows that number calculated now; it is not part of the frozen weekly record.
+  const [chosenDays, setChosenDays] = useNoPaymentDays();
+  const otherDays = chosenDays !== NO_PAYMENT_DEFAULT_DAYS;
+  const dormantNow = useTenantOpsDormantNow(chosenDays, otherDays);
 
   const chartData = useMemo(
     () =>
@@ -209,6 +218,25 @@ export function WeeklyPerformanceTab() {
             delta={delta.dormant_20_plus_count}
             goodDirection="down"
           />
+        </CardContent>
+      </Card>
+
+      <Card className="border shadow-sm" data-testid="weekly-days-now">
+        <CardContent className="space-y-3 px-3 py-3 sm:px-4">
+          <DaysWithoutPaymentControl days={chosenDays} onChange={setChosenDays} idPrefix="weekly-days" />
+          {otherDays && (
+            <div className="flex w-full min-w-0 flex-col gap-2 rounded-2xl border border-border bg-card p-3 sm:max-w-sm sm:p-4" data-testid="weekly-days-now-card">
+              <p className="min-w-0 break-words text-xs font-medium leading-tight text-muted-foreground">
+                {chosenDays}+ days (calculated now — not part of the frozen weekly record)
+              </p>
+              <p className="text-xl font-bold leading-tight tracking-tight tabular-nums sm:text-2xl">
+                {dormantNow.data ? dormantNow.data.count.toLocaleString('en-US') : dormantNow.isError ? '—' : '…'}
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                Same counting as the 20+ days card above, as at {dormantNow.data?.as_of ?? 'today'}. The frozen weekly record and the history below are unchanged.
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 

@@ -4,11 +4,14 @@ import { CalendarX2, Megaphone, TrendingUp } from 'lucide-react';
 import { WeeklyPerformanceTab } from '@/components/executive/tenant-ops/workspace/WeeklyPerformanceTab';
 import NoPaymentTab from '@/components/executive/tenant-ops/workspace/NoPaymentTab';
 import RentAccessPromoStatsCard from '@/components/tenant-ops/RentAccessPromoStatsCard';
+import { useNoPaymentDays } from '@/hooks/useNoPaymentDays';
+import { noPaymentTitle } from '@/lib/noPaymentDays';
 
 const TAB_TRIGGER_CLASS =
   'h-9 shrink-0 whitespace-nowrap rounded-lg px-2.5 text-xs font-semibold data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm';
 
 export default function TenantOpsWeeklyPerformancePage() {
+  const [days] = useNoPaymentDays();
   return (
     <Card className="min-w-0 border-border/60">
       <CardHeader className="px-3 pb-3 sm:px-6">
@@ -30,7 +33,7 @@ export default function TenantOpsWeeklyPerformancePage() {
             </TabsTrigger>
             <TabsTrigger value="no_payment" className={TAB_TRIGGER_CLASS}>
               <CalendarX2 className="mr-1.5 h-3.5 w-3.5" />
-              20+ Days No Payment
+              {noPaymentTitle(days)}
             </TabsTrigger>
             <TabsTrigger value="promo_reach" className={TAB_TRIGGER_CLASS}>
               <Megaphone className="mr-1.5 h-3.5 w-3.5" />

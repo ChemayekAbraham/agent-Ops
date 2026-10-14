@@ -1,6 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { BACKUP_LINK_TTL_SECONDS } from "../_shared/backupDelivery.ts";
 
-// Dedicated, verified backup of public.general_ledger, emailed to Josh.
+// Dedicated, verified backup of public.general_ledger, emailed to Josh's company mailbox.
 //
 // Why this exists separately from weekly-database-backup: PostgREST caps every
 // response at 1000 rows, and that function asks for each table in one request,
@@ -22,8 +23,10 @@ const PAGE_STEP = 900; // rows per boundary; below the 1000-row PostgREST cap
 const PAGE_CAP = 1000; // PostgREST max rows per response
 const CONCURRENCY = 6;
 const PART_MAX_BYTES = 40 * 1024 * 1024;
-const SIGNED_URL_TTL_SECONDS = 60 * 60 * 24 * 7;
+const SIGNED_URL_TTL_SECONDS = BACKUP_LINK_TTL_SECONDS;
 const NEWLINE = 0x0a;
+// Must match `to` in general-ledger-backup-ready.tsx (company mailbox only).
+const LEDGER_BACKUP_RECIPIENT = "joshua.wanda@welile.com";
 
 type Page = { bytes: Uint8Array; rows: number };
 
@@ -273,7 +276,7 @@ Deno.serve(async (req) => {
       row_count: exportedRows,
       status,
       error_message: status === "success" ? null : `exported ${exportedRows} of ${snapshotRows} rows`,
-      recipients: skipEmail ? [] : ["joshwanda17@gmail.com"],
+      recipients: skipEmail ? [] : [LEDGER_BACKUP_RECIPIENT],
     });
 
     return new Response(JSON.stringify({ success: status === "success", emailed, ...manifest, folder }), {
@@ -284,7 +287,7 @@ Deno.serve(async (req) => {
     console.error("General ledger backup failed:", msg);
     await supabase.from("backup_runs").insert({
       backup_kind: "general_ledger", storage_path: folder, table_count: 1,
-      status: "failed", error_message: msg, recipients: ["joshwanda17@gmail.com"],
+      status: "failed", error_message: msg, recipients: [LEDGER_BACKUP_RECIPIENT],
     });
     if (!skipEmail) {
       // A failed backup must not be silent.

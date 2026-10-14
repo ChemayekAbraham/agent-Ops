@@ -27,7 +27,8 @@
     "test:e2e:install": "playwright install chromium",
     "guard:legacy-domain": "node scripts/guard-legacy-domain.mjs",
     "guard:all": "node scripts/run-guards.mjs",
-    "test:loadtest": "vitest run src/test/loadtest"
+    "test:loadtest": "vitest run src/test/loadtest",
+    "test:food-db": "vitest run --config vitest.config.food-db.ts --no-file-parallelism src/__tests__/foodCancelStockRelease.integration.test.ts src/__tests__/foodIdempotencyRace.integration.test.ts src/__tests__/foodTransferEligibility.integration.test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -134,11 +135,12 @@
   "devDependencies": {
     "@eslint/js": "^9.32.0",
     "@playwright/test": "^1.60.0",
+    "@react-email/components": "^0.0.22",
     "@tailwindcss/typography": "^0.5.16",
     "@types/google.maps": "^3.65.0",
     "@types/node": "^22.16.5",
     "@types/qrcode": "^1.5.6",
-    "@types/react": "^18.3.23",
+    "@types/react": "18.3.1",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react-swc": "^3.11.0",
     "@vitest/coverage-v8": "^3.2.6",

@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import { ArrowRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import PersonalLayout from '@/components/layout/PersonalLayout';
+import { useFoodCoordinatorStatus, useFoodCanUseCanteen } from '@/hooks/useFoodService';
 import { PERSONAL_NAV } from '@/components/layout/personalNav';
 import NameCompletionReminder from '@/components/notifications/NameCompletionReminder';
 import GrowthCommissionCard from '@/components/me/GrowthCommissionCard';
@@ -114,8 +115,15 @@ const PersonalHub = () => {
     },
   });
 
+  // Food Management is only offered to someone holding the assignment.
+  const { data: foodStatus } = useFoodCoordinatorStatus();
+  const { data: canUseCanteen } = useFoodCanUseCanteen();
+
   const visibleCards = CARDS.filter(
-    (card) => (!card.requiresPsoOfficer || isPsoOfficer === true) && (!card.requiresStaff || !!staffRecord),
+    (card) => (!card.requiresPsoOfficer || isPsoOfficer === true)
+      && (!card.requiresStaff || !!staffRecord)
+      && (!card.requiresFoodCoordinator || foodStatus?.isCoordinator === true)
+      && (!card.requiresCanteen || canUseCanteen === true),
   );
 
   return (

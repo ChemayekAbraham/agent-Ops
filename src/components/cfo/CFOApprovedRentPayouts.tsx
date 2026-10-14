@@ -129,7 +129,7 @@ export function CFOApprovedRentPayouts() {
     const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
     doc.setFontSize(14); doc.text('Approved Rent Payouts to Agent Wallets', 40, 40);
     doc.setFontSize(9);
-    doc.text(`Status: ${tab === 'pending' ? 'Pending' : 'Paid'}${range ? ` · Period: ${range.replace('_', ' ')}` : ''}${date ? ` · Date: ${format(date, 'dd MMM yyyy')}` : ''} · ${filtered.length} rows · Total ${fmt(total)} · Generated ${format(new Date(), 'dd MMM yyyy HH:mm')}`, 40, 56);
+    doc.text(`Filter: ${tab === 'pending' ? 'Pending' : 'Approved'}${range ? ` · Period: ${range.replace('_', ' ')}` : ''}${date ? ` · Date: ${format(date, 'dd MMM yyyy')}` : ''} · ${filtered.length} rows · Total ${fmt(total)} · Generated ${format(new Date(), 'dd MMM yyyy HH:mm')}`, 40, 56);
     autoTable(doc, {
       startY: 70, styles: { fontSize: 8 },
       head: [['#', 'Tenant', 'Agent', 'Landlord', 'Rent amount', 'Approved', 'Paid', 'Reference', 'Status']],
@@ -155,7 +155,7 @@ export function CFOApprovedRentPayouts() {
         <CardHeader className="space-y-3 pb-3">
           <div className="flex flex-wrap items-center gap-2">
             <Button size="sm" variant={tab === 'pending' ? 'default' : 'outline'} onClick={() => setTab('pending')}><Clock className="mr-1 h-4 w-4" />Pending</Button>
-            <Button size="sm" variant={tab === 'paid' ? 'default' : 'outline'} onClick={() => setTab('paid')}><CheckCircle className="mr-1 h-4 w-4" />Paid</Button>
+            <Button size="sm" variant={tab === 'paid' ? 'default' : 'outline'} onClick={() => setTab('paid')}><CheckCircle className="mr-1 h-4 w-4" />Approved</Button>
             <span className="mx-1 h-5 w-px bg-border" />
             {RANGES.map(r => (
               <Button key={r.id} size="sm" variant={range === r.id ? 'secondary' : 'ghost'} onClick={() => { setDate(undefined); setRange(range === r.id ? null : r.id); }}>{r.label}</Button>
@@ -180,7 +180,7 @@ export function CFOApprovedRentPayouts() {
           {isLoading ? (
             <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
           ) : filtered.length === 0 ? (
-            <p className="py-10 text-center text-sm text-muted-foreground">No {tab === 'pending' ? 'pending' : 'paid'} rent requests for this selection.</p>
+            <p className="py-10 text-center text-sm text-muted-foreground">No {tab === 'pending' ? 'pending' : 'approved'} rent requests for this selection.</p>
           ) : (
             <div className="overflow-x-auto">
               <Table>
