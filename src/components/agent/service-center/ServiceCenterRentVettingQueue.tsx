@@ -22,6 +22,10 @@ import { AwarenessCallPanel } from '@/components/pipeline/AwarenessCallPanel';
 import { AwarenessCallBadge } from '@/components/pipeline/AwarenessCallBadge';
 import { MyAwarenessCallsCard } from '@/components/pipeline/MyAwarenessCallsCard';
 import { useAwarenessCallStatus } from '@/hooks/useAwarenessCallStatus';
+import { useRentDeskUrlState } from '@/hooks/useRentDeskUrlState';
+import { RentDeskControls } from '@/components/rent-desk/RentDeskControls';
+import { PaymentLabelChip } from '@/components/rent-desk/PaymentLabelChip';
+import { RENT_DESK_SORTS, RENT_DESK_SORT_LABELS, type RentDeskSort } from '@/lib/rentDeskFilters';
 import { useCriticalFlow } from '@/hooks/useCriticalFlow';
 import { hasNoCallAtStage } from '@/lib/awarenessCallStatus';
 
@@ -31,7 +35,9 @@ import { hasNoCallAtStage } from '@/lib/awarenessCallStatus';
  * tagged as Service Center managers.
  */
 export function ServiceCenterRentVettingQueue({ searchQuery = '' }: { searchQuery?: string } = {}) {
-  const { data, isLoading, error } = useServiceCenterRentQueue();
+  // Sort and filters live in the URL; the server orders, filters and counts (rent_request_desk_order).
+  const deskUrl = useRentDeskUrlState();
+  const { data, isLoading, error, desk } = useServiceCenterRentQueue({ sort: deskUrl.sort, filters: deskUrl.filters });
   const { data: vetPolicy } = useOverdueVettingAlert({ suppressed: true });
   const review = useServiceCenterReviewRentRequest();
   const { toast } = useToast();
@@ -129,11 +135,25 @@ export function ServiceCenterRentVettingQueue({ searchQuery = '' }: { searchQuer
         )}
       </div>
 
+      <RentDeskControls
+        filters={deskUrl.filters}
+        onFiltersChange={deskUrl.setFilters}
+        onClear={deskUrl.clearFilters}
+        sort={deskUrl.sort}
+        onSortChange={(v) => deskUrl.setSort(v as RentDeskSort)}
+        sortOptions={RENT_DESK_SORTS.map((value) => ({ value, label: RENT_DESK_SORT_LABELS[value] }))}
+        matchCount={desk.matchCount}
+        totalCount={desk.totalCount}
+        error={desk.error}
+      />
+
       {pending.length === 0 ? (
         <Card><CardContent className="p-6 text-center text-sm text-muted-foreground">
           {searchQuery.trim()
             ? 'No requests match that search.'
-            : 'No sub-agent rent requests are waiting for your verification.'}
+            : deskUrl.isFiltered && !desk.error
+              ? 'No requests match these filters.'
+              : 'No sub-agent rent requests are waiting for your verification.'}
         </CardContent></Card>
       ) : (
         pending.map((req) => (
@@ -146,10 +166,14 @@ export function ServiceCenterRentVettingQueue({ searchQuery = '' }: { searchQuer
                   <p className="break-words text-[11px] text-muted-foreground">
                     Submitted by {req.agent_name ?? 'sub-agent'}
                   </p>
+                  {req.payment_reason && (
+                    <p className="mt-0.5 break-words text-[11px] leading-snug text-muted-foreground" data-testid="payment-label-reason">{req.payment_reason}</p>
+                  )}
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5 sm:justify-end">
                   <VettingAgeChip createdAt={vettingClockAt(req.created_at, vetPolicy?.effective_from)} warnHours={vetPolicy?.warn_hours} overdueHours={vetPolicy?.overdue_hours} />
                   <AwarenessCallBadge status={callStatus.byId.get(req.id)} />
+                  <PaymentLabelChip label={req.payment_label} score={req.payment_score} reason={req.payment_reason} showReason={false} />
                   <Badge variant="outline" className="w-fit shrink-0 text-[10px]">Service Center review</Badge>
                 </div>
               </div>

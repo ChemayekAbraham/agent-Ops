@@ -4,6 +4,9 @@ DROP POLICY IF EXISTS "Authenticated users can view all profiles" ON public.prof
 DROP POLICY IF EXISTS "Authenticated users can view profiles" ON public.profiles;
 
 -- Users can always view their own profile
+-- (already created, identically, by 20251224121033; drop first so a fresh
+-- database build does not fail with 42710. Same policy afterwards.)
+DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
 CREATE POLICY "Users can view own profile"
 ON public.profiles FOR SELECT
 USING (auth.uid() = id);

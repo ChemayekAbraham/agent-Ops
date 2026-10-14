@@ -27,7 +27,8 @@
     "test:e2e:install": "playwright install chromium",
     "guard:legacy-domain": "node scripts/guard-legacy-domain.mjs",
     "guard:all": "node scripts/run-guards.mjs",
-    "test:loadtest": "vitest run src/test/loadtest"
+    "test:loadtest": "vitest run src/test/loadtest",
+    "test:food-db": "vitest run --config vitest.config.food-db.ts --no-file-parallelism src/__tests__/foodCancelStockRelease.integration.test.ts src/__tests__/foodIdempotencyRace.integration.test.ts src/__tests__/foodTransferEligibility.integration.test.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

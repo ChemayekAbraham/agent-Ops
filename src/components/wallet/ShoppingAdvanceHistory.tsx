@@ -44,7 +44,7 @@ export function ShoppingAdvanceHistory() {
     (async () => {
       const { data } = await supabase
         .from('general_ledger')
-        .select('id, amount, transaction_date, linked_party')
+        .select('id, amount, transaction_date, linked_party, source_table')
         .eq('user_id', user.id)
         .eq('category', 'wallet_transfer')
         .eq('direction', 'cash_in')
@@ -55,7 +55,10 @@ export function ShoppingAdvanceHistory() {
         .limit(5000);
       if (cancelled) return;
       setRows(
-        (data ?? []).map((r: any) => ({
+        (data ?? [])
+          // canteen meal payments never count toward the Shopping Advance limit
+          .filter((r: { source_table?: string | null }) => r.source_table !== 'food_orders')
+          .map((r: any) => ({
           id: r.id,
           amount: Number(r.amount || 0),
           date: r.transaction_date,

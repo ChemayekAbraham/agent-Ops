@@ -1,5 +1,15 @@
+import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  DEFAULT_RENT_DESK_SORT,
+  orderByRentDesk,
+  useRentDeskOrder,
+  withRentDeskScores,
+  type RentDeskScoreFields,
+  type RentDeskSort,
+} from '@/hooks/useRentDeskOrder';
+import { NO_RENT_DESK_FILTERS, type RentDeskFilters } from '@/lib/rentDeskFilters';
 
 /**
  * Read-only data source for the Tenant Ops → Pipeline Status Hub.
@@ -10,7 +20,7 @@ import { supabase } from '@/integrations/supabase/client';
  * from rent_requests.status.
  */
 
-export interface PipelineRequestRow {
+export interface PipelineRequestRow extends RentDeskScoreFields {
   id: string;
   status: string;
   tenancy_status: string | null;
@@ -110,8 +120,21 @@ async function fetchInBatches<T>(
 
 const num = (v: any) => Number(v || 0);
 
-export function useTenantPipelineHubData(historyDays = 400) {
-  return useQuery<PipelineHubData>({
+/**
+ * `requests` is ordered by the server (`rent_request_desk_order`): "best payers first" by default (tenant payment score high
+ * to low, then oldest request first), or `newest` / `oldest`, and each row carries `payment_score` / `payment_label` /
+ * `payment_reason` and `desk_match` (the server's answer to the paying-label and arrival-day filters). The set of requests,
+ * the collections and the payouts are exactly what they were: no row is dropped here, so totals and exports are unaffected
+ * unless the screen chooses to hide `desk_match === false` rows. Sorting and filtering never reload them. `desk` carries the
+ * server's own count of matches; if the ordering call fails `requests` keeps its previous order (newest first) and no row
+ * is flagged.
+ */
+export function useTenantPipelineHubData(
+  historyDays = 400,
+  sort: RentDeskSort = DEFAULT_RENT_DESK_SORT,
+  filters: RentDeskFilters = NO_RENT_DESK_FILTERS,
+) {
+  const query = useQuery<PipelineHubData>({
     queryKey: ['tenant-pipeline-hub', historyDays],
     staleTime: 300000,
     queryFn: async () => {
@@ -301,6 +324,23 @@ export function useTenantPipelineHubData(historyDays = 400) {
       return { requests, collections, payouts };
     },
   });
+
+  const requestIds = useMemo(() => (query.data?.requests ?? []).map((r) => r.id), [query.data]);
+  const order = useRentDeskOrder(requestIds, sort, filters);
+
+  const data = useMemo<PipelineHubData | undefined>(() => {
+    if (!query.data || !order.data) return query.data;
+    return { ...query.data, requests: orderByRentDesk(withRentDeskScores(query.data.requests, order.data), order.data) };
+  }, [query.data, order.data]);
+
+  const desk = {
+    matchCount: order.data ? order.data.matchCount : (query.data?.requests.length ?? 0),
+    totalCount: order.data ? order.data.totalCount : (query.data?.requests.length ?? 0),
+    filtered: !!order.data?.filtered,
+    error: order.isError,
+  };
+
+  return { ...query, data, desk };
 }
 
 /** Canonical pipeline statuses, taken from the rent_requests status check. */

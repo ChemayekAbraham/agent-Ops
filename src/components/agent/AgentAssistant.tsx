@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { createPortal } from 'react-dom';
-import { Bot, Check, MessageCircle, Loader2, MapPin, MoreVertical, RotateCcw, Send, LifeBuoy } from 'lucide-react';
+import { Bot, Check, Loader2, MapPin, MoreVertical, RotateCcw, Send, LifeBuoy } from 'lucide-react';
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -49,7 +49,7 @@ function AssistantCard() {
           open && 'hidden',
         )}
       >
-        <MessageCircle className="h-6 w-6" aria-hidden="true" />
+        <Bot className="h-6 w-6" aria-hidden="true" />
       </Button>, document.body)}
       <AssistantPanel open={open} onOpenChange={setOpen} />
     </>
