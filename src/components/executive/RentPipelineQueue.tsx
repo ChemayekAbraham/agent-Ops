@@ -1,4 +1,13 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import {
+  DEFAULT_RENT_DESK_SORT,
+  nextRentDeskSort,
+  orderByRentDesk,
+  RENT_DESK_SORT_LABELS,
+  useRentDeskOrder,
+  withRentDeskScores,
+  type RentDeskSort,
+} from '@/hooks/useRentDeskOrder';
 import { TenantOpsReportToolbar } from './TenantOpsReportToolbar';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -246,7 +255,8 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
   const [search, setSearch] = useState('');
   const [agentSearch, setAgentSearch] = useState('');
   const [landlordSearch, setLandlordSearch] = useState('');
-  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
+  // Server-side order (rent_request_desk_order): best payers first by default, or newest / oldest.
+  const [sortMode, setSortMode] = useState<RentDeskSort>(DEFAULT_RENT_DESK_SORT);
   const [noCallOnly, setNoCallOnly] = useState(false);
   const [hideExpired, setHideExpired] = useState(true);
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -702,7 +712,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
     }
   };
 
-  const { data: requests, isLoading } = useQuery({
+  const { data: requests, isLoading: isLoadingRequests } = useQuery({
     queryKey: ['rent-pipeline', stage, additionalStatuses.join(',')],
     queryFn: async () => {
       const statuses = [stage, ...additionalStatuses];
@@ -840,7 +850,12 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
     refetchOnWindowFocus: false,
   });
 
-  const rows = requests || [];
+  // The server ranks the requests this desk has loaded and joins each tenant's payment score (one RPC). Sorting never reloads
+  // the queue, and the queue's own limit is untouched. If the ordering call fails the rows keep their newest-first order.
+  const requestIds = useMemo(() => (requests ?? []).map((r: any) => r.id as string), [requests]);
+  const deskOrder = useRentDeskOrder(requestIds, sortMode);
+  const rows = useMemo(() => withRentDeskScores(requests ?? [], deskOrder.data), [requests, deskOrder.data]);
+  const isLoading = isLoadingRequests || (requestIds.length > 0 && deskOrder.isLoading);
 
   // Read-only: one batched read tells every card whether it has an awareness call at its stage. It never blocks or confirms anything;
   // if it fails the badges are simply not shown.
@@ -934,7 +949,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
   });
 }
 
-  const filtered = rows
+  const matching = rows
     .filter(r => {
       if (selectedTenantId !== 'all' && r.tenant_id !== selectedTenantId) return false;
       if (noCallOnly && callStatus.loaded && !hasNoCallAtStage(callStatus.byId.get(r.id))) return false;
@@ -985,12 +1000,15 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
         if (!matchesLandlord) return false;
       }
       return true;
-    })
-    .sort((a, b) => {
-      const tsA = new Date(a.created_at).getTime();
-      const tsB = new Date(b.created_at).getTime();
-      return sortOrder === 'desc' ? tsB - tsA : tsA - tsB;
     });
+
+  // Server order for the chosen sort. Until it arrives, or if it fails, fall back to the queue's own created_at order
+  // (the query returns newest first).
+  const filtered = deskOrder.data
+    ? orderByRentDesk(matching, deskOrder.data)
+    : sortMode === 'oldest'
+      ? [...matching].reverse()
+      : matching;
 
   const handleApprove = async (decision?: FunderVisibilityDecision) => {
     if (!selectedRequest || !user) return;
@@ -1460,12 +1478,12 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
             type="button"
             variant="outline"
             size="sm"
-            onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+            onClick={() => setSortMode(prev => nextRentDeskSort(prev))}
             className="h-9 gap-1.5 text-xs shrink-0 border-border"
-            title={sortOrder === 'desc' ? 'Sorted by Date (Newest first)' : 'Sorted by Date (Oldest first)'}
+            title={`Sorted: ${RENT_DESK_SORT_LABELS[sortMode]}`}
           >
             <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
-            <span>{sortOrder === 'desc' ? 'Newest first' : 'Oldest first'}</span>
+            <span>{RENT_DESK_SORT_LABELS[sortMode]}</span>
           </Button>
           {stage === 'pending' && expiredCount > 0 && (
             <Button
@@ -1507,7 +1525,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
         {/* Mobile Collapsed Filter Bar */}
         <div className="sm:hidden mt-2">
           {(() => {
-            const activeFiltersCount = (selectedTenantId !== 'all' ? 1 : 0) + (search.trim() ? 1 : 0) + (agentSearch.trim() ? 1 : 0) + (landlordSearch.trim() ? 1 : 0) + (hideExpired ? 1 : 0) + (sortOrder === 'asc' ? 1 : 0);
+            const activeFiltersCount = (selectedTenantId !== 'all' ? 1 : 0) + (search.trim() ? 1 : 0) + (agentSearch.trim() ? 1 : 0) + (landlordSearch.trim() ? 1 : 0) + (hideExpired ? 1 : 0) + (sortMode !== DEFAULT_RENT_DESK_SORT ? 1 : 0);
             return (
               <Collapsible open={mobileFiltersOpen} onOpenChange={setMobileFiltersOpen}>
                 <CollapsibleTrigger asChild>
@@ -1603,11 +1621,11 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                         type="button"
                         variant="outline"
                         size="sm"
-                        onClick={() => setSortOrder(prev => prev === 'desc' ? 'asc' : 'desc')}
+                        onClick={() => setSortMode(prev => nextRentDeskSort(prev))}
                         className="flex-1 h-8 gap-1.5 text-xs bg-background"
                       >
                         <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span>{sortOrder === 'desc' ? 'Newest' : 'Oldest'}</span>
+                        <span>{RENT_DESK_SORT_LABELS[sortMode]}</span>
                       </Button>
 
                       {callStatus.loaded && (

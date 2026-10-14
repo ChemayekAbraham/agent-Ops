@@ -1,6 +1,15 @@
+import { useMemo } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import {
+  DEFAULT_RENT_DESK_SORT,
+  orderByRentDesk,
+  useRentDeskOrder,
+  withRentDeskScores,
+  type RentDeskScoreFields,
+  type RentDeskSort,
+} from '@/hooks/useRentDeskOrder';
 
 export interface ServiceCenterQueueRequest {
   id: string;
@@ -25,6 +34,9 @@ export interface ServiceCenterQueueRequest {
   landlord_phone: string | null;
 }
 
+/** A pending request once the server's order and the tenant's payment score are joined in. */
+export type ServiceCenterQueueRow = ServiceCenterQueueRequest & RentDeskScoreFields;
+
 export interface ServiceCenterReviewedRequest {
   id: string;
   status: string;
@@ -39,7 +51,7 @@ export interface ServiceCenterRentQueue {
   manager_id: string;
   is_service_center_manager: boolean;
   pending_count: number;
-  pending: ServiceCenterQueueRequest[];
+  pending: ServiceCenterQueueRow[];
   recent_reviewed: ServiceCenterReviewedRequest[];
 }
 
@@ -47,10 +59,14 @@ export interface ServiceCenterRentQueue {
  * Server-authoritative vetting queue for a Service Center manager. Only rent
  * requests routed to this manager (sub-agent submissions) are returned — the
  * database decides eligibility, never the client.
+ *
+ * `pending` is ordered by the server (`rent_request_desk_order`): "best payers first" by default (tenant payment score
+ * high to low, then oldest request first), or `newest` / `oldest`. Scores are joined on the server; the queue itself, its
+ * contents and the review mutation are unchanged. If the ordering call fails the queue keeps the order it was returned in.
  */
-export function useServiceCenterRentQueue() {
+export function useServiceCenterRentQueue(sort: RentDeskSort = DEFAULT_RENT_DESK_SORT) {
   const { user } = useAuth();
-  return useQuery({
+  const query = useQuery({
     queryKey: ['service-center-rent-queue', user?.id],
     enabled: !!user?.id,
     staleTime: 30_000,
@@ -62,6 +78,18 @@ export function useServiceCenterRentQueue() {
       return data as ServiceCenterRentQueue;
     },
   });
+
+  const pendingIds = useMemo(() => (query.data?.pending ?? []).map((r) => r.id), [query.data]);
+  const order = useRentDeskOrder(pendingIds, sort);
+
+  const data = useMemo<ServiceCenterRentQueue | undefined>(() => {
+    if (!query.data || !order.data) return query.data;
+    return { ...query.data, pending: orderByRentDesk(withRentDeskScores(query.data.pending, order.data), order.data) };
+  }, [query.data, order.data]);
+
+  // Counts and the like are available at once; `isLoading` stays true until the order is known (or the ordering call has
+  // failed), so the list never reshuffles under the reader.
+  return { ...query, data, isLoading: query.isLoading || (pendingIds.length > 0 && order.isLoading) };
 }
 
 export function useServiceCenterReviewRentRequest() {
