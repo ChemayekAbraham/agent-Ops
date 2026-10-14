@@ -44,10 +44,12 @@ import {
   LucideIcon,
   FileDown,
   Megaphone,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { hapticTap, hapticSuccess } from '@/lib/haptics';
 import { GlossaryButton } from '@/components/shared/GlossaryButton';
 import partnerContractAsset from '@/assets/welile-partner-contract.pdf.asset.json';
+import { exportAgentTenantsList } from '@/lib/agentTenantsListExport';
 
 interface AgentMenuDrawerProps {
   open: boolean;
