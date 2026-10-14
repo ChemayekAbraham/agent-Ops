@@ -22,7 +22,7 @@ interface Row { staff_id: string; staff_ref: string | null; full_name: string | 
 const DEFAULT_DEPT = 'Engineering & Product';
 const fmtTime = (iso: string | null) => (iso ? new Date(iso).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : '—');
 
-type Confirm = null | 'approve' | 'pay' | 'return' | 'cancel';
+type Confirm = null | 'approve' | 'pay' | 'return' | 'decline' | 'cancel';
 
 export default function BonusEditor({ id }: { id: string }) {
   const isNew = id === 'new';
@@ -134,6 +134,7 @@ export default function BonusEditor({ id }: { id: string }) {
     try {
       if (confirm === 'approve') { await approvePool(poolId); toast.success('Bonus pool approved'); }
       if (confirm === 'return') { await returnPool(poolId, returnNote); toast.success('Returned for rework'); }
+      if (confirm === 'decline') { await returnPool(poolId, returnNote); toast.success('Declined and returned to HR'); }
       if (confirm === 'cancel') { await cancelPool(poolId); toast.success('Bonus pool cancelled'); }
       if (confirm === 'pay') {
         const r = await payPool(poolId);
@@ -162,7 +163,7 @@ export default function BonusEditor({ id }: { id: string }) {
       {error && <p className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
       {status === 'returned' && pool?.return_note && (
         <p className="whitespace-pre-wrap rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-800">
-          Returned by the CEO: {pool.return_note}
+          Returned for rework: {pool.return_note}
         </p>
       )}
 
@@ -267,7 +268,10 @@ export default function BonusEditor({ id }: { id: string }) {
               </>
             )}
             {status === 'approved' && kinds.includes('pay') && (
-              <Button disabled={busy} onClick={() => setConfirm('pay')}>Pay bonuses</Button>
+              <>
+                <Button variant="outline" disabled={busy} onClick={() => setConfirm('decline')}>Decline with note</Button>
+                <Button disabled={busy} onClick={() => setConfirm('pay')}>Pay bonuses</Button>
+              </>
             )}
           </div>
         </div>
@@ -280,19 +284,20 @@ export default function BonusEditor({ id }: { id: string }) {
               {confirm === 'approve' && 'Approve this bonus pool?'}
               {confirm === 'pay' && 'Pay bonuses'}
               {confirm === 'return' && 'Return with note'}
+              {confirm === 'decline' && 'Decline with note'}
               {confirm === 'cancel' && 'Cancel this bonus pool?'}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {confirm === 'approve' && `${formatUGX(Number(pool?.allocated ?? 0))} to ${people} people.`}
               {confirm === 'pay' && `Credit ${formatUGX(Number(pool?.allocated ?? 0))} to ${people} staff wallets?`}
-              {confirm === 'return' && 'Say what HR should change.'}
+              {(confirm === 'return' || confirm === 'decline') && 'Say what HR should change.'}
               {confirm === 'cancel' && 'A cancelled pool cannot be reopened.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          {confirm === 'return' && <Textarea value={returnNote} onChange={(e) => setReturnNote(e.target.value)} rows={3} />}
+          {(confirm === 'return' || confirm === 'decline') && <Textarea value={returnNote} onChange={(e) => setReturnNote(e.target.value)} rows={3} />}
           <AlertDialogFooter>
             <AlertDialogCancel disabled={busy}>Back</AlertDialogCancel>
-            <AlertDialogAction disabled={busy || (confirm === 'return' && !returnNote.trim())}
+            <AlertDialogAction disabled={busy || ((confirm === 'return' || confirm === 'decline') && !returnNote.trim())}
               onClick={(e) => { e.preventDefault(); void runConfirm(); }}>
               {busy && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}Confirm
             </AlertDialogAction>
