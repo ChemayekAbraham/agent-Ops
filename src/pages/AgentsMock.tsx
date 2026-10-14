@@ -3,11 +3,12 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { ArrowRight, Bell, UserPlus, Calculator, CheckCircle2, ChevronLeft, ChevronRight, FileText, Plus, Home, Menu, Store, Trophy, Users, Wallet, type LucideIcon } from 'lucide-react';
+import { ArrowRight, Bell, UserPlus, Calculator, CheckCircle2, ChevronLeft, ChevronRight, FileText, LogOut, Plus, Home, Menu, Settings, Store, Trophy, UserRound, Users, Wallet, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import RentCalculatorDialog from '@/components/agent/RentCalculatorDialog';
 import { SubAgentInviteLinkDialog } from '@/components/agent/SubAgentInviteLinkDialog';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { COMMISSION_RATE, LANDLORD_PAYOUT_COMMISSION_RATE, formatUGX } from '@/lib/rentCalculations';
 import { cn } from '@/lib/utils';
 import { useProfile } from '@/hooks/useProfile';
@@ -21,6 +22,12 @@ const SHORTCUTS: { label: string; Icon: LucideIcon; color: string; to?: string }
   { label: 'Service Center', Icon: Store, color: 'text-info', to: '/agent/service-center' },
   { label: 'Leaderboard', Icon: Trophy, color: 'text-success', to: '/dashboard/agents/leaderboard' },
   { label: 'Invite', Icon: UserPlus, color: 'text-warning' },
+];
+
+/** Where the avatar menu goes: the two pages that already exist, then sign-out. */
+const PROFILE_MENU: { label: string; Icon: LucideIcon; to: string }[] = [
+  { label: 'Profile', Icon: UserRound, to: '/your-profile' },
+  { label: 'Settings', Icon: Settings, to: '/settings' },
 ];
 
 /**
@@ -42,7 +49,7 @@ const EARN_TONES = {
 
 export default function AgentsMock() {
   const { profile } = useProfile();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const ids = useMemo(() => (user?.id ? [user.id] : []), [user?.id]);
   const { data: capMap } = useAgentCapacityMap(ids);
   const cap = user?.id ? capMap?.get(user.id) : undefined;
@@ -82,6 +89,7 @@ export default function AgentsMock() {
   const avatarSrc = signedAvatar ?? (avatarPath ? null : profile?.avatar_url ?? null);
   const [activeNav, setActiveNav] = useState('Home');
   const [notice, setNotice] = useState<string | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
   const [calcOpen, setCalcOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const navigate = useNavigate();
@@ -211,7 +219,7 @@ export default function AgentsMock() {
       <div className="mx-auto max-w-6xl">
         <header className="flex items-center justify-between gap-3 px-4 py-4 sm:px-6">
           <div className="min-w-0"><p className="text-xs font-medium text-primary/70">Welcome back</p><h1 className="truncate text-xl font-semibold text-primary">{profile?.full_name?.split(' ')[0] || 'Your dashboard'}</h1></div>
-          <div className="flex gap-2"><Button variant="ghost" size="icon" aria-label="Notifications" onClick={() => setNotice('Notifications')}><Bell className="h-5 w-5" /></Button><Button variant="outline" size="icon" aria-label="Your profile" onClick={() => setNotice('Your profile')} className="overflow-hidden rounded-full">{avatarSrc && brokenAvatar !== avatarSrc ? <img src={avatarSrc} alt="" onError={() => setBrokenAvatar(avatarSrc)} className="h-full w-full object-cover" /> : initials}</Button></div>
+          <div className="flex gap-2"><Button variant="ghost" size="icon" aria-label="Notifications" onClick={() => setNotice('Notifications')}><Bell className="h-5 w-5" /></Button><Popover open={profileOpen} onOpenChange={setProfileOpen}><PopoverTrigger asChild><Button variant="outline" size="icon" aria-label="Your profile" className="overflow-hidden rounded-full">{avatarSrc && brokenAvatar !== avatarSrc ? <img src={avatarSrc} alt="" onError={() => setBrokenAvatar(avatarSrc)} className="h-full w-full object-cover" /> : initials}</Button></PopoverTrigger><PopoverContent align="end" sideOffset={10} className="relative w-56 rounded-xl p-1.5"><span aria-hidden className="absolute -top-1.5 right-5 h-3 w-3 rotate-45 border-l border-t border-border bg-popover" />{PROFILE_MENU.map(({ label, Icon, to }) => <Button key={label} variant="ghost" onClick={() => { setProfileOpen(false); navigate(to); }} className="h-11 w-full justify-start gap-2.5 rounded-lg px-2 text-sm font-medium"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-muted/60"><Icon className="h-4 w-4" /></span>{label}<ChevronRight className="ml-auto h-4 w-4 text-muted-foreground" /></Button>)}<Button variant="ghost" onClick={async () => { setProfileOpen(false); await signOut(); navigate('/auth'); }} className="h-11 w-full justify-start gap-2.5 rounded-lg px-2 text-sm font-medium text-destructive"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-destructive/10"><LogOut className="h-4 w-4" /></span>Log out<ChevronRight className="ml-auto h-4 w-4 text-destructive/60" /></Button></PopoverContent></Popover></div>
         </header>
         <main className="space-y-4 px-4 sm:px-6">
           <section aria-labelledby="post-cta-heading" className="rounded-xl border border-primary/20 bg-primary/5 p-4 shadow-sm">
