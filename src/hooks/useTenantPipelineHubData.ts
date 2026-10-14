@@ -25,6 +25,15 @@ export interface PipelineRequestRow extends RentDeskScoreFields {
   status: string;
   tenancy_status: string | null;
   registration_type: string | null;
+  /** Renewals: what changed and why (rent_requests.renewal_*), straight from the request. */
+  renewal_previous_rent: number | null;
+  renewal_previous_days: number | null;
+  renewal_advice_snapshot: unknown;
+  renewal_above_suggestion: boolean | null;
+  renewal_above_by: number | null;
+  renewal_change_reason_code: string | null;
+  renewal_change_explanation: string | null;
+  renewal_evidence_url: string | null;
   rent_amount: number;
   daily_repayment: number;
   duration_days: number | null;
@@ -147,7 +156,7 @@ export function useTenantPipelineHubData(
           supabase
             .from('rent_requests')
             .select(
-              'id, status, tenancy_status, registration_type, rent_amount, daily_repayment, duration_days, total_repayment, amount_repaid, access_fee, request_fee, created_at, approved_at, rejected_at, funded_at, disbursed_at, resubmitted_at, returned_at, rejected_reason, rejected_at_stage, tenant_id, agent_id, assigned_agent_id, landlord_id, house_listing_id, request_city',
+              'id, status, tenancy_status, registration_type, rent_amount, daily_repayment, duration_days, total_repayment, amount_repaid, access_fee, request_fee, created_at, approved_at, rejected_at, funded_at, disbursed_at, resubmitted_at, returned_at, rejected_reason, rejected_at_stage, tenant_id, agent_id, assigned_agent_id, landlord_id, house_listing_id, request_city, renewal_previous_rent, renewal_previous_days, renewal_advice_snapshot, renewal_above_suggestion, renewal_above_by, renewal_change_reason_code, renewal_change_explanation, renewal_evidence_url',
             )
             .order('created_at', { ascending: false })
             .range(from, to),
@@ -233,6 +242,14 @@ export function useTenantPipelineHubData(
           status: r.status,
           tenancy_status: r.tenancy_status ?? null,
           registration_type: r.registration_type ?? null,
+          renewal_previous_rent: r.renewal_previous_rent ?? null,
+          renewal_previous_days: r.renewal_previous_days ?? null,
+          renewal_advice_snapshot: r.renewal_advice_snapshot ?? null,
+          renewal_above_suggestion: r.renewal_above_suggestion ?? null,
+          renewal_above_by: r.renewal_above_by ?? null,
+          renewal_change_reason_code: r.renewal_change_reason_code ?? null,
+          renewal_change_explanation: r.renewal_change_explanation ?? null,
+          renewal_evidence_url: r.renewal_evidence_url ?? null,
           rent_amount: num(r.rent_amount),
           daily_repayment: num(r.daily_repayment),
           duration_days: r.duration_days ?? null,

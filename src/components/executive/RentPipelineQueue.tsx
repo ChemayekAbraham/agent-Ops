@@ -9,6 +9,9 @@ import {
 } from '@/hooks/useRentDeskOrder';
 import { useRentDeskUrlState } from '@/hooks/useRentDeskUrlState';
 import { RentDeskControls } from '@/components/rent-desk/RentDeskControls';
+import { RenewalListTags, RenewalReviewPanel } from '@/components/rent/RenewalReviewPanel';
+import { AboveSuggestionToggle } from '@/components/rent/AboveSuggestionToggle';
+import { useAboveSuggestionFilter } from '@/hooks/useAboveSuggestionFilter';
 import { PaymentLabelChip } from '@/components/rent-desk/PaymentLabelChip';
 import { TenantOpsReportToolbar } from './TenantOpsReportToolbar';
 import { Tooltip, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
@@ -268,6 +271,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
     isFiltered: deskFiltered,
     isDefaultSort,
   } = useRentDeskUrlState();
+  const { only: aboveOnly, setOnly: setAboveOnly } = useAboveSuggestionFilter();
   const [noCallOnly, setNoCallOnly] = useState(false);
   const [hideExpired, setHideExpired] = useState(true);
   const [editingField, setEditingField] = useState<string | null>(null);
@@ -729,7 +733,7 @@ export function RentPipelineQueue({ stage, additionalStatuses = [] }: RentPipeli
       const statuses = [stage, ...additionalStatuses];
       let query = supabase
         .from('rent_requests')
-        .select('id, tenant_id, agent_id, landlord_id, lc1_id, rent_amount, duration_days, repayment_frequency, access_fee, request_fee, total_repayment, daily_repayment, status, created_at, pending_window_reset_at, updated_at, resubmitted_at, agent_ops_reviewed_at, tenant_ops_reviewed_at, landlord_ops_reviewed_at, coo_reviewed_at, house_category, request_city, request_latitude, request_longitude, assigned_agent_id, payout_method, payout_transaction_reference, approval_comment, agent_ops_comment, tenant_ops_comment, landlord_ops_comment, partner_ops_comment, partner_ops_reviewed_at, proxy_agent_id, registration_type, initial_outstanding_balance, tenant_photo_url, house_image_urls, latest_rent_receipt_url, latest_rent_receipt_uploaded_at, funder_visible, funder_visibility_reason, agent_verified')
+        .select('id, tenant_id, agent_id, landlord_id, lc1_id, rent_amount, duration_days, repayment_frequency, access_fee, request_fee, total_repayment, daily_repayment, status, created_at, pending_window_reset_at, updated_at, resubmitted_at, agent_ops_reviewed_at, tenant_ops_reviewed_at, landlord_ops_reviewed_at, coo_reviewed_at, house_category, request_city, request_latitude, request_longitude, assigned_agent_id, payout_method, payout_transaction_reference, approval_comment, agent_ops_comment, tenant_ops_comment, landlord_ops_comment, partner_ops_comment, partner_ops_reviewed_at, proxy_agent_id, registration_type, initial_outstanding_balance, tenant_photo_url, house_image_urls, latest_rent_receipt_url, latest_rent_receipt_uploaded_at, funder_visible, funder_visibility_reason, agent_verified, renewal_previous_rent, renewal_previous_days, renewal_advice_snapshot, renewal_above_suggestion, renewal_above_by, renewal_change_reason_code, renewal_change_explanation, renewal_evidence_url')
         .in('status', statuses);
 
       // Outstanding-balance rent requests bypass COO + CFO (DB trigger short-circuits
@@ -964,6 +968,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
   const matching = filterByRentDesk(rows, deskOrder.data)
     .filter(r => {
       if (selectedTenantId !== 'all' && r.tenant_id !== selectedTenantId) return false;
+      if (aboveOnly && !(r as any).renewal_above_suggestion) return false;
       if (noCallOnly && callStatus.loaded && !hasNoCallAtStage(callStatus.byId.get(r.id))) return false;
       if (stage === 'pending' && hideExpired && isRequestExpired(r.created_at, r.status, r.agent_verified, r.pending_window_reset_at)) {
         return false;
@@ -1543,6 +1548,12 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
           totalCount={deskOrder.data?.totalCount}
           error={deskOrder.isError}
         />
+        <AboveSuggestionToggle
+          className="mt-2"
+          on={aboveOnly}
+          onChange={setAboveOnly}
+          count={rows.filter((r) => (r as any).renewal_above_suggestion).length}
+        />
 
         {/* Mobile Collapsed Filter Bar */}
         <div className="sm:hidden mt-2">
@@ -1806,6 +1817,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                             Resubmitted
                           </span>
                         )}
+                        <RenewalListTags request={req as any} />
                         <AwarenessCallBadge status={callStatus.byId.get(req.id)} />
                         <PaymentLabelChip label={req.payment_label} score={req.payment_score} reason={req.payment_reason} showReason={false} />
                         {req.funder_visible === false && (
@@ -2131,6 +2143,7 @@ function matchesSearch(query: string, ...haystacks: (string | null | undefined)[
                 tenantId={selectedRequest.tenant_id}
                 currentRequestId={selectedRequest.id}
               />
+              <RenewalReviewPanel request={selectedRequest as any} />
               {selectedRequest.registration_type === 'outstanding_balance' && (
 
                 <div className="rounded-xl border-2 border-amber-500/30 bg-amber-500/5 p-3 flex items-start gap-2">

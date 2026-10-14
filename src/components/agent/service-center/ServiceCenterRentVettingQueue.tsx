@@ -28,6 +28,7 @@ import { PaymentLabelChip } from '@/components/rent-desk/PaymentLabelChip';
 import { RENT_DESK_SORTS, RENT_DESK_SORT_LABELS, type RentDeskSort } from '@/lib/rentDeskFilters';
 import { useCriticalFlow } from '@/hooks/useCriticalFlow';
 import { hasNoCallAtStage } from '@/lib/awarenessCallStatus';
+import { RenewalListTags, RenewalReviewPanel } from '@/components/rent/RenewalReviewPanel';
 
 /**
  * Service Center vetting queue — the first gate a sub-agent rent request passes
@@ -174,6 +175,7 @@ export function ServiceCenterRentVettingQueue({ searchQuery = '' }: { searchQuer
                   <VettingAgeChip createdAt={vettingClockAt(req.created_at, vetPolicy?.effective_from)} warnHours={vetPolicy?.warn_hours} overdueHours={vetPolicy?.overdue_hours} />
                   <AwarenessCallBadge status={callStatus.byId.get(req.id)} />
                   <PaymentLabelChip label={req.payment_label} score={req.payment_score} reason={req.payment_reason} showReason={false} />
+                  <RenewalListTags request={{ ...req, duration_days: req.duration_days ?? 0 }} />
                   <Badge variant="outline" className="w-fit shrink-0 text-[10px]">Service Center review</Badge>
                 </div>
               </div>
@@ -194,6 +196,8 @@ export function ServiceCenterRentVettingQueue({ searchQuery = '' }: { searchQuer
                 {req.landlord_name && <span className="break-words">Landlord: {req.landlord_name}</span>}
               </div>
 
+
+              <RenewalReviewPanel request={{ ...req, duration_days: req.duration_days ?? 0 }} />
 
               <button type="button" onClick={() => setDetailsReq(req)} className="w-full text-left">
                 {!!req.house_image_urls?.length && (

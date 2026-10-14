@@ -4,6 +4,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2 } from 'lucide-react';
+import { formatUGX } from '@/lib/rentCalculations';
+import { renewalErrorMessage } from '@/lib/renewalAdvice';
 
 async function callOtp(body: Record<string, unknown>) {
   const { data, error } = await supabase.functions.invoke('rent-renewal-otp', { body });
@@ -18,7 +20,12 @@ async function callOtp(body: Record<string, unknown>) {
 }
 
 /** The rent and days the tenant is confirming. Leave both out for a renewal at the same rent and days. */
-export interface RenewalConsentFigures { newRent?: number | null; newDays?: number | null }
+export interface RenewalConsentFigures {
+  newRent?: number | null;
+  newDays?: number | null;
+  /** the server's daily payment for these figures, shown to the agent next to the code box (display only) */
+  dailyRepayment?: number | null;
+}
 
 const figuresBody = (f?: RenewalConsentFigures) => ({
   ...(f?.newRent != null ? { new_rent_amount: f.newRent } : {}),
@@ -50,7 +57,7 @@ export function useRenewalOtp() {
     try {
       const r = await callOtp({ action: 'send', prev_request_id: prevId, ...figuresBody(figures) });
       setSentTo(r.phone_masked);
-    } catch (e: any) { setError(e.message); } finally { setBusy(false); }
+    } catch (e: any) { setError(renewalErrorMessage(e)); } finally { setBusy(false); }
   };
 
   const requestConsent = useCallback((prevId: string, tenantName: string, figures?: RenewalConsentFigures) => {
@@ -67,7 +74,7 @@ export function useRenewalOtp() {
     try {
       await callOtp({ action: 'verify', prev_request_id: state.prevId, code, ...figuresBody(state.figures) });
       finish(true);
-    } catch (e: any) { setError(e.message); } finally { setBusy(false); }
+    } catch (e: any) { setError(renewalErrorMessage(e)); } finally { setBusy(false); }
   };
 
   const dialog = (
@@ -81,6 +88,13 @@ export function useRenewalOtp() {
               : `Sending a confirmation code to ${state?.tenantName || 'the tenant'}…`}
           </DialogDescription>
         </DialogHeader>
+        {state?.figures?.newRent != null && state.figures.newDays != null && (
+          <div className="rounded-lg border bg-muted/40 px-3 py-2 text-sm" aria-label="What the tenant is agreeing to">
+            <p className="text-xs text-muted-foreground">The tenant is agreeing to</p>
+            <p className="font-semibold">{formatUGX(state.figures.newRent)} for {state.figures.newDays} days</p>
+            {state.figures.dailyRepayment != null && <p className="text-xs text-muted-foreground">{formatUGX(state.figures.dailyRepayment)} a day. The same figures are in the text message.</p>}
+          </div>
+        )}
         <Input
           inputMode="numeric"
           autoComplete="one-time-code"
