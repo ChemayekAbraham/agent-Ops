@@ -218,8 +218,36 @@ export default function AgentsMock() {
   const collectedTodayByTenant = new Map<string, number>();
   todayCollections.forEach(r => collectedTodayByTenant.set(r.tenant_id, (collectedTodayByTenant.get(r.tenant_id) ?? 0) + (Number(r.amount) || 0)));
   const paidTodayOf = (t: { id: string; today_paid_amount?: number | null }) => Math.max(Number(t.today_paid_amount ?? 0), collectedTodayByTenant.get(t.id) ?? 0);
+  // Weekly-plan tenants clear for the week once the last 7 days (today included)
+  // cover 7 daily amounts; daily-plan tenants clear for the day.
+  const payingIds = payingTenants.map(t => t.id);
+  const { data: weeklyInfo } = useQuery({
+    queryKey: ['agents-mock-weekly-cleared', user?.id, todayKey, payingIds.join(',')],
+    enabled: Boolean(user?.id) && payingIds.length > 0,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const ids = payingIds.slice(0, 1000);
+      const weekStart = new Date(new Date(`${todayKey}T00:00:00+03:00`).getTime() - 6 * 86400_000).toISOString();
+      const [plans, cols] = await Promise.all([
+        supabase.from('rent_requests').select('tenant_id').in('tenant_id', ids).eq('repayment_frequency', 'weekly').in('status', ['repaying', 'funded', 'disbursed']),
+        supabase.from('agent_collections').select('tenant_id, amount').eq('agent_id', user?.id ?? '').is('reversed_at', null).in('tenant_id', ids).gte('created_at', weekStart).limit(5000),
+      ]);
+      if (plans.error) throw plans.error;
+      if (cols.error) throw cols.error;
+      const weekPaid: Record<string, number> = {};
+      (cols.data ?? []).forEach(r => { weekPaid[r.tenant_id] = (weekPaid[r.tenant_id] ?? 0) + (Number(r.amount) || 0); });
+      return { weekly: new Set((plans.data ?? []).map(r => r.tenant_id)), weekPaid };
+    },
+  });
+  const isCleared = (t: { id: string; daily?: number | null; today_paid_amount?: number | null }) => {
+    const daily = Number(t.daily) || 0;
+    if (daily <= 0) return false;
+    if (weeklyInfo?.weekly.has(t.id)) return Math.max(weeklyInfo.weekPaid[t.id] ?? 0, paidTodayOf(t)) >= daily * 7;
+    return paidTodayOf(t) >= daily;
+  };
   const paidTenants = payingTenants.filter(t => paidTodayOf(t) > 0);
-  const displayTenants = tenantFilter === 'paid' ? paidTenants : payingTenants;
+  const collectingTenants = payingTenants.filter(t => !isCleared(t));
+  const displayTenants = tenantFilter === 'paid' ? paidTenants : collectingTenants;
   const tenantIds = tenantRows.map(t => t.id);
   // A tenant's photo comes from the profile, and falls back to the passport
   // photo captured with their Rent Request (the same fallback the server-side
