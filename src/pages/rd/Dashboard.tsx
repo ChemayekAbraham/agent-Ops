@@ -357,7 +357,7 @@ export default function RDDashboard() {
           ))}
         </div>
 
-        <BusinessIdeasCashTable rows={ideaRows} setRows={setIdeaRows} />
+        <BusinessIdeasCashTable rows={ideaRows} setRows={editIdeaRows} />
 
         <IdeaCanvasBoard />
 
