@@ -1867,7 +1867,6 @@ export default function AgentDashboardBk({ user, signOut, currentRole, available
                   <span className="font-semibold text-[13px] text-foreground truncate">{a.label}</span>
                 </button>
               ))}
-              <EliteDialogPreviewButton />
             </div>
             <ShareRentRecorderCard />
           </div>
