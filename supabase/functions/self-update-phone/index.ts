@@ -158,9 +158,9 @@ serve(async (req) => {
         { admin: adminClient, source: "phone_change_old_number_otp", reference_id: ch.id, recipient_user_id: caller.id },
       );
       await adminClient.from("audit_logs").insert({
-        actor_id: caller.id, action_type: "user_phone_change_code_requested",
+        user_id: caller.id, action_type: "user_phone_change_code_requested",
         table_name: "profiles", record_id: caller.id, reason: "settings_self_service",
-        details: { to_last3: last9.slice(-3) },
+        metadata: { to_last3: last9.slice(-3) },
       });
       return json({ success: true, masked_phone: maskPhone(oldPhone), expires_in_seconds: OLD_CODE_TTL_MS / 1000 });
     }
@@ -249,12 +249,12 @@ serve(async (req) => {
       }
       // Audit the revocation against the previous owner.
       await adminClient.from("audit_logs").insert({
-        actor_id: caller.id,
+        user_id: caller.id,
         action_type: "user_phone_revoked",
         table_name: "profiles",
         record_id: dup.id,
         reason: "reassigned_after_otp",
-        details: { revoked_phone: normalized, reassigned_to: caller.id },
+        metadata: { revoked_phone: normalized, reassigned_to: caller.id },
       });
       revokedFrom.push(dup.id);
     }
@@ -275,12 +275,12 @@ serve(async (req) => {
 
     // Audit
     await adminClient.from("audit_logs").insert({
-      actor_id: caller.id,
+      user_id: caller.id,
       action_type: "user_phone_self_update",
       table_name: "auth.users",
       record_id: caller.id,
       reason: "settings_self_service",
-      details: { phone: normalized, previous_last3: hasOldPhone ? oldLast9.slice(-3) : null, revoked_from: revokedFrom },
+      metadata: { phone: normalized, previous_last3: hasOldPhone ? oldLast9.slice(-3) : null, revoked_from: revokedFrom },
     });
 
     // Tell the previous number it happened, and that withdrawals pause for 24h
