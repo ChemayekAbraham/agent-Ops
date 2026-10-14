@@ -113,7 +113,7 @@ function DashboardContent({ variant }: { variant?: 'agent-bk' }) {
   const { isQualifiedInvestor } = useDeployedCapital(user?.id);
 
   // Derive frozen state from profile (no separate DB call)
-  const isFrozen = profile?.is_frozen ?? false;
+  const isFrozen = (profile?.is_frozen ?? false) && !(profile as { deleted_at?: string | null } | null)?.deleted_at;
   const frozenReason = (profile?.frozen_reason || 'Your account has been frozen for violating platform policies.').replace('0708 257 899', '+256777607640');
   
 
