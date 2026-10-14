@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
 
 const rpc = vi.hoisted(() => vi.fn());
 vi.mock('@/integrations/supabase/client', () => ({ supabase: { rpc } }));
@@ -14,12 +15,28 @@ vi.mock('@/lib/tenantOpsClassificationReport', () => ({
 vi.mock('sonner', () => ({ toast: { loading: vi.fn(() => 't'), success: vi.fn(), error: vi.fn() } }));
 
 import TenantClassificationTab from './TenantClassificationTab';
+import { kampalaOffsetYmd, kampalaTodayYmd } from '@/lib/kampalaDays';
 
 const summary = {
   as_of: '2026-10-13', population: 59042, active: 868, waiting: 114, dormant: 309, dormant_renewal_in_progress: 19,
   inactive: 57751, inactive_never_requested: 53956, inactive_request_in_review: 3258,
   inactive_only_rejected_cancelled: 531, inactive_other: 6, needs_review: 27,
 };
+
+// What tops_smartphone_usage answers for the window the tab opens on (this month).
+const usage = {
+  as_of: '2026-10-14', from_day: '2026-10-01', to_day: '2026-10-14',
+  tenants: 59042, recorded_smartphone: 58841, recorded_without: 201,
+  confirmed_smartphone: 11, confirmed_feature_phone: 491, device_unknown: 58540,
+  joined: 172, joined_recorded_smartphone: 156,
+  checks: 22, checks_smartphone: 2, checks_feature_phone: 20, seen_on_phone: 3,
+};
+
+const answer = (name: string, listRows: unknown[]) =>
+  Promise.resolve({
+    data: name === 'tops_tenant_classification_summary' ? summary : name === 'tops_smartphone_usage' ? usage : listRows,
+    error: null,
+  });
 const mk = (over: Record<string, unknown> = {}) => ({
   tenant_id: 'aaaaaaaa-1', tenant_name: 'Nakato Ann', tenant_phone: '0700111222', district: 'Kampala', category: 'active',
   sub_label: null, needs_review: false, review_reasons: null, total_requests: 1, running_plans: 1, completed_plans: 0,
@@ -28,10 +45,13 @@ const mk = (over: Record<string, unknown> = {}) => ({
 });
 
 function setup(listRows: unknown[] = [mk()]) {
-  rpc.mockImplementation((name: string) =>
-    Promise.resolve({ data: name === 'tops_tenant_classification_summary' ? summary : listRows, error: null }));
+  rpc.mockImplementation((name: string) => answer(name, listRows));
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return render(<QueryClientProvider client={qc}><TenantClassificationTab /></QueryClientProvider>);
+  return render(
+    <MemoryRouter initialEntries={['/']}>
+      <QueryClientProvider client={qc}><TenantClassificationTab /></QueryClientProvider>
+    </MemoryRouter>,
+  );
 }
 const listCalls = () => rpc.mock.calls.filter((c) => c[0] === 'tops_tenant_classification_list');
 
@@ -55,7 +75,7 @@ describe('TenantClassificationTab', () => {
     setup();
     await screen.findByText('Nakato Ann');
     const names = rpc.mock.calls.map((c) => c[0]);
-    expect(new Set(names)).toEqual(new Set(['tops_tenant_classification_summary', 'tops_tenant_classification_list']));
+    expect(new Set(names)).toEqual(new Set(['tops_tenant_classification_summary', 'tops_tenant_classification_list', 'tops_smartphone_usage']));
     expect(listCalls()[0][1]).toEqual({
       p_category: null, p_sub: null, p_search: null, p_limit: 50, p_offset: 0, p_needs_review: false,
     });
@@ -86,7 +106,7 @@ describe('TenantClassificationTab', () => {
   it('sends the Excel export the current filter', async () => {
     const user = userEvent.setup();
     rpc.mockImplementation((name: string, a: { p_limit?: number }) =>
-      Promise.resolve({ data: name === 'tops_tenant_classification_summary' ? summary : [mk()], error: null, a }));
+      answer(name, [mk()]));
     setup();
     await screen.findByText('Nakato Ann');
     await user.click(screen.getByRole('button', { name: /Export Excel/ }));
