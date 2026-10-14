@@ -238,6 +238,14 @@ export default function Settings() {
   const [requestingOldCode, setRequestingOldCode] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [resultDialog, setResultDialog] = useState<{ ok: boolean; title: string; message: string } | null>(null);
+  const cancelPhoneChange = () => {
+    setPhone((profile?.phone ?? '').trim());
+    otp.resetOtp();
+    setOldPhoneCode('');
+    setOldPhoneMasked(null);
+  };
+
   const requestOldPhoneCode = async () => {
     setRequestingOldCode(true);
     const { data, error } = await invokeEdgeFunction<{ masked_phone?: string; not_required?: boolean }>(
@@ -245,9 +253,9 @@ export default function Settings() {
       { body: { action: 'request_old_phone_code', phone: phone.trim() }, silent: true, fallbackMessage: 'Could not send code to your current number' },
     );
     setRequestingOldCode(false);
-    if (error) { toast.error(error.message || 'Could not send code to your current number'); return; }
+    if (error) { setResultDialog({ ok: false, title: 'Code not sent', message: error.message || 'Could not send code to your current number' }); return; }
     setOldPhoneMasked(data?.not_required ? '' : (data?.masked_phone ?? ''));
-    if (!data?.not_required) toast.success(`Code sent to your current number ${data?.masked_phone ?? ''}`);
+    if (!data?.not_required) setResultDialog({ ok: true, title: 'Code sent', message: `We texted a 6-digit code to your current number ${data?.masked_phone ?? ''}. Enter it, then tap Save.` });
   };
 
   /** Mirrors the edge-function + DB normalizer exactly for client-side preview.
