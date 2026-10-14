@@ -278,6 +278,7 @@ export default function AgentsMock() {
             {tenantsLoading ? <p className="py-5 text-sm text-muted-foreground">Loading tenants…</p> : tenantsFailed ? <p className="py-5 text-sm text-destructive">Tenant records could not be loaded.</p> : <>
               <ul className="space-y-3">{displayTenants.slice(tenantPage * 10, tenantPage * 10 + 10).map(t => {
                 const pct = t.total_repayment > 0 ? Math.min(100, Math.round(t.amount_repaid / t.total_repayment * 100)) : null;
+                const paidToday = Number(t.today_paid_amount ?? 0);
                 const balance = Number(t.balance ?? 0);
                 const unfunded = Number(t.unfunded_balance ?? 0);
                 const state = balance <= 0 && unfunded > 0
@@ -289,7 +290,7 @@ export default function AgentsMock() {
                   <Button variant="ghost" onClick={() => setSelectedTenantId(t.id)} className="h-auto min-h-[72px] w-full justify-start gap-2.5 rounded-2xl border-2 border-border/60 bg-card px-3 py-3 text-left transition-all hover:bg-card active:scale-[0.97] sm:gap-3">
                     <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full text-sm font-bold sm:h-11 sm:w-11 sm:text-base', state.chip)}>{tenantPhotos[t.id] ? <img src={tenantPhotos[t.id]} alt="" className="h-full w-full object-cover" onError={e => { e.currentTarget.style.display = 'none'; }} /> : firstLetter(t.full_name)}</span>
                     <span className="min-w-0 flex-1 whitespace-normal text-left"><span className="block truncate text-[13px] font-bold sm:text-sm">{t.full_name}</span><span className="mt-1 flex items-center gap-1 truncate text-[11px] text-muted-foreground sm:text-xs"><Phone className="h-3 w-3 shrink-0" />{t.phone || 'Phone not recorded'}</span></span>
-                    <span className="flex shrink-0 flex-col items-end text-right"><span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground sm:text-[10px]">Repaid</span><span className={cn('text-[11px] font-bold tabular-nums sm:text-sm', pct !== null && pct < 50 && 'text-destructive')}>{pct === null ? '—' : `${pct}%`}</span></span>
+                    <span className="flex shrink-0 flex-col items-end text-right"><span className="text-[9px] font-bold uppercase tracking-wide text-muted-foreground sm:text-[10px]">Repaid today</span><span className={cn('mt-0.5 text-[11px] font-bold tabular-nums sm:text-sm', paidToday > 0 ? 'text-success' : 'text-muted-foreground')}>{formatUGX(paidToday)}</span><span className={cn('mt-0.5 text-[10px] font-semibold tabular-nums text-muted-foreground sm:text-xs', pct !== null && pct < 50 && 'text-destructive')}>{pct === null ? '—' : `${pct}%`}</span></span>
                   </Button>
                 </li>;
               })}</ul>
