@@ -192,20 +192,41 @@ export default function AgentsMock() {
   const paidTenants = payingTenants.filter(t => Number(t.today_paid_amount) > 0);
   const displayTenants = tenantFilter === 'paid' ? paidTenants : payingTenants;
   const tenantIds = tenantRows.map(t => t.id);
+  // A tenant's photo comes from the profile, and falls back to the passport
+  // photo captured with their Rent Request (the same fallback the server-side
+  // tenant views use) — many tenants only have the request photo.
   const { data: tenantPhotos = {} } = useQuery({
     queryKey: ['agents-mock-tenant-photos', user?.id, tenantIds.join(',')],
     enabled: tenantIds.length > 0,
     staleTime: 50 * 60_000,
     queryFn: async () => {
-      const { data } = await supabase.from('profiles').select('id, avatar_url').in('id', tenantIds);
-      const photos: Record<string, string> = {};
-      await Promise.all((data ?? []).map(async row => {
-        if (!row.avatar_url) return;
-        const match = row.avatar_url.match(/\/avatars\/([^?]+)/);
+      const [profRes, reqRes] = await Promise.all([
+        supabase.from('profiles').select('id, avatar_url').in('id', tenantIds),
+        supabase.from('rent_requests')
+          .select('tenant_id, tenant_photo_url, created_at')
+          .in('tenant_id', tenantIds)
+          .not('status', 'in', '("rejected","deleted_by_agent")')
+          .not('tenant_photo_url', 'is', null)
+          .order('created_at', { ascending: false })
+          .limit(2000),
+      ]);
+      const fallback = new Map<string, string>();
+      (reqRes.data ?? []).forEach(r => {
+        if (r.tenant_photo_url && !fallback.has(r.tenant_id)) fallback.set(r.tenant_id, r.tenant_photo_url);
+      });
+      const resolve = async (id: string, raw: string) => {
+        const match = raw.match(/\/avatars\/([^?]+)/);
         if (match?.[1]) {
           const { data: signed } = await supabase.storage.from('avatars').createSignedUrl(decodeURIComponent(match[1]), 3600);
-          if (signed?.signedUrl) photos[row.id] = signed.signedUrl;
-        } else photos[row.id] = row.avatar_url;
+          if (signed?.signedUrl) photos[id] = signed.signedUrl;
+        } else photos[id] = raw;
+      };
+      const photos: Record<string, string> = {};
+      const profById = new Map((profRes.data ?? []).map(row => [row.id, row.avatar_url]));
+      const ids = new Set<string>([...profById.keys(), ...fallback.keys()]);
+      await Promise.all(Array.from(ids).map(async id => {
+        const raw = profById.get(id) || fallback.get(id);
+        if (raw) await resolve(id, raw);
       }));
       return photos;
     },
