@@ -191,13 +191,13 @@ export default function TenantClassificationTab() {
     <div className="space-y-3">
       {/* Page-level period, at the top of the page. The category counts below are a point-in-time
           snapshot ("As of …") and are not narrowed by this window; it drives the smartphone figures. */}
-      <div className="flex flex-col gap-2 rounded-xl border border-border/70 bg-muted/20 px-2.5 py-2 sm:flex-row sm:items-center sm:justify-between" data-testid="page-period-bar">
-        <div className="flex min-w-0 items-center gap-1.5">
+      <div className="flex flex-row flex-wrap items-center justify-between gap-x-3 gap-y-2 rounded-xl border border-border/70 bg-muted/20 px-3 py-2" data-testid="page-period-bar">
+        <div className="flex items-center gap-1.5 whitespace-nowrap">
           <CalendarIcon aria-hidden className="h-3.5 w-3.5 shrink-0 text-primary" />
           <p className="shrink-0 text-xs font-semibold leading-tight">Period</p>
-          <p className="min-w-0 break-words text-[11px] leading-tight text-muted-foreground">applies to the smartphone figures</p>
+          <p className="hidden text-[11px] leading-tight text-muted-foreground sm:block">· applies to the smartphone figures</p>
         </div>
-        <OpsDateRangeFilter preset={preset} custom={custom} onPresetChange={changePreset} onCustomChange={changeCustom} className="sm:shrink-0" />
+        <OpsDateRangeFilter preset={preset} custom={custom} onPresetChange={changePreset} onCustomChange={changeCustom} className="shrink-0" />
       </div>
       <div className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-start sm:justify-between">
         <p className="min-w-0 break-words text-xs text-muted-foreground" data-testid="classification-note">
