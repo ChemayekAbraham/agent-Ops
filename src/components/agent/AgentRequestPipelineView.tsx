@@ -1089,7 +1089,7 @@ export function AgentRequestPipelineView({
                         {r.rejected_reason || 'No reason provided.'}
                       </p>
                     </div>
-                      {!r.cancelled_by_agent && <div className="flex justify-end pt-1">
+                      <div className="flex justify-end pt-1">
                         <Button
                           size="sm"
                           onClick={() => setEditing(r)}
@@ -1098,7 +1098,7 @@ export function AgentRequestPipelineView({
                           <Pencil className="h-3.5 w-3.5" />
                           Edit & Resubmit
                         </Button>
-                      </div>}
+                      </div>
                   </CardContent>
                 </Card>
               ))}
