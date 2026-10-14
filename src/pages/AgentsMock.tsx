@@ -301,6 +301,10 @@ export default function AgentsMock() {
           </PopoverContent></Popover></div>
         </header>
         <main className="space-y-4 px-4 sm:px-6">
+          <div className="pb-2 pt-5">
+            {(() => { const h = Number(new Intl.DateTimeFormat('en-GB', { hour: 'numeric', hour12: false, timeZone: 'Africa/Kampala' }).format(new Date())); const g = h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening'; const name = (profile?.full_name || '').trim().split(/\s+/)[0] || 'there'; return <h1 className="text-xl font-bold tracking-tight text-foreground">{g}, {name} <span aria-hidden>👋</span></h1>; })()}
+            <p className="mt-1 text-sm text-muted-foreground">Here's how your tenants are doing today.</p>
+          </div>
           <section aria-labelledby="post-cta-heading" className="rounded-xl border border-primary/20 bg-primary/5 p-4 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3 lg:flex-nowrap">
               <div className="min-w-0"><p className="text-[11px] font-semibold uppercase tracking-wide text-primary">Grow your earnings</p><h2 id="post-cta-heading" className="mt-0.5 text-lg font-bold leading-tight">Add tenant, earn at every step</h2></div>
