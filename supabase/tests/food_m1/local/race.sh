@@ -25,6 +25,8 @@ for m in "$root"/supabase/migrations/2026100912*food*.sql "$root"/supabase/migra
          "$root"/supabase/migrations/202610121*food*.sql "$root"/supabase/migrations/202610131*food*.sql; do
   P -d "$db" -1 -f "$m" >/dev/null
 done
+# Install seats nobody (Option 2); appoint the synthetic stand-in the supported way.
+P -d "$db" -c "set role service_role; select food_bootstrap_coordinator('29a0cfa8-1eaf-453c-874c-0fc72fa4f74b','Test appointment of synthetic stand-in')" >/dev/null
 P -d "$db" -f "$here/30_race_setup.sql" >/dev/null
 # The shared recipient gate, loaded verbatim from drizzle/migrations/0045 (only
 # welile_transfer_items and check_transfer_recipient_eligibility; the schedule

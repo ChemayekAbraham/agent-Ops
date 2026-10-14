@@ -40,7 +40,9 @@ sed -n '/^CREATE OR REPLACE FUNCTION public.reverse_wallet_transfer/,/^\$\$;/p' 
 sed -n '/^CREATE OR REPLACE FUNCTION public.get_agent_sweepable_withdrawable/,/^\$\$;/p'   "$root"/supabase/migrations/20260719161607_12e3ac27-7b55-4c8b-8d98-f9b7ba2794b6.sql | P -d "$db" >/dev/null
 # One session for all suites: later files reuse 10_behaviour.sql's helpers.
 # 20_* only applies once the release-corrections migration is present.
-suites=("$here/10_behaviour.sql")
+# 08 runs first: proves install seats nobody, then appoints the synthetic stand-in
+# through the supported food_bootstrap_coordinator() so later suites have a coordinator.
+suites=("$here/08_appointment.sql" "$here/10_behaviour.sql")
 ls "$root"/supabase/migrations/20261012120000_food_m1_release_corrections.sql >/dev/null 2>&1 \
   && suites+=("$here/20_release_corrections.sql" "$here/25_canteen_access.sql" "$here/40_completion.sql")
 ls "$root"/supabase/migrations/20261013120001_food_meal_images.sql >/dev/null 2>&1   && suites+=("$here/45_meal_images.sql")
