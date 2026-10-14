@@ -60,7 +60,7 @@ const EARN_TONES = {
 
 export default function AgentsMock() {
   const { profile } = useProfile();
-  const { user, signOut } = useAuth();
+  const { user, signOut, role, roles, switchRole } = useAuth();
   const ids = useMemo(() => (user?.id ? [user.id] : []), [user?.id]);
   const { data: capMap } = useAgentCapacityMap(ids);
   const cap = user?.id ? capMap?.get(user.id) : undefined;
@@ -104,6 +104,17 @@ export default function AgentsMock() {
   const [calcOpen, setCalcOpen] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const navigate = useNavigate();
+  const [rolePickerOpen, setRolePickerOpen] = useState(false);
+  // Same switch the header RoleSwitcher uses: flip the active role, then land
+  // on that role's dashboard. Manager keeps its access-code gate.
+  const pickRole = (next: AppRole) => {
+    setProfileOpen(false);
+    setRolePickerOpen(false);
+    if (next === role) return;
+    if (next === 'manager') { navigate('/manager-login'); return; }
+    switchRole(next);
+    navigate(roleDashboardRoutes[next] || roleToSlug(next));
+  };
   const kampalaNow = new Date(Date.now() + 3 * 3600_000);
   const [month, setMonth] = useState(new Date(kampalaNow.getUTCFullYear(), kampalaNow.getUTCMonth(), 1));
   const [day, setDay] = useState(kampalaNow.getUTCDate());
