@@ -23,6 +23,17 @@ the first ~1,000 rows of each (PostgREST row cap).
   Storage files, schema/functions (see doc 224).
 - "Resend link" still re-sends the latest weekly (capped) backup and is now misleading next to the new button.
 
+## Second production run and the download action (2026-10-14)
+The run started 17:59:15 UTC on 2026-10-13 finished: 25 min, 21 invocations, 8,725,648 rows, 2.67 GB, status `partial`
+(684 ok, 155 empty, 12 excluded, 4 no-pk skipped, 5 `count_mismatch`: audit_logs, general_ledger, install_attempt_events,
+login_phase_events, user_telemetry_events, all written MORE rows than counted at start). Cause (late inserts vs duplicate rows
+from offset paging) NOT determined; needs the CSV parts checked for duplicate primary keys.
+
+New `{action:"signed-urls", folder, expiresIn?, cursor?, tables?}` on `full-table-backup` (manager/cto, same gate): returns
+signed download links for `manifest.json` plus each part of the run, 300 files per call, `next` = cursor for the following
+call, expiry capped at 24 h. Paths come from the run's manifest/checkpoint, not caller input. BUILT, NOT DEPLOYED, NOT RUN;
+syntax-checked only. It is the download path for the CSVs (bulk personal data, so links are short-lived).
+
 ## Before first use
 1. Deploy `full-table-backup` (Lovable). Merge to `lovable` only when its agent is idle and Josh approves.
 2. First run as a subset via the hook: `start(['ledger_account_catalog','staff_profiles'])`; read `manifest.json`.

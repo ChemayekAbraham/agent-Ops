@@ -1896,7 +1896,7 @@ Transaction Groups: 297,457
               <li><strong>Realtime:</strong> listeners on busy tables without filters; suspected source of rollback-rate spikes.</li>
               <li><strong>Critical-function drift detection:</strong> <code>critical_function_baselines</code> + 5-min scan catches silent reverts of watched function bodies.</li>
               <li><strong>Auth:</strong> a client-side sign-in race plus a high wrong-password rate dominate auth failures in the CTO report.</li>
-              <li><strong>Backups:</strong> ledger-only nightly backup since 2026-09-27; nothing else is exported in full. The CTO dashboard button now targets the full-table backup (docs 224/226), built but not yet deployed or run.</li>
+              <li><strong>Backups:</strong> ledger-only nightly backup since 2026-09-27; nothing else is exported in full. The CTO dashboard button now targets the full-table backup (docs 224/226): one full run finished 2026-10-13 (25 min, 2.67 GB, partial: 5 count mismatches unresolved). A signed-urls download action is built, not deployed.</li>
             </ul>
           </div>
         `
