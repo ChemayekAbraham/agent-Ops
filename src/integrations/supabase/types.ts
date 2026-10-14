@@ -62561,6 +62561,7 @@ export type Database = {
           treatment: string
         }[]
       }
+      bank_sending_charge: { Args: { p_amount: number }; Returns: number }
       begin_ledger_maintenance: {
         Args: { p_minutes?: number; p_reason?: string }
         Returns: string
