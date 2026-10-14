@@ -2,14 +2,19 @@ import { useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
-import { RefreshCw, Undo2, CheckCircle2 } from 'lucide-react';
+import { CalendarIcon, CheckCircle2, Loader2, RefreshCw, Undo2 } from 'lucide-react';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import { formatUGX } from '@/lib/rentCalculations';
 import { useAuth } from '@/hooks/useAuth';
@@ -44,6 +49,14 @@ const SOURCE: Record<string, string> = {
   director_requisitions: 'Director',
 };
 
+type Filter = 'all' | 'pending' | 'paid' | 'reversed';
+const FILTERS: { id: Filter; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'pending', label: 'Pending' },
+  { id: 'paid', label: 'Paid' },
+  { id: 'reversed', label: 'Reversed' },
+];
+
 const dt = (s: string | null) => (s ? new Date(s).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : '—');
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -51,6 +64,7 @@ const today = () => new Date().toISOString().slice(0, 10);
  * Approved requisitions and whether their money has reached the receiver's wallet.
  * Status comes only from the server (`cfo_approved_requisitions`); Reverse goes through
  * the CFO-only `requisition-reverse` function, which uses the strict balance check.
+ * Table layout mirrors CFOApprovedRentPayouts (Approved Rent Requests).
  */
 export function ApprovedRequisitionsPayoutPanel() {
   const qc = useQueryClient();
@@ -58,7 +72,8 @@ export function ApprovedRequisitionsPayoutPanel() {
   const isCfo = (roles ?? []).includes('cfo');
   const [day, setDay] = useState(today());
   const from = day, to = day;
-  const [filter, setFilter] = useState<'all' | 'pending' | 'paid' | 'reversed'>('all');
+  const [filter, setFilter] = useState<Filter>('all');
+  const [search, setSearch] = useState('');
   const [target, setTarget] = useState<Row | null>(null);
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
@@ -78,11 +93,19 @@ export function ApprovedRequisitionsPayoutPanel() {
     },
   });
 
-  const shown = rows.filter((r) =>
+  const byStatus = (r: Row) =>
     filter === 'all' ? true
       : filter === 'pending' ? r.payout_status === 'pending' || r.payout_status === 'failed'
         : filter === 'reversed' ? r.payout_status === 'reversed' || r.payout_status === 'reversing'
-          : r.payout_status === 'paid');
+          : r.payout_status === 'paid';
+
+  const shown = useMemo(() => {
+    const s = search.trim().toLowerCase();
+    const list = rows.filter(byStatus);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return s ? list.filter(r => [r.requisition_code, r.receiver_name ?? '', r.title ?? '', SOURCE[r.source_table] ?? '', r.requisition_id]
+      .some(v => v.toLowerCase().includes(s))) : list;
+  }, [rows, filter, search]);
 
   const totals = useMemo(() => {
     const t = { pending: 0, paid: 0, reversed: 0, pendingN: 0, paidN: 0, reversedN: 0 };
@@ -94,6 +117,9 @@ export function ApprovedRequisitionsPayoutPanel() {
     }
     return t;
   }, [rows]);
+
+  const shownTotal = shown.reduce((a, r) => a + (Number(r.amount) || 0), 0);
+  const selected = day ? new Date(`${day}T00:00:00`) : undefined;
 
   async function confirmReverse() {
     if (!target) return;
@@ -117,6 +143,11 @@ export function ApprovedRequisitionsPayoutPanel() {
 
   return (
     <div className="space-y-4">
+      <div>
+        <h1 className="flex items-center gap-2 text-xl font-bold"><CheckCircle2 className="h-5 w-5 text-primary" />Approved Requisitions</h1>
+        <p className="text-sm text-muted-foreground">Staff, employee and director requisitions approved for payout. Pending until Financial Operations releases the money to the receiver's wallet, then Paid automatically.</p>
+      </div>
+
       <div className="grid gap-3 sm:grid-cols-3">
         <Card><CardContent className="p-4">
           <p className="text-xs text-muted-foreground">Pending — not yet in wallet</p>
@@ -136,61 +167,93 @@ export function ApprovedRequisitionsPayoutPanel() {
       </div>
 
       <Card>
-        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <CardTitle className="flex items-center gap-2 text-base"><CheckCircle2 className="h-4 w-4" /> Approved Requisitions</CardTitle>
+        <CardHeader className="space-y-3 pb-3">
           <div className="flex flex-wrap items-center gap-2">
-            <Input type="date" value={day} max={today()} onChange={(e) => e.target.value && setDay(e.target.value)} className="h-9 w-[160px]" aria-label="Date" />
-            {(['all', 'pending', 'paid', 'reversed'] as const).map((f) => (
-              <Button key={f} size="sm" variant={filter === f ? 'default' : 'outline'} onClick={() => setFilter(f)} className="capitalize">{f}</Button>
+            {FILTERS.map(f => (
+              <Button key={f.id} size="sm" variant={filter === f.id ? 'default' : 'outline'} onClick={() => setFilter(f.id)}>{f.label}</Button>
             ))}
+            <span className="mx-1 h-5 w-px bg-border" />
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button size="sm" variant="outline" className={cn(!selected && 'text-muted-foreground')}>
+                  <CalendarIcon className="mr-1 h-4 w-4" />{selected ? format(selected, 'dd MMM yyyy') : 'Pick a date'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={selected}
+                  onSelect={(d) => { if (d) setDay(format(d, 'yyyy-MM-dd')); }}
+                  disabled={{ after: new Date(`${today()}T23:59:59`) }}
+                  initialFocus
+                  className="pointer-events-auto p-3"
+                />
+              </PopoverContent>
+            </Popover>
             <Button size="sm" variant="ghost" onClick={() => refetch()} aria-label="Refresh">
               <RefreshCw className={`h-4 w-4 ${isFetching ? 'animate-spin' : ''}`} />
             </Button>
           </div>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <Input placeholder="Search receiver, code or purpose" value={search} onChange={e => setSearch(e.target.value)} className="sm:max-w-sm" />
+            <CardTitle className="text-sm font-medium text-muted-foreground sm:ml-auto">{shown.length} requisition{shown.length === 1 ? '' : 's'} · {formatUGX(shownTotal)}</CardTitle>
+          </div>
         </CardHeader>
-        <CardContent className="overflow-x-auto">
-          {error ? <p className="text-sm text-destructive">{(error as Error).message}</p>
-            : isLoading ? <p className="text-sm text-muted-foreground">Loading…</p>
-              : shown.length === 0 ? <p className="text-sm text-muted-foreground">No approved requisitions in this period.</p>
-                : (
-                  <table className="w-full min-w-[820px] text-sm">
-                    <thead className="text-left text-xs text-muted-foreground">
-                      <tr className="border-b">
-                        <th className="py-2 pr-3">Code</th><th className="pr-3">Receiver</th><th className="pr-3">Purpose</th>
-                        <th className="pr-3 text-right">Amount</th><th className="pr-3">Approved</th>
-                        <th className="pr-3">Status</th><th className="pr-3">In wallet</th><th />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {shown.map((r) => {
-                        const s = STATUS[r.payout_status] ?? STATUS.pending;
-                        return (
-                          <tr key={`${r.source_table}:${r.requisition_id}`} className="border-b last:border-0 align-top">
-                            <td className="py-2 pr-3 font-mono text-xs">{r.requisition_code}<div className="text-muted-foreground">{SOURCE[r.source_table]}</div></td>
-                            <td className="pr-3">{r.receiver_name ?? '—'}</td>
-                            <td className="pr-3 max-w-[220px] truncate" title={r.title ?? ''}>{r.title ?? '—'}</td>
-                            <td className="pr-3 text-right font-semibold">{formatUGX(Number(r.amount))}</td>
-                            <td className="pr-3 text-xs">{dt(r.approved_at)}</td>
-                            <td className="pr-3">
-                              <Badge variant={s.variant}>{s.label}</Badge>
-                              {r.payout_status === 'reversed' && r.reversal_reason && (
-                                <div className="mt-1 text-xs text-muted-foreground max-w-[200px]">{dt(r.reversed_at)} · {r.reversal_reason}</div>
-                              )}
-                            </td>
-                            <td className="pr-3 text-xs">{dt(r.credited_at)}</td>
-                            <td className="text-right">
-                              {r.payout_status === 'paid' && isCfo && (
-                                <Button size="sm" variant="destructive" onClick={() => { setTarget(r); setReason(''); }}>
-                                  <Undo2 className="mr-1 h-3.5 w-3.5" /> Reverse
-                                </Button>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                )}
+        <CardContent className="p-0">
+          {error ? (
+            <p className="py-10 text-center text-sm text-destructive">{(error as Error).message}</p>
+          ) : isLoading ? (
+            <div className="flex justify-center py-10"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+          ) : shown.length === 0 ? (
+            <p className="py-10 text-center text-sm text-muted-foreground">No approved requisitions for this selection.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-10">#</TableHead>
+                    <TableHead>Code</TableHead>
+                    <TableHead>Receiver</TableHead>
+                    <TableHead>Purpose</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                    <TableHead>Approved</TableHead>
+                    <TableHead>In wallet</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {shown.map((r, i) => {
+                    const s = STATUS[r.payout_status] ?? STATUS.pending;
+                    return (
+                      <TableRow key={`${r.source_table}:${r.requisition_id}`}>
+                        <TableCell className="text-muted-foreground">{i + 1}</TableCell>
+                        <TableCell className="font-mono text-xs">{r.requisition_code}<div className="text-muted-foreground">{SOURCE[r.source_table]}</div></TableCell>
+                        <TableCell className="font-medium">{r.receiver_name ?? '—'}</TableCell>
+                        <TableCell className="max-w-[220px] truncate" title={r.title ?? ''}>{r.title ?? '—'}</TableCell>
+                        <TableCell className="text-right font-semibold tabular-nums">{formatUGX(Number(r.amount))}</TableCell>
+                        <TableCell className="whitespace-nowrap text-xs">{dt(r.approved_at)}</TableCell>
+                        <TableCell className="whitespace-nowrap text-xs">{dt(r.credited_at)}</TableCell>
+                        <TableCell>
+                          <Badge variant={s.variant}>{s.label}</Badge>
+                          {r.payout_status === 'reversed' && r.reversal_reason && (
+                            <div className="mt-1 max-w-[200px] text-xs text-muted-foreground">{dt(r.reversed_at)} · {r.reversal_reason}</div>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {r.payout_status === 'paid' && isCfo && (
+                            <Button size="sm" variant="destructive" onClick={() => { setTarget(r); setReason(''); }}>
+                              <Undo2 className="mr-1 h-3.5 w-3.5" /> Reverse
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
 
