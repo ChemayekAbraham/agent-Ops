@@ -15,6 +15,12 @@
 -- Kept as is: the 20-accounts-per-ID cap still refuses outright, and a
 -- double submission by phone number is still auto-rejected.
 --
+-- The first user (the holder) is never bypassed: the same transaction opens a
+-- normal link request (request_national_id_link -> 'awaiting_owner'), which is
+-- what the national-id-link-otp function uses to send the holder their code and
+-- what shows in the holder's "requests waiting for you" list. The second user
+-- never sees the holder's details; they only get a request id back.
+--
 -- Safety net: every automatic verifier (queue sweep, name-match, rule sweep)
 -- sets decided_by = NULL. A guard trigger refuses any such automatic
 -- 'verified' while the account is flagged, so no sweep can approve a flagged
@@ -338,6 +344,7 @@ DECLARE
   v_taken uuid;
   v_link uuid;
   v_hint jsonb;
+  v_req jsonb;
   v_review boolean := false;
 BEGIN
   IF v_uid IS NULL THEN
@@ -371,8 +378,13 @@ BEGIN
         'message', 'This National ID has reached its limit of 20 accounts. No more accounts can be added to it.');
     END IF;
     v_review := true;
+    v_req := public.request_national_id_link(v_id);
+    IF coalesce((v_req->>'success')::boolean, false) THEN
+      v_link := (v_req->>'request_id')::uuid;
+    END IF;
     UPDATE public.profiles
        SET linked_national_id = v_id,
+           linked_national_id_request_id = coalesce(v_link, linked_national_id_request_id),
            national_id_name = v_name,
            national_id_review_conflict_with = v_taken,
            national_id_review_requested_at = now()
@@ -392,8 +404,13 @@ BEGIN
       SELECT id INTO v_taken FROM public.profiles
        WHERE upper(btrim(national_id)) = v_id AND id <> v_uid LIMIT 1;
       v_review := true;
+      v_req := public.request_national_id_link(v_id);
+      IF coalesce((v_req->>'success')::boolean, false) THEN
+        v_link := (v_req->>'request_id')::uuid;
+      END IF;
       UPDATE public.profiles
          SET linked_national_id = v_id,
+             linked_national_id_request_id = coalesce(v_link, linked_national_id_request_id),
              national_id_name = v_name,
              national_id_review_conflict_with = coalesce(v_taken, v_uid),
              national_id_review_requested_at = now()
@@ -440,8 +457,8 @@ BEGIN
               jsonb_build_object('kind', 'duplicate_national_id_pending_review', 'duplicate_of_user_id', v_taken));
     EXCEPTION WHEN OTHERS THEN NULL;
     END;
-    RETURN jsonb_build_object('success', true, 'pending_review', true,
-      'message', 'National ID received. Financial Ops will review it and confirm your withdrawal number.');
+    RETURN jsonb_build_object('success', true, 'pending_review', true, 'link_request_id', v_link,
+      'message', 'National ID received. The person who registered it first has been asked to confirm, and Financial Ops will review it before your withdrawal number is confirmed.');
   END IF;
 
   RETURN jsonb_build_object('success', true,
@@ -478,6 +495,7 @@ DECLARE
   v_twins   jsonb;
   v_name_key text;
   v_name_owner uuid;
+  v_req     jsonb;
 BEGIN
   IF v_uid IS NULL THEN
     RETURN jsonb_build_object('success', false, 'message', 'Please sign in again.');
@@ -531,6 +549,12 @@ BEGIN
       -- Financial Ops instead of stopping the user here.
       v_linked := true;
       v_review := true;
+      -- Tell the holder: open the normal link request (their code and their
+      -- "waiting for you" list both hang off it).
+      v_req := public.request_national_id_link(v_nin);
+      IF coalesce((v_req->>'success')::boolean, false) THEN
+        v_link := (v_req->>'request_id')::uuid;
+      END IF;
     END IF;
   END IF;
 
@@ -598,8 +622,13 @@ BEGIN
      WHERE upper(btrim(national_id)) = v_nin AND id <> v_uid LIMIT 1;
     v_linked := true;
     v_review := true;
+    v_req := public.request_national_id_link(v_nin);
+    IF coalesce((v_req->>'success')::boolean, false) THEN
+      v_link := (v_req->>'request_id')::uuid;
+    END IF;
     UPDATE public.profiles
        SET linked_national_id       = v_nin,
+           linked_national_id_request_id = coalesce(v_link, linked_national_id_request_id),
            national_id_name         = v_name,
            national_id_surname      = v_surname,
            national_id_given_name   = v_given,
@@ -681,11 +710,12 @@ BEGIN
     'reading_id', v_reading_id,
     'linked', v_linked,
     'pending_review', v_review,
+    'link_request_id', CASE WHEN v_review THEN v_link END,
     'edited_fields', to_jsonb(v_edited),
     'full_name', v_name,
     'same_name_accounts', v_twins->'count',
     'message', CASE WHEN v_review
-                    THEN 'National ID received. Financial Ops will review it and confirm your withdrawal number.'
+                    THEN 'National ID received. The person who registered it first has been asked to confirm, and Financial Ops will review it before your withdrawal number is confirmed.'
                     ELSE 'National ID details saved.' END);
 END;
 $function$;

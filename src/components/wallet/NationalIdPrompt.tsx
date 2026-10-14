@@ -88,7 +88,7 @@ export default function NationalIdPrompt({
       const res = await submit.mutateAsync({ nationalId: idCheck.value, idName: nameCheck.value });
       toast.success(
         res.pending_review
-          ? 'National ID received. Financial Ops will review it and confirm your withdrawal number.'
+          ? 'National ID received. The person who registered it first has been asked to confirm, and Financial Ops will review it.'
           : 'National ID saved. Financial Ops will confirm it against your payout number.',
       );
       await refetch();

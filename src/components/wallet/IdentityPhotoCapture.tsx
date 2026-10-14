@@ -41,6 +41,7 @@ import {
 } from '@/hooks/useIdentityBinding';
 import { Lock } from 'lucide-react';
 import { useMyNumberChangeRequest } from '@/hooks/usePayoutNumberChange';
+import { notifyNationalIdHolder } from '@/hooks/useNationalIdLink';
 import PayoutNumberChangeDialog from './PayoutNumberChangeDialog';
 
 
@@ -1106,7 +1107,8 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       );
       if (error) throw new Error(error.message);
       const res = data as
-        | { success?: boolean; message?: string; field?: string; duplicate?: boolean; name_taken?: boolean }
+        | { success?: boolean; message?: string; field?: string; duplicate?: boolean; name_taken?: boolean;
+            pending_review?: boolean; link_request_id?: string | null }
         | null;
       if (!res?.success) {
         const message = res?.message || 'Could not save those details.';
@@ -1119,6 +1121,9 @@ export default function IdentityPhotoCapture({ compact }: Props) {
       }
       setNameTaken(false);
       setDuplicateNin(null);
+      // ID held by another account: saved and flagged for Financial Ops, and the
+      // person who registered it first is sent their code.
+      if (res.pending_review) void notifyNationalIdHolder(res.link_request_id);
       return { ok: true };
     } catch (e) {
       const message = e instanceof Error ? e.message : 'Could not save those details.';
