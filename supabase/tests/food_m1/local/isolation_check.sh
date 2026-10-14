@@ -21,6 +21,7 @@ check() { if [ "$2" = "$3" ]; then echo "PASS $1"; else echo "FAIL $1 (got: $2, 
 P -d postgres -c "create database $db" >/dev/null
 trap 'P -d postgres -c "drop database if exists $db with (force)" >/dev/null' EXIT
 P -d "$db" -f "$here/00_supabase_scaffold.sql" >/dev/null
+P -d "$db" -f "$here/07_storage_bucket.sql" >/dev/null
 P -d "$db" -f "$here/50_financial_canaries.sql" >/dev/null
 
 inv() {  # fails the whole check if the inventory errors or is implausibly small
