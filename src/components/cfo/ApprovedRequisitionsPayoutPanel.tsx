@@ -57,7 +57,7 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: 'reversed', label: 'Reversed' },
 ];
 
-const dt = (s: string | null) => (s ? new Date(s).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : '—');
+const dt = (s: string | null) => (s ? format(new Date(s), 'dd MMM, HH:mm') : '—');
 const today = () => new Date().toISOString().slice(0, 10);
 
 /**
@@ -230,7 +230,7 @@ export function ApprovedRequisitionsPayoutPanel() {
                         <TableCell className="text-muted-foreground">{i + 1}</TableCell>
                         <TableCell className="whitespace-nowrap font-mono text-xs">{r.requisition_code}<div className="text-muted-foreground">{SOURCE[r.source_table]}</div></TableCell>
                         <TableCell className="max-w-[130px] truncate font-medium" title={r.receiver_name ?? ''}>{r.receiver_name ?? '—'}</TableCell>
-                        <TableCell className="max-w-[170px] truncate" title={r.title ?? ''}>{r.title ?? '—'}</TableCell>
+                        <TableCell className="max-w-[150px] truncate" title={r.title ?? ''}>{r.title ?? '—'}</TableCell>
                         <TableCell className="whitespace-nowrap text-right font-semibold tabular-nums">{formatUGX(Number(r.amount))}</TableCell>
                         <TableCell className="whitespace-nowrap text-xs">{dt(r.approved_at)}</TableCell>
                         <TableCell className="whitespace-nowrap text-xs">{dt(r.credited_at)}</TableCell>
