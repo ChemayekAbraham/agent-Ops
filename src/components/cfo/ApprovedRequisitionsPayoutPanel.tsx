@@ -182,7 +182,7 @@ export function ApprovedRequisitionsPayoutPanel() {
                             <td className="pr-3 text-xs">{dt(r.credited_at)}</td>
                             <td className="text-right">
                               {r.payout_status === 'paid' && isCfo && (
-                                <Button size="sm" variant="outline" onClick={() => { setTarget(r); setReason(''); }}>
+                                <Button size="sm" variant="destructive" onClick={() => { setTarget(r); setReason(''); }}>
                                   <Undo2 className="mr-1 h-3.5 w-3.5" /> Reverse
                                 </Button>
                               )}
