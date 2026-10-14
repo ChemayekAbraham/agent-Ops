@@ -210,7 +210,7 @@ export default function AgentsMock() {
       <Helmet><title>Agent dashboard · Welile</title><meta name="robots" content="noindex,nofollow" /></Helmet>
       <div className="mx-auto max-w-6xl">
         <header className="flex items-center justify-between gap-3 px-4 py-4 sm:px-6">
-          <div className="min-w-0"><p className="text-xs text-muted-foreground">Welcome back</p><h1 className="truncate text-xl font-semibold">{profile?.full_name?.split(' ')[0] || 'Your dashboard'}</h1></div>
+          <div className="min-w-0"><p className="text-xs font-medium text-primary/70">Welcome back</p><h1 className="truncate text-xl font-semibold text-primary">{profile?.full_name?.split(' ')[0] || 'Your dashboard'}</h1></div>
           <div className="flex gap-2"><Button variant="ghost" size="icon" aria-label="Notifications" onClick={() => setNotice('Notifications')}><Bell className="h-5 w-5" /></Button><Button variant="outline" size="icon" aria-label="Your profile" onClick={() => setNotice('Your profile')} className="overflow-hidden rounded-full">{avatarSrc && brokenAvatar !== avatarSrc ? <img src={avatarSrc} alt="" onError={() => setBrokenAvatar(avatarSrc)} className="h-full w-full object-cover" /> : initials}</Button></div>
         </header>
         <main className="space-y-4 px-4 sm:px-6">
