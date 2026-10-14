@@ -1,4 +1,5 @@
 # Tasks
+- [ ] Refine agents-mock: compact white layout, one font, concise request action, real tenant rows and compact calendar; verify signed-in desktop and phone views.
 - [x] Redesign agents-mock with Post Rent Request first, period toggle, plain tenant phone numbers, counts and a clearer calendar; signed-in toggle/calendar/request-form navigation verified, no page errors or phone overflow; all guards passed.
 - [ ] Historical missed-tenant details, tenant-specific repayment percentages and ten-record server fetching for agents-mock — blocked on a verified read-only historical detail contract; current view pages recorded collections locally and does not invent missing details.
 - [x] Remove the "Collected today" / "Still to collect" tiles from the agents-mock rent card; card now shows only the ring, rent due and tenant count — checked in the browser (both tile labels gone, no page errors), build clean.
