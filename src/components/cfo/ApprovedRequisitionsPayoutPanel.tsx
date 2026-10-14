@@ -30,10 +30,10 @@ interface Row {
   error_message: string | null;
 }
 
-const STATUS: Record<Row['payout_status'], { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
+const STATUS: Record<Row['payout_status'], { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' | 'successSolid' }> = {
   pending: { label: 'Pending', variant: 'secondary' },
   failed: { label: 'Pending (retry needed)', variant: 'destructive' },
-  paid: { label: 'Paid', variant: 'default' },
+  paid: { label: 'Paid', variant: 'successSolid' },
   reversing: { label: 'Reversing…', variant: 'outline' },
   reversed: { label: 'Reversed', variant: 'outline' },
 };
