@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { ArrowRight, Bell, UserPlus, Calculator, CheckCircle2, ChevronLeft, ChevronRight, FileText, LogOut, Phone, Plus, Home, Menu, Settings, Store, Trophy, UserRound, Users, Wallet, type LucideIcon } from 'lucide-react';
+import { ArrowRight, Bell, UserPlus, Calculator, CheckCircle2, ChevronLeft, ChevronRight, FileText, LogOut, Phone, Plus, Home, Menu, Repeat, Settings, Store, Trophy, UserRound, Users, Wallet, type LucideIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import RentCalculatorDialog from '@/components/agent/RentCalculatorDialog';
 import { SubAgentInviteLinkDialog } from '@/components/agent/SubAgentInviteLinkDialog';
@@ -13,6 +13,9 @@ import { COMMISSION_RATE, LANDLORD_PAYOUT_COMMISSION_RATE, formatUGX } from '@/l
 import { cn } from '@/lib/utils';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/hooks/useAuth';
+import type { AppRole } from '@/hooks/auth/types';
+import { roleDashboardRoutes } from '@/components/layout/executiveSidebarConfig';
+import { roleToSlug } from '@/lib/roleRoutes';
 import { useAgentCapacityMap } from '@/hooks/useAgentCapacityMap';
 import { useAgentArrears } from '@/hooks/useAgentArrears';
 import { TenantProfileView } from '@/components/agent/TenantProfileView';
@@ -29,6 +32,14 @@ const PROFILE_MENU: { label: string; Icon: LucideIcon; to: string }[] = [
   { label: 'Profile', Icon: UserRound, to: '/your-profile' },
   { label: 'Settings', Icon: Settings, to: '/settings' },
 ];
+
+/** Plain names for the roles a signed-in user can hold, shown in the avatar menu. */
+const ROLE_LABELS: Record<AppRole, string> = {
+  tenant: 'Tenant', agent: 'Agent', landlord: 'Landlord', supporter: 'Supporter',
+  manager: 'Manager', ceo: 'CEO', coo: 'COO', cfo: 'CFO', cto: 'CTO', cmo: 'CMO',
+  crm: 'CRM', employee: 'Employee', operations: 'Operations', super_admin: 'Super Admin',
+  hr: 'HR', access_admin: 'Access Admin', rd: 'R&D',
+};
 
 /**
  * The three moments an agent is paid for a Rent Plan they posted. The two
