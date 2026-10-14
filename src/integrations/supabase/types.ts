@@ -44320,6 +44320,10 @@ export type Database = {
           metadata: Json
           requisition_code: string | null
           requisition_id: string
+          reversal_reason: string | null
+          reversal_reference: string | null
+          reversed_at: string | null
+          reversed_by: string | null
           source_table: string
           status: string
           updated_at: string
@@ -44341,6 +44345,10 @@ export type Database = {
           metadata?: Json
           requisition_code?: string | null
           requisition_id: string
+          reversal_reason?: string | null
+          reversal_reference?: string | null
+          reversed_at?: string | null
+          reversed_by?: string | null
           source_table: string
           status?: string
           updated_at?: string
@@ -44362,6 +44370,10 @@ export type Database = {
           metadata?: Json
           requisition_code?: string | null
           requisition_id?: string
+          reversal_reason?: string | null
+          reversal_reference?: string | null
+          reversed_at?: string | null
+          reversed_by?: string | null
           source_table?: string
           status?: string
           updated_at?: string
@@ -65019,6 +65031,25 @@ export type Database = {
       cfo_approve_redemption: {
         Args: { p_id: string; p_reason: string }
         Returns: Json
+      }
+      cfo_approved_requisitions: {
+        Args: { p_from: string; p_to: string }
+        Returns: {
+          amount: number
+          approved_at: string
+          credited_at: string
+          error_message: string
+          payout_status: string
+          receiver_id: string
+          receiver_name: string
+          requisition_code: string
+          requisition_id: string
+          reversal_reason: string
+          reversed_at: string
+          source_table: string
+          title: string
+          wallet_transaction_id: string
+        }[]
       }
       cfo_bucket_a_post: {
         Args: {
