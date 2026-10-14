@@ -347,6 +347,7 @@ export default function AgentsMock() {
               </>;
             })()}
           </section>
+          <h2 className="-mb-2 text-base font-semibold">Quick Actions</h2>
           <section aria-label="Agent shortcuts" className="grid grid-cols-2 gap-2 sm:grid-cols-4">{SHORTCUTS.map(({ label, Icon, color, to }) => <Button key={label} variant="ghost" onClick={() => to ? navigate(to) : label === 'Rent Calculator' ? setCalcOpen(true) : label === 'Invite' ? setInviteOpen(true) : setNotice(label)} className="h-12 justify-start gap-2 rounded-lg border border-border whitespace-normal px-3 text-left text-xs"><span className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-muted/50', color)}><Icon className="!h-5 !w-5" /></span>{label}</Button>)}</section>
           <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
           <section aria-labelledby="due-heading" className="min-w-0">
