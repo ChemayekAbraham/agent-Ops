@@ -299,7 +299,7 @@ export default function AgentsMock() {
   const openRequest = () => navigate('/dashboard/agent?action=post-rent-request');
   const dateLabel = new Date(month.getFullYear(), month.getMonth(), day).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
   return (
-    <div className="agents-mock-exact min-h-screen pb-24 font-sans text-foreground tracking-normal">
+    <div className="agents-mock-exact min-h-screen overflow-x-hidden pb-24 font-sans text-foreground tracking-normal">
       <Helmet><title>Agent dashboard · Welile</title><meta name="robots" content="noindex,nofollow" /></Helmet>
       <div className="mx-auto max-w-6xl">
         <header className="flex items-center justify-between gap-3 rounded-none border-0 shadow-none bg-[var(--mock-header)] px-4 py-2 text-primary-foreground sm:px-6">
