@@ -325,9 +325,8 @@ export default function AgentsMock() {
               <div className="min-w-0"><p className="text-[11px] font-semibold uppercase tracking-wide text-primary">Grow your earnings</p><h2 id="post-cta-heading" className="mt-0.5 text-lg font-bold leading-tight">Add tenant, earn at every step</h2></div>
               <Button onClick={openRequest} className="h-12 w-full gap-2 rounded-lg px-5 text-sm font-semibold shadow-sm sm:w-auto"><Plus className="h-4 w-4" />Post Rent Request<ArrowRight className="h-4 w-4" /></Button>
             </div>
-            <ol className="relative mt-4 grid grid-cols-3" aria-label="How you earn">
-              <span aria-hidden className="absolute left-[16.66%] right-[16.66%] top-3 h-0.5 bg-gradient-to-r from-primary via-warning to-success opacity-60" />
-              {[{ step: '1', value: 'UGX 5,000', note: 'when you post', color: 'text-primary', dot: 'bg-primary' }, { step: '2', value: '1%', note: 'when landlord is paid', color: 'text-warning', dot: 'bg-warning' }, { step: '3', value: '10%', note: 'on every repayment', color: 'text-success', dot: 'bg-success' }].map(e => <li key={e.step} className="relative flex flex-col items-center px-1 text-center"><span className={cn('flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-bold text-primary-foreground ring-4 ring-background', e.dot)}>{e.step}</span><span className={cn('mt-1.5 text-sm font-bold tabular-nums sm:text-base', e.color)}>{e.value}</span><span className="text-[11px] leading-tight text-muted-foreground">{e.note}</span></li>)}
+            <ol className="mt-4 grid grid-cols-3 gap-2" aria-label="How you earn">
+              {[{ value: 'UGX 5,000', note: 'when you post', color: 'text-primary' }, { value: '1%', note: 'when landlord is paid', color: 'text-warning' }, { value: '10%', note: 'on every repayment', color: 'text-success' }].map(e => <li key={e.value} className="px-1 text-center"><span className={cn('block text-base font-extrabold leading-none tabular-nums sm:text-lg', e.color)}>{e.value}</span><span className="mt-1 block text-[11px] leading-tight text-muted-foreground">{e.note}</span></li>)}
             </ol>
           </section>
           <section aria-label="Collection summary" className="rounded-2xl border border-border/60 bg-card p-4 shadow-sm">
