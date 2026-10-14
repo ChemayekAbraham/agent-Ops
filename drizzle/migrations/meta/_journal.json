@@ -3998,6 +3998,13 @@
       "when": 1792005467207,
       "tag": "0570_hr_pay_bonus_pools",
       "breakpoints": true
+    },
+    {
+      "idx": 571,
+      "version": "7",
+      "when": 1792008883902,
+      "tag": "0571_hr_pay_bonus_notices",
+      "breakpoints": true
     }
   ]
 }

@@ -22173,6 +22173,44 @@ export type Database = {
           },
         ]
       }
+      hr_pay_bonus_notices: {
+        Row: {
+          acknowledged_at: string | null
+          actor_id: string | null
+          created_at: string
+          id: string
+          kind: string
+          pool_id: string
+          recipient_id: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          kind: string
+          pool_id: string
+          recipient_id: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          actor_id?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          pool_id?: string
+          recipient_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "hr_pay_bonus_notices_pool_id_fkey"
+            columns: ["pool_id"]
+            isOneToOne: false
+            referencedRelation: "hr_pay_bonus_pools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       hr_pay_bonus_pools: {
         Row: {
           approved_at: string | null
@@ -72219,6 +72257,7 @@ export type Database = {
         }[]
       }
       hr_pay_authority_user_ids: { Args: { _fn: string }; Returns: string[] }
+      hr_pay_bonus_ack: { Args: { _notice_id: string }; Returns: undefined }
       hr_pay_bonus_approve: { Args: { _pool_id: string }; Returns: undefined }
       hr_pay_bonus_cancel: { Args: { _pool_id: string }; Returns: undefined }
       hr_pay_bonus_detail: {
@@ -72258,12 +72297,16 @@ export type Database = {
       hr_pay_bonus_pending_for_me: {
         Args: never
         Returns: {
+          actor_name: string
           allocated: number
           kind: string
+          notice_id: string
+          notice_kind: string
           people: number
           pool_amount: number
           pool_id: string
           prepared_by_name: string
+          raised_at: string
           return_note: string
           title: string
         }[]
