@@ -257,7 +257,7 @@ export default function AgentsMock() {
         <main className="space-y-4 px-4 sm:px-6">
           <section aria-labelledby="post-cta-heading" className="rounded-xl border border-primary/20 bg-primary/5 p-4 shadow-sm">
             <div className="flex flex-wrap items-center justify-between gap-3 lg:flex-nowrap">
-              <div className="min-w-0"><p className="text-[11px] font-semibold uppercase tracking-wide text-primary">Grow your earnings</p><h2 id="post-cta-heading" className="mt-0.5 text-lg font-bold leading-tight">Post a Rent Request, earn at every step</h2></div>
+              <div className="min-w-0"><p className="text-[11px] font-semibold uppercase tracking-wide text-primary">Grow your earnings</p><h2 id="post-cta-heading" className="mt-0.5 text-lg font-bold leading-tight">Add tenant, earn at every step</h2></div>
               <Button onClick={openRequest} className="h-12 w-full gap-2 rounded-lg px-5 text-sm font-semibold shadow-sm sm:w-auto"><Plus className="h-4 w-4" />Post Rent Request<ArrowRight className="h-4 w-4" /></Button>
             </div>
             <ol className="relative mt-4 grid grid-cols-3" aria-label="How you earn">
